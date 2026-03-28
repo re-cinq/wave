@@ -34,6 +34,7 @@ steps:
   # ── Step 1: fetch parent issue, emit child issue URLs ─────────────────────
   - id: fetch-children
     persona: "{{ forge.type }}-analyst"
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -72,7 +73,7 @@ steps:
         type: json
         required: true
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -141,4 +142,4 @@ steps:
         json_path: .comment_url
         label: "Epic Summary Comment"
     retry:
-      max_attempts: 2
+      policy: standard

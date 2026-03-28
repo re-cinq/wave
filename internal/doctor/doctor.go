@@ -171,6 +171,12 @@ func RunChecks(ctx context.Context, opts Options) (*Report, error) {
 	// 12. Engine capabilities
 	report.Results = append(report.Results, checkEngineCapabilities())
 
+	// 13. Hooks config
+	report.Results = append(report.Results, checkHooksConfig(&opts))
+
+	// 14. Retro store
+	report.Results = append(report.Results, checkRetroStore(&opts))
+
 	// Compute summary
 	report.Summary = StatusOK
 	for _, r := range report.Results {
@@ -608,5 +614,69 @@ func checkEngineCapabilities() CheckResult {
 		Category: "capabilities",
 		Status:   StatusOK,
 		Message:  fmt.Sprintf("Available: %s", strings.Join(capabilities, ", ")),
+	}
+}
+
+func checkHooksConfig(opts *Options) CheckResult {
+	pipelines := loadAllPipelines(opts.PipelinesDir)
+
+	hookPipelines := 0
+	for _, pl := range pipelines {
+		for _, step := range pl.Steps {
+			if len(step.Hooks) > 0 {
+				hookPipelines++
+				break
+			}
+		}
+	}
+
+	if hookPipelines > 0 {
+		return CheckResult{
+			Name:     "Hooks Config",
+			Category: "capabilities",
+			Status:   StatusOK,
+			Message:  fmt.Sprintf("%d pipeline(s) use hooks", hookPipelines),
+		}
+	}
+
+	return CheckResult{
+		Name:     "Hooks Config",
+		Category: "capabilities",
+		Status:   StatusOK,
+		Message:  "No hooks configured in pipelines",
+	}
+}
+
+func checkRetroStore(opts *Options) CheckResult {
+	retrosDir := opts.WaveDir + "/retros/"
+
+	info, err := os.Stat(retrosDir)
+	if err != nil || !info.IsDir() {
+		return CheckResult{
+			Name:     "Retro Store",
+			Category: "capabilities",
+			Status:   StatusWarn,
+			Message:  "Retro store directory not found",
+			Fix:      "Run a pipeline to generate retrospectives",
+		}
+	}
+
+	// Verify writable by attempting a temp file write
+	tmpPath := retrosDir + ".doctor-write-test"
+	if err := os.WriteFile(tmpPath, []byte("ok"), 0644); err != nil {
+		return CheckResult{
+			Name:     "Retro Store",
+			Category: "capabilities",
+			Status:   StatusErr,
+			Message:  fmt.Sprintf("Retro store is not writable: %v", err),
+		}
+	}
+	os.Remove(tmpPath)
+
+	return CheckResult{
+		Name:     "Retro Store",
+		Category: "capabilities",
+		Status:   StatusOK,
+		Message:  "Retro store is writable",
 	}
 }

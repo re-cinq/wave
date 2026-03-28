@@ -14,6 +14,7 @@ input:
 steps:
   - id: explore-context
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -48,7 +49,7 @@ steps:
         path: .wave/output/adr-context.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -96,7 +97,7 @@ steps:
         path: .wave/output/adr-options.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -217,7 +218,7 @@ steps:
         path: .wave/output/pr-result.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema

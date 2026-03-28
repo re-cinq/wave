@@ -19,6 +19,7 @@ input:
 steps:
   - id: scan
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -73,7 +74,7 @@ steps:
         path: .wave/output/dead-code-scan.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -83,6 +84,7 @@ steps:
 
   - id: compose
     persona: summarizer
+    model: claude-haiku-4-5
     dependencies: [scan]
     memory:
       inject_artifacts:
@@ -167,7 +169,7 @@ steps:
         path: .wave/output/publish-result.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema

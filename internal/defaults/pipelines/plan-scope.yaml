@@ -22,6 +22,7 @@ input:
 steps:
   - id: fetch-epic
     persona: "{{ forge.type }}-analyst"
+    model: claude-haiku-4-5
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -52,7 +53,7 @@ steps:
         type: json
         required: true
     retry:
-      max_attempts: 1
+      policy: none
     handover:
       contract:
         type: json_schema
@@ -112,7 +113,7 @@ steps:
         json_path: .created_issues[*].url
         label: "First Sub-Issue"
     retry:
-      max_attempts: 1
+      policy: none
     handover:
       contract:
         type: json_schema
@@ -126,6 +127,7 @@ steps:
 
   - id: verify-report
     persona: "{{ forge.type }}-analyst"
+    model: claude-haiku-4-5
     dependencies: [scope-and-create]
     memory:
       inject_artifacts:
@@ -170,7 +172,7 @@ steps:
         type: json
         required: true
     retry:
-      max_attempts: 1
+      policy: none
     handover:
       contract:
         type: json_schema

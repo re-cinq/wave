@@ -17,6 +17,7 @@ input:
 steps:
   - id: scan-changes
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -69,7 +70,7 @@ steps:
         path: .wave/output/scan-results.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -79,6 +80,7 @@ steps:
 
   - id: analyze-consistency
     persona: reviewer
+    model: claude-haiku-4-5
     dependencies: [scan-changes]
     memory:
       inject_artifacts:
@@ -138,7 +140,7 @@ steps:
         path: .wave/output/consistency-report.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -148,6 +150,7 @@ steps:
 
   - id: compose-report
     persona: navigator
+    model: claude-haiku-4-5
     dependencies: [analyze-consistency]
     memory:
       inject_artifacts:
@@ -246,7 +249,7 @@ steps:
         path: .wave/output/issue-result.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema

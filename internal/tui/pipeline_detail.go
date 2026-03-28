@@ -687,17 +687,22 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 			default:
 				iconStr = mutedStyle.Render("\u2014")
 			}
+			badge := stepTypeBadge(step.StepType)
+			nameStr := step.ID
+			if badge != "" {
+				nameStr = mutedStyle.Render(badge) + " " + step.ID
+			}
 			if step.Persona != "" {
 				fmt.Fprintf(&sb, "  %s %-20s  %s  (%s)\n",
 					iconStr,
-					step.ID,
+					nameStr,
 					formatDuration(step.Duration),
 					step.Persona,
 				)
 			} else {
 				fmt.Fprintf(&sb, "  %s %-20s  %s\n",
 					iconStr,
-					step.ID,
+					nameStr,
 					formatDuration(step.Duration),
 				)
 			}
@@ -730,6 +735,13 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 			sb.WriteString(formatLogRecord(ev))
 			sb.WriteString("\n")
 		}
+	}
+
+	// Retro section (if available)
+	if detail.Retro != nil {
+		sb.WriteString("\n")
+		sb.WriteString(RenderRetro(detail.Retro))
+		sb.WriteString("\n")
 	}
 
 	// Action hints
@@ -805,6 +817,23 @@ func toAbsPath(p string) string {
 		return p
 	}
 	return abs
+}
+
+// stepTypeBadge returns a short bracketed badge for composition step types.
+// Returns empty string for unknown or empty step types (regular agent steps).
+func stepTypeBadge(stepType string) string {
+	switch stepType {
+	case "conditional":
+		return "[cond]"
+	case "command":
+		return "[cmd]"
+	case "gate":
+		return "[gate]"
+	case "pipeline":
+		return "[sub]"
+	default:
+		return ""
+	}
 }
 
 // formatLogRecord formats a single persisted log record for display.

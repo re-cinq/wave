@@ -14,6 +14,7 @@ input:
 steps:
   - id: assess
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -63,7 +64,7 @@ steps:
         path: .wave/output/bootstrap-assessment.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -141,7 +142,7 @@ steps:
         - Use the project intent from the assessment to make README content meaningful
         - Follow standard conventions for the language ecosystem
     retry:
-      max_attempts: 3
+      policy: standard
     handover:
       contract:
         type: test_suite

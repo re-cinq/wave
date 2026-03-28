@@ -135,7 +135,7 @@ func TestParallelStepExecution(t *testing.T) {
 		MockAdapter: adapter.NewMockAdapter(
 			adapter.WithStdoutJSON(`{"status": "success"}`),
 			adapter.WithTokensUsed(500),
-			adapter.WithSimulatedDelay(50*time.Millisecond),
+			adapter.WithSimulatedDelay(200*time.Millisecond),
 		),
 		onStart: func() {
 			current := atomic.AddInt32(&currentConcurrent, 1)

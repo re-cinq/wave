@@ -14,6 +14,7 @@ input:
 steps:
   - id: explore
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -50,7 +51,7 @@ steps:
         path: .wave/output/exploration.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -89,7 +90,7 @@ steps:
         path: .wave/output/analysis.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema

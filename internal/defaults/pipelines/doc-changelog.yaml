@@ -14,6 +14,7 @@ input:
 steps:
   - id: analyze-commits
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -45,7 +46,7 @@ steps:
         path: .wave/output/commit-analysis.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -82,7 +83,7 @@ steps:
         path: .wave/output/categorized-changes.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema

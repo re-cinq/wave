@@ -5,6 +5,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/recinq/wave/internal/hooks"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/timeouts"
@@ -311,6 +312,7 @@ type Step struct {
 	Iterate     *IterateConfig   `yaml:"iterate,omitempty"`   // Iteration over items
 	Branch      *BranchConfig    `yaml:"branch,omitempty"`    // Conditional branching
 	Gate        *GateConfig      `yaml:"gate,omitempty"`      // Approval/timer/merge gates
+	Hooks       []hooks.LifecycleHookDef `yaml:"hooks,omitempty"` // Step-level lifecycle hooks
 	Loop        *LoopConfig      `yaml:"loop,omitempty"`      // Feedback loops
 	Aggregate   *AggregateConfig `yaml:"aggregate,omitempty"` // Output aggregation
 }

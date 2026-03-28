@@ -36,7 +36,7 @@ steps:
         path: .wave/output/specify-status.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -64,7 +64,7 @@ steps:
         path: .wave/output/clarify-status.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -92,7 +92,7 @@ steps:
         path: .wave/output/plan-status.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -120,7 +120,7 @@ steps:
         path: .wave/output/tasks-status.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -148,7 +148,7 @@ steps:
         path: .wave/output/checklist-status.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -176,7 +176,7 @@ steps:
         path: .wave/output/analysis-report.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -200,7 +200,7 @@ steps:
       type: prompt
       source_path: .wave/prompts/speckit-flow/implement.md
     retry:
-      max_attempts: 3
+      policy: standard
     handover:
       contract:
         type: test_suite
@@ -230,7 +230,7 @@ steps:
         path: .wave/output/pr-result.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema

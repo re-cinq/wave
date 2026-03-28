@@ -58,6 +58,7 @@ type StepResult struct {
 	Status   string // "completed", "failed", "skipped", "pending"
 	Duration time.Duration
 	Persona  string
+	StepType string // "conditional", "command", "gate", "pipeline" — empty for regular agent steps
 }
 
 // ArtifactInfo describes a produced artifact.
@@ -83,6 +84,7 @@ type FinishedDetail struct {
 	Artifacts     []ArtifactInfo
 	WorkspacePath string // Filesystem path to pipeline workspace, empty if deleted
 	BranchDeleted bool   // True if the branch no longer exists
+	Retro         *RetroViewModel
 }
 
 // DetailDataProvider is the interface for fetching detailed pipeline data.

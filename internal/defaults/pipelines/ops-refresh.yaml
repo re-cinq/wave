@@ -22,6 +22,7 @@ input:
 steps:
   - id: gather-context
     persona: "{{ forge.type }}-analyst"
+    model: claude-haiku-4-5
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -58,7 +59,7 @@ steps:
         type: json
         required: true
     retry:
-      max_attempts: 1
+      policy: none
     handover:
       contract:
         type: json_schema
@@ -72,6 +73,7 @@ steps:
 
   - id: draft-update
     persona: "{{ forge.type }}-analyst"
+    model: claude-haiku-4-5
     dependencies: [gather-context]
     memory:
       inject_artifacts:
@@ -114,7 +116,7 @@ steps:
         type: json
         required: true
     retry:
-      max_attempts: 1
+      policy: none
     handover:
       contract:
         type: json_schema
@@ -169,7 +171,7 @@ steps:
         json_path: .url
         label: "Updated Issue"
     retry:
-      max_attempts: 1
+      policy: none
     handover:
       contract:
         type: json_schema

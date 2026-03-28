@@ -26,6 +26,7 @@ steps:
 
   - id: verify
     persona: navigator
+    model: claude-haiku-4-5
     dependencies: [greet]
     memory:
       inject_artifacts:
@@ -43,7 +44,7 @@ steps:
         path: .wave/output/result.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema

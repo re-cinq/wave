@@ -17,6 +17,7 @@ input:
 steps:
   - id: audit
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./

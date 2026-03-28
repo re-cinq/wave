@@ -33,7 +33,7 @@ steps:
         path: .wave/output/reproduction.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -65,7 +65,7 @@ steps:
         path: .wave/output/hypotheses.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -134,7 +134,7 @@ steps:
         4. Verify the original reproduction no longer fails
         5. Check for similar issues elsewhere
     retry:
-      max_attempts: 3
+      policy: standard
     handover:
       contract:
         type: test_suite

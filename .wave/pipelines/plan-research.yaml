@@ -22,6 +22,7 @@ input:
 steps:
   - id: fetch-issue
     persona: "{{ forge.type }}-analyst"
+    model: claude-haiku-4-5
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -51,7 +52,7 @@ steps:
         path: .wave/output/issue-content.json
         type: json
     retry:
-      max_attempts: 3
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -96,7 +97,7 @@ steps:
         path: .wave/output/research-topics.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -145,7 +146,7 @@ steps:
         path: .wave/output/research-findings.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -155,6 +156,7 @@ steps:
 
   - id: synthesize-report
     persona: summarizer
+    model: claude-haiku-4-5
     dependencies: [research-topics]
     memory:
       inject_artifacts:
@@ -204,7 +206,7 @@ steps:
         path: .wave/output/research-report.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -266,7 +268,7 @@ steps:
         json_path: .comment.url
         label: "Research Comment"
     retry:
-      max_attempts: 3
+      policy: standard
     handover:
       contract:
         type: json_schema

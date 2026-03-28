@@ -35,6 +35,7 @@ input:
 steps:
   - id: diff-analysis
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -74,7 +75,7 @@ steps:
         path: .wave/output/diff-analysis.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -84,6 +85,7 @@ steps:
 
   - id: security-review
     persona: reviewer
+    model: claude-haiku-4-5
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:
@@ -115,6 +117,7 @@ steps:
 
   - id: quality-review
     persona: reviewer
+    model: claude-haiku-4-5
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:
@@ -144,9 +147,20 @@ steps:
       contract:
         type: non_empty_file
         source: .wave/output/quality-review.md
+      llm_judge:
+        model: claude-haiku-4-5
+        criteria:
+          - "Identifies error handling gaps if present in the diff"
+          - "Checks for missing edge case coverage"
+          - "Detects code duplication or naming inconsistencies"
+          - "Assesses test adequacy for changed code paths"
+          - "Flags performance implications with specific references"
+        threshold: 0.75
+        on_failure: continue
 
   - id: summary
     persona: summarizer
+    model: claude-haiku-4-5
     dependencies: [security-review, quality-review]
     memory:
       inject_artifacts:
@@ -215,7 +229,7 @@ steps:
         path: .wave/output/publish-result.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema

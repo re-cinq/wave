@@ -15,6 +15,7 @@ input:
 steps:
   - id: analyze
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -34,7 +35,7 @@ steps:
         path: .wave/output/refactor-analysis.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -67,7 +68,7 @@ steps:
 
         All tests must pass before proceeding.
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: test_suite
@@ -109,7 +110,7 @@ steps:
 
         Do NOT change behavior — this is refactoring only.
     retry:
-      max_attempts: 3
+      policy: standard
     handover:
       contract:
         type: test_suite
@@ -122,6 +123,7 @@ steps:
 
   - id: verify
     persona: reviewer
+    model: claude-haiku-4-5
     dependencies: [refactor]
     exec:
       type: prompt

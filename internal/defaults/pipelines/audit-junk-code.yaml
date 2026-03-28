@@ -17,6 +17,7 @@ input:
 steps:
   - id: scan
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -62,7 +63,7 @@ steps:
         path: .wave/output/assessment.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema

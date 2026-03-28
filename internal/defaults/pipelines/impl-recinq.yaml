@@ -24,6 +24,7 @@ input:
 steps:
   - id: gather
     persona: "{{ forge.type }}-analyst"
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -62,7 +63,7 @@ steps:
         path: .wave/output/context.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -160,7 +161,7 @@ steps:
         path: .wave/output/divergent-findings.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -215,7 +216,7 @@ steps:
         path: .wave/output/validated-findings.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -290,7 +291,7 @@ steps:
         path: .wave/output/probed-findings.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -364,7 +365,7 @@ steps:
         path: .wave/output/convergent-proposals.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -431,7 +432,7 @@ steps:
         - If a proposal depends on a failed proposal, skip it too
         - Commit each proposal as a separate atomic commit
     retry:
-      max_attempts: 3
+      policy: standard
     handover:
       contract:
         type: test_suite
@@ -449,6 +450,7 @@ steps:
   # ── Reporting ────────────────────────────────────────────────────────
   - id: report
     persona: navigator
+    model: claude-haiku-4-5
     dependencies: [simplify]
     memory:
       inject_artifacts:
@@ -537,7 +539,7 @@ steps:
         path: .wave/output/pr-result.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema

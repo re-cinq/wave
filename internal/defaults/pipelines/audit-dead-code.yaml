@@ -18,6 +18,7 @@ input:
 steps:
   - id: scan
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -73,7 +74,7 @@ steps:
         path: .wave/output/dead-code-scan.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -126,7 +127,7 @@ steps:
         If ANY test fails after a removal, revert that specific removal
         and continue with the next item.
     retry:
-      max_attempts: 3
+      policy: standard
     handover:
       contract:
         type: test_suite
@@ -136,6 +137,7 @@ steps:
 
   - id: verify
     persona: reviewer
+    model: claude-haiku-4-5
     dependencies: [clean]
     memory:
       inject_artifacts:
@@ -170,7 +172,7 @@ steps:
         path: .wave/output/verification.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -265,7 +267,7 @@ steps:
         path: .wave/output/pr-result.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema

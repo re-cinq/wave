@@ -15,6 +15,7 @@ input:
 steps:
   - id: assess
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -43,7 +44,7 @@ steps:
         path: .wave/output/assessment.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -83,7 +84,7 @@ steps:
         Focus on the findings with the best impact-to-effort ratio.
         Do NOT refactor beyond what was identified in the assessment.
     retry:
-      max_attempts: 3
+      policy: standard
     handover:
       contract:
         type: test_suite
@@ -96,6 +97,7 @@ steps:
 
   - id: verify
     persona: reviewer
+    model: claude-haiku-4-5
     dependencies: [implement]
     memory:
       inject_artifacts:

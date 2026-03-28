@@ -38,6 +38,9 @@ ontology:
 	os.MkdirAll(skillDir, 0755)
 	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# Core Context\n"), 0644)
 
+	// Create retros directory so retro store check passes
+	os.MkdirAll(filepath.Join(tmp, "retros"), 0755)
+
 	report, err := RunChecks(context.Background(), Options{
 		ManifestPath: manifestPath,
 		WaveDir:      tmp,
@@ -626,6 +629,106 @@ runtime:
 		}
 	}
 	t.Error("expected Engine Capabilities check in results")
+}
+
+func TestCheckHooksConfig_NoHooks(t *testing.T) {
+	tmp := t.TempDir()
+	pipelinesDir := filepath.Join(tmp, "pipelines")
+	os.MkdirAll(pipelinesDir, 0755)
+	os.WriteFile(filepath.Join(pipelinesDir, "test.yaml"), []byte(`kind: Pipeline
+metadata:
+  name: test
+steps:
+  - id: step1
+    persona: navigator
+`), 0644)
+
+	result := checkHooksConfig(&Options{
+		PipelinesDir: pipelinesDir,
+	})
+
+	if result.Status != StatusOK {
+		t.Errorf("expected StatusOK, got %v", result.Status)
+	}
+	if result.Name != "Hooks Config" {
+		t.Errorf("expected name 'Hooks Config', got %q", result.Name)
+	}
+	if result.Category != "capabilities" {
+		t.Errorf("expected category 'capabilities', got %q", result.Category)
+	}
+	if !contains(result.Message, "No hooks configured") {
+		t.Errorf("expected 'No hooks configured' message, got %q", result.Message)
+	}
+}
+
+func TestCheckHooksConfig_WithHooks(t *testing.T) {
+	tmp := t.TempDir()
+	pipelinesDir := filepath.Join(tmp, "pipelines")
+	os.MkdirAll(pipelinesDir, 0755)
+	os.WriteFile(filepath.Join(pipelinesDir, "test.yaml"), []byte(`kind: Pipeline
+metadata:
+  name: test
+steps:
+  - id: step1
+    persona: navigator
+    hooks:
+      - name: notify
+        event: step_completed
+        type: command
+        command: echo done
+`), 0644)
+
+	result := checkHooksConfig(&Options{
+		PipelinesDir: pipelinesDir,
+	})
+
+	if result.Status != StatusOK {
+		t.Errorf("expected StatusOK, got %v", result.Status)
+	}
+	if !contains(result.Message, "1 pipeline(s) use hooks") {
+		t.Errorf("expected message about 1 pipeline using hooks, got %q", result.Message)
+	}
+}
+
+func TestCheckRetroStore_Writable(t *testing.T) {
+	tmp := t.TempDir()
+	retrosDir := filepath.Join(tmp, "retros")
+	os.MkdirAll(retrosDir, 0755)
+
+	result := checkRetroStore(&Options{
+		WaveDir: tmp,
+	})
+
+	if result.Status != StatusOK {
+		t.Errorf("expected StatusOK, got %v", result.Status)
+	}
+	if result.Name != "Retro Store" {
+		t.Errorf("expected name 'Retro Store', got %q", result.Name)
+	}
+	if result.Category != "capabilities" {
+		t.Errorf("expected category 'capabilities', got %q", result.Category)
+	}
+	if !contains(result.Message, "Retro store is writable") {
+		t.Errorf("expected 'Retro store is writable' message, got %q", result.Message)
+	}
+}
+
+func TestCheckRetroStore_Missing(t *testing.T) {
+	tmp := t.TempDir()
+
+	result := checkRetroStore(&Options{
+		WaveDir: tmp,
+	})
+
+	if result.Status != StatusWarn {
+		t.Errorf("expected StatusWarn, got %v", result.Status)
+	}
+	if !contains(result.Message, "Retro store directory not found") {
+		t.Errorf("expected 'Retro store directory not found' message, got %q", result.Message)
+	}
+	if result.Fix == "" {
+		t.Error("expected a fix suggestion")
+	}
 }
 
 func contains(s, substr string) bool {

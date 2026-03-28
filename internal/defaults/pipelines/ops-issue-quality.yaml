@@ -21,6 +21,7 @@ input:
 steps:
   - id: scan
     persona: "{{ forge.type }}-analyst"
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -101,7 +102,7 @@ steps:
         type: json
         required: true
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -185,7 +186,7 @@ steps:
         type: markdown
         required: true
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: non_empty_file

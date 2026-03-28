@@ -21,4 +21,4 @@ steps:
       type: prompt
       source_path: .wave/prompts/bench/solve.md
     retry:
-      max_attempts: 2
+      policy: standard

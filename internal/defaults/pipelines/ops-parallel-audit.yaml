@@ -58,6 +58,7 @@ steps:
   # ── Step 3: synthesise a unified markdown report ──────────────────────────
   - id: report
     persona: summarizer
+    model: claude-haiku-4-5
     dependencies: [merge-findings]
     workspace:
       mount:

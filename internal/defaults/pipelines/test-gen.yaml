@@ -14,6 +14,7 @@ input:
 steps:
   - id: analyze-coverage
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -33,7 +34,7 @@ steps:
         path: .wave/output/coverage-analysis.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -68,7 +69,7 @@ steps:
 
         Follow existing test patterns in the codebase.
     retry:
-      max_attempts: 3
+      policy: standard
     handover:
       contract:
         type: test_suite
@@ -83,6 +84,7 @@ steps:
 
   - id: verify-coverage
     persona: reviewer
+    model: claude-haiku-4-5
     dependencies: [generate-tests]
     exec:
       type: prompt

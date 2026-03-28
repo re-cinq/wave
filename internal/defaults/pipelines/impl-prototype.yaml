@@ -56,7 +56,7 @@ steps:
         type: json
 
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -112,7 +112,7 @@ steps:
         type: json
 
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -172,7 +172,7 @@ steps:
         type: json
 
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -233,7 +233,7 @@ steps:
         type: json
 
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -244,6 +244,7 @@ steps:
   # Phase 5: PR-Cycle - Automated pull request lifecycle
   - id: pr-create
     persona: navigator
+    model: claude-haiku-4-5
     dependencies: [implement]
 
     memory:
@@ -277,7 +278,7 @@ steps:
         path: pr-info.json
         type: json
     retry:
-      max_attempts: 2
+      policy: standard
     handover:
       contract:
         type: json_schema
@@ -344,6 +345,7 @@ steps:
 
   - id: pr-merge
     persona: navigator
+    model: claude-haiku-4-5
     dependencies: [pr-fix]
 
     exec:
