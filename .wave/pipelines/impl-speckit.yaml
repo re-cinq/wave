@@ -21,6 +21,13 @@ input:
     type: string
     description: "Natural language feature description to specify and implement"
 
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
 steps:
   - id: specify
     persona: implementer
@@ -197,6 +204,7 @@ steps:
   - id: implement
     persona: craftsman
     dependencies: [analyze]
+    max_concurrent_agents: 3
     memory:
       inject_artifacts:
         - step: specify
