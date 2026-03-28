@@ -207,6 +207,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 			Title:        pr.Title,
 			State:        pr.State,
 			Author:       pr.Author,
+			Labels:       pr.Labels,
 			Draft:        pr.Draft,
 			Merged:       pr.Merged,
 			HeadBranch:   pr.HeadBranch,
