@@ -14,7 +14,7 @@ input:
 steps:
   - id: scan
     persona: navigator
-    model: claude-haiku-4-5
+    model: claude-haiku
     workspace:
       mount:
         - source: ./

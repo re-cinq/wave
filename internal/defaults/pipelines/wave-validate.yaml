@@ -27,7 +27,7 @@ steps:
   # Step 1: Model routing — uses haiku for cheap analysis
   - id: check-config
     persona: navigator
-    model: claude-haiku-4-5
+    model: claude-haiku
     workspace:
       mount:
         - source: ./
@@ -75,7 +75,7 @@ steps:
   # Step 4a: Fix path (only reached on test failure) — validates loop + thread
   - id: diagnose-failure
     persona: navigator
-    model: claude-haiku-4-5
+    model: claude-haiku
     thread: fix-loop
     dependencies: [test-gate]
     max_visits: 2
@@ -141,7 +141,7 @@ steps:
       contract:
         type: llm_judge
         source: .wave/output/validation-report.md
-        model: claude-haiku-4-5
+        model: claude-haiku
         criteria:
           - "Report covers all 7 feature categories"
           - "Each feature has a clear VERIFIED or UNTESTED status"

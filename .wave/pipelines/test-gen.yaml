@@ -14,7 +14,7 @@ input:
 steps:
   - id: analyze-coverage
     persona: navigator
-    model: claude-haiku-4-5
+    model: claude-haiku
     workspace:
       mount:
         - source: ./
@@ -101,7 +101,7 @@ steps:
 
   - id: verify-coverage
     persona: reviewer
-    model: claude-haiku-4-5
+    model: claude-haiku
     dependencies: [check-quality]
     exec:
       type: prompt

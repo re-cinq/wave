@@ -24,7 +24,7 @@ input:
 steps:
   - id: specify
     persona: implementer
-    model: claude-haiku-4-5
+    model: claude-haiku
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -49,7 +49,7 @@ steps:
 
   - id: clarify
     persona: implementer
-    model: claude-haiku-4-5
+    model: claude-haiku
     dependencies: [specify]
     memory:
       inject_artifacts:
@@ -166,7 +166,7 @@ steps:
 
   - id: analyze
     persona: implementer
-    model: claude-haiku-4-5
+    model: claude-haiku
     dependencies: [checklist]
     memory:
       inject_artifacts:
