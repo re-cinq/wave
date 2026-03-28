@@ -24,6 +24,7 @@ import (
 	"github.com/recinq/wave/internal/recovery"
 	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/suggest"
 	"github.com/recinq/wave/internal/tui"
 	"github.com/recinq/wave/internal/workspace"
 	"github.com/spf13/cobra"
@@ -91,7 +92,41 @@ including any per-persona model pinning in wave.yaml.`,
 			opts.Output = GetOutputConfig(cmd)
 			debug, _ := cmd.Flags().GetBool("debug")
 
-			// If no pipeline specified and stdin is a TTY, launch interactive selector
+			// Smart input routing: when only one positional arg is given and
+			// it doesn't look like a pipeline name, treat it as input and
+			// auto-suggest a pipeline.
+			if opts.Pipeline != "" && opts.Input == "" && len(args) == 1 {
+				inputType := suggest.ClassifyInput(opts.Pipeline)
+				if inputType != suggest.InputTypeFreeText {
+					// The "pipeline" arg is actually input — reclassify
+					opts.Input = opts.Pipeline
+					opts.Pipeline = ""
+				}
+			}
+
+			// If no pipeline specified, try smart routing from input type
+			if opts.Pipeline == "" && opts.Input != "" {
+				suggested, err := suggestPipelineFromInput(opts.Input)
+				if err == nil && suggested != "" {
+					if isInteractive() {
+						sel, err := tui.RunPipelineSelector(pipelinesDir(), suggested)
+						if err != nil {
+							if errors.Is(err, huh.ErrUserAborted) {
+								return nil
+							}
+							return err
+						}
+						applySelection(&opts, sel, &debug)
+					} else {
+						// Non-interactive: auto-select the first suggestion
+						opts.Pipeline = suggested
+						inputType := suggest.ClassifyInput(opts.Input)
+						fmt.Fprintf(os.Stderr, "  Auto-selected pipeline %q for %s input\n", suggested, inputType)
+					}
+				}
+			}
+
+			// If still no pipeline, fall back to interactive selector or error
 			if opts.Pipeline == "" {
 				if isInteractive() {
 					sel, err := tui.RunPipelineSelector(pipelinesDir(), "")
@@ -212,6 +247,13 @@ func runRun(opts RunOptions, debug bool) error {
 			return NewCLIError(CodePipelineNotFound,
 				fmt.Sprintf("pipeline '%s' not found", opts.Pipeline),
 				"Run 'wave list pipelines' to see available pipelines")
+		}
+	}
+
+	// Warn on input/pipeline mismatch (non-blocking)
+	if opts.Input != "" {
+		if mismatch := suggest.CheckInputPipelineMismatch(opts.Input, opts.Pipeline); mismatch != nil {
+			fmt.Fprintf(os.Stderr, "  warning: %s\n", mismatch.SuggestedReason)
 		}
 	}
 
@@ -797,6 +839,17 @@ func isInteractive() bool {
 		return v == "1" || v == "true"
 	}
 	return term.IsTerminal(int(os.Stdin.Fd()))
+}
+
+// suggestPipelineFromInput classifies the input and returns the best pipeline
+// suggestion. Returns empty string if no suggestion is available.
+func suggestPipelineFromInput(input string) (string, error) {
+	inputType := suggest.ClassifyInput(input)
+	suggestions := suggest.SuggestPipelineForInput(inputType)
+	if len(suggestions) == 0 {
+		return "", nil
+	}
+	return suggestions[0], nil
 }
 
 // pipelinesDir returns the default pipeline directory.
