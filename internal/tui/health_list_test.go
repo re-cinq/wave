@@ -267,3 +267,81 @@ func TestHealthListModel_UnfocusedIgnoresKeys(t *testing.T) {
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
 	assert.Equal(t, 0, m.cursor, "unfocused model should ignore key events")
 }
+
+// ===========================================================================
+// New health check names (epic #589 capabilities)
+// ===========================================================================
+
+func TestHealthListModel_NewChecksAppearInList(t *testing.T) {
+	// Verify the three new checks appear in the provider's check list
+	provider := newMockHealthProvider(
+		"Git Repository",
+		"Adapter Binary",
+		"SQLite Database",
+		"Wave Configuration",
+		"Required Tools",
+		"Required Skills",
+		"Adapter Registry",
+		"Retry Policies",
+		"Engine Capabilities",
+	)
+	m := newHealthListModelWithSize(provider)
+
+	// All 9 checks should be initialized
+	assert.Equal(t, 9, len(m.checks), "expected 9 health checks")
+
+	// New checks should be at the end
+	assert.Equal(t, "Adapter Registry", m.checks[6].Name)
+	assert.Equal(t, "Retry Policies", m.checks[7].Name)
+	assert.Equal(t, "Engine Capabilities", m.checks[8].Name)
+}
+
+func TestHealthListModel_NewChecksComplete(t *testing.T) {
+	names := []string{
+		"Git Repository",
+		"Adapter Binary",
+		"SQLite Database",
+		"Wave Configuration",
+		"Required Tools",
+		"Required Skills",
+		"Adapter Registry",
+		"Retry Policies",
+		"Engine Capabilities",
+	}
+	provider := newMockHealthProvider(names...)
+	m := newHealthListModelWithSize(provider)
+
+	// Deliver results for all 9 checks
+	var lastCmd tea.Cmd
+	for _, name := range names {
+		m, lastCmd = m.Update(HealthCheckResultMsg{
+			Name:    name,
+			Status:  HealthCheckOK,
+			Message: "ok",
+		})
+	}
+
+	// Should emit HealthAllCompleteMsg after all 9 resolve
+	require.NotNil(t, lastCmd, "all checks completed should emit a command")
+	msg := executeCmd(lastCmd)
+	complete, ok := msg.(HealthAllCompleteMsg)
+	require.True(t, ok, "expected HealthAllCompleteMsg, got %T", msg)
+	assert.False(t, complete.HasErrors)
+}
+
+func TestHealthListModel_RetryPoliciesWarnDoesNotBlockCompletion(t *testing.T) {
+	names := []string{"Adapter Registry", "Retry Policies", "Engine Capabilities"}
+	provider := newMockHealthProvider(names...)
+	m := newHealthListModelWithSize(provider)
+
+	m, _ = m.Update(HealthCheckResultMsg{Name: "Adapter Registry", Status: HealthCheckOK, Message: "ok"})
+	m, _ = m.Update(HealthCheckResultMsg{Name: "Retry Policies", Status: HealthCheckWarn, Message: "raw max_attempts"})
+	_, cmd := m.Update(HealthCheckResultMsg{Name: "Engine Capabilities", Status: HealthCheckOK, Message: "ok"})
+
+	require.NotNil(t, cmd)
+	msg := executeCmd(cmd)
+	complete, ok := msg.(HealthAllCompleteMsg)
+	require.True(t, ok, "expected HealthAllCompleteMsg")
+	// Warn is not an error
+	assert.False(t, complete.HasErrors, "warn should not count as error")
+}

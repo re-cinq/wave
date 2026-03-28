@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/recinq/wave/internal/manifest"
@@ -62,6 +63,9 @@ func (p *DefaultHealthDataProvider) CheckNames() []string {
 		"Wave Configuration",
 		"Required Tools",
 		"Required Skills",
+		"Adapter Registry",
+		"Retry Policies",
+		"Engine Capabilities",
 	}
 }
 
@@ -80,6 +84,12 @@ func (p *DefaultHealthDataProvider) RunCheck(name string) HealthCheckResultMsg {
 		return p.checkRequiredTools()
 	case "Required Skills":
 		return p.checkRequiredSkills()
+	case "Adapter Registry":
+		return p.checkAdapterRegistry()
+	case "Retry Policies":
+		return p.checkRetryPolicies()
+	case "Engine Capabilities":
+		return p.checkEngineCapabilities()
 	default:
 		return HealthCheckResultMsg{
 			Name:    name,
@@ -416,5 +426,144 @@ func (p *DefaultHealthDataProvider) checkRequiredSkills() HealthCheckResultMsg {
 		Status:  HealthCheckErr,
 		Message: "Some required skills missing",
 		Details: details,
+	}
+}
+
+func (p *DefaultHealthDataProvider) checkAdapterRegistry() HealthCheckResultMsg {
+	details := make(map[string]string)
+
+	if p.manifest == nil || len(p.manifest.Adapters) == 0 {
+		return HealthCheckResultMsg{
+			Name:    "Adapter Registry",
+			Status:  HealthCheckOK,
+			Message: "No adapters registered",
+			Details: details,
+		}
+	}
+
+	names := make([]string, 0, len(p.manifest.Adapters))
+	for name := range p.manifest.Adapters {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		adapter := p.manifest.Adapters[name]
+		details[name] = fmt.Sprintf("binary=%s mode=%s", adapter.Binary, adapter.Mode)
+	}
+
+	return HealthCheckResultMsg{
+		Name:    "Adapter Registry",
+		Status:  HealthCheckOK,
+		Message: fmt.Sprintf("Registered: %s", strings.Join(names, ", ")),
+		Details: details,
+	}
+}
+
+func (p *DefaultHealthDataProvider) checkRetryPolicies() HealthCheckResultMsg {
+	details := make(map[string]string)
+
+	if p.pipelinesDir == "" {
+		return HealthCheckResultMsg{
+			Name:    "Retry Policies",
+			Status:  HealthCheckOK,
+			Message: "No pipelines directory configured",
+			Details: details,
+		}
+	}
+
+	entries, err := os.ReadDir(p.pipelinesDir)
+	if err != nil {
+		return HealthCheckResultMsg{
+			Name:    "Retry Policies",
+			Status:  HealthCheckOK,
+			Message: "No pipelines found",
+			Details: details,
+		}
+	}
+
+	var rawSteps []string
+	totalRetrySteps := 0
+	policySteps := 0
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		ext := filepath.Ext(entry.Name())
+		if ext != ".yaml" && ext != ".yml" {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(p.pipelinesDir, entry.Name()))
+		if err != nil {
+			continue
+		}
+		var pl pipeline.Pipeline
+		if err := yaml.Unmarshal(data, &pl); err != nil {
+			continue
+		}
+		for _, step := range pl.Steps {
+			if step.Retry.MaxAttempts > 1 || step.Retry.Policy != "" {
+				totalRetrySteps++
+				if step.Retry.Policy != "" {
+					policySteps++
+				} else {
+					rawSteps = append(rawSteps, fmt.Sprintf("%s/%s", pl.Metadata.Name, step.ID))
+				}
+			}
+		}
+	}
+
+	if totalRetrySteps == 0 {
+		return HealthCheckResultMsg{
+			Name:    "Retry Policies",
+			Status:  HealthCheckOK,
+			Message: "No retry configurations found",
+			Details: details,
+		}
+	}
+
+	details["Total retry steps"] = fmt.Sprintf("%d", totalRetrySteps)
+	details["Using named policy"] = fmt.Sprintf("%d", policySteps)
+	details["Using raw max_attempts"] = fmt.Sprintf("%d", len(rawSteps))
+
+	if len(rawSteps) == 0 {
+		return HealthCheckResultMsg{
+			Name:    "Retry Policies",
+			Status:  HealthCheckOK,
+			Message: fmt.Sprintf("All %d retry steps use named policies", policySteps),
+			Details: details,
+		}
+	}
+
+	for _, step := range rawSteps {
+		details[step] = "raw max_attempts (no policy)"
+	}
+
+	return HealthCheckResultMsg{
+		Name:    "Retry Policies",
+		Status:  HealthCheckWarn,
+		Message: fmt.Sprintf("%d of %d retry steps use raw max_attempts without a named policy", len(rawSteps), totalRetrySteps),
+		Details: details,
+	}
+}
+
+func (p *DefaultHealthDataProvider) checkEngineCapabilities() HealthCheckResultMsg {
+	capabilities := map[string]string{
+		"Graph Loops":        "Cycle-aware step routing with max_visits",
+		"Gates":              "Approval, timer, PR merge, CI pass gates",
+		"Hooks":              "Lifecycle hooks (pre/post step, pipeline)",
+		"Retro":              "Retrospective analysis after pipeline runs",
+		"Fork/Rewind":        "Pipeline forking and step rewind",
+		"LLM Judge":          "LLM-based contract validation",
+		"Thread Continuity":  "Conversation threading across steps",
+		"Sub-Pipelines":      "Nested pipeline composition",
+	}
+
+	return HealthCheckResultMsg{
+		Name:    "Engine Capabilities",
+		Status:  HealthCheckOK,
+		Message: fmt.Sprintf("%d capabilities available", len(capabilities)),
+		Details: capabilities,
 	}
 }
