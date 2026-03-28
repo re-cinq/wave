@@ -141,6 +141,42 @@ func TestDetect(t *testing.T) {
 			wantPRCommand: "pr",
 		},
 		{
+			name:          "Codeberg HTTPS",
+			url:           "https://codeberg.org/user/repo.git",
+			wantType:      ForgeCodeberg,
+			wantHost:      "codeberg.org",
+			wantOwner:     "user",
+			wantRepo:      "repo",
+			wantCLI:       "tea",
+			wantPrefix:    "cb",
+			wantPRTerm:    "Pull Request",
+			wantPRCommand: "pulls",
+		},
+		{
+			name:          "Codeberg SSH",
+			url:           "git@codeberg.org:user/repo.git",
+			wantType:      ForgeCodeberg,
+			wantHost:      "codeberg.org",
+			wantOwner:     "user",
+			wantRepo:      "repo",
+			wantCLI:       "tea",
+			wantPrefix:    "cb",
+			wantPRTerm:    "Pull Request",
+			wantPRCommand: "pulls",
+		},
+		{
+			name:          "Codeberg HTTPS without .git",
+			url:           "https://codeberg.org/user/repo",
+			wantType:      ForgeCodeberg,
+			wantHost:      "codeberg.org",
+			wantOwner:     "user",
+			wantRepo:      "repo",
+			wantCLI:       "tea",
+			wantPrefix:    "cb",
+			wantPRTerm:    "Pull Request",
+			wantPRCommand: "pulls",
+		},
+		{
 			name:          "Self-hosted unknown",
 			url:           "https://git.corp.com/team/app.git",
 			wantType:      ForgeUnknown,
@@ -263,6 +299,7 @@ func TestFilterPipelinesByForge(t *testing.T) {
 		"gl-deploy",
 		"bb-build",
 		"gt-test",
+		"cb-sync",
 		"speckit-flow",
 		"wave-evolve",
 		"debug",
@@ -292,6 +329,11 @@ func TestFilterPipelinesByForge(t *testing.T) {
 			name:      "Gitea forge filters to gt- and generic",
 			forgeType: ForgeGitea,
 			want:      []string{"gt-test", "speckit-flow", "wave-evolve", "debug"},
+		},
+		{
+			name:      "Codeberg forge filters to cb- and generic",
+			forgeType: ForgeCodeberg,
+			want:      []string{"cb-sync", "speckit-flow", "wave-evolve", "debug"},
 		},
 		{
 			name:      "Unknown forge returns all",
@@ -329,7 +371,7 @@ func TestFilterPipelinesByForge_EmptyInput(t *testing.T) {
 
 func TestFilterPipelinesByForge_NoPrefixedPipelines(t *testing.T) {
 	generic := []string{"speckit-flow", "wave-evolve", "debug", "deploy"}
-	for _, ft := range []ForgeType{ForgeGitHub, ForgeGitLab, ForgeBitbucket, ForgeGitea} {
+	for _, ft := range []ForgeType{ForgeGitHub, ForgeGitLab, ForgeBitbucket, ForgeGitea, ForgeCodeberg} {
 		got := FilterPipelinesByForge(ft, generic)
 		if len(got) != len(generic) {
 			t.Errorf("forge %s: got %d pipelines, want %d (all generic should be returned)", ft, len(got), len(generic))
@@ -362,6 +404,11 @@ func TestDetect_SubdomainVariants(t *testing.T) {
 			name:     "Bitbucket server subdomain",
 			url:      "git@stash.bitbucket.org:team/project.git",
 			wantType: ForgeBitbucket,
+		},
+		{
+			name:     "Codeberg pages subdomain",
+			url:      "git@pages.codeberg.org:user/repo.git",
+			wantType: ForgeCodeberg,
 		},
 	}
 
@@ -401,6 +448,7 @@ func TestForgeInfo_Slug_AllForges(t *testing.T) {
 		"https://gitlab.com/owner/repo.git",
 		"https://bitbucket.org/owner/repo.git",
 		"https://gitea.example.com/owner/repo.git",
+		"https://codeberg.org/owner/repo.git",
 	}
 
 	for _, url := range urls {
@@ -701,6 +749,14 @@ func TestManifestForgeOverride(t *testing.T) {
 			wantPRTerm: "Pull Request",
 		},
 		{
+			name:     "Override unknown host to codeberg",
+			url:      "https://git.corp.com/team/app.git",
+			override: "codeberg",
+			wantType: ForgeCodeberg,
+			wantCLI:  "tea",
+			wantPRTerm: "Pull Request",
+		},
+		{
 			name:     "Override unknown host to bitbucket",
 			url:      "https://git.corp.com/team/app.git",
 			override: "bitbucket",
@@ -770,6 +826,22 @@ func TestFilterPipelinesByForge_Forgejo(t *testing.T) {
 	pipelines := []string{"gh-implement", "gt-test", "speckit-flow"}
 	got := FilterPipelinesByForge(ForgeForgejo, pipelines)
 	want := []string{"gt-test", "speckit-flow"}
+	if len(got) != len(want) {
+		t.Fatalf("got %d pipelines, want %d: %v vs %v", len(got), len(want), got, want)
+	}
+	for i, name := range got {
+		if name != want[i] {
+			t.Errorf("pipeline[%d] = %q, want %q", i, name, want[i])
+		}
+	}
+}
+
+// TestFilterPipelinesByForge_Codeberg verifies that Codeberg uses its own
+// pipeline prefix (cb-), distinct from Gitea/Forgejo (gt-).
+func TestFilterPipelinesByForge_Codeberg(t *testing.T) {
+	pipelines := []string{"gh-implement", "gt-test", "cb-sync", "speckit-flow"}
+	got := FilterPipelinesByForge(ForgeCodeberg, pipelines)
+	want := []string{"cb-sync", "speckit-flow"}
 	if len(got) != len(want) {
 		t.Fatalf("got %d pipelines, want %d: %v vs %v", len(got), len(want), got, want)
 	}

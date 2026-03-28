@@ -41,6 +41,7 @@ Path conventions:
 - Do NOT push to remote — that happens in the create-pr step
 - Do NOT include Co-Authored-By or AI attribution in commits
 - Do NOT use GitHub closing keywords (`Closes #N`, `Fixes #N`, `Resolves #N`) in commit messages or PR bodies — use `Related to #N` instead. Closing keywords auto-close issues on merge, which causes false-positive closures when PRs only partially address an issue
+- **Traceability**: When creating git commits, append a `Run-ID: {{ run.id }}` trailer. When creating PR descriptions, include `<!-- Wave Run-ID: {{ run.id }} -->` in the body
 
 These rules apply to both the main context AND any Task subagents you spawn.
 
@@ -58,6 +59,8 @@ These are the available variables:
 | `{{ project.test_command }}` | string | Project's test command (e.g., `go test ./...`) |
 | `{{ project.build_command }}` | string | Project's build command (e.g., `go build ./...`) |
 | `{{ project.skill }}` | string | Project's primary skill identifier |
+| `{{ run.id }}` | string | Pipeline run ID (alias for `pipeline_id`) — use for traceability |
+| `{{ run.name }}` | string | Pipeline name (alias for `pipeline_name`) |
 
 Variables are resolved before the prompt is passed to the persona. Unresolved
 variables (e.g., typos) are detected by contract validation and cause step failure.

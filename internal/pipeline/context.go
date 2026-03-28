@@ -105,6 +105,10 @@ func (ctx *PipelineContext) ResolvePlaceholders(template string) string {
 	result = replaceBoth(result, "branch_name", ctx.BranchName)
 	result = replaceBoth(result, "feature_num", ctx.FeatureNum)
 
+	// Traceability aliases: {{ run.id }} resolves to pipeline_id for artifact correlation
+	result = replaceBoth(result, "run.id", ctx.PipelineID)
+	result = replaceBoth(result, "run.name", ctx.PipelineName)
+
 	// Replace artifact path references ({{ artifacts.<name> }})
 	for name, path := range artifactPathsCopy {
 		result = replaceBoth(result, "artifacts."+name, path)
@@ -323,6 +327,8 @@ func (ctx *PipelineContext) ToTemplateVars() map[string]string {
 		"pipeline_context.pipeline_id":    ctx.PipelineID,
 		"pipeline_context.pipeline_name":  ctx.PipelineName,
 		"pipeline_context.step_id":        ctx.StepID,
+		"run.id":                          ctx.PipelineID,
+		"run.name":                        ctx.PipelineName,
 	}
 
 	// Snapshot maps under lock
