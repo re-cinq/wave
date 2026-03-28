@@ -43,6 +43,7 @@ steps:
         path: .wave/output/result.json
         type: json
     retry:
+      policy: standard
       max_attempts: 2
     handover:
       contract:

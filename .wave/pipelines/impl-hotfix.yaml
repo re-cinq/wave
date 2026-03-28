@@ -15,6 +15,7 @@ input:
 steps:
   - id: investigate
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -34,7 +35,9 @@ steps:
         path: .wave/output/findings.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
+      on_failure: retry
     handover:
       contract:
         type: json_schema
@@ -45,6 +48,7 @@ steps:
   - id: fix
     persona: craftsman
     dependencies: [investigate]
+    thread: hotfix
     memory:
       inject_artifacts:
         - step: investigate
@@ -66,7 +70,9 @@ steps:
         3. Ensure all existing tests still pass
         4. Document the fix in a commit-ready message
     retry:
+      policy: standard
       max_attempts: 3
+      on_failure: retry
     handover:
       contract:
         type: test_suite
@@ -77,9 +83,22 @@ steps:
         trigger: "token_limit_80%"
         persona: summarizer
 
+  - id: run-tests
+    type: command
+    dependencies: [fix]
+    script: "{{ project.contract_test_command }}"
+
+  - id: gate
+    type: conditional
+    dependencies: [run-tests]
+    edges:
+      - target: verify
+        condition: "outcome=success"
+      - target: fix
+
   - id: verify
     persona: reviewer
-    dependencies: [fix]
+    dependencies: [gate]
     exec:
       type: prompt
       source: |

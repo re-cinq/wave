@@ -567,6 +567,8 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 }
 .dag-detail-overlay .detail-header { font-weight: 600; margin-bottom: 0.4rem; font-size: 0.85rem; }
 .dag-detail-overlay .detail-row { color: var(--color-text-secondary); margin-bottom: 0.2rem; }
+.dag-detail-overlay .detail-type-badge { font-size: 0.6rem; padding: 0.05rem 0.3rem; border: 1px solid; border-radius: 2em; margin-left: 0.3rem; font-weight: 500; vertical-align: middle; }
+.dag-detail-overlay .detail-type-info { font-size: 0.7rem; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dag-detail-overlay .detail-link { display: inline-block; margin-top: 0.4rem; color: var(--color-link); text-decoration: none; font-size: 0.75rem; }
 .dag-detail-overlay .detail-link:hover { text-decoration: underline; color: var(--color-link-hover); }
 
@@ -1200,10 +1202,62 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 
 /* DAG running node highlight */
 .dag-node-rect.running { animation: dag-pulse 2s ease-in-out infinite; }
+.dag-node-shape.running { animation: dag-pulse 2s ease-in-out infinite; }
 @keyframes dag-pulse {
     0%, 100% { stroke-width: 1.5; }
     50% { stroke-width: 3; }
 }
+
+/* DAG step type shapes */
+.dag-node-shape { stroke-width: 1.5; }
+.dag-node-shape.completed { fill: var(--color-completed-bg); stroke: var(--color-completed); }
+.dag-node-shape.running { fill: var(--color-running-bg); stroke: var(--color-running); }
+.dag-node-shape.failed { fill: var(--color-failed-bg); stroke: var(--color-failed); }
+.dag-node-shape.pending { fill: var(--color-pending-bg); stroke: var(--color-pending); }
+.dag-node-shape.cancelled { fill: var(--color-cancelled-bg); stroke: var(--color-cancelled); }
+
+/* Conditional step — diamond outline */
+.dag-node-conditional { fill: var(--color-bg-tertiary); stroke: #a78bfa; stroke-width: 2; }
+.dag-node-conditional.completed { fill: var(--color-completed-bg); stroke: var(--color-completed); }
+.dag-node-conditional.running { fill: var(--color-running-bg); stroke: var(--color-running); }
+.dag-node-conditional.failed { fill: var(--color-failed-bg); stroke: var(--color-failed); }
+.dag-node-conditional.pending { fill: rgba(167, 139, 250, 0.12); stroke: #a78bfa; }
+
+/* Gate step — hexagon with amber border */
+.dag-node-gate { fill: var(--color-bg-tertiary); stroke: #f59e0b; stroke-width: 2; }
+.dag-node-gate.completed { fill: var(--color-completed-bg); stroke: var(--color-completed); }
+.dag-node-gate.running { fill: var(--color-running-bg); stroke: var(--color-running); }
+.dag-node-gate.failed { fill: var(--color-failed-bg); stroke: var(--color-failed); }
+.dag-node-gate.pending { fill: rgba(245, 158, 11, 0.12); stroke: #f59e0b; }
+
+/* Command step — gray dashed border */
+.dag-node-command { fill: var(--color-bg-tertiary); stroke: #6b7280; stroke-width: 1.5; stroke-dasharray: 4 2; }
+.dag-node-command.completed { fill: var(--color-completed-bg); stroke: var(--color-completed); stroke-dasharray: none; }
+.dag-node-command.running { fill: var(--color-running-bg); stroke: var(--color-running); stroke-dasharray: none; }
+.dag-node-command.failed { fill: var(--color-failed-bg); stroke: var(--color-failed); stroke-dasharray: none; }
+.dag-node-command.pending { fill: rgba(107, 114, 128, 0.12); stroke: #6b7280; }
+
+/* Pipeline step — stacked look */
+.dag-node-shape-shadow { fill: var(--color-border); stroke: none; opacity: 0.5; }
+.dag-node-pipeline { fill: var(--color-bg-tertiary); stroke: #3b82f6; stroke-width: 2; }
+.dag-node-pipeline.completed { fill: var(--color-completed-bg); stroke: var(--color-completed); }
+.dag-node-pipeline.running { fill: var(--color-running-bg); stroke: var(--color-running); }
+.dag-node-pipeline.failed { fill: var(--color-failed-bg); stroke: var(--color-failed); }
+.dag-node-pipeline.pending { fill: rgba(59, 130, 246, 0.12); stroke: #3b82f6; }
+
+/* DAG node type icons */
+.dag-node-type-icon { font-size: 10px; fill: var(--color-text-muted); font-family: var(--font-sans); }
+.dag-node-type-gate { fill: #f59e0b; }
+.dag-node-type-cmd { fill: #6b7280; font-family: var(--font-mono); font-size: 9px; font-weight: 700; }
+.dag-node-type-pipeline { fill: #3b82f6; }
+.dag-node-script { fill: #6b7280; font-size: 8px; font-family: var(--font-mono); }
+.dag-node-gate-choices { fill: #f59e0b; font-size: 8px; font-family: var(--font-sans); opacity: 0.9; }
+.dag-node-sub-pipeline { fill: #3b82f6; font-size: 8px; font-family: var(--font-sans); }
+.dag-node-sub-pipeline a { fill: #3b82f6; text-decoration: none; }
+
+/* Backward (loop) edges */
+.dag-edge-backward { stroke: #f59e0b !important; stroke-dasharray: 6 3; opacity: 0.85; }
+.dag-edge-label { fill: #f59e0b; font-size: 7px; font-family: var(--font-sans); opacity: 0.9; }
 
 /* Mobile Navigation Toggle */
 .nav-toggle {
@@ -1295,6 +1349,34 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .step-card.step-active {
     box-shadow: 0 0 0 2px var(--color-running);
 }
+
+/* Step type visual distinctions */
+.step-card.step-type-gate { border-left-color: #f59e0b !important; }
+.step-card.step-type-command { border-left-color: #6b7280 !important; border-left-style: dashed; }
+.step-card.step-type-conditional { border-left-color: #a78bfa !important; }
+.step-card.step-type-pipeline { border-left-color: #3b82f6 !important; }
+
+/* Step type badges */
+.badge-step-type { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 2em; font-weight: 600; letter-spacing: 0.02em; }
+.badge-gate { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+.badge-command { background: rgba(107, 114, 128, 0.15); color: #9ca3af; border: 1px solid rgba(107, 114, 128, 0.3); font-family: var(--font-mono); }
+.badge-conditional { background: rgba(167, 139, 250, 0.15); color: #a78bfa; border: 1px solid rgba(167, 139, 250, 0.3); }
+.badge-pipeline { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+
+/* Step type detail sections */
+.step-type-detail { padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; border-radius: var(--radius-sm); font-size: 0.8rem; }
+.step-type-gate-detail { background: rgba(245, 158, 11, 0.06); border: 1px solid rgba(245, 158, 11, 0.15); }
+.step-type-command-detail { background: rgba(107, 114, 128, 0.06); border: 1px solid rgba(107, 114, 128, 0.15); }
+.step-type-conditional-detail { background: rgba(167, 139, 250, 0.06); border: 1px solid rgba(167, 139, 250, 0.15); }
+.step-type-pipeline-detail { background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.15); }
+
+.step-gate-prompt { color: var(--color-text-secondary); margin-bottom: 0.25rem; }
+.step-gate-choices { color: #f59e0b; font-weight: 500; }
+.step-script { background: var(--color-bg-tertiary); padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.75rem; margin: 0; }
+.step-script code { background: none; padding: 0; font-size: inherit; }
+.step-edge-info { color: #a78bfa; font-family: var(--font-mono); font-size: 0.75rem; }
+.step-sub-pipeline { color: var(--color-text-secondary); }
+.step-sub-pipeline a { color: #60a5fa; }
 
 /* Repeat collapsing — "repeated N times" badge */
 .log-repeated {
@@ -1533,3 +1615,55 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
         max-height: 200px;
     }
 }
+
+/* ===== Retrospective Viewer ===== */
+.retro-content { padding: 0.25rem 0; }
+.retro-loading { color: var(--color-text-muted); font-size: 0.85rem; padding: 1rem 0; }
+.retro-empty { color: var(--color-text-muted); font-size: 0.85rem; padding: 1rem 0; font-style: italic; }
+
+/* Metrics grid */
+.retro-metrics { margin-bottom: 1rem; }
+.retro-metrics h3 { font-size: 1rem; margin-bottom: 0.5rem; }
+.retro-metrics-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.5rem; margin-bottom: 0.75rem;
+}
+.retro-metric {
+    background: var(--color-bg-tertiary); border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm); padding: 0.5rem 0.6rem; text-align: center;
+}
+.retro-metric-label { display: block; font-size: 0.7rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.retro-metric-value { display: block; font-size: 1rem; font-weight: 600; color: var(--color-text); margin-top: 0.15rem; }
+.retro-success { color: var(--color-completed); }
+.retro-failure { color: var(--color-failed); }
+
+/* Step metrics table */
+.retro-step-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.retro-step-table th {
+    text-align: left; padding: 0.4rem 0.6rem; font-weight: 600;
+    color: var(--color-text-secondary); border-bottom: 1px solid var(--color-border);
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em;
+}
+.retro-step-table td { padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--color-border); }
+.retro-step-table code { font-size: 0.75rem; }
+.retro-step-table tbody tr:hover { background: var(--color-bg-tertiary); }
+
+/* Narrative section */
+.retro-narrative { margin-top: 1rem; }
+.retro-narrative h3 { font-size: 1rem; margin-bottom: 0.5rem; }
+.retro-smoothness, .retro-intent, .retro-outcome {
+    margin-bottom: 0.35rem; font-size: 0.85rem; color: var(--color-text-secondary);
+}
+.retro-smoothness-effortless { color: var(--color-completed); font-weight: 600; }
+.retro-smoothness-smooth { color: var(--wave-trust-blue); font-weight: 600; }
+.retro-smoothness-bumpy { color: var(--color-pending); font-weight: 600; }
+.retro-smoothness-struggled { color: #f97316; font-weight: 600; }
+.retro-smoothness-failed { color: var(--color-failed); font-weight: 600; }
+
+.retro-section { margin-top: 0.5rem; font-size: 0.85rem; }
+.retro-section strong { color: var(--color-text); }
+.retro-section ul { margin: 0.25rem 0 0 1.25rem; padding: 0; }
+.retro-section li { margin-bottom: 0.2rem; color: var(--color-text-secondary); line-height: 1.5; }
+.retro-friction-type { font-size: 0.7rem; padding: 0.05rem 0.3rem; border-radius: 2em; background: var(--color-failed-bg); color: var(--color-failed); font-weight: 500; }
+.retro-learning-cat { font-size: 0.7rem; padding: 0.05rem 0.3rem; border-radius: 2em; background: var(--color-running-bg); color: var(--color-running); font-weight: 500; }
+.retro-open-type { font-size: 0.7rem; padding: 0.05rem 0.3rem; border-radius: 2em; background: var(--color-pending-bg); color: var(--color-pending); font-weight: 500; }

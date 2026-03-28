@@ -4,17 +4,59 @@
     <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
       <polygon points="0 0, 6 2, 0 4" fill="#666"/>
     </marker>
+    <marker id="arrowhead-loop" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
+      <polygon points="0 0, 6 2, 0 4" fill="#f59e0b"/>
+    </marker>
   </defs>
   {{range .Edges}}
-  <path class="dag-edge" d="M{{.FromX}} {{.FromY}} C{{.CX1}} {{.CY1}}, {{.CX2}} {{.CY2}}, {{.ToX}} {{.ToY}}"
-        stroke="#666" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)"/>
+  <path class="dag-edge{{if .IsBackward}} dag-edge-backward{{end}}" d="M{{.FromX}} {{.FromY}} C{{.CX1}} {{.CY1}}, {{.CX2}} {{.CY2}}, {{.ToX}} {{.ToY}}"
+        stroke="{{if .IsBackward}}#f59e0b{{else}}#666{{end}}" stroke-width="1.5" fill="none" {{if .IsBackward}}stroke-dasharray="6 3"{{end}} marker-end="url(#arrowhead{{if .IsBackward}}-loop{{end}})"/>
+  {{if and .IsBackward .Condition}}
+  <text x="{{.CX1}}" y="{{.CY1}}" text-anchor="middle" class="dag-edge-label">{{.Condition}}</text>
+  {{end}}
   {{end}}
   {{range .Nodes}}
-  <g class="dag-node" data-id="{{.ID}}" data-status="{{.Status}}" data-duration="{{.Duration}}" data-tokens="{{.Tokens}}" data-persona="{{.Persona}}" transform="translate({{.X}}, {{.Y}})" role="button" aria-label="Step {{.ID}}, status: {{.Status}}" tabindex="0">
+  <g class="dag-node" data-id="{{.ID}}" data-status="{{.Status}}" data-duration="{{.Duration}}" data-tokens="{{.Tokens}}" data-persona="{{.Persona}}" data-step-type="{{.StepType}}" data-script="{{.Script}}" data-sub-pipeline="{{.SubPipeline}}" data-gate-prompt="{{.GatePrompt}}" data-gate-choices="{{.GateChoices}}" data-edge-info="{{.EdgeInfo}}" transform="translate({{.X}}, {{.Y}})" role="button" aria-label="Step {{.ID}}, type: {{if .StepType}}{{.StepType}}{{else}}persona{{end}}, status: {{.Status}}" tabindex="0">
+    {{if eq .StepType "conditional"}}
+    <!-- Diamond shape for conditional steps -->
+    <polygon points="70 0, 140 40, 70 80, 0 40" class="dag-node-shape dag-node-conditional {{.Status}}"/>
+    {{else if eq .StepType "gate"}}
+    <!-- Hexagonal shape for gate steps -->
+    <polygon points="20 0, 120 0, 140 40, 120 80, 20 80, 0 40" class="dag-node-shape dag-node-gate {{.Status}}"/>
+    {{else if eq .StepType "command"}}
+    <!-- Rounded rect with dashed border for command steps -->
+    <rect width="140" height="80" rx="4" ry="4" class="dag-node-shape dag-node-command {{.Status}}"/>
+    {{else if eq .StepType "pipeline"}}
+    <!-- Stacked rect for pipeline steps -->
+    <rect x="6" y="6" width="134" height="74" rx="8" ry="8" class="dag-node-shape-shadow"/>
+    <rect width="140" height="80" rx="8" ry="8" class="dag-node-shape dag-node-pipeline {{.Status}}"/>
+    {{else}}
+    <!-- Default rect for persona steps -->
     <rect width="140" height="80" rx="8" ry="8" class="dag-node-rect {{.Status}}"/>
+    {{end}}
     <circle cx="126" cy="12" r="4" class="dag-status-icon {{.Status}}"/>
-    <text x="70" y="20" text-anchor="middle" class="dag-node-label">{{.Label}}</text>
+    {{if eq .StepType "conditional"}}
+    <text x="70" y="32" text-anchor="middle" class="dag-node-type-icon">&#9670;</text>
+    {{else if eq .StepType "gate"}}
+    <text x="70" y="32" text-anchor="middle" class="dag-node-type-icon dag-node-type-gate">&#9632;</text>
+    {{else if eq .StepType "command"}}
+    <text x="12" y="16" class="dag-node-type-icon dag-node-type-cmd">&gt;_</text>
+    {{else if eq .StepType "pipeline"}}
+    <text x="12" y="16" class="dag-node-type-icon dag-node-type-pipeline">&#9881;</text>
+    {{end}}
+    <text x="70" y="{{if eq .StepType "conditional"}}42{{else}}20{{end}}" text-anchor="middle" class="dag-node-label">{{.Label}}</text>
+    {{if and .Persona (ne .StepType "conditional") (ne .StepType "command")}}
     <a xlink:href="/personas/{{.Persona}}"><text x="70" y="34" text-anchor="middle" class="dag-node-persona">{{.Persona}}</text></a>
+    {{end}}
+    {{if and (eq .StepType "command") .Script}}
+    <text x="70" y="34" text-anchor="middle" class="dag-node-script">script</text>
+    {{end}}
+    {{if and (eq .StepType "gate") .GateChoices}}
+    <text x="70" y="34" text-anchor="middle" class="dag-node-gate-choices">{{.GateChoices}}</text>
+    {{end}}
+    {{if and (eq .StepType "pipeline") .SubPipeline}}
+    <a xlink:href="/pipelines/{{.SubPipeline}}"><text x="70" y="34" text-anchor="middle" class="dag-node-sub-pipeline">{{.SubPipeline}}</text></a>
+    {{end}}
     {{if .Duration}}<text x="70" y="48" text-anchor="middle" class="dag-node-duration">{{.Duration}}</text>{{end}}
     {{if .Contract}}<text x="70" y="62" text-anchor="middle" class="dag-node-contract">{{.Contract}}</text>{{end}}
     {{if .Artifacts}}<text x="70" y="74" text-anchor="middle" class="dag-node-artifact">{{.Artifacts}}</text>{{end}}

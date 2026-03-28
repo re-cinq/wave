@@ -63,6 +63,7 @@ steps:
         path: .wave/output/bootstrap-assessment.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -141,6 +142,7 @@ steps:
         - Use the project intent from the assessment to make README content meaningful
         - Follow standard conventions for the language ecosystem
     retry:
+      policy: standard
       max_attempts: 3
     handover:
       contract:

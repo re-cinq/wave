@@ -18,6 +18,7 @@ input:
 steps:
   - id: analyze
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -64,6 +65,7 @@ steps:
         path: .wave/output/evolution-analysis.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -111,6 +113,7 @@ steps:
 
         If validation fails, fix the issue before proceeding.
     retry:
+      policy: standard
       max_attempts: 2
     handover:
       contract:

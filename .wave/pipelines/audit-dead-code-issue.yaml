@@ -68,6 +68,7 @@ steps:
         path: .wave/output/dead-code-scan.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -181,6 +182,7 @@ steps:
         path: .wave/output/issue-result.json
         type: json
     retry:
+      policy: aggressive
       max_attempts: 2
     handover:
       contract:
