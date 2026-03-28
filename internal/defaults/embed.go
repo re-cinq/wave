@@ -34,6 +34,9 @@ var personaConfigsFS embed.FS
 //go:embed schemas/*.json
 var schemasFS embed.FS
 
+//go:embed skills/*/SKILL.md
+var skillsFS embed.FS
+
 // GetPersonas returns a map of filename to content for all default personas.
 func GetPersonas() (map[string]string, error) {
 	return readDir(personasFS, "personas")
@@ -89,6 +92,43 @@ func GetPrompts() (map[string]string, error) {
 // GetSchemas returns a map of filename to content for all default JSON schemas.
 func GetSchemas() (map[string]string, error) {
 	return readDir(schemasFS, "schemas")
+}
+
+// GetSkillTemplates returns a map of skill name to SKILL.md content
+// for all shipped skill templates.
+func GetSkillTemplates() map[string][]byte {
+	result := make(map[string][]byte)
+
+	entries, err := fs.ReadDir(skillsFS, "skills")
+	if err != nil {
+		return result
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		path := filepath.Join("skills", name, "SKILL.md")
+		data, err := skillsFS.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		result[name] = data
+	}
+
+	return result
+}
+
+// SkillTemplateNames returns a sorted list of shipped skill template names.
+func SkillTemplateNames() []string {
+	templates := GetSkillTemplates()
+	names := make([]string, 0, len(templates))
+	for name := range templates {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func readDir(fsys embed.FS, dir string) (map[string]string, error) {
