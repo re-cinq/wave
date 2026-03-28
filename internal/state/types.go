@@ -1,6 +1,8 @@
 package state
 
-import "time"
+import (
+	"time"
+)
 
 // RunRecord holds a pipeline run record.
 type RunRecord struct {
@@ -242,4 +244,31 @@ type RetrospectiveRecord struct {
 	Status       string // "quantitative", "complete" (has narrative)
 	FilePath     string
 	CreatedAt    time.Time
+}
+
+// Webhook represents a registered webhook endpoint that receives
+// lifecycle event notifications via HTTP POST.
+type Webhook struct {
+	ID        int64
+	Name      string
+	URL       string
+	Events    []string          // e.g. ["run_completed", "step_failed", "gate_requested"]
+	Matcher   string            // regex pattern for step name filtering (empty = all)
+	Headers   map[string]string // custom headers to include
+	Secret    string            // HMAC signing secret
+	Active    bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// WebhookDelivery records the outcome of a single webhook delivery attempt.
+type WebhookDelivery struct {
+	ID             int64
+	WebhookID      int64
+	RunID          string
+	Event          string
+	StatusCode     int
+	ResponseTimeMs int64
+	Error          string
+	DeliveredAt    time.Time
 }

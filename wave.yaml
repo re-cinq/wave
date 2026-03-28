@@ -48,6 +48,14 @@ ontology:
             - "Single static binary — no runtime dependencies except adapter binaries"
             - "Parity enforcement between .wave/ files and internal/defaults/"
             - "Pipeline YAML defaults memory.strategy to fresh"
+        - name: quality
+          description: "Validation and quality gates — first-pass failure is expected, rework is the norm"
+          invariants:
+            - "First-pass success is the exception — validation exists to catch and correct, not to rubber-stamp"
+            - "Every pipeline output must pass through a validation gate before being considered done"
+            - "Rework after review is not failure — it is the expected path to quality"
+            - "Contract validation, PR review, and test suites are gates, not formalities"
+            - "When validation fails, analyze root cause and fix — do not work around the validator"
     conventions:
         naming: "snake_case for Go files, kebab-case for pipelines and personas"
         testing: "table-driven tests with t.TempDir() for isolation"

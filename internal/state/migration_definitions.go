@@ -397,5 +397,37 @@ CREATE INDEX IF NOT EXISTS idx_decision_step ON decision_log(run_id, step_id);
 CREATE INDEX IF NOT EXISTS idx_decision_category ON decision_log(category);`,
 			Down: `DROP TABLE IF EXISTS decision_log;`,
 		},
+		{
+			Version:     18,
+			Description: "Add webhook and webhook_deliveries tables for event notification",
+			Up: `CREATE TABLE IF NOT EXISTS webhooks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    events TEXT NOT NULL DEFAULT '[]',
+    matcher TEXT NOT NULL DEFAULT '',
+    headers TEXT NOT NULL DEFAULT '{}',
+    secret TEXT NOT NULL DEFAULT '',
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    webhook_id INTEGER NOT NULL REFERENCES webhooks(id) ON DELETE CASCADE,
+    run_id TEXT NOT NULL,
+    event TEXT NOT NULL,
+    status_code INTEGER,
+    response_time_ms INTEGER,
+    error TEXT,
+    delivered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_webhook ON webhook_deliveries(webhook_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_run ON webhook_deliveries(run_id);`,
+			Down: `DROP TABLE IF EXISTS webhook_deliveries;
+DROP TABLE IF EXISTS webhooks;`,
+		},
 	}
 }
