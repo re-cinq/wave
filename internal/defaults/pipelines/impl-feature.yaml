@@ -219,7 +219,12 @@ steps:
         2. Create a pull request using the implementation result as context:
            ```bash
            COMMIT_SUBJECT=$(git log --format=%s -1)
-           {{ forge.cli_tool }} {{ forge.pr_command }} create --title "feat: $COMMIT_SUBJECT" --body-file .wave/artifacts/result
+           if echo "$COMMIT_SUBJECT" | grep -qE '^(feat|fix|docs|refactor|test|chore|ci|style|perf)(\(.*\))?!?:'; then
+             echo "$COMMIT_SUBJECT" > /tmp/wave-pr-title.txt
+           else
+             echo "feat: $COMMIT_SUBJECT" > /tmp/wave-pr-title.txt
+           fi
+           {{ forge.cli_tool }} {{ forge.pr_command }} create --title "$(cat /tmp/wave-pr-title.txt)" --body-file .wave/artifacts/result
            ```
     output_artifacts:
       - name: pr-result
