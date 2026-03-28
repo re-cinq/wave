@@ -14,6 +14,7 @@ input:
 steps:
   - id: scan
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -63,6 +64,7 @@ steps:
         path: .wave/output/security-scan.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:

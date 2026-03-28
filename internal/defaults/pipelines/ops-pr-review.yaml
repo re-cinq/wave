@@ -35,6 +35,7 @@ input:
 steps:
   - id: diff-analysis
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -74,7 +75,9 @@ steps:
         path: .wave/output/diff-analysis.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
+      on_failure: retry
     handover:
       contract:
         type: json_schema
@@ -112,6 +115,15 @@ steps:
       contract:
         type: non_empty_file
         source: .wave/output/security-review.md
+      llm_judge:
+        model: claude-haiku-4-5
+        criteria:
+          - "Identifies injection vulnerabilities (SQL, command, XSS) if present in the diff"
+          - "Checks for hardcoded credentials or secrets"
+          - "Assesses authentication and authorization correctness"
+          - "Findings include severity levels and specific file references"
+        threshold: 0.75
+        on_failure: continue
 
   - id: quality-review
     persona: reviewer
@@ -147,6 +159,7 @@ steps:
 
   - id: summary
     persona: summarizer
+    model: claude-haiku-4-5
     dependencies: [security-review, quality-review]
     memory:
       inject_artifacts:
@@ -215,7 +228,9 @@ steps:
         path: .wave/output/publish-result.json
         type: json
     retry:
+      policy: aggressive
       max_attempts: 2
+      on_failure: retry
     handover:
       contract:
         type: json_schema

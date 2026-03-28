@@ -101,6 +101,7 @@ steps:
         type: json
         required: true
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -185,6 +186,7 @@ steps:
         type: markdown
         required: true
     retry:
+      policy: standard
       max_attempts: 2
     handover:
       contract:

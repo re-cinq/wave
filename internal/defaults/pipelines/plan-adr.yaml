@@ -48,6 +48,7 @@ steps:
         path: .wave/output/adr-context.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -96,6 +97,7 @@ steps:
         path: .wave/output/adr-options.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -217,6 +219,7 @@ steps:
         path: .wave/output/pr-result.json
         type: json
     retry:
+      policy: aggressive
       max_attempts: 2
     handover:
       contract:

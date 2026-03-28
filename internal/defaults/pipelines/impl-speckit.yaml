@@ -24,6 +24,7 @@ input:
 steps:
   - id: specify
     persona: implementer
+    model: claude-haiku-4-5
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -36,6 +37,7 @@ steps:
         path: .wave/output/specify-status.json
         type: json
     retry:
+      policy: standard
       max_attempts: 2
     handover:
       contract:
@@ -47,6 +49,7 @@ steps:
 
   - id: clarify
     persona: implementer
+    model: claude-haiku-4-5
     dependencies: [specify]
     memory:
       inject_artifacts:
@@ -64,6 +67,7 @@ steps:
         path: .wave/output/clarify-status.json
         type: json
     retry:
+      policy: standard
       max_attempts: 2
     handover:
       contract:
@@ -92,6 +96,7 @@ steps:
         path: .wave/output/plan-status.json
         type: json
     retry:
+      policy: standard
       max_attempts: 2
     handover:
       contract:
@@ -120,6 +125,7 @@ steps:
         path: .wave/output/tasks-status.json
         type: json
     retry:
+      policy: standard
       max_attempts: 2
     handover:
       contract:
@@ -148,6 +154,7 @@ steps:
         path: .wave/output/checklist-status.json
         type: json
     retry:
+      policy: standard
       max_attempts: 2
     handover:
       contract:
@@ -159,6 +166,7 @@ steps:
 
   - id: analyze
     persona: implementer
+    model: claude-haiku-4-5
     dependencies: [checklist]
     memory:
       inject_artifacts:
@@ -176,6 +184,7 @@ steps:
         path: .wave/output/analysis-report.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -200,6 +209,7 @@ steps:
       type: prompt
       source_path: .wave/prompts/speckit-flow/implement.md
     retry:
+      policy: standard
       max_attempts: 3
     handover:
       contract:
@@ -230,6 +240,7 @@ steps:
         path: .wave/output/pr-result.json
         type: json
     retry:
+      policy: aggressive
       max_attempts: 2
     handover:
       contract:

@@ -17,6 +17,7 @@ input:
 steps:
   - id: scan-changes
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -69,6 +70,7 @@ steps:
         path: .wave/output/scan-results.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -138,6 +140,7 @@ steps:
         path: .wave/output/consistency-report.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -246,6 +249,7 @@ steps:
         path: .wave/output/issue-result.json
         type: json
     retry:
+      policy: aggressive
       max_attempts: 2
     handover:
       contract:

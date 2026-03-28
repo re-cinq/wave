@@ -18,6 +18,7 @@ input:
 steps:
   - id: analyze-coverage
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -63,6 +64,7 @@ steps:
         path: .wave/output/coverage-analysis.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -74,6 +76,8 @@ steps:
   - id: harden
     persona: craftsman
     dependencies: [analyze-coverage]
+    thread: harden
+    max_visits: 3
     memory:
       inject_artifacts:
         - step: analyze-coverage
@@ -102,6 +106,7 @@ steps:
 
         After each batch of tests, run the full test suite.
     retry:
+      policy: standard
       max_attempts: 3
     handover:
       contract:
@@ -109,3 +114,16 @@ steps:
         command: "{{ project.test_command }}"
         must_pass: true
         on_failure: retry
+
+  - id: run-tests
+    type: command
+    dependencies: [harden]
+    script: "{{ project.contract_test_command }}"
+
+  - id: gate
+    type: conditional
+    dependencies: [run-tests]
+    edges:
+      - target: _complete
+        condition: "outcome=success"
+      - target: harden

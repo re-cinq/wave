@@ -15,8 +15,8 @@ ontology:
         - name: execution
           description: "Pipeline execution engine — DAG resolution, step orchestration, workspace lifecycle, adapter subprocess management"
           invariants:
-            - "Steps execute in topological order respecting DAG dependencies"
-            - "Each step gets fresh memory — no chat history inheritance"
+            - "Steps execute in topological order for DAGs, or via graph walker for pipelines with loops and conditional edges"
+            - "Each step gets fresh memory by default — thread continuity is opt-in"
             - "Contract validation must pass before step is marked successful"
             - "Each step runs in an isolated workspace"
             - "Artifacts from prior steps are injected before persona prompt fires"
@@ -34,6 +34,13 @@ ontology:
             - "Soft contract failures log warnings but do not block"
             - "Contract validation MUST NOT pass silently on failure"
             - "Preflight checks run before any step executes"
+        - name: delivery
+          description: "Feature completeness — a capability exists only when users experience it through shipped pipelines and defaults"
+          invariants:
+            - "A feature is not done until shipped pipelines use it — engine code without pipeline adoption is incomplete"
+            - "Validation means the user-facing product changed — not that tests pass or files exist"
+            - "internal/defaults/pipelines/ must reflect all capabilities the engine supports"
+            - "Every new executor capability requires at least one default pipeline demonstrating it"
         - name: configuration
           description: "Manifest loading, persona management, pipeline definitions, embedded defaults"
           invariants:

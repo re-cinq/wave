@@ -51,6 +51,7 @@ steps:
         path: .wave/output/issue-content.json
         type: json
     retry:
+      policy: aggressive
       max_attempts: 3
     handover:
       contract:
@@ -61,6 +62,7 @@ steps:
 
   - id: analyze-topics
     persona: researcher
+    model: claude-haiku-4-5
     dependencies: [fetch-issue]
     memory:
       inject_artifacts:
@@ -96,6 +98,7 @@ steps:
         path: .wave/output/research-topics.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -106,6 +109,7 @@ steps:
 
   - id: research-topics
     persona: researcher
+    model: claude-haiku-4-5
     dependencies: [analyze-topics]
     memory:
       inject_artifacts:
@@ -145,6 +149,7 @@ steps:
         path: .wave/output/research-findings.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -204,6 +209,7 @@ steps:
         path: .wave/output/research-report.json
         type: json
     retry:
+      policy: standard
       max_attempts: 2
     handover:
       contract:
@@ -266,6 +272,7 @@ steps:
         json_path: .comment.url
         label: "Research Comment"
     retry:
+      policy: aggressive
       max_attempts: 3
     handover:
       contract:
