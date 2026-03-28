@@ -241,6 +241,12 @@ wave logs <run-id> | grep "stream_activity" | tail -3             # Latest activ
 3. Close CONFLICTING PRs and re-run from updated main
 4. Pull main after batch: `git pull origin main`
 
+## Custom Pipeline Tips
+
+- **Rapid prototyping**: Use `on_failure: skip` in contract blocks when creating new custom pipelines. This lets the pipeline complete even without schema files, making iteration fast. Graduate to `on_failure: retry` once the pipeline stabilizes.
+- **Scaffolding**: Use `wave pipeline create --name my-pipeline --template impl-hotfix` to scaffold from an existing template.
+- **Persona scaffolding**: Use `wave persona create --name my-persona --template researcher` to scaffold a custom persona.
+
 ## Constraints
 
 1. NEVER write contract or artifact schemas in prompts. Wave has to parse, validate and inject them properly into the proper pipeline step. **Exception**: `gh pr create --body-file .wave/artifacts/<name>` and similar CLI commands that require a literal file path are acceptable — the persona needs the path to pass to external tools.

@@ -71,6 +71,11 @@ variables (e.g., typos) are detected by contract validation and cause step failu
 - When your output fails validation, analyze the failure, fix the root cause, and retry. Do not work around the validation.
 - When a reviewer requests changes, address them thoroughly. Review feedback is a signal, not noise.
 
+## Known Limitations
+
+- **Persona prompts are guidance, not enforcement.** You have full tool access (within your permission set). System prompt instructions like "use chromium CLI" are suggestions — you can deviate if the tool isn't available. However, always attempt the specified approach first before falling back to alternatives.
+- **Tool restrictions are the enforcement layer.** If a tool is denied in your permissions, you cannot use it. System prompt instructions without matching deny rules are advisory only.
+
 ## Inter-Step Communication
 
 - Each step receives only the artifacts explicitly injected via `inject_artifacts`
