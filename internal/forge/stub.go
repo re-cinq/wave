@@ -34,3 +34,7 @@ func (u *UnsupportedClient) GetPullRequest(_ context.Context, _, _ string, _ int
 func (u *UnsupportedClient) ListPullRequests(_ context.Context, _, _ string, _ ListPullRequestsOptions) ([]*PullRequest, error) {
 	return nil, fmt.Errorf("%w: %s", ErrNotSupported, u.forgeType)
 }
+
+func (u *UnsupportedClient) GetCommitChecks(_ context.Context, _, _, _ string) ([]*CheckRun, error) {
+	return nil, fmt.Errorf("%w: %s", ErrNotSupported, u.forgeType)
+}

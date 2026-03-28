@@ -54,6 +54,7 @@ func parseTemplates() (map[string]*template.Template, error) {
 		"formatTimeISO":  formatTimeISO,
 		"formatTokens":   formatTokensFunc,
 		"contains":       strings.Contains,
+		"hasPrefix":      strings.HasPrefix,
 		"add":            func(a, b int) int { return a + b },
 		"subtract":       func(a, b int) int { return a - b },
 		"pluralize": func(n int, singular, plural string) string {
@@ -150,6 +151,12 @@ func statusClass(status string) string {
 		return "status-cancelled"
 	case "pending":
 		return "status-pending"
+	case "hook_started":
+		return "status-hook-started"
+	case "hook_passed":
+		return "status-hook-passed"
+	case "hook_failed":
+		return "status-hook-failed"
 	default:
 		return "status-unknown"
 	}

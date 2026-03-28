@@ -217,6 +217,21 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("GitHub API error (status %d): %s", e.StatusCode, e.Message)
 }
 
+// CheckRun represents a GitHub Check Run.
+type CheckRun struct {
+	ID         int64  `json:"id"`
+	Name       string `json:"name"`
+	Status     string `json:"status"`     // "queued", "in_progress", "completed"
+	Conclusion string `json:"conclusion"` // "success", "failure", "neutral", "cancelled", "skipped", "timed_out", "action_required"
+	HTMLURL    string `json:"html_url"`
+}
+
+// CheckRunsResponse is the response from the GitHub check-runs API.
+type CheckRunsResponse struct {
+	TotalCount int         `json:"total_count"`
+	CheckRuns  []*CheckRun `json:"check_runs"`
+}
+
 // RateLimitError represents a rate limit error
 type RateLimitError struct {
 	ResetTime time.Time
