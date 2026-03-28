@@ -16,7 +16,7 @@
   {{end}}
   {{end}}
   {{range .Nodes}}
-  <g class="dag-node" data-id="{{.ID}}" data-status="{{.Status}}" data-duration="{{.Duration}}" data-tokens="{{.Tokens}}" data-persona="{{.Persona}}" data-step-type="{{.StepType}}" data-script="{{.Script}}" data-sub-pipeline="{{.SubPipeline}}" data-gate-prompt="{{.GatePrompt}}" data-gate-choices="{{.GateChoices}}" data-edge-info="{{.EdgeInfo}}" transform="translate({{.X}}, {{.Y}})" role="button" aria-label="Step {{.ID}}, type: {{if .StepType}}{{.StepType}}{{else}}persona{{end}}, status: {{.Status}}" tabindex="0">
+  <g class="dag-node" data-id="{{.ID}}" data-status="{{.Status}}" data-duration="{{.Duration}}" data-tokens="{{.Tokens}}" data-persona="{{.Persona}}" data-step-type="{{.StepType}}" data-script="{{.Script}}" data-sub-pipeline="{{.SubPipeline}}" data-gate-prompt="{{.GatePrompt}}" data-gate-choices="{{.GateChoices}}" data-edge-info="{{.EdgeInfo}}" data-thread="{{.Thread}}" transform="translate({{.X}}, {{.Y}})" role="button" aria-label="Step {{.ID}}, type: {{if .StepType}}{{.StepType}}{{else}}persona{{end}}, status: {{.Status}}" tabindex="0">
     {{if eq .StepType "conditional"}}
     <!-- Diamond shape for conditional steps -->
     <polygon points="70 0, 140 40, 70 80, 0 40" class="dag-node-shape dag-node-conditional {{.Status}}"/>
@@ -60,6 +60,7 @@
     {{if .Duration}}<text x="70" y="48" text-anchor="middle" class="dag-node-duration">{{.Duration}}</text>{{end}}
     {{if .Contract}}<text x="70" y="62" text-anchor="middle" class="dag-node-contract">{{.Contract}}</text>{{end}}
     {{if .Artifacts}}<text x="70" y="74" text-anchor="middle" class="dag-node-artifact">{{.Artifacts}}</text>{{end}}
+    {{if .Thread}}<rect x="4" y="75" width="132" height="3" rx="1" class="dag-thread-bar" data-thread-name="{{.Thread}}"/><text x="70" y="72" text-anchor="middle" class="dag-thread-label">{{.Thread}}</text>{{end}}
   </g>
   {{end}}
 </svg>
