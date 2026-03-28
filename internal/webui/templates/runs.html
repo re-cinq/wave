@@ -38,6 +38,9 @@
 </dialog>
 
 <div class="filters">
+    <div class="search-filter">
+        <input type="text" id="search-filter" oninput="searchRunsLocal()" aria-label="Search runs by pipeline name or run ID" placeholder="Search pipeline name or run ID..." value="{{.FilterSearch}}">
+    </div>
     <select id="status-filter" onchange="filterRuns()" aria-label="Filter runs by status">
         <option value="">All Statuses</option>
         <option value="pending"{{if eq .FilterStatus "pending"}} selected{{end}}>Pending</option>
@@ -57,6 +60,7 @@
 
 {{if .HasFilters}}
 <div class="filter-chips">
+    {{if .FilterSearch}}<span class="filter-chip">Search: {{.FilterSearch}} <button class="filter-chip-clear" onclick="clearFilter('search')" title="Remove filter">&times;</button></span>{{end}}
     {{if .FilterStatus}}<span class="filter-chip">Status: {{.FilterStatus}} <button class="filter-chip-clear" onclick="clearFilter('status')" title="Remove filter">&times;</button></span>{{end}}
     {{if .FilterPipeline}}<span class="filter-chip">Pipeline: {{.FilterPipeline}} <button class="filter-chip-clear" onclick="clearFilter('pipeline')" title="Remove filter">&times;</button></span>{{end}}
     {{if .FilterSince}}<span class="filter-chip">Since: {{.FilterSince}} <button class="filter-chip-clear" onclick="clearFilter('since')" title="Remove filter">&times;</button></span>{{end}}
@@ -86,7 +90,7 @@
     </table>
     {{if .HasMore}}
     <div class="pagination">
-        <a href="/runs?cursor={{.NextCursor}}{{if .FilterStatus}}&status={{.FilterStatus}}{{end}}{{if .FilterPipeline}}&pipeline={{.FilterPipeline}}{{end}}{{if .FilterSince}}&since={{.FilterSince}}{{end}}" class="btn btn-load-more" aria-label="Load more pipeline runs">Load more runs&hellip;</a>
+        <a href="/runs?cursor={{.NextCursor}}{{if .FilterStatus}}&status={{.FilterStatus}}{{end}}{{if .FilterPipeline}}&pipeline={{.FilterPipeline}}{{end}}{{if .FilterSince}}&since={{.FilterSince}}{{end}}{{if .FilterSearch}}&search={{.FilterSearch}}{{end}}" class="btn btn-load-more" aria-label="Load more pipeline runs">Load more runs&hellip;</a>
     </div>
     {{end}}
     {{else}}
@@ -147,5 +151,59 @@ function clearFilter(name) {
     params.delete(name);
     window.location.search = params.toString();
 }
+
+// Client-side search filtering on existing table rows.
+// Filters by pipeline name, run ID, branch, and input preview text.
+// Updates URL search param on debounced input so filters persist on reload.
+var searchDebounce = null;
+function searchRunsLocal() {
+    var input = document.getElementById('search-filter');
+    if (!input) return;
+    var query = input.value.toLowerCase().trim();
+
+    // Filter visible rows
+    var table = document.getElementById('runs-table');
+    if (table) {
+        var rows = table.querySelectorAll('tbody tr.run-row');
+        var visibleCount = 0;
+        for (var i = 0; i < rows.length; i++) {
+            var row = rows[i];
+            var text = row.textContent.toLowerCase();
+            var pipeline = (row.getAttribute('data-pipeline') || '').toLowerCase();
+            if (!query || text.indexOf(query) !== -1 || pipeline.indexOf(query) !== -1) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    }
+
+    // Debounce URL update to avoid excessive history entries
+    if (searchDebounce) clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(function() {
+        var params = new URLSearchParams(window.location.search);
+        if (query) {
+            params.set('search', query);
+        } else {
+            params.delete('search');
+        }
+        var newURL = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        history.replaceState(null, '', newURL);
+    }, 400);
+}
+
+// Apply search filter from URL on page load
+(function() {
+    var params = new URLSearchParams(window.location.search);
+    var searchVal = params.get('search');
+    if (searchVal) {
+        var input = document.getElementById('search-filter');
+        if (input) {
+            input.value = searchVal;
+            searchRunsLocal();
+        }
+    }
+})();
 </script>
 {{end}}

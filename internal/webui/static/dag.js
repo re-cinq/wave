@@ -1,6 +1,34 @@
 // Wave Dashboard - DAG Interaction JS
 
+// Thread color palette — deterministic color per thread name.
+var threadColorPalette = [
+    '#22d3ee', '#a78bfa', '#f472b6', '#34d399', '#fbbf24',
+    '#fb923c', '#60a5fa', '#c084fc', '#f87171', '#4ade80'
+];
+var threadColorMap = {};
+
+function getThreadColor(threadName) {
+    if (!threadName) return '';
+    if (threadColorMap[threadName]) return threadColorMap[threadName];
+    var idx = Object.keys(threadColorMap).length % threadColorPalette.length;
+    threadColorMap[threadName] = threadColorPalette[idx];
+    return threadColorMap[threadName];
+}
+
+// Apply thread colors to SVG thread bars on load.
+function applyThreadColors() {
+    var bars = document.querySelectorAll('.dag-thread-bar');
+    bars.forEach(function(bar) {
+        var name = bar.getAttribute('data-thread-name');
+        if (name) {
+            bar.style.fill = getThreadColor(name);
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    applyThreadColors();
+
     var nodes = document.querySelectorAll('.dag-node');
     nodes.forEach(function(node) {
         node.addEventListener('mouseenter', function(e) {
@@ -9,6 +37,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var duration = this.getAttribute('data-duration');
             var tokens = this.getAttribute('data-tokens');
             var stepType = this.getAttribute('data-step-type');
+            var thread = this.getAttribute('data-thread');
 
             var lines = [id];
             if (stepType) {
@@ -20,6 +49,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             if (tokens && tokens !== '0') {
                 lines.push('Tokens: ' + tokens);
+            }
+            if (thread) {
+                lines.push('Thread: ' + thread);
             }
             showTooltip(e, lines.join('\n'));
         });
@@ -136,6 +168,7 @@ function toggleDetailOverlay(node) {
     var gatePrompt = node.getAttribute('data-gate-prompt') || '';
     var gateChoices = node.getAttribute('data-gate-choices') || '';
     var edgeInfo = node.getAttribute('data-edge-info') || '';
+    var thread = node.getAttribute('data-thread') || '';
 
     var pos = parseTranslate(node);
     var scale = getSVGScale(svgEl);
@@ -249,6 +282,20 @@ function toggleDetailOverlay(node) {
         pipelineRow.appendChild(document.createTextNode('Pipeline: '));
         pipelineRow.appendChild(pipelineLink);
         overlay.appendChild(pipelineRow);
+    }
+
+    // Thread group row
+    if (thread) {
+        var threadRow = document.createElement('div');
+        threadRow.className = 'detail-row detail-type-info';
+        var threadBadge = document.createElement('span');
+        threadBadge.className = 'detail-thread-badge';
+        threadBadge.style.borderColor = getThreadColor(thread);
+        threadBadge.style.color = getThreadColor(thread);
+        threadBadge.textContent = thread;
+        threadRow.appendChild(document.createTextNode('Thread: '));
+        threadRow.appendChild(threadBadge);
+        overlay.appendChild(threadRow);
     }
 
     // "Go to step" link

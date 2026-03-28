@@ -142,6 +142,7 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	status := r.URL.Query().Get("status")
 	pipeline := r.URL.Query().Get("pipeline")
 	sinceStr := r.URL.Query().Get("since")
+	search := r.URL.Query().Get("search")
 
 	opts := state.ListRunsOptions{
 		Status:       status,
@@ -188,7 +189,7 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	pipelineInfos := getPipelineStartInfos()
 
 	// Determine if any filters are active
-	hasFilters := status != "" || pipeline != "" || sinceStr != ""
+	hasFilters := status != "" || pipeline != "" || sinceStr != "" || search != ""
 
 	data := struct {
 		ActivePage     string
@@ -199,6 +200,7 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		FilterStatus   string
 		FilterPipeline string
 		FilterSince    string
+		FilterSearch   string
 		HasFilters     bool
 	}{
 		ActivePage:     "runs",
@@ -209,6 +211,7 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		FilterStatus:   status,
 		FilterPipeline: pipeline,
 		FilterSince:    sinceStr,
+		FilterSearch:   search,
 		HasFilters:     hasFilters,
 	}
 
@@ -334,6 +337,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 				GatePrompt:   gatePrompt,
 				GateChoices:  gateChoices,
 				EdgeInfo:     edgeInfo,
+				Thread:       step.Thread,
 				Edges:        dagEdges,
 			})
 		}
@@ -395,30 +399,63 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Detect circuit breaker condition: same failure class repeated 3+ times across attempts
+	var circuitBreakerTripped bool
+	var circuitBreakerClass string
+	if run.Status == "failed" {
+		classCounts := make(map[string]int)
+		for _, sd := range stepDetails {
+			if sd.FailureClass != "" {
+				classCounts[sd.FailureClass]++
+			}
+			if sd.State == "failed" {
+				attempts, attErr := s.store.GetStepAttempts(runID, sd.StepID)
+				if attErr == nil {
+					for _, a := range attempts {
+						if a.FailureClass != "" {
+							classCounts[a.FailureClass]++
+						}
+					}
+				}
+			}
+		}
+		for cls, count := range classCounts {
+			if count >= 3 {
+				circuitBreakerTripped = true
+				circuitBreakerClass = cls
+				break
+			}
+		}
+	}
+
 	data := struct {
-		ActivePage          string
-		Run                 RunSummary
-		Steps               []StepDetail
-		Events              []EventSummary
-		DAG                 *DAGLayout
-		PipelineDescription string
-		PipelineCategory    string
-		PipelineSkills      []string
-		ArtifactGroups      []StepArtifactGroup
-		HasCheckpoints      bool
-		CompletedSteps      []string
+		ActivePage            string
+		Run                   RunSummary
+		Steps                 []StepDetail
+		Events                []EventSummary
+		DAG                   *DAGLayout
+		PipelineDescription   string
+		PipelineCategory      string
+		PipelineSkills        []string
+		ArtifactGroups        []StepArtifactGroup
+		HasCheckpoints        bool
+		CompletedSteps        []string
+		CircuitBreakerTripped bool
+		CircuitBreakerClass   string
 	}{
-		ActivePage:          "runs",
-		Run:                 runSummary,
-		Steps:               stepDetails,
-		Events:              eventSummaries,
-		DAG:                 dagLayout,
-		PipelineDescription: pipelineDescription,
-		PipelineCategory:    pipelineCategory,
-		PipelineSkills:      pipelineSkills,
-		ArtifactGroups:      artifactGroups,
-		HasCheckpoints:      hasCheckpoints,
-		CompletedSteps:      completedSteps,
+		ActivePage:            "runs",
+		Run:                   runSummary,
+		Steps:                 stepDetails,
+		Events:                eventSummaries,
+		DAG:                   dagLayout,
+		PipelineDescription:   pipelineDescription,
+		PipelineCategory:      pipelineCategory,
+		PipelineSkills:        pipelineSkills,
+		ArtifactGroups:        artifactGroups,
+		HasCheckpoints:        hasCheckpoints,
+		CompletedSteps:        completedSteps,
+		CircuitBreakerTripped: circuitBreakerTripped,
+		CircuitBreakerClass:   circuitBreakerClass,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -628,6 +665,12 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 			GatePrompt:  gatePrompt,
 			GateChoices: gateChoices,
 			EdgeInfo:    edgeInfo,
+		}
+
+		// Populate structured gate data for interactive UI
+		if step.Gate != nil {
+			sd.GateChoicesData = step.Gate.Choices
+			sd.GateFreeform = step.Gate.Freeform
 		}
 
 		if si, ok := stepMap[step.ID]; ok {

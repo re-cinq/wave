@@ -47,6 +47,11 @@ func TestUnsupportedClient_ReturnsErrNotSupported(t *testing.T) {
 	if !errors.Is(err, ErrNotSupported) {
 		t.Errorf("GetCommitChecks() error = %v, want ErrNotSupported", err)
 	}
+
+	_, err = client.ListIssueComments(ctx, "owner", "repo", 1, 10)
+	if !errors.Is(err, ErrNotSupported) {
+		t.Errorf("ListIssueComments() error = %v, want ErrNotSupported", err)
+	}
 }
 
 func TestUnsupportedClient_ErrorContainsForgeType(t *testing.T) {
