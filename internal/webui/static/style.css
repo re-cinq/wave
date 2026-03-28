@@ -1900,6 +1900,7 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 
 /* Comments list */
 .comments-list { display: flex; flex-direction: column; gap: 1rem; }
+.comments-list { display: flex; flex-direction: column; gap: 0.75rem; }
 .comment-item {
     border: 1px solid var(--color-border); border-radius: var(--radius-md);
     padding: 0.75rem 1rem; background: var(--color-bg);
