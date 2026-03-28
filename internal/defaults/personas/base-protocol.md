@@ -62,6 +62,12 @@ These are the available variables:
 Variables are resolved before the prompt is passed to the persona. Unresolved
 variables (e.g., typos) are detected by contract validation and cause step failure.
 
+## Quality Expectations
+
+- **First-pass failure is expected**. Contract validation, PR review, and test suites exist to catch issues — not as rubber stamps. Do not treat rework requests as unexpected.
+- When your output fails validation, analyze the failure, fix the root cause, and retry. Do not work around the validation.
+- When a reviewer requests changes, address them thoroughly. Review feedback is a signal, not noise.
+
 ## Inter-Step Communication
 
 - Each step receives only the artifacts explicitly injected via `inject_artifacts`
