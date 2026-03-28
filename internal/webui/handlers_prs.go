@@ -103,6 +103,31 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Fetch commits for the PR
+	var commits []CommitSummary
+	forgeCommits, err := s.forgeClient.ListPullRequestCommits(ctx, owner, repo, number)
+	if err == nil {
+		for _, fc := range forgeCommits {
+			msg := fc.Message
+			if idx := strings.Index(msg, "\n"); idx >= 0 {
+				msg = msg[:idx]
+			}
+			shortSHA := fc.SHA
+			if len(shortSHA) > 7 {
+				shortSHA = shortSHA[:7]
+			}
+			commits = append(commits, CommitSummary{
+				SHA:      fc.SHA,
+				ShortSHA: shortSHA,
+				Message:  msg,
+				Author:   fc.Author,
+				Date:     fc.Date.Format("2006-01-02 15:04"),
+				TimeISO:  fc.Date.Format("2006-01-02T15:04:05Z"),
+				HTMLURL:  fc.HTMLURL,
+			})
+		}
+	}
+
 	// Fetch last 10 comments
 	var comments []CommentSummary
 	forgeComments, err := s.forgeClient.ListIssueComments(ctx, owner, repo, number, 10)
@@ -119,10 +144,11 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		ActivePage string
-		PR         PRDetail
-		Runs       []RunSummary
-		Comments   []CommentSummary
+		ActivePage    string
+		PR            PRDetail
+		Runs          []RunSummary
+		Comments      []CommentSummary
+		CommitDetails []CommitSummary
 	}{
 		ActivePage: "prs",
 		PR: PRDetail{
@@ -146,8 +172,9 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 			URL:          pr.HTMLURL,
 			Checks:       checks,
 		},
-		Runs:     relatedRuns,
-		Comments: comments,
+		Runs:          relatedRuns,
+		Comments:      comments,
+		CommitDetails: commits,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -207,7 +234,6 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 			Title:        pr.Title,
 			State:        pr.State,
 			Author:       pr.Author,
-			Labels:       pr.Labels,
 			Draft:        pr.Draft,
 			Merged:       pr.Merged,
 			HeadBranch:   pr.HeadBranch,
