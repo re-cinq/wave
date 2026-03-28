@@ -1,5 +1,5 @@
 {{define "templates/partials/run_row.html"}}
-<tr class="run-row" data-status="{{.Status}}" data-href="/runs/{{.RunID}}">
+<tr class="run-row" data-status="{{.Status}}" data-pipeline="{{.PipelineName}}" data-started="{{formatTimeISO .StartedAt}}" data-href="/runs/{{.RunID}}">
     <td>
         <span class="status-indicator status-indicator-{{.Status}}">
             {{if eq .Status "running"}}<span class="spinner spinner-sm" aria-label="Running" role="status"></span>

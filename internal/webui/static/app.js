@@ -518,6 +518,20 @@ async function submitGateDecision(runID, stepID, btn) {
         return;
     }
 
+    // Check if the selected choice targets _fail (pipeline abort) and confirm
+    var panel = document.getElementById('gate-panel-' + stepID);
+    if (panel) {
+        var selectedBtn = panel.querySelector('.gate-choice-btn[data-choice-key="' + key + '"]');
+        if (selectedBtn && selectedBtn.dataset.choiceTarget === '_fail') {
+            if (!confirm('This choice will abort the pipeline. Are you sure?')) {
+                return;
+            }
+        }
+    }
+
+    // Disable immediately to prevent double-submit
+    btn.disabled = true;
+
     var freeformInput = document.getElementById('gate-text-' + stepID);
     var text = freeformInput ? freeformInput.value : '';
 
@@ -526,8 +540,10 @@ async function submitGateDecision(runID, stepID, btn) {
         await approveGate(runID, stepID, key, text);
         showToast('Gate decision submitted', 'success', 3000);
 
+        // Clean up selection state
+        delete gateSelections[stepID];
+
         // Disable the panel after submission
-        var panel = document.getElementById('gate-panel-' + stepID);
         if (panel) {
             panel.classList.add('gate-panel-submitted');
             var buttons = panel.querySelectorAll('button, textarea');
@@ -536,7 +552,8 @@ async function submitGateDecision(runID, stepID, btn) {
             }
         }
     } catch (err) {
-        // fetchJSON already showed toast
+        // Re-enable submit button on failure so the user can retry
+        btn.disabled = false;
     } finally {
         setButtonLoading(btn, false);
     }
