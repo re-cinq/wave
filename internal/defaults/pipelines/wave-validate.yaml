@@ -27,6 +27,7 @@ steps:
   # Step 1: Model routing — uses haiku for cheap analysis
   - id: check-config
     persona: navigator
+    contexts: [configuration, delivery]
     model: claude-haiku
     workspace:
       mount:

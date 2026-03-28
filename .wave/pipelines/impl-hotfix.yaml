@@ -12,6 +12,15 @@ input:
   source: cli
   example: "fix panic in pipeline executor when step has nil context"
 
+chat_context:
+  artifact_summaries:
+    - findings
+    - verdict
+  suggested_questions:
+    - "What was the root cause of the issue?"
+    - "Is the fix minimal and safe for production?"
+    - "Are there similar patterns elsewhere that need the same fix?"
+
 steps:
   - id: investigate
     persona: navigator

@@ -15,6 +15,14 @@ input:
     type: string
     description: "Bug description or symptom to investigate"
 
+chat_context:
+  artifact_summaries:
+    - findings
+  suggested_questions:
+    - "What was the root cause of the bug?"
+    - "Is the fix minimal and safe for production?"
+    - "Are there similar patterns elsewhere that need the same fix?"
+
 steps:
   - id: investigate
     persona: navigator
