@@ -134,6 +134,29 @@
 </div>
 {{end}}
 
+{{if and .Steps (eq .Run.Status "completed" "failed")}}
+<div class="card">
+    <details>
+        <summary class="section-toggle"><h2>Step Duration Timeline</h2></summary>
+        <div style="position:relative; padding:0.5rem 0;">
+            {{range .Steps}}
+            {{if .Duration}}
+            <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem; font-size:0.8rem;">
+                <span style="width:120px; text-align:right; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{.StepID}}</span>
+                <div style="flex:1; background:var(--bg-secondary); border-radius:4px; height:20px; position:relative; overflow:hidden;">
+                    {{if .GanttWidth}}<div style="position:absolute; left:{{printf "%.1f" .GanttLeft}}%; width:{{printf "%.1f" .GanttWidth}}%; height:100%; border-radius:4px; background:{{if eq .State "completed"}}var(--color-completed){{else if eq .State "failed"}}var(--color-failed){{else}}var(--color-pending){{end}}; opacity:0.7;"></div>
+                    {{else}}<div style="height:100%; border-radius:4px; background:{{if eq .State "completed"}}var(--color-completed){{else if eq .State "failed"}}var(--color-failed){{else}}var(--color-pending){{end}}; opacity:0.7; width:100%;"></div>
+                    {{end}}
+                </div>
+                <span style="width:60px; color:var(--text-secondary); font-size:0.75rem;">{{.Duration}}</span>
+            </div>
+            {{end}}
+            {{end}}
+        </div>
+    </details>
+</div>
+{{end}}
+
 <div class="run-detail-layout">
     <div class="run-detail-main">
         <div class="card">
