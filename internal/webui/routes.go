@@ -33,6 +33,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /retros", s.handleRetrosPage)
 	mux.HandleFunc("GET /compare", s.handleComparePage)
 	mux.HandleFunc("GET /analytics", s.handleAnalyticsPage)
+	mux.HandleFunc("GET /webhooks", s.handleWebhooksPage)
 
 	// API endpoints (JSON)
 	mux.HandleFunc("GET /api/runs", s.handleAPIRuns)
