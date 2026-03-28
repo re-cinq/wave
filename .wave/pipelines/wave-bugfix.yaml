@@ -18,6 +18,7 @@ input:
 steps:
   - id: investigate
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -56,6 +57,7 @@ steps:
         path: .wave/output/findings.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -67,6 +69,8 @@ steps:
   - id: fix
     persona: craftsman
     dependencies: [investigate]
+    thread: bugfix
+    max_visits: 3
     memory:
       inject_artifacts:
         - step: investigate
@@ -92,10 +96,25 @@ steps:
 
         Run the full test suite before finishing.
     retry:
+      policy: standard
       max_attempts: 3
+      on_failure: retry
     handover:
       contract:
         type: test_suite
         command: "{{ project.test_command }}"
         must_pass: true
         on_failure: retry
+
+  - id: run-tests
+    type: command
+    dependencies: [fix]
+    script: "{{ project.contract_test_command }}"
+
+  - id: gate
+    type: conditional
+    dependencies: [run-tests]
+    edges:
+      - target: _complete
+        condition: "outcome=success"
+      - target: fix

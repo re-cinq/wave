@@ -62,6 +62,7 @@ steps:
         path: .wave/output/assessment.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:

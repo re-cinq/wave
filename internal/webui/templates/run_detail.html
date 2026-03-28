@@ -157,6 +157,17 @@
         </div>
         {{end}}
 
+        {{if or (eq .Run.Status "completed") (eq .Run.Status "failed")}}
+        <div class="card" id="retro-panel">
+            <details>
+                <summary class="section-toggle"><h2>Retrospective</h2></summary>
+                <div id="retro-content" class="retro-content">
+                    <div class="retro-loading">Loading retrospective data...</div>
+                </div>
+            </details>
+        </div>
+        {{end}}
+
         {{if .Events}}
         <div class="card">
             <h2>Events</h2>
@@ -323,6 +334,153 @@ if (diffPanel && window.DiffViewer) {
     diffViewer.loadFileList();
     window.diffViewer = diffViewer;
 }
+
+// Retrospective viewer
+(function() {
+    var retroPanel = document.getElementById('retro-content');
+    if (!retroPanel) return;
+
+    var runID = '{{.Run.RunID}}';
+    var loaded = false;
+
+    // Load retro data when the details element is opened
+    var detailsEl = retroPanel.closest('details');
+    if (detailsEl) {
+        detailsEl.addEventListener('toggle', function() {
+            if (detailsEl.open && !loaded) {
+                loaded = true;
+                loadRetro();
+            }
+        });
+    }
+
+    function loadRetro() {
+        fetch('/api/retros/' + encodeURIComponent(runID))
+            .then(function(resp) {
+                if (!resp.ok) {
+                    if (resp.status === 404) {
+                        retroPanel.innerHTML = '<div class="retro-empty">No retrospective data available for this run.</div>';
+                        return null;
+                    }
+                    throw new Error('Failed to load retrospective');
+                }
+                return resp.json();
+            })
+            .then(function(data) {
+                if (!data) return;
+                renderRetro(data);
+            })
+            .catch(function(err) {
+                retroPanel.innerHTML = '<div class="retro-empty">' + escapeHTML(String(err)) + '</div>';
+            });
+    }
+
+    function formatDurationMs(ms) {
+        if (ms < 1000) return ms + 'ms';
+        var secs = Math.round(ms / 1000);
+        if (secs < 60) return secs + 's';
+        var mins = Math.floor(secs / 60);
+        secs = secs % 60;
+        if (mins < 60) return mins + 'm ' + secs + 's';
+        var hours = Math.floor(mins / 60);
+        mins = mins % 60;
+        return hours + 'h ' + mins + 'm';
+    }
+
+    function renderRetro(retro) {
+        var html = '';
+
+        // Quantitative metrics
+        if (retro.quantitative) {
+            var q = retro.quantitative;
+            html += '<div class="retro-metrics">';
+            html += '<h3>Metrics</h3>';
+            html += '<div class="retro-metrics-grid">';
+            html += '<div class="retro-metric"><span class="retro-metric-label">Total Duration</span><span class="retro-metric-value">' + formatDurationMs(q.total_duration_ms) + '</span></div>';
+            html += '<div class="retro-metric"><span class="retro-metric-label">Steps</span><span class="retro-metric-value">' + q.total_steps + '</span></div>';
+            html += '<div class="retro-metric"><span class="retro-metric-label">Succeeded</span><span class="retro-metric-value retro-success">' + q.success_count + '</span></div>';
+            html += '<div class="retro-metric"><span class="retro-metric-label">Failed</span><span class="retro-metric-value' + (q.failure_count > 0 ? ' retro-failure' : '') + '">' + q.failure_count + '</span></div>';
+            html += '<div class="retro-metric"><span class="retro-metric-label">Retries</span><span class="retro-metric-value">' + q.total_retries + '</span></div>';
+            html += '<div class="retro-metric"><span class="retro-metric-label">Tokens</span><span class="retro-metric-value">' + (q.total_tokens || 0).toLocaleString() + '</span></div>';
+            html += '</div>';
+
+            // Per-step table
+            if (q.steps && q.steps.length > 0) {
+                html += '<table class="retro-step-table">';
+                html += '<thead><tr><th>Step</th><th>Status</th><th>Duration</th><th>Retries</th><th>Tokens</th></tr></thead>';
+                html += '<tbody>';
+                for (var i = 0; i < q.steps.length; i++) {
+                    var s = q.steps[i];
+                    var statusCls = s.status === 'success' ? 'retro-success' : (s.status === 'failure' ? 'retro-failure' : '');
+                    html += '<tr>';
+                    html += '<td><code>' + escapeHTML(s.name) + '</code></td>';
+                    html += '<td><span class="' + statusCls + '">' + escapeHTML(s.status) + '</span></td>';
+                    html += '<td>' + formatDurationMs(s.duration_ms) + '</td>';
+                    html += '<td>' + (s.retries > 0 ? '<span class="retro-failure">' + s.retries + '</span>' : '0') + '</td>';
+                    html += '<td>' + (s.tokens_used || 0).toLocaleString() + '</td>';
+                    html += '</tr>';
+                }
+                html += '</tbody></table>';
+            }
+            html += '</div>';
+        }
+
+        // Narrative
+        if (retro.narrative) {
+            var n = retro.narrative;
+            html += '<div class="retro-narrative">';
+            html += '<h3>Narrative</h3>';
+
+            if (n.smoothness) {
+                var smoothnessClass = 'retro-smoothness-' + n.smoothness;
+                html += '<div class="retro-smoothness"><strong>Smoothness:</strong> <span class="' + smoothnessClass + '">' + escapeHTML(n.smoothness) + '</span></div>';
+            }
+            if (n.intent) {
+                html += '<div class="retro-intent"><strong>Intent:</strong> ' + escapeHTML(n.intent) + '</div>';
+            }
+            if (n.outcome) {
+                html += '<div class="retro-outcome"><strong>Outcome:</strong> ' + escapeHTML(n.outcome) + '</div>';
+            }
+            if (n.friction_points && n.friction_points.length > 0) {
+                html += '<div class="retro-section"><strong>Friction Points:</strong><ul>';
+                for (var f = 0; f < n.friction_points.length; f++) {
+                    html += '<li><span class="retro-friction-type">' + escapeHTML(n.friction_points[f].type) + '</span>';
+                    if (n.friction_points[f].step) html += ' <code>' + escapeHTML(n.friction_points[f].step) + '</code>';
+                    html += ' &mdash; ' + escapeHTML(n.friction_points[f].detail) + '</li>';
+                }
+                html += '</ul></div>';
+            }
+            if (n.learnings && n.learnings.length > 0) {
+                html += '<div class="retro-section"><strong>Learnings:</strong><ul>';
+                for (var l = 0; l < n.learnings.length; l++) {
+                    html += '<li><span class="retro-learning-cat">' + escapeHTML(n.learnings[l].category) + '</span> &mdash; ' + escapeHTML(n.learnings[l].detail) + '</li>';
+                }
+                html += '</ul></div>';
+            }
+            if (n.recommendations && n.recommendations.length > 0) {
+                html += '<div class="retro-section"><strong>Recommendations:</strong><ul>';
+                for (var r = 0; r < n.recommendations.length; r++) {
+                    html += '<li>' + escapeHTML(n.recommendations[r]) + '</li>';
+                }
+                html += '</ul></div>';
+            }
+            if (n.open_items && n.open_items.length > 0) {
+                html += '<div class="retro-section"><strong>Open Items:</strong><ul>';
+                for (var o = 0; o < n.open_items.length; o++) {
+                    html += '<li><span class="retro-open-type">' + escapeHTML(n.open_items[o].type) + '</span> &mdash; ' + escapeHTML(n.open_items[o].detail) + '</li>';
+                }
+                html += '</ul></div>';
+            }
+            html += '</div>';
+        }
+
+        if (!retro.quantitative && !retro.narrative) {
+            html = '<div class="retro-empty">No retrospective data available.</div>';
+        }
+
+        retroPanel.innerHTML = html;
+    }
+})();
 
 </script>
 {{end}}

@@ -58,6 +58,7 @@ steps:
         type: json
         required: true
     retry:
+      policy: none
       max_attempts: 1
     handover:
       contract:
@@ -114,6 +115,7 @@ steps:
         type: json
         required: true
     retry:
+      policy: none
       max_attempts: 1
     handover:
       contract:
@@ -169,6 +171,7 @@ steps:
         json_path: .url
         label: "Updated Issue"
     retry:
+      policy: none
       max_attempts: 1
     handover:
       contract:

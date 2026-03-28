@@ -15,6 +15,7 @@ input:
 steps:
   - id: explore
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -48,6 +49,7 @@ steps:
         path: .wave/output/exploration.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -91,6 +93,7 @@ steps:
         path: .wave/output/plan.json
         type: json
     retry:
+      policy: standard
       max_attempts: 2
     handover:
       contract:
@@ -145,6 +148,7 @@ steps:
 
         Commit changes to the worktree branch.
     retry:
+      policy: standard
       max_attempts: 3
     handover:
       contract:
@@ -194,6 +198,7 @@ steps:
         path: .wave/output/pr-result.json
         type: json
     retry:
+      policy: aggressive
       max_attempts: 2
     handover:
       contract:

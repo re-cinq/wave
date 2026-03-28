@@ -269,14 +269,57 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 				tokens = sd.TokensUsed
 			}
 			var contract string
-		if step.Handover.Contract.Type != "" {
-			contract = step.Handover.Contract.Type
-		}
-		var artifactNames []string
-		for _, a := range step.OutputArtifacts {
-			artifactNames = append(artifactNames, a.Name)
-		}
-		dagSteps = append(dagSteps, DAGStepInput{
+			if step.Handover.Contract.Type != "" {
+				contract = step.Handover.Contract.Type
+			}
+			var artifactNames []string
+			for _, a := range step.OutputArtifacts {
+				artifactNames = append(artifactNames, a.Name)
+			}
+
+			// Determine effective step type for visualization
+			stepType := step.Type
+			if stepType == "" && step.Gate != nil {
+				stepType = "gate"
+			}
+			if stepType == "" && step.SubPipeline != "" {
+				stepType = "pipeline"
+			}
+
+			// Collect gate info
+			var gatePrompt, gateChoices string
+			if step.Gate != nil {
+				gatePrompt = step.Gate.Prompt
+				if gatePrompt == "" {
+					gatePrompt = step.Gate.Message
+				}
+				var choiceLabels []string
+				for _, c := range step.Gate.Choices {
+					choiceLabels = append(choiceLabels, c.Label)
+				}
+				gateChoices = strings.Join(choiceLabels, ", ")
+			}
+
+			// Collect edge info for conditional steps
+			var edgeInfo string
+			var dagEdges []DAGEdgeInput
+			if len(step.Edges) > 0 {
+				var edgeParts []string
+				for _, e := range step.Edges {
+					dagEdges = append(dagEdges, DAGEdgeInput{
+						Target:    e.Target,
+						Condition: e.Condition,
+					})
+					if e.Condition != "" {
+						edgeParts = append(edgeParts, e.Target+": "+e.Condition)
+					} else {
+						edgeParts = append(edgeParts, e.Target)
+					}
+				}
+				edgeInfo = strings.Join(edgeParts, "; ")
+			}
+
+			dagSteps = append(dagSteps, DAGStepInput{
 				ID:           step.ID,
 				Persona:      resolveForgeVars(step.Persona),
 				Status:       status,
@@ -285,6 +328,13 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 				Contract:     contract,
 				Artifacts:    strings.Join(artifactNames, ", "),
 				Dependencies: step.Dependencies,
+				StepType:     stepType,
+				Script:       step.Script,
+				SubPipeline:  step.SubPipeline,
+				GatePrompt:   gatePrompt,
+				GateChoices:  gateChoices,
+				EdgeInfo:     edgeInfo,
+				Edges:        dagEdges,
 			})
 		}
 		dagLayout = ComputeDAGLayout(dagSteps)
@@ -512,11 +562,54 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 	// Build details in pipeline step order
 	details := make([]StepDetail, 0, len(p.Steps))
 	for _, step := range p.Steps {
+		// Determine effective step type
+		stepType := step.Type
+		if stepType == "" && step.Gate != nil {
+			stepType = "gate"
+		}
+		if stepType == "" && step.SubPipeline != "" {
+			stepType = "pipeline"
+		}
+
+		// Collect gate info
+		var gatePrompt, gateChoices string
+		if step.Gate != nil {
+			gatePrompt = step.Gate.Prompt
+			if gatePrompt == "" {
+				gatePrompt = step.Gate.Message
+			}
+			var choiceLabels []string
+			for _, c := range step.Gate.Choices {
+				choiceLabels = append(choiceLabels, c.Label)
+			}
+			gateChoices = strings.Join(choiceLabels, ", ")
+		}
+
+		// Collect edge info
+		var edgeInfo string
+		if len(step.Edges) > 0 {
+			var edgeParts []string
+			for _, e := range step.Edges {
+				if e.Condition != "" {
+					edgeParts = append(edgeParts, e.Target+": "+e.Condition)
+				} else {
+					edgeParts = append(edgeParts, e.Target)
+				}
+			}
+			edgeInfo = strings.Join(edgeParts, "; ")
+		}
+
 		sd := StepDetail{
-			RunID:   runID,
-			StepID:  step.ID,
-			Persona: resolveForgeVars(step.Persona),
-			State:   "pending",
+			RunID:       runID,
+			StepID:      step.ID,
+			Persona:     resolveForgeVars(step.Persona),
+			State:       "pending",
+			StepType:    stepType,
+			Script:      step.Script,
+			SubPipeline: step.SubPipeline,
+			GatePrompt:  gatePrompt,
+			GateChoices: gateChoices,
+			EdgeInfo:    edgeInfo,
 		}
 
 		if si, ok := stepMap[step.ID]; ok {

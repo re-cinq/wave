@@ -72,6 +72,7 @@ steps:
         type: json
         required: true
     retry:
+      policy: aggressive
       max_attempts: 2
     handover:
       contract:
@@ -141,4 +142,5 @@ steps:
         json_path: .comment_url
         label: "Epic Summary Comment"
     retry:
+      policy: aggressive
       max_attempts: 2

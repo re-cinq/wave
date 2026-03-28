@@ -10,30 +10,38 @@ type DAGLayout struct {
 
 // DAGLayoutNode is a node with computed position for SVG rendering.
 type DAGLayoutNode struct {
-	ID        string
-	Label     string
-	Persona   string
-	Status    string
-	Duration  string
-	Tokens    int
-	Contract  string
-	Artifacts string
-	X         int
-	Y         int
+	ID          string
+	Label       string
+	Persona     string
+	Status      string
+	Duration    string
+	Tokens      int
+	Contract    string
+	Artifacts   string
+	StepType    string // "conditional", "command", "gate", "pipeline", or "" (persona)
+	Script      string // Shell script for command steps
+	SubPipeline string // Referenced pipeline for pipeline steps
+	GatePrompt  string // Gate prompt/message
+	GateChoices string // Comma-separated gate choice labels
+	EdgeInfo    string // Serialized edge conditions for conditional steps
+	X           int
+	Y           int
 }
 
 // DAGLayoutEdge is an edge with computed bezier curve points for SVG.
 type DAGLayoutEdge struct {
-	From  string
-	To    string
-	FromX int
-	FromY int
-	ToX   int
-	ToY   int
-	CX1   int
-	CY1   int
-	CX2   int
-	CY2   int
+	From       string
+	To         string
+	FromX      int
+	FromY      int
+	ToX        int
+	ToY        int
+	CX1        int
+	CY1        int
+	CX2        int
+	CY2        int
+	IsBackward bool   // True for edges pointing to earlier layers (loop edges)
+	Condition  string // Edge condition label (e.g. "outcome=success")
 }
 
 const (
@@ -92,16 +100,22 @@ func ComputeDAGLayout(steps []DAGStepInput) *DAGLayout {
 			y := paddingY + offsetY + nodeIdx*nodeGapY
 
 			layout.Nodes = append(layout.Nodes, DAGLayoutNode{
-				ID:        s.ID,
-				Label:     s.ID,
-				Persona:   s.Persona,
-				Status:    s.Status,
-				Duration:  s.Duration,
-				Tokens:    s.Tokens,
-				Contract:  s.Contract,
-				Artifacts: s.Artifacts,
-				X:         x,
-				Y:         y,
+				ID:          s.ID,
+				Label:       s.ID,
+				Persona:     s.Persona,
+				Status:      s.Status,
+				Duration:    s.Duration,
+				Tokens:      s.Tokens,
+				Contract:    s.Contract,
+				Artifacts:   s.Artifacts,
+				StepType:    s.StepType,
+				Script:      s.Script,
+				SubPipeline: s.SubPipeline,
+				GatePrompt:  s.GatePrompt,
+				GateChoices: s.GateChoices,
+				EdgeInfo:    s.EdgeInfo,
+				X:           x,
+				Y:           y,
 			})
 		}
 	}
@@ -115,39 +129,112 @@ func ComputeDAGLayout(steps []DAGStepInput) *DAGLayout {
 		layout.Height = nodeHeight + paddingY*2
 	}
 
-	// Build node position map for edge computation
+	// Build node position map and layer index for edge computation
 	nodePos := make(map[string][2]int)
+	nodeLayerIdx := make(map[string]int)
 	for _, n := range layout.Nodes {
 		nodePos[n.ID] = [2]int{n.X, n.Y}
 	}
+	for layerIdx, layer := range layers {
+		for _, id := range layer {
+			nodeLayerIdx[id] = layerIdx
+		}
+	}
+
+	// Build edge condition lookup from step edges
+	edgeConditionMap := make(map[[2]string]string) // [from, to] -> condition
+	for _, s := range steps {
+		for _, e := range s.Edges {
+			edgeConditionMap[[2]string{s.ID, e.Target}] = e.Condition
+		}
+	}
 
 	// Compute edges — from right-center of source node to left-center of target node
-	for _, s := range steps {
-		for _, dep := range s.Dependencies {
-			fromPos, ok1 := nodePos[dep]
-			toPos, ok2 := nodePos[s.ID]
-			if !ok1 || !ok2 {
-				continue
-			}
+	// Also include graph-mode edges (step.Edges) in addition to dependency edges
+	type edgePair struct {
+		from, to string
+	}
+	seen := make(map[edgePair]bool)
 
-			fromX := fromPos[0] + nodeWidth
-			fromY := fromPos[1] + nodeHeight/2
-			toX := toPos[0]
-			toY := toPos[1] + nodeHeight/2
-			midX := (fromX + toX) / 2
+	addEdge := func(from, to, condition string) {
+		ep := edgePair{from, to}
+		if seen[ep] {
+			return
+		}
+		seen[ep] = true
 
+		fromPos, ok1 := nodePos[from]
+		toPos, ok2 := nodePos[to]
+		if !ok1 || !ok2 {
+			return
+		}
+
+		fromLayer := nodeLayerIdx[from]
+		toLayer := nodeLayerIdx[to]
+		isBackward := toLayer <= fromLayer
+
+		fromX := fromPos[0] + nodeWidth
+		fromY := fromPos[1] + nodeHeight/2
+		toX := toPos[0]
+		toY := toPos[1] + nodeHeight/2
+		midX := (fromX + toX) / 2
+
+		if isBackward {
+			// For backward edges, curve below the nodes
+			belowY := layout.Height + 20
+			midX = (fromPos[0] + toPos[0] + nodeWidth) / 2
 			layout.Edges = append(layout.Edges, DAGLayoutEdge{
-				From:  dep,
-				To:    s.ID,
-				FromX: fromX,
-				FromY: fromY,
-				ToX:   toX,
-				ToY:   toY,
-				CX1:   midX,
-				CY1:   fromY,
-				CX2:   midX,
-				CY2:   toY,
+				From:       from,
+				To:         to,
+				FromX:      fromX,
+				FromY:      fromY,
+				ToX:        toX,
+				ToY:        toY,
+				CX1:        midX,
+				CY1:        belowY,
+				CX2:        midX,
+				CY2:        belowY,
+				IsBackward: true,
+				Condition:  condition,
 			})
+		} else {
+			layout.Edges = append(layout.Edges, DAGLayoutEdge{
+				From:       from,
+				To:         to,
+				FromX:      fromX,
+				FromY:      fromY,
+				ToX:        toX,
+				ToY:        toY,
+				CX1:        midX,
+				CY1:        fromY,
+				CX2:        midX,
+				CY2:        toY,
+				IsBackward: false,
+				Condition:  condition,
+			})
+		}
+	}
+
+	for _, s := range steps {
+		// Standard dependency edges (drawn as dep -> s.ID)
+		for _, dep := range s.Dependencies {
+			cond := edgeConditionMap[[2]string{dep, s.ID}]
+			addEdge(dep, s.ID, cond)
+		}
+		// Graph-mode edges (drawn as s.ID -> target)
+		for _, e := range s.Edges {
+			addEdge(s.ID, e.Target, e.Condition)
+		}
+	}
+
+	// Expand height if backward edges exist (they curve below)
+	for _, e := range layout.Edges {
+		if e.IsBackward {
+			needed := layout.Height + 50
+			if needed > layout.Height {
+				layout.Height = needed
+			}
+			break
 		}
 	}
 
@@ -164,6 +251,19 @@ type DAGStepInput struct {
 	Contract     string
 	Artifacts    string
 	Dependencies []string
+	StepType     string // "conditional", "command", "gate", "pipeline", or "" (persona)
+	Script       string
+	SubPipeline  string
+	GatePrompt   string
+	GateChoices  string
+	EdgeInfo     string
+	Edges        []DAGEdgeInput // Outgoing edges for graph-mode routing
+}
+
+// DAGEdgeInput carries edge metadata from the pipeline definition.
+type DAGEdgeInput struct {
+	Target    string
+	Condition string
 }
 
 // assignLayers uses Kahn's algorithm to assign nodes to layers.

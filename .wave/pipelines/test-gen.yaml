@@ -14,6 +14,7 @@ input:
 steps:
   - id: analyze-coverage
     persona: navigator
+    model: claude-haiku-4-5
     workspace:
       mount:
         - source: ./
@@ -33,6 +34,7 @@ steps:
         path: .wave/output/coverage-analysis.json
         type: json
     retry:
+      policy: patient
       max_attempts: 2
     handover:
       contract:
@@ -44,6 +46,8 @@ steps:
   - id: generate-tests
     persona: craftsman
     dependencies: [analyze-coverage]
+    thread: test-gen
+    max_visits: 3
     memory:
       inject_artifacts:
         - step: analyze-coverage
@@ -68,6 +72,7 @@ steps:
 
         Follow existing test patterns in the codebase.
     retry:
+      policy: standard
       max_attempts: 3
     handover:
       contract:
@@ -81,9 +86,23 @@ steps:
         path: .wave/output/generated-tests.md
         type: markdown
 
+  - id: run-tests
+    type: command
+    dependencies: [generate-tests]
+    script: "{{ project.contract_test_command }}"
+
+  - id: check-quality
+    type: conditional
+    dependencies: [run-tests]
+    edges:
+      - target: verify-coverage
+        condition: "outcome=success"
+      - target: generate-tests
+
   - id: verify-coverage
     persona: reviewer
-    dependencies: [generate-tests]
+    model: claude-haiku-4-5
+    dependencies: [check-quality]
     exec:
       type: prompt
       source: |

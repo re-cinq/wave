@@ -43,19 +43,25 @@ type RunDetailResponse struct {
 
 // StepDetail holds detail information about a pipeline step.
 type StepDetail struct {
-	RunID       string            `json:"run_id"`
-	StepID      string            `json:"step_id"`
-	Persona     string            `json:"persona"`
-	State       string            `json:"state"`
-	Progress    int               `json:"progress"`
-	Action      string            `json:"current_action,omitempty"`
+	RunID              string            `json:"run_id"`
+	StepID             string            `json:"step_id"`
+	Persona            string            `json:"persona"`
+	State              string            `json:"state"`
+	Progress           int               `json:"progress"`
+	Action             string            `json:"current_action,omitempty"`
 	StartedAt          *time.Time        `json:"started_at,omitempty"`
-	FormattedStartedAt string             `json:"formatted_started_at,omitempty"`
-	CompletedAt *time.Time        `json:"completed_at,omitempty"`
-	Duration    string            `json:"duration,omitempty"`
-	TokensUsed  int               `json:"tokens_used"`
-	Error       string            `json:"error,omitempty"`
-	Artifacts   []ArtifactSummary `json:"artifacts,omitempty"`
+	FormattedStartedAt string            `json:"formatted_started_at,omitempty"`
+	CompletedAt        *time.Time        `json:"completed_at,omitempty"`
+	Duration           string            `json:"duration,omitempty"`
+	TokensUsed         int               `json:"tokens_used"`
+	Error              string            `json:"error,omitempty"`
+	Artifacts          []ArtifactSummary `json:"artifacts,omitempty"`
+	StepType           string            `json:"step_type,omitempty"`    // "conditional", "command", "gate", "pipeline", or ""
+	Script             string            `json:"script,omitempty"`       // Shell script for command steps
+	SubPipeline        string            `json:"sub_pipeline,omitempty"` // Referenced pipeline for pipeline steps
+	GatePrompt         string            `json:"gate_prompt,omitempty"`  // Gate prompt/message
+	GateChoices        string            `json:"gate_choices,omitempty"` // Comma-separated gate choice labels
+	EdgeInfo           string            `json:"edge_info,omitempty"`    // Edge conditions for conditional steps
 }
 
 // EventSummary holds summary information about a pipeline event.
