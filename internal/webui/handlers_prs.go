@@ -2,6 +2,7 @@ package webui
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -269,4 +270,67 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 		Page:         page,
 		HasMore:      hasMore,
 	}
+}
+
+// PRReviewRequest is the JSON body for POST /api/prs/{number}/review.
+type PRReviewRequest struct {
+	Event string `json:"event"` // "APPROVE", "REQUEST_CHANGES", or "COMMENT"
+	Body  string `json:"body"`
+}
+
+// validReviewEvents is the set of accepted review event types.
+var validReviewEvents = map[string]bool{
+	"APPROVE":         true,
+	"REQUEST_CHANGES": true,
+	"COMMENT":         true,
+}
+
+// handlePRReview handles POST /api/prs/{number}/review — submits a PR review.
+func (s *Server) handlePRReview(w http.ResponseWriter, r *http.Request) {
+	// CSRF protection: require a custom header that triggers CORS preflight
+	// for cross-origin requests, preventing drive-by review submissions.
+	if r.Header.Get("X-Wave-Request") != "1" {
+		writeJSONError(w, http.StatusForbidden, "missing required X-Wave-Request header")
+		return
+	}
+
+	if s.forgeClient == nil || s.repoSlug == "" {
+		writeJSONError(w, http.StatusServiceUnavailable, "forge integration not configured")
+		return
+	}
+
+	numberStr := r.PathValue("number")
+	number := parsePageNumber2(numberStr)
+	if number <= 0 {
+		writeJSONError(w, http.StatusBadRequest, "invalid PR number")
+		return
+	}
+
+	var req PRReviewRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	if !validReviewEvents[req.Event] {
+		writeJSONError(w, http.StatusBadRequest, "event must be APPROVE, REQUEST_CHANGES, or COMMENT")
+		return
+	}
+
+	if req.Event == "REQUEST_CHANGES" && strings.TrimSpace(req.Body) == "" {
+		writeJSONError(w, http.StatusBadRequest, "body is required when requesting changes")
+		return
+	}
+
+	owner, repo := splitRepoSlug(s.repoSlug)
+	ctx, cancel := context.WithTimeout(context.Background(), timeouts.ForgeAPI)
+	defer cancel()
+
+	if err := s.forgeClient.CreatePullRequestReview(ctx, owner, repo, number, req.Event, req.Body); err != nil {
+		log.Printf("[webui] failed to submit review for PR #%d: %v", number, err)
+		writeJSONError(w, http.StatusBadGateway, "failed to submit review: "+err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "event": req.Event})
 }
