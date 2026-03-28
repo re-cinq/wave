@@ -46,3 +46,7 @@ func (u *UnsupportedClient) GetCommitChecks(_ context.Context, _, _, _ string) (
 func (u *UnsupportedClient) ListIssueComments(_ context.Context, _, _ string, _ int, _ int) ([]*Comment, error) {
 	return nil, fmt.Errorf("%w: %s", ErrNotSupported, u.forgeType)
 }
+
+func (u *UnsupportedClient) CreatePullRequestReview(_ context.Context, _, _ string, _ int, _, _ string) error {
+	return fmt.Errorf("%w: %s", ErrNotSupported, u.forgeType)
+}
