@@ -303,3 +303,12 @@ The migration system integrates with Wave's existing SQLite configuration:
 - **Single connection pool** optimized for SQLite's locking model
 
 Migration transactions are atomic - if any part of a migration fails, all changes are rolled back automatically.
+
+## Breaking Changes
+
+### WAVE_HOOK_STEP renamed to WAVE_HOOK_STEP_ID
+
+The lifecycle hook environment variable `WAVE_HOOK_STEP` has been renamed to
+`WAVE_HOOK_STEP_ID` for consistency with other Wave environment variable naming
+conventions. If your hook scripts reference `$WAVE_HOOK_STEP`, update them to
+use `$WAVE_HOOK_STEP_ID` instead.
