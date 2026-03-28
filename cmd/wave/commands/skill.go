@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -43,11 +44,13 @@ func NewSkillCmd() *cobra.Command {
 
 Subcommands:
   list      List available and installed skill templates
-  install   Install a skill from bundled templates, GitHub, Tessl, or URL`,
+  install   Install a skill from bundled templates, GitHub, Tessl, or URL
+  check     Run check commands for installed skills`,
 	}
 
 	cmd.AddCommand(newSkillListCmd())
 	cmd.AddCommand(newSkillInstallCmd())
+	cmd.AddCommand(newSkillCheckCmd())
 
 	return cmd
 }
@@ -290,6 +293,146 @@ func renderRemoteSourceHints(w io.Writer) {
 	fmt.Fprintf(w, "  %s  %s\n", f.Primary("tessl:<name>"), "Install from the Tessl registry")
 	fmt.Fprintf(w, "  %s  %s\n", f.Primary("https://<url>"), "Install from a direct URL (archive)")
 	fmt.Fprintln(w)
+}
+
+// --- Check ---
+
+// SkillCheckItem represents one skill check result in output.
+type SkillCheckItem struct {
+	Name         string `json:"name"`
+	CheckCommand string `json:"check_command"`
+	Passed       bool   `json:"passed"`
+	Error        string `json:"error,omitempty"`
+}
+
+// SkillCheckOutput is the top-level output for wave skill check.
+type SkillCheckOutput struct {
+	Results []SkillCheckItem `json:"results"`
+	Passed  int              `json:"passed"`
+	Failed  int              `json:"failed"`
+	Skipped int              `json:"skipped"`
+}
+
+func newSkillCheckCmd() *cobra.Command {
+	var format string
+	cmd := &cobra.Command{
+		Use:   "check",
+		Short: "Run check commands for installed skills",
+		Long: `For each installed skill in .wave/skills/, parse its SKILL.md frontmatter
+to find a check_command. If present, run it and report pass/fail.
+
+Returns non-zero exit code if any check fails.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runSkillCheck(cmd, format)
+		},
+	}
+	cmd.Flags().StringVar(&format, "format", "table", "Output format: table, json")
+	return cmd
+}
+
+func runSkillCheck(cmd *cobra.Command, format string) error {
+	format = ResolveFormat(cmd, format)
+
+	skillsDir := filepath.Join(".wave", "skills")
+	entries, err := os.ReadDir(skillsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Fprintln(cmd.OutOrStdout(), "No skills installed.")
+			return nil
+		}
+		return fmt.Errorf("failed to read skills directory: %w", err)
+	}
+
+	output := SkillCheckOutput{
+		Results: make([]SkillCheckItem, 0),
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		skillFile := filepath.Join(skillsDir, entry.Name(), "SKILL.md")
+		data, readErr := os.ReadFile(skillFile)
+		if readErr != nil {
+			continue
+		}
+
+		s, parseErr := skill.ParseMetadata(data)
+		if parseErr != nil {
+			continue
+		}
+
+		if s.CheckCommand == "" {
+			output.Skipped++
+			continue
+		}
+
+		item := SkillCheckItem{
+			Name:         s.Name,
+			CheckCommand: s.CheckCommand,
+		}
+
+		// Run check command via shell
+		checkCmd := exec.Command("sh", "-c", s.CheckCommand)
+		if runErr := checkCmd.Run(); runErr != nil {
+			item.Passed = false
+			item.Error = runErr.Error()
+			output.Failed++
+		} else {
+			item.Passed = true
+			output.Passed++
+		}
+
+		output.Results = append(output.Results, item)
+	}
+
+	switch format {
+	case "json":
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(output)
+	default:
+		if err := renderSkillCheckTable(cmd.OutOrStdout(), output); err != nil {
+			return err
+		}
+		if output.Failed > 0 {
+			return NewCLIError(CodeSkillValidationFailed,
+				fmt.Sprintf("%d skill check(s) failed", output.Failed),
+				"Run the failing check commands manually to diagnose")
+		}
+		return nil
+	}
+}
+
+func renderSkillCheckTable(w io.Writer, output SkillCheckOutput) error {
+	f := display.NewFormatter()
+
+	if len(output.Results) == 0 {
+		fmt.Fprintln(w, "No skills with check commands found.")
+		return nil
+	}
+
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "%-15s %-40s %s\n",
+		f.Colorize("NAME", "\033[1;37m"),
+		f.Colorize("CHECK COMMAND", "\033[1;37m"),
+		f.Colorize("STATUS", "\033[1;37m"))
+
+	for _, r := range output.Results {
+		status := f.Success("pass")
+		if !r.Passed {
+			status = f.Error("FAIL")
+		}
+		fmt.Fprintf(w, "%-15s %-40s %s\n",
+			f.Primary(r.Name),
+			r.CheckCommand,
+			status)
+	}
+
+	fmt.Fprintf(w, "\n%d passed, %d failed, %d skipped\n",
+		output.Passed, output.Failed, output.Skipped)
+
+	return nil
 }
 
 // installedSkillNames returns a set of skill names installed in .wave/skills/.

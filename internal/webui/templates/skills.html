@@ -3,7 +3,38 @@
 <div class="page-header">
     <h1>Skills</h1>
 </div>
+
+{{if .Installed}}
+<h2>Installed Skills</h2>
+<div class="personas-grid">
+    {{range .Installed}}
+    <div class="card persona-card">
+        <h3>{{.Name}} <span class="badge" style="background:#22c55e;color:#fff;">installed</span></h3>
+        {{if .Description}}
+        <p>{{.Description}}</p>
+        {{end}}
+    </div>
+    {{end}}
+</div>
+{{end}}
+
+{{if .Available}}
+<h2>Available Templates</h2>
+<div class="personas-grid">
+    {{range .Available}}
+    <div class="card persona-card" id="skill-card-{{.Name}}">
+        <h3>{{.Name}}</h3>
+        {{if .Description}}
+        <p>{{.Description}}</p>
+        {{end}}
+        <button class="btn btn-primary" onclick="installSkill('{{.Name}}')">Install</button>
+    </div>
+    {{end}}
+</div>
+{{end}}
+
 {{if .Skills}}
+<h2>Pipeline Skill Requirements</h2>
 <div class="personas-grid">
     {{range .Skills}}
     <div class="card persona-card">
@@ -38,11 +69,42 @@
     </div>
     {{end}}
 </div>
-{{else}}
+{{end}}
+
+{{if and (not .Installed) (not .Available) (not .Skills)}}
 <div class="empty-state">
     <div class="empty-state-icon">&#128295;</div>
     <p><strong>No skills found</strong></p>
     <p>Skills are declared in pipeline YAML files under <code>requires.skills</code>.</p>
 </div>
 {{end}}
+
+<script>
+function installSkill(name) {
+    var btn = document.querySelector('#skill-card-' + name + ' button');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = 'Installing...';
+
+    fetch('/api/skills/' + encodeURIComponent(name) + '/install', {
+        method: 'POST'
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+        if (data.success) {
+            btn.textContent = 'Installed';
+            btn.classList.remove('btn-primary');
+            btn.style.background = '#22c55e';
+            btn.style.color = '#fff';
+        } else {
+            btn.textContent = 'Failed: ' + (data.error || 'unknown error');
+            btn.disabled = false;
+        }
+    })
+    .catch(function(err) {
+        btn.textContent = 'Error';
+        btn.disabled = false;
+    });
+}
+</script>
 {{end}}

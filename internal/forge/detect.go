@@ -285,7 +285,7 @@ func forgeMetadata(ft ForgeType) (cli, prefix, prTerm, prCommand string) {
 	case ForgeGitea, ForgeForgejo:
 		return "tea", "gt", "Pull Request", "pr"
 	case ForgeCodeberg:
-		return "tea", "cb", "Pull Request", "pulls"
+		return "tea", "gt", "Pull Request", "pr"
 	case ForgeLocal:
 		return "", "local", "", ""
 	default:
@@ -367,7 +367,7 @@ func checkTeaCLI(host string) ForgeType {
 
 // hasForgePrefix checks if a pipeline name starts with any known forge prefix.
 func hasForgePrefix(name string) bool {
-	prefixes := []string{"gh-", "gl-", "bb-", "gt-", "cb-", "local-"}
+	prefixes := []string{"gh-", "gl-", "bb-", "gt-", "local-"}
 	for _, p := range prefixes {
 		if strings.HasPrefix(name, p) {
 			return true
