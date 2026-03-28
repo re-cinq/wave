@@ -18,6 +18,8 @@
             {{if .FormattedStartedAt}}<span class="step-start-time">{{.FormattedStartedAt}}</span>{{end}}
             <span class="step-duration" {{if eq .State "running"}}data-live-timer="true"{{end}}>{{if .Duration}}{{.Duration}}{{end}}</span>
             {{if .Persona}}<a href="/personas/{{.Persona}}" class="step-persona" onclick="event.stopPropagation();">{{.Persona}}</a>{{end}}
+            {{if .Model}}<span class="badge" style="font-size: 0.7rem; opacity: 0.7;" title="Model">{{.Model}}</span>{{end}}
+            {{if .FailureClass}}<span class="badge badge-failure-{{.FailureClass}}" title="Failure class: {{.FailureClass}}">{{.FailureClass}}</span>{{end}}
             <button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.downloadLog('{{.StepID}}')" title="Download log">Save</button>
             <button class="btn-icon" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.copyLog('{{.StepID}}')" title="Copy log">Copy</button>
         </div>
