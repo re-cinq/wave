@@ -90,7 +90,7 @@
     </table>
     {{if .HasMore}}
     <div class="pagination">
-        <a href="/runs?cursor={{.NextCursor}}{{if .FilterStatus}}&status={{.FilterStatus}}{{end}}{{if .FilterPipeline}}&pipeline={{.FilterPipeline}}{{end}}{{if .FilterSince}}&since={{.FilterSince}}{{end}}{{if .FilterSearch}}&search={{.FilterSearch}}{{end}}" class="btn btn-load-more" aria-label="Load more pipeline runs">Load more runs&hellip;</a>
+        <a href="/runs?cursor={{.NextCursor}}{{if .FilterStatus}}&status={{.FilterStatus | urlquery}}{{end}}{{if .FilterPipeline}}&pipeline={{.FilterPipeline | urlquery}}{{end}}{{if .FilterSince}}&since={{.FilterSince | urlquery}}{{end}}{{if .FilterSearch}}&search={{.FilterSearch | urlquery}}{{end}}" class="btn btn-load-more" aria-label="Load more pipeline runs">Load more runs&hellip;</a>
     </div>
     {{end}}
     {{else}}

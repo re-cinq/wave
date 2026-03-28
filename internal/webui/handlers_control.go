@@ -476,6 +476,13 @@ func loadPipelineYAML(name string) (*pipeline.Pipeline, error) {
 }
 // handleGateApprove handles POST /api/runs/{id}/gates/{step}/approve
 func (s *Server) handleGateApprove(w http.ResponseWriter, r *http.Request) {
+	// CSRF protection: require a custom header that triggers CORS preflight
+	// for cross-origin requests, preventing drive-by gate approvals.
+	if r.Header.Get("X-Wave-Request") != "1" {
+		writeJSONError(w, http.StatusForbidden, "missing required X-Wave-Request header")
+		return
+	}
+
 	runID := r.PathValue("id")
 	if runID == "" {
 		writeJSONError(w, http.StatusBadRequest, "missing run ID")
