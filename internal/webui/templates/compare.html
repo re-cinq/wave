@@ -1,0 +1,128 @@
+{{define "title"}}Compare Runs · Wave{{end}}
+{{define "content"}}
+<div class="page-header">
+    <div>
+        <a href="/runs" class="back-link" aria-label="Back to runs list">&larr; Back to Runs</a>
+        <h1>Compare Runs</h1>
+    </div>
+</div>
+
+<div class="compare-headers">
+    <div class="compare-header compare-left">
+        <h3><a href="/runs/{{.Left.RunID}}">{{.Left.PipelineName}}</a></h3>
+        <span class="badge {{statusClass .Left.Status}}">{{.Left.Status}}</span>
+        <div class="compare-meta">
+            <span class="run-stat"><span class="run-stat-label">Duration</span> <span class="run-stat-value">{{if .Left.Duration}}{{.Left.Duration}}{{else}}-{{end}}</span></span>
+            <span class="run-stat"><span class="run-stat-label">Tokens</span> <span class="run-stat-value">{{formatTokens .Left.TotalTokens}}</span></span>
+            <span class="run-stat"><span class="run-stat-label">Started</span> <span class="run-stat-value">{{.Left.FormattedStartedAt}}</span></span>
+        </div>
+        <p class="compare-run-id"><code>{{.Left.RunID}}</code></p>
+    </div>
+    <div class="compare-delta-summary">
+        {{if .DurationDelta}}
+        <div class="compare-delta-item">
+            <span class="run-stat-label">Duration</span>
+            <span class="compare-delta-value {{.DurationClass}}">{{.DurationDelta}}</span>
+        </div>
+        {{end}}
+        {{if .TokensDelta}}
+        <div class="compare-delta-item">
+            <span class="run-stat-label">Tokens</span>
+            <span class="compare-delta-value {{.TokensClass}}">{{.TokensDelta}}</span>
+        </div>
+        {{end}}
+    </div>
+    <div class="compare-header compare-right">
+        <h3><a href="/runs/{{.Right.RunID}}">{{.Right.PipelineName}}</a></h3>
+        <span class="badge {{statusClass .Right.Status}}">{{.Right.Status}}</span>
+        <div class="compare-meta">
+            <span class="run-stat"><span class="run-stat-label">Duration</span> <span class="run-stat-value">{{if .Right.Duration}}{{.Right.Duration}}{{else}}-{{end}}</span></span>
+            <span class="run-stat"><span class="run-stat-label">Tokens</span> <span class="run-stat-value">{{formatTokens .Right.TotalTokens}}</span></span>
+            <span class="run-stat"><span class="run-stat-label">Started</span> <span class="run-stat-value">{{.Right.FormattedStartedAt}}</span></span>
+        </div>
+        <p class="compare-run-id"><code>{{.Right.RunID}}</code></p>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Step-by-Step Comparison</h2>
+    <div class="compare-table-wrapper">
+        <table class="compare-table">
+            <thead>
+                <tr>
+                    <th>Step</th>
+                    <th>Left Status</th>
+                    <th>Left Duration</th>
+                    <th>Left Tokens</th>
+                    <th class="compare-delta-col">Delta Duration</th>
+                    <th class="compare-delta-col">Delta Tokens</th>
+                    <th>Right Status</th>
+                    <th>Right Duration</th>
+                    <th>Right Tokens</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Rows}}
+                <tr class="{{if .StateDiff}}compare-row-diff{{end}}">
+                    <td class="compare-step-id"><code>{{.StepID}}</code></td>
+                    <td><span class="badge {{statusClass .LeftState}}">{{.LeftState}}</span></td>
+                    <td>{{if .LeftDuration}}{{.LeftDuration}}{{else}}-{{end}}</td>
+                    <td>{{if .LeftTokens}}{{formatTokens .LeftTokens}}{{else}}-{{end}}</td>
+                    <td class="compare-delta-col {{.DurationClass}}">{{if .DeltaDuration}}{{.DeltaDuration}}{{else}}-{{end}}</td>
+                    <td class="compare-delta-col {{.TokensClass}}">{{if .DeltaTokens}}{{.DeltaTokens}}{{else}}-{{end}}</td>
+                    <td><span class="badge {{statusClass .RightState}}">{{.RightState}}</span></td>
+                    <td>{{if .RightDuration}}{{.RightDuration}}{{else}}-{{end}}</td>
+                    <td>{{if .RightTokens}}{{formatTokens .RightTokens}}{{else}}-{{end}}</td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="9" class="empty-state">No steps to compare</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{{if .SamePipelineRuns}}
+<div class="card compare-swap-card">
+    <h3>Compare with another run</h3>
+    <form id="compare-swap-form" class="compare-swap-form">
+        <label for="compare-swap-select">Replace right run:</label>
+        <select id="compare-swap-select" class="compare-swap-select">
+            <option value="">-- Select a run --</option>
+            {{range .SamePipelineRuns}}
+            <option value="{{.RunID}}">{{.RunID}} ({{.Status}}{{if .Duration}}, {{.Duration}}{{end}})</option>
+            {{end}}
+        </select>
+        <button type="submit" class="btn btn-primary" id="compare-swap-btn" disabled>Compare</button>
+    </form>
+</div>
+{{end}}
+
+{{end}}
+{{define "scripts"}}
+<script>
+(function() {
+    var swapSelect = document.getElementById('compare-swap-select');
+    var swapBtn = document.getElementById('compare-swap-btn');
+    var swapForm = document.getElementById('compare-swap-form');
+
+    if (swapSelect && swapBtn) {
+        swapSelect.addEventListener('change', function() {
+            swapBtn.disabled = !swapSelect.value;
+        });
+    }
+
+    if (swapForm) {
+        swapForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var newRight = swapSelect.value;
+            if (!newRight) return;
+            var leftID = '{{.Left.RunID}}';
+            window.location.href = '/compare?left=' + encodeURIComponent(leftID) + '&right=' + encodeURIComponent(newRight);
+        });
+    }
+})();
+</script>
+{{end}}
