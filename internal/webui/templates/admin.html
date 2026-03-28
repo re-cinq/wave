@@ -1,0 +1,159 @@
+{{define "title"}}Admin · Wave{{end}}
+{{define "content"}}
+<div class="page-header">
+    <h1>Server Administration</h1>
+</div>
+
+<!-- Server Config -->
+<div class="card" id="config-section" style="margin-bottom: 1.5rem;">
+    <h3>Server Configuration</h3>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr><th>Setting</th><th>Value</th></tr>
+            </thead>
+            <tbody id="config-body">
+                <tr><td colspan="2" style="color: var(--muted);">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Adapter Binaries -->
+<div class="card" id="adapters-section" style="margin-bottom: 1.5rem;">
+    <h3>Adapter Binaries</h3>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr><th>Adapter</th><th>Path</th></tr>
+            </thead>
+            <tbody id="adapters-body">
+                <tr><td colspan="2" style="color: var(--muted);">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Credentials -->
+<div class="card" id="credentials-section" style="margin-bottom: 1.5rem;">
+    <h3>Credential Status</h3>
+    <p style="color: var(--muted); margin-bottom: 0.75rem;">Checks whether environment variables are set (values are never exposed).</p>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr><th>Variable</th><th>Status</th></tr>
+            </thead>
+            <tbody id="credentials-body">
+                <tr><td colspan="2" style="color: var(--muted);">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Emergency Stop -->
+<div class="card" style="margin-bottom: 1.5rem; border: 1px solid var(--danger, #dc3545);">
+    <h3 style="color: var(--danger, #dc3545);">Emergency Stop</h3>
+    <p style="color: var(--muted); margin-bottom: 0.75rem;">Force-cancel all running pipelines. This cannot be undone.</p>
+    <button class="btn btn-danger" id="emergency-stop-btn" onclick="confirmEmergencyStop()">
+        Emergency Stop All Runs
+    </button>
+    <div id="emergency-result" style="margin-top: 0.75rem; display: none;"></div>
+</div>
+
+<script>
+(function() {
+    // Load config
+    fetch('/api/admin/config')
+        .then(r => r.json())
+        .then(cfg => {
+            const body = document.getElementById('config-body');
+            body.innerHTML = '';
+            const rows = [
+                ['Address', cfg.address],
+                ['Max Concurrency', cfg.max_concurrency],
+                ['Workspace Root', cfg.workspace_root],
+                ['Auth Mode', cfg.auth_mode],
+            ];
+            rows.forEach(function(row) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = '<td><strong>' + escHtml(row[0]) + '</strong></td><td><code>' + escHtml(String(row[1])) + '</code></td>';
+                body.appendChild(tr);
+            });
+
+            // Adapter binaries
+            const abody = document.getElementById('adapters-body');
+            abody.innerHTML = '';
+            Object.keys(cfg.adapter_binaries).sort().forEach(function(name) {
+                var path = cfg.adapter_binaries[name];
+                var found = path !== 'not found';
+                var tr = document.createElement('tr');
+                tr.innerHTML = '<td><strong>' + escHtml(name) + '</strong></td><td>' +
+                    (found
+                        ? '<span class="badge" style="background: var(--success); color: white;">found</span> <code>' + escHtml(path) + '</code>'
+                        : '<span class="badge" style="background: var(--muted); color: white;">not found</span>')
+                    + '</td>';
+                abody.appendChild(tr);
+            });
+        })
+        .catch(function() {
+            document.getElementById('config-body').innerHTML = '<tr><td colspan="2" style="color: var(--danger);">Failed to load config</td></tr>';
+        });
+
+    // Load credentials
+    fetch('/api/admin/credentials')
+        .then(r => r.json())
+        .then(creds => {
+            const body = document.getElementById('credentials-body');
+            body.innerHTML = '';
+            Object.keys(creds).sort().forEach(function(key) {
+                var present = creds[key];
+                var tr = document.createElement('tr');
+                tr.innerHTML = '<td><code>' + escHtml(key) + '</code></td><td>' +
+                    (present
+                        ? '<span class="badge" style="background: var(--success); color: white;">Set</span>'
+                        : '<span class="badge" style="background: var(--danger, #dc3545); color: white;">Not set</span>')
+                    + '</td>';
+                body.appendChild(tr);
+            });
+        })
+        .catch(function() {
+            document.getElementById('credentials-body').innerHTML = '<tr><td colspan="2" style="color: var(--danger);">Failed to load credentials</td></tr>';
+        });
+})();
+
+function escHtml(s) {
+    var d = document.createElement('div');
+    d.appendChild(document.createTextNode(s));
+    return d.innerHTML;
+}
+
+function confirmEmergencyStop() {
+    if (!confirm('Are you sure you want to force-cancel ALL running pipelines?')) return;
+    var btn = document.getElementById('emergency-stop-btn');
+    btn.disabled = true;
+    btn.textContent = 'Stopping...';
+
+    fetch('/api/admin/emergency-stop', {method: 'POST'})
+        .then(r => r.json())
+        .then(data => {
+            var el = document.getElementById('emergency-result');
+            el.style.display = 'block';
+            if (data.cancelled === 0) {
+                el.innerHTML = '<span style="color: var(--muted);">No running pipelines to cancel.</span>';
+            } else {
+                el.innerHTML = '<span style="color: var(--success);">Cancelled ' + data.cancelled + ' run(s): ' +
+                    data.run_ids.map(function(id) { return '<code>' + escHtml(id) + '</code>'; }).join(', ') + '</span>';
+            }
+            btn.disabled = false;
+            btn.textContent = 'Emergency Stop All Runs';
+        })
+        .catch(function() {
+            var el = document.getElementById('emergency-result');
+            el.style.display = 'block';
+            el.innerHTML = '<span style="color: var(--danger);">Emergency stop failed. Check server logs.</span>';
+            btn.disabled = false;
+            btn.textContent = 'Emergency Stop All Runs';
+        });
+}
+</script>
+{{end}}

@@ -55,6 +55,16 @@ func TestForgeIntegration_PromptResolution(t *testing.T) {
 			},
 			expected: "Use tea pr create to make a Pull Request",
 		},
+		{
+			name: "Codeberg",
+			info: forge.ForgeInfo{
+				Type: forge.ForgeCodeberg, Host: "codeberg.org",
+				Owner: "user", Repo: "project",
+				CLITool: "tea", PipelinePrefix: "cb",
+				PRTerm: "Pull Request", PRCommand: "pulls",
+			},
+			expected: "Use tea pulls create to make a Pull Request",
+		},
 	}
 
 	template := "Use {{ forge.cli_tool }} {{ forge.pr_command }} create to make a {{ forge.pr_term }}"
@@ -83,6 +93,7 @@ func TestForgeIntegration_PersonaResolution(t *testing.T) {
 		{"GitLab", forge.Detect("https://gitlab.com/o/r.git"), "gl-commenter"},
 		{"Bitbucket", forge.Detect("https://bitbucket.org/o/r.git"), "bb-commenter"},
 		{"Gitea", forge.Detect("https://gitea.example.com/o/r.git"), "gt-commenter"},
+		{"Codeberg", forge.Detect("https://codeberg.org/o/r.git"), "cb-commenter"},
 	}
 
 	for _, tt := range tests {
@@ -125,6 +136,11 @@ func TestForgeIntegration_ContractCommandResolution(t *testing.T) {
 			info:     forge.Detect("https://gitea.example.com/o/r.git"),
 			expected: "tea pr list --json state",
 		},
+		{
+			name:     "Codeberg",
+			info:     forge.Detect("https://codeberg.org/o/r.git"),
+			expected: "tea pulls list --json state",
+		},
 	}
 
 	template := "{{ forge.cli_tool }} {{ forge.pr_command }} list --json state"
@@ -153,6 +169,7 @@ func TestForgeIntegration_SourcePathResolution(t *testing.T) {
 		{"GitLab", forge.Detect("https://gitlab.com/o/r.git"), ".wave/prompts/gl/create-pr.md"},
 		{"Bitbucket", forge.Detect("https://bitbucket.org/o/r.git"), ".wave/prompts/bb/create-pr.md"},
 		{"Gitea", forge.Detect("https://gitea.example.com/o/r.git"), ".wave/prompts/gt/create-pr.md"},
+		{"Codeberg", forge.Detect("https://codeberg.org/o/r.git"), ".wave/prompts/cb/create-pr.md"},
 	}
 
 	template := ".wave/prompts/{{ forge.prefix }}/create-pr.md"
@@ -207,6 +224,13 @@ func TestForgeIntegration_FullExecutorFlow(t *testing.T) {
 			wantPR:   "gitea-committer",
 			wantType: "gitea",
 		},
+		{
+			name:     "Codeberg",
+			info:     forge.ForgeInfo{Type: forge.ForgeCodeberg, Host: "codeberg.org", Owner: "org", Repo: "repo", CLITool: "tea", PipelinePrefix: "cb", PRTerm: "Pull Request", PRCommand: "pulls"},
+			wantCLI:  "tea pulls create",
+			wantPR:   "codeberg-committer",
+			wantType: "codeberg",
+		},
 	}
 
 	for _, tt := range tests {
@@ -227,5 +251,45 @@ func TestForgeIntegration_FullExecutorFlow(t *testing.T) {
 				t.Errorf("persona = %q, want %q", persona, tt.wantPR)
 			}
 		})
+	}
+}
+
+// TestForgeIntegration_LocalForge verifies that ForgeLocal resolves template
+// variables gracefully — empty CLI tool and PR commands, "local" for type/prefix.
+func TestForgeIntegration_LocalForge(t *testing.T) {
+	ctx := NewPipelineContext("test", "wave-validate", "lint-step")
+	info := forge.ForgeInfo{
+		Type:           forge.ForgeLocal,
+		PipelinePrefix: "local",
+	}
+	InjectForgeVariables(ctx, info)
+
+	// forge.type resolves to "local"
+	result := ctx.ResolvePlaceholders("{{ forge.type }}")
+	if result != "local" {
+		t.Errorf("forge.type = %q, want %q", result, "local")
+	}
+
+	// forge.cli_tool resolves to empty — no forge CLI available
+	result = ctx.ResolvePlaceholders("{{ forge.cli_tool }}")
+	if result != "" {
+		t.Errorf("forge.cli_tool = %q, want empty", result)
+	}
+
+	// forge.pr_term resolves to empty — no PR concept in local mode
+	result = ctx.ResolvePlaceholders("{{ forge.pr_term }}")
+	if result != "" {
+		t.Errorf("forge.pr_term = %q, want empty", result)
+	}
+
+	// Template with forge vars should not have unresolved placeholders
+	template := "type={{ forge.type }} cli={{ forge.cli_tool }} prefix={{ forge.prefix }}"
+	result = ctx.ResolvePlaceholders(template)
+	if strings.Contains(result, "{{") {
+		t.Errorf("unresolved placeholders in result: %q", result)
+	}
+	expected := "type=local cli= prefix=local"
+	if result != expected {
+		t.Errorf("got %q, want %q", result, expected)
 	}
 }
