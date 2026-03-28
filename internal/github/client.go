@@ -335,6 +335,24 @@ func (c *Client) ListPullRequests(ctx context.Context, owner, repo string, opts 
 	return prs, nil
 }
 
+// GetCommitCheckRuns retrieves check runs for a specific commit reference.
+func (c *Client) GetCommitCheckRuns(ctx context.Context, owner, repo, ref string) (*CheckRunsResponse, error) {
+	path := fmt.Sprintf("/repos/%s/%s/commits/%s/check-runs?per_page=100", owner, repo, ref)
+
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var result CheckRunsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode check runs: %w", err)
+	}
+
+	return &result, nil
+}
+
 // GetRepository retrieves repository information
 func (c *Client) GetRepository(ctx context.Context, owner, repo string) (*Repository, error) {
 	path := fmt.Sprintf("/repos/%s/%s", owner, repo)

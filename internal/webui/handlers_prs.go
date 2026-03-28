@@ -87,6 +87,22 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Fetch status checks for the PR head commit
+	var checks []PRCheck
+	if pr.HeadSHA != "" {
+		forgeChecks, err := s.forgeClient.GetCommitChecks(ctx, owner, repo, pr.HeadSHA)
+		if err == nil {
+			for _, c := range forgeChecks {
+				checks = append(checks, PRCheck{
+					Name:       c.Name,
+					Status:     c.Status,
+					Conclusion: c.Conclusion,
+					URL:        c.HTMLURL,
+				})
+			}
+		}
+	}
+
 	data := struct {
 		ActivePage string
 		PR         PRDetail
@@ -112,6 +128,7 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:    pr.CreatedAt.Format("2006-01-02 15:04"),
 			UpdatedAt:    pr.UpdatedAt.Format("2006-01-02 15:04"),
 			URL:          pr.HTMLURL,
+			Checks:       checks,
 		},
 		Runs: relatedRuns,
 	}

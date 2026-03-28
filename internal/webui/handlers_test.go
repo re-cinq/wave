@@ -27,6 +27,7 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 		"formatTime":     formatTime,
 		"add":            func(a, b int) int { return a + b },
 		"subtract":       func(a, b int) int { return a - b },
+		"hasPrefix":      strings.HasPrefix,
 	}
 	pages := map[string]string{
 		"templates/runs.html":       `<html><body><nav>{{if eq .ActivePage "runs"}}<a class="nav-link-active">Runs</a>{{end}}</nav>{{range .Runs}}<div>{{.RunID}}</div>{{end}}</body></html>`,
