@@ -55,6 +55,9 @@ func parseTemplates() (map[string]*template.Template, error) {
 		"formatTokens":   formatTokensFunc,
 		"contains":       strings.Contains,
 		"hasPrefix":      strings.HasPrefix,
+		"checkClass":     checkClass,
+		"checkIcon":      checkIcon,
+		"checkLabel":     checkLabel,
 		"add":            func(a, b int) int { return a + b },
 		"subtract":       func(a, b int) int { return a - b },
 		"pluralize": func(n int, singular, plural string) string {
@@ -159,6 +162,72 @@ func statusClass(status string) string {
 		return "status-hook-failed"
 	default:
 		return "status-unknown"
+	}
+}
+
+// checkClass returns a CSS class name for a CI check status/conclusion.
+func checkClass(status, conclusion string) string {
+	if status != "completed" {
+		return "status-running"
+	}
+	switch conclusion {
+	case "success":
+		return "status-completed"
+	case "failure", "timed_out", "action_required":
+		return "status-failed"
+	case "cancelled":
+		return "status-cancelled"
+	case "skipped", "neutral":
+		return "status-pending"
+	default:
+		return "status-unknown"
+	}
+}
+
+// checkIcon returns an HTML entity for a CI check status/conclusion.
+func checkIcon(status, conclusion string) string {
+	if status != "completed" {
+		return "&#9679;"
+	}
+	switch conclusion {
+	case "success":
+		return "&#10003;"
+	case "failure", "timed_out", "action_required":
+		return "&#10007;"
+	case "skipped", "neutral":
+		return "&#8212;"
+	case "cancelled":
+		return "&#10007;"
+	default:
+		return "?"
+	}
+}
+
+// checkLabel returns a human-readable label for a CI check status/conclusion.
+func checkLabel(status, conclusion string) string {
+	if status != "completed" {
+		if status == "in_progress" {
+			return "In Progress"
+		}
+		return "Queued"
+	}
+	switch conclusion {
+	case "success":
+		return "Passed"
+	case "failure":
+		return "Failed"
+	case "cancelled":
+		return "Cancelled"
+	case "skipped":
+		return "Skipped"
+	case "neutral":
+		return "Neutral"
+	case "timed_out":
+		return "Timed Out"
+	case "action_required":
+		return "Action Required"
+	default:
+		return conclusion
 	}
 }
 
