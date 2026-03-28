@@ -232,6 +232,14 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .badge-draft { background: var(--color-bg-tertiary); color: var(--color-text-muted); }
 
 /* Failure classification badges */
+.badge-failure-transient { background: rgba(234, 179, 8, 0.15); color: #eab308; }
+.badge-failure-deterministic { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.badge-failure-contract_failure { background: rgba(249, 115, 22, 0.15); color: #f97316; }
+.badge-failure-test_failure { background: rgba(168, 85, 247, 0.15); color: #a855f7; }
+.badge-failure-budget_exhausted { background: rgba(107, 114, 128, 0.15); color: #6b7280; }
+.badge-failure-canceled { background: rgba(107, 114, 128, 0.15); color: #6b7280; }
+
+/* Failure classification badges */
 .badge-failure { font-size: 0.7rem; padding: 0.1rem 0.5rem; border-radius: 2em; font-weight: 600; letter-spacing: 0.02em; vertical-align: middle; }
 .badge-failure-transient { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
 .badge-failure-deterministic { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
