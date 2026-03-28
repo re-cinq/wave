@@ -184,20 +184,20 @@ func checkClass(status, conclusion string) string {
 	}
 }
 
-// checkIcon returns an HTML entity for a CI check status/conclusion.
+// checkIcon returns a Unicode icon for a CI check status/conclusion.
 func checkIcon(status, conclusion string) string {
 	if status != "completed" {
-		return "&#9679;"
+		return "●"
 	}
 	switch conclusion {
 	case "success":
-		return "&#10003;"
+		return "✓"
 	case "failure", "timed_out", "action_required":
-		return "&#10007;"
+		return "✕"
 	case "skipped", "neutral":
-		return "&#8212;"
+		return "—"
 	case "cancelled":
-		return "&#10007;"
+		return "✕"
 	default:
 		return "?"
 	}
