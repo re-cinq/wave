@@ -55,6 +55,7 @@ type StepDetail struct {
 	Duration           string            `json:"duration,omitempty"`
 	TokensUsed         int               `json:"tokens_used"`
 	Error              string            `json:"error,omitempty"`
+	FailureClass       string            `json:"failure_class,omitempty"`
 	Artifacts          []ArtifactSummary `json:"artifacts,omitempty"`
 	StepType           string            `json:"step_type,omitempty"`    // "conditional", "command", "gate", "pipeline", or ""
 	Script             string            `json:"script,omitempty"`       // Shell script for command steps
@@ -462,5 +463,46 @@ type SubmitRunResponse struct {
 	PipelineName string    `json:"pipeline_name"`
 	Status       string    `json:"status"`
 	StartedAt    time.Time `json:"started_at"`
+}
+
+// ForkRunRequest is the request body for forking a run from a specific step.
+type ForkRunRequest struct {
+	FromStep string `json:"from_step"`
+}
+
+// ForkRunResponse is the JSON response after forking a run.
+type ForkRunResponse struct {
+	RunID        string    `json:"run_id"`
+	SourceRunID  string    `json:"source_run_id"`
+	FromStep     string    `json:"from_step"`
+	PipelineName string    `json:"pipeline_name"`
+	Status       string    `json:"status"`
+	StartedAt    time.Time `json:"started_at"`
+}
+
+// RewindRunRequest is the request body for rewinding a run to a specific step.
+type RewindRunRequest struct {
+	ToStep string `json:"to_step"`
+}
+
+// RewindRunResponse is the JSON response after rewinding a run.
+type RewindRunResponse struct {
+	RunID        string   `json:"run_id"`
+	ToStep       string   `json:"to_step"`
+	StepsDeleted []string `json:"steps_deleted"`
+	Status       string   `json:"status"`
+}
+
+// ForkPointResponse represents an available fork point returned by the API.
+type ForkPointResponse struct {
+	StepID    string `json:"step_id"`
+	StepIndex int    `json:"step_index"`
+	HasSHA    bool   `json:"has_sha"`
+}
+
+// ForkPointsResponse is the JSON response for listing fork points.
+type ForkPointsResponse struct {
+	RunID      string              `json:"run_id"`
+	ForkPoints []ForkPointResponse `json:"fork_points"`
 }
 

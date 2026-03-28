@@ -19,33 +19,37 @@
 
 {{if .Contexts}}
 <h2>Bounded Contexts</h2>
-<div class="personas-grid">
+<div style="display: flex; flex-direction: column; gap: 1rem;">
     {{range .Contexts}}
-    <div class="card">
-        <h3>{{.Name}}</h3>
-        {{if .Description}}
-        <p style="color: var(--text-secondary);">{{.Description}}</p>
-        {{end}}
-        <div class="persona-meta">
-            <span class="badge">{{.InvariantCount}} {{if eq .InvariantCount 1}}invariant{{else}}invariants{{end}}</span>
-            {{if .HasSkill}}
-            <span class="badge badge-ok">skill provisioned</span>
-            <span class="badge" title="Last updated">{{.LastUpdatedAgo}}</span>
-            {{else}}
-            <span class="badge badge-warn">no skill</span>
-            {{end}}
-            {{if .HasLineage}}
-            <span class="badge" title="Pipeline runs using this context">{{.TotalRuns}} {{if eq .TotalRuns 1}}run{{else}}runs{{end}}</span>
-            <span class="badge {{if ge .SuccessRate 80.0}}badge-ok{{else if ge .SuccessRate 50.0}}badge-warn{{else}}badge-error{{end}}" title="Success rate">{{printf "%.0f" .SuccessRate}}%</span>
-            {{if .LastUsedAgo}}<span class="badge" title="Last used">used {{.LastUsedAgo}}</span>{{end}}
-            {{end}}
+    <div class="card" style="width: 100%;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+                <h3 style="margin: 0 0 0.25rem 0;">{{.Name}}</h3>
+                {{if .Description}}
+                <p style="color: var(--text-secondary); margin: 0;">{{.Description}}</p>
+                {{end}}
+            </div>
+            <div class="persona-meta" style="flex-shrink: 0;">
+                <span class="badge">{{.InvariantCount}} {{if eq .InvariantCount 1}}invariant{{else}}invariants{{end}}</span>
+                {{if .HasSkill}}
+                <span class="badge badge-ok">skill provisioned</span>
+                <span class="badge" title="Last updated">{{.LastUpdatedAgo}}</span>
+                {{else}}
+                <span class="badge badge-warn">no skill</span>
+                {{end}}
+                {{if .HasLineage}}
+                <span class="badge" title="Pipeline runs using this context">{{.TotalRuns}} {{if eq .TotalRuns 1}}run{{else}}runs{{end}}</span>
+                <span class="badge {{if ge .SuccessRate 80.0}}badge-ok{{else if ge .SuccessRate 50.0}}badge-warn{{else}}badge-error{{end}}" title="Success rate">{{printf "%.0f" .SuccessRate}}%</span>
+                {{if .LastUsedAgo}}<span class="badge" title="Last used">used {{.LastUsedAgo}}</span>{{end}}
+                {{end}}
+            </div>
         </div>
         {{if .Invariants}}
-        <div style="margin-top: 0.75rem;">
-            <strong style="font-size: 0.85rem;">Invariants:</strong>
-            <ul style="margin: 0.25rem 0; padding-left: 1.25rem; font-size: 0.85rem; color: var(--text-secondary);">
+        <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+            <strong style="font-size: 0.9rem;">Invariants:</strong>
+            <ul style="margin: 0.5rem 0 0; padding-left: 1.5rem; font-size: 0.9rem; line-height: 1.6; color: var(--text-secondary);">
                 {{range .Invariants}}
-                <li>{{.}}</li>
+                <li style="margin-bottom: 0.25rem;">{{.}}</li>
                 {{end}}
             </ul>
         </div>
