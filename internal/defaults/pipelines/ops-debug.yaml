@@ -11,6 +11,17 @@ input:
   source: cli
   example: "TestPipelineExecutor fails with nil pointer on resume"
 
+chat_context:
+  artifact_summaries:
+    - reproduction
+    - hypotheses
+    - findings
+    - fix
+  suggested_questions:
+    - "What was the root cause of the failure?"
+    - "Could the same pattern cause issues elsewhere in the codebase?"
+    - "Is the regression test sufficient to prevent recurrence?"
+
 steps:
   - id: reproduce
     persona: debugger

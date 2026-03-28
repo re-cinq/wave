@@ -11,6 +11,16 @@ input:
   source: cli
   example: "generate tests for internal/pipeline to improve coverage"
 
+chat_context:
+  artifact_summaries:
+    - coverage
+    - tests
+    - verification
+  suggested_questions:
+    - "Which functions still have low coverage?"
+    - "Are there edge cases the generated tests don't cover?"
+    - "Should we add benchmarks for any hot paths?"
+
 steps:
   - id: analyze-coverage
     persona: navigator

@@ -14,6 +14,7 @@ input:
 steps:
   - id: scan
     persona: navigator
+    contexts: [security]
     model: claude-haiku
     workspace:
       mount:
@@ -75,6 +76,7 @@ steps:
 
   - id: deep-dive
     persona: auditor
+    contexts: [security]
     dependencies: [scan]
     memory:
       inject_artifacts:
@@ -124,6 +126,7 @@ steps:
 
   - id: report
     persona: summarizer
+    contexts: [security]
     dependencies: [deep-dive]
     memory:
       inject_artifacts:
