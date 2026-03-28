@@ -130,6 +130,29 @@ func TestGateRegistry_GetPendingStepID(t *testing.T) {
 	}
 }
 
+func TestHandleGateApprove_MissingCSRFHeader(t *testing.T) {
+	srv, _ := testServer(t)
+
+	gate := &pipeline.GateConfig{
+		Type:    "approval",
+		Choices: []pipeline.GateChoice{{Key: "a", Label: "Approve"}},
+	}
+	srv.gateRegistry.Register("run-123", "review", gate)
+
+	body, _ := json.Marshal(GateApproveRequest{Choice: "a"})
+	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/review/approve", bytes.NewReader(body))
+	req.SetPathValue("id", "run-123")
+	req.SetPathValue("step", "review")
+	// Deliberately omit X-Wave-Request header
+	rec := httptest.NewRecorder()
+
+	srv.handleGateApprove(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 without CSRF header, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestHandleGateApprove_Success(t *testing.T) {
 	srv, _ := testServer(t)
 
@@ -144,6 +167,7 @@ func TestHandleGateApprove_Success(t *testing.T) {
 
 	body, _ := json.Marshal(GateApproveRequest{Choice: "a"})
 	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/review/approve", bytes.NewReader(body))
+	req.Header.Set("X-Wave-Request", "1")
 	req.SetPathValue("id", "run-123")
 	req.SetPathValue("step", "review")
 	rec := httptest.NewRecorder()
@@ -181,6 +205,7 @@ func TestHandleGateApprove_NotFound(t *testing.T) {
 
 	body, _ := json.Marshal(GateApproveRequest{Choice: "a"})
 	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/review/approve", bytes.NewReader(body))
+	req.Header.Set("X-Wave-Request", "1")
 	req.SetPathValue("id", "run-123")
 	req.SetPathValue("step", "review")
 	rec := httptest.NewRecorder()
@@ -198,6 +223,7 @@ func TestHandleGateApprove_NoGateRegistry(t *testing.T) {
 
 	body, _ := json.Marshal(GateApproveRequest{Choice: "a"})
 	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/review/approve", bytes.NewReader(body))
+	req.Header.Set("X-Wave-Request", "1")
 	req.SetPathValue("id", "run-123")
 	req.SetPathValue("step", "review")
 	rec := httptest.NewRecorder()
@@ -220,6 +246,7 @@ func TestHandleGateApprove_StepMismatch(t *testing.T) {
 
 	body, _ := json.Marshal(GateApproveRequest{Choice: "a"})
 	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/wrong-step/approve", bytes.NewReader(body))
+	req.Header.Set("X-Wave-Request", "1")
 	req.SetPathValue("id", "run-123")
 	req.SetPathValue("step", "wrong-step")
 	rec := httptest.NewRecorder()
@@ -242,6 +269,7 @@ func TestHandleGateApprove_InvalidChoice(t *testing.T) {
 
 	body, _ := json.Marshal(GateApproveRequest{Choice: "z"})
 	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/review/approve", bytes.NewReader(body))
+	req.Header.Set("X-Wave-Request", "1")
 	req.SetPathValue("id", "run-123")
 	req.SetPathValue("step", "review")
 	rec := httptest.NewRecorder()
@@ -258,6 +286,7 @@ func TestHandleGateApprove_MissingChoice(t *testing.T) {
 
 	body, _ := json.Marshal(GateApproveRequest{})
 	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/review/approve", bytes.NewReader(body))
+	req.Header.Set("X-Wave-Request", "1")
 	req.SetPathValue("id", "run-123")
 	req.SetPathValue("step", "review")
 	rec := httptest.NewRecorder()

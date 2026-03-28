@@ -399,22 +399,23 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Detect circuit breaker condition: same failure class repeated 3+ times across attempts
+	// Detect circuit breaker condition: same failure class repeated 3+ times across attempts.
+	// Only count from attempt records to avoid double-counting (step-level FailureClass
+	// is derived from the last attempt and would be counted twice otherwise).
 	var circuitBreakerTripped bool
 	var circuitBreakerClass string
 	if run.Status == "failed" {
 		classCounts := make(map[string]int)
 		for _, sd := range stepDetails {
-			if sd.FailureClass != "" {
-				classCounts[sd.FailureClass]++
-			}
 			if sd.State == "failed" {
 				attempts, attErr := s.store.GetStepAttempts(runID, sd.StepID)
-				if attErr == nil {
-					for _, a := range attempts {
-						if a.FailureClass != "" {
-							classCounts[a.FailureClass]++
-						}
+				if attErr != nil {
+					log.Printf("[webui] circuit breaker: failed to get attempts for run %s step %s: %v", runID, sd.StepID, attErr)
+					continue
+				}
+				for _, a := range attempts {
+					if a.FailureClass != "" {
+						classCounts[a.FailureClass]++
 					}
 				}
 			}
