@@ -28,7 +28,28 @@
             {{if eq .StepType "gate"}}
             <div class="step-type-detail step-type-gate-detail">
                 {{if .GatePrompt}}<div class="step-gate-prompt">{{.GatePrompt}}</div>{{end}}
-                {{if .GateChoices}}<div class="step-gate-choices"><strong>Choices:</strong> {{.GateChoices}}</div>{{end}}
+                {{if and (eq .State "running") .GateChoicesData}}
+                <div class="gate-interaction-panel" id="gate-panel-{{.StepID}}" data-run-id="{{.RunID}}" data-step-id="{{.StepID}}">
+                    <div class="gate-choices-row">
+                        {{range .GateChoicesData}}
+                        <button class="gate-choice-btn" data-choice-key="{{.Key}}" data-choice-target="{{.Target}}" onclick="selectGateChoice(this)" title="Shortcut: {{.Key}}{{if .Target}} &rarr; {{.Target}}{{end}}">
+                            <span class="gate-choice-key">{{.Key}}</span> {{.Label}}
+                        </button>
+                        {{end}}
+                    </div>
+                    {{if .GateFreeform}}
+                    <div class="gate-freeform">
+                        <textarea class="gate-freeform-input" id="gate-text-{{.StepID}}" placeholder="Additional comments (optional)..." rows="3"></textarea>
+                    </div>
+                    {{end}}
+                    <div class="gate-submit-row">
+                        <button class="btn btn-primary gate-submit-btn" id="gate-submit-{{.StepID}}" onclick="submitGateDecision('{{.RunID}}', '{{.StepID}}', this)" disabled>Submit Decision</button>
+                        <span class="gate-selected-label" id="gate-selected-{{.StepID}}"></span>
+                    </div>
+                </div>
+                {{else if .GateChoices}}
+                <div class="step-gate-choices"><strong>Choices:</strong> {{.GateChoices}}</div>
+                {{end}}
             </div>
             {{end}}
             {{if eq .StepType "command"}}

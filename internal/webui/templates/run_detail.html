@@ -3,7 +3,7 @@
 <div class="page-header">
     <div>
         <a href="/runs" class="back-link" aria-label="Back to runs list">&larr; Back to Runs</a>
-        <h1><a href="/pipelines/{{.Run.PipelineName}}">{{.Run.PipelineName}}</a> <span class="badge {{statusClass .Run.Status}}">{{.Run.Status}}</span></h1>
+        <h1><a href="/pipelines/{{.Run.PipelineName}}">{{.Run.PipelineName}}</a> <span class="badge {{statusClass .Run.Status}}">{{.Run.Status}}</span>{{if .CircuitBreakerTripped}} <span class="badge badge-circuit-breaker" title="Circuit breaker tripped: repeated {{.CircuitBreakerClass}} failures">circuit breaker</span>{{end}}</h1>
         {{if .PipelineDescription}}<p class="persona-desc">{{.PipelineDescription}}</p>{{end}}
         <p class="run-meta">Run ID: <code>{{.Run.RunID}}</code>{{if .Run.BranchName}} | Branch: <code>{{.Run.BranchName}}</code>{{end}}{{if .Run.Tags}} | Tags: {{range $i, $t := .Run.Tags}}{{if $i}}, {{end}}<code>{{$t}}</code>{{end}}{{end}}</p>
     </div>
@@ -77,6 +77,12 @@
             {{end}}
         </div>
     </div>
+</div>
+{{end}}
+
+{{if .CircuitBreakerTripped}}
+<div class="alert alert-circuit-breaker">
+    <strong>Circuit breaker tripped:</strong> same failure repeated 3+ times (class: <code>{{.CircuitBreakerClass}}</code>). The pipeline was halted to avoid wasting resources on a recurring failure.
 </div>
 {{end}}
 
@@ -382,11 +388,36 @@ function toggleArtifact(link) {
             var isMarkdown = meta.mime_type === 'text/markdown' ||
                              meta.mime_type === 'text/x-markdown' ||
                              (meta.name && /\.md$/i.test(meta.name));
+
+            // Detect language from file extension for syntax highlighting
+            var langClass = '';
+            if (!isMarkdown && meta.name) {
+                var extMap = {
+                    '.go': 'go', '.json': 'json', '.yaml': 'yaml', '.yml': 'yaml',
+                    '.js': 'javascript', '.ts': 'typescript', '.py': 'python',
+                    '.sh': 'bash', '.bash': 'bash', '.zsh': 'bash',
+                    '.rb': 'ruby', '.rs': 'rust', '.java': 'java',
+                    '.html': 'xml', '.xml': 'xml', '.css': 'css',
+                    '.sql': 'sql', '.toml': 'toml', '.tf': 'hcl',
+                    '.dockerfile': 'dockerfile', '.c': 'c', '.cpp': 'cpp',
+                    '.h': 'c', '.hpp': 'cpp', '.swift': 'swift', '.kt': 'kotlin',
+                    '.lua': 'lua', '.r': 'r', '.scala': 'scala', '.zig': 'zig',
+                    '.nix': 'nix', '.proto': 'protobuf', '.graphql': 'graphql'
+                };
+                var dotIdx = meta.name.lastIndexOf('.');
+                if (dotIdx >= 0) {
+                    var ext = meta.name.substring(dotIdx).toLowerCase();
+                    if (extMap[ext]) langClass = ' language-' + extMap[ext];
+                }
+                // Also detect Dockerfile by name
+                if (!langClass && /^Dockerfile/i.test(meta.name)) langClass = ' language-dockerfile';
+            }
+
             var contentHtml;
             if (isMarkdown && typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
                 contentHtml = '<div class="markdown-body artifact-markdown">' + DOMPurify.sanitize(marked.parse(data.content || '')) + '</div>';
             } else {
-                contentHtml = '<pre class="artifact-content"><code>' + formatArtifactContent(data.content) + '</code></pre>';
+                contentHtml = '<pre class="artifact-content"><code class="hljs' + langClass + '">' + formatArtifactContent(data.content) + '</code></pre>';
             }
             var html =
                 '<div class="artifact-viewer">' +
@@ -401,19 +432,14 @@ function toggleArtifact(link) {
                   contentHtml +
                 '</div>';
 
-
-
-
-
-
-
-
-
-
-
-
-
             container.innerHTML = html;
+            // Apply syntax highlighting for non-markdown artifacts
+            if (!isMarkdown && typeof hljs !== 'undefined') {
+                var codeEl = container.querySelector('code[class*="language-"]');
+                if (codeEl) {
+                    hljs.highlightElement(codeEl);
+                }
+            }
         })
         .catch(function(err) {
             container.innerHTML = '<div class="step-error">Failed to load artifact: ' + escapeHTML(String(err)) + '</div>';

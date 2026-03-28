@@ -129,10 +129,26 @@ func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Fetch last 10 comments
+	var comments []CommentSummary
+	forgeComments, err := s.forgeClient.ListIssueComments(ctx, owner, repo, number, 10)
+	if err == nil {
+		for _, c := range forgeComments {
+			comments = append(comments, CommentSummary{
+				Author:    c.Author,
+				Body:      c.Body,
+				CreatedAt: c.CreatedAt.Format("2006-01-02 15:04"),
+				TimeISO:   c.CreatedAt.Format("2006-01-02T15:04:05Z"),
+				HTMLURL:   c.HTMLURL,
+			})
+		}
+	}
+
 	data := struct {
 		ActivePage string
 		Issue      IssueDetail
 		Runs       []RunSummary
+		Comments   []CommentSummary
 	}{
 		ActivePage: "issues",
 		Issue: IssueDetail{
@@ -148,7 +164,8 @@ func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt: issue.UpdatedAt.Format("2006-01-02 15:04"),
 			URL:       issue.HTMLURL,
 		},
-		Runs: relatedRuns,
+		Runs:     relatedRuns,
+		Comments: comments,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

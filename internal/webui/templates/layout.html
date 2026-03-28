@@ -6,8 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{block "title" .}}Dashboard · Wave{{end}}</title>
     <link rel="stylesheet" href="/static/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.7/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.5/dist/purify.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/styles/github-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
 </head>
 <body>
     <nav class="navbar" role="navigation" aria-label="Main navigation">
@@ -33,6 +35,55 @@
         {{block "content" .}}{{end}}
     </main>
     <div id="toast-container" class="toast-container"></div>
+    <dialog id="keyboard-shortcuts-dialog" class="resume-dialog" aria-labelledby="kb-shortcuts-title">
+        <h3 id="kb-shortcuts-title">Keyboard Shortcuts</h3>
+        <table class="kb-shortcuts-table">
+            <thead><tr><th>Key</th><th>Action</th></tr></thead>
+            <tbody>
+                <tr><td><kbd>?</kbd></td><td>Show this help</td></tr>
+                <tr><td><kbd>Escape</kbd></td><td>Close dialog</td></tr>
+                <tr><td><kbd>g</kbd> then <kbd>r</kbd></td><td>Go to Runs</td></tr>
+                <tr><td><kbd>g</kbd> then <kbd>p</kbd></td><td>Go to Pipelines</td></tr>
+                <tr><td><kbd>g</kbd> then <kbd>h</kbd></td><td>Go to Health</td></tr>
+                <tr><td><kbd>t</kbd></td><td>Toggle theme</td></tr>
+            </tbody>
+        </table>
+        <div class="dialog-actions">
+            <button class="btn" onclick="document.getElementById('keyboard-shortcuts-dialog').close()">Close</button>
+        </div>
+    </dialog>
+    <script>
+    (function() {
+        var gPending = false;
+        document.addEventListener('keydown', function(e) {
+            var tag = (e.target.tagName || '').toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) {
+                gPending = false;
+                return;
+            }
+            var dialog = document.getElementById('keyboard-shortcuts-dialog');
+            if (e.key === 'Escape' && dialog && dialog.open) {
+                dialog.close();
+                gPending = false;
+                return;
+            }
+            if (gPending) {
+                gPending = false;
+                if (e.key === 'r') { e.preventDefault(); window.location.href = '/runs'; return; }
+                if (e.key === 'p') { e.preventDefault(); window.location.href = '/pipelines'; return; }
+                if (e.key === 'h') { e.preventDefault(); window.location.href = '/health'; return; }
+                return;
+            }
+            if (e.key === '?') {
+                e.preventDefault();
+                if (dialog) { if (dialog.open) dialog.close(); else dialog.showModal(); }
+                return;
+            }
+            if (e.key === 'g') { gPending = true; setTimeout(function() { gPending = false; }, 1000); return; }
+            if (e.key === 't') { e.preventDefault(); toggleTheme(); return; }
+        });
+    })();
+    </script>
     <script src="/static/app.js"></script>
     {{block "scripts" .}}{{end}}
 </body>

@@ -188,15 +188,17 @@ async function retryRun(runID, btn) {
     }
 }
 
-// Filter runs by status, pipeline, and date
+// Filter runs by status, pipeline, date, and search text
 function filterRuns() {
     var params = new URLSearchParams();
     var status = document.getElementById('status-filter');
     var pipeline = document.getElementById('pipeline-filter');
     var since = document.getElementById('since-filter');
+    var search = document.getElementById('search-filter');
     if (status && status.value) params.set('status', status.value);
     if (pipeline && pipeline.value) params.set('pipeline', pipeline.value);
     if (since && since.value) params.set('since', since.value);
+    if (search && search.value.trim()) params.set('search', search.value.trim());
     window.location.search = params.toString();
 }
 
@@ -481,4 +483,113 @@ function toggleNav() {
         setInterval(updateTimers, 1000);
         updateTimers();
     }
+})();
+
+// --- Gate Interaction ---
+
+// Track the currently selected gate choice per panel
+var gateSelections = {};
+
+function selectGateChoice(btn) {
+    var panel = btn.closest('.gate-interaction-panel');
+    if (!panel) return;
+    var stepID = panel.dataset.stepId;
+    var key = btn.dataset.choiceKey;
+
+    // Deselect all buttons in this panel
+    var buttons = panel.querySelectorAll('.gate-choice-btn');
+    for (var i = 0; i < buttons.length; i++) {
+        buttons[i].classList.remove('gate-choice-selected');
+    }
+
+    // Select this button
+    btn.classList.add('gate-choice-selected');
+    gateSelections[stepID] = key;
+
+    // Enable submit button and show selected label
+    var submitBtn = document.getElementById('gate-submit-' + stepID);
+    if (submitBtn) submitBtn.disabled = false;
+    var selectedLabel = document.getElementById('gate-selected-' + stepID);
+    if (selectedLabel) selectedLabel.textContent = 'Selected: ' + btn.textContent.trim();
+}
+
+async function submitGateDecision(runID, stepID, btn) {
+    var key = gateSelections[stepID];
+    if (!key) {
+        showToast('Please select a choice first', 'error');
+        return;
+    }
+
+    // Check if the selected choice targets _fail (pipeline abort) and confirm
+    var panel = document.getElementById('gate-panel-' + stepID);
+    if (panel) {
+        var selectedBtn = panel.querySelector('.gate-choice-btn[data-choice-key="' + key + '"]');
+        if (selectedBtn && selectedBtn.dataset.choiceTarget === '_fail') {
+            if (!confirm('This choice will abort the pipeline. Are you sure?')) {
+                return;
+            }
+        }
+    }
+
+    // Disable immediately to prevent double-submit
+    btn.disabled = true;
+
+    var freeformInput = document.getElementById('gate-text-' + stepID);
+    var text = freeformInput ? freeformInput.value : '';
+
+    setButtonLoading(btn, true);
+    try {
+        await approveGate(runID, stepID, key, text);
+        showToast('Gate decision submitted', 'success', 3000);
+
+        // Clean up selection state
+        delete gateSelections[stepID];
+
+        // Disable the panel after submission
+        if (panel) {
+            panel.classList.add('gate-panel-submitted');
+            var buttons = panel.querySelectorAll('button, textarea');
+            for (var i = 0; i < buttons.length; i++) {
+                buttons[i].disabled = true;
+            }
+        }
+    } catch (err) {
+        // Re-enable submit button on failure so the user can retry
+        btn.disabled = false;
+    } finally {
+        setButtonLoading(btn, false);
+    }
+}
+
+async function approveGate(runID, stepID, choiceKey, freeformText) {
+    var body = { choice: choiceKey };
+    if (freeformText) {
+        body.text = freeformText;
+    }
+    return fetchJSON('/api/runs/' + encodeURIComponent(runID) + '/gates/' + encodeURIComponent(stepID) + '/approve', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-Wave-Request': '1'},
+        body: JSON.stringify(body)
+    });
+}
+
+// Gate keyboard shortcuts: when a gate panel is visible, pressing a choice key selects it
+(function() {
+    document.addEventListener('keydown', function(e) {
+        // Ignore if user is typing in an input/textarea (except gate freeform)
+        var tag = (e.target.tagName || '').toLowerCase();
+        if (tag === 'input' || (tag === 'textarea' && !e.target.classList.contains('gate-freeform-input'))) return;
+
+        var panels = document.querySelectorAll('.gate-interaction-panel:not(.gate-panel-submitted)');
+        for (var i = 0; i < panels.length; i++) {
+            var buttons = panels[i].querySelectorAll('.gate-choice-btn');
+            for (var j = 0; j < buttons.length; j++) {
+                if (buttons[j].dataset.choiceKey === e.key) {
+                    e.preventDefault();
+                    selectGateChoice(buttons[j]);
+                    return;
+                }
+            }
+        }
+    });
 })();

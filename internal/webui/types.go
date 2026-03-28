@@ -1,6 +1,10 @@
 package webui
 
-import "time"
+import (
+	"time"
+
+	"github.com/recinq/wave/internal/pipeline"
+)
 
 // RunListResponse is the JSON response for the run list API.
 type RunListResponse struct {
@@ -60,9 +64,11 @@ type StepDetail struct {
 	StepType           string            `json:"step_type,omitempty"`    // "conditional", "command", "gate", "pipeline", or ""
 	Script             string            `json:"script,omitempty"`       // Shell script for command steps
 	SubPipeline        string            `json:"sub_pipeline,omitempty"` // Referenced pipeline for pipeline steps
-	GatePrompt         string            `json:"gate_prompt,omitempty"`  // Gate prompt/message
-	GateChoices        string            `json:"gate_choices,omitempty"` // Comma-separated gate choice labels
-	EdgeInfo           string            `json:"edge_info,omitempty"`    // Edge conditions for conditional steps
+	GatePrompt         string                `json:"gate_prompt,omitempty"`       // Gate prompt/message
+	GateChoices        string                `json:"gate_choices,omitempty"`      // Comma-separated gate choice labels
+	GateChoicesData    []pipeline.GateChoice `json:"gate_choices_data,omitempty"` // Structured gate choice data for interactive UI
+	GateFreeform       bool                  `json:"gate_freeform,omitempty"`     // Whether freeform text input is allowed
+	EdgeInfo           string                `json:"edge_info,omitempty"`         // Edge conditions for conditional steps
 }
 
 // EventSummary holds summary information about a pipeline event.
@@ -305,6 +311,15 @@ type PRSummary struct {
 	ChangedFiles int    `json:"changed_files"`
 	CreatedAt    string `json:"created_at"`
 	URL          string `json:"url"`
+}
+
+// CommentSummary is a summary of a comment on an issue or PR.
+type CommentSummary struct {
+	Author    string `json:"author"`
+	Body      string `json:"body"`
+	CreatedAt string `json:"created_at"`
+	TimeISO   string `json:"time_iso"`
+	HTMLURL   string `json:"url"`
 }
 
 // PRCheck represents a CI/CD status check on a PR.
