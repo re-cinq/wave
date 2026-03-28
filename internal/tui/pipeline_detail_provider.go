@@ -54,10 +54,11 @@ type AvailableDetail struct {
 
 // StepResult is a single step's execution result.
 type StepResult struct {
-	ID       string
-	Status   string // "completed", "failed", "skipped", "pending"
-	Duration time.Duration
-	Persona  string
+	ID           string
+	Status       string // "completed", "failed", "skipped", "pending"
+	Duration     time.Duration
+	Persona      string
+	FailureClass string // e.g. "transient", "deterministic", "contract_failure", "test_failure", "budget_exhausted", "canceled"
 }
 
 // ArtifactInfo describes a produced artifact.
@@ -221,6 +222,16 @@ func (d *DefaultDetailDataProvider) FetchFinishedDetail(runID string) (*Finished
 			Status:   status,
 			Duration: time.Duration(m.DurationMs) * time.Millisecond,
 			Persona:  m.Persona,
+		}
+		// Look up failure class from step attempts for failed steps
+		if status == "failed" {
+			attempts, attErr := d.store.GetStepAttempts(runID, m.StepID)
+			if attErr == nil && len(attempts) > 0 {
+				lastAttempt := attempts[len(attempts)-1]
+				if lastAttempt.FailureClass != "" {
+					steps[i].FailureClass = lastAttempt.FailureClass
+				}
+			}
 		}
 	}
 

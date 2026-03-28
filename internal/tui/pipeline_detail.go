@@ -674,6 +674,8 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 
 	// Steps
 	if len(detail.Steps) > 0 {
+		orangeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("208"))
+		purpleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
 		sb.WriteString("\n")
 		sb.WriteString(sectionStyle.Render("Steps:"))
 		sb.WriteString("\n")
@@ -687,18 +689,35 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 			default:
 				iconStr = mutedStyle.Render("\u2014")
 			}
+			var failureTag string
+			if step.FailureClass != "" {
+				switch step.FailureClass {
+				case "transient":
+					failureTag = " " + yellowStyle.Render("["+step.FailureClass+"]")
+				case "deterministic":
+					failureTag = " " + redStyle.Render("["+step.FailureClass+"]")
+				case "contract_failure":
+					failureTag = " " + orangeStyle.Render("["+step.FailureClass+"]")
+				case "test_failure":
+					failureTag = " " + purpleStyle.Render("["+step.FailureClass+"]")
+				default:
+					failureTag = " " + mutedStyle.Render("["+step.FailureClass+"]")
+				}
+			}
 			if step.Persona != "" {
-				fmt.Fprintf(&sb, "  %s %-20s  %s  (%s)\n",
+				fmt.Fprintf(&sb, "  %s %-20s  %s  (%s)%s\n",
 					iconStr,
 					step.ID,
 					formatDuration(step.Duration),
 					step.Persona,
+					failureTag,
 				)
 			} else {
-				fmt.Fprintf(&sb, "  %s %-20s  %s\n",
+				fmt.Fprintf(&sb, "  %s %-20s  %s%s\n",
 					iconStr,
 					step.ID,
 					formatDuration(step.Duration),
+					failureTag,
 				)
 			}
 		}
