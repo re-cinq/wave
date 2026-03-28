@@ -35,6 +35,10 @@ func (u *UnsupportedClient) ListPullRequests(_ context.Context, _, _ string, _ L
 	return nil, fmt.Errorf("%w: %s", ErrNotSupported, u.forgeType)
 }
 
+func (u *UnsupportedClient) ListPullRequestCommits(_ context.Context, _, _ string, _ int) ([]*Commit, error) {
+	return nil, fmt.Errorf("%w: %s", ErrNotSupported, u.forgeType)
+}
+
 func (u *UnsupportedClient) GetCommitChecks(_ context.Context, _, _, _ string) ([]*CheckRun, error) {
 	return nil, fmt.Errorf("%w: %s", ErrNotSupported, u.forgeType)
 }

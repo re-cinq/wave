@@ -30,9 +30,13 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /prs/{number}", s.handlePRDetailPage)
 	mux.HandleFunc("GET /health", s.handleHealthPage)
 	mux.HandleFunc("GET /ontology", s.handleOntologyPage)
+	mux.HandleFunc("GET /retros", s.handleRetrosPage)
+	mux.HandleFunc("GET /compare", s.handleComparePage)
+	mux.HandleFunc("GET /analytics", s.handleAnalyticsPage)
 
 	// API endpoints (JSON)
 	mux.HandleFunc("GET /api/runs", s.handleAPIRuns)
+	mux.HandleFunc("GET /api/runs/export", s.handleExportRuns)
 	mux.HandleFunc("POST /api/runs", s.handleSubmitRun)
 	mux.HandleFunc("GET /api/pipelines", s.handleAPIPipelines)
 	mux.HandleFunc("GET /api/runs/{id}", s.handleAPIRunDetail)
@@ -62,6 +66,8 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/prs", s.handleAPIPRs)
 	mux.HandleFunc("GET /api/health", s.handleAPIHealth)
 	mux.HandleFunc("GET /api/ontology", s.handleAPIOntology)
+	mux.HandleFunc("GET /api/compare", s.handleAPICompare)
+	mux.HandleFunc("GET /api/analytics", s.handleAPIAnalytics)
 
 	// Retrospective API
 	mux.HandleFunc("GET /api/retros", s.handleAPIRetros)

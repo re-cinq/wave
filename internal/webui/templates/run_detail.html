@@ -25,6 +25,10 @@
         {{if .HasCheckpoints}}<button class="btn btn-fork" onclick="showForkDialog()" aria-label="Fork from a completed step">Fork</button>{{end}}
         <button class="btn btn-rewind" onclick="showRewindDialog()" aria-label="Rewind to a completed step">Rewind</button>
         {{end}}
+        <div class="compare-dropdown">
+            <button class="btn" onclick="toggleCompareDropdown()" aria-label="Compare with another run">Compare with...</button>
+            <div id="compare-dropdown-content" class="compare-dropdown-content" role="menu"></div>
+        </div>
     </div>
 </div>
 
@@ -600,6 +604,58 @@ if (diffPanel && window.DiffViewer) {
         retroPanel.innerHTML = html;
     }
 })();
+
+// Compare dropdown
+var compareLoaded = false;
+function toggleCompareDropdown() {
+    var dropdown = document.getElementById('compare-dropdown-content');
+    if (!dropdown) return;
+    var isVisible = dropdown.classList.contains('show');
+    if (isVisible) {
+        dropdown.classList.remove('show');
+        return;
+    }
+    dropdown.classList.add('show');
+    if (!compareLoaded) {
+        compareLoaded = true;
+        loadCompareOptions();
+    }
+}
+function loadCompareOptions() {
+    var dropdown = document.getElementById('compare-dropdown-content');
+    dropdown.innerHTML = '<div class="compare-dropdown-empty">Loading...</div>';
+    var pipeline = '{{.Run.PipelineName}}';
+    var currentRunID = '{{.Run.RunID}}';
+    fetch('/api/runs?pipeline=' + encodeURIComponent(pipeline) + '&page_size=20')
+        .then(function(resp) { return resp.json(); })
+        .then(function(data) {
+            var runs = (data.runs || []).filter(function(r) { return r.run_id !== currentRunID; });
+            if (runs.length === 0) {
+                dropdown.innerHTML = '<div class="compare-dropdown-empty">No other runs of this pipeline found</div>';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < runs.length; i++) {
+                var r = runs[i];
+                var label = r.status + (r.duration ? ', ' + r.duration : '') + ' — ' + (r.formatted_started_at || '');
+                html += '<a class="compare-dropdown-item" href="/compare?left=' + encodeURIComponent(currentRunID) + '&right=' + encodeURIComponent(r.run_id) + '" role="menuitem">' +
+                    '<code>' + escapeHTML(r.run_id.substring(0, 8)) + '</code> ' + escapeHTML(label) + '</a>';
+            }
+            dropdown.innerHTML = html;
+        })
+        .catch(function() {
+            dropdown.innerHTML = '<div class="compare-dropdown-empty">Failed to load runs</div>';
+        });
+}
+// Close dropdown on outside click
+document.addEventListener('click', function(e) {
+    var dropdown = document.getElementById('compare-dropdown-content');
+    if (!dropdown) return;
+    var btn = dropdown.previousElementSibling;
+    if (!dropdown.contains(e.target) && e.target !== btn) {
+        dropdown.classList.remove('show');
+    }
+});
 
 </script>
 {{end}}

@@ -81,6 +81,28 @@ func (g *GitHubClient) ListPullRequests(ctx context.Context, owner, repo string,
 	return result, nil
 }
 
+func (g *GitHubClient) ListPullRequestCommits(ctx context.Context, owner, repo string, number int) ([]*Commit, error) {
+	ghCommits, err := g.client.ListPullRequestCommits(ctx, owner, repo, number)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*Commit, 0, len(ghCommits))
+	for _, gc := range ghCommits {
+		c := &Commit{
+			SHA:     gc.SHA,
+			Message: gc.Commit.Message,
+			Author:  gc.Commit.Author.Name,
+			Date:    gc.Commit.Author.Date,
+			HTMLURL: gc.HTMLURL,
+		}
+		if gc.Author != nil {
+			c.Author = gc.Author.Login
+		}
+		result = append(result, c)
+	}
+	return result, nil
+}
+
 func (g *GitHubClient) GetCommitChecks(ctx context.Context, owner, repo, ref string) ([]*CheckRun, error) {
 	resp, err := g.client.GetCommitCheckRuns(ctx, owner, repo, ref)
 	if err != nil {

@@ -25,9 +25,16 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 		"statusClass":    statusClass,
 		"formatDuration": formatDuration,
 		"formatTime":     formatTime,
+		"formatTokens":   formatTokensFunc,
 		"add":            func(a, b int) int { return a + b },
 		"subtract":       func(a, b int) int { return a - b },
 		"hasPrefix":      strings.HasPrefix,
+		"pluralize": func(n int, singular, plural string) string {
+			if n == 1 {
+				return singular
+			}
+			return plural
+		},
 	}
 	pages := map[string]string{
 		"templates/runs.html":       `<html><body><nav>{{if eq .ActivePage "runs"}}<a class="nav-link-active">Runs</a>{{end}}</nav>{{range .Runs}}<div>{{.RunID}}</div>{{end}}</body></html>`,
@@ -42,6 +49,9 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 		"templates/health.html":     `<html><body>{{range .Checks}}<div>{{.Name}}: {{.Status}}</div>{{end}}</body></html>`,
 		"templates/ontology.html":   `<html><body>{{if .HasOntology}}<div>{{.Telos}}</div>{{range .Contexts}}<div>{{.Name}}</div>{{end}}{{end}}</body></html>`,
 		"templates/notfound.html":   `<html><body>Page not found</body></html>`,
+		"templates/compare.html":    `<html><body>{{.Left.RunID}} vs {{.Right.RunID}}{{range .Rows}}<tr>{{.StepID}}</tr>{{end}}</body></html>`,
+		"templates/analytics.html":  `<html><body><h1>Token Usage Analytics</h1><div>{{formatTokens .Analytics.TotalTokens}}</div><div>{{.Analytics.TotalRuns}} {{pluralize .Analytics.TotalRuns "run" "runs"}}</div></body></html>`,
+		"templates/retros.html":     `<html><body>{{if .HasData}}<div>retros</div>{{end}}</body></html>`,
 	}
 	result := make(map[string]*template.Template, len(pages))
 	for name, body := range pages {

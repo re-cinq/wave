@@ -83,6 +83,34 @@
 </div>
 
 <div class="card">
+    <h2>Commits{{if .CommitDetails}} ({{len .CommitDetails}}){{end}}</h2>
+    {{if .CommitDetails}}
+    <div class="commit-timeline">
+        {{range .CommitDetails}}
+        <div class="commit-timeline-item">
+            <div class="commit-timeline-dot"></div>
+            <div class="commit-timeline-content">
+                <div class="commit-timeline-header">
+                    <a href="{{.HTMLURL}}" target="_blank" rel="noopener noreferrer" class="commit-sha"><code>{{.ShortSHA}}</code></a>
+                    <span class="commit-message">{{.Message}}</span>
+                </div>
+                <div class="commit-timeline-meta">
+                    <span class="commit-author">{{.Author}}</span>
+                    <time datetime="{{.TimeISO}}" class="text-muted">{{.Date}}</time>
+                </div>
+            </div>
+        </div>
+        {{end}}
+    </div>
+    {{else}}
+    <div class="empty-state">
+        <p><strong>No commits</strong></p>
+        <p>Could not fetch commits for this PR.</p>
+    </div>
+    {{end}}
+</div>
+
+<div class="card">
     <h2>Comments{{if .Comments}} ({{len .Comments}}){{end}}</h2>
     {{if .Comments}}
     <div class="comments-list">
