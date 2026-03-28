@@ -343,6 +343,304 @@ steps:
 	}
 }
 
+func TestCheckAdapterRegistry_WithAdapters(t *testing.T) {
+	tmp := t.TempDir()
+	manifestPath := filepath.Join(tmp, "wave.yaml")
+	os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+kind: Manifest
+metadata:
+  name: test-project
+adapters:
+  claude:
+    binary: claude
+    mode: headless
+  codex:
+    binary: codex
+    mode: headless
+  gemini:
+    binary: gemini
+    mode: headless
+runtime:
+  workspace_root: .wave/workspaces
+`), 0644)
+
+	report, err := RunChecks(context.Background(), Options{
+		ManifestPath: manifestPath,
+		WaveDir:      tmp,
+		PipelinesDir: filepath.Join(tmp, "pipelines"),
+		LookPath: func(file string) (string, error) {
+			return "/usr/bin/" + file, nil
+		},
+		RunCmd: func(name string, args ...string) error {
+			return nil
+		},
+		DetectForge: func() (forge.ForgeInfo, error) {
+			return forge.ForgeInfo{Type: forge.ForgeUnknown}, nil
+		},
+		CheckOnboarded: func(waveDir string) bool {
+			return true
+		},
+	})
+	if err != nil {
+		t.Fatalf("RunChecks failed: %v", err)
+	}
+
+	var found bool
+	for _, r := range report.Results {
+		if r.Name == "Adapter Registry" {
+			found = true
+			if r.Status != StatusOK {
+				t.Errorf("expected StatusOK, got %v", r.Status)
+			}
+			if r.Category != "capabilities" {
+				t.Errorf("expected category 'capabilities', got %q", r.Category)
+			}
+			// All three adapters should be mentioned
+			for _, name := range []string{"claude", "codex", "gemini"} {
+				if !contains(r.Message, name) {
+					t.Errorf("expected message to contain %q, got %q", name, r.Message)
+				}
+			}
+		}
+	}
+	if !found {
+		t.Error("expected Adapter Registry check in results")
+	}
+}
+
+func TestCheckAdapterRegistry_NoAdapters(t *testing.T) {
+	tmp := t.TempDir()
+	manifestPath := filepath.Join(tmp, "wave.yaml")
+	os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+kind: Manifest
+metadata:
+  name: test-project
+runtime:
+  workspace_root: .wave/workspaces
+`), 0644)
+
+	report, err := RunChecks(context.Background(), Options{
+		ManifestPath: manifestPath,
+		WaveDir:      tmp,
+		PipelinesDir: filepath.Join(tmp, "pipelines"),
+		LookPath: func(file string) (string, error) {
+			return "/usr/bin/" + file, nil
+		},
+		RunCmd: func(name string, args ...string) error {
+			return nil
+		},
+		DetectForge: func() (forge.ForgeInfo, error) {
+			return forge.ForgeInfo{Type: forge.ForgeUnknown}, nil
+		},
+		CheckOnboarded: func(waveDir string) bool {
+			return true
+		},
+	})
+	if err != nil {
+		t.Fatalf("RunChecks failed: %v", err)
+	}
+
+	for _, r := range report.Results {
+		if r.Name == "Adapter Registry" {
+			if r.Status != StatusOK {
+				t.Errorf("expected StatusOK, got %v", r.Status)
+			}
+			if !contains(r.Message, "No adapters registered") {
+				t.Errorf("expected 'No adapters registered', got %q", r.Message)
+			}
+			return
+		}
+	}
+	t.Error("expected Adapter Registry check in results")
+}
+
+func TestCheckRetryPolicies_AllNamed(t *testing.T) {
+	tmp := t.TempDir()
+	manifestPath := filepath.Join(tmp, "wave.yaml")
+	os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+kind: Manifest
+metadata:
+  name: test-project
+runtime:
+  workspace_root: .wave/workspaces
+`), 0644)
+
+	pipelinesDir := filepath.Join(tmp, "pipelines")
+	os.MkdirAll(pipelinesDir, 0755)
+	os.WriteFile(filepath.Join(pipelinesDir, "test.yaml"), []byte(`kind: Pipeline
+metadata:
+  name: test
+steps:
+  - id: step1
+    persona: navigator
+    retry:
+      policy: standard
+      max_attempts: 2
+`), 0644)
+
+	report, err := RunChecks(context.Background(), Options{
+		ManifestPath: manifestPath,
+		WaveDir:      tmp,
+		PipelinesDir: pipelinesDir,
+		LookPath: func(file string) (string, error) {
+			return "/usr/bin/" + file, nil
+		},
+		RunCmd: func(name string, args ...string) error {
+			return nil
+		},
+		DetectForge: func() (forge.ForgeInfo, error) {
+			return forge.ForgeInfo{Type: forge.ForgeUnknown}, nil
+		},
+		CheckOnboarded: func(waveDir string) bool {
+			return true
+		},
+	})
+	if err != nil {
+		t.Fatalf("RunChecks failed: %v", err)
+	}
+
+	for _, r := range report.Results {
+		if r.Name == "Retry Policies" {
+			if r.Status != StatusOK {
+				t.Errorf("expected StatusOK, got %v", r.Status)
+			}
+			if !contains(r.Message, "named policies") {
+				t.Errorf("expected message about named policies, got %q", r.Message)
+			}
+			return
+		}
+	}
+	t.Error("expected Retry Policies check in results")
+}
+
+func TestCheckRetryPolicies_RawMaxAttempts(t *testing.T) {
+	tmp := t.TempDir()
+	manifestPath := filepath.Join(tmp, "wave.yaml")
+	os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+kind: Manifest
+metadata:
+  name: test-project
+runtime:
+  workspace_root: .wave/workspaces
+`), 0644)
+
+	pipelinesDir := filepath.Join(tmp, "pipelines")
+	os.MkdirAll(pipelinesDir, 0755)
+	os.WriteFile(filepath.Join(pipelinesDir, "test.yaml"), []byte(`kind: Pipeline
+metadata:
+  name: test
+steps:
+  - id: step1
+    persona: navigator
+    retry:
+      max_attempts: 3
+  - id: step2
+    persona: navigator
+    retry:
+      policy: standard
+      max_attempts: 2
+`), 0644)
+
+	report, err := RunChecks(context.Background(), Options{
+		ManifestPath: manifestPath,
+		WaveDir:      tmp,
+		PipelinesDir: pipelinesDir,
+		LookPath: func(file string) (string, error) {
+			return "/usr/bin/" + file, nil
+		},
+		RunCmd: func(name string, args ...string) error {
+			return nil
+		},
+		DetectForge: func() (forge.ForgeInfo, error) {
+			return forge.ForgeInfo{Type: forge.ForgeUnknown}, nil
+		},
+		CheckOnboarded: func(waveDir string) bool {
+			return true
+		},
+	})
+	if err != nil {
+		t.Fatalf("RunChecks failed: %v", err)
+	}
+
+	for _, r := range report.Results {
+		if r.Name == "Retry Policies" {
+			if r.Status != StatusWarn {
+				t.Errorf("expected StatusWarn, got %v", r.Status)
+			}
+			if !contains(r.Message, "raw max_attempts") {
+				t.Errorf("expected warning about raw max_attempts, got %q", r.Message)
+			}
+			return
+		}
+	}
+	t.Error("expected Retry Policies check in results")
+}
+
+func TestCheckEngineCapabilities(t *testing.T) {
+	tmp := t.TempDir()
+	manifestPath := filepath.Join(tmp, "wave.yaml")
+	os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+kind: Manifest
+metadata:
+  name: test-project
+runtime:
+  workspace_root: .wave/workspaces
+`), 0644)
+
+	report, err := RunChecks(context.Background(), Options{
+		ManifestPath: manifestPath,
+		WaveDir:      tmp,
+		PipelinesDir: filepath.Join(tmp, "pipelines"),
+		LookPath: func(file string) (string, error) {
+			return "/usr/bin/" + file, nil
+		},
+		RunCmd: func(name string, args ...string) error {
+			return nil
+		},
+		DetectForge: func() (forge.ForgeInfo, error) {
+			return forge.ForgeInfo{Type: forge.ForgeUnknown}, nil
+		},
+		CheckOnboarded: func(waveDir string) bool {
+			return true
+		},
+	})
+	if err != nil {
+		t.Fatalf("RunChecks failed: %v", err)
+	}
+
+	for _, r := range report.Results {
+		if r.Name == "Engine Capabilities" {
+			if r.Status != StatusOK {
+				t.Errorf("expected StatusOK, got %v", r.Status)
+			}
+			if r.Category != "capabilities" {
+				t.Errorf("expected category 'capabilities', got %q", r.Category)
+			}
+			// Verify all epic #589 capabilities are listed
+			for _, cap := range []string{"graph loops", "gates", "hooks", "retro", "fork/rewind", "llm_judge", "thread continuity", "sub-pipelines"} {
+				if !contains(r.Message, cap) {
+					t.Errorf("expected message to contain %q, got %q", cap, r.Message)
+				}
+			}
+			return
+		}
+	}
+	t.Error("expected Engine Capabilities check in results")
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsSubstring(s, substr))
+}
+
+func containsSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 func TestStatus_String(t *testing.T) {
 	tests := []struct {
 		s    Status
