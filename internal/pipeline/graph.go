@@ -19,6 +19,11 @@ type GraphWalker struct {
 	totalVisits int            // total visits across all steps
 	mu          sync.Mutex
 
+	// Dependency-deferred steps: when an edge targets a step whose
+	// dependencies are not yet satisfied, the target is queued here
+	// and the walker executes unmet dependencies first.
+	pending []string // FIFO queue of deferred step IDs
+
 	// Circuit breaker: track last 3 errors per step
 	errorHistory map[string][]string // stepID -> last N error messages
 }
@@ -158,6 +163,14 @@ func (gw *GraphWalker) Walk(ctx context.Context, stepExecutor StepExecutor, init
 			return err
 		}
 
+		// Enforce dependency constraints: if the target step has
+		// dependencies that haven't been visited yet, defer it and
+		// route to an unsatisfied dependency instead.
+		nextStepID, err = gw.resolveDeps(nextStepID)
+		if err != nil {
+			return err
+		}
+
 		currentStepID = nextStepID
 	}
 
@@ -218,6 +231,193 @@ func (gw *GraphWalker) findNextDAGStep(step *Step) (string, error) {
 		}
 	}
 	return "", nil // terminal step
+}
+
+// resolveDeps enforces dependency constraints before routing to the next step.
+//
+// After each step completes and evaluateEdges proposes a nextStepID, this
+// method checks two things:
+//
+//  1. Are there any unvisited steps whose dependencies are NOW all satisfied?
+//     These "dependency-gated" steps must execute before the edge target,
+//     because edges alone would bypass them.
+//
+//  2. Does the proposed target itself have unsatisfied dependencies?
+//     If so, defer it and route to a ready dependency instead.
+//
+// This ensures steps with `dependencies:` constraints are never skipped
+// even when edges route around them.
+func (gw *GraphWalker) resolveDeps(nextStepID string) (string, error) {
+	gw.mu.Lock()
+	defer gw.mu.Unlock()
+
+	// Check for dependency-gated steps that have become ready and would
+	// be bypassed by direct edge routing.
+	if gated := gw.findGatedReady(nextStepID); gated != "" {
+		// Defer the original edge target so we come back to it later.
+		if nextStepID != "" {
+			gw.pending = append(gw.pending, nextStepID)
+		}
+		return gated, nil
+	}
+
+	// Terminal — check pending queue.
+	if nextStepID == "" {
+		if id := gw.drainPending(); id != "" {
+			return id, nil
+		}
+		return "", nil
+	}
+
+	target, ok := gw.stepMap[nextStepID]
+	if !ok {
+		return nextStepID, nil // will be caught later
+	}
+
+	if gw.depsReady(target) {
+		// If this step was previously deferred, remove it from pending.
+		gw.removePending(nextStepID)
+		return nextStepID, nil
+	}
+
+	// Dependencies not met — defer the target and route to a ready dep.
+	gw.pending = append(gw.pending, nextStepID)
+
+	if readyDep := gw.findReadyDep(target); readyDep != "" {
+		return readyDep, nil
+	}
+
+	// No individual dep is ready — check pending queue for anything
+	// else that has become unblocked.
+	if id := gw.drainPending(); id != "" {
+		return id, nil
+	}
+
+	return "", fmt.Errorf("step %q has unsatisfied dependencies and no ready step available", nextStepID)
+}
+
+// findGatedReady scans all pipeline steps for one that:
+//   - has not been visited yet
+//   - has dependencies (i.e., is dependency-gated)
+//   - has all dependencies now satisfied
+//   - is NOT the proposed nextStepID (that one is handled separately)
+//   - is not already in the pending queue
+//   - is NOT the target of any edge in the pipeline (edge targets are
+//     reached via normal edge routing; only "orphaned" gated steps need
+//     injection)
+//
+// This catches steps that edges would otherwise bypass entirely.
+func (gw *GraphWalker) findGatedReady(nextStepID string) string {
+	// Build set of all edge targets — these steps are reachable via edges
+	// and should not be force-injected.
+	edgeTargets := gw.edgeTargetSet()
+
+	inPending := make(map[string]bool, len(gw.pending))
+	for _, id := range gw.pending {
+		inPending[id] = true
+	}
+
+	for i := range gw.pipeline.Steps {
+		s := &gw.pipeline.Steps[i]
+		if s.ID == nextStepID {
+			continue // handled by the caller
+		}
+		if gw.visitCounts[s.ID] > 0 {
+			continue // already visited
+		}
+		if len(s.Dependencies) == 0 {
+			continue // no dependency gate
+		}
+		if inPending[s.ID] {
+			continue // already queued
+		}
+		if edgeTargets[s.ID] {
+			continue // reachable via edges — don't force-inject
+		}
+		if gw.depsReady(s) {
+			return s.ID
+		}
+	}
+	return ""
+}
+
+// edgeTargetSet returns the set of step IDs that are the target of at
+// least one edge in the pipeline.
+func (gw *GraphWalker) edgeTargetSet() map[string]bool {
+	targets := make(map[string]bool)
+	for i := range gw.pipeline.Steps {
+		for _, edge := range gw.pipeline.Steps[i].Edges {
+			targets[edge.Target] = true
+		}
+	}
+	return targets
+}
+
+// depsReady returns true if all of the step's declared dependencies have been
+// visited at least once. It must be called with gw.mu held (or from a
+// context where visitCounts is not concurrently modified).
+func (gw *GraphWalker) depsReady(step *Step) bool {
+	for _, dep := range step.Dependencies {
+		if gw.visitCounts[dep] == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// removePending removes a specific step from the pending queue if present.
+func (gw *GraphWalker) removePending(stepID string) {
+	for i, id := range gw.pending {
+		if id == stepID {
+			gw.pending = append(gw.pending[:i], gw.pending[i+1:]...)
+			return
+		}
+	}
+}
+
+// drainPending returns the first step in the pending queue whose
+// dependencies are now satisfied, removing it from the queue.
+// Returns empty string if nothing is ready.
+func (gw *GraphWalker) drainPending() string {
+	for i, id := range gw.pending {
+		step := gw.stepMap[id]
+		if step != nil && gw.depsReady(step) {
+			gw.pending = append(gw.pending[:i], gw.pending[i+1:]...)
+			return id
+		}
+	}
+	return ""
+}
+
+// findReadyDep walks the dependency tree of target to find a step that
+// is unvisited but whose own dependencies are all satisfied (i.e., ready
+// to execute). This traversal is recursive so transitive deps are resolved.
+func (gw *GraphWalker) findReadyDep(target *Step) string {
+	return gw.findReadyDepVisited(target, make(map[string]bool))
+}
+
+func (gw *GraphWalker) findReadyDepVisited(target *Step, seen map[string]bool) string {
+	for _, dep := range target.Dependencies {
+		if gw.visitCounts[dep] > 0 {
+			continue // already visited
+		}
+		if seen[dep] {
+			continue // avoid cycles
+		}
+		seen[dep] = true
+		depStep := gw.stepMap[dep]
+		if depStep == nil {
+			continue
+		}
+		if gw.depsReady(depStep) {
+			return dep
+		}
+		// dep itself isn't ready — try resolving ITS deps first
+		if deeper := gw.findReadyDepVisited(depStep, seen); deeper != "" {
+			return deeper
+		}
+	}
+	return ""
 }
 
 // checkCircuitBreaker records an error and returns true if the circuit breaker

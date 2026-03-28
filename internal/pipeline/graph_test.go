@@ -734,6 +734,169 @@ func TestValidateGraph_AllowsFanOutWithEdges(t *testing.T) {
 	}
 }
 
+// --- Dependency enforcement tests ---
+
+func TestGraphWalker_DependencyGatedStepNotSkipped(t *testing.T) {
+	// Reproduces re-cinq/wave#630: edges route around a dependency-gated step.
+	//
+	// Pipeline topology (modelled on wave-validate):
+	//   test-gate -> generate-report   (via edge, outcome=success)
+	//   test-gate -> diagnose-failure   (via edge, outcome=failure)
+	//   diagnose-failure -> (no edges, DAG fallback)
+	//   approval-gate depends on [test-gate, diagnose-failure] — NO edge targets it
+	//   generate-report depends on [approval-gate]
+	//
+	// Bug: the walker follows test-gate's edge directly to generate-report
+	// (or diagnose-failure), never visiting approval-gate.
+	//
+	// Expected (failure path):
+	//   test-gate(fail) -> diagnose-failure -> approval-gate -> generate-report
+	p := &Pipeline{
+		Steps: []Step{
+			{ID: "test-gate", Edges: []EdgeConfig{
+				{Target: "generate-report", Condition: "outcome=success"},
+				{Target: "diagnose-failure"},
+			}},
+			{ID: "diagnose-failure"},
+			{ID: "approval-gate", Dependencies: []string{"test-gate", "diagnose-failure"}},
+			{ID: "generate-report", Dependencies: []string{"approval-gate"}},
+		},
+	}
+
+	t.Run("failure_path_visits_gate", func(t *testing.T) {
+		tracker := newMockStepTracker()
+		tracker.setOutcomes("test-gate", "failure")
+
+		gw := NewGraphWalker(p)
+		err := gw.Walk(context.Background(), tracker.executor, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		counts := gw.VisitCounts()
+		for _, id := range []string{"test-gate", "diagnose-failure", "approval-gate", "generate-report"} {
+			if counts[id] != 1 {
+				t.Errorf("step %q: expected 1 visit, got %d (trace: %v)", id, counts[id], tracker.calls)
+			}
+		}
+
+		// Verify ordering: approval-gate must come after diagnose-failure
+		// and before generate-report.
+		gateIdx := -1
+		diagnoseIdx := -1
+		reportIdx := -1
+		for i, id := range tracker.calls {
+			switch id {
+			case "approval-gate":
+				gateIdx = i
+			case "diagnose-failure":
+				diagnoseIdx = i
+			case "generate-report":
+				reportIdx = i
+			}
+		}
+		if gateIdx < 0 {
+			t.Fatal("approval-gate was never executed")
+		}
+		if diagnoseIdx >= 0 && gateIdx <= diagnoseIdx {
+			t.Errorf("approval-gate (idx %d) ran before diagnose-failure (idx %d)", gateIdx, diagnoseIdx)
+		}
+		if reportIdx >= 0 && reportIdx <= gateIdx {
+			t.Errorf("generate-report (idx %d) ran before approval-gate (idx %d)", reportIdx, gateIdx)
+		}
+	})
+
+	t.Run("success_path_visits_gate", func(t *testing.T) {
+		// On the success path, test-gate edges to generate-report directly.
+		// But generate-report depends on approval-gate, which depends on
+		// [test-gate, diagnose-failure]. diagnose-failure hasn't run, so
+		// approval-gate's deps aren't met. The walker should defer
+		// generate-report, execute diagnose-failure, then approval-gate,
+		// then generate-report.
+		tracker := newMockStepTracker()
+		tracker.setOutcomes("test-gate", "success")
+
+		gw := NewGraphWalker(p)
+		err := gw.Walk(context.Background(), tracker.executor, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		counts := gw.VisitCounts()
+		for _, id := range []string{"test-gate", "diagnose-failure", "approval-gate", "generate-report"} {
+			if counts[id] != 1 {
+				t.Errorf("step %q: expected 1 visit, got %d (trace: %v)", id, counts[id], tracker.calls)
+			}
+		}
+
+		// approval-gate must precede generate-report
+		gateIdx := -1
+		reportIdx := -1
+		for i, id := range tracker.calls {
+			switch id {
+			case "approval-gate":
+				gateIdx = i
+			case "generate-report":
+				reportIdx = i
+			}
+		}
+		if gateIdx < 0 {
+			t.Fatal("approval-gate was never executed")
+		}
+		if reportIdx >= 0 && reportIdx <= gateIdx {
+			t.Errorf("generate-report (idx %d) ran before approval-gate (idx %d)", reportIdx, gateIdx)
+		}
+	})
+}
+
+func TestGraphWalker_EdgeTargetWithUnmetDeps(t *testing.T) {
+	// An edge targets a step whose dependencies are not satisfied.
+	// The walker should defer the target and execute the missing
+	// dependency first.
+	//
+	// Pipeline: A --(edge)--> C, but C depends on [A, B].
+	// B has no edge targeting it but depends on A (so it's gated).
+	p := &Pipeline{
+		Steps: []Step{
+			{ID: "A", Edges: []EdgeConfig{{Target: "C"}}},
+			{ID: "B", Dependencies: []string{"A"}},
+			{ID: "C", Dependencies: []string{"A", "B"}},
+		},
+	}
+
+	tracker := newMockStepTracker()
+	gw := NewGraphWalker(p)
+	err := gw.Walk(context.Background(), tracker.executor, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	counts := gw.VisitCounts()
+	for _, id := range []string{"A", "B", "C"} {
+		if counts[id] != 1 {
+			t.Errorf("step %q: expected 1 visit, got %d", id, counts[id])
+		}
+	}
+
+	// B must execute before C
+	bIdx := -1
+	cIdx := -1
+	for i, id := range tracker.calls {
+		switch id {
+		case "B":
+			bIdx = i
+		case "C":
+			cIdx = i
+		}
+	}
+	if bIdx < 0 {
+		t.Fatal("B was never executed")
+	}
+	if cIdx >= 0 && cIdx <= bIdx {
+		t.Errorf("C (idx %d) ran before B (idx %d)", cIdx, bIdx)
+	}
+}
+
 // --- Integration test: command step through DefaultPipelineExecutor ---
 
 func TestExecuteGraphPipeline_CommandStepIntegration(t *testing.T) {

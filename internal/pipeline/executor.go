@@ -586,13 +586,19 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		Message:    fmt.Sprintf("workspace root: %s/%s/", wsRoot, pipelineID),
 	})
 
-	// Initialize hook runner from manifest hooks if not already set
-	if e.hookRunner == nil && len(m.Hooks) > 0 {
-		runner, err := hooks.NewHookRunner(m.Hooks, e.emitter)
-		if err != nil {
-			return fmt.Errorf("failed to initialize hook runner: %w", err)
+	// Initialize hook runner from manifest + pipeline hooks if not already set.
+	// Pipeline-level hooks are appended after manifest-level hooks so they run
+	// in addition to (and after) the global manifest hooks.
+	if e.hookRunner == nil {
+		merged := append([]hooks.LifecycleHookDef{}, m.Hooks...)
+		merged = append(merged, p.Hooks...)
+		if len(merged) > 0 {
+			runner, err := hooks.NewHookRunner(merged, e.emitter)
+			if err != nil {
+				return fmt.Errorf("failed to initialize hook runner: %w", err)
+			}
+			e.hookRunner = runner
 		}
-		e.hookRunner = runner
 	}
 
 	// Run run_start hooks
@@ -800,6 +806,12 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		e.deliverableTracker.SetPipelineID(pipelineID)
 	}
 
+	// Build compaction adapter for thread summary fidelity (reuse relay monitor's adapter if available)
+	var threadCompactionAdapter relay.CompactionAdapter
+	if e.relayMonitor != nil {
+		threadCompactionAdapter = e.relayMonitor.Adapter()
+	}
+
 	execution := &PipelineExecution{
 		Pipeline:          p,
 		Manifest:          m,
@@ -810,6 +822,8 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		WorktreePaths:     make(map[string]*WorktreeInfo),
 		AttemptContexts:   make(map[string]*AttemptContext),
 		ReworkTransitions: make(map[string]string),
+		ThreadManager:     NewThreadManager(threadCompactionAdapter),
+		CircuitBreaker:    NewCircuitBreaker(m.Runtime.CircuitBreaker.Limit, m.Runtime.CircuitBreaker.TrackedClasses),
 		Input:             input,
 		Context:           pipelineContext,
 		Status: &PipelineStatus{
@@ -854,6 +868,19 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		TotalSteps:     len(p.Steps),
 		CompletedSteps: 0,
 	})
+
+	// Initialize hook runner from manifest + pipeline hooks if not already set.
+	if e.hookRunner == nil {
+		merged := append([]hooks.LifecycleHookDef{}, m.Hooks...)
+		merged = append(merged, p.Hooks...)
+		if len(merged) > 0 {
+			runner, err := hooks.NewHookRunner(merged, e.emitter)
+			if err != nil {
+				return fmt.Errorf("failed to initialize hook runner: %w", err)
+			}
+			e.hookRunner = runner
+		}
+	}
 
 	// Ensure workspace root exists
 	wsRoot := m.Runtime.WorkspaceRoot
@@ -905,7 +932,9 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		}
 
 		result.Outcome = "success"
+		execution.mu.Lock()
 		execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
+		execution.mu.Unlock()
 		return result, nil
 	}
 
@@ -914,7 +943,15 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 	// Persist final visit counts
 	if e.store != nil {
 		for stepID, count := range gw.VisitCounts() {
-			e.store.SaveStepVisitCount(pipelineID, stepID, count)
+			if vcErr := e.store.SaveStepVisitCount(pipelineID, stepID, count); vcErr != nil {
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     stepID,
+					State:      "warning",
+					Message:    fmt.Sprintf("failed to persist visit count for step %q: %v", stepID, vcErr),
+				})
+			}
 		}
 	}
 
@@ -995,6 +1032,13 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 	script := step.Script
 	if execution.Context != nil {
 		script = execution.Context.ResolvePlaceholders(script)
+	}
+
+	// SECURITY: Reject command step execution when no sanitizer is configured.
+	// Template resolution can introduce user-controlled content that must be
+	// sanitized before shell execution.
+	if e.inputSanitizer == nil {
+		return nil, fmt.Errorf("command step %q: refusing to execute without input sanitizer", step.ID)
 	}
 
 	// SECURITY: Sanitize the resolved script to detect injection attempts.
@@ -1292,6 +1336,19 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 	// Composition step: delegate to sub-pipeline execution
 	if step.IsCompositionStep() {
 		return e.executeCompositionStep(ctx, execution, step)
+	}
+
+	// Command step: execute shell script directly (no adapter/persona needed).
+	// This mirrors the graph walker dispatch in executeGraphPipeline.
+	if step.Type == StepTypeCommand || step.Script != "" {
+		result, err := e.executeCommandStep(ctx, execution, step)
+		if err != nil {
+			return err
+		}
+		if result != nil && result.Outcome == "failure" {
+			return result.Error
+		}
+		return nil
 	}
 
 	// Run step_start hooks
