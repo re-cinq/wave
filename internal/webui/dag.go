@@ -24,6 +24,7 @@ type DAGLayoutNode struct {
 	GatePrompt  string // Gate prompt/message
 	GateChoices string // Comma-separated gate choice labels
 	EdgeInfo    string // Serialized edge conditions for conditional steps
+	Thread      string // Thread group ID for conversation continuity
 	X           int
 	Y           int
 }
@@ -114,6 +115,7 @@ func ComputeDAGLayout(steps []DAGStepInput) *DAGLayout {
 				GatePrompt:  s.GatePrompt,
 				GateChoices: s.GateChoices,
 				EdgeInfo:    s.EdgeInfo,
+				Thread:      s.Thread,
 				X:           x,
 				Y:           y,
 			})
@@ -257,6 +259,7 @@ type DAGStepInput struct {
 	GatePrompt   string
 	GateChoices  string
 	EdgeInfo     string
+	Thread       string         // Thread group ID for conversation continuity
 	Edges        []DAGEdgeInput // Outgoing edges for graph-mode routing
 }
 

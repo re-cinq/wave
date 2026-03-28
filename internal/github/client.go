@@ -241,6 +241,34 @@ func (c *Client) UpdateIssue(ctx context.Context, owner, repo string, number int
 	return &issue, nil
 }
 
+// ListIssueComments retrieves comments on an issue or pull request.
+func (c *Client) ListIssueComments(ctx context.Context, owner, repo string, number int, perPage int) ([]*IssueComment, error) {
+	params := url.Values{}
+	if perPage > 0 {
+		params.Set("per_page", strconv.Itoa(perPage))
+	}
+	params.Set("sort", "created")
+	params.Set("direction", "desc")
+
+	path := fmt.Sprintf("/repos/%s/%s/issues/%d/comments", owner, repo, number)
+	if len(params) > 0 {
+		path += "?" + params.Encode()
+	}
+
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var comments []*IssueComment
+	if err := json.NewDecoder(resp.Body).Decode(&comments); err != nil {
+		return nil, fmt.Errorf("failed to decode comments: %w", err)
+	}
+
+	return comments, nil
+}
+
 // CreateIssueComment creates a new comment on an issue
 func (c *Client) CreateIssueComment(ctx context.Context, owner, repo string, number int, body string) (*IssueComment, error) {
 	path := fmt.Sprintf("/repos/%s/%s/issues/%d/comments", owner, repo, number)

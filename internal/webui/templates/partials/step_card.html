@@ -32,7 +32,7 @@
                 <div class="gate-interaction-panel" id="gate-panel-{{.StepID}}" data-run-id="{{.RunID}}" data-step-id="{{.StepID}}">
                     <div class="gate-choices-row">
                         {{range .GateChoicesData}}
-                        <button class="gate-choice-btn" data-choice-key="{{.Key}}" onclick="selectGateChoice(this)" title="Shortcut: {{.Key}}{{if .Target}} &rarr; {{.Target}}{{end}}">
+                        <button class="gate-choice-btn" data-choice-key="{{.Key}}" data-choice-target="{{.Target}}" onclick="selectGateChoice(this)" title="Shortcut: {{.Key}}{{if .Target}} &rarr; {{.Target}}{{end}}">
                             <span class="gate-choice-key">{{.Key}}</span> {{.Label}}
                         </button>
                         {{end}}

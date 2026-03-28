@@ -53,6 +53,46 @@
 {{end}}
 
 <div class="card">
+    <h2>Comments{{if .Comments}} ({{len .Comments}}){{end}}</h2>
+    {{if .Comments}}
+    <div class="comments-list">
+        {{range $i, $c := .Comments}}
+        <div class="comment-item">
+            <div class="comment-header">
+                <strong>{{$c.Author}}</strong>
+                <span class="text-muted">
+                    <time datetime="{{$c.TimeISO}}">{{$c.CreatedAt}}</time>
+                    {{if $c.HTMLURL}}<a href="{{$c.HTMLURL}}" target="_blank" rel="noopener noreferrer" class="text-muted" title="View on GitHub">#</a>{{end}}
+                </span>
+            </div>
+            <div class="comment-body markdown-body" id="issue-comment-{{$i}}"></div>
+        </div>
+        {{end}}
+    </div>
+    <script>
+    (function() {
+        {{range $i, $c := .Comments}}
+        (function() {
+            var raw = {{$c.Body | js}};
+            var el = document.getElementById('issue-comment-{{$i}}');
+            if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+                el.innerHTML = DOMPurify.sanitize(marked.parse(raw));
+            } else {
+                el.textContent = raw;
+            }
+        })();
+        {{end}}
+    })();
+    </script>
+    {{else}}
+    <div class="empty-state">
+        <p><strong>No comments</strong></p>
+        <p>No comments have been posted on this issue.</p>
+    </div>
+    {{end}}
+</div>
+
+<div class="card">
     <h2>Related Pipeline Runs</h2>
     {{if .Runs}}
     <table class="table">
