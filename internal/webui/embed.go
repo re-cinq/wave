@@ -54,6 +54,10 @@ func parseTemplates() (map[string]*template.Template, error) {
 		"formatTimeISO":  formatTimeISO,
 		"formatTokens":   formatTokensFunc,
 		"contains":       strings.Contains,
+		"hasPrefix":      strings.HasPrefix,
+		"checkClass":     checkClass,
+		"checkIcon":      checkIcon,
+		"checkLabel":     checkLabel,
 		"add":            func(a, b int) int { return a + b },
 		"subtract":       func(a, b int) int { return a - b },
 		"pluralize": func(n int, singular, plural string) string {
@@ -150,8 +154,80 @@ func statusClass(status string) string {
 		return "status-cancelled"
 	case "pending":
 		return "status-pending"
+	case "hook_started":
+		return "status-hook-started"
+	case "hook_passed":
+		return "status-hook-passed"
+	case "hook_failed":
+		return "status-hook-failed"
 	default:
 		return "status-unknown"
+	}
+}
+
+// checkClass returns a CSS class name for a CI check status/conclusion.
+func checkClass(status, conclusion string) string {
+	if status != "completed" {
+		return "status-running"
+	}
+	switch conclusion {
+	case "success":
+		return "status-completed"
+	case "failure", "timed_out", "action_required":
+		return "status-failed"
+	case "cancelled":
+		return "status-cancelled"
+	case "skipped", "neutral":
+		return "status-pending"
+	default:
+		return "status-unknown"
+	}
+}
+
+// checkIcon returns a Unicode icon for a CI check status/conclusion.
+func checkIcon(status, conclusion string) string {
+	if status != "completed" {
+		return "●"
+	}
+	switch conclusion {
+	case "success":
+		return "✓"
+	case "failure", "timed_out", "action_required":
+		return "✕"
+	case "skipped", "neutral":
+		return "—"
+	case "cancelled":
+		return "✕"
+	default:
+		return "?"
+	}
+}
+
+// checkLabel returns a human-readable label for a CI check status/conclusion.
+func checkLabel(status, conclusion string) string {
+	if status != "completed" {
+		if status == "in_progress" {
+			return "In Progress"
+		}
+		return "Queued"
+	}
+	switch conclusion {
+	case "success":
+		return "Passed"
+	case "failure":
+		return "Failed"
+	case "cancelled":
+		return "Cancelled"
+	case "skipped":
+		return "Skipped"
+	case "neutral":
+		return "Neutral"
+	case "timed_out":
+		return "Timed Out"
+	case "action_required":
+		return "Action Required"
+	default:
+		return conclusion
 	}
 }
 

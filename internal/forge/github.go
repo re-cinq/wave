@@ -81,6 +81,23 @@ func (g *GitHubClient) ListPullRequests(ctx context.Context, owner, repo string,
 	return result, nil
 }
 
+func (g *GitHubClient) GetCommitChecks(ctx context.Context, owner, repo, ref string) ([]*CheckRun, error) {
+	resp, err := g.client.GetCommitCheckRuns(ctx, owner, repo, ref)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*CheckRun, 0, len(resp.CheckRuns))
+	for _, cr := range resp.CheckRuns {
+		result = append(result, &CheckRun{
+			Name:       cr.Name,
+			Status:     cr.Status,
+			Conclusion: cr.Conclusion,
+			HTMLURL:    cr.HTMLURL,
+		})
+	}
+	return result, nil
+}
+
 func convertGitHubIssue(gi *github.Issue) *Issue {
 	issue := &Issue{
 		Number:    gi.Number,
@@ -139,6 +156,7 @@ func convertGitHubPR(gp *github.PullRequest) *PullRequest {
 	}
 	if gp.Head != nil {
 		pr.HeadBranch = gp.Head.Ref
+		pr.HeadSHA = gp.Head.SHA
 	}
 	if gp.Base != nil {
 		pr.BaseBranch = gp.Base.Ref

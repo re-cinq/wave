@@ -177,14 +177,23 @@
 
         {{if .Events}}
         <div class="card">
-            <h2>Events</h2>
+            <div class="events-header-toolbar">
+                <h2>Events</h2>
+                <div class="event-filter-bar">
+                    <button class="event-filter-btn event-filter-active" data-filter="all" onclick="filterEvents('all', this)">All</button>
+                    <button class="event-filter-btn" data-filter="hooks" onclick="filterEvents('hooks', this)">Hooks</button>
+                    <button class="event-filter-btn" data-filter="steps" onclick="filterEvents('steps', this)">Steps</button>
+                </div>
+            </div>
             <div class="events-timeline">
                 {{range .Events}}
-                <div class="event-item">
+                <div class="event-item{{if hasPrefix .State "hook_"}} event-hook{{end}}" data-event-kind="{{if hasPrefix .State "hook_"}}hook{{else}}step{{end}}">
                     <span class="event-time">{{formatTime .Timestamp}}</span>
+                    {{if hasPrefix .State "hook_"}}<span class="event-hook-icon" title="Hook">&#9881;</span>{{end}}
                     <span class="badge {{statusClass .State}}">{{.State}}</span>
                     {{if .StepID}}<span class="event-step">{{.StepID}}</span>{{end}}
                     <span class="event-message">{{.Message}}</span>
+                    {{if and .DurationMs (hasPrefix .State "hook_")}}<span class="event-hook-duration">{{.DurationMs}}ms</span>{{end}}
                 </div>
                 {{end}}
             </div>
@@ -254,6 +263,21 @@ if (window.logViewer) {
     window.logViewer.init(runStatus);
 }
 initStepCollapseStates();
+
+// Event kind filter (All / Hooks / Steps)
+function filterEvents(kind, btn) {
+    document.querySelectorAll('.event-filter-btn').forEach(function(b) { b.classList.remove('event-filter-active'); });
+    btn.classList.add('event-filter-active');
+    document.querySelectorAll('.event-item').forEach(function(item) {
+        if (kind === 'all') {
+            item.style.display = '';
+        } else if (kind === 'hooks') {
+            item.style.display = item.dataset.eventKind === 'hook' ? '' : 'none';
+        } else if (kind === 'steps') {
+            item.style.display = item.dataset.eventKind === 'step' ? '' : 'none';
+        }
+    });
+}
 
 // Log level filter
 function filterLogLevel(level, btn) {
