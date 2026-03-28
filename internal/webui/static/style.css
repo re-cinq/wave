@@ -205,6 +205,12 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 }
 .btn-danger { background: var(--color-btn-danger); border-color: var(--color-btn-danger); color: #fff; }
 .btn-danger:hover { background: var(--color-btn-danger-hover); border-color: var(--color-btn-danger-hover); color: #fff; }
+.btn-fork { background: linear-gradient(135deg, #059669 0%, #10b981 100%); border-color: #059669; color: #fff; box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25); }
+.btn-fork:hover { background: linear-gradient(135deg, #047857 0%, #059669 100%); border-color: #047857; color: #fff; box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35); }
+.btn-fork:disabled { background: #6b7280; border-color: #6b7280; color: #9ca3af; cursor: not-allowed; box-shadow: none; }
+.btn-rewind { background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); border-color: #d97706; color: #fff; box-shadow: 0 2px 8px rgba(217, 119, 6, 0.25); }
+.btn-rewind:hover { background: linear-gradient(135deg, #b45309 0%, #d97706 100%); border-color: #b45309; color: #fff; box-shadow: 0 4px 14px rgba(217, 119, 6, 0.35); }
+.btn-rewind:disabled { background: #6b7280; border-color: #6b7280; color: #9ca3af; cursor: not-allowed; box-shadow: none; }
 .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.75rem; }
 
 /* Status Badges */
@@ -721,7 +727,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 
 @media (max-width: 480px) {
     html { font-size: 12px; }
-    .btn, .btn-primary, .btn-danger { min-height: 44px; padding: 0.6rem 1rem; font-size: 0.85rem; }
+    .btn, .btn-primary, .btn-danger, .btn-fork, .btn-rewind { min-height: 44px; padding: 0.6rem 1rem; font-size: 0.85rem; }
     .log-toolbar { flex-direction: column; gap: 0.5rem; }
     .log-search { width: 100%; }
     .log-search input { width: 100%; }
@@ -757,6 +763,13 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .resume-steps { display: flex; flex-direction: column; gap: 0.5rem; margin: 1rem 0; }
 .resume-step-btn { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 1rem; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-md); cursor: pointer; font-family: var(--font-sans); font-size: 0.85rem; color: var(--color-text); transition: background-color 0.2s; }
 .resume-step-btn:hover { background: var(--color-bg-tertiary); }
+
+/* Fork/Rewind Dialog Elements */
+.fork-step-select { margin: 1rem 0; }
+.fork-step-select label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--color-text); }
+.fork-select { width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; font-family: var(--font-mono); background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-md); color: var(--color-text); cursor: pointer; }
+.fork-select:focus { outline: 2px solid var(--wave-primary); outline-offset: 1px; }
+.rewind-warning { margin: 0.75rem 0; padding: 0.6rem 0.8rem; background: rgba(217, 119, 6, 0.1); border: 1px solid rgba(217, 119, 6, 0.3); border-radius: var(--radius-md); font-size: 0.8rem; color: #d97706; }
 
 /* Error Recovery Hints */
 .error-recovery-hint { margin-top: 0.5rem; }
