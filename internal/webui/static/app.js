@@ -228,6 +228,57 @@ function showResumeDialog() {
     if (dialog) dialog.showModal();
 }
 
+function showForkDialog() {
+    var dialog = document.getElementById('fork-dialog');
+    if (dialog) {
+        var dropdown = document.getElementById('fork-step-dropdown');
+        var confirmBtn = document.getElementById('fork-confirm-btn');
+        if (dropdown) { dropdown.value = ''; dropdown.onchange = function() { confirmBtn.disabled = !dropdown.value; }; }
+        if (confirmBtn) confirmBtn.disabled = true;
+        dialog.showModal();
+    }
+}
+
+async function forkFromStep(runID, btn) {
+    var dropdown = document.getElementById('fork-step-dropdown');
+    if (!dropdown || !dropdown.value) return;
+    setButtonLoading(btn, true);
+    try {
+        var data = await fetchJSON('/api/runs/' + encodeURIComponent(runID) + '/fork', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({from_step: dropdown.value})
+        });
+        showToast('Forked from ' + dropdown.value + ', redirecting...', 'success', 3000);
+        setTimeout(function() { window.location.href = '/runs/' + data.run_id; }, 500);
+    } catch (err) { /* fetchJSON showed toast */ } finally { setButtonLoading(btn, false); }
+}
+
+function showRewindDialog() {
+    var dialog = document.getElementById('rewind-dialog');
+    if (dialog) {
+        var dropdown = document.getElementById('rewind-step-dropdown');
+        var confirmBtn = document.getElementById('rewind-confirm-btn');
+        if (dropdown) { dropdown.value = ''; dropdown.onchange = function() { confirmBtn.disabled = !dropdown.value; }; }
+        if (confirmBtn) confirmBtn.disabled = true;
+        dialog.showModal();
+    }
+}
+
+async function rewindToStep(runID, btn) {
+    var dropdown = document.getElementById('rewind-step-dropdown');
+    if (!dropdown || !dropdown.value) return;
+    if (!confirm('This will permanently delete state for all steps after "' + dropdown.value + '". Continue?')) return;
+    setButtonLoading(btn, true);
+    try {
+        await fetchJSON('/api/runs/' + encodeURIComponent(runID) + '/rewind', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({to_step: dropdown.value})
+        });
+        showToast('Rewound to ' + dropdown.value + ', reloading...', 'success', 3000);
+        setTimeout(function() { window.location.reload(); }, 500);
+    } catch (err) { /* fetchJSON showed toast */ } finally { setButtonLoading(btn, false); }
+}
+
 // Auto-refresh run list every 10 seconds if there are running pipelines
 (function() {
     var rows = document.querySelectorAll('.run-row[data-status="running"]');
