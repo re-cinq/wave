@@ -10,6 +10,25 @@ import (
 	"github.com/recinq/wave/internal/state"
 )
 
+// --- Page Handler ---
+
+func (s *Server) handleWebhooksPage(w http.ResponseWriter, r *http.Request) {
+	webhooks, _ := s.store.ListWebhooks()
+
+	data := struct {
+		ActivePage string
+		Webhooks   []*state.Webhook
+	}{
+		ActivePage: "webhooks",
+		Webhooks:   webhooks,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.templates["templates/webhooks.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // --- API Endpoints ---
 
 func (s *Server) handleAPIWebhooks(w http.ResponseWriter, r *http.Request) {

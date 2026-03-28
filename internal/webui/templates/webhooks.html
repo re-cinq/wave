@@ -1,0 +1,177 @@
+{{define "title"}}Webhooks · Wave{{end}}
+{{define "content"}}
+<div class="page-header">
+    <h1>Webhooks</h1>
+    <button class="btn btn-primary" onclick="showCreateForm()">Create Webhook</button>
+</div>
+
+<!-- Create/Edit Form (hidden by default) -->
+<div id="webhook-form" style="display:none;" class="card" style="margin-bottom: 1.5rem;">
+    <h3 id="form-title">Create Webhook</h3>
+    <form onsubmit="return saveWebhook(event)">
+        <input type="hidden" id="webhook-id" value="">
+        <div style="margin-bottom: 0.75rem;">
+            <label><strong>Name</strong></label><br>
+            <input type="text" id="wh-name" placeholder="e.g. slack-notifications" style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 4px;">
+        </div>
+        <div style="margin-bottom: 0.75rem;">
+            <label><strong>URL</strong></label><br>
+            <input type="url" id="wh-url" placeholder="https://hooks.slack.com/services/..." style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 4px;">
+        </div>
+        <div style="margin-bottom: 0.75rem;">
+            <label><strong>Events</strong> (comma-separated)</label><br>
+            <input type="text" id="wh-events" placeholder="run_completed, step_failed, run_failed" style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 4px;">
+        </div>
+        <div style="margin-bottom: 0.75rem;">
+            <label><strong>Matcher</strong> (regex, optional)</label><br>
+            <input type="text" id="wh-matcher" placeholder="e.g. ^implement.*" style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 4px;">
+        </div>
+        <div style="margin-bottom: 0.75rem;">
+            <label><strong>Secret</strong> (HMAC signing, optional)</label><br>
+            <input type="password" id="wh-secret" placeholder="Optional signing secret" style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 4px;">
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <button type="button" class="btn" onclick="hideForm()">Cancel</button>
+        </div>
+    </form>
+</div>
+
+<!-- Webhook List -->
+{{if .Webhooks}}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>URL</th>
+                <th>Events</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Webhooks}}
+            <tr>
+                <td><strong>{{.Name}}</strong></td>
+                <td><code style="font-size: 0.85em;">{{.URL}}</code></td>
+                <td>
+                    {{range .Events}}<span class="badge">{{.}}</span> {{end}}
+                    {{if not .Events}}<span class="badge" style="opacity: 0.5">all events</span>{{end}}
+                </td>
+                <td>
+                    {{if .Active}}
+                    <span class="badge" style="background: var(--success); color: white;">Active</span>
+                    {{else}}
+                    <span class="badge" style="background: var(--muted); color: white;">Inactive</span>
+                    {{end}}
+                </td>
+                <td style="display: flex; gap: 0.25rem;">
+                    <button class="btn btn-sm" onclick="toggleWebhook({{.ID}}, {{.Active}})">
+                        {{if .Active}}Disable{{else}}Enable{{end}}
+                    </button>
+                    <button class="btn btn-sm" onclick="testWebhook({{.ID}})">Test</button>
+                    <button class="btn btn-sm" onclick="editWebhook({{.ID}})">Edit</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteWebhook({{.ID}}, '{{.Name}}')">Delete</button>
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{else}}
+<div class="card" style="text-align: center; padding: 3rem;">
+    <p style="color: var(--muted); font-size: 1.1rem;">No webhooks configured</p>
+    <p style="color: var(--muted);">Create a webhook to receive HTTP notifications for pipeline events.</p>
+</div>
+{{end}}
+
+<script>
+function showCreateForm() {
+    document.getElementById('webhook-form').style.display = 'block';
+    document.getElementById('form-title').textContent = 'Create Webhook';
+    document.getElementById('webhook-id').value = '';
+    document.getElementById('wh-name').value = '';
+    document.getElementById('wh-url').value = '';
+    document.getElementById('wh-events').value = '';
+    document.getElementById('wh-matcher').value = '';
+    document.getElementById('wh-secret').value = '';
+}
+
+function hideForm() {
+    document.getElementById('webhook-form').style.display = 'none';
+}
+
+async function saveWebhook(e) {
+    e.preventDefault();
+    const id = document.getElementById('webhook-id').value;
+    const events = document.getElementById('wh-events').value
+        .split(',').map(s => s.trim()).filter(s => s);
+
+    const body = {
+        name: document.getElementById('wh-name').value,
+        url: document.getElementById('wh-url').value,
+        events: events,
+        matcher: document.getElementById('wh-matcher').value,
+        secret: document.getElementById('wh-secret').value,
+    };
+
+    const method = id ? 'PUT' : 'POST';
+    const url = id ? '/api/webhooks/' + id : '/api/webhooks';
+
+    const resp = await fetch(url, {
+        method: method,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+    });
+
+    if (resp.ok) {
+        window.location.reload();
+    } else {
+        const err = await resp.text();
+        alert('Error: ' + err);
+    }
+    return false;
+}
+
+async function editWebhook(id) {
+    const resp = await fetch('/api/webhooks/' + id);
+    if (!resp.ok) { alert('Failed to load webhook'); return; }
+    const wh = await resp.json();
+
+    document.getElementById('webhook-form').style.display = 'block';
+    document.getElementById('form-title').textContent = 'Edit Webhook';
+    document.getElementById('webhook-id').value = id;
+    document.getElementById('wh-name').value = wh.Name || '';
+    document.getElementById('wh-url').value = wh.URL || '';
+    document.getElementById('wh-events').value = (wh.Events || []).join(', ');
+    document.getElementById('wh-matcher').value = wh.Matcher || '';
+    document.getElementById('wh-secret').value = '';
+}
+
+async function toggleWebhook(id, currentlyActive) {
+    await fetch('/api/webhooks/' + id, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({active: !currentlyActive})
+    });
+    window.location.reload();
+}
+
+async function testWebhook(id) {
+    const resp = await fetch('/api/webhooks/' + id + '/test', {method: 'POST'});
+    if (resp.ok) {
+        const data = await resp.json();
+        alert(data.message || 'Test sent');
+    } else {
+        alert('Test failed');
+    }
+}
+
+async function deleteWebhook(id, name) {
+    if (!confirm('Delete webhook "' + name + '"?')) return;
+    await fetch('/api/webhooks/' + id, {method: 'DELETE'});
+    window.location.reload();
+}
+</script>
+{{end}}
