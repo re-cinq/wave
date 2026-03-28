@@ -35,6 +35,7 @@ input:
 steps:
   - id: diff-analysis
     persona: navigator
+    contexts: [execution]
     model: claude-haiku
     workspace:
       mount:
@@ -86,6 +87,7 @@ steps:
 
   - id: security-review
     persona: reviewer
+    contexts: [security]
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:
@@ -125,6 +127,7 @@ steps:
 
   - id: quality-review
     persona: reviewer
+    contexts: [validation]
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:
