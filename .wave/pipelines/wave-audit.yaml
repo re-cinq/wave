@@ -22,6 +22,7 @@ input:
 steps:
   - id: collect-inventory
     persona: "{{ forge.type }}-analyst"
+    max_concurrent_agents: 3
     model: claude-haiku
     workspace:
       type: worktree

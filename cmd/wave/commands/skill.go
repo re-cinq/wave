@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -37,12 +38,12 @@ type SkillTemplateInstallOutput struct {
 func NewSkillCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "skill",
-		Short: "Manage shipped skill templates",
-		Long: `Manage skill templates shipped with Wave.
+		Short: "Manage skill templates and install from remote sources",
+		Long: `Manage skill templates shipped with Wave and install skills from remote sources.
 
 Subcommands:
   list      List available and installed skill templates
-  install   Install a skill template to .wave/skills/`,
+  install   Install a skill from bundled templates, GitHub, Tessl, or URL`,
 	}
 
 	cmd.AddCommand(newSkillListCmd())
@@ -55,19 +56,21 @@ Subcommands:
 
 func newSkillListCmd() *cobra.Command {
 	var format string
+	var remote bool
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List available and installed skill templates",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSkillList(cmd, format)
+			return runSkillList(cmd, format, remote)
 		},
 	}
 	cmd.Flags().StringVar(&format, "format", "table", "Output format: table, json")
+	cmd.Flags().BoolVar(&remote, "remote", false, "Show available remote sources (bundled templates plus hints for github: and tessl: sources)")
 	return cmd
 }
 
-func runSkillList(cmd *cobra.Command, format string) error {
+func runSkillList(cmd *cobra.Command, format string, remote bool) error {
 	format = ResolveFormat(cmd, format)
 
 	templates := defaults.GetSkillTemplates()
@@ -98,7 +101,13 @@ func runSkillList(cmd *cobra.Command, format string) error {
 	case "json":
 		return json.NewEncoder(cmd.OutOrStdout()).Encode(output)
 	default:
-		return renderSkillTemplateListTable(cmd.OutOrStdout(), output)
+		if err := renderSkillTemplateListTable(cmd.OutOrStdout(), output); err != nil {
+			return err
+		}
+		if remote {
+			renderRemoteSourceHints(cmd.OutOrStdout())
+		}
+		return nil
 	}
 }
 
@@ -136,16 +145,22 @@ func renderSkillTemplateListTable(w io.Writer, output SkillTemplateListOutput) e
 func newSkillInstallCmd() *cobra.Command {
 	var format string
 	cmd := &cobra.Command{
-		Use:   "install <name>",
-		Short: "Install a shipped skill template to .wave/skills/",
-		Long: `Install a skill template that ships with Wave.
+		Use:   "install <name-or-source>",
+		Short: "Install a skill from bundled templates, GitHub, Tessl, or URL",
+		Long: `Install a skill template that ships with Wave, or fetch from a remote source.
 
-The template is copied to .wave/skills/<name>/SKILL.md in your project.
+Source detection:
+  <bare-name>             Bundled template (e.g., gh-cli, docker)
+  github:<owner>/<repo>   Fetch from GitHub repository
+  tessl:<name>            Fetch from Tessl registry
+  https://<url>           Fetch from direct URL (archive)
 
 Examples:
   wave skill install gh-cli
   wave skill install docker
-  wave skill install testing`,
+  wave skill install github:re-cinq/wave-skills/golang
+  wave skill install tessl:spec-kit
+  wave skill install https://example.com/skills.tar.gz`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSkillInstall(cmd, args[0], format)
@@ -155,16 +170,42 @@ Examples:
 	return cmd
 }
 
-func runSkillInstall(cmd *cobra.Command, name, format string) error {
+// isRemoteSource returns true if the source string contains a recognized
+// remote prefix (github:, tessl:, https://, or any other registered adapter prefix).
+func isRemoteSource(source string) bool {
+	if strings.HasPrefix(source, "https://") {
+		return true
+	}
+	remotePrefixes := []string{"github:", "tessl:", "bmad:", "openspec:", "speckit:", "file:"}
+	for _, prefix := range remotePrefixes {
+		if strings.HasPrefix(source, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func runSkillInstall(cmd *cobra.Command, source, format string) error {
 	format = ResolveFormat(cmd, format)
 
+	// Dispatch to remote installer if a source prefix is detected
+	if isRemoteSource(source) {
+		return runSkillInstallRemote(cmd, source, format)
+	}
+
+	// Bare name — install from bundled templates
+	return runSkillInstallBundled(cmd, source, format)
+}
+
+func runSkillInstallBundled(cmd *cobra.Command, name, format string) error {
 	templates := defaults.GetSkillTemplates()
 	data, ok := templates[name]
 	if !ok {
 		available := defaults.SkillTemplateNames()
 		return NewCLIError(CodeSkillNotFound,
 			fmt.Sprintf("skill template %q not found", name),
-			fmt.Sprintf("Available templates: %s", strings.Join(available, ", ")))
+			fmt.Sprintf("Available templates: %s\nYou can also install from remote sources: github:<owner>/<repo>, tessl:<name>, https://<url>",
+				strings.Join(available, ", ")))
 	}
 
 	destDir := filepath.Join(".wave", "skills", name)
@@ -199,6 +240,56 @@ func runSkillInstall(cmd *cobra.Command, name, format string) error {
 			f.Success("OK"), f.Primary(name), destDir)
 		return nil
 	}
+}
+
+func runSkillInstallRemote(cmd *cobra.Command, source, format string) error {
+	store := newSkillStore()
+	router := skill.NewDefaultRouter(".")
+
+	ctx := cmd.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	result, err := router.Install(ctx, source, store)
+	if err != nil {
+		return classifySkillError(err)
+	}
+
+	names := make([]string, 0, len(result.Skills))
+	for _, s := range result.Skills {
+		names = append(names, s.Name)
+	}
+
+	switch format {
+	case "json":
+		output := SkillInstallOutput{
+			InstalledSkills: names,
+			Source:          source,
+			Warnings:        result.Warnings,
+		}
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(output)
+	default:
+		f := display.NewFormatter()
+		for _, name := range names {
+			fmt.Fprintf(cmd.OutOrStdout(), "%s Installed skill %s from %s\n",
+				f.Success("OK"), f.Primary(name), source)
+		}
+		for _, warn := range result.Warnings {
+			fmt.Fprintf(cmd.OutOrStdout(), "  %s %s\n", f.Error("warning:"), warn)
+		}
+		return nil
+	}
+}
+
+// renderRemoteSourceHints prints hints about remote skill sources.
+func renderRemoteSourceHints(w io.Writer) {
+	f := display.NewFormatter()
+	fmt.Fprintln(w, f.Colorize("Remote sources also supported:", "\033[1;37m"))
+	fmt.Fprintf(w, "  %s  %s\n", f.Primary("github:<owner>/<repo>"), "Install from a GitHub repository")
+	fmt.Fprintf(w, "  %s  %s\n", f.Primary("tessl:<name>"), "Install from the Tessl registry")
+	fmt.Fprintf(w, "  %s  %s\n", f.Primary("https://<url>"), "Install from a direct URL (archive)")
+	fmt.Fprintln(w)
 }
 
 // installedSkillNames returns a set of skill names installed in .wave/skills/.

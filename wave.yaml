@@ -634,3 +634,9 @@ runtime:
         forge_api_seconds: 15
         retry_max_delay_seconds: 60
     workspace_root: .wave/workspaces
+    cost:
+        enabled: true
+        budget_ceiling: 50.0
+        warn_at: 25.0
+    routing:
+        auto_route: true
