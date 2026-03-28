@@ -57,7 +57,13 @@ steps:
         schema_path: .wave/contracts/hello-world-result.schema.json
         on_failure: retry
 
-  # Step 2: Command step — validates shell execution without adapter
+  # Step 2: Sub-pipeline composition — validates child pipeline invocation
+  - id: sub-pipeline-test
+    type: pipeline
+    pipeline: wave-smoke-test
+    dependencies: [check-config]
+
+  # Step 3: Command step — validates shell execution without adapter
   - id: run-tests
     type: command
     dependencies: [check-config]
@@ -68,7 +74,7 @@ steps:
           mode: readonly
     script: "test -f wave.yaml && echo 'Wave validate: project mount verified'"
 
-  # Step 3: Conditional routing — validates graph walker
+  # Step 4: Conditional routing — validates graph walker
   - id: test-gate
     type: conditional
     dependencies: [run-tests]
@@ -77,7 +83,7 @@ steps:
         condition: "outcome=success"
       - target: diagnose-failure
 
-  # Step 4a: Fix path (only reached on test failure) — validates loop + thread
+  # Step 5a: Fix path (only reached on test failure) — validates loop + thread
   - id: diagnose-failure
     persona: navigator
     model: claude-haiku
@@ -100,7 +106,7 @@ steps:
     edges:
       - target: generate-report
 
-  # Step 5: Human gate — validates approval workflow (auto-approved)
+  # Step 6: Human gate — validates approval workflow (auto-approved)
   - id: approval-gate
     gate:
       type: approval
@@ -116,7 +122,7 @@ steps:
       timeout: "10s"
     dependencies: [test-gate, diagnose-failure]
 
-  # Step 6: LLM-as-judge — validates subjective quality assessment
+  # Step 7: LLM-as-judge — validates subjective quality assessment
   - id: generate-report
     persona: navigator
     dependencies: [approval-gate]
@@ -127,6 +133,7 @@ steps:
 
         Summarize which features were exercised in this pipeline run:
         - Model routing (haiku on check-config and diagnose steps)
+        - Sub-pipeline composition (wave-smoke-test invoked as child pipeline)
         - Command steps (run-tests)
         - Conditional edges (test-gate routing)
         - Thread continuity (fix-loop thread on diagnose)
@@ -148,7 +155,7 @@ steps:
         source: .wave/output/validation-report.md
         model: claude-haiku
         criteria:
-          - "Report covers all 7 feature categories"
+          - "Report covers all 8 feature categories"
           - "Each feature has a clear VERIFIED or UNTESTED status"
           - "Report is structured and readable"
         threshold: 0.66
