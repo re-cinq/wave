@@ -248,18 +248,24 @@ func TestLLMJudge_MissingCriteria(t *testing.T) {
 	}
 }
 
-func TestLLMJudge_MissingAPIKey(t *testing.T) {
+func TestLLMJudge_NoAPIKey_FallsThroughToCLI(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "")
+
+	tmpDir := t.TempDir()
+	os.MkdirAll(filepath.Join(tmpDir, ".wave"), 0o755)
+	os.WriteFile(filepath.Join(tmpDir, ".wave", "artifact.json"), []byte(`{"test": true}`), 0o644)
 
 	cfg := ContractConfig{
 		Type:     "llm_judge",
 		Criteria: []string{"Test criterion"},
+		Source:   ".wave/artifact.json",
 	}
 
 	v := &llmJudgeValidator{}
-	err := v.Validate(cfg, t.TempDir())
+	err := v.Validate(cfg, tmpDir)
+	// Without API key, falls through to CLI. CLI likely not available in test.
 	if err == nil {
-		t.Fatal("expected error for missing API key")
+		return // CLI worked (unlikely in test, but valid)
 	}
 
 	validErr, ok := err.(*ValidationError)
@@ -267,8 +273,9 @@ func TestLLMJudge_MissingAPIKey(t *testing.T) {
 		t.Fatalf("expected *ValidationError, got %T", err)
 	}
 
-	if !strings.Contains(validErr.Message, "ANTHROPIC_API_KEY") {
-		t.Errorf("expected message about API key, got: %s", validErr.Message)
+	// Should NOT be an "API key missing" error — it should be a CLI error
+	if strings.Contains(validErr.Message, "ANTHROPIC_API_KEY") {
+		t.Errorf("should fall through to CLI, not fail on missing API key, got: %s", validErr.Message)
 	}
 }
 
