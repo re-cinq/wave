@@ -301,8 +301,9 @@ type PRSummary struct {
 	Number       int    `json:"number"`
 	Title        string `json:"title"`
 	State        string `json:"state"`
-	Author       string `json:"author"`
-	Draft        bool   `json:"draft"`
+	Author       string   `json:"author"`
+	Labels       []string `json:"labels,omitempty"`
+	Draft        bool     `json:"draft"`
 	Merged       bool   `json:"merged"`
 	HeadBranch   string `json:"head_branch"`
 	BaseBranch   string `json:"base_branch"`
@@ -320,6 +321,17 @@ type CommentSummary struct {
 	CreatedAt string `json:"created_at"`
 	TimeISO   string `json:"time_iso"`
 	HTMLURL   string `json:"url"`
+}
+
+// CommitSummary is a summary of a commit on a PR for the detail page.
+type CommitSummary struct {
+	SHA      string `json:"sha"`
+	ShortSHA string `json:"short_sha"`
+	Message  string `json:"message"`
+	Author   string `json:"author"`
+	Date     string `json:"date"`
+	TimeISO  string `json:"time_iso"`
+	HTMLURL  string `json:"url"`
 }
 
 // PRCheck represents a CI/CD status check on a PR.
@@ -528,5 +540,37 @@ type ForkPointResponse struct {
 type ForkPointsResponse struct {
 	RunID      string              `json:"run_id"`
 	ForkPoints []ForkPointResponse `json:"fork_points"`
+}
+
+// RetroTrendEntry holds a single retrospective entry for the smoothness trend chart.
+type RetroTrendEntry struct {
+	RunID      string `json:"run_id"`
+	Pipeline   string `json:"pipeline"`
+	Smoothness string `json:"smoothness"`
+	HeightPct  int    `json:"height_pct"`
+	CreatedAt  string `json:"created_at"`
+}
+
+// FrictionCount holds an aggregated friction point type with its occurrence count.
+type FrictionCount struct {
+	Type  string `json:"type"`
+	Count int    `json:"count"`
+}
+
+// PipelineSuccessRate holds aggregated success metrics for a pipeline.
+type PipelineSuccessRate struct {
+	Pipeline    string `json:"pipeline"`
+	TotalRuns   int    `json:"total_runs"`
+	SuccessPct  int    `json:"success_pct"`
+	AvgDuration string `json:"avg_duration"`
+}
+
+// RetroListEntry holds a retrospective record for the list view.
+type RetroListEntry struct {
+	RunID      string `json:"run_id"`
+	Pipeline   string `json:"pipeline"`
+	Smoothness string `json:"smoothness"`
+	Status     string `json:"status"`
+	CreatedAt  string `json:"created_at"`
 }
 
