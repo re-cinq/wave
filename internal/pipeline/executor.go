@@ -1313,6 +1313,19 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		return e.executeCompositionStep(ctx, execution, step)
 	}
 
+	// Command step: execute shell script directly (no adapter/persona needed).
+	// This mirrors the graph walker dispatch in executeGraphPipeline.
+	if step.Type == StepTypeCommand || step.Script != "" {
+		result, err := e.executeCommandStep(ctx, execution, step)
+		if err != nil {
+			return err
+		}
+		if result != nil && result.Outcome == "failure" {
+			return result.Error
+		}
+		return nil
+	}
+
 	// Run step_start hooks
 	if e.hookRunner != nil {
 		evt := hooks.HookEvent{
