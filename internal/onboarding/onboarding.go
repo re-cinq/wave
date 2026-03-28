@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/recinq/wave/internal/defaults"
 	"github.com/recinq/wave/internal/manifest"
 	"gopkg.in/yaml.v3"
 )
@@ -133,6 +134,13 @@ func RunWizard(cfg WizardConfig) (*WizardResult, error) {
 			services[sub.Name] = svc
 		}
 		result.Services = services
+	}
+
+	// Auto-suggest and install skills based on detected project signals
+	suggested := suggestSkills(result.Language, meta, cwd)
+	if len(suggested) > 0 {
+		installed := autoInstallSkills(cfg.WaveDir, suggested)
+		result.Skills = mergeSkills(result.Skills, installed)
 	}
 
 	// Step 3: Pipeline selection
@@ -470,4 +478,83 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 	}
 
 	return m
+}
+
+// suggestSkills returns skill template names based on detected project signals.
+func suggestSkills(language string, meta ProjectMetadata, cwd string) []string {
+	var suggested []string
+
+	// Language-based suggestions
+	switch language {
+	case "go":
+		suggested = append(suggested, "testing", "docs", "security")
+	case "typescript", "javascript":
+		suggested = append(suggested, "react", "tailwind", "testing")
+	case "python":
+		suggested = append(suggested, "testing", "docs", "security")
+	case "rust":
+		suggested = append(suggested, "testing", "docs", "security")
+	}
+
+	// Check for Docker signals (services detected from compose files)
+	if len(meta.Services) > 0 {
+		suggested = append(suggested, "docker")
+	}
+
+	// Check for GitHub directory
+	if _, err := os.Stat(filepath.Join(cwd, ".github")); err == nil {
+		suggested = append(suggested, "gh-cli")
+	}
+
+	// Filter to only templates that actually exist in bundled defaults
+	templates := defaults.GetSkillTemplates()
+	var valid []string
+	seen := make(map[string]bool)
+	for _, name := range suggested {
+		if _, ok := templates[name]; ok && !seen[name] {
+			seen[name] = true
+			valid = append(valid, name)
+		}
+	}
+
+	return valid
+}
+
+// autoInstallSkills copies bundled skill templates to .wave/skills/ for each name.
+// Returns the list of successfully installed skill names.
+func autoInstallSkills(waveDir string, names []string) []string {
+	templates := defaults.GetSkillTemplates()
+	skillsDir := filepath.Join(waveDir, "skills")
+	if err := os.MkdirAll(skillsDir, 0755); err != nil {
+		return nil
+	}
+
+	var installed []string
+	for _, name := range names {
+		data, ok := templates[name]
+		if !ok {
+			continue
+		}
+
+		destDir := filepath.Join(skillsDir, name)
+		destFile := filepath.Join(destDir, "SKILL.md")
+
+		// Skip if already installed
+		if _, err := os.Stat(destFile); err == nil {
+			installed = append(installed, name)
+			continue
+		}
+
+		if err := os.MkdirAll(destDir, 0755); err != nil {
+			continue
+		}
+
+		if err := os.WriteFile(destFile, data, 0644); err != nil {
+			continue
+		}
+
+		installed = append(installed, name)
+	}
+
+	return installed
 }
