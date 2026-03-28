@@ -1,0 +1,48 @@
+kind: WavePipeline
+metadata:
+  name: impl-smart-route
+  description: "Auto-route issues to impl-issue or impl-speckit based on complexity assessment"
+  category: composition
+  release: true
+
+input:
+  source: cli
+  example: "https://github.com/owner/repo/issues/42"
+
+steps:
+  - id: assess
+    persona: navigator
+    model: claude-haiku
+    exec:
+      type: prompt
+      source: |
+        Assess complexity of: {{ input }}
+
+        Classify as:
+        - simple: single file change, clear fix, < 50 lines
+        - medium: 2-5 files, well-scoped feature, clear acceptance criteria
+        - complex: 5+ files, needs spec/plan/tasks, architectural impact
+
+        Output JSON: {"complexity": "simple|medium|complex", "reason": "..."}
+    output_artifacts:
+      - name: assessment
+        path: .wave/output/complexity.json
+        type: json
+    retry:
+      policy: patient
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/complexity.json
+        schema_path: .wave/contracts/issue-assessment.schema.json
+        on_failure: retry
+
+  - id: route
+    dependencies: [assess]
+    branch:
+      on: "{{ assess.output.complexity }}"
+      cases:
+        simple: impl-issue
+        medium: impl-issue
+        complex: impl-speckit
