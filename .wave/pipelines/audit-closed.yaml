@@ -21,6 +21,7 @@ input:
 steps:
   - id: inventory
     persona: "{{ forge.type }}-analyst"
+    model: claude-haiku
     workspace:
       mount:
         - source: ./
@@ -109,6 +110,7 @@ steps:
 
   - id: audit
     persona: "{{ forge.type }}-analyst"
+    model: claude-haiku
     dependencies: [inventory]
     memory:
       inject_artifacts:
@@ -198,6 +200,7 @@ steps:
 
   - id: triage
     persona: navigator
+    model: claude-haiku
     dependencies: [audit]
     memory:
       inject_artifacts:
