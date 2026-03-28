@@ -30,6 +30,7 @@ type PullRequest struct {
 	Draft        bool
 	Merged       bool
 	HeadBranch   string
+	HeadSHA      string
 	BaseBranch   string
 	Additions    int
 	Deletions    int
@@ -58,4 +59,12 @@ type ListPullRequestsOptions struct {
 	Sort    string
 	PerPage int
 	Page    int
+}
+
+// CheckRun represents a CI/CD check result for a commit.
+type CheckRun struct {
+	Name       string // check name (e.g. "CI / build")
+	Status     string // "queued", "in_progress", "completed"
+	Conclusion string // "success", "failure", "neutral", "cancelled", "skipped", "timed_out", "action_required" (empty if not completed)
+	HTMLURL    string // link to the check details
 }

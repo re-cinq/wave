@@ -52,6 +52,37 @@
 {{end}}
 
 <div class="card">
+    <h2>Status Checks</h2>
+    {{if .PR.Checks}}
+    <table class="table">
+        <thead>
+            <tr>
+                <th style="width: 2.5rem;"></th>
+                <th>Check</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .PR.Checks}}
+            <tr>
+                <td><span class="badge {{checkClass .Status .Conclusion}}" style="font-size: 0.85rem;">{{checkIcon .Status .Conclusion}}</span></td>
+                <td>{{.Name}}</td>
+                <td><span class="badge {{checkClass .Status .Conclusion}}">{{checkLabel .Status .Conclusion}}</span></td>
+                <td>{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener noreferrer" class="text-muted">Details &rarr;</a>{{end}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="empty-state">
+        <p><strong>No status checks</strong></p>
+        <p>No CI/CD checks have been reported for this PR.</p>
+    </div>
+    {{end}}
+</div>
+
+<div class="card">
     <h2>Related Pipeline Runs</h2>
     {{if .Runs}}
     <table class="table">
