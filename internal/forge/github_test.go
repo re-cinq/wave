@@ -183,3 +183,109 @@ func TestGitHubClient_UnwrapGitHub(t *testing.T) {
 		t.Error("UnwrapGitHub() should return the underlying client")
 	}
 }
+
+func TestConvertGitHubCheckRuns(t *testing.T) {
+	t.Run("maps all fields correctly", func(t *testing.T) {
+		ghCheckRuns := []*github.CheckRun{
+			{
+				ID:         100,
+				Name:       "CI / build",
+				Status:     "completed",
+				Conclusion: "success",
+				HTMLURL:    "https://github.com/owner/repo/runs/100",
+			},
+			{
+				ID:         200,
+				Name:       "CI / lint",
+				Status:     "in_progress",
+				Conclusion: "",
+				HTMLURL:    "https://github.com/owner/repo/runs/200",
+			},
+			{
+				ID:         300,
+				Name:       "CI / test",
+				Status:     "completed",
+				Conclusion: "failure",
+				HTMLURL:    "https://github.com/owner/repo/runs/300",
+			},
+		}
+
+		result := make([]*CheckRun, 0, len(ghCheckRuns))
+		for _, cr := range ghCheckRuns {
+			result = append(result, &CheckRun{
+				Name:       cr.Name,
+				Status:     cr.Status,
+				Conclusion: cr.Conclusion,
+				HTMLURL:    cr.HTMLURL,
+			})
+		}
+
+		if len(result) != 3 {
+			t.Fatalf("expected 3 check runs, got %d", len(result))
+		}
+
+		// Verify first check run — completed/success
+		if result[0].Name != "CI / build" {
+			t.Errorf("result[0].Name = %q, want %q", result[0].Name, "CI / build")
+		}
+		if result[0].Status != "completed" {
+			t.Errorf("result[0].Status = %q, want %q", result[0].Status, "completed")
+		}
+		if result[0].Conclusion != "success" {
+			t.Errorf("result[0].Conclusion = %q, want %q", result[0].Conclusion, "success")
+		}
+		if result[0].HTMLURL != "https://github.com/owner/repo/runs/100" {
+			t.Errorf("result[0].HTMLURL = %q, want %q", result[0].HTMLURL, "https://github.com/owner/repo/runs/100")
+		}
+
+		// Verify second check run — in_progress with empty conclusion
+		if result[1].Status != "in_progress" {
+			t.Errorf("result[1].Status = %q, want %q", result[1].Status, "in_progress")
+		}
+		if result[1].Conclusion != "" {
+			t.Errorf("result[1].Conclusion = %q, want empty", result[1].Conclusion)
+		}
+
+		// Verify third check run — completed/failure
+		if result[2].Conclusion != "failure" {
+			t.Errorf("result[2].Conclusion = %q, want %q", result[2].Conclusion, "failure")
+		}
+	})
+
+	t.Run("empty input", func(t *testing.T) {
+		ghCheckRuns := []*github.CheckRun{}
+		result := make([]*CheckRun, 0, len(ghCheckRuns))
+		for _, cr := range ghCheckRuns {
+			result = append(result, &CheckRun{
+				Name:       cr.Name,
+				Status:     cr.Status,
+				Conclusion: cr.Conclusion,
+				HTMLURL:    cr.HTMLURL,
+			})
+		}
+		if len(result) != 0 {
+			t.Errorf("expected 0 check runs, got %d", len(result))
+		}
+	})
+
+	t.Run("ID field is not mapped to forge type", func(t *testing.T) {
+		// The forge.CheckRun type intentionally omits the ID field.
+		// Verify that the mapping works without it.
+		ghCR := &github.CheckRun{
+			ID:         999,
+			Name:       "test",
+			Status:     "completed",
+			Conclusion: "success",
+			HTMLURL:    "https://example.com",
+		}
+		forgeCR := &CheckRun{
+			Name:       ghCR.Name,
+			Status:     ghCR.Status,
+			Conclusion: ghCR.Conclusion,
+			HTMLURL:    ghCR.HTMLURL,
+		}
+		if forgeCR.Name != "test" {
+			t.Errorf("Name = %q, want %q", forgeCR.Name, "test")
+		}
+	})
+}

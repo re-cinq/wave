@@ -307,6 +307,14 @@ type PRSummary struct {
 	URL          string `json:"url"`
 }
 
+// PRCheck represents a CI/CD status check on a PR.
+type PRCheck struct {
+	Name       string `json:"name"`
+	Status     string `json:"status"`     // "queued", "in_progress", "completed"
+	Conclusion string `json:"conclusion"` // "success", "failure", "neutral", "cancelled", "skipped", "timed_out", "action_required"
+	URL        string `json:"url"`
+}
+
 // PRDetail holds full PR information for the detail page.
 type PRDetail struct {
 	Number       int      `json:"number"`
@@ -327,6 +335,7 @@ type PRDetail struct {
 	CreatedAt    string   `json:"created_at"`
 	UpdatedAt    string   `json:"updated_at"`
 	URL          string   `json:"url"`
+	Checks       []PRCheck `json:"checks,omitempty"`
 }
 
 // PRListResponse is the JSON response for the PR list API.

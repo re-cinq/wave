@@ -270,3 +270,95 @@ func TestClient_Authentication(t *testing.T) {
 	_, err := client.GetIssue(context.Background(), "owner", "repo", 1)
 	assert.NoError(t, err)
 }
+
+func TestClient_GetCommitCheckRuns(t *testing.T) {
+	t.Run("success with check runs", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "/repos/owner/repo/commits/abc123/check-runs", r.URL.Path)
+			assert.Equal(t, "100", r.URL.Query().Get("per_page"))
+			assert.Equal(t, "GET", r.Method)
+
+			resp := CheckRunsResponse{
+				TotalCount: 2,
+				CheckRuns: []*CheckRun{
+					{
+						ID:         1,
+						Name:       "CI / build",
+						Status:     "completed",
+						Conclusion: "success",
+						HTMLURL:    "https://github.com/owner/repo/runs/1",
+					},
+					{
+						ID:         2,
+						Name:       "CI / lint",
+						Status:     "in_progress",
+						Conclusion: "",
+						HTMLURL:    "https://github.com/owner/repo/runs/2",
+					},
+				},
+			}
+			json.NewEncoder(w).Encode(resp)
+		}))
+		defer server.Close()
+
+		client := NewClient(ClientConfig{BaseURL: server.URL})
+
+		result, err := client.GetCommitCheckRuns(context.Background(), "owner", "repo", "abc123")
+		require.NoError(t, err)
+		assert.Equal(t, 2, result.TotalCount)
+		require.Len(t, result.CheckRuns, 2)
+		assert.Equal(t, "CI / build", result.CheckRuns[0].Name)
+		assert.Equal(t, "completed", result.CheckRuns[0].Status)
+		assert.Equal(t, "success", result.CheckRuns[0].Conclusion)
+		assert.Equal(t, "https://github.com/owner/repo/runs/1", result.CheckRuns[0].HTMLURL)
+		assert.Equal(t, "CI / lint", result.CheckRuns[1].Name)
+		assert.Equal(t, "in_progress", result.CheckRuns[1].Status)
+		assert.Empty(t, result.CheckRuns[1].Conclusion)
+	})
+
+	t.Run("empty check runs", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			resp := CheckRunsResponse{
+				TotalCount: 0,
+				CheckRuns:  []*CheckRun{},
+			}
+			json.NewEncoder(w).Encode(resp)
+		}))
+		defer server.Close()
+
+		client := NewClient(ClientConfig{BaseURL: server.URL})
+
+		result, err := client.GetCommitCheckRuns(context.Background(), "owner", "repo", "def456")
+		require.NoError(t, err)
+		assert.Equal(t, 0, result.TotalCount)
+		assert.Empty(t, result.CheckRuns)
+	})
+
+	t.Run("server error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{
+				"message": "Internal Server Error",
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient(ClientConfig{BaseURL: server.URL})
+
+		_, err := client.GetCommitCheckRuns(context.Background(), "owner", "repo", "bad")
+		assert.Error(t, err)
+	})
+
+	t.Run("invalid JSON response", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("not json"))
+		}))
+		defer server.Close()
+
+		client := NewClient(ClientConfig{BaseURL: server.URL})
+
+		_, err := client.GetCommitCheckRuns(context.Background(), "owner", "repo", "abc123")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to decode check runs")
+	})
+}
