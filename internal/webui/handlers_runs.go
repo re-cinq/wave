@@ -668,6 +668,8 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 			GatePrompt:  gatePrompt,
 			GateChoices: gateChoices,
 			EdgeInfo:    edgeInfo,
+			Model:       step.Model,
+			MaxVisits:   step.MaxVisits,
 		}
 
 		// Populate structured gate data for interactive UI
@@ -705,6 +707,20 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 					sd.Duration = formatDurationValue(si.completedAt.Sub(*si.startedAt))
 				} else if sd.State == "running" {
 					sd.Duration = formatDurationValue(time.Since(*si.startedAt))
+				}
+			}
+
+			// Populate failure class from step attempts
+			if sd.State == "failed" && s.store != nil {
+				if attempts, err := s.store.GetStepAttempts(runID, step.ID); err == nil && len(attempts) > 0 {
+					sd.FailureClass = attempts[len(attempts)-1].FailureClass
+				}
+			}
+
+			// Populate visit count for graph loop steps
+			if step.MaxVisits > 0 && s.store != nil {
+				if vc, err := s.store.GetStepVisitCount(runID, step.ID); err == nil {
+					sd.VisitCount = vc
 				}
 			}
 		}
