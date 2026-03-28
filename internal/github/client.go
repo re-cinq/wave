@@ -401,6 +401,24 @@ func (c *Client) GetCommitCheckRuns(ctx context.Context, owner, repo, ref string
 	return &result, nil
 }
 
+// CreatePullRequestReview submits a review on a pull request.
+// event must be one of "APPROVE", "REQUEST_CHANGES", or "COMMENT".
+func (c *Client) CreatePullRequestReview(ctx context.Context, owner, repo string, number int, event, body string) error {
+	path := fmt.Sprintf("/repos/%s/%s/pulls/%d/reviews", owner, repo, number)
+
+	payload := map[string]string{
+		"event": event,
+		"body":  body,
+	}
+
+	resp, err := c.doRequest(ctx, http.MethodPost, path, payload)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
+}
+
 // GetRepository retrieves repository information
 func (c *Client) GetRepository(ctx context.Context, owner, repo string) (*Repository, error) {
 	path := fmt.Sprintf("/repos/%s/%s", owner, repo)

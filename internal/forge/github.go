@@ -120,6 +120,10 @@ func (g *GitHubClient) GetCommitChecks(ctx context.Context, owner, repo, ref str
 	return result, nil
 }
 
+func (g *GitHubClient) CreatePullRequestReview(ctx context.Context, owner, repo string, number int, event, body string) error {
+	return g.client.CreatePullRequestReview(ctx, owner, repo, number, event, body)
+}
+
 func (g *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string, number int, limit int) ([]*Comment, error) {
 	ghComments, err := g.client.ListIssueComments(ctx, owner, repo, number, limit)
 	if err != nil {
