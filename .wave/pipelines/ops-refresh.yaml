@@ -22,6 +22,7 @@ input:
 steps:
   - id: gather-context
     persona: "{{ forge.type }}-analyst"
+    model: claude-haiku
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
