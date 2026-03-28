@@ -340,9 +340,9 @@ func detectParallelGroups(proposals []ProposedPipeline) []ProposedPipeline {
 }
 
 // forgePrefixes contains the known forge pipeline name prefixes.
-var forgePrefixes = []string{"gh-", "gl-", "bb-", "gt-"}
+var forgePrefixes = []string{"gh-", "gl-", "bb-", "gt-", "cb-"}
 
-// stripForgePrefix removes forge prefixes (gh-, gl-, bb-, gt-) from a pipeline name.
+// stripForgePrefix removes forge prefixes (gh-, gl-, bb-, gt-, cb-) from a pipeline name.
 func stripForgePrefix(name string) string {
 	for _, p := range forgePrefixes {
 		if strings.HasPrefix(name, p) {

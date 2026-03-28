@@ -53,7 +53,7 @@ func NewIntrospector(forgeType forge.ForgeType) TokenIntrospector {
 		return &GitHubIntrospector{runCmd: defaultRunner}
 	case forge.ForgeGitLab:
 		return &GitLabIntrospector{runCmd: defaultRunner}
-	case forge.ForgeGitea:
+	case forge.ForgeGitea, forge.ForgeForgejo, forge.ForgeCodeberg:
 		return &GiteaIntrospector{runCmd: defaultRunner}
 	default:
 		return nil
