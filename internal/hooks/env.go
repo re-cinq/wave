@@ -14,7 +14,7 @@ func buildHookEnv(evt HookEvent) []string {
 		"TMPDIR=/tmp",
 		"WAVE_HOOK_EVENT=" + string(evt.Type),
 		"WAVE_HOOK_PIPELINE=" + evt.PipelineID,
-		"WAVE_HOOK_STEP=" + evt.StepID,
+		"WAVE_HOOK_STEP_ID=" + evt.StepID,
 		"WAVE_HOOK_WORKSPACE=" + evt.Workspace,
 	}
 }
