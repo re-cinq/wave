@@ -1,0 +1,49 @@
+kind: WavePipeline
+metadata:
+  name: audit-unwired
+  description: "Find features that exist in code but have no runtime path from CLI, pipelines, or API"
+  release: true
+  category: audit
+
+input:
+  source: cli
+  example: "internal/"
+
+steps:
+  - id: scan
+    persona: navigator
+    model: claude-haiku
+    max_concurrent_agents: 3
+    contexts: [execution, configuration]
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Audit for unwired functionality in the Go codebase at /project.
+        Scope: {{ input }}
+
+        Trace runtime entry points:
+        1. CLI commands: /project/cmd/wave/commands/*.go
+        2. Pipeline executor features: /project/internal/pipeline/executor.go
+        3. WebUI routes: /project/internal/webui/routes.go
+        4. Adapter capabilities: /project/internal/adapter/*.go
+
+        For each exported function/type in internal/ packages, verify it has a caller from cmd/ or another package.
+
+        Write findings to .wave/output/unwired-findings.json:
+        ```json
+        {"findings": [{"feature": "...", "location": "...", "has_cli": bool, "has_pipeline": bool, "has_api": bool, "recommendation": "wire|remove|document"}]}
+        ```
+    output_artifacts:
+      - name: findings
+        path: .wave/output/unwired-findings.json
+        type: json
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/unwired-findings.json
+        on_failure: skip

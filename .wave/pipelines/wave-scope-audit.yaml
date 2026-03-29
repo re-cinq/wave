@@ -1,342 +1,75 @@
+# Wave Scope Audit — Composition Pipeline
+#
+# Exercises: iterate (parallel fan-out), aggregate (merge findings),
+#            sub-pipeline, human gate, loop (revise until approved),
+#            thread continuity, model routing, lifecycle hooks
+#
+# Execution flow:
+#
+#   run-audits              ← iterate (parallel, max_concurrent: 4): fan out
+#   ├─ audit-dead-code      │  6 audit pipelines in parallel, each produces
+#   ├─ audit-unwired        │  a findings JSON artifact
+#   ├─ audit-duplicates     │
+#   ├─ audit-doc            │
+#   ├─ audit-junk-code      │
+#   └─ audit-dx             │
+#        │
+#   merge-findings          ← aggregate: merge all findings into one JSON
+#        │
+#   synthesize              ← opus philosopher: unified report + scope document
+#        │
+#   approve-scope           ← human gate: review scope doc
+#   ├─ approve → create-issues
+#   └─ revise  → synthesize (loop back)
+
 kind: WavePipeline
 metadata:
   name: wave-scope-audit
-  description: "Deep audit of Wave's scope — dead code, unwired features, duplicates, doc drift, and scope re-specification"
+  description: "Deep composition audit — fan-out 6 audits, merge, synthesize scope document, gate, create issues"
+  category: composition
   release: false
-  category: wave
 
 input:
   source: cli
   example: "https://github.com/re-cinq/wave/issues/655"
 
-# Lifecycle hooks — track every phase transition
 hooks:
-  - name: log-phase
-    event: step_completed
-    type: command
-    command: "echo '[wave-scope-audit] step=$WAVE_HOOK_STEP_ID completed at $(date)' >> .wave/output/audit-log.txt"
-    blocking: false
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[wave-scope-audit] started run={{ pipeline_id }}' >> .wave/output/audit-log.txt"
+    command: "echo '[wave-scope-audit] started run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-step
+    event: step_completed
+    type: command
+    command: "echo '[wave-scope-audit] step=$WAVE_HOOK_STEP_ID completed' >> .wave/output/hook-log.txt"
     blocking: false
 
 steps:
-  # ========================================================================
-  # PHASE 1: PARALLEL SCAN — 6 haiku agents fan out across different concerns
-  # ========================================================================
+  # ── Phase 1: Fan out 6 audit pipelines in parallel ──────────────────────
+  - id: run-audits
+    pipeline: "{{ item }}"
+    input: "{{ input }}"
+    iterate:
+      over: '["audit-dead-code", "audit-unwired", "audit-duplicates", "audit-doc", "audit-junk-code", "audit-dx"]'
+      mode: parallel
+      max_concurrent: 4
 
-  # Scan 1: Dead code — packages and functions with no runtime callers
-  - id: scan-dead-code
-    persona: navigator
-    model: claude-haiku
-    max_concurrent_agents: 3
-    contexts: [configuration, delivery]
-    workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readonly
-    exec:
-      type: prompt
-      source: |
-        You are auditing Wave for dead code. Scan the Go codebase in /project.
+  # ── Phase 2: Merge all findings into one JSON ───────────────────────────
+  - id: merge-findings
+    dependencies: [run-audits]
+    aggregate:
+      from: "{{ run-audits.output }}"
+      into: .wave/output/merged-findings.json
+      strategy: merge_arrays
 
-        For each package in /project/internal/:
-        1. Check if it's imported by any file outside its own package
-        2. Check if any exported function is called from cmd/ or another internal/ package
-        3. Flag packages that are self-contained with no external callers
-
-        Tools to use:
-        - `grep -r "package_name" /project/internal/ /project/cmd/` for import checks
-        - `grep -rn "FunctionName" /project/` for call site checks
-
-        Focus on these suspect packages from the issue:
-        - internal/bench/ — SWE-bench benchmarking
-        - internal/browser/ or internal/adapter/browser.go — browser automation
-        - internal/continuous/ — continuous execution
-        - internal/relay/ — context compaction
-
-        Output a JSON report to .wave/output/scan-dead-code.json:
-        ```json
-        {
-          "scan": "dead-code",
-          "findings": [
-            {"package": "internal/bench", "status": "dead|active|partial", "evidence": "...", "recommendation": "remove|keep|investigate"}
-          ],
-          "summary": "X packages scanned, Y dead, Z partial"
-        }
-        ```
-
-        Be thorough but concise. Max 30 findings.
-
-        Run-ID: {{ run.id }}
-    output_artifacts:
-      - name: scan-dead-code
-        path: .wave/output/scan-dead-code.json
-        type: json
-    handover:
-      contract:
-        type: non_empty_file
-        source: .wave/output/scan-dead-code.json
-        on_failure: skip
-
-  # Scan 2: Unwired functionality — code that exists but no CLI/pipeline path reaches it
-  - id: scan-unwired
-    persona: navigator
-    model: claude-haiku
-    max_concurrent_agents: 3
-    contexts: [execution, configuration]
-    workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readonly
-    exec:
-      type: prompt
-      source: |
-        You are auditing Wave for unwired functionality — features that exist in code but have no path from CLI commands or pipeline execution.
-
-        Trace the runtime entry points:
-        1. CLI commands: scan /project/cmd/wave/commands/*.go for registered commands
-        2. Pipeline executor: scan /project/internal/pipeline/executor.go for feature flags and conditional paths
-        3. WebUI handlers: scan /project/internal/webui/handlers_*.go for registered routes
-        4. Adapter capabilities: scan /project/internal/adapter/*.go for unused adapter types
-
-        For each feature/capability found in code, verify it has a runtime path (CLI flag, pipeline field, API endpoint).
-
-        Output JSON to .wave/output/scan-unwired.json:
-        ```json
-        {
-          "scan": "unwired",
-          "findings": [
-            {"feature": "...", "location": "file:line", "has_cli_path": true/false, "has_pipeline_path": true/false, "has_api_path": true/false, "recommendation": "wire|remove|document"}
-          ],
-          "summary": "X features found, Y fully wired, Z unwired"
-        }
-        ```
-
-        Run-ID: {{ run.id }}
-    output_artifacts:
-      - name: scan-unwired
-        path: .wave/output/scan-unwired.json
-        type: json
-    handover:
-      contract:
-        type: non_empty_file
-        source: .wave/output/scan-unwired.json
-        on_failure: skip
-
-  # Scan 3: Duplicate implementations — overlapping packages solving same concern
-  - id: scan-duplicates
-    persona: navigator
-    model: claude-haiku
-    max_concurrent_agents: 3
-    contexts: [configuration]
-    workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readonly
-    exec:
-      type: prompt
-      source: |
-        You are auditing Wave for duplicate or overlapping implementations.
-
-        Check these known suspects:
-        1. Sandbox backends: internal/sandbox/ (docker + bubblewrap) — are both maintained?
-        2. Display packages: internal/display/ vs internal/tui/ — overlap?
-        3. Health checking: internal/doctor/ vs internal/preflight/ — overlap?
-        4. Suggestion: internal/suggest/ vs internal/pipeline/routing.go — both route pipelines?
-        5. State tracking: internal/state/ vs internal/deliverable/ — both track run state?
-        6. Template resolution: internal/pipeline/context.go vs internal/manifest/types.go ProjectVars — both resolve templates?
-
-        For each pair, determine:
-        - Do they solve the same problem?
-        - Is one a superset of the other?
-        - Should they be merged, or do they serve genuinely different purposes?
-
-        Output JSON to .wave/output/scan-duplicates.json:
-        ```json
-        {
-          "scan": "duplicates",
-          "findings": [
-            {"pair": ["pkg1", "pkg2"], "overlap": "full|partial|none", "recommendation": "merge|keep-both|remove-one", "rationale": "..."}
-          ],
-          "summary": "X pairs examined, Y overlapping"
-        }
-        ```
-
-        Run-ID: {{ run.id }}
-    output_artifacts:
-      - name: scan-duplicates
-        path: .wave/output/scan-duplicates.json
-        type: json
-    handover:
-      contract:
-        type: non_empty_file
-        source: .wave/output/scan-duplicates.json
-        on_failure: skip
-
-  # Scan 4: Doc/ADR audit — compare docs to code reality
-  - id: scan-docs
-    persona: navigator
-    model: claude-haiku
-    max_concurrent_agents: 3
-    contexts: [delivery, quality]
-    workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readonly
-    exec:
-      type: prompt
-      source: |
-        You are auditing Wave's documentation against code reality.
-
-        Check:
-        1. /project/docs/adrs/*.md — are ADR decisions still reflected in code?
-        2. /project/docs/guides/*.md — are guide instructions accurate?
-        3. /project/CLAUDE.md — does the file structure section match actual internal/ packages?
-        4. /project/README.md — are CLI examples and feature descriptions accurate?
-        5. /project/.wave/personas/base-protocol.md — are tool usage rules current?
-
-        For each doc file, verify 3-5 specific claims against the codebase.
-
-        Output JSON to .wave/output/scan-docs.json:
-        ```json
-        {
-          "scan": "docs",
-          "findings": [
-            {"file": "docs/adrs/001-....md", "claim": "...", "status": "accurate|outdated|contradicted", "evidence": "..."}
-          ],
-          "summary": "X docs checked, Y claims verified, Z outdated"
-        }
-        ```
-
-        Run-ID: {{ run.id }}
-    output_artifacts:
-      - name: scan-docs
-        path: .wave/output/scan-docs.json
-        type: json
-    handover:
-      contract:
-        type: non_empty_file
-        source: .wave/output/scan-docs.json
-        on_failure: skip
-
-  # Scan 5: Pipeline fleet audit — unused, misconfigured, or overlapping pipelines
-  - id: scan-pipelines
-    persona: navigator
-    model: claude-haiku
-    max_concurrent_agents: 3
-    contexts: [delivery, configuration]
-    workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readonly
-    exec:
-      type: prompt
-      source: |
-        You are auditing Wave's pipeline fleet (59 pipelines in .wave/pipelines/).
-
-        For each pipeline:
-        1. Does it have a clear, distinct purpose? Or does it overlap with another?
-        2. Are all referenced personas defined in wave.yaml?
-        3. Are all referenced contracts available in .wave/contracts/?
-        4. Is the pipeline's category prefix consistent with its function?
-        5. Has it been used in the last 30 runs? (Check .wave/state.db if accessible, otherwise note "usage unknown")
-
-        Group pipelines into:
-        - CORE (essential, actively used)
-        - USEFUL (valid but niche)
-        - CANDIDATE-REMOVE (overlapping, broken, or obsolete)
-
-        Output JSON to .wave/output/scan-pipelines.json.
-
-        Run-ID: {{ run.id }}
-    output_artifacts:
-      - name: scan-pipelines
-        path: .wave/output/scan-pipelines.json
-        type: json
-    handover:
-      contract:
-        type: non_empty_file
-        source: .wave/output/scan-pipelines.json
-        on_failure: skip
-
-  # Scan 6: Persona fleet audit — unused or overlapping personas
-  - id: scan-personas
-    persona: navigator
-    model: claude-haiku
-    max_concurrent_agents: 3
-    contexts: [configuration]
-    workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readonly
-    exec:
-      type: prompt
-      source: |
-        You are auditing Wave's persona fleet (31 personas).
-
-        For each persona:
-        1. Is it referenced by any pipeline step?
-        2. Does its permission set make sense for its role?
-        3. Does it overlap with another persona (same tools, similar prompt)?
-        4. Is its model assignment appropriate (opus for implementation, haiku for navigation)?
-
-        Group personas into:
-        - ESSENTIAL (used by 3+ pipelines)
-        - SPECIALIZED (used by 1-2 pipelines)
-        - CANDIDATE-REMOVE (unreferenced or duplicate)
-
-        Output JSON to .wave/output/scan-personas.json.
-
-        Run-ID: {{ run.id }}
-    output_artifacts:
-      - name: scan-personas
-        path: .wave/output/scan-personas.json
-        type: json
-    handover:
-      contract:
-        type: non_empty_file
-        source: .wave/output/scan-personas.json
-        on_failure: skip
-
-  # ========================================================================
-  # PHASE 2: SYNTHESIS — opus merges all findings into unified analysis
-  # ========================================================================
-
+  # ── Phase 3: Synthesize unified report + scope document ─────────────────
   - id: synthesize
     persona: philosopher
     model: claude-opus
     thread: scope-audit
     contexts: [delivery, quality, configuration]
-    dependencies: [scan-dead-code, scan-unwired, scan-duplicates, scan-docs, scan-pipelines, scan-personas]
-    memory:
-      inject_artifacts:
-        - step: scan-dead-code
-          artifact: scan-dead-code
-          as: dead_code
-        - step: scan-unwired
-          artifact: scan-unwired
-          as: unwired
-        - step: scan-duplicates
-          artifact: scan-duplicates
-          as: duplicates
-        - step: scan-docs
-          artifact: scan-docs
-          as: docs
-        - step: scan-pipelines
-          artifact: scan-pipelines
-          as: pipelines
-        - step: scan-personas
-          artifact: scan-personas
-          as: personas
+    dependencies: [merge-findings]
     workspace:
       mount:
         - source: ./
@@ -345,107 +78,33 @@ steps:
     exec:
       type: prompt
       source: |
-        You have received 6 audit scan reports covering Wave's codebase. Your task is to synthesize them into a unified analysis.
+        Six parallel audits have completed for Wave. Their merged findings are at
+        .wave/output/merged-findings.json. Read it.
 
-        Read all 6 injected artifacts carefully. Then produce:
+        Also scan /project to verify findings against the actual codebase.
 
-        1. **.wave/output/audit-synthesis.json** — Unified findings:
-           ```json
-           {
-             "critical_findings": [...],  // Must-fix: dead code, broken features, security gaps
-             "important_findings": [...], // Should-fix: duplicates, doc drift, unused pipelines
-             "minor_findings": [...],     // Nice-to-fix: naming inconsistencies, minor overlaps
-             "total_findings": N,
-             "critical_count": N,
-             "packages_to_remove": [...],
-             "pipelines_to_remove": [...],
-             "personas_to_remove": [...],
-             "docs_to_update": [...]
-           }
-           ```
+        Produce TWO artifacts:
 
-        2. **.wave/output/audit-synthesis.md** — Human-readable report with:
+        1. **.wave/output/audit-synthesis.md** — Unified audit report:
            - Executive summary (3 sentences)
-           - Top 10 most impactful findings table
-           - Package health matrix (active/dead/partial for each internal/ package)
-           - Recommended consolidation actions
-           - Risk assessment for each removal
+           - Top 10 findings by impact
+           - Package health matrix (every internal/ package: active/dead/partial)
+           - Pipeline fleet assessment (59 pipelines: core/useful/remove)
+           - Persona fleet assessment (31 personas: essential/specialized/remove)
+           - Recommended consolidation actions (ordered by impact)
 
-        Deduplicate findings that appear in multiple scans. Prioritize by impact.
+        2. **.wave/output/wave-scope.md** — Scope definition:
+           - What Wave IS (5 bullet points — core identity)
+           - What Wave IS NOT (explicit boundaries)
+           - Package inventory table with verdict per package
+           - Follow-up issue titles for each recommended action
 
+        Be opinionated. This defines Wave's boundaries going forward.
         Run-ID: {{ run.id }}
     output_artifacts:
-      - name: audit-synthesis
-        path: .wave/output/audit-synthesis.json
-        type: json
       - name: audit-report
         path: .wave/output/audit-synthesis.md
         type: markdown
-    retry:
-      policy: standard
-      max_attempts: 2
-    handover:
-      contract:
-        type: non_empty_file
-        source: .wave/output/audit-synthesis.json
-        on_failure: retry
-
-  # Scope document — define what Wave is and is not
-  - id: scope-document
-    persona: philosopher
-    model: claude-opus
-    thread: scope-audit
-    contexts: [delivery, quality]
-    dependencies: [synthesize]
-    memory:
-      inject_artifacts:
-        - step: synthesize
-          artifact: audit-synthesis
-          as: synthesis
-        - step: synthesize
-          artifact: audit-report
-          as: report
-    workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readonly
-    exec:
-      type: prompt
-      source: |
-        Based on the audit synthesis, write Wave's scope definition document.
-
-        Write **.wave/output/wave-scope.md** with these sections:
-
-        ## What Wave Is
-        - Core identity (3-5 bullet points)
-        - Essential capabilities that define Wave
-
-        ## What Wave Is Not
-        - Explicit boundaries (what Wave does NOT try to be)
-        - Features that should be removed or externalized
-
-        ## Package Inventory
-        Table with every internal/ package and its status:
-        | Package | Status | Verdict | Action |
-        Active = essential, keep. Peripheral = useful but could be optional. Dead = remove. Overlapping = merge.
-
-        ## Pipeline Inventory
-        Same format for all 59 pipelines.
-
-        ## Persona Inventory
-        Same format for all 31 personas.
-
-        ## Recommended Consolidation Plan
-        Ordered list of actions from highest-impact to lowest.
-
-        ## Follow-Up Issues Needed
-        For each recommended action, write a one-line issue title.
-
-        Be opinionated. This document defines Wave's boundaries going forward.
-
-        Run-ID: {{ run.id }}
-    output_artifacts:
       - name: wave-scope
         path: .wave/output/wave-scope.md
         type: markdown
@@ -458,55 +117,36 @@ steps:
         source: .wave/output/wave-scope.md
         on_failure: retry
 
-  # ========================================================================
-  # PHASE 3: CONDITIONAL → GATE → DELIVERY
-  # ========================================================================
-
-  # Conditional: deep-dive if many critical findings
-  - id: deep-dive-check
-    type: conditional
-    dependencies: [synthesize]
-    edges:
-      - target: gate-approve
-        condition: default
-
-  # Human gate: review scope document before issue creation
-  - id: gate-approve
+  # ── Phase 4: Human gate — approve scope before issue creation ───────────
+  - id: approve-scope
     persona: navigator
     type: gate
-    dependencies: [scope-document, deep-dive-check]
+    dependencies: [synthesize]
     prompt: |
-      The Wave scope audit is complete. Please review the scope document at .wave/output/wave-scope.md
+      Wave scope audit complete. Review .wave/output/wave-scope.md and .wave/output/audit-synthesis.md.
 
-      Key metrics from the synthesis:
-      - Total findings: check .wave/output/audit-synthesis.json
-      - Packages flagged for removal: check the report
-
-      Approve to proceed with creating follow-up issues, or reject to revise.
+      Approve to create follow-up issues from the findings, or revise to loop back.
     choices:
       - key: approve
-        label: "Approve scope document and create follow-up issues"
+        label: "Approve and create follow-up issues"
         target: create-issues
       - key: revise
-        label: "Reject — needs revision (add comments below)"
-        target: scope-document
+        label: "Revise — loop back to synthesis"
+        target: synthesize
     freeform: true
     timeout: 24h
 
-  # Create follow-up issues from approved findings
+  # ── Phase 5: Create follow-up issues from approved scope ────────────────
   - id: create-issues
     persona: craftsman
     model: claude-opus
     contexts: [delivery]
-    dependencies: [gate-approve]
+    dependencies: [approve-scope]
     memory:
       inject_artifacts:
-        - step: scope-document
+        - step: synthesize
           artifact: wave-scope
           as: scope
-        - step: synthesize
-          artifact: audit-synthesis
-          as: synthesis
     workspace:
       mount:
         - source: ./
@@ -515,17 +155,15 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the approved scope document (.wave/artifacts/scope) and audit synthesis (.wave/artifacts/synthesis).
+        Read the approved scope document at .wave/artifacts/scope.
 
-        For each "Follow-Up Issues Needed" item in the scope document, create a GitHub issue using:
+        For each "Follow-Up Issue" in the scope document, create a GitHub issue:
         ```
-        {{ forge.cli_tool }} issue create --title "..." --body "..."
+        {{ forge.cli_tool }} issue create --title "scope: ..." --body "From wave-scope-audit run {{ run.id }}. ..."
         ```
 
-        Use the label "scope-audit" on all created issues.
-        Reference the audit run: Run-ID {{ run.id }}
-
-        Write a summary of created issues to .wave/output/created-issues.md.
+        Use label "scope-audit" on all issues.
+        Write a summary to .wave/output/created-issues.md listing all created issues.
     output_artifacts:
       - name: created-issues
         path: .wave/output/created-issues.md
