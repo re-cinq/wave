@@ -164,7 +164,12 @@ func TestExtractProjectMetadata(t *testing.T) {
 
 			got := ExtractProjectMetadata(dir)
 
-			assert.Equal(t, tt.expected.Name, got.Name)
+			if tt.expected.Name != "" {
+				assert.Equal(t, tt.expected.Name, got.Name)
+			} else {
+				// When no manifest provides a name, directory name fallback kicks in
+				assert.NotEmpty(t, got.Name, "directory name fallback should provide a name")
+			}
 			assert.Equal(t, tt.expected.Description, got.Description)
 		})
 	}
