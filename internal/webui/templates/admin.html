@@ -60,6 +60,28 @@
     <div id="emergency-result" style="margin-top: 0.75rem; display: none;"></div>
 </div>
 
+<!-- Audit Log -->
+<div class="card" id="audit-section" style="margin-bottom: 1.5rem;">
+    <h3>Audit Log</h3>
+    <p style="color: var(--muted); margin-bottom: 0.75rem;">Recent pipeline lifecycle events (starts, completions, failures, gates).</p>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Event</th>
+                    <th>Run</th>
+                    <th>Step</th>
+                    <th>Message</th>
+                </tr>
+            </thead>
+            <tbody id="audit-body">
+                <tr><td colspan="5" style="color: var(--muted);">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <script>
 (function() {
     // Load config
@@ -99,6 +121,32 @@
             document.getElementById('config-body').innerHTML = '<tr><td colspan="2" style="color: var(--danger);">Failed to load config</td></tr>';
         });
 
+    // Load audit log
+    fetch('/api/admin/audit?limit=50')
+        .then(r => r.json())
+        .then(data => {
+            const body = document.getElementById('audit-body');
+            body.innerHTML = '';
+            if (!data.events || data.events.length === 0) {
+                body.innerHTML = '<tr><td colspan="5" style="color: var(--muted);">No audit events recorded yet.</td></tr>';
+                return;
+            }
+            data.events.forEach(function(ev) {
+                var tr = document.createElement('tr');
+                var ts = new Date(ev.timestamp).toLocaleString();
+                var runLink = '<a href="/runs/' + escHtml(ev.run_id) + '">' + escHtml(ev.run_id.substring(0, 8)) + '</a>';
+                tr.innerHTML = '<td style="white-space: nowrap;">' + escHtml(ts) + '</td>' +
+                    '<td><span class="badge">' + escHtml(ev.state) + '</span></td>' +
+                    '<td>' + runLink + '</td>' +
+                    '<td>' + escHtml(ev.step_id || '-') + '</td>' +
+                    '<td>' + escHtml(ev.message || '-') + '</td>';
+                body.appendChild(tr);
+            });
+        })
+        .catch(function() {
+            document.getElementById('audit-body').innerHTML = '<tr><td colspan="5" style="color: var(--danger);">Failed to load audit log</td></tr>';
+        });
+
     // Load credentials
     fetch('/api/admin/credentials')
         .then(r => r.json())
@@ -133,7 +181,7 @@ function confirmEmergencyStop() {
     btn.disabled = true;
     btn.textContent = 'Stopping...';
 
-    fetch('/api/admin/emergency-stop', {method: 'POST'})
+    fetch('/api/admin/emergency-stop', {method: 'POST', headers: {'X-CSRF-Token': getCSRFToken()}})
         .then(r => r.json())
         .then(data => {
             var el = document.getElementById('emergency-result');

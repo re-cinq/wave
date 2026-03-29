@@ -10,6 +10,9 @@ import (
 // applyMiddleware wraps the given handler with server middleware.
 func (s *Server) applyMiddleware(handler http.Handler) http.Handler {
 	h := handler
+	if s.csrfToken != "" {
+		h = s.csrfMiddleware(h)
+	}
 	h = securityHeaders(h)
 	h = s.loggingMiddleware(h)
 
@@ -94,6 +97,22 @@ func (s *Server) jwtAuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		next.ServeHTTP(w, r)
+	})
+}
+
+// csrfMiddleware validates the X-CSRF-Token header on mutation requests
+// (POST, PUT, DELETE, PATCH). GET/HEAD/OPTIONS are allowed through.
+func (s *Server) csrfMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch:
+			token := r.Header.Get("X-CSRF-Token")
+			if token == "" || token != s.csrfToken {
+				http.Error(w, "Forbidden: invalid CSRF token", http.StatusForbidden)
+				return
+			}
+		}
 		next.ServeHTTP(w, r)
 	})
 }

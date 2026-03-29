@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
+	"time"
 )
 
 // --- Page Handler ---
@@ -123,4 +125,130 @@ func (s *Server) handleAPIEmergencyStop(w http.ResponseWriter, _ *http.Request) 
 	}
 
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// --- Pipeline Enable/Disable ---
+
+// pipelineToggleResponse is the JSON response for pipeline enable/disable.
+type pipelineToggleResponse struct {
+	Name     string `json:"name"`
+	Disabled bool   `json:"disabled"`
+}
+
+// handleDisablePipeline handles POST /api/admin/pipelines/{name}/disable.
+func (s *Server) handleDisablePipeline(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	if name == "" {
+		writeJSONError(w, http.StatusBadRequest, "missing pipeline name")
+		return
+	}
+
+	s.mu.Lock()
+	s.disabledPipelines[name] = true
+	s.mu.Unlock()
+
+	writeJSON(w, http.StatusOK, pipelineToggleResponse{Name: name, Disabled: true})
+}
+
+// handleEnablePipeline handles POST /api/admin/pipelines/{name}/enable.
+func (s *Server) handleEnablePipeline(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	if name == "" {
+		writeJSONError(w, http.StatusBadRequest, "missing pipeline name")
+		return
+	}
+
+	s.mu.Lock()
+	delete(s.disabledPipelines, name)
+	s.mu.Unlock()
+
+	writeJSON(w, http.StatusOK, pipelineToggleResponse{Name: name, Disabled: false})
+}
+
+// isPipelineDisabled checks whether a pipeline is currently disabled.
+func (s *Server) isPipelineDisabled(name string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.disabledPipelines[name]
+}
+
+// --- Audit Log ---
+
+// auditEventResponse is a single entry in the audit log API response.
+type auditEventResponse struct {
+	ID        int64  `json:"id"`
+	RunID     string `json:"run_id"`
+	Timestamp string `json:"timestamp"`
+	State     string `json:"state"`
+	StepID    string `json:"step_id,omitempty"`
+	Persona   string `json:"persona,omitempty"`
+	Message   string `json:"message,omitempty"`
+}
+
+// auditLogResponse is the JSON response for GET /api/admin/audit.
+type auditLogResponse struct {
+	Events []auditEventResponse `json:"events"`
+	Total  int                  `json:"total"`
+}
+
+// auditEventStates defines which event types appear in the audit log.
+var auditEventStates = []string{
+	"run_start",
+	"run_completed",
+	"run_failed",
+	"step_failed",
+	"gate_requested",
+}
+
+// handleAPIAdminAudit handles GET /api/admin/audit.
+func (s *Server) handleAPIAdminAudit(w http.ResponseWriter, r *http.Request) {
+	limit := 50
+	offset := 0
+
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 500 {
+			limit = n
+		}
+	}
+	if v := r.URL.Query().Get("offset"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			offset = n
+		}
+	}
+
+	events, err := s.store.GetAuditEvents(auditEventStates, limit, offset)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to query audit events: "+err.Error())
+		return
+	}
+
+	resp := auditLogResponse{
+		Events: make([]auditEventResponse, 0, len(events)),
+		Total:  len(events),
+	}
+
+	for _, ev := range events {
+		resp.Events = append(resp.Events, auditEventResponse{
+			ID:        ev.ID,
+			RunID:     ev.RunID,
+			Timestamp: ev.Timestamp.Format(time.RFC3339),
+			State:     ev.State,
+			StepID:    ev.StepID,
+			Persona:   ev.Persona,
+			Message:   ev.Message,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// getDisabledPipelineSet returns a snapshot of currently disabled pipeline names.
+func (s *Server) getDisabledPipelineSet() map[string]bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cp := make(map[string]bool, len(s.disabledPipelines))
+	for k, v := range s.disabledPipelines {
+		cp[k] = v
+	}
+	return cp
 }

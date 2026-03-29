@@ -19,8 +19,18 @@
             <input type="url" id="wh-url" placeholder="https://hooks.slack.com/services/..." style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 4px;">
         </div>
         <div style="margin-bottom: 0.75rem;">
-            <label><strong>Events</strong> (comma-separated)</label><br>
-            <input type="text" id="wh-events" placeholder="run_completed, step_failed, run_failed" style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 4px;">
+            <fieldset style="border: 1px solid var(--border); border-radius: 4px; padding: 0.75rem;">
+                <legend><strong>Events</strong></legend>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem;">
+                    <label style="cursor: pointer;"><input type="checkbox" name="events" value="run_start"> run_start</label>
+                    <label style="cursor: pointer;"><input type="checkbox" name="events" value="run_completed"> run_completed</label>
+                    <label style="cursor: pointer;"><input type="checkbox" name="events" value="run_failed"> run_failed</label>
+                    <label style="cursor: pointer;"><input type="checkbox" name="events" value="step_start"> step_start</label>
+                    <label style="cursor: pointer;"><input type="checkbox" name="events" value="step_completed"> step_completed</label>
+                    <label style="cursor: pointer;"><input type="checkbox" name="events" value="step_failed"> step_failed</label>
+                    <label style="cursor: pointer;"><input type="checkbox" name="events" value="contract_validated"> contract_validated</label>
+                </div>
+            </fieldset>
         </div>
         <div style="margin-bottom: 0.75rem;">
             <label><strong>Matcher</strong> (regex, optional)</label><br>
@@ -53,7 +63,7 @@
         <tbody>
             {{range .Webhooks}}
             <tr>
-                <td><strong>{{.Name}}</strong></td>
+                <td><a href="/webhooks/{{.ID}}"><strong>{{.Name}}</strong></a></td>
                 <td><code style="font-size: 0.85em;">{{.URL}}</code></td>
                 <td>
                     {{range .Events}}<span class="badge">{{.}}</span> {{end}}
@@ -93,7 +103,9 @@ function showCreateForm() {
     document.getElementById('webhook-id').value = '';
     document.getElementById('wh-name').value = '';
     document.getElementById('wh-url').value = '';
-    document.getElementById('wh-events').value = '';
+    // Uncheck all event checkboxes
+    var boxes = document.querySelectorAll('input[name="events"]');
+    for (var i = 0; i < boxes.length; i++) boxes[i].checked = false;
     document.getElementById('wh-matcher').value = '';
     document.getElementById('wh-secret').value = '';
 }
@@ -105,8 +117,10 @@ function hideForm() {
 async function saveWebhook(e) {
     e.preventDefault();
     const id = document.getElementById('webhook-id').value;
-    const events = document.getElementById('wh-events').value
-        .split(',').map(s => s.trim()).filter(s => s);
+    // Collect checked event checkboxes
+    const boxes = document.querySelectorAll('input[name="events"]:checked');
+    const events = [];
+    for (var i = 0; i < boxes.length; i++) events.push(boxes[i].value);
 
     const body = {
         name: document.getElementById('wh-name').value,
@@ -121,7 +135,10 @@ async function saveWebhook(e) {
 
     const resp = await fetch(url, {
         method: method,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': getCSRFToken()
+        },
         body: JSON.stringify(body)
     });
 
@@ -144,7 +161,12 @@ async function editWebhook(id) {
     document.getElementById('webhook-id').value = id;
     document.getElementById('wh-name').value = wh.Name || '';
     document.getElementById('wh-url').value = wh.URL || '';
-    document.getElementById('wh-events').value = (wh.Events || []).join(', ');
+    // Set event checkboxes
+    var boxes = document.querySelectorAll('input[name="events"]');
+    var activeEvents = wh.Events || [];
+    for (var i = 0; i < boxes.length; i++) {
+        boxes[i].checked = activeEvents.indexOf(boxes[i].value) !== -1;
+    }
     document.getElementById('wh-matcher').value = wh.Matcher || '';
     document.getElementById('wh-secret').value = '';
 }
@@ -152,14 +174,20 @@ async function editWebhook(id) {
 async function toggleWebhook(id, currentlyActive) {
     await fetch('/api/webhooks/' + id, {
         method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': getCSRFToken()
+        },
         body: JSON.stringify({active: !currentlyActive})
     });
     window.location.reload();
 }
 
 async function testWebhook(id) {
-    const resp = await fetch('/api/webhooks/' + id + '/test', {method: 'POST'});
+    const resp = await fetch('/api/webhooks/' + id + '/test', {
+        method: 'POST',
+        headers: {'X-CSRF-Token': getCSRFToken()}
+    });
     if (resp.ok) {
         const data = await resp.json();
         alert(data.message || 'Test sent');
@@ -170,7 +198,10 @@ async function testWebhook(id) {
 
 async function deleteWebhook(id, name) {
     if (!confirm('Delete webhook "' + name + '"?')) return;
-    await fetch('/api/webhooks/' + id, {method: 'DELETE'});
+    await fetch('/api/webhooks/' + id, {
+        method: 'DELETE',
+        headers: {'X-CSRF-Token': getCSRFToken()}
+    });
     window.location.reload();
 }
 </script>

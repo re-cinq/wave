@@ -41,9 +41,24 @@ function setButtonLoading(btn, loading) {
     }
 }
 
+// --- CSRF Token Helper ---
+function getCSRFToken() {
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : '';
+}
+
 // --- Fetch JSON Wrapper ---
 async function fetchJSON(url, opts) {
     try {
+        opts = opts || {};
+        // Auto-inject CSRF token on mutation methods
+        var method = (opts.method || 'GET').toUpperCase();
+        if (method === 'POST' || method === 'PUT' || method === 'DELETE' || method === 'PATCH') {
+            opts.headers = opts.headers || {};
+            if (!opts.headers['X-CSRF-Token']) {
+                opts.headers['X-CSRF-Token'] = getCSRFToken();
+            }
+        }
         var resp = await fetch(url, opts);
         if (!resp.ok) {
             var err;

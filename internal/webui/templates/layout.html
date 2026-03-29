@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{block "title" .}}Dashboard · Wave{{end}}</title>
+    {{if csrfToken}}<meta name="csrf-token" content="{{csrfToken}}">{{end}}
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/marked@15.0.7/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.5/dist/purify.min.js"></script>

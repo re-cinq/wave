@@ -2,9 +2,11 @@ package webui
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"html/template"
 	"log"
@@ -53,11 +55,13 @@ type Server struct {
 	jwtSecret   string
 	scheduler    *Scheduler
 	gateRegistry *GateRegistry
-	activeRuns   map[string]context.CancelFunc // runID -> cancel
-	mu           sync.Mutex
+	activeRuns        map[string]context.CancelFunc // runID -> cancel
+	disabledPipelines map[string]bool               // pipeline name -> disabled
+	mu                sync.Mutex
 	tlsCert      string
 	tlsKey       string
 	tlsCA        string
+	csrfToken    string
 }
 
 // ServerConfig holds configuration for the dashboard server.
@@ -92,7 +96,18 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	// Backfill pipeline_run.total_tokens from event_log for runs that have 0
 	backfillRunTokens(cfg.DBPath)
 
-	tmpl, err := parseTemplates()
+	// Generate a per-session CSRF token
+	csrfBytes := make([]byte, 32)
+	if _, err := rand.Read(csrfBytes); err != nil {
+		roStore.Close()
+		rwStore.Close()
+		return nil, fmt.Errorf("failed to generate CSRF token: %w", err)
+	}
+	csrfToken := hex.EncodeToString(csrfBytes)
+
+	tmpl, err := parseTemplates(template.FuncMap{
+		"csrfToken": func() string { return csrfToken },
+	})
 	if err != nil {
 		roStore.Close()
 		rwStore.Close()
@@ -147,10 +162,12 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		jwtSecret:   cfg.JWTSecret,
 		scheduler:    NewScheduler(cfg.MaxConcurrent),
 		gateRegistry: NewGateRegistry(),
-		activeRuns:   make(map[string]context.CancelFunc),
+		activeRuns:        make(map[string]context.CancelFunc),
+		disabledPipelines: make(map[string]bool),
 		tlsCert:     cfg.TLSCert,
 		tlsKey:      cfg.TLSKey,
 		tlsCA:       cfg.TLSCA,
+		csrfToken:   csrfToken,
 	}
 
 	mux := http.NewServeMux()
