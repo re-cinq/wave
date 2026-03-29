@@ -53,10 +53,7 @@ steps:
 
         ## Output
 
-        Write findings to `.wave/output/findings.json` in standard findings format:
-        ```json
-        {"findings": [{"type": "junk-code", "severity": "high|medium|low", "file": "...", "line": 42, "item": "...", "description": "...", "evidence": "...", "recommendation": "remove|refactor|fix|investigate"}]}
-        ```
+        Write your findings to `.wave/output/findings.json` (the contract schema defines the required structure).
 
         Use `"type": "junk-code"` for over-engineering, copy-paste drift, stale code, and complexity hotspots.
         Use `"type": "style"` for conceptual misalignment and naming issues.

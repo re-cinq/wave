@@ -129,10 +129,7 @@ steps:
 
         ## Output
 
-        Write findings to `.wave/output/findings.json` in standard findings format:
-        ```json
-        {"findings": [{"type": "doc-drift", "severity": "critical|high|medium|low", "file": "...", "description": "...", "evidence": "...", "recommendation": "fix|document|investigate"}]}
-        ```
+        Write your findings to `.wave/output/findings.json` (the contract schema defines the required structure).
 
         For each inconsistency, create a finding entry:
         - `type`: "doc-drift"

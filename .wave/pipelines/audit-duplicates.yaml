@@ -34,10 +34,7 @@ steps:
         - State: internal/state/ vs internal/deliverable/ — both track runs?
         - Templates: internal/pipeline/context.go vs internal/manifest/types.go ProjectVars
 
-        Write findings to .wave/output/duplicate-findings.json:
-        ```json
-        {"findings": [{"pair": ["pkg1", "pkg2"], "overlap": "full|partial|none", "recommendation": "merge|keep|remove-one", "rationale": "..."}]}
-        ```
+        Write your findings to .wave/output/duplicate-findings.json (the contract schema defines the required structure).
     output_artifacts:
       - name: findings
         path: .wave/output/duplicate-findings.json
