@@ -1,0 +1,48 @@
+kind: WavePipeline
+metadata:
+  name: audit-dead-code-scan
+  description: "Scan-only dead code detection — no branches, no PRs, JSON findings output"
+  release: true
+  category: audit
+
+input:
+  source: cli
+  example: "internal/"
+
+steps:
+  - id: scan
+    persona: navigator
+    model: claude-haiku
+    max_concurrent_agents: 3
+    contexts: [configuration]
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Scan for dead code in the Go codebase at /project. Scope: {{ input }}
+
+        Check each internal/ package for:
+        1. Exported functions/types never called outside their package
+        2. Packages with no external importers
+        3. Unreachable code (dead branches, impossible conditions)
+
+        Use grep to verify: `grep -rn "FunctionName" /project/internal/ /project/cmd/`
+
+        Write findings to .wave/output/findings.json:
+        ```json
+        {"findings": [{"type": "dead-code", "package": "...", "item": "...", "evidence": "...", "severity": "high|medium|low"}]}
+        ```
+        Max 25 findings. Focus on packages flagged as suspects: bench, browser, continuous, relay.
+    output_artifacts:
+      - name: findings
+        path: .wave/output/findings.json
+        type: json
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/findings.json
+        on_failure: skip
