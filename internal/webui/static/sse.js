@@ -113,7 +113,9 @@ function connectSSE(runID) {
 
     sseConnection.onerror = function() {
         console.log('SSE error, falling back to polling...');
-        if (sseHasConnected) {
+        // Only show "connection lost" if we had a working connection before
+        // AND the run is still in a running state (not completed/failed)
+        if (sseHasConnected && !document.querySelector('.badge.status-completed, .badge.status-failed')) {
             showConnectionBanner(true);
         }
         if (window.logViewer) {
