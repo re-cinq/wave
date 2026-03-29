@@ -512,7 +512,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .step-card.status-pending { border-left: 3px solid var(--color-pending); }
 .step-card.status-cancelled { border-left: 3px solid var(--color-cancelled); }
 .step-header {
-    display: flex; align-items: center; gap: 0.5rem;
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
     padding: 0.7rem 1rem; background: var(--color-bg-secondary);
     border-bottom: 1px solid var(--color-border);
 }
@@ -1268,11 +1268,12 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
     display: flex; flex-direction: column; gap: 0.5rem;
 }
 .step-card {
-    display: flex; gap: 0; position: relative;
+    display: block; position: relative;
     background: var(--color-bg); border: 1px solid var(--color-border);
     border-radius: var(--radius-lg); overflow: hidden;
+    margin-bottom: 0.5rem;
 }
-.step-card-content { flex: 1; min-width: 0; }
+.step-card-content { width: 100%; }
 
 /* Step progress bar */
 .progress-bar-step { height: 0.35rem; margin: 0.35rem 0; }
