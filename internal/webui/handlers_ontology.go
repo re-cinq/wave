@@ -39,6 +39,16 @@ type OntologyContextView struct {
 	LastUsed    time.Time
 	LastUsedAgo string
 	HasLineage  bool
+	// Skill content
+	SkillBody string // SKILL.md content (markdown)
+	// Pipeline usage — which steps target this context
+	UsedBySteps []ContextStepRef
+}
+
+// ContextStepRef links a context to a pipeline step that targets it.
+type ContextStepRef struct {
+	Pipeline string
+	StepID   string
 }
 
 // handleOntologyPage handles GET /ontology - serves the HTML ontology page.
@@ -102,6 +112,9 @@ func (s *Server) buildOntologyData() OntologyPageData {
 			view.SkillPath = skillPath
 			view.LastUpdated = stat.ModTime()
 			view.LastUpdatedAgo = formatTimeAgo(stat.ModTime())
+			if body, err := os.ReadFile(skillPath); err == nil {
+				view.SkillBody = string(body)
+			}
 		}
 
 		// Merge lineage stats
@@ -118,11 +131,120 @@ func (s *Server) buildOntologyData() OntologyPageData {
 		data.Contexts = append(data.Contexts, view)
 	}
 
+	// Scan pipelines for steps that target each context
+	contextStepRefs := buildContextStepRefs()
+	for i := range data.Contexts {
+		if refs, ok := contextStepRefs[data.Contexts[i].Name]; ok {
+			data.Contexts[i].UsedBySteps = refs
+		}
+	}
+
 	sort.Slice(data.Contexts, func(i, j int) bool {
 		return data.Contexts[i].Name < data.Contexts[j].Name
 	})
 
 	return data
+}
+
+// buildContextStepRefs scans .wave/pipelines/ for steps that declare contexts.
+func buildContextStepRefs() map[string][]ContextStepRef {
+	refs := make(map[string][]ContextStepRef)
+	pipelines, err := filepath.Glob(".wave/pipelines/*.yaml")
+	if err != nil {
+		return refs
+	}
+	for _, pf := range pipelines {
+		data, err := os.ReadFile(pf)
+		if err != nil {
+			continue
+		}
+		pipelineName := filepath.Base(pf)
+		pipelineName = pipelineName[:len(pipelineName)-5] // strip .yaml
+
+		// Simple line-based scan for contexts: [...] in step blocks
+		lines := splitLines(string(data))
+		var currentStepID string
+		for _, line := range lines {
+			trimmed := trimSpace(line)
+			if hasPrefix(trimmed, "- id:") || hasPrefix(trimmed, "id:") {
+				currentStepID = trimSpace(trimAfter(trimmed, ":"))
+			}
+			if hasPrefix(trimmed, "contexts:") {
+				ctxList := trimSpace(trimAfter(trimmed, "contexts:"))
+				// Parse [ctx1, ctx2] format
+				ctxList = trimBrackets(ctxList)
+				for _, ctx := range splitComma(ctxList) {
+					ctx = trimSpace(ctx)
+					if ctx != "" {
+						refs[ctx] = append(refs[ctx], ContextStepRef{
+							Pipeline: pipelineName,
+							StepID:   currentStepID,
+						})
+					}
+				}
+			}
+		}
+	}
+	return refs
+}
+
+func splitLines(s string) []string {
+	var lines []string
+	start := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\n' {
+			lines = append(lines, s[start:i])
+			start = i + 1
+		}
+	}
+	if start < len(s) {
+		lines = append(lines, s[start:])
+	}
+	return lines
+}
+
+func trimSpace(s string) string {
+	i, j := 0, len(s)
+	for i < j && (s[i] == ' ' || s[i] == '\t') {
+		i++
+	}
+	for j > i && (s[j-1] == ' ' || s[j-1] == '\t' || s[j-1] == '\r') {
+		j--
+	}
+	return s[i:j]
+}
+
+func hasPrefix(s, prefix string) bool {
+	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
+}
+
+func trimAfter(s, sep string) string {
+	for i := 0; i <= len(s)-len(sep); i++ {
+		if s[i:i+len(sep)] == sep {
+			return s[i+len(sep):]
+		}
+	}
+	return s
+}
+
+func trimBrackets(s string) string {
+	if len(s) >= 2 && s[0] == '[' && s[len(s)-1] == ']' {
+		return s[1 : len(s)-1]
+	}
+	return s
+}
+
+func splitComma(s string) []string {
+	var parts []string
+	start := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] == ',' {
+			parts = append(parts, s[start:i])
+			start = i + 1
+		}
+	}
+	parts = append(parts, s[start:])
+	return parts
 }
 
 // formatTimeAgo returns a human-readable "X ago" string for a past timestamp.
