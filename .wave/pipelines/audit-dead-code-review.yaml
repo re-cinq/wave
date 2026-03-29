@@ -67,10 +67,7 @@ steps:
         - Check if it's part of an interface implementation
         - Check for build tag conditional compilation
 
-        Write findings to `.wave/output/findings.json` in standard findings format:
-        ```json
-        {"findings": [{"type": "dead-code", "severity": "high|medium|low", "file": "...", "line": 42, "item": "...", "description": "...", "evidence": "...", "recommendation": "remove|investigate"}]}
-        ```
+        Write your findings to `.wave/output/findings.json` (the contract schema defines the required structure).
         Only include findings with high or medium confidence. Skip low confidence.
     output_artifacts:
       - name: findings

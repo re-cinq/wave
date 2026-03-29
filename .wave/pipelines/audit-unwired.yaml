@@ -34,10 +34,7 @@ steps:
 
         For each exported function/type in internal/ packages, verify it has a caller from cmd/ or another package.
 
-        Write findings to .wave/output/unwired-findings.json:
-        ```json
-        {"findings": [{"feature": "...", "location": "...", "has_cli": bool, "has_pipeline": bool, "has_api": bool, "recommendation": "wire|remove|document"}]}
-        ```
+        Write your findings to .wave/output/unwired-findings.json (the contract schema defines the required structure).
     output_artifacts:
       - name: findings
         path: .wave/output/unwired-findings.json

@@ -169,10 +169,7 @@ steps:
 
         ## Output
 
-        Write findings to `.wave/output/findings.json` in standard findings format:
-        ```json
-        {"findings": [{"type": "other", "severity": "high|medium|low", "description": "...", "evidence": "...", "recommendation": "fix|investigate|remove|document"}]}
-        ```
+        Write your findings to `.wave/output/findings.json` (the contract schema defines the required structure).
 
         For each audited item, create a finding entry:
         - `type`: "other" (implementation fidelity finding)

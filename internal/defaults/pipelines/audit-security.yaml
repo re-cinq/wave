@@ -72,10 +72,7 @@ steps:
            - Known vulnerable patterns in dependency usage
            - Outdated security practices
 
-        Write findings to `.wave/output/findings.json` in standard findings format:
-        ```json
-        {"findings": [{"type": "security", "severity": "critical|high|medium|low", "file": "...", "line": 42, "item": "...", "description": "...", "evidence": "...", "recommendation": "fix|investigate|refactor"}]}
-        ```
+        Write your findings to `.wave/output/findings.json` (the contract schema defines the required structure).
 
     output_artifacts:
       - name: findings

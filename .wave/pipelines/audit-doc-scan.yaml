@@ -33,10 +33,7 @@ steps:
 
         For each doc, verify 3-5 specific claims against the codebase using grep/read.
 
-        Write findings to .wave/output/findings.json:
-        ```json
-        {"findings": [{"type": "doc-drift", "file": "...", "claim": "...", "status": "accurate|outdated|contradicted", "evidence": "...", "severity": "high|medium|low"}]}
-        ```
+        Write your findings to .wave/output/findings.json (the contract schema defines the required structure).
         Max 25 findings.
     output_artifacts:
       - name: findings

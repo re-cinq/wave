@@ -58,10 +58,7 @@ steps:
         - Propose a consolidation strategy
         - Assess effort (trivial/small/medium/large) and risk
 
-        Write findings to `.wave/output/findings.json` in standard findings format:
-        ```json
-        {"findings": [{"type": "duplicate", "severity": "high|medium|low", "file": "...", "item": "...", "description": "...", "evidence": "...", "recommendation": "merge|remove|keep|refactor"}]}
-        ```
+        Write your findings to `.wave/output/findings.json` (the contract schema defines the required structure).
 
         Use `"type": "duplicate"` for duplicate logic and parallel abstractions, `"type": "style"` for naming
         inconsistencies, `"type": "other"` for package boundary violations and dead abstractions.
