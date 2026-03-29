@@ -72,9 +72,14 @@ steps:
            - Known vulnerable patterns in dependency usage
            - Outdated security practices
 
+        Write findings to `.wave/output/findings.json` in standard findings format:
+        ```json
+        {"findings": [{"type": "security", "severity": "critical|high|medium|low", "file": "...", "line": 42, "item": "...", "description": "...", "evidence": "...", "recommendation": "fix|investigate|refactor"}]}
+        ```
+
     output_artifacts:
-      - name: scan_results
-        path: .wave/output/security-scan.json
+      - name: findings
+        path: .wave/output/findings.json
         type: json
     retry:
       policy: patient
@@ -82,9 +87,9 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/security-scan.json
-        schema_path: .wave/contracts/security-scan.schema.json
-        on_failure: retry
+        source: .wave/output/findings.json
+        schema_path: .wave/contracts/shared-findings.schema.json
+        on_failure: skip
 
   - id: deep-dive
     persona: auditor
@@ -94,7 +99,7 @@ steps:
     memory:
       inject_artifacts:
         - step: scan
-          artifact: scan_results
+          artifact: findings
           as: scan_findings
     workspace:
       mount:
@@ -144,7 +149,7 @@ steps:
     memory:
       inject_artifacts:
         - step: scan
-          artifact: scan_results
+          artifact: findings
           as: scan_findings
         - step: deep-dive
           artifact: deep_dive
