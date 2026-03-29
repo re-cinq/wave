@@ -19,8 +19,10 @@ func ResolveToken(ft ForgeType) string {
 		return resolveGitLabToken()
 	case ForgeBitbucket:
 		return resolveBitbucketToken()
-	case ForgeGitea, ForgeCodeberg:
+	case ForgeGitea, ForgeForgejo:
 		return resolveGiteaToken()
+	case ForgeCodeberg:
+		return resolveCodebergToken()
 	default:
 		return ""
 	}
@@ -65,6 +67,17 @@ func resolveBitbucketToken() string {
 }
 
 func resolveGiteaToken() string {
+	if t := os.Getenv("GITEA_TOKEN"); t != "" {
+		return t
+	}
+	return ""
+}
+
+func resolveCodebergToken() string {
+	if t := os.Getenv("CODEBERG_TOKEN"); t != "" {
+		return t
+	}
+	// Fall back to GITEA_TOKEN since Codeberg is Forgejo
 	if t := os.Getenv("GITEA_TOKEN"); t != "" {
 		return t
 	}
