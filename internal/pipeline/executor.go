@@ -1867,10 +1867,14 @@ func (e *DefaultPipelineExecutor) recordOntologyUsage(execution *PipelineExecuti
 			execution.Status.ID, step.ID, ctxName,
 			invariantCount, stepStatus, contractPassed,
 		); err != nil {
-			_ = e.logger.LogToolCall(execution.Status.ID, step.ID, "recordOntologyUsage",
-				fmt.Sprintf("context=%s err=%v", ctxName, err))
+			if e.logger != nil {
+				_ = e.logger.LogToolCall(execution.Status.ID, step.ID, "recordOntologyUsage",
+					fmt.Sprintf("context=%s err=%v", ctxName, err))
+			}
 		} else {
-			_ = e.logger.LogOntologyLineage(execution.Status.ID, step.ID, ctxName, stepStatus, invariantCount)
+			if e.logger != nil {
+				_ = e.logger.LogOntologyLineage(execution.Status.ID, step.ID, ctxName, stepStatus, invariantCount)
+			}
 			e.emit(event.Event{
 				PipelineID: execution.Status.ID,
 				StepID:     step.ID,
@@ -2374,7 +2378,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 					}
 				}
 			}
-			_ = e.logger.LogOntologyInject(pipelineID, step.ID, injected, totalInvariants)
+			if e.logger != nil {
+				_ = e.logger.LogOntologyInject(pipelineID, step.ID, injected, totalInvariants)
+			}
 			e.emit(event.Event{
 				PipelineID: pipelineID,
 				StepID:     step.ID,
@@ -4521,6 +4527,9 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 	}
 	if e.debugTracer != nil {
 		childOpts = append(childOpts, WithDebugTracer(e.debugTracer))
+	}
+	if e.logger != nil {
+		childOpts = append(childOpts, WithAuditLogger(e.logger))
 	}
 
 	// Inject parent artifacts into child executor when config specifies injection
