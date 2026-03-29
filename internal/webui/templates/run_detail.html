@@ -99,7 +99,7 @@
 
 {{if .DAG}}
 <div class="card">
-    <details>
+    <details open>
         <summary class="section-toggle"><h2>Pipeline Graph</h2></summary>
         <div id="dag-container" class="dag-container">
             {{template "templates/partials/dag_svg.html" .DAG}}
@@ -110,7 +110,7 @@
 
 {{if .ArtifactGroups}}
 <div class="card">
-    <details>
+    <details open>
         <summary class="section-toggle"><h2>Artifacts</h2></summary>
         <div class="artifact-tree">
             {{range .ArtifactGroups}}
@@ -136,7 +136,7 @@
 
 {{if and .Steps (eq .Run.Status "completed" "failed")}}
 <div class="card">
-    <details>
+    <details open>
         <summary class="section-toggle"><h2>Step Duration Timeline</h2></summary>
         <div style="position:relative; padding:0.5rem 0;">
             {{range .Steps}}
