@@ -21,6 +21,29 @@ Scoping is declarative, per-persona, enforced at runtime, and versioned in git. 
 
 ---
 
+## Forge Compatibility
+
+Wave works with every major git hosting platform. Auto-detection from git remotes — zero configuration needed.
+
+<table>
+<tr>
+<td align="center"><img src="https://cdn.simpleicons.org/github/white" width="40" height="40" alt="GitHub"><br><strong>GitHub</strong><br><code>gh</code> CLI</td>
+<td align="center"><img src="https://cdn.simpleicons.org/gitlab" width="40" height="40" alt="GitLab"><br><strong>GitLab</strong><br><code>glab</code> CLI</td>
+<td align="center"><img src="https://cdn.simpleicons.org/gitea" width="40" height="40" alt="Gitea"><br><strong>Gitea</strong><br><code>tea</code> CLI</td>
+<td align="center"><img src="https://cdn.simpleicons.org/forgejo" width="40" height="40" alt="Forgejo"><br><strong>Forgejo</strong><br><code>tea</code> CLI</td>
+<td align="center"><img src="https://cdn.simpleicons.org/codeberg" width="40" height="40" alt="Codeberg"><br><strong>Codeberg</strong><br><code>tea</code> CLI</td>
+<td align="center"><img src="https://cdn.simpleicons.org/bitbucket" width="40" height="40" alt="Bitbucket"><br><strong>Bitbucket</strong><br><code>bb</code> CLI</td>
+</tr>
+</table>
+
+- **Auto-detection**: Hostname matching + API endpoint probing for self-hosted instances
+- **Forge-aware personas**: Each forge gets specialized personas (e.g., `gitea-commenter`, `github-analyst`)
+- **Template variables**: `{{ forge.cli_tool }}`, `{{ forge.pr_command }}` resolve per-forge
+- **Local mode**: Full operation without any forge (`forge: local`)
+- **[Setup guide](docs/guides/forge-setup.md)**
+
+---
+
 ## Installation
 
 ### Install Script (Recommended)
