@@ -38,7 +38,7 @@
                 <a href="/pipelines/{{.Name}}"><strong>{{.Name}}</strong></a>
                 {{if .IsComposition}}<span class="badge badge-composition">composition</span>{{end}}
             </td>
-            <td>{{if .Category}}<span class="badge">{{.Category}}</span>{{end}}</td>
+            <td><span class="badge pipeline-category-badge"></span></td>
             <td>{{.StepCount}}</td>
             <td class="pipeline-desc-cell">{{.Description}}</td>
             <td class="pipeline-actions-cell">
@@ -108,6 +108,14 @@ function submitQuickStart() {
     });
 }
 
+// Set category badges from pipeline name prefix on load
+document.querySelectorAll('#pipeline-tbody tr').forEach(function(row) {
+    var name = row.dataset.name || '';
+    var prefix = name.split('-')[0];
+    var badge = row.querySelector('.pipeline-category-badge');
+    if (badge) badge.textContent = prefix;
+});
+
 function filterPipelines() {
     var search = document.getElementById('pipeline-search').value.toLowerCase();
     var category = document.getElementById('pipeline-category').value;
@@ -115,10 +123,11 @@ function filterPipelines() {
     var visibleCount = 0;
     rows.forEach(function(row) {
         var name = row.dataset.name.toLowerCase();
-        var cat = row.dataset.category || '';
         var desc = (row.dataset.desc || '').toLowerCase();
+        // Derive category from pipeline name prefix (e.g., "audit-dead-code" → "audit")
+        var namePrefix = name.split('-')[0];
         var matchSearch = !search || name.indexOf(search) !== -1 || desc.indexOf(search) !== -1;
-        var matchCat = !category || cat === category;
+        var matchCat = !category || namePrefix === category;
         var visible = matchSearch && matchCat;
         row.style.display = visible ? '' : 'none';
         if (visible) visibleCount++;

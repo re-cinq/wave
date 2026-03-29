@@ -58,7 +58,8 @@
 <div id="run-dialog" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:1.5rem; z-index:1000; min-width:400px;">
     <h3>Run Pipeline</h3>
     <p id="run-pipeline-name"></p>
-    <input type="text" id="run-input" placeholder="Input (optional)" style="width:100%; padding:0.5rem; margin-bottom:1rem; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:4px;">
+    <label for="run-input" style="display:block; margin-bottom:0.25rem; font-weight:500;">Input</label>
+    <input type="text" id="run-input" placeholder="e.g. issue URL, description, or leave empty" style="width:100%; padding:0.75rem; margin-bottom:1rem; background:var(--color-bg); border:2px solid var(--color-border); color:var(--color-text); border-radius:6px; font-size:1rem;">
     <div style="display:flex; gap:0.5rem;">
         <button class="btn btn-primary" onclick="submitRun()">Start</button>
         <button class="btn" onclick="closeRunDialog()">Cancel</button>
