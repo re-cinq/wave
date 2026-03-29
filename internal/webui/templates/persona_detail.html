@@ -63,8 +63,20 @@
 {{if .Persona.Prompt}}
 <div class="card">
     <h2>System Prompt</h2>
-    <pre class="persona-prompt">{{.Persona.Prompt}}</pre>
+    <div class="markdown-body" id="persona-prompt"></div>
+    <script type="text/plain" id="persona-prompt-raw">{{.Persona.Prompt}}</script>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var raw = document.getElementById('persona-prompt-raw').textContent;
+    var el = document.getElementById('persona-prompt');
+    if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+        el.innerHTML = DOMPurify.sanitize(marked.parse(raw));
+    } else {
+        el.textContent = raw;
+    }
+});
+</script>
 {{end}}
 
 <div class="card">
