@@ -265,6 +265,9 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .table tbody tr { transition: background-color 0.15s ease; }
 .table tbody tr:hover { background: var(--color-bg-tertiary); }
 .run-row a { font-family: var(--font-mono); font-size: 0.8rem; }
+.pipeline-desc-cell { max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pipeline-actions-cell { white-space: nowrap; }
+.contract-desc-cell { max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Forms */
 /* Start Pipeline Dialog */

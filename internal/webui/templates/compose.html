@@ -46,12 +46,57 @@
             {{range .Skills}}<a href="/skills" class="badge">{{.}}</a> {{end}}
         </div>
         {{end}}
-        <div class="card-actions">
-            <a href="/pipelines" class="badge">View all pipelines</a>
+        <div class="card-actions" style="display: flex; gap: 0.5rem; align-items: center;">
+            <button class="btn btn-primary btn-sm" onclick="runPipeline('{{.Name}}')">Run</button>
+            <a href="/runs?pipeline={{.Name}}" class="btn btn-sm">See Runs</a>
+            <a href="/pipelines/{{.Name}}" class="btn btn-sm">Details</a>
         </div>
     </div>
     {{end}}
 </div>
+
+<div id="run-dialog" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:1.5rem; z-index:1000; min-width:400px;">
+    <h3>Run Pipeline</h3>
+    <p id="run-pipeline-name"></p>
+    <input type="text" id="run-input" placeholder="Input (optional)" style="width:100%; padding:0.5rem; margin-bottom:1rem; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:4px;">
+    <div style="display:flex; gap:0.5rem;">
+        <button class="btn btn-primary" onclick="submitRun()">Start</button>
+        <button class="btn" onclick="closeRunDialog()">Cancel</button>
+    </div>
+</div>
+<div id="run-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999;" onclick="closeRunDialog()"></div>
+<script>
+var currentPipeline = '';
+function runPipeline(name) {
+    currentPipeline = name;
+    document.getElementById('run-pipeline-name').textContent = 'Pipeline: ' + name;
+    document.getElementById('run-input').value = '';
+    document.getElementById('run-dialog').style.display = 'block';
+    document.getElementById('run-overlay').style.display = 'block';
+}
+function closeRunDialog() {
+    document.getElementById('run-dialog').style.display = 'none';
+    document.getElementById('run-overlay').style.display = 'none';
+}
+function submitRun() {
+    var input = document.getElementById('run-input').value;
+    var btn = document.querySelector('#run-dialog .btn-primary');
+    setButtonLoading(btn, true);
+    fetchJSON('/api/pipelines/' + encodeURIComponent(currentPipeline) + '/start', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({input: input})
+    }).then(function(d) {
+        closeRunDialog();
+        if (d.run_id) window.location.href = '/runs/' + d.run_id;
+        else showToast('Pipeline started', 'success');
+    }).catch(function() {
+        // fetchJSON already showed toast
+    }).finally(function() {
+        setButtonLoading(btn, false);
+    });
+}
+</script>
 {{else}}
 <div class="empty-state">
     <div class="empty-state-icon">&#128279;</div>

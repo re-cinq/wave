@@ -2,41 +2,35 @@
 {{define "content"}}
 <div class="page-header">
     <h1>Personas</h1>
+    {{if .Personas}}
+    <input type="text" id="persona-search" placeholder="Search personas..."
+           oninput="filterPersonas()" style="padding:0.5rem; background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:4px; width:300px;">
+    {{end}}
 </div>
 {{if .Personas}}
-<div class="personas-grid">
-    {{range .Personas}}
-    <article class="card persona-card" aria-label="Persona: {{.Name}}">
-        <h3>{{.Name}}</h3>
-        <p class="persona-desc">{{.Description}}</p>
-        <div class="persona-meta">
-            <span class="badge">{{.Adapter}}</span>
-            {{if .Model}}<span class="badge">{{.Model}}</span>{{end}}
-            {{if .Temperature}}<span class="badge">temp: {{.Temperature}}</span>{{end}}
-        </div>
-        {{if .AllowedTools}}
-        <div class="persona-tools">
-            <strong>Allowed:</strong>
-            {{range .AllowedTools}}<code>{{.}}</code> {{end}}
-        </div>
-        {{end}}
-        {{if .DeniedTools}}
-        <div class="persona-tools denied">
-            <strong>Denied:</strong>
-            {{range .DeniedTools}}<code>{{.}}</code> {{end}}
-        </div>
-        {{end}}
-        {{if .Skills}}
-        <div class="persona-tools">
-            <strong>Skills:</strong>
-            {{range .Skills}}<a href="/skills" class="badge">{{.}}</a> {{end}}
-        </div>
-        {{end}}
-        <div class="card-actions">
-            <a href="/personas/{{.Name}}" class="btn" aria-label="View details for {{.Name}}">Details</a>
-        </div>
-    </article>
-    {{end}}
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Persona</th>
+                <th>Model</th>
+                <th>Description</th>
+                <th>Tools</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="persona-tbody">
+            {{range .Personas}}
+            <tr data-name="{{.Name}}">
+                <td><a href="/personas/{{.Name}}"><strong>{{.Name}}</strong></a></td>
+                <td>{{if .Model}}<span class="badge">{{.Model}}</span>{{else}}<span class="badge" style="opacity:0.5">default</span>{{end}}</td>
+                <td style="max-width:400px;">{{.Description}}</td>
+                <td>{{len .AllowedTools}}</td>
+                <td><a href="/personas/{{.Name}}" class="btn btn-sm">Details</a></td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
 </div>
 {{else}}
 <div class="empty-state">
@@ -46,4 +40,14 @@
 </div>
 {{end}}
 {{end}}
-{{define "scripts"}}{{end}}
+{{define "scripts"}}
+<script>
+function filterPersonas() {
+    var search = document.getElementById('persona-search').value.toLowerCase();
+    var rows = document.querySelectorAll('#persona-tbody tr');
+    rows.forEach(function(row) {
+        row.style.display = row.dataset.name.toLowerCase().includes(search) ? '' : 'none';
+    });
+}
+</script>
+{{end}}
