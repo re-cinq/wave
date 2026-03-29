@@ -89,6 +89,9 @@
         <tbody>
             {{range .Runs}}
             {{template "templates/partials/run_row.html" .}}
+            {{range .ChildRuns}}
+            {{template "templates/partials/child_run_row.html" .}}
+            {{end}}
             {{end}}
         </tbody>
     </table>

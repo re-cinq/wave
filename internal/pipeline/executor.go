@@ -4561,6 +4561,12 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 		}
 	}
 
+	// Create a run record for the child pipeline so it appears in the dashboard
+	if e.store != nil {
+		childRunID := e.createRunID(pipelineName, 4, input)
+		childOpts = append(childOpts, WithRunID(childRunID))
+	}
+
 	childOpts = append(childOpts, WithRegistry(e.registry))
 	childExecutor := NewDefaultPipelineExecutor(e.runner, childOpts...)
 
@@ -4698,8 +4704,10 @@ func (e *DefaultPipelineExecutor) executeIterateInDAG(ctx context.Context, execu
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
 			StepID:     step.ID,
-			State:      event.StateRunning,
+			State:      event.StateIterationProgress,
 			Message:    fmt.Sprintf("iterate item %d/%d: %s", i+1, len(items), resolvedName),
+			TotalSteps: len(items),
+			CompletedSteps: i,
 		})
 
 		if err := e.runNamedSubPipeline(ctx, execution, step, resolvedName, input); err != nil {
@@ -4708,11 +4716,13 @@ func (e *DefaultPipelineExecutor) executeIterateInDAG(ctx context.Context, execu
 	}
 
 	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: pipelineID,
-		StepID:     step.ID,
-		State:      event.StateCompleted,
-		Message:    fmt.Sprintf("iterate: all %d items completed", len(items)),
+		Timestamp:      time.Now(),
+		PipelineID:     pipelineID,
+		StepID:         step.ID,
+		State:          event.StateIterationCompleted,
+		Message:        fmt.Sprintf("iterate: all %d items completed", len(items)),
+		TotalSteps:     len(items),
+		CompletedSteps: len(items),
 	})
 
 	return nil
