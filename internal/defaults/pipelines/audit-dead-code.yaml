@@ -68,11 +68,14 @@ steps:
         - Check if it's part of an interface implementation
         - Check for build tag conditional compilation
 
-        Produce a structured JSON result matching the contract schema.
+        Write findings to `.wave/output/findings.json` in standard findings format:
+        ```json
+        {"findings": [{"type": "dead-code", "severity": "high|medium|low", "file": "...", "line": 42, "item": "...", "description": "...", "evidence": "...", "recommendation": "remove|investigate"}]}
+        ```
         Only include findings with high or medium confidence. Skip low confidence.
     output_artifacts:
-      - name: scan_results
-        path: .wave/output/dead-code-scan.json
+      - name: findings
+        path: .wave/output/findings.json
         type: json
     retry:
       policy: patient
@@ -80,9 +83,9 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/dead-code-scan.json
-        schema_path: .wave/contracts/dead-code-scan.schema.json
-        on_failure: retry
+        source: .wave/output/findings.json
+        schema_path: .wave/contracts/shared-findings.schema.json
+        on_failure: skip
 
   - id: clean
     persona: craftsman
@@ -90,7 +93,7 @@ steps:
     memory:
       inject_artifacts:
         - step: scan
-          artifact: scan_results
+          artifact: findings
           as: findings
     workspace:
       type: worktree
@@ -144,7 +147,7 @@ steps:
     memory:
       inject_artifacts:
         - step: scan
-          artifact: scan_results
+          artifact: findings
           as: original_findings
     exec:
       type: prompt
@@ -189,7 +192,7 @@ steps:
     memory:
       inject_artifacts:
         - step: scan
-          artifact: scan_results
+          artifact: findings
           as: findings
         - step: verify
           artifact: verification

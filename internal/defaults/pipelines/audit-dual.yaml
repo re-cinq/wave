@@ -49,11 +49,24 @@ steps:
         4. Missing or outdated documentation
         5. Unused exports, dead code, and unreachable branches
 
-        Output a structured JSON report matching the contract schema.
+        Write findings to `.wave/output/findings.json` in standard findings format:
+        ```json
+        {"findings": [{"type": "junk-code", "severity": "high|medium|low", "file": "...", "line": 42, "item": "...", "description": "...", "evidence": "...", "recommendation": "refactor|remove|fix|investigate"}]}
+        ```
+
+        Use `"type": "duplicate"` for code duplication, `"type": "junk-code"` for complexity,
+        `"type": "style"` for naming/style, `"type": "doc-drift"` for documentation,
+        `"type": "dead-code"` for unused exports.
     output_artifacts:
-      - name: quality_scan
-        path: .wave/output/quality-scan.json
+      - name: findings
+        path: .wave/output/findings.json
         type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/findings.json
+        schema_path: .wave/contracts/shared-findings.schema.json
+        on_failure: skip
 
   - id: quality-detail
     persona: navigator
@@ -63,7 +76,7 @@ steps:
       strategy: fresh
       inject_artifacts:
         - step: quality-scan
-          artifact: quality_scan
+          artifact: findings
           as: scan_results
     workspace:
       mount:

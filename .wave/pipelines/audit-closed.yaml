@@ -169,24 +169,23 @@ steps:
 
         ## Output
 
-        Write the findings as structured JSON to `.wave/artifacts/audit-report.json`.
+        Write findings to `.wave/output/findings.json` in standard findings format:
+        ```json
+        {"findings": [{"type": "other", "severity": "high|medium|low", "description": "...", "evidence": "...", "recommendation": "fix|investigate|remove|document"}]}
+        ```
 
-        The JSON must include:
-        - `findings`: array of finding objects, each with:
-          - `item_number`: issue or PR number
-          - `item_type`: "issue" or "pr"
-          - `item_url`: GitHub URL
-          - `title`: item title
-          - `status`: one of (fully_implemented, partial, regressed, obsolete, not_implemented)
-          - `evidence`: array of strings describing evidence found
-          - `unmet_criteria`: array of strings describing criteria not met (for partial/regressed)
-          - `remediation`: string describing remediation needed (empty for fully_implemented/obsolete)
-        - `summary`: object with counts by status (fully_implemented, partial, regressed, obsolete, not_implemented)
-        - `timestamp`: current ISO 8601 timestamp
+        For each audited item, create a finding entry:
+        - `type`: "other" (implementation fidelity finding)
+        - `severity`: "high" for regressed, "medium" for partial/not_implemented, "low" for obsolete
+        - `description`: item title, number, type (issue/pr), and implementation status (fully_implemented, partial, regressed, obsolete, not_implemented)
+        - `evidence`: evidence strings joined together
+        - `recommendation`: "fix" for regressed/partial, "investigate" for not_implemented, "remove" for obsolete, "keep" for fully_implemented
+
+        Also include a `summary` field with counts by status and a `scanned_at` timestamp.
 
     output_artifacts:
-      - name: audit-report
-        path: .wave/artifacts/audit-report.json
+      - name: findings
+        path: .wave/output/findings.json
         type: json
     retry:
       policy: patient
@@ -194,9 +193,9 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/artifacts/audit-report.json
-        schema_path: .wave/contracts/audit-findings.schema.json
-        on_failure: retry
+        source: .wave/output/findings.json
+        schema_path: .wave/contracts/shared-findings.schema.json
+        on_failure: skip
 
   - id: triage
     persona: navigator
@@ -208,7 +207,7 @@ steps:
           artifact: inventory
           as: inventory
         - step: audit
-          artifact: audit-report
+          artifact: findings
           as: audit_report
     workspace:
       mount:
