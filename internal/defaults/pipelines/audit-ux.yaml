@@ -61,10 +61,10 @@ steps:
         - Expected behavior
         - Suggested fix with effort estimate
     output_artifacts:
-      - name: ux-report
-        path: .wave/output/ux-audit-report.md
+      - name: findings
+        path: .wave/output/findings.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/ux-audit-report.md
+        source: .wave/output/findings.md
