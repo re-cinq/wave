@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Shared Review Verdict Schema",
+  "description": "Standard output format for review/verdict pipelines. Enables impl→review→triage composition.",
+  "type": "object",
+  "required": ["verdict"],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["APPROVE", "REQUEST_CHANGES", "COMMENT", "REJECT"],
+      "description": "Review outcome"
+    },
+    "summary": {
+      "type": "string",
+      "description": "One-paragraph summary of the review"
+    },
+    "findings": {
+      "type": "array",
+      "description": "Specific issues found during review",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": { "type": "string", "enum": ["critical", "major", "minor", "suggestion"] },
+          "file": { "type": "string" },
+          "line": { "type": "integer" },
+          "description": { "type": "string" },
+          "suggestion": { "type": "string" }
+        }
+      }
+    },
+    "pr_url": {
+      "type": "string",
+      "description": "URL of the reviewed PR"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "description": "ISO 8601 timestamp"
+    }
+  }
+}
