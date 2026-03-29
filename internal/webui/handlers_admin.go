@@ -77,9 +77,12 @@ func (s *Server) handleAPIAdminCredentials(w http.ResponseWriter, _ *http.Reques
 	keys := []string{
 		"ANTHROPIC_API_KEY",
 		"GH_TOKEN",
+		"GITLAB_TOKEN",
+		"GITEA_TOKEN",
+		"CODEBERG_TOKEN",
+		"BITBUCKET_TOKEN",
 		"OPENAI_API_KEY",
 		"GOOGLE_APPLICATION_CREDENTIALS",
-		"GITLAB_TOKEN",
 	}
 
 	resp := make(adminCredentialsResponse, len(keys))
