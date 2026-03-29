@@ -439,6 +439,44 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		}
 	}
 
+	// Forge preflight: block forge-dependent steps when no forge is configured
+	if forgeInfo.Type == forge.ForgeLocal {
+		// Check pipeline name for forge prefix
+		if ferr := preflight.CheckForgePipelineName(forgeInfo, p.Metadata.Name); ferr != nil {
+			e.emit(event.Event{
+				Timestamp: time.Now(),
+				State:     "preflight",
+				Message:   ferr.Error(),
+			})
+			return ferr
+		}
+
+		// Build step inputs for forge dependency scanning
+		forgeStepInputs := make([]preflight.ForgeStepInput, 0, len(sortedSteps))
+		for _, step := range sortedSteps {
+			var personaTools []string
+			resolvedPersona := pipelineContext.ResolvePlaceholders(step.Persona)
+			if persona := m.GetPersona(resolvedPersona); persona != nil {
+				personaTools = persona.Permissions.AllowedTools
+			}
+			forgeStepInputs = append(forgeStepInputs, preflight.ForgeStepInput{
+				StepID:       step.ID,
+				PersonaTools: personaTools,
+				PromptSource: step.Exec.Source,
+			})
+		}
+		if ferr := preflight.CheckForgeSteps(forgeInfo, forgeStepInputs); ferr != nil {
+			for _, s := range ferr.Steps {
+				e.emit(event.Event{
+					Timestamp: time.Now(),
+					State:     "preflight",
+					Message:   s.Reason,
+				})
+			}
+			return ferr
+		}
+	}
+
 	// Token scope validation: check persona token requirements before execution
 	if forgeInfo.Type != forge.ForgeUnknown {
 		resolver := scope.NewResolver(forgeInfo.Type)
@@ -837,6 +875,30 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 	// Inject forge variables
 	forgeInfo, _ := forge.DetectFromGitRemotes()
 	InjectForgeVariables(pipelineContext, forgeInfo)
+
+	// Forge preflight: block forge-dependent steps when no forge is configured
+	if forgeInfo.Type == forge.ForgeLocal {
+		if ferr := preflight.CheckForgePipelineName(forgeInfo, p.Metadata.Name); ferr != nil {
+			return ferr
+		}
+		forgeStepInputs := make([]preflight.ForgeStepInput, 0, len(p.Steps))
+		for i := range p.Steps {
+			step := &p.Steps[i]
+			var personaTools []string
+			resolvedPersona := pipelineContext.ResolvePlaceholders(step.Persona)
+			if persona := m.GetPersona(resolvedPersona); persona != nil {
+				personaTools = persona.Permissions.AllowedTools
+			}
+			forgeStepInputs = append(forgeStepInputs, preflight.ForgeStepInput{
+				StepID:       step.ID,
+				PersonaTools: personaTools,
+				PromptSource: step.Exec.Source,
+			})
+		}
+		if ferr := preflight.CheckForgeSteps(forgeInfo, forgeStepInputs); ferr != nil {
+			return ferr
+		}
+	}
 
 	// Initialize deliverable tracker
 	if e.deliverableTracker == nil {

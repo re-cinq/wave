@@ -162,6 +162,12 @@ func (s *Server) handleStartPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if pipeline is disabled by admin
+	if s.isPipelineDisabled(name) {
+		writeJSONError(w, http.StatusForbidden, "pipeline is disabled")
+		return
+	}
+
 	var req StartPipelineRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid request body")

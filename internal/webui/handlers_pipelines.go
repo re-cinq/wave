@@ -19,6 +19,7 @@ type PipelineSummary struct {
 	Steps         []string `json:"steps,omitempty"`
 	IsComposition bool     `json:"is_composition,omitempty"`
 	Skills        []string `json:"skills,omitempty"`
+	Disabled      bool     `json:"disabled"`
 }
 
 // handlePipelinesPage handles GET /pipelines - serves the HTML pipelines page.
@@ -42,6 +43,12 @@ func (s *Server) handlePipelinesPage(w http.ResponseWriter, r *http.Request) {
 // handleAPIPipelines handles GET /api/pipelines - returns pipeline list as JSON.
 func (s *Server) handleAPIPipelines(w http.ResponseWriter, r *http.Request) {
 	pipelines := s.getPipelineSummaries()
+	disabled := s.getDisabledPipelineSet()
+	for i := range pipelines {
+		if disabled[pipelines[i].Name] {
+			pipelines[i].Disabled = true
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]interface{}{"pipelines": pipelines})
 }
 

@@ -148,7 +148,10 @@ func (b baseStateStore) GetDecisions(string) ([]*state.DecisionRecord, error)  {
 func (b baseStateStore) GetDecisionsByStep(string, string) ([]*state.DecisionRecord, error) {
 	return nil, nil
 }
-func (b baseStateStore) CreateWebhook(*state.Webhook) (int64, error)          { return 0, nil }
+func (b baseStateStore) GetAuditEvents([]string, int, int) ([]state.LogRecord, error) {
+	return nil, nil
+}
+func (b baseStateStore) CreateWebhook(*state.Webhook) (int64, error) { return 0, nil }
 func (b baseStateStore) ListWebhooks() ([]*state.Webhook, error)              { return nil, nil }
 func (b baseStateStore) GetWebhook(int64) (*state.Webhook, error)             { return nil, nil }
 func (b baseStateStore) UpdateWebhook(*state.Webhook) error                   { return nil }

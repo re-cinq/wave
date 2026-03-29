@@ -43,6 +43,7 @@ var pageTemplates = []string{
 	"templates/notfound.html",
 	"templates/compare.html",
 	"templates/webhooks.html",
+	"templates/webhook_detail.html",
 	"templates/admin.html",
 }
 
@@ -50,7 +51,7 @@ var pageTemplates = []string{
 // strategy. The layout and partials form a shared base; each page template is
 // parsed into its own clone so that block overrides (title, content, scripts)
 // don't conflict across pages.
-func parseTemplates() (map[string]*template.Template, error) {
+func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Template, error) {
 	funcMap := template.FuncMap{
 		"statusClass":    statusClass,
 		"statusIcon":     statusIcon,
@@ -73,6 +74,11 @@ func parseTemplates() (map[string]*template.Template, error) {
 			}
 			return plural
 		},
+	}
+	for _, fm := range extraFuncs {
+		for k, v := range fm {
+			funcMap[k] = v
+		}
 	}
 
 	// Parse layout into the base template.

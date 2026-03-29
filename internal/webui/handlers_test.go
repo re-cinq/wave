@@ -26,6 +26,7 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 		"formatDuration": formatDuration,
 		"formatTime":     formatTime,
 		"formatTokens":   formatTokensFunc,
+		"csrfToken":      func() string { return "test-csrf-token" },
 		"add":            func(a, b int) int { return a + b },
 		"subtract":       func(a, b int) int { return a - b },
 		"hasPrefix":      strings.HasPrefix,
@@ -51,7 +52,8 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 		"templates/notfound.html":   `<html><body>Page not found</body></html>`,
 		"templates/compare.html":    `<html><body>{{.Left.RunID}} vs {{.Right.RunID}}{{range .Rows}}<tr>{{.StepID}}</tr>{{end}}</body></html>`,
 		"templates/analytics.html":  `<html><body><h1>Token Usage Analytics</h1><div>{{formatTokens .Analytics.TotalTokens}}</div><div>{{.Analytics.TotalRuns}} {{pluralize .Analytics.TotalRuns "run" "runs"}}</div></body></html>`,
-		"templates/retros.html":     `<html><body>{{if .HasData}}<div>retros</div>{{end}}</body></html>`,
+		"templates/retros.html":          `<html><body>{{if .HasData}}<div>retros</div>{{end}}</body></html>`,
+		"templates/webhook_detail.html": `<html><body><div>{{.Webhook.Name}}</div>{{range .Deliveries}}<div>{{.Event}}</div>{{end}}</body></html>`,
 	}
 	result := make(map[string]*template.Template, len(pages))
 	for name, body := range pages {
@@ -87,8 +89,10 @@ func testServer(t *testing.T) (*Server, state.StateStore) {
 		broker:       NewSSEBroker(),
 		bind:         "127.0.0.1",
 		port:         0,
-		activeRuns:   make(map[string]context.CancelFunc),
-		gateRegistry: NewGateRegistry(),
+		activeRuns:        make(map[string]context.CancelFunc),
+		disabledPipelines: make(map[string]bool),
+		gateRegistry:      NewGateRegistry(),
+		csrfToken:         "test-csrf-token",
 	}
 
 	t.Cleanup(func() {
