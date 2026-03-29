@@ -32,10 +32,7 @@ steps:
 
         Use grep to verify: `grep -rn "FunctionName" /project/internal/ /project/cmd/`
 
-        Write findings to .wave/output/findings.json:
-        ```json
-        {"findings": [{"type": "dead-code", "package": "...", "item": "...", "evidence": "...", "severity": "high|medium|low"}]}
-        ```
+        Write your findings to .wave/output/findings.json (the contract schema defines the required structure).
         Max 25 findings. Focus on packages flagged as suspects: bench, browser, continuous, relay.
     output_artifacts:
       - name: findings
