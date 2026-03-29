@@ -174,18 +174,19 @@ steps:
       source: |
         Synthesize the review findings into a final verdict.
 
-        Produce a unified review with:
-        1. Overall assessment (APPROVE / REQUEST_CHANGES / NEEDS_DISCUSSION)
-        2. Critical issues that must be fixed
-        3. Suggested improvements (optional but recommended)
-        4. Positive observations
+        Produce a structured JSON result matching the contract schema.
 
-        Format as a structured review summary.
+        Use APPROVE only when there are no critical or major issues.
+        Use REQUEST_CHANGES when there are blocking issues that must be fixed.
+        Use COMMENT for non-blocking observations.
+        Use REJECT only for fundamental design problems.
     output_artifacts:
       - name: verdict
-        path: .wave/output/review-summary.md
-        type: markdown
+        path: .wave/output/review-verdict.json
+        type: json
     handover:
       contract:
-        type: non_empty_file
-        source: .wave/output/review-summary.md
+        type: json_schema
+        source: .wave/output/review-verdict.json
+        schema_path: .wave/contracts/shared-review-verdict.schema.json
+        on_failure: skip

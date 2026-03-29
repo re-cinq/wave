@@ -169,8 +169,8 @@ steps:
         Format as a PR review comment.
     output_artifacts:
       - name: verdict
-        path: .wave/output/review-summary.md
-        type: markdown
+        path: .wave/output/review-verdict.json
+        type: json
 ```
 
 </div>
@@ -183,11 +183,37 @@ The pipeline produces three artifacts:
 |----------|------|-------------|
 | `diff` | `.wave/output/diff-analysis.json` | JSON analysis of changed files and scope |
 | `security` | `.wave/output/security-review.md` | Security findings with severity levels |
-| `verdict` | `.wave/output/review-summary.md` | Final review summary and recommendation |
+| `verdict` | `.wave/output/review-verdict.json` | Structured review verdict (JSON, uses `shared-review-verdict` schema) |
 
 ### Example Output
 
-The pipeline produces `.wave/output/review-summary.md`:
+The pipeline produces `.wave/output/review-verdict.json`:
+
+```json
+{
+  "verdict": "REQUEST_CHANGES",
+  "summary": "The authentication module changes introduce a missing rate limit on the login endpoint and expose session tokens in logs.",
+  "findings": [
+    {
+      "severity": "critical",
+      "file": "internal/auth/login.go",
+      "line": 42,
+      "description": "Missing rate limiting on login endpoint",
+      "suggestion": "Add rate limiter middleware before the login handler"
+    }
+  ],
+  "pr_url": "https://github.com/owner/repo/pull/42",
+  "reviewed_at": "2026-03-29T12:00:00Z"
+}
+```
+
+The publish step formats this JSON into a human-readable PR comment.
+
+Previously this was a markdown file. The structured JSON verdict enables cross-pipeline composition — the `impl-review-loop` pipeline reads `verdict` to decide whether to re-implement or approve.
+
+### Legacy Markdown Reference
+
+For reference, the old markdown format looked like:
 
 ```markdown
 ## Code Review: Authentication Module

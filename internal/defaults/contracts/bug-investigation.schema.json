@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Investigation Findings",
+  "title": "Bug Investigation",
   "type": "object",
   "required": [
     "root_cause",
