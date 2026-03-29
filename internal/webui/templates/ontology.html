@@ -54,6 +54,14 @@
             </ul>
         </div>
         {{end}}
+        {{if .UsedBySteps}}
+        <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+            <strong style="font-size: 0.85rem;">Used by:</strong>
+            <span style="font-size: 0.85rem; color: var(--text-secondary);">
+                {{range $i, $ref := .UsedBySteps}}{{if $i}}, {{end}}<a href="/pipelines/{{$ref.Pipeline}}">{{$ref.Pipeline}}</a>:<code>{{$ref.StepID}}</code>{{end}}
+            </span>
+        </div>
+        {{end}}
     </div>
     {{end}}
 </div>
