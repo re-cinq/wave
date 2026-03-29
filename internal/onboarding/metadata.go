@@ -75,6 +75,16 @@ func ExtractProjectMetadata(dir string) ProjectMetadata {
 		meta.Name = parseREADME(dir)
 	}
 
+	// Final fallback: use directory name
+	if meta.Name == "" {
+		meta.Name = filepath.Base(dir)
+		if meta.Name == "." || meta.Name == "/" {
+			if abs, err := filepath.Abs(dir); err == nil {
+				meta.Name = filepath.Base(abs)
+			}
+		}
+	}
+
 	return meta
 }
 
