@@ -5806,3 +5806,272 @@ func (a *allConfigCapturingAdapter) getConfigs() []adapter.AdapterRunConfig {
 	copy(result, a.configs)
 	return result
 }
+
+// TestIterateInDAG_Sequential verifies that the iterate composition primitive
+// fans out over items and runs a sub-pipeline for each.
+func TestIterateInDAG_Sequential(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	capAdapter := &allConfigCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"findings": []}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector))
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	// Create two child pipeline files on disk
+	pipelinesDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	require.NoError(t, os.MkdirAll(pipelinesDir, 0755))
+
+	childYAML := `kind: WavePipeline
+metadata:
+  name: %s
+steps:
+  - id: scan
+    persona: navigator
+    exec:
+      type: prompt
+      source: "scan for %s"
+`
+	for _, name := range []string{"audit-alpha", "audit-beta"} {
+		path := filepath.Join(pipelinesDir, name+".yaml")
+		require.NoError(t, os.WriteFile(path, []byte(fmt.Sprintf(childYAML, name, name)), 0644))
+	}
+
+	// Override CWD so the executor finds .wave/pipelines/ relative to tmpDir
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmpDir))
+	defer os.Chdir(origDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "iterate-test"},
+		Steps: []Step{
+			{
+				ID:          "run-audits",
+				SubPipeline: "{{ item }}",
+				SubInput:    "{{ input }}",
+				Iterate: &IterateConfig{
+					Over: `["audit-alpha", "audit-beta"]`,
+					Mode: "sequential",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test-scope")
+	require.NoError(t, err)
+
+	// Both child pipelines should have been executed (each has 1 step)
+	configs := capAdapter.getConfigs()
+	assert.GreaterOrEqual(t, len(configs), 2,
+		"adapter should be called at least twice (once per iterate item)")
+}
+
+// TestIterateInDAG_Parallel verifies parallel iterate runs items concurrently.
+func TestIterateInDAG_Parallel(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	capAdapter := &allConfigCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"findings": []}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector))
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	pipelinesDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	require.NoError(t, os.MkdirAll(pipelinesDir, 0755))
+
+	childYAML := `kind: WavePipeline
+metadata:
+  name: %s
+steps:
+  - id: scan
+    persona: navigator
+    exec:
+      type: prompt
+      source: "scan"
+`
+	for _, name := range []string{"scan-a", "scan-b", "scan-c"} {
+		path := filepath.Join(pipelinesDir, name+".yaml")
+		require.NoError(t, os.WriteFile(path, []byte(fmt.Sprintf(childYAML, name)), 0644))
+	}
+
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmpDir))
+	defer os.Chdir(origDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "parallel-iterate-test"},
+		Steps: []Step{
+			{
+				ID:          "fan-out",
+				SubPipeline: "{{ item }}",
+				Iterate: &IterateConfig{
+					Over:          `["scan-a", "scan-b", "scan-c"]`,
+					Mode:          "parallel",
+					MaxConcurrent: 2,
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	configs := capAdapter.getConfigs()
+	assert.GreaterOrEqual(t, len(configs), 3,
+		"adapter should be called at least 3 times (once per parallel item)")
+}
+
+// TestAggregateInDAG verifies the aggregate primitive merges output to a file.
+func TestAggregateInDAG(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"status": "ok"}`),
+	)
+
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmpDir))
+	defer os.Chdir(origDir)
+
+	outputPath := filepath.Join(tmpDir, ".wave", "output", "merged.json")
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "aggregate-test"},
+		Steps: []Step{
+			{
+				ID: "merge",
+				Aggregate: &AggregateConfig{
+					From:     `[[1,2],[3,4]]`,
+					Into:     outputPath,
+					Strategy: "merge_arrays",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(outputPath)
+	require.NoError(t, err)
+	assert.Equal(t, "[1,2,3,4]", string(data))
+}
+
+// TestBranchInDAG verifies the branch primitive routes to the matching pipeline.
+func TestBranchInDAG(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	capAdapter := &allConfigCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "ok"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector))
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	pipelinesDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	require.NoError(t, os.MkdirAll(pipelinesDir, 0755))
+
+	childYAML := `kind: WavePipeline
+metadata:
+  name: hotfix
+steps:
+  - id: fix
+    persona: navigator
+    exec:
+      type: prompt
+      source: "fix it"
+`
+	require.NoError(t, os.WriteFile(filepath.Join(pipelinesDir, "hotfix.yaml"), []byte(childYAML), 0644))
+
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmpDir))
+	defer os.Chdir(origDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "branch-test"},
+		Steps: []Step{
+			{
+				ID: "route",
+				Branch: &BranchConfig{
+					On:    "high",
+					Cases: map[string]string{"high": "hotfix", "low": "skip"},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	configs := capAdapter.getConfigs()
+	assert.GreaterOrEqual(t, len(configs), 1,
+		"hotfix pipeline should have been executed")
+}
+
+// TestBranchInDAG_Skip verifies skip branches complete without running a pipeline.
+func TestBranchInDAG_Skip(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	capAdapter := &allConfigCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "ok"}`),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector))
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "branch-skip-test"},
+		Steps: []Step{
+			{
+				ID: "route",
+				Branch: &BranchConfig{
+					On:    "low",
+					Cases: map[string]string{"high": "hotfix", "low": "skip"},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	configs := capAdapter.getConfigs()
+	assert.Equal(t, 0, len(configs),
+		"skip branch should not invoke any adapter")
+}
