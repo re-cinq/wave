@@ -55,8 +55,8 @@ func Detect(remoteURL string) ForgeInfo {
 // When the override is "local", a ForgeLocal info is returned regardless of
 // the remote URL — this supports fully forgeless operation.
 func DetectWithOverride(remoteURL, forgeOverride string) ForgeInfo {
-	// "local" override short-circuits all detection — no forge needed.
-	if strings.EqualFold(forgeOverride, string(ForgeLocal)) {
+	// "local" or "none" override short-circuits all detection — no forge needed.
+	if strings.EqualFold(forgeOverride, string(ForgeLocal)) || strings.EqualFold(forgeOverride, "none") {
 		cli, prefix, prTerm, prCommand := forgeMetadata(ForgeLocal)
 		return ForgeInfo{
 			Type:           ForgeLocal,
@@ -107,8 +107,8 @@ func DetectFromGitRemotes() (ForgeInfo, error) {
 // and no override is set, ForgeLocal is returned instead of ForgeUnknown —
 // a repo without remotes is inherently local-only.
 func DetectFromGitRemotesWithOverride(forgeOverride string) ForgeInfo {
-	// "local" override returns immediately — no git remote inspection needed.
-	if strings.EqualFold(forgeOverride, string(ForgeLocal)) {
+	// "local" or "none" override returns immediately — no git remote inspection needed.
+	if strings.EqualFold(forgeOverride, string(ForgeLocal)) || strings.EqualFold(forgeOverride, "none") {
 		return DetectWithOverride("", forgeOverride)
 	}
 
