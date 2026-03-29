@@ -34,6 +34,9 @@ type RunSummary struct {
 	BranchName           string     `json:"branch_name,omitempty"`
 	StepsCompleted       int        `json:"steps_completed,omitempty"`
 	StepsTotal           int        `json:"steps_total,omitempty"`
+	ParentRunID          string     `json:"parent_run_id,omitempty"`
+	ParentStepID         string     `json:"parent_step_id,omitempty"`
+	ChildRuns            []RunSummary `json:"child_runs,omitempty"`
 }
 
 // RunDetailResponse is the JSON response for the run detail API.

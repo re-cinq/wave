@@ -175,11 +175,14 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		runs = runs[:limit]
 	}
 
-	summaries := make([]RunSummary, len(runs))
+	allSummaries := make([]RunSummary, len(runs))
 	for i, run := range runs {
-		summaries[i] = runToSummary(run)
+		allSummaries[i] = runToSummary(run)
 	}
-	s.enrichRunSummaries(summaries, runs)
+	s.enrichRunSummaries(allSummaries, runs)
+
+	// Build parent-child hierarchy: nest child runs under their parent
+	summaries := nestChildRuns(allSummaries)
 
 	var nextCursor string
 	if hasMore && len(runs) > 0 {
@@ -518,6 +521,8 @@ func runToSummary(r state.RunRecord) RunSummary {
 	}
 
 	summary.BranchName = r.BranchName
+	summary.ParentRunID = r.ParentRunID
+	summary.ParentStepID = r.ParentStepID
 
 	// Full input and truncated preview
 	if r.Input != "" {
@@ -991,4 +996,38 @@ func (s *Server) exportRunsJSON(w http.ResponseWriter, runs []state.RunRecord) {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(entries)
+}
+
+// nestChildRuns filters child runs from the top-level list and nests them
+// under their parent run. Child runs whose parent is not in the list remain
+// at top level (they may belong to a parent on another page).
+func nestChildRuns(all []RunSummary) []RunSummary {
+	type indexedSummary struct {
+		idx     int
+		summary *RunSummary
+	}
+	byID := make(map[string]*indexedSummary, len(all))
+	for i := range all {
+		byID[all[i].RunID] = &indexedSummary{idx: i, summary: &all[i]}
+	}
+
+	var topLevel []RunSummary
+	for i := range all {
+		if all[i].ParentRunID != "" {
+			if parent, ok := byID[all[i].ParentRunID]; ok {
+				parent.summary.ChildRuns = append(parent.summary.ChildRuns, all[i])
+				continue
+			}
+		}
+		topLevel = append(topLevel, all[i])
+	}
+
+	// Re-sync ChildRuns for parents that were copied into topLevel
+	for i := range topLevel {
+		if is, ok := byID[topLevel[i].RunID]; ok {
+			topLevel[i].ChildRuns = is.summary.ChildRuns
+		}
+	}
+
+	return topLevel
 }
