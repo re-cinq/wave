@@ -96,6 +96,34 @@ func TestResolveTemplate_ItemFull(t *testing.T) {
 	}
 }
 
+func TestResolveTemplate_ItemStringUnquoted(t *testing.T) {
+	ctx := NewTemplateContext("", "/tmp")
+	// JSON string items should be unquoted: "audit-security" → audit-security
+	ctx.Item = json.RawMessage(`"audit-security"`)
+
+	result, err := ResolveTemplate("{{item}}", ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "audit-security" {
+		t.Errorf("expected %q, got %q", "audit-security", result)
+	}
+}
+
+func TestResolveTemplate_ItemStringInPipelineName(t *testing.T) {
+	// Simulates iterate resolving "{{ item }}" to a pipeline name
+	ctx := NewTemplateContext("test-input", "/tmp")
+	ctx.Item = json.RawMessage(`"audit-dead-code"`)
+
+	result, err := ResolveTemplate("{{ item }}", ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "audit-dead-code" {
+		t.Errorf("expected %q, got %q", "audit-dead-code", result)
+	}
+}
+
 func TestResolveTemplate_Iteration(t *testing.T) {
 	ctx := NewTemplateContext("", "/tmp")
 	ctx.Iteration = 3

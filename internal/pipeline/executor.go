@@ -4433,14 +4433,33 @@ func (e *DefaultPipelineExecutor) cleanupWorktrees(execution *PipelineExecution,
 // referenced pipeline YAML, resolves the step's input template, and delegates
 // execution to a fresh DefaultPipelineExecutor instance.
 func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, execution *PipelineExecution, step *Step) error {
-	pipelineID := execution.Status.ID
-
 	// Route gate steps to the gate executor
 	if step.Gate != nil {
 		return e.executeGateInDAG(ctx, execution, step)
 	}
 
-	// Resolve the input for the sub-pipeline
+	// Route composition primitives
+	if step.Iterate != nil {
+		return e.executeIterateInDAG(ctx, execution, step)
+	}
+	if step.Aggregate != nil {
+		return e.executeAggregateInDAG(ctx, execution, step)
+	}
+	if step.Branch != nil {
+		return e.executeBranchInDAG(ctx, execution, step)
+	}
+	if step.Loop != nil {
+		return e.executeLoopInDAG(ctx, execution, step)
+	}
+
+	// Fall through: bare sub-pipeline step
+	input := e.resolveSubPipelineInput(execution, step)
+	return e.runNamedSubPipeline(ctx, execution, step, step.SubPipeline, input)
+}
+
+// resolveSubPipelineInput resolves the input string for a composition step,
+// using the step's SubInput template or falling back to the pipeline input.
+func (e *DefaultPipelineExecutor) resolveSubPipelineInput(execution *PipelineExecution, step *Step) string {
 	input := execution.Input
 	if step.SubInput != "" && execution.Context != nil {
 		resolved := execution.Context.ResolvePlaceholders(step.SubInput)
@@ -4448,6 +4467,14 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 			input = resolved
 		}
 	}
+	return input
+}
+
+// runNamedSubPipeline loads a pipeline by name from disk and executes it as a
+// child of the current execution. It handles timeout, artifact injection/extraction,
+// context merging, and parent-child state linking.
+func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execution *PipelineExecution, step *Step, pipelineName, input string) error {
+	pipelineID := execution.Status.ID
 
 	// Apply lifecycle timeout from sub-pipeline config
 	execCtx, cancel := subPipelineTimeout(ctx, step.Config)
@@ -4458,12 +4485,12 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 		PipelineID: pipelineID,
 		StepID:     step.ID,
 		State:      event.StateRunning,
-		Message:    fmt.Sprintf("composition: loading sub-pipeline %q", step.SubPipeline),
+		Message:    fmt.Sprintf("composition: loading sub-pipeline %q", pipelineName),
 	})
 
 	// Load the sub-pipeline from disk
 	loader := &YAMLPipelineLoader{}
-	subPipelinePath := filepath.Join(".wave", "pipelines", step.SubPipeline+".yaml")
+	subPipelinePath := filepath.Join(".wave", "pipelines", pipelineName+".yaml")
 	subPipeline, err := loader.Load(subPipelinePath)
 	if err != nil {
 		execution.mu.Lock()
@@ -4472,7 +4499,7 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 		if e.store != nil {
 			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
 		}
-		return fmt.Errorf("failed to load sub-pipeline %q: %w", step.SubPipeline, err)
+		return fmt.Errorf("failed to load sub-pipeline %q: %w", pipelineName, err)
 	}
 
 	// Build executor options for the child pipeline, inheriting configuration
@@ -4533,7 +4560,7 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 		PipelineID: pipelineID,
 		StepID:     step.ID,
 		State:      event.StateRunning,
-		Message:    fmt.Sprintf("composition: executing sub-pipeline %q", step.SubPipeline),
+		Message:    fmt.Sprintf("composition: executing sub-pipeline %q", pipelineName),
 	})
 
 	if err := childExecutor.Execute(execCtx, subPipeline, execution.Manifest, input); err != nil {
@@ -4549,7 +4576,7 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 		if e.store != nil {
 			e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
 		}
-		return fmt.Errorf("sub-pipeline %q failed: %w", step.SubPipeline, err)
+		return fmt.Errorf("sub-pipeline %q failed: %w", pipelineName, err)
 	}
 
 	// Link parent-child state after successful execution
@@ -4569,13 +4596,13 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 		execution.mu.Unlock()
 
 		if len(step.Config.Extract) > 0 {
-			if err := extractSubPipelineArtifacts(step.Config, childExec.Context, step.SubPipeline, execution.Context, parentWorkspace); err != nil {
+			if err := extractSubPipelineArtifacts(step.Config, childExec.Context, pipelineName, execution.Context, parentWorkspace); err != nil {
 				return fmt.Errorf("failed to extract sub-pipeline artifacts: %w", err)
 			}
 		}
 
 		// Merge child context variables into parent (last-writer-wins)
-		execution.Context.MergeFrom(childExec.Context, step.SubPipeline)
+		execution.Context.MergeFrom(childExec.Context, pipelineName)
 
 		// Evaluate stop condition if configured
 		if step.Config.StopCondition != "" {
@@ -4597,8 +4624,328 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 		PipelineID: pipelineID,
 		StepID:     step.ID,
 		State:      event.StateCompleted,
-		Message:    fmt.Sprintf("composition: sub-pipeline %q completed", step.SubPipeline),
+		Message:    fmt.Sprintf("composition: sub-pipeline %q completed", pipelineName),
 	})
+
+	return nil
+}
+
+// executeIterateInDAG fans out over a JSON array, running a sub-pipeline per item.
+func (e *DefaultPipelineExecutor) executeIterateInDAG(ctx context.Context, execution *PipelineExecution, step *Step) error {
+	pipelineID := execution.Status.ID
+
+	// Resolve the items array — may contain template expressions
+	itemsExpr := step.Iterate.Over
+	if execution.Context != nil {
+		itemsExpr = execution.Context.ResolvePlaceholders(itemsExpr)
+	}
+
+	var items []json.RawMessage
+	if err := json.Unmarshal([]byte(itemsExpr), &items); err != nil {
+		return fmt.Errorf("iterate.over did not resolve to a JSON array: %w (raw: %s)", err, itemsExpr)
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      event.StateRunning,
+		Message:    fmt.Sprintf("iterate: %d items (mode: %s)", len(items), step.Iterate.Mode),
+	})
+
+	pipelineNameTmpl := step.SubPipeline
+
+	if step.Iterate.Mode == "parallel" {
+		return e.executeIterateParallelInDAG(ctx, execution, step, pipelineNameTmpl, items)
+	}
+
+	// Sequential iterate
+	for i, item := range items {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		tmplCtx := NewTemplateContext(execution.Input, "")
+		tmplCtx.Item = item
+
+		// Resolve pipeline name (e.g. "{{ item }}" → "audit-security")
+		resolvedName, err := ResolveTemplate(pipelineNameTmpl, tmplCtx)
+		if err != nil {
+			return fmt.Errorf("iterate item %d: failed to resolve pipeline name: %w", i, err)
+		}
+
+		// Resolve input
+		input := execution.Input
+		if step.SubInput != "" {
+			input, err = ResolveTemplate(step.SubInput, tmplCtx)
+			if err != nil {
+				return fmt.Errorf("iterate item %d: failed to resolve input: %w", i, err)
+			}
+		}
+
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      event.StateRunning,
+			Message:    fmt.Sprintf("iterate item %d/%d: %s", i+1, len(items), resolvedName),
+		})
+
+		if err := e.runNamedSubPipeline(ctx, execution, step, resolvedName, input); err != nil {
+			return fmt.Errorf("iterate item %d (%s): %w", i, resolvedName, err)
+		}
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      event.StateCompleted,
+		Message:    fmt.Sprintf("iterate: all %d items completed", len(items)),
+	})
+
+	return nil
+}
+
+func (e *DefaultPipelineExecutor) executeIterateParallelInDAG(ctx context.Context, execution *PipelineExecution, step *Step, pipelineNameTmpl string, items []json.RawMessage) error {
+	pipelineID := execution.Status.ID
+
+	maxConcurrent := step.Iterate.MaxConcurrent
+	if maxConcurrent <= 0 {
+		maxConcurrent = len(items)
+	}
+
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(maxConcurrent)
+
+	for i, item := range items {
+		tmplCtx := NewTemplateContext(execution.Input, "")
+		tmplCtx.Item = item
+
+		resolvedName, err := ResolveTemplate(pipelineNameTmpl, tmplCtx)
+		if err != nil {
+			return fmt.Errorf("iterate item %d: failed to resolve pipeline name: %w", i, err)
+		}
+
+		input := execution.Input
+		if step.SubInput != "" {
+			input, err = ResolveTemplate(step.SubInput, tmplCtx)
+			if err != nil {
+				return fmt.Errorf("iterate item %d: failed to resolve input: %w", i, err)
+			}
+		}
+
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      event.StateRunning,
+			Message:    fmt.Sprintf("iterate parallel item %d/%d: %s", i+1, len(items), resolvedName),
+		})
+
+		g.Go(func() error {
+			return e.runNamedSubPipeline(gctx, execution, step, resolvedName, input)
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return err
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      event.StateCompleted,
+		Message:    fmt.Sprintf("iterate: all %d items completed (parallel)", len(items)),
+	})
+
+	return nil
+}
+
+// executeAggregateInDAG collects outputs from prior steps and writes them to a file.
+func (e *DefaultPipelineExecutor) executeAggregateInDAG(ctx context.Context, execution *PipelineExecution, step *Step) error {
+	pipelineID := execution.Status.ID
+
+	// Resolve the source expression
+	sourceExpr := step.Aggregate.From
+	if execution.Context != nil {
+		sourceExpr = execution.Context.ResolvePlaceholders(sourceExpr)
+	}
+
+	var result string
+	var err error
+
+	switch step.Aggregate.Strategy {
+	case "concat":
+		result = sourceExpr
+	case "merge_arrays":
+		result, err = mergeJSONArrays(sourceExpr)
+		if err != nil {
+			return fmt.Errorf("merge_arrays failed: %w", err)
+		}
+	case "reduce":
+		result = sourceExpr
+	default:
+		return fmt.Errorf("unknown aggregate strategy: %q", step.Aggregate.Strategy)
+	}
+
+	// Write result to file
+	outputPath := step.Aggregate.Into
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
+	if err := os.WriteFile(outputPath, []byte(result), 0644); err != nil {
+		return fmt.Errorf("failed to write aggregate output: %w", err)
+	}
+
+	// Register artifact in execution context
+	if execution.Context != nil {
+		execution.Context.SetArtifactPath("merged-findings", outputPath)
+	}
+
+	execution.mu.Lock()
+	execution.States[step.ID] = StateCompleted
+	execution.mu.Unlock()
+	if e.store != nil {
+		e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      event.StateCompleted,
+		Message:    fmt.Sprintf("aggregate: wrote %s (strategy: %s)", outputPath, step.Aggregate.Strategy),
+	})
+
+	return nil
+}
+
+// executeBranchInDAG evaluates a condition and runs the matching pipeline.
+func (e *DefaultPipelineExecutor) executeBranchInDAG(ctx context.Context, execution *PipelineExecution, step *Step) error {
+	pipelineID := execution.Status.ID
+
+	// Resolve the branch condition
+	value := step.Branch.On
+	if execution.Context != nil {
+		value = execution.Context.ResolvePlaceholders(value)
+	}
+
+	pipelineName, ok := step.Branch.Cases[value]
+	if !ok {
+		pipelineName, ok = step.Branch.Cases["default"]
+		if !ok {
+			return fmt.Errorf("branch value %q has no matching case and no default", value)
+		}
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      event.StateRunning,
+		Message:    fmt.Sprintf("branch %q → %s", value, pipelineName),
+	})
+
+	if pipelineName == "skip" {
+		execution.mu.Lock()
+		execution.States[step.ID] = StateCompleted
+		execution.mu.Unlock()
+		if e.store != nil {
+			e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "skipped by branch")
+		}
+		return nil
+	}
+
+	input := e.resolveSubPipelineInput(execution, step)
+	return e.runNamedSubPipeline(ctx, execution, step, pipelineName, input)
+}
+
+// executeLoopInDAG runs sub-steps/sub-pipelines repeatedly until a condition is
+// met or max iterations reached.
+func (e *DefaultPipelineExecutor) executeLoopInDAG(ctx context.Context, execution *PipelineExecution, step *Step) error {
+	pipelineID := execution.Status.ID
+
+	if step.Loop.MaxIterations <= 0 {
+		return fmt.Errorf("loop step %q: max_iterations must be > 0", step.ID)
+	}
+
+	for i := 0; i < step.Loop.MaxIterations; i++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      event.StateRunning,
+			Message:    fmt.Sprintf("loop iteration %d/%d", i+1, step.Loop.MaxIterations),
+		})
+
+		// Execute sub-pipeline if specified at the loop step level
+		if step.SubPipeline != "" {
+			input := e.resolveSubPipelineInput(execution, step)
+			if err := e.runNamedSubPipeline(ctx, execution, step, step.SubPipeline, input); err != nil {
+				return fmt.Errorf("loop iteration %d: %w", i, err)
+			}
+		}
+
+		// Execute loop sub-steps
+		for j := range step.Loop.Steps {
+			subStep := &step.Loop.Steps[j]
+			if subStep.IsCompositionStep() {
+				if err := e.executeCompositionStep(ctx, execution, subStep); err != nil {
+					return fmt.Errorf("loop iteration %d, step %q: %w", i, subStep.ID, err)
+				}
+			}
+		}
+
+		// Check loop termination condition
+		if step.Loop.Until != "" {
+			condResult := step.Loop.Until
+			if execution.Context != nil {
+				condResult = execution.Context.ResolvePlaceholders(condResult)
+			}
+			condResult = strings.TrimSpace(condResult)
+			if condResult == "true" || condResult == "done" || condResult == "yes" {
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      event.StateCompleted,
+					Message:    fmt.Sprintf("loop terminated: condition met at iteration %d", i+1),
+				})
+				execution.mu.Lock()
+				execution.States[step.ID] = StateCompleted
+				execution.mu.Unlock()
+				if e.store != nil {
+					e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "loop condition met")
+				}
+				return nil
+			}
+		}
+	}
+
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      event.StateCompleted,
+		Message:    fmt.Sprintf("loop completed: max iterations (%d) reached", step.Loop.MaxIterations),
+	})
+
+	execution.mu.Lock()
+	execution.States[step.ID] = StateCompleted
+	execution.mu.Unlock()
+	if e.store != nil {
+		e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "max iterations reached")
+	}
 
 	return nil
 }
