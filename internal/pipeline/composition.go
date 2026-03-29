@@ -165,7 +165,7 @@ func (c *CompositionExecutor) executeIterate(ctx context.Context, p *Pipeline, s
 	return c.executeIterateSequential(ctx, p, step, pipelineName, items)
 }
 
-func (c *CompositionExecutor) executeIterateSequential(ctx context.Context, p *Pipeline, step *Step, pipelineName string, items []json.RawMessage) error {
+func (c *CompositionExecutor) executeIterateSequential(ctx context.Context, p *Pipeline, step *Step, pipelineNameTmpl string, items []json.RawMessage) error {
 	for i, item := range items {
 		select {
 		case <-ctx.Done():
@@ -185,6 +185,12 @@ func (c *CompositionExecutor) executeIterateSequential(ctx context.Context, p *P
 		// Set item in template context
 		c.tmplCtx.Item = item
 
+		// Resolve pipeline name per item (e.g. "{{ item }}" → "audit-security")
+		resolvedName, err := ResolveTemplate(pipelineNameTmpl, c.tmplCtx)
+		if err != nil {
+			return fmt.Errorf("item %d: failed to resolve pipeline name: %w", i, err)
+		}
+
 		// Resolve input template
 		input, err := c.resolveStepInput(step)
 		if err != nil {
@@ -192,8 +198,8 @@ func (c *CompositionExecutor) executeIterateSequential(ctx context.Context, p *P
 		}
 
 		// Load and execute the sub-pipeline
-		if err := c.runSubPipeline(ctx, pipelineName, input); err != nil {
-			return fmt.Errorf("item %d: pipeline %q failed: %w", i, pipelineName, err)
+		if err := c.runSubPipeline(ctx, resolvedName, input); err != nil {
+			return fmt.Errorf("item %d: pipeline %q failed: %w", i, resolvedName, err)
 		}
 	}
 
@@ -208,7 +214,7 @@ func (c *CompositionExecutor) executeIterateSequential(ctx context.Context, p *P
 	return nil
 }
 
-func (c *CompositionExecutor) executeIterateParallel(ctx context.Context, p *Pipeline, step *Step, pipelineName string, items []json.RawMessage) error {
+func (c *CompositionExecutor) executeIterateParallel(ctx context.Context, p *Pipeline, step *Step, pipelineNameTmpl string, items []json.RawMessage) error {
 	maxConcurrent := step.Iterate.MaxConcurrent
 	if maxConcurrent <= 0 {
 		maxConcurrent = len(items)
@@ -226,24 +232,29 @@ func (c *CompositionExecutor) executeIterateParallel(ctx context.Context, p *Pip
 			}
 			localCtx.Item = item
 
+			// Resolve pipeline name per item
+			resolvedName, err := ResolveTemplate(pipelineNameTmpl, localCtx)
+			if err != nil {
+				return fmt.Errorf("item %d: failed to resolve pipeline name: %w", i, err)
+			}
+
 			c.emit(event.Event{
 				Timestamp:  time.Now(),
 				PipelineID: p.Metadata.Name,
 				StepID:     step.ID,
 				State:      event.StateIterationProgress,
-				Message:    fmt.Sprintf("parallel item %d/%d", i+1, len(items)),
+				Message:    fmt.Sprintf("parallel item %d/%d: %s", i+1, len(items), resolvedName),
 			})
 
 			input := c.tmplCtx.Input
 			if step.SubInput != "" {
-				var err error
 				input, err = ResolveTemplate(step.SubInput, localCtx)
 				if err != nil {
 					return fmt.Errorf("item %d: %w", i, err)
 				}
 			}
 
-			return c.runSubPipeline(gctx, pipelineName, input)
+			return c.runSubPipeline(gctx, resolvedName, input)
 		})
 	}
 
