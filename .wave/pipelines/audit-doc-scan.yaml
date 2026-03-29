@@ -44,6 +44,7 @@ steps:
         type: json
     handover:
       contract:
-        type: non_empty_file
+        type: json_schema
         source: .wave/output/findings.json
+        schema_path: .wave/contracts/shared-findings.schema.json
         on_failure: skip
