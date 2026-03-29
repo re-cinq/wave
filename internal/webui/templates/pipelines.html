@@ -4,34 +4,55 @@
     <h1>Pipelines</h1>
 </div>
 {{if .Pipelines}}
-<div class="personas-grid">
-    {{range .Pipelines}}
-    <article class="card persona-card" aria-label="Pipeline: {{.Name}}">
-        <h3>{{.Name}}</h3>
-        {{if .Description}}<p class="persona-desc">{{.Description}}</p>{{end}}
-        <div class="persona-meta">
-            <span class="badge">{{.StepCount}} {{pluralize .StepCount "step" "steps"}}</span>
-            {{if .Category}}<span class="badge">{{.Category}}</span>{{end}}
-            {{if .IsComposition}}<span class="badge badge-composition">composition</span>{{end}}
-        </div>
-        {{if .Steps}}
-        <div class="persona-tools">
-            <strong>Steps:</strong>
-            {{range .Steps}}<code>{{.}}</code> {{end}}
-        </div>
+<div class="filters">
+    <div class="search-filter">
+        <input type="text" id="pipeline-search" oninput="filterPipelines()" placeholder="Search pipelines..." aria-label="Search pipelines by name or description">
+    </div>
+    <select id="pipeline-category" onchange="filterPipelines()" aria-label="Filter pipelines by category">
+        <option value="">All Categories</option>
+        <option value="audit">audit</option>
+        <option value="bench">bench</option>
+        <option value="doc">doc</option>
+        <option value="impl">impl</option>
+        <option value="ops">ops</option>
+        <option value="plan">plan</option>
+        <option value="test">test</option>
+        <option value="wave">wave</option>
+    </select>
+</div>
+
+<table class="table" id="pipelines-table">
+    <thead>
+        <tr>
+            <th>Pipeline</th>
+            <th>Category</th>
+            <th>Steps</th>
+            <th>Description</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody id="pipeline-tbody">
+        {{range .Pipelines}}
+        <tr data-name="{{.Name}}" data-category="{{.Category}}" data-desc="{{.Description}}">
+            <td>
+                <a href="/pipelines/{{.Name}}"><strong>{{.Name}}</strong></a>
+                {{if .IsComposition}}<span class="badge badge-composition">composition</span>{{end}}
+            </td>
+            <td>{{if .Category}}<span class="badge">{{.Category}}</span>{{end}}</td>
+            <td>{{.StepCount}}</td>
+            <td class="pipeline-desc-cell">{{.Description}}</td>
+            <td class="pipeline-actions-cell">
+                <button class="btn btn-sm btn-primary" onclick="showQuickStart('{{.Name}}')" aria-label="Start {{.Name}} pipeline">Start</button>
+                <a href="/runs?pipeline={{.Name}}" class="btn btn-sm" aria-label="View runs for {{.Name}}">Runs</a>
+            </td>
+        </tr>
         {{end}}
-        {{if .Skills}}
-        <div class="persona-tools">
-            <strong>Skills:</strong>
-            {{range .Skills}}<a href="/skills" class="badge">{{.}}</a> {{end}}
-        </div>
-        {{end}}
-        <div class="card-actions">
-            <a href="/pipelines/{{.Name}}" class="btn" aria-label="View details for {{.Name}}">Details</a>
-            <button class="btn btn-primary" onclick="showQuickStart('{{.Name}}')" aria-label="Start {{.Name}} pipeline">Start</button>
-        </div>
-    </article>
-    {{end}}
+    </tbody>
+</table>
+<div id="no-results" class="empty-state" style="display:none;">
+    <div class="empty-state-icon">&#128269;</div>
+    <p><strong>No matching pipelines</strong></p>
+    <p>No pipelines match your search or filter criteria.</p>
 </div>
 {{else}}
 <div class="empty-state">
@@ -85,6 +106,27 @@ function submitQuickStart() {
     }).catch(function() {
         setButtonLoading(btn, false);
     });
+}
+
+function filterPipelines() {
+    var search = document.getElementById('pipeline-search').value.toLowerCase();
+    var category = document.getElementById('pipeline-category').value;
+    var rows = document.querySelectorAll('#pipeline-tbody tr');
+    var visibleCount = 0;
+    rows.forEach(function(row) {
+        var name = row.dataset.name.toLowerCase();
+        var cat = row.dataset.category || '';
+        var desc = (row.dataset.desc || '').toLowerCase();
+        var matchSearch = !search || name.indexOf(search) !== -1 || desc.indexOf(search) !== -1;
+        var matchCat = !category || cat === category;
+        var visible = matchSearch && matchCat;
+        row.style.display = visible ? '' : 'none';
+        if (visible) visibleCount++;
+    });
+    var table = document.getElementById('pipelines-table');
+    var noResults = document.getElementById('no-results');
+    if (table) table.style.display = visibleCount === 0 ? 'none' : '';
+    if (noResults) noResults.style.display = visibleCount === 0 ? '' : 'none';
 }
 
 document.addEventListener('keydown', function(e) {
