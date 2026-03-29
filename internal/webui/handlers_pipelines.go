@@ -190,7 +190,8 @@ func (s *Server) handlePipelineDetailPage(w http.ResponseWriter, r *http.Request
 		})
 	}
 
-	// Count runs for this pipeline
+	// Fetch recent runs for this pipeline
+	var recentRuns []RunSummary
 	var runCount int
 	if s.store != nil {
 		runs, err := s.store.ListRuns(state.ListRunsOptions{
@@ -199,6 +200,17 @@ func (s *Server) handlePipelineDetailPage(w http.ResponseWriter, r *http.Request
 		})
 		if err == nil {
 			runCount = len(runs)
+			// Build summaries for the most recent 10 runs
+			limit := 10
+			if len(runs) < limit {
+				limit = len(runs)
+			}
+			for _, r := range runs[:limit] {
+				recentRuns = append(recentRuns, runToSummary(r))
+			}
+			if len(recentRuns) > 0 {
+				s.enrichRunSummaries(recentRuns, runs[:limit])
+			}
 		}
 	}
 
@@ -207,11 +219,13 @@ func (s *Server) handlePipelineDetailPage(w http.ResponseWriter, r *http.Request
 		Pipeline   PipelineDetail
 		DAG        *DAGLayout
 		RunCount   int
+		Runs       []RunSummary
 	}{
 		ActivePage: "pipelines",
 		Pipeline:   buildPipelineDetail(name, p),
 		DAG:        ComputeDAGLayout(dagSteps),
 		RunCount:   runCount,
+		Runs:       recentRuns,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

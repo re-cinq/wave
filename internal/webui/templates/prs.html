@@ -35,6 +35,7 @@
                 <th>Branch</th>
                 <th>Changes</th>
                 <th>Created</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -54,6 +55,9 @@
                 <td><code>{{.HeadBranch}}</code> &rarr; <code>{{.BaseBranch}}</code></td>
                 <td>{{if or .Additions .Deletions .ChangedFiles}}<span class="additions">+{{.Additions}}</span> / <span class="deletions">-{{.Deletions}}</span> ({{.ChangedFiles}} {{pluralize .ChangedFiles "file" "files"}}){{else}}--{{end}}</td>
                 <td>{{.CreatedAt}}</td>
+                <td>
+                    <button class="btn btn-sm review-btn" data-pr-url="{{.URL}}" data-pr-number="{{.Number}}">Review</button>
+                </td>
             </tr>
             {{end}}
         </tbody>
@@ -80,6 +84,29 @@
 {{end}}
 {{define "scripts"}}
 <script>
+// Review button: launches ops-pr-review with the PR URL
+(function() {
+    document.querySelectorAll('.review-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var prURL = btn.dataset.prUrl;
+            setButtonLoading(btn, true);
+            fetchJSON('/api/pipelines/ops-pr-review/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({input: prURL})
+            })
+            .then(function(data) {
+                if (data.run_id) {
+                    window.location.href = '/runs/' + data.run_id;
+                }
+            })
+            .catch(function() {
+                setButtonLoading(btn, false);
+            });
+        });
+    });
+})();
+
 function filterPRs() {
     var params = new URLSearchParams();
     var stateEl = document.getElementById('state-filter');

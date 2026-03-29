@@ -51,7 +51,8 @@
                 <td>{{range .Labels}}<span class="badge badge-label" onclick="filterByLabel('{{.}}')" style="cursor:pointer;" title="Click to filter by this label">{{.}}</span> {{end}}</td>
                 <td>{{.Comments}}</td>
                 <td>{{.CreatedAt}}</td>
-                <td>
+                <td style="display:flex; gap:0.25rem; align-items:center;">
+                    <button class="btn btn-primary btn-sm implement-btn" data-issue-url="{{.URL}}" data-issue-number="{{.Number}}">Implement</button>
                     <button class="btn btn-sm launch-pipeline-btn" data-issue-url="{{.URL}}" data-issue-number="{{.Number}}">Launch Pipeline</button>
                 </td>
             </tr>
@@ -144,6 +145,27 @@
         })
         .catch(() => {
             setButtonLoading(launchBtn, false);
+        });
+    });
+
+    // Implement button: launches impl-issue directly with the issue URL
+    document.querySelectorAll('.implement-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const issueURL = btn.dataset.issueUrl;
+            setButtonLoading(btn, true);
+            fetchJSON('/api/pipelines/impl-issue/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({input: issueURL})
+            })
+            .then(data => {
+                if (data.run_id) {
+                    window.location.href = '/runs/' + data.run_id;
+                }
+            })
+            .catch(() => {
+                setButtonLoading(btn, false);
+            });
         });
     });
 })();
