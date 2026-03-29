@@ -46,3 +46,4 @@ release
 # Node modules (docs site)
 node_modules/
 integration.test
+.env
