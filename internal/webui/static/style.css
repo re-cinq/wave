@@ -331,7 +331,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     margin: 0.5rem 0 0; padding: 1rem; background: var(--color-bg);
     border: 1px solid var(--color-border); border-radius: var(--radius-sm);
     font-size: 0.75rem; line-height: 1.5; white-space: pre-wrap;
-    word-break: break-word; max-height: 40vh; overflow-y: auto;
+    word-break: break-word;
 }
 
 /* Issue body */
@@ -345,7 +345,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     border: 1px solid var(--color-border); border-radius: var(--radius-sm);
     color: var(--color-text);
     font-size: 0.875rem;
-    word-break: break-word; max-height: 60vh; overflow-y: auto;
+    word-break: break-word;
 }
 .markdown-body h1, .markdown-body h2, .markdown-body h3,
 .markdown-body h4, .markdown-body h5, .markdown-body h6 {
