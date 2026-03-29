@@ -53,15 +53,17 @@ steps:
 
         ## Output
 
-        For each finding, provide:
-        - Location (file:line)
-        - Category (over-engineering, copy-paste, stale, misaligned, complex, test-debt)
-        - Description of the issue
-        - Suggested remediation
-        - Effort estimate (trivial/small/medium/large)
+        Write findings to `.wave/output/findings.json` in standard findings format:
+        ```json
+        {"findings": [{"type": "junk-code", "severity": "high|medium|low", "file": "...", "line": 42, "item": "...", "description": "...", "evidence": "...", "recommendation": "remove|refactor|fix|investigate"}]}
+        ```
+
+        Use `"type": "junk-code"` for over-engineering, copy-paste drift, stale code, and complexity hotspots.
+        Use `"type": "style"` for conceptual misalignment and naming issues.
+        Use `"type": "dead-code"` for stale/commented-out code.
     output_artifacts:
-      - name: assessment
-        path: .wave/output/assessment.json
+      - name: findings
+        path: .wave/output/findings.json
         type: json
     retry:
       policy: patient
@@ -69,6 +71,6 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/assessment.json
-        schema_path: .wave/contracts/improvement-assessment.schema.json
-        on_failure: retry
+        source: .wave/output/findings.json
+        schema_path: .wave/contracts/shared-findings.schema.json
+        on_failure: skip

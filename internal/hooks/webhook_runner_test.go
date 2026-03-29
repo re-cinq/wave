@@ -10,14 +10,13 @@ import (
 )
 
 func TestWebhookRunner_FiresMatchingEvents(t *testing.T) {
-	var received atomic.Int32
+	done := make(chan struct{}, 1)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		received.Add(1)
+		done <- struct{}{}
 		w.WriteHeader(200)
 	}))
 	defer srv.Close()
 
-	// Temporarily allow localhost for test
 	origValidator := urlValidator
 	urlValidator = func(string) error { return nil }
 	defer func() { urlValidator = origValidator }()
@@ -27,12 +26,13 @@ func TestWebhookRunner_FiresMatchingEvents(t *testing.T) {
 	}
 	runner := NewWebhookRunner(webhooks, nil)
 
-	// Should fire
 	runner.FireWebhooks(context.Background(), HookEvent{Type: EventRunCompleted, PipelineID: "run-1"})
-	time.Sleep(500 * time.Millisecond) // async delivery
 
-	if received.Load() != 1 {
-		t.Errorf("expected 1 delivery, got %d", received.Load())
+	select {
+	case <-done:
+		// ok
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for webhook delivery")
 	}
 }
 
@@ -127,9 +127,9 @@ func TestWebhookRunner_RateLimiterResets(t *testing.T) {
 }
 
 func TestWebhookRunner_HMACSignature(t *testing.T) {
-	var gotSig string
+	sigCh := make(chan string, 1)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotSig = r.Header.Get("X-Wave-Signature-256")
+		sigCh <- r.Header.Get("X-Wave-Signature-256")
 		w.WriteHeader(200)
 	}))
 	defer srv.Close()
@@ -143,12 +143,16 @@ func TestWebhookRunner_HMACSignature(t *testing.T) {
 	}
 	runner := NewWebhookRunner(webhooks, nil)
 	runner.FireWebhooks(context.Background(), HookEvent{Type: EventRunCompleted, PipelineID: "run-1"})
-	time.Sleep(200 * time.Millisecond)
 
-	if gotSig == "" {
-		t.Error("expected X-Wave-Signature-256 header")
-	}
-	if len(gotSig) < 10 || gotSig[:7] != "sha256=" {
-		t.Errorf("expected sha256= prefix, got: %s", gotSig)
+	select {
+	case gotSig := <-sigCh:
+		if gotSig == "" {
+			t.Error("expected X-Wave-Signature-256 header")
+		}
+		if len(gotSig) < 10 || gotSig[:7] != "sha256=" {
+			t.Errorf("expected sha256= prefix, got: %s", gotSig)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for webhook delivery")
 	}
 }
