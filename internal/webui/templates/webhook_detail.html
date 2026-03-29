@@ -1,0 +1,134 @@
+{{define "title"}}{{.Webhook.Name}} · Webhook · Wave{{end}}
+{{define "content"}}
+<div class="page-header">
+    <div>
+        <a href="/webhooks" class="back-link" aria-label="Back to webhooks list">&larr; Back to Webhooks</a>
+        <h1>{{.Webhook.Name}}</h1>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+        <button class="btn btn-primary" onclick="editWebhookDetail()">Edit</button>
+        <button class="btn btn-danger" onclick="deleteWebhookDetail()">Delete</button>
+    </div>
+</div>
+
+<div class="run-summary-bar">
+    <div class="run-summary-stats">
+        <span class="run-stat">
+            <span class="run-stat-label">Status</span>
+            <span class="run-stat-value">
+                {{if .Webhook.Active}}
+                <span class="badge" style="background: var(--success); color: white;">Active</span>
+                {{else}}
+                <span class="badge" style="background: var(--muted); color: white;">Inactive</span>
+                {{end}}
+            </span>
+        </span>
+        <span class="run-stat">
+            <span class="run-stat-label">URL</span>
+            <span class="run-stat-value"><code>{{.Webhook.URL}}</code></span>
+        </span>
+        {{if .Webhook.Matcher}}
+        <span class="run-stat">
+            <span class="run-stat-label">Matcher</span>
+            <span class="run-stat-value"><code>{{.Webhook.Matcher}}</code></span>
+        </span>
+        {{end}}
+        <span class="run-stat">
+            <span class="run-stat-label">Created</span>
+            <span class="run-stat-value">{{formatTime .Webhook.CreatedAt}}</span>
+        </span>
+        <span class="run-stat">
+            <span class="run-stat-label">Updated</span>
+            <span class="run-stat-value">{{formatTime .Webhook.UpdatedAt}}</span>
+        </span>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 1.5rem;">
+    <h2>Events</h2>
+    {{if .Webhook.Events}}
+    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+        {{range .Webhook.Events}}<span class="badge">{{.}}</span>{{end}}
+    </div>
+    {{else}}
+    <p style="color: var(--muted);">All events (no filter)</p>
+    {{end}}
+</div>
+
+<div class="card">
+    <h2>Recent Deliveries</h2>
+    {{if .Deliveries}}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Event</th>
+                    <th>Run</th>
+                    <th>Status Code</th>
+                    <th>Response Time</th>
+                    <th>Error</th>
+                    <th>Delivered At</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Deliveries}}
+                <tr>
+                    <td><span class="badge">{{.Event}}</span></td>
+                    <td>
+                        {{if .RunID}}
+                        <a href="/runs/{{.RunID}}"><code style="font-size: 0.85em;">{{.RunID}}</code></a>
+                        {{else}}
+                        <span style="color: var(--muted);">-</span>
+                        {{end}}
+                    </td>
+                    <td>
+                        {{if and (ge .StatusCode 200) (lt .StatusCode 300)}}
+                        <span class="badge" style="background: var(--success); color: white;">{{.StatusCode}}</span>
+                        {{else if ge .StatusCode 400}}
+                        <span class="badge" style="background: var(--danger, #dc3545); color: white;">{{.StatusCode}}</span>
+                        {{else}}
+                        <span class="badge">{{.StatusCode}}</span>
+                        {{end}}
+                    </td>
+                    <td>{{.ResponseTimeMs}}ms</td>
+                    <td>
+                        {{if .Error}}
+                        <code style="color: var(--danger, #dc3545); font-size: 0.85em;">{{.Error}}</code>
+                        {{else}}
+                        <span style="color: var(--muted);">-</span>
+                        {{end}}
+                    </td>
+                    <td>{{formatTime .DeliveredAt}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+    {{else}}
+    <div style="text-align: center; padding: 2rem;">
+        <p style="color: var(--muted);">No deliveries yet</p>
+    </div>
+    {{end}}
+</div>
+
+<script>
+function editWebhookDetail() {
+    window.location.href = '/webhooks?edit={{.Webhook.ID}}';
+}
+
+function deleteWebhookDetail() {
+    if (!confirm('Delete webhook "{{.Webhook.Name}}"?')) return;
+    fetch('/api/webhooks/{{.Webhook.ID}}', {
+        method: 'DELETE',
+        headers: {'X-CSRF-Token': getCSRFToken()}
+    }).then(function(resp) {
+        if (resp.ok) {
+            window.location.href = '/webhooks';
+        } else {
+            alert('Failed to delete webhook');
+        }
+    });
+}
+</script>
+{{end}}
+{{define "scripts"}}{{end}}

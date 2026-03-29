@@ -87,7 +87,8 @@ function installSkill(name) {
     btn.textContent = 'Installing...';
 
     fetch('/api/skills/' + encodeURIComponent(name) + '/install', {
-        method: 'POST'
+        method: 'POST',
+        headers: {'X-CSRF-Token': getCSRFToken()}
     })
     .then(function(resp) { return resp.json(); })
     .then(function(data) {

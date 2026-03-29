@@ -65,6 +65,38 @@ func (s *Server) handleWebhooksPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) handleWebhookDetailPage(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid webhook id", http.StatusBadRequest)
+		return
+	}
+
+	webhook, err := s.store.GetWebhook(id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("webhook not found: %s", err), http.StatusNotFound)
+		return
+	}
+
+	deliveries, _ := s.store.GetWebhookDeliveries(id, 50)
+
+	data := struct {
+		ActivePage string
+		Webhook    *state.Webhook
+		Deliveries []*state.WebhookDelivery
+	}{
+		ActivePage: "webhooks",
+		Webhook:    webhook,
+		Deliveries: deliveries,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.templates["templates/webhook_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // --- API Endpoints ---
 
 func (s *Server) handleAPIWebhooks(w http.ResponseWriter, r *http.Request) {

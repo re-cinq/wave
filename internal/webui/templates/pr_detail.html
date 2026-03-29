@@ -188,7 +188,8 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Wave-Request': '1'
+                'X-Wave-Request': '1',
+                'X-CSRF-Token': getCSRFToken()
             },
             body: JSON.stringify({ event: event, body: body })
         }).then(function(resp) {

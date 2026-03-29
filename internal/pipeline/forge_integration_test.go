@@ -60,10 +60,10 @@ func TestForgeIntegration_PromptResolution(t *testing.T) {
 			info: forge.ForgeInfo{
 				Type: forge.ForgeCodeberg, Host: "codeberg.org",
 				Owner: "user", Repo: "project",
-				CLITool: "tea", PipelinePrefix: "cb",
-				PRTerm: "Pull Request", PRCommand: "pulls",
+				CLITool: "tea", PipelinePrefix: "gt",
+				PRTerm: "Pull Request", PRCommand: "pr",
 			},
-			expected: "Use tea pulls create to make a Pull Request",
+			expected: "Use tea pr create to make a Pull Request",
 		},
 	}
 
@@ -93,7 +93,7 @@ func TestForgeIntegration_PersonaResolution(t *testing.T) {
 		{"GitLab", forge.Detect("https://gitlab.com/o/r.git"), "gl-commenter"},
 		{"Bitbucket", forge.Detect("https://bitbucket.org/o/r.git"), "bb-commenter"},
 		{"Gitea", forge.Detect("https://gitea.example.com/o/r.git"), "gt-commenter"},
-		{"Codeberg", forge.Detect("https://codeberg.org/o/r.git"), "cb-commenter"},
+		{"Codeberg", forge.Detect("https://codeberg.org/o/r.git"), "gt-commenter"},
 	}
 
 	for _, tt := range tests {
@@ -139,7 +139,7 @@ func TestForgeIntegration_ContractCommandResolution(t *testing.T) {
 		{
 			name:     "Codeberg",
 			info:     forge.Detect("https://codeberg.org/o/r.git"),
-			expected: "tea pulls list --json state",
+			expected: "tea pr list --json state",
 		},
 	}
 
@@ -169,7 +169,7 @@ func TestForgeIntegration_SourcePathResolution(t *testing.T) {
 		{"GitLab", forge.Detect("https://gitlab.com/o/r.git"), ".wave/prompts/gl/create-pr.md"},
 		{"Bitbucket", forge.Detect("https://bitbucket.org/o/r.git"), ".wave/prompts/bb/create-pr.md"},
 		{"Gitea", forge.Detect("https://gitea.example.com/o/r.git"), ".wave/prompts/gt/create-pr.md"},
-		{"Codeberg", forge.Detect("https://codeberg.org/o/r.git"), ".wave/prompts/cb/create-pr.md"},
+		{"Codeberg", forge.Detect("https://codeberg.org/o/r.git"), ".wave/prompts/gt/create-pr.md"},
 	}
 
 	template := ".wave/prompts/{{ forge.prefix }}/create-pr.md"
@@ -226,8 +226,8 @@ func TestForgeIntegration_FullExecutorFlow(t *testing.T) {
 		},
 		{
 			name:     "Codeberg",
-			info:     forge.ForgeInfo{Type: forge.ForgeCodeberg, Host: "codeberg.org", Owner: "org", Repo: "repo", CLITool: "tea", PipelinePrefix: "cb", PRTerm: "Pull Request", PRCommand: "pulls"},
-			wantCLI:  "tea pulls create",
+			info:     forge.ForgeInfo{Type: forge.ForgeCodeberg, Host: "codeberg.org", Owner: "org", Repo: "repo", CLITool: "tea", PipelinePrefix: "gt", PRTerm: "Pull Request", PRCommand: "pr"},
+			wantCLI:  "tea pr create",
 			wantPR:   "codeberg-committer",
 			wantType: "codeberg",
 		},

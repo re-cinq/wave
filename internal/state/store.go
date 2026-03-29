@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -148,6 +149,9 @@ type StateStore interface {
 	RecordDecision(record *DecisionRecord) error
 	GetDecisions(runID string) ([]*DecisionRecord, error)
 	GetDecisionsByStep(runID, stepID string) ([]*DecisionRecord, error)
+
+	// Audit log (cross-run event queries)
+	GetAuditEvents(states []string, limit, offset int) ([]LogRecord, error)
 
 	// Webhook management
 	CreateWebhook(webhook *Webhook) (int64, error)
@@ -872,6 +876,89 @@ func (s *stateStore) GetEvents(runID string, opts EventQueryOptions) ([]LogRecor
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating events: %w", err)
+	}
+
+	return records, nil
+}
+
+// GetAuditEvents retrieves events across all runs, filtered by state types,
+// ordered by timestamp descending. Used by the admin audit log viewer.
+func (s *stateStore) GetAuditEvents(states []string, limit, offset int) ([]LogRecord, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	query := `SELECT e.id, e.run_id, e.timestamp, e.step_id, e.state, e.persona, e.message, e.tokens_used, e.duration_ms
+	          FROM event_log e`
+
+	var args []any
+	if len(states) > 0 {
+		placeholders := make([]string, len(states))
+		for i, st := range states {
+			placeholders[i] = "?"
+			args = append(args, st)
+		}
+		query += " WHERE e.state IN (" + strings.Join(placeholders, ",") + ")"
+	}
+
+	query += " ORDER BY e.timestamp DESC, e.id DESC"
+	query += " LIMIT ?"
+	args = append(args, limit)
+	if offset > 0 {
+		query += " OFFSET ?"
+		args = append(args, offset)
+	}
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query audit events: %w", err)
+	}
+	defer rows.Close()
+
+	var records []LogRecord
+	for rows.Next() {
+		var record LogRecord
+		var timestamp int64
+		var stepID, persona, message sql.NullString
+		var tokensUsed, durationMs sql.NullInt64
+
+		err := rows.Scan(
+			&record.ID,
+			&record.RunID,
+			&timestamp,
+			&stepID,
+			&record.State,
+			&persona,
+			&message,
+			&tokensUsed,
+			&durationMs,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan audit event: %w", err)
+		}
+
+		record.Timestamp = time.Unix(timestamp, 0)
+		if stepID.Valid {
+			record.StepID = stepID.String
+		}
+		if persona.Valid {
+			record.Persona = persona.String
+		}
+		if message.Valid {
+			record.Message = message.String
+		}
+		if tokensUsed.Valid {
+			record.TokensUsed = int(tokensUsed.Int64)
+		}
+		if durationMs.Valid {
+			record.DurationMs = durationMs.Int64
+		}
+
+		records = append(records, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating audit events: %w", err)
 	}
 
 	return records, nil

@@ -550,6 +550,10 @@ func (m *MockStateStore) GetDecisionsByStep(runID, stepID string) ([]*state.Deci
 	return nil, nil
 }
 
+func (m *MockStateStore) GetAuditEvents(states []string, limit, offset int) ([]state.LogRecord, error) {
+	return nil, nil
+}
+
 func (m *MockStateStore) CreateWebhook(webhook *state.Webhook) (int64, error) {
 	return 0, nil
 }

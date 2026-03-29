@@ -1,6 +1,7 @@
 package webui
 
 import (
+	"html/template"
 	"testing"
 	"time"
 )
@@ -264,7 +265,9 @@ func TestFormatTimeISO(t *testing.T) {
 }
 
 func TestParseTemplates(t *testing.T) {
-	tmpl, err := parseTemplates()
+	tmpl, err := parseTemplates(template.FuncMap{
+		"csrfToken": func() string { return "test-token" },
+	})
 	if err != nil {
 		t.Fatalf("parseTemplates() error: %v", err)
 	}
@@ -287,6 +290,7 @@ func TestParseTemplates(t *testing.T) {
 		"templates/health.html",
 		"templates/ontology.html",
 		"templates/notfound.html",
+		"templates/webhook_detail.html",
 	}
 	for _, page := range expected {
 		if tmpl[page] == nil {
