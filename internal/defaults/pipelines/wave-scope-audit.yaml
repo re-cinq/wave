@@ -51,7 +51,7 @@ steps:
     pipeline: "{{ item }}"
     input: "{{ input }}"
     iterate:
-      over: '["audit-dead-code", "audit-unwired", "audit-duplicates", "audit-doc", "audit-junk-code", "audit-dx"]'
+      over: '["audit-dead-code-scan", "audit-unwired", "audit-duplicates", "audit-doc-scan"]'
       mode: parallel
       max_concurrent: 4
 
@@ -70,6 +70,11 @@ steps:
     thread: scope-audit
     contexts: [delivery, quality, configuration]
     dependencies: [merge-findings]
+    memory:
+      inject_artifacts:
+        - step: merge-findings
+          artifact: merged-findings
+          as: merged_findings
     workspace:
       mount:
         - source: ./
@@ -78,8 +83,8 @@ steps:
     exec:
       type: prompt
       source: |
-        Six parallel audits have completed for Wave. Their merged findings are at
-        .wave/output/merged-findings.json. Read it.
+        Four parallel audits have completed for Wave. Their merged findings are
+        injected as .wave/artifacts/merged_findings. Read it.
 
         Also scan /project to verify findings against the actual codebase.
 
