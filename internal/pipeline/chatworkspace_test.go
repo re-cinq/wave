@@ -441,7 +441,7 @@ func TestGeneratePostMortemQuestions_ReviewPipeline(t *testing.T) {
 			Status: "completed",
 		},
 		Artifacts: []state.ArtifactRecord{
-			{Name: "review-summary.md"},
+			{Name: "review-verdict.json"},
 		},
 		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "gh-pr-review"}},
 	}
