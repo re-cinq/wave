@@ -78,6 +78,11 @@ func resolveExpression(expr string, ctx *TemplateContext) (string, error) {
 		if ctx.Item == nil {
 			return "", fmt.Errorf("no iteration item in context")
 		}
+		// Unquote JSON strings so "audit-security" → audit-security
+		var s string
+		if err := json.Unmarshal(ctx.Item, &s); err == nil {
+			return s, nil
+		}
 		return string(ctx.Item), nil
 
 	case strings.HasPrefix(expr, "item."):
