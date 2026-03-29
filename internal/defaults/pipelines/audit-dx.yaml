@@ -59,10 +59,10 @@ steps:
         Produce a markdown report with findings grouped by area,
         severity ratings, and specific improvement recommendations.
     output_artifacts:
-      - name: dx-report
-        path: .wave/output/dx-audit-report.md
+      - name: findings
+        path: .wave/output/findings.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/dx-audit-report.md
+        source: .wave/output/findings.md

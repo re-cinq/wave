@@ -129,16 +129,26 @@ steps:
 
         ## Output
 
-        Write your analysis as structured JSON.
-        Include:
-        - summary: total_count, by_severity counts, clean (true if zero inconsistencies)
-        - inconsistencies: array of {id (DOC-001 format), severity, category, title, description, source_location, doc_location, fix_description}
-        - timestamp: current ISO 8601 timestamp
+        Write findings to `.wave/output/findings.json` in standard findings format:
+        ```json
+        {"findings": [{"type": "doc-drift", "severity": "critical|high|medium|low", "file": "...", "description": "...", "evidence": "...", "recommendation": "fix|document|investigate"}]}
+        ```
 
-        If no inconsistencies are found, output an empty array with clean=true.
+        For each inconsistency, create a finding entry:
+        - `type`: "doc-drift"
+        - `severity`: map CRITICAL->critical, HIGH->high, MEDIUM->medium, LOW->low
+        - `file`: the doc_location path
+        - `description`: inconsistency title and description
+        - `evidence`: source_location and what was found
+        - `recommendation`: "fix" for incorrect info, "document" for missing docs, "investigate" for unclear
+
+        Also include a `summary` field with total count and whether the codebase is clean,
+        and a `scanned_at` timestamp.
+
+        If no inconsistencies are found, output an empty findings array.
     output_artifacts:
-      - name: consistency-report
-        path: .wave/output/consistency-report.json
+      - name: findings
+        path: .wave/output/findings.json
         type: json
     retry:
       policy: patient
@@ -146,9 +156,9 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/consistency-report.json
-        schema_path: .wave/contracts/doc-consistency-report.schema.json
-        on_failure: retry
+        source: .wave/output/findings.json
+        schema_path: .wave/contracts/shared-findings.schema.json
+        on_failure: skip
 
   - id: compose-report
     persona: navigator
@@ -156,7 +166,7 @@ steps:
     memory:
       inject_artifacts:
         - step: analyze-consistency
-          artifact: consistency-report
+          artifact: findings
           as: report
     workspace:
       type: worktree
