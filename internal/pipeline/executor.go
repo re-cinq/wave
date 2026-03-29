@@ -4561,8 +4561,20 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 		}
 	}
 
+	// Create a run record for the child pipeline so it appears in the dashboard
+	if e.store != nil {
+		childRunID := e.createRunID(pipelineName, 4, input)
+		childOpts = append(childOpts, WithRunID(childRunID))
+	}
+
 	childOpts = append(childOpts, WithRegistry(e.registry))
 	childExecutor := NewDefaultPipelineExecutor(e.runner, childOpts...)
+
+	// Mark child run as running in the dashboard
+	childRunID := childExecutor.runID
+	if e.store != nil && childRunID != "" {
+		_ = e.store.UpdateRunStatus(childRunID, "running", "", 0)
+	}
 
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
@@ -4573,11 +4585,10 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 	})
 
 	if err := childExecutor.Execute(execCtx, subPipeline, execution.Manifest, input); err != nil {
-		// Link parent-child state even on failure for observability
-		if e.store != nil {
-			if childExec := childExecutor.LastExecution(); childExec != nil {
-				_ = e.store.SetParentRun(childExec.Status.ID, pipelineID, step.ID)
-			}
+		// Link parent-child state and update status even on failure
+		if e.store != nil && childRunID != "" {
+			_ = e.store.SetParentRun(childRunID, pipelineID, step.ID)
+			_ = e.store.UpdateRunStatus(childRunID, "failed", err.Error(), childExecutor.GetTotalTokens())
 		}
 		execution.mu.Lock()
 		execution.States[step.ID] = StateFailed
@@ -4588,13 +4599,14 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 		return fmt.Errorf("sub-pipeline %q failed: %w", pipelineName, err)
 	}
 
-	// Link parent-child state after successful execution
-	childExec := childExecutor.LastExecution()
-	if e.store != nil && childExec != nil {
-		_ = e.store.SetParentRun(childExec.Status.ID, pipelineID, step.ID)
+	// Link parent-child state and mark completed
+	if e.store != nil && childRunID != "" {
+		_ = e.store.SetParentRun(childRunID, pipelineID, step.ID)
+		_ = e.store.UpdateRunStatus(childRunID, "completed", "", childExecutor.GetTotalTokens())
 	}
 
 	// Extract child artifacts and merge context variables
+	childExec := childExecutor.LastExecution()
 	if step.Config != nil && childExec != nil {
 		// Determine parent workspace for artifact extraction
 		parentWorkspace := "."
@@ -4698,8 +4710,10 @@ func (e *DefaultPipelineExecutor) executeIterateInDAG(ctx context.Context, execu
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
 			StepID:     step.ID,
-			State:      event.StateRunning,
+			State:      event.StateIterationProgress,
 			Message:    fmt.Sprintf("iterate item %d/%d: %s", i+1, len(items), resolvedName),
+			TotalSteps: len(items),
+			CompletedSteps: i,
 		})
 
 		if err := e.runNamedSubPipeline(ctx, execution, step, resolvedName, input); err != nil {
@@ -4708,11 +4722,13 @@ func (e *DefaultPipelineExecutor) executeIterateInDAG(ctx context.Context, execu
 	}
 
 	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: pipelineID,
-		StepID:     step.ID,
-		State:      event.StateCompleted,
-		Message:    fmt.Sprintf("iterate: all %d items completed", len(items)),
+		Timestamp:      time.Now(),
+		PipelineID:     pipelineID,
+		StepID:         step.ID,
+		State:          event.StateIterationCompleted,
+		Message:        fmt.Sprintf("iterate: all %d items completed", len(items)),
+		TotalSteps:     len(items),
+		CompletedSteps: len(items),
 	})
 
 	return nil
