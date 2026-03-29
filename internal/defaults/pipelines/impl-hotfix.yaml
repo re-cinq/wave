@@ -62,7 +62,7 @@ steps:
       contract:
         type: json_schema
         source: .wave/output/findings.json
-        schema_path: .wave/contracts/findings.schema.json
+        schema_path: .wave/contracts/bug-investigation.schema.json
         on_failure: retry
 
   - id: fix
