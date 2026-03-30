@@ -152,11 +152,20 @@ steps:
       policy: aggressive
       max_attempts: 2
     handover:
-      contract:
-        type: test_suite
-        command: "{{ project.contract_test_command }}"
-        must_pass: true
-        on_failure: fail
+      contracts:
+        - type: test_suite
+          command: "{{ project.contract_test_command }}"
+          must_pass: true
+          on_failure: fail
+        - type: agent_review
+          persona: navigator
+          criteria_path: .wave/contracts/impl-review-criteria.md
+          model: claude-haiku-4-5-20251001
+          token_budget: 8000
+          timeout: 90s
+          context:
+            - source: git_diff
+          on_failure: warn
 
   - id: create-pr
     persona: "{{ forge.type }}-commenter"

@@ -416,6 +416,64 @@ func (c *ConcurrencyValidator) GetRunningPipelines() map[string]string {
 	return result
 }
 
+// ValidateAgentReviewContracts validates all agent_review contracts in the pipeline:
+//   - criteria_path file must exist
+//   - reviewer persona must be defined in the provided persona set
+//   - token_budget must be positive if set
+//   - emits warning if both contract and contracts are set on the same step
+//
+// personaNames is the set of persona names defined in the manifest.
+// baseDir is used to resolve relative criteria_path values.
+func ValidateAgentReviewContracts(p *Pipeline, personaNames map[string]bool, baseDir string) ([]string, error) {
+	var warnings []string
+
+	for _, step := range p.Steps {
+		// Warn on mixed singular/plural
+		if step.Handover.Contract.Type != "" && len(step.Handover.Contracts) > 0 {
+			warnings = append(warnings, fmt.Sprintf(
+				"step %q has both 'contract' (singular) and 'contracts' (plural) — 'contracts' takes precedence",
+				step.ID))
+		}
+
+		contracts := step.Handover.EffectiveContracts()
+		for _, c := range contracts {
+			if c.Type != "agent_review" {
+				continue
+			}
+
+			// Validate criteria_path exists
+			if c.CriteriaPath == "" {
+				return nil, fmt.Errorf("step %q: agent_review contract missing criteria_path", step.ID)
+			}
+			criteriaPath := c.CriteriaPath
+			if !filepath.IsAbs(criteriaPath) && baseDir != "" {
+				criteriaPath = filepath.Join(baseDir, criteriaPath)
+			}
+			if _, err := os.Stat(criteriaPath); err != nil {
+				return nil, fmt.Errorf("step %q: agent_review criteria_path %q not found: %w",
+					step.ID, c.CriteriaPath, err)
+			}
+
+			// Validate reviewer persona exists
+			if c.Persona == "" {
+				return nil, fmt.Errorf("step %q: agent_review contract missing persona", step.ID)
+			}
+			if len(personaNames) > 0 && !personaNames[c.Persona] {
+				return nil, fmt.Errorf("step %q: agent_review persona %q is not defined in the manifest",
+					step.ID, c.Persona)
+			}
+
+			// Validate token budget > 0 if set
+			if c.TokenBudget < 0 {
+				return nil, fmt.Errorf("step %q: agent_review token_budget must be positive, got %d",
+					step.ID, c.TokenBudget)
+			}
+		}
+	}
+
+	return warnings, nil
+}
+
 // ValidateThreadFields validates thread and fidelity fields across all pipeline steps.
 // Returns a list of validation errors (empty if valid).
 func ValidateThreadFields(p *Pipeline) []error {

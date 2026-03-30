@@ -763,3 +763,50 @@ steps:
 		}
 	})
 }
+
+func TestHandoverConfig_EffectiveContracts(t *testing.T) {
+	t.Run("plural contracts takes precedence over singular", func(t *testing.T) {
+		h := HandoverConfig{
+			Contract:  ContractConfig{Type: "json_schema"},
+			Contracts: []ContractConfig{{Type: "test_suite"}, {Type: "agent_review"}},
+		}
+		got := h.EffectiveContracts()
+		if len(got) != 2 {
+			t.Fatalf("expected 2 contracts, got %d", len(got))
+		}
+		if got[0].Type != "test_suite" || got[1].Type != "agent_review" {
+			t.Errorf("unexpected contracts: %v", got)
+		}
+	})
+
+	t.Run("singular contract wrapped in slice when plural absent", func(t *testing.T) {
+		h := HandoverConfig{
+			Contract: ContractConfig{Type: "json_schema"},
+		}
+		got := h.EffectiveContracts()
+		if len(got) != 1 {
+			t.Fatalf("expected 1 contract, got %d", len(got))
+		}
+		if got[0].Type != "json_schema" {
+			t.Errorf("expected json_schema, got %q", got[0].Type)
+		}
+	})
+
+	t.Run("nil when neither set", func(t *testing.T) {
+		h := HandoverConfig{}
+		got := h.EffectiveContracts()
+		if got != nil {
+			t.Errorf("expected nil, got %v", got)
+		}
+	})
+
+	t.Run("plural only when singular is empty", func(t *testing.T) {
+		h := HandoverConfig{
+			Contracts: []ContractConfig{{Type: "format"}},
+		}
+		got := h.EffectiveContracts()
+		if len(got) != 1 || got[0].Type != "format" {
+			t.Errorf("expected [format], got %v", got)
+		}
+	})
+}
