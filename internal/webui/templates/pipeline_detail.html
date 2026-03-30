@@ -113,6 +113,42 @@
         <label for="quickstart-input">Input (optional)</label>
         <textarea id="quickstart-input" rows="3" placeholder="Issue URL, feature description..."></textarea>
     </div>
+    <details class="advanced-options">
+        <summary>Advanced Options</summary>
+        <div class="form-group">
+            <label for="qs-model">Model Override</label>
+            <select id="qs-model">
+                <option value="">Default (auto)</option>
+                <option value="haiku">Haiku</option>
+                <option value="sonnet">Sonnet</option>
+                <option value="opus">Opus</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="qs-from-step">Resume From Step</label>
+            <select id="qs-from-step" onchange="onQsFromStepChange()">
+                <option value="">Start from beginning</option>
+            </select>
+        </div>
+        <div class="form-group" id="qs-steps-group">
+            <label>Run Only These Steps</label>
+            <div id="qs-steps-checks" class="checkbox-list">
+                <span class="text-muted">Loading...</span>
+            </div>
+        </div>
+        <div class="form-group" id="qs-exclude-group">
+            <label>Exclude Steps</label>
+            <div id="qs-exclude-checks" class="checkbox-list">
+                <span class="text-muted">Loading...</span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" id="qs-dry-run">
+                Dry Run (validate without executing)
+            </label>
+        </div>
+    </details>
     <div class="dialog-actions">
         <button class="btn" onclick="hideQuickStart()">Cancel</button>
         <button class="btn btn-primary" id="quickstart-submit" onclick="submitQuickStart()">Start</button>
@@ -127,6 +163,15 @@ function showQuickStart(name) {
     quickStartPipeline = name;
     document.getElementById('quickstart-name').textContent = name;
     document.getElementById('quickstart-input').value = '';
+    // Reset advanced options
+    var modelEl = document.getElementById('qs-model');
+    if (modelEl) modelEl.value = '';
+    var fromStepEl = document.getElementById('qs-from-step');
+    if (fromStepEl) fromStepEl.innerHTML = '<option value="">Start from beginning</option>';
+    var dryRunEl = document.getElementById('qs-dry-run');
+    if (dryRunEl) dryRunEl.checked = false;
+    // Load step list
+    loadQsStepList(name);
     document.getElementById('quickstart-dialog').showModal();
     document.getElementById('quickstart-input').focus();
 }
@@ -140,17 +185,68 @@ function submitQuickStart() {
     if (!quickStartPipeline) return;
     var input = document.getElementById('quickstart-input').value;
     var btn = document.getElementById('quickstart-submit');
+    var body = {input: input || ''};
+    // Collect advanced options
+    var opts = collectAdvancedOptions('qs');
+    Object.keys(opts).forEach(function(k) { body[k] = opts[k]; });
+
     setButtonLoading(btn, true);
     fetchJSON('/api/pipelines/' + encodeURIComponent(quickStartPipeline) + '/start', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({input: input || ''})
+        body: JSON.stringify(body)
     }).then(function(data) {
+        if (body.dry_run && data.findings !== undefined) {
+            showDryRunReport(data);
+            setButtonLoading(btn, false);
+            return;
+        }
         showToast('Pipeline started: ' + data.run_id, 'success', 3000);
         setTimeout(function() { window.location.href = '/runs/' + data.run_id; }, 500);
     }).catch(function() {
         setButtonLoading(btn, false);
     });
+}
+
+function loadQsStepList(pipelineName) {
+    var fromStep = document.getElementById('qs-from-step');
+    var stepsChecks = document.getElementById('qs-steps-checks');
+    var excludeChecks = document.getElementById('qs-exclude-checks');
+    fetchJSON('/api/pipelines/' + encodeURIComponent(pipelineName)).then(function(data) {
+        var steps = data.steps || [];
+        var opts = '<option value="">Start from beginning</option>';
+        for (var i = 0; i < steps.length; i++) {
+            opts += '<option value="' + escapeHTML(steps[i].id) + '">' + escapeHTML(steps[i].id) + '</option>';
+        }
+        if (fromStep) fromStep.innerHTML = opts;
+        var checksHTML = '';
+        for (var i = 0; i < steps.length; i++) {
+            checksHTML += '<label class="checkbox-label"><input type="checkbox" name="qs-steps" value="' + escapeHTML(steps[i].id) + '"> ' + escapeHTML(steps[i].id) + '</label>';
+        }
+        if (stepsChecks) stepsChecks.innerHTML = checksHTML || '<span class="text-muted">No steps</span>';
+        var exclHTML = '';
+        for (var i = 0; i < steps.length; i++) {
+            exclHTML += '<label class="checkbox-label"><input type="checkbox" name="qs-exclude" value="' + escapeHTML(steps[i].id) + '"> ' + escapeHTML(steps[i].id) + '</label>';
+        }
+        if (excludeChecks) excludeChecks.innerHTML = exclHTML || '<span class="text-muted">No steps</span>';
+    }).catch(function() {
+        if (stepsChecks) stepsChecks.innerHTML = '<span class="text-muted">Failed to load steps</span>';
+        if (excludeChecks) excludeChecks.innerHTML = '<span class="text-muted">Failed to load steps</span>';
+    });
+}
+
+function onQsFromStepChange() {
+    var fromStep = document.getElementById('qs-from-step');
+    var stepsGroup = document.getElementById('qs-steps-group');
+    if (fromStep && fromStep.value) {
+        if (stepsGroup) stepsGroup.style.opacity = '0.5';
+        var checks = document.querySelectorAll('#qs-steps-checks input[type="checkbox"]');
+        for (var i = 0; i < checks.length; i++) { checks[i].checked = false; checks[i].disabled = true; }
+    } else {
+        if (stepsGroup) stepsGroup.style.opacity = '1';
+        var checks = document.querySelectorAll('#qs-steps-checks input[type="checkbox"]');
+        for (var i = 0; i < checks.length; i++) { checks[i].disabled = false; }
+    }
 }
 
 document.addEventListener('keydown', function(e) {
