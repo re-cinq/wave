@@ -108,7 +108,6 @@ steps:
   - id: fix-retry
     persona: craftsman
     rework_only: true
-    dependencies: [fix]
     workspace:
       mount:
         - source: ./
