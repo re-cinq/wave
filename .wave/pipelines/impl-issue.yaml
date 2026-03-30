@@ -140,6 +140,7 @@ steps:
     persona: craftsman
     rework_only: true
     thread: impl
+    dependencies: [implement]
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"

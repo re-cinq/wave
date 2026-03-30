@@ -109,6 +109,7 @@ steps:
     persona: craftsman
     rework_only: true
     thread: hotfix
+    dependencies: [fix]
     workspace:
       mount:
         - source: ./
