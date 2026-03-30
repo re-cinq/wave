@@ -146,10 +146,12 @@ func (v *DAGValidator) validateThreadGroups(p *Pipeline, stepMap map[string]*Ste
 		}
 	}
 
-	// Group steps by thread
+	// Group steps by thread (skip rework_only steps — they are triggered by the
+	// rework mechanism, not the normal DAG scheduler, so they don't participate
+	// in thread concurrency ordering)
 	threadGroups := make(map[string][]Step) // threadGroup -> ordered steps
 	for _, step := range p.Steps {
-		if step.Thread != "" {
+		if step.Thread != "" && !step.ReworkOnly {
 			threadGroups[step.Thread] = append(threadGroups[step.Thread], step)
 		}
 	}
