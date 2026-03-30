@@ -157,6 +157,75 @@ func TestComputeDAGLayout_EdgeDirectionLTR(t *testing.T) {
 	}
 }
 
+func TestStripExcludedDeps(t *testing.T) {
+	steps := []DAGStepInput{
+		{ID: "a", Dependencies: []string{"rework"}},
+		{ID: "b", Dependencies: []string{"a", "rework"}},
+		{ID: "c"},
+	}
+	excluded := map[string]bool{"rework": true}
+	stripExcludedDeps(steps, excluded)
+
+	if len(steps[0].Dependencies) != 0 {
+		t.Errorf("expected 0 deps for step a, got %v", steps[0].Dependencies)
+	}
+	if len(steps[1].Dependencies) != 1 || steps[1].Dependencies[0] != "a" {
+		t.Errorf("expected [a] deps for step b, got %v", steps[1].Dependencies)
+	}
+	if steps[2].Dependencies != nil {
+		t.Errorf("expected nil deps for step c, got %v", steps[2].Dependencies)
+	}
+}
+
+func TestComputeDAGLayout_ReworkOnlyExcluded(t *testing.T) {
+	// Simulate the filtering that handlers do: rework-only steps are excluded
+	// before passing to ComputeDAGLayout, and dangling deps are stripped.
+	allSteps := []DAGStepInput{
+		{ID: "fetch", Persona: "nav", Status: "completed"},
+		{ID: "implement", Persona: "dev", Status: "running", Dependencies: []string{"fetch"}},
+		{ID: "fix-implement", Persona: "dev", Status: "pending"}, // rework_only — no deps
+		{ID: "create-pr", Persona: "nav", Status: "pending", Dependencies: []string{"implement"}},
+	}
+
+	// Filter out rework-only step (as handlers would)
+	excluded := map[string]bool{"fix-implement": true}
+	var dagSteps []DAGStepInput
+	for _, s := range allSteps {
+		if !excluded[s.ID] {
+			dagSteps = append(dagSteps, s)
+		}
+	}
+	stripExcludedDeps(dagSteps, excluded)
+
+	layout := ComputeDAGLayout(dagSteps)
+	if layout == nil {
+		t.Fatal("expected non-nil layout")
+	}
+
+	if len(layout.Nodes) != 3 {
+		t.Errorf("expected 3 nodes (rework step excluded), got %d", len(layout.Nodes))
+	}
+
+	// Verify fix-implement is not in the layout
+	for _, n := range layout.Nodes {
+		if n.ID == "fix-implement" {
+			t.Error("rework-only step fix-implement should not appear in DAG layout")
+		}
+	}
+
+	// Verify the remaining nodes form a valid 3-layer chain
+	nodeMap := make(map[string]DAGLayoutNode)
+	for _, n := range layout.Nodes {
+		nodeMap[n.ID] = n
+	}
+	if nodeMap["fetch"].X >= nodeMap["implement"].X {
+		t.Error("fetch should be left of implement")
+	}
+	if nodeMap["implement"].X >= nodeMap["create-pr"].X {
+		t.Error("implement should be left of create-pr")
+	}
+}
+
 func TestAssignLayers(t *testing.T) {
 	steps := []DAGStepInput{
 		{ID: "a"},
