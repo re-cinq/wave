@@ -124,55 +124,6 @@ func TestRelayMonitor_ConcurrentCompaction(t *testing.T) {
 	wg.Wait()
 }
 
-func TestAdapterRunnerWrapper_ConcurrentRunCompaction(t *testing.T) {
-	mockRunner := &mockAdapterRunner{
-		runFunc: func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {
-			// Simulate some processing time
-			time.Sleep(5 * time.Millisecond)
-			return &AdapterResult{
-				ExitCode:   0,
-				Stdout:     &mockReader{data: []byte("concurrent result")},
-				TokensUsed: 100,
-			}, nil
-		},
-	}
-
-	wrapper := &AdapterRunnerWrapper{
-		Runner:      mockRunner,
-		AdapterName: "claude",
-		PersonaName: "summarizer",
-	}
-
-	const numGoroutines = 20
-
-	var wg sync.WaitGroup
-	wg.Add(numGoroutines)
-
-	for i := 0; i < numGoroutines; i++ {
-		go func(goroutineID int) {
-			defer wg.Done()
-
-			result, err := wrapper.RunCompaction(context.Background(), CompactionConfig{
-				WorkspacePath: t.TempDir(),
-				ChatHistory:   "test chat history",
-				SystemPrompt:  "system prompt",
-				CompactPrompt: "summarize this",
-			})
-
-			if err != nil {
-				t.Errorf("goroutine %d: unexpected error: %v", goroutineID, err)
-				return
-			}
-
-			if result != "concurrent result" {
-				t.Errorf("goroutine %d: expected 'concurrent result', got '%s'", goroutineID, result)
-			}
-		}(i)
-	}
-
-	wg.Wait()
-}
-
 func TestConcurrentCheckpointOperations(t *testing.T) {
 	// Test concurrent checkpoint parsing and injection
 	workspacePath := t.TempDir()
@@ -226,47 +177,6 @@ Decision for concurrent testing
 				t.Errorf("goroutine %d: prompt should contain summary", goroutineID)
 			}
 		}(i)
-	}
-
-	wg.Wait()
-}
-
-func TestValidationFunctions_ConcurrentCalls(t *testing.T) {
-	// Test concurrent validation function calls
-
-	const numGoroutines = 50
-
-	var wg sync.WaitGroup
-	wg.Add(numGoroutines * 2) // Two validation functions
-
-	// Test concurrent validateConfig calls
-	for i := 0; i < numGoroutines; i++ {
-		go func() {
-			defer wg.Done()
-			cfg := RelayMonitorConfig{
-				DefaultThreshold:   80,
-				MinTokensToCompact: 1000,
-				ContextWindow:      200000,
-			}
-			err := validateConfig(cfg)
-			if err != nil {
-				t.Errorf("validateConfig failed: %v", err)
-			}
-		}()
-	}
-
-	// Test concurrent error checking function calls
-	for i := 0; i < numGoroutines; i++ {
-		go func() {
-			defer wg.Done()
-			testErr := ErrCompactionFailed
-			if !isCompactionError(testErr) {
-				t.Error("isCompactionError should return true")
-			}
-			if isCheckpointError(testErr) {
-				t.Error("isCheckpointError should return false")
-			}
-		}()
 	}
 
 	wg.Wait()

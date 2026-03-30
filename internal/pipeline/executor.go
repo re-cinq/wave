@@ -142,10 +142,6 @@ func WithWorkspaceManager(w workspace.WorkspaceManager) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.wsManager = w }
 }
 
-func WithRelayMonitor(r *relay.RelayMonitor) ExecutorOption {
-	return func(ex *DefaultPipelineExecutor) { ex.relayMonitor = r }
-}
-
 func WithRunID(id string) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.runID = id }
 }

@@ -22,15 +22,6 @@ var (
 
 	// ErrWriteCheckpointFailed is returned when writing the checkpoint file fails.
 	ErrWriteCheckpointFailed = errors.New("failed to write checkpoint")
-
-	// ErrInvalidThreshold is returned when an invalid threshold is provided.
-	ErrInvalidThreshold = errors.New("invalid threshold: must be between 0 and 100")
-
-	// ErrInvalidContextWindow is returned when an invalid context window is provided.
-	ErrInvalidContextWindow = errors.New("invalid context window: must be positive")
-
-	// ErrAdapterRunFailed is returned when the adapter runner fails.
-	ErrAdapterRunFailed = errors.New("adapter run failed")
 )
 
 // CompactionAdapter is the interface for running compaction.
@@ -175,21 +166,6 @@ func (m *RelayMonitor) compactionTimeout() time.Duration {
 	return timeouts.RelayCompaction
 }
 
-// validateConfig validates the relay monitor configuration.
-// Returns nil if the configuration is valid, or an error describing the issue.
-func validateConfig(cfg RelayMonitorConfig) error {
-	if cfg.DefaultThreshold < 0 || cfg.DefaultThreshold > 100 {
-		return fmt.Errorf("%w: got %d", ErrInvalidThreshold, cfg.DefaultThreshold)
-	}
-	if cfg.ContextWindow < 0 {
-		return fmt.Errorf("%w: got %d", ErrInvalidContextWindow, cfg.ContextWindow)
-	}
-	if cfg.MinTokensToCompact < 0 {
-		return fmt.Errorf("invalid min tokens: must be non-negative, got %d", cfg.MinTokensToCompact)
-	}
-	return nil
-}
-
 // getContextWindow returns the configured context window.
 func (m *RelayMonitor) getContextWindow() int {
 	return m.config.ContextWindow
@@ -197,131 +173,4 @@ func (m *RelayMonitor) getContextWindow() int {
 
 func (m *RelayMonitor) getTokenCount(chatHistory string) int {
 	return len(strings.Split(chatHistory, " "))
-}
-
-// AdapterRunnerWrapper wraps an adapter runner to implement CompactionAdapter.
-// This allows reusing the existing adapter infrastructure for compaction.
-type AdapterRunnerWrapper struct {
-	Runner      AdapterRunner
-	AdapterName string
-	PersonaName string
-}
-
-// AdapterRunner is a subset of adapter.AdapterRunner for compaction purposes.
-type AdapterRunner interface {
-	Run(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error)
-}
-
-// AdapterRunnerConfig mirrors the config needed for adapter runs.
-type AdapterRunnerConfig struct {
-	Adapter       string
-	Persona       string
-	WorkspacePath string
-	Prompt        string
-	SystemPrompt  string
-	Timeout       time.Duration
-	Temperature   float64
-	AllowedTools  []string
-	DenyTools     []string
-	OutputFormat  string
-}
-
-// AdapterResult mirrors the adapter result structure.
-type AdapterResult struct {
-	ExitCode   int
-	Stdout     StringReader
-	TokensUsed int
-	Artifacts  []string
-}
-
-// StringReader is a minimal interface for reading stdout.
-type StringReader interface {
-	Read(p []byte) (n int, err error)
-}
-
-// RunCompaction implements CompactionAdapter by running the adapter with a compaction prompt.
-// It returns the summarized content and any error that occurred.
-//
-// Errors:
-//   - ErrAdapterRunFailed: if the adapter fails to run (wraps original error)
-//   - context errors: if the context is canceled or times out
-func (w *AdapterRunnerWrapper) RunCompaction(ctx context.Context, cfg CompactionConfig) (string, error) {
-	// Validate context
-	if ctx == nil {
-		return "", fmt.Errorf("%w: nil context", ErrAdapterRunFailed)
-	}
-
-	// Validate runner
-	if w.Runner == nil {
-		return "", fmt.Errorf("%w: nil runner", ErrAdapterRunFailed)
-	}
-
-	// Check context before starting
-	select {
-	case <-ctx.Done():
-		return "", fmt.Errorf("%w: %v", ErrAdapterRunFailed, ctx.Err())
-	default:
-	}
-
-	// Build the compaction prompt combining the chat history and compact instruction
-	prompt := fmt.Sprintf("%s\n\n---\n\nConversation history to summarize:\n%s", cfg.CompactPrompt, cfg.ChatHistory)
-
-	runCfg := AdapterRunnerConfig{
-		Adapter:       w.AdapterName,
-		Persona:       w.PersonaName,
-		WorkspacePath: cfg.WorkspacePath,
-		Prompt:        prompt,
-		SystemPrompt:  cfg.SystemPrompt,
-		Timeout:       cfg.Timeout,
-		Temperature:   0.3, // Lower temperature for summarization
-		AllowedTools:  []string{"Read", "Glob", "Grep"}, // Read-only tools for compaction
-		OutputFormat:  "text",
-	}
-
-	result, err := w.Runner.Run(ctx, runCfg)
-	if err != nil {
-		return "", fmt.Errorf("adapter run failed: %w", err)
-	}
-
-	// Validate result
-	if result == nil {
-		return "", fmt.Errorf("%w: nil result returned", ErrAdapterRunFailed)
-	}
-
-	if result.Stdout == nil {
-		return "", nil // No output, but not an error
-	}
-
-	// Read all output from stdout with size limit to prevent memory issues
-	const maxOutputSize = 1024 * 1024 // 1MB limit
-	buf := make([]byte, 0, 4096)
-	tmp := make([]byte, 1024)
-	for {
-		n, readErr := result.Stdout.Read(tmp)
-		if n > 0 {
-			buf = append(buf, tmp[:n]...)
-			// Enforce size limit
-			if len(buf) > maxOutputSize {
-				buf = buf[:maxOutputSize]
-				break
-			}
-		}
-		if readErr != nil {
-			break
-		}
-	}
-
-	return string(buf), nil
-}
-
-// isCompactionError returns true if the error is related to compaction failure.
-func isCompactionError(err error) bool {
-	return errors.Is(err, ErrCompactionFailed) || errors.Is(err, ErrAdapterRunFailed)
-}
-
-// isCheckpointError returns true if the error is related to checkpoint operations.
-func isCheckpointError(err error) bool {
-	return errors.Is(err, ErrWriteCheckpointFailed) ||
-		errors.Is(err, ErrCheckpointNotFound) ||
-		errors.Is(err, ErrInvalidCheckpoint)
 }

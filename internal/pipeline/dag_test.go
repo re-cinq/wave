@@ -1,11 +1,7 @@
 package pipeline
 
 import (
-	"fmt"
-	"strings"
 	"testing"
-
-	"github.com/recinq/wave/internal/skill"
 )
 
 func TestValidateDAG_ValidPipeline(t *testing.T) {
@@ -580,94 +576,6 @@ func TestValidateDAG_InvalidOnFailureValue(t *testing.T) {
 	if err != nil && !contains(err.Error(), "invalid on_failure") {
 		t.Errorf("Expected 'invalid on_failure' error, got: %v", err)
 	}
-}
-
-// mockSkillStore implements skill.Store for testing pipeline skill validation.
-type mockSkillStore struct {
-	skills map[string]skill.Skill
-}
-
-func (m *mockSkillStore) Read(name string) (skill.Skill, error) {
-	if s, ok := m.skills[name]; ok {
-		return s, nil
-	}
-	return skill.Skill{}, fmt.Errorf("%w: %s", skill.ErrNotFound, name)
-}
-
-func (m *mockSkillStore) Write(_ skill.Skill) error { return nil }
-func (m *mockSkillStore) List() ([]skill.Skill, error) { return nil, nil }
-func (m *mockSkillStore) Delete(_ string) error { return nil }
-
-func TestValidatePipelineSkills(t *testing.T) {
-	t.Run("valid skills pass validation", func(t *testing.T) {
-		store := &mockSkillStore{skills: map[string]skill.Skill{
-			"speckit": {Name: "speckit", Description: "Speckit skill"},
-			"golang":  {Name: "golang", Description: "Go skill"},
-		}}
-		p := &Pipeline{
-			Metadata: PipelineMetadata{Name: "test-pipeline"},
-			Skills:   []string{"speckit", "golang"},
-		}
-
-		errs := ValidatePipelineSkills(p, store)
-		if len(errs) != 0 {
-			t.Errorf("expected no errors, got: %v", errs)
-		}
-	})
-
-	t.Run("invalid skill format produces error", func(t *testing.T) {
-		store := &mockSkillStore{skills: map[string]skill.Skill{}}
-		p := &Pipeline{
-			Metadata: PipelineMetadata{Name: "test-pipeline"},
-			Skills:   []string{"INVALID_NAME"},
-		}
-
-		errs := ValidatePipelineSkills(p, store)
-		if len(errs) == 0 {
-			t.Fatal("expected error for invalid skill name format, got none")
-		}
-		errMsg := errs[0].Error()
-		if !strings.Contains(errMsg, "INVALID_NAME") {
-			t.Errorf("expected error to mention invalid name, got: %s", errMsg)
-		}
-		if !strings.Contains(errMsg, "pipeline:test-pipeline") {
-			t.Errorf("expected error to contain pipeline scope, got: %s", errMsg)
-		}
-	})
-
-	t.Run("nonexistent skill produces scoped error", func(t *testing.T) {
-		store := &mockSkillStore{skills: map[string]skill.Skill{
-			"speckit": {Name: "speckit", Description: "Speckit skill"},
-		}}
-		p := &Pipeline{
-			Metadata: PipelineMetadata{Name: "my-pipeline"},
-			Skills:   []string{"nonexistent-skill"},
-		}
-
-		errs := ValidatePipelineSkills(p, store)
-		if len(errs) == 0 {
-			t.Fatal("expected error for nonexistent skill, got none")
-		}
-		errMsg := errs[0].Error()
-		if !strings.Contains(errMsg, "nonexistent-skill") {
-			t.Errorf("expected error to mention skill name, got: %s", errMsg)
-		}
-		if !strings.Contains(errMsg, "pipeline:my-pipeline") {
-			t.Errorf("expected error to contain pipeline scope, got: %s", errMsg)
-		}
-	})
-
-	t.Run("no skills field produces no error", func(t *testing.T) {
-		store := &mockSkillStore{skills: map[string]skill.Skill{}}
-		p := &Pipeline{
-			Metadata: PipelineMetadata{Name: "test-pipeline"},
-		}
-
-		errs := ValidatePipelineSkills(p, store)
-		if len(errs) != 0 {
-			t.Errorf("expected no errors for pipeline without skills, got: %v", errs)
-		}
-	})
 }
 
 func TestValidateDAG_ThreadGroupWithDependencyChain(t *testing.T) {

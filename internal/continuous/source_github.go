@@ -16,11 +16,9 @@ type ghIssue struct {
 
 // GitHubSource fetches work items from GitHub issues using the gh CLI.
 type GitHubSource struct {
-	Label     string
-	State     string
-	Sort      string
-	Direction string
-	Limit     int
+	Label string
+	State string
+	Limit int
 
 	items   []*WorkItem
 	index   int
@@ -30,20 +28,12 @@ type GitHubSource struct {
 // NewGitHubSource creates a GitHubSource from parsed parameters.
 func NewGitHubSource(params map[string]string) (*GitHubSource, error) {
 	s := &GitHubSource{
-		Label:     params["label"],
-		State:     params["state"],
-		Sort:      params["sort"],
-		Direction: params["direction"],
-		Limit:     100,
+		Label: params["label"],
+		State: params["state"],
+		Limit: 100,
 	}
 	if s.State == "" {
 		s.State = "open"
-	}
-	if s.Sort == "" {
-		s.Sort = "created"
-	}
-	if s.Direction == "" {
-		s.Direction = "asc"
 	}
 	if limitStr, ok := params["limit"]; ok {
 		n, err := strconv.Atoi(limitStr)
@@ -60,10 +50,6 @@ func (s *GitHubSource) fetch(ctx context.Context) error {
 	if s.Label != "" {
 		args = append(args, "--label", s.Label)
 	}
-	// gh CLI doesn't directly support sort/direction on issue list,
-	// but we set them as defaults for documentation. The default ordering
-	// from GitHub API is by created date descending; we reverse if needed.
-
 	cmd := exec.CommandContext(ctx, "gh", args...)
 	out, err := cmd.Output()
 	if err != nil {

@@ -1,7 +1,6 @@
 package relay
 
 import (
-	"context"
 	"os"
 	"strings"
 	"testing"
@@ -143,49 +142,6 @@ Decision about deployment
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		InjectCheckpointPrompt(workspacePath)
-	}
-}
-
-func Benchmark_validateConfig(b *testing.B) {
-	cfg := RelayMonitorConfig{
-		DefaultThreshold:   80,
-		MinTokensToCompact: 1000,
-		ContextWindow:      200000,
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = validateConfig(cfg)
-	}
-}
-
-func BenchmarkAdapterRunnerWrapper_RunCompaction(b *testing.B) {
-	mockRunner := &mockAdapterRunner{
-		runFunc: func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {
-			return &AdapterResult{
-				ExitCode:   0,
-				Stdout:     &mockReader{data: []byte("benchmark compaction result")},
-				TokensUsed: 100,
-			}, nil
-		},
-	}
-
-	wrapper := &AdapterRunnerWrapper{
-		Runner:      mockRunner,
-		AdapterName: "claude",
-		PersonaName: "summarizer",
-	}
-
-	compactionCfg := CompactionConfig{
-		WorkspacePath: b.TempDir(),
-		ChatHistory:   "benchmark chat history",
-		SystemPrompt:  "system prompt",
-		CompactPrompt: "summarize this",
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		wrapper.RunCompaction(context.Background(), compactionCfg)
 	}
 }
 

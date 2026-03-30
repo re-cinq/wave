@@ -37,9 +37,6 @@ type RunConfig struct {
 	// WorkDir is the root directory for benchmark workspaces.
 	// Defaults to ".wave/bench".
 	WorkDir string
-	// CacheDir is the root directory for bare-clone repo cache.
-	// Defaults to ".wave/bench/repos".
-	CacheDir string
 	// Timeout per task. Zero means no timeout.
 	TaskTimeout time.Duration
 	// KeepWorkspaces preserves task worktrees after completion.

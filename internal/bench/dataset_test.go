@@ -96,30 +96,6 @@ func TestLoadDataset(t *testing.T) {
 	})
 }
 
-func TestLoadSWEBenchLite(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "swe-bench-lite.jsonl")
-	content := `{"instance_id":"django__django-16379","repo":"django/django","base_commit":"a1b2c3","version":"5.0","problem_statement":"QuerySet.only() after select_related() crash","patch":"--- a/file.py\n+++ b/file.py","test_cmd":"python -m pytest tests/"}
-`
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	tasks, err := LoadSWEBenchLite(path)
-	if err != nil {
-		t.Fatalf("LoadSWEBenchLite() error = %v", err)
-	}
-	if len(tasks) != 1 {
-		t.Fatalf("got %d tasks, want 1", len(tasks))
-	}
-	if tasks[0].ID != "django__django-16379" {
-		t.Errorf("ID = %q, want %q", tasks[0].ID, "django__django-16379")
-	}
-	if tasks[0].Repo != "django/django" {
-		t.Errorf("Repo = %q, want %q", tasks[0].Repo, "django/django")
-	}
-}
-
 func TestListDatasets(t *testing.T) {
 	t.Run("finds JSONL files", func(t *testing.T) {
 		dir := t.TempDir()

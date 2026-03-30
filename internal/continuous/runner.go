@@ -30,7 +30,6 @@ type Summary struct {
 	Succeeded int
 	Failed    int
 	Skipped   int
-	Results   []IterationResult
 	Duration  time.Duration
 }
 
@@ -95,11 +94,6 @@ func (r *Runner) Run(ctx context.Context) (*Summary, error) {
 		if processedIDs[item.ID] {
 			summary.Skipped++
 			summary.Total++
-			summary.Results = append(summary.Results, IterationResult{
-				Iteration: iteration + 1,
-				WorkItem:  item,
-				Status:    IterationSkipped,
-			})
 			iteration++
 			continue
 		}
@@ -123,19 +117,10 @@ func (r *Runner) Run(ctx context.Context) (*Summary, error) {
 
 		// Execute pipeline
 		executor := r.ExecutorFactory(item.Input)
-		runID, execErr := executor(ctx, item.Input)
+		_, execErr := executor(ctx, item.Input)
 		iterDuration := time.Since(iterStart)
 
-		result := IterationResult{
-			Iteration: iteration,
-			WorkItem:  item,
-			RunID:     runID,
-			Duration:  iterDuration,
-		}
-
 		if execErr != nil {
-			result.Status = IterationFailed
-			result.Error = execErr
 			summary.Failed++
 
 			if r.Emitter != nil {
@@ -154,11 +139,9 @@ func (r *Runner) Run(ctx context.Context) (*Summary, error) {
 			// Check failure policy
 			if r.OnFailure == FailurePolicyHalt {
 				summary.Total++
-				summary.Results = append(summary.Results, result)
 				break
 			}
 		} else {
-			result.Status = IterationSuccess
 			summary.Succeeded++
 
 			if r.Emitter != nil {
@@ -176,7 +159,6 @@ func (r *Runner) Run(ctx context.Context) (*Summary, error) {
 		}
 
 		summary.Total++
-		summary.Results = append(summary.Results, result)
 
 		// Delay between iterations (skip if context is cancelled)
 		if r.Delay > 0 {

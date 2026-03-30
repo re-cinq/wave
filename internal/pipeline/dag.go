@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/recinq/wave/internal/skill"
 	"gopkg.in/yaml.v3"
 )
 
@@ -320,58 +319,6 @@ func (v *DAGValidator) TopologicalSort(p *Pipeline) ([]*Step, error) {
 	}
 
 	return result, nil
-}
-
-// ValidatePipelineSkills validates skill references declared in the pipeline's Skills field.
-// This is called from the executor when a skill store is available.
-func ValidatePipelineSkills(p *Pipeline, store skill.Store) []error {
-	if len(p.Skills) == 0 || store == nil {
-		return nil
-	}
-	return skill.ValidateSkillRefs(p.Skills, "pipeline:"+p.Metadata.Name, store)
-}
-
-// DetectSubPipelineCycles checks for circular sub-pipeline references across pipelines.
-// It loads referenced sub-pipelines from disk and walks the reference graph.
-// Returns an error if pipeline A references B which transitively references A.
-func DetectSubPipelineCycles(p *Pipeline, pipelinesDir string) error {
-	visited := map[string]bool{}
-	recStack := map[string]bool{}
-	loader := &YAMLPipelineLoader{}
-
-	return detectSubPipelineCyclesDFS(p.Metadata.Name, pipelinesDir, loader, visited, recStack)
-}
-
-func detectSubPipelineCyclesDFS(name, pipelinesDir string, loader *YAMLPipelineLoader, visited, recStack map[string]bool) error {
-	if recStack[name] {
-		return fmt.Errorf("circular sub-pipeline reference detected: pipeline %q references itself transitively", name)
-	}
-	if visited[name] {
-		return nil
-	}
-
-	visited[name] = true
-	recStack[name] = true
-
-	// Try to load the pipeline to find its sub-pipeline references
-	path := pipelinesDir + "/" + name + ".yaml"
-	p, err := loader.Load(path)
-	if err != nil {
-		// Pipeline file not found — can't trace further, not an error
-		recStack[name] = false
-		return nil
-	}
-
-	for _, step := range p.Steps {
-		if step.SubPipeline != "" {
-			if err := detectSubPipelineCyclesDFS(step.SubPipeline, pipelinesDir, loader, visited, recStack); err != nil {
-				return err
-			}
-		}
-	}
-
-	recStack[name] = false
-	return nil
 }
 
 // IsGraphPipeline returns true if any step defines edges or uses a conditional type,

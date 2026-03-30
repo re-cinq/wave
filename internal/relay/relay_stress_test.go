@@ -1,7 +1,6 @@
 package relay
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -203,110 +202,4 @@ func TestInjectCheckpointPrompt_LargeCheckpoints(t *testing.T) {
 	t.Logf("Large checkpoint injection took %v, generated %d character prompt", duration, len(prompt))
 }
 
-func TestAdapterRunnerWrapper_LargePayloads(t *testing.T) {
-	// Test with large chat history and outputs
-	largeOutput := strings.Repeat("This is a large compaction result with many details. ", 10000)
-
-	mockRunner := &mockAdapterRunner{
-		runFunc: func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {
-			// Simulate processing time proportional to input size
-			time.Sleep(time.Duration(len(cfg.Prompt)/1000) * time.Microsecond)
-			return &AdapterResult{
-				ExitCode:   0,
-				Stdout:     &mockReader{data: []byte(largeOutput)},
-				TokensUsed: len(cfg.Prompt) / 4, // Approximate token estimation
-			}, nil
-		},
-	}
-
-	wrapper := &AdapterRunnerWrapper{
-		Runner:      mockRunner,
-		AdapterName: "claude",
-		PersonaName: "summarizer",
-	}
-
-	testCases := []struct {
-		name            string
-		chatHistorySize int
-	}{
-		{"small history", 1024},
-		{"medium history", 10 * 1024},
-		{"large history", 100 * 1024},
-		{"very large history", 500 * 1024},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Generate large chat history
-			baseHistory := "User: This is a conversation message with details. Assistant: This is a response with information. "
-			repetitions := tc.chatHistorySize / len(baseHistory)
-			if repetitions < 1 {
-				repetitions = 1
-			}
-			chatHistory := strings.Repeat(baseHistory, repetitions)
-
-			start := time.Now()
-			result, err := wrapper.RunCompaction(context.Background(), CompactionConfig{
-				WorkspacePath: t.TempDir(),
-				ChatHistory:   chatHistory,
-				SystemPrompt:  "system prompt",
-				CompactPrompt: "summarize this conversation",
-			})
-			duration := time.Since(start)
-
-			if err != nil {
-				t.Fatalf("unexpected error with large payload: %v", err)
-			}
-
-			if len(result) != len(largeOutput) {
-				t.Errorf("expected output length %d, got %d", len(largeOutput), len(result))
-			}
-
-			t.Logf("%s: input %d chars, output %d chars, took %v", tc.name, len(chatHistory), len(result), duration)
-		})
-	}
-}
-
-func TestAdapterRunnerWrapper_OutputSizeLimit(t *testing.T) {
-	// Test the 1MB output size limit
-	hugeMockOutput := make([]byte, 2*1024*1024) // 2MB output
-	for i := range hugeMockOutput {
-		hugeMockOutput[i] = byte('A' + (i % 26))
-	}
-
-	mockRunner := &mockAdapterRunner{
-		runFunc: func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {
-			return &AdapterResult{
-				ExitCode:   0,
-				Stdout:     &mockReader{data: hugeMockOutput},
-				TokensUsed: 100000,
-			}, nil
-		},
-	}
-
-	wrapper := &AdapterRunnerWrapper{
-		Runner:      mockRunner,
-		AdapterName: "claude",
-		PersonaName: "summarizer",
-	}
-
-	result, err := wrapper.RunCompaction(context.Background(), CompactionConfig{
-		WorkspacePath: t.TempDir(),
-		ChatHistory:   "test",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Should be limited to 1MB
-	const maxOutputSize = 1024 * 1024
-	if len(result) > maxOutputSize {
-		t.Errorf("output should be limited to %d bytes, got %d", maxOutputSize, len(result))
-	}
-
-	if len(result) != maxOutputSize {
-		t.Errorf("expected exactly %d bytes (size limit), got %d", maxOutputSize, len(result))
-	}
-}
 
