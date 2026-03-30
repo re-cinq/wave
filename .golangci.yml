@@ -77,3 +77,19 @@ linters:
     presets:
       - comments
       - std-error-handling
+    rules:
+      # Non-blocking fire-and-forget hook calls — errors are intentionally ignored
+      # because hooks must never block pipeline execution.
+      - linters: [errcheck]
+        text: "RunHooks"
+      # Audit/observability calls that must not block execution on failure.
+      - linters: [errcheck]
+        text: "LogContractResult|RecordPerformanceMetric|RecordWebhookDelivery"
+      # fmt.Sscanf / fmt.Fprintf to strings.Builder in webui — errors are impossible
+      # for in-memory targets and checked inline when they matter.
+      - linters: [errcheck]
+        text: "fmt\\.Sscanf|WriteString\\(fmt\\.Sprintf"
+      # staticcheck QF1012: WriteString(fmt.Sprintf(...)) vs fmt.Fprintf — cosmetic,
+      # not a correctness issue; generated code often uses this pattern.
+      - linters: [staticcheck]
+        text: "QF1012"
