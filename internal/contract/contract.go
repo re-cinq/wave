@@ -30,8 +30,20 @@ type ContractConfig struct {
 
 	// LLM judge settings
 	Model     string   `json:"model,omitempty"`     // LLM model for judge evaluation (e.g. "claude-haiku-4-5")
-	Criteria  []string `json:"criteria,omitempty"`   // Evaluation criteria for LLM judge
+	Criteria  []string `json:"criteria,omitempty"`  // Evaluation criteria for LLM judge
 	Threshold float64  `json:"threshold,omitempty"` // Pass threshold (0.0-1.0), default 1.0
+
+	// Agent review settings
+	Persona      string                `json:"persona,omitempty"`       // Reviewer persona name
+	CriteriaPath string                `json:"criteriaPath,omitempty"`  // Path to review criteria markdown
+	Context      []ReviewContextSource `json:"context,omitempty"`       // Context sources for the reviewer
+	TokenBudget  int                   `json:"tokenBudget,omitempty"`   // Max tokens for review agent
+	Timeout      string                `json:"timeout,omitempty"`       // Duration string for review timeout
+	ReworkStep   string                `json:"reworkStep,omitempty"`    // Step ID for on_failure: rework
+	OnFailure    string                `json:"onFailure,omitempty"`     // "fail", "skip", "continue", "rework"
+	// ArtifactPaths provides artifact name→path mappings for artifact context sources.
+	// This is populated by the executor at validation time, not from YAML.
+	ArtifactPaths map[string]string `json:"artifactPaths,omitempty"`
 }
 
 // ValidationError provides detailed information about contract validation failures.
@@ -88,6 +100,10 @@ func NewValidator(cfg ContractConfig) ContractValidator {
 		return &nonEmptyFileValidator{}
 	case "llm_judge":
 		return &llmJudgeValidator{}
+	case "agent_review":
+		// agent_review requires an adapter runner — NewValidator returns nil.
+		// The executor uses ValidateWithRunner() instead for this type.
+		return nil
 	default:
 		return nil
 	}

@@ -80,6 +80,11 @@ type StepDetail struct {
 	MaxVisits          int                   `json:"max_visits,omitempty"`        // Max visit limit for graph loop steps
 	GanttLeft          float64               `json:"gantt_left,omitempty"`        // Gantt bar left offset (percentage)
 	GanttWidth         float64               `json:"gantt_width,omitempty"`       // Gantt bar width (percentage)
+	// Agent review verdict fields (populated when agent_review contracts run)
+	ReviewVerdict      string                `json:"review_verdict,omitempty"`    // "pass", "fail", or "warn"
+	ReviewIssueCount   int                   `json:"review_issue_count,omitempty"` // Number of issues found
+	ReviewerPersona    string                `json:"reviewer_persona,omitempty"`  // Reviewer persona name
+	ReviewTokens       int                   `json:"review_tokens,omitempty"`     // Tokens used by reviewer
 }
 
 // EventSummary holds summary information about a pipeline event.
