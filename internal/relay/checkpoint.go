@@ -10,8 +10,8 @@ import (
 
 // Checkpoint validation errors
 var (
-	ErrCheckpointNotFound   = errors.New("checkpoint file not found")
-	ErrInvalidCheckpoint    = errors.New("invalid checkpoint format")
+	ErrCheckpointNotFound = errors.New("checkpoint file not found")
+	ErrInvalidCheckpoint  = errors.New("invalid checkpoint format")
 )
 
 const CheckpointFilename = "checkpoint.md"
@@ -19,7 +19,6 @@ const CheckpointFilename = "checkpoint.md"
 type Checkpoint struct {
 	Summary   string
 	Decisions []string
-	Context   map[string]string
 	Generated string
 }
 
@@ -30,9 +29,7 @@ func ParseCheckpoint(workspacePath string) (*Checkpoint, error) {
 		return nil, fmt.Errorf("checkpoint file not found: %w", err)
 	}
 
-	checkpoint := &Checkpoint{
-		Context: make(map[string]string),
-	}
+	checkpoint := &Checkpoint{}
 
 	lines := strings.Split(string(content), "\n")
 
