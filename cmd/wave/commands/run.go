@@ -1053,5 +1053,12 @@ func (d *dbLoggingEmitter) Emit(ev event.Event) {
 	if msg == "" && ev.ToolName != "" {
 		msg = ev.ToolName + " " + ev.ToolTarget
 	}
-	d.store.LogEvent(d.runID, ev.StepID, ev.State, ev.Persona, msg, ev.TokensUsed, ev.DurationMs)
+	// Use the event's PipelineID so child sub-pipeline events are logged under
+	// the child's run ID, not the parent's. Fall back to d.runID for events
+	// that don't carry a pipeline ID.
+	runID := ev.PipelineID
+	if runID == "" {
+		runID = d.runID
+	}
+	d.store.LogEvent(runID, ev.StepID, ev.State, ev.Persona, msg, ev.TokensUsed, ev.DurationMs)
 }
