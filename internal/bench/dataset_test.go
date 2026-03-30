@@ -96,7 +96,7 @@ func TestLoadDataset(t *testing.T) {
 	})
 }
 
-func TestLoadSWEBenchLite(t *testing.T) {
+func TestLoadDataset_SWEBenchFormat(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "swe-bench-lite.jsonl")
 	content := `{"instance_id":"django__django-16379","repo":"django/django","base_commit":"a1b2c3","version":"5.0","problem_statement":"QuerySet.only() after select_related() crash","patch":"--- a/file.py\n+++ b/file.py","test_cmd":"python -m pytest tests/"}
@@ -105,9 +105,9 @@ func TestLoadSWEBenchLite(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tasks, err := LoadSWEBenchLite(path)
+	tasks, err := LoadDataset(path)
 	if err != nil {
-		t.Fatalf("LoadSWEBenchLite() error = %v", err)
+		t.Fatalf("LoadDataset() error = %v", err)
 	}
 	if len(tasks) != 1 {
 		t.Fatalf("got %d tasks, want 1", len(tasks))

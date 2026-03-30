@@ -8,23 +8,11 @@ type WorkItem struct {
 	Input string // Full input string passed to pipeline execution
 }
 
-// IterationStatus represents the outcome of a single iteration.
-type IterationStatus string
-
-const (
-	IterationSuccess IterationStatus = "success"
-	IterationFailed  IterationStatus = "failed"
-	IterationSkipped IterationStatus = "skipped"
-)
-
 // IterationResult records the outcome of one iteration.
 type IterationResult struct {
 	Iteration int
 	WorkItem  *WorkItem
-	RunID     string
-	Status    IterationStatus
 	Duration  time.Duration
-	Error     error
 }
 
 // FailurePolicy controls loop behavior on iteration failure.
@@ -49,5 +37,4 @@ func ParseFailurePolicy(s string) FailurePolicy {
 type SourceConfig struct {
 	Provider string
 	Params   map[string]string
-	RawURI   string
 }

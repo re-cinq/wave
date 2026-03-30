@@ -98,7 +98,6 @@ func (r *Runner) Run(ctx context.Context) (*Summary, error) {
 			summary.Results = append(summary.Results, IterationResult{
 				Iteration: iteration + 1,
 				WorkItem:  item,
-				Status:    IterationSkipped,
 			})
 			iteration++
 			continue
@@ -129,13 +128,11 @@ func (r *Runner) Run(ctx context.Context) (*Summary, error) {
 		result := IterationResult{
 			Iteration: iteration,
 			WorkItem:  item,
-			RunID:     runID,
 			Duration:  iterDuration,
 		}
+		_ = runID // used by event emission only
 
 		if execErr != nil {
-			result.Status = IterationFailed
-			result.Error = execErr
 			summary.Failed++
 
 			if r.Emitter != nil {
@@ -158,7 +155,6 @@ func (r *Runner) Run(ctx context.Context) (*Summary, error) {
 				break
 			}
 		} else {
-			result.Status = IterationSuccess
 			summary.Succeeded++
 
 			if r.Emitter != nil {

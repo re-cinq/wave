@@ -19,12 +19,8 @@ type BenchTask struct {
 	Repo string `json:"repo"`
 	// BaseCommit is the git commit to check out before applying the fix.
 	BaseCommit string `json:"base_commit"`
-	// Version is the version metadata (e.g. "5.0").
-	Version string `json:"version"`
 	// Problem is the natural-language problem statement given to the pipeline.
 	Problem string `json:"problem_statement"`
-	// ExpectedPatch is the gold-standard patch (unified diff) for validation.
-	ExpectedPatch string `json:"patch"`
 	// TestPatch is the test diff to apply for verification.
 	TestPatch string `json:"test_patch"`
 	// TestCommand is the shell command used to verify correctness.
@@ -37,9 +33,8 @@ type BenchResult struct {
 	RunID      string      `json:"run_id"`
 	Pipeline   string      `json:"pipeline"`
 	Status     BenchStatus `json:"status"`
-	DurationMs int64       `json:"duration_ms"`
-	TokensUsed int64       `json:"tokens_used,omitempty"`
-	PatchDiff  string      `json:"patch_diff,omitempty"`
+	DurationMs int64  `json:"duration_ms"`
+	PatchDiff  string `json:"patch_diff,omitempty"`
 	Error      string      `json:"error,omitempty"`
 	StartedAt  time.Time   `json:"started_at"`
 }

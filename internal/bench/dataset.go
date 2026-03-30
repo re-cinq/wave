@@ -43,15 +43,6 @@ func LoadDataset(path string) ([]BenchTask, error) {
 	return tasks, nil
 }
 
-// LoadSWEBenchLite reads a SWE-bench Lite format JSONL file and converts it
-// into the canonical BenchTask format. SWE-bench Lite uses the same JSONL
-// structure but may include additional fields that we ignore.
-func LoadSWEBenchLite(path string) ([]BenchTask, error) {
-	// SWE-bench lite is JSONL with the same field names we use.
-	// The mapping is done via struct tags — extra fields are silently ignored.
-	return LoadDataset(path)
-}
-
 // ListDatasets scans a directory for .jsonl files and returns their paths.
 func ListDatasets(dir string) ([]DatasetInfo, error) {
 	entries, err := os.ReadDir(dir)

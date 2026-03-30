@@ -17,7 +17,6 @@ func TestParseSourceURI(t *testing.T) {
 			want: &SourceConfig{
 				Provider: "github",
 				Params:   map[string]string{"label": "bug"},
-				RawURI:   "github:label=bug",
 			},
 		},
 		{
@@ -31,7 +30,6 @@ func TestParseSourceURI(t *testing.T) {
 					"sort":      "created",
 					"direction": "asc",
 				},
-				RawURI: "github:label=bug,state=open,sort=created,direction=asc",
 			},
 		},
 		{
@@ -40,7 +38,6 @@ func TestParseSourceURI(t *testing.T) {
 			want: &SourceConfig{
 				Provider: "file",
 				Params:   map[string]string{"path": "queue.txt"},
-				RawURI:   "file:queue.txt",
 			},
 		},
 		{
@@ -49,7 +46,6 @@ func TestParseSourceURI(t *testing.T) {
 			want: &SourceConfig{
 				Provider: "file",
 				Params:   map[string]string{"path": "/tmp/items.txt"},
-				RawURI:   "file:/tmp/items.txt",
 			},
 		},
 		{
@@ -88,9 +84,6 @@ func TestParseSourceURI(t *testing.T) {
 			}
 			if got.Provider != tt.want.Provider {
 				t.Errorf("Provider = %q, want %q", got.Provider, tt.want.Provider)
-			}
-			if got.RawURI != tt.want.RawURI {
-				t.Errorf("RawURI = %q, want %q", got.RawURI, tt.want.RawURI)
 			}
 			if len(got.Params) != len(tt.want.Params) {
 				t.Errorf("Params length = %d, want %d", len(got.Params), len(tt.want.Params))
