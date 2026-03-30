@@ -2211,8 +2211,6 @@ func (e *DefaultPipelineExecutor) validateStepContracts(
 				}
 				_ = feedbackPath
 				reworkTriggered = true
-				// Break the inner contract loop — re-run all contracts from round+1
-				break
 
 			default:
 				// Unknown on_failure — treat as fail
@@ -2266,7 +2264,7 @@ func (e *DefaultPipelineExecutor) validateStepContracts(
 // runSingleContract validates one contract and emits lifecycle events.
 // For agent_review, it calls ValidateWithRunner; for all others, it calls contract.Validate.
 func (e *DefaultPipelineExecutor) runSingleContract(
-	ctx context.Context,
+	_ context.Context,
 	execution *PipelineExecution,
 	step *Step,
 	c ContractConfig,
@@ -2332,7 +2330,8 @@ func (e *DefaultPipelineExecutor) runSingleContract(
 	}
 
 	var valErr error
-	if c.Type == "agent_review" {
+	switch c.Type {
+	case "agent_review":
 		// Emit review_started event
 		e.emit(event.Event{
 			Timestamp:  time.Now(),
@@ -2376,7 +2375,7 @@ func (e *DefaultPipelineExecutor) runSingleContract(
 				Message:    fmt.Sprintf("agent review completed: verdict=%s issues=%d reviewer=%s", verdict, issueCount, c.Persona),
 			})
 		}
-	} else {
+	default:
 		valErr = contract.Validate(contractCfg, workspacePath)
 	}
 
