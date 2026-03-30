@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["pr_number", "pr_url", "head_branch", "fixes", "rejected", "deferred", "summary"],
+  "properties": {
+    "pr_number": {
+      "type": "integer"
+    },
+    "pr_url": {
+      "type": "string"
+    },
+    "head_branch": {
+      "type": "string",
+      "description": "PR head branch name — passed through for apply-fixes"
+    },
+    "fixes": {
+      "type": "array",
+      "description": "Accepted findings that apply-fixes will act on",
+      "items": {
+        "type": "object",
+        "required": ["severity", "summary", "file", "action_detail"],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "major", "minor"]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer"
+          },
+          "action_detail": {
+            "type": "string",
+            "description": "Specific instruction for the craftsman — what to change and how"
+          },
+          "blast_radius": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "How many files/functions the fix touches"
+          },
+          "test_coverage": {
+            "type": "string",
+            "enum": ["covered", "partial", "none"],
+            "description": "Whether existing tests will catch regressions"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "How certain the triage is that this fix is correct"
+          }
+        }
+      }
+    },
+    "rejected": {
+      "type": "array",
+      "description": "Findings dismissed as false positives or incorrect",
+      "items": {
+        "type": "object",
+        "required": ["summary", "reason"],
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why this finding was rejected"
+          }
+        }
+      }
+    },
+    "deferred": {
+      "type": "array",
+      "description": "Valid findings that are pre-existing or out of scope",
+      "items": {
+        "type": "object",
+        "required": ["summary", "reason"],
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "follow_up": {
+            "type": "string",
+            "description": "Suggested follow-up action (e.g. file an issue)"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "string",
+      "description": "One-paragraph triage summary: what will be fixed, what was rejected, what was deferred"
+    },
+    "critical_count": {
+      "type": "integer"
+    },
+    "major_count": {
+      "type": "integer"
+    },
+    "total_accepted": {
+      "type": "integer"
+    },
+    "total_rejected": {
+      "type": "integer"
+    },
+    "total_deferred": {
+      "type": "integer"
+    }
+  }
+}
