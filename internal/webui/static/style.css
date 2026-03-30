@@ -621,7 +621,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .event-filter-btn { background: var(--color-bg-tertiary); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 0.2em 0.6em; font-size: 0.75rem; cursor: pointer; color: var(--color-text-secondary); }
 .event-filter-btn:hover { background: var(--color-bg-secondary); }
 .event-filter-btn.event-filter-active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
-.events-timeline { display: flex; flex-direction: column; gap: 0.35rem; }
+.events-timeline { display: flex; flex-direction: column; gap: 0.35rem; max-height: 400px; overflow-y: auto; }
 .event-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0; font-size: 0.8rem; border-bottom: 1px solid var(--color-border); }
 .event-item:last-child { border-bottom: none; }
 .event-item.event-hook { background: var(--color-bg-tertiary); border-radius: var(--radius-sm); padding: 0.4rem 0.5rem; }
