@@ -216,26 +216,30 @@
 
         {{if .Events}}
         <div class="card">
-            <div class="events-header-toolbar">
-                <h2>Events</h2>
-                <div class="event-filter-bar">
-                    <button class="event-filter-btn event-filter-active" data-filter="all" onclick="filterEvents('all', this)">All</button>
-                    <button class="event-filter-btn" data-filter="hooks" onclick="filterEvents('hooks', this)">Hooks</button>
-                    <button class="event-filter-btn" data-filter="steps" onclick="filterEvents('steps', this)">Steps</button>
+            <details>
+                <summary class="section-toggle">
+                    <div class="events-header-toolbar">
+                        <h2>Events <span class="badge" style="font-size:0.7rem; opacity:0.7;">{{len .Events}}</span></h2>
+                        <div class="event-filter-bar">
+                            <button class="event-filter-btn event-filter-active" data-filter="all" onclick="event.stopPropagation(); filterEvents('all', this)">All</button>
+                            <button class="event-filter-btn" data-filter="hooks" onclick="event.stopPropagation(); filterEvents('hooks', this)">Hooks</button>
+                            <button class="event-filter-btn" data-filter="steps" onclick="event.stopPropagation(); filterEvents('steps', this)">Steps</button>
+                        </div>
+                    </div>
+                </summary>
+                <div class="events-timeline">
+                    {{range .Events}}
+                    <div class="event-item{{if hasPrefix .State "hook_"}} event-hook{{end}}" data-event-kind="{{if hasPrefix .State "hook_"}}hook{{else}}step{{end}}">
+                        <span class="event-time">{{formatTime .Timestamp}}</span>
+                        {{if hasPrefix .State "hook_"}}<span class="event-hook-icon" title="Hook">&#9881;</span>{{end}}
+                        <span class="badge {{statusClass .State}}">{{.State}}</span>
+                        {{if .StepID}}<span class="event-step">{{.StepID}}</span>{{end}}
+                        <span class="event-message">{{.Message}}</span>
+                        {{if and .DurationMs (hasPrefix .State "hook_")}}<span class="event-hook-duration">{{.DurationMs}}ms</span>{{end}}
+                    </div>
+                    {{end}}
                 </div>
-            </div>
-            <div class="events-timeline">
-                {{range .Events}}
-                <div class="event-item{{if hasPrefix .State "hook_"}} event-hook{{end}}" data-event-kind="{{if hasPrefix .State "hook_"}}hook{{else}}step{{end}}">
-                    <span class="event-time">{{formatTime .Timestamp}}</span>
-                    {{if hasPrefix .State "hook_"}}<span class="event-hook-icon" title="Hook">&#9881;</span>{{end}}
-                    <span class="badge {{statusClass .State}}">{{.State}}</span>
-                    {{if .StepID}}<span class="event-step">{{.StepID}}</span>{{end}}
-                    <span class="event-message">{{.Message}}</span>
-                    {{if and .DurationMs (hasPrefix .State "hook_")}}<span class="event-hook-duration">{{.DurationMs}}ms</span>{{end}}
-                </div>
-                {{end}}
-            </div>
+            </details>
         </div>
         {{end}}
     </div>
