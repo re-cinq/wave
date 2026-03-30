@@ -1,14 +1,14 @@
 # Tasks
 
 ## Phase 1: Add timeout constant
-- [ ] Task 1.1: Add `ForgeAPIList` constant to `internal/timeouts/timeouts.go` (30 seconds)
+- [X] Task 1.1: Add `ForgeAPIList` constant to `internal/timeouts/timeouts.go` (30 seconds)
 
 ## Phase 2: Wire up new timeout
-- [ ] Task 2.1: Update `getIssueListData` in `internal/webui/handlers_issues.go` to use `timeouts.ForgeAPIList` instead of `timeouts.ForgeAPI`
+- [X] Task 2.1: Update `getIssueListData` in `internal/webui/handlers_issues.go` to use `timeouts.ForgeAPIList` instead of `timeouts.ForgeAPI`
 
 ## Phase 3: Testing
-- [ ] Task 3.1: Add test in `internal/webui/handlers_issues_test.go` verifying list operations use the longer timeout
-- [ ] Task 3.2: Run `go test ./internal/webui/... ./internal/timeouts/...` to confirm no regressions
+- [X] Task 3.1: Add test in `internal/webui/handlers_issues_test.go` verifying list operations use the longer timeout
+- [X] Task 3.2: Run `go test ./internal/webui/... ./internal/timeouts/...` to confirm no regressions
 
 ## Phase 4: Validation
-- [ ] Task 4.1: Run full `go test ./...` to confirm no regressions project-wide
+- [X] Task 4.1: Run full `go test ./...` to confirm no regressions project-wide

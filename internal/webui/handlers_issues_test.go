@@ -1,11 +1,16 @@
 package webui
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/recinq/wave/internal/forge"
+	"github.com/recinq/wave/internal/timeouts"
 )
 
 func TestHandleAPIIssues_NoGitHubClient(t *testing.T) {
@@ -186,5 +191,42 @@ func TestSplitRepoSlug(t *testing.T) {
 		if owner != tt.wantOwner || repo != tt.wantRepo {
 			t.Errorf("splitRepoSlug(%q) = (%q, %q), want (%q, %q)", tt.slug, owner, repo, tt.wantOwner, tt.wantRepo)
 		}
+	}
+}
+
+// deadlineCapturingForge is a minimal forge.Client that captures the context
+// deadline passed to ListIssues so tests can verify the correct timeout is used.
+type deadlineCapturingForge struct {
+	forge.Client // embed to satisfy interface; unused methods will panic
+	deadline     time.Time
+	ok           bool
+}
+
+func (f *deadlineCapturingForge) ListIssues(ctx context.Context, _, _ string, _ forge.ListIssuesOptions) ([]*forge.Issue, error) {
+	f.deadline, f.ok = ctx.Deadline()
+	return nil, nil
+}
+
+func TestGetIssueListData_UsesForgeAPIListTimeout(t *testing.T) {
+	srv, _ := testServer(t)
+	fc := &deadlineCapturingForge{}
+	srv.forgeClient = fc
+	srv.repoSlug = "owner/repo"
+
+	before := time.Now()
+	srv.getIssueListData("open", 1)
+	after := time.Now()
+
+	if !fc.ok {
+		t.Fatal("expected context to have a deadline")
+	}
+
+	// The deadline should be approximately now + ForgeAPIList (30s).
+	// Allow 2s tolerance for test execution jitter.
+	wantMin := before.Add(timeouts.ForgeAPIList - 2*time.Second)
+	wantMax := after.Add(timeouts.ForgeAPIList + 2*time.Second)
+	if fc.deadline.Before(wantMin) || fc.deadline.After(wantMax) {
+		t.Errorf("deadline %v not within expected range [%v, %v] for ForgeAPIList=%v",
+			fc.deadline, wantMin, wantMax, timeouts.ForgeAPIList)
 	}
 }

@@ -25,5 +25,6 @@ const (
 	GatePollTimeout  = 30 * time.Minute
 	GitCommand       = 30 * time.Second
 	ForgeAPI         = 15 * time.Second
+	ForgeAPIList     = 30 * time.Second
 	RetryMaxDelay    = 60 * time.Second
 )
