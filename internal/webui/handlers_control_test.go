@@ -689,6 +689,175 @@ func TestHandleForkPoints_WithCheckpoints(t *testing.T) {
 	}
 }
 
+// --- Start Pipeline with advanced options tests ---
+
+func TestHandleStartPipeline_WithModel(t *testing.T) {
+	srv, _ := testServer(t)
+	setupPipelineDir(t, "test-pipeline", []string{"step1", "step2"})
+
+	body := strings.NewReader(`{"input":"test","model":"haiku"}`)
+	req := httptest.NewRequest("POST", "/api/pipelines/test-pipeline/start", body)
+	req.SetPathValue("name", "test-pipeline")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.handleStartPipeline(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp StartPipelineResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.PipelineName != "test-pipeline" {
+		t.Errorf("expected pipeline name 'test-pipeline', got %q", resp.PipelineName)
+	}
+	if resp.Status != "running" {
+		t.Errorf("expected status 'running', got %q", resp.Status)
+	}
+}
+
+func TestHandleStartPipeline_WithSteps(t *testing.T) {
+	srv, _ := testServer(t)
+	setupPipelineDir(t, "test-pipeline", []string{"step1", "step2", "step3"})
+
+	body := strings.NewReader(`{"input":"test","steps":"step1,step3"}`)
+	req := httptest.NewRequest("POST", "/api/pipelines/test-pipeline/start", body)
+	req.SetPathValue("name", "test-pipeline")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.handleStartPipeline(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleStartPipeline_WithExclude(t *testing.T) {
+	srv, _ := testServer(t)
+	setupPipelineDir(t, "test-pipeline", []string{"step1", "step2", "step3"})
+
+	body := strings.NewReader(`{"input":"test","exclude":"step2"}`)
+	req := httptest.NewRequest("POST", "/api/pipelines/test-pipeline/start", body)
+	req.SetPathValue("name", "test-pipeline")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.handleStartPipeline(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandleStartPipeline_DryRun(t *testing.T) {
+	srv, _ := testServer(t)
+	setupPipelineDir(t, "test-pipeline", []string{"step1", "step2"})
+
+	body := strings.NewReader(`{"input":"test","dry_run":true}`)
+	req := httptest.NewRequest("POST", "/api/pipelines/test-pipeline/start", body)
+	req.SetPathValue("name", "test-pipeline")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.handleStartPipeline(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 for dry-run, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp StartPipelineResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.PipelineName != "test-pipeline" {
+		t.Errorf("expected pipeline name 'test-pipeline', got %q", resp.PipelineName)
+	}
+}
+
+func TestHandleStartPipeline_DryRunCreatesCompletedRun(t *testing.T) {
+	srv, rwStore := testServer(t)
+	setupPipelineDir(t, "test-pipeline", []string{"step1", "step2"})
+
+	body := strings.NewReader(`{"input":"test","dry_run":true}`)
+	req := httptest.NewRequest("POST", "/api/pipelines/test-pipeline/start", body)
+	req.SetPathValue("name", "test-pipeline")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.handleStartPipeline(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 for dry-run, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Dry-run creates a run
+	runs, err := rwStore.ListRuns(state.ListRunsOptions{Limit: 10})
+	if err != nil {
+		t.Fatalf("failed to list runs: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("expected 1 run after dry-run, got %d", len(runs))
+	}
+}
+
+// --- SubmitRun with advanced options tests ---
+
+func TestHandleSubmitRun_WithModel(t *testing.T) {
+	srv, _ := testServer(t)
+	setupPipelineDir(t, "test-pipeline", []string{"step1", "step2"})
+
+	body := strings.NewReader(`{"pipeline":"test-pipeline","input":"test","model":"opus"}`)
+	req := httptest.NewRequest("POST", "/api/runs", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.handleSubmitRun(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp SubmitRunResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.PipelineName != "test-pipeline" {
+		t.Errorf("expected pipeline 'test-pipeline', got %q", resp.PipelineName)
+	}
+}
+
+func TestHandleSubmitRun_DryRun(t *testing.T) {
+	srv, rwStore := testServer(t)
+	setupPipelineDir(t, "test-pipeline", []string{"step1", "step2"})
+
+	body := strings.NewReader(`{"pipeline":"test-pipeline","input":"test","dry_run":true}`)
+	req := httptest.NewRequest("POST", "/api/runs", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.handleSubmitRun(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 for dry-run, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp SubmitRunResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.PipelineName != "test-pipeline" {
+		t.Errorf("expected pipeline name 'test-pipeline', got %q", resp.PipelineName)
+	}
+
+	// Dry-run creates a run
+	runs, err := rwStore.ListRuns(state.ListRunsOptions{Limit: 10})
+	if err != nil {
+		t.Fatalf("failed to list runs: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("expected 1 run after dry-run, got %d", len(runs))
+	}
+}
+
+// --- buildExecOptions / buildStepFilter tests ---
+
 func TestIsHeartbeat(t *testing.T) {
 	tests := []struct {
 		name     string
