@@ -53,7 +53,7 @@
   font-weight: 700;
   line-height: 1.1;
   margin-bottom: 16px;
-  background: var(--brand-aurora-gradient);
+  background: var(--recinq-aurora-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -137,7 +137,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--brand-aurora-gradient);
+  background: var(--recinq-aurora-gradient);
   border-radius: 10px;
   margin-bottom: 16px;
   color: white;
@@ -645,7 +645,7 @@
 
 /* Gradient text for emphasis */
 .hero-enhanced__headline .gradient-text {
-  background: var(--brand-aurora-gradient);
+  background: var(--recinq-aurora-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

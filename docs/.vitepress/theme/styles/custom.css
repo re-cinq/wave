@@ -3,6 +3,8 @@
  * re:cinq brand guidelines v1.0
  */
 
+
+@import \'./recinq-theme.css\';
 /* Neue Montreal font-face declarations */
 @font-face {
   font-family: 'Neue Montreal';
@@ -29,22 +31,8 @@
 }
 
 :root {
-  /* re:cinq Brand Colors — Primary */
-  --brand-midnight-navy: #0F1F49;
-  --brand-crystal-white: #FFFFFF;
-  --brand-quantum-blue: #0014EB;
-  --brand-aurora-start: #E4E6FD;
-  --brand-aurora-mid: #5664F4;
-  --brand-aurora-end: #8F96F6;
 
-  /* re:cinq Brand Colors — Secondary */
-  --brand-pulse-blue: #5664F4;
-  --brand-soft-indigo: #8F96F6;
-  --brand-nebula-light: #E6E8FD;
-  --brand-neutral-fog: #F2F2F7;
 
-  /* Aurora gradient (reusable) */
-  --brand-aurora-gradient: linear-gradient(135deg, #E4E6FD 0%, #5664F4 50%, #8F96F6 100%);
 
   /* Wave Theme Colors (mapped to brand) */
   --wave-primary: #0014EB;
@@ -96,7 +84,7 @@
 }
 
 .VPHero .name {
-  background: var(--brand-aurora-gradient);
+  background: var(--recinq-aurora-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
