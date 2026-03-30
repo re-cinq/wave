@@ -139,7 +139,6 @@ steps:
   - id: fix-implement
     persona: craftsman
     rework_only: true
-    thread: impl
     dependencies: [implement]
     workspace:
       type: worktree
