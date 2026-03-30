@@ -55,8 +55,6 @@ func GenerateAdHocPipeline(opts AdHocOptions) (*Pipeline, error) {
 		},
 	}
 
-	injectArtifacts(pipeline)
-
 	return pipeline, nil
 }
 
@@ -129,16 +127,3 @@ func generateExecuteStep(persona, input string) Step {
 	}
 }
 
-func injectArtifacts(pipeline *Pipeline) {
-	if len(pipeline.Steps) < 2 {
-		return
-	}
-
-	for i := range pipeline.Steps {
-		if pipeline.Steps[i].ID == "execute" {
-			pipeline.Steps[i].Memory.InjectArtifacts = []ArtifactRef{
-				{Step: "navigate", Artifact: "analysis", As: "navigation_report"},
-			}
-		}
-	}
-}

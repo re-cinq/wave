@@ -630,18 +630,8 @@ func (m *MatrixExecutor) emit(ev event.Event) {
 	}
 }
 
-// MatrixWorkerContext holds context information for a matrix worker.
-type MatrixWorkerContext struct {
-	Index         int
-	Item          interface{}
-	WorkspacePath string
-}
-
 // matrixWorkerFunc is the signature for a function that executes a single matrix item.
 type matrixWorkerFunc func(ctx context.Context, execution *PipelineExecution, step *Step, itemIndex int, item interface{}) MatrixResult
-
-// Ensure workspace package is used (for linter)
-var _ = workspace.WorkspaceConfig{}
 
 // tieredExecution runs matrix items in dependency-ordered tiers.
 // Items within a tier run in parallel; tiers execute sequentially.

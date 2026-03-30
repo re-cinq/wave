@@ -77,31 +77,3 @@ func (c *ETACalculator) RemainingMs() int64 {
 	return remaining
 }
 
-// AverageStepMs returns the average duration across all steps that have data
-// (either from the current run or historical). Returns 0 if no data.
-func (c *ETACalculator) AverageStepMs() int64 {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	var total int64
-	var count int64
-
-	for _, stepID := range c.stepOrder {
-		// Prefer current-run actual duration
-		if dur, ok := c.currentDurations[stepID]; ok {
-			total += dur
-			count++
-			continue
-		}
-		// Fall back to historical average
-		if avg, ok := c.historicalAvg[stepID]; ok {
-			total += avg
-			count++
-		}
-	}
-
-	if count == 0 {
-		return 0
-	}
-	return total / count
-}

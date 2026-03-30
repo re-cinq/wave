@@ -311,46 +311,6 @@ func (e *ErrorMessageProvider) FormatPhaseFailureError(phase string, originalErr
 	return fmt.Errorf("%s", guidance.String())
 }
 
-// FormatContractValidationError formats contract validation errors with specific guidance
-func (e *ErrorMessageProvider) FormatContractValidationError(phase string, contractError error) error {
-	var guidance strings.Builder
-
-	guidance.WriteString(fmt.Sprintf("📋 Contract validation failed for phase '%s'\n\n", phase))
-	guidance.WriteString(fmt.Sprintf("Error: %v\n\n", contractError))
-
-	guidance.WriteString("🔍 Contract Requirements:\n")
-	switch phase {
-	case "spec":
-		guidance.WriteString("  • artifact.json with phase: 'spec'\n")
-		guidance.WriteString("  • spec.md file must exist and be non-empty\n")
-		guidance.WriteString("  • validation.specification_quality: ['poor'|'fair'|'good'|'excellent']\n")
-		guidance.WriteString("  • metadata.timestamp and metadata.input_description required\n")
-	case "docs":
-		guidance.WriteString("  • artifact.json with phase: 'docs'\n")
-		guidance.WriteString("  • feature-docs.md and stakeholder-summary.md must exist\n")
-		guidance.WriteString("  • validation.documentation_quality: ['poor'|'fair'|'good'|'excellent']\n")
-		guidance.WriteString("  • validation.coverage_percentage: 0-100\n")
-	case "dummy":
-		guidance.WriteString("  • artifact.json with phase: 'dummy'\n")
-		guidance.WriteString("  • prototype/ directory must exist\n")
-		guidance.WriteString("  • interfaces.md must exist and document interfaces\n")
-		guidance.WriteString("  • validation.runnable: true|false\n")
-		guidance.WriteString("  • validation.prototype_quality: ['poor'|'fair'|'good'|'excellent']\n")
-	case "implement":
-		guidance.WriteString("  • artifact.json with phase: 'implement'\n")
-		guidance.WriteString("  • implementation-plan.md must exist\n")
-		guidance.WriteString("  • implementation-checklist.md must exist\n")
-		guidance.WriteString("  • validation.tests_executed: true|false\n")
-		guidance.WriteString("  • validation.implementation_readiness: ['ready'|'partial'|'needs_work']\n")
-	}
-
-	guidance.WriteString("\n📖 Schema Location: .wave/contracts/")
-	guidance.WriteString(phase)
-	guidance.WriteString("-phase.schema.json\n")
-
-	return fmt.Errorf("%s", guidance.String())
-}
-
 // ResolvePipelineRetryPolicies calls ResolvePolicy() on each step's retry config,
 // resolving named policies into concrete values before the executor runs.
 func ResolvePipelineRetryPolicies(p *Pipeline) error {
@@ -405,15 +365,6 @@ func (c *ConcurrencyValidator) ReleaseWorkspaceLock(pipelineID string) {
 // IsWorkspaceInUse checks if a workspace is currently in use
 func (c *ConcurrencyValidator) IsWorkspaceInUse(workspaceID string) bool {
 	return c.workspaceLocks[workspaceID]
-}
-
-// GetRunningPipelines returns a list of currently running pipelines
-func (c *ConcurrencyValidator) GetRunningPipelines() map[string]string {
-	result := make(map[string]string)
-	for pipelineID, workspaceID := range c.runningPipelines {
-		result[pipelineID] = workspaceID
-	}
-	return result
 }
 
 // ValidateThreadFields validates thread and fidelity fields across all pipeline steps.

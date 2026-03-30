@@ -366,55 +366,6 @@ func TestErrorMessageProvider(t *testing.T) {
 	}
 }
 
-func TestErrorMessageProvider_ContractValidation(t *testing.T) {
-	provider := NewErrorMessageProvider()
-
-	tests := []struct {
-		name             string
-		phase            string
-		contractError    error
-		expectedContains []string
-	}{
-		{
-			name:          "spec contract validation",
-			phase:         "spec",
-			contractError: fmt.Errorf("missing required field: phase"),
-			expectedContains: []string{
-				"Contract validation failed for phase 'spec'",
-				"artifact.json with phase: 'spec'",
-				"spec.md file must exist",
-				"validation.specification_quality",
-				"Schema Location: .wave/contracts/spec-phase.schema.json",
-			},
-		},
-		{
-			name:          "dummy contract validation",
-			phase:         "dummy",
-			contractError: fmt.Errorf("validation.runnable is required"),
-			expectedContains: []string{
-				"Contract validation failed for phase 'dummy'",
-				"prototype/ directory must exist",
-				"interfaces.md must exist",
-				"validation.runnable: true|false",
-				"validation.prototype_quality",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := provider.FormatContractValidationError(tt.phase, tt.contractError)
-			errorMsg := err.Error()
-
-			for _, expected := range tt.expectedContains {
-				if !strings.Contains(errorMsg, expected) {
-					t.Errorf("Contract error message should contain %q, but got:\n%s", expected, errorMsg)
-				}
-			}
-		})
-	}
-}
-
 func TestConcurrencyValidator(t *testing.T) {
 	validator := NewConcurrencyValidator()
 
@@ -512,47 +463,6 @@ func TestConcurrencyValidator_IsWorkspaceInUse(t *testing.T) {
 	// Now workspace should not be in use
 	if validator.IsWorkspaceInUse("workspace1") {
 		t.Error("Expected workspace1 to not be in use after releasing lock")
-	}
-}
-
-func TestConcurrencyValidator_GetRunningPipelines(t *testing.T) {
-	validator := NewConcurrencyValidator()
-
-	// Initially no pipelines running
-	running := validator.GetRunningPipelines()
-	if len(running) != 0 {
-		t.Errorf("Expected no running pipelines, got %v", running)
-	}
-
-	// Acquire some locks
-	validator.AcquireWorkspaceLock("pipeline1", "workspace1")
-	validator.AcquireWorkspaceLock("pipeline2", "workspace2")
-
-	// Check running pipelines
-	running = validator.GetRunningPipelines()
-	if len(running) != 2 {
-		t.Errorf("Expected 2 running pipelines, got %d", len(running))
-	}
-
-	if running["pipeline1"] != "workspace1" {
-		t.Errorf("Expected pipeline1 to use workspace1, got %s", running["pipeline1"])
-	}
-
-	if running["pipeline2"] != "workspace2" {
-		t.Errorf("Expected pipeline2 to use workspace2, got %s", running["pipeline2"])
-	}
-
-	// Release one lock
-	validator.ReleaseWorkspaceLock("pipeline1")
-
-	// Check running pipelines again
-	running = validator.GetRunningPipelines()
-	if len(running) != 1 {
-		t.Errorf("Expected 1 running pipeline, got %d", len(running))
-	}
-
-	if _, exists := running["pipeline1"]; exists {
-		t.Error("Expected pipeline1 to not be in running pipelines after release")
 	}
 }
 

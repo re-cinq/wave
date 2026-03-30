@@ -343,68 +343,6 @@ func TestRouter_WhitespaceHandling(t *testing.T) {
 	}
 }
 
-func TestRouter_GetDefaultPipeline(t *testing.T) {
-	config := manifest.RoutingConfig{
-		Default: "my-default",
-	}
-	router := NewRouter(config)
-
-	if router.GetDefaultPipeline() != "my-default" {
-		t.Errorf("GetDefaultPipeline() = %q, want 'my-default'", router.GetDefaultPipeline())
-	}
-}
-
-func TestRouter_GetRules(t *testing.T) {
-	config := manifest.RoutingConfig{
-		Rules: []manifest.RoutingRule{
-			{Pattern: "a", Pipeline: "pipeline-a", Priority: 1},
-			{Pattern: "b", Pipeline: "pipeline-b", Priority: 3},
-			{Pattern: "c", Pipeline: "pipeline-c", Priority: 2},
-		},
-	}
-	router := NewRouter(config)
-
-	rules := router.GetRules()
-	if len(rules) != 3 {
-		t.Fatalf("Expected 3 rules, got %d", len(rules))
-	}
-
-	// Rules should be sorted by priority descending
-	if rules[0].Pipeline != "pipeline-b" {
-		t.Errorf("First rule should be pipeline-b (priority 3), got %s", rules[0].Pipeline)
-	}
-	if rules[1].Pipeline != "pipeline-c" {
-		t.Errorf("Second rule should be pipeline-c (priority 2), got %s", rules[1].Pipeline)
-	}
-	if rules[2].Pipeline != "pipeline-a" {
-		t.Errorf("Third rule should be pipeline-a (priority 1), got %s", rules[2].Pipeline)
-	}
-}
-
-func TestNewRouterFromManifest(t *testing.T) {
-	m := &manifest.Manifest{
-		Runtime: manifest.Runtime{
-			Routing: manifest.RoutingConfig{
-				Default: "manifest-default",
-				Rules: []manifest.RoutingRule{
-					{Pattern: "test", Pipeline: "test-pipeline"},
-				},
-			},
-		},
-	}
-
-	router := NewRouterFromManifest(m)
-
-	if router.GetDefaultPipeline() != "manifest-default" {
-		t.Errorf("Expected default 'manifest-default', got %q", router.GetDefaultPipeline())
-	}
-
-	result := router.Route("test input", nil)
-	if result != "test-pipeline" {
-		t.Errorf("Expected 'test-pipeline', got %q", result)
-	}
-}
-
 func TestRouter_ComplexScenario(t *testing.T) {
 	// Simulate a real-world routing configuration
 	config := manifest.RoutingConfig{

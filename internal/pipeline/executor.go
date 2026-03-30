@@ -1102,7 +1102,6 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 }
 
 // executeCommandStep runs a shell script command step and captures its output.
-// executeCommandStep runs a shell script command step and captures its output.
 // Command steps don’t use adapters — they execute scripts directly via os/exec.
 //
 // Security: The resolved script is sanitized via InputSanitizer to detect prompt
@@ -1149,32 +1148,30 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 	// SECURITY: Sanitize the resolved script to detect injection attempts.
 	// Template resolution can introduce user-controlled content (e.g. issue titles,
 	// branch names) that could contain shell metacharacters or injection payloads.
-	if e.inputSanitizer != nil {
-		record, sanitized, err := e.inputSanitizer.SanitizeInput(script, "command_script")
-		if err != nil {
-			// Sanitization rejected the input (strict mode / prompt injection detected)
-			if e.securityLogger != nil {
-				e.securityLogger.LogViolation(
-					string(security.ViolationPromptInjection),
-					string(security.SourceUserInput),
-					fmt.Sprintf("command step %q script rejected by sanitizer: %v", step.ID, err),
-					security.SeverityCritical,
-					true,
-				)
-			}
-			return nil, fmt.Errorf("command step %q: script sanitization failed: %w", step.ID, err)
+	record, sanitized, err := e.inputSanitizer.SanitizeInput(script, "command_script")
+	if err != nil {
+		// Sanitization rejected the input (strict mode / prompt injection detected)
+		if e.securityLogger != nil {
+			e.securityLogger.LogViolation(
+				string(security.ViolationPromptInjection),
+				string(security.SourceUserInput),
+				fmt.Sprintf("command step %q script rejected by sanitizer: %v", step.ID, err),
+				security.SeverityCritical,
+				true,
+			)
 		}
-		if record != nil && record.ChangesDetected {
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     step.ID,
-				State:      StateRunning,
-				Message:    fmt.Sprintf("command script sanitized (risk_score=%d, rules=%v)", record.RiskScore, record.SanitizationRules),
-			})
-		}
-		script = sanitized
+		return nil, fmt.Errorf("command step %q: script sanitization failed: %w", step.ID, err)
 	}
+	if record != nil && record.ChangesDetected {
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      StateRunning,
+			Message:    fmt.Sprintf("command script sanitized (risk_score=%d, rules=%v)", record.RiskScore, record.SanitizationRules),
+		})
+	}
+	script = sanitized
 
 	// Create workspace for the step
 	workspacePath, err := e.createStepWorkspace(execution, step)

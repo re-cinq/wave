@@ -15,7 +15,6 @@ type ChatContext struct {
 	Run              *state.RunRecord
 	Steps            []ChatStepContext
 	Pipeline         *Pipeline
-	PipelinePath     string
 	Artifacts        []state.ArtifactRecord
 	ProjectRoot      string
 	ArtifactContents map[string]string    // Artifact name → content/summary

@@ -24,11 +24,6 @@ func NewRouter(config manifest.RoutingConfig) *Router {
 	return r
 }
 
-// NewRouterFromManifest creates a Router from a manifest's routing configuration.
-func NewRouterFromManifest(m *manifest.Manifest) *Router {
-	return NewRouter(m.Runtime.Routing)
-}
-
 // sortRulesByPriority returns rules sorted by priority in descending order.
 // Rules with equal priority maintain their original order (stable sort).
 func (r *Router) sortRulesByPriority(rules []manifest.RoutingRule) []manifest.RoutingRule {
@@ -142,12 +137,3 @@ func (r *Router) matchLabels(required map[string]string, actual map[string]strin
 	return true
 }
 
-// GetDefaultPipeline returns the default pipeline name.
-func (r *Router) GetDefaultPipeline() string {
-	return r.config.Default
-}
-
-// GetRules returns the sorted routing rules.
-func (r *Router) GetRules() []manifest.RoutingRule {
-	return r.sortedRules
-}

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/recinq/wave/internal/event"
@@ -252,6 +251,3 @@ func (c *ConcurrencyExecutor) emit(ev event.Event) {
 		c.executor.emitter.Emit(ev)
 	}
 }
-
-// Ensure sync.Mutex is used (for linter).
-var _ = sync.Mutex{}

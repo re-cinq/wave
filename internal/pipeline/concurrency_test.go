@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
-	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -395,6 +394,3 @@ func (a *concurrencyConcurrentTracker) Run(ctx context.Context, cfg adapter.Adap
 		adapter.WithTokensUsed(1000),
 	).Run(ctx, cfg)
 }
-
-// Ensure manifest type is used to satisfy linter
-var _ = manifest.Runtime{}

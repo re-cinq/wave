@@ -450,68 +450,6 @@ func TestGenerateExecuteStep(t *testing.T) {
 	assert.Contains(t, step.Exec.Source, "test input")
 }
 
-// TestInjectArtifacts tests the injectArtifacts helper function
-func TestInjectArtifacts(t *testing.T) {
-	p := &Pipeline{
-		Steps: []Step{
-			{ID: "navigate", Persona: "navigator"},
-			{ID: "execute", Persona: "craftsman"},
-		},
-	}
-
-	injectArtifacts(p)
-
-	// Verify execute step has artifact injection
-	var executeStep *Step
-	for i := range p.Steps {
-		if p.Steps[i].ID == "execute" {
-			executeStep = &p.Steps[i]
-			break
-		}
-	}
-	require.NotNil(t, executeStep)
-	require.NotEmpty(t, executeStep.Memory.InjectArtifacts)
-
-	ref := executeStep.Memory.InjectArtifacts[0]
-	assert.Equal(t, "navigate", ref.Step)
-	assert.Equal(t, "analysis", ref.Artifact)
-	assert.Equal(t, "navigation_report", ref.As)
-}
-
-// TestInjectArtifacts_SingleStep tests that injectArtifacts handles
-// pipelines with less than 2 steps
-func TestInjectArtifacts_SingleStep(t *testing.T) {
-	p := &Pipeline{
-		Steps: []Step{
-			{ID: "navigate", Persona: "navigator"},
-		},
-	}
-
-	// Should not panic with single step
-	injectArtifacts(p)
-
-	// Navigate step should not have injection (no execute step)
-	assert.Empty(t, p.Steps[0].Memory.InjectArtifacts)
-}
-
-// TestInjectArtifacts_NoExecuteStep tests that injectArtifacts handles
-// pipelines without an execute step
-func TestInjectArtifacts_NoExecuteStep(t *testing.T) {
-	p := &Pipeline{
-		Steps: []Step{
-			{ID: "step1", Persona: "persona1"},
-			{ID: "step2", Persona: "persona2"},
-		},
-	}
-
-	// Should not panic without execute step
-	injectArtifacts(p)
-
-	// Neither step should have injection
-	assert.Empty(t, p.Steps[0].Memory.InjectArtifacts)
-	assert.Empty(t, p.Steps[1].Memory.InjectArtifacts)
-}
-
 // TestDefaultNavigatorPersona tests the DefaultNavigatorPersona constant
 func TestDefaultNavigatorPersona(t *testing.T) {
 	assert.Equal(t, "navigator", DefaultNavigatorPersona)
