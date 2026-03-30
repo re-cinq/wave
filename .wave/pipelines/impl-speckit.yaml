@@ -220,11 +220,20 @@ steps:
       policy: standard
       max_attempts: 3
     handover:
-      contract:
-        type: test_suite
-        command: "{{ project.contract_test_command }}"
-        must_pass: true
-        on_failure: retry
+      contracts:
+        - type: test_suite
+          command: "{{ project.contract_test_command }}"
+          must_pass: true
+          on_failure: retry
+        - type: agent_review
+          persona: navigator
+          criteria_path: .wave/contracts/impl-review-criteria.md
+          model: claude-haiku-4-5-20251001
+          token_budget: 8000
+          timeout: 90s
+          context:
+            - source: git_diff
+          on_failure: warn
       compaction:
         trigger: "token_limit_80%"
         persona: summarizer

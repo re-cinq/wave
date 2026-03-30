@@ -77,6 +77,25 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 				return err
 			}
 		}
+
+		// Validate agent_review contract fields: self-review prevention and contract-level rework_step
+		contracts := step.Handover.EffectiveContracts()
+		for _, c := range contracts {
+			if c.Type != "agent_review" {
+				continue
+			}
+			// Self-review prevention: reviewer persona must differ from step persona
+			if c.Persona != "" && c.Persona == step.Persona {
+				return fmt.Errorf("step %q: agent_review contract persona %q must differ from step persona (self-review not allowed)",
+					step.ID, c.Persona)
+			}
+			// Validate contract-level rework_step target
+			if c.OnFailure == OnFailureRework && c.ReworkStep != "" {
+				if err := v.validateReworkTarget(step.ID, c.ReworkStep, stepMap); err != nil {
+					return fmt.Errorf("step %q: agent_review contract rework_step: %w", step.ID, err)
+				}
+			}
+		}
 	}
 
 	// Validate that each rework target is unique (prevent race on concurrent rework)
