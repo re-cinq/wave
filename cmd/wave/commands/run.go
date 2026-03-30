@@ -22,6 +22,7 @@ import (
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/recovery"
+	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/suggest"
@@ -437,6 +438,20 @@ func runRun(opts RunOptions, debug bool) error {
 	if store != nil && !opts.NoRetro {
 		retroGen := retro.NewGenerator(store, runner, ".wave/retros", &m.Runtime.Retros)
 		execOpts = append(execOpts, pipeline.WithRetroGenerator(retroGen))
+	}
+
+	// Wire relay context compaction — prevents long-running steps from exhausting
+	// the Claude context window by summarizing conversation at a token threshold.
+	if m.Runtime.Relay.TokenThresholdPercent > 0 {
+		relayCfg := relay.RelayMonitorConfig{
+			DefaultThreshold:   m.Runtime.Relay.TokenThresholdPercent,
+			MinTokensToCompact: 1000,
+			ContextWindow:      m.Runtime.Relay.ContextWindow,
+			CompactionTimeout:  m.Runtime.Timeouts.GetRelayCompaction(),
+		}
+		compactionAdapter := &relayCompactionAdapter{runner: runner}
+		relayMon := relay.NewRelayMonitor(relayCfg, compactionAdapter)
+		execOpts = append(execOpts, pipeline.WithRelayMonitor(relayMon))
 	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
@@ -1061,4 +1076,32 @@ func (d *dbLoggingEmitter) Emit(ev event.Event) {
 		runID = d.runID
 	}
 	d.store.LogEvent(runID, ev.StepID, ev.State, ev.Persona, msg, ev.TokensUsed, ev.DurationMs)
+}
+
+// relayCompactionAdapter bridges adapter.AdapterRunner to relay.CompactionAdapter.
+// It runs the summarizer as a Claude subprocess to compact conversation history.
+type relayCompactionAdapter struct {
+	runner adapter.AdapterRunner
+}
+
+func (a *relayCompactionAdapter) RunCompaction(ctx context.Context, cfg relay.CompactionConfig) (string, error) {
+	prompt := cfg.CompactPrompt
+	if cfg.ChatHistory != "" {
+		prompt = fmt.Sprintf("%s\n\n---\n\nConversation history to summarize:\n%s", cfg.CompactPrompt, cfg.ChatHistory)
+	}
+
+	result, err := a.runner.Run(ctx, adapter.AdapterRunConfig{
+		Adapter:       "claude",
+		Persona:       "summarizer",
+		WorkspacePath: cfg.WorkspacePath,
+		Prompt:        prompt,
+		SystemPrompt:  cfg.SystemPrompt,
+		Timeout:       cfg.Timeout,
+		OutputFormat:  "text",
+	})
+	if err != nil {
+		return "", fmt.Errorf("compaction adapter failed: %w", err)
+	}
+
+	return result.ResultContent, nil
 }
