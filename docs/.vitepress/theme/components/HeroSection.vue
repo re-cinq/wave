@@ -268,7 +268,7 @@ function getLineIcon(icon?: TerminalIcon): string {
   font-weight: 700;
   line-height: 1.1;
   margin-bottom: 16px;
-  background: linear-gradient(135deg, var(--wave-primary) 0%, var(--wave-accent) 100%);
+  background: var(--brand-aurora-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -398,7 +398,7 @@ a.hero-pill {
 .terminal-window {
   width: 100%;
   max-width: 560px;
-  background: #1a1a2e;
+  background: #0F1F49;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
@@ -408,7 +408,7 @@ a.hero-pill {
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  background: #2d2d44;
+  background: #162050;
   gap: 12px;
 }
 
@@ -431,7 +431,7 @@ a.hero-pill {
   flex: 1;
   text-align: center;
   font-size: 13px;
-  color: #a9b1d6;
+  color: #C0C8E8;
   font-family: var(--wave-font-mono, 'SF Mono', 'Fira Code', monospace);
 }
 
@@ -442,7 +442,7 @@ a.hero-pill {
   padding: 4px 8px;
   background: transparent;
   border: none;
-  color: #6b7280;
+  color: #6B7CA0;
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.15s ease;
@@ -450,7 +450,7 @@ a.hero-pill {
 
 .terminal-copy-btn:hover {
   background: rgba(255, 255, 255, 0.1);
-  color: #a9b1d6;
+  color: #C0C8E8;
 }
 
 .terminal-copy-btn.copied {
@@ -463,7 +463,7 @@ a.hero-pill {
   font-family: var(--wave-font-mono, 'SF Mono', 'Fira Code', monospace);
   font-size: 13px;
   line-height: 1.2;
-  color: #a9b1d6;
+  color: #C0C8E8;
   height: 260px;
   width: 100%;
   overflow-x: hidden;
@@ -478,7 +478,7 @@ a.hero-pill {
   left: 0;
   right: 0;
   height: 48px;
-  background: linear-gradient(to bottom, transparent, #1a1a2e);
+  background: linear-gradient(to bottom, transparent, #0F1F49);
   pointer-events: none;
 }
 
@@ -492,7 +492,7 @@ a.hero-pill {
 }
 
 .terminal-line.command {
-  color: #7dd3fc;
+  color: #5664F4;
 }
 
 .terminal-line .line-icon {
@@ -503,10 +503,10 @@ a.hero-pill {
 .terminal-line.line-success { color: #27c93f; }
 .terminal-line.line-error { color: #ff5f56; }
 .terminal-line.line-warning { color: #ffbd2e; }
-.terminal-line.line-info { color: #7dd3fc; }
-.terminal-line.line-muted { color: #6b7280; }
-.terminal-line.line-highlight { color: #c4b5fd; font-weight: 500; }
-.terminal-line.line-logo { color: #7aa2f7; font-weight: 600; }
+.terminal-line.line-info { color: #5664F4; }
+.terminal-line.line-muted { color: #6B7CA0; }
+.terminal-line.line-highlight { color: #8F96F6; font-weight: 500; }
+.terminal-line.line-logo { color: #0014EB; font-weight: 600; }
 .terminal-line.line-meta { display: none; }
 
 /* Background pattern */

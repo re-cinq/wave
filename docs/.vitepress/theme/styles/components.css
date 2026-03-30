@@ -53,7 +53,7 @@
   font-weight: 700;
   line-height: 1.1;
   margin-bottom: 16px;
-  background: linear-gradient(135deg, var(--wave-primary) 0%, var(--wave-accent) 100%);
+  background: var(--brand-aurora-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -137,7 +137,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--wave-primary) 0%, var(--wave-accent) 100%);
+  background: var(--brand-aurora-gradient);
   border-radius: 10px;
   margin-bottom: 16px;
   color: white;
@@ -517,19 +517,19 @@
   --hero-syntax-yaml-value: #a5d6ff;
 
   /* Terminal glow effect for emphasis */
-  --hero-terminal-glow: rgba(79, 70, 229, 0.15);
-  --hero-terminal-glow-hover: rgba(79, 70, 229, 0.25);
+  --hero-terminal-glow: rgba(0, 20, 235, 0.15);
+  --hero-terminal-glow-hover: rgba(0, 20, 235, 0.25);
 
   /* Value Prop Pills - Small badges showing key benefits */
   --hero-pill-bg: rgba(255, 255, 255, 0.05);
   --hero-pill-border: rgba(255, 255, 255, 0.1);
   --hero-pill-text: var(--vp-c-text-2);
   --hero-pill-icon: var(--wave-primary);
-  --hero-pill-hover-bg: rgba(79, 70, 229, 0.1);
-  --hero-pill-hover-border: rgba(79, 70, 229, 0.3);
+  --hero-pill-hover-bg: rgba(0, 20, 235, 0.1);
+  --hero-pill-hover-border: rgba(0, 20, 235, 0.3);
 
   /* Grid Background Pattern - Subtle dot/grid pattern for depth */
-  --hero-grid-color: rgba(79, 70, 229, 0.08);
+  --hero-grid-color: rgba(0, 20, 235, 0.08);
   --hero-grid-size: 24px;
   --hero-grid-dot-size: 1px;
 
@@ -550,15 +550,15 @@
 .dark {
   --hero-terminal-bg: #0d1117;
   --hero-terminal-border: #30363d;
-  --hero-terminal-glow: rgba(129, 140, 248, 0.2);
-  --hero-terminal-glow-hover: rgba(129, 140, 248, 0.35);
+  --hero-terminal-glow: rgba(86, 100, 244, 0.2);
+  --hero-terminal-glow-hover: rgba(86, 100, 244, 0.35);
 
   --hero-pill-bg: rgba(255, 255, 255, 0.03);
   --hero-pill-border: rgba(255, 255, 255, 0.08);
-  --hero-pill-hover-bg: rgba(129, 140, 248, 0.15);
-  --hero-pill-hover-border: rgba(129, 140, 248, 0.4);
+  --hero-pill-hover-bg: rgba(86, 100, 244, 0.15);
+  --hero-pill-hover-border: rgba(86, 100, 244, 0.4);
 
-  --hero-grid-color: rgba(129, 140, 248, 0.06);
+  --hero-grid-color: rgba(86, 100, 244, 0.06);
 }
 
 
@@ -645,12 +645,7 @@
 
 /* Gradient text for emphasis */
 .hero-enhanced__headline .gradient-text {
-  background: linear-gradient(
-    135deg,
-    var(--wave-primary) 0%,
-    var(--wave-accent) 50%,
-    var(--wave-secondary) 100%
-  );
+  background: var(--brand-aurora-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -885,13 +880,13 @@
 
 /* Pill variants for different emphasis levels */
 .hero-pill--primary {
-  background: rgba(79, 70, 229, 0.1);
-  border-color: rgba(79, 70, 229, 0.3);
+  background: rgba(0, 20, 235, 0.1);
+  border-color: rgba(0, 20, 235, 0.3);
   color: var(--wave-primary);
 }
 
 .hero-pill--primary:hover {
-  background: rgba(79, 70, 229, 0.2);
+  background: rgba(0, 20, 235, 0.2);
   border-color: var(--wave-primary);
 }
 
@@ -1041,15 +1036,15 @@
   );
   color: white;
   box-shadow:
-    0 4px 14px rgba(79, 70, 229, 0.3),
-    0 0 0 0 rgba(79, 70, 229, 0);
+    0 4px 14px rgba(0, 20, 235, 0.3),
+    0 0 0 0 rgba(0, 20, 235, 0);
 }
 
 .hero-btn--primary:hover {
   transform: translateY(-2px);
   box-shadow:
-    0 8px 20px rgba(79, 70, 229, 0.4),
-    0 0 0 2px rgba(79, 70, 229, 0.1);
+    0 8px 20px rgba(0, 20, 235, 0.4),
+    0 0 0 2px rgba(0, 20, 235, 0.1);
 }
 
 .hero-btn--secondary {
@@ -1061,7 +1056,7 @@
 .hero-btn--secondary:hover {
   border-color: var(--wave-primary);
   color: var(--wave-primary);
-  background: rgba(79, 70, 229, 0.05);
+  background: rgba(0, 20, 235, 0.05);
 }
 
 /* Icon in buttons */

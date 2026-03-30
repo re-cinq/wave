@@ -21,7 +21,9 @@ export default withMermaid(
       ['link', { rel: 'icon', type: 'image/svg+xml', href: '/wave/favicon.svg' }],
       ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
       ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
-      ['link', { href: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap', rel: 'stylesheet' }]
+      ['link', { href: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap', rel: 'stylesheet' }],
+      ['link', { rel: 'preload', href: '/wave/fonts/NeueMontreal-Regular.woff2', as: 'font', type: 'font/woff2', crossorigin: '' }],
+      ['link', { rel: 'preload', href: '/wave/fonts/NeueMontreal-Bold.woff2', as: 'font', type: 'font/woff2', crossorigin: '' }]
     ],
 
     themeConfig: {

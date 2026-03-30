@@ -1,0 +1,7 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- re:cinq leaf favicon (simplified) -->
+  <path d="M16 2 C 7 2, 2 10, 2 16 C 2 25, 9 30, 16 30 C 23 30, 30 25, 30 16 C 30 10, 25 2, 16 2 Z" fill="#0014EB"/>
+  <path d="M13 10 L9 16 L13 22" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M19 10 L23 16 L19 22" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <line x1="17.5" y1="9" x2="14.5" y2="23" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+</svg>

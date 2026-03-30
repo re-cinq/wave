@@ -1,14 +1,56 @@
 /**
  * Wave Documentation - Custom Styles
- * Enterprise-grade documentation theming
+ * re:cinq brand guidelines v1.0
  */
 
+/* Neue Montreal font-face declarations */
+@font-face {
+  font-family: 'Neue Montreal';
+  src: url('/fonts/NeueMontreal-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Neue Montreal';
+  src: url('/fonts/NeueMontreal-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Neue Montreal';
+  src: url('/fonts/NeueMontreal-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  /* Brand Colors */
-  --wave-primary: #4f46e5;
-  --wave-primary-dark: #4338ca;
-  --wave-secondary: #06b6d4;
-  --wave-accent: #8b5cf6;
+  /* re:cinq Brand Colors — Primary */
+  --brand-midnight-navy: #0F1F49;
+  --brand-crystal-white: #FFFFFF;
+  --brand-quantum-blue: #0014EB;
+  --brand-aurora-start: #E4E6FD;
+  --brand-aurora-mid: #5664F4;
+  --brand-aurora-end: #8F96F6;
+
+  /* re:cinq Brand Colors — Secondary */
+  --brand-pulse-blue: #5664F4;
+  --brand-soft-indigo: #8F96F6;
+  --brand-nebula-light: #E6E8FD;
+  --brand-neutral-fog: #F2F2F7;
+
+  /* Aurora gradient (reusable) */
+  --brand-aurora-gradient: linear-gradient(135deg, #E4E6FD 0%, #5664F4 50%, #8F96F6 100%);
+
+  /* Wave Theme Colors (mapped to brand) */
+  --wave-primary: #0014EB;
+  --wave-primary-dark: #000FB8;
+  --wave-secondary: #5664F4;
+  --wave-accent: #8F96F6;
 
   /* Trust & Security Colors */
   --wave-trust-green: #10b981;
@@ -22,19 +64,30 @@
   --wave-planned: #6b7280;
 
   /* VitePress Theme Overrides */
-  --vp-c-brand-1: var(--wave-primary);
-  --vp-c-brand-2: var(--wave-primary-dark);
-  --vp-c-brand-3: var(--wave-accent);
+  --vp-c-brand-1: #0014EB;
+  --vp-c-brand-2: #5664F4;
+  --vp-c-brand-3: #8F96F6;
+
+  /* Light mode backgrounds */
+  --vp-c-bg-soft: #F2F2F7;
+  --vp-c-bg-mute: #E6E8FD;
 
   /* Typography */
+  --vp-font-family-base: 'Neue Montreal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   --wave-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
 /* Dark mode adjustments */
 .dark {
-  --wave-primary: #818cf8;
-  --wave-primary-dark: #6366f1;
-  --wave-secondary: #22d3ee;
+  --wave-primary: #5664F4;
+  --wave-primary-dark: #0014EB;
+  --wave-secondary: #8F96F6;
+
+  /* Midnight Navy dark mode backgrounds */
+  --vp-c-bg: #0F1F49;
+  --vp-c-bg-soft: #162050;
+  --vp-c-bg-mute: #1C2760;
+  --vp-c-bg-alt: #0C1838;
 }
 
 /* Hero Section Enhancements */
@@ -43,7 +96,7 @@
 }
 
 .VPHero .name {
-  background: linear-gradient(135deg, var(--wave-primary) 0%, var(--wave-accent) 100%);
+  background: var(--brand-aurora-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

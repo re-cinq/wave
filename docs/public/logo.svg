@@ -1,18 +1,19 @@
 <svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-  <!-- Rounded square background -->
-  <rect width="200" height="200" rx="24" fill="#4f46e5"/>
+  <!-- re:cinq leaf logomark -->
+  <!-- Quantum Blue leaf shape with code brackets inside -->
 
-  <!-- Three diagonal lines - full opacity (top) -->
-  <g stroke="white" stroke-width="10" stroke-linecap="round" fill="none">
-    <path d="M 20 130 C 50 130, 130 50, 130 20"/>
-    <line x1="20" y1="80" x2="80" y2="20"/>
-    <line x1="20" y1="30" x2="30" y2="20"/>
-  </g>
+  <!-- Leaf shape -->
+  <path d="M100 10 C 40 10, 10 60, 10 100 C 10 155, 55 190, 100 190 C 145 190, 190 155, 190 100 C 190 60, 160 10, 100 10 Z" fill="#0014EB"/>
 
-  <!-- Three diagonal lines - 20% opacity (bottom) -->
-  <g stroke="white" stroke-width="10" stroke-linecap="round" opacity="0.2" fill="none">
-    <path d="M 70 180 C 70 150, 150 70, 180 70"/>
-    <line x1="120" y1="180" x2="180" y2="120"/>
-    <line x1="170" y1="180" x2="180" y2="170"/>
-  </g>
+  <!-- Inner leaf vein / stem -->
+  <path d="M100 40 L100 160" stroke="white" stroke-width="2" opacity="0.2" stroke-linecap="round"/>
+
+  <!-- Left bracket < -->
+  <path d="M85 70 L60 100 L85 130" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Right bracket > -->
+  <path d="M115 70 L140 100 L115 130" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Forward slash / -->
+  <line x1="108" y1="65" x2="92" y2="135" stroke="white" stroke-width="6" stroke-linecap="round" opacity="0.6"/>
 </svg>

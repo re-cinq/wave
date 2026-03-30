@@ -205,13 +205,13 @@ defineExpose({ replay })
 }
 
 .terminal-window {
-  background: #1a1b26;
+  background: #0F1F49;
   border-radius: 12px;
   overflow: hidden;
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.1),
-    0 0 30px rgba(99, 102, 241, 0.15),
-    0 0 60px rgba(99, 102, 241, 0.1);
+    0 0 30px rgba(0, 20, 235, 0.15),
+    0 0 60px rgba(0, 20, 235, 0.1);
   font-family: var(--wave-font-mono, 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace);
 }
 
@@ -224,9 +224,9 @@ defineExpose({ replay })
   padding: 1px;
   background: linear-gradient(
     135deg,
-    rgba(99, 102, 241, 0.4),
-    rgba(99, 102, 241, 0.1) 50%,
-    rgba(99, 102, 241, 0.4)
+    rgba(0, 20, 235, 0.4),
+    rgba(0, 20, 235, 0.1) 50%,
+    rgba(0, 20, 235, 0.4)
   );
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
@@ -242,7 +242,7 @@ defineExpose({ replay })
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  background: #24253a;
+  background: #162050;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -297,18 +297,18 @@ defineExpose({ replay })
 .terminal-line--command {
   display: flex;
   align-items: center;
-  color: #c0caf5;
+  color: #C0C8E8;
   font-size: 14px;
 }
 
 .terminal-prompt {
-  color: #7aa2f7;
+  color: #5664F4;
   margin-right: 10px;
   font-weight: 600;
 }
 
 .terminal-command {
-  color: #c0caf5;
+  color: #C0C8E8;
 }
 
 /* Cursor */
@@ -316,7 +316,7 @@ defineExpose({ replay })
   display: inline-block;
   width: 8px;
   height: 18px;
-  background: #7aa2f7;
+  background: #5664F4;
   margin-left: 2px;
   vertical-align: text-bottom;
   opacity: 0;
@@ -337,7 +337,7 @@ defineExpose({ replay })
 }
 
 .terminal-line--output {
-  color: #9aa5ce;
+  color: #A0AACC;
   font-size: 13px;
   padding: 2px 0;
 }
@@ -358,7 +358,7 @@ defineExpose({ replay })
 }
 
 :deep(.text-blue) {
-  color: #7aa2f7;
+  color: #5664F4;
 }
 
 :deep(.text-yellow) {
@@ -370,16 +370,16 @@ defineExpose({ replay })
 }
 
 :deep(.text-cyan) {
-  color: #7dcfff;
+  color: #8F96F6;
 }
 
 :deep(.text-dim) {
-  color: #565f89;
+  color: #4A5580;
 }
 
 :deep(.text-bold) {
   font-weight: 600;
-  color: #c0caf5;
+  color: #C0C8E8;
 }
 
 /* Replay button */
@@ -391,8 +391,8 @@ defineExpose({ replay })
   height: 32px;
   border: none;
   border-radius: 8px;
-  background: rgba(122, 162, 247, 0.15);
-  color: #7aa2f7;
+  background: rgba(86, 100, 244, 0.15);
+  color: #5664F4;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -404,7 +404,7 @@ defineExpose({ replay })
 
 .terminal-replay:hover {
   opacity: 1;
-  background: rgba(122, 162, 247, 0.25);
+  background: rgba(86, 100, 244, 0.25);
   transform: scale(1.05);
 }
 

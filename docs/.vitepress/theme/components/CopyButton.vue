@@ -92,8 +92,8 @@ async function copyCode() {
 }
 
 .copy-button.copied {
-  color: #10b981;
-  border-color: #10b981;
+  color: var(--wave-trust-green, #10b981);
+  border-color: var(--wave-trust-green, #10b981);
 }
 
 .copy-button svg {
