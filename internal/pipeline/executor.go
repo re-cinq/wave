@@ -1463,14 +1463,14 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 	}
 
 	// Run step_start hooks
+	stepStartEvt := hooks.HookEvent{
+		Type:       hooks.EventStepStart,
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		Input:      execution.Input,
+	}
 	if e.hookRunner != nil {
-		evt := hooks.HookEvent{
-			Type:       hooks.EventStepStart,
-			PipelineID: pipelineID,
-			StepID:     step.ID,
-			Input:      execution.Input,
-		}
-		if _, err := e.hookRunner.RunHooks(ctx, evt); err != nil {
+		if _, err := e.hookRunner.RunHooks(ctx, stepStartEvt); err != nil {
 			execution.mu.Lock()
 			execution.States[step.ID] = StateFailed
 			execution.mu.Unlock()
@@ -1480,6 +1480,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 			return fmt.Errorf("step_start hook failed: %w", err)
 		}
 	}
+	e.fireWebhooks(ctx, stepStartEvt)
 
 	maxAttempts := step.Retry.EffectiveMaxAttempts()
 
@@ -1717,16 +1718,18 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				if e.store != nil {
 					e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
 				}
-				// Run step_failed hooks (non-blocking by default)
-				if e.hookRunner != nil {
-					e.hookRunner.RunHooks(ctx, hooks.HookEvent{
-						Type:       hooks.EventStepFailed,
-						PipelineID: pipelineID,
-						StepID:     step.ID,
-						Input:      execution.Input,
-						Error:      lastErr.Error(),
-					})
+				// Run step_failed hooks and webhooks (non-blocking by default)
+				stepFailedEvt := hooks.HookEvent{
+					Type:       hooks.EventStepFailed,
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					Input:      execution.Input,
+					Error:      lastErr.Error(),
 				}
+				if e.hookRunner != nil {
+					e.hookRunner.RunHooks(ctx, stepFailedEvt)
+				}
+				e.fireWebhooks(ctx, stepFailedEvt)
 				e.recordOntologyUsage(execution, step, "failed")
 				return lastErr
 			}
@@ -2801,15 +2804,17 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 					"contract_type": step.Handover.Contract.Type,
 				},
 			)
-			// Run contract_validated hooks (non-blocking by default)
-			if e.hookRunner != nil {
-				e.hookRunner.RunHooks(ctx, hooks.HookEvent{
-					Type:       hooks.EventContractValidated,
-					PipelineID: pipelineID,
-					StepID:     step.ID,
-					Workspace:  workspacePath,
-				})
+			// Run contract_validated hooks and webhooks (non-blocking by default)
+			contractEvt := hooks.HookEvent{
+				Type:       hooks.EventContractValidated,
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				Workspace:  workspacePath,
 			}
+			if e.hookRunner != nil {
+				e.hookRunner.RunHooks(ctx, contractEvt)
+			}
+			e.fireWebhooks(ctx, contractEvt)
 		}
 	}
 	if step.Handover.Contract.Type == "" && e.logger != nil {

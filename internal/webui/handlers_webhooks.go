@@ -150,7 +150,7 @@ func (s *Server) handleAPICreateWebhook(w http.ResponseWriter, r *http.Request) 
 		UpdatedAt: time.Now(),
 	}
 
-	id, err := s.store.CreateWebhook(webhook)
+	id, err := s.rwStore.CreateWebhook(webhook)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to create webhook: %s", err), http.StatusInternalServerError)
 		return
@@ -241,7 +241,7 @@ func (s *Server) handleAPIUpdateWebhook(w http.ResponseWriter, r *http.Request) 
 	}
 	existing.UpdatedAt = time.Now()
 
-	if err := s.store.UpdateWebhook(existing); err != nil {
+	if err := s.rwStore.UpdateWebhook(existing); err != nil {
 		http.Error(w, fmt.Sprintf("failed to update webhook: %s", err), http.StatusInternalServerError)
 		return
 	}
@@ -258,7 +258,7 @@ func (s *Server) handleAPIDeleteWebhook(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := s.store.DeleteWebhook(id); err != nil {
+	if err := s.rwStore.DeleteWebhook(id); err != nil {
 		http.Error(w, fmt.Sprintf("failed to delete webhook: %s", err), http.StatusInternalServerError)
 		return
 	}
