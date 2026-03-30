@@ -4657,8 +4657,10 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 func (e *DefaultPipelineExecutor) executeIterateInDAG(ctx context.Context, execution *PipelineExecution, step *Step) error {
 	pipelineID := execution.Status.ID
 
-	// Resolve the items array — may contain template expressions
+	// Resolve the items array — may contain step output references like
+	// {{ fetch-children.output.child_urls }} or pipeline context vars.
 	itemsExpr := step.Iterate.Over
+	itemsExpr = e.resolveStepOutputRef(itemsExpr, execution)
 	if execution.Context != nil {
 		itemsExpr = execution.Context.ResolvePlaceholders(itemsExpr)
 	}
@@ -4855,8 +4857,9 @@ func (e *DefaultPipelineExecutor) executeAggregateInDAG(ctx context.Context, exe
 func (e *DefaultPipelineExecutor) executeBranchInDAG(ctx context.Context, execution *PipelineExecution, step *Step) error {
 	pipelineID := execution.Status.ID
 
-	// Resolve the branch condition
+	// Resolve the branch condition — may reference step outputs
 	value := step.Branch.On
+	value = e.resolveStepOutputRef(value, execution)
 	if execution.Context != nil {
 		value = execution.Context.ResolvePlaceholders(value)
 	}
@@ -5198,5 +5201,56 @@ func (a *webhookStoreAdapter) RecordWebhookDeliveryResult(d *hooks.WebhookDelive
 		StatusCode:     d.StatusCode,
 		ResponseTimeMs: d.ResponseTimeMs,
 		Error:          d.Error,
+	})
+}
+
+// resolveStepOutputRef resolves {{ stepID.output }} and {{ stepID.output.field }}
+// references in a template string by reading the step's artifact file from disk.
+// This bridges composition steps (which use TemplateContext-style references) with
+// the DAG executor (which stores artifacts in execution.ArtifactPaths).
+func (e *DefaultPipelineExecutor) resolveStepOutputRef(tmpl string, execution *PipelineExecution) string {
+	return templatePattern.ReplaceAllStringFunc(tmpl, func(match string) string {
+		expr := strings.TrimSpace(match[2 : len(match)-2])
+
+		// Must be stepID.output or stepID.output.field
+		parts := strings.SplitN(expr, ".", 3)
+		if len(parts) < 2 || parts[1] != "output" {
+			return match // not a step output ref
+		}
+
+		stepID := parts[0]
+
+		// Find the artifact file for this step
+		execution.mu.Lock()
+		var artPath string
+		for key, path := range execution.ArtifactPaths {
+			if strings.HasPrefix(key, stepID+":") {
+				artPath = path
+				break
+			}
+		}
+		execution.mu.Unlock()
+
+		if artPath == "" {
+			return match // no artifact found
+		}
+
+		data, err := os.ReadFile(artPath)
+		if err != nil {
+			return match
+		}
+
+		if len(parts) == 2 {
+			// {{ stepID.output }} → full file content
+			return string(data)
+		}
+
+		// {{ stepID.output.field }} → extract JSON field
+		field := parts[2]
+		val, err := ExtractJSONPath(data, "."+field)
+		if err != nil {
+			return match
+		}
+		return val
 	})
 }
