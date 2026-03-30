@@ -1727,7 +1727,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					Error:      lastErr.Error(),
 				}
 				if e.hookRunner != nil {
-					e.hookRunner.RunHooks(ctx, stepFailedEvt)
+					e.hookRunner.RunHooks(ctx, stepFailedEvt) //nolint:errcheck // non-blocking hook
 				}
 				e.fireWebhooks(ctx, stepFailedEvt)
 				e.recordOntologyUsage(execution, step, "failed")
@@ -2812,7 +2812,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 				Workspace:  workspacePath,
 			}
 			if e.hookRunner != nil {
-				e.hookRunner.RunHooks(ctx, contractEvt)
+				e.hookRunner.RunHooks(ctx, contractEvt) //nolint:errcheck // non-blocking hook
 			}
 			e.fireWebhooks(ctx, contractEvt)
 		}
