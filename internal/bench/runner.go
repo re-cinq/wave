@@ -30,16 +30,9 @@ type RunConfig struct {
 	Limit int
 	// DatasetPath is the path to the JSONL dataset file.
 	DatasetPath string
-	// WaveBinary is the path to the wave binary. Defaults to "wave".
-	WaveBinary string
-	// ClaudeBinary is the path to the claude binary. Defaults to "claude".
-	ClaudeBinary string
 	// WorkDir is the root directory for benchmark workspaces.
 	// Defaults to ".wave/bench".
 	WorkDir string
-	// CacheDir is the root directory for bare-clone repo cache.
-	// Defaults to ".wave/bench/repos".
-	CacheDir string
 	// Timeout per task. Zero means no timeout.
 	TaskTimeout time.Duration
 	// KeepWorkspaces preserves task worktrees after completion.
@@ -165,10 +158,7 @@ func (s *SubprocessRunner) RunTask(ctx context.Context, task BenchTask, cfg RunC
 // runWavePipeline invokes `wave run <pipeline> --quiet -- <problem>`.
 // It first ensures the worktree has a wave project via `wave init`.
 func (s *SubprocessRunner) runWavePipeline(ctx context.Context, task BenchTask, cfg RunConfig, dir string) error {
-	waveBin := cfg.WaveBinary
-	if waveBin == "" {
-		waveBin = "wave"
-	}
+	waveBin := "wave"
 
 	// Initialize a wave project in the worktree so the manifest and
 	// pipeline definitions are available.
@@ -190,10 +180,7 @@ func (s *SubprocessRunner) runWavePipeline(ctx context.Context, task BenchTask, 
 
 // runClaudeDirect invokes `claude -p` with the problem statement directly.
 func (s *SubprocessRunner) runClaudeDirect(ctx context.Context, task BenchTask, cfg RunConfig, dir string) error {
-	claudeBin := cfg.ClaudeBinary
-	if claudeBin == "" {
-		claudeBin = "claude"
-	}
+	claudeBin := "claude"
 
 	args := []string{
 		"-p",
