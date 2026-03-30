@@ -153,10 +153,13 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 		}
 	}
 
-	// Generate a new runtime ID for this resumed execution.
-	// Prefer CreateRun() so resumed runs appear in the dashboard.
-	hashLength := m.Runtime.PipelineIDHashLength
-	pipelineID := r.executor.createRunID(pipelineName, hashLength, input)
+	// Reuse the executor's pre-assigned run ID when available (set via WithRunID, which
+	// the CLI always does). This avoids creating a second DB record for the same logical
+	// resume operation. Only fall back to creating a new ID when running without a store.
+	pipelineID := r.executor.runID
+	if pipelineID == "" {
+		pipelineID = r.executor.createRunID(pipelineName, m.Runtime.PipelineIDHashLength, input)
+	}
 
 	// Create new execution with preserved artifacts, state, and failure context
 	attemptContexts := make(map[string]*AttemptContext)
