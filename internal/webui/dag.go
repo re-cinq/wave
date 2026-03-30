@@ -269,6 +269,24 @@ type DAGEdgeInput struct {
 	Condition string
 }
 
+// stripExcludedDeps removes dependency references to excluded step IDs from
+// the given DAGStepInput slice. This prevents broken edges after filtering
+// out rework-only steps.
+func stripExcludedDeps(steps []DAGStepInput, excluded map[string]bool) {
+	if len(excluded) == 0 {
+		return
+	}
+	for i := range steps {
+		var filtered []string
+		for _, dep := range steps[i].Dependencies {
+			if !excluded[dep] {
+				filtered = append(filtered, dep)
+			}
+		}
+		steps[i].Dependencies = filtered
+	}
+}
+
 // assignLayers uses Kahn's algorithm to assign nodes to layers.
 func assignLayers(steps []DAGStepInput, adj map[string][]string, inDeg map[string]int) [][]string {
 	// Copy in-degree map
