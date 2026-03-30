@@ -1112,11 +1112,12 @@ func nestChildRuns(all []RunSummary) []RunSummary {
 // "agent review completed: verdict=pass issues=0 reviewer=navigator"
 func parseReviewCompletedMessage(msg string) (verdict string, issueCount int, reviewer string) {
 	for _, part := range strings.Fields(msg) {
-		if strings.HasPrefix(part, "verdict=") {
+		switch {
+		case strings.HasPrefix(part, "verdict="):
 			verdict = strings.TrimPrefix(part, "verdict=")
-		} else if strings.HasPrefix(part, "issues=") {
-			fmt.Sscanf(strings.TrimPrefix(part, "issues="), "%d", &issueCount)
-		} else if strings.HasPrefix(part, "reviewer=") {
+		case strings.HasPrefix(part, "issues="):
+			fmt.Sscanf(strings.TrimPrefix(part, "issues="), "%d", &issueCount) //nolint:errcheck // parsing best-effort
+		case strings.HasPrefix(part, "reviewer="):
 			reviewer = strings.TrimPrefix(part, "reviewer=")
 		}
 	}

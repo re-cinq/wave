@@ -79,10 +79,7 @@ func (v *agentReviewValidator) RunReview(cfg ContractConfig, workspacePath strin
 	}
 
 	// Assemble context from configured sources
-	contextText, err := assembleContext(cfg.Context, cfg.ArtifactPaths, workspacePath)
-	if err != nil {
-		return nil, err
-	}
+	contextText := assembleContext(cfg.Context, cfg.ArtifactPaths, workspacePath)
 
 	// Build reviewer prompt
 	prompt := buildReviewPrompt(criteria, contextText)
@@ -233,9 +230,9 @@ func parseReviewFeedback(stdout string) (*ReviewFeedback, error) {
 }
 
 // assembleContext builds the context string for the reviewer from configured sources.
-func assembleContext(sources []ReviewContextSource, artifactPaths map[string]string, workspacePath string) (string, error) {
+func assembleContext(sources []ReviewContextSource, artifactPaths map[string]string, workspacePath string) string {
 	if len(sources) == 0 {
-		return "", nil
+		return ""
 	}
 
 	var b strings.Builder
@@ -266,7 +263,7 @@ func assembleContext(sources []ReviewContextSource, artifactPaths map[string]str
 			// Unknown source type — skip
 		}
 	}
-	return b.String(), nil
+	return b.String()
 }
 
 // fetchGitDiff runs `git diff HEAD` in the workspace directory.
