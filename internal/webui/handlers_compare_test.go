@@ -91,8 +91,42 @@ func TestHandleComparePage_MissingParams(t *testing.T) {
 	req := httptest.NewRequest("GET", "/compare", nil)
 	rec := httptest.NewRecorder()
 	srv.handleComparePage(rec, req)
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400, got %d", rec.Code)
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if !contains(body, "<select") {
+		t.Error("expected body to contain <select> elements for run selector")
+	}
+	if !contains(body, "compare-left-select") {
+		t.Error("expected body to contain left select element")
+	}
+	if !contains(body, "compare-right-select") {
+		t.Error("expected body to contain right select element")
+	}
+	if !contains(body, "<nav") {
+		t.Error("expected body to contain navbar (layout template)")
+	}
+}
+
+func TestHandleComparePage_RunNotFound(t *testing.T) {
+	srv, _ := testServer(t)
+
+	req := httptest.NewRequest("GET", "/compare?left=nonexistent&right=also-nonexistent", nil)
+	rec := httptest.NewRecorder()
+	srv.handleComparePage(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if !contains(body, "not found") {
+		t.Error("expected body to contain error message about run not found")
+	}
+	if !contains(body, "<nav") {
+		t.Error("expected body to contain navbar (layout template)")
+	}
+	if !contains(body, "<select") {
+		t.Error("expected body to contain selector form for retry")
 	}
 }
 
