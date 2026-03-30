@@ -33,11 +33,18 @@ func (s *Server) handleRetrosPage(w http.ResponseWriter, r *http.Request) {
 	// Reverse for chronological display (oldest first on the left)
 	trendEntries := make([]RetroTrendEntry, len(chartRecords))
 	for i, rec := range chartRecords {
+		smoothness := rec.Smoothness
+		if smoothness == "" {
+			// Derive smoothness from quantitative data when narrative hasn't been generated
+			if fullRetro, err := storage.Load(rec.RunID); err == nil && fullRetro.Quantitative != nil {
+				smoothness = deriveSmoothness(fullRetro.Quantitative)
+			}
+		}
 		trendEntries[len(chartRecords)-1-i] = RetroTrendEntry{
 			RunID:      rec.RunID,
 			Pipeline:   rec.PipelineName,
-			Smoothness: rec.Smoothness,
-			HeightPct:  smoothnessToHeight(rec.Smoothness),
+			Smoothness: smoothness,
+			HeightPct:  smoothnessToHeight(smoothness),
 			CreatedAt:  rec.CreatedAt.Format("Jan 2 15:04"),
 		}
 	}
@@ -54,26 +61,31 @@ func (s *Server) handleRetrosPage(w http.ResponseWriter, r *http.Request) {
 			pipelineStats[rec.PipelineName] = agg
 		}
 		agg.total++
-		if rec.Smoothness == "effortless" || rec.Smoothness == "smooth" {
-			agg.successes++
-		}
 
-		// Load full retro for friction point aggregation (only complete ones)
-		if rec.Status != "complete" {
-			continue
-		}
+		// Load full retro for duration aggregation and friction points
 		fullRetro, loadErr := storage.Load(rec.RunID)
 		if loadErr != nil {
 			continue
 		}
-		if fullRetro.Narrative == nil {
-			continue
+
+		// Determine smoothness: use narrative if available, otherwise derive from quantitative
+		smoothness := rec.Smoothness
+		if smoothness == "" && fullRetro.Quantitative != nil {
+			smoothness = deriveSmoothness(fullRetro.Quantitative)
+		}
+		if smoothness == "effortless" || smoothness == "smooth" {
+			agg.successes++
 		}
 
-		// Aggregate duration
+		// Aggregate duration from quantitative data
 		if fullRetro.Quantitative != nil {
 			agg.totalDurationMs += fullRetro.Quantitative.TotalDurationMs
 			agg.durationCount++
+		}
+
+		// Aggregate friction points from narrative (only complete retros)
+		if fullRetro.Narrative == nil {
+			continue
 		}
 
 		for _, fp := range fullRetro.Narrative.FrictionPoints {
@@ -190,6 +202,29 @@ func smoothnessLabel(s string) string {
 		return "Failed"
 	default:
 		return s
+	}
+}
+
+// deriveSmoothness infers a smoothness rating from quantitative metrics
+// when the narrative phase hasn't been run.
+func deriveSmoothness(q *retro.QuantitativeData) string {
+	if q.TotalSteps == 0 {
+		return "bumpy"
+	}
+	failRatio := float64(q.FailureCount) / float64(q.TotalSteps)
+	retryRatio := float64(q.TotalRetries) / float64(q.TotalSteps)
+
+	switch {
+	case q.FailureCount == 0 && q.TotalRetries == 0:
+		return "effortless"
+	case failRatio == 0 && retryRatio <= 0.5:
+		return "smooth"
+	case failRatio < 0.25:
+		return "bumpy"
+	case failRatio < 0.5:
+		return "struggled"
+	default:
+		return "failed"
 	}
 }
 
