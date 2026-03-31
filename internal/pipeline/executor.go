@@ -2255,7 +2255,7 @@ func (e *DefaultPipelineExecutor) validateStepContracts(
 		Workspace:  workspacePath,
 	}
 	if e.hookRunner != nil {
-		e.hookRunner.RunHooks(ctx, contractEvt) //nolint:errcheck // non-blocking hook
+		e.hookRunner.RunHooks(ctx, contractEvt)
 	}
 	e.fireWebhooks(ctx, contractEvt)
 	return nil
@@ -2342,7 +2342,8 @@ func (e *DefaultPipelineExecutor) runSingleContract(
 		})
 
 		feedback, err := contract.ValidateWithRunner(contractCfg, workspacePath, stepRunner, execution.Manifest)
-		if err != nil {
+		switch {
+		case err != nil:
 			valErr = err
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
@@ -2351,7 +2352,7 @@ func (e *DefaultPipelineExecutor) runSingleContract(
 				State:      "review_failed",
 				Message:    fmt.Sprintf("agent review failed: %s", err.Error()),
 			})
-		} else if feedback != nil && feedback.Verdict == "fail" {
+		case feedback != nil && feedback.Verdict == "fail":
 			valErr = fmt.Errorf("agent review verdict: fail — %s", feedback.Summary)
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
@@ -2360,7 +2361,7 @@ func (e *DefaultPipelineExecutor) runSingleContract(
 				State:      "review_failed",
 				Message:    fmt.Sprintf("agent review failed: verdict=%s issues=%d", feedback.Verdict, len(feedback.Issues)),
 			})
-		} else {
+		default:
 			verdict := "pass"
 			issueCount := 0
 			if feedback != nil {
