@@ -77,7 +77,7 @@ personas:
     auditor:
         adapter: claude
         description: Security review and quality assurance
-        model: opus
+        model: sonnet
         #temperature: 0.1
         permissions:
             allowed_tools:
@@ -90,7 +90,7 @@ personas:
     craftsman:
         adapter: claude
         description: Code implementation and testing
-        model: opus
+        model: sonnet
         #temperature: 0.3
         permissions:
             allowed_tools:
@@ -103,7 +103,7 @@ personas:
     debugger:
         adapter: claude
         description: Systematic issue diagnosis and root cause analysis
-        model: opus
+        model: sonnet
         #temperature: 0.2
         permissions:
             allowed_tools:
@@ -119,7 +119,7 @@ personas:
     navigator:
         adapter: claude
         description: Read-only codebase exploration and analysis
-        model: opus
+        model: sonnet
         #temperature: 0.3
         permissions:
             allowed_tools:
@@ -133,7 +133,7 @@ personas:
     philosopher:
         adapter: claude
         description: Architecture design and specification
-        model: opus
+        model: sonnet
         #temperature: 0.7
         permissions:
             allowed_tools:
@@ -148,7 +148,7 @@ personas:
     planner:
         adapter: claude
         description: Task breakdown and project planning
-        model: opus
+        model: sonnet
         #temperature: 0.3
         permissions:
             allowed_tools:
@@ -163,7 +163,7 @@ personas:
     summarizer:
         adapter: claude
         description: Context compaction for relay handoffs
-        model: opus
+        model: sonnet
         #temperature: 0.2
         permissions:
             allowed_tools:
@@ -178,7 +178,7 @@ personas:
     github-analyst:
         adapter: claude
         description: GitHub issue analysis and quality assessment
-        model: opus
+        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:read
@@ -202,7 +202,7 @@ personas:
     github-enhancer:
         adapter: claude
         description: GitHub issue enhancement and improvement
-        model: opus
+        model: sonnet
         #temperature: 0.5
         token_scopes:
             - issues:write
@@ -219,7 +219,7 @@ personas:
     github-scoper:
         adapter: claude
         description: GitHub epic decomposition into child issues
-        model: opus
+        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:write
@@ -236,7 +236,7 @@ personas:
     implementer:
         adapter: claude
         description: Code execution and artifact generation for pipeline steps
-        model: opus
+        model: sonnet
         #temperature: 0.3
         permissions:
             allowed_tools:
@@ -251,7 +251,7 @@ personas:
     reviewer:
         adapter: claude
         description: Quality review, validation, and assessment
-        model: opus
+        model: sonnet
         #temperature: 0.3
         permissions:
             allowed_tools:
@@ -267,7 +267,7 @@ personas:
     researcher:
         adapter: claude
         description: Web research and information synthesis
-        model: opus
+        model: sonnet
         #temperature: 0.5
         permissions:
             allowed_tools:
@@ -284,7 +284,7 @@ personas:
     github-commenter:
         adapter: claude
         description: Post comments on GitHub issues and pull requests, create PRs
-        model: opus
+        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:write
@@ -308,7 +308,7 @@ personas:
     gitlab-analyst:
         adapter: claude
         description: GitLab issue analysis and quality assessment
-        model: opus
+        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:read
@@ -332,7 +332,7 @@ personas:
     gitlab-enhancer:
         adapter: claude
         description: GitLab issue enhancement and improvement
-        model: opus
+        model: sonnet
         #temperature: 0.5
         token_scopes:
             - issues:write
@@ -349,7 +349,7 @@ personas:
     gitlab-scoper:
         adapter: claude
         description: GitLab epic decomposition into child issues
-        model: opus
+        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:write
@@ -366,7 +366,7 @@ personas:
     gitlab-commenter:
         adapter: claude
         description: Post comments on GitLab issues and merge requests
-        model: opus
+        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:write
@@ -388,7 +388,7 @@ personas:
     gitea-analyst:
         adapter: claude
         description: Gitea issue analysis and quality assessment
-        model: opus
+        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:read
@@ -412,7 +412,7 @@ personas:
     gitea-enhancer:
         adapter: claude
         description: Gitea issue enhancement and improvement
-        model: opus
+        model: sonnet
         #temperature: 0.5
         token_scopes:
             - issues:write
@@ -429,7 +429,7 @@ personas:
     gitea-scoper:
         adapter: claude
         description: Gitea epic decomposition into child issues
-        model: opus
+        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:write
@@ -446,7 +446,7 @@ personas:
     gitea-commenter:
         adapter: claude
         description: Post comments on Gitea issues and pull requests
-        model: opus
+        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:write
@@ -539,7 +539,7 @@ personas:
     supervisor:
         adapter: claude
         description: Work quality and process quality evaluation
-        model: opus
+        model: sonnet
         #temperature: 0.2
         permissions:
             allowed_tools:
@@ -557,7 +557,7 @@ personas:
     validator:
         adapter: claude
         description: Skeptical analysis and verification of findings against source code
-        model: opus
+        model: sonnet
         #temperature: 0.1
         permissions:
             allowed_tools:
@@ -572,7 +572,7 @@ personas:
     synthesizer:
         adapter: claude
         description: Structured synthesis of analysis findings into actionable JSON proposals
-        model: opus
+        model: sonnet
         #temperature: 0.2
         permissions:
             allowed_tools:
@@ -587,7 +587,7 @@ personas:
     provocateur:
         adapter: claude
         description: Creative challenger for divergent thinking and complexity hunting
-        model: opus
+        model: sonnet
         #temperature: 0.8
         permissions:
             allowed_tools:
