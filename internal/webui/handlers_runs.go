@@ -1116,7 +1116,7 @@ func parseReviewCompletedMessage(msg string) (verdict string, issueCount int, re
 		case strings.HasPrefix(part, "verdict="):
 			verdict = strings.TrimPrefix(part, "verdict=")
 		case strings.HasPrefix(part, "issues="):
-			fmt.Sscanf(strings.TrimPrefix(part, "issues="), "%d", &issueCount) //nolint:errcheck // parsing best-effort
+			fmt.Sscanf(strings.TrimPrefix(part, "issues="), "%d", &issueCount)
 		case strings.HasPrefix(part, "reviewer="):
 			reviewer = strings.TrimPrefix(part, "reviewer=")
 		}
