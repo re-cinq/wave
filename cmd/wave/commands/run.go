@@ -1092,7 +1092,7 @@ func (d *dbLoggingEmitter) Emit(ev event.Event) {
 	if runID == "" {
 		runID = d.runID
 	}
-	d.store.LogEvent(runID, ev.StepID, ev.State, ev.Persona, msg, ev.TokensUsed, ev.DurationMs)
+	d.store.LogEvent(runID, ev.StepID, ev.State, ev.Persona, msg, ev.TokensUsed, ev.DurationMs, ev.Model, ev.Adapter)
 }
 
 // relayCompactionAdapter bridges adapter.AdapterRunner to relay.CompactionAdapter.
