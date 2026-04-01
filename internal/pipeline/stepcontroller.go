@@ -52,11 +52,11 @@ func (c *DefaultStepController) ContinueStep(ctx context.Context, chatCtx *ChatC
 		return fmt.Errorf("step %q has no preserved workspace — cannot continue", stepID)
 	}
 
-	// Write continue instructions to CLAUDE.md in workspace
 	instructions := buildContinueInstructions(chatCtx, step)
-	claudeMdPath := filepath.Join(step.WorkspacePath, "CLAUDE.md")
-	if err := os.WriteFile(claudeMdPath, []byte(instructions), 0644); err != nil {
-		return fmt.Errorf("failed to write CLAUDE.md: %w", err)
+	instructionFile := adapter.InstructionFilename(step.Adapter)
+	mdPath := filepath.Join(step.WorkspacePath, instructionFile)
+	if err := os.WriteFile(mdPath, []byte(instructions), 0644); err != nil {
+		return fmt.Errorf("failed to write %s: %w", instructionFile, err)
 	}
 
 	// Launch interactive session with write permissions
@@ -81,11 +81,11 @@ func (c *DefaultStepController) ExtendStep(ctx context.Context, chatCtx *ChatCon
 		return fmt.Errorf("extend instructions cannot be empty")
 	}
 
-	// Write extend instructions to CLAUDE.md in workspace
 	extendMd := buildExtendInstructions(chatCtx, step, instructions)
-	claudeMdPath := filepath.Join(step.WorkspacePath, "CLAUDE.md")
-	if err := os.WriteFile(claudeMdPath, []byte(extendMd), 0644); err != nil {
-		return fmt.Errorf("failed to write CLAUDE.md: %w", err)
+	instructionFile := adapter.InstructionFilename(step.Adapter)
+	mdPath := filepath.Join(step.WorkspacePath, instructionFile)
+	if err := os.WriteFile(mdPath, []byte(extendMd), 0644); err != nil {
+		return fmt.Errorf("failed to write %s: %w", instructionFile, err)
 	}
 
 	// Launch interactive session with write permissions
@@ -214,11 +214,11 @@ func (c *DefaultStepController) RewriteStep(ctx context.Context, chatCtx *ChatCo
 		return fmt.Errorf("failed to inject upstream artifacts: %w", err)
 	}
 
-	// Write rewrite instructions to CLAUDE.md
 	rewriteMd := buildRewriteInstructions(chatCtx, step, newPrompt)
-	claudeMdPath := filepath.Join(wsPath, "CLAUDE.md")
-	if err := os.WriteFile(claudeMdPath, []byte(rewriteMd), 0644); err != nil {
-		return fmt.Errorf("failed to write CLAUDE.md: %w", err)
+	instructionFile := adapter.InstructionFilename(step.Adapter)
+	mdPath := filepath.Join(wsPath, instructionFile)
+	if err := os.WriteFile(mdPath, []byte(rewriteMd), 0644); err != nil {
+		return fmt.Errorf("failed to write %s: %w", instructionFile, err)
 	}
 
 	// Log the rewrite event
