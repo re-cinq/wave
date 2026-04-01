@@ -10,6 +10,42 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// getDefaultTierModels returns the default tier model mappings for a given adapter.
+func getDefaultTierModels(adapter string) map[string]string {
+	switch adapter {
+	case "claude":
+		return map[string]string{
+			"cheapest":  "haiku",
+			"fastest":   "",
+			"strongest": "opus",
+		}
+	case "opencode":
+		return map[string]string{
+			"cheapest":  "opencode/big-pickle",
+			"fastest":   "opencode/big-pickle",
+			"strongest": "opencode/big-pickle",
+		}
+	case "gemini":
+		return map[string]string{
+			"cheapest":  "gemini-2.5-flash-lite",
+			"fastest":   "gemini-2.5-flash-lite",
+			"strongest": "gemini-2.0-pro",
+		}
+	case "codex":
+		return map[string]string{
+			"cheapest":  "gpt-4o-mini",
+			"fastest":   "gpt-4o",
+			"strongest": "o3",
+		}
+	default:
+		return map[string]string{
+			"cheapest":  "",
+			"fastest":   "",
+			"strongest": "",
+		}
+	}
+}
+
 // WizardConfig holds configuration for the onboarding wizard.
 type WizardConfig struct {
 	WaveDir        string                      // Path to .wave directory
@@ -275,6 +311,9 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 		adapter = "claude"
 	}
 
+	// Build tier_models based on adapter type
+	tierModels := getDefaultTierModels(adapter)
+
 	m := map[string]interface{}{
 		"apiVersion": "v1",
 		"kind":       "WaveManifest",
@@ -288,6 +327,7 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 				"mode":          "headless",
 				"output_format": "json",
 				"project_files": []string{"AGENTS.md", ".claude/settings.json"},
+				"tier_models":   tierModels,
 				"default_permissions": map[string]interface{}{
 					"allowed_tools": []string{"Read", "Write", "Edit", "Bash"},
 					"deny":          []string{},
