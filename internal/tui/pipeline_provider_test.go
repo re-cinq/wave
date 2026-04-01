@@ -40,7 +40,7 @@ func (b baseStateStore) ListRuns(state.ListRunsOptions) ([]state.RunRecord, erro
 	return nil, nil
 }
 func (b baseStateStore) DeleteRun(string) error { return nil }
-func (b baseStateStore) LogEvent(string, string, string, string, string, int, int64) error {
+func (b baseStateStore) LogEvent(string, string, string, string, string, int, int64, string, string) error {
 	return nil
 }
 func (b baseStateStore) GetEvents(string, state.EventQueryOptions) ([]state.LogRecord, error) {
@@ -97,7 +97,7 @@ func (b baseStateStore) SaveArtifactMetadata(int64, string, string, string, stri
 func (b baseStateStore) GetArtifactMetadata(int64) (*state.ArtifactMetadataRecord, error) {
 	return nil, nil
 }
-func (b baseStateStore) SetRunTags(string, []string) error { return nil }
+func (b baseStateStore) SetRunTags(string, []string) error   { return nil }
 func (b baseStateStore) GetRunTags(string) ([]string, error) { return nil, nil }
 func (b baseStateStore) AddRunTag(string, string) error      { return nil }
 func (b baseStateStore) RemoveRunTag(string, string) error   { return nil }
@@ -120,9 +120,9 @@ func (b baseStateStore) GetOntologyStats(string) (*state.OntologyStats, error) {
 	return &state.OntologyStats{}, nil
 }
 func (b baseStateStore) GetOntologyStatsAll() ([]state.OntologyStats, error) { return nil, nil }
-func (b baseStateStore) SaveStepVisitCount(string, string, int) error       { return nil }
-func (b baseStateStore) GetStepVisitCount(string, string) (int, error)      { return 0, nil }
-func (b baseStateStore) SaveCheckpoint(*state.CheckpointRecord) error       { return nil }
+func (b baseStateStore) SaveStepVisitCount(string, string, int) error        { return nil }
+func (b baseStateStore) GetStepVisitCount(string, string) (int, error)       { return 0, nil }
+func (b baseStateStore) SaveCheckpoint(*state.CheckpointRecord) error        { return nil }
 func (b baseStateStore) GetCheckpoint(string, string) (*state.CheckpointRecord, error) {
 	return nil, nil
 }
@@ -131,8 +131,8 @@ func (b baseStateStore) GetCheckpoints(string) ([]state.CheckpointRecord, error)
 func (b baseStateStore) CreateRunWithFork(string, string, string) (string, error) {
 	return "", nil
 }
-func (b baseStateStore) SetParentRun(string, string, string) error           { return nil }
-func (b baseStateStore) GetChildRuns(string) ([]state.RunRecord, error)      { return nil, nil }
+func (b baseStateStore) SetParentRun(string, string, string) error          { return nil }
+func (b baseStateStore) GetChildRuns(string) ([]state.RunRecord, error)     { return nil, nil }
 func (b baseStateStore) SaveRetrospective(*state.RetrospectiveRecord) error { return nil }
 func (b baseStateStore) GetRetrospective(string) (*state.RetrospectiveRecord, error) {
 	return nil, nil
@@ -140,23 +140,23 @@ func (b baseStateStore) GetRetrospective(string) (*state.RetrospectiveRecord, er
 func (b baseStateStore) ListRetrospectives(state.ListRetrosOptions) ([]state.RetrospectiveRecord, error) {
 	return nil, nil
 }
-func (b baseStateStore) DeleteRetrospective(string) error                      { return nil }
-func (b baseStateStore) UpdateRetrospectiveSmoothness(string, string) error    { return nil }
-func (b baseStateStore) UpdateRetrospectiveStatus(string, string) error        { return nil }
-func (b baseStateStore) RecordDecision(*state.DecisionRecord) error            { return nil }
-func (b baseStateStore) GetDecisions(string) ([]*state.DecisionRecord, error)  { return nil, nil }
+func (b baseStateStore) DeleteRetrospective(string) error                     { return nil }
+func (b baseStateStore) UpdateRetrospectiveSmoothness(string, string) error   { return nil }
+func (b baseStateStore) UpdateRetrospectiveStatus(string, string) error       { return nil }
+func (b baseStateStore) RecordDecision(*state.DecisionRecord) error           { return nil }
+func (b baseStateStore) GetDecisions(string) ([]*state.DecisionRecord, error) { return nil, nil }
 func (b baseStateStore) GetDecisionsByStep(string, string) ([]*state.DecisionRecord, error) {
 	return nil, nil
 }
 func (b baseStateStore) GetAuditEvents([]string, int, int) ([]state.LogRecord, error) {
 	return nil, nil
 }
-func (b baseStateStore) CreateWebhook(*state.Webhook) (int64, error) { return 0, nil }
-func (b baseStateStore) ListWebhooks() ([]*state.Webhook, error)              { return nil, nil }
-func (b baseStateStore) GetWebhook(int64) (*state.Webhook, error)             { return nil, nil }
-func (b baseStateStore) UpdateWebhook(*state.Webhook) error                   { return nil }
-func (b baseStateStore) DeleteWebhook(int64) error                            { return nil }
-func (b baseStateStore) RecordWebhookDelivery(*state.WebhookDelivery) error   { return nil }
+func (b baseStateStore) CreateWebhook(*state.Webhook) (int64, error)        { return 0, nil }
+func (b baseStateStore) ListWebhooks() ([]*state.Webhook, error)            { return nil, nil }
+func (b baseStateStore) GetWebhook(int64) (*state.Webhook, error)           { return nil, nil }
+func (b baseStateStore) UpdateWebhook(*state.Webhook) error                 { return nil }
+func (b baseStateStore) DeleteWebhook(int64) error                          { return nil }
+func (b baseStateStore) RecordWebhookDelivery(*state.WebhookDelivery) error { return nil }
 func (b baseStateStore) GetWebhookDeliveries(int64, int) ([]*state.WebhookDelivery, error) {
 	return nil, nil
 }
@@ -269,8 +269,8 @@ func TestDefaultPipelineDataProvider_FetchRunningPipelines_FiltersStale(t *testi
 	// Runs without a PID that are older than staleRunCutoff should be filtered out.
 	mock := &mockStateStore{
 		runningRuns: []state.RunRecord{
-			{RunID: "fresh", StartedAt: recentTimeAt(5)},                                          // 5 min ago — kept
-			{RunID: "stale", StartedAt: time.Now().Add(-(staleRunCutoff + 10*time.Minute))},       // well past cutoff — filtered
+			{RunID: "fresh", StartedAt: recentTimeAt(5)},                                    // 5 min ago — kept
+			{RunID: "stale", StartedAt: time.Now().Add(-(staleRunCutoff + 10*time.Minute))}, // well past cutoff — filtered
 		},
 	}
 
