@@ -139,3 +139,13 @@ button:focus-visible {
     display: none !important;
   }
 }
+
+/* Landing page centering */
+.spectrum-heading,
+.spectrum-lead,
+.compat-heading,
+.compat-lead {
+  text-align: center !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
