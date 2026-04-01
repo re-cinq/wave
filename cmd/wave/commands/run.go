@@ -70,12 +70,17 @@ Supports dry-run mode, step resumption, custom timeouts, model override,
 and detached execution (--detach) for background runs that survive shell exit.
 
 The --model flag overrides the adapter model for all steps in the run,
-including any per-persona model pinning in wave.yaml.`,
+including any per-persona model pinning in wave.yaml.
+
+The --adapter flag selects the LLM backend (claude, opencode, gemini, codex).
+Model formats vary by adapter: claude uses "haiku"/"opus", opencode uses
+"provider/model", gemini uses "gemini-2.0-pro", codex uses "gpt-4o".`,
 		Example: `  wave run ops-pr-review "Review the authentication changes"
   wave run --pipeline impl-speckit --input "add user auth"
   wave run impl-hotfix --dry-run
   wave run migrate --from-step validate
   wave run my-pipeline --model haiku
+  wave run my-pipeline --adapter opencode --model openai/gpt-4o
   wave run my-pipeline --preserve-workspace
   wave run --steps clarify,plan impl-speckit
   wave run -x implement,create-pr impl-speckit
@@ -1091,7 +1096,7 @@ func (d *dbLoggingEmitter) Emit(ev event.Event) {
 }
 
 // relayCompactionAdapter bridges adapter.AdapterRunner to relay.CompactionAdapter.
-// It runs the summarizer as a Claude subprocess to compact conversation history.
+// It runs the summarizer via the adapter registry to compact conversation history.
 type relayCompactionAdapter struct {
 	registry *adapter.AdapterRegistry
 	manifest *manifest.Manifest
@@ -1103,11 +1108,20 @@ func (a *relayCompactionAdapter) RunCompaction(ctx context.Context, cfg relay.Co
 		prompt = fmt.Sprintf("%s\n\n---\n\nConversation history to summarize:\n%s", cfg.CompactPrompt, cfg.ChatHistory)
 	}
 
-	adapterName := "claude"
+	adapterName := ""
 	if a.manifest != nil {
-		if p := a.manifest.GetPersona("summarizer"); p != nil && p.Adapter != "" {
+		if p := a.manifest.GetPersona("summarizer"); p != nil {
 			adapterName = p.Adapter
 		}
+		if adapterName == "" {
+			for name := range a.manifest.Adapters {
+				adapterName = name
+				break
+			}
+		}
+	}
+	if adapterName == "" {
+		adapterName = "claude"
 	}
 
 	compactionRunner := a.registry.Resolve(adapterName)

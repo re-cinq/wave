@@ -241,3 +241,5 @@ This ADR has been implemented. Key details:
 - **Step-level `adapter:`** in pipeline YAML — per-step override in the pipeline manifest.
 - **Supported adapters**: claude, opencode, gemini, codex.
 - **Fallback chains**: infrastructure in place via `FallbackRunner`, triggered on provider-level failures (rate limiting, timeout, context exhaustion) but not on contract or validation failures.
+- **Tier Models**: Each adapter can define `tier_models` mapping (`cheapest`, `fastest`, `strongest`) for automatic model selection based on step complexity.
+- **Complexity Classification**: Steps are classified into tiers based on persona keywords and step type. `cheapest` personas (navigator, summarizer, auditor, planner) use cost-optimized models. `strongest` personas (craftsman, implementer, debugger, researcher) use capability-optimized models.
