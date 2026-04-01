@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -28,11 +29,11 @@ func TestPrepareChatWorkspace(t *testing.T) {
 		},
 		Steps: []ChatStepContext{
 			{
-				StepID:      "analyze",
-				Persona:     "navigator",
-				State:       "completed",
-				Duration:    2 * time.Minute,
-				TokensUsed:  3000,
+				StepID:     "analyze",
+				Persona:    "navigator",
+				State:      "completed",
+				Duration:   2 * time.Minute,
+				TokensUsed: 3000,
 			},
 			{
 				StepID:        "implement",
@@ -61,7 +62,7 @@ func TestPrepareChatWorkspace(t *testing.T) {
 	}
 
 	// Verify CLAUDE.md exists and contains expected content
-	claudeMd, err := os.ReadFile(filepath.Join(wsPath, "CLAUDE.md"))
+	claudeMd, err := os.ReadFile(filepath.Join(wsPath, adapter.InstructionFilename("claude")))
 	if err != nil {
 		t.Fatalf("failed to read CLAUDE.md: %v", err)
 	}
@@ -207,7 +208,7 @@ func TestPrepareChatWorkspace_WithFailures(t *testing.T) {
 		t.Fatalf("PrepareChatWorkspace failed: %v", err)
 	}
 
-	claudeMd, err := os.ReadFile(filepath.Join(wsPath, "CLAUDE.md"))
+	claudeMd, err := os.ReadFile(filepath.Join(wsPath, adapter.InstructionFilename("claude")))
 	if err != nil {
 		t.Fatalf("failed to read CLAUDE.md: %v", err)
 	}
@@ -615,7 +616,7 @@ func TestPrepareChatWorkspace_StepFilter(t *testing.T) {
 		t.Fatalf("PrepareChatWorkspace failed: %v", err)
 	}
 
-	claudeMd, err := os.ReadFile(filepath.Join(wsPath, "CLAUDE.md"))
+	claudeMd, err := os.ReadFile(filepath.Join(wsPath, adapter.InstructionFilename("claude")))
 	if err != nil {
 		t.Fatalf("failed to read CLAUDE.md: %v", err)
 	}
@@ -662,7 +663,7 @@ func TestPrepareChatWorkspace_ArtifactFocus(t *testing.T) {
 		t.Fatalf("PrepareChatWorkspace failed: %v", err)
 	}
 
-	claudeMd, err := os.ReadFile(filepath.Join(wsPath, "CLAUDE.md"))
+	claudeMd, err := os.ReadFile(filepath.Join(wsPath, adapter.InstructionFilename("claude")))
 	if err != nil {
 		t.Fatalf("failed to read CLAUDE.md: %v", err)
 	}
