@@ -251,6 +251,8 @@ function createStepCard(step) {
         startTimeHtml +
         durationHtml +
         '<span class="step-persona">' + escapeHTML(step.persona || '') + '</span>' +
+        (step.model ? '<span class="badge badge-model">' + escapeHTML(step.model) + '</span>' : '') +
+        (step.adapter ? '<span class="badge badge-adapter">' + escapeHTML(step.adapter) + '</span>' : '') +
         '<button class="btn-icon" data-step-id="' + safeStepId + '" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.downloadLog(this.getAttribute(\'data-step-id\'))" title="Download log">Save</button>' +
         '<button class="btn-icon" data-step-id="' + safeStepId + '" onclick="event.stopPropagation(); if(window.logViewer) window.logViewer.copyLog(this.getAttribute(\'data-step-id\'))" title="Copy log">Copy</button>' +
         '</div>';
@@ -259,21 +261,10 @@ function createStepCard(step) {
     if (step.current_action) {
         bodyParts.push('<div class="step-action">' + escapeHTML(step.current_action) + '</div>');
     }
-    if (step.progress > 0) {
-        bodyParts.push(
-            '<div class="progress-bar">' +
-            '<div class="progress-fill" style="width: ' + step.progress + '%">' + step.progress + '%</div>' +
-            '</div>'
-        );
-    }
     var metaParts = [];
     if (step.duration) metaParts.push('<span>Duration: ' + step.duration + '</span>');
-    if (step.state === 'completed' || step.state === 'failed' || step.state === 'running') {
-        metaParts.push('<span class="token-count" data-step-id="' + safeStepId + '">Tokens: ' + formatTokens(step.tokens_used) + '</span>');
-    }
-    if (metaParts.length) {
-        bodyParts.push('<div class="step-meta">' + metaParts.join(' ') + '</div>');
-    }
+    metaParts.push('<span class="token-count" data-step-id="' + safeStepId + '">Tokens: ' + formatTokens(step.tokens_used) + '</span>');
+    bodyParts.push('<div class="step-meta">' + metaParts.join(' ') + '</div>');
     if (step.error) {
         var isLong = step.error.length > 200;
         bodyParts.push('<div class="step-error-banner' + (isLong ? ' collapsed' : '') + '" id="error-' + safeStepId + '">' + escapeHTML(step.error) + '</div>');
@@ -443,15 +434,14 @@ function updateStepCardState(stepID, newState) {
     cards.forEach(function(card) {
         var idEl = card.querySelector('.step-id');
         if (idEl && idEl.textContent === stepID) {
-            // Update card border color
-            card.className = 'step-card status-' + newState;
-            // Update badge
+            card.classList.remove('status-pending','status-running','status-completed','status-failed','status-cancelled');
+            card.classList.add('status-' + newState);
             var badge = card.querySelector('.badge');
             if (badge) {
-                badge.className = 'badge status-' + newState;
+                badge.classList.remove('status-pending','status-running','status-completed','status-failed','status-cancelled');
+                badge.classList.add('status-' + newState);
                 badge.textContent = newState;
             }
-            // Update status icon
             var icon = card.querySelector('.step-status-icon');
             if (icon) {
                 icon.className = 'step-status-icon step-status-' + newState;
