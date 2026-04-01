@@ -1,5 +1,4 @@
 description: "Execution specialist for code changes and structured output"
-model: claude-opus
 temperature: 0.3
 permissions:
   allowed_tools:

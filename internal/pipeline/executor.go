@@ -2192,6 +2192,12 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 	resolvedModel := e.resolveModel(step, persona, &execution.Manifest.Runtime.Routing, resolvedPersona)
 
+	// When no model was resolved from any tier (CLI, step, persona, auto-route),
+	// fall back to the target adapter's default_model from the manifest.
+	if resolvedModel == "" && adapterDef != nil && adapterDef.DefaultModel != "" {
+		resolvedModel = adapterDef.DefaultModel
+	}
+
 	// When the resolved adapter differs from the persona's adapter but the
 	// model was not explicitly set at the same or higher tier, the model
 	// likely belongs to a different adapter ecosystem (e.g., "sonnet" is
