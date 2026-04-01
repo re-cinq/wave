@@ -19,16 +19,16 @@ type ServiceConfig struct {
 }
 
 type Project struct {
-	Language            string                    `yaml:"language,omitempty"`
-	Flavour             string                    `yaml:"flavour,omitempty"`
-	TestCommand         string                    `yaml:"test_command,omitempty"`
-	ContractTestCommand string                    `yaml:"contract_test_command,omitempty"`
-	LintCommand         string                    `yaml:"lint_command,omitempty"`
-	BuildCommand        string                    `yaml:"build_command,omitempty"`
-	FormatCommand       string                    `yaml:"format_command,omitempty"`
-	SourceGlob          string                    `yaml:"source_glob,omitempty"`
-	Skill               string                    `yaml:"skill,omitempty"`
-	Services            map[string]ServiceConfig  `yaml:"services,omitempty"`
+	Language            string                   `yaml:"language,omitempty"`
+	Flavour             string                   `yaml:"flavour,omitempty"`
+	TestCommand         string                   `yaml:"test_command,omitempty"`
+	ContractTestCommand string                   `yaml:"contract_test_command,omitempty"`
+	LintCommand         string                   `yaml:"lint_command,omitempty"`
+	BuildCommand        string                   `yaml:"build_command,omitempty"`
+	FormatCommand       string                   `yaml:"format_command,omitempty"`
+	SourceGlob          string                   `yaml:"source_glob,omitempty"`
+	Skill               string                   `yaml:"skill,omitempty"`
+	Services            map[string]ServiceConfig `yaml:"services,omitempty"`
 }
 
 // OntologyContext defines a bounded context within the project ontology.
@@ -40,23 +40,23 @@ type OntologyContext struct {
 
 // Ontology defines the project's domain model for context-aware agent injection.
 type Ontology struct {
-	Telos       string              `yaml:"telos,omitempty"`
-	Contexts    []OntologyContext   `yaml:"contexts,omitempty"`
-	Conventions map[string]string   `yaml:"conventions,omitempty"`
+	Telos       string            `yaml:"telos,omitempty"`
+	Contexts    []OntologyContext `yaml:"contexts,omitempty"`
+	Conventions map[string]string `yaml:"conventions,omitempty"`
 }
 
 type Manifest struct {
-	APIVersion  string              `yaml:"apiVersion"`
-	Kind        string              `yaml:"kind"`
-	Metadata    Metadata            `yaml:"metadata"`
-	Project     *Project            `yaml:"project,omitempty"`
-	Ontology    *Ontology           `yaml:"ontology,omitempty"`
-	Adapters    map[string]Adapter  `yaml:"adapters,omitempty"`
-	Personas    map[string]Persona  `yaml:"personas,omitempty"`
-	Server      *ServerConfig       `yaml:"server,omitempty"`
-	Skills      []string            `yaml:"skills,omitempty"`
-	Hooks       []hooks.LifecycleHookDef `yaml:"hooks,omitempty"`
-	Runtime     Runtime                    `yaml:"runtime"`
+	APIVersion string                   `yaml:"apiVersion"`
+	Kind       string                   `yaml:"kind"`
+	Metadata   Metadata                 `yaml:"metadata"`
+	Project    *Project                 `yaml:"project,omitempty"`
+	Ontology   *Ontology                `yaml:"ontology,omitempty"`
+	Adapters   map[string]Adapter       `yaml:"adapters,omitempty"`
+	Personas   map[string]Persona       `yaml:"personas,omitempty"`
+	Server     *ServerConfig            `yaml:"server,omitempty"`
+	Skills     []string                 `yaml:"skills,omitempty"`
+	Hooks      []hooks.LifecycleHookDef `yaml:"hooks,omitempty"`
+	Runtime    Runtime                  `yaml:"runtime"`
 }
 
 type Metadata struct {
@@ -68,6 +68,7 @@ type Metadata struct {
 
 type Adapter struct {
 	Binary             string      `yaml:"binary"`
+	DefaultModel       string      `yaml:"default_model,omitempty"`
 	Mode               string      `yaml:"mode"`
 	OutputFormat       string      `yaml:"output_format,omitempty"`
 	ProjectFiles       []string    `yaml:"project_files,omitempty"`
@@ -160,7 +161,7 @@ type Runtime struct {
 	CircuitBreaker       CircuitBreakerConfig   `yaml:"circuit_breaker,omitempty"`
 	Retros               RetrosConfig           `yaml:"retros,omitempty"`
 	Cost                 CostConfig             `yaml:"cost,omitempty"`
-	Fallbacks            map[string][]string    `yaml:"fallbacks,omitempty"`   // Adapter fallback chains (e.g., anthropic: [openai, gemini])
+	Fallbacks            map[string][]string    `yaml:"fallbacks,omitempty"`     // Adapter fallback chains (e.g., anthropic: [openai, gemini])
 	StallTimeout         string                 `yaml:"stall_timeout,omitempty"` // Duration string (e.g. "30m", "1800s"). 0 or empty = disabled.
 }
 
@@ -483,7 +484,6 @@ func (m *Manifest) GetPersona(name string) *Persona {
 	return nil
 }
 
-
 func (p *Persona) GetSystemPromptPath(root string) string {
 	if filepath.IsAbs(p.SystemPromptFile) {
 		return p.SystemPromptFile
@@ -501,9 +501,9 @@ func (r *Runtime) GetDefaultTimeout() time.Duration {
 
 // ServerConfig holds server-mode configuration from the manifest.
 type ServerConfig struct {
-	Bind          string            `yaml:"bind,omitempty"`
-	MaxConcurrent int               `yaml:"max_concurrent,omitempty"`
-	Auth          ServerAuthConfig  `yaml:"auth,omitempty"`
+	Bind          string           `yaml:"bind,omitempty"`
+	MaxConcurrent int              `yaml:"max_concurrent,omitempty"`
+	Auth          ServerAuthConfig `yaml:"auth,omitempty"`
 	TLS           ServerTLSConfig  `yaml:"tls,omitempty"`
 }
 

@@ -63,6 +63,7 @@ ontology:
 adapters:
     claude:
         binary: claude
+        default_model: sonnet
         default_permissions:
             allowed_tools:
                 - Read
@@ -71,8 +72,44 @@ adapters:
         mode: headless
         output_format: json
         project_files:
-            - CLAUDE.md
+            - AGENTS.md
             - .claude/settings.json
+    gemini:
+        binary: gemini
+        default_model: gemini-2.5-flash-lite
+        default_permissions:
+            allowed_tools:
+                - Read
+                - Bash
+            deny: []
+        mode: headless
+        output_format: json
+        project_files:
+            - AGENTS.md
+    codex:
+        binary: codex
+        default_model: o3
+        default_permissions:
+            allowed_tools:
+                - Read
+                - Bash
+            deny: []
+        mode: headless
+        output_format: json
+        project_files:
+            - AGENTS.md
+    opencode:
+        binary: opencode
+        default_model: zai-coding-plan/glm-5-turbo
+        default_permissions:
+            allowed_tools:
+                - Read
+                - Bash
+            deny: []
+        mode: headless
+        output_format: json
+        project_files:
+            - AGENTS.md
 personas:
     auditor:
         adapter: claude
