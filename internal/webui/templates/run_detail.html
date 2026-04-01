@@ -38,17 +38,15 @@
         <span class="run-stat"><span class="run-stat-label">Steps</span> <span class="run-stat-value">{{.Run.StepsCompleted}}/{{.Run.StepsTotal}}</span></span>
         <span class="run-stat"><span class="run-stat-label">Tokens</span> <span class="run-stat-value">{{formatTokens .Run.TotalTokens}}</span></span>
         <span class="run-stat"><span class="run-stat-label">Started</span> <span class="run-stat-value">{{.Run.FormattedStartedAt}}</span></span>
-        {{if .Run.FormattedCompletedAt}}<span class="run-stat"><span class="run-stat-label">Finished</span> <span class="run-stat-value">{{.Run.FormattedCompletedAt}}</span></span>{{end}}
+        <span class="run-stat"><span class="run-stat-label">Finished</span> <span class="run-stat-value">{{if .Run.FormattedCompletedAt}}{{.Run.FormattedCompletedAt}}{{else}}-{{end}}</span></span>
         {{if .PipelineCategory}}<span class="run-stat"><span class="run-stat-label">Category</span> <span class="run-stat-value">{{.PipelineCategory}}</span></span>{{end}}
         {{if .PipelineSkills}}<span class="run-stat"><span class="run-stat-label">Skills</span> <span class="run-stat-value">{{range $i, $s := .PipelineSkills}}{{if $i}}, {{end}}{{$s}}{{end}}</span></span>{{end}}
         {{if .Adapters}}<span class="run-stat"><span class="run-stat-label">Adapters</span> <span class="run-stat-value">{{range $i, $a := .Adapters}}<span class="badge badge-adapter">{{$a}}</span>{{end}}</span></span>{{end}}
         {{if .Models}}<span class="run-stat"><span class="run-stat-label">Models</span> <span class="run-stat-value">{{range $i, $m := .Models}}<span class="badge badge-model">{{$m}}</span>{{end}}</span></span>{{end}}
     </div>
-    {{if gt .Run.StepsTotal 0}}
     <div class="progress-bar progress-bar-sm">
-        <div class="progress-fill" style="width: {{.Run.Progress}}%"></div>
+        <div class="progress-fill" style="width: {{if gt .Run.StepsTotal 0}}{{.Run.Progress}}{{else}}0{{end}}%"></div>
     </div>
-    {{end}}
     {{if or .Run.Input .Run.LinkedURL}}
     <div class="run-summary-meta">
         {{if .Run.Input}}<span class="run-meta-item"><span class="run-stat-label">Input</span> {{if gt (len .Run.Input) 200}}<details><summary>{{slice .Run.Input 0 200}}...</summary><pre class="run-meta-input-full">{{.Run.Input}}</pre></details>{{else}}{{.Run.Input}}{{end}}</span>{{end}}
@@ -218,7 +216,7 @@
 
         {{if .Events}}
         <div class="card">
-            <details>
+            <details open>
                 <summary class="section-toggle">
                     <div class="events-header-toolbar">
                         <h2>Events <span class="badge" style="font-size:0.7rem; opacity:0.7;">{{len .Events}}</span></h2>
