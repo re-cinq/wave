@@ -3074,7 +3074,7 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 
 		// Mark CLAUDE.md as skip-worktree so prepareWorkspace() changes
 		// don't get staged by git add -A in implement steps
-		exec.Command("git", "-C", absPath, "update-index", "--skip-worktree", "AGENTS.md").Run()
+		_ = exec.Command("git", "-C", absPath, "update-index", "--skip-worktree", "AGENTS.md").Run()
 
 		// Run skill init commands inside the worktree (only on first creation)
 		if execution.Pipeline.Requires != nil {

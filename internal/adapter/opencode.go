@@ -60,7 +60,7 @@ func (a *OpenCodeAdapter) parseOutput(data []byte) parseOutputResult {
 
 		var eventType string
 		if raw, ok := obj["type"]; ok {
-			json.Unmarshal(raw, &eventType)
+			_ = json.Unmarshal(raw, &eventType)
 		}
 
 		if eventType == "step_finish" {
