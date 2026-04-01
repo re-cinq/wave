@@ -358,9 +358,9 @@ func TestMigrationConfig_LoadFromEnv(t *testing.T) {
 	}()
 
 	tests := []struct {
-		name      string
-		envVars   map[string]string
-		expected  *MigrationConfig
+		name     string
+		envVars  map[string]string
+		expected *MigrationConfig
 	}{
 		{
 			name:    "defaults",
@@ -418,8 +418,8 @@ func TestInitializeWithMigrations_FreshDatabase(t *testing.T) {
 	require.NoError(t, err)
 
 	config := &MigrationConfig{
-		EnableMigrations: true,
-		AutoMigrate:      true,
+		EnableMigrations:    true,
+		AutoMigrate:         true,
 		MaxMigrationVersion: 2, // Limit to first 2 migrations
 	}
 
@@ -465,7 +465,7 @@ func TestInitializeWithMigrations_ExistingDatabase(t *testing.T) {
 	manager := NewMigrationManager(db)
 	applied, err := manager.GetAppliedMigrations()
 	assert.NoError(t, err)
-	assert.Len(t, applied, 18) // All 18 defined migrations
+	assert.Len(t, applied, 19) // All 19 defined migrations
 }
 
 func TestInitializeWithMigrations_NoAutoMigrate(t *testing.T) {
@@ -496,11 +496,11 @@ func TestInitializeWithMigrations_NoAutoMigrate(t *testing.T) {
 func TestMigrationDefinitions(t *testing.T) {
 	migrations := GetAllMigrations()
 
-	// Should have 18 migrations based on our definition
-	assert.Len(t, migrations, 18)
+	// Should have 19 migrations based on our definition
+	assert.Len(t, migrations, 19)
 
 	// Check version sequence
-	expectedVersions := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18}
+	expectedVersions := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19}
 	for i, migration := range migrations {
 		assert.Equal(t, expectedVersions[i], migration.Version)
 		assert.NotEmpty(t, migration.Description)
@@ -619,4 +619,3 @@ func TestMigration7_BranchName(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "[]", tagsJSON, "existing tags_json should be preserved")
 }
-

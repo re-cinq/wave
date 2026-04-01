@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS event_log (
     message TEXT,
     tokens_used INTEGER,
     duration_ms INTEGER,
+    model TEXT,
+    adapter TEXT,
     FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
 );
 

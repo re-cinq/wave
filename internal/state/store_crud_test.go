@@ -276,11 +276,11 @@ func TestGetEvents_StepFilter(t *testing.T) {
 	require.NoError(t, err)
 
 	// Log events for different steps
-	err = store.LogEvent(runID, "step-1", "running", "navigator", "step 1 started", 100, 500)
+	err = store.LogEvent(runID, "step-1", "running", "navigator", "step 1 started", 100, 500, "", "")
 	require.NoError(t, err)
-	err = store.LogEvent(runID, "step-2", "running", "implementer", "step 2 started", 200, 600)
+	err = store.LogEvent(runID, "step-2", "running", "implementer", "step 2 started", 200, 600, "", "")
 	require.NoError(t, err)
-	err = store.LogEvent(runID, "step-1", "completed", "navigator", "step 1 done", 150, 1000)
+	err = store.LogEvent(runID, "step-1", "completed", "navigator", "step 1 done", 150, 1000, "", "")
 	require.NoError(t, err)
 
 	// Get all events
