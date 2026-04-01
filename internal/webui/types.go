@@ -15,27 +15,27 @@ type RunListResponse struct {
 
 // RunSummary is a summary of a pipeline run for list views.
 type RunSummary struct {
-	RunID                string     `json:"run_id"`
-	PipelineName         string     `json:"pipeline_name"`
-	Status               string     `json:"status"`
-	CurrentStep          string     `json:"current_step,omitempty"`
-	TotalTokens          int        `json:"total_tokens"`
-	StartedAt            time.Time  `json:"started_at"`
-	CompletedAt          *time.Time `json:"completed_at,omitempty"`
-	Duration             string     `json:"duration,omitempty"`
-	Tags                 []string   `json:"tags,omitempty"`
-	Progress             int        `json:"progress,omitempty"`
-	ErrorMessage         string     `json:"error_message,omitempty"`
-	InputPreview         string     `json:"input_preview,omitempty"`
-	Input                string     `json:"input,omitempty"`
-	LinkedURL            string     `json:"linked_url,omitempty"`
-	FormattedStartedAt   string     `json:"formatted_started_at,omitempty"`
-	FormattedCompletedAt string     `json:"formatted_completed_at,omitempty"`
-	BranchName           string     `json:"branch_name,omitempty"`
-	StepsCompleted       int        `json:"steps_completed,omitempty"`
-	StepsTotal           int        `json:"steps_total,omitempty"`
-	ParentRunID          string     `json:"parent_run_id,omitempty"`
-	ParentStepID         string     `json:"parent_step_id,omitempty"`
+	RunID                string       `json:"run_id"`
+	PipelineName         string       `json:"pipeline_name"`
+	Status               string       `json:"status"`
+	CurrentStep          string       `json:"current_step,omitempty"`
+	TotalTokens          int          `json:"total_tokens"`
+	StartedAt            time.Time    `json:"started_at"`
+	CompletedAt          *time.Time   `json:"completed_at,omitempty"`
+	Duration             string       `json:"duration,omitempty"`
+	Tags                 []string     `json:"tags,omitempty"`
+	Progress             int          `json:"progress,omitempty"`
+	ErrorMessage         string       `json:"error_message,omitempty"`
+	InputPreview         string       `json:"input_preview,omitempty"`
+	Input                string       `json:"input,omitempty"`
+	LinkedURL            string       `json:"linked_url,omitempty"`
+	FormattedStartedAt   string       `json:"formatted_started_at,omitempty"`
+	FormattedCompletedAt string       `json:"formatted_completed_at,omitempty"`
+	BranchName           string       `json:"branch_name,omitempty"`
+	StepsCompleted       int          `json:"steps_completed,omitempty"`
+	StepsTotal           int          `json:"steps_total,omitempty"`
+	ParentRunID          string       `json:"parent_run_id,omitempty"`
+	ParentStepID         string       `json:"parent_step_id,omitempty"`
 	ChildRuns            []RunSummary `json:"child_runs,omitempty"`
 }
 
@@ -50,29 +50,30 @@ type RunDetailResponse struct {
 
 // StepDetail holds detail information about a pipeline step.
 type StepDetail struct {
-	RunID              string            `json:"run_id"`
-	StepID             string            `json:"step_id"`
-	Persona            string            `json:"persona"`
-	State              string            `json:"state"`
-	Progress           int               `json:"progress"`
-	Action             string            `json:"current_action,omitempty"`
-	StartedAt          *time.Time        `json:"started_at,omitempty"`
-	FormattedStartedAt string            `json:"formatted_started_at,omitempty"`
-	CompletedAt        *time.Time        `json:"completed_at,omitempty"`
-	Duration           string            `json:"duration,omitempty"`
-	TokensUsed         int               `json:"tokens_used"`
-	Error              string            `json:"error,omitempty"`
-	FailureClass       string            `json:"failure_class,omitempty"`
-	Artifacts          []ArtifactSummary `json:"artifacts,omitempty"`
-	StepType           string            `json:"step_type,omitempty"`    // "conditional", "command", "gate", "pipeline", or ""
-	Script             string            `json:"script,omitempty"`       // Shell script for command steps
-	SubPipeline        string            `json:"sub_pipeline,omitempty"` // Referenced pipeline for pipeline steps
+	RunID              string                `json:"run_id"`
+	StepID             string                `json:"step_id"`
+	Persona            string                `json:"persona"`
+	State              string                `json:"state"`
+	Progress           int                   `json:"progress"`
+	Action             string                `json:"current_action,omitempty"`
+	StartedAt          *time.Time            `json:"started_at,omitempty"`
+	FormattedStartedAt string                `json:"formatted_started_at,omitempty"`
+	CompletedAt        *time.Time            `json:"completed_at,omitempty"`
+	Duration           string                `json:"duration,omitempty"`
+	TokensUsed         int                   `json:"tokens_used"`
+	Error              string                `json:"error,omitempty"`
+	FailureClass       string                `json:"failure_class,omitempty"`
+	Artifacts          []ArtifactSummary     `json:"artifacts,omitempty"`
+	StepType           string                `json:"step_type,omitempty"`         // "conditional", "command", "gate", "pipeline", or ""
+	Script             string                `json:"script,omitempty"`            // Shell script for command steps
+	SubPipeline        string                `json:"sub_pipeline,omitempty"`      // Referenced pipeline for pipeline steps
 	GatePrompt         string                `json:"gate_prompt,omitempty"`       // Gate prompt/message
 	GateChoices        string                `json:"gate_choices,omitempty"`      // Comma-separated gate choice labels
 	GateChoicesData    []pipeline.GateChoice `json:"gate_choices_data,omitempty"` // Structured gate choice data for interactive UI
 	GateFreeform       bool                  `json:"gate_freeform,omitempty"`     // Whether freeform text input is allowed
 	EdgeInfo           string                `json:"edge_info,omitempty"`         // Edge conditions for conditional steps
 	Model              string                `json:"model,omitempty"`             // Model override for this step
+	Adapter            string                `json:"adapter,omitempty"`           // Adapter used for this step
 	VisitCount         int                   `json:"visit_count,omitempty"`       // Current visit count for graph loop steps
 	MaxVisits          int                   `json:"max_visits,omitempty"`        // Max visit limit for graph loop steps
 	GanttLeft          float64               `json:"gantt_left,omitempty"`        // Gantt bar left offset (percentage)
@@ -89,6 +90,8 @@ type EventSummary struct {
 	Message    string    `json:"message"`
 	TokensUsed int       `json:"tokens_used"`
 	DurationMs int64     `json:"duration_ms"`
+	Model      string    `json:"model,omitempty"`
+	Adapter    string    `json:"adapter,omitempty"`
 }
 
 // StepEventsResponse is the JSON response for the paginated step events API.
@@ -237,12 +240,12 @@ type ResumeRunResponse struct {
 
 // CompositionPipeline holds details about a pipeline that uses composition primitives.
 type CompositionPipeline struct {
-	Name        string              `json:"name"`
-	Description string              `json:"description,omitempty"`
-	Category    string              `json:"category,omitempty"`
-	StepCount   int                 `json:"step_count"`
-	Steps       []CompositionStep   `json:"steps"`
-	Skills      []string            `json:"skills,omitempty"`
+	Name        string            `json:"name"`
+	Description string            `json:"description,omitempty"`
+	Category    string            `json:"category,omitempty"`
+	StepCount   int               `json:"step_count"`
+	Steps       []CompositionStep `json:"steps"`
+	Skills      []string          `json:"skills,omitempty"`
 }
 
 // CompositionStep describes a step in a composition pipeline with its primitive type.
@@ -306,20 +309,20 @@ type IssueListResponse struct {
 
 // PRSummary is a summary of a GitHub pull request for the API.
 type PRSummary struct {
-	Number       int    `json:"number"`
-	Title        string `json:"title"`
-	State        string `json:"state"`
+	Number       int      `json:"number"`
+	Title        string   `json:"title"`
+	State        string   `json:"state"`
 	Author       string   `json:"author"`
 	Labels       []string `json:"labels,omitempty"`
 	Draft        bool     `json:"draft"`
-	Merged       bool   `json:"merged"`
-	HeadBranch   string `json:"head_branch"`
-	BaseBranch   string `json:"base_branch"`
-	Additions    int    `json:"additions"`
-	Deletions    int    `json:"deletions"`
-	ChangedFiles int    `json:"changed_files"`
-	CreatedAt    string `json:"created_at"`
-	URL          string `json:"url"`
+	Merged       bool     `json:"merged"`
+	HeadBranch   string   `json:"head_branch"`
+	BaseBranch   string   `json:"base_branch"`
+	Additions    int      `json:"additions"`
+	Deletions    int      `json:"deletions"`
+	ChangedFiles int      `json:"changed_files"`
+	CreatedAt    string   `json:"created_at"`
+	URL          string   `json:"url"`
 }
 
 // CommentSummary is a summary of a comment on an issue or PR.
@@ -352,24 +355,24 @@ type PRCheck struct {
 
 // PRDetail holds full PR information for the detail page.
 type PRDetail struct {
-	Number       int      `json:"number"`
-	Title        string   `json:"title"`
-	State        string   `json:"state"`
-	Body         string   `json:"body"`
-	Author       string   `json:"author"`
-	Labels       []string `json:"labels,omitempty"`
-	Draft        bool     `json:"draft"`
-	Merged       bool     `json:"merged"`
-	HeadBranch   string   `json:"head_branch"`
-	BaseBranch   string   `json:"base_branch"`
-	Additions    int      `json:"additions"`
-	Deletions    int      `json:"deletions"`
-	ChangedFiles int      `json:"changed_files"`
-	Commits      int      `json:"commits"`
-	Comments     int      `json:"comments"`
-	CreatedAt    string   `json:"created_at"`
-	UpdatedAt    string   `json:"updated_at"`
-	URL          string   `json:"url"`
+	Number       int       `json:"number"`
+	Title        string    `json:"title"`
+	State        string    `json:"state"`
+	Body         string    `json:"body"`
+	Author       string    `json:"author"`
+	Labels       []string  `json:"labels,omitempty"`
+	Draft        bool      `json:"draft"`
+	Merged       bool      `json:"merged"`
+	HeadBranch   string    `json:"head_branch"`
+	BaseBranch   string    `json:"base_branch"`
+	Additions    int       `json:"additions"`
+	Deletions    int       `json:"deletions"`
+	ChangedFiles int       `json:"changed_files"`
+	Commits      int       `json:"commits"`
+	Comments     int       `json:"comments"`
+	CreatedAt    string    `json:"created_at"`
+	UpdatedAt    string    `json:"updated_at"`
+	URL          string    `json:"url"`
 	Checks       []PRCheck `json:"checks,omitempty"`
 }
 
@@ -432,11 +435,11 @@ type FileDiff struct {
 
 // PersonaDetailData holds all data for the persona detail page.
 type PersonaDetailData struct {
-	ActivePage    string
-	Persona       PersonaSummary
-	TokenScopes   []string
+	ActivePage     string
+	Persona        PersonaSummary
+	TokenScopes    []string
 	AllowedDomains []string
-	UsedBy        []PersonaUsageRef
+	UsedBy         []PersonaUsageRef
 }
 
 // PersonaUsageRef links a persona to a pipeline step that uses it.
@@ -581,4 +584,3 @@ type RetroListEntry struct {
 	Status     string `json:"status"`
 	CreatedAt  string `json:"created_at"`
 }
-

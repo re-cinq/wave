@@ -570,13 +570,15 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 
 	// Build step state from events: track latest state, timestamps, tokens per step
 	type stepInfo struct {
-		state      string
-		persona    string
-		startedAt  *time.Time
+		state       string
+		persona     string
+		startedAt   *time.Time
 		completedAt *time.Time
-		tokens     int
-		durationMs int64
-		errMsg     string
+		tokens      int
+		durationMs  int64
+		errMsg      string
+		model       string
+		adapter     string
 	}
 	stepMap := make(map[string]*stepInfo)
 
@@ -619,6 +621,12 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 		}
 		if ev.DurationMs > si.durationMs {
 			si.durationMs = ev.DurationMs
+		}
+		if ev.Model != "" {
+			si.model = ev.Model
+		}
+		if ev.Adapter != "" {
+			si.adapter = ev.Adapter
 		}
 	}
 
@@ -689,6 +697,12 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 			}
 			if si.persona != "" {
 				sd.Persona = si.persona
+			}
+			if si.model != "" {
+				sd.Model = si.model
+			}
+			if si.adapter != "" {
+				sd.Adapter = si.adapter
 			}
 			sd.StartedAt = si.startedAt
 			if si.startedAt != nil {
@@ -807,6 +821,8 @@ func eventToSummary(e state.LogRecord) EventSummary {
 		Message:    e.Message,
 		TokensUsed: e.TokensUsed,
 		DurationMs: e.DurationMs,
+		Model:      e.Model,
+		Adapter:    e.Adapter,
 	}
 }
 
@@ -962,13 +978,13 @@ func (s *Server) exportRunsCSV(w http.ResponseWriter, runs []state.RunRecord) {
 
 // runExportEntry is the JSON structure for a single exported run.
 type runExportEntry struct {
-	RunID           string `json:"run_id"`
-	Pipeline        string `json:"pipeline"`
-	Status          string `json:"status"`
-	StartedAt       string `json:"started_at"`
+	RunID           string   `json:"run_id"`
+	Pipeline        string   `json:"pipeline"`
+	Status          string   `json:"status"`
+	StartedAt       string   `json:"started_at"`
 	DurationSeconds *float64 `json:"duration_seconds,omitempty"`
-	Tokens          int    `json:"tokens"`
-	Branch          string `json:"branch,omitempty"`
+	Tokens          int      `json:"tokens"`
+	Branch          string   `json:"branch,omitempty"`
 }
 
 // exportRunsJSON writes runs as a JSON array download.
