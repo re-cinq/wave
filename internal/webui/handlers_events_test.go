@@ -19,10 +19,10 @@ func TestHandleAPIStepEvents_Basic(t *testing.T) {
 	require.NoError(t, rwStore.UpdateRunStatus(runID, "running", "step1", 0))
 
 	for i := 0; i < 5; i++ {
-		require.NoError(t, rwStore.LogEvent(runID, "step1", "stream_activity", "navigator", "message "+string(rune('A'+i)), 0, 0))
+		require.NoError(t, rwStore.LogEvent(runID, "step1", "stream_activity", "navigator", "message "+string(rune('A'+i)), 0, 0, "", ""))
 	}
 	for i := 0; i < 3; i++ {
-		require.NoError(t, rwStore.LogEvent(runID, "step2", "stream_activity", "craftsman", "step2 msg "+string(rune('A'+i)), 0, 0))
+		require.NoError(t, rwStore.LogEvent(runID, "step2", "stream_activity", "craftsman", "step2 msg "+string(rune('A'+i)), 0, 0, "", ""))
 	}
 
 	mux := http.NewServeMux()

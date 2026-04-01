@@ -312,16 +312,16 @@ steps:
 	}
 
 	// Log events to exercise buildStepDetails state machine
-	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Starting", 0, 0); err != nil {
+	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Starting", 0, 0, "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
-	if err := rwStore.LogEvent(runID, "step1", "completed", "navigator", "Done", 500, 5000); err != nil {
+	if err := rwStore.LogEvent(runID, "step1", "completed", "navigator", "Done", 500, 5000, "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
-	if err := rwStore.LogEvent(runID, "step2", "running", "craftsman", "Building", 100, 1000); err != nil {
+	if err := rwStore.LogEvent(runID, "step2", "running", "craftsman", "Building", 100, 1000, "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
-	if err := rwStore.LogEvent(runID, "step2", "failed", "craftsman", "Error occurred", 200, 2000); err != nil {
+	if err := rwStore.LogEvent(runID, "step2", "failed", "craftsman", "Error occurred", 200, 2000, "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
 
@@ -344,10 +344,10 @@ func TestHandleAPIRunDetail_WithEvents(t *testing.T) {
 		t.Fatalf("failed to create run: %v", err)
 	}
 
-	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Working", 100, 500); err != nil {
+	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Working", 100, 500, "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
-	if err := rwStore.LogEvent(runID, "step1", "completed", "navigator", "Done", 200, 1000); err != nil {
+	if err := rwStore.LogEvent(runID, "step1", "completed", "navigator", "Done", 200, 1000, "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
 
@@ -495,13 +495,13 @@ steps:
 	runID, _ := rwStore.CreateRun("test-pipeline", "input")
 
 	// Log events covering all state transitions
-	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Starting", 0, 0); err != nil {
+	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Starting", 0, 0, "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
-	if err := rwStore.LogEvent(runID, "step1", "completed", "navigator", "Done", 500, 5000); err != nil {
+	if err := rwStore.LogEvent(runID, "step1", "completed", "navigator", "Done", 500, 5000, "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
-	if err := rwStore.LogEvent(runID, "step2", "running", "craftsman", "Building", 100, 1000); err != nil {
+	if err := rwStore.LogEvent(runID, "step2", "running", "craftsman", "Building", 100, 1000, "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
 
@@ -825,7 +825,7 @@ steps:
 	runID, _ := rwStore.CreateRun("gate-pipeline", "input")
 
 	// Log the gate step as running so the interactive panel would render
-	if err := rwStore.LogEvent(runID, "review-gate", "running", "", "Waiting for approval", 0, 0); err != nil {
+	if err := rwStore.LogEvent(runID, "review-gate", "running", "", "Waiting for approval", 0, 0, "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
 
