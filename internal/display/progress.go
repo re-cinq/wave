@@ -14,18 +14,18 @@ import (
 
 // ProgressBar represents a visual progress indicator with customizable styling.
 type ProgressBar struct {
-	width      int
-	current    int
-	total      int
-	prefix     string
-	suffix     string
-	fillChar   string
-	emptyChar  string
-	leftCap    string
-	rightCap   string
+	width       int
+	current     int
+	total       int
+	prefix      string
+	suffix      string
+	fillChar    string
+	emptyChar   string
+	leftCap     string
+	rightCap    string
 	showPercent bool
-	codec      *ANSICodec
-	charSet    UnicodeCharSet
+	codec       *ANSICodec
+	charSet     UnicodeCharSet
 }
 
 // NewProgressBar creates a new progress bar with default styling.
@@ -118,6 +118,8 @@ type StepStatus struct {
 	Name          string
 	State         ProgressState
 	Persona       string
+	Model         string
+	Adapter       string
 	Message       string
 	Progress      int
 	CurrentAction string
@@ -198,6 +200,18 @@ func (ss *StepStatus) Render() string {
 		sb.WriteString(codec.Muted(fmt.Sprintf(" (%s)", ss.Persona)))
 	}
 
+	// Adapter and model
+	if ss.Adapter != "" || ss.Model != "" {
+		parts := []string{}
+		if ss.Adapter != "" {
+			parts = append(parts, ss.Adapter)
+		}
+		if ss.Model != "" {
+			parts = append(parts, ss.Model)
+		}
+		sb.WriteString(codec.Muted(fmt.Sprintf(" [%s]", strings.Join(parts, "/"))))
+	}
+
 	// Progress percentage
 	if ss.Progress > 0 && ss.State == StateRunning {
 		sb.WriteString(fmt.Sprintf(" %s%d%%%s", codec.Primary("["), ss.Progress, codec.Primary("]")))
@@ -231,22 +245,22 @@ func (ss *StepStatus) Render() string {
 
 // ProgressDisplay manages the real-time display of pipeline progress.
 type ProgressDisplay struct {
-	mu             sync.Mutex
-	writer         io.Writer
-	termInfo       *TerminalInfo
-	codec          *ANSICodec
-	charSet        UnicodeCharSet
-	dashboard      *Dashboard
-	pipelineID     string
-	pipelineName   string
-	totalSteps     int
-	currentStepIdx int
-	steps          map[string]*StepStatus
-	stepOrder      []string
-	overallBar     *ProgressBar
-	startTime      time.Time
-	lastRender     time.Time
-	refreshRate    time.Duration
+	mu              sync.Mutex
+	writer          io.Writer
+	termInfo        *TerminalInfo
+	codec           *ANSICodec
+	charSet         UnicodeCharSet
+	dashboard       *Dashboard
+	pipelineID      string
+	pipelineName    string
+	totalSteps      int
+	currentStepIdx  int
+	steps           map[string]*StepStatus
+	stepOrder       []string
+	overallBar      *ProgressBar
+	startTime       time.Time
+	lastRender      time.Time
+	refreshRate     time.Duration
 	enabled         bool
 	linesRendered   int
 	estimatedTimeMs int64 // Latest ETA from pipeline events
@@ -377,6 +391,14 @@ func (pd *ProgressDisplay) EmitProgress(ev event.Event) error {
 		// Update persona from resolved event value (defense-in-depth for forge template vars)
 		if ev.Persona != "" {
 			step.Persona = ev.Persona
+		}
+
+		// Update adapter and model from event (capture on first run)
+		if ev.Adapter != "" && step.Adapter == "" {
+			step.Adapter = ev.Adapter
+		}
+		if ev.Model != "" && step.Model == "" {
+			step.Model = ev.Model
 		}
 
 		// Update step based on event state
@@ -510,6 +532,18 @@ func (pd *ProgressDisplay) toPipelineContext() *PipelineContext {
 		}
 	}
 
+	// Build step models and adapters mapping
+	stepModels := make(map[string]string)
+	stepAdapters := make(map[string]string)
+	for stepID, step := range pd.steps {
+		if step.Model != "" {
+			stepModels[stepID] = step.Model
+		}
+		if step.Adapter != "" {
+			stepAdapters[stepID] = step.Adapter
+		}
+	}
+
 	return &PipelineContext{
 		PipelineName:      pd.pipelineName,
 		PipelineID:        pd.pipelineID,
@@ -535,6 +569,8 @@ func (pd *ProgressDisplay) toPipelineContext() *PipelineContext {
 		CurrentStepStart:  pd.startTime.UnixNano(), // Simplified
 		StepTokens:        stepTokens,
 		TotalTokens:       totalTokens,
+		StepModels:        stepModels,
+		StepAdapters:      stepAdapters,
 	}
 }
 
