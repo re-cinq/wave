@@ -59,6 +59,8 @@ type LogRecord struct {
 	Message    string
 	TokensUsed int
 	DurationMs int64
+	Model      string
+	Adapter    string
 }
 
 // EventQueryOptions specifies filters for log queries.
@@ -118,20 +120,20 @@ type PerformanceQueryOptions struct {
 
 // StepPerformanceStats holds aggregated performance statistics for a step.
 type StepPerformanceStats struct {
-	StepID              string
-	Persona             string
-	TotalRuns           int
-	SuccessfulRuns      int
-	FailedRuns          int
-	AvgDurationMs       int64
-	MinDurationMs       int64
-	MaxDurationMs       int64
-	AvgTokensUsed       int
-	TotalTokensUsed     int
-	AvgFilesModified    int
-	AvgArtifacts        int
-	LastRunAt           time.Time
-	TokenBurnRate       float64 // tokens per second
+	StepID           string
+	Persona          string
+	TotalRuns        int
+	SuccessfulRuns   int
+	FailedRuns       int
+	AvgDurationMs    int64
+	MinDurationMs    int64
+	MaxDurationMs    int64
+	AvgTokensUsed    int
+	TotalTokensUsed  int
+	AvgFilesModified int
+	AvgArtifacts     int
+	LastRunAt        time.Time
+	TokenBurnRate    float64 // tokens per second
 }
 
 // ProgressSnapshotRecord holds a point-in-time progress snapshot.
