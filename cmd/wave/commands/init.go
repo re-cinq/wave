@@ -413,6 +413,10 @@ func runInit(cmd *cobra.Command, opts InitOptions) error {
 		return fmt.Errorf("failed to create example prompts in .wave/prompts/: %w", err)
 	}
 
+	if err := createProjectInstructionFiles(); err != nil {
+		return fmt.Errorf("failed to create project instruction files: %w", err)
+	}
+
 	// Cold-start: create initial commit if no commits exist
 	if err := createInitialCommit(cmd.ErrOrStderr(), opts.OutputPath); err != nil {
 		return err
@@ -1028,10 +1032,6 @@ func printMergeSuccess(cmd *cobra.Command, outputPath string) {
 	fmt.Fprintf(out, "\n")
 }
 
-
-// buildPersonaManifest converts parsed persona configs into the map[string]interface{}
-// structure expected by the manifest YAML. It sets adapter and system_prompt_file
-// by convention — these are not stored in the YAML config files.
 func buildPersonaManifest(configs map[string]manifest.Persona, adapter string) map[string]interface{} {
 	result := make(map[string]interface{})
 	for name, cfg := range configs {
@@ -1054,17 +1054,34 @@ func buildPersonaManifest(configs map[string]manifest.Persona, adapter string) m
 }
 
 func createDefaultManifest(adapter string, workspace string, project map[string]interface{}, personaConfigs map[string]manifest.Persona) map[string]interface{} {
-	adapters := map[string]interface{}{
-		adapter: map[string]interface{}{
-			"binary":        adapter,
+	adapterProjectFiles := map[string][]string{
+		"claude":   {"AGENTS.md"},
+		"opencode": {"AGENTS.md"},
+		"gemini":   {"AGENTS.md"},
+		"codex":    {"AGENTS.md"},
+	}
+
+	adapterDefaults := map[string]string{
+		"claude":   "sonnet",
+		"opencode": "zai-coding-plan/glm-5-turbo",
+		"gemini":   "gemini-2.5-flash-lite",
+		"codex":    "o3",
+	}
+
+	adapters := map[string]interface{}{}
+	for name, projectFiles := range adapterProjectFiles {
+		entry := map[string]interface{}{
+			"binary":        name,
+			"default_model": adapterDefaults[name],
 			"mode":          "headless",
 			"output_format": "json",
-			"project_files": []string{"CLAUDE.md", ".claude/settings.json"},
+			"project_files": projectFiles,
 			"default_permissions": map[string]interface{}{
 				"allowed_tools": []string{"Read", "Write", "Edit", "Bash"},
 				"deny":          []string{},
 			},
-		},
+		}
+		adapters[name] = entry
 	}
 
 	manifest := map[string]interface{}{
@@ -1228,6 +1245,23 @@ func createExamplePromptsIfMissing(prompts map[string]string) error {
 		}
 	}
 
+	return nil
+}
+
+func createProjectInstructionFiles() error {
+	files := map[string]string{
+		"AGENTS.md": "See CLAUDE.md for project guidelines.",
+		"CLAUDE.md": "See AGENTS.md for project guidelines.",
+		"GEMINI.md": "See AGENTS.md for project guidelines.",
+		"CODEX.md":  "See AGENTS.md for project guidelines.",
+	}
+	for filename, content := range files {
+		if _, err := os.Stat(filename); os.IsNotExist(err) {
+			if err := os.WriteFile(filename, []byte(content), 0644); err != nil {
+				return fmt.Errorf("failed to write %s: %w", filename, err)
+			}
+		}
+	}
 	return nil
 }
 
@@ -1458,14 +1492,14 @@ func runWizardInit(cmd *cobra.Command, opts InitOptions) error {
 	}
 
 	cfg := onboarding.WizardConfig{
-		WaveDir:     ".wave",
-		Interactive: true,
-		Reconfigure: false,
-		Existing:    existing,
-		All:         opts.All,
-		Adapter:     opts.Adapter,
-		Workspace:   opts.Workspace,
-		OutputPath:  opts.OutputPath,
+		WaveDir:        ".wave",
+		Interactive:    true,
+		Reconfigure:    false,
+		Existing:       existing,
+		All:            opts.All,
+		Adapter:        opts.Adapter,
+		Workspace:      opts.Workspace,
+		OutputPath:     opts.OutputPath,
 		PersonaConfigs: assets.personaConfigs,
 	}
 
@@ -1518,14 +1552,14 @@ func runReconfigure(cmd *cobra.Command, opts InitOptions) error {
 	}
 
 	cfg := onboarding.WizardConfig{
-		WaveDir:     ".wave",
-		Interactive: interactive,
-		Reconfigure: true,
-		Existing:    &existing,
-		All:         opts.All,
-		Adapter:     opts.Adapter,
-		Workspace:   opts.Workspace,
-		OutputPath:  opts.OutputPath,
+		WaveDir:        ".wave",
+		Interactive:    interactive,
+		Reconfigure:    true,
+		Existing:       &existing,
+		All:            opts.All,
+		Adapter:        opts.Adapter,
+		Workspace:      opts.Workspace,
+		OutputPath:     opts.OutputPath,
 		PersonaConfigs: personaConfigs,
 	}
 

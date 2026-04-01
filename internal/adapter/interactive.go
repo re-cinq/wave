@@ -12,6 +12,7 @@ import (
 
 // InteractiveOptions configures an interactive Claude Code session.
 type InteractiveOptions struct {
+	Adapter      string   // Adapter binary name (e.g., "claude", "opencode", "gemini")
 	Model        string   // Model to use (e.g., "sonnet", "opus")
 	AllowedTools []string // Tools to allow (for --allowedTools)
 	AddDirs      []string // Additional directories to include (--add-dir)
@@ -25,14 +26,18 @@ type InteractiveOptions struct {
 // workspacePath is used as the working directory; it should contain CLAUDE.md and .claude/settings.json.
 // Returns the session ID captured from stderr (empty string if not found) and any error.
 func LaunchInteractive(workspacePath string, opts InteractiveOptions) (string, error) {
-	claudePath, err := exec.LookPath("claude")
+	adapterName := opts.Adapter
+	if adapterName == "" {
+		adapterName = "claude"
+	}
+	binaryPath, err := exec.LookPath(adapterName)
 	if err != nil {
-		return "", fmt.Errorf("claude CLI not found: %w", err)
+		return "", fmt.Errorf("adapter %q not found: %w", adapterName, err)
 	}
 
 	args := buildInteractiveArgs(opts)
 
-	cmd := exec.Command(claudePath, args...)
+	cmd := exec.Command(binaryPath, args...)
 	cmd.Dir = workspacePath
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -58,7 +63,7 @@ func LaunchInteractive(workspacePath string, opts InteractiveOptions) (string, e
 				return sessionID, nil
 			}
 		}
-		return "", fmt.Errorf("claude exited with error: %w", err)
+		return "", fmt.Errorf("adapter %q exited with error: %w", adapterName, err)
 	}
 
 	sessionID := extractSessionID(stderrBuf.String())

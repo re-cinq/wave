@@ -1,6 +1,17 @@
 # Adapters Reference
 
-Adapters wrap LLM CLI tools for subprocess invocation. Wave ships with support for Claude Code and OpenCode.
+Adapters wrap LLM CLI tools for subprocess invocation. Wave ships with support for Claude Code, OpenCode, Gemini Code, and Codex.
+
+## Adapter Selection
+
+Wave uses a 4-tier precedence system to determine which adapter a step runs with (strongest to weakest):
+
+1. **CLI `--adapter` flag** — e.g., `wave run my-pipeline --adapter opencode` overrides all steps
+2. **Step-level `adapter:`** — specified per step in pipeline YAML
+3. **Persona-level `adapter:`** — set on the persona in `wave.yaml`
+4. **Adapter default** — from the adapter definition in `wave.yaml`
+
+This means you can set a project-wide default via persona configuration, override individual steps in the pipeline, and still force a specific adapter at the CLI for one-off runs.
 
 ## Claude Code Adapter
 
@@ -118,6 +129,109 @@ This prevents credential leakage from unrelated host environment variables (e.g.
 claude -p --model opus --allowedTools "Read,Write" --output-format stream-json \
   --verbose --dangerously-skip-permissions --no-session-persistence "prompt"
 ```
+
+---
+
+## Gemini Code Adapter
+
+Adapter for Google's Gemini Code CLI (`gemini`), v0.34.0+.
+
+```yaml
+adapters:
+  gemini:
+    binary: gemini
+    mode: headless
+    output_format: json
+    project_files:
+      - GEMINI.md
+    default_permissions:
+      allowed_tools:
+        - Read
+        - Bash
+      deny: []
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `binary` | `string` | — | CLI binary name. Must resolve via `$PATH`. |
+| `mode` | `string` | — | Always `headless` for subprocess execution. |
+| `output_format` | `string` | `json` | Output format. Only `json` supported. |
+| `project_files` | `[]string` | `[]` | Files copied to workspace. Supports globs. |
+| `default_permissions` | `Permissions` | allow all | Default tool permissions for personas. |
+
+### Model Format
+
+Gemini uses **plain model names** — no provider prefix:
+
+| Model | Description |
+|-------|-------------|
+| `gemini-2.0-pro` | Gemini 2.0 Pro |
+| `gemini-3-flash-preview` | Gemini 3 Flash (preview) |
+
+If no model is specified, the Gemini binary uses its own default.
+
+### Workspace Setup
+
+When the Gemini adapter runs, it generates a `GEMINI.md` file in the workspace containing the persona's system prompt and restriction directives. Gemini Code reads this file for context.
+
+### Output Format
+
+The adapter parses an NDJSON stream with these event types:
+
+| Event `type` | Description |
+|---------------|-------------|
+| `tool_use` | Tool invocation with name and input |
+| `text` | Text content delta |
+| `result` | Final result with content and usage stats (`input_tokens`, `output_tokens`) |
+
+### CLI Invocation
+
+```bash
+gemini --yolo --output-format stream-json -p "prompt"
+gemini --model gemini-2.0-pro --yolo --output-format stream-json -p "prompt"
+```
+
+---
+
+## Codex Adapter
+
+Adapter for the OpenAI Codex CLI (`codex`).
+
+```yaml
+adapters:
+  codex:
+    binary: codex
+    mode: headless
+    output_format: json
+    project_files:
+      - AGENTS.md
+    default_permissions:
+      allowed_tools:
+        - Read
+        - Bash
+      deny: []
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `binary` | `string` | — | CLI binary name. Must resolve via `$PATH`. |
+| `mode` | `string` | — | Always `headless` for subprocess execution. |
+| `output_format` | `string` | `json` | Output format. Only `json` supported. |
+| `project_files` | `[]string` | `[]` | Files copied to workspace. Supports globs. |
+| `default_permissions` | `Permissions` | allow all | Default tool permissions for personas. |
+
+### Model Format
+
+Codex supports both **plain model names** for OpenAI models and `provider/model` format for other providers:
+
+| Model | Description |
+|-------|-------------|
+| `openai/gpt-4o` | OpenAI GPT-4o (explicit provider) |
+| `gpt-4o` | OpenAI GPT-4o (plain, inferred as OpenAI) |
+
+### Workspace Setup
+
+When the Codex adapter runs, it generates an `AGENTS.md` file in the workspace containing the persona's system prompt. The Codex CLI reads this file for agent instructions.
 
 ---
 
@@ -272,7 +386,7 @@ The GitHub adapter is used by pipelines that interact with GitHub repositories:
 
 ## Multiple Adapters
 
-Define multiple adapters for different use cases:
+A project can define multiple adapters in `wave.yaml` and switch between them at runtime via the 4-tier precedence system.
 
 ```yaml
 adapters:
@@ -282,12 +396,46 @@ adapters:
   opencode:
     binary: opencode
     mode: headless
+  gemini:
+    binary: gemini
+    mode: headless
+  codex:
+    binary: codex
+    mode: headless
 
 personas:
   navigator:
-    adapter: claude   # Uses Claude
+    adapter: claude
   reviewer:
-    adapter: opencode # Uses OpenCode
+    adapter: gemini
+    model: gemini-2.0-pro
+```
+
+### Mixing Adapters in a Pipeline
+
+Each step can specify its own adapter, enabling different steps to use different LLM backends:
+
+```yaml
+steps:
+  - id: analyze
+    persona: navigator
+    adapter: opencode
+    model: "zai-coding-plan/glm-5-turbo"
+  - id: implement
+    persona: craftsman
+    # Uses persona's adapter (claude) by default
+  - id: review
+    persona: reviewer
+    adapter: gemini
+    model: "gemini-2.0-pro"
+```
+
+### CLI Overrides
+
+```bash
+wave run my-pipeline --adapter opencode                    # Override all steps to use opencode
+wave run my-pipeline --adapter opencode --model "zai-coding-plan/glm-5-turbo"  # Override adapter + model
+wave run my-pipeline --model "gemini-2.0-pro"              # Override model only (persona's adapter stays)
 ```
 
 ---
@@ -332,12 +480,27 @@ runtime:
 
 ---
 
+## Model Format
+
+Model format varies by adapter:
+
+| Adapter | Model Format | Example |
+|---------|-------------|---------|
+| claude | Short names or full IDs | `sonnet`, `haiku`, `claude-opus-4-5-20251101` |
+| opencode | `provider/model` for multi-provider, or short names | `zai-coding-plan/glm-5-turbo`, `openai/gpt-4o`, `anthropic/claude-sonnet-4-20250514` |
+| gemini | Plain model names | `gemini-2.0-pro`, `gemini-3-flash-preview` |
+| codex | `provider/model` or plain names | `openai/gpt-4o` |
+
+---
+
 ## Validation
 
 ```bash
 $ wave validate --verbose
- Adapter 'claude' binary found: /usr/local/bin/claude
- Adapter 'opencode' binary not found on PATH  # Warning only
+  Adapter 'claude' binary found: /usr/local/bin/claude
+  Adapter 'opencode' binary found: /usr/local/bin/opencode
+  Adapter 'gemini' binary found: /usr/local/bin/gemini
+  Adapter 'codex' binary not found on PATH  # Warning only
 ```
 
 Binary warnings do not block validation - the binary may be available at runtime.

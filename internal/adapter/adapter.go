@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/recinq/wave/internal/timeouts"
 	"github.com/recinq/wave/internal/sandbox"
+	"github.com/recinq/wave/internal/timeouts"
 )
 
 type AdapterRunner interface {
@@ -87,8 +87,8 @@ type AdapterResult struct {
 	ExitCode      int
 	Stdout        io.Reader
 	TokensUsed    int
-	TokensIn      int    // Input tokens (prompt + cache creation)
-	TokensOut     int    // Output tokens (completion)
+	TokensIn      int // Input tokens (prompt + cache creation)
+	TokensOut     int // Output tokens (completion)
 	Artifacts     []string
 	ResultContent string // Extracted content from the adapter response
 	FailureReason string // Classification: "timeout", "context_exhaustion", "general_error"
@@ -220,6 +220,19 @@ func exitCodeFromError(err error) int {
 
 func estimateTokens(text string) int {
 	return len(text) / 4
+}
+
+func InstructionFilename(adapterName string) string {
+	switch strings.ToLower(adapterName) {
+	case "claude":
+		return "CLAUDE.md"
+	case "gemini":
+		return "GEMINI.md"
+	case "opencode", "codex":
+		return "AGENTS.md"
+	default:
+		return "AGENTS.md"
+	}
 }
 
 func parseArtifacts(data []byte, artifacts *[]string) {

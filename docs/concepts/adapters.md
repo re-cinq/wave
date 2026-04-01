@@ -30,6 +30,10 @@ adapters:
     project_files:                    # Files copied into every workspace
       - CLAUDE.md
       - .claude/settings.json
+    tier_models:                     # Model selection by complexity tier
+      cheapest: haiku                # Cost-optimized model
+      fastest: ""                    # Use adapter default (empty)
+      strongest: opus                # Capability-optimized model
     default_permissions:              # Base permissions for all personas
       allowed_tools: ["Read", "Write", "Edit", "Bash"]
       deny: []
@@ -44,6 +48,7 @@ adapters:
 | `mode` | Always `"headless"` — Wave runs adapters as subprocesses, never interactive terminals. |
 | `output_format` | How to parse adapter output. `"json"` is the standard. |
 | `project_files` | Files copied into every workspace that uses this adapter. Useful for tool-specific config. |
+| `tier_models` | Maps complexity tiers (`cheapest`, `fastest`, `strongest`) to model identifiers for auto-routing. |
 | `default_permissions` | Base tool permissions. Personas can override these. |
 | `hooks_template` | Directory of hook scripts copied into workspaces. |
 
@@ -81,7 +86,7 @@ Each adapter subprocess runs in its own process group. This ensures:
 
 ## Multiple Adapters
 
-A project can define multiple adapters for different LLM tools:
+A project can define multiple adapters for different LLM tools. Wave ships with built-in adapters for Claude, OpenCode, Gemini, and Codex:
 
 ```yaml
 adapters:
@@ -97,9 +102,27 @@ adapters:
     default_permissions:
       allowed_tools: ["Read", "Write"]
       deny: ["Bash(rm *)"]
+
+  gemini:
+    binary: gemini
+    mode: headless
+    output_format: json
+
+  codex:
+    binary: codex
+    mode: headless
+    output_format: json
 ```
 
-Personas select their adapter. For OpenCode personas, the `model` field uses a `provider/model` identifier format — the string is split on the first `/` to derive the provider and model name:
+### Adapter Selection Hierarchy
+
+Adapter selection follows a four-tier precedence hierarchy:
+
+```
+CLI --adapter flag > step.adapter (pipeline YAML) > persona.adapter > manifest default
+```
+
+**Persona-level selection** — bind an adapter in the persona definition:
 
 ```yaml
 personas:
@@ -111,7 +134,27 @@ personas:
     model: openai/gpt-4o   # provider=openai, model=gpt-4o
 ```
 
-If `model` is omitted for an OpenCode persona, it defaults to `anthropic/claude-sonnet-4-20250514`.
+**Step-level selection** — override the persona's adapter for a specific pipeline step:
+
+```yaml
+pipelines:
+  my-pipeline:
+    steps:
+      - name: heavy-reasoning
+        adapter: claude
+        persona: navigator
+      - name: quick-format
+        adapter: opencode
+        persona: implementer
+```
+
+**CLI flag override** — override all adapter selection at runtime:
+
+```bash
+wave run my-pipeline --adapter opencode --model "zai-coding-plan/glm-5-turbo"
+```
+
+For OpenCode personas, the `model` field uses a `provider/model` identifier format — the string is split on the first `/` to derive the provider and model name. If `model` is omitted for an OpenCode persona, it defaults to `anthropic/claude-sonnet-4-20250514`.
 
 ## Browser Adapter
 

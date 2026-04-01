@@ -19,16 +19,16 @@ type ServiceConfig struct {
 }
 
 type Project struct {
-	Language            string                    `yaml:"language,omitempty"`
-	Flavour             string                    `yaml:"flavour,omitempty"`
-	TestCommand         string                    `yaml:"test_command,omitempty"`
-	ContractTestCommand string                    `yaml:"contract_test_command,omitempty"`
-	LintCommand         string                    `yaml:"lint_command,omitempty"`
-	BuildCommand        string                    `yaml:"build_command,omitempty"`
-	FormatCommand       string                    `yaml:"format_command,omitempty"`
-	SourceGlob          string                    `yaml:"source_glob,omitempty"`
-	Skill               string                    `yaml:"skill,omitempty"`
-	Services            map[string]ServiceConfig  `yaml:"services,omitempty"`
+	Language            string                   `yaml:"language,omitempty"`
+	Flavour             string                   `yaml:"flavour,omitempty"`
+	TestCommand         string                   `yaml:"test_command,omitempty"`
+	ContractTestCommand string                   `yaml:"contract_test_command,omitempty"`
+	LintCommand         string                   `yaml:"lint_command,omitempty"`
+	BuildCommand        string                   `yaml:"build_command,omitempty"`
+	FormatCommand       string                   `yaml:"format_command,omitempty"`
+	SourceGlob          string                   `yaml:"source_glob,omitempty"`
+	Skill               string                   `yaml:"skill,omitempty"`
+	Services            map[string]ServiceConfig `yaml:"services,omitempty"`
 }
 
 // OntologyContext defines a bounded context within the project ontology.
@@ -40,23 +40,23 @@ type OntologyContext struct {
 
 // Ontology defines the project's domain model for context-aware agent injection.
 type Ontology struct {
-	Telos       string              `yaml:"telos,omitempty"`
-	Contexts    []OntologyContext   `yaml:"contexts,omitempty"`
-	Conventions map[string]string   `yaml:"conventions,omitempty"`
+	Telos       string            `yaml:"telos,omitempty"`
+	Contexts    []OntologyContext `yaml:"contexts,omitempty"`
+	Conventions map[string]string `yaml:"conventions,omitempty"`
 }
 
 type Manifest struct {
-	APIVersion  string              `yaml:"apiVersion"`
-	Kind        string              `yaml:"kind"`
-	Metadata    Metadata            `yaml:"metadata"`
-	Project     *Project            `yaml:"project,omitempty"`
-	Ontology    *Ontology           `yaml:"ontology,omitempty"`
-	Adapters    map[string]Adapter  `yaml:"adapters,omitempty"`
-	Personas    map[string]Persona  `yaml:"personas,omitempty"`
-	Server      *ServerConfig       `yaml:"server,omitempty"`
-	Skills      []string            `yaml:"skills,omitempty"`
-	Hooks       []hooks.LifecycleHookDef `yaml:"hooks,omitempty"`
-	Runtime     Runtime                    `yaml:"runtime"`
+	APIVersion string                   `yaml:"apiVersion"`
+	Kind       string                   `yaml:"kind"`
+	Metadata   Metadata                 `yaml:"metadata"`
+	Project    *Project                 `yaml:"project,omitempty"`
+	Ontology   *Ontology                `yaml:"ontology,omitempty"`
+	Adapters   map[string]Adapter       `yaml:"adapters,omitempty"`
+	Personas   map[string]Persona       `yaml:"personas,omitempty"`
+	Server     *ServerConfig            `yaml:"server,omitempty"`
+	Skills     []string                 `yaml:"skills,omitempty"`
+	Hooks      []hooks.LifecycleHookDef `yaml:"hooks,omitempty"`
+	Runtime    Runtime                  `yaml:"runtime"`
 }
 
 type Metadata struct {
@@ -68,11 +68,16 @@ type Metadata struct {
 
 type Adapter struct {
 	Binary             string      `yaml:"binary"`
+	DefaultModel       string      `yaml:"default_model,omitempty"`
 	Mode               string      `yaml:"mode"`
 	OutputFormat       string      `yaml:"output_format,omitempty"`
 	ProjectFiles       []string    `yaml:"project_files,omitempty"`
 	DefaultPermissions Permissions `yaml:"default_permissions,omitempty"`
 	HooksTemplate      string      `yaml:"hooks_template,omitempty"`
+	// TierModels maps complexity tiers to model identifiers for auto-routing.
+	// Tiers: "cheapest" (cost-optimized), "fastest" (latency-optimized), "strongest" (capability-optimized).
+	// If not set, falls back to routing.complexity_map, then adapter default_model.
+	TierModels map[string]string `yaml:"tier_models,omitempty"`
 }
 
 type Persona struct {
@@ -160,7 +165,7 @@ type Runtime struct {
 	CircuitBreaker       CircuitBreakerConfig   `yaml:"circuit_breaker,omitempty"`
 	Retros               RetrosConfig           `yaml:"retros,omitempty"`
 	Cost                 CostConfig             `yaml:"cost,omitempty"`
-	Fallbacks            map[string][]string    `yaml:"fallbacks,omitempty"`   // Adapter fallback chains (e.g., anthropic: [openai, gemini])
+	Fallbacks            map[string][]string    `yaml:"fallbacks,omitempty"`     // Adapter fallback chains (e.g., anthropic: [openai, gemini])
 	StallTimeout         string                 `yaml:"stall_timeout,omitempty"` // Duration string (e.g. "30m", "1800s"). 0 or empty = disabled.
 }
 
@@ -248,26 +253,27 @@ type RoutingConfig struct {
 	AutoRoute bool `yaml:"auto_route,omitempty"`
 
 	// ComplexityMap maps complexity tier names to model identifiers.
-	// Default tiers: "simple" -> "claude-haiku-4-5", "standard" -> "" (adapter default), "complex" -> "claude-opus-4".
+	// Tiers: "cheapest" (cost-optimized), "fastest" (latency-optimized), "strongest" (capability-optimized).
+	// Default mapping: "cheapest" -> "claude-haiku-4-5", "fastest" -> "" (adapter default), "strongest" -> "claude-opus-4".
 	ComplexityMap map[string]string `yaml:"complexity_map,omitempty"`
 
 	// DefaultTier is the fallback complexity tier when classification is inconclusive.
-	// Defaults to "standard" if not set.
+	// Defaults to "fastest" if not set.
 	DefaultTier string `yaml:"default_tier,omitempty"`
 }
 
-// DefaultComplexityMap returns the built-in complexity-to-model mapping.
+// DefaultComplexityMap returns the built-in complexity-to-model mapping for Claude adapter.
 func DefaultComplexityMap() map[string]string {
 	return map[string]string{
-		"simple":   "claude-haiku-4-5",
-		"standard": "",
-		"complex":  "claude-opus-4",
+		"cheapest":  "claude-haiku-4-5",
+		"fastest":   "",
+		"strongest": "claude-opus-4",
 	}
 }
 
 // ResolveComplexityModel returns the model for a given complexity tier,
 // consulting the configured ComplexityMap first, then falling back to defaults.
-// Returns empty string for the "standard" tier (use adapter default).
+// Returns empty string for the "fastest" tier (use adapter default).
 func (r *RoutingConfig) ResolveComplexityModel(tier string) string {
 	if r != nil && len(r.ComplexityMap) > 0 {
 		if model, ok := r.ComplexityMap[tier]; ok {
@@ -278,12 +284,12 @@ func (r *RoutingConfig) ResolveComplexityModel(tier string) string {
 	return defaults[tier]
 }
 
-// EffectiveDefaultTier returns the configured default tier, falling back to "standard".
+// EffectiveDefaultTier returns the configured default tier, falling back to "fastest".
 func (r *RoutingConfig) EffectiveDefaultTier() string {
 	if r != nil && r.DefaultTier != "" {
 		return r.DefaultTier
 	}
-	return "standard"
+	return "fastest"
 }
 
 // RoutingRule defines a rule for matching work items to pipelines.
@@ -483,7 +489,6 @@ func (m *Manifest) GetPersona(name string) *Persona {
 	return nil
 }
 
-
 func (p *Persona) GetSystemPromptPath(root string) string {
 	if filepath.IsAbs(p.SystemPromptFile) {
 		return p.SystemPromptFile
@@ -501,9 +506,9 @@ func (r *Runtime) GetDefaultTimeout() time.Duration {
 
 // ServerConfig holds server-mode configuration from the manifest.
 type ServerConfig struct {
-	Bind          string            `yaml:"bind,omitempty"`
-	MaxConcurrent int               `yaml:"max_concurrent,omitempty"`
-	Auth          ServerAuthConfig  `yaml:"auth,omitempty"`
+	Bind          string           `yaml:"bind,omitempty"`
+	MaxConcurrent int              `yaml:"max_concurrent,omitempty"`
+	Auth          ServerAuthConfig `yaml:"auth,omitempty"`
 	TLS           ServerTLSConfig  `yaml:"tls,omitempty"`
 }
 

@@ -10,44 +10,80 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// getDefaultTierModels returns the default tier model mappings for a given adapter.
+func getDefaultTierModels(adapter string) map[string]string {
+	switch adapter {
+	case "claude":
+		return map[string]string{
+			"cheapest":  "haiku",
+			"fastest":   "",
+			"strongest": "opus",
+		}
+	case "opencode":
+		return map[string]string{
+			"cheapest":  "opencode/big-pickle",
+			"fastest":   "opencode/big-pickle",
+			"strongest": "opencode/big-pickle",
+		}
+	case "gemini":
+		return map[string]string{
+			"cheapest":  "gemini-2.5-flash-lite",
+			"fastest":   "gemini-2.5-flash-lite",
+			"strongest": "gemini-2.0-pro",
+		}
+	case "codex":
+		return map[string]string{
+			"cheapest":  "gpt-4o-mini",
+			"fastest":   "gpt-4o",
+			"strongest": "o3",
+		}
+	default:
+		return map[string]string{
+			"cheapest":  "",
+			"fastest":   "",
+			"strongest": "",
+		}
+	}
+}
+
 // WizardConfig holds configuration for the onboarding wizard.
 type WizardConfig struct {
-	WaveDir     string             // Path to .wave directory
-	Interactive bool               // false when --yes or no TTY
-	Reconfigure bool               // true when --reconfigure flag is set
-	Existing    *manifest.Manifest // non-nil when reconfiguring
-	All         bool               // true when --all flag includes all pipelines
-	Adapter     string             // default adapter name
-	Workspace   string             // workspace directory path
+	WaveDir        string                      // Path to .wave directory
+	Interactive    bool                        // false when --yes or no TTY
+	Reconfigure    bool                        // true when --reconfigure flag is set
+	Existing       *manifest.Manifest          // non-nil when reconfiguring
+	All            bool                        // true when --all flag includes all pipelines
+	Adapter        string                      // default adapter name
+	Workspace      string                      // workspace directory path
 	OutputPath     string                      // path for wave.yaml output
 	PersonaConfigs map[string]manifest.Persona // persona configs for manifest generation
 }
 
 // WizardResult holds the collected results from all wizard steps.
 type WizardResult struct {
-	Adapter       string
-	Model         string
-	Flavour       string
-	TestCommand   string
-	LintCommand   string
-	BuildCommand  string
-	FormatCommand string
-	Language      string
-	SourceGlob    string
-	Skill         string   // language skill name for pipeline templates
-	Pipelines     []string // selected pipeline names
+	Adapter              string
+	Model                string
+	Flavour              string
+	TestCommand          string
+	LintCommand          string
+	BuildCommand         string
+	FormatCommand        string
+	Language             string
+	SourceGlob           string
+	Skill                string   // language skill name for pipeline templates
+	Pipelines            []string // selected pipeline names
 	Skills               []string // installed skill names from onboarding
 	WaveCommandGenerated bool     // true if .claude/commands/wave.md was created
 	Dependencies         []DependencyStatus
-	OntologyTelos    string   // project purpose statement
-	OntologyContexts []string // bounded context names
-	Services         map[string]manifest.ServiceConfig // detected monorepo services
+	OntologyTelos        string                            // project purpose statement
+	OntologyContexts     []string                          // bounded context names
+	Services             map[string]manifest.ServiceConfig // detected monorepo services
 }
 
 // DependencyStatus reports the status of a required dependency.
 type DependencyStatus struct {
-	Name      string
-	Found     bool
+	Name       string
+	Found      bool
 	InstallURL string
 }
 
@@ -244,7 +280,6 @@ func writeManifest(cfg WizardConfig, result *WizardResult) error {
 	return os.WriteFile(cfg.OutputPath, data, 0644)
 }
 
-
 // inferTokenScopes returns recommended token_scopes for a persona based on its permission profile.
 // Personas with Bash in their allowed tools are considered forge-interacting with write access.
 // Personas with only read-type tools get read-only scopes.
@@ -276,6 +311,9 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 		adapter = "claude"
 	}
 
+	// Build tier_models based on adapter type
+	tierModels := getDefaultTierModels(adapter)
+
 	m := map[string]interface{}{
 		"apiVersion": "v1",
 		"kind":       "WaveManifest",
@@ -288,7 +326,8 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 				"binary":        adapter,
 				"mode":          "headless",
 				"output_format": "json",
-				"project_files": []string{"CLAUDE.md", ".claude/settings.json"},
+				"project_files": []string{"AGENTS.md", ".claude/settings.json"},
+				"tier_models":   tierModels,
 				"default_permissions": map[string]interface{}{
 					"allowed_tools": []string{"Read", "Write", "Edit", "Bash"},
 					"deny":          []string{},
@@ -300,7 +339,7 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 			"max_concurrent_workers":  5,
 			"default_timeout_minutes": 30,
 			"timeouts": map[string]interface{}{
-				"step_default_minutes":      5,
+				"step_default_minutes":       5,
 				"relay_compaction_minutes":   5,
 				"meta_default_minutes":       30,
 				"skill_install_seconds":      120,

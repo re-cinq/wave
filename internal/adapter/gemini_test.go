@@ -17,17 +17,17 @@ func TestGeminiAdapter_BuildArgs(t *testing.T) {
 		{
 			name: "basic prompt",
 			cfg:  AdapterRunConfig{Prompt: "implement the feature"},
-			want: []string{"-p", "implement the feature"},
+			want: []string{"--yolo", "--output-format", "stream-json", "-p", "implement the feature"},
 		},
 		{
 			name: "with model",
 			cfg:  AdapterRunConfig{Prompt: "fix the bug", Model: "gemini-pro"},
-			want: []string{"--model", "gemini-pro", "-p", "fix the bug"},
+			want: []string{"--model", "gemini-pro", "--yolo", "--output-format", "stream-json", "-p", "fix the bug"},
 		},
 		{
 			name: "no prompt no model",
 			cfg:  AdapterRunConfig{},
-			want: []string{},
+			want: []string{"--yolo", "--output-format", "stream-json"},
 		},
 	}
 
@@ -43,10 +43,10 @@ func TestGeminiAdapter_ParseOutput(t *testing.T) {
 	a := NewGeminiAdapter()
 
 	tests := []struct {
-		name    string
-		output  string
-		wantIn  int
-		wantOut int
+		name        string
+		output      string
+		wantIn      int
+		wantOut     int
 		wantContent string
 	}{
 		{
@@ -54,8 +54,8 @@ func TestGeminiAdapter_ParseOutput(t *testing.T) {
 			output: "",
 		},
 		{
-			name: "result event with tokens",
-			output: `{"type":"result","usage":{"input_tokens":200,"output_tokens":80},"content":"completed"}`,
+			name:        "result event with tokens",
+			output:      `{"type":"result","usage":{"input_tokens":200,"output_tokens":80},"content":"completed"}`,
 			wantIn:      200,
 			wantOut:     80,
 			wantContent: "completed",
@@ -87,21 +87,21 @@ func TestParseGeminiStreamLine(t *testing.T) {
 		wantEvt StreamEvent
 	}{
 		{
-			name: "tool_use event",
-			line: `{"type":"tool_use","name":"WriteFile","input":"/tmp/bar"}`,
-			wantOK: true,
+			name:    "tool_use event",
+			line:    `{"type":"tool_use","name":"WriteFile","input":"/tmp/bar"}`,
+			wantOK:  true,
 			wantEvt: StreamEvent{Type: "tool_use", ToolName: "WriteFile", ToolInput: "/tmp/bar"},
 		},
 		{
-			name: "text event",
-			line: `{"type":"text","content":"thinking about solution"}`,
-			wantOK: true,
+			name:    "text event",
+			line:    `{"type":"text","content":"thinking about solution"}`,
+			wantOK:  true,
 			wantEvt: StreamEvent{Type: "text", Content: "thinking about solution"},
 		},
 		{
-			name: "result event",
-			line: `{"type":"result","usage":{"input_tokens":200,"output_tokens":80},"content":"done"}`,
-			wantOK: true,
+			name:    "result event",
+			line:    `{"type":"result","usage":{"input_tokens":200,"output_tokens":80},"content":"done"}`,
+			wantOK:  true,
 			wantEvt: StreamEvent{Type: "result", TokensIn: 200, TokensOut: 80, Content: "done"},
 		},
 		{
