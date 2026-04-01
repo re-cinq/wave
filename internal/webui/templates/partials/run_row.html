@@ -25,5 +25,7 @@
         {{if gt .StepsTotal 0}}<span class="run-progress" title="{{.StepsCompleted}}/{{.StepsTotal}} steps completed">{{.StepsCompleted}}/{{.StepsTotal}}</span>{{end}}
     </td>
     <td>{{formatTokens .TotalTokens}}</td>
+    <td>{{range $i, $a := .Adapters}}{{if $i}} {{end}}<span class="badge badge-adapter">{{$a}}</span>{{end}}</td>
+    <td>{{range $i, $m := .Models}}{{if $i}} {{end}}<span class="badge badge-model">{{$m}}</span>{{end}}</td>
 </tr>
 {{end}}
