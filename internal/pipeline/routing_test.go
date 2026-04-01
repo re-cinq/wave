@@ -15,173 +15,173 @@ func TestClassifyStepComplexity(t *testing.T) {
 		personaName string
 		want        string
 	}{
-		// Simple tier: command step type
+		// Cheapest tier: command step type
 		{
-			name:        "command step type routes to simple",
+			name:        "command step type routes to cheapest",
 			step:        &Step{Type: StepTypeCommand},
 			persona:     &manifest.Persona{},
 			personaName: "anything",
-			want:        TierSimple,
+			want:        TierCheapest,
 		},
-		// Simple tier: conditional step type
+		// Cheapest tier: conditional step type
 		{
-			name:        "conditional step type routes to simple",
+			name:        "conditional step type routes to cheapest",
 			step:        &Step{Type: StepTypeConditional},
 			persona:     &manifest.Persona{},
 			personaName: "anything",
-			want:        TierSimple,
+			want:        TierCheapest,
 		},
-		// Simple tier: navigator persona
+		// Cheapest tier: navigator persona
 		{
-			name:        "navigator persona routes to simple",
+			name:        "navigator persona routes to cheapest",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
 			personaName: "navigator",
-			want:        TierSimple,
+			want:        TierCheapest,
 		},
-		// Simple tier: summarizer persona
+		// Cheapest tier: summarizer persona
 		{
-			name:        "summarizer persona routes to simple",
+			name:        "summarizer persona routes to cheapest",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
 			personaName: "summarizer",
-			want:        TierSimple,
+			want:        TierCheapest,
 		},
-		// Simple tier: auditor persona
+		// Cheapest tier: auditor persona
 		{
-			name:        "auditor persona routes to simple",
+			name:        "auditor persona routes to cheapest",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
 			personaName: "auditor",
-			want:        TierSimple,
+			want:        TierCheapest,
 		},
-		// Simple tier: planner persona
+		// Cheapest tier: planner persona
 		{
-			name:        "planner persona routes to simple",
+			name:        "planner persona routes to cheapest",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
 			personaName: "planner",
-			want:        TierSimple,
+			want:        TierCheapest,
 		},
-		// Simple tier: case insensitive persona name
+		// Cheapest tier: case insensitive persona name
 		{
 			name:        "persona name matching is case insensitive",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
 			personaName: "Senior-Navigator",
-			want:        TierSimple,
+			want:        TierCheapest,
 		},
-		// Complex tier: craftsman persona
+		// Strongest tier: craftsman persona
 		{
-			name:        "craftsman persona routes to complex",
+			name:        "craftsman persona routes to strongest",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
 			personaName: "craftsman",
-			want:        TierComplex,
+			want:        TierStrongest,
 		},
-		// Complex tier: implementer persona
+		// Strongest tier: implementer persona
 		{
-			name:        "implementer persona routes to complex",
+			name:        "implementer persona routes to strongest",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
 			personaName: "implementer",
-			want:        TierComplex,
+			want:        TierStrongest,
 		},
-		// Complex tier: debugger persona
+		// Strongest tier: debugger persona
 		{
-			name:        "debugger persona routes to complex",
+			name:        "debugger persona routes to strongest",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
 			personaName: "debugger",
-			want:        TierComplex,
+			want:        TierStrongest,
 		},
-		// Complex tier: researcher persona
+		// Strongest tier: researcher persona
 		{
-			name:        "researcher persona routes to complex",
+			name:        "researcher persona routes to strongest",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
 			personaName: "researcher",
-			want:        TierComplex,
+			want:        TierStrongest,
 		},
-		// Complex tier: supervisor persona
+		// Strongest tier: supervisor persona
 		{
-			name:        "supervisor persona routes to complex",
+			name:        "supervisor persona routes to strongest",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
 			personaName: "supervisor",
-			want:        TierComplex,
+			want:        TierStrongest,
 		},
-		// Complex tier: philosopher persona
+		// Strongest tier: philosopher persona
 		{
-			name:        "philosopher persona routes to complex",
+			name:        "philosopher persona routes to strongest",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
 			personaName: "philosopher",
-			want:        TierComplex,
+			want:        TierStrongest,
 		},
-		// Complex tier: provocateur persona
+		// Strongest tier: provocateur persona
 		{
-			name:        "provocateur persona routes to complex",
+			name:        "provocateur persona routes to strongest",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
 			personaName: "provocateur",
-			want:        TierComplex,
+			want:        TierStrongest,
 		},
-		// Complex tier: sub-pipeline step
+		// Strongest tier: sub-pipeline step
 		{
-			name:        "sub_pipeline step routes to complex",
+			name:        "sub_pipeline step routes to strongest",
 			step:        &Step{SubPipeline: "child-pipeline"},
 			persona:     &manifest.Persona{},
 			personaName: "generic",
-			want:        TierComplex,
+			want:        TierStrongest,
 		},
-		// Complex tier: loop step
+		// Strongest tier: loop step
 		{
-			name:        "loop step routes to complex",
+			name:        "loop step routes to strongest",
 			step:        &Step{Loop: &LoopConfig{MaxIterations: 3}},
 			persona:     &manifest.Persona{},
 			personaName: "generic",
-			want:        TierComplex,
+			want:        TierStrongest,
 		},
-		// Complex tier: branch step
+		// Strongest tier: branch step
 		{
-			name:        "branch step routes to complex",
+			name:        "branch step routes to strongest",
 			step:        &Step{Branch: &BranchConfig{On: "x"}},
 			persona:     &manifest.Persona{},
 			personaName: "generic",
-			want:        TierComplex,
+			want:        TierStrongest,
 		},
-		// Complex tier: aggregate step
+		// Strongest tier: aggregate step
 		{
-			name:        "aggregate step routes to complex",
+			name:        "aggregate step routes to strongest",
 			step:        &Step{Aggregate: &AggregateConfig{From: "a", Into: "b", Strategy: "merge_arrays"}},
 			persona:     &manifest.Persona{},
 			personaName: "generic",
-			want:        TierComplex,
+			want:        TierStrongest,
 		},
-		// Standard tier: fallthrough
+		// Fastest tier: fallthrough
 		{
-			name:        "generic step and persona routes to standard",
+			name:        "generic step and persona routes to fastest",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
 			personaName: "generic-persona",
-			want:        TierStandard,
+			want:        TierFastest,
 		},
-		// Standard tier: nil step
+		// Fastest tier: nil step
 		{
-			name:        "nil step with generic persona routes to standard",
+			name:        "nil step with generic persona routes to fastest",
 			step:        nil,
 			persona:     &manifest.Persona{},
 			personaName: "generic-persona",
-			want:        TierStandard,
+			want:        TierFastest,
 		},
-		// Priority: step type beats persona name (command step with complex persona)
+		// Priority: step type beats persona name (command step with strongest persona)
 		{
-			name:        "command step type overrides complex persona keyword",
+			name:        "command step type overrides strongest persona keyword",
 			step:        &Step{Type: StepTypeCommand},
 			persona:     &manifest.Persona{},
 			personaName: "craftsman",
-			want:        TierSimple,
+			want:        TierCheapest,
 		},
 	}
 
@@ -231,7 +231,7 @@ func TestResolveModelWithAutoRouting(t *testing.T) {
 			want:        "persona-model",
 		},
 		{
-			name:        "auto-routing selects haiku for navigator persona",
+			name:        "auto-routing selects haiku for navigator persona (cheapest tier)",
 			override:    "",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
@@ -240,7 +240,7 @@ func TestResolveModelWithAutoRouting(t *testing.T) {
 			want:        "claude-haiku-4-5",
 		},
 		{
-			name:        "auto-routing selects opus for craftsman persona",
+			name:        "auto-routing selects opus for craftsman persona (strongest tier)",
 			override:    "",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
@@ -249,7 +249,7 @@ func TestResolveModelWithAutoRouting(t *testing.T) {
 			want:        "claude-opus-4",
 		},
 		{
-			name:        "auto-routing returns empty for standard tier (adapter default)",
+			name:        "auto-routing returns empty for fastest tier (adapter default)",
 			override:    "",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
@@ -285,7 +285,7 @@ func TestResolveModelWithAutoRouting(t *testing.T) {
 			routing: &manifest.RoutingConfig{
 				AutoRoute: true,
 				ComplexityMap: map[string]string{
-					"simple": "custom-haiku",
+					"cheapest": "custom-haiku",
 				},
 			},
 			personaName: "navigator",
@@ -299,27 +299,27 @@ func TestResolveModelWithAutoRouting(t *testing.T) {
 			routing: &manifest.RoutingConfig{
 				AutoRoute: true,
 				ComplexityMap: map[string]string{
-					"simple": "custom-haiku",
+					"cheapest": "custom-haiku",
 				},
 			},
 			personaName: "craftsman",
 			want:        "claude-opus-4",
 		},
 		{
-			name:     "command step with auto-route gets haiku",
-			override: "",
-			step:     &Step{Type: StepTypeCommand},
-			persona:  &manifest.Persona{},
-			routing:  &manifest.RoutingConfig{AutoRoute: true},
+			name:        "command step with auto-route gets haiku (cheapest)",
+			override:    "",
+			step:        &Step{Type: StepTypeCommand},
+			persona:     &manifest.Persona{},
+			routing:     &manifest.RoutingConfig{AutoRoute: true},
 			personaName: "generic",
 			want:        "claude-haiku-4-5",
 		},
 		{
-			name:     "sub-pipeline step with auto-route gets opus",
-			override: "",
-			step:     &Step{SubPipeline: "child"},
-			persona:  &manifest.Persona{},
-			routing:  &manifest.RoutingConfig{AutoRoute: true},
+			name:        "sub-pipeline step with auto-route gets opus (strongest)",
+			override:    "",
+			step:        &Step{SubPipeline: "child"},
+			persona:     &manifest.Persona{},
+			routing:     &manifest.RoutingConfig{AutoRoute: true},
 			personaName: "generic",
 			want:        "claude-opus-4",
 		},
@@ -342,47 +342,47 @@ func TestRoutingConfigResolveComplexityModel(t *testing.T) {
 		want    string
 	}{
 		{
-			name:    "nil routing uses defaults for simple",
+			name:    "nil routing uses defaults for cheapest",
 			routing: nil,
-			tier:    "simple",
+			tier:    "cheapest",
 			want:    "claude-haiku-4-5",
 		},
 		{
-			name:    "nil routing uses defaults for complex",
+			name:    "nil routing uses defaults for strongest",
 			routing: nil,
-			tier:    "complex",
+			tier:    "strongest",
 			want:    "claude-opus-4",
 		},
 		{
-			name:    "nil routing uses defaults for standard (empty)",
+			name:    "nil routing uses defaults for fastest (empty = adapter default)",
 			routing: nil,
-			tier:    "standard",
+			tier:    "fastest",
 			want:    "",
 		},
 		{
 			name:    "empty complexity map uses defaults",
 			routing: &manifest.RoutingConfig{},
-			tier:    "simple",
+			tier:    "cheapest",
 			want:    "claude-haiku-4-5",
 		},
 		{
 			name: "custom map overrides specific tier",
 			routing: &manifest.RoutingConfig{
 				ComplexityMap: map[string]string{
-					"simple": "gpt-4o-mini",
+					"cheapest": "gpt-4o-mini",
 				},
 			},
-			tier: "simple",
+			tier: "cheapest",
 			want: "gpt-4o-mini",
 		},
 		{
 			name: "custom map falls back to default for unmapped tier",
 			routing: &manifest.RoutingConfig{
 				ComplexityMap: map[string]string{
-					"simple": "gpt-4o-mini",
+					"cheapest": "gpt-4o-mini",
 				},
 			},
-			tier: "complex",
+			tier: "strongest",
 			want: "claude-opus-4",
 		},
 		{
@@ -408,21 +408,21 @@ func TestRoutingConfigEffectiveDefaultTier(t *testing.T) {
 		want    string
 	}{
 		{
-			name:    "nil routing returns standard",
+			name:    "nil routing returns fastest",
 			routing: nil,
-			want:    "standard",
+			want:    "fastest",
 		},
 		{
-			name:    "empty default tier returns standard",
+			name:    "empty default tier returns fastest",
 			routing: &manifest.RoutingConfig{},
-			want:    "standard",
+			want:    "fastest",
 		},
 		{
 			name: "custom default tier is returned",
 			routing: &manifest.RoutingConfig{
-				DefaultTier: "simple",
+				DefaultTier: "cheapest",
 			},
-			want: "simple",
+			want: "cheapest",
 		},
 	}
 
@@ -436,8 +436,8 @@ func TestRoutingConfigEffectiveDefaultTier(t *testing.T) {
 
 func TestDefaultComplexityMap(t *testing.T) {
 	m := manifest.DefaultComplexityMap()
-	assert.Equal(t, "claude-haiku-4-5", m["simple"])
-	assert.Equal(t, "", m["standard"])
-	assert.Equal(t, "claude-opus-4", m["complex"])
+	assert.Equal(t, "claude-haiku-4-5", m["cheapest"])
+	assert.Equal(t, "", m["fastest"])
+	assert.Equal(t, "claude-opus-4", m["strongest"])
 	assert.Len(t, m, 3)
 }

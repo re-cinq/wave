@@ -74,6 +74,10 @@ type Adapter struct {
 	ProjectFiles       []string    `yaml:"project_files,omitempty"`
 	DefaultPermissions Permissions `yaml:"default_permissions,omitempty"`
 	HooksTemplate      string      `yaml:"hooks_template,omitempty"`
+	// TierModels maps complexity tiers to model identifiers for auto-routing.
+	// Tiers: "cheapest" (cost-optimized), "fastest" (latency-optimized), "strongest" (capability-optimized).
+	// If not set, falls back to routing.complexity_map, then adapter default_model.
+	TierModels map[string]string `yaml:"tier_models,omitempty"`
 }
 
 type Persona struct {
@@ -249,26 +253,27 @@ type RoutingConfig struct {
 	AutoRoute bool `yaml:"auto_route,omitempty"`
 
 	// ComplexityMap maps complexity tier names to model identifiers.
-	// Default tiers: "simple" -> "claude-haiku-4-5", "standard" -> "" (adapter default), "complex" -> "claude-opus-4".
+	// Tiers: "cheapest" (cost-optimized), "fastest" (latency-optimized), "strongest" (capability-optimized).
+	// Default mapping: "cheapest" -> "claude-haiku-4-5", "fastest" -> "" (adapter default), "strongest" -> "claude-opus-4".
 	ComplexityMap map[string]string `yaml:"complexity_map,omitempty"`
 
 	// DefaultTier is the fallback complexity tier when classification is inconclusive.
-	// Defaults to "standard" if not set.
+	// Defaults to "fastest" if not set.
 	DefaultTier string `yaml:"default_tier,omitempty"`
 }
 
-// DefaultComplexityMap returns the built-in complexity-to-model mapping.
+// DefaultComplexityMap returns the built-in complexity-to-model mapping for Claude adapter.
 func DefaultComplexityMap() map[string]string {
 	return map[string]string{
-		"simple":   "claude-haiku-4-5",
-		"standard": "",
-		"complex":  "claude-opus-4",
+		"cheapest":  "claude-haiku-4-5",
+		"fastest":   "",
+		"strongest": "claude-opus-4",
 	}
 }
 
 // ResolveComplexityModel returns the model for a given complexity tier,
 // consulting the configured ComplexityMap first, then falling back to defaults.
-// Returns empty string for the "standard" tier (use adapter default).
+// Returns empty string for the "fastest" tier (use adapter default).
 func (r *RoutingConfig) ResolveComplexityModel(tier string) string {
 	if r != nil && len(r.ComplexityMap) > 0 {
 		if model, ok := r.ComplexityMap[tier]; ok {
@@ -279,12 +284,12 @@ func (r *RoutingConfig) ResolveComplexityModel(tier string) string {
 	return defaults[tier]
 }
 
-// EffectiveDefaultTier returns the configured default tier, falling back to "standard".
+// EffectiveDefaultTier returns the configured default tier, falling back to "fastest".
 func (r *RoutingConfig) EffectiveDefaultTier() string {
 	if r != nil && r.DefaultTier != "" {
 		return r.DefaultTier
 	}
-	return "standard"
+	return "fastest"
 }
 
 // RoutingRule defines a rule for matching work items to pipelines.
