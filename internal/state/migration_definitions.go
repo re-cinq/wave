@@ -429,5 +429,13 @@ CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_run ON webhook_deliveries(run_
 			Down: `DROP TABLE IF EXISTS webhook_deliveries;
 DROP TABLE IF EXISTS webhooks;`,
 		},
+		{
+			Version:     19,
+			Description: "Add model and adapter columns to event_log for step tracking",
+			Up: `ALTER TABLE event_log ADD COLUMN model TEXT;
+ALTER TABLE event_log ADD COLUMN adapter TEXT;`,
+			Down: `ALTER TABLE event_log DROP COLUMN model;
+ALTER TABLE event_log DROP COLUMN adapter;`,
+		},
 	}
 }

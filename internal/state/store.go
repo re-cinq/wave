@@ -12,7 +12,6 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-
 // StepState represents the state of a pipeline step.
 type StepState string
 
@@ -71,7 +70,7 @@ type StateStore interface {
 	DeleteRun(runID string) error
 
 	// Event logging
-	LogEvent(runID string, stepID string, state string, persona string, message string, tokens int, durationMs int64) error
+	LogEvent(runID string, stepID string, state string, persona string, message string, tokens int, durationMs int64, model string, adapter string) error
 	GetEvents(runID string, opts EventQueryOptions) ([]LogRecord, error)
 
 	// Artifact tracking
@@ -684,7 +683,6 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	return &record, nil
 }
 
-
 // GetRunningRuns returns all runs with status 'running'.
 func (s *stateStore) GetRunningRuns() ([]RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
@@ -782,13 +780,13 @@ func (s *stateStore) DeleteRun(runID string) error {
 }
 
 // LogEvent records an event in the event_log table.
-func (s *stateStore) LogEvent(runID string, stepID string, state string, persona string, message string, tokens int, durationMs int64) error {
+func (s *stateStore) LogEvent(runID string, stepID string, state string, persona string, message string, tokens int, durationMs int64, model string, adapter string) error {
 	now := time.Now().Unix()
 
-	query := `INSERT INTO event_log (run_id, timestamp, step_id, state, persona, message, tokens_used, duration_ms)
-	          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO event_log (run_id, timestamp, step_id, state, persona, message, tokens_used, duration_ms, model, adapter)
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
-	_, err := s.db.Exec(query, runID, now, stepID, state, persona, message, tokens, durationMs)
+	_, err := s.db.Exec(query, runID, now, stepID, state, persona, message, tokens, durationMs, model, adapter)
 	if err != nil {
 		return fmt.Errorf("failed to log event: %w", err)
 	}
@@ -798,7 +796,7 @@ func (s *stateStore) LogEvent(runID string, stepID string, state string, persona
 
 // GetEvents retrieves events for a run with optional filtering.
 func (s *stateStore) GetEvents(runID string, opts EventQueryOptions) ([]LogRecord, error) {
-	query := `SELECT id, run_id, timestamp, step_id, state, persona, message, tokens_used, duration_ms
+	query := `SELECT id, run_id, timestamp, step_id, state, persona, message, tokens_used, duration_ms, model, adapter
 	          FROM event_log
 	          WHERE run_id = ?`
 	args := []any{runID}
@@ -836,7 +834,7 @@ func (s *stateStore) GetEvents(runID string, opts EventQueryOptions) ([]LogRecor
 	for rows.Next() {
 		var record LogRecord
 		var timestamp int64
-		var stepID, persona, message sql.NullString
+		var stepID, persona, message, model, adapter sql.NullString
 		var tokensUsed, durationMs sql.NullInt64
 
 		err := rows.Scan(
@@ -849,6 +847,8 @@ func (s *stateStore) GetEvents(runID string, opts EventQueryOptions) ([]LogRecor
 			&message,
 			&tokensUsed,
 			&durationMs,
+			&model,
+			&adapter,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan event: %w", err)
@@ -869,6 +869,12 @@ func (s *stateStore) GetEvents(runID string, opts EventQueryOptions) ([]LogRecor
 		}
 		if durationMs.Valid {
 			record.DurationMs = durationMs.Int64
+		}
+		if model.Valid {
+			record.Model = model.String
+		}
+		if adapter.Valid {
+			record.Adapter = adapter.String
 		}
 
 		records = append(records, record)
