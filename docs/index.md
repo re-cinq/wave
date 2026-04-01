@@ -221,6 +221,65 @@ const features = [
 
 <FeatureCards :features="features" />
 
+<div class="compat-section">
+  <h2 class="compat-heading">Any agent. Any forge. One orchestrator.</h2>
+  <p class="compat-lead">Wave speaks your agent's language and works with your platform from day one. No lock-in, no migration.</p>
+
+  <div class="compat-label-row">
+    <span class="compat-eyebrow">Adapters</span>
+  </div>
+  <div class="compat-grid">
+    <div class="compat-card">
+      <div class="compat-name">Claude Code</div>
+      <div class="compat-desc">Anthropic's CLI agent. Full tool use, streaming output, headless mode.</div>
+    </div>
+    <div class="compat-card">
+      <div class="compat-name">OpenCode</div>
+      <div class="compat-desc">Open-source AI coding agent. Multi-provider model routing, JSON streaming.</div>
+    </div>
+    <div class="compat-card">
+      <div class="compat-name">Gemini Code</div>
+      <div class="compat-desc">Google's Gemini CLI. Auto-approve mode, NDJSON streaming, tool use.</div>
+    </div>
+    <div class="compat-card">
+      <div class="compat-name">Codex</div>
+      <div class="compat-desc">OpenAI's Codex CLI. Structured output, AGENTS.md-based prompts.</div>
+    </div>
+  </div>
+
+  <div class="compat-label-row">
+    <span class="compat-eyebrow">Forges</span>
+  </div>
+  <div class="compat-grid">
+    <div class="compat-card">
+      <div class="compat-name">GitHub</div>
+      <div class="compat-desc">Issue triage, PR review, code search, label management, release automation.</div>
+    </div>
+    <div class="compat-card">
+      <div class="compat-name">GitLab</div>
+      <div class="compat-desc">Merge request workflows, issue enhancement, project-level automation.</div>
+    </div>
+    <div class="compat-card">
+      <div class="compat-name">Bitbucket</div>
+      <div class="compat-desc">Issue analysis, comments, and enhancement via Bitbucket Cloud REST API.</div>
+    </div>
+    <div class="compat-card">
+      <div class="compat-name">Gitea / Forgejo</div>
+      <div class="compat-desc">Self-hosted forge support. Issue creation, commenting, and scoping via tea CLI.</div>
+    </div>
+    <div class="compat-card">
+      <div class="compat-name">Codeberg</div>
+      <div class="compat-desc">Community-hosted Gitea instance. Full issue and PR workflow support.</div>
+    </div>
+    <div class="compat-card">
+      <div class="compat-name">Local</div>
+      <div class="compat-desc">No forge? No problem. Wave works with local git repos and ad-hoc inputs.</div>
+    </div>
+  </div>
+
+  <p class="compat-cta">Switch adapters at runtime with <code class="compat-code">--adapter</code> and <code class="compat-code">--model</code>. Mix them in a single pipeline.</p>
+</div>
+
 <div class="blog-callout">
   <p class="callout-eyebrow">From the re:cinq blog</p>
   <blockquote class="callout-quote">"The factory sets boundaries on what's safe to do, not what's allowed."</blockquote>
@@ -297,6 +356,124 @@ const features = [
   font-size: 0.9rem;
   line-height: 1.65;
   margin: 0;
+}
+
+/* Compatibility section */
+.compat-section {
+  max-width: 1152px;
+  margin: 0 auto 72px;
+  padding: 0 24px;
+}
+
+.compat-heading {
+  font-size: 2rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+
+.compat-lead {
+  text-align: center;
+  color: var(--vp-c-text-2);
+  margin: 0 auto 48px;
+  max-width: 560px;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.compat-label-row {
+  margin-bottom: 12px;
+}
+
+.compat-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--vp-c-text-3);
+}
+
+.compat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 32px;
+}
+
+.compat-card {
+  padding: 24px;
+  background: var(--vp-c-bg-soft);
+  border-right: 1px solid var(--vp-c-divider);
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.compat-card:nth-child(4n) {
+  border-right: none;
+}
+
+.compat-card:nth-last-child(-n+4) {
+  border-bottom: none;
+}
+
+.compat-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--vp-c-text-1);
+  margin-bottom: 8px;
+}
+
+.compat-desc {
+  font-size: 0.825rem;
+  color: var(--vp-c-text-2);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.compat-cta {
+  text-align: center;
+  color: var(--vp-c-text-2);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.compat-code {
+  font-family: var(--vp-font-family-mono);
+  background: var(--vp-c-bg-soft);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.825rem;
+  color: var(--vp-c-brand-1);
+}
+
+@media (max-width: 768px) {
+  .compat-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .compat-card:nth-child(2n) {
+    border-right: none;
+  }
+
+  .compat-card:nth-last-child(-n+2) {
+    border-bottom: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .compat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .compat-card {
+    border-right: none;
+  }
+
+  .compat-card:last-child {
+    border-bottom: none;
+  }
 }
 
 /* Blog callout */
