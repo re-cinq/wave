@@ -1,5 +1,4 @@
 description: "Security review and quality assurance"
-model: claude-haiku
 temperature: 0.1
 permissions:
   allowed_tools:

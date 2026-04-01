@@ -1032,45 +1032,6 @@ func printMergeSuccess(cmd *cobra.Command, outputPath string) {
 	fmt.Fprintf(out, "\n")
 }
 
-// buildPersonaManifest converts parsed persona configs into the map[string]interface{}
-// structure expected by the manifest YAML. It sets adapter and system_prompt_file
-// by convention — these are not stored in the YAML config files.
-func adapterDefaultModel(adapter, claudeModel string) string {
-	switch adapter {
-	case "claude":
-		return claudeModel
-	case "opencode":
-		switch claudeModel {
-		case "claude-haiku":
-			return "zai-coding-plan/glm-5-turbo"
-		case "claude-opus":
-			return "zai-coding-plan/glm-5-turbo"
-		default:
-			return "zai-coding-plan/glm-5-turbo"
-		}
-	case "gemini":
-		switch claudeModel {
-		case "claude-haiku":
-			return "gemini-2.5-flash-lite"
-		case "claude-opus":
-			return "gemini-2.5-pro"
-		default:
-			return "gemini-2.5-flash-lite"
-		}
-	case "codex":
-		switch claudeModel {
-		case "claude-haiku":
-			return "o3"
-		case "claude-opus":
-			return "o3"
-		default:
-			return "o3"
-		}
-	default:
-		return claudeModel
-	}
-}
-
 func buildPersonaManifest(configs map[string]manifest.Persona, adapter string) map[string]interface{} {
 	result := make(map[string]interface{})
 	for name, cfg := range configs {
@@ -1085,7 +1046,7 @@ func buildPersonaManifest(configs map[string]manifest.Persona, adapter string) m
 			},
 		}
 		if cfg.Model != "" {
-			entry["model"] = adapterDefaultModel(adapter, cfg.Model)
+			entry["model"] = cfg.Model
 		}
 		result[name] = entry
 	}
