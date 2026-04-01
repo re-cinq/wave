@@ -30,6 +30,10 @@ adapters:
     project_files:                    # Files copied into every workspace
       - CLAUDE.md
       - .claude/settings.json
+    tier_models:                     # Model selection by complexity tier
+      cheapest: haiku                # Cost-optimized model
+      fastest: ""                    # Use adapter default (empty)
+      strongest: opus                # Capability-optimized model
     default_permissions:              # Base permissions for all personas
       allowed_tools: ["Read", "Write", "Edit", "Bash"]
       deny: []
@@ -44,6 +48,7 @@ adapters:
 | `mode` | Always `"headless"` — Wave runs adapters as subprocesses, never interactive terminals. |
 | `output_format` | How to parse adapter output. `"json"` is the standard. |
 | `project_files` | Files copied into every workspace that uses this adapter. Useful for tool-specific config. |
+| `tier_models` | Maps complexity tiers (`cheapest`, `fastest`, `strongest`) to model identifiers for auto-routing. |
 | `default_permissions` | Base tool permissions. Personas can override these. |
 | `hooks_template` | Directory of hook scripts copied into workspaces. |
 
