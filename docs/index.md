@@ -312,7 +312,7 @@ const features = [
   text-align: center;
   color: var(--vp-c-text-2);
   margin: 0 auto 40px;
-  max-width: 560px;
+  max-width: 720px;
   font-size: 1.05rem;
   line-height: 1.6;
 }
@@ -378,7 +378,7 @@ const features = [
   text-align: center;
   color: var(--vp-c-text-2);
   margin: 0 auto 48px;
-  max-width: 560px;
+  max-width: 720px;
   font-size: 1.05rem;
   line-height: 1.6;
 }
