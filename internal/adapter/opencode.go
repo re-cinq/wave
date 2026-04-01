@@ -274,11 +274,11 @@ func (a *OpenCodeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 		args = append(args, "--model", cfg.Model)
 	}
 
-	if cfg.Prompt != "" {
-		args = append(args, cfg.Prompt)
-	}
-
 	args = append(args, "--format", "json")
+
+	if cfg.Prompt != "" {
+		args = append(args, "--", cfg.Prompt)
+	}
 
 	return args
 }
