@@ -510,16 +510,19 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .step-card {
     background: var(--color-bg); border: 1px solid var(--color-border);
     border-radius: var(--radius-lg); overflow: hidden;
+    border-left: 3px solid transparent;
 }
-.step-card.status-running { border-left: 3px solid var(--color-running); }
-.step-card.status-completed { border-left: 3px solid var(--color-completed); }
-.step-card.status-failed { border-left: 3px solid var(--color-failed); }
-.step-card.status-pending { border-left: 3px solid var(--color-pending); }
-.step-card.status-cancelled { border-left: 3px solid var(--color-cancelled); }
+.step-card.status-running { border-left-color: var(--color-running); }
+.step-card.status-completed { border-left-color: var(--color-completed); }
+.step-card.status-failed { border-left-color: var(--color-failed); }
+.step-card.status-pending { border-left-color: var(--color-pending); }
+.step-card.status-cancelled { border-left-color: var(--color-cancelled); }
 .step-header {
     display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
     padding: 0.7rem 1rem; background: var(--color-bg-secondary);
     border-bottom: 1px solid var(--color-border);
+    cursor: pointer; user-select: none;
+    min-height: 2.5rem;
 }
 .step-id { font-family: var(--font-mono); font-size: 0.8125rem; font-weight: 600; color: var(--color-text); }
 .step-persona { font-size: 0.75rem; color: var(--color-text-secondary); margin-left: auto; }
@@ -527,10 +530,6 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .step-duration { font-size: 0.75rem; color: var(--color-text-muted); font-family: var(--font-mono); font-weight: 600; }
 
 /* Collapsible Step Cards */
-.step-header {
-    cursor: pointer;
-    user-select: none;
-}
 .step-toggle {
     display: inline-flex;
     align-items: center;
@@ -1036,7 +1035,6 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .badge.status-running { animation: pulse 2s ease-in-out infinite; }
 
 /* Log Viewer — collapsible step log sections */
-.step-header { cursor: pointer; user-select: none; }
 .step-log-chevron { display: inline-block; width: 1.2em; text-align: center; font-size: 0.8rem; color: var(--color-text-muted); transition: transform 0.15s ease; }
 .step-log { position: relative; overflow: hidden; transition: max-height 0.2s ease; z-index: 0; }
 .step-collapsed .step-log { max-height: 0; overflow: hidden; }
