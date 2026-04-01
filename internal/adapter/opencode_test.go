@@ -2,103 +2,56 @@ package adapter
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"testing"
 )
 
-func TestOpenCodePrepareWorkspace_ModelResolution(t *testing.T) {
+func TestOpenCodeBuildArgs_ModelPassthrough(t *testing.T) {
 	tests := []struct {
-		name         string
-		model        string
-		wantProvider string
-		wantModel    string
+		name  string
+		model string
+		want  []string
 	}{
 		{
-			name:         "explicit prefix openai/gpt-4o",
-			model:        "openai/gpt-4o",
-			wantProvider: "openai",
-			wantModel:    "gpt-4o",
+			name:  "with provider/model",
+			model: "zai-coding-plan/glm-5-turbo",
+			want:  []string{"run", "--model", "zai-coding-plan/glm-5-turbo", "--format", "json"},
 		},
 		{
-			name:         "inferred prefix gpt-4o",
-			model:        "gpt-4o",
-			wantProvider: "openai",
-			wantModel:    "gpt-4o",
+			name:  "with short model name",
+			model: "gpt-4o",
+			want:  []string{"run", "--model", "gpt-4o", "--format", "json"},
 		},
 		{
-			name:         "empty model uses defaults",
-			model:        "",
-			wantProvider: "anthropic",
-			wantModel:    "claude-sonnet-4-20250514",
+			name:  "empty model no flag",
+			model: "",
+			want:  []string{"run", "--format", "json"},
 		},
 		{
-			name:         "multi-slash splits on first slash only",
-			model:        "provider/org/model",
-			wantProvider: "provider",
-			wantModel:    "org/model",
-		},
-		{
-			name:         "explicit google prefix",
-			model:        "google/gemini-pro",
-			wantProvider: "google",
-			wantModel:    "gemini-pro",
-		},
-		{
-			name:         "inferred anthropic from claude prefix",
-			model:        "claude-sonnet-4-20250514",
-			wantProvider: "anthropic",
-			wantModel:    "claude-sonnet-4-20250514",
-		},
-		{
-			name:         "unknown model without prefix defaults to anthropic",
-			model:        "my-custom-model",
-			wantProvider: "anthropic",
-			wantModel:    "my-custom-model",
+			name:  "default model no flag",
+			model: "default",
+			want:  []string{"run", "--format", "json"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
 			a := NewOpenCodeAdapter()
-			cfg := AdapterRunConfig{
-				Model: tt.model,
-			}
-
-			if err := a.prepareWorkspace(tmpDir, cfg); err != nil {
-				t.Fatalf("prepareWorkspace returned unexpected error: %v", err)
-			}
-
-			configPath := filepath.Join(tmpDir, ".opencode", "config.json")
-			data, err := os.ReadFile(configPath)
-			if err != nil {
-				t.Fatalf("failed to read config.json: %v", err)
-			}
-
-			var config map[string]interface{}
-			if err := json.Unmarshal(data, &config); err != nil {
-				t.Fatalf("failed to unmarshal config.json: %v", err)
-			}
-
-			gotProvider, _ := config["provider"].(string)
-			gotModel, _ := config["model"].(string)
-
-			if gotProvider != tt.wantProvider {
-				t.Errorf("provider = %q, want %q", gotProvider, tt.wantProvider)
-			}
-			if gotModel != tt.wantModel {
-				t.Errorf("model = %q, want %q", gotModel, tt.wantModel)
+			cfg := AdapterRunConfig{Model: tt.model}
+			got := a.buildArgs(cfg)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("buildArgs() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestOpenCodePrepareWorkspace_CreatesConfigFile(t *testing.T) {
+func TestOpenCodePrepareWorkspace_NoConfigFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	a := NewOpenCodeAdapter()
 	cfg := AdapterRunConfig{
@@ -111,28 +64,8 @@ func TestOpenCodePrepareWorkspace_CreatesConfigFile(t *testing.T) {
 	}
 
 	configPath := filepath.Join(tmpDir, ".opencode", "config.json")
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		t.Fatalf("expected config.json to exist at %s", configPath)
-	}
-
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatalf("failed to read config.json: %v", err)
-	}
-
-	var config map[string]interface{}
-	if err := json.Unmarshal(data, &config); err != nil {
-		t.Fatalf("config.json is not valid JSON: %v", err)
-	}
-
-	if _, ok := config["provider"]; !ok {
-		t.Error("config.json missing required field: provider")
-	}
-	if _, ok := config["model"]; !ok {
-		t.Error("config.json missing required field: model")
-	}
-	if _, ok := config["temperature"]; !ok {
-		t.Error("config.json missing required field: temperature")
+	if _, err := os.Stat(configPath); err == nil {
+		t.Errorf("expected config.json to NOT exist at %s (model passed via CLI args)", configPath)
 	}
 }
 
@@ -158,7 +91,7 @@ func TestOpenCodePrepareWorkspace_SystemPromptWritesAgentsMd(t *testing.T) {
 	}
 }
 
-func TestOpenCodePrepareWorkspace_CreatesSettingsDir(t *testing.T) {
+func TestOpenCodePrepareWorkspace_NoSettingsDir(t *testing.T) {
 	tmpDir := t.TempDir()
 	a := NewOpenCodeAdapter()
 	cfg := AdapterRunConfig{}
@@ -168,12 +101,8 @@ func TestOpenCodePrepareWorkspace_CreatesSettingsDir(t *testing.T) {
 	}
 
 	settingsDir := filepath.Join(tmpDir, ".opencode")
-	info, err := os.Stat(settingsDir)
-	if err != nil {
-		t.Fatalf("expected .opencode directory to exist: %v", err)
-	}
-	if !info.IsDir() {
-		t.Errorf("expected .opencode to be a directory")
+	if _, err := os.Stat(settingsDir); err == nil {
+		t.Errorf("expected .opencode directory to NOT exist (model passed via CLI args)")
 	}
 }
 
@@ -190,11 +119,11 @@ func TestParseOpenCodeStreamLine_SystemEvent(t *testing.T) {
 	}
 }
 
-func TestParseOpenCodeStreamLine_AssistantTextEvent(t *testing.T) {
-	line := []byte(`{"type":"assistant","message":{"content":[{"type":"text","text":"Hello world"}]}}`)
+func TestParseOpenCodeStreamLine_TextEvent(t *testing.T) {
+	line := []byte(`{"type":"text","sessionID":"s1","part":{"id":"p1","sessionID":"s1","messageID":"m1","type":"text","text":"Hello world"}}`)
 	evt, ok := parseOpenCodeStreamLine(line)
 	if !ok {
-		t.Fatal("expected ok=true for assistant text event")
+		t.Fatal("expected ok=true for text event")
 	}
 	if evt.Type != "text" {
 		t.Errorf("Type = %q, want %q", evt.Type, "text")
@@ -204,12 +133,12 @@ func TestParseOpenCodeStreamLine_AssistantTextEvent(t *testing.T) {
 	}
 }
 
-func TestParseOpenCodeStreamLine_AssistantTextTruncated(t *testing.T) {
+func TestParseOpenCodeStreamLine_TextTruncated(t *testing.T) {
 	longText := make([]byte, 300)
 	for i := range longText {
 		longText[i] = 'a'
 	}
-	line := fmt.Appendf(nil, `{"type":"assistant","message":{"content":[{"type":"text","text":"%s"}]}}`, longText)
+	line := fmt.Appendf(nil, `{"type":"text","sessionID":"s1","part":{"id":"p1","sessionID":"s1","messageID":"m1","type":"text","text":"%s"}}`, longText)
 	evt, ok := parseOpenCodeStreamLine(line)
 	if !ok {
 		t.Fatal("expected ok=true for long text event")
@@ -219,16 +148,16 @@ func TestParseOpenCodeStreamLine_AssistantTextTruncated(t *testing.T) {
 	}
 }
 
-func TestParseOpenCodeStreamLine_AssistantEmptyText(t *testing.T) {
-	line := []byte(`{"type":"assistant","message":{"content":[{"type":"text","text":""}]}}`)
+func TestParseOpenCodeStreamLine_EmptyText(t *testing.T) {
+	line := []byte(`{"type":"text","sessionID":"s1","part":{"id":"p1","sessionID":"s1","messageID":"m1","type":"text","text":""}}`)
 	_, ok := parseOpenCodeStreamLine(line)
 	if ok {
-		t.Error("expected ok=false for assistant event with empty text")
+		t.Error("expected ok=false for text event with empty text")
 	}
 }
 
 func TestParseOpenCodeStreamLine_ToolEvent(t *testing.T) {
-	line := []byte(`{"type":"tool","tool":"Read","input":{"file_path":"internal/pipeline/executor.go"}}`)
+	line := []byte(`{"type":"tool","sessionID":"s1","part":{"id":"p1","sessionID":"s1","messageID":"m1","type":"tool","tool":"Read","input":"internal/pipeline/executor.go"}}`)
 	evt, ok := parseOpenCodeStreamLine(line)
 	if !ok {
 		t.Fatal("expected ok=true for tool event")
@@ -245,7 +174,7 @@ func TestParseOpenCodeStreamLine_ToolEvent(t *testing.T) {
 }
 
 func TestParseOpenCodeStreamLine_ToolEventMissingToolName(t *testing.T) {
-	line := []byte(`{"type":"tool","input":{"file_path":"something"}}`)
+	line := []byte(`{"type":"tool","sessionID":"s1","part":{"id":"p1","sessionID":"s1","messageID":"m1","type":"tool"}}`)
 	_, ok := parseOpenCodeStreamLine(line)
 	if ok {
 		t.Error("expected ok=false for tool event without tool name")
@@ -323,8 +252,8 @@ func TestOpenCodeRun_StreamEventsEmittedDuringExecution(t *testing.T) {
 
 	// The fake opencode emits three NDJSON lines to stdout.
 	ndjson := `{"type":"system","message":"init"}
-{"type":"tool","tool":"Read","input":{"file_path":"main.go"}}
-{"type":"result","usage":{"input_tokens":10,"output_tokens":5},"content":"done","subtype":"success"}`
+{"type":"tool","sessionID":"s1","part":{"id":"p1","sessionID":"s1","messageID":"m1","type":"tool","tool":"Read","input":"main.go"}}
+{"type":"step_finish","sessionID":"s1","part":{"id":"p2","sessionID":"s1","messageID":"m2","type":"step-finish","reason":"stop","cost":0,"tokens":{"total":10022,"input":9927,"output":24,"reasoning":17,"cache":{"read":71,"write":0}}}}`
 
 	escapedNDJSON := fmt.Sprintf(`printf '%s\n'`, ndjson)
 	fakePath := writeFakeOpencode(t, escapedNDJSON)
