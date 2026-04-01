@@ -1,5 +1,4 @@
 description: "Architecture design and specification"
-model: claude-opus
 temperature: 0.3
 permissions:
   allowed_tools:

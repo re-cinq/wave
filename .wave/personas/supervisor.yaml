@@ -1,5 +1,4 @@
 description: "Work supervision and quality evaluation"
-model: claude-opus
 temperature: 0.2
 permissions:
   allowed_tools:
