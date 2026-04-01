@@ -1,14 +1,16 @@
 package adapter
 
-import "strings"
+import (
+	"strings"
+)
 
 // AdapterRegistry resolves adapter names to AdapterRunner implementations.
 // It replaces the single-runner model with per-step adapter resolution,
 // supporting fallback chains for provider resilience.
 type AdapterRegistry struct {
 	fallbacks     map[string][]string      // provider → fallback providers
-	overrides     map[string]AdapterRunner  // test-injected runners
-	defaultRunner AdapterRunner             // fallback for all names when set
+	overrides     map[string]AdapterRunner // test-injected runners
+	defaultRunner AdapterRunner            // fallback for all names when set
 }
 
 // NewAdapterRegistry creates a registry with optional fallback chain configuration.

@@ -2,8 +2,8 @@ package pipeline
 
 import (
 	"context"
-	"errors"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,22 +15,22 @@ import (
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/audit"
-	"github.com/recinq/wave/internal/cost"
 	"github.com/recinq/wave/internal/contract"
+	"github.com/recinq/wave/internal/cost"
 	"github.com/recinq/wave/internal/deliverable"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/hooks"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/preflight"
-	"github.com/recinq/wave/internal/scope"
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/retro"
+	"github.com/recinq/wave/internal/scope"
 	"github.com/recinq/wave/internal/security"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
-	"github.com/recinq/wave/internal/worktree"
 	"github.com/recinq/wave/internal/workspace"
+	"github.com/recinq/wave/internal/worktree"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -57,16 +57,16 @@ type PipelineStatus struct {
 }
 
 type DefaultPipelineExecutor struct {
-	runner         adapter.AdapterRunner  // Deprecated: use registry for per-step resolution
-	registry       *adapter.AdapterRegistry
-	emitter        event.EventEmitter
-	store          state.StateStore
-	logger         audit.AuditLogger
-	wsManager      workspace.WorkspaceManager
-	relayMonitor   *relay.RelayMonitor
-	pipelines      map[string]*PipelineExecution
-	mu             sync.RWMutex
-	debug          bool
+	runner       adapter.AdapterRunner // Deprecated: use registry for per-step resolution
+	registry     *adapter.AdapterRegistry
+	emitter      event.EventEmitter
+	store        state.StateStore
+	logger       audit.AuditLogger
+	wsManager    workspace.WorkspaceManager
+	relayMonitor *relay.RelayMonitor
+	pipelines    map[string]*PipelineExecution
+	mu           sync.RWMutex
+	debug        bool
 	// Security infrastructure
 	securityConfig *security.SecurityConfig
 	pathValidator  *security.PathValidator
@@ -79,7 +79,8 @@ type DefaultPipelineExecutor struct {
 	// Per-step timeout override (from CLI --timeout flag)
 	stepTimeoutOverride time.Duration
 	// Model override (from CLI --model flag)
-	modelOverride string
+	modelOverride   string
+	adapterOverride string
 	// Cross-pipeline artifacts from prior stages in a sequence
 	crossPipelineArtifacts map[string]map[string][]byte // pipelineName -> artifactName -> data
 	// ETA calculator for remaining pipeline time estimates
@@ -154,9 +155,12 @@ func WithStepTimeout(d time.Duration) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.stepTimeoutOverride = d }
 }
 
-
 func WithModelOverride(model string) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.modelOverride = model }
+}
+
+func WithAdapterOverride(adapter string) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.adapterOverride = adapter }
 }
 
 // WithCrossPipelineArtifacts injects artifacts from prior pipeline stages
@@ -240,22 +244,22 @@ type WorktreeInfo struct {
 }
 
 type PipelineExecution struct {
-	mu              sync.Mutex                 // protects map writes during concurrent steps
-	Pipeline        *Pipeline
-	Manifest        *manifest.Manifest
-	States          map[string]string
-	Results         map[string]map[string]interface{}
-	ArtifactPaths   map[string]string          // "stepID:artifactName" -> filesystem path
-	WorkspacePaths  map[string]string          // stepID -> workspace path
-	WorktreePaths   map[string]*WorktreeInfo   // resolved branch -> worktree info
-	Input           string
-	Status          *PipelineStatus
-	Context         *PipelineContext  // Dynamic template variables
-	AttemptContexts    map[string]*AttemptContext  // stepID -> current retry context (nil on first attempt)
-	ReworkTransitions  map[string]string           // failedStepID -> reworkStepID (for resume support)
-	ThreadManager      *ThreadManager              // Thread conversation continuity manager
-	CircuitBreaker     *CircuitBreaker             // Failure fingerprint tracking for circuit breaking
-	Watchdog           *StallWatchdog              // Current step's stall watchdog (set during step execution)
+	mu                sync.Mutex // protects map writes during concurrent steps
+	Pipeline          *Pipeline
+	Manifest          *manifest.Manifest
+	States            map[string]string
+	Results           map[string]map[string]interface{}
+	ArtifactPaths     map[string]string        // "stepID:artifactName" -> filesystem path
+	WorkspacePaths    map[string]string        // stepID -> workspace path
+	WorktreePaths     map[string]*WorktreeInfo // resolved branch -> worktree info
+	Input             string
+	Status            *PipelineStatus
+	Context           *PipelineContext           // Dynamic template variables
+	AttemptContexts   map[string]*AttemptContext // stepID -> current retry context (nil on first attempt)
+	ReworkTransitions map[string]string          // failedStepID -> reworkStepID (for resume support)
+	ThreadManager     *ThreadManager             // Thread conversation continuity manager
+	CircuitBreaker    *CircuitBreaker            // Failure fingerprint tracking for circuit breaking
+	Watchdog          *StallWatchdog             // Current step's stall watchdog (set during step execution)
 }
 
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
@@ -291,6 +295,7 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 	return &DefaultPipelineExecutor{
 		runner:                 e.runner,
 		registry:               e.registry,
+		adapterOverride:        e.adapterOverride,
 		emitter:                e.emitter,
 		store:                  e.store,
 		logger:                 e.logger,
@@ -546,19 +551,19 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 
 	execution := &PipelineExecution{
-		Pipeline:        p,
-		Manifest:        m,
-		States:          make(map[string]string),
-		Results:         make(map[string]map[string]interface{}),
-		ArtifactPaths:   make(map[string]string),
-		WorkspacePaths:  make(map[string]string),
-		WorktreePaths:   make(map[string]*WorktreeInfo),
+		Pipeline:          p,
+		Manifest:          m,
+		States:            make(map[string]string),
+		Results:           make(map[string]map[string]interface{}),
+		ArtifactPaths:     make(map[string]string),
+		WorkspacePaths:    make(map[string]string),
+		WorktreePaths:     make(map[string]*WorktreeInfo),
 		AttemptContexts:   make(map[string]*AttemptContext),
 		ReworkTransitions: make(map[string]string),
 		ThreadManager:     NewThreadManager(threadCompactionAdapter),
 		CircuitBreaker:    NewCircuitBreaker(m.Runtime.CircuitBreaker.Limit, m.Runtime.CircuitBreaker.TrackedClasses),
 		Input:             input,
-		Context:         pipelineContext,
+		Context:           pipelineContext,
 		Status: &PipelineStatus{
 			ID:             pipelineID,
 			PipelineName:   pipelineName,
@@ -2137,10 +2142,17 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		return fmt.Errorf("persona %q not found in manifest", resolvedPersona)
 	}
 
-	// Resolve adapter name: step.Adapter > persona.Adapter (3-tier precedence)
+	// Resolve adapter name (strongest to weakest):
+	// 1. CLI --adapter flag
+	// 2. Step-level adapter in pipeline YAML
+	// 3. Persona-level adapter in wave.yaml
+	// 4. Adapter defaults (empty — adapter decides)
 	resolvedAdapterName := persona.Adapter
 	if step.Adapter != "" {
 		resolvedAdapterName = step.Adapter
+	}
+	if e.adapterOverride != "" {
+		resolvedAdapterName = e.adapterOverride
 	}
 
 	adapterDef := execution.Manifest.GetAdapter(resolvedAdapterName)
@@ -2179,6 +2191,20 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 
 	resolvedModel := e.resolveModel(step, persona, &execution.Manifest.Runtime.Routing, resolvedPersona)
+
+	// When the resolved adapter differs from the persona's adapter but the
+	// model was not explicitly set at the same or higher tier, the model
+	// likely belongs to a different adapter ecosystem (e.g., "sonnet" is
+	// Claude-specific, meaningless to Gemini). Fall back to the target
+	// adapter's default_model from the manifest.
+	if resolvedAdapterName != persona.Adapter && e.modelOverride == "" && step.Model == "" {
+		if adapterDef != nil && adapterDef.DefaultModel != "" {
+			resolvedModel = adapterDef.DefaultModel
+		} else {
+			resolvedModel = ""
+		}
+	}
+
 	e.emit(event.Event{
 		Timestamp:     time.Now(),
 		PipelineID:    pipelineID,
@@ -2187,7 +2213,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Persona:       resolvedPersona,
 		Message:       fmt.Sprintf("Starting %s persona in %s", resolvedPersona, workspacePath),
 		CurrentAction: "Initializing",
-		Model:            resolvedModel,
+		Model:         resolvedModel,
 		Adapter:       adapterDef.Binary,
 		Temperature:   persona.Temperature,
 	})
@@ -2268,7 +2294,6 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			systemPrompt = string(data)
 		}
 	}
-
 
 	// Resolve sandbox config using the new backend-aware resolution
 	sandboxBackend := execution.Manifest.Runtime.Sandbox.ResolveBackend()
@@ -2395,23 +2420,23 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 
 	cfg := adapter.AdapterRunConfig{
-		Adapter:          adapterDef.Binary,
-		Persona:          resolvedPersona,
-		WorkspacePath:    workspacePath,
-		Prompt:           prompt,
-		SystemPrompt:     systemPrompt,
-		Timeout:          timeout,
-		Temperature:      persona.Temperature,
-		Model:            resolvedModel,
-		AllowedTools:     persona.Permissions.AllowedTools,
-		DenyTools:        persona.Permissions.Deny,
-		OutputFormat:     adapterDef.OutputFormat,
-		Debug:            e.debug,
-		SandboxEnabled:   sandboxEnabled,
-		AllowedDomains:   sandboxDomains,
-		EnvPassthrough:   envPassthrough,
-		SandboxBackend:   sandboxBackend,
-		DockerImage:      execution.Manifest.Runtime.Sandbox.GetDockerImage(),
+		Adapter:             adapterDef.Binary,
+		Persona:             resolvedPersona,
+		WorkspacePath:       workspacePath,
+		Prompt:              prompt,
+		SystemPrompt:        systemPrompt,
+		Timeout:             timeout,
+		Temperature:         persona.Temperature,
+		Model:               resolvedModel,
+		AllowedTools:        persona.Permissions.AllowedTools,
+		DenyTools:           persona.Permissions.Deny,
+		OutputFormat:        adapterDef.OutputFormat,
+		Debug:               e.debug,
+		SandboxEnabled:      sandboxEnabled,
+		AllowedDomains:      sandboxDomains,
+		EnvPassthrough:      envPassthrough,
+		SandboxBackend:      sandboxBackend,
+		DockerImage:         execution.Manifest.Runtime.Sandbox.GetDockerImage(),
 		SkillCommandsDir:    skillCommandsDir,
 		ResolvedSkills:      resolvedSkillRefs,
 		OntologySection:     ontologySection,
@@ -2509,12 +2534,16 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	// work may still have been completed (e.g. Claude Code JS error after
 	// tool calls finished). Let contract validation decide the outcome.
 	if result.ExitCode != 0 {
+		msg := fmt.Sprintf("adapter exited with code %d", result.ExitCode)
+		if result.FailureReason != "" {
+			msg += ": " + result.FailureReason
+		}
 		e.emit(event.Event{
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
 			StepID:     step.ID,
 			State:      "warning",
-			Message:    fmt.Sprintf("adapter exited with code %d (process may have crashed)", result.ExitCode),
+			Message:    msg,
 		})
 	}
 
@@ -2603,11 +2632,11 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		switch budgetStatus {
 		case cost.BudgetWarning:
 			e.emit(event.Event{
-				Timestamp:     time.Now(),
-				PipelineID:    pipelineID,
-				StepID:        step.ID,
-				State:         "budget_warning",
-				Message:       fmt.Sprintf("Cost warning: %s", e.costLedger.Summary()),
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      "budget_warning",
+				Message:    fmt.Sprintf("Cost warning: %s", e.costLedger.Summary()),
 			})
 		case cost.BudgetExceeded:
 			return fmt.Errorf("budget exceeded: %s", e.costLedger.Summary())
@@ -2893,10 +2922,10 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	return nil
 }
 
-// resolveModel applies five-tier model precedence:
-// 1. CLI --model flag override (highest — explicit user intent)
-// 2. Per-step model pinning (step.Model in pipeline YAML)
-// 3. Per-persona model pinning
+// resolveModel applies model precedence (strongest to weakest):
+// 1. CLI --model flag
+// 2. Step-level model in pipeline YAML
+// 3. Persona-level model in wave.yaml
 // 4. Auto-routing based on complexity heuristics (when routing.auto_route is enabled)
 // 5. Adapter default (empty string)
 func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Persona, routing *manifest.RoutingConfig, personaName string) string {
@@ -3045,7 +3074,7 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 
 		// Mark CLAUDE.md as skip-worktree so prepareWorkspace() changes
 		// don't get staged by git add -A in implement steps
-		exec.Command("git", "-C", absPath, "update-index", "--skip-worktree", "CLAUDE.md").Run()
+		exec.Command("git", "-C", absPath, "update-index", "--skip-worktree", "AGENTS.md").Run()
 
 		// Run skill init commands inside the worktree (only on first creation)
 		if execution.Pipeline.Requires != nil {
@@ -4367,7 +4396,7 @@ func (e *DefaultPipelineExecutor) GetStatus(pipelineID string) (*PipelineStatus,
 		status := &PipelineStatus{
 			ID:             stateRecord.PipelineID,
 			State:          stateRecord.Status,
-			CurrentStep:    "", // Not tracked in pipeline_state table
+			CurrentStep:    "",         // Not tracked in pipeline_state table
 			CompletedSteps: []string{}, // Would need step states to populate
 			FailedSteps:    []string{}, // Would need step states to populate
 			StartedAt:      stateRecord.CreatedAt,
@@ -4716,12 +4745,12 @@ func (e *DefaultPipelineExecutor) executeIterateInDAG(ctx context.Context, execu
 		}
 
 		e.emit(event.Event{
-			Timestamp:  time.Now(),
-			PipelineID: pipelineID,
-			StepID:     step.ID,
-			State:      event.StateIterationProgress,
-			Message:    fmt.Sprintf("iterate item %d/%d: %s", i+1, len(items), resolvedName),
-			TotalSteps: len(items),
+			Timestamp:      time.Now(),
+			PipelineID:     pipelineID,
+			StepID:         step.ID,
+			State:          event.StateIterationProgress,
+			Message:        fmt.Sprintf("iterate item %d/%d: %s", i+1, len(items), resolvedName),
+			TotalSteps:     len(items),
 			CompletedSteps: i,
 		})
 
