@@ -1,7 +1,7 @@
 # ADR-004: Multi-Adapter Architecture
 
 ## Status
-Proposed
+Accepted
 
 ## Date
 2026-03-27
@@ -61,10 +61,10 @@ type AdapterRegistry interface {
 
 ### Resolution Hierarchy
 
-Adapter selection follows the same three-tier pattern as `resolveModel()`:
+Adapter selection follows a four-tier hierarchy (extended from the original three-tier design to include the CLI flag):
 
 ```
-step.Adapter > persona.Adapter > manifest.Defaults.Adapter
+CLI --adapter flag > step.Adapter > persona.Adapter > manifest.Defaults.Adapter
 ```
 
 If a step specifies `adapter: opencode`, that takes precedence over the persona's default adapter. If neither step nor persona specifies an adapter, the manifest-level default is used. If the resolved adapter name includes a model identifier (e.g., `gpt-4o`), `ParseProviderModel()` infers the correct adapter automatically.
@@ -230,3 +230,14 @@ Defer multi-adapter support to the ADR-002 `StepExecutor` extraction. Each `Step
 ### Migration Path to ADR-002
 
 When `StepExecutor` extraction proceeds, the `AdapterRegistry` migrates from being a direct executor dependency to a `StepExecutorFactory` dependency. The registry interface itself remains stable — only its consumer changes. No throwaway work.
+
+## Implementation Record
+
+This ADR has been implemented. Key details:
+
+- **AdapterRegistry** in `internal/adapter/registry.go` — map-backed registry with fallback chain support, resolving adapter runners by name.
+- **Per-step adapter resolution** in `executor.go` `runStepExecution()` — the executor calls `resolveAdapter()` per step using the four-tier hierarchy: CLI `--adapter` flag > `step.adapter` (pipeline YAML) > `persona.adapter` > manifest default.
+- **`--adapter` CLI flag** added to `wave run` — allows runtime override of all adapter selection.
+- **Step-level `adapter:`** in pipeline YAML — per-step override in the pipeline manifest.
+- **Supported adapters**: claude, opencode, gemini, codex.
+- **Fallback chains**: infrastructure in place via `FallbackRunner`, triggered on provider-level failures (rate limiting, timeout, context exhaustion) but not on contract or validation failures.
