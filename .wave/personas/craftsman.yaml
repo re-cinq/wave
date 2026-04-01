@@ -1,5 +1,4 @@
 description: "Code implementation and testing"
-model: claude-opus
 temperature: 0.7
 permissions:
   allowed_tools:

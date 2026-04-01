@@ -100,6 +100,7 @@ wave run deploy -o text                        # Plain text progress to stderr
 wave run review -o text -v                     # Plain text with real-time tool activity
 wave run check -o quiet                        # Only final result to stderr
 wave run build --model haiku                   # Override adapter model for this run
+wave run impl-issue --adapter opencode --model "zai-coding-plan/glm-5-turbo"  # Override adapter and model
 wave run ops-debug --preserve-workspace        # Preserve workspace from previous run (for debugging)
 wave run --detach impl-issue "fix login bug"    # Detach: run in background, survive shell exit
 ```

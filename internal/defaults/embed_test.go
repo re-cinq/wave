@@ -281,31 +281,9 @@ func TestGetPersonaConfigs_ModelOverrides(t *testing.T) {
 		t.Fatalf("GetPersonaConfigs() error: %v", err)
 	}
 
-	// Persona model routing: opus for code/research, haiku for analysis, sonnet (default) for review/forge
-	expectedModels := map[string]string{
-		"craftsman":   "claude-opus",
-		"implementer": "claude-opus",
-		"debugger":    "claude-opus",
-		"researcher":  "claude-opus",
-		"supervisor":  "claude-opus",
-		"philosopher": "claude-opus",
-		"provocateur": "claude-opus",
-		"navigator":   "claude-haiku",
-		"summarizer":  "claude-haiku",
-		"planner":     "claude-haiku",
-		"auditor":     "claude-haiku",
-	}
-
 	for name, cfg := range configs {
-		expected, hasExpected := expectedModels[name]
-		if hasExpected {
-			if cfg.Model != expected {
-				t.Errorf("persona %q should have model %q, got %q", name, expected, cfg.Model)
-			}
-		} else {
-			if cfg.Model != "" {
-				t.Errorf("persona %q should not have a model override, got %q", name, cfg.Model)
-			}
+		if cfg.Model != "" {
+			t.Errorf("persona %q should not have a hardcoded model (adapter-agnostic), got %q", name, cfg.Model)
 		}
 	}
 }

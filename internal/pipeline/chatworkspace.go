@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -17,7 +18,7 @@ type ChatMode string
 
 const (
 	ChatModeAnalysis   ChatMode = "analysis"   // Phase 1: read-only
-	ChatModeManipulate ChatMode = "manipulate"  // Phase 2: read-write
+	ChatModeManipulate ChatMode = "manipulate" // Phase 2: read-write
 )
 
 // ChatWorkspaceOptions configures the chat workspace preparation.
@@ -48,9 +49,10 @@ func PrepareChatWorkspace(ctx *ChatContext, opts ChatWorkspaceOptions) (string, 
 
 	// 2. Build and write CLAUDE.md
 	claudeMd := buildChatClaudeMd(ctx, mode, opts.StepFilter, opts.ArtifactName)
-	claudeMdPath := filepath.Join(wsDir, "CLAUDE.md")
-	if err := os.WriteFile(claudeMdPath, []byte(claudeMd), 0644); err != nil {
-		return "", fmt.Errorf("failed to write CLAUDE.md: %w", err)
+	instructionFile := adapter.InstructionFilename("claude")
+	mdPath := filepath.Join(wsDir, instructionFile)
+	if err := os.WriteFile(mdPath, []byte(claudeMd), 0644); err != nil {
+		return "", fmt.Errorf("failed to write %s: %w", instructionFile, err)
 	}
 
 	// 3. Build and write .claude/settings.json

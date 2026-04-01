@@ -51,6 +51,12 @@ func (a *GeminiAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 	args := a.buildArgs(cfg)
 	cmd := exec.CommandContext(ctx, a.geminiPath, args...)
 	cmd.Dir = workspacePath
+
+	if cfg.Debug {
+		fmt.Printf("[DEBUG] Gemini command: %s %s\n", a.geminiPath, shelljoinArgs(args))
+		fmt.Printf("[DEBUG] Working directory: %s\n", workspacePath)
+	}
+
 	cmd.Env = BuildCuratedEnvironment(cfg)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pgid: 0}
 
@@ -123,9 +129,12 @@ func (a *GeminiAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 func (a *GeminiAdapter) buildArgs(cfg AdapterRunConfig) []string {
 	args := []string{}
 
-	if cfg.Model != "" {
+	if cfg.Model != "" && cfg.Model != "default" {
 		args = append(args, "--model", cfg.Model)
 	}
+
+	args = append(args, "--yolo")
+	args = append(args, "--output-format", "stream-json")
 
 	if cfg.Prompt != "" {
 		args = append(args, "-p", cfg.Prompt)
@@ -171,6 +180,19 @@ func (a *GeminiAdapter) parseOutput(output string) *AdapterResult {
 				result.TokensUsed = result.TokensIn + result.TokensOut
 				if resultEvt.Content != "" {
 					result.ResultContent = resultEvt.Content
+				}
+
+				var errEvt struct {
+					Status string `json:"status"`
+					Error  struct {
+						Type    string `json:"type"`
+						Message string `json:"message"`
+					} `json:"error"`
+				}
+				if err := json.Unmarshal(line, &errEvt); err == nil {
+					if errEvt.Status == "error" && errEvt.Error.Message != "" {
+						result.FailureReason = "adapter error: " + errEvt.Error.Message
+					}
 				}
 			}
 		}
@@ -223,6 +245,15 @@ func parseGeminiStreamLine(line []byte) (StreamEvent, bool) {
 			return StreamEvent{Type: "text", Content: content}, true
 		}
 	case "result":
+		var errEvt struct {
+			Status string `json:"status"`
+			Error  struct {
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if err := json.Unmarshal(line, &errEvt); err == nil && errEvt.Status == "error" && errEvt.Error.Message != "" {
+			return StreamEvent{Type: "system", Content: errEvt.Error.Message}, true
+		}
 		var res struct {
 			Usage struct {
 				InputTokens  int `json:"input_tokens"`

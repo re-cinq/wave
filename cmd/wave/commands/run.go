@@ -45,6 +45,7 @@ type RunOptions struct {
 	RunID             string
 	Output            OutputConfig
 	Model             string
+	Adapter           string
 	PreserveWorkspace bool
 	Steps             string // Comma-separated step names to include (--steps)
 	Exclude           string // Comma-separated step names to exclude (-x/--exclude)
@@ -55,7 +56,7 @@ type RunOptions struct {
 	OnFailure         string // --on-failure halt|skip
 	Detach            bool   // --detach flag for background execution
 	AutoApprove       bool   // --auto-approve flag for skipping approval gates
-	NoRetro       bool   // --no-retro flag to skip retrospective generation
+	NoRetro           bool   // --no-retro flag to skip retrospective generation
 }
 
 func NewRunCmd() *cobra.Command {
@@ -69,12 +70,17 @@ Supports dry-run mode, step resumption, custom timeouts, model override,
 and detached execution (--detach) for background runs that survive shell exit.
 
 The --model flag overrides the adapter model for all steps in the run,
-including any per-persona model pinning in wave.yaml.`,
+including any per-persona model pinning in wave.yaml.
+
+The --adapter flag selects the LLM backend (claude, opencode, gemini, codex).
+Model formats vary by adapter: claude uses "haiku"/"opus", opencode uses
+"provider/model", gemini uses "gemini-2.0-pro", codex uses "gpt-4o".`,
 		Example: `  wave run ops-pr-review "Review the authentication changes"
   wave run --pipeline impl-speckit --input "add user auth"
   wave run impl-hotfix --dry-run
   wave run migrate --from-step validate
   wave run my-pipeline --model haiku
+  wave run my-pipeline --adapter opencode --model openai/gpt-4o
   wave run my-pipeline --preserve-workspace
   wave run --steps clarify,plan impl-speckit
   wave run -x implement,create-pr impl-speckit
@@ -163,6 +169,7 @@ including any per-persona model pinning in wave.yaml.`,
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
 	cmd.Flags().StringVar(&opts.RunID, "run", "", "Resume from a specific run (uses that run's input)")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for this run (e.g. haiku, opus)")
+	cmd.Flags().StringVar(&opts.Adapter, "adapter", "", "Override adapter for this run (e.g. claude, gemini, opencode, codex)")
 	cmd.Flags().BoolVar(&opts.PreserveWorkspace, "preserve-workspace", false, "Preserve workspace from previous run (for debugging)")
 	cmd.Flags().StringVar(&opts.Steps, "steps", "", "Run only the named steps (comma-separated)")
 	cmd.Flags().StringVarP(&opts.Exclude, "exclude", "x", "", "Skip the named steps (comma-separated)")
@@ -288,17 +295,11 @@ func runRun(opts RunOptions, debug bool) error {
 	// Resolve adapter — use mock if --mock or if no adapter binary found
 	var runner adapter.AdapterRunner
 	if opts.Mock {
-		// Add simulated delay to see progress animations in action
 		runner = adapter.NewMockAdapter(
 			adapter.WithSimulatedDelay(5 * time.Second),
 		)
 	} else {
-		var adapterName string
-		for name := range m.Adapters {
-			adapterName = name
-			break
-		}
-		runner = adapter.ResolveAdapter(adapterName)
+		runner = adapter.ResolveAdapter("claude")
 	}
 
 	// Initialize state store under .wave/ — must happen before run ID generation
@@ -427,6 +428,18 @@ func runRun(opts RunOptions, debug bool) error {
 	if opts.Model != "" {
 		execOpts = append(execOpts, pipeline.WithModelOverride(opts.Model))
 	}
+	registry := adapter.NewAdapterRegistry(nil)
+	if opts.Mock {
+		registry.RegisterOverride("mock", runner)
+		registry.RegisterOverride("claude", runner)
+		registry.RegisterOverride("gemini", runner)
+		registry.RegisterOverride("opencode", runner)
+		registry.RegisterOverride("codex", runner)
+	}
+	execOpts = append(execOpts, pipeline.WithRegistry(registry))
+	if opts.Adapter != "" {
+		execOpts = append(execOpts, pipeline.WithAdapterOverride(opts.Adapter))
+	}
 	if opts.PreserveWorkspace {
 		execOpts = append(execOpts, pipeline.WithPreserveWorkspace(true))
 	}
@@ -450,7 +463,7 @@ func runRun(opts RunOptions, debug bool) error {
 			ContextWindow:      m.Runtime.Relay.ContextWindow,
 			CompactionTimeout:  m.Runtime.Timeouts.GetRelayCompaction(),
 		}
-		compactionAdapter := &relayCompactionAdapter{runner: runner}
+		compactionAdapter := &relayCompactionAdapter{registry: registry, manifest: &m}
 		relayMon := relay.NewRelayMonitor(relayCfg, compactionAdapter)
 		execOpts = append(execOpts, pipeline.WithRelayMonitor(relayMon))
 	}
@@ -732,6 +745,9 @@ func runDetached(opts RunOptions, p *pipeline.Pipeline, m *manifest.Manifest) er
 	}
 	if opts.Model != "" {
 		args = append(args, "--model", opts.Model)
+	}
+	if opts.Adapter != "" {
+		args = append(args, "--adapter", opts.Adapter)
 	}
 	if opts.PreserveWorkspace {
 		args = append(args, "--preserve-workspace")
@@ -1080,9 +1096,10 @@ func (d *dbLoggingEmitter) Emit(ev event.Event) {
 }
 
 // relayCompactionAdapter bridges adapter.AdapterRunner to relay.CompactionAdapter.
-// It runs the summarizer as a Claude subprocess to compact conversation history.
+// It runs the summarizer via the adapter registry to compact conversation history.
 type relayCompactionAdapter struct {
-	runner adapter.AdapterRunner
+	registry *adapter.AdapterRegistry
+	manifest *manifest.Manifest
 }
 
 func (a *relayCompactionAdapter) RunCompaction(ctx context.Context, cfg relay.CompactionConfig) (string, error) {
@@ -1091,8 +1108,25 @@ func (a *relayCompactionAdapter) RunCompaction(ctx context.Context, cfg relay.Co
 		prompt = fmt.Sprintf("%s\n\n---\n\nConversation history to summarize:\n%s", cfg.CompactPrompt, cfg.ChatHistory)
 	}
 
-	result, err := a.runner.Run(ctx, adapter.AdapterRunConfig{
-		Adapter:       "claude",
+	adapterName := ""
+	if a.manifest != nil {
+		if p := a.manifest.GetPersona("summarizer"); p != nil {
+			adapterName = p.Adapter
+		}
+		if adapterName == "" {
+			for name := range a.manifest.Adapters {
+				adapterName = name
+				break
+			}
+		}
+	}
+	if adapterName == "" {
+		adapterName = "claude"
+	}
+
+	compactionRunner := a.registry.Resolve(adapterName)
+	result, err := compactionRunner.Run(ctx, adapter.AdapterRunConfig{
+		Adapter:       adapterName,
 		Persona:       "summarizer",
 		WorkspacePath: cfg.WorkspacePath,
 		Prompt:        prompt,

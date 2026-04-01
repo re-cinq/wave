@@ -48,7 +48,7 @@ steps:
   - id: diff-analysis
     persona: navigator
     contexts: [execution]
-    model: claude-haiku
+    adapter: opencode
     workspace:
       mount:
         - source: ./
@@ -100,6 +100,7 @@ steps:
   - id: security-review
     persona: reviewer
     contexts: [security]
+    adapter: opencode
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:
@@ -128,7 +129,6 @@ steps:
       contract:
         type: llm_judge
         source: .wave/output/security-review.md
-        model: claude-haiku
         criteria:
           - "Identifies injection vulnerabilities (SQL, command, XSS) if present in the diff"
           - "Checks for hardcoded credentials or secrets"
@@ -140,6 +140,7 @@ steps:
   - id: quality-review
     persona: reviewer
     contexts: [validation]
+    adapter: opencode
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:
@@ -172,7 +173,7 @@ steps:
 
   - id: summary
     persona: summarizer
-    model: claude-haiku
+    adapter: opencode
     dependencies: [security-review, quality-review]
     memory:
       inject_artifacts:
@@ -206,6 +207,7 @@ steps:
 
   - id: publish
     persona: "{{ forge.type }}-commenter"
+    adapter: opencode
     dependencies: [summary]
     memory:
       inject_artifacts:
