@@ -41,6 +41,8 @@
         {{if .Run.FormattedCompletedAt}}<span class="run-stat"><span class="run-stat-label">Finished</span> <span class="run-stat-value">{{.Run.FormattedCompletedAt}}</span></span>{{end}}
         {{if .PipelineCategory}}<span class="run-stat"><span class="run-stat-label">Category</span> <span class="run-stat-value">{{.PipelineCategory}}</span></span>{{end}}
         {{if .PipelineSkills}}<span class="run-stat"><span class="run-stat-label">Skills</span> <span class="run-stat-value">{{range $i, $s := .PipelineSkills}}{{if $i}}, {{end}}{{$s}}{{end}}</span></span>{{end}}
+        {{if .Adapters}}<span class="run-stat"><span class="run-stat-label">Adapters</span> <span class="run-stat-value">{{range $i, $a := .Adapters}}<span class="badge badge-adapter">{{$a}}</span>{{end}}</span></span>{{end}}
+        {{if .Models}}<span class="run-stat"><span class="run-stat-label">Models</span> <span class="run-stat-value">{{range $i, $m := .Models}}<span class="badge badge-model">{{$m}}</span>{{end}}</span></span>{{end}}
     </div>
     {{if gt .Run.StepsTotal 0}}
     <div class="progress-bar progress-bar-sm">
