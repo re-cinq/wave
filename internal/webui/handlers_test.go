@@ -38,21 +38,21 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 		},
 	}
 	pages := map[string]string{
-		"templates/runs.html":       `<html><body><nav>{{if eq .ActivePage "runs"}}<a class="nav-link-active">Runs</a>{{end}}</nav>{{range .Runs}}<div>{{.RunID}}</div>{{end}}</body></html>`,
-		"templates/run_detail.html": `<html><body><nav>{{if eq .ActivePage "runs"}}<a class="nav-link-active">Runs</a>{{end}}</nav><div>{{.Run.RunID}}</div></body></html>`,
-		"templates/personas.html":   `<html><body>{{range .Personas}}<div>{{.Name}}</div>{{end}}</body></html>`,
-		"templates/pipelines.html":  `<html><body>{{range .Pipelines}}<div>{{.Name}}</div>{{end}}</body></html>`,
-		"templates/contracts.html":  `<html><body>{{range .Contracts}}<div>{{.Name}}</div>{{end}}</body></html>`,
-		"templates/skills.html":     `<html><body>{{range .Skills}}<div>{{.Name}}</div>{{end}}</body></html>`,
-		"templates/compose.html":    `<html><body>{{range .Pipelines}}<div>{{.Name}}</div>{{end}}</body></html>`,
-		"templates/issues.html":     `<html><body><span class="filter">{{.FilterState}}</span>{{range .Issues}}<div>#{{.Number}} {{.Title}}</div>{{end}}{{if .Message}}<p>{{.Message}}</p>{{end}}</body></html>`,
-		"templates/prs.html":        `<html><body><span class="filter">{{.FilterState}}</span>{{range .PullRequests}}<div>#{{.Number}} {{.Title}}</div>{{end}}{{if .Message}}<p>{{.Message}}</p>{{end}}</body></html>`,
-		"templates/health.html":     `<html><body>{{range .Checks}}<div>{{.Name}}: {{.Status}}</div>{{end}}</body></html>`,
-		"templates/ontology.html":   `<html><body>{{if .HasOntology}}<div>{{.Telos}}</div>{{range .Contexts}}<div>{{.Name}}</div>{{end}}{{end}}</body></html>`,
-		"templates/notfound.html":   `<html><body>Page not found</body></html>`,
-		"templates/compare.html":    `<html><body>{{.Left.RunID}} vs {{.Right.RunID}}{{range .Rows}}<tr>{{.StepID}}</tr>{{end}}</body></html>`,
-		"templates/analytics.html":  `<html><body><h1>Token Usage Analytics</h1><div>{{formatTokens .Analytics.TotalTokens}}</div><div>{{.Analytics.TotalRuns}} {{pluralize .Analytics.TotalRuns "run" "runs"}}</div></body></html>`,
-		"templates/retros.html":          `<html><body>{{if .HasData}}<div>retros</div>{{end}}</body></html>`,
+		"templates/runs.html":           `<html><body><nav>{{if eq .ActivePage "runs"}}<a class="nav-link-active">Runs</a>{{end}}</nav>{{range .Runs}}<div>{{.RunID}}</div>{{end}}</body></html>`,
+		"templates/run_detail.html":     `<html><body><nav>{{if eq .ActivePage "runs"}}<a class="nav-link-active">Runs</a>{{end}}</nav><div>{{.Run.RunID}}</div></body></html>`,
+		"templates/personas.html":       `<html><body>{{range .Personas}}<div>{{.Name}}</div>{{end}}</body></html>`,
+		"templates/pipelines.html":      `<html><body>{{range .Pipelines}}<div>{{.Name}}</div>{{end}}</body></html>`,
+		"templates/contracts.html":      `<html><body>{{range .Contracts}}<div>{{.Name}}</div>{{end}}</body></html>`,
+		"templates/skills.html":         `<html><body>{{range .Skills}}<div>{{.Name}}</div>{{end}}</body></html>`,
+		"templates/compose.html":        `<html><body>{{range .Pipelines}}<div>{{.Name}}</div>{{end}}</body></html>`,
+		"templates/issues.html":         `<html><body><span class="filter">{{.FilterState}}</span>{{range .Issues}}<div>#{{.Number}} {{.Title}}</div>{{end}}{{if .Message}}<p>{{.Message}}</p>{{end}}</body></html>`,
+		"templates/prs.html":            `<html><body><span class="filter">{{.FilterState}}</span>{{range .PullRequests}}<div>#{{.Number}} {{.Title}}</div>{{end}}{{if .Message}}<p>{{.Message}}</p>{{end}}</body></html>`,
+		"templates/health.html":         `<html><body>{{range .Checks}}<div>{{.Name}}: {{.Status}}</div>{{end}}</body></html>`,
+		"templates/ontology.html":       `<html><body>{{if .HasOntology}}<div>{{.Telos}}</div>{{range .Contexts}}<div>{{.Name}}</div>{{end}}{{end}}</body></html>`,
+		"templates/notfound.html":       `<html><body>Page not found</body></html>`,
+		"templates/compare.html":        `<html><body>{{.Left.RunID}} vs {{.Right.RunID}}{{range .Rows}}<tr>{{.StepID}}</tr>{{end}}</body></html>`,
+		"templates/analytics.html":      `<html><body><h1>Token Usage Analytics</h1><div>{{formatTokens .Analytics.TotalTokens}}</div><div>{{.Analytics.TotalRuns}} {{pluralize .Analytics.TotalRuns "run" "runs"}}</div></body></html>`,
+		"templates/retros.html":         `<html><body>{{if .HasData}}<div>retros</div>{{end}}</body></html>`,
 		"templates/webhook_detail.html": `<html><body><div>{{.Webhook.Name}}</div>{{range .Deliveries}}<div>{{.Event}}</div>{{end}}</body></html>`,
 	}
 	result := make(map[string]*template.Template, len(pages))
@@ -83,12 +83,12 @@ func testServer(t *testing.T) (*Server, state.StateStore) {
 	tmpl := testTemplates(t)
 
 	srv := &Server{
-		store:        roStore,
-		rwStore:      rwStore,
-		templates:    tmpl,
-		broker:       NewSSEBroker(),
-		bind:         "127.0.0.1",
-		port:         0,
+		store:             roStore,
+		rwStore:           rwStore,
+		templates:         tmpl,
+		broker:            NewSSEBroker(),
+		bind:              "127.0.0.1",
+		port:              0,
 		activeRuns:        make(map[string]context.CancelFunc),
 		disabledPipelines: make(map[string]bool),
 		gateRegistry:      NewGateRegistry(),
@@ -611,10 +611,10 @@ func TestHandleSSE_BackfillOnReconnect(t *testing.T) {
 	}
 
 	// Log some events to the DB
-	if err := rwStore.LogEvent(runID, "step1", "started", "navigator", "Starting step1", 0, 0); err != nil {
+	if err := rwStore.LogEvent(runID, "step1", "started", "navigator", "Starting step1", 0, 0, "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
-	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Processing", 100, 1000); err != nil {
+	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Processing", 100, 1000, "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
 
@@ -628,7 +628,7 @@ func TestHandleSSE_BackfillOnReconnect(t *testing.T) {
 	}
 
 	// Add a third event after the first two
-	if err := rwStore.LogEvent(runID, "step1", "completed", "navigator", "Done", 200, 2000); err != nil {
+	if err := rwStore.LogEvent(runID, "step1", "completed", "navigator", "Done", 200, 2000, "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
 
@@ -1731,10 +1731,10 @@ func TestHandleRunLogs(t *testing.T) {
 	runID, _ := rwStore.CreateRun("test-pipeline", "input")
 
 	// Log some events
-	if err := rwStore.LogEvent(runID, "step1", "started", "navigator", "Starting step1", 0, 0); err != nil {
+	if err := rwStore.LogEvent(runID, "step1", "started", "navigator", "Starting step1", 0, 0, "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
-	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Processing", 100, 1000); err != nil {
+	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Processing", 100, 1000, "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
 
