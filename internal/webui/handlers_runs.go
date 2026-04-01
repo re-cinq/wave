@@ -448,6 +448,8 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		CompletedSteps        []string
 		CircuitBreakerTripped bool
 		CircuitBreakerClass   string
+		Adapters              []string
+		Models                []string
 	}{
 		ActivePage:            "runs",
 		Run:                   runSummary,
@@ -462,6 +464,8 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		CompletedSteps:        completedSteps,
 		CircuitBreakerTripped: circuitBreakerTripped,
 		CircuitBreakerClass:   circuitBreakerClass,
+		Adapters:              uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return sd.Adapter })),
+		Models:                uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return sd.Model })),
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -485,14 +489,28 @@ func (s *Server) enrichRunSummaries(summaries []RunSummary, runs []state.RunReco
 			continue
 		}
 		completedSteps := make(map[string]bool)
+		adapterSet := make(map[string]bool)
+		modelSet := make(map[string]bool)
 		for _, ev := range events {
 			if ev.StepID != "" && ev.State == "completed" {
 				completedSteps[ev.StepID] = true
+			}
+			if ev.Adapter != "" {
+				adapterSet[ev.Adapter] = true
+			}
+			if ev.Model != "" {
+				modelSet[ev.Model] = true
 			}
 		}
 		summaries[i].StepsCompleted = len(completedSteps)
 		if summaries[i].StepsTotal > 0 {
 			summaries[i].Progress = (len(completedSteps) * 100) / summaries[i].StepsTotal
+		}
+		for a := range adapterSet {
+			summaries[i].Adapters = append(summaries[i].Adapters, a)
+		}
+		for m := range modelSet {
+			summaries[i].Models = append(summaries[i].Models, m)
 		}
 	}
 }
@@ -854,6 +872,28 @@ func formatDurationValue(d time.Duration) string {
 		return fmt.Sprintf("%dh", h)
 	}
 	return fmt.Sprintf("%dh %dm", h, m)
+}
+
+func collectStepField(steps []StepDetail, fn func(StepDetail) string) []string {
+	var result []string
+	for _, s := range steps {
+		if v := fn(s); v != "" {
+			result = append(result, v)
+		}
+	}
+	return result
+}
+
+func uniqueStrings(ss []string) []string {
+	seen := make(map[string]bool)
+	var out []string
+	for _, s := range ss {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 func listPipelineNames() []string {
