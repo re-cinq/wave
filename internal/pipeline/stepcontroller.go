@@ -171,6 +171,8 @@ func (c *DefaultStepController) ConfirmRevert(ctx context.Context, chatCtx *Chat
 		fmt.Sprintf("step %q reverted via wave chat", stepID),
 		0,
 		0,
+		"",
+		"",
 	); err != nil {
 		return fmt.Errorf("failed to log revert event: %w", err)
 	}
@@ -230,6 +232,8 @@ func (c *DefaultStepController) RewriteStep(ctx context.Context, chatCtx *ChatCo
 		fmt.Sprintf("step %q rewrite initiated via wave chat", stepID),
 		0,
 		0,
+		"",
+		"",
 	); err != nil {
 		return fmt.Errorf("failed to log rewrite event: %w", err)
 	}
