@@ -1,5 +1,4 @@
 description: "Context compaction for relay handoffs"
-model: claude-haiku
 temperature: 0.0
 permissions:
   allowed_tools:
