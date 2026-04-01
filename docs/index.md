@@ -136,7 +136,7 @@ onUnmounted(() => {
 
 const heroProps = computed(() => ({
   title: 'Wave · AI-as-Code for Agent Factories',
-  tagline: 'Define your agent factory in code. Scope every persona\'s permissions. Run repeatable AI workflows with just the right amount of guardrails.',
+  tagline: 'Declarative AI pipelines. Validated outputs. Scoped permissions. Git-native isolation.',
   primaryAction: {
     text: 'Get Started',
     link: '/quickstart'
@@ -150,10 +150,11 @@ const heroProps = computed(() => ({
     ...terminals[pipelineIndex.value]
   },
   valuePills: [
-    { label: 'Scoped Autonomy', link: '/concepts/personas', tooltip: 'Per-persona permission boundaries' },
-    { label: 'Contracts', link: '/concepts/contracts', tooltip: 'Validated handoffs between steps' },
-    { label: 'Git-Native', link: '/concepts/workspaces', tooltip: 'Real git worktree isolation' },
-    { label: 'Auditable', link: '/trust-center/', tooltip: 'Full execution traces' }
+    { label: 'Trustworthy AI', link: '/concepts/contracts', tooltip: 'Validated outputs, no garbage in or out' },
+    { label: 'Reproducible', link: '/concepts/pipelines', tooltip: 'Same input, same result — every time' },
+    { label: 'Any Agent', link: '/reference/adapters', tooltip: 'Claude, Gemini, OpenCode, Codex — or mix them' },
+    { label: 'Git-Native', link: '/concepts/workspaces', tooltip: 'Real worktrees, real branches, real isolation' },
+    { label: 'Observable', link: '/trust-center/', tooltip: 'Full traces, credential-scrubbed logs' }
   ],
   showBackground: true
 }))
