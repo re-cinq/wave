@@ -17,17 +17,17 @@ import (
 
 // ProjectProfile is the structured output of a deep project scan.
 type ProjectProfile struct {
-	FilesScanned   int               `json:"files_scanned"`
-	Languages      []LanguageInfo    `json:"languages"`
-	BuildSystem    BuildSystemInfo   `json:"build_system"`
-	TestRunner     TestRunnerInfo    `json:"test_runner"`
-	LintTools      []LintToolInfo    `json:"lint_tools"`
-	CIPlatform     CIPlatformInfo    `json:"ci_platform"`
-	MonorepoLayout *MonorepoInfo     `json:"monorepo,omitempty"`
-	Frameworks     []FrameworkInfo   `json:"frameworks"`
-	Conventions    ConventionInfo    `json:"conventions"`
-	HasClaudeMD    bool              `json:"has_claude_md"`
-	HasDocker      bool              `json:"has_docker"`
+	FilesScanned   int             `json:"files_scanned"`
+	Languages      []LanguageInfo  `json:"languages"`
+	BuildSystem    BuildSystemInfo `json:"build_system"`
+	TestRunner     TestRunnerInfo  `json:"test_runner"`
+	LintTools      []LintToolInfo  `json:"lint_tools"`
+	CIPlatform     CIPlatformInfo  `json:"ci_platform"`
+	MonorepoLayout *MonorepoInfo   `json:"monorepo,omitempty"`
+	Frameworks     []FrameworkInfo `json:"frameworks"`
+	Conventions    ConventionInfo  `json:"conventions"`
+	HasClaudeMD    bool            `json:"has_claude_md"`
+	HasDocker      bool            `json:"has_docker"`
 }
 
 // LanguageInfo describes a detected programming language.
@@ -83,9 +83,9 @@ type FrameworkInfo struct {
 // ConventionInfo describes detected project conventions.
 type ConventionInfo struct {
 	CommitFormat    string `json:"commit_format,omitempty"`
-	HasPRTemplate  bool   `json:"has_pr_template"`
-	BranchNaming   string `json:"branch_naming,omitempty"`
-	HasEditorConfig bool  `json:"has_editorconfig"`
+	HasPRTemplate   bool   `json:"has_pr_template"`
+	BranchNaming    string `json:"branch_naming,omitempty"`
+	HasEditorConfig bool   `json:"has_editorconfig"`
 }
 
 // ScanOption configures scanning behavior.
@@ -133,43 +133,43 @@ var skipDirs = map[string]bool{
 
 // extToLanguage maps file extensions to language names.
 var extToLanguage = map[string]string{
-	".go":    "Go",
-	".rs":    "Rust",
-	".py":    "Python",
-	".js":    "JavaScript",
-	".jsx":   "JavaScript",
-	".ts":    "TypeScript",
-	".tsx":   "TypeScript",
-	".java":  "Java",
-	".kt":    "Kotlin",
-	".rb":    "Ruby",
-	".php":   "PHP",
-	".c":     "C",
-	".h":     "C",
-	".cpp":   "C++",
-	".cc":    "C++",
-	".cxx":   "C++",
-	".hpp":   "C++",
-	".cs":    "C#",
-	".swift": "Swift",
-	".m":     "Objective-C",
-	".scala": "Scala",
-	".zig":   "Zig",
-	".lua":   "Lua",
-	".r":     "R",
-	".R":     "R",
-	".pl":    "Perl",
-	".ex":    "Elixir",
-	".exs":   "Elixir",
-	".erl":   "Erlang",
-	".hs":    "Haskell",
-	".clj":   "Clojure",
-	".dart":  "Dart",
-	".vue":   "Vue",
+	".go":     "Go",
+	".rs":     "Rust",
+	".py":     "Python",
+	".js":     "JavaScript",
+	".jsx":    "JavaScript",
+	".ts":     "TypeScript",
+	".tsx":    "TypeScript",
+	".java":   "Java",
+	".kt":     "Kotlin",
+	".rb":     "Ruby",
+	".php":    "PHP",
+	".c":      "C",
+	".h":      "C",
+	".cpp":    "C++",
+	".cc":     "C++",
+	".cxx":    "C++",
+	".hpp":    "C++",
+	".cs":     "C#",
+	".swift":  "Swift",
+	".m":      "Objective-C",
+	".scala":  "Scala",
+	".zig":    "Zig",
+	".lua":    "Lua",
+	".r":      "R",
+	".R":      "R",
+	".pl":     "Perl",
+	".ex":     "Elixir",
+	".exs":    "Elixir",
+	".erl":    "Erlang",
+	".hs":     "Haskell",
+	".clj":    "Clojure",
+	".dart":   "Dart",
+	".vue":    "Vue",
 	".svelte": "Svelte",
-	".sh":    "Shell",
-	".bash":  "Shell",
-	".zsh":   "Shell",
+	".sh":     "Shell",
+	".bash":   "Shell",
+	".zsh":    "Shell",
 }
 
 // languageTestDefaults maps languages to default test commands.
@@ -224,7 +224,7 @@ func ScanProject(dir string, opts ...ScanOption) (*ProjectProfile, error) {
 	profile.Conventions = detectConventions(dir, cfg)
 
 	// 9. HasClaudeMD
-	if _, err := os.Stat(filepath.Join(dir, "CLAUDE.md")); err == nil {
+	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); err == nil {
 		profile.HasClaudeMD = true
 	}
 
