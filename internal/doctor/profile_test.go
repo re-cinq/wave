@@ -81,7 +81,7 @@ jobs:
 `)
 
 	// CLAUDE.md.
-	writeFile(t, dir, "CLAUDE.md", `# Project guidelines
+	writeFile(t, dir, "AGENTS.md", `# Project guidelines
 `)
 
 	profile, err := ScanProject(dir, WithRunCmd(func(name string, args ...string) ([]byte, error) {

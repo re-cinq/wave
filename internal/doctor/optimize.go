@@ -328,7 +328,7 @@ func collectConventions(result *OptimizeResult, profile *ProjectProfile) {
 		result.Conventions = append(result.Conventions, "editorconfig configured")
 	}
 	if profile.HasClaudeMD {
-		result.Conventions = append(result.Conventions, "CLAUDE.md project instructions present")
+		result.Conventions = append(result.Conventions, "AGENTS.md project instructions present")
 	}
 	if profile.HasDocker {
 		result.Conventions = append(result.Conventions, "Docker configuration present")
