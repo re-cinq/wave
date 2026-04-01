@@ -2271,7 +2271,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			}
 			artifactNames = append(artifactNames, name)
 		}
-		_ = e.logger.LogStepStart(pipelineID, step.ID, resolvedPersona, artifactNames)
+		_ = e.logger.LogStepStartWithAdapter(pipelineID, step.ID, resolvedPersona, adapterDef.Binary, resolvedModel, artifactNames)
 	}
 
 	prompt := e.buildStepPrompt(execution, step)

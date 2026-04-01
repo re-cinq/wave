@@ -13,6 +13,7 @@ type AuditLogger interface {
 	LogToolCall(pipelineID, stepID, tool, args string) error
 	LogFileOp(pipelineID, stepID, op, path string) error
 	LogStepStart(pipelineID, stepID, persona string, injectedArtifacts []string) error
+	LogStepStartWithAdapter(pipelineID, stepID, persona, adapter, model string, injectedArtifacts []string) error
 	LogStepEnd(pipelineID, stepID, status string, duration time.Duration, exitCode int, outputBytes int, tokensUsed int, errMsg string) error
 	LogContractResult(pipelineID, stepID, contractType, result string) error
 	LogOntologyInject(pipelineID, stepID string, contexts []string, invariantCount int) error
@@ -87,9 +88,19 @@ func (l *TraceLogger) LogFileOp(pipelineID, stepID, op, path string) error {
 }
 
 func (l *TraceLogger) LogStepStart(pipelineID, stepID, persona string, injectedArtifacts []string) error {
+	return l.LogStepStartWithAdapter(pipelineID, stepID, persona, "", "", injectedArtifacts)
+}
+
+func (l *TraceLogger) LogStepStartWithAdapter(pipelineID, stepID, persona, adapter, model string, injectedArtifacts []string) error {
 	scrubbedPersona := l.scrub(persona)
 	timestamp := time.Now().Format(time.RFC3339Nano)
 	line := timestamp + " [STEP_START] pipeline=" + pipelineID + " step=" + stepID + " persona=" + scrubbedPersona
+	if adapter != "" {
+		line += " adapter=" + adapter
+	}
+	if model != "" {
+		line += " model=" + model
+	}
 	if len(injectedArtifacts) > 0 {
 		scrubbed := make([]string, len(injectedArtifacts))
 		for i, a := range injectedArtifacts {
