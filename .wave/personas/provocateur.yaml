@@ -1,5 +1,4 @@
 description: "Creative challenger for divergent thinking and complexity hunting"
-model: claude-opus
 temperature: 0.8
 permissions:
   allowed_tools:

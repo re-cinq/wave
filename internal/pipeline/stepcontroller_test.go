@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -35,9 +36,11 @@ func (m *mockStepStore) GetRetrospective(runID string) (*state.RetrospectiveReco
 func (m *mockStepStore) ListRetrospectives(opts state.ListRetrosOptions) ([]state.RetrospectiveRecord, error) {
 	return nil, nil
 }
-func (m *mockStepStore) DeleteRetrospective(runID string) error                       { return nil }
-func (m *mockStepStore) UpdateRetrospectiveSmoothness(runID string, smoothness string) error { return nil }
-func (m *mockStepStore) UpdateRetrospectiveStatus(runID string, status string) error  { return nil }
+func (m *mockStepStore) DeleteRetrospective(runID string) error { return nil }
+func (m *mockStepStore) UpdateRetrospectiveSmoothness(runID string, smoothness string) error {
+	return nil
+}
+func (m *mockStepStore) UpdateRetrospectiveStatus(runID string, status string) error { return nil }
 
 // ---------------------------------------------------------------------------
 // Helper to build a minimal ChatContext for tests.
@@ -89,6 +92,7 @@ func TestContinueStep_Success(t *testing.T) {
 		{
 			StepID:        "analyze",
 			Persona:       "navigator",
+			Adapter:       "claude",
 			State:         "completed",
 			WorkspacePath: wsDir,
 		},
@@ -104,9 +108,9 @@ func TestContinueStep_Success(t *testing.T) {
 
 	// LaunchInteractive will fail because claude binary is not available in test env.
 	// The important thing is that CLAUDE.md was written before the launch attempt.
-	claudeMdPath := filepath.Join(wsDir, "CLAUDE.md")
+	claudeMdPath := filepath.Join(wsDir, adapter.InstructionFilename("claude"))
 	if _, statErr := os.Stat(claudeMdPath); statErr != nil {
-		t.Fatalf("expected CLAUDE.md to be written at %s, got stat error: %v", claudeMdPath, statErr)
+		t.Fatalf("expected %s to be written at %s, got stat error: %v", adapter.InstructionFilename("claude"), claudeMdPath, statErr)
 	}
 
 	// Read the written CLAUDE.md and verify it contains expected content
@@ -126,8 +130,8 @@ func TestContinueStep_Success(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error from LaunchInteractive (claude CLI not found in test env)")
 	}
-	if !strings.Contains(err.Error(), "claude") {
-		t.Errorf("expected error to mention 'claude', got: %v", err)
+	if !strings.Contains(err.Error(), "adapter") {
+		t.Errorf("expected error to mention adapter, got: %v", err)
 	}
 }
 
@@ -386,6 +390,7 @@ func TestRewriteStep_CreatesWorkspace(t *testing.T) {
 		{
 			StepID:        "implement",
 			Persona:       "craftsman",
+			Adapter:       "claude",
 			State:         "failed",
 			WorkspacePath: rewriteWsDir,
 		},
@@ -411,7 +416,7 @@ func TestRewriteStep_CreatesWorkspace(t *testing.T) {
 	}
 
 	// Verify CLAUDE.md was written
-	claudeMdPath := filepath.Join(rewriteWsDir, "CLAUDE.md")
+	claudeMdPath := filepath.Join(rewriteWsDir, adapter.InstructionFilename("claude"))
 	data, readErr := os.ReadFile(claudeMdPath)
 	if readErr != nil {
 		t.Fatalf("expected CLAUDE.md at %s, got read error: %v", claudeMdPath, readErr)
@@ -446,7 +451,7 @@ func TestRewriteStep_CreatesWorkspace(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error from LaunchInteractive (claude CLI not found in test env)")
 	}
-	if !strings.Contains(err.Error(), "claude") {
+	if !strings.Contains(err.Error(), "adapter") {
 		t.Errorf("expected error to mention 'claude', got: %v", err)
 	}
 }

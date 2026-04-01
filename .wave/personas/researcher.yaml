@@ -1,5 +1,4 @@
 description: "Deep codebase research and analysis"
-model: claude-opus
 temperature: 0.1
 permissions:
   allowed_tools:

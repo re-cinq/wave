@@ -1,5 +1,4 @@
 description: "Systematic debugging and root cause analysis"
-model: claude-opus
 temperature: 0.1
 permissions:
   allowed_tools:

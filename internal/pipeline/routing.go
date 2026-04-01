@@ -7,22 +7,25 @@ import (
 )
 
 // Complexity tier constants returned by ClassifyStepComplexity.
+// These tiers guide model selection: cheapest (cost), fastest (latency), strongest (capability).
 const (
-	TierSimple   = "simple"
-	TierStandard = "standard"
-	TierComplex  = "complex"
+	TierCheapest  = "cheapest"
+	TierFastest   = "fastest"
+	TierStrongest = "strongest"
 )
 
-// simplePersonaKeywords identifies personas whose work is typically low-complexity.
-var simplePersonaKeywords = []string{
+// cheapestPersonaKeywords identifies personas whose work is typically lightweight.
+// These route to cost-optimized models.
+var cheapestPersonaKeywords = []string{
 	"navigator",
 	"summarizer",
 	"auditor",
 	"planner",
 }
 
-// complexPersonaKeywords identifies personas whose work is typically high-complexity.
-var complexPersonaKeywords = []string{
+// strongestPersonaKeywords identifies personas whose work is typically complex.
+// These route to capability-optimized models.
+var strongestPersonaKeywords = []string{
 	"craftsman",
 	"implementer",
 	"debugger",
@@ -33,35 +36,35 @@ var complexPersonaKeywords = []string{
 }
 
 // ClassifyStepComplexity returns a complexity tier for the given step and persona.
-// The tier is one of TierSimple, TierStandard, or TierComplex.
+// The tier is one of TierCheapest, TierFastest, or TierStrongest.
 //
 // Classification heuristics (evaluated in order):
-//   - simple: persona name contains a simple keyword, OR step type is "command"/"conditional"
-//   - complex: persona name contains a complex keyword, OR step uses sub_pipeline/loop/branch/aggregate
-//   - standard: fallthrough for everything else
+//   - cheapest: persona name contains a lightweight keyword, OR step type is "command"/"conditional"
+//   - strongest: persona name contains a complex keyword, OR step uses sub_pipeline/loop/branch/aggregate
+//   - fastest: fallthrough for everything else (balance of cost and capability)
 func ClassifyStepComplexity(step *Step, persona *manifest.Persona, personaName string) string {
 	// Normalize persona name for keyword matching.
 	lowerName := strings.ToLower(personaName)
 
-	// Check simple signals first — cheap operations route to cheaper models.
+	// Check cheapest signals — lightweight operations route to cheaper models.
 	if step != nil && (step.Type == StepTypeCommand || step.Type == StepTypeConditional) {
-		return TierSimple
+		return TierCheapest
 	}
-	for _, kw := range simplePersonaKeywords {
+	for _, kw := range cheapestPersonaKeywords {
 		if strings.Contains(lowerName, kw) {
-			return TierSimple
+			return TierCheapest
 		}
 	}
 
-	// Check complex signals — heavy operations route to stronger models.
+	// Check strongest signals — heavy operations route to more capable models.
 	if step != nil && (step.SubPipeline != "" || step.Loop != nil || step.Branch != nil || step.Aggregate != nil) {
-		return TierComplex
+		return TierStrongest
 	}
-	for _, kw := range complexPersonaKeywords {
+	for _, kw := range strongestPersonaKeywords {
 		if strings.Contains(lowerName, kw) {
-			return TierComplex
+			return TierStrongest
 		}
 	}
 
-	return TierStandard
+	return TierFastest
 }

@@ -1,5 +1,4 @@
 description: "Read-only codebase exploration and analysis"
-model: claude-haiku
 temperature: 0.1
 permissions:
   allowed_tools:

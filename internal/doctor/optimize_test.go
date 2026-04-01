@@ -451,7 +451,7 @@ func TestOptimize_ConventionsDetected(t *testing.T) {
 		"pull request template configured",
 		"branch naming: feature/*",
 		"editorconfig configured",
-		"CLAUDE.md project instructions present",
+		"AGENTS.md project instructions present",
 		"Docker configuration present",
 	}
 

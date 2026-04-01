@@ -18,14 +18,15 @@ type ChatContext struct {
 	PipelinePath     string
 	Artifacts        []state.ArtifactRecord
 	ProjectRoot      string
-	ArtifactContents map[string]string    // Artifact name → content/summary
-	ChatConfig       *ChatContextConfig   // Pipeline-level chat configuration
+	ArtifactContents map[string]string  // Artifact name → content/summary
+	ChatConfig       *ChatContextConfig // Pipeline-level chat configuration
 }
 
 // ChatStepContext holds context for a single step in the chat session.
 type ChatStepContext struct {
 	StepID        string
 	Persona       string
+	Adapter       string
 	State         string
 	Duration      time.Duration
 	TokensUsed    int
@@ -174,6 +175,7 @@ func buildStepContexts(p *Pipeline, events []state.LogRecord, artifacts []state.
 		ctx := ChatStepContext{
 			StepID:    step.ID,
 			Persona:   step.Persona,
+			Adapter:   step.Adapter,
 			Artifacts: artifactsByStep[step.ID],
 		}
 

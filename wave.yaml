@@ -63,6 +63,7 @@ ontology:
 adapters:
     claude:
         binary: claude
+        default_model: sonnet
         default_permissions:
             allowed_tools:
                 - Read
@@ -71,13 +72,48 @@ adapters:
         mode: headless
         output_format: json
         project_files:
-            - CLAUDE.md
+            - AGENTS.md
             - .claude/settings.json
+    gemini:
+        binary: gemini
+        default_model: gemini-2.5-flash-lite
+        default_permissions:
+            allowed_tools:
+                - Read
+                - Bash
+            deny: []
+        mode: headless
+        output_format: json
+        project_files:
+            - AGENTS.md
+    codex:
+        binary: codex
+        default_model: o3
+        default_permissions:
+            allowed_tools:
+                - Read
+                - Bash
+            deny: []
+        mode: headless
+        output_format: json
+        project_files:
+            - AGENTS.md
+    opencode:
+        binary: opencode
+        default_model: opencode/big-pickle
+        default_permissions:
+            allowed_tools:
+                - Read
+                - Bash
+            deny: []
+        mode: headless
+        output_format: json
+        project_files:
+            - AGENTS.md
 personas:
     auditor:
         adapter: claude
         description: Security review and quality assurance
-        model: sonnet
         #temperature: 0.1
         permissions:
             allowed_tools:
@@ -90,7 +126,6 @@ personas:
     craftsman:
         adapter: claude
         description: Code implementation and testing
-        model: sonnet
         #temperature: 0.3
         permissions:
             allowed_tools:
@@ -103,7 +138,6 @@ personas:
     debugger:
         adapter: claude
         description: Systematic issue diagnosis and root cause analysis
-        model: sonnet
         #temperature: 0.2
         permissions:
             allowed_tools:
@@ -119,7 +153,6 @@ personas:
     navigator:
         adapter: claude
         description: Read-only codebase exploration and analysis
-        model: sonnet
         #temperature: 0.3
         permissions:
             allowed_tools:
@@ -133,7 +166,6 @@ personas:
     philosopher:
         adapter: claude
         description: Architecture design and specification
-        model: sonnet
         #temperature: 0.7
         permissions:
             allowed_tools:
@@ -148,7 +180,6 @@ personas:
     planner:
         adapter: claude
         description: Task breakdown and project planning
-        model: sonnet
         #temperature: 0.3
         permissions:
             allowed_tools:
@@ -163,7 +194,6 @@ personas:
     summarizer:
         adapter: claude
         description: Context compaction for relay handoffs
-        model: sonnet
         #temperature: 0.2
         permissions:
             allowed_tools:
@@ -178,7 +208,6 @@ personas:
     github-analyst:
         adapter: claude
         description: GitHub issue analysis and quality assessment
-        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:read
@@ -202,7 +231,6 @@ personas:
     github-enhancer:
         adapter: claude
         description: GitHub issue enhancement and improvement
-        model: sonnet
         #temperature: 0.5
         token_scopes:
             - issues:write
@@ -219,7 +247,6 @@ personas:
     github-scoper:
         adapter: claude
         description: GitHub epic decomposition into child issues
-        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:write
@@ -236,7 +263,6 @@ personas:
     implementer:
         adapter: claude
         description: Code execution and artifact generation for pipeline steps
-        model: sonnet
         #temperature: 0.3
         permissions:
             allowed_tools:
@@ -251,7 +277,6 @@ personas:
     reviewer:
         adapter: claude
         description: Quality review, validation, and assessment
-        model: sonnet
         #temperature: 0.3
         permissions:
             allowed_tools:
@@ -267,7 +292,6 @@ personas:
     researcher:
         adapter: claude
         description: Web research and information synthesis
-        model: sonnet
         #temperature: 0.5
         permissions:
             allowed_tools:
@@ -284,7 +308,6 @@ personas:
     github-commenter:
         adapter: claude
         description: Post comments on GitHub issues and pull requests, create PRs
-        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:write
@@ -308,7 +331,6 @@ personas:
     gitlab-analyst:
         adapter: claude
         description: GitLab issue analysis and quality assessment
-        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:read
@@ -332,7 +354,6 @@ personas:
     gitlab-enhancer:
         adapter: claude
         description: GitLab issue enhancement and improvement
-        model: sonnet
         #temperature: 0.5
         token_scopes:
             - issues:write
@@ -349,7 +370,6 @@ personas:
     gitlab-scoper:
         adapter: claude
         description: GitLab epic decomposition into child issues
-        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:write
@@ -366,7 +386,6 @@ personas:
     gitlab-commenter:
         adapter: claude
         description: Post comments on GitLab issues and merge requests
-        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:write
@@ -388,7 +407,6 @@ personas:
     gitea-analyst:
         adapter: claude
         description: Gitea issue analysis and quality assessment
-        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:read
@@ -412,7 +430,6 @@ personas:
     gitea-enhancer:
         adapter: claude
         description: Gitea issue enhancement and improvement
-        model: sonnet
         #temperature: 0.5
         token_scopes:
             - issues:write
@@ -429,7 +446,6 @@ personas:
     gitea-scoper:
         adapter: claude
         description: Gitea epic decomposition into child issues
-        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:write
@@ -446,7 +462,6 @@ personas:
     gitea-commenter:
         adapter: claude
         description: Post comments on Gitea issues and pull requests
-        model: sonnet
         #temperature: 0.3
         token_scopes:
             - issues:write
@@ -467,7 +482,6 @@ personas:
     bitbucket-analyst:
         adapter: claude
         description: Bitbucket issue analysis and quality assessment
-        model: haiku
         #temperature: 0.3
         token_scopes:
             - issues:read
@@ -487,7 +501,6 @@ personas:
     bitbucket-enhancer:
         adapter: claude
         description: Bitbucket issue enhancement and improvement
-        model: haiku
         #temperature: 0.5
         token_scopes:
             - issues:write
@@ -503,7 +516,6 @@ personas:
     bitbucket-scoper:
         adapter: claude
         description: Bitbucket epic decomposition into child issues
-        model: haiku
         #temperature: 0.3
         token_scopes:
             - issues:write
@@ -519,7 +531,6 @@ personas:
     bitbucket-commenter:
         adapter: claude
         description: Post comments on Bitbucket issues and pull requests, create PRs
-        model: haiku
         #temperature: 0.3
         token_scopes:
             - issues:write
@@ -539,7 +550,6 @@ personas:
     supervisor:
         adapter: claude
         description: Work quality and process quality evaluation
-        model: sonnet
         #temperature: 0.2
         permissions:
             allowed_tools:
@@ -557,7 +567,6 @@ personas:
     validator:
         adapter: claude
         description: Skeptical analysis and verification of findings against source code
-        model: sonnet
         #temperature: 0.1
         permissions:
             allowed_tools:
@@ -572,7 +581,6 @@ personas:
     synthesizer:
         adapter: claude
         description: Structured synthesis of analysis findings into actionable JSON proposals
-        model: sonnet
         #temperature: 0.2
         permissions:
             allowed_tools:
@@ -587,7 +595,6 @@ personas:
     provocateur:
         adapter: claude
         description: Creative challenger for divergent thinking and complexity hunting
-        model: sonnet
         #temperature: 0.8
         permissions:
             allowed_tools:
@@ -640,3 +647,7 @@ runtime:
         warn_at: 25.0
     routing:
         auto_route: true
+        complexity_map:
+            cheapest: opencode/big-pickle
+            fastest: opencode/big-pickle
+            strongest: opencode/big-pickle

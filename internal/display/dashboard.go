@@ -179,12 +179,30 @@ func (d *Dashboard) renderStepStatusPanel(ctx *PipelineContext) string {
 			if persona != "" {
 				pulsatingLabel += fmt.Sprintf(" (%s)", persona)
 			}
+			// Show adapter/model for running step
+			if model, ok := ctx.StepModels[stepID]; ok && model != "" {
+				adapter := ctx.StepAdapters[stepID]
+				if adapter != "" {
+					pulsatingLabel += fmt.Sprintf(" [%s/%s]", adapter, model)
+				} else {
+					pulsatingLabel += fmt.Sprintf(" [%s]", model)
+				}
+			}
 			sb.WriteString(pulsatingLabel)
 		} else {
 			// Static rendering for non-running steps
 			stepLine := fmt.Sprintf("%s %s", icon, stepID)
 			if persona != "" {
 				stepLine += fmt.Sprintf(" (%s)", persona)
+			}
+			// Show adapter/model for non-running steps
+			if model, ok := ctx.StepModels[stepID]; ok && model != "" {
+				adapter := ctx.StepAdapters[stepID]
+				if adapter != "" {
+					stepLine += fmt.Sprintf(" [%s/%s]", adapter, model)
+				} else {
+					stepLine += fmt.Sprintf(" [%s]", model)
+				}
 			}
 			// Show duration and tokens for completed and failed steps
 			if state == StateCompleted || state == StateFailed {
@@ -323,4 +341,3 @@ func (d *Dashboard) renderPulsatingStep(stepLabel string) string {
 		return d.codec.Primary(stepLabel)
 	}
 }
-
