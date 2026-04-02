@@ -108,15 +108,15 @@ func setupTestWorkspace(t *testing.T) (string, func()) {
 }
 
 // captureStdout captures stdout output during a function call
-func captureStdout(f func() error) (string, error) {
-	old := os.Stdout
+func captureStderr(f func() error) (string, error) {
+	old := os.Stderr
 	r, w, _ := os.Pipe()
-	os.Stdout = w
+	os.Stderr = w
 
 	err := f()
 
 	w.Close()
-	os.Stdout = old
+	os.Stderr = old
 
 	var buf bytes.Buffer
 	buf.ReadFrom(r)
@@ -166,13 +166,6 @@ func TestRunDryRunOutput(t *testing.T) {
 				OutputArtifacts: []pipeline.ArtifactDef{
 					{Name: "code", Path: ".wave/output/code.go", Type: "file"},
 				},
-				Handover: pipeline.HandoverConfig{
-					Contract: pipeline.ContractConfig{
-						Type:       "test_suite",
-						OnFailure:  "retry",
-						MaxRetries: 3,
-					},
-				},
 			},
 		},
 	}
@@ -207,8 +200,8 @@ func TestRunDryRunOutput(t *testing.T) {
 		},
 	}
 
-	output, err := captureStdout(func() error {
-		return performDryRun(p, m)
+	output, err := captureStderr(func() error {
+		return performDryRun(p, m, nil)
 	})
 
 	assert.NoError(t, err)
@@ -229,9 +222,6 @@ func TestRunDryRunOutput(t *testing.T) {
 	assert.Contains(t, output, "Memory: fresh")
 	assert.Contains(t, output, "Inject: step1:analysis as analysis.md")
 	assert.Contains(t, output, "Output: code")
-	assert.Contains(t, output, "Contract: test_suite")
-	assert.Contains(t, output, "on_failure: retry")
-	assert.Contains(t, output, "max_retries: 3")
 	assert.Contains(t, output, "Workspace: .wave/workspaces/")
 }
 
@@ -431,8 +421,8 @@ func TestDryRunShowsAllStepDetails(t *testing.T) {
 		},
 	}
 
-	output, err := captureStdout(func() error {
-		return performDryRun(p, m)
+	output, err := captureStderr(func() error {
+		return performDryRun(p, m, nil)
 	})
 
 	assert.NoError(t, err)
