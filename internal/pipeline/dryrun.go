@@ -462,14 +462,14 @@ func (v *DryRunValidator) validateContract(step *Step, report *DryRunReport) {
 	// on_failure validation.
 	if c.OnFailure != "" {
 		switch c.OnFailure {
-		case "fail", "warn", "skip":
+		case "fail", "warn", "skip", "continue", "retry", "rework":
 			// valid
 		default:
 			report.Findings = append(report.Findings, ValidationFinding{
 				Severity: SeverityError,
 				StepID:   step.ID,
 				Field:    "handover.contract.on_failure",
-				Message:  fmt.Sprintf("unknown on_failure value %q (valid: fail, warn, skip)", c.OnFailure),
+				Message:  fmt.Sprintf("unknown on_failure value %q (valid: fail, warn, skip, continue, retry, rework)", c.OnFailure),
 			})
 		}
 	}
