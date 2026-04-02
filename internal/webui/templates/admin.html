@@ -7,53 +7,47 @@
 <!-- Server Config -->
 <div class="card" id="config-section" style="margin-bottom: 1.5rem;">
     <h3>Server Configuration</h3>
-    <div class="table-container">
-        <table class="data-table">
+    <table class="table">
             <thead>
                 <tr><th>Setting</th><th>Value</th></tr>
             </thead>
             <tbody id="config-body">
-                <tr><td colspan="2" style="color: var(--muted);">Loading...</td></tr>
+                <tr><td colspan="2" style="color: var(--color-text-muted);">Loading...</td></tr>
             </tbody>
         </table>
-    </div>
 </div>
 
 <!-- Adapter Binaries -->
 <div class="card" id="adapters-section" style="margin-bottom: 1.5rem;">
     <h3>Adapter Binaries</h3>
-    <div class="table-container">
-        <table class="data-table">
+    <table class="table">
             <thead>
                 <tr><th>Adapter</th><th>Path</th></tr>
             </thead>
             <tbody id="adapters-body">
-                <tr><td colspan="2" style="color: var(--muted);">Loading...</td></tr>
+                <tr><td colspan="2" style="color: var(--color-text-muted);">Loading...</td></tr>
             </tbody>
         </table>
-    </div>
 </div>
 
 <!-- Credentials -->
 <div class="card" id="credentials-section" style="margin-bottom: 1.5rem;">
     <h3>Credential Status</h3>
-    <p style="color: var(--muted); margin-bottom: 0.75rem;">Checks whether environment variables are set (values are never exposed).</p>
-    <div class="table-container">
-        <table class="data-table">
+    <p style="color: var(--color-text-muted); margin-bottom: 0.75rem;">Checks whether environment variables are set (values are never exposed).</p>
+    <table class="table">
             <thead>
                 <tr><th>Variable</th><th>Status</th></tr>
             </thead>
             <tbody id="credentials-body">
-                <tr><td colspan="2" style="color: var(--muted);">Loading...</td></tr>
+                <tr><td colspan="2" style="color: var(--color-text-muted);">Loading...</td></tr>
             </tbody>
         </table>
-    </div>
 </div>
 
 <!-- Emergency Stop -->
-<div class="card" style="margin-bottom: 1.5rem; border: 1px solid var(--danger, #dc3545);">
-    <h3 style="color: var(--danger, #dc3545);">Emergency Stop</h3>
-    <p style="color: var(--muted); margin-bottom: 0.75rem;">Force-cancel all running pipelines. This cannot be undone.</p>
+<div class="card" style="margin-bottom: 1.5rem; border: 1px solid var(--color-btn-danger, #dc3545);">
+    <h3 style="color: var(--color-btn-danger, #dc3545);">Emergency Stop</h3>
+    <p style="color: var(--color-text-muted); margin-bottom: 0.75rem;">Force-cancel all running pipelines. This cannot be undone.</p>
     <button class="btn btn-danger" id="emergency-stop-btn" onclick="confirmEmergencyStop()">
         Emergency Stop All Runs
     </button>
@@ -63,9 +57,8 @@
 <!-- Audit Log -->
 <div class="card" id="audit-section" style="margin-bottom: 1.5rem;">
     <h3>Audit Log</h3>
-    <p style="color: var(--muted); margin-bottom: 0.75rem;">Recent pipeline lifecycle events (starts, completions, failures, gates).</p>
-    <div class="table-container">
-        <table class="data-table">
+    <p style="color: var(--color-text-muted); margin-bottom: 0.75rem;">Recent pipeline lifecycle events (starts, completions, failures, gates).</p>
+    <table class="table">
             <thead>
                 <tr>
                     <th>Timestamp</th>
@@ -76,10 +69,9 @@
                 </tr>
             </thead>
             <tbody id="audit-body">
-                <tr><td colspan="5" style="color: var(--muted);">Loading...</td></tr>
+                <tr><td colspan="5" style="color: var(--color-text-muted);">Loading...</td></tr>
             </tbody>
         </table>
-    </div>
 </div>
 
 <script>
@@ -111,14 +103,14 @@
                 var tr = document.createElement('tr');
                 tr.innerHTML = '<td><strong>' + escHtml(name) + '</strong></td><td>' +
                     (found
-                        ? '<span class="badge" style="background: var(--success); color: white;">found</span> <code>' + escHtml(path) + '</code>'
-                        : '<span class="badge" style="background: var(--muted); color: white;">not found</span>')
+                        ? '<span class="badge" style="background: var(--color-completed); color: white;">found</span> <code>' + escHtml(path) + '</code>'
+                        : '<span class="badge" style="background: var(--color-text-muted); color: white;">not found</span>')
                     + '</td>';
                 abody.appendChild(tr);
             });
         })
         .catch(function() {
-            document.getElementById('config-body').innerHTML = '<tr><td colspan="2" style="color: var(--danger);">Failed to load config</td></tr>';
+            document.getElementById('config-body').innerHTML = '<tr><td colspan="2" style="color: var(--color-btn-danger);">Failed to load config</td></tr>';
         });
 
     // Load audit log
@@ -128,7 +120,7 @@
             const body = document.getElementById('audit-body');
             body.innerHTML = '';
             if (!data.events || data.events.length === 0) {
-                body.innerHTML = '<tr><td colspan="5" style="color: var(--muted);">No audit events recorded yet.</td></tr>';
+                body.innerHTML = '<tr><td colspan="5" style="color: var(--color-text-muted);">No audit events recorded yet.</td></tr>';
                 return;
             }
             data.events.forEach(function(ev) {
@@ -144,7 +136,7 @@
             });
         })
         .catch(function() {
-            document.getElementById('audit-body').innerHTML = '<tr><td colspan="5" style="color: var(--danger);">Failed to load audit log</td></tr>';
+            document.getElementById('audit-body').innerHTML = '<tr><td colspan="5" style="color: var(--color-btn-danger);">Failed to load audit log</td></tr>';
         });
 
     // Load credentials
@@ -158,14 +150,14 @@
                 var tr = document.createElement('tr');
                 tr.innerHTML = '<td><code>' + escHtml(key) + '</code></td><td>' +
                     (present
-                        ? '<span class="badge" style="background: var(--success); color: white;">Set</span>'
-                        : '<span class="badge" style="background: var(--danger, #dc3545); color: white;">Not set</span>')
+                        ? '<span class="badge" style="background: var(--color-completed); color: white;">Set</span>'
+                        : '<span class="badge" style="background: var(--color-btn-danger, #dc3545); color: white;">Not set</span>')
                     + '</td>';
                 body.appendChild(tr);
             });
         })
         .catch(function() {
-            document.getElementById('credentials-body').innerHTML = '<tr><td colspan="2" style="color: var(--danger);">Failed to load credentials</td></tr>';
+            document.getElementById('credentials-body').innerHTML = '<tr><td colspan="2" style="color: var(--color-btn-danger);">Failed to load credentials</td></tr>';
         });
 })();
 
@@ -187,9 +179,9 @@ function confirmEmergencyStop() {
             var el = document.getElementById('emergency-result');
             el.style.display = 'block';
             if (data.cancelled === 0) {
-                el.innerHTML = '<span style="color: var(--muted);">No running pipelines to cancel.</span>';
+                el.innerHTML = '<span style="color: var(--color-text-muted);">No running pipelines to cancel.</span>';
             } else {
-                el.innerHTML = '<span style="color: var(--success);">Cancelled ' + data.cancelled + ' run(s): ' +
+                el.innerHTML = '<span style="color: var(--color-completed);">Cancelled ' + data.cancelled + ' run(s): ' +
                     data.run_ids.map(function(id) { return '<code>' + escHtml(id) + '</code>'; }).join(', ') + '</span>';
             }
             btn.disabled = false;
@@ -198,7 +190,7 @@ function confirmEmergencyStop() {
         .catch(function() {
             var el = document.getElementById('emergency-result');
             el.style.display = 'block';
-            el.innerHTML = '<span style="color: var(--danger);">Emergency stop failed. Check server logs.</span>';
+            el.innerHTML = '<span style="color: var(--color-btn-danger);">Emergency stop failed. Check server logs.</span>';
             btn.disabled = false;
             btn.textContent = 'Emergency Stop All Runs';
         });

@@ -6,20 +6,20 @@
 </div>
 
 <!-- Create/Edit Form (hidden by default) -->
-<div id="webhook-form" style="display:none;" class="card" style="margin-bottom: 1.5rem;">
+<div id="webhook-form" class="card" style="display:none; margin-bottom: 1.5rem;">
     <h3 id="form-title">Create Webhook</h3>
     <form onsubmit="return saveWebhook(event)">
         <input type="hidden" id="webhook-id" value="">
         <div style="margin-bottom: 0.75rem;">
             <label><strong>Name</strong></label><br>
-            <input type="text" id="wh-name" placeholder="e.g. slack-notifications" style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 4px;">
+            <input type="text" id="wh-name" placeholder="e.g. slack-notifications" style="width: 100%; padding: 0.5rem; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); border-radius: 4px;">
         </div>
         <div style="margin-bottom: 0.75rem;">
             <label><strong>URL</strong></label><br>
-            <input type="url" id="wh-url" placeholder="https://hooks.slack.com/services/..." style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 4px;">
+            <input type="url" id="wh-url" placeholder="https://hooks.slack.com/services/..." style="width: 100%; padding: 0.5rem; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); border-radius: 4px;">
         </div>
         <div style="margin-bottom: 0.75rem;">
-            <fieldset style="border: 1px solid var(--border); border-radius: 4px; padding: 0.75rem;">
+            <fieldset style="border: 1px solid var(--color-border); border-radius: 4px; padding: 0.75rem;">
                 <legend><strong>Events</strong></legend>
                 <div style="display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem;">
                     <label style="cursor: pointer;"><input type="checkbox" name="events" value="run_start"> run_start</label>
@@ -34,11 +34,11 @@
         </div>
         <div style="margin-bottom: 0.75rem;">
             <label><strong>Matcher</strong> (regex, optional)</label><br>
-            <input type="text" id="wh-matcher" placeholder="e.g. ^implement.*" style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 4px;">
+            <input type="text" id="wh-matcher" placeholder="e.g. ^implement.*" style="width: 100%; padding: 0.5rem; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); border-radius: 4px;">
         </div>
         <div style="margin-bottom: 0.75rem;">
             <label><strong>Secret</strong> (HMAC signing, optional)</label><br>
-            <input type="password" id="wh-secret" placeholder="Optional signing secret" style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 4px;">
+            <input type="password" id="wh-secret" placeholder="Optional signing secret" style="width: 100%; padding: 0.5rem; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); border-radius: 4px;">
         </div>
         <div style="display: flex; gap: 0.5rem;">
             <button type="submit" class="btn btn-primary">Save</button>
@@ -49,50 +49,48 @@
 
 <!-- Webhook List -->
 {{if .Webhooks}}
-<div class="table-container">
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>URL</th>
-                <th>Events</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Webhooks}}
-            <tr>
-                <td><a href="/webhooks/{{.ID}}"><strong>{{.Name}}</strong></a></td>
-                <td><code style="font-size: 0.85em;">{{.URL}}</code></td>
-                <td>
-                    {{range .Events}}<span class="badge">{{.}}</span> {{end}}
-                    {{if not .Events}}<span class="badge" style="opacity: 0.5">all events</span>{{end}}
-                </td>
-                <td>
-                    {{if .Active}}
-                    <span class="badge" style="background: var(--success); color: white;">Active</span>
-                    {{else}}
-                    <span class="badge" style="background: var(--muted); color: white;">Inactive</span>
-                    {{end}}
-                </td>
-                <td style="display: flex; gap: 0.25rem;">
-                    <button class="btn btn-sm" onclick="toggleWebhook({{.ID}}, {{.Active}})">
-                        {{if .Active}}Disable{{else}}Enable{{end}}
-                    </button>
-                    <button class="btn btn-sm" onclick="testWebhook({{.ID}})">Test</button>
-                    <button class="btn btn-sm" onclick="editWebhook({{.ID}})">Edit</button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteWebhook({{.ID}}, '{{.Name}}')">Delete</button>
-                </td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-</div>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>URL</th>
+            <th>Events</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Webhooks}}
+        <tr>
+            <td><a href="/webhooks/{{.ID}}"><strong>{{.Name}}</strong></a></td>
+            <td><code style="font-size: 0.85em;">{{.URL}}</code></td>
+            <td>
+                {{range .Events}}<span class="badge">{{.}}</span> {{end}}
+                {{if not .Events}}<span class="badge" style="opacity: 0.5">all events</span>{{end}}
+            </td>
+            <td>
+                {{if .Active}}
+                <span class="badge" style="background: var(--color-completed); color: white;">Active</span>
+                {{else}}
+                <span class="badge" style="background: var(--color-text-muted); color: white;">Inactive</span>
+                {{end}}
+            </td>
+            <td class="pipeline-actions-cell">
+                <button class="btn btn-sm" onclick="toggleWebhook({{.ID}}, {{.Active}})">
+                    {{if .Active}}Disable{{else}}Enable{{end}}
+                </button>
+                <button class="btn btn-sm" onclick="testWebhook({{.ID}})">Test</button>
+                <button class="btn btn-sm" onclick="editWebhook({{.ID}})">Edit</button>
+                <button class="btn btn-sm btn-danger" data-delete-id="{{.ID}}" data-delete-name="{{.Name}}" onclick="deleteWebhook(this)">Delete</button>
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
 {{else}}
 <div class="card" style="text-align: center; padding: 3rem;">
-    <p style="color: var(--muted); font-size: 1.1rem;">No webhooks configured</p>
-    <p style="color: var(--muted);">Create a webhook to receive HTTP notifications for pipeline events.</p>
+    <p style="color: var(--color-text-muted); font-size: 1.1rem;">No webhooks configured</p>
+    <p style="color: var(--color-text-muted);">Create a webhook to receive HTTP notifications for pipeline events.</p>
 </div>
 {{end}}
 
@@ -172,37 +170,61 @@ async function editWebhook(id) {
 }
 
 async function toggleWebhook(id, currentlyActive) {
-    await fetch('/api/webhooks/' + id, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': getCSRFToken()
-        },
-        body: JSON.stringify({active: !currentlyActive})
-    });
-    window.location.reload();
-}
-
-async function testWebhook(id) {
-    const resp = await fetch('/api/webhooks/' + id + '/test', {
-        method: 'POST',
-        headers: {'X-CSRF-Token': getCSRFToken()}
-    });
-    if (resp.ok) {
-        const data = await resp.json();
-        alert(data.message || 'Test sent');
-    } else {
-        alert('Test failed');
+    try {
+        const resp = await fetch('/api/webhooks/' + id, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': getCSRFToken()
+            },
+            body: JSON.stringify({active: !currentlyActive})
+        });
+        if (resp.ok) {
+            window.location.reload();
+        } else {
+            const err = await resp.text();
+            alert('Failed to toggle webhook: ' + err);
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
     }
 }
 
-async function deleteWebhook(id, name) {
+async function testWebhook(id) {
+    try {
+        const resp = await fetch('/api/webhooks/' + id + '/test', {
+            method: 'POST',
+            headers: {'X-CSRF-Token': getCSRFToken()}
+        });
+        if (resp.ok) {
+            const data = await resp.json();
+            alert(data.message || 'Test sent');
+        } else {
+            alert('Test failed');
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+    }
+}
+
+async function deleteWebhook(btn) {
+    const id = btn.dataset.deleteId;
+    const name = btn.dataset.deleteName;
     if (!confirm('Delete webhook "' + name + '"?')) return;
-    await fetch('/api/webhooks/' + id, {
-        method: 'DELETE',
-        headers: {'X-CSRF-Token': getCSRFToken()}
-    });
-    window.location.reload();
+    try {
+        const resp = await fetch('/api/webhooks/' + id, {
+            method: 'DELETE',
+            headers: {'X-CSRF-Token': getCSRFToken()}
+        });
+        if (resp.ok) {
+            window.location.href = '/webhooks';
+        } else {
+            const err = await resp.text();
+            alert('Failed to delete webhook: ' + err);
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+    }
 }
 </script>
 {{end}}
