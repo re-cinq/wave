@@ -4,12 +4,11 @@
     <h1>Personas</h1>
     {{if .Personas}}
     <input type="text" id="persona-search" placeholder="Search personas..."
-           oninput="filterPersonas()" style="padding:0.5rem; background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:4px; width:300px;">
+           oninput="filterPersonas()" style="padding:0.5rem; background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); border-radius:4px; width:300px;">
     {{end}}
 </div>
 {{if .Personas}}
-<div class="table-container">
-    <table class="table">
+<table class="table">
         <thead>
             <tr>
                 <th>Persona</th>
@@ -31,7 +30,6 @@
             {{end}}
         </tbody>
     </table>
-</div>
 {{else}}
 <div class="empty-state">
     <div class="empty-state-icon">&#128100;</div>
