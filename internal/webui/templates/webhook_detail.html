@@ -17,9 +17,9 @@
             <span class="run-stat-label">Status</span>
             <span class="run-stat-value">
                 {{if .Webhook.Active}}
-                <span class="badge" style="background: var(--success); color: white;">Active</span>
+                <span class="badge" style="background: var(--color-completed); color: white;">Active</span>
                 {{else}}
-                <span class="badge" style="background: var(--muted); color: white;">Inactive</span>
+                <span class="badge" style="background: var(--color-text-muted); color: white;">Inactive</span>
                 {{end}}
             </span>
         </span>
@@ -51,62 +51,60 @@
         {{range .Webhook.Events}}<span class="badge">{{.}}</span>{{end}}
     </div>
     {{else}}
-    <p style="color: var(--muted);">All events (no filter)</p>
+    <p style="color: var(--color-text-muted);">All events (no filter)</p>
     {{end}}
 </div>
 
 <div class="card">
     <h2>Recent Deliveries</h2>
     {{if .Deliveries}}
-    <div class="table-container">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Event</th>
-                    <th>Run</th>
-                    <th>Status Code</th>
-                    <th>Response Time</th>
-                    <th>Error</th>
-                    <th>Delivered At</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{range .Deliveries}}
-                <tr>
-                    <td><span class="badge">{{.Event}}</span></td>
-                    <td>
-                        {{if .RunID}}
-                        <a href="/runs/{{.RunID}}"><code style="font-size: 0.85em;">{{.RunID}}</code></a>
-                        {{else}}
-                        <span style="color: var(--muted);">-</span>
-                        {{end}}
-                    </td>
-                    <td>
-                        {{if and (ge .StatusCode 200) (lt .StatusCode 300)}}
-                        <span class="badge" style="background: var(--success); color: white;">{{.StatusCode}}</span>
-                        {{else if ge .StatusCode 400}}
-                        <span class="badge" style="background: var(--danger, #dc3545); color: white;">{{.StatusCode}}</span>
-                        {{else}}
-                        <span class="badge">{{.StatusCode}}</span>
-                        {{end}}
-                    </td>
-                    <td>{{.ResponseTimeMs}}ms</td>
-                    <td>
-                        {{if .Error}}
-                        <code style="color: var(--danger, #dc3545); font-size: 0.85em;">{{.Error}}</code>
-                        {{else}}
-                        <span style="color: var(--muted);">-</span>
-                        {{end}}
-                    </td>
-                    <td>{{formatTime .DeliveredAt}}</td>
-                </tr>
-                {{end}}
-            </tbody>
-        </table>
-    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Event</th>
+                <th>Run</th>
+                <th>Status Code</th>
+                <th>Response Time</th>
+                <th>Error</th>
+                <th>Delivered At</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Deliveries}}
+            <tr>
+                <td><span class="badge">{{.Event}}</span></td>
+                <td>
+                    {{if .RunID}}
+                    <a href="/runs/{{.RunID}}"><code style="font-size: 0.85em;">{{.RunID}}</code></a>
+                    {{else}}
+                    <span style="color: var(--color-text-muted);">-</span>
+                    {{end}}
+                </td>
+                <td>
+                    {{if and (ge .StatusCode 200) (lt .StatusCode 300)}}
+                    <span class="badge" style="background: var(--color-completed); color: white;">{{.StatusCode}}</span>
+                    {{else if ge .StatusCode 400}}
+                    <span class="badge" style="background: var(--color-btn-danger, #dc3545); color: white;">{{.StatusCode}}</span>
+                    {{else}}
+                    <span class="badge">{{.StatusCode}}</span>
+                    {{end}}
+                </td>
+                <td>{{.ResponseTimeMs}}ms</td>
+                <td>
+                    {{if .Error}}
+                    <code style="color: var(--color-btn-danger, #dc3545); font-size: 0.85em;">{{.Error}}</code>
+                    {{else}}
+                    <span style="color: var(--color-text-muted);">-</span>
+                    {{end}}
+                </td>
+                <td>{{formatTime .DeliveredAt}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
     {{else}}
     <div style="text-align: center; padding: 2rem;">
-        <p style="color: var(--muted);">No deliveries yet</p>
+        <p style="color: var(--color-text-muted);">No deliveries yet</p>
     </div>
     {{end}}
 </div>
@@ -125,8 +123,12 @@ function deleteWebhookDetail() {
         if (resp.ok) {
             window.location.href = '/webhooks';
         } else {
-            alert('Failed to delete webhook');
+            return resp.text().then(function(err) {
+                alert('Failed to delete webhook: ' + err);
+            });
         }
+    }).catch(function(e) {
+        alert('Network error: ' + e.message);
     });
 }
 </script>
