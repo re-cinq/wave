@@ -28,6 +28,7 @@ const (
 	OnFailureSkip     = "skip"
 	OnFailureContinue = "continue"
 	OnFailureRework   = "rework"
+	OnFailureWarn     = "warn"
 	OnFailureRetry    = "retry"
 )
 

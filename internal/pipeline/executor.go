@@ -2192,6 +2192,24 @@ func (e *DefaultPipelineExecutor) validateStepContracts(
 					map[string]interface{}{"contract_type": c.Type, "error": cErr.Error()},
 				)
 
+			case OnFailureWarn:
+				// Log warning, continue to next contract (same as continue but with explicit warning)
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      "contract_warning",
+					Message:    fmt.Sprintf("contract validation warning (on_failure: warn): %s", cErr.Error()),
+				})
+				if e.logger != nil {
+					e.logger.LogContractResult(pipelineID, step.ID, c.Type, "warn")
+				}
+				e.recordDecision(pipelineID, step.ID, "contract",
+					fmt.Sprintf("contract warning for step %s", step.ID),
+					fmt.Sprintf("on_failure is 'warn', proceeding: %s", cErr.Error()),
+					map[string]interface{}{"contract_type": c.Type, "error": cErr.Error()},
+				)
+
 			case OnFailureRework:
 				if round >= maxRounds {
 					// Retries exhausted — fall back to fail
@@ -2279,13 +2297,16 @@ func (e *DefaultPipelineExecutor) runSingleContract(
 	// Resolve source path
 	resolvedSource := ""
 	if c.Source != "" {
-		resolvedSource = c.Source
+		resolvedSource = execution.Context.ResolveContractSource(c)
 	} else if len(step.OutputArtifacts) > 0 {
 		resolvedSource = step.OutputArtifacts[0].Path
 	}
 
 	// Resolve {{ project.* }} placeholders in command
 	resolvedCommand := c.Command
+	if execution.Context != nil {
+		resolvedCommand = execution.Context.ResolvePlaceholders(c.Command)
+	}
 
 	// Display name for tracing
 	contractDisplayName := c.Type
@@ -2423,7 +2444,7 @@ func (e *DefaultPipelineExecutor) triggerContractRework(
 	}
 
 	// Write review feedback as artifact
-	feedbackPath := filepath.Join(workspacePath, ".wave", "artifacts", "review_feedback.json")
+	feedbackPath := filepath.Join(workspacePath, ".wave", "artifacts", fmt.Sprintf("review_feedback_%s.json", step.ID))
 	if err := os.MkdirAll(filepath.Dir(feedbackPath), 0o750); err != nil {
 		return "", fmt.Errorf("failed to create artifacts dir for review feedback: %w", err)
 	}
@@ -4295,11 +4316,16 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 	case "agent_review":
 		b.WriteString("### Agent Review Validation\n\n")
 		b.WriteString("After you complete your work, a separate review agent will evaluate your output.\n")
-		if step.Handover.Contract.CriteriaPath != "" {
-			b.WriteString(fmt.Sprintf("Review criteria are loaded from: `%s`\n", step.Handover.Contract.CriteriaPath))
-		}
-		if step.Handover.Contract.Persona != "" {
-			b.WriteString(fmt.Sprintf("Reviewer persona: `%s`\n", step.Handover.Contract.Persona))
+		// Use EffectiveContracts to handle both singular and plural config
+		for _, c := range step.Handover.EffectiveContracts() {
+			if c.Type == "agent_review" {
+				if c.CriteriaPath != "" {
+					b.WriteString(fmt.Sprintf("Review criteria are loaded from: `%s`\n", c.CriteriaPath))
+				}
+				if c.Persona != "" {
+					b.WriteString(fmt.Sprintf("Reviewer persona: `%s`\n", c.Persona))
+				}
+			}
 		}
 		b.WriteString("The reviewer will return a structured verdict (pass/fail/warn) with specific issues and suggestions.\n")
 		b.WriteString("If the verdict is 'fail', the step fails.\n")
