@@ -1,5 +1,7 @@
 package webui
 
+import "strings"
+
 // DAGLayout holds the computed layout for SVG rendering.
 type DAGLayout struct {
 	Nodes  []DAGLayoutNode
@@ -267,6 +269,46 @@ type DAGStepInput struct {
 type DAGEdgeInput struct {
 	Target    string
 	Condition string
+}
+
+// stripExcludedDeps removes dependency references to excluded step IDs from
+// the given DAGStepInput slice. This prevents broken edges after filtering
+// out rework-only steps.
+func stripExcludedDeps(steps []DAGStepInput, excluded map[string]bool) {
+	if len(excluded) == 0 {
+		return
+	}
+	for i := range steps {
+		var filtered []string
+		for _, dep := range steps[i].Dependencies {
+			if !excluded[dep] {
+				filtered = append(filtered, dep)
+			}
+		}
+		steps[i].Dependencies = filtered
+
+		// Also filter outgoing edges targeting excluded steps
+		if len(steps[i].Edges) > 0 {
+			var filteredEdges []DAGEdgeInput
+			for _, e := range steps[i].Edges {
+				if !excluded[e.Target] {
+					filteredEdges = append(filteredEdges, e)
+				}
+			}
+			steps[i].Edges = filteredEdges
+
+			// Rebuild EdgeInfo from remaining edges
+			var edgeParts []string
+			for _, e := range filteredEdges {
+				if e.Condition != "" {
+					edgeParts = append(edgeParts, e.Target+": "+e.Condition)
+				} else {
+					edgeParts = append(edgeParts, e.Target)
+				}
+			}
+			steps[i].EdgeInfo = strings.Join(edgeParts, "; ")
+		}
+	}
 }
 
 // assignLayers uses Kahn's algorithm to assign nodes to layers.
