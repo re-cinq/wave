@@ -94,7 +94,7 @@ func (n *Narrator) buildPrompt(runID string, pipeline string, quant *Quantitativ
   "smoothness": "<effortless|smooth|bumpy|struggled|failed>",
   "intent": "<one sentence describing what this run was trying to accomplish>",
   "outcome": "<one sentence describing the result>",
-  "friction_points": [{"type": "<retry|timeout|wrong_approach|tool_failure|ambiguity|contract_failure>", "step": "<step name>", "detail": "<brief description>"}],
+  "friction_points": [{"type": "<retry|timeout|wrong_approach|tool_failure|ambiguity|contract_failure|review_rework>", "step": "<step name>", "detail": "<brief description>"}],
   "learnings": [{"category": "<repo|code|workflow|tool>", "detail": "<what was learned>"}],
   "open_items": [{"type": "<tech_debt|follow_up|investigation|test_gap>", "detail": "<what needs attention>"}],
   "recommendations": ["<concrete suggestion for improvement>"]

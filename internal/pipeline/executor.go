@@ -2064,6 +2064,464 @@ func (e *DefaultPipelineExecutor) executeReworkStep(ctx context.Context, executi
 	return nil
 }
 
+// validateStepContracts runs all contracts in EffectiveContracts() order.
+// Each contract gets its own on_failure policy. When agent_review contracts fail
+// with on_failure: rework, feedback is written as artifact and the rework step is
+// executed; afterward all contracts re-run from the beginning (bounded by max_retries).
+//
+// Backward compatibility: a step with only the singular 'contract' field behaves
+// identically to a single-element 'contracts' list — same events, tracing, and pass/fail.
+func (e *DefaultPipelineExecutor) validateStepContracts(
+	ctx context.Context,
+	execution *PipelineExecution,
+	step *Step,
+	workspacePath string,
+	stepRunner adapter.AdapterRunner,
+	pipelineID string,
+	resolvedPersona string,
+	stepStart time.Time,
+	result *adapter.AdapterResult,
+) error {
+	contracts := step.Handover.EffectiveContracts()
+	if len(contracts) == 0 {
+		if e.logger != nil {
+			e.logger.LogContractResult(pipelineID, step.ID, "none", "skip")
+		}
+		return nil
+	}
+
+	// Build artifact paths map for agent_review context sources.
+	// execution.ArtifactPaths keys are "stepID:artifactName"; build a name→path map
+	// so artifact context sources can look up by name alone.
+	artifactPaths := make(map[string]string)
+	execution.mu.Lock()
+	for k, v := range execution.ArtifactPaths {
+		// k is "stepID:artifactName" — extract artifact name (part after last ":")
+		if idx := strings.LastIndex(k, ":"); idx >= 0 {
+			artifactName := k[idx+1:]
+			// Keep the last-seen path for each artifact name
+			artifactPaths[artifactName] = v
+		} else {
+			artifactPaths[k] = v
+		}
+	}
+	execution.mu.Unlock()
+
+	// maxRounds limits how many full contract-list re-runs can happen due to rework.
+	// We use the max max_retries across all contracts that have on_failure: rework.
+	maxRounds := 1
+	for _, c := range contracts {
+		if c.OnFailure == OnFailureRework && c.MaxRetries > maxRounds {
+			maxRounds = c.MaxRetries
+		}
+	}
+
+	for round := 0; round <= maxRounds; round++ {
+		reworkTriggered := false
+
+		for _, c := range contracts {
+			cErr := e.runSingleContract(ctx, execution, step, c, workspacePath, stepRunner, artifactPaths, pipelineID, resolvedPersona, stepStart, result)
+			if cErr == nil {
+				continue
+			}
+
+			// Determine on_failure policy (contract-level takes precedence, then legacy must_pass)
+			onFailure := c.OnFailure
+			if onFailure == "" {
+				if c.MustPass {
+					onFailure = OnFailureFail
+				} else {
+					onFailure = OnFailureContinue // soft failure = continue
+				}
+			}
+
+			switch onFailure {
+			case OnFailureFail:
+				if e.logger != nil {
+					e.logger.LogContractResult(pipelineID, step.ID, c.Type, "fail")
+					_ = e.logger.LogStepEnd(pipelineID, step.ID, StateFailed, time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, cErr.Error())
+				}
+				if e.store != nil {
+					completedAt := time.Now()
+					e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+						RunID:        pipelineID,
+						StepID:       step.ID,
+						PipelineName: execution.Status.PipelineName,
+						Persona:      resolvedPersona,
+						StartedAt:    stepStart,
+						CompletedAt:  &completedAt,
+						DurationMs:   time.Since(stepStart).Milliseconds(),
+						TokensUsed:   result.TokensUsed,
+						Success:      false,
+						ErrorMessage: "contract validation failed: " + cErr.Error(),
+					})
+				}
+				e.recordDecision(pipelineID, step.ID, "contract",
+					fmt.Sprintf("contract validation failed (hard) for step %s", step.ID),
+					fmt.Sprintf("on_failure is 'fail', failing the step: %s", cErr.Error()),
+					map[string]interface{}{"contract_type": c.Type, "error": cErr.Error()},
+				)
+				return fmt.Errorf("contract validation failed: %w", cErr)
+
+			case OnFailureSkip:
+				// Stop processing remaining contracts for this round
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      "contract_skip",
+					Message:    fmt.Sprintf("%s contract failed, skipping remaining contracts: %s", c.Type, cErr.Error()),
+				})
+				return nil
+
+			case OnFailureContinue:
+				// Log soft failure, continue to next contract
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      "contract_soft_failure",
+					Message:    fmt.Sprintf("contract validation failed but continuing (on_failure: continue): %s", cErr.Error()),
+				})
+				if e.logger != nil {
+					e.logger.LogContractResult(pipelineID, step.ID, c.Type, "soft_fail")
+				}
+				e.recordDecision(pipelineID, step.ID, "contract",
+					fmt.Sprintf("contract soft-failed for step %s", step.ID),
+					"on_failure is 'continue', proceeding",
+					map[string]interface{}{"contract_type": c.Type, "error": cErr.Error()},
+				)
+
+			case OnFailureWarn:
+				// Log warning, continue to next contract (same as continue but with explicit warning)
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      "contract_warning",
+					Message:    fmt.Sprintf("contract validation warning (on_failure: warn): %s", cErr.Error()),
+				})
+				if e.logger != nil {
+					e.logger.LogContractResult(pipelineID, step.ID, c.Type, "warn")
+				}
+				e.recordDecision(pipelineID, step.ID, "contract",
+					fmt.Sprintf("contract warning for step %s", step.ID),
+					fmt.Sprintf("on_failure is 'warn', proceeding: %s", cErr.Error()),
+					map[string]interface{}{"contract_type": c.Type, "error": cErr.Error()},
+				)
+
+			case OnFailureRework:
+				if round >= maxRounds {
+					// Retries exhausted — fall back to fail
+					e.emit(event.Event{
+						Timestamp:  time.Now(),
+						PipelineID: pipelineID,
+						StepID:     step.ID,
+						State:      "contract_failed",
+						Message:    fmt.Sprintf("%s contract: max rework retries (%d) exhausted: %s", c.Type, maxRounds, cErr.Error()),
+					})
+					return fmt.Errorf("contract validation failed after %d rework attempt(s): %w", maxRounds, cErr)
+				}
+				// Write feedback artifact and trigger rework
+				feedbackPath, reworkErr := e.triggerContractRework(ctx, execution, step, c, cErr, workspacePath, pipelineID)
+				if reworkErr != nil {
+					return reworkErr
+				}
+				_ = feedbackPath
+				reworkTriggered = true
+
+			default:
+				// Unknown on_failure — treat as fail
+				return fmt.Errorf("contract validation failed: %w", cErr)
+			}
+
+			if reworkTriggered {
+				break
+			}
+		}
+
+		if !reworkTriggered {
+			// All contracts passed (or continued) — we're done
+			break
+		}
+		// Rework completed — re-run all contracts in next round
+	}
+
+	// Emit overall contract_passed if we get here without returning an error
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      "contract_passed",
+		Message:    fmt.Sprintf("all %d contract(s) validated", len(contracts)),
+	})
+	if e.logger != nil {
+		// Log the primary contract type (first in list) for backward compat
+		primaryType := contracts[0].Type
+		e.logger.LogContractResult(pipelineID, step.ID, primaryType, "pass")
+	}
+	e.recordDecision(pipelineID, step.ID, "contract",
+		fmt.Sprintf("contract validation passed for step %s", step.ID),
+		fmt.Sprintf("all %d contract(s) validated successfully", len(contracts)),
+		map[string]interface{}{"contract_count": len(contracts)},
+	)
+	// Run contract_validated hooks and webhooks (non-blocking by default)
+	contractEvt := hooks.HookEvent{
+		Type:       hooks.EventContractValidated,
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		Workspace:  workspacePath,
+	}
+	if e.hookRunner != nil {
+		e.hookRunner.RunHooks(ctx, contractEvt)
+	}
+	e.fireWebhooks(ctx, contractEvt)
+	return nil
+}
+
+// runSingleContract validates one contract and emits lifecycle events.
+// For agent_review, it calls ValidateWithRunner; for all others, it calls contract.Validate.
+func (e *DefaultPipelineExecutor) runSingleContract(
+	_ context.Context,
+	execution *PipelineExecution,
+	step *Step,
+	c ContractConfig,
+	workspacePath string,
+	stepRunner adapter.AdapterRunner,
+	artifactPaths map[string]string,
+	pipelineID string,
+	_ string,
+	_ time.Time,
+	_ *adapter.AdapterResult,
+) error {
+	// Resolve source path
+	resolvedSource := ""
+	if c.Source != "" {
+		resolvedSource = execution.Context.ResolveContractSource(c)
+	} else if len(step.OutputArtifacts) > 0 {
+		resolvedSource = step.OutputArtifacts[0].Path
+	}
+
+	// Resolve {{ project.* }} placeholders in command
+	resolvedCommand := c.Command
+	if execution.Context != nil {
+		resolvedCommand = execution.Context.ResolvePlaceholders(c.Command)
+	}
+
+	// Display name for tracing
+	contractDisplayName := c.Type
+	if c.SchemaPath != "" {
+		contractDisplayName = filepath.Base(c.SchemaPath)
+	}
+
+	e.emit(event.Event{
+		Timestamp:       time.Now(),
+		PipelineID:      pipelineID,
+		StepID:          step.ID,
+		State:           "validating",
+		Message:         fmt.Sprintf("Validating %s contract", c.Type),
+		CurrentAction:   "Validating contract",
+		ValidationPhase: contractDisplayName,
+	})
+
+	e.trace("contract_validation_start", step.ID, 0, map[string]string{
+		"type":   c.Type,
+		"source": resolvedSource,
+	})
+	contractStart := time.Now()
+
+	contractCfg := contract.ContractConfig{
+		Type:         c.Type,
+		Source:       resolvedSource,
+		Schema:       c.Schema,
+		SchemaPath:   c.SchemaPath,
+		Command:      resolvedCommand,
+		Dir:          c.Dir,
+		MustPass:     c.MustPass,
+		MaxRetries:   c.MaxRetries,
+		Model:        c.Model,
+		Criteria:     c.Criteria,
+		Threshold:    c.Threshold,
+		Persona:      c.Persona,
+		CriteriaPath: c.CriteriaPath,
+		Context:      convertReviewContextSources(c.Context),
+		TokenBudget:  c.TokenBudget,
+		Timeout:      c.Timeout,
+		ArtifactPaths: artifactPaths,
+	}
+
+	var valErr error
+	switch c.Type {
+	case "agent_review":
+		// Emit review_started event
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "review_started",
+			Message:    fmt.Sprintf("agent review started (persona: %s)", c.Persona),
+		})
+
+		feedback, err := contract.ValidateWithRunner(contractCfg, workspacePath, stepRunner, execution.Manifest)
+		switch {
+		case err != nil:
+			valErr = err
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      "review_failed",
+				Message:    fmt.Sprintf("agent review failed: %s", err.Error()),
+			})
+		case feedback != nil && feedback.Verdict == "fail":
+			valErr = fmt.Errorf("agent review verdict: fail — %s", feedback.Summary)
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      "review_failed",
+				Message:    fmt.Sprintf("agent review failed: verdict=%s issues=%d", feedback.Verdict, len(feedback.Issues)),
+			})
+		default:
+			verdict := "pass"
+			issueCount := 0
+			if feedback != nil {
+				verdict = feedback.Verdict
+				issueCount = len(feedback.Issues)
+			}
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      "review_completed",
+				Message:    fmt.Sprintf("agent review completed: verdict=%s issues=%d reviewer=%s", verdict, issueCount, c.Persona),
+			})
+		}
+	default:
+		valErr = contract.Validate(contractCfg, workspacePath)
+	}
+
+	if valErr != nil {
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "contract_failed",
+			Message:    valErr.Error(),
+		})
+		e.trace("contract_validation_end", step.ID, time.Since(contractStart).Milliseconds(), map[string]string{
+			"type":   c.Type,
+			"result": "fail",
+			"error":  valErr.Error(),
+		})
+		return valErr
+	}
+
+	e.trace("contract_validation_end", step.ID, time.Since(contractStart).Milliseconds(), map[string]string{
+		"type":   c.Type,
+		"result": "pass",
+	})
+	return nil
+}
+
+// triggerContractRework writes review feedback to .wave/artifacts/review_feedback.json,
+// injects the feedback path into the rework step's context, and executes the rework step.
+func (e *DefaultPipelineExecutor) triggerContractRework(
+	ctx context.Context,
+	execution *PipelineExecution,
+	step *Step,
+	c ContractConfig,
+	contractErr error,
+	workspacePath string,
+	pipelineID string,
+) (string, error) {
+	reworkStepID := c.ReworkStep
+	if reworkStepID == "" {
+		reworkStepID = step.Retry.ReworkStep
+	}
+	if reworkStepID == "" {
+		return "", fmt.Errorf("agent_review contract has on_failure: rework but no rework_step configured")
+	}
+
+	// Write review feedback as artifact
+	feedbackPath := filepath.Join(workspacePath, ".wave", "artifacts", fmt.Sprintf("review_feedback_%s.json", step.ID))
+	if err := os.MkdirAll(filepath.Dir(feedbackPath), 0o750); err != nil {
+		return "", fmt.Errorf("failed to create artifacts dir for review feedback: %w", err)
+	}
+	feedbackPayload := map[string]interface{}{
+		"contract_type": c.Type,
+		"error":         contractErr.Error(),
+	}
+	feedbackBytes, _ := json.Marshal(feedbackPayload)
+	if err := os.WriteFile(feedbackPath, feedbackBytes, 0o640); err != nil {
+		return "", fmt.Errorf("failed to write review feedback artifact: %w", err)
+	}
+
+	// Find the rework step
+	var reworkStep *Step
+	for i := range execution.Pipeline.Steps {
+		if execution.Pipeline.Steps[i].ID == reworkStepID {
+			reworkStep = &execution.Pipeline.Steps[i]
+			break
+		}
+	}
+	if reworkStep == nil {
+		return "", fmt.Errorf("rework step %q not found (referenced by contract in step %q)", reworkStepID, step.ID)
+	}
+
+	// Build attempt context with review feedback path
+	attemptCtx := &AttemptContext{
+		Attempt:            1,
+		MaxAttempts:        c.MaxRetries + 1,
+		PriorError:         contractErr.Error(),
+		FailedStepID:       step.ID,
+		ReviewFeedbackPath: feedbackPath,
+	}
+	execution.mu.Lock()
+	execution.AttemptContexts[reworkStep.ID] = attemptCtx
+	execution.mu.Unlock()
+
+	// Emit reworking event
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      event.StateReworking,
+		Message:    fmt.Sprintf("contract rework: executing step %q after review failed for step %q", reworkStepID, step.ID),
+	})
+
+	// Execute the rework step
+	if reworkErr := e.runStepExecution(ctx, execution, reworkStep); reworkErr != nil {
+		execution.mu.Lock()
+		execution.States[reworkStep.ID] = StateFailed
+		execution.mu.Unlock()
+		return "", fmt.Errorf("rework step %q failed: %w", reworkStepID, reworkErr)
+	}
+
+	execution.mu.Lock()
+	execution.States[reworkStep.ID] = StateCompleted
+	delete(execution.AttemptContexts, reworkStep.ID)
+	execution.mu.Unlock()
+
+	return feedbackPath, nil
+}
+
+// convertReviewContextSources converts pipeline.ReviewContextSource to contract.ReviewContextSource.
+func convertReviewContextSources(sources []ReviewContextSource) []contract.ReviewContextSource {
+	if len(sources) == 0 {
+		return nil
+	}
+	out := make([]contract.ReviewContextSource, len(sources))
+	for i, s := range sources {
+		out[i] = contract.ReviewContextSource{
+			Source:   s.Source,
+			Artifact: s.Artifact,
+			MaxSize:  s.MaxSize,
+		}
+	}
+	return out
+}
+
 // executeMatrixStep handles steps with matrix strategy using fan-out execution.
 func (e *DefaultPipelineExecutor) executeMatrixStep(ctx context.Context, execution *PipelineExecution, step *Step) error {
 	pipelineID := execution.Status.ID
@@ -2696,164 +3154,12 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		})
 	}
 
-	// Validate handover contract if configured
-	if step.Handover.Contract.Type != "" {
-		// Resolve contract source path using pipeline context.
-		// If no explicit source is set, infer from the step's first output artifact
-		// so the contract validates the file the persona actually writes to.
-		resolvedSource := execution.Context.ResolveContractSource(step.Handover.Contract)
-		if resolvedSource == "" && len(step.OutputArtifacts) > 0 {
-			resolvedSource = execution.Context.ResolveArtifactPath(step.OutputArtifacts[0])
-		}
-
-		// Resolve {{ project.* }} placeholders in contract command
-		resolvedCommand := step.Handover.Contract.Command
-		if execution.Context != nil && resolvedCommand != "" {
-			resolvedCommand = execution.Context.ResolvePlaceholders(resolvedCommand)
-		}
-
-		contractCfg := contract.ContractConfig{
-			Type:       step.Handover.Contract.Type,
-			Source:     resolvedSource,
-			Schema:     step.Handover.Contract.Schema,
-			SchemaPath: step.Handover.Contract.SchemaPath,
-			Command:    resolvedCommand,
-			Dir:        step.Handover.Contract.Dir,
-			MustPass:   step.Handover.Contract.MustPass,
-			MaxRetries: step.Handover.Contract.MaxRetries,
-			Model:      step.Handover.Contract.Model,
-			Criteria:   step.Handover.Contract.Criteria,
-			Threshold:  step.Handover.Contract.Threshold,
-		}
-
-		// Use schema filename for display when available, fall back to contract type
-		contractDisplayName := step.Handover.Contract.Type
-		if step.Handover.Contract.SchemaPath != "" {
-			contractDisplayName = filepath.Base(step.Handover.Contract.SchemaPath)
-		}
-
-		e.emit(event.Event{
-			Timestamp:       time.Now(),
-			PipelineID:      pipelineID,
-			StepID:          step.ID,
-			State:           "validating",
-			Message:         fmt.Sprintf("Validating %s contract", step.Handover.Contract.Type),
-			CurrentAction:   "Validating contract",
-			ValidationPhase: contractDisplayName,
-		})
-
-		e.trace("contract_validation_start", step.ID, 0, map[string]string{
-			"type":   step.Handover.Contract.Type,
-			"source": resolvedSource,
-		})
-		contractStart := time.Now()
-		if err := contract.Validate(contractCfg, workspacePath); err != nil {
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     step.ID,
-				State:      "contract_failed",
-				Message:    err.Error(),
-			})
-
-			// Check if we should fail the step or allow soft failure
-			if contractCfg.MustPass {
-				e.trace("contract_validation_end", step.ID, time.Since(contractStart).Milliseconds(), map[string]string{
-					"type":   step.Handover.Contract.Type,
-					"result": "fail",
-					"error":  err.Error(),
-				})
-				if e.logger != nil {
-					e.logger.LogContractResult(pipelineID, step.ID, step.Handover.Contract.Type, "fail")
-					e.logger.LogStepEnd(pipelineID, step.ID, StateFailed, time.Since(stepStart), result.ExitCode, len(stdoutData), result.TokensUsed, err.Error())
-				}
-				if e.store != nil {
-					completedAt := time.Now()
-					e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
-						RunID:        pipelineID,
-						StepID:       step.ID,
-						PipelineName: execution.Status.PipelineName,
-						Persona:      resolvedPersona,
-						StartedAt:    stepStart,
-						CompletedAt:  &completedAt,
-						DurationMs:   time.Since(stepStart).Milliseconds(),
-						TokensUsed:   result.TokensUsed,
-						Success:      false,
-						ErrorMessage: "contract validation failed: " + err.Error(),
-					})
-				}
-				e.recordDecision(pipelineID, step.ID, "contract",
-					fmt.Sprintf("contract validation failed (hard) for step %s", step.ID),
-					"must_pass is true, failing the step",
-					map[string]interface{}{
-						"contract_type": step.Handover.Contract.Type,
-						"must_pass":     true,
-						"error":         err.Error(),
-					},
-				)
-				return fmt.Errorf("contract validation failed: %w", err)
-			}
-			e.recordDecision(pipelineID, step.ID, "contract",
-				fmt.Sprintf("contract validation soft-failed for step %s", step.ID),
-				"must_pass is false, continuing despite validation failure",
-				map[string]interface{}{
-					"contract_type": step.Handover.Contract.Type,
-					"must_pass":     false,
-					"error":         err.Error(),
-				},
-			)
-			e.trace("contract_validation_end", step.ID, time.Since(contractStart).Milliseconds(), map[string]string{
-				"type":   step.Handover.Contract.Type,
-				"result": "soft_fail",
-			})
-			// Soft failure: log the validation error but continue execution
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     step.ID,
-				State:      "contract_soft_failure",
-				Message:    fmt.Sprintf("contract validation failed but continuing (must_pass: false): %s", err.Error()),
-			})
-			if e.logger != nil {
-				e.logger.LogContractResult(pipelineID, step.ID, step.Handover.Contract.Type, "soft_fail")
-			}
-		} else {
-			e.trace("contract_validation_end", step.ID, time.Since(contractStart).Milliseconds(), map[string]string{
-				"type":   step.Handover.Contract.Type,
-				"result": "pass",
-			})
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     step.ID,
-				State:      "contract_passed",
-				Message:    fmt.Sprintf("%s contract validated", step.Handover.Contract.Type),
-			})
-			if e.logger != nil {
-				e.logger.LogContractResult(pipelineID, step.ID, step.Handover.Contract.Type, "pass")
-			}
-			e.recordDecision(pipelineID, step.ID, "contract",
-				fmt.Sprintf("contract validation passed for step %s", step.ID),
-				fmt.Sprintf("%s contract validated successfully", step.Handover.Contract.Type),
-				map[string]interface{}{
-					"contract_type": step.Handover.Contract.Type,
-				},
-			)
-			// Run contract_validated hooks and webhooks (non-blocking by default)
-			contractEvt := hooks.HookEvent{
-				Type:       hooks.EventContractValidated,
-				PipelineID: pipelineID,
-				StepID:     step.ID,
-				Workspace:  workspacePath,
-			}
-			if e.hookRunner != nil {
-				e.hookRunner.RunHooks(ctx, contractEvt) //nolint:errcheck // non-blocking hook
-			}
-			e.fireWebhooks(ctx, contractEvt)
-		}
-	}
-	if step.Handover.Contract.Type == "" && e.logger != nil {
-		e.logger.LogContractResult(pipelineID, step.ID, "none", "skip")
+	// Validate handover contracts — iterate over EffectiveContracts() which returns
+	// the plural 'contracts' list if set, otherwise wraps the singular 'contract' field.
+	// This maintains full backward compatibility: singular contract behaves identically
+	// to a single-element list.
+	if err := e.validateStepContracts(ctx, execution, step, workspacePath, stepRunner, pipelineID, resolvedPersona, stepStart, result); err != nil {
+		return err
 	}
 
 	// Populate artifact paths from step's OutputArtifacts when the adapter
@@ -3317,6 +3623,11 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 				sb.WriteString(fmt.Sprintf("- %s: %s\n", name, path))
 			}
 			sb.WriteString("\n")
+		}
+		if attemptCtx.ReviewFeedbackPath != "" {
+			sb.WriteString("### Agent Review Feedback\n\n")
+			sb.WriteString(fmt.Sprintf("A review agent found issues with the previous implementation. Structured feedback is available at: `%s`\n", attemptCtx.ReviewFeedbackPath))
+			sb.WriteString("Read this file to understand the specific issues and suggestions before making changes.\n\n")
 		}
 		sb.WriteString("Please address the issues from the previous attempt and try a different approach if needed.\n\n---\n\n")
 		sb.WriteString(prompt)
@@ -4001,6 +4312,23 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 			threshold = 1.0
 		}
 		b.WriteString(fmt.Sprintf("\nYou must satisfy at least %.0f%% of these criteria to pass.\n", threshold*100))
+
+	case "agent_review":
+		b.WriteString("### Agent Review Validation\n\n")
+		b.WriteString("After you complete your work, a separate review agent will evaluate your output.\n")
+		// Use EffectiveContracts to handle both singular and plural config
+		for _, c := range step.Handover.EffectiveContracts() {
+			if c.Type == "agent_review" {
+				if c.CriteriaPath != "" {
+					b.WriteString(fmt.Sprintf("Review criteria are loaded from: `%s`\n", c.CriteriaPath))
+				}
+				if c.Persona != "" {
+					b.WriteString(fmt.Sprintf("Reviewer persona: `%s`\n", c.Persona))
+				}
+			}
+		}
+		b.WriteString("The reviewer will return a structured verdict (pass/fail/warn) with specific issues and suggestions.\n")
+		b.WriteString("If the verdict is 'fail', the step fails.\n")
 	}
 
 	// ── Injected artifact guidance ────────────────────────────────────

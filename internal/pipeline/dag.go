@@ -77,6 +77,35 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 				return err
 			}
 		}
+
+		// Validate agent_review contract fields: self-review prevention and contract-level rework_step
+		contracts := step.Handover.EffectiveContracts()
+		for _, c := range contracts {
+			if c.Type != "agent_review" {
+				continue
+			}
+			// Self-review prevention: reviewer persona must differ from step persona
+			if c.Persona != "" && c.Persona == step.Persona {
+				return fmt.Errorf("step %q: agent_review contract persona %q must differ from step persona (self-review not allowed)",
+					step.ID, c.Persona)
+			}
+			// Validate contract-level rework_step target
+			if c.OnFailure == OnFailureRework && c.ReworkStep != "" {
+				if err := v.validateReworkTarget(step.ID, c.ReworkStep, stepMap); err != nil {
+					return fmt.Errorf("step %q: agent_review contract rework_step: %w", step.ID, err)
+				}
+			}
+			// Validate contract-level on_failure enum
+			if c.OnFailure != "" {
+				switch c.OnFailure {
+				case OnFailureFail, OnFailureSkip, OnFailureContinue, OnFailureRework, OnFailureWarn:
+					// valid
+				default:
+					return fmt.Errorf("step %q: agent_review contract has invalid on_failure value %q (must be fail, skip, continue, rework, or warn)",
+						step.ID, c.OnFailure)
+				}
+			}
+		}
 	}
 
 	// Validate that each rework target is unique (prevent race on concurrent rework)
@@ -95,10 +124,10 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 	for _, step := range p.Steps {
 		if step.Retry.OnFailure != "" {
 			switch step.Retry.OnFailure {
-			case OnFailureFail, OnFailureSkip, OnFailureContinue, OnFailureRework:
+			case OnFailureFail, OnFailureSkip, OnFailureContinue, OnFailureRework, OnFailureWarn:
 				// valid
 			default:
-				return fmt.Errorf("step %q has invalid on_failure value %q (must be fail, skip, continue, or rework)", step.ID, step.Retry.OnFailure)
+				return fmt.Errorf("step %q has invalid on_failure value %q (must be fail, skip, continue, rework, or warn)", step.ID, step.Retry.OnFailure)
 			}
 		}
 		// Validate concurrency and matrix strategy are mutually exclusive

@@ -594,15 +594,19 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 
 	// Build step state from events: track latest state, timestamps, tokens per step
 	type stepInfo struct {
-		state       string
-		persona     string
-		startedAt   *time.Time
-		completedAt *time.Time
-		tokens      int
-		durationMs  int64
-		errMsg      string
-		model       string
-		adapter     string
+		state          string
+		persona        string
+		startedAt      *time.Time
+		completedAt    *time.Time
+		tokens         int
+		durationMs     int64
+		errMsg         string
+		model          string
+		adapter        string
+		reviewVerdict  string
+		reviewIssues   int
+		reviewPersona  string
+		reviewTokens   int
 	}
 	stepMap := make(map[string]*stepInfo)
 
@@ -638,6 +642,13 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 			si.completedAt = &t
 			si.state = "failed"
 			si.errMsg = ev.Message
+		case "review_completed":
+			// Parse review verdict from message: "verdict=pass issues=0 reviewer=navigator"
+			si.reviewVerdict, si.reviewIssues, si.reviewPersona = parseReviewCompletedMessage(ev.Message)
+			si.reviewTokens += ev.TokensUsed
+		case "review_failed":
+			si.reviewVerdict = "fail"
+			si.reviewTokens += ev.TokensUsed
 		}
 
 		if ev.TokensUsed > si.tokens {
@@ -735,6 +746,14 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 			sd.CompletedAt = si.completedAt
 			sd.TokensUsed = si.tokens
 			sd.Error = si.errMsg
+
+			// Populate agent review verdict fields if a review ran
+			if si.reviewVerdict != "" {
+				sd.ReviewVerdict = si.reviewVerdict
+				sd.ReviewIssueCount = si.reviewIssues
+				sd.ReviewerPersona = si.reviewPersona
+				sd.ReviewTokens = si.reviewTokens
+			}
 
 			// Calculate progress
 			switch sd.State {
@@ -1092,4 +1111,21 @@ func nestChildRuns(all []RunSummary) []RunSummary {
 	}
 
 	return topLevel
+}
+
+// parseReviewCompletedMessage extracts verdict, issue count, and reviewer persona
+// from a review_completed event message like:
+// "agent review completed: verdict=pass issues=0 reviewer=navigator"
+func parseReviewCompletedMessage(msg string) (verdict string, issueCount int, reviewer string) {
+	for _, part := range strings.Fields(msg) {
+		switch {
+		case strings.HasPrefix(part, "verdict="):
+			verdict = strings.TrimPrefix(part, "verdict=")
+		case strings.HasPrefix(part, "issues="):
+			fmt.Sscanf(strings.TrimPrefix(part, "issues="), "%d", &issueCount)
+		case strings.HasPrefix(part, "reviewer="):
+			reviewer = strings.TrimPrefix(part, "reviewer=")
+		}
+	}
+	return
 }
