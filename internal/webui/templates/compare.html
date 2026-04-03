@@ -7,6 +7,42 @@
     </div>
 </div>
 
+{{if .Error}}
+<div class="card">
+    <div class="alert alert-error">{{.Error}}</div>
+</div>
+{{end}}
+
+{{if .ShowSelector}}
+<div class="card">
+    <h2>Select Runs to Compare</h2>
+    <form id="compare-selector-form" class="compare-swap-form" method="get" action="/compare">
+        <div class="compare-selector-fields">
+            <div>
+                <label for="compare-left-select">Left run:</label>
+                <select id="compare-left-select" name="left" class="compare-swap-select">
+                    <option value="">-- Select a run --</option>
+                    {{range .Runs}}
+                    <option value="{{.RunID}}">{{.PipelineName}} — {{.RunID}} ({{.Status}}{{if .Duration}}, {{.Duration}}{{end}})</option>
+                    {{end}}
+                </select>
+            </div>
+            <div>
+                <label for="compare-right-select">Right run:</label>
+                <select id="compare-right-select" name="right" class="compare-swap-select">
+                    <option value="">-- Select a run --</option>
+                    {{range .Runs}}
+                    <option value="{{.RunID}}">{{.PipelineName}} — {{.RunID}} ({{.Status}}{{if .Duration}}, {{.Duration}}{{end}})</option>
+                    {{end}}
+                </select>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary" id="compare-selector-btn" disabled>Compare</button>
+    </form>
+</div>
+{{end}}
+
+{{if not .ShowSelector}}
 <div class="compare-headers">
     <div class="compare-header compare-left">
         <h3><a href="/runs/{{.Left.RunID}}">{{.Left.PipelineName}}</a></h3>
@@ -99,11 +135,26 @@
     </form>
 </div>
 {{end}}
+{{end}}
 
 {{end}}
 {{define "scripts"}}
 <script>
 (function() {
+    // Selector form: enable button when both selects have values
+    var leftSelect = document.getElementById('compare-left-select');
+    var rightSelect = document.getElementById('compare-right-select');
+    var selectorBtn = document.getElementById('compare-selector-btn');
+
+    if (leftSelect && rightSelect && selectorBtn) {
+        function updateSelectorBtn() {
+            selectorBtn.disabled = !(leftSelect.value && rightSelect.value);
+        }
+        leftSelect.addEventListener('change', updateSelectorBtn);
+        rightSelect.addEventListener('change', updateSelectorBtn);
+    }
+
+    // Swap form: enable button when select has value
     var swapSelect = document.getElementById('compare-swap-select');
     var swapBtn = document.getElementById('compare-swap-btn');
     var swapForm = document.getElementById('compare-swap-form');
