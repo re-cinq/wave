@@ -29,6 +29,31 @@
                 <span id="pipeline-steps" class="badge"></span>
                 <span id="pipeline-category" class="badge" style="display:none;"></span>
             </div>
+            <div id="pipeline-step-list" class="pipeline-step-list" style="display:none;"></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="adapter-select">Adapter</label>
+                <select id="adapter-select" name="adapter">
+                    <option value="">Default (from manifest)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="model-input">Model</label>
+                <input type="text" id="model-input" name="model" placeholder="e.g. haiku, opus (optional)">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="timeout-input">Timeout (min)</label>
+                <input type="number" id="timeout-input" name="timeout" min="1" placeholder="Pipeline default">
+            </div>
+            <div class="form-group form-group-checkbox">
+                <label>
+                    <input type="checkbox" id="dry-run-checkbox" name="dry_run">
+                    Dry run (validate only)
+                </label>
+            </div>
         </div>
         <div class="form-group">
             <label for="pipeline-input">Input (optional)</label>
@@ -130,8 +155,11 @@ function onPipelineSelect() {
     var sel = document.getElementById('pipeline-select');
     var opt = sel.options[sel.selectedIndex];
     var preview = document.getElementById('pipeline-preview');
+    var stepList = document.getElementById('pipeline-step-list');
     if (!opt || !opt.value) {
         preview.style.display = 'none';
+        stepList.style.display = 'none';
+        stepList.innerHTML = '';
         return;
     }
     var desc = opt.getAttribute('data-description');
@@ -153,6 +181,66 @@ function onPipelineSelect() {
     }
 
     preview.style.display = '';
+
+    // Fetch pipeline detail to show step list
+    fetchJSON('/api/pipelines/' + encodeURIComponent(opt.value))
+        .then(function(detail) {
+            if (detail.steps && detail.steps.length > 0) {
+                var html = '<div class="pipeline-step-list-label">Steps:</div>';
+                html += '<div class="pipeline-step-select-header"><label class="form-group-checkbox"><input type="checkbox" id="all-steps-checkbox" checked onchange="toggleAllSteps(this)"> <span>Run all steps</span></label></div>';
+                html += '<ol class="pipeline-step-list-items">';
+                for (var i = 0; i < detail.steps.length; i++) {
+                    var s = detail.steps[i];
+                    html += '<li><label class="pipeline-step-check"><input type="checkbox" class="step-select-cb" value="' + escapeHTML(s.id) + '" checked onchange="onStepCheckboxChange()"> <span class="step-name">' + escapeHTML(s.id) + '</span>';
+                    if (s.persona) html += ' <span class="step-persona">' + escapeHTML(s.persona) + '</span>';
+                    if (s.artifacts && s.artifacts.length > 0) {
+                        html += ' <span class="step-artifacts">' + s.artifacts.map(function(a) { return escapeHTML(a); }).join(', ') + '</span>';
+                    }
+                    html += '</span></label></li>';
+                }
+                html += '</ol>';
+                stepList.innerHTML = html;
+                stepList.style.display = '';
+            } else {
+                stepList.style.display = 'none';
+                stepList.innerHTML = '';
+            }
+        })
+        .catch(function() {
+            stepList.style.display = 'none';
+            stepList.innerHTML = '';
+        });
+}
+
+// Step selection helpers for the start form
+function toggleAllSteps(checkbox) {
+    var cbs = document.querySelectorAll('.step-select-cb');
+    for (var i = 0; i < cbs.length; i++) cbs[i].checked = checkbox.checked;
+}
+function onStepCheckboxChange() {
+    var cbs = document.querySelectorAll('.step-select-cb');
+    var allCb = document.getElementById('all-steps-checkbox');
+    if (allCb) {
+        var allChecked = true;
+        for (var i = 0; i < cbs.length; i++) { if (!cbs[i].checked) { allChecked = false; break; } }
+        allCb.checked = allChecked;
+    }
+}
+function getSelectedSteps() {
+    var allCb = document.getElementById('all-steps-checkbox');
+    if (allCb && allCb.checked) return { steps: '', exclude: '' };
+    var cbs = document.querySelectorAll('.step-select-cb');
+    var checked = [], unchecked = [];
+    for (var i = 0; i < cbs.length; i++) {
+        if (cbs[i].checked) checked.push(cbs[i].value);
+        else unchecked.push(cbs[i].value);
+    }
+    // If more than half checked, use "steps" mode; otherwise use "exclude" mode
+    if (checked.length > unchecked.length) {
+        return { steps: checked.join(','), exclude: '' };
+    } else {
+        return { steps: '', exclude: unchecked.join(',') };
+    }
 }
 
 function clearFilter(name) {

@@ -68,7 +68,7 @@ func (s *Server) handleAPIStartFromIssue(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	s.launchPipelineExecution(runID, req.PipelineName, req.IssueURL, pl)
+	s.launchPipelineExecution(runID, req.PipelineName, req.IssueURL, pl, RunOptions{})
 
 	writeJSON(w, http.StatusCreated, StartPipelineResponse{
 		RunID:        runID,
