@@ -207,7 +207,7 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeouts.ForgeAPI)
+	ctx, cancel := context.WithTimeout(context.Background(), timeouts.ForgeAPIList)
 	defer cancel()
 
 	issues, err := s.forgeClient.ListIssues(ctx, owner, repo, forge.ListIssuesOptions{
