@@ -457,13 +457,56 @@ function parseDuration(s) {
 
 // Mobile navigation toggle
 function toggleNav() {
-    var links = document.getElementById('nav-links');
-    var btn = document.querySelector('.nav-toggle');
-    if (links) {
-        var open = links.classList.toggle('nav-open');
+    toggleSidebar();
+}
+
+// Sidebar toggle (mobile overlay)
+function toggleSidebar() {
+    var sidebar = document.getElementById('sidebar');
+    var btn = document.querySelector('.sidebar-toggle');
+    if (sidebar) {
+        var open = sidebar.classList.toggle('open');
         if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
 }
+
+function closeSidebar() {
+    var sidebar = document.getElementById('sidebar');
+    var btn = document.querySelector('.sidebar-toggle');
+    if (sidebar) sidebar.classList.remove('open');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+}
+
+// Sidebar nav group collapse/expand with localStorage persistence
+function toggleNavGroup(group) {
+    var el = document.querySelector('.nav-group[data-group="' + group + '"]');
+    if (!el) return;
+    var collapsed = el.classList.toggle('collapsed');
+    var btn = el.querySelector('.nav-group-toggle');
+    if (btn) btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    // Persist state
+    var state = {};
+    try { state = JSON.parse(localStorage.getItem('wave-nav-groups') || '{}'); } catch(e) {}
+    state[group] = collapsed;
+    localStorage.setItem('wave-nav-groups', JSON.stringify(state));
+}
+
+// Restore collapsed nav groups from localStorage
+(function() {
+    try {
+        var state = JSON.parse(localStorage.getItem('wave-nav-groups') || '{}');
+        for (var group in state) {
+            if (state[group]) {
+                var el = document.querySelector('.nav-group[data-group="' + group + '"]');
+                if (el) {
+                    el.classList.add('collapsed');
+                    var btn = el.querySelector('.nav-group-toggle');
+                    if (btn) btn.setAttribute('aria-expanded', 'false');
+                }
+            }
+        }
+    } catch(e) {}
+})();
 
 // Live elapsed timer for running steps
 (function() {
