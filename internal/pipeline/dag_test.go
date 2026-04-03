@@ -821,3 +821,74 @@ func TestValidateDAG_StepWithoutThread_NoValidation(t *testing.T) {
 		t.Errorf("Expected no error for steps without threads, got: %v", err)
 	}
 }
+
+func TestValidateDAG_AgentReviewSelfPreventionAndReworkStep(t *testing.T) {
+	t.Run("same persona rejected (self-review)", func(t *testing.T) {
+		p := &Pipeline{
+			Steps: []Step{
+				{
+					ID:      "impl",
+					Persona: "craftsman",
+					Handover: HandoverConfig{
+						Contract: ContractConfig{
+							Type:    "agent_review",
+							Persona: "craftsman", // same as step persona
+						},
+					},
+				},
+				{ID: "rework", Persona: "craftsman", ReworkOnly: true},
+			},
+		}
+		v := &DAGValidator{}
+		err := v.ValidateDAG(p)
+		if err == nil {
+			t.Fatal("expected error for self-review, got nil")
+		}
+		if !strings.Contains(err.Error(), "self-review") {
+			t.Errorf("error should mention self-review: %v", err)
+		}
+	})
+
+	t.Run("different persona accepted", func(t *testing.T) {
+		p := &Pipeline{
+			Steps: []Step{
+				{
+					ID:      "impl",
+					Persona: "craftsman",
+					Handover: HandoverConfig{
+						Contract: ContractConfig{
+							Type:    "agent_review",
+							Persona: "navigator",
+						},
+					},
+				},
+			},
+		}
+		v := &DAGValidator{}
+		err := v.ValidateDAG(p)
+		if err != nil {
+			t.Errorf("expected no error for valid reviewer, got: %v", err)
+		}
+	})
+
+	t.Run("non-agent_review contracts skipped for self-review check", func(t *testing.T) {
+		p := &Pipeline{
+			Steps: []Step{
+				{
+					ID:      "impl",
+					Persona: "craftsman",
+					Handover: HandoverConfig{
+						Contract: ContractConfig{
+							Type: "test_suite", // not agent_review
+						},
+					},
+				},
+			},
+		}
+		v := &DAGValidator{}
+		err := v.ValidateDAG(p)
+		if err != nil {
+			t.Errorf("expected no error for non-agent_review contract, got: %v", err)
+		}
+	})
+}

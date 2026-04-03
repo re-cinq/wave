@@ -23,6 +23,7 @@ const (
 	FrictionToolFailure     FrictionType = "tool_failure"
 	FrictionAmbiguity       FrictionType = "ambiguity"
 	FrictionContractFailure FrictionType = "contract_failure"
+	FrictionReviewRework    FrictionType = "review_rework"
 )
 
 // LearningCategory categorizes learnings captured during a run.

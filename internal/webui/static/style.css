@@ -354,7 +354,10 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 .table thead th { text-align: left; padding: 0.75rem 1rem; font-size: 0.8rem; font-weight: 600; color: var(--color-text-secondary); background: var(--color-bg-tertiary); border-bottom: 1px solid var(--color-border); text-transform: uppercase; letter-spacing: 0.03em; }
-.table tbody td { padding: 0.7rem 1rem; border-bottom: 1px solid var(--color-border); font-size: 0.85rem; }
+.table tbody td { padding: 0.7rem 1rem; border-bottom: 1px solid var(--color-border); font-size: 0.85rem; white-space: nowrap; }
+.table tbody td.wrap { white-space: normal; }
+.table tbody td.pills-cell { white-space: normal; }
+.table tbody td.pills-cell .badge { margin: 0.15rem; white-space: nowrap; }
 .table tbody tr:last-child td { border-bottom: none; }
 .table tbody tr { transition: background-color 0.15s ease; }
 .table tbody tr:hover { background: var(--color-bg-tertiary); }
@@ -1353,6 +1356,8 @@ mark.search-current { background: rgba(229, 192, 123, 0.7); outline: 1px solid v
 
 /* Run List — input preview and progress */
 .run-pipeline-name { font-weight: 500; }
+.run-id-cell { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.run-id-cell a { display: block; overflow: hidden; text-overflow: ellipsis; }
 .run-branch {
     font-size: 0.75rem; color: var(--color-text-muted);
     font-family: var(--font-mono); margin-top: 0.1rem;
@@ -1690,6 +1695,7 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .badge-pipeline { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
 
 /* Model and adapter badges */
+.badge-model, .badge-adapter { display: inline-block; white-space: nowrap; }
 .badge-model { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 2em; font-weight: 600; letter-spacing: 0.02em; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
 .badge-adapter { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 2em; font-weight: 600; letter-spacing: 0.02em; background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); text-transform: uppercase; font-size: 0.6rem; }
 

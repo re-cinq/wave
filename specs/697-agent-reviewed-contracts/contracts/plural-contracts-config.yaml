@@ -1,0 +1,59 @@
+# Plural Contracts Configuration Example
+# Demonstrates the ordered contracts list on a pipeline step.
+#
+# Contracts execute in order. If an early contract fails and its on_failure
+# policy does not allow continuation, later contracts are skipped.
+# After rework, ALL contracts re-run from the beginning.
+
+# Example step configuration
+steps:
+  - id: implement
+    persona: craftsman
+    handover:
+      # Plural form: ordered list of contracts
+      contracts:
+        # 1. Cheap mechanical check first
+        - type: test_suite
+          command: "{{ project.contract_test_command }}"
+          dir: project_root
+          must_pass: true
+          on_failure: retry
+          max_retries: 2
+
+        # 2. Schema validation
+        - type: json_schema
+          source: .wave/output/result.json
+          schema_path: .wave/contracts/result-schema.json
+          must_pass: true
+
+        # 3. Expensive agent review last
+        - type: agent_review
+          persona: navigator
+          criteria_path: .wave/contracts/impl-review-criteria.md
+          model: claude-haiku-4-5
+          context:
+            - source: git_diff
+            - source: artifact
+              artifact: assessment
+          token_budget: 8000
+          on_failure: rework
+          rework_step: rework-impl
+          max_retries: 1
+
+  # Rework-only step triggered by agent_review failure
+  - id: rework-impl
+    persona: craftsman
+    rework_only: true
+    exec:
+      source: |
+        Review feedback is available in .wave/artifacts/review_feedback.json.
+        Address each issue identified by the reviewer.
+
+# Backward compatibility: singular form still works
+# steps:
+#   - id: validate
+#     persona: navigator
+#     handover:
+#       contract:
+#         type: test_suite
+#         command: go test ./...
