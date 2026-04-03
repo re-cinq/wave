@@ -1,5 +1,7 @@
 package webui
 
+import "strings"
+
 // DAGLayout holds the computed layout for SVG rendering.
 type DAGLayout struct {
 	Nodes  []DAGLayoutNode
@@ -284,6 +286,28 @@ func stripExcludedDeps(steps []DAGStepInput, excluded map[string]bool) {
 			}
 		}
 		steps[i].Dependencies = filtered
+
+		// Also filter outgoing edges targeting excluded steps
+		if len(steps[i].Edges) > 0 {
+			var filteredEdges []DAGEdgeInput
+			for _, e := range steps[i].Edges {
+				if !excluded[e.Target] {
+					filteredEdges = append(filteredEdges, e)
+				}
+			}
+			steps[i].Edges = filteredEdges
+
+			// Rebuild EdgeInfo from remaining edges
+			var edgeParts []string
+			for _, e := range filteredEdges {
+				if e.Condition != "" {
+					edgeParts = append(edgeParts, e.Target+": "+e.Condition)
+				} else {
+					edgeParts = append(edgeParts, e.Target)
+				}
+			}
+			steps[i].EdgeInfo = strings.Join(edgeParts, "; ")
+		}
 	}
 }
 
