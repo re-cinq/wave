@@ -193,7 +193,13 @@ type PersonaListResponse struct {
 
 // StartPipelineRequest is the request body for starting a pipeline.
 type StartPipelineRequest struct {
-	Input string `json:"input"`
+	Input   string `json:"input"`
+	Model   string `json:"model,omitempty"`
+	Adapter string `json:"adapter,omitempty"`
+	DryRun  bool   `json:"dry_run,omitempty"`
+	Timeout int    `json:"timeout,omitempty"`
+	Steps   string `json:"steps,omitempty"`
+	Exclude string `json:"exclude,omitempty"`
 }
 
 // StartPipelineResponse is the JSON response after starting a pipeline.
@@ -505,6 +511,12 @@ type RunLogsResponse struct {
 type SubmitRunRequest struct {
 	Pipeline string `json:"pipeline"`
 	Input    string `json:"input"`
+	Model    string `json:"model,omitempty"`
+	Adapter  string `json:"adapter,omitempty"`
+	DryRun   bool   `json:"dry_run,omitempty"`
+	Timeout  int    `json:"timeout,omitempty"`
+	Steps    string `json:"steps,omitempty"`
+	Exclude  string `json:"exclude,omitempty"`
 }
 
 type SubmitRunResponse struct {

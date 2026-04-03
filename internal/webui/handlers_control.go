@@ -22,6 +22,16 @@ import (
 // validPipelineName matches safe pipeline names: alphanumeric, hyphens, underscores, dots.
 var validPipelineName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
+// RunOptions holds CLI-parity options passed from the webui start form.
+type RunOptions struct {
+	Model    string
+	Adapter  string
+	DryRun   bool
+	Timeout  int
+	Steps    string
+	Exclude  string
+}
+
 // loggingEmitter wraps an event emitter and also logs events to the state store.
 type loggingEmitter struct {
 	inner event.EventEmitter
@@ -50,10 +60,12 @@ func isHeartbeat(ev event.Event) bool {
 // It sets up the adapter, emitter, audit logger, and executor, then launches
 // the pipeline. This is shared by handleStartPipeline, handleRetryRun, and handleResumeRun.
 // When fromStep is non-empty, execution resumes from that step using ResumeWithValidation.
-func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *pipeline.Pipeline, fromStep ...string) {
-	// Resolve adapter from manifest
+func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *pipeline.Pipeline, opts RunOptions, fromStep ...string) {
+	// Resolve adapter: prefer explicit override, then manifest, then default
 	var runner adapter.AdapterRunner
-	if s.manifest != nil {
+	if opts.Adapter != "" {
+		runner = adapter.ResolveAdapter(opts.Adapter)
+	} else if s.manifest != nil {
 		for adapterName := range s.manifest.Adapters {
 			runner = adapter.ResolveAdapter(adapterName)
 			break
@@ -94,6 +106,18 @@ func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *p
 	if s.gateRegistry != nil {
 		execOpts = append(execOpts, pipeline.WithGateHandler(NewWebUIGateHandler(runID, s.gateRegistry)))
 	}
+	if opts.Model != "" {
+		execOpts = append(execOpts, pipeline.WithModelOverride(opts.Model))
+	}
+	if opts.Adapter != "" {
+		execOpts = append(execOpts, pipeline.WithAdapterOverride(opts.Adapter))
+	}
+	if opts.Timeout > 0 {
+		execOpts = append(execOpts, pipeline.WithStepTimeout(time.Duration(opts.Timeout)*time.Minute))
+	}
+	if opts.Steps != "" || opts.Exclude != "" {
+		execOpts = append(execOpts, pipeline.WithStepFilter(pipeline.ParseStepFilter(opts.Steps, opts.Exclude)))
+	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 
@@ -113,6 +137,14 @@ func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *p
 			s.mu.Unlock()
 			cancel()
 		}()
+
+		// Dry-run: validate pipeline without executing
+		if opts.DryRun {
+			if err := s.rwStore.UpdateRunStatus(runID, "completed", "dry run (validation only)", 0); err != nil {
+				log.Printf("Warning: failed to update run %s status for dry-run: %v", runID, err)
+			}
+			return
+		}
 
 		// Update to running
 		if err := s.rwStore.UpdateRunStatus(runID, "running", "", 0); err != nil {
@@ -188,7 +220,14 @@ func (s *Server) handleStartPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.launchPipelineExecution(runID, name, req.Input, p)
+	s.launchPipelineExecution(runID, name, req.Input, p, RunOptions{
+		Model:   req.Model,
+		Adapter: req.Adapter,
+		DryRun:  req.DryRun,
+		Timeout: req.Timeout,
+		Steps:   req.Steps,
+		Exclude: req.Exclude,
+	})
 
 	resp := StartPipelineResponse{
 		RunID:        runID,
@@ -280,7 +319,7 @@ func (s *Server) handleRetryRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Launch actual pipeline execution
-	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p)
+	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p, RunOptions{})
 
 	resp := RetryRunResponse{
 		RunID:         newRunID,
@@ -352,7 +391,7 @@ func (s *Server) handleResumeRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Launch execution with resume from the specified step
-	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p, req.FromStep)
+	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p, RunOptions{}, req.FromStep)
 
 	resp := ResumeRunResponse{
 		RunID:         newRunID,
@@ -393,7 +432,14 @@ func (s *Server) handleSubmitRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.launchPipelineExecution(runID, req.Pipeline, req.Input, p)
+	s.launchPipelineExecution(runID, req.Pipeline, req.Input, p, RunOptions{
+		Model:   req.Model,
+		Adapter: req.Adapter,
+		DryRun:  req.DryRun,
+		Timeout: req.Timeout,
+		Steps:   req.Steps,
+		Exclude: req.Exclude,
+	})
 
 	resp := SubmitRunResponse{
 		RunID:        runID,
@@ -635,7 +681,7 @@ func (s *Server) handleForkRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p, resumeStep)
+	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p, RunOptions{}, resumeStep)
 
 	writeJSON(w, http.StatusCreated, ForkRunResponse{
 		RunID:        newRunID,
@@ -727,6 +773,17 @@ func (s *Server) handleRewindRun(w http.ResponseWriter, r *http.Request) {
 		StepsDeleted: stepsDeleted,
 		Status:       "failed",
 	})
+}
+
+// handleAPIAdapters handles GET /api/adapters — returns available adapter names.
+func (s *Server) handleAPIAdapters(w http.ResponseWriter, r *http.Request) {
+	names := []string{"claude-code"}
+	if s.manifest != nil {
+		for name := range s.manifest.Adapters {
+			names = append(names, name)
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"adapters": names})
 }
 
 // handleForkPoints handles GET /api/runs/{id}/fork-points

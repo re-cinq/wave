@@ -42,6 +42,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/runs/export", s.handleExportRuns)
 	mux.HandleFunc("POST /api/runs", s.handleSubmitRun)
 	mux.HandleFunc("GET /api/pipelines", s.handleAPIPipelines)
+	mux.HandleFunc("GET /api/adapters", s.handleAPIAdapters)
 	mux.HandleFunc("GET /api/runs/{id}", s.handleAPIRunDetail)
 	mux.HandleFunc("GET /api/runs/{id}/logs", s.handleRunLogs)
 	mux.HandleFunc("POST /api/pipelines/{name}/start", s.handleStartPipeline)

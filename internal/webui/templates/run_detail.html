@@ -33,26 +33,33 @@
 </div>
 
 <div class="run-summary-bar">
-    <div class="run-summary-stats">
-        <span class="run-stat"><span class="run-stat-label">Duration</span> <span class="run-stat-value">{{if .Run.Duration}}{{.Run.Duration}}{{else}}-{{end}}</span></span>
+    <!-- Primary strip: always visible, most important info -->
+    <div class="run-summary-primary">
+        <span class="run-stat"><span class="run-stat-label">Duration</span> <span class="run-stat-value"{{if eq .Run.Status "running"}} data-live-timer="true" data-started-at="{{.Run.StartedAt.Format "2006-01-02T15:04:05Z07:00"}}"{{end}}>{{if .Run.Duration}}{{.Run.Duration}}{{else if eq .Run.Status "running"}}0s{{else}}-{{end}}</span></span>
         <span class="run-stat"><span class="run-stat-label">Steps</span> <span class="run-stat-value">{{.Run.StepsCompleted}}/{{.Run.StepsTotal}}</span></span>
         <span class="run-stat"><span class="run-stat-label">Tokens</span> <span class="run-stat-value">{{formatTokens .Run.TotalTokens}}</span></span>
-        <span class="run-stat"><span class="run-stat-label">Started</span> <span class="run-stat-value">{{.Run.FormattedStartedAt}}</span></span>
-        <span class="run-stat"><span class="run-stat-label">Finished</span> <span class="run-stat-value">{{if .Run.FormattedCompletedAt}}{{.Run.FormattedCompletedAt}}{{else}}-{{end}}</span></span>
-        {{if .PipelineCategory}}<span class="run-stat"><span class="run-stat-label">Category</span> <span class="run-stat-value">{{.PipelineCategory}}</span></span>{{end}}
-        {{if .PipelineSkills}}<span class="run-stat"><span class="run-stat-label">Skills</span> <span class="run-stat-value">{{range $i, $s := .PipelineSkills}}{{if $i}}, {{end}}{{$s}}{{end}}</span></span>{{end}}
         {{if .Adapters}}<span class="run-stat"><span class="run-stat-label">Adapters</span> <span class="run-stat-value">{{range $i, $a := .Adapters}}<span class="badge badge-adapter">{{$a}}</span>{{end}}</span></span>{{end}}
         {{if .Models}}<span class="run-stat"><span class="run-stat-label">Models</span> <span class="run-stat-value">{{range $i, $m := .Models}}<span class="badge badge-model">{{$m}}</span>{{end}}</span></span>{{end}}
     </div>
     <div class="progress-bar progress-bar-sm">
         <div class="progress-fill" style="width: {{if gt .Run.StepsTotal 0}}{{.Run.Progress}}{{else}}0{{end}}%"></div>
     </div>
-    {{if or .Run.Input .Run.LinkedURL}}
-    <div class="run-summary-meta">
-        {{if .Run.Input}}<span class="run-meta-item"><span class="run-stat-label">Input</span> {{if gt (len .Run.Input) 200}}<details><summary>{{slice .Run.Input 0 200}}...</summary><pre class="run-meta-input-full">{{.Run.Input}}</pre></details>{{else}}{{.Run.Input}}{{end}}</span>{{end}}
-        {{if .Run.LinkedURL}}<a href="{{.Run.LinkedURL}}" target="_blank" rel="noopener noreferrer" class="run-meta-link">{{.Run.LinkedURL}}</a>{{end}}
-    </div>
-    {{end}}
+    <!-- Secondary strip: collapsible, less important info -->
+    <details class="run-summary-secondary">
+        <summary class="run-summary-toggle">Show details</summary>
+        <div class="run-summary-secondary-content">
+            <span class="run-stat"><span class="run-stat-label">Started</span> <span class="run-stat-value">{{.Run.FormattedStartedAt}}</span></span>
+            <span class="run-stat"><span class="run-stat-label">Finished</span> <span class="run-stat-value">{{if .Run.FormattedCompletedAt}}{{.Run.FormattedCompletedAt}}{{else}}-{{end}}</span></span>
+            {{if .PipelineCategory}}<span class="run-stat"><span class="run-stat-label">Category</span> <span class="run-stat-value">{{.PipelineCategory}}</span></span>{{end}}
+            {{if .PipelineSkills}}<span class="run-stat"><span class="run-stat-label">Skills</span> <span class="run-stat-value">{{range $i, $s := .PipelineSkills}}{{if $i}}, {{end}}{{$s}}{{end}}</span></span>{{end}}
+            {{if or .Run.Input .Run.LinkedURL}}
+            <span class="run-stat run-meta-item">
+                {{if .Run.Input}}<span class="run-stat-label">Input</span> {{if gt (len .Run.Input) 200}}<details><summary>{{slice .Run.Input 0 200}}...</summary><pre class="run-meta-input-full">{{.Run.Input}}</pre></details>{{else}}{{.Run.Input}}{{end}}{{end}}
+                {{if .Run.LinkedURL}}<a href="{{.Run.LinkedURL}}" target="_blank" rel="noopener noreferrer" class="run-meta-link">{{.Run.LinkedURL}}</a>{{end}}
+            </span>
+            {{end}}
+        </div>
+    </details>
 </div>
 
 {{if .Run.ErrorMessage}}
@@ -178,6 +185,8 @@
                         <button class="log-level-btn" data-level="warning" onclick="filterLogLevel('warning', this)" title="Warnings only">Warnings</button>
                     </div>
                     <button class="btn-icon log-wrap-toggle" onclick="toggleLogWrap(this)" title="Toggle line wrap" aria-label="Toggle line wrap">&#8617;</button>
+                    <button class="btn-icon" onclick="collapseAllLogs()" title="Collapse all step logs" aria-label="Collapse all logs">&#x25B2;</button>
+                    <button class="btn-icon" onclick="expandAllLogs()" title="Expand all step logs" aria-label="Expand all logs">&#x25BC;</button>
                 </div>
             </div>
             <div class="steps-timeline" role="region" aria-label="Pipeline steps" aria-live="polite">
@@ -354,6 +363,24 @@ function toggleLogWrap(btn) {
         } else {
             el.classList.remove('log-wrapped');
         }
+    });
+}
+
+// Collapse all step cards
+function collapseAllLogs() {
+    document.querySelectorAll('.step-card').forEach(function(card) {
+        card.classList.add('step-collapsed');
+        var toggle = card.querySelector('.step-toggle');
+        if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    });
+}
+
+// Expand all step cards
+function expandAllLogs() {
+    document.querySelectorAll('.step-card').forEach(function(card) {
+        card.classList.remove('step-collapsed');
+        var toggle = card.querySelector('.step-toggle');
+        if (toggle) toggle.setAttribute('aria-expanded', 'true');
     });
 }
 
