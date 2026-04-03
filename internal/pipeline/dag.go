@@ -95,6 +95,16 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 					return fmt.Errorf("step %q: agent_review contract rework_step: %w", step.ID, err)
 				}
 			}
+			// Validate contract-level on_failure enum
+			if c.OnFailure != "" {
+				switch c.OnFailure {
+				case OnFailureFail, OnFailureSkip, OnFailureContinue, OnFailureRework, OnFailureWarn:
+					// valid
+				default:
+					return fmt.Errorf("step %q: agent_review contract has invalid on_failure value %q (must be fail, skip, continue, rework, or warn)",
+						step.ID, c.OnFailure)
+				}
+			}
 		}
 	}
 
@@ -114,10 +124,10 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 	for _, step := range p.Steps {
 		if step.Retry.OnFailure != "" {
 			switch step.Retry.OnFailure {
-			case OnFailureFail, OnFailureSkip, OnFailureContinue, OnFailureRework:
+			case OnFailureFail, OnFailureSkip, OnFailureContinue, OnFailureRework, OnFailureWarn:
 				// valid
 			default:
-				return fmt.Errorf("step %q has invalid on_failure value %q (must be fail, skip, continue, or rework)", step.ID, step.Retry.OnFailure)
+				return fmt.Errorf("step %q has invalid on_failure value %q (must be fail, skip, continue, rework, or warn)", step.ID, step.Retry.OnFailure)
 			}
 		}
 		// Validate concurrency and matrix strategy are mutually exclusive

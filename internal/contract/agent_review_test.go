@@ -328,7 +328,7 @@ func TestTokenBudget(t *testing.T) {
 		_, _ = v.RunReview(cfg, dir)
 	})
 
-	t.Run("over budget fails with descriptive error", func(t *testing.T) {
+	t.Run("over budget emits warning but still parses feedback", func(t *testing.T) {
 		runner := &mockAdapterRunner{
 			stdout: `{"verdict":"pass","issues":[],"suggestions":[],"confidence":0.9,"summary":"ok"}`,
 			tokens: 1000,
@@ -340,12 +340,15 @@ func TestTokenBudget(t *testing.T) {
 			Persona:      "navigator",
 			TokenBudget:  500,
 		}
-		_, err := v.RunReview(cfg, dir)
-		if err == nil {
-			t.Fatal("expected error for token budget exceeded")
+		feedback, err := v.RunReview(cfg, dir)
+		if err != nil {
+			t.Fatalf("expected no error (budget overrun is a warning), got: %v", err)
 		}
-		if !strings.Contains(err.Error(), "budget") {
-			t.Errorf("error should mention budget: %v", err)
+		if feedback == nil {
+			t.Fatal("expected feedback to be returned despite budget overrun")
+		}
+		if feedback.Verdict != "pass" {
+			t.Errorf("expected verdict 'pass', got %q", feedback.Verdict)
 		}
 	})
 

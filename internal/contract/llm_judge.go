@@ -315,6 +315,13 @@ func extractJSON(text string) string {
 			text = text[:idx]
 		}
 	}
+	text = strings.TrimSpace(text)
+	// Handle LLM preamble: locate the first '{' and last '}'
+	if firstBrace := strings.Index(text, "{"); firstBrace >= 0 {
+		if lastBrace := strings.LastIndex(text, "}"); lastBrace > firstBrace {
+			text = text[firstBrace : lastBrace+1]
+		}
+	}
 	return strings.TrimSpace(text)
 }
 
