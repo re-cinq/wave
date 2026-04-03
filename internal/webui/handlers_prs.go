@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/state"
@@ -196,6 +197,36 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 
 const prsPerPage = 50
 
+// enrichPRStats concurrently fetches individual PR details to populate
+// Additions/Deletions/ChangedFiles, which the list endpoint omits.
+func enrichPRStats(ctx context.Context, client forge.Client, owner, repo string, prs []*forge.PullRequest) {
+	const workers = 5
+	ch := make(chan int, len(prs))
+	for i := range prs {
+		ch <- i
+	}
+	close(ch)
+
+	var wg sync.WaitGroup
+	for range min(workers, len(prs)) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for idx := range ch {
+				detail, err := client.GetPullRequest(ctx, owner, repo, prs[idx].Number)
+				if err != nil {
+					log.Printf("[webui] failed to enrich PR #%d: %v", prs[idx].Number, err)
+					continue
+				}
+				prs[idx].Additions = detail.Additions
+				prs[idx].Deletions = detail.Deletions
+				prs[idx].ChangedFiles = detail.ChangedFiles
+			}
+		}()
+	}
+	wg.Wait()
+}
+
 func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 	if s.forgeClient == nil || s.repoSlug == "" {
 		return PRListResponse{
@@ -238,6 +269,8 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 	if hasMore {
 		prs = prs[:prsPerPage]
 	}
+
+	enrichPRStats(ctx, s.forgeClient, owner, repo, prs)
 
 	var summaries []PRSummary
 	for _, pr := range prs {

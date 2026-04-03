@@ -1,15 +1,66 @@
 package webui
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/state"
 )
+
+// mockForgeClient implements forge.Client with configurable responses.
+type mockForgeClient struct {
+	listPRs   func(ctx context.Context, owner, repo string, opts forge.ListPullRequestsOptions) ([]*forge.PullRequest, error)
+	getPR     func(ctx context.Context, owner, repo string, number int) (*forge.PullRequest, error)
+}
+
+func (m *mockForgeClient) GetIssue(context.Context, string, string, int) (*forge.Issue, error) {
+	return nil, forge.ErrNotSupported
+}
+
+func (m *mockForgeClient) ListIssues(context.Context, string, string, forge.ListIssuesOptions) ([]*forge.Issue, error) {
+	return nil, forge.ErrNotSupported
+}
+
+func (m *mockForgeClient) GetPullRequest(ctx context.Context, owner, repo string, number int) (*forge.PullRequest, error) {
+	if m.getPR != nil {
+		return m.getPR(ctx, owner, repo, number)
+	}
+	return nil, forge.ErrNotSupported
+}
+
+func (m *mockForgeClient) ListPullRequests(ctx context.Context, owner, repo string, opts forge.ListPullRequestsOptions) ([]*forge.PullRequest, error) {
+	if m.listPRs != nil {
+		return m.listPRs(ctx, owner, repo, opts)
+	}
+	return nil, forge.ErrNotSupported
+}
+
+func (m *mockForgeClient) ListPullRequestCommits(context.Context, string, string, int) ([]*forge.Commit, error) {
+	return nil, forge.ErrNotSupported
+}
+
+func (m *mockForgeClient) GetCommitChecks(context.Context, string, string, string) ([]*forge.CheckRun, error) {
+	return nil, forge.ErrNotSupported
+}
+
+func (m *mockForgeClient) ListIssueComments(context.Context, string, string, int, int) ([]*forge.Comment, error) {
+	return nil, forge.ErrNotSupported
+}
+
+func (m *mockForgeClient) CreatePullRequestReview(context.Context, string, string, int, string, string) error {
+	return forge.ErrNotSupported
+}
+
+func (m *mockForgeClient) ForgeType() forge.ForgeType {
+	return forge.ForgeGitHub
+}
 
 func TestHandleAPIPRs_NoGitHubClient(t *testing.T) {
 	srv, _ := testServer(t)
@@ -215,5 +266,128 @@ func TestRunToSummary_LongInputTruncated(t *testing.T) {
 	}
 	if !strings.HasSuffix(summary.InputPreview, "...") {
 		t.Error("expected truncated input to end with '...'")
+	}
+}
+
+func TestGetPRListData_EnrichedStats(t *testing.T) {
+	srv, _ := testServer(t)
+	srv.repoSlug = "owner/repo"
+	srv.forgeClient = &mockForgeClient{
+		listPRs: func(_ context.Context, _, _ string, _ forge.ListPullRequestsOptions) ([]*forge.PullRequest, error) {
+			return []*forge.PullRequest{
+				{Number: 1, Title: "PR 1", State: "open", Author: "alice", CreatedAt: time.Now()},
+				{Number: 2, Title: "PR 2", State: "open", Author: "bob", CreatedAt: time.Now()},
+			}, nil
+		},
+		getPR: func(_ context.Context, _, _ string, number int) (*forge.PullRequest, error) {
+			switch number {
+			case 1:
+				return &forge.PullRequest{Number: 1, Additions: 10, Deletions: 3, ChangedFiles: 2}, nil
+			case 2:
+				return &forge.PullRequest{Number: 2, Additions: 50, Deletions: 20, ChangedFiles: 8}, nil
+			default:
+				return nil, fmt.Errorf("unknown PR %d", number)
+			}
+		},
+	}
+
+	data := srv.getPRListData("open", 1)
+
+	if len(data.PullRequests) != 2 {
+		t.Fatalf("expected 2 PRs, got %d", len(data.PullRequests))
+	}
+
+	pr1 := data.PullRequests[0]
+	if pr1.Additions != 10 || pr1.Deletions != 3 || pr1.ChangedFiles != 2 {
+		t.Errorf("PR #1: expected additions=10 deletions=3 changed=2, got additions=%d deletions=%d changed=%d",
+			pr1.Additions, pr1.Deletions, pr1.ChangedFiles)
+	}
+
+	pr2 := data.PullRequests[1]
+	if pr2.Additions != 50 || pr2.Deletions != 20 || pr2.ChangedFiles != 8 {
+		t.Errorf("PR #2: expected additions=50 deletions=20 changed=8, got additions=%d deletions=%d changed=%d",
+			pr2.Additions, pr2.Deletions, pr2.ChangedFiles)
+	}
+}
+
+func TestGetPRListData_PartialEnrichmentFailure(t *testing.T) {
+	srv, _ := testServer(t)
+	srv.repoSlug = "owner/repo"
+	srv.forgeClient = &mockForgeClient{
+		listPRs: func(_ context.Context, _, _ string, _ forge.ListPullRequestsOptions) ([]*forge.PullRequest, error) {
+			return []*forge.PullRequest{
+				{Number: 1, Title: "Good PR", State: "open", Author: "alice", CreatedAt: time.Now()},
+				{Number: 2, Title: "Bad PR", State: "open", Author: "bob", CreatedAt: time.Now()},
+			}, nil
+		},
+		getPR: func(_ context.Context, _, _ string, number int) (*forge.PullRequest, error) {
+			if number == 1 {
+				return &forge.PullRequest{Number: 1, Additions: 15, Deletions: 5, ChangedFiles: 3}, nil
+			}
+			return nil, fmt.Errorf("API error for PR #%d", number)
+		},
+	}
+
+	data := srv.getPRListData("open", 1)
+
+	if len(data.PullRequests) != 2 {
+		t.Fatalf("expected 2 PRs, got %d", len(data.PullRequests))
+	}
+
+	pr1 := data.PullRequests[0]
+	if pr1.Additions != 15 || pr1.Deletions != 5 || pr1.ChangedFiles != 3 {
+		t.Errorf("PR #1: expected enriched stats, got additions=%d deletions=%d changed=%d",
+			pr1.Additions, pr1.Deletions, pr1.ChangedFiles)
+	}
+
+	pr2 := data.PullRequests[1]
+	if pr2.Additions != 0 || pr2.Deletions != 0 || pr2.ChangedFiles != 0 {
+		t.Errorf("PR #2: expected zero stats on failure, got additions=%d deletions=%d changed=%d",
+			pr2.Additions, pr2.Deletions, pr2.ChangedFiles)
+	}
+}
+
+func TestGetPRListData_Labels(t *testing.T) {
+	srv, _ := testServer(t)
+	srv.repoSlug = "owner/repo"
+	srv.forgeClient = &mockForgeClient{
+		listPRs: func(_ context.Context, _, _ string, _ forge.ListPullRequestsOptions) ([]*forge.PullRequest, error) {
+			return []*forge.PullRequest{
+				{
+					Number:    1,
+					Title:     "Labeled PR",
+					State:     "open",
+					Author:    "alice",
+					Labels:    []string{"bug", "priority:high"},
+					CreatedAt: time.Now(),
+				},
+				{
+					Number:    2,
+					Title:     "No Labels",
+					State:     "open",
+					Author:    "bob",
+					CreatedAt: time.Now(),
+				},
+			}, nil
+		},
+		getPR: func(_ context.Context, _, _ string, number int) (*forge.PullRequest, error) {
+			return &forge.PullRequest{Number: number}, nil
+		},
+	}
+
+	data := srv.getPRListData("open", 1)
+
+	if len(data.PullRequests) != 2 {
+		t.Fatalf("expected 2 PRs, got %d", len(data.PullRequests))
+	}
+
+	pr1 := data.PullRequests[0]
+	if len(pr1.Labels) != 2 || pr1.Labels[0] != "bug" || pr1.Labels[1] != "priority:high" {
+		t.Errorf("PR #1: expected labels [bug, priority:high], got %v", pr1.Labels)
+	}
+
+	pr2 := data.PullRequests[1]
+	if len(pr2.Labels) != 0 {
+		t.Errorf("PR #2: expected no labels, got %v", pr2.Labels)
 	}
 }
