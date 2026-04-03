@@ -37,25 +37,55 @@ type CompareResponse struct {
 	TokensClass   string           `json:"tokens_class"`
 }
 
+// comparePageData holds all fields the compare template can use.
+type comparePageData struct {
+	ActivePage       string
+	ShowSelector     bool
+	Error            string
+	Runs             []RunSummary
+	Left             RunSummary
+	Right            RunSummary
+	Rows             []CompareStepRow
+	DurationDelta    string
+	DurationClass    string
+	TokensDelta      string
+	TokensClass      string
+	SamePipelineRuns []RunSummary
+}
+
 // handleComparePage handles GET /compare - renders a side-by-side comparison of two runs.
 func (s *Server) handleComparePage(w http.ResponseWriter, r *http.Request) {
 	leftID := r.URL.Query().Get("left")
 	rightID := r.URL.Query().Get("right")
 
 	if leftID == "" || rightID == "" {
-		http.Error(w, "both left and right run IDs are required", http.StatusBadRequest)
+		s.renderComparePage(w, comparePageData{
+			ActivePage:   "runs",
+			ShowSelector: true,
+			Runs:         s.listRecentRuns(),
+		})
 		return
 	}
 
 	leftRun, err := s.store.GetRun(leftID)
 	if err != nil {
-		http.Error(w, "left run not found", http.StatusNotFound)
+		s.renderComparePage(w, comparePageData{
+			ActivePage:   "runs",
+			ShowSelector: true,
+			Error:        "Left run not found: " + leftID,
+			Runs:         s.listRecentRuns(),
+		})
 		return
 	}
 
 	rightRun, err := s.store.GetRun(rightID)
 	if err != nil {
-		http.Error(w, "right run not found", http.StatusNotFound)
+		s.renderComparePage(w, comparePageData{
+			ActivePage:   "runs",
+			ShowSelector: true,
+			Error:        "Right run not found: " + rightID,
+			Runs:         s.listRecentRuns(),
+		})
 		return
 	}
 
@@ -89,17 +119,7 @@ func (s *Server) handleComparePage(w http.ResponseWriter, r *http.Request) {
 		samePipelineRuns = s.listSamePipelineRuns(leftRun.PipelineName, leftID, rightID)
 	}
 
-	data := struct {
-		ActivePage       string
-		Left             RunSummary
-		Right            RunSummary
-		Rows             []CompareStepRow
-		DurationDelta    string
-		DurationClass    string
-		TokensDelta      string
-		TokensClass      string
-		SamePipelineRuns []RunSummary
-	}{
+	s.renderComparePage(w, comparePageData{
 		ActivePage:       "runs",
 		Left:             leftSummary,
 		Right:            rightSummary,
@@ -109,8 +129,11 @@ func (s *Server) handleComparePage(w http.ResponseWriter, r *http.Request) {
 		TokensDelta:      tokensDelta,
 		TokensClass:      tokensClass,
 		SamePipelineRuns: samePipelineRuns,
-	}
+	})
+}
 
+// renderComparePage renders the compare template with the given data.
+func (s *Server) renderComparePage(w http.ResponseWriter, data comparePageData) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl := s.templates["templates/compare.html"]
 	if tmpl == nil {
@@ -121,6 +144,20 @@ func (s *Server) handleComparePage(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[webui] template error rendering compare page: %v", err)
 		http.Error(w, "template error", http.StatusInternalServerError)
 	}
+}
+
+// listRecentRuns fetches recent runs for the compare selector.
+func (s *Server) listRecentRuns() []RunSummary {
+	runs, err := s.store.ListRuns(state.ListRunsOptions{Limit: 50})
+	if err != nil {
+		log.Printf("[webui] compare: failed to list recent runs: %v", err)
+		return nil
+	}
+	summaries := make([]RunSummary, 0, len(runs))
+	for _, r := range runs {
+		summaries = append(summaries, runToSummary(r))
+	}
+	return summaries
 }
 
 // handleAPICompare handles GET /api/compare - returns comparison data as JSON.
