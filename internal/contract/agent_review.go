@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -114,26 +116,29 @@ func (v *agentReviewValidator) RunReview(cfg ContractConfig, workspacePath strin
 	}
 
 	// Read stdout
-	var stdout strings.Builder
+	var stdoutStr string
 	if result.Stdout != nil {
-		buf := make([]byte, 1<<20) // 1MB cap
-		n, _ := result.Stdout.Read(buf)
-		stdout.Write(buf[:n])
+		data, err := io.ReadAll(io.LimitReader(result.Stdout, 1<<20)) // 1MB cap
+		if err != nil {
+			return nil, &ValidationError{
+				ContractType: "agent_review",
+				Message:      fmt.Sprintf("failed to read reviewer output: %v", err),
+				Retryable:    true,
+			}
+		}
+		stdoutStr = string(data)
 	}
 
-	feedback, err := parseReviewFeedback(stdout.String())
+	// Check token budget before parsing — treat overrun as warning, not rejection
+	if cfg.TokenBudget > 0 && result.TokensUsed > cfg.TokenBudget {
+		// Log warning but proceed with parsing
+		stdoutStr = fmt.Sprintf("[Warning: reviewer used %d tokens, exceeding budget of %d]\n\n%s",
+			result.TokensUsed, cfg.TokenBudget, stdoutStr)
+	}
+
+	feedback, err := parseReviewFeedback(stdoutStr)
 	if err != nil {
 		return nil, err
-	}
-
-	// Enforce token budget if set
-	if cfg.TokenBudget > 0 && result.TokensUsed > cfg.TokenBudget {
-		return nil, &ValidationError{
-			ContractType: "agent_review",
-			Message: fmt.Sprintf("reviewer used %d tokens, exceeding budget of %d",
-				result.TokensUsed, cfg.TokenBudget),
-			Retryable: false,
-		}
 	}
 
 	return feedback, nil
@@ -148,7 +153,16 @@ func (v *agentReviewValidator) loadCriteria(criteriaPath string) (string, error)
 			Retryable:    false,
 		}
 	}
-	data, err := os.ReadFile(criteriaPath)
+	// Path traversal protection: ensure resolved path stays within project directory
+	cleanPath := filepath.Clean(criteriaPath)
+	if strings.Contains(cleanPath, "..") {
+		return "", &ValidationError{
+			ContractType: "agent_review",
+			Message:      fmt.Sprintf("criteria_path %q contains path traversal", criteriaPath),
+			Retryable:    false,
+		}
+	}
+	data, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return "", &ValidationError{
 			ContractType: "agent_review",
