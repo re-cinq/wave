@@ -11,12 +11,12 @@
         </span>
         <span class="badge {{statusClass .Status}}">{{.Status}}</span>
     </td>
-    <td>
+    <td class="wrap">
         <div class="run-pipeline-name">{{.PipelineName}}</div>
         {{if .BranchName}}<div class="run-branch"><span class="branch-icon">&#9741;</span> {{.BranchName}}</div>{{end}}
         {{if .InputPreview}}<div class="run-input-preview" title="{{.InputPreview}}">{{.InputPreview}}</div>{{end}}
     </td>
-    <td><a href="/runs/{{.RunID}}">{{.RunID}}</a></td>
+    <td class="run-id-cell"><a href="/runs/{{.RunID}}" title="{{.RunID}}">{{.RunID}}</a></td>
     <td>
         <time datetime="{{formatTimeISO .StartedAt}}" title="{{formatTime .StartedAt}}">{{formatTime .StartedAt}}</time>
     </td>
@@ -25,7 +25,7 @@
         {{if gt .StepsTotal 0}}<span class="run-progress" title="{{.StepsCompleted}}/{{.StepsTotal}} steps completed">{{.StepsCompleted}}/{{.StepsTotal}}</span>{{end}}
     </td>
     <td>{{formatTokens .TotalTokens}}</td>
-    <td>{{range $i, $a := .Adapters}}{{if $i}} {{end}}<span class="badge badge-adapter">{{$a}}</span>{{end}}</td>
-    <td>{{range $i, $m := .Models}}{{if $i}} {{end}}<span class="badge badge-model">{{$m}}</span>{{end}}</td>
+    <td class="pills-cell">{{range $i, $a := .Adapters}}{{if $i}} {{end}}<span class="badge badge-adapter">{{$a}}</span>{{end}}</td>
+    <td class="pills-cell">{{range $i, $m := .Models}}{{if $i}} {{end}}<span class="badge badge-model">{{$m}}</span>{{end}}</td>
 </tr>
 {{end}}

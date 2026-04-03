@@ -637,3 +637,134 @@ func TestValidateThreadFields(t *testing.T) {
 		})
 	}
 }
+func TestValidateAgentReviewContracts(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create a real criteria file for valid tests
+	criteriaFile := "criteria.md"
+	if err := os.WriteFile(filepath.Join(dir, criteriaFile), []byte("# Criteria"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	personas := map[string]bool{"navigator": true, "craftsman": true}
+
+	t.Run("valid config passes", func(t *testing.T) {
+		p := &Pipeline{
+			Steps: []Step{
+				{
+					ID:      "impl",
+					Persona: "craftsman",
+					Handover: HandoverConfig{
+						Contract: ContractConfig{
+							Type:         "agent_review",
+							Persona:      "navigator",
+							CriteriaPath: criteriaFile,
+						},
+					},
+				},
+			},
+		}
+		warnings, err := ValidateAgentReviewContracts(p, personas, dir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		_ = warnings
+	})
+
+	t.Run("missing criteria path fails", func(t *testing.T) {
+		p := &Pipeline{
+			Steps: []Step{
+				{
+					ID:      "impl",
+					Persona: "craftsman",
+					Handover: HandoverConfig{
+						Contract: ContractConfig{
+							Type:    "agent_review",
+							Persona: "navigator",
+							// CriteriaPath missing
+						},
+					},
+				},
+			},
+		}
+		_, err := ValidateAgentReviewContracts(p, personas, dir)
+		if err == nil {
+			t.Fatal("expected error for missing criteria_path")
+		}
+	})
+
+	t.Run("nonexistent criteria file fails", func(t *testing.T) {
+		p := &Pipeline{
+			Steps: []Step{
+				{
+					ID:      "impl",
+					Persona: "craftsman",
+					Handover: HandoverConfig{
+						Contract: ContractConfig{
+							Type:         "agent_review",
+							Persona:      "navigator",
+							CriteriaPath: "nonexistent.md",
+						},
+					},
+				},
+			},
+		}
+		_, err := ValidateAgentReviewContracts(p, personas, dir)
+		if err == nil {
+			t.Fatal("expected error for nonexistent criteria file")
+		}
+	})
+
+	t.Run("unknown reviewer persona fails", func(t *testing.T) {
+		p := &Pipeline{
+			Steps: []Step{
+				{
+					ID:      "impl",
+					Persona: "craftsman",
+					Handover: HandoverConfig{
+						Contract: ContractConfig{
+							Type:         "agent_review",
+							Persona:      "unknown-persona",
+							CriteriaPath: criteriaFile,
+						},
+					},
+				},
+			},
+		}
+		_, err := ValidateAgentReviewContracts(p, personas, dir)
+		if err == nil {
+			t.Fatal("expected error for unknown persona")
+		}
+		if !strings.Contains(err.Error(), "not defined") {
+			t.Errorf("error should mention 'not defined': %v", err)
+		}
+	})
+
+	t.Run("mixed singular and plural emits warning", func(t *testing.T) {
+		p := &Pipeline{
+			Steps: []Step{
+				{
+					ID:      "impl",
+					Persona: "craftsman",
+					Handover: HandoverConfig{
+						Contract: ContractConfig{Type: "test_suite"},
+						Contracts: []ContractConfig{
+							{
+								Type:         "agent_review",
+								Persona:      "navigator",
+								CriteriaPath: criteriaFile,
+							},
+						},
+					},
+				},
+			},
+		}
+		warnings, err := ValidateAgentReviewContracts(p, personas, dir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(warnings) == 0 {
+			t.Error("expected a warning for mixed singular/plural contracts")
+		}
+	})
+}

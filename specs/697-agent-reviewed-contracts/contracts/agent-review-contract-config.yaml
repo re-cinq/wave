@@ -1,0 +1,30 @@
+# Agent Review Contract Configuration Schema
+# This documents the YAML contract for configuring agent_review in pipeline steps.
+#
+# Used in: step.handover.contract or step.handover.contracts[]
+
+# Required fields for type: agent_review
+type: agent_review
+persona: navigator              # Reviewer persona (must differ from step persona)
+criteria_path: .wave/contracts/review-criteria.md  # Review criteria file
+
+# Optional fields
+model: claude-haiku-4-5         # Model override for reviewer (default: persona's model)
+token_budget: 8000              # Max tokens for review (default: unlimited)
+timeout: 120                    # Timeout in seconds (default: 120)
+must_pass: true                 # Hard/soft failure (default: true for agent_review)
+
+# Context sources (optional, controls what the reviewer sees)
+context:
+  - source: git_diff            # Uncommitted diff from step workspace
+    max_size: 51200             # Truncation limit in bytes (default: 50KB)
+  - source: artifact            # Named artifact from prior step
+    artifact: assessment        # Artifact name to inject
+
+# Failure handling
+on_failure: rework              # "fail" | "skip" | "continue" | "rework" | "retry"
+rework_step: rework-impl       # Required when on_failure: rework
+max_retries: 1                  # Re-review cycles after rework (default: 1)
+
+# Threshold (optional, for confidence-based pass/fail)
+threshold: 0.7                  # Minimum confidence to pass (default: 0.0 = verdict-based)

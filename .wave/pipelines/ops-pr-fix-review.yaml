@@ -1,0 +1,383 @@
+kind: WavePipeline
+metadata:
+  name: ops-pr-fix-review
+  description: "Review → triage → fix → push → reply to review comments on a PR"
+  category: composition
+  release: true
+
+chat_context:
+  artifact_summaries:
+    - review-findings
+    - triage-verdict
+    - resolution-summary
+  suggested_questions:
+    - "What review findings were addressed?"
+    - "Which findings were rejected and why?"
+    - "Were all comments replied to?"
+  focus_areas:
+    - "Triage decisions and rationale"
+    - "Fix completeness and test results"
+
+skills:
+  - "{{ project.skill }}"
+  - gh-cli
+  - software-design
+
+requires:
+  tools:
+    - gh
+
+input:
+  source: cli
+  schema:
+    type: string
+    description: "Pull request URL"
+  example: "https://github.com/owner/repo/pull/42"
+
+steps:
+  - id: fetch-review
+    persona: navigator
+    contexts: [configuration]
+    model: claude-haiku
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Extract all review findings for PR: {{ input }}
+
+        ## Step 1: Get PR metadata
+
+        ```bash
+        {{ forge.cli_tool }} {{ forge.pr_command }} view {{ input }} --json number,headRefName,baseRefName,url,title,body
+        ```
+
+        ## Step 2: Get all review feedback
+
+        Collect every source of review feedback:
+
+        ```bash
+        # PR-level comments and formal reviews
+        {{ forge.cli_tool }} {{ forge.pr_command }} view {{ input }} --comments
+        ```
+
+        If `{{ forge.type }}` is `github`, also fetch:
+        ```bash
+        # Inline code review comments (including Copilot)
+        {{ forge.cli_tool }} api repos/{owner}/{repo}/pulls/{number}/comments --jq '.[] | {id: .id, path: .path, line: .original_line, body: .body, user: .user.login, bot: (if .user.type == "Bot" then true else false end)}'
+
+        # All reviews including Copilot (bot accounts with "copilot" in login)
+        {{ forge.cli_tool }} api repos/{owner}/{repo}/pulls/{number}/reviews --jq '.[] | {id: .id, state: .state, body: .body, user: .user.login, bot: (if .user.type == "Bot" then true else false end)}'
+
+        # Review comments for each review (inline suggestions from Copilot)
+        {{ forge.cli_tool }} api repos/{owner}/{repo}/pulls/{number}/comments --jq '.[] | select(.user.login | test("copilot|github-actions|dependabot"; "i")) | {id: .id, path: .path, line: .original_line, body: .body, user: .user.login, in_reply_to_id: .in_reply_to_id}'
+        ```
+
+        IMPORTANT: Include ALL reviewers — human and bot. GitHub Copilot reviews
+        appear as reviews from `github-copilot[bot]` with `user.type == "Bot"`.
+        Treat bot review findings with the same triage process as human reviews.
+
+        ## Step 3: Get the diff
+
+        ```bash
+        {{ forge.cli_tool }} {{ forge.pr_command }} diff {{ input }}
+        ```
+
+        ## Step 4: Produce structured findings
+
+        Extract EVERY finding from the review feedback — do not judge, filter, or prioritize.
+        Structure them as JSON. Include:
+        - PR number, head branch name, repo owner/name
+        - Comment/review IDs for replying later
+        - Each finding with: severity, file, line, description, source (which comment/review)
+
+        Output a structured JSON matching the contract schema.
+    output_artifacts:
+      - name: review-findings
+        path: .wave/output/review-findings.json
+        type: json
+    retry:
+      policy: patient
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/review-findings.json
+        schema_path: .wave/contracts/review-findings.schema.json
+        on_failure: retry
+
+  - id: triage
+    persona: navigator
+    contexts: [configuration, execution]
+    model: claude-sonnet
+    dependencies: [fetch-review]
+    memory:
+      inject_artifacts:
+        - step: fetch-review
+          artifact: review-findings
+          as: raw_findings
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Triage the review findings for PR: {{ input }}
+
+        The `raw_findings` artifact contains all review findings extracted from the PR.
+        Your job is to make judgment calls on each one.
+
+        ## Step 1: Checkout the PR branch and read the actual code
+
+        ```bash
+        HEAD_BRANCH=$(cat .wave/artifacts/raw_findings | jq -r '.head_branch')
+        git fetch origin "$HEAD_BRANCH"
+        git checkout "$HEAD_BRANCH"
+        ```
+
+        For each finding, read the referenced file and line to understand the real context.
+
+        ## Step 2: Classify each finding
+
+        For every finding, decide:
+
+        **accept** — Valid finding, introduced by this PR, worth fixing.
+        **reject** — False positive, misunderstanding, or would make things worse.
+        **defer** — Valid but pre-existing (not introduced by this PR) or out of scope.
+        **skip** — Too risky to change. The fix would touch unrelated code or introduce regressions.
+
+        ## Step 3: Assess risk for accepted findings
+
+        For each accepted finding, assess:
+        - **blast_radius** — how many files/functions does the fix touch?
+        - **test_coverage** — are there existing tests that will catch regressions?
+        - **confidence** — how certain are you the fix is correct?
+
+        ## Step 4: Produce triage verdict
+
+        Output a structured JSON matching the triage verdict schema.
+        Include ONLY accepted findings in the `fixes` array.
+        Include rejected/deferred findings with rationale.
+    output_artifacts:
+      - name: triage-verdict
+        path: .wave/output/triage-verdict.json
+        type: json
+    retry:
+      policy: patient
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/triage-verdict.json
+        schema_path: .wave/contracts/triage-verdict.schema.json
+        on_failure: retry
+
+  - id: apply-fixes
+    persona: craftsman
+    contexts: [execution, delivery]
+    model: claude-sonnet
+    dependencies: [triage]
+    memory:
+      inject_artifacts:
+        - step: triage
+          artifact: triage-verdict
+          as: triage
+        - step: fetch-review
+          artifact: review-findings
+          as: raw_findings
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        Apply review fixes for PR: {{ input }}
+
+        ## Context
+
+        The `triage` artifact contains the triaged review verdict — only **accepted** findings.
+        The `raw_findings` artifact contains the original review data including the PR head branch.
+
+        ## Step 1: Checkout the PR branch
+
+        ```bash
+        HEAD_BRANCH=$(cat .wave/artifacts/triage | jq -r '.head_branch')
+        git fetch origin "$HEAD_BRANCH"
+        git checkout "$HEAD_BRANCH"
+        ```
+
+        ## Step 2: Review the triage verdict
+
+        Read `.wave/artifacts/triage` and understand:
+        - How many fixes are accepted
+        - Their severity and priority order
+        - The `action_detail` for each
+        - The `blast_radius` and `confidence`
+
+        ## Step 3: Apply fixes in priority order
+
+        1. **Critical findings first** — these block the merge
+        2. **Major findings second** — these should all be resolved
+        3. **Minor findings last** — fix if straightforward
+
+        For each fix:
+        - Read the current file at the specified path and line
+        - Apply the **minimal** change that addresses the `action_detail`
+        - Don't refactor or "improve" surrounding code
+        - Don't fix things that aren't in the triage verdict
+
+        ## Step 4: Run tests
+
+        ```bash
+        {{ project.contract_test_command }}
+        ```
+
+        Fix any test failures introduced by your changes.
+
+        ## Step 5: Run linter
+
+        ```bash
+        golangci-lint run ./... 2>&1 | head -50
+        ```
+
+        Fix any lint issues in files you modified.
+
+        ## Step 6: Commit and push
+
+        ```bash
+        # Stage only the files you modified — NOT .wave/, .claude/, or CLAUDE.md
+        git diff --name-only
+        git add $(git diff --name-only)
+        git diff --cached --stat
+
+        git commit -m "fix: address review findings
+
+        $(cat .wave/artifacts/triage | jq -r '.fixes[] | "- [\(.severity)] \(.summary)"' | head -10)"
+
+        git push origin "$HEAD_BRANCH"
+        ```
+
+        ## Constraints
+
+        - Do NOT force push
+        - Do NOT rebase or squash — add a new commit
+        - Do NOT modify files outside the triage verdict
+        - Do NOT `git add -A` — only stage files you explicitly modified
+    retry:
+      policy: aggressive
+      max_attempts: 3
+      on_failure: rework
+      rework_step: retry-fixes
+    handover:
+      contract:
+        type: test_suite
+        command: "{{ project.contract_test_command }}"
+        must_pass: true
+        on_failure: retry
+
+  - id: retry-fixes
+    persona: craftsman
+    rework_only: true
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        The previous fix attempt failed tests. Review the error and fix it.
+        The failure context is injected as an artifact.
+        Focus on the specific error — don't rewrite everything.
+    retry:
+      policy: aggressive
+      max_attempts: 2
+    handover:
+      contract:
+        type: test_suite
+        command: "{{ project.contract_test_command }}"
+        must_pass: true
+        on_failure: fail
+
+  - id: reply-comments
+    persona: navigator
+    contexts: [execution]
+    model: claude-haiku
+    dependencies: [apply-fixes]
+    memory:
+      inject_artifacts:
+        - step: fetch-review
+          artifact: review-findings
+          as: raw_findings
+        - step: triage
+          artifact: triage-verdict
+          as: triage
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Post resolution summaries on PR: {{ input }}
+
+        ## Context
+
+        The `raw_findings` artifact has the original review data including comment/review IDs.
+        The `triage` artifact has the triage decisions for each finding.
+
+        ## Step 1: Get PR number and comment IDs
+
+        ```bash
+        PR_NUMBER=$(cat .wave/artifacts/raw_findings | jq -r '.pr_number')
+        REPO=$(cat .wave/artifacts/raw_findings | jq -r '.repo')
+        echo "PR: $REPO#$PR_NUMBER"
+        ```
+
+        ## Step 2: Reply to each review comment
+
+        For each finding in the triage verdict:
+
+        - **Accepted + fixed**: Reply with what was changed and reference the commit. Use the comment/review ID from raw_findings to reply to the specific comment.
+        - **Accepted + deferred**: Reply explaining why it's deferred and suggest a follow-up issue.
+        - **Rejected**: Reply with the rationale for rejection, citing the actual code context.
+        - **Skipped**: Reply explaining the risk assessment.
+
+        Use the forge CLI to post replies:
+
+        For PR-level review comments:
+        ```bash
+        {{ forge.cli_tool }} api repos/{owner}/{repo}/pulls/{number}/reviews/{review_id}/comments -f body="resolution text" --input -
+        ```
+
+        For inline PR comments:
+        ```bash
+        {{ forge.cli_tool }} api repos/{owner}/{repo}/pulls/comments/{comment_id}/replies -f body="resolution text" --input -
+        ```
+
+        Or for a general PR comment summarizing all resolutions:
+        ```bash
+        {{ forge.cli_tool }} {{ forge.pr_command }} comment {{ input }} --body "resolution summary"
+        ```
+
+        ## Step 3: Post a summary comment
+
+        Post a top-level PR comment summarizing:
+        - Total findings: N
+        - Accepted & fixed: N (list with severity)
+        - Rejected: N (with rationale)
+        - Deferred: N (with follow-up plan)
+        - Test results: pass/fail
+
+        Keep replies concise and professional. Reference specific commits where applicable.
+    output_artifacts:
+      - name: resolution-summary
+        path: .wave/output/resolution-summary.json
+        type: json
+    retry:
+      policy: patient
+      max_attempts: 2
