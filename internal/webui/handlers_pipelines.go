@@ -169,9 +169,14 @@ func (s *Server) handlePipelineDetailPage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Build DAG layout
+	// Build DAG layout — skip rework-only steps (internal retry mechanics)
 	var dagSteps []DAGStepInput
+	excludedSteps := make(map[string]bool)
 	for _, step := range p.Steps {
+		if step.ReworkOnly {
+			excludedSteps[step.ID] = true
+			continue
+		}
 		var contract string
 		if step.Handover.Contract.Type != "" {
 			contract = step.Handover.Contract.Type
@@ -189,6 +194,7 @@ func (s *Server) handlePipelineDetailPage(w http.ResponseWriter, r *http.Request
 			Dependencies: step.Dependencies,
 		})
 	}
+	stripExcludedDeps(dagSteps, excludedSteps)
 
 	// Fetch recent runs for this pipeline
 	var recentRuns []RunSummary

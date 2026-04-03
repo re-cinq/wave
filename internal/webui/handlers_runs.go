@@ -261,11 +261,16 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		eventSummaries[i] = eventToSummary(e)
 	}
 
-	// Compute DAG layout from pipeline definition
+	// Compute DAG layout from pipeline definition — skip rework-only steps
 	var dagLayout *DAGLayout
 	if p, err := loadPipelineYAML(run.PipelineName); err == nil {
 		var dagSteps []DAGStepInput
+		excludedSteps := make(map[string]bool)
 		for _, step := range p.Steps {
+			if step.ReworkOnly {
+				excludedSteps[step.ID] = true
+				continue
+			}
 			status := "pending"
 			if s, ok := stepStatusMap[step.ID]; ok {
 				status = s
@@ -346,6 +351,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 				Edges:        dagEdges,
 			})
 		}
+		stripExcludedDeps(dagSteps, excludedSteps)
 		dagLayout = ComputeDAGLayout(dagSteps)
 	}
 
