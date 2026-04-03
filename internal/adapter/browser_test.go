@@ -477,7 +477,7 @@ func TestIntegrationFormInteraction(t *testing.T) {
 	commands := []BrowserCommand{
 		{Action: "navigate", URL: srv.URL},
 		{Action: "type", Selector: "#name", Value: "testuser"},
-		{Action: "click", Selector: "#submit"},
+		{Action: "click", Selector: "#submit", WaitFor: "#result"},
 		{Action: "get_text", Selector: "#result"},
 	}
 	cmdJSON, _ := json.Marshal(commands)
