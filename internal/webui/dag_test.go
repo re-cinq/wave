@@ -226,6 +226,52 @@ func TestComputeDAGLayout_ReworkOnlyExcluded(t *testing.T) {
 	}
 }
 
+func TestStripExcludedDeps_EmptyExcluded(t *testing.T) {
+	steps := []DAGStepInput{
+		{ID: "a", Dependencies: []string{"b"}, Edges: []DAGEdgeInput{{Target: "c", Condition: "on_fail"}}},
+		{ID: "b"},
+	}
+
+	// nil excluded — should return steps unchanged
+	stripExcludedDeps(steps, nil)
+	if len(steps[0].Dependencies) != 1 || steps[0].Dependencies[0] != "b" {
+		t.Errorf("expected [b] deps for step a after nil excluded, got %v", steps[0].Dependencies)
+	}
+	if len(steps[0].Edges) != 1 || steps[0].Edges[0].Target != "c" {
+		t.Errorf("expected edges unchanged after nil excluded, got %v", steps[0].Edges)
+	}
+
+	// empty map — same behavior
+	stripExcludedDeps(steps, map[string]bool{})
+	if len(steps[0].Dependencies) != 1 || steps[0].Dependencies[0] != "b" {
+		t.Errorf("expected [b] deps for step a after empty excluded, got %v", steps[0].Dependencies)
+	}
+}
+
+func TestComputeDAGLayout_EdgesSkipMissingNodes(t *testing.T) {
+	// An edge targets a node not in the step list (e.g. excluded rework step).
+	// ComputeDAGLayout should silently drop edges to missing nodes.
+	steps := []DAGStepInput{
+		{ID: "a", Edges: []DAGEdgeInput{{Target: "excluded", Condition: "on_fail"}}},
+		{ID: "b", Dependencies: []string{"a"}},
+	}
+
+	layout := ComputeDAGLayout(steps)
+	if layout == nil {
+		t.Fatal("expected non-nil layout")
+	}
+
+	for _, e := range layout.Edges {
+		if e.To == "excluded" {
+			t.Error("edge to non-existent node 'excluded' should have been dropped")
+		}
+	}
+	// Only the a→b dependency edge should exist
+	if len(layout.Edges) != 1 {
+		t.Errorf("expected 1 edge (a→b), got %d", len(layout.Edges))
+	}
+}
+
 func TestAssignLayers(t *testing.T) {
 	steps := []DAGStepInput{
 		{ID: "a"},
