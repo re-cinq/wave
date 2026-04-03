@@ -1,0 +1,239 @@
+/* ============================================
+   re:cinq Brand Theme
+   Version 1.0
+   ============================================ */
+
+/* --- Custom Properties --- */
+:root {
+  /* Primary Palette */
+  --recinq-midnight-navy: #0F1F49;
+  --recinq-crystal-white: #FFFFFF;
+  --recinq-quantum-blue: #0014EB;
+
+  /* Secondary Palette */
+  --recinq-pulse-blue: #5664F4;
+  --recinq-soft-indigo: #8F96F6;
+  --recinq-nebula-light: #E6E8FD;
+  --recinq-neutral-fog: #F2F2F7;
+
+  /* Gradients */
+  --recinq-aurora: linear-gradient(135deg, #E4E6FD 0%, #5664F4 50%, #8F96F6 100%);
+  --recinq-aurora-dark: linear-gradient(135deg, #5664F4 0%, #0F1F49 100%);
+
+  /* Typography */
+  --recinq-font-primary: 'Neue Montreal', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --recinq-font-logo: 'Cold Warm', sans-serif;
+
+  /* Sizing */
+  --recinq-h1-size: 64px;
+  --recinq-h2-size: 40px;
+  --recinq-h3-size: 24px;
+  --recinq-body-size: 16px;
+  --recinq-caption-size: 13px;
+
+  /* Weights */
+  --recinq-weight-light: 300;
+  --recinq-weight-regular: 400;
+  --recinq-weight-medium: 500;
+  --recinq-weight-bold: 700;
+
+  /* Borders & Radius */
+  --recinq-radius-callout: 8px;
+  --recinq-radius-default: 0px;
+  --recinq-border-divider: 1px solid var(--recinq-nebula-light);
+}
+
+/* --- Base --- */
+body {
+  font-family: var(--recinq-font-primary);
+  font-size: var(--recinq-body-size);
+  font-weight: var(--recinq-weight-regular);
+  line-height: 1.5;
+  color: var(--recinq-midnight-navy);
+  background-color: var(--recinq-crystal-white);
+}
+
+/* --- Typography --- */
+h1, .h1 {
+  font-family: var(--recinq-font-primary);
+  font-size: var(--recinq-h1-size);
+  font-weight: var(--recinq-weight-bold);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--recinq-midnight-navy);
+}
+
+h2, .h2 {
+  font-family: var(--recinq-font-primary);
+  font-size: var(--recinq-h2-size);
+  font-weight: var(--recinq-weight-medium);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--recinq-midnight-navy);
+}
+
+h3, .h3 {
+  font-family: var(--recinq-font-primary);
+  font-size: var(--recinq-h3-size);
+  font-weight: var(--recinq-weight-medium);
+  line-height: 1.3;
+  color: var(--recinq-midnight-navy);
+}
+
+p, .body-text {
+  font-size: var(--recinq-body-size);
+  font-weight: var(--recinq-weight-regular);
+  line-height: 1.5;
+}
+
+.caption, small {
+  font-size: var(--recinq-caption-size);
+  font-weight: var(--recinq-weight-light);
+  line-height: 1.4;
+  color: var(--recinq-soft-indigo);
+}
+
+/* --- Links & Buttons --- */
+a {
+  color: var(--recinq-quantum-blue);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.btn-primary {
+  display: inline-block;
+  padding: 12px 28px;
+  background-color: var(--recinq-quantum-blue);
+  color: var(--recinq-crystal-white);
+  font-family: var(--recinq-font-primary);
+  font-weight: var(--recinq-weight-medium);
+  font-size: var(--recinq-body-size);
+  border: none;
+  border-radius: var(--recinq-radius-default);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn-primary:hover {
+  background-color: var(--recinq-pulse-blue);
+}
+
+.btn-secondary {
+  display: inline-block;
+  padding: 12px 28px;
+  background-color: transparent;
+  color: var(--recinq-quantum-blue);
+  font-family: var(--recinq-font-primary);
+  font-weight: var(--recinq-weight-medium);
+  font-size: var(--recinq-body-size);
+  border: 1px solid var(--recinq-quantum-blue);
+  border-radius: var(--recinq-radius-default);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+/* --- Surfaces --- */
+.surface-dark {
+  background: var(--recinq-aurora-dark);
+  color: var(--recinq-crystal-white);
+}
+
+.surface-dark h1,
+.surface-dark h2,
+.surface-dark h3 {
+  color: var(--recinq-crystal-white);
+}
+
+.surface-dark .caption {
+  color: var(--recinq-soft-indigo);
+}
+
+.surface-hero {
+  background: var(--recinq-aurora);
+  color: var(--recinq-crystal-white);
+}
+
+.surface-hero h1,
+.surface-hero h2,
+.surface-hero h3 {
+  color: var(--recinq-crystal-white);
+}
+
+.surface-light {
+  background-color: var(--recinq-neutral-fog);
+  color: var(--recinq-midnight-navy);
+}
+
+.surface-content {
+  background-color: var(--recinq-crystal-white);
+  color: var(--recinq-midnight-navy);
+}
+
+/* --- Components --- */
+.callout {
+  background: var(--recinq-aurora);
+  border-radius: var(--recinq-radius-callout);
+  padding: 24px 32px;
+  color: var(--recinq-crystal-white);
+}
+
+.card {
+  background-color: var(--recinq-crystal-white);
+  border: 1px solid var(--recinq-nebula-light);
+  border-radius: var(--recinq-radius-default);
+  padding: 24px;
+}
+
+.divider {
+  border: none;
+  border-top: var(--recinq-border-divider);
+  margin: 24px 0;
+}
+
+/* --- Tables --- */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--recinq-font-primary);
+}
+
+thead th {
+  font-weight: var(--recinq-weight-bold);
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 2px solid var(--recinq-midnight-navy);
+  color: var(--recinq-midnight-navy);
+}
+
+tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--recinq-nebula-light);
+  font-weight: var(--recinq-weight-regular);
+}
+
+tbody tr:nth-child(even) {
+  background-color: var(--recinq-neutral-fog);
+}
+
+/* --- Brand Patterns (as background) --- */
+.pattern-1 {
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><path d="M0 0h40v40H0z" fill="none"/><path d="M0 0h1v40H0zM40 0h1v40h-1zM0 0v1h40V0zM0 40v1h40v-1z" fill="white" opacity="0.25"/></svg>');
+}
+
+.pattern-2 {
+  background-color: var(--recinq-crystal-white);
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><path d="M0 0h40v40H0z" fill="none"/><path d="M0 0h1v40H0zM40 0h1v40h-1zM0 0v1h40V0zM0 40v1h40v-1z" fill="%238F96F6"/></svg>');
+}
+
+/* --- Print / A4 Document Override --- */
+@media print {
+  :root {
+    --recinq-h1-size: 22pt;
+    --recinq-h2-size: 16pt;
+    --recinq-body-size: 11pt;
+    --recinq-caption-size: 9pt;
+  }
+}

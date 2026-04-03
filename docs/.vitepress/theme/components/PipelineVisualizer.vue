@@ -109,11 +109,11 @@ const mermaidCode = computed(() => {
 
   // Style nodes by persona
   const personaColors: Record<string, string> = {
-    navigator: '#4a90d9',
-    auditor: '#d94a4a',
-    craftsman: '#4ad94a',
-    philosopher: '#d9a44a',
-    summarizer: '#9a4ad9'
+    navigator: '#0014EB',
+    auditor: '#E04040',
+    craftsman: '#10b981',
+    philosopher: '#D9960A',
+    summarizer: '#8F96F6'
   }
 
   pipeline.steps.forEach((step: PipelineStep) => {
@@ -360,9 +360,9 @@ watch(mermaidCode, () => {
   border-radius: 4px;
 }
 
-.legend-color.navigator { background: #4a90d9; }
-.legend-color.auditor { background: #d94a4a; }
-.legend-color.craftsman { background: #4ad94a; }
-.legend-color.philosopher { background: #d9a44a; }
-.legend-color.summarizer { background: #9a4ad9; }
+.legend-color.navigator { background: #0014EB; }
+.legend-color.auditor { background: #E04040; }
+.legend-color.craftsman { background: #10b981; }
+.legend-color.philosopher { background: #D9960A; }
+.legend-color.summarizer { background: #8F96F6; }
 </style>

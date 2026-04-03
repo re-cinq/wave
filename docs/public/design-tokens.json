@@ -1,0 +1,145 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "brand": "re:cinq",
+  "version": "1.0",
+  "color": {
+    "primary": {
+      "midnight-navy": {
+        "value": "#0F1F49",
+        "type": "color",
+        "description": "Primary text, dark backgrounds, layouts"
+      },
+      "crystal-white": {
+        "value": "#FFFFFF",
+        "type": "color",
+        "description": "Light backgrounds, text on dark"
+      },
+      "quantum-blue": {
+        "value": "#0014EB",
+        "type": "color",
+        "description": "Accent for buttons, links, highlights"
+      }
+    },
+    "secondary": {
+      "pulse-blue": {
+        "value": "#5664F4",
+        "type": "color",
+        "description": "Supporting accents, icons, infographics"
+      },
+      "soft-indigo": {
+        "value": "#8F96F6",
+        "type": "color",
+        "description": "Secondary accents, patterns, lighter elements"
+      },
+      "nebula-light": {
+        "value": "#E6E8FD",
+        "type": "color",
+        "description": "Subtle backgrounds, callout blocks"
+      },
+      "neutral-fog": {
+        "value": "#F2F2F7",
+        "type": "color",
+        "description": "Page backgrounds, neutral areas"
+      }
+    },
+    "gradient": {
+      "aurora": {
+        "value": "linear-gradient(135deg, #E4E6FD 0%, #5664F4 50%, #8F96F6 100%)",
+        "type": "gradient",
+        "description": "Hero sections, banners, large background areas"
+      },
+      "aurora-dark": {
+        "value": "linear-gradient(135deg, #5664F4 0%, #0F1F49 100%)",
+        "type": "gradient",
+        "description": "Dark hero sections, cover slides"
+      }
+    }
+  },
+  "typography": {
+    "font-family": {
+      "primary": {
+        "value": "'Neue Montreal', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+        "type": "fontFamily",
+        "description": "All headings and body text"
+      },
+      "logo": {
+        "value": "'Cold Warm', sans-serif",
+        "type": "fontFamily",
+        "description": "Logo wordmark only"
+      }
+    },
+    "heading-1": {
+      "font-family": { "value": "{typography.font-family.primary}" },
+      "font-weight": { "value": "700" },
+      "font-size": { "value": "64px" },
+      "line-height": { "value": "1.1" },
+      "letter-spacing": { "value": "-0.02em" }
+    },
+    "heading-2": {
+      "font-family": { "value": "{typography.font-family.primary}" },
+      "font-weight": { "value": "500" },
+      "font-size": { "value": "40px" },
+      "line-height": { "value": "1.2" },
+      "letter-spacing": { "value": "-0.01em" }
+    },
+    "heading-3": {
+      "font-family": { "value": "{typography.font-family.primary}" },
+      "font-weight": { "value": "500" },
+      "font-size": { "value": "24px" },
+      "line-height": { "value": "1.3" },
+      "letter-spacing": { "value": "0" }
+    },
+    "body": {
+      "font-family": { "value": "{typography.font-family.primary}" },
+      "font-weight": { "value": "400" },
+      "font-size": { "value": "16px" },
+      "line-height": { "value": "1.5" },
+      "letter-spacing": { "value": "0" }
+    },
+    "caption": {
+      "font-family": { "value": "{typography.font-family.primary}" },
+      "font-weight": { "value": "300" },
+      "font-size": { "value": "13px" },
+      "line-height": { "value": "1.4" },
+      "letter-spacing": { "value": "0" }
+    },
+    "document": {
+      "heading-1": { "font-size": { "value": "22pt" } },
+      "heading-2": { "font-size": { "value": "16pt" } },
+      "body": { "font-size": { "value": "11pt" } }
+    }
+  },
+  "spacing": {
+    "logo-clear-space": {
+      "value": "33.33%",
+      "type": "spacing",
+      "description": "1/3 of logomark on all sides"
+    }
+  },
+  "border-radius": {
+    "callout": {
+      "value": "8px",
+      "type": "borderRadius",
+      "description": "Callout and highlight blocks (8-12px)"
+    },
+    "default": {
+      "value": "0px",
+      "type": "borderRadius",
+      "description": "General containers use sharp corners"
+    }
+  },
+  "opacity": {
+    "brand-graphic-colored": {
+      "value": "0.15",
+      "description": "3D leaf on Aurora/Pulse Blue backgrounds (10-20%)"
+    },
+    "brand-graphic-grayscale": {
+      "value": "0.4",
+      "description": "3D leaf grayscale with Soft Light blend (30-50%)"
+    },
+    "pattern-1": {
+      "value": "0.25",
+      "description": "Grid pattern on gradient backgrounds (20-30%)"
+    }
+  }
+}
