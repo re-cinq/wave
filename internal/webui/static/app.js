@@ -133,7 +133,31 @@ function toggleStartForm() {
         dialog.close();
     } else {
         dialog.showModal();
+        // Populate adapter dropdown on first open
+        populateAdapterDropdown();
     }
+}
+
+// Populate adapter dropdown from API
+var adaptersPopulated = false;
+function populateAdapterDropdown() {
+    if (adaptersPopulated) return;
+    var sel = document.getElementById('adapter-select');
+    if (!sel) return;
+    fetchJSON('/api/adapters')
+        .then(function(data) {
+            if (data.adapters && data.adapters.length > 0) {
+                // Keep the "Default" option, add others
+                for (var i = 0; i < data.adapters.length; i++) {
+                    var opt = document.createElement('option');
+                    opt.value = data.adapters[i];
+                    opt.textContent = data.adapters[i];
+                    sel.appendChild(opt);
+                }
+                adaptersPopulated = true;
+            }
+        })
+        .catch(function() { /* ignore */ });
 }
 
 // Start a pipeline via API
@@ -141,6 +165,10 @@ async function startPipeline(e) {
     e.preventDefault();
     const pipeline = document.getElementById('pipeline-select').value;
     const input = document.getElementById('pipeline-input').value;
+    const adapter = document.getElementById('adapter-select').value;
+    const model = document.getElementById('model-input').value.trim();
+    const timeout = parseInt(document.getElementById('timeout-input').value, 10) || 0;
+    const dryRun = document.getElementById('dry-run-checkbox').checked;
     const btn = e.submitter || e.target.querySelector('[type="submit"]');
 
     if (!pipeline) {
@@ -148,12 +176,24 @@ async function startPipeline(e) {
         return false;
     }
 
+    var body = {input: input};
+    if (adapter) body.adapter = adapter;
+    if (model) body.model = model;
+    if (timeout > 0) body.timeout = timeout;
+    if (dryRun) body.dry_run = true;
+    // Step selection
+    if (typeof getSelectedSteps === 'function') {
+        var stepSel = getSelectedSteps();
+        if (stepSel.steps) body.steps = stepSel.steps;
+        if (stepSel.exclude) body.exclude = stepSel.exclude;
+    }
+
     setButtonLoading(btn, true);
     try {
         var data = await fetchJSON('/api/pipelines/' + encodeURIComponent(pipeline) + '/start', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({input: input})
+            body: JSON.stringify(body)
         });
         showToast('Pipeline started: ' + (data.run_id || pipeline), 'success', 3000);
         var dialog = document.getElementById('start-dialog');

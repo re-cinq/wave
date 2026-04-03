@@ -991,6 +991,84 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     gap: 0.35rem;
 }
 
+/* Start form: form row for side-by-side fields */
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+.form-group-checkbox {
+    display: flex;
+    align-items: flex-end;
+    padding-bottom: 0.3rem;
+}
+.form-group-checkbox label {
+    display: flex !important;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+.form-group-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+/* Start form: step list preview */
+.pipeline-step-list {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--color-border);
+}
+.pipeline-step-list-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.35rem;
+}
+.pipeline-step-list-items {
+    margin: 0;
+    padding-left: 1.25rem;
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+}
+.pipeline-step-list-items li {
+    padding: 0.15rem 0;
+}
+.pipeline-step-list-items .step-name {
+    color: var(--color-text);
+    font-weight: 500;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+}
+.pipeline-step-list-items .step-persona {
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+}
+.pipeline-step-list-items .step-artifacts {
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    font-style: italic;
+}
+.pipeline-step-select-header {
+    margin-bottom: 0.35rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid var(--color-border);
+}
+.pipeline-step-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.35rem;
+    cursor: pointer;
+}
+.pipeline-step-check input[type="checkbox"] {
+    margin-top: 0.2rem;
+    cursor: pointer;
+}
+
 /* Diff Coloring */
 .additions { color: var(--color-completed); font-weight: 600; }
 .deletions { color: var(--color-failed); font-weight: 600; }
@@ -1132,6 +1210,8 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .step-log-chevron { display: inline-block; width: 1.2em; text-align: center; font-size: 0.8rem; color: var(--color-text-muted); transition: transform 0.15s ease; }
 .step-log { position: relative; overflow: hidden; transition: max-height 0.2s ease; z-index: 0; }
 .step-collapsed .step-log { max-height: 0; overflow: hidden; }
+.step-pending { opacity: 0.5; }
+.step-pending .step-header { cursor: default; }
 .step-log-content { contain: layout style; padding: 0; font-family: var(--font-mono); font-size: 0.75rem; max-height: 500px; overflow-y: auto; background: var(--color-bg); }
 .log-empty { padding: 0.75rem 1rem; color: var(--color-text-muted); font-style: italic; font-size: 0.85rem; }
 
@@ -1318,6 +1398,19 @@ mark.search-current { background: rgba(229, 192, 123, 0.7); outline: 1px solid v
     margin-bottom: 1rem; padding: 0.625rem 1rem;
     background: var(--color-bg-secondary); border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
+}
+.run-summary-primary {
+    display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; align-items: baseline;
+}
+.run-summary-secondary summary {
+    cursor: pointer; font-size: 0.75rem; color: var(--color-text-muted);
+    font-weight: 500; user-select: none;
+}
+.run-summary-secondary summary:hover { color: var(--color-text-secondary); }
+.run-summary-secondary[open] summary { display: none; }
+.run-summary-secondary-content {
+    display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; align-items: baseline;
+    padding-top: 0.5rem; border-top: 1px solid var(--color-border);
 }
 .run-summary-stats {
     display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; align-items: baseline;
