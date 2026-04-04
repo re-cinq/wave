@@ -27,7 +27,7 @@ steps:
   - id: scan
     persona: navigator
     contexts: [security]
-    model: claude-haiku
+    model: cheapest
     workspace:
       mount:
         - source: ./

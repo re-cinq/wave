@@ -21,7 +21,7 @@ input:
 steps:
   - id: scan
     persona: "{{ forge.type }}-analyst"
-    model: claude-haiku
+    model: cheapest
     workspace:
       mount:
         - source: ./
