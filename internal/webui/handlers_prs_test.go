@@ -391,3 +391,167 @@ func TestGetPRListData_Labels(t *testing.T) {
 		t.Errorf("PR #2: expected no labels, got %v", pr2.Labels)
 	}
 }
+
+func TestGetPRListData_EmptyList(t *testing.T) {
+	srv, _ := testServer(t)
+	srv.repoSlug = "owner/repo"
+	srv.forgeClient = &mockForgeClient{
+		listPRs: func(_ context.Context, _, _ string, _ forge.ListPullRequestsOptions) ([]*forge.PullRequest, error) {
+			return []*forge.PullRequest{}, nil
+		},
+	}
+
+	data := srv.getPRListData("open", 1)
+
+	if len(data.PullRequests) != 0 {
+		t.Errorf("expected 0 PRs, got %d", len(data.PullRequests))
+	}
+	if data.HasMore {
+		t.Error("expected HasMore=false for empty list")
+	}
+	if data.Message != "" {
+		t.Errorf("expected no error message, got %q", data.Message)
+	}
+}
+
+func TestGetPRListData_AllEnrichmentsFail(t *testing.T) {
+	srv, _ := testServer(t)
+	srv.repoSlug = "owner/repo"
+	srv.forgeClient = &mockForgeClient{
+		listPRs: func(_ context.Context, _, _ string, _ forge.ListPullRequestsOptions) ([]*forge.PullRequest, error) {
+			return []*forge.PullRequest{
+				{Number: 1, Title: "PR 1", State: "open", Author: "alice", CreatedAt: time.Now()},
+				{Number: 2, Title: "PR 2", State: "open", Author: "bob", CreatedAt: time.Now()},
+			}, nil
+		},
+		getPR: func(_ context.Context, _, _ string, _ int) (*forge.PullRequest, error) {
+			return nil, fmt.Errorf("API rate limited")
+		},
+	}
+
+	data := srv.getPRListData("open", 1)
+
+	if len(data.PullRequests) != 2 {
+		t.Fatalf("expected 2 PRs, got %d", len(data.PullRequests))
+	}
+	for i, pr := range data.PullRequests {
+		if pr.Additions != 0 || pr.Deletions != 0 || pr.ChangedFiles != 0 {
+			t.Errorf("PR #%d: expected zero stats on failure, got additions=%d deletions=%d changed=%d",
+				i+1, pr.Additions, pr.Deletions, pr.ChangedFiles)
+		}
+	}
+}
+
+func TestEnrichPRStats_EmptySlice(t *testing.T) {
+	called := false
+	client := &mockForgeClient{
+		getPR: func(_ context.Context, _, _ string, _ int) (*forge.PullRequest, error) {
+			called = true
+			return nil, nil
+		},
+	}
+
+	enrichPRStats(context.Background(), client, "owner", "repo", nil)
+
+	if called {
+		t.Error("expected getPR not to be called for empty slice")
+	}
+}
+
+func TestEnrichPRStats_CancelledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+
+	prs := []*forge.PullRequest{
+		{Number: 1, Title: "PR 1"},
+		{Number: 2, Title: "PR 2"},
+	}
+
+	client := &mockForgeClient{
+		getPR: func(ctx context.Context, _, _ string, _ int) (*forge.PullRequest, error) {
+			return nil, ctx.Err()
+		},
+	}
+
+	enrichPRStats(ctx, client, "owner", "repo", prs)
+
+	for _, pr := range prs {
+		if pr.Additions != 0 || pr.Deletions != 0 || pr.ChangedFiles != 0 {
+			t.Errorf("PR #%d: expected zero stats with cancelled context, got additions=%d deletions=%d changed=%d",
+				pr.Number, pr.Additions, pr.Deletions, pr.ChangedFiles)
+		}
+	}
+}
+
+func TestEnrichPRStats_Normal(t *testing.T) {
+	prs := []*forge.PullRequest{
+		{Number: 1, Title: "PR 1"},
+		{Number: 2, Title: "PR 2"},
+	}
+
+	client := &mockForgeClient{
+		getPR: func(_ context.Context, _, _ string, number int) (*forge.PullRequest, error) {
+			return &forge.PullRequest{
+				Number:       number,
+				Additions:    number * 10,
+				Deletions:    number * 5,
+				ChangedFiles: number * 2,
+			}, nil
+		},
+	}
+
+	enrichPRStats(context.Background(), client, "owner", "repo", prs)
+
+	if prs[0].Additions != 10 || prs[0].Deletions != 5 || prs[0].ChangedFiles != 2 {
+		t.Errorf("PR #1: expected 10/5/2, got %d/%d/%d", prs[0].Additions, prs[0].Deletions, prs[0].ChangedFiles)
+	}
+	if prs[1].Additions != 20 || prs[1].Deletions != 10 || prs[1].ChangedFiles != 4 {
+		t.Errorf("PR #2: expected 20/10/4, got %d/%d/%d", prs[1].Additions, prs[1].Deletions, prs[1].ChangedFiles)
+	}
+}
+
+func TestGetPRListData_PaginationTruncation(t *testing.T) {
+	srv, _ := testServer(t)
+	srv.repoSlug = "owner/repo"
+
+	// Generate prsPerPage+1 (51) PRs
+	srv.forgeClient = &mockForgeClient{
+		listPRs: func(_ context.Context, _, _ string, _ forge.ListPullRequestsOptions) ([]*forge.PullRequest, error) {
+			prs := make([]*forge.PullRequest, prsPerPage+1)
+			for i := range prs {
+				prs[i] = &forge.PullRequest{
+					Number:    i + 1,
+					Title:     fmt.Sprintf("PR %d", i+1),
+					State:     "open",
+					Author:    "dev",
+					CreatedAt: time.Now(),
+				}
+			}
+			return prs, nil
+		},
+		getPR: func(_ context.Context, _, _ string, number int) (*forge.PullRequest, error) {
+			return &forge.PullRequest{
+				Number:       number,
+				Additions:    number,
+				Deletions:    number,
+				ChangedFiles: 1,
+			}, nil
+		},
+	}
+
+	data := srv.getPRListData("open", 1)
+
+	if len(data.PullRequests) != prsPerPage {
+		t.Fatalf("expected %d PRs, got %d", prsPerPage, len(data.PullRequests))
+	}
+	if !data.HasMore {
+		t.Error("expected HasMore=true when more than prsPerPage results")
+	}
+
+	// Verify enrichment was applied to truncated set
+	for i, pr := range data.PullRequests {
+		if pr.ChangedFiles != 1 {
+			t.Errorf("PR %d: expected ChangedFiles=1 (enriched), got %d", i+1, pr.ChangedFiles)
+		}
+	}
+}

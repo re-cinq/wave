@@ -270,7 +270,9 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 		prs = prs[:prsPerPage]
 	}
 
-	enrichPRStats(ctx, s.forgeClient, owner, repo, prs)
+	enrichCtx, enrichCancel := context.WithTimeout(context.Background(), timeouts.ForgeAPI)
+	defer enrichCancel()
+	enrichPRStats(enrichCtx, s.forgeClient, owner, repo, prs)
 
 	var summaries []PRSummary
 	for _, pr := range prs {
