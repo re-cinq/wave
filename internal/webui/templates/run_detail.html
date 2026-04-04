@@ -384,6 +384,30 @@ function expandAllLogs() {
     });
 }
 
+// Filter log lines by level (all, error, warning)
+function filterLogLevel(level, btn) {
+    // Update active button state
+    document.querySelectorAll('.log-level-btn').forEach(function(b) { b.classList.remove('log-level-active'); });
+    if (btn) btn.classList.add('log-level-active');
+
+    var patterns = {
+        all: null,
+        error: /\b(error|fatal|panic|FAIL|failed|ERR\b)/i,
+        warning: /\b(warn|warning|WARN)\b/i
+    };
+    var regex = patterns[level];
+
+    document.querySelectorAll('.log-line').forEach(function(line) {
+        if (!regex) {
+            line.style.display = '';
+        } else {
+            var content = line.querySelector('.log-content');
+            var text = content ? content.textContent : '';
+            line.style.display = regex.test(text) ? '' : 'none';
+        }
+    });
+}
+
 // formatArtifactContent adds line numbers and highlights error/warning patterns.
 function formatArtifactContent(content) {
     if (!content) return '';

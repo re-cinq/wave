@@ -2289,6 +2289,13 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
     text-overflow: ellipsis; max-width: 100%; writing-mode: vertical-rl;
     transform: rotate(180deg); height: 48px; line-height: 1;
 }
+.analytics-legend {
+    display: flex; flex-wrap: wrap; gap: 0.75rem;
+    margin-top: 0.75rem; padding-top: 0.75rem;
+    border-top: 1px solid var(--color-border);
+}
+.analytics-legend-item { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; color: var(--color-text-muted); }
+.analytics-legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
 
 /* Rank list (pipelines / personas) */
 .analytics-rank-list { display: flex; flex-direction: column; gap: 0.75rem; }
@@ -2621,3 +2628,14 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
         justify-content: center;
     }
 }
+
+/* Ontology collapsible contexts */
+.ontology-context { padding: 0; }
+.ontology-context[open] { padding: 1.25rem; }
+.ontology-context-summary {
+    cursor: pointer; padding: 1.25rem; list-style: none;
+    display: block;
+}
+.ontology-context-summary::-webkit-details-marker { display: none; }
+.ontology-context-summary::marker { display: none; content: ''; }
+.ontology-context[open] > .ontology-context-summary { padding-bottom: 0; }
