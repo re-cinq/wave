@@ -31,7 +31,7 @@ hooks:
 steps:
   - id: specify
     persona: implementer
-    model: claude-haiku
+    model: cheapest
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -56,7 +56,7 @@ steps:
 
   - id: clarify
     persona: implementer
-    model: claude-haiku
+    model: cheapest
     dependencies: [specify]
     memory:
       inject_artifacts:
@@ -173,7 +173,7 @@ steps:
 
   - id: analyze
     persona: implementer
-    model: claude-haiku
+    model: cheapest
     dependencies: [checklist]
     memory:
       inject_artifacts:
@@ -228,7 +228,7 @@ steps:
         - type: agent_review
           persona: navigator
           criteria_path: .wave/contracts/impl-review-criteria.md
-          model: claude-haiku-4-5-20251001
+          model: cheapest
           token_budget: 8000
           timeout: 90s
           context:

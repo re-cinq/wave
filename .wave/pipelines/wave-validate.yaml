@@ -28,7 +28,7 @@ steps:
   - id: check-config
     persona: navigator
     contexts: [configuration, delivery]
-    model: claude-haiku
+    model: cheapest
     workspace:
       mount:
         - source: ./
@@ -87,7 +87,7 @@ steps:
   # Step 5a: Fix path (only reached on test failure) — validates loop + thread
   - id: diagnose-failure
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     thread: fix-loop
     dependencies: [test-gate]
     max_visits: 2
@@ -154,7 +154,7 @@ steps:
       contract:
         type: llm_judge
         source: .wave/output/validation-report.md
-        model: claude-haiku
+        model: cheapest
         criteria:
           - "Report covers all 8 feature categories"
           - "Each feature has a clear VERIFIED or UNTESTED status"

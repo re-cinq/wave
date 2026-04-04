@@ -12,7 +12,7 @@ input:
 steps:
   - id: succeed
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     exec:
       type: prompt
       source: "Say 'hello' and nothing else. Output to .wave/output/hello.txt"

@@ -23,7 +23,7 @@ steps:
   - id: collect-inventory
     persona: "{{ forge.type }}-analyst"
     max_concurrent_agents: 3
-    model: claude-haiku
+    model: cheapest
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -113,7 +113,7 @@ steps:
 
   - id: audit-items
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     dependencies: [collect-inventory]
     memory:
       inject_artifacts:

@@ -15,7 +15,7 @@ input:
 steps:
   - id: analyze
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     workspace:
       mount:
         - source: ./

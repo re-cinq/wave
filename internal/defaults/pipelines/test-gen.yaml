@@ -24,7 +24,7 @@ chat_context:
 steps:
   - id: analyze-coverage
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     workspace:
       mount:
         - source: ./
@@ -111,7 +111,7 @@ steps:
 
   - id: verify-coverage
     persona: reviewer
-    model: claude-haiku
+    model: cheapest
     dependencies: [check-quality]
     exec:
       type: prompt

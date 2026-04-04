@@ -19,7 +19,7 @@ input:
 steps:
   - id: scan
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     workspace:
       mount:
         - source: ./
@@ -80,7 +80,7 @@ steps:
 
   - id: compose-report
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     dependencies: [scan]
     memory:
       inject_artifacts:
