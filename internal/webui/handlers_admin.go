@@ -73,8 +73,9 @@ func (s *Server) handleAPIAdminConfig(w http.ResponseWriter, _ *http.Request) {
 type adminCredentialsResponse map[string]bool
 
 // handleAPIAdminCredentials handles GET /api/admin/credentials.
+// Only returns keys that are actually set, to avoid exposing the full credential surface.
 func (s *Server) handleAPIAdminCredentials(w http.ResponseWriter, _ *http.Request) {
-	keys := []string{
+	allKeys := []string{
 		"ANTHROPIC_API_KEY",
 		"GH_TOKEN",
 		"GITLAB_TOKEN",
@@ -85,9 +86,11 @@ func (s *Server) handleAPIAdminCredentials(w http.ResponseWriter, _ *http.Reques
 		"GOOGLE_APPLICATION_CREDENTIALS",
 	}
 
-	resp := make(adminCredentialsResponse, len(keys))
-	for _, key := range keys {
-		resp[key] = os.Getenv(key) != ""
+	resp := make(adminCredentialsResponse)
+	for _, key := range allKeys {
+		if os.Getenv(key) != "" {
+			resp[key] = true
+		}
 	}
 
 	writeJSON(w, http.StatusOK, resp)

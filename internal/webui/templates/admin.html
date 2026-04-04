@@ -33,7 +33,7 @@
 <!-- Credentials -->
 <div class="card" id="credentials-section" style="margin-bottom: 1.5rem;">
     <h3>Credential Status</h3>
-    <p style="color: var(--color-text-muted); margin-bottom: 0.75rem;">Checks whether environment variables are set (values are never exposed).</p>
+    <p style="color: var(--color-text-muted); margin-bottom: 0.75rem;">Only configured credentials are shown (values are never exposed).</p>
     <table class="table">
             <thead>
                 <tr><th>Variable</th><th>Status</th></tr>
@@ -139,19 +139,21 @@
             document.getElementById('audit-body').innerHTML = '<tr><td colspan="5" style="color: var(--color-btn-danger);">Failed to load audit log</td></tr>';
         });
 
-    // Load credentials
+    // Load credentials (only set keys are returned)
     fetch('/api/admin/credentials')
         .then(r => r.json())
         .then(creds => {
             const body = document.getElementById('credentials-body');
             body.innerHTML = '';
-            Object.keys(creds).sort().forEach(function(key) {
-                var present = creds[key];
+            const keys = Object.keys(creds).sort();
+            if (keys.length === 0) {
+                body.innerHTML = '<tr><td colspan="2" style="color: var(--color-text-muted);">No credentials configured</td></tr>';
+                return;
+            }
+            keys.forEach(function(key) {
                 var tr = document.createElement('tr');
                 tr.innerHTML = '<td><code>' + escHtml(key) + '</code></td><td>' +
-                    (present
-                        ? '<span class="badge" style="background: var(--color-completed); color: white;">Set</span>'
-                        : '<span class="badge" style="background: var(--color-btn-danger, #dc3545); color: white;">Not set</span>')
+                    '<span class="badge" style="background: var(--color-completed); color: white;">Set</span>'
                     + '</td>';
                 body.appendChild(tr);
             });
