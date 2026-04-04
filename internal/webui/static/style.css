@@ -1699,6 +1699,10 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .badge-model { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 2em; font-weight: 600; letter-spacing: 0.02em; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
 .badge-adapter { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 2em; font-weight: 600; letter-spacing: 0.02em; background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); text-transform: uppercase; font-size: 0.6rem; }
 
+/* Inline SVG icons */
+.icon-inline { width: 1em; height: 1em; vertical-align: -0.125em; display: inline-block; }
+.badge .icon-inline { margin-right: 0.2em; }
+
 /* Step type detail sections */
 .step-type-detail { padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; border-radius: var(--radius-sm); font-size: 0.8rem; }
 .step-type-gate-detail { background: rgba(245, 158, 11, 0.06); border: 1px solid rgba(245, 158, 11, 0.15); }

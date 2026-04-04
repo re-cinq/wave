@@ -68,6 +68,8 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		"subtract":         func(a, b int) int { return a - b },
 		"smoothnessLabel":  smoothnessLabel,
 		"frictionLabel":    frictionLabel,
+		"adapterIcon":      adapterIcon,
+		"forgeIcon":        forgeIcon,
 		"pluralize": func(n int, singular, plural string) string {
 			if n == 1 {
 				return singular
