@@ -331,28 +331,6 @@ function filterEvents(kind, btn) {
     });
 }
 
-// Log level filter
-function filterLogLevel(level, btn) {
-    document.querySelectorAll('.log-level-btn').forEach(function(b) { b.classList.remove('log-level-active'); });
-    btn.classList.add('log-level-active');
-    document.querySelectorAll('.step-log-content .log-line').forEach(function(line) {
-        if (level === 'all') {
-            line.style.display = '';
-        } else {
-            var content = line.querySelector('.log-content');
-            if (!content) { line.style.display = 'none'; return; }
-            var text = content.textContent || '';
-            if (level === 'error' && /\b(error|fatal|panic|FAIL)\b/i.test(text)) {
-                line.style.display = '';
-            } else if (level === 'warning' && /\b(warn|warning|WARN)\b/i.test(text)) {
-                line.style.display = '';
-            } else {
-                line.style.display = 'none';
-            }
-        }
-    });
-}
-
 // Line wrap toggle
 function toggleLogWrap(btn) {
     var logs = document.querySelectorAll('.step-log-content');
