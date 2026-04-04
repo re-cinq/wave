@@ -38,7 +38,7 @@
         <span class="run-stat"><span class="run-stat-label">Duration</span> <span class="run-stat-value"{{if eq .Run.Status "running"}} data-live-timer="true" data-started-at="{{.Run.StartedAt.Format "2006-01-02T15:04:05Z07:00"}}"{{end}}>{{if .Run.Duration}}{{.Run.Duration}}{{else if eq .Run.Status "running"}}0s{{else}}-{{end}}</span></span>
         <span class="run-stat"><span class="run-stat-label">Steps</span> <span class="run-stat-value">{{.Run.StepsCompleted}}/{{.Run.StepsTotal}}</span></span>
         <span class="run-stat"><span class="run-stat-label">Tokens</span> <span class="run-stat-value">{{formatTokens .Run.TotalTokens}}</span></span>
-        {{if .Adapters}}<span class="run-stat"><span class="run-stat-label">Adapters</span> <span class="run-stat-value">{{range $i, $a := .Adapters}}<span class="badge badge-adapter">{{$a}}</span>{{end}}</span></span>{{end}}
+        {{if .Adapters}}<span class="run-stat"><span class="run-stat-label">Adapters</span> <span class="run-stat-value">{{range $i, $a := .Adapters}}<span class="badge badge-adapter">{{adapterIcon $a}}{{$a}}</span>{{end}}</span></span>{{end}}
         {{if .Models}}<span class="run-stat"><span class="run-stat-label">Models</span> <span class="run-stat-value">{{range $i, $m := .Models}}<span class="badge badge-model">{{$m}}</span>{{end}}</span></span>{{end}}
     </div>
     <div class="progress-bar progress-bar-sm">
