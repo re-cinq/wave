@@ -25,7 +25,7 @@ steps:
   # Step 1: Detect forge and verify template variables resolve
   - id: detect-forge
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     max_concurrent_agents: 3
     contexts: [configuration]
     workspace:
@@ -189,7 +189,7 @@ steps:
   # Step 5: Synthesize results — LLM reviews all checks
   - id: synthesize
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     contexts: [quality]
     dependencies: [detect-forge, verify-cli, verify-auth, test-api]
     thread: forge-test

@@ -18,7 +18,7 @@ steps:
   - id: scan-changes
     persona: navigator
     max_concurrent_agents: 3
-    model: claude-haiku
+    model: cheapest
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"

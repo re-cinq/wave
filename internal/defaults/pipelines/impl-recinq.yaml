@@ -75,7 +75,7 @@ steps:
   # ── Diamond 1: Discover (DIVERGENT) ──────────────────────────────────
   - id: diverge
     persona: provocateur
-    model: claude-haiku
+    model: cheapest
     dependencies: [gather]
     memory:
       inject_artifacts:

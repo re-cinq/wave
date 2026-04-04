@@ -14,7 +14,7 @@ input:
 steps:
   - id: explore
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     workspace:
       mount:
         - source: ./
@@ -62,7 +62,7 @@ steps:
 
   - id: analyze
     persona: planner
-    model: claude-haiku
+    model: cheapest
     dependencies: [explore]
     memory:
       inject_artifacts:

@@ -62,7 +62,7 @@ steps:
 
   - id: analyze-topics
     persona: researcher
-    model: claude-haiku
+    model: cheapest
     dependencies: [fetch-issue]
     memory:
       inject_artifacts:
@@ -109,7 +109,7 @@ steps:
 
   - id: research-topics
     persona: researcher
-    model: claude-haiku
+    model: cheapest
     max_concurrent_agents: 5
     dependencies: [analyze-topics]
     memory:

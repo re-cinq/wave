@@ -35,7 +35,7 @@ steps:
   - id: diff-analysis
     persona: navigator
     contexts: [execution]
-    model: claude-haiku
+    model: cheapest
     workspace:
       mount:
         - source: ./
@@ -115,7 +115,7 @@ steps:
       contract:
         type: llm_judge
         source: .wave/output/security-review.md
-        model: claude-haiku
+        model: cheapest
         criteria:
           - "Identifies injection vulnerabilities (SQL, command, XSS) if present in the diff"
           - "Checks for hardcoded credentials or secrets"
@@ -159,7 +159,7 @@ steps:
 
   - id: summary
     persona: summarizer
-    model: claude-haiku
+    model: cheapest
     dependencies: [security-review, quality-review]
     memory:
       inject_artifacts:

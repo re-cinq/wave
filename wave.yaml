@@ -648,7 +648,3 @@ runtime:
         warn_at: 25.0
     routing:
         auto_route: true
-        complexity_map:
-            cheapest: opencode/big-pickle
-            fastest: opencode/big-pickle
-            strongest: opencode/big-pickle
