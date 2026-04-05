@@ -343,6 +343,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
             <span class="badge {{statusClass .Run.Status}}">{{.Run.Status}}</span>
         </h1>
         {{if .PipelineDescription}}<p class="persona-desc" style="margin:0.1rem 0 0;font-size:0.75rem;">{{.PipelineDescription}}</p>{{end}}
+        <p style="margin:0;font-size:0.65rem;color:var(--color-text-muted);font-family:var(--font-mono);">{{.Run.RunID}}</p>
     </div>
     <div class="actions">
         {{if eq .Run.Status "running"}}<button class="btn btn-sm" style="border-color:rgba(239,68,68,0.4);color:#fca5a5;" onclick="cancelRun('{{.Run.RunID}}', this)">Stop Pipeline</button>{{end}}
@@ -352,11 +353,16 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 
 <!-- Stats + secondary nav on same level -->
 <div class="v2-stats">
+    <span title="Started at {{.Run.FormattedStartedAt}}"><b>{{.Run.FormattedStartedAt}}</b></span>
+    <span style="color:var(--color-text-muted);">·</span>
     <span><b{{if eq .Run.Status "running"}} data-live-timer="true" data-started-at="{{.Run.StartedAt.Format "2006-01-02T15:04:05Z07:00"}}"{{end}}>{{if .Run.Duration}}{{.Run.Duration}}{{else}}-{{end}}</b></span>
+    <span style="color:var(--color-text-muted);">·</span>
     <span><b>{{.Run.StepsCompleted}}/{{.Run.StepsTotal}}</b> steps</span>
+    <span style="color:var(--color-text-muted);">·</span>
     <span><b>{{formatTokens .Run.TotalTokens}}</b> tok</span>
     {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{.}}</span>{{end}}
     {{range .Models}}<span class="badge badge-model">{{.}}</span>{{end}}
+    {{if .Run.BranchName}}<span style="color:var(--color-text-muted);">·</span><code style="font-size:0.68rem;color:var(--color-text-secondary);">{{.Run.BranchName}}</code>{{end}}
     <span style="margin-left:auto;display:flex;gap:0.15rem;">
         {{if .Events}}<button class="v2-sec-tab" onclick="v2Tab('events',this)">Events ({{len .Events}})</button>{{end}}
         <button class="v2-sec-tab" onclick="v2Tab('retro',this)">Retro</button>
