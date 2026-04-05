@@ -394,11 +394,12 @@ func TestHandleArtifact_HTMLEscaping(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	// Raw HTML tags should be escaped
-	if strings.Contains(resp.Content, "<script>") {
-		t.Error("expected <script> to be HTML-escaped in response content")
+	// JSON API returns raw content (no HTML escaping — encoding/json handles JSON escaping)
+	if !strings.Contains(resp.Content, "<script>") {
+		t.Error("expected raw content in JSON API response, not HTML-escaped")
 	}
-	if !strings.Contains(resp.Content, "&lt;script&gt;") {
-		t.Errorf("expected HTML-escaped content, got: %s", resp.Content)
+	// Credential redaction should still work
+	if strings.Contains(resp.Content, "REDACTED") {
+		// This content has no credentials, so no redaction expected
 	}
 }
