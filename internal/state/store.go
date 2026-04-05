@@ -739,7 +739,7 @@ func (s *stateStore) ListRuns(opts ListRunsOptions) ([]RunRecord, error) {
 	// Cursor-based pagination: return runs before the cursor position
 	if opts.BeforeUnix > 0 {
 		if opts.BeforeRunID != "" {
-			query += " AND (started_at < ? OR (started_at = ? AND id < ?))"
+			query += " AND (started_at < ? OR (started_at = ? AND run_id < ?))"
 			args = append(args, opts.BeforeUnix, opts.BeforeUnix, opts.BeforeRunID)
 		} else {
 			query += " AND started_at < ?"

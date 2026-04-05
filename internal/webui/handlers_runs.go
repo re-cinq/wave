@@ -133,32 +133,21 @@ func (s *Server) handleAPIRunDetail(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// handleRunsPage handles GET /runs - serves the HTML run list page.
+// handleRunsPage serves GET /runs — runs list with Fat Gantt design.
 func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	cursor, err := decodeCursor(r.URL.Query().Get("cursor"))
 	if err != nil {
 		log.Printf("[webui] invalid cursor parameter: %v", err)
 	}
-
 	limit := parsePageSize(r)
 	status := r.URL.Query().Get("status")
-	pipeline := r.URL.Query().Get("pipeline")
-	sinceStr := r.URL.Query().Get("since")
-	search := r.URL.Query().Get("search")
+	pipelineFilter := r.URL.Query().Get("pipeline")
 
 	opts := state.ListRunsOptions{
 		Status:       status,
-		PipelineName: pipeline,
+		PipelineName: pipelineFilter,
 		Limit:        limit + 1,
 	}
-
-	if sinceStr != "" {
-		t, err := time.Parse("2006-01-02", sinceStr)
-		if err == nil {
-			opts.SinceUnix = t.Unix()
-		}
-	}
-
 	if cursor != nil {
 		opts.BeforeUnix = cursor.Timestamp
 		opts.BeforeRunID = cursor.RunID
@@ -180,8 +169,6 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		allSummaries[i] = runToSummary(run)
 	}
 	s.enrichRunSummaries(allSummaries, runs)
-
-	// Build parent-child hierarchy: nest child runs under their parent
 	summaries := nestChildRuns(allSummaries)
 
 	var nextCursor string
@@ -190,43 +177,42 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		nextCursor = encodeCursor(lastRun.StartedAt, lastRun.RunID)
 	}
 
-	// Get pipeline info for the enhanced start form
-	pipelineInfos := getPipelineStartInfos()
-
-	// Determine if any filters are active
-	hasFilters := status != "" || pipeline != "" || sinceStr != "" || search != ""
+	// Collect unique pipeline names for filter
+	pipelineNames := make(map[string]bool)
+	for _, r := range allSummaries {
+		pipelineNames[r.PipelineName] = true
+	}
+	var pipelines []string
+	for name := range pipelineNames {
+		pipelines = append(pipelines, name)
+	}
 
 	data := struct {
 		ActivePage     string
 		Runs           []RunSummary
 		HasMore        bool
 		NextCursor     string
-		Pipelines      []PipelineStartInfo
+		Pipelines      []string
 		FilterStatus   string
 		FilterPipeline string
-		FilterSince    string
-		FilterSearch   string
-		HasFilters     bool
 	}{
 		ActivePage:     "runs",
 		Runs:           summaries,
 		HasMore:        hasMore,
 		NextCursor:     nextCursor,
-		Pipelines:      pipelineInfos,
+		Pipelines:      pipelines,
 		FilterStatus:   status,
-		FilterPipeline: pipeline,
-		FilterSince:    sinceStr,
-		FilterSearch:   search,
-		HasFilters:     hasFilters,
+		FilterPipeline: pipelineFilter,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.templates["templates/runs.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
-		http.Error(w, "template error", http.StatusInternalServerError)
+		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
 
-// handleRunDetailPage handles GET /runs/{id} - serves the HTML run detail page.
+
+// handleRunDetailPage renders the Fat Gantt Shapes prototype at /runs2/{id}.
 func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	runID := r.PathValue("id")
 	if runID == "" {
@@ -240,10 +226,34 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get step details from step_state table (what the executor writes to)
 	stepDetails := s.buildStepDetails(runID, run.PipelineName)
 
-	// Build step detail map for DAG
+	// Enrich step I/O descriptions from pipeline definition
+	if p, loadErr := loadPipelineYAML(run.PipelineName); loadErr == nil {
+		type stepRef struct {
+			deps     []string
+			injects  []string
+		}
+		stepRefs := make(map[string]stepRef)
+		for _, ps := range p.Steps {
+			var injects []string
+			for _, ia := range ps.Memory.InjectArtifacts {
+				injects = append(injects, ia.Step+"/"+ia.Artifact)
+			}
+			stepRefs[ps.ID] = stepRef{deps: ps.Dependencies, injects: injects}
+		}
+		for i, sd := range stepDetails {
+			if ref, ok := stepRefs[sd.StepID]; ok {
+				if len(ref.injects) > 0 {
+					// Show artifact names: "spec/analysis, docs/feature-docs"
+					stepDetails[i].Action = strings.Join(ref.injects, ", ")
+				} else if len(ref.deps) > 0 {
+					stepDetails[i].Action = strings.Join(ref.deps, " + ")
+				}
+			}
+		}
+	}
+
 	stepStatusMap := make(map[string]string)
 	stepDetailMap := make(map[string]StepDetail)
 	for _, sd := range stepDetails {
@@ -251,7 +261,6 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		stepDetailMap[sd.StepID] = sd
 	}
 
-	// Get events
 	events, err := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 5000})
 	if err != nil {
 		log.Printf("[webui] failed to get events for run %s: %v", runID, err)
@@ -261,131 +270,35 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		eventSummaries[i] = eventToSummary(e)
 	}
 
-	// Compute DAG layout from pipeline definition — skip rework-only steps
-	var dagLayout *DAGLayout
-	if p, err := loadPipelineYAML(run.PipelineName); err == nil {
-		var dagSteps []DAGStepInput
-		excludedSteps := make(map[string]bool)
-		for _, step := range p.Steps {
-			if step.ReworkOnly {
-				excludedSteps[step.ID] = true
-				continue
-			}
-			status := "pending"
-			if s, ok := stepStatusMap[step.ID]; ok {
-				status = s
-			}
-			var duration string
-			var tokens int
-			if sd, ok := stepDetailMap[step.ID]; ok {
-				duration = sd.Duration
-				tokens = sd.TokensUsed
-			}
-			var contract string
-			if step.Handover.Contract.Type != "" {
-				contract = step.Handover.Contract.Type
-			}
-			var artifactNames []string
-			for _, a := range step.OutputArtifacts {
-				artifactNames = append(artifactNames, a.Name)
-			}
-
-			// Determine effective step type for visualization
-			stepType := step.Type
-			if stepType == "" && step.Gate != nil {
-				stepType = "gate"
-			}
-			if stepType == "" && step.SubPipeline != "" {
-				stepType = "pipeline"
-			}
-
-			// Collect gate info
-			var gatePrompt, gateChoices string
-			if step.Gate != nil {
-				gatePrompt = step.Gate.Prompt
-				if gatePrompt == "" {
-					gatePrompt = step.Gate.Message
-				}
-				var choiceLabels []string
-				for _, c := range step.Gate.Choices {
-					choiceLabels = append(choiceLabels, c.Label)
-				}
-				gateChoices = strings.Join(choiceLabels, ", ")
-			}
-
-			// Collect edge info for conditional steps
-			var edgeInfo string
-			var dagEdges []DAGEdgeInput
-			if len(step.Edges) > 0 {
-				var edgeParts []string
-				for _, e := range step.Edges {
-					dagEdges = append(dagEdges, DAGEdgeInput{
-						Target:    e.Target,
-						Condition: e.Condition,
-					})
-					if e.Condition != "" {
-						edgeParts = append(edgeParts, e.Target+": "+e.Condition)
-					} else {
-						edgeParts = append(edgeParts, e.Target)
-					}
-				}
-				edgeInfo = strings.Join(edgeParts, "; ")
-			}
-
-			dagSteps = append(dagSteps, DAGStepInput{
-				ID:           step.ID,
-				Persona:      resolveForgeVars(step.Persona),
-				Status:       status,
-				Duration:     duration,
-				Tokens:       tokens,
-				Contract:     contract,
-				Artifacts:    strings.Join(artifactNames, ", "),
-				Dependencies: step.Dependencies,
-				StepType:     stepType,
-				Script:       step.Script,
-				SubPipeline:  step.SubPipeline,
-				GatePrompt:   gatePrompt,
-				GateChoices:  gateChoices,
-				EdgeInfo:     edgeInfo,
-				Thread:       step.Thread,
-				Edges:        dagEdges,
-			})
-		}
-		stripExcludedDeps(dagSteps, excludedSteps)
-		dagLayout = ComputeDAGLayout(dagSteps)
-	}
-
 	// Build run summary with step progress
 	runSummary := runToSummary(*run)
 	runSummary.StepsTotal = len(stepDetails)
 	completed := 0
-	for _, sd := range stepDetails {
+	for i, sd := range stepDetails {
 		if sd.State == "completed" {
 			completed++
+		}
+		// Mark pending steps as "skipped" if the pipeline is terminal
+		if sd.State == "pending" && (run.Status == "completed" || run.Status == "failed" || run.Status == "cancelled") {
+			stepDetails[i].State = "skipped"
 		}
 	}
 	runSummary.StepsCompleted = completed
 	if runSummary.StepsTotal > 0 {
 		runSummary.Progress = (completed * 100) / runSummary.StepsTotal
 	}
-
-	// If DB has 0 tokens, compute from step details (event_log stores per-step tokens)
 	if runSummary.TotalTokens == 0 {
 		for _, sd := range stepDetails {
 			runSummary.TotalTokens += sd.TokensUsed
 		}
 	}
 
-	// Extract pipeline metadata for the header
-	var pipelineDescription, pipelineCategory string
-	var pipelineSkills []string
-	if p, err := loadPipelineYAML(run.PipelineName); err == nil {
+	var pipelineDescription string
+	if p, loadErr := loadPipelineYAML(run.PipelineName); loadErr == nil {
 		pipelineDescription = p.Metadata.Description
-		pipelineCategory = p.Metadata.Category
-		pipelineSkills = filterTemplateVars(p.Skills)
 	}
 
-	// Group artifacts by step
+	// Build artifact groups
 	var artifactGroups []StepArtifactGroup
 	for _, sd := range stepDetails {
 		if len(sd.Artifacts) > 0 {
@@ -396,82 +309,105 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Check for fork/rewind availability via checkpoints
-	hasCheckpoints := false
-	if checkpoints, cpErr := s.store.GetCheckpoints(runID); cpErr == nil && len(checkpoints) > 0 {
-		hasCheckpoints = true
-	}
-
-	// Build list of completed steps for fork/rewind dialogs
-	var completedSteps []string
-	for _, sd := range stepDetails {
-		if sd.State == "completed" {
-			completedSteps = append(completedSteps, sd.StepID)
+	// Compute the last step's output for the OUTPUT card
+	var outputSummary string
+	if len(stepDetails) > 0 {
+		last := stepDetails[len(stepDetails)-1]
+		for i := len(stepDetails) - 1; i >= 0; i-- {
+			if stepDetails[i].State == "completed" {
+				last = stepDetails[i]
+				break
+			}
+		}
+		if len(last.Artifacts) > 0 {
+			var names []string
+			for _, a := range last.Artifacts {
+				names = append(names, a.Name)
+			}
+			outputSummary = strings.Join(names, ", ")
 		}
 	}
 
-	// Detect circuit breaker condition: same failure class repeated 3+ times across attempts.
-	// Only count from attempt records to avoid double-counting (step-level FailureClass
-	// is derived from the last attempt and would be counted twice otherwise).
-	var circuitBreakerTripped bool
-	var circuitBreakerClass string
-	if run.Status == "failed" {
-		classCounts := make(map[string]int)
-		for _, sd := range stepDetails {
-			if sd.State == "failed" {
-				attempts, attErr := s.store.GetStepAttempts(runID, sd.StepID)
-				if attErr != nil {
-					log.Printf("[webui] circuit breaker: failed to get attempts for run %s step %s: %v", runID, sd.StepID, attErr)
-					continue
-				}
-				for _, a := range attempts {
-					if a.FailureClass != "" {
-						classCounts[a.FailureClass]++
+	// Enrich linked URL with PR/Issue metadata from forge
+	var linkedTitle, linkedState, linkedAuthor, linkedType string
+	var linkedNumber int
+	if runSummary.LinkedURL != "" && s.forgeClient != nil && s.repoSlug != "" {
+		parts := strings.Split(s.repoSlug, "/")
+		if len(parts) == 2 {
+			owner, repo := parts[0], parts[1]
+			ctx := r.Context()
+			// Parse PR or issue number from URL
+			urlParts := strings.Split(runSummary.LinkedURL, "/")
+			for i, p := range urlParts {
+				if (p == "pull" || p == "issues" || p == "merge_requests") && i+1 < len(urlParts) {
+					if num, err := strconv.Atoi(strings.TrimRight(urlParts[i+1], "#/")); err == nil {
+						linkedNumber = num
+						switch p {
+						case "pull", "merge_requests":
+							linkedType = "pr"
+							if pr, err := s.forgeClient.GetPullRequest(ctx, owner, repo, num); err == nil {
+								linkedTitle = pr.Title
+								linkedState = pr.State
+								if pr.Merged {
+									linkedState = "merged"
+								}
+								linkedAuthor = pr.Author
+							}
+						case "issues":
+							linkedType = "issue"
+							if iss, err := s.forgeClient.GetIssue(ctx, owner, repo, num); err == nil {
+								linkedTitle = iss.Title
+								linkedState = iss.State
+								linkedAuthor = iss.Author
+							}
+						}
 					}
 				}
 			}
 		}
-		for cls, count := range classCounts {
-			if count >= 3 {
-				circuitBreakerTripped = true
-				circuitBreakerClass = cls
-				break
-			}
+	}
+
+	// Collect child runs for sub-pipeline steps
+	childRuns := make(map[string][]RunSummary)
+	if children, err := s.store.GetChildRuns(runID); err == nil {
+		for _, cr := range children {
+			summary := runToSummary(cr)
+			childRuns[cr.ParentStepID] = append(childRuns[cr.ParentStepID], summary)
 		}
 	}
 
 	data := struct {
-		ActivePage            string
-		Run                   RunSummary
-		Steps                 []StepDetail
-		Events                []EventSummary
-		DAG                   *DAGLayout
-		PipelineDescription   string
-		PipelineCategory      string
-		PipelineSkills        []string
-		ArtifactGroups        []StepArtifactGroup
-		HasCheckpoints        bool
-		CompletedSteps        []string
-		CircuitBreakerTripped bool
-		CircuitBreakerClass   string
-		Adapters              []string
-		Models                []string
+		ActivePage          string
+		Run                 RunSummary
+		Steps               []StepDetail
+		Events              []EventSummary
+		PipelineDescription string
+		ArtifactGroups      []StepArtifactGroup
+		Adapters            []string
+		Models              []string
+		OutputSummary       string
+		LinkedTitle         string
+		LinkedState         string
+		LinkedAuthor        string
+		LinkedNumber        int
+		LinkedType          string
+		ChildRuns           map[string][]RunSummary
 	}{
-		ActivePage:            "runs",
-		Run:                   runSummary,
-		Steps:                 stepDetails,
-		Events:                eventSummaries,
-		DAG:                   dagLayout,
-		PipelineDescription:   pipelineDescription,
-		PipelineCategory:      pipelineCategory,
-		PipelineSkills:        pipelineSkills,
-		ArtifactGroups:        artifactGroups,
-		HasCheckpoints:        hasCheckpoints,
-		CompletedSteps:        completedSteps,
-		CircuitBreakerTripped: circuitBreakerTripped,
-		CircuitBreakerClass:   circuitBreakerClass,
-		Adapters:              uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return sd.Adapter })),
-		Models:                uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return sd.Model })),
+		ActivePage:          "runs",
+		Run:                 runSummary,
+		Steps:               stepDetails,
+		Events:              eventSummaries,
+		PipelineDescription: pipelineDescription,
+		ArtifactGroups:      artifactGroups,
+		Adapters:            uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return sd.Adapter })),
+		Models:              uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return sd.Model })),
+		OutputSummary:       outputSummary,
+		LinkedTitle:         linkedTitle,
+		LinkedState:         linkedState,
+		LinkedAuthor:        linkedAuthor,
+		LinkedNumber:        linkedNumber,
+		LinkedType:          linkedType,
+		ChildRuns:           childRuns,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -841,11 +777,21 @@ func computeGanttPositions(steps []StepDetail) {
 	if totalDuration <= 0 {
 		return
 	}
+	now := time.Now()
 	for i := range steps {
-		if steps[i].StartedAt != nil && steps[i].CompletedAt != nil {
+		if steps[i].StartedAt != nil {
 			left := float64(steps[i].StartedAt.Sub(earliest)) / float64(totalDuration) * 100
-			width := float64(steps[i].CompletedAt.Sub(*steps[i].StartedAt)) / float64(totalDuration) * 100
-			if width < 1 {
+			var width float64
+			if steps[i].CompletedAt != nil {
+				width = float64(steps[i].CompletedAt.Sub(*steps[i].StartedAt)) / float64(totalDuration) * 100
+			} else if steps[i].State == "running" {
+				// Running step: extend to current time
+				width = float64(now.Sub(*steps[i].StartedAt)) / float64(totalDuration) * 100
+				if width > 100-left {
+					width = 100 - left
+				}
+			}
+			if width < 1 && (steps[i].State == "completed" || steps[i].State == "running") {
 				width = 1
 			}
 			steps[i].GanttLeft = left

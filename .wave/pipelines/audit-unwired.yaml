@@ -12,7 +12,7 @@ input:
 steps:
   - id: scan
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     max_concurrent_agents: 3
     contexts: [execution, configuration]
     workspace:

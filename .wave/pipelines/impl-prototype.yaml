@@ -293,7 +293,7 @@ steps:
 
   - id: pr-review
     persona: auditor
-    model: claude-haiku
+    model: cheapest
     dependencies: [pr-create]
 
     exec:

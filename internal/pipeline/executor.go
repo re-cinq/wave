@@ -651,7 +651,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		if len(merged) > 0 {
 			runner, err := hooks.NewHookRunner(merged, e.emitter)
 			if err != nil {
-				return fmt.Errorf("failed to initialize hook runner: %w", err)
+				return fmt.Errorf("failed to initialize hook runner: %w (pipeline: %s)", err, pipelineID)
 			}
 			e.hookRunner = runner
 		}
@@ -706,7 +706,13 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		ready := e.findReadySteps(sortedSteps, completed)
 		if len(ready) == 0 {
 			e.cleanupCompletedPipeline(pipelineID)
-			return fmt.Errorf("deadlock: no steps ready but %d remain", len(sortedSteps)-completedCount)
+			pending := make([]string, 0)
+			for _, step := range sortedSteps {
+				if !completed[step.ID] && !step.ReworkOnly {
+					pending = append(pending, step.ID)
+				}
+			}
+			return fmt.Errorf("deadlock: %d step(s) stuck waiting for dependencies — pending: %v", len(pending), pending)
 		}
 
 		if err := e.executeStepBatch(ctx, execution, ready); err != nil {
@@ -982,7 +988,7 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		if len(merged) > 0 {
 			runner, err := hooks.NewHookRunner(merged, e.emitter)
 			if err != nil {
-				return fmt.Errorf("failed to initialize hook runner: %w", err)
+				return fmt.Errorf("failed to initialize hook runner: %w (pipeline: %s)", err, pipelineID)
 			}
 			e.hookRunner = runner
 		}
@@ -1184,7 +1190,7 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 	// Create workspace for the step
 	workspacePath, err := e.createStepWorkspace(execution, step)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create workspace: %w", err)
+		return nil, fmt.Errorf("failed to create workspace for step %q: %w", step.ID, err)
 	}
 	execution.mu.Lock()
 	execution.WorkspacePaths[step.ID] = workspacePath
@@ -2615,7 +2621,11 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 	adapterDef := execution.Manifest.GetAdapter(resolvedAdapterName)
 	if adapterDef == nil {
-		return fmt.Errorf("adapter %q not found in manifest", resolvedAdapterName)
+		available := make([]string, 0, len(execution.Manifest.Adapters))
+		for name := range execution.Manifest.Adapters {
+			available = append(available, name)
+		}
+		return fmt.Errorf("adapter %q not found in manifest for step %q (available: %v)", resolvedAdapterName, step.ID, available)
 	}
 
 	// Resolve adapter runner from registry for per-step dispatch
@@ -3245,9 +3255,15 @@ func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Per
 		return e.modelOverride
 	}
 	if step != nil && step.Model != "" {
+		if resolved, isTier := resolveTierModel(step.Model, routing); isTier {
+			return resolved // may be empty (adapter default)
+		}
 		return step.Model
 	}
 	if persona.Model != "" {
+		if resolved, isTier := resolveTierModel(persona.Model, routing); isTier {
+			return resolved
+		}
 		return persona.Model
 	}
 	// Tier 4: auto-route based on complexity heuristics
@@ -3258,6 +3274,18 @@ func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Per
 		}
 	}
 	return ""
+}
+
+// resolveTierModel checks if a model string is a tier name (cheapest/fastest/strongest)
+// and resolves it to an actual model via the routing complexity map.
+// Returns (resolved model, true) if input is a tier name, or ("", false) if it's a literal model.
+func resolveTierModel(model string, routing *manifest.RoutingConfig) (string, bool) {
+	switch model {
+	case TierCheapest, TierFastest, TierStrongest:
+		return routing.ResolveComplexityModel(model), true
+	default:
+		return "", false
+	}
 }
 
 // recordDecision records a structured decision to the state store.

@@ -33,7 +33,7 @@ hooks:
 steps:
   - id: investigate
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     workspace:
       mount:
         - source: ./

@@ -66,7 +66,7 @@ steps:
   # ── Phase 3: Synthesize unified report + scope document ─────────────────
   - id: synthesize
     persona: philosopher
-    model: claude-opus
+    model: strongest
     thread: scope-audit
     contexts: [delivery, quality, configuration]
     dependencies: [merge-findings]
@@ -144,7 +144,7 @@ steps:
   # ── Phase 5: Create follow-up issues from approved scope ────────────────
   - id: create-issues
     persona: craftsman
-    model: claude-opus
+    model: strongest
     contexts: [delivery]
     dependencies: [approve-scope]
     memory:

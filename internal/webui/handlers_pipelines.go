@@ -62,13 +62,21 @@ func (s *Server) handleAPIPipelineInfo(w http.ResponseWriter, r *http.Request) {
 // PipelineDetailStep holds step info for the pipeline detail view.
 type PipelineDetailStep struct {
 	ID                 string   `json:"id"`
+	Type               string   `json:"type,omitempty"`
 	Persona            string   `json:"persona"`
 	Dependencies       []string `json:"dependencies,omitempty"`
 	Timeout            int      `json:"timeout,omitempty"`
 	Optional           bool     `json:"optional,omitempty"`
 	Artifacts          []string `json:"artifacts,omitempty"`
+	InputArtifacts     []string `json:"input_artifacts,omitempty"`
 	Contract           string   `json:"contract,omitempty"`
 	ContractSchemaName string   `json:"contract_schema_name,omitempty"`
+	OnFailure          string   `json:"on_failure,omitempty"`
+	RetryPolicy        string   `json:"retry_policy,omitempty"`
+	MaxAttempts        int      `json:"max_attempts,omitempty"`
+	Prompt             string   `json:"prompt,omitempty"`
+	SubPipeline        string   `json:"sub_pipeline,omitempty"`
+	Thread             string   `json:"thread,omitempty"`
 }
 
 // PipelineDetail holds full pipeline info for the detail dialog.
@@ -106,15 +114,55 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 				}
 			}
 		}
+		// Collect input artifact references
+		var inputArtifacts []string
+		for _, ia := range step.Memory.InjectArtifacts {
+			ref := ia.Step + "/" + ia.Artifact
+			if ia.As != "" {
+				ref += " as " + ia.As
+			}
+			inputArtifacts = append(inputArtifacts, ref)
+		}
+
+		// Extract prompt
+		var prompt string
+		if step.Exec.Source != "" {
+			prompt = step.Exec.Source
+		}
+
+		// On-failure strategy
+		var onFailure string
+		if step.Handover.Contract.OnFailure != "" {
+			onFailure = step.Handover.Contract.OnFailure
+		}
+
+		// Retry
+		var retryPolicy string
+		var maxAttempts int
+		if step.Retry.Policy != "" {
+			retryPolicy = step.Retry.Policy
+		}
+		if step.Retry.MaxAttempts > 0 {
+			maxAttempts = step.Retry.MaxAttempts
+		}
+
 		steps = append(steps, PipelineDetailStep{
 			ID:                 step.ID,
+			Type:               step.Type,
 			Persona:            resolveForgeVars(step.Persona),
 			Dependencies:       step.Dependencies,
 			Timeout:            step.TimeoutMinutes,
 			Optional:           step.Optional,
 			Artifacts:          artifactNames,
+			InputArtifacts:     inputArtifacts,
 			Contract:           contract,
 			ContractSchemaName: contractSchemaName,
+			OnFailure:          onFailure,
+			RetryPolicy:        retryPolicy,
+			MaxAttempts:        maxAttempts,
+			Prompt:             prompt,
+			SubPipeline:        step.SubPipeline,
+			Thread:             step.Thread,
 		})
 	}
 	return PipelineDetail{

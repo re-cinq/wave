@@ -12,7 +12,7 @@ input:
 steps:
   - id: assess
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     exec:
       type: prompt
       source: |

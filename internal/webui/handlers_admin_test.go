@@ -88,17 +88,26 @@ func TestHandleAPIAdminCredentials(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	expectedKeys := []string{
-		"ANTHROPIC_API_KEY",
-		"GH_TOKEN",
-		"OPENAI_API_KEY",
-		"GOOGLE_APPLICATION_CREDENTIALS",
-		"GITLAB_TOKEN",
-	}
-	for _, key := range expectedKeys {
-		if _, ok := resp[key]; !ok {
-			t.Errorf("missing credential key %s", key)
+	// Only set credentials should appear — unset keys are excluded to avoid
+	// exposing the full credential surface in shared/multi-user servers.
+	for key, val := range resp {
+		if !val {
+			t.Errorf("unset credential key %q should not appear in response", key)
 		}
+	}
+
+	// Set a test env var and verify it appears
+	t.Setenv("ANTHROPIC_API_KEY", "test-key")
+	req2 := httptest.NewRequest("GET", "/api/admin/credentials", nil)
+	rec2 := httptest.NewRecorder()
+	srv.handleAPIAdminCredentials(rec2, req2)
+
+	var resp2 adminCredentialsResponse
+	if err := json.NewDecoder(rec2.Body).Decode(&resp2); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if v, ok := resp2["ANTHROPIC_API_KEY"]; !ok || !v {
+		t.Errorf("expected ANTHROPIC_API_KEY to be present and true when set")
 	}
 }
 
