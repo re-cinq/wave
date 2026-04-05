@@ -458,9 +458,9 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 
         <!-- Gantt fill as background -->
         <!-- Top gantt bar -->
-        <div class="v2-s-bar"><div class="v2-s-bar-fill st-{{$step.State}}" style="margin-left:{{if $step.GanttLeft}}{{printf "%.1f" $step.GanttLeft}}%{{else}}0{{end}};width:{{if $step.GanttWidth}}{{printf "%.1f" $step.GanttWidth}}%{{else}}100%{{end}};"></div></div>
+        <div class="v2-s-bar"><div class="v2-s-bar-fill st-{{$step.State}}" style="margin-left:{{if $step.GanttLeft}}{{printf "%.1f" $step.GanttLeft}}%{{else}}0{{end}};width:{{if $step.GanttWidth}}{{printf "%.1f" $step.GanttWidth}}%{{else}}0%{{end}};"></div></div>
 
-        <div class="v2-s-bg st-{{$step.State}}" style="left:{{if $step.GanttLeft}}{{printf "%.1f" $step.GanttLeft}}%{{else}}0{{end}};width:{{if $step.GanttWidth}}{{printf "%.1f" $step.GanttWidth}}%{{else}}100%{{end}};"></div>
+        <div class="v2-s-bg st-{{$step.State}}" style="left:{{if $step.GanttLeft}}{{printf "%.1f" $step.GanttLeft}}%{{else}}0{{end}};width:{{if $step.GanttWidth}}{{printf "%.1f" $step.GanttWidth}}%{{else}}0%{{end}};"></div>
 
         <div class="v2-s-content">
             <!-- Row 1: Name + infra + duration -->
@@ -567,7 +567,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
         <a href="#" class="v2-tab" data-run-id="{{$.Run.RunID}}" data-step-id="{{$sid}}" data-artifact-name="{{.Name}}" onclick="v2ToggleOutArtTab(this);return false;"><span style="color:var(--color-text-muted);font-size:0.58rem;">{{$sid}}/</span>{{.Name}} <span class="art-size">{{formatBytes .SizeBytes}}</span></a>
         {{end}}{{end}}
     </div>
-    <div class="v2-s-tabcontent" id="v2-out-tc" hidden style="margin:0 0.45rem 0.3rem;"></div>
+    <div class="v2-s-tabcontent" id="v2-out-tc" hidden style="margin:0 0.45rem 0.3rem;background:var(--color-bg-secondary);border:1px solid var(--color-border);border-radius:4px;"></div>
     {{end}}
 </div>
 
