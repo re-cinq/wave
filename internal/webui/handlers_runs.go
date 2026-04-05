@@ -675,7 +675,7 @@ func (s *Server) handleRunDetailV2Page(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Enrich linked URL with PR/Issue metadata from forge
-	var linkedTitle, linkedState, linkedAuthor string
+	var linkedTitle, linkedState, linkedAuthor, linkedType string
 	var linkedNumber int
 	if runSummary.LinkedURL != "" && s.forgeClient != nil && s.repoSlug != "" {
 		parts := strings.Split(s.repoSlug, "/")
@@ -689,6 +689,7 @@ func (s *Server) handleRunDetailV2Page(w http.ResponseWriter, r *http.Request) {
 					if num, err := strconv.Atoi(strings.TrimRight(urlParts[i+1], "#/")); err == nil {
 						linkedNumber = num
 						if p == "pull" || p == "merge_requests" {
+							linkedType = "pr"
 							if pr, err := s.forgeClient.GetPullRequest(ctx, owner, repo, num); err == nil {
 								linkedTitle = pr.Title
 								linkedState = pr.State
@@ -698,6 +699,7 @@ func (s *Server) handleRunDetailV2Page(w http.ResponseWriter, r *http.Request) {
 								linkedAuthor = pr.Author
 							}
 						} else if p == "issues" {
+							linkedType = "issue"
 							if iss, err := s.forgeClient.GetIssue(ctx, owner, repo, num); err == nil {
 								linkedTitle = iss.Title
 								linkedState = iss.State
@@ -733,6 +735,7 @@ func (s *Server) handleRunDetailV2Page(w http.ResponseWriter, r *http.Request) {
 		LinkedState         string
 		LinkedAuthor        string
 		LinkedNumber        int
+		LinkedType          string
 		ChildRuns           map[string][]RunSummary
 	}{
 		ActivePage:          "runs",
@@ -748,6 +751,7 @@ func (s *Server) handleRunDetailV2Page(w http.ResponseWriter, r *http.Request) {
 		LinkedState:         linkedState,
 		LinkedAuthor:        linkedAuthor,
 		LinkedNumber:        linkedNumber,
+		LinkedType:          linkedType,
 		ChildRuns:           childRuns,
 	}
 

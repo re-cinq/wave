@@ -436,7 +436,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
     {{if .LinkedTitle}}
     <div class="v2-io-text" style="display:flex;flex-direction:column;gap:0.15rem;">
         <div style="display:flex;align-items:center;gap:0.4rem;">
-            <a href="{{if .LinkedNumber}}/prs/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:0.9rem;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
+            <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:0.9rem;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
             {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else}}status-cancelled{{end}}" style="font-size:0.62rem;">{{.LinkedState}}</span>{{end}}
         </div>
         {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</span>{{end}}
@@ -545,18 +545,22 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 
 <!-- OUTPUT -->
 <div class="v2-io v2-io-out{{if eq .Run.Status "failed"}} st-failed{{end}}">
-    <div style="display:flex;align-items:center;gap:0.5rem;padding:0 0.75rem;">
+    <div style="display:flex;align-items:center;gap:0.5rem;padding:0 0.75rem;flex-wrap:wrap;">
         <span class="v2-io-tag">OUT</span>
         <span class="v2-io-text">
             {{if eq .Run.Status "completed"}}<span style="color:#4ade80;">&#10003;</span>{{else if eq .Run.Status "failed"}}<span style="color:#f87171;">&#10007;</span>{{else if eq .Run.Status "running"}}<span class="spinner spinner-sm" style="vertical-align:middle;margin-right:0.2rem;"></span>{{end}}
             <span class="v2-io-result">{{.Run.Status}}</span>
-            {{if and .Run.LinkedURL (eq .Run.Status "completed")}}<span class="badge" style="background:rgba(139,92,246,0.2);color:#c084fc;font-size:0.65rem;margin-left:0.3rem;">merged</span>{{end}}
         </span>
-        {{if .Run.LinkedURL}}<a href="{{.Run.LinkedURL}}" target="_blank" style="margin-left:auto;font-size:0.78rem;color:#818cf8;">{{richInput .Run.Input .Run.LinkedURL}} ↗</a>{{end}}
+        {{if .LinkedTitle}}
+        <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-size:0.82rem;color:#818cf8;font-weight:500;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
+        {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else if eq .LinkedState "closed"}}status-cancelled{{end}}" style="font-size:0.62rem;">{{.LinkedState}}</span>{{end}}
+        {{else if .Run.LinkedURL}}
+        <a href="{{.Run.LinkedURL}}" target="_blank" style="font-size:0.78rem;color:#818cf8;">{{richInput .Run.Input .Run.LinkedURL}} ↗</a>
+        {{end}}
         {{if eq .Run.Status "failed"}}
-        <div style="margin-left:{{if not .Run.LinkedURL}}auto{{else}}0.5rem{{end}};display:flex;gap:0.3rem;">
+        <div style="margin-left:auto;display:flex;gap:0.3rem;">
             <button style="padding:0.2rem 0.6rem;border-radius:4px;font-size:0.72rem;cursor:pointer;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#e2e8f0;" onclick="retryRun('{{.Run.RunID}}',this)">Retry</button>
-            <a href="/runs/{{.Run.RunID}}" style="padding:0.2rem 0.6rem;border-radius:4px;font-size:0.72rem;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:#cbd5e1;text-decoration:none;">Resume</a>
+            <a href="/runs-v1/{{.Run.RunID}}#resume" style="padding:0.2rem 0.6rem;border-radius:4px;font-size:0.72rem;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:#cbd5e1;text-decoration:none;">Resume</a>
         </div>
         {{end}}
     </div>
