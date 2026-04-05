@@ -436,7 +436,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
     {{if .LinkedTitle}}
     <div class="v2-io-text" style="display:flex;flex-direction:column;gap:0.15rem;">
         <div style="display:flex;align-items:center;gap:0.4rem;">
-            <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:0.9rem;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
+            <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:1.1rem;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
             {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else}}status-cancelled{{end}}" style="font-size:0.62rem;">{{.LinkedState}}</span>{{end}}
         </div>
         {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</span>{{end}}
@@ -561,7 +561,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
         </div>
         {{if .LinkedTitle}}
         <div style="margin-top:0.15rem;">
-            <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:0.9rem;color:#818cf8;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
+            <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:1.1rem;color:#818cf8;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
             {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else if eq .LinkedState "closed"}}status-cancelled{{end}}" style="font-size:0.62rem;margin-left:0.3rem;">{{.LinkedState}}</span>{{end}}
         </div>
         {{if .LinkedAuthor}}<div style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</div>{{end}}
