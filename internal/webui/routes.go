@@ -13,10 +13,10 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/runs", http.StatusFound)
 	})
-	mux.HandleFunc("GET /runs", s.handleRunsPage)
-	mux.HandleFunc("GET /runs/{id}", s.handleRunDetailPage)
-	mux.HandleFunc("GET /runs2", s.handleRunsV2Page)
-	mux.HandleFunc("GET /runs2/{id}", s.handleRunDetailV2Page)
+	mux.HandleFunc("GET /runs", s.handleRunsV2Page)
+	mux.HandleFunc("GET /runs/{id}", s.handleRunDetailV2Page)
+	mux.HandleFunc("GET /runs-v1", s.handleRunsPage)
+	mux.HandleFunc("GET /runs-v1/{id}", s.handleRunDetailPage)
 
 	mux.HandleFunc("GET /pipelines", s.handlePipelinesPage)
 	mux.HandleFunc("GET /pipelines/{name}", s.handlePipelineDetailPage)
