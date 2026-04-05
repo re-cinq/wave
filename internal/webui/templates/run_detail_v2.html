@@ -212,6 +212,9 @@
 /* ── Panels ── */
 .v2-panel { background: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: 4px; margin-top: 0.4rem; overflow: hidden; }
 .v2-panel[hidden] { display: none !important; }
+/* Hide v1 events/cards that SSE creates outside our v2 panels */
+.events-timeline, .card > .events-timeline, .card:has(.events-timeline) { display: none !important; }
+body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 .v2-panel-head { padding: 0.35rem 0.6rem; font-size: 0.8rem; font-weight: 600; color: var(--color-text); border-bottom: 1px solid var(--color-border); background: rgba(30,41,59,0.4); }
 
 /* Events */
@@ -539,8 +542,7 @@
 
 {{end}}
 {{define "scripts"}}
-<script src="/static/log-viewer.js"></script>
-<script src="/static/sse.js"></script>
+<!-- No v1 sse.js/log-viewer.js — v2 uses its own lightweight SSE -->
 <script>
 // Toggle logs tab
 function v2ToggleLogs(tab){
@@ -569,8 +571,52 @@ function v2ToggleLogs(tab){
         tc.innerHTML=html;
     }).catch(function(){tc.innerHTML='<pre style="margin:0;padding:0.3rem;color:#fca5a5;">(load failed)</pre>';});
 }
-// SSE
-if('{{.Run.Status}}'==='running') connectSSE('{{.Run.RunID}}');
+// V2 SSE — lightweight, only refreshes page on completion/failure (no v1 DOM manipulation)
+if('{{.Run.Status}}'==='running'){
+    (function(){
+        var es=new EventSource('/api/runs/{{.Run.RunID}}/events');
+        es.onmessage=function(e){
+            try{
+                var d=JSON.parse(e.data);
+                if(d.state==='completed'||d.state==='failed'||d.state==='cancelled'){
+                    es.close();
+                    setTimeout(function(){location.reload();},500);
+                }
+            }catch(ex){}
+        };
+        es.onerror=function(){
+            // Silently retry — SSE auto-reconnects
+        };
+    })();
+}
+
+// V2 live timer (the v1 app.js timer requires .step-card parent which doesn't exist in v2)
+(function(){
+    function fmt(ms){
+        var s=Math.floor(ms/1000),m=Math.floor(s/60),h=Math.floor(m/60);
+        s%=60;m%=60;
+        if(h>0)return h+'h '+m+'m';
+        if(m>0)return m+'m '+s+'s';
+        return s+'s';
+    }
+    function tick(){
+        document.querySelectorAll('[data-live-timer="true"]').forEach(function(el){
+            var started=el.getAttribute('data-started-at');
+            if(!started){
+                // Check parent shape for step timers
+                var shape=el.closest('.v2-s');
+                if(shape) started=shape.getAttribute('data-started-at');
+            }
+            if(!started)return;
+            var elapsed=Date.now()-new Date(started).getTime();
+            if(elapsed>=0) el.textContent=fmt(elapsed);
+        });
+    }
+    if(document.querySelectorAll('[data-live-timer]').length>0){
+        setInterval(tick,1000);
+        tick();
+    }
+})();
 
 // Click step header to auto-show first artifact
 document.querySelectorAll('.v2-s-row1').forEach(function(row){
