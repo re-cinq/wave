@@ -22,7 +22,7 @@ input:
 steps:
   - id: review
     persona: reviewer
-    model: claude-haiku
+    model: cheapest
     workspace:
       mount:
         - source: ./

@@ -19,7 +19,7 @@
             <span class="step-duration" {{if eq .State "running"}}data-live-timer="true"{{end}}>{{if .Duration}}{{.Duration}}{{end}}</span>
             {{if .Persona}}<a href="/personas/{{.Persona}}" class="step-persona" onclick="event.stopPropagation();">{{.Persona}}</a>{{end}}
             {{if .Model}}<span class="badge badge-model" title="Model">{{.Model}}</span>{{end}}
-            {{if .Adapter}}<span class="badge badge-adapter" title="Adapter">{{.Adapter}}</span>{{end}}
+            {{if .Adapter}}<span class="badge badge-adapter" title="Adapter">{{adapterIcon .Adapter}}{{.Adapter}}</span>{{end}}
             {{if .FailureClass}}<span class="badge badge-failure-{{.FailureClass}}" title="Failure class: {{.FailureClass}}">{{.FailureClass}}</span>{{end}}
             {{if .MaxVisits}}<span class="badge" style="font-size: 0.7rem; background: rgba(168,85,247,0.15); color: #a855f7;" title="Visit {{.VisitCount}} of {{.MaxVisits}}">visit {{.VisitCount}}/{{.MaxVisits}}</span>{{end}}
         </div>

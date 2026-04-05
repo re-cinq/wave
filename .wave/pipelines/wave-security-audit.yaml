@@ -19,7 +19,7 @@ steps:
   - id: threat-model
     persona: navigator
     max_concurrent_agents: 3
-    model: claude-haiku
+    model: cheapest
     workspace:
       mount:
         - source: ./

@@ -14,7 +14,7 @@ input:
 steps:
   - id: analyze-commits
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"

@@ -1,306 +1,154 @@
 {{define "title"}}Runs · Wave{{end}}
 {{define "content"}}
-<div class="page-header">
-    <h1>Pipeline Runs</h1>
-    <div class="actions">
-        <div class="btn-group" style="display:inline-flex;gap:0.25rem;margin-right:0.5rem;">
-            <a href="/api/runs/export?format=csv" class="btn btn-sm" title="Export runs as CSV" aria-label="Export runs as CSV">Export CSV</a>
-            <a href="/api/runs/export?format=json" class="btn btn-sm" title="Export runs as JSON" aria-label="Export runs as JSON">Export JSON</a>
-        </div>
-        <button id="start-pipeline-btn" class="btn btn-primary" onclick="toggleStartForm()" aria-label="Start a new pipeline run">Start Pipeline</button>
+<style>
+/* ── Runs v2 list ── */
+.rv2-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+.rv2-head h1 { font-size: 1.25rem; margin: 0; }
+
+/* Filter bar */
+.rv2-filters { display: flex; gap: 0.3rem; margin-bottom: 0.6rem; align-items: center; flex-wrap: wrap; }
+.rv2-filter { padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.72rem; color: var(--color-text-muted); border: 1px solid var(--color-border); background: none; cursor: pointer; text-decoration: none; }
+.rv2-filter:hover { background: var(--color-bg-tertiary); color: var(--color-text-secondary); }
+.rv2-filter.active { background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.3); color: #a5b4fc; }
+
+/* Run card */
+.rv2-list { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.rv2-run {
+    display: grid;
+    grid-template-columns: 5px 1fr auto;
+    gap: 0;
+    background: var(--color-bg-secondary);
+    border-radius: 4px;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.1s, box-shadow 0.1s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+.rv2-run:hover { background: #1e2d3d; box-shadow: 0 2px 5px rgba(0,0,0,0.3); text-decoration: none; color: inherit; }
+
+/* Status accent bar (left edge) */
+.rv2-accent { border-radius: 4px 0 0 4px; }
+.rv2-accent.st-completed { background: var(--color-completed); }
+.rv2-accent.st-failed { background: var(--color-failed); }
+.rv2-accent.st-running { background: var(--color-running); }
+.rv2-accent.st-pending { background: var(--color-border); }
+.rv2-accent.st-cancelled { background: var(--color-border); }
+
+/* Main content area */
+.rv2-body { padding: 0.4rem 0.6rem; min-width: 0; }
+.rv2-row1 { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.15rem; }
+.rv2-name { font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rv2-status { font-size: 0.65rem; }
+.rv2-input { font-size: 0.72rem; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 400px; }
+.rv2-row2 { display: flex; gap: 0.5rem; align-items: center; font-size: 0.7rem; color: var(--color-text-muted); flex-wrap: wrap; }
+.rv2-row2 b { color: var(--color-text-secondary); }
+.rv2-row2 .badge { font-size: 0.6rem; padding: 0 3px; }
+
+/* Right meta */
+.rv2-meta { padding: 0.4rem 0.6rem; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 0.15rem; white-space: nowrap; }
+.rv2-date { font-size: 0.68rem; color: var(--color-text-muted); font-family: var(--font-mono); }
+.rv2-dur { font-size: 0.78rem; font-weight: 600; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+.rv2-progress { font-size: 0.65rem; color: var(--color-text-muted); }
+
+/* Child run indent */
+.rv2-child { margin-left: 1.5rem; opacity: 0.8; }
+.rv2-child .rv2-run { background: var(--color-bg-tertiary); }
+
+/* Load more */
+.rv2-more { text-align: center; padding: 0.5rem; }
+.rv2-more a { color: #818cf8; font-size: 0.78rem; text-decoration: none; }
+.rv2-more a:hover { text-decoration: underline; }
+
+/* Empty state */
+.rv2-empty { text-align: center; padding: 2rem; color: var(--color-text-muted); font-size: 0.85rem; }
+</style>
+
+<div class="rv2-head">
+    <h1>Runs</h1>
+    <div style="display:flex;gap:0.3rem;">
     </div>
 </div>
 
-<dialog id="start-dialog" class="start-dialog" aria-labelledby="start-dialog-title">
-    <form id="pipeline-start-form" method="dialog" onsubmit="return startPipeline(event)">
-        <h3 id="start-dialog-title">Start Pipeline</h3>
-        <div class="form-group">
-            <label for="pipeline-select">Pipeline</label>
-            <select id="pipeline-select" name="pipeline" required onchange="onPipelineSelect()">
-                <option value="">Select a pipeline...</option>
-                {{range .Pipelines}}
-                <option value="{{.Name}}" data-description="{{.Description}}" data-steps="{{.StepCount}}" data-category="{{.Category}}">{{.Name}}</option>
-                {{end}}
-            </select>
-        </div>
-        <div id="pipeline-preview" class="pipeline-preview" style="display:none;">
-            <div id="pipeline-desc" class="pipeline-preview-desc"></div>
-            <div class="pipeline-preview-meta">
-                <span id="pipeline-steps" class="badge"></span>
-                <span id="pipeline-category" class="badge" style="display:none;"></span>
-            </div>
-            <div id="pipeline-step-list" class="pipeline-step-list" style="display:none;"></div>
-        </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label for="adapter-select">Adapter</label>
-                <select id="adapter-select" name="adapter">
-                    <option value="">Default (from manifest)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="model-input">Model</label>
-                <input type="text" id="model-input" name="model" placeholder="e.g. haiku, opus (optional)">
-            </div>
-        </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label for="timeout-input">Timeout (min)</label>
-                <input type="number" id="timeout-input" name="timeout" min="1" placeholder="Pipeline default">
-            </div>
-            <div class="form-group form-group-checkbox">
-                <label>
-                    <input type="checkbox" id="dry-run-checkbox" name="dry_run">
-                    Dry run (validate only)
-                </label>
-            </div>
-        </div>
-        <div class="form-group">
-            <label for="pipeline-input">Input (optional)</label>
-            <textarea id="pipeline-input" name="input" rows="3" placeholder="Issue URL, feature description..."></textarea>
-        </div>
-        <div class="dialog-actions">
-            <button type="button" class="btn" onclick="toggleStartForm()">Cancel</button>
-            <button type="submit" class="btn btn-primary">Start</button>
-        </div>
-    </form>
-</dialog>
-
-<div class="filters">
-    <div class="search-filter">
-        <input type="text" id="search-filter" oninput="searchRunsLocal()" aria-label="Search runs by pipeline name or run ID" placeholder="Search pipeline name or run ID..." value="{{.FilterSearch}}">
-    </div>
-    <select id="status-filter" onchange="filterRuns()" aria-label="Filter runs by status">
-        <option value="">All Statuses</option>
-        <option value="pending"{{if eq .FilterStatus "pending"}} selected{{end}}>Pending</option>
-        <option value="running"{{if eq .FilterStatus "running"}} selected{{end}}>Running</option>
-        <option value="completed"{{if eq .FilterStatus "completed"}} selected{{end}}>Completed</option>
-        <option value="failed"{{if eq .FilterStatus "failed"}} selected{{end}}>Failed</option>
-        <option value="cancelled"{{if eq .FilterStatus "cancelled"}} selected{{end}}>Cancelled</option>
-    </select>
-    <select id="pipeline-filter" onchange="filterRuns()" aria-label="Filter runs by pipeline">
-        <option value="">All Pipelines</option>
-        {{range .Pipelines}}
-        <option value="{{.Name}}"{{if eq $.FilterPipeline .Name}} selected{{end}}>{{.Name}}</option>
-        {{end}}
-    </select>
-    <input type="date" id="since-filter" onchange="filterRuns()" aria-label="Filter runs since date" value="{{.FilterSince}}" title="Show runs since this date">
+<!-- Filters -->
+<div class="rv2-filters">
+    <a href="/runs" class="rv2-filter{{if not .FilterStatus}} active{{end}}">All</a>
+    <a href="/runs?status=running" class="rv2-filter{{if eq .FilterStatus "running"}} active{{end}}">Running</a>
+    <a href="/runs?status=completed" class="rv2-filter{{if eq .FilterStatus "completed"}} active{{end}}">Completed</a>
+    <a href="/runs?status=failed" class="rv2-filter{{if eq .FilterStatus "failed"}} active{{end}}">Failed</a>
 </div>
 
-{{if .HasFilters}}
-<div class="filter-chips">
-    {{if .FilterSearch}}<span class="filter-chip">Search: {{.FilterSearch}} <button class="filter-chip-clear" onclick="clearFilter('search')" title="Remove filter">&times;</button></span>{{end}}
-    {{if .FilterStatus}}<span class="filter-chip">Status: {{.FilterStatus}} <button class="filter-chip-clear" onclick="clearFilter('status')" title="Remove filter">&times;</button></span>{{end}}
-    {{if .FilterPipeline}}<span class="filter-chip">Pipeline: {{.FilterPipeline}} <button class="filter-chip-clear" onclick="clearFilter('pipeline')" title="Remove filter">&times;</button></span>{{end}}
-    {{if .FilterSince}}<span class="filter-chip">Since: {{.FilterSince}} <button class="filter-chip-clear" onclick="clearFilter('since')" title="Remove filter">&times;</button></span>{{end}}
-    <a href="/runs" class="filter-chip-clear-all">Clear all</a>
+<!-- Run list -->
+<div class="rv2-list">
+{{if .Runs}}
+{{range .Runs}}
+    <a href="/runs/{{.RunID}}" class="rv2-run">
+        <div class="rv2-accent st-{{.Status}}"></div>
+        <div class="rv2-body">
+            <div class="rv2-row1">
+                <span class="rv2-name">{{.PipelineName}}</span>
+                <span class="badge rv2-status {{statusClass .Status}}">{{.Status}}</span>
+                {{if .InputPreview}}<span class="rv2-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
+            </div>
+            <div class="rv2-row2">
+                {{if gt .StepsTotal 0}}<span><b>{{.StepsCompleted}}/{{.StepsTotal}}</b> steps</span>{{end}}
+                {{if .TotalTokens}}<span><b>{{formatTokens .TotalTokens}}</b> tok</span>{{end}}
+                {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{friendlyModel .}}</span>{{end}}
+                {{range .Models}}<span class="badge badge-model">{{friendlyModel .}}</span>{{end}}
+            </div>
+        </div>
+        <div class="rv2-meta">
+            <span class="rv2-date">{{.FormattedStartedAt}}</span>
+            {{if .Duration}}<span class="rv2-dur">{{.Duration}}</span>{{end}}
+            {{if .BranchName}}<span class="rv2-progress" style="font-family:var(--font-mono);">{{.BranchName}}</span>{{end}}
+        </div>
+    </a>
+
+    {{if .ChildRuns}}
+    <div class="rv2-child">
+    {{range .ChildRuns}}
+        <a href="/runs/{{.RunID}}" class="rv2-run">
+            <div class="rv2-accent st-{{.Status}}"></div>
+            <div class="rv2-body">
+                <div class="rv2-row1">
+                    <span class="rv2-name">{{.PipelineName}}</span>
+                    <span class="badge rv2-status {{statusClass .Status}}">{{.Status}}</span>
+                    {{if .InputPreview}}<span class="rv2-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
+                </div>
+                <div class="rv2-row2">
+                    {{if .Duration}}<span><b>{{.Duration}}</b></span>{{end}}
+                    {{if gt .StepsTotal 0}}<span><b>{{.StepsCompleted}}/{{.StepsTotal}}</b> steps</span>{{end}}
+                    {{if .TotalTokens}}<span><b>{{formatTokens .TotalTokens}}</b> tok</span>{{end}}
+                </div>
+            </div>
+            <div class="rv2-meta">
+                <span class="rv2-date">{{.FormattedStartedAt}}</span>
+            </div>
+        </a>
+    {{end}}
+    </div>
+    {{end}}
+{{end}}
+{{else}}
+<div class="rv2-empty">No runs found{{if .FilterStatus}} with status "{{.FilterStatus}}"{{end}}</div>
+{{end}}
+</div>
+
+{{if .HasMore}}
+<div class="rv2-more">
+    <a href="/runs?cursor={{.NextCursor}}{{if .FilterStatus}}&status={{.FilterStatus}}{{end}}{{if .FilterPipeline}}&pipeline={{.FilterPipeline}}{{end}}">Load more</a>
 </div>
 {{end}}
 
-<div id="runs-list" class="runs-list">
-    {{if .Runs}}
-    <table class="table" id="runs-table">
-        <thead>
-            <tr>
-                <th class="sortable" data-sort="status" onclick="sortTable('status')" aria-sort="none">Status <span class="sort-indicator"></span></th>
-                <th class="sortable" data-sort="pipeline" onclick="sortTable('pipeline')" aria-sort="none">Pipeline <span class="sort-indicator"></span></th>
-                <th>Run ID</th>
-                <th class="sortable" data-sort="started" onclick="sortTable('started')" aria-sort="none">Started <span class="sort-indicator"></span></th>
-                <th class="sortable" data-sort="duration" onclick="sortTable('duration')" aria-sort="none">Duration <span class="sort-indicator"></span></th>
-                <th>Progress</th>
-                <th>Tokens</th>
-                <th>Adapter</th>
-                <th>Model</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Runs}}
-            {{template "templates/partials/run_row.html" .}}
-            {{range .ChildRuns}}
-            {{template "templates/partials/child_run_row.html" .}}
-            {{end}}
-            {{end}}
-        </tbody>
-    </table>
-    {{if .HasMore}}
-    <div class="pagination">
-        <a href="/runs?cursor={{.NextCursor}}{{if .FilterStatus}}&status={{.FilterStatus | urlquery}}{{end}}{{if .FilterPipeline}}&pipeline={{.FilterPipeline | urlquery}}{{end}}{{if .FilterSince}}&since={{.FilterSince | urlquery}}{{end}}{{if .FilterSearch}}&search={{.FilterSearch | urlquery}}{{end}}" class="btn btn-load-more" aria-label="Load more pipeline runs">Load more runs&hellip;</a>
-    </div>
-    {{end}}
-    {{else}}
-    <div class="empty-state">
-        {{if .HasFilters}}
-        <div class="empty-state-icon">&#128269;</div>
-        <p><strong>No matching runs</strong></p>
-        <p>No runs found matching your filters.</p>
-        <div class="empty-state-action">
-            <a href="/runs" class="btn btn-primary">Clear filters</a>
-        </div>
-        {{else}}
-        <div class="empty-state-icon">&#9654;</div>
-        <p><strong>No pipeline runs yet</strong></p>
-        <p>Run a pipeline with <code>wave run</code> or start one from the dashboard.</p>
-        <div class="empty-state-action">
-            <button class="btn btn-primary" onclick="toggleStartForm()">Start Pipeline</button>
-        </div>
-        {{end}}
-    </div>
-    {{end}}
-</div>
 {{end}}
 {{define "scripts"}}
-<script src="/static/sse.js"></script>
 <script>
-function onPipelineSelect() {
-    var sel = document.getElementById('pipeline-select');
-    var opt = sel.options[sel.selectedIndex];
-    var preview = document.getElementById('pipeline-preview');
-    var stepList = document.getElementById('pipeline-step-list');
-    if (!opt || !opt.value) {
-        preview.style.display = 'none';
-        stepList.style.display = 'none';
-        stepList.innerHTML = '';
-        return;
+// Keyboard shortcut: press 'r' to refresh
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'r' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') {
+        location.reload();
     }
-    var desc = opt.getAttribute('data-description');
-    var steps = opt.getAttribute('data-steps');
-    var category = opt.getAttribute('data-category');
-
-    var descEl = document.getElementById('pipeline-desc');
-    var stepsEl = document.getElementById('pipeline-steps');
-    var catEl = document.getElementById('pipeline-category');
-
-    descEl.textContent = desc || 'No description available.';
-    stepsEl.textContent = (steps || '0') + ' steps';
-
-    if (category) {
-        catEl.textContent = category;
-        catEl.style.display = '';
-    } else {
-        catEl.style.display = 'none';
-    }
-
-    preview.style.display = '';
-
-    // Fetch pipeline detail to show step list
-    fetchJSON('/api/pipelines/' + encodeURIComponent(opt.value))
-        .then(function(detail) {
-            if (detail.steps && detail.steps.length > 0) {
-                var html = '<div class="pipeline-step-list-label">Steps:</div>';
-                html += '<div class="pipeline-step-select-header"><label class="form-group-checkbox"><input type="checkbox" id="all-steps-checkbox" checked onchange="toggleAllSteps(this)"> <span>Run all steps</span></label></div>';
-                html += '<ol class="pipeline-step-list-items">';
-                for (var i = 0; i < detail.steps.length; i++) {
-                    var s = detail.steps[i];
-                    html += '<li><label class="pipeline-step-check"><input type="checkbox" class="step-select-cb" value="' + escapeHTML(s.id) + '" checked onchange="onStepCheckboxChange()"> <span class="step-name">' + escapeHTML(s.id) + '</span>';
-                    if (s.persona) html += ' <span class="step-persona">' + escapeHTML(s.persona) + '</span>';
-                    if (s.artifacts && s.artifacts.length > 0) {
-                        html += ' <span class="step-artifacts">' + s.artifacts.map(function(a) { return escapeHTML(a); }).join(', ') + '</span>';
-                    }
-                    html += '</span></label></li>';
-                }
-                html += '</ol>';
-                stepList.innerHTML = html;
-                stepList.style.display = '';
-            } else {
-                stepList.style.display = 'none';
-                stepList.innerHTML = '';
-            }
-        })
-        .catch(function() {
-            stepList.style.display = 'none';
-            stepList.innerHTML = '';
-        });
-}
-
-// Step selection helpers for the start form
-function toggleAllSteps(checkbox) {
-    var cbs = document.querySelectorAll('.step-select-cb');
-    for (var i = 0; i < cbs.length; i++) cbs[i].checked = checkbox.checked;
-}
-function onStepCheckboxChange() {
-    var cbs = document.querySelectorAll('.step-select-cb');
-    var allCb = document.getElementById('all-steps-checkbox');
-    if (allCb) {
-        var allChecked = true;
-        for (var i = 0; i < cbs.length; i++) { if (!cbs[i].checked) { allChecked = false; break; } }
-        allCb.checked = allChecked;
-    }
-}
-function getSelectedSteps() {
-    var allCb = document.getElementById('all-steps-checkbox');
-    if (allCb && allCb.checked) return { steps: '', exclude: '' };
-    var cbs = document.querySelectorAll('.step-select-cb');
-    var checked = [], unchecked = [];
-    for (var i = 0; i < cbs.length; i++) {
-        if (cbs[i].checked) checked.push(cbs[i].value);
-        else unchecked.push(cbs[i].value);
-    }
-    // If more than half checked, use "steps" mode; otherwise use "exclude" mode
-    if (checked.length > unchecked.length) {
-        return { steps: checked.join(','), exclude: '' };
-    } else {
-        return { steps: '', exclude: unchecked.join(',') };
-    }
-}
-
-function clearFilter(name) {
-    var params = new URLSearchParams(window.location.search);
-    params.delete(name);
-    window.location.search = params.toString();
-}
-
-// Client-side search filtering on existing table rows.
-// Filters by pipeline name, run ID, branch, and input preview text.
-// Updates URL search param on debounced input so filters persist on reload.
-var searchDebounce = null;
-function searchRunsLocal() {
-    var input = document.getElementById('search-filter');
-    if (!input) return;
-    var query = input.value.toLowerCase().trim();
-
-    // Filter visible rows
-    var table = document.getElementById('runs-table');
-    if (table) {
-        var rows = table.querySelectorAll('tbody tr.run-row');
-        var visibleCount = 0;
-        for (var i = 0; i < rows.length; i++) {
-            var row = rows[i];
-            var text = row.textContent.toLowerCase();
-            var pipeline = (row.getAttribute('data-pipeline') || '').toLowerCase();
-            if (!query || text.indexOf(query) !== -1 || pipeline.indexOf(query) !== -1) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        }
-    }
-
-    // Debounce URL update to avoid excessive history entries
-    if (searchDebounce) clearTimeout(searchDebounce);
-    searchDebounce = setTimeout(function() {
-        var params = new URLSearchParams(window.location.search);
-        if (query) {
-            params.set('search', query);
-        } else {
-            params.delete('search');
-        }
-        var newURL = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
-        history.replaceState(null, '', newURL);
-    }, 400);
-}
-
-// Apply search filter from URL on page load
-(function() {
-    var params = new URLSearchParams(window.location.search);
-    var searchVal = params.get('search');
-    if (searchVal) {
-        var input = document.getElementById('search-filter');
-        if (input) {
-            input.value = searchVal;
-            searchRunsLocal();
-        }
-    }
-})();
+});
 </script>
 {{end}}
