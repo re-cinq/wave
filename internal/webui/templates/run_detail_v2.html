@@ -341,9 +341,8 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
         <h1>
             <a href="/pipelines/{{.Run.PipelineName}}">{{.Run.PipelineName}}</a>
             <span class="badge {{statusClass .Run.Status}}">{{.Run.Status}}</span>
-            <span style="font-size:0.6rem;font-weight:400;color:var(--color-text-muted);font-family:var(--font-mono);margin-left:0.3rem;" title="{{.Run.RunID}}">{{shortRunID .Run.RunID}}</span>
         </h1>
-        {{if .PipelineDescription}}<p style="margin:0.15rem 0 0.4rem;font-size:0.8rem;color:var(--color-text-secondary);">{{.PipelineDescription}}</p>{{end}}
+        {{if .PipelineDescription}}<p style="margin:0.1rem 0 0.3rem;font-size:0.8rem;color:var(--color-text-secondary);">{{.PipelineDescription}}</p>{{end}}
     </div>
     <div class="actions">
         {{if eq .Run.Status "running"}}<button class="btn btn-sm" style="border-color:rgba(239,68,68,0.4);color:#fca5a5;" onclick="cancelRun('{{.Run.RunID}}', this)">Stop Pipeline</button>{{end}}
