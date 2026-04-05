@@ -62,6 +62,7 @@ func (s *Server) handleAPIPipelineInfo(w http.ResponseWriter, r *http.Request) {
 // PipelineDetailStep holds step info for the pipeline detail view.
 type PipelineDetailStep struct {
 	ID                 string   `json:"id"`
+	Type               string   `json:"type,omitempty"`
 	Persona            string   `json:"persona"`
 	Dependencies       []string `json:"dependencies,omitempty"`
 	Timeout            int      `json:"timeout,omitempty"`
@@ -108,6 +109,7 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 		}
 		steps = append(steps, PipelineDetailStep{
 			ID:                 step.ID,
+			Type:               step.Type,
 			Persona:            resolveForgeVars(step.Persona),
 			Dependencies:       step.Dependencies,
 			Timeout:            step.TimeoutMinutes,
