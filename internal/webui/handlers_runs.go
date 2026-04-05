@@ -673,6 +673,51 @@ func (s *Server) handleRunDetailV2Page(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Enrich linked URL with PR/Issue metadata from forge
+	var linkedTitle, linkedState, linkedAuthor string
+	var linkedNumber int
+	if runSummary.LinkedURL != "" && s.forgeClient != nil && s.repoSlug != "" {
+		parts := strings.Split(s.repoSlug, "/")
+		if len(parts) == 2 {
+			owner, repo := parts[0], parts[1]
+			ctx := r.Context()
+			// Parse PR or issue number from URL
+			urlParts := strings.Split(runSummary.LinkedURL, "/")
+			for i, p := range urlParts {
+				if (p == "pull" || p == "issues" || p == "merge_requests") && i+1 < len(urlParts) {
+					if num, err := strconv.Atoi(strings.TrimRight(urlParts[i+1], "#/")); err == nil {
+						linkedNumber = num
+						if p == "pull" || p == "merge_requests" {
+							if pr, err := s.forgeClient.GetPullRequest(ctx, owner, repo, num); err == nil {
+								linkedTitle = pr.Title
+								linkedState = pr.State
+								if pr.Merged {
+									linkedState = "merged"
+								}
+								linkedAuthor = pr.Author
+							}
+						} else if p == "issues" {
+							if iss, err := s.forgeClient.GetIssue(ctx, owner, repo, num); err == nil {
+								linkedTitle = iss.Title
+								linkedState = iss.State
+								linkedAuthor = iss.Author
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Collect child runs for sub-pipeline steps
+	childRuns := make(map[string][]RunSummary)
+	if children, err := s.store.GetChildRuns(runID); err == nil {
+		for _, cr := range children {
+			summary := runToSummary(cr)
+			childRuns[cr.ParentStepID] = append(childRuns[cr.ParentStepID], summary)
+		}
+	}
+
 	data := struct {
 		ActivePage          string
 		Run                 RunSummary
@@ -683,6 +728,11 @@ func (s *Server) handleRunDetailV2Page(w http.ResponseWriter, r *http.Request) {
 		Adapters            []string
 		Models              []string
 		OutputSummary       string
+		LinkedTitle         string
+		LinkedState         string
+		LinkedAuthor        string
+		LinkedNumber        int
+		ChildRuns           map[string][]RunSummary
 	}{
 		ActivePage:          "runs",
 		Run:                 runSummary,
@@ -693,6 +743,11 @@ func (s *Server) handleRunDetailV2Page(w http.ResponseWriter, r *http.Request) {
 		Adapters:            uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return sd.Adapter })),
 		Models:              uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return sd.Model })),
 		OutputSummary:       outputSummary,
+		LinkedTitle:         linkedTitle,
+		LinkedState:         linkedState,
+		LinkedAuthor:        linkedAuthor,
+		LinkedNumber:        linkedNumber,
+		ChildRuns:           childRuns,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

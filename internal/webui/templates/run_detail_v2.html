@@ -24,7 +24,7 @@
 /* ── I/O Hero Cards (pill-shaped -- visually distinct from step rectangles) ── */
 .v2-io { border-radius: 6px; padding: 0.5rem 0.85rem; position: relative; }
 .v2-io-in  { background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.3); border-left: 4px solid #6366f1; margin-bottom: 0.75rem; }
-.v2-io-out { background: rgba(34,197,94,0.07); border: 2px solid rgba(34,197,94,0.4); border-left: 4px solid #22c55e; margin-top: 1rem; padding: 0.5rem 0 0.5rem; overflow: hidden; }
+.v2-io-out { background: rgba(34,197,94,0.07); border: 2px solid rgba(34,197,94,0.4); border-left: 4px solid #22c55e; margin-top: 1rem; padding: 0.5rem 0 0; overflow: hidden; }
 .v2-io-out.st-failed { background: rgba(239,68,68,0.07); border-color: rgba(239,68,68,0.35); border-left-color: #ef4444; }
 .v2-io-tag { display: inline-block; font-size: 0.52rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 0 4px; border-radius: 2px; margin-right: 0.35rem; vertical-align: middle; font-family: var(--font-mono); }
 .v2-io-in .v2-io-tag  { background: rgba(99,102,241,0.2); color: #a5b4fc; }
@@ -433,9 +433,19 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 <!-- INPUT -->
 <div class="v2-io v2-io-in">
     <span class="v2-io-tag">IN</span>
+    {{if .LinkedTitle}}
+    <div class="v2-io-text" style="display:flex;flex-direction:column;gap:0.15rem;">
+        <div style="display:flex;align-items:center;gap:0.4rem;">
+            <a href="{{if .LinkedNumber}}/prs/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:0.9rem;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
+            {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else}}status-cancelled{{end}}" style="font-size:0.62rem;">{{.LinkedState}}</span>{{end}}
+        </div>
+        {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</span>{{end}}
+    </div>
+    {{else}}
     <span class="v2-io-text">
         {{if .Run.LinkedURL}}<a href="{{.Run.LinkedURL}}" target="_blank" style="font-weight:600;">{{richInput .Run.Input .Run.LinkedURL}}</a>{{else if .Run.Input}}{{.Run.Input}}{{else}}<span style="opacity:0.4">no input</span>{{end}}
     </span>
+    {{end}}
 </div>
 
 
@@ -500,6 +510,23 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
             {{end}}
             {{if and (eq $step.StepType "conditional") $step.EdgeInfo}}<div class="v2-s-edges">{{$step.EdgeInfo}}</div>{{end}}
             {{if and (eq $step.StepType "command") $step.Script}}<div style="padding:0.06rem 0.55rem 0.15rem;"><pre style="margin:0;font-size:0.68rem;color:var(--color-text-muted);background:var(--color-bg-tertiary);padding:0.2rem 0.4rem;border-radius:3px;overflow-x:auto;"><code>{{$step.Script}}</code></pre></div>{{end}}
+
+            <!-- Child runs for sub-pipeline steps -->
+            {{if eq $step.StepType "pipeline"}}
+            {{with index $.ChildRuns $step.StepID}}
+            <div style="padding:0.2rem 0.55rem 0.3rem;">
+                {{range .}}
+                <a href="/runs/{{.RunID}}" style="display:flex;align-items:center;gap:0.4rem;padding:0.2rem 0.4rem;margin-bottom:0.15rem;background:var(--color-bg-tertiary);border-radius:4px;border-left:3px solid {{if eq .Status "completed"}}var(--color-completed){{else if eq .Status "failed"}}var(--color-failed){{else if eq .Status "running"}}var(--color-running){{else}}var(--color-border){{end}};text-decoration:none;color:inherit;font-size:0.72rem;">
+                    <span style="font-weight:600;color:var(--color-text);">{{.PipelineName}}</span>
+                    <span class="badge {{statusClass .Status}}" style="font-size:0.58rem;">{{.Status}}</span>
+                    {{if .Duration}}<span style="color:var(--color-text-muted);">{{.Duration}}</span>{{end}}
+                    {{if .TotalTokens}}<span style="color:var(--color-text-muted);">{{formatTokens .TotalTokens}} tok</span>{{end}}
+                    {{if .InputPreview}}<span style="color:var(--color-text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px;">{{.InputPreview}}</span>{{end}}
+                </a>
+                {{end}}
+            </div>
+            {{end}}
+            {{end}}
 
             <!-- Tab bar: artifacts + logs -->
             <div class="v2-s-tabs">
