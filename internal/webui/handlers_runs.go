@@ -342,7 +342,8 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 				if (p == "pull" || p == "issues" || p == "merge_requests") && i+1 < len(urlParts) {
 					if num, err := strconv.Atoi(strings.TrimRight(urlParts[i+1], "#/")); err == nil {
 						linkedNumber = num
-						if p == "pull" || p == "merge_requests" {
+						switch p {
+						case "pull", "merge_requests":
 							linkedType = "pr"
 							if pr, err := s.forgeClient.GetPullRequest(ctx, owner, repo, num); err == nil {
 								linkedTitle = pr.Title
@@ -352,7 +353,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 								}
 								linkedAuthor = pr.Author
 							}
-						} else if p == "issues" {
+						case "issues":
 							linkedType = "issue"
 							if iss, err := s.forgeClient.GetIssue(ctx, owner, repo, num); err == nil {
 								linkedTitle = iss.Title
