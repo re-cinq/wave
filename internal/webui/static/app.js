@@ -160,6 +160,33 @@ function populateAdapterDropdown() {
         .catch(function() { /* ignore */ });
 }
 
+// Collect advanced options from quickstart dialogs.
+// The prefix parameter matches the element ID prefix (e.g. "qs" for "qs-model").
+function collectAdvancedOptions(prefix) {
+    var opts = {};
+    var modelEl = document.getElementById(prefix + '-model');
+    if (modelEl && modelEl.value) opts.model = modelEl.value;
+    var fromStepEl = document.getElementById(prefix + '-from-step');
+    if (fromStepEl && fromStepEl.value) opts.from_step = fromStepEl.value;
+    var dryRunEl = document.getElementById(prefix + '-dry-run');
+    if (dryRunEl && dryRunEl.checked) opts.dry_run = true;
+    // Collect selected steps
+    var stepsCbs = document.querySelectorAll('input[name="' + prefix + '-steps"]:checked');
+    if (stepsCbs.length > 0) {
+        var steps = [];
+        for (var i = 0; i < stepsCbs.length; i++) steps.push(stepsCbs[i].value);
+        opts.steps = steps.join(',');
+    }
+    // Collect excluded steps
+    var excludeCbs = document.querySelectorAll('input[name="' + prefix + '-exclude"]:checked');
+    if (excludeCbs.length > 0) {
+        var exclude = [];
+        for (var j = 0; j < excludeCbs.length; j++) exclude.push(excludeCbs[j].value);
+        opts.exclude = exclude.join(',');
+    }
+    return opts;
+}
+
 // Start a pipeline via API
 async function startPipeline(e) {
     e.preventDefault();

@@ -46,7 +46,7 @@ steps:
 
   - id: rework
     type: pipeline
-    pipeline: ops-pr-rework
+    pipeline: ops-pr-fix-review
     dependencies: [check-verdict]
     input: "{{ implement.output.pr_url }}"
 

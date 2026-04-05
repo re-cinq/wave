@@ -59,6 +59,11 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		"formatTime":     formatTime,
 		"formatTimeISO":  formatTimeISO,
 		"formatTokens":   formatTokensFunc,
+		"formatBytes":    formatBytesFunc,
+		"richInput":      richInputFunc,
+		"friendlyModel":  friendlyModelFunc,
+		"shortRunID":     func(id string) string { if len(id) > 12 { return id[:12] }; return id },
+		"titleCase": titleCaseFunc,
 		"contains":       strings.Contains,
 		"hasPrefix":      strings.HasPrefix,
 		"checkClass":     checkClass,
@@ -68,6 +73,8 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		"subtract":         func(a, b int) int { return a - b },
 		"smoothnessLabel":  smoothnessLabel,
 		"frictionLabel":    frictionLabel,
+		"adapterIcon":      adapterIcon,
+		"forgeIcon":        forgeIcon,
 		"pluralize": func(n int, singular, plural string) string {
 			if n == 1 {
 				return singular
@@ -167,6 +174,8 @@ func statusClass(status string) string {
 		return "status-cancelled"
 	case "pending":
 		return "status-pending"
+	case "skipped":
+		return "status-skipped"
 	case "hook_started":
 		return "status-hook-started"
 	case "hook_passed":
@@ -296,6 +305,92 @@ func formatTokensFunc(v interface{}) string {
 	}
 }
 
+// richInputFunc parses a pipeline input string and returns a human-friendly display.
+// Recognizes GitHub/GitLab/Bitbucket URLs for issues, PRs, and commits.
+func richInputFunc(input, linkedURL string) string {
+	url := linkedURL
+	if url == "" {
+		url = input
+	}
+
+	// GitHub: /owner/repo/pull/123 or /owner/repo/issues/123
+	if strings.Contains(url, "github.com") {
+		parts := strings.Split(url, "/")
+		for i, p := range parts {
+			if p == "pull" && i+1 < len(parts) {
+				return "PR #" + parts[i+1]
+			}
+			if p == "issues" && i+1 < len(parts) {
+				return "Issue #" + parts[i+1]
+			}
+		}
+	}
+	// GitLab: /-/merge_requests/123 or /-/issues/123
+	if strings.Contains(url, "gitlab") {
+		parts := strings.Split(url, "/")
+		for i, p := range parts {
+			if p == "merge_requests" && i+1 < len(parts) {
+				return "MR !" + parts[i+1]
+			}
+			if p == "issues" && i+1 < len(parts) {
+				return "Issue #" + parts[i+1]
+			}
+		}
+	}
+
+	// Truncate long non-URL inputs
+	if len(input) > 80 {
+		return input[:77] + "..."
+	}
+	return input
+}
+
+// friendlyModelFunc converts raw model IDs to human-friendly display names.
+func friendlyModelFunc(model string) string {
+	m := strings.ToLower(model)
+	switch {
+	case strings.Contains(m, "opus"):
+		return "Opus"
+	case strings.Contains(m, "sonnet"):
+		return "Sonnet"
+	case strings.Contains(m, "haiku"):
+		return "Haiku"
+	case m == "cheapest":
+		return "Cheapest"
+	case m == "fastest":
+		return "Fastest"
+	case m == "strongest":
+		return "Strongest"
+	default:
+		// Truncate long model IDs: "claude-sonnet-4-20250514" → "Sonnet 4"
+		if len(model) > 20 {
+			return model[:20] + "…"
+		}
+		return model
+	}
+}
+
+// formatBytesFunc formats a byte count for human-readable display.
+func formatBytesFunc(v interface{}) string {
+	var n int64
+	switch x := v.(type) {
+	case int64:
+		n = x
+	case int:
+		n = int64(x)
+	default:
+		return "0B"
+	}
+	switch {
+	case n >= 1024*1024:
+		return fmt.Sprintf("%.1fMB", float64(n)/1024/1024)
+	case n >= 1024:
+		return fmt.Sprintf("%.1fKB", float64(n)/1024)
+	default:
+		return fmt.Sprintf("%dB", n)
+	}
+}
+
 // formatTimeISO formats a time.Time as an ISO 8601 string for use in HTML
 // datetime attributes and JavaScript relative time calculation.
 func formatTimeISO(t interface{}) string {
@@ -313,4 +408,14 @@ func formatTimeISO(t interface{}) string {
 	default:
 		return ""
 	}
+}
+
+func titleCaseFunc(s string) string {
+	words := strings.Fields(strings.NewReplacer("_", " ", "-", " ").Replace(s))
+	for i, w := range words {
+		if len(w) > 0 {
+			words[i] = strings.ToUpper(w[:1]) + w[1:]
+		}
+	}
+	return strings.Join(words, " ")
 }

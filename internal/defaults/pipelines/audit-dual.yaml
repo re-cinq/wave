@@ -31,7 +31,7 @@ steps:
   # ── Track A: Code Quality ──────────────────────────────────────────
   - id: quality-scan
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     workspace:
       mount:
         - source: ./
@@ -67,7 +67,7 @@ steps:
 
   - id: quality-detail
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     dependencies: [quality-scan]
     memory:
       strategy: fresh
@@ -104,7 +104,7 @@ steps:
   # ── Track B: Security ──────────────────────────────────────────────
   - id: security-scan
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     workspace:
       mount:
         - source: ./
@@ -130,7 +130,7 @@ steps:
 
   - id: security-detail
     persona: navigator
-    model: claude-haiku
+    model: cheapest
     dependencies: [security-scan]
     memory:
       strategy: fresh
@@ -167,7 +167,7 @@ steps:
   # ── Merge: Converge both tracks ────────────────────────────────────
   - id: merge
     persona: summarizer
-    model: claude-haiku
+    model: cheapest
     dependencies: [quality-detail, security-detail]
     memory:
       strategy: fresh

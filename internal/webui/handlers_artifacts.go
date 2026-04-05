@@ -1,7 +1,7 @@
 package webui
 
 import (
-	"html"
+
 	"net/http"
 	"os"
 	"path/filepath"
@@ -77,15 +77,14 @@ func (s *Server) handleArtifact(w http.ResponseWriter, r *http.Request) {
 		truncated = true
 	}
 
-	// Redact credentials and escape HTML
+	// Redact credentials (no HTML escaping — this is a JSON API, not HTML template)
 	redacted := RedactCredentials(string(content))
-	escaped := html.EscapeString(redacted)
 
 	// Determine MIME type
 	mimeType := detectMimeType(name)
 
 	resp := ArtifactContentResponse{
-		Content: escaped,
+		Content: redacted,
 		Metadata: ArtifactMetadata{
 			Name:      name,
 			Type:      found.Type,

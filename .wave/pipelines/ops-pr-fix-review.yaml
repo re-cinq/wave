@@ -38,7 +38,7 @@ steps:
   - id: fetch-review
     persona: navigator
     contexts: [configuration]
-    model: claude-haiku
+    model: cheapest
     workspace:
       mount:
         - source: ./
@@ -112,7 +112,7 @@ steps:
   - id: triage
     persona: navigator
     contexts: [configuration, execution]
-    model: claude-sonnet
+    model: fastest
     dependencies: [fetch-review]
     memory:
       inject_artifacts:
@@ -180,7 +180,7 @@ steps:
   - id: apply-fixes
     persona: craftsman
     contexts: [execution, delivery]
-    model: claude-sonnet
+    model: fastest
     dependencies: [triage]
     memory:
       inject_artifacts:
@@ -305,7 +305,7 @@ steps:
   - id: reply-comments
     persona: navigator
     contexts: [execution]
-    model: claude-haiku
+    model: cheapest
     dependencies: [apply-fixes]
     memory:
       inject_artifacts:

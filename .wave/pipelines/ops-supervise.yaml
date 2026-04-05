@@ -11,7 +11,7 @@ input:
 steps:
   - id: gather
     persona: supervisor
-    model: claude-haiku
+    model: cheapest
     workspace:
       mount:
         - source: ./
