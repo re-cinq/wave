@@ -374,7 +374,6 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
     <span><b>{{formatTokens .Run.TotalTokens}}</b> tok</span>
     {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{.}}</span>{{end}}
     {{range .Models}}<span class="badge badge-model">{{.}}</span>{{end}}
-    {{if .Run.BranchName}}<span style="color:var(--color-text-muted);">·</span><code style="font-size:0.68rem;color:var(--color-text-secondary);">{{.Run.BranchName}}</code>{{end}}
     <span style="margin-left:auto;display:flex;gap:0.15rem;">
         {{if .Events}}<button class="v2-sec-tab" onclick="v2Tab('events',this)">Events ({{len .Events}})</button>{{end}}
         <button class="v2-sec-tab" onclick="v2Tab('retro',this)">Retro</button>
