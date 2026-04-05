@@ -95,8 +95,8 @@
             <div class="rv2-row2">
                 {{if gt .StepsTotal 0}}<span><b>{{.StepsCompleted}}/{{.StepsTotal}}</b> steps</span>{{end}}
                 {{if .TotalTokens}}<span><b>{{formatTokens .TotalTokens}}</b> tok</span>{{end}}
-                {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{.}}</span>{{end}}
-                {{range .Models}}<span class="badge badge-model">{{.}}</span>{{end}}
+                {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{friendlyModel .}}</span>{{end}}
+                {{range .Models}}<span class="badge badge-model">{{friendlyModel .}}</span>{{end}}
             </div>
         </div>
         <div class="rv2-meta">

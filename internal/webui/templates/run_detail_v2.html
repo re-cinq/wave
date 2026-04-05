@@ -365,15 +365,15 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 
 <!-- Stats + secondary nav on same level -->
 <div class="v2-stats">
-    <span title="Started at {{.Run.FormattedStartedAt}}"><b>{{.Run.FormattedStartedAt}}</b></span>
+    <span title="{{.Run.FormattedStartedAt}}"><b data-relative-time="{{.Run.StartedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.Run.FormattedStartedAt}}</b></span>
     <span style="color:var(--color-text-muted);">·</span>
     <span><b{{if eq .Run.Status "running"}} data-live-timer="true" data-started-at="{{.Run.StartedAt.Format "2006-01-02T15:04:05Z07:00"}}"{{end}}>{{if .Run.Duration}}{{.Run.Duration}}{{else}}-{{end}}</b></span>
     <span style="color:var(--color-text-muted);">·</span>
     <span><b>{{.Run.StepsCompleted}}/{{.Run.StepsTotal}}</b> steps</span>
     <span style="color:var(--color-text-muted);">·</span>
     <span><b>{{formatTokens .Run.TotalTokens}}</b> tok</span>
-    {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{.}}</span>{{end}}
-    {{range .Models}}<span class="badge badge-model">{{.}}</span>{{end}}
+    {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{friendlyModel .}}</span>{{end}}
+    {{range .Models}}<span class="badge badge-model">{{friendlyModel .}}</span>{{end}}
     <span style="margin-left:auto;display:flex;gap:0.15rem;">
         {{if .Events}}<button class="v2-sec-tab" onclick="v2Tab('events',this)">Events ({{len .Events}})</button>{{end}}
         <button class="v2-sec-tab" onclick="v2Tab('retro',this)">Retro</button>
@@ -464,7 +464,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
                 {{if $step.MaxVisits}}<span class="badge" style="font-size:0.55rem;background:rgba(168,85,247,0.15);color:#a855f7;">{{$step.VisitCount}}/{{$step.MaxVisits}}</span>{{end}}
                 <span class="v2-s-meta">
                     {{if $step.Adapter}}<span class="badge badge-adapter">{{adapterIcon $step.Adapter}}{{$step.Adapter}}</span>{{end}}
-                    {{if $step.Model}}<span class="badge badge-model">{{$step.Model}}</span>{{end}}
+                    {{if $step.Model}}<span class="badge badge-model">{{friendlyModel $step.Model}}</span>{{end}}
                     {{if $step.TokensUsed}}<span class="v2-s-tok">{{formatTokens $step.TokensUsed}}</span>{{end}}
                     {{if eq $step.StepType "command"}}<span style="color:var(--color-text-muted)">cmd</span>{{end}}
                     {{if $step.Duration}}<span class="v2-s-dur">{{$step.Duration}}</span>{{end}}
@@ -1067,5 +1067,24 @@ function v2ArtView(btn,view){
         el.style.display=el.dataset.view===view?'':'none';
     });
 }
+
+// Relative timestamps
+(function(){
+    function relTime(iso){
+        var d=new Date(iso),now=Date.now(),diff=now-d.getTime();
+        var s=Math.floor(diff/1000),m=Math.floor(s/60),h=Math.floor(m/60),dy=Math.floor(h/24);
+        if(dy>7) return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+        if(dy>1) return dy+' days ago';
+        if(dy===1) return 'yesterday';
+        if(h>1) return h+'h ago';
+        if(h===1) return '1h ago';
+        if(m>1) return m+'m ago';
+        return 'just now';
+    }
+    document.querySelectorAll('[data-relative-time]').forEach(function(el){
+        var iso=el.getAttribute('data-relative-time');
+        if(iso) el.textContent=relTime(iso);
+    });
+})();
 </script>
 {{end}}
