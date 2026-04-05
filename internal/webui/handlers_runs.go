@@ -591,9 +591,10 @@ func (s *Server) handleRunDetailV2Page(w http.ResponseWriter, r *http.Request) {
 		for i, sd := range stepDetails {
 			if ref, ok := stepRefs[sd.StepID]; ok {
 				if len(ref.injects) > 0 {
-					stepDetails[i].Action = "from: " + strings.Join(ref.injects, ", ")
+					// Show artifact names: "spec/analysis, docs/feature-docs"
+					stepDetails[i].Action = strings.Join(ref.injects, ", ")
 				} else if len(ref.deps) > 0 {
-					stepDetails[i].Action = "from: " + strings.Join(ref.deps, ", ")
+					stepDetails[i].Action = strings.Join(ref.deps, " + ")
 				}
 			}
 		}
