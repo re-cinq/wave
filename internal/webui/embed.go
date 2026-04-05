@@ -176,6 +176,8 @@ func statusClass(status string) string {
 		return "status-cancelled"
 	case "pending":
 		return "status-pending"
+	case "skipped":
+		return "status-skipped"
 	case "hook_started":
 		return "status-hook-started"
 	case "hook_passed":
