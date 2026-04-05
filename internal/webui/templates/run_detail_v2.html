@@ -71,7 +71,9 @@
 .v2-s.st-failed    { border-left: 5px solid var(--color-failed); }
 .v2-s.st-running   { border-left: 5px solid var(--color-running); }
 .v2-s.st-pending   { border-left: 3px solid var(--color-border); opacity: 0.5; }
-.v2-s.st-skipped   { border-left: 3px solid var(--color-border); opacity: 0.3; }
+.v2-s.st-skipped   { border-left: 3px solid var(--color-border); opacity: 0.35; }
+.v2-s.st-skipped:hover, .v2-s.st-skipped:focus-within { opacity: 0.85; background: #1e293b; }
+.v2-s.st-pending:hover, .v2-s.st-pending:focus-within { opacity: 0.85; background: #1e293b; }
 
 /* ── Step type differentiation (geometric identity) ── */
 /* Sub-pipeline: purple accent + inset glow */
@@ -237,20 +239,31 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 .v2-mt-running td:first-child { border-left: 3px solid var(--color-running); }
 .v2-mt-pending td:first-child { border-left: 3px solid var(--color-border); }
 
-/* Diff file list */
-.v2-diff-file { display: flex; gap: 0.5rem; align-items: center; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-bottom: 1px solid rgba(51,65,85,0.3); cursor: pointer; }
+/* Diff: split-pane (file tree left, diff right) */
+.v2-diff-layout { display: grid; grid-template-columns: 280px 1fr; min-height: 200px; }
+.v2-diff-tree { border-right: 1px solid var(--color-border); overflow-y: auto; }
+.v2-diff-content { overflow: auto; }
+.v2-diff-summary { display: flex; gap: 0.75rem; padding: 0.3rem 0.5rem; font-size: 0.75rem; color: var(--color-text-muted); border-bottom: 1px solid var(--color-border); grid-column: 1 / -1; }
+.v2-diff-summary b { color: var(--color-text); }
+.v2-diff-file { display: flex; gap: 0.3rem; align-items: center; padding: 0.2rem 0.4rem; font-size: 0.7rem; border-bottom: 1px solid rgba(51,65,85,0.2); cursor: pointer; }
 .v2-diff-file:hover { background: var(--color-bg-tertiary); }
-.v2-diff-file:last-child { border-bottom: none; }
-.v2-diff-stat { font-family: var(--font-mono); font-size: 0.68rem; }
+.v2-diff-file.active { background: rgba(99,102,241,0.08); border-left: 2px solid #6366f1; }
+.v2-diff-stat { font-family: var(--font-mono); font-size: 0.62rem; margin-left: auto; white-space: nowrap; }
 .v2-diff-add { color: #4ade80; }
 .v2-diff-del { color: #f87171; }
-.v2-diff-path { color: var(--color-text-secondary); font-family: var(--font-mono); font-size: 0.72rem; flex: 1; }
-.v2-diff-status { font-size: 0.62rem; padding: 0 4px; border-radius: 2px; }
+.v2-diff-path { color: var(--color-text-secondary); font-family: var(--font-mono); font-size: 0.68rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v2-diff-status { font-size: 0.58rem; padding: 0 3px; border-radius: 2px; flex-shrink: 0; }
 .v2-diff-status-M { background: rgba(245,158,11,0.12); color: #fbbf24; }
 .v2-diff-status-A { background: rgba(34,197,94,0.12); color: #4ade80; }
 .v2-diff-status-D { background: rgba(239,68,68,0.12); color: #f87171; }
-.v2-diff-summary { display: flex; gap: 1rem; padding: 0.4rem 0.6rem; font-size: 0.78rem; color: var(--color-text-muted); border-bottom: 1px solid var(--color-border); }
-.v2-diff-summary b { color: var(--color-text); }
+.v2-diff-status-R { background: rgba(99,102,241,0.12); color: #a5b4fc; }
+.v2-diff-empty { padding: 1rem; color: var(--color-text-muted); font-size: 0.78rem; text-align: center; }
+@media (max-width: 900px) { .v2-diff-layout { grid-template-columns: 1fr; } .v2-diff-tree { border-right: none; border-bottom: 1px solid var(--color-border); max-height: 200px; } }
+
+/* Minimal steps (no data from old runs) */
+.v2-s-minimal { opacity: 0.6; }
+.v2-s-minimal .v2-s-io { display: none; }
+.v2-s-minimal .v2-s-row1 { padding: 0.15rem 0.55rem; }
 
 /* Retro */
 .v2-retro-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.4rem; padding: 0.4rem; }
@@ -432,7 +445,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 {{range $i, $step := .Steps}}
     {{if $i}}<div class="v2-conn"><span class="v2-conn-dot"></span></div>{{end}}
 
-    <div class="v2-s st-{{$step.State}}{{if eq $step.StepType "pipeline"}} tp-pipeline{{else if eq $step.StepType "gate"}} tp-gate{{else if eq $step.StepType "conditional"}} tp-conditional{{else if eq $step.StepType "command"}} tp-command{{end}}" id="v2-{{$step.StepID}}"{{if $step.StartedAt}} data-started-at="{{formatTimeISO $step.StartedAt}}"{{end}}>
+    <div class="v2-s st-{{$step.State}}{{if eq $step.StepType "pipeline"}} tp-pipeline{{else if eq $step.StepType "gate"}} tp-gate{{else if eq $step.StepType "conditional"}} tp-conditional{{else if eq $step.StepType "command"}} tp-command{{end}}{{if and (not $step.Duration) (not $step.TokensUsed) (eq $step.State "completed")}} v2-s-minimal{{end}}" id="v2-{{$step.StepID}}"{{if $step.StartedAt}} data-started-at="{{formatTimeISO $step.StartedAt}}"{{end}}>
 
         <!-- Gantt fill as background -->
         <!-- Top gantt bar -->
@@ -469,15 +482,15 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
                 {{if $step.ReviewVerdict}}<span class="v2-ctr {{if eq $step.ReviewVerdict "pass"}}v2-ctr-pass{{else}}v2-ctr-fail{{end}}">{{$step.ReviewVerdict}}</span>{{end}}
             </div>
 
-            <!-- Step details (click header to toggle) + error -->
+            <!-- Error -->
             {{if $step.Error}}
             <div class="v2-s-err">{{if $step.FailureClass}}<span class="badge badge-failure-{{$step.FailureClass}}" style="font-size:0.65rem;">{{titleCase $step.FailureClass}}</span> {{end}}{{if gt (len $step.Error) 200}}{{slice $step.Error 0 200}}…{{else}}{{$step.Error}}{{end}}</div>
             {{end}}
 
-            <!-- Expandable content: step config OR artifact/logs (appears between IO and tabs) -->
-            <div class="v2-s-tabcontent" hidden data-step-id="{{$step.StepID}}"></div>
+            <!-- Step config (click header to toggle — independent of tab content) -->
+            <div class="v2-s-config" hidden data-step-id="{{$step.StepID}}"></div>
 
-            <!-- Gate -->
+            <!-- Gate / Conditional / Command -->
             {{if eq $step.StepType "gate"}}
             <div class="v2-s-gate">
                 {{if $step.GatePrompt}}<div class="v2-s-gate-prompt">"{{$step.GatePrompt}}"</div>{{end}}
@@ -495,6 +508,9 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
                 <a href="#" class="v2-tab" onclick="v2ToggleLogs(this);return false;" data-step-id="{{$step.StepID}}">logs</a>
                 {{if eq $step.State "running"}}<button class="v2-tab v2-tab-action" onclick="cancelRun('{{$step.RunID}}',this)" title="Stop this pipeline">&#9632; stop</button>{{end}}
             </div>
+
+            <!-- Tab content: artifact viewer OR logs (below tab bar) -->
+            <div class="v2-s-tabcontent" hidden data-step-id="{{$step.StepID}}"></div>
         </div>
 
     </div>
@@ -648,15 +664,14 @@ if('{{.Run.Status}}'==='running'){
     }
 })();
 
-// Click step header to show step config
+// Click step header to show step config (separate from tab content)
 document.querySelectorAll('.v2-s-row1').forEach(function(row){
     row.style.cursor='pointer';
     row.addEventListener('click',function(){
         var shape=row.closest('.v2-s');
-        var tc=shape.querySelector('.v2-s-tabcontent');
+        var tc=shape.querySelector('.v2-s-config');
         if(!tc)return;
-        shape.querySelectorAll('.v2-tab').forEach(function(t){t.classList.remove('active')});
-        if(!tc.hidden&&tc.dataset.showing==='info'){tc.hidden=true;tc.dataset.showing='';return;}
+        if(!tc.hidden){tc.hidden=true;return;}
         tc.hidden=false;
         tc.dataset.showing='info';
         var nameEl=shape.querySelector('.v2-s-name');
@@ -682,11 +697,15 @@ document.querySelectorAll('.v2-s-row1').forEach(function(row){
             if(step.input_artifacts&&step.input_artifacts.length) h+=kv('Receives',step.input_artifacts.map(function(a){return '<code style="background:rgba(34,197,94,0.1);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.72rem;">'+escapeHTML(a)+'</code>';}).join(' '));
             if(step.artifacts&&step.artifacts.length) h+=kv('Produces',step.artifacts.map(function(a){return '<code style="background:rgba(99,102,241,0.1);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.72rem;">'+escapeHTML(a)+'</code>';}).join(' '));
             h+='</div>';
-            // Prompt
+            // Prompt — render as markdown if possible
             if(step.prompt){
                 h+='<div style="border-top:1px solid var(--color-border);padding-top:0.4rem;margin-top:0.2rem;">';
                 h+='<div style="color:var(--color-text-muted);font-size:0.68rem;margin-bottom:0.2rem;">Prompt</div>';
-                h+='<pre style="margin:0;padding:0.5rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.75rem;white-space:pre-wrap;color:var(--color-text-secondary);line-height:1.5;">'+escapeHTML(step.prompt)+'</pre>';
+                if(typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
+                    h+='<div class="markdown-body" style="padding:0.4rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.78rem;line-height:1.5;">'+DOMPurify.sanitize(marked.parse(step.prompt))+'</div>';
+                } else {
+                    h+='<pre style="margin:0;padding:0.5rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.75rem;white-space:pre-wrap;color:var(--color-text-secondary);line-height:1.5;">'+escapeHTML(step.prompt)+'</pre>';
+                }
                 h+='</div>';
             }
             h+='</div>';
@@ -722,31 +741,34 @@ function v2LoadDiff(){
     var el=document.getElementById('v2-diff-content');
     if(!el)return;
     fetch('/api/runs/{{.Run.RunID}}/diff').then(function(r){return r.json()}).then(function(d){
-        if(!d.available){el.innerHTML='<div style="padding:0.5rem;color:var(--color-text-muted);font-size:0.78rem;">'+escapeHTML(d.message||'No diff available')+'</div>';return;}
-        var h='<div class="v2-diff-summary"><span><b>'+d.total_files+'</b> files changed</span><span class="v2-diff-add">+'+d.total_additions+'</span><span class="v2-diff-del">-'+d.total_deletions+'</span></div>';
+        if(!d.available){el.innerHTML='<div class="v2-diff-empty">'+escapeHTML(d.message||'No diff available')+'</div>';return;}
+        var h='<div class="v2-diff-summary"><span><b>'+d.total_files+'</b> files</span><span class="v2-diff-add">+'+d.total_additions+'</span><span class="v2-diff-del">-'+d.total_deletions+'</span></div>';
+        h+='<div class="v2-diff-layout">';
+        h+='<div class="v2-diff-tree" id="v2-diff-tree">';
         if(d.files&&d.files.length){
             for(var i=0;i<d.files.length;i++){
                 var f=d.files[i];
-                h+='<div class="v2-diff-file" onclick="v2ShowFileDiff(\''+escapeHTML(f.path)+'\')">';
+                h+='<div class="v2-diff-file" data-path="'+escapeHTML(f.path)+'" onclick="v2ShowFileDiff(this,\''+escapeHTML(f.path)+'\')">';
                 h+='<span class="v2-diff-status v2-diff-status-'+escapeHTML(f.status)+'">'+escapeHTML(f.status)+'</span>';
-                h+='<span class="v2-diff-path">'+escapeHTML(f.path)+'</span>';
+                h+='<span class="v2-diff-path" title="'+escapeHTML(f.path)+'">'+escapeHTML(f.path.split('/').pop())+'</span>';
                 h+='<span class="v2-diff-stat"><span class="v2-diff-add">+'+f.additions+'</span> <span class="v2-diff-del">-'+f.deletions+'</span></span>';
                 h+='</div>';
             }
         }
+        h+='</div>';
+        h+='<div class="v2-diff-content" id="v2-diff-viewer"><div class="v2-diff-empty">Select a file to view changes</div></div>';
+        h+='</div>';
         el.innerHTML=h;
-    }).catch(function(e){el.innerHTML='<div style="padding:0.5rem;color:#fca5a5;">Failed: '+escapeHTML(String(e))+'</div>';});
+    }).catch(function(e){el.innerHTML='<div class="v2-diff-empty" style="color:#fca5a5;">Failed: '+escapeHTML(String(e))+'</div>';});
 }
 
-function v2ShowFileDiff(path){
-    var el=document.getElementById('v2-diff-content');
-    var existing=document.getElementById('v2-file-diff');
-    if(existing){existing.remove();return;}
-    var viewer=document.createElement('div');
-    viewer.id='v2-file-diff';
-    viewer.style.cssText='padding:0.4rem;';
-    viewer.innerHTML='<pre style="margin:0;font-size:0.72rem;background:var(--color-bg-tertiary);padding:0.4rem;border-radius:4px;color:var(--color-text-secondary);"><code>loading…</code></pre>';
-    el.appendChild(viewer);
+function v2ShowFileDiff(fileEl,path){
+    // Highlight active file
+    document.querySelectorAll('.v2-diff-file').forEach(function(f){f.classList.remove('active');});
+    fileEl.classList.add('active');
+    var viewer=document.getElementById('v2-diff-viewer');
+    if(!viewer)return;
+    viewer.innerHTML='<pre style="margin:0;padding:0.4rem;font-size:0.7rem;color:var(--color-text-secondary);"><code>loading…</code></pre>';
     fetch('/api/runs/{{.Run.RunID}}/diff/'+encodeURIComponent(path)).then(function(r){return r.json()}).then(function(d){
         var code=viewer.querySelector('code');
         code.textContent=d.content||'(empty)';

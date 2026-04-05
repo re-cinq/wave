@@ -594,9 +594,13 @@ func (s *Server) handleRunDetailV2Page(w http.ResponseWriter, r *http.Request) {
 	runSummary := runToSummary(*run)
 	runSummary.StepsTotal = len(stepDetails)
 	completed := 0
-	for _, sd := range stepDetails {
+	for i, sd := range stepDetails {
 		if sd.State == "completed" {
 			completed++
+		}
+		// Mark pending steps as "skipped" if the pipeline is terminal
+		if sd.State == "pending" && (run.Status == "completed" || run.Status == "failed" || run.Status == "cancelled") {
+			stepDetails[i].State = "skipped"
 		}
 	}
 	runSummary.StepsCompleted = completed
