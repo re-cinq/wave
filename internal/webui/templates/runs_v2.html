@@ -90,10 +90,9 @@
             <div class="rv2-row1">
                 <span class="rv2-name">{{.PipelineName}}</span>
                 <span class="badge rv2-status {{statusClass .Status}}">{{.Status}}</span>
-                {{if .InputPreview}}<span class="rv2-input">{{.InputPreview}}</span>{{end}}
+                {{if .InputPreview}}<span class="rv2-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
             </div>
             <div class="rv2-row2">
-                {{if .Duration}}<span><b>{{.Duration}}</b></span>{{end}}
                 {{if gt .StepsTotal 0}}<span><b>{{.StepsCompleted}}/{{.StepsTotal}}</b> steps</span>{{end}}
                 {{if .TotalTokens}}<span><b>{{formatTokens .TotalTokens}}</b> tok</span>{{end}}
                 {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{.}}</span>{{end}}
@@ -116,7 +115,7 @@
                 <div class="rv2-row1">
                     <span class="rv2-name">{{.PipelineName}}</span>
                     <span class="badge rv2-status {{statusClass .Status}}">{{.Status}}</span>
-                    {{if .InputPreview}}<span class="rv2-input">{{.InputPreview}}</span>{{end}}
+                    {{if .InputPreview}}<span class="rv2-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
                 </div>
                 <div class="rv2-row2">
                     {{if .Duration}}<span><b>{{.Duration}}</b></span>{{end}}

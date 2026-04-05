@@ -62,6 +62,9 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		"formatTimeISO":  formatTimeISO,
 		"formatTokens":   formatTokensFunc,
 		"formatBytes":    formatBytesFunc,
+		"richInput":      richInputFunc,
+		"shortRunID":     func(id string) string { if len(id) > 12 { return id[:12] }; return id },
+		"titleCase":      func(s string) string { return strings.ReplaceAll(strings.Title(strings.ReplaceAll(s, "_", " ")), "-", " ") },
 		"contains":       strings.Contains,
 		"hasPrefix":      strings.HasPrefix,
 		"checkClass":     checkClass,
@@ -299,6 +302,46 @@ func formatTokensFunc(v interface{}) string {
 	default:
 		return "0"
 	}
+}
+
+// richInputFunc parses a pipeline input string and returns a human-friendly display.
+// Recognizes GitHub/GitLab/Bitbucket URLs for issues, PRs, and commits.
+func richInputFunc(input, linkedURL string) string {
+	url := linkedURL
+	if url == "" {
+		url = input
+	}
+
+	// GitHub: /owner/repo/pull/123 or /owner/repo/issues/123
+	if strings.Contains(url, "github.com") {
+		parts := strings.Split(url, "/")
+		for i, p := range parts {
+			if p == "pull" && i+1 < len(parts) {
+				return "PR #" + parts[i+1]
+			}
+			if p == "issues" && i+1 < len(parts) {
+				return "Issue #" + parts[i+1]
+			}
+		}
+	}
+	// GitLab: /-/merge_requests/123 or /-/issues/123
+	if strings.Contains(url, "gitlab") {
+		parts := strings.Split(url, "/")
+		for i, p := range parts {
+			if p == "merge_requests" && i+1 < len(parts) {
+				return "MR !" + parts[i+1]
+			}
+			if p == "issues" && i+1 < len(parts) {
+				return "Issue #" + parts[i+1]
+			}
+		}
+	}
+
+	// Truncate long non-URL inputs
+	if len(input) > 80 {
+		return input[:77] + "..."
+	}
+	return input
 }
 
 // formatBytesFunc formats a byte count for human-readable display.
