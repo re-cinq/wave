@@ -412,7 +412,7 @@
 
             <!-- Tab bar -->
             <div class="v2-s-tabs">
-                {{if $step.Artifacts}}{{range $a := $step.Artifacts}}<a href="#" class="v2-tab" data-run-id="{{$step.RunID}}" data-step-id="{{$step.StepID}}" data-artifact-name="{{$a.Name}}" onclick="v2ToggleArt(this);return false;">{{$a.Name}} <span class="art-size">{{$a.SizeBytes}}B</span></a>{{end}}{{end}}
+                {{if $step.Artifacts}}{{range $a := $step.Artifacts}}<a href="#" class="v2-tab" data-run-id="{{$step.RunID}}" data-step-id="{{$step.StepID}}" data-artifact-name="{{$a.Name}}" onclick="v2ToggleArt(this);return false;">{{$a.Name}} <span class="art-size">{{formatBytes $a.SizeBytes}}</span></a>{{end}}{{end}}
                 <a href="#" class="v2-tab" onclick="v2ToggleLogs(this);return false;" data-step-id="{{$step.StepID}}">logs</a>
                 {{if eq $step.State "running"}}<button class="v2-tab v2-tab-action" onclick="cancelRun('{{$step.RunID}}',this)" title="Stop this pipeline">&#9632; stop</button>{{end}}
             </div>
@@ -571,6 +571,21 @@ function v2ToggleLogs(tab){
 }
 // SSE
 if('{{.Run.Status}}'==='running') connectSSE('{{.Run.RunID}}');
+
+// Click step header to auto-show first artifact
+document.querySelectorAll('.v2-s-row1').forEach(function(row){
+    row.style.cursor='pointer';
+    row.addEventListener('click',function(){
+        var shape=row.closest('.v2-s');
+        var firstTab=shape.querySelector('.v2-s-tabs .v2-tab');
+        if(firstTab&&!firstTab.classList.contains('active')){
+            firstTab.click();
+        } else if(firstTab&&firstTab.classList.contains('active')){
+            // Already open — close it
+            firstTab.click();
+        }
+    });
+});
 
 // Tab switching for secondary panels
 var v2LoadedPanels={};

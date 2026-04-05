@@ -60,6 +60,7 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		"formatTime":     formatTime,
 		"formatTimeISO":  formatTimeISO,
 		"formatTokens":   formatTokensFunc,
+		"formatBytes":    formatBytesFunc,
 		"contains":       strings.Contains,
 		"hasPrefix":      strings.HasPrefix,
 		"checkClass":     checkClass,
@@ -296,6 +297,27 @@ func formatTokensFunc(v interface{}) string {
 		return display.FormatTokenCount(int(n))
 	default:
 		return "0"
+	}
+}
+
+// formatBytesFunc formats a byte count for human-readable display.
+func formatBytesFunc(v interface{}) string {
+	var n int64
+	switch x := v.(type) {
+	case int64:
+		n = x
+	case int:
+		n = int64(x)
+	default:
+		return "0B"
+	}
+	switch {
+	case n >= 1024*1024:
+		return fmt.Sprintf("%.1fMB", float64(n)/1024/1024)
+	case n >= 1024:
+		return fmt.Sprintf("%.1fKB", float64(n)/1024)
+	default:
+		return fmt.Sprintf("%dB", n)
 	}
 }
 
