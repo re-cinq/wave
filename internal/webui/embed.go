@@ -63,7 +63,7 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		"richInput":      richInputFunc,
 		"friendlyModel":  friendlyModelFunc,
 		"shortRunID":     func(id string) string { if len(id) > 12 { return id[:12] }; return id },
-		"titleCase":      func(s string) string { return strings.ReplaceAll(strings.Title(strings.ReplaceAll(s, "_", " ")), "-", " ") },
+		"titleCase": titleCaseFunc,
 		"contains":       strings.Contains,
 		"hasPrefix":      strings.HasPrefix,
 		"checkClass":     checkClass,
@@ -408,4 +408,14 @@ func formatTimeISO(t interface{}) string {
 	default:
 		return ""
 	}
+}
+
+func titleCaseFunc(s string) string {
+	words := strings.Fields(strings.NewReplacer("_", " ", "-", " ").Replace(s))
+	for i, w := range words {
+		if len(w) > 0 {
+			words[i] = strings.ToUpper(w[:1]) + w[1:]
+		}
+	}
+	return strings.Join(words, " ")
 }
