@@ -136,7 +136,7 @@
     background: none; border-top: none; border-left: none; border-right: none;
 }
 .v2-tab:hover { color: var(--color-text-secondary); border-bottom-color: rgba(100,116,139,0.3); text-decoration: none; }
-.v2-tab.active { color: var(--color-text); border-bottom-color: #6366f1; background: rgba(99,102,241,0.04); }
+.v2-tab.active { color: var(--color-text); border-bottom-color: var(--color-text); background: rgba(99,102,241,0.04); }
 .v2-tab .art-size { color: var(--color-text-muted); font-size: 0.6rem; }
 .v2-tab-action {
     margin-left: auto;
@@ -545,23 +545,28 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 
 <!-- OUTPUT -->
 <div class="v2-io v2-io-out{{if eq .Run.Status "failed"}} st-failed{{end}}">
-    <div style="display:flex;align-items:center;gap:0.5rem;padding:0 0.75rem;flex-wrap:wrap;">
-        <span class="v2-io-tag">OUT</span>
-        <span class="v2-io-text">
-            {{if eq .Run.Status "completed"}}<span style="color:#4ade80;">&#10003;</span>{{else if eq .Run.Status "failed"}}<span style="color:#f87171;">&#10007;</span>{{else if eq .Run.Status "running"}}<span class="spinner spinner-sm" style="vertical-align:middle;margin-right:0.2rem;"></span>{{end}}
-            <span class="v2-io-result">{{.Run.Status}}</span>
-        </span>
-        {{if .LinkedTitle}}
-        <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-size:0.82rem;color:#818cf8;font-weight:500;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
-        {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else if eq .LinkedState "closed"}}status-cancelled{{end}}" style="font-size:0.62rem;">{{.LinkedState}}</span>{{end}}
-        {{else if .Run.LinkedURL}}
-        <a href="{{.Run.LinkedURL}}" target="_blank" style="font-size:0.78rem;color:#818cf8;">{{richInput .Run.Input .Run.LinkedURL}} ↗</a>
-        {{end}}
-        {{if eq .Run.Status "failed"}}
-        <div style="margin-left:auto;display:flex;gap:0.3rem;">
-            <button style="padding:0.2rem 0.6rem;border-radius:4px;font-size:0.72rem;cursor:pointer;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#e2e8f0;" onclick="retryRun('{{.Run.RunID}}',this)">Retry</button>
-            <a href="/runs-v1/{{.Run.RunID}}#resume" style="padding:0.2rem 0.6rem;border-radius:4px;font-size:0.72rem;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:#cbd5e1;text-decoration:none;">Resume</a>
+    <div style="padding:0 0.75rem;">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+            <span class="v2-io-tag">OUT</span>
+            <span class="v2-io-text">
+                {{if eq .Run.Status "completed"}}<span style="color:#4ade80;">&#10003;</span>{{else if eq .Run.Status "failed"}}<span style="color:#f87171;">&#10007;</span>{{else if eq .Run.Status "running"}}<span class="spinner spinner-sm" style="vertical-align:middle;margin-right:0.2rem;"></span>{{end}}
+                <span class="v2-io-result">{{.Run.Status}}</span>
+            </span>
+            {{if eq .Run.Status "failed"}}
+            <div style="margin-left:auto;display:flex;gap:0.3rem;">
+                <button style="padding:0.2rem 0.6rem;border-radius:4px;font-size:0.72rem;cursor:pointer;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#e2e8f0;" onclick="retryRun('{{.Run.RunID}}',this)">Retry</button>
+                <a href="/runs-v1/{{.Run.RunID}}#resume" style="padding:0.2rem 0.6rem;border-radius:4px;font-size:0.72rem;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:#cbd5e1;text-decoration:none;">Resume</a>
+            </div>
+            {{end}}
         </div>
+        {{if .LinkedTitle}}
+        <div style="margin-top:0.15rem;">
+            <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:0.9rem;color:#818cf8;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
+            {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else if eq .LinkedState "closed"}}status-cancelled{{end}}" style="font-size:0.62rem;margin-left:0.3rem;">{{.LinkedState}}</span>{{end}}
+        </div>
+        {{if .LinkedAuthor}}<div style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</div>{{end}}
+        {{else if .Run.LinkedURL}}
+        <div style="margin-top:0.15rem;"><a href="{{.Run.LinkedURL}}" target="_blank" style="font-size:0.82rem;color:#818cf8;">{{richInput .Run.Input .Run.LinkedURL}} ↗</a></div>
         {{end}}
     </div>
     {{if .Run.ErrorMessage}}<div style="font-size:0.78rem;color:#fca5a5;padding:0.15rem 0.75rem;">{{.Run.ErrorMessage}}</div>{{end}}
@@ -926,14 +931,18 @@ function v2RenderObj(obj, name){
                 h+='<div class="av-item">';
                 h+='<div class="av-item-head">';
                 if(item.severity) h+='<span class="av-sev av-sev-'+escapeHTML(item.severity)+'">'+escapeHTML(item.severity)+'</span>';
+                if(item.verdict) h+='<span class="av-sev av-sev-'+escapeHTML(item.verdict==='rejected'?'minor':item.verdict==='accepted'?'info':'suggestion')+'">'+escapeHTML(item.verdict)+'</span>';
                 if(item.status) h+='<span class="av-status av-status-'+escapeHTML(item.status)+'">'+escapeHTML(item.status)+'</span>';
-                if(item.summary) h+='<span class="av-summary">'+escapeHTML(item.summary)+'</span>';
-                else if(item.title) h+='<span class="av-summary">'+escapeHTML(item.title)+'</span>';
-                else if(item.name) h+='<span class="av-summary">'+escapeHTML(item.name)+'</span>';
+                // Try multiple field names for the main text
+                var mainText=item.summary||item.finding||item.title||item.name||item.description||item.message||'';
+                if(mainText) h+='<span class="av-summary">'+escapeHTML(mainText)+'</span>';
                 h+='</div>';
                 if(item.detail) h+='<div class="av-detail">'+escapeHTML(item.detail)+'</div>';
+                if(item.rationale) h+='<div class="av-detail" style="color:var(--color-text-muted);font-style:italic;">'+escapeHTML(item.rationale)+'</div>';
                 if(item.planned_fix) h+='<div class="av-detail" style="color:#4ade80;">→ '+escapeHTML(item.planned_fix)+'</div>';
+                if(item.action) h+='<div class="av-detail" style="color:#818cf8;">→ '+escapeHTML(item.action)+'</div>';
                 if(item.file) h+='<div class="av-file">'+escapeHTML(item.file)+(item.line?':'+item.line:'')+'</div>';
+                if(item.skip_reason) h+='<div class="av-detail" style="color:var(--color-text-muted);">'+escapeHTML(item.skip_reason)+'</div>';
                 h+='</div>';
             } else {
                 h+='<div class="av-item"><span class="av-summary">'+escapeHTML(String(item))+'</span></div>';
