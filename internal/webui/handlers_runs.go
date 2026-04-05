@@ -574,6 +574,31 @@ func (s *Server) handleRunDetailV2Page(w http.ResponseWriter, r *http.Request) {
 
 	stepDetails := s.buildStepDetails(runID, run.PipelineName)
 
+	// Enrich step I/O descriptions from pipeline definition
+	if p, loadErr := loadPipelineYAML(run.PipelineName); loadErr == nil {
+		type stepRef struct {
+			deps     []string
+			injects  []string
+		}
+		stepRefs := make(map[string]stepRef)
+		for _, ps := range p.Steps {
+			var injects []string
+			for _, ia := range ps.Memory.InjectArtifacts {
+				injects = append(injects, ia.Step+"/"+ia.Artifact)
+			}
+			stepRefs[ps.ID] = stepRef{deps: ps.Dependencies, injects: injects}
+		}
+		for i, sd := range stepDetails {
+			if ref, ok := stepRefs[sd.StepID]; ok {
+				if len(ref.injects) > 0 {
+					stepDetails[i].Action = "from: " + strings.Join(ref.injects, ", ")
+				} else if len(ref.deps) > 0 {
+					stepDetails[i].Action = "from: " + strings.Join(ref.deps, ", ")
+				}
+			}
+		}
+	}
+
 	stepStatusMap := make(map[string]string)
 	stepDetailMap := make(map[string]StepDetail)
 	for _, sd := range stepDetails {

@@ -63,6 +63,7 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		"formatTokens":   formatTokensFunc,
 		"formatBytes":    formatBytesFunc,
 		"richInput":      richInputFunc,
+		"friendlyModel":  friendlyModelFunc,
 		"shortRunID":     func(id string) string { if len(id) > 12 { return id[:12] }; return id },
 		"titleCase":      func(s string) string { return strings.ReplaceAll(strings.Title(strings.ReplaceAll(s, "_", " ")), "-", " ") },
 		"contains":       strings.Contains,
@@ -342,6 +343,31 @@ func richInputFunc(input, linkedURL string) string {
 		return input[:77] + "..."
 	}
 	return input
+}
+
+// friendlyModelFunc converts raw model IDs to human-friendly display names.
+func friendlyModelFunc(model string) string {
+	m := strings.ToLower(model)
+	switch {
+	case strings.Contains(m, "opus"):
+		return "Opus"
+	case strings.Contains(m, "sonnet"):
+		return "Sonnet"
+	case strings.Contains(m, "haiku"):
+		return "Haiku"
+	case m == "cheapest":
+		return "Cheapest"
+	case m == "fastest":
+		return "Fastest"
+	case m == "strongest":
+		return "Strongest"
+	default:
+		// Truncate long model IDs: "claude-sonnet-4-20250514" → "Sonnet 4"
+		if len(model) > 20 {
+			return model[:20] + "…"
+		}
+		return model
+	}
 }
 
 // formatBytesFunc formats a byte count for human-readable display.
