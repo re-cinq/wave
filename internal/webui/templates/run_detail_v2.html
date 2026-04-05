@@ -365,6 +365,54 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
     </span>
 </div>
 
+<!-- Panels (open inline below stats bar when tab clicked) -->
+<div id="v2-panel-events" class="v2-panel" hidden>
+    <div class="v2-panel-head">Events <span style="color:var(--color-text-muted);">{{len .Events}}</span></div>
+    {{if .Events}}
+    <div class="v2-events">
+        {{range .Events}}
+        <div class="v2-ev{{if hasPrefix .State "hook_"}} v2-ev-hook{{end}}">
+            <span class="v2-ev-time">{{formatTime .Timestamp}}</span>
+            <span class="badge {{statusClass .State}}" style="font-size:0.62rem;">{{.State}}</span>
+            {{if .StepID}}<span class="v2-ev-step">{{.StepID}}</span>{{end}}
+            <span class="v2-ev-msg">{{.Message}}</span>
+            {{if and .DurationMs (hasPrefix .State "hook_")}}<span class="v2-ev-dur">{{.DurationMs}}ms</span>{{end}}
+        </div>
+        {{end}}
+    </div>
+    {{else}}<div style="padding:0.5rem;color:var(--color-text-muted);font-size:0.78rem;">No events</div>{{end}}
+</div>
+<div id="v2-panel-retro" class="v2-panel" hidden>
+    <div class="v2-panel-head">Retrospective</div>
+    <div id="v2-retro-content" style="padding:0.5rem;font-size:0.78rem;color:var(--color-text-muted);">Loading…</div>
+</div>
+{{if .Run.BranchName}}
+<div id="v2-panel-diff" class="v2-panel" hidden>
+    <div class="v2-panel-head">Changed Files</div>
+    <div id="v2-diff-content" style="padding:0.5rem;">
+        <div style="color:var(--color-text-muted);font-size:0.78rem;">Loading…</div>
+    </div>
+</div>
+{{end}}
+<div id="v2-panel-metrics" class="v2-panel" hidden>
+    <div class="v2-panel-head">Step Metrics</div>
+    <table class="v2-metrics-table">
+        <thead><tr><th>Step</th><th>Status</th><th>Duration</th><th>Tokens</th><th>Model</th><th>Adapter</th></tr></thead>
+        <tbody>
+        {{range .Steps}}
+        <tr class="v2-mt-{{.State}}">
+            <td><strong>{{.StepID}}</strong></td>
+            <td><span class="badge {{statusClass .State}}" style="font-size:0.65rem;">{{.State}}</span></td>
+            <td style="font-variant-numeric:tabular-nums;">{{if .Duration}}{{.Duration}}{{else}}—{{end}}</td>
+            <td style="font-variant-numeric:tabular-nums;">{{if .TokensUsed}}{{formatTokens .TokensUsed}}{{else}}—{{end}}</td>
+            <td>{{if .Model}}{{.Model}}{{else}}—{{end}}</td>
+            <td>{{if .Adapter}}{{.Adapter}}{{else}}—{{end}}</td>
+        </tr>
+        {{end}}
+        </tbody>
+    </table>
+</div>
+
 <!-- INPUT -->
 <div class="v2-io v2-io-in">
     <span class="v2-io-tag">IN</span>
@@ -460,7 +508,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
     <div style="display:flex;align-items:center;gap:0.5rem;padding:0 0.75rem;">
         <span class="v2-io-tag">OUT</span>
         <span class="v2-io-text">
-            {{if eq .Run.Status "completed"}}<span style="color:#4ade80;">&#10003;</span>{{else if eq .Run.Status "failed"}}<span style="color:#f87171;">&#10007;</span>{{else if eq .Run.Status "running"}}<span class="spinner spinner-sm"></span>{{end}}
+            {{if eq .Run.Status "completed"}}<span style="color:#4ade80;">&#10003;</span>{{else if eq .Run.Status "failed"}}<span style="color:#f87171;">&#10007;</span>{{else if eq .Run.Status "running"}}<span class="spinner spinner-sm" style="vertical-align:middle;margin-right:0.2rem;"></span>{{end}}
             <span class="v2-io-result">{{.Run.Status}}</span>
             {{if .Run.BranchName}} · <code style="font-size:0.75rem;color:var(--color-text-secondary);">{{.Run.BranchName}}</code>{{end}}
             {{if and .Run.LinkedURL (eq .Run.Status "completed")}}<span class="badge" style="background:rgba(139,92,246,0.2);color:#c084fc;font-size:0.65rem;margin-left:0.3rem;">merged</span>{{end}}
@@ -484,61 +532,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
     {{end}}
 </div>
 
-<!-- ═══════ SECONDARY PANELS ═══════ -->
-
-<!-- Events panel -->
-<div id="v2-panel-events" class="v2-panel" hidden>
-    <div class="v2-panel-head">Events <span style="color:var(--color-text-muted);">{{len .Events}}</span></div>
-    {{if .Events}}
-    <div class="v2-events">
-        {{range .Events}}
-        <div class="v2-ev{{if hasPrefix .State "hook_"}} v2-ev-hook{{end}}">
-            <span class="v2-ev-time">{{formatTime .Timestamp}}</span>
-            <span class="badge {{statusClass .State}}" style="font-size:0.62rem;">{{.State}}</span>
-            {{if .StepID}}<span class="v2-ev-step">{{.StepID}}</span>{{end}}
-            <span class="v2-ev-msg">{{.Message}}</span>
-            {{if and .DurationMs (hasPrefix .State "hook_")}}<span class="v2-ev-dur">{{.DurationMs}}ms</span>{{end}}
-        </div>
-        {{end}}
-    </div>
-    {{else}}<div style="padding:0.5rem;color:var(--color-text-muted);font-size:0.78rem;">No events</div>{{end}}
-</div>
-
-<!-- Retro panel -->
-<div id="v2-panel-retro" class="v2-panel" hidden>
-    <div class="v2-panel-head">Retrospective</div>
-    <div id="v2-retro-content" style="padding:0.5rem;font-size:0.78rem;color:var(--color-text-muted);">Loading…</div>
-</div>
-
-<!-- Diff / Changed Files panel -->
-{{if .Run.BranchName}}
-<div id="v2-panel-diff" class="v2-panel" hidden>
-    <div class="v2-panel-head">Changed Files</div>
-    <div id="v2-diff-content" style="padding:0.5rem;">
-        <div style="color:var(--color-text-muted);font-size:0.78rem;">Loading…</div>
-    </div>
-</div>
-{{end}}
-
-<!-- Metrics panel -->
-<div id="v2-panel-metrics" class="v2-panel" hidden>
-    <div class="v2-panel-head">Step Metrics</div>
-    <table class="v2-metrics-table">
-        <thead><tr><th>Step</th><th>Status</th><th>Duration</th><th>Tokens</th><th>Model</th><th>Adapter</th></tr></thead>
-        <tbody>
-        {{range .Steps}}
-        <tr class="v2-mt-{{.State}}">
-            <td><strong>{{.StepID}}</strong></td>
-            <td><span class="badge {{statusClass .State}}" style="font-size:0.65rem;">{{.State}}</span></td>
-            <td style="font-variant-numeric:tabular-nums;">{{if .Duration}}{{.Duration}}{{else}}—{{end}}</td>
-            <td style="font-variant-numeric:tabular-nums;">{{if .TokensUsed}}{{formatTokens .TokensUsed}}{{else}}—{{end}}</td>
-            <td>{{if .Model}}{{.Model}}{{else}}—{{end}}</td>
-            <td>{{if .Adapter}}{{.Adapter}}{{else}}—{{end}}</td>
-        </tr>
-        {{end}}
-        </tbody>
-    </table>
-</div>
+<!-- Panels are now positioned after the stats bar, before IN card -->
 
 {{end}}
 {{define "scripts"}}
