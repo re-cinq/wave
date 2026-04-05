@@ -68,23 +68,23 @@
 <div class="rv2-head">
     <h1>Runs</h1>
     <div style="display:flex;gap:0.3rem;">
-        <a href="/runs" class="rv2-filter">v1</a>
+        <a href="/runs-v1" class="rv2-filter">Classic</a>
     </div>
 </div>
 
 <!-- Filters -->
 <div class="rv2-filters">
-    <a href="/runs2" class="rv2-filter{{if not .FilterStatus}} active{{end}}">All</a>
-    <a href="/runs2?status=running" class="rv2-filter{{if eq .FilterStatus "running"}} active{{end}}">Running</a>
-    <a href="/runs2?status=completed" class="rv2-filter{{if eq .FilterStatus "completed"}} active{{end}}">Completed</a>
-    <a href="/runs2?status=failed" class="rv2-filter{{if eq .FilterStatus "failed"}} active{{end}}">Failed</a>
+    <a href="/runs" class="rv2-filter{{if not .FilterStatus}} active{{end}}">All</a>
+    <a href="/runs?status=running" class="rv2-filter{{if eq .FilterStatus "running"}} active{{end}}">Running</a>
+    <a href="/runs?status=completed" class="rv2-filter{{if eq .FilterStatus "completed"}} active{{end}}">Completed</a>
+    <a href="/runs?status=failed" class="rv2-filter{{if eq .FilterStatus "failed"}} active{{end}}">Failed</a>
 </div>
 
 <!-- Run list -->
 <div class="rv2-list">
 {{if .Runs}}
 {{range .Runs}}
-    <a href="/runs2/{{.RunID}}" class="rv2-run">
+    <a href="/runs/{{.RunID}}" class="rv2-run">
         <div class="rv2-accent st-{{.Status}}"></div>
         <div class="rv2-body">
             <div class="rv2-row1">
@@ -109,7 +109,7 @@
     {{if .ChildRuns}}
     <div class="rv2-child">
     {{range .ChildRuns}}
-        <a href="/runs2/{{.RunID}}" class="rv2-run">
+        <a href="/runs/{{.RunID}}" class="rv2-run">
             <div class="rv2-accent st-{{.Status}}"></div>
             <div class="rv2-body">
                 <div class="rv2-row1">
@@ -138,7 +138,7 @@
 
 {{if .HasMore}}
 <div class="rv2-more">
-    <a href="/runs2?cursor={{.NextCursor}}{{if .FilterStatus}}&status={{.FilterStatus}}{{end}}{{if .FilterPipeline}}&pipeline={{.FilterPipeline}}{{end}}">Load more</a>
+    <a href="/runs?cursor={{.NextCursor}}{{if .FilterStatus}}&status={{.FilterStatus}}{{end}}{{if .FilterPipeline}}&pipeline={{.FilterPipeline}}{{end}}">Load more</a>
 </div>
 {{end}}
 

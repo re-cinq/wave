@@ -359,7 +359,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
     </div>
     <div class="actions">
         {{if eq .Run.Status "running"}}<button class="btn btn-sm" style="border-color:rgba(239,68,68,0.4);color:#fca5a5;" onclick="cancelRun('{{.Run.RunID}}', this)">Stop Pipeline</button>{{end}}
-        <a href="/runs/{{.Run.RunID}}" class="btn btn-sm">v1</a>
+        <a href="/runs-v1/{{.Run.RunID}}" class="btn btn-sm">Classic</a>
     </div>
 </div>
 
