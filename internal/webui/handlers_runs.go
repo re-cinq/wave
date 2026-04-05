@@ -480,6 +480,120 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleRunDetailV2Page renders the Fat Gantt Shapes prototype at /runs2/{id}.
+func (s *Server) handleRunDetailV2Page(w http.ResponseWriter, r *http.Request) {
+	runID := r.PathValue("id")
+	if runID == "" {
+		http.Error(w, "missing run ID", http.StatusBadRequest)
+		return
+	}
+
+	run, err := s.store.GetRun(runID)
+	if err != nil {
+		http.Error(w, "run not found", http.StatusNotFound)
+		return
+	}
+
+	stepDetails := s.buildStepDetails(runID, run.PipelineName)
+
+	stepStatusMap := make(map[string]string)
+	stepDetailMap := make(map[string]StepDetail)
+	for _, sd := range stepDetails {
+		stepStatusMap[sd.StepID] = sd.State
+		stepDetailMap[sd.StepID] = sd
+	}
+
+	events, err := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 5000})
+	if err != nil {
+		log.Printf("[webui] failed to get events for run %s: %v", runID, err)
+	}
+	eventSummaries := make([]EventSummary, len(events))
+	for i, e := range events {
+		eventSummaries[i] = eventToSummary(e)
+	}
+
+	// Build run summary with step progress
+	runSummary := runToSummary(*run)
+	runSummary.StepsTotal = len(stepDetails)
+	completed := 0
+	for _, sd := range stepDetails {
+		if sd.State == "completed" {
+			completed++
+		}
+	}
+	runSummary.StepsCompleted = completed
+	if runSummary.StepsTotal > 0 {
+		runSummary.Progress = (completed * 100) / runSummary.StepsTotal
+	}
+	if runSummary.TotalTokens == 0 {
+		for _, sd := range stepDetails {
+			runSummary.TotalTokens += sd.TokensUsed
+		}
+	}
+
+	var pipelineDescription string
+	if p, loadErr := loadPipelineYAML(run.PipelineName); loadErr == nil {
+		pipelineDescription = p.Metadata.Description
+	}
+
+	// Build artifact groups
+	var artifactGroups []StepArtifactGroup
+	for _, sd := range stepDetails {
+		if len(sd.Artifacts) > 0 {
+			artifactGroups = append(artifactGroups, StepArtifactGroup{
+				StepID:    sd.StepID,
+				Artifacts: sd.Artifacts,
+			})
+		}
+	}
+
+	// Compute the last step's output for the OUTPUT card
+	var outputSummary string
+	if len(stepDetails) > 0 {
+		last := stepDetails[len(stepDetails)-1]
+		for i := len(stepDetails) - 1; i >= 0; i-- {
+			if stepDetails[i].State == "completed" {
+				last = stepDetails[i]
+				break
+			}
+		}
+		if len(last.Artifacts) > 0 {
+			var names []string
+			for _, a := range last.Artifacts {
+				names = append(names, a.Name)
+			}
+			outputSummary = strings.Join(names, ", ")
+		}
+	}
+
+	data := struct {
+		ActivePage          string
+		Run                 RunSummary
+		Steps               []StepDetail
+		Events              []EventSummary
+		PipelineDescription string
+		ArtifactGroups      []StepArtifactGroup
+		Adapters            []string
+		Models              []string
+		OutputSummary       string
+	}{
+		ActivePage:          "runs",
+		Run:                 runSummary,
+		Steps:               stepDetails,
+		Events:              eventSummaries,
+		PipelineDescription: pipelineDescription,
+		ArtifactGroups:      artifactGroups,
+		Adapters:            uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return sd.Adapter })),
+		Models:              uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return sd.Model })),
+		OutputSummary:       outputSummary,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.templates["templates/run_detail_v2.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // enrichRunSummaries populates step progress for a batch of run summaries.
 // Uses event_log (not step_state) because step_state has cross-run collisions.
 func (s *Server) enrichRunSummaries(summaries []RunSummary, runs []state.RunRecord) {
@@ -841,11 +955,21 @@ func computeGanttPositions(steps []StepDetail) {
 	if totalDuration <= 0 {
 		return
 	}
+	now := time.Now()
 	for i := range steps {
-		if steps[i].StartedAt != nil && steps[i].CompletedAt != nil {
+		if steps[i].StartedAt != nil {
 			left := float64(steps[i].StartedAt.Sub(earliest)) / float64(totalDuration) * 100
-			width := float64(steps[i].CompletedAt.Sub(*steps[i].StartedAt)) / float64(totalDuration) * 100
-			if width < 1 {
+			var width float64
+			if steps[i].CompletedAt != nil {
+				width = float64(steps[i].CompletedAt.Sub(*steps[i].StartedAt)) / float64(totalDuration) * 100
+			} else if steps[i].State == "running" {
+				// Running step: extend to current time
+				width = float64(now.Sub(*steps[i].StartedAt)) / float64(totalDuration) * 100
+				if width > 100-left {
+					width = 100 - left
+				}
+			}
+			if width < 1 && (steps[i].State == "completed" || steps[i].State == "running") {
 				width = 1
 			}
 			steps[i].GanttLeft = left
