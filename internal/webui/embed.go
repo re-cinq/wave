@@ -24,6 +24,7 @@ var templatesFS embed.FS
 var pageTemplates = []string{
 	"templates/runs.html",
 	"templates/run_detail.html",
+	"templates/runs_v2.html",
 	"templates/run_detail_v2.html",
 	"templates/personas.html",
 	"templates/persona_detail.html",

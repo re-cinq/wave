@@ -226,6 +226,84 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleRunsV2Page serves GET /runs2 — v2 runs list with Fat Gantt design.
+func (s *Server) handleRunsV2Page(w http.ResponseWriter, r *http.Request) {
+	cursor, err := decodeCursor(r.URL.Query().Get("cursor"))
+	if err != nil {
+		log.Printf("[webui] invalid cursor parameter: %v", err)
+	}
+	limit := parsePageSize(r)
+	status := r.URL.Query().Get("status")
+	pipelineFilter := r.URL.Query().Get("pipeline")
+
+	opts := state.ListRunsOptions{
+		Status:       status,
+		PipelineName: pipelineFilter,
+		Limit:        limit + 1,
+	}
+	if cursor != nil {
+		opts.BeforeUnix = cursor.Timestamp
+		opts.BeforeRunID = cursor.RunID
+	}
+
+	runs, err := s.store.ListRuns(opts)
+	if err != nil {
+		http.Error(w, "failed to list runs", http.StatusInternalServerError)
+		return
+	}
+
+	hasMore := len(runs) > limit
+	if hasMore {
+		runs = runs[:limit]
+	}
+
+	allSummaries := make([]RunSummary, len(runs))
+	for i, run := range runs {
+		allSummaries[i] = runToSummary(run)
+	}
+	s.enrichRunSummaries(allSummaries, runs)
+	summaries := nestChildRuns(allSummaries)
+
+	var nextCursor string
+	if hasMore && len(runs) > 0 {
+		lastRun := runs[len(runs)-1]
+		nextCursor = encodeCursor(lastRun.StartedAt, lastRun.RunID)
+	}
+
+	// Collect unique pipeline names for filter
+	pipelineNames := make(map[string]bool)
+	for _, r := range allSummaries {
+		pipelineNames[r.PipelineName] = true
+	}
+	var pipelines []string
+	for name := range pipelineNames {
+		pipelines = append(pipelines, name)
+	}
+
+	data := struct {
+		ActivePage     string
+		Runs           []RunSummary
+		HasMore        bool
+		NextCursor     string
+		Pipelines      []string
+		FilterStatus   string
+		FilterPipeline string
+	}{
+		ActivePage:     "runs",
+		Runs:           summaries,
+		HasMore:        hasMore,
+		NextCursor:     nextCursor,
+		Pipelines:      pipelines,
+		FilterStatus:   status,
+		FilterPipeline: pipelineFilter,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.templates["templates/runs_v2.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // handleRunDetailPage handles GET /runs/{id} - serves the HTML run detail page.
 func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	runID := r.PathValue("id")
