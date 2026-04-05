@@ -24,7 +24,7 @@
 /* ── I/O Hero Cards (pill-shaped -- visually distinct from step rectangles) ── */
 .v2-io { border-radius: 6px; padding: 0.5rem 0.85rem; position: relative; }
 .v2-io-in  { background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.3); border-left: 4px solid #6366f1; margin-bottom: 0.75rem; }
-.v2-io-out { background: rgba(34,197,94,0.07); border: 2px solid rgba(34,197,94,0.4); border-left: 4px solid #22c55e; margin-top: 1rem; padding: 0.5rem 0 0; overflow: hidden; }
+.v2-io-out { background: rgba(34,197,94,0.07); border: 2px solid rgba(34,197,94,0.4); border-left: 4px solid #22c55e; margin-top: 1rem; padding: 0.5rem 0 0.5rem; overflow: hidden; }
 .v2-io-out.st-failed { background: rgba(239,68,68,0.07); border-color: rgba(239,68,68,0.35); border-left-color: #ef4444; }
 .v2-io-tag { display: inline-block; font-size: 0.52rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 0 4px; border-radius: 2px; margin-right: 0.35rem; vertical-align: middle; font-family: var(--font-mono); }
 .v2-io-in .v2-io-tag  { background: rgba(99,102,241,0.2); color: #a5b4fc; }
@@ -210,7 +210,7 @@
 .v2-sec-tab.active { background: var(--color-bg-tertiary); color: var(--color-text); border-bottom: 2px solid #6366f1; }
 
 /* ── Panels ── */
-.v2-panel { background: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: 4px; margin-top: 0.4rem; overflow: hidden; }
+.v2-panel { background: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: 4px; margin-top: 0.4rem; margin-bottom: 0.75rem; overflow: hidden; }
 .v2-panel[hidden] { display: none !important; }
 /* Hide v1 events/cards that SSE creates outside our v2 panels */
 .events-timeline, .card > .events-timeline, .card:has(.events-timeline) { display: none !important; }
@@ -430,6 +430,9 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
     <div class="v2-s st-{{$step.State}}{{if eq $step.StepType "pipeline"}} tp-pipeline{{else if eq $step.StepType "gate"}} tp-gate{{else if eq $step.StepType "conditional"}} tp-conditional{{else if eq $step.StepType "command"}} tp-command{{end}}" id="v2-{{$step.StepID}}">
 
         <!-- Gantt fill as background -->
+        <!-- Top gantt bar -->
+        <div class="v2-s-bar"><div class="v2-s-bar-fill st-{{$step.State}}" style="margin-left:{{if $step.GanttLeft}}{{printf "%.1f" $step.GanttLeft}}%{{else}}0{{end}};width:{{if $step.GanttWidth}}{{printf "%.1f" $step.GanttWidth}}%{{else}}100%{{end}};"></div></div>
+
         <div class="v2-s-bg st-{{$step.State}}" style="left:{{if $step.GanttLeft}}{{printf "%.1f" $step.GanttLeft}}%{{else}}0{{end}};width:{{if $step.GanttWidth}}{{printf "%.1f" $step.GanttWidth}}%{{else}}100%{{end}};"></div>
 
         <div class="v2-s-content">
@@ -497,8 +500,6 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
             <div class="v2-s-tabcontent" hidden data-step-id="{{$step.StepID}}"></div>
         </div>
 
-        <!-- Bottom gantt bar -->
-        <div class="v2-s-bar"><div class="v2-s-bar-fill st-{{$step.State}}" style="margin-left:{{if $step.GanttLeft}}{{printf "%.1f" $step.GanttLeft}}%{{else}}0{{end}};width:{{if $step.GanttWidth}}{{printf "%.1f" $step.GanttWidth}}%{{else}}100%{{end}};"></div></div>
     </div>
 {{end}}
 </div>
@@ -612,18 +613,50 @@ if('{{.Run.Status}}'==='running'){
     }
 })();
 
-// Click step header to auto-show first artifact
+// Click step header to show step config
 document.querySelectorAll('.v2-s-row1').forEach(function(row){
     row.style.cursor='pointer';
     row.addEventListener('click',function(){
         var shape=row.closest('.v2-s');
-        var firstTab=shape.querySelector('.v2-s-tabs .v2-tab');
-        if(firstTab&&!firstTab.classList.contains('active')){
-            firstTab.click();
-        } else if(firstTab&&firstTab.classList.contains('active')){
-            // Already open — close it
-            firstTab.click();
-        }
+        var tc=shape.querySelector('.v2-s-tabcontent');
+        if(!tc)return;
+        shape.querySelectorAll('.v2-tab').forEach(function(t){t.classList.remove('active')});
+        if(!tc.hidden&&tc.dataset.showing==='info'){tc.hidden=true;tc.dataset.showing='';return;}
+        tc.hidden=false;
+        tc.dataset.showing='info';
+        var nameEl=shape.querySelector('.v2-s-name');
+        var stepId=nameEl?nameEl.textContent.trim().split(/\s/)[0]:'';
+        tc.innerHTML='<div style="padding:0.5rem 0.6rem;color:var(--color-text-muted);font-size:0.75rem;">Loading step configuration...</div>';
+        fetch('/api/pipelines/'+encodeURIComponent('{{.Run.PipelineName}}')).then(function(r){return r.json()}).then(function(d){
+            var step=null;
+            for(var i=0;i<(d.steps||[]).length;i++){if(d.steps[i].id===stepId){step=d.steps[i];break;}}
+            if(!step){tc.innerHTML='<div style="padding:0.5rem;">Step not found in pipeline definition</div>';return;}
+            var h='<div style="padding:0.5rem 0.6rem;font-size:0.78rem;">';
+            // Config grid
+            h+='<div style="display:grid;grid-template-columns:110px 1fr;gap:0.15rem 0.8rem;margin-bottom:0.4rem;">';
+            function kv(k,v){return '<span style="color:var(--color-text-muted);font-size:0.72rem;">'+k+'</span><span style="color:var(--color-text);">'+v+'</span>';}
+            if(step.persona) h+=kv('Persona','<a href="/personas/'+escapeHTML(step.persona)+'" style="color:#818cf8;">'+escapeHTML(step.persona)+'</a>');
+            if(step.type) h+=kv('Type','<code>'+escapeHTML(step.type)+'</code>');
+            if(step.sub_pipeline) h+=kv('Sub-pipeline','<a href="/pipelines/'+escapeHTML(step.sub_pipeline)+'" style="color:#818cf8;">'+escapeHTML(step.sub_pipeline)+'</a>');
+            if(step.dependencies&&step.dependencies.length) h+=kv('Dependencies',step.dependencies.map(function(d){return '<code style="background:rgba(99,102,241,0.1);padding:0.1rem 0.3rem;border-radius:3px;">'+escapeHTML(d)+'</code>';}).join(' '));
+            if(step.contract) h+=kv('Contract',step.contract_schema_name?'<a href="/contracts/'+escapeHTML(step.contract_schema_name)+'" style="color:#818cf8;">'+escapeHTML(step.contract)+'</a>':'<code>'+escapeHTML(step.contract)+'</code>');
+            if(step.on_failure) h+=kv('On failure','<code>'+escapeHTML(step.on_failure)+'</code>');
+            if(step.retry_policy) h+=kv('Retry','<code>'+escapeHTML(step.retry_policy)+'</code>'+(step.max_attempts?' (max '+step.max_attempts+')':''));
+            if(step.thread) h+=kv('Thread','<code>'+escapeHTML(step.thread)+'</code>');
+            if(step.timeout) h+=kv('Timeout',step.timeout+' min');
+            if(step.input_artifacts&&step.input_artifacts.length) h+=kv('Receives',step.input_artifacts.map(function(a){return '<code style="background:rgba(34,197,94,0.1);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.72rem;">'+escapeHTML(a)+'</code>';}).join(' '));
+            if(step.artifacts&&step.artifacts.length) h+=kv('Produces',step.artifacts.map(function(a){return '<code style="background:rgba(99,102,241,0.1);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.72rem;">'+escapeHTML(a)+'</code>';}).join(' '));
+            h+='</div>';
+            // Prompt
+            if(step.prompt){
+                h+='<div style="border-top:1px solid var(--color-border);padding-top:0.4rem;margin-top:0.2rem;">';
+                h+='<div style="color:var(--color-text-muted);font-size:0.68rem;margin-bottom:0.2rem;">Prompt</div>';
+                h+='<pre style="margin:0;padding:0.5rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.75rem;white-space:pre-wrap;color:var(--color-text-secondary);line-height:1.5;">'+escapeHTML(step.prompt)+'</pre>';
+                h+='</div>';
+            }
+            h+='</div>';
+            tc.innerHTML=h;
+        }).catch(function(e){tc.innerHTML='<div style="padding:0.5rem;color:#fca5a5;">Error: '+escapeHTML(String(e))+'</div>';});
     });
 });
 
