@@ -9,7 +9,8 @@
 {{if .Categories}}
 <div class="wr-toolbar">
     <div class="wr-filters">
-        <button class="wr-filter active" data-cat="" onclick="filterPipelines(this)">All</button>
+        <button class="wr-filter active" data-cat="frequent" onclick="filterPipelines(this)">Frequent</button>
+        <button class="wr-filter" data-cat="" onclick="filterPipelines(this)">All</button>
         {{range .Categories}}<button class="wr-filter" data-cat="{{.}}" onclick="filterPipelines(this)">{{.}}</button>{{end}}
     </div>
     <div class="wr-controls">
@@ -21,7 +22,7 @@
 
 <div class="wr-list" id="pipeline-list">
 {{range .Pipelines}}
-    <a href="/pipelines/{{.Name}}" class="wr-run" data-category="{{.Category}}">
+    <a href="/pipelines/{{.Name}}" class="wr-run" data-category="{{.Category}}" data-runs="{{.RunCount}}">
         <div class="wr-accent st-defined"></div>
         <div class="wr-body">
             <div class="wr-row1">
@@ -114,7 +115,12 @@ function applyFilters() {
     q = q.toLowerCase().trim();
     var visible = 0;
     document.querySelectorAll('#pipeline-list .wr-run').forEach(function(card) {
-        var catMatch = !activeCat || card.dataset.category === activeCat;
+        var catMatch;
+        if (activeCat === 'frequent') {
+            catMatch = parseInt(card.dataset.runs || '0', 10) > 0;
+        } else {
+            catMatch = !activeCat || card.dataset.category === activeCat;
+        }
         var textMatch = !q || card.textContent.toLowerCase().indexOf(q) !== -1;
         var show = catMatch && textMatch;
         card.style.display = show ? '' : 'none';
@@ -123,6 +129,8 @@ function applyFilters() {
     var countEl = document.getElementById('pipeline-count');
     if (countEl) countEl.textContent = visible + ' pipeline' + (visible !== 1 ? 's' : '');
 }
+// Apply "Frequent" filter on page load
+document.addEventListener('DOMContentLoaded', function() { applyFilters(); });
 
 // Quickstart dialog
 var quickStartPipeline = '';
