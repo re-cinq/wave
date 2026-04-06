@@ -221,12 +221,12 @@
     </div>
     {{if .Run.ErrorMessage}}<div style="font-size:0.78rem;color:#fca5a5;padding:0.15rem 0.75rem;">{{.Run.ErrorMessage}}</div>{{end}}
     {{if .ArtifactGroups}}
-    <div class="ws-tabs" style="margin:0.2rem 0.45rem 0;">
+    <div class="ws-tabs" style="margin:0.2rem 0.75rem 0;">
         {{range .ArtifactGroups}}{{$sid := .StepID}}{{range .Artifacts}}
         <a href="#" class="w-tab" data-run-id="{{$.Run.RunID}}" data-step-id="{{$sid}}" data-artifact-name="{{.Name}}" onclick="v2ToggleOutArtTab(this);return false;"><span style="color:var(--color-text-muted);font-size:0.65rem;">{{$sid}}/</span>{{.Name}} <span class="art-size">{{formatBytes .SizeBytes}}</span></a>
         {{end}}{{end}}
     </div>
-    <div class="ws-tabcontent" id="w-out-tc" hidden style="margin:0 0.45rem 0.3rem;background:var(--color-bg-secondary);border:1px solid var(--color-border);border-radius:4px;"></div>
+    <div class="ws-tabcontent" id="w-out-tc" hidden style="margin:0 0.75rem 0.3rem;background:var(--color-bg-secondary);border:1px solid var(--color-border);border-radius:4px;"></div>
     {{end}}
 </div>
 
@@ -384,8 +384,11 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
             // Prompt — resolve known variables and render as markdown
             if(step.prompt){
                 var prompt=step.prompt;
-                // Highlight template variables as inline code
-                prompt=prompt.replace(/\{\{([^}]+)\}\}/g, function(m,v){return '`'+m+'`';});
+                // Resolve {{ input }} — we know this from the run
+                var runInput='{{.Run.Input}}';
+                if(runInput) prompt=prompt.replace(/\{\{\s*input\s*\}\}/g, runInput);
+                // Highlight remaining unresolved vars as inline code
+                prompt=prompt.replace(/\{\{([^}]+)\}\}/g, function(m){return '`'+m+'`';});
                 h+='<div style="border-top:1px solid var(--color-border);padding-top:0.4rem;margin-top:0.2rem;">';
                 h+='<div style="color:var(--color-text-muted);font-size:0.68rem;margin-bottom:0.2rem;">Prompt template</div>';
                 if(typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
