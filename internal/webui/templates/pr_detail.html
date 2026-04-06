@@ -10,7 +10,7 @@
             {{if .PR.Merged}}<span class="badge status-completed">merged</span>
             {{else if eq .PR.State "open"}}<span class="badge status-running">open</span>
             {{else}}<span class="badge status-cancelled">closed</span>{{end}}
-            {{if .PR.Draft}}<span class="badge" style="font-size:0.62rem;background:rgba(100,116,139,0.15);color:#94a3b8;">draft</span>{{end}}
+            {{if .PR.Draft}}<span class="badge" style="font-size:0.68rem;background:rgba(100,116,139,0.15);color:#94a3b8;">draft</span>{{end}}
         </h1>
         <p style="margin:0.1rem 0 0.3rem;font-size:0.8rem;color:var(--color-text-secondary);">by {{.PR.Author}} · <code style="font-size:0.72rem;">{{.PR.HeadBranch}}</code> &rarr; <code style="font-size:0.72rem;">{{.PR.BaseBranch}}</code></p>
     </div>
@@ -52,7 +52,7 @@
                 <span class="ws-name" style="font-size:0.78rem;">{{.Name}}</span>
                 <span class="ws-meta">
                     <span class="badge {{checkClass .Status .Conclusion}}" style="font-size:0.6rem;">{{checkLabel .Status .Conclusion}}</span>
-                    {{if .URL}}<a href="{{.URL}}" target="_blank" style="color:var(--color-text-muted);font-size:0.62rem;">details ↗</a>{{end}}
+                    {{if .URL}}<a href="{{.URL}}" target="_blank" style="color:var(--color-text-muted);font-size:0.68rem;">details ↗</a>{{end}}
                 </span>
             </div>
         </div>
