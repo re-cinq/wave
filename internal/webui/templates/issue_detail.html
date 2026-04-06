@@ -31,25 +31,8 @@
 <script type="text/plain" id="issue-body-raw">{{.Issue.Body}}</script>
 {{end}}
 
-<!-- Comments -->
-{{if .Comments}}
+<!-- Related Pipeline Runs (before comments) -->
 <div style="margin-bottom:0.75rem;">
-    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Comments ({{len .Comments}})</h2>
-    {{range $i, $c := .Comments}}
-    <div style="margin-bottom:0.4rem;background:var(--color-bg-secondary);border-radius:4px;border-left:3px solid var(--color-border);overflow:hidden;">
-        <div style="padding:0.25rem 0.55rem;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--color-border);font-size:0.72rem;">
-            <strong>{{$c.Author}}</strong>
-            <span style="color:var(--color-text-muted);">{{$c.CreatedAt}}{{if $c.HTMLURL}} <a href="{{$c.HTMLURL}}" target="_blank" style="color:var(--color-text-muted);">↗</a>{{end}}</span>
-        </div>
-        <div class="markdown-body" id="issue-comment-{{$i}}" style="padding:0.4rem 0.55rem;font-size:0.78rem;"></div>
-        <script type="text/plain" id="issue-comment-raw-{{$i}}">{{$c.Body}}</script>
-    </div>
-    {{end}}
-</div>
-{{end}}
-
-<!-- Related Pipeline Runs -->
-<div>
     <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Pipeline Runs</h2>
     {{if .Runs}}
     <div class="wr-list">
@@ -77,6 +60,23 @@
     <div style="padding:1rem;text-align:center;color:var(--color-text-muted);font-size:0.82rem;">No pipeline runs for this issue</div>
     {{end}}
 </div>
+
+<!-- Comments -->
+{{if .Comments}}
+<div style="margin-bottom:0.75rem;">
+    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Comments ({{len .Comments}})</h2>
+    {{range $i, $c := .Comments}}
+    <div class="w-comment-card">
+        <div style="padding:0.25rem 0.55rem;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--color-border);font-size:0.72rem;">
+            <strong>{{$c.Author}}</strong>
+            <span style="color:var(--color-text-muted);">{{$c.CreatedAt}}{{if $c.HTMLURL}} <a href="{{$c.HTMLURL}}" target="_blank" style="color:var(--color-text-muted);">↗</a>{{end}}</span>
+        </div>
+        <div class="markdown-body" id="issue-comment-{{$i}}" style="padding:0.4rem 0.55rem;font-size:0.78rem;"></div>
+        <script type="text/plain" id="issue-comment-raw-{{$i}}">{{$c.Body}}</script>
+    </div>
+    {{end}}
+</div>
+{{end}}
 
 {{end}}
 {{define "scripts"}}

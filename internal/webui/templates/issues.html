@@ -1,13 +1,15 @@
 {{define "title"}}Issues · Wave{{end}}
 {{define "content"}}
-<div class="w-head">
+<div class="wr-head">
     <h1>Issues</h1>
 </div>
 
-<div class="wr-filters" style="margin-bottom:0.5rem;">
-    <a href="/issues?state=open" class="wr-filter{{if eq .FilterState "open"}} active{{end}}">Open</a>
-    <a href="/issues?state=closed" class="wr-filter{{if eq .FilterState "closed"}} active{{end}}">Closed</a>
-    <a href="/issues?state=all" class="wr-filter{{if eq .FilterState "all"}} active{{end}}">All</a>
+<div class="wr-toolbar">
+    <div class="wr-filters">
+        <a href="/issues?state=open" class="wr-filter{{if eq .FilterState "open"}} active{{end}}">Open</a>
+        <a href="/issues?state=closed" class="wr-filter{{if eq .FilterState "closed"}} active{{end}}">Closed</a>
+        <a href="/issues?state=all" class="wr-filter{{if eq .FilterState "all"}} active{{end}}">All</a>
+    </div>
 </div>
 
 {{if .Message}}
@@ -37,7 +39,7 @@
 </div>
 {{if .HasMore}}
 <div class="wr-loading" id="wr-loader" data-next="/issues?state={{.FilterState}}&page={{add .Page 1}}">
-    <span class="wr-loading-spinner"></span><span class="wr-loading-text">Loading...</span>
+    <span class="wr-loading-spinner"></span><span class="wr-loading-text">Loading more...</span>
 </div>
 {{end}}
 {{else}}
