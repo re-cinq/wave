@@ -11,7 +11,11 @@
         <a href="/prs?state=all" class="wr-filter{{if eq .FilterState "all"}} active{{end}}">All</a>
     </div>
     <div class="wr-controls">
-        <span style="font-size:0.72rem;color:var(--color-text-muted);">{{len .PullRequests}} PRs</span>
+        <input type="text" id="pr-search" placeholder="Search PRs..." style="padding:0.2rem 0.4rem;border-radius:4px;font-size:0.72rem;color:var(--color-text-secondary);border:1px solid var(--color-border);background:var(--color-bg-tertiary);font-family:var(--font-sans);width:180px;" oninput="filterItems(this.value)">
+        <span style="font-size:0.72rem;color:var(--color-text-muted);">
+            {{if .TotalOpen}}<b>{{.TotalOpen}}</b> open{{end}}
+            {{if .TotalClosed}} · <b>{{.TotalClosed}}</b> closed{{end}}
+        </span>
     </div>
 </div>
 
@@ -47,7 +51,7 @@
 {{end}}
 </div>
 {{if .HasMore}}
-<div class="wr-loading" id="wr-loader" data-next="/prs?state={{.FilterState}}&page={{add .Page 1}}">
+<div class="wr-loading" id="wr-loader" data-next="/prs?state={{.FilterState}}&page={{add .Page 1}}" style="padding:3rem 1rem;">
     <span class="wr-loading-spinner"></span><span class="wr-loading-text">Loading more...</span>
 </div>
 {{end}}
@@ -57,6 +61,13 @@
 {{end}}
 {{define "scripts"}}
 <script>
+function filterItems(query) {
+    var q = query.toLowerCase().trim();
+    document.querySelectorAll('.wr-list > a.wr-run').forEach(function(card) {
+        if (!q) { card.style.display = ''; return; }
+        card.style.display = card.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+    });
+}
 (function(){
     var loader=document.getElementById('wr-loader');
     if(!loader)return;
