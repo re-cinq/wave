@@ -1,132 +1,101 @@
-{{define "title"}}#{{.Issue.Number}} · {{.Issue.Title}} · Wave{{end}}
+{{define "title"}}Issue #{{.Issue.Number}} · {{.Issue.Title}} · Wave{{end}}
 {{define "content"}}
-<div class="page-header">
+
+<!-- Header -->
+<div class="w-head">
     <div>
-        <a href="/issues" class="back-link" aria-label="Back to issues list">&larr; Back to Issues</a>
-        <h1>#{{.Issue.Number}} {{.Issue.Title}}
-            {{if eq .Issue.State "open"}}<span class="badge badge-open">open</span>
-            {{else}}<span class="badge badge-closed">closed</span>{{end}}
+        <a href="/issues" class="back-link">&larr; Issues</a>
+        <h1>
+            #{{.Issue.Number}} {{.Issue.Title}}
+            {{if eq .Issue.State "open"}}<span class="badge status-running">open</span>
+            {{else}}<span class="badge status-cancelled">closed</span>{{end}}
         </h1>
+        <p style="margin:0.1rem 0 0.3rem;font-size:0.8rem;color:var(--color-text-secondary);">by {{.Issue.Author}} · {{.Issue.CreatedAt}}{{if .Issue.Assignees}} · assigned: {{range $i, $a := .Issue.Assignees}}{{if $i}}, {{end}}{{$a}}{{end}}{{end}}</p>
     </div>
     <div class="actions">
-        <a href="{{.Issue.URL}}" target="_blank" rel="noopener noreferrer" class="btn">View on GitHub</a>
+        <a href="{{.Issue.URL}}" target="_blank" class="btn btn-sm" style="color:#818cf8;border-color:rgba(99,102,241,0.3);">GitHub ↗</a>
     </div>
 </div>
 
-<div class="run-summary-bar">
-    <div class="run-summary-stats">
-        <span class="run-stat"><span class="run-stat-label">Author</span> <span class="run-stat-value">{{.Issue.Author}}</span></span>
-        <span class="run-stat"><span class="run-stat-label">Comments</span> <span class="run-stat-value">{{.Issue.Comments}}</span></span>
-        <span class="run-stat"><span class="run-stat-label">Created</span> <span class="run-stat-value">{{.Issue.CreatedAt}}</span></span>
-        <span class="run-stat"><span class="run-stat-label">Updated</span> <span class="run-stat-value">{{.Issue.UpdatedAt}}</span></span>
-    </div>
-    {{if .Issue.Labels}}
-    <div class="run-summary-meta">
-        <span class="run-meta-item">{{range .Issue.Labels}}<span class="badge">{{.}}</span> {{end}}</span>
-    </div>
-    {{end}}
-    {{if .Issue.Assignees}}
-    <div class="run-summary-meta">
-        <span class="run-meta-item"><span class="run-stat-label">Assignees</span> {{range $i, $a := .Issue.Assignees}}{{if $i}}, {{end}}{{$a}}{{end}}</span>
-    </div>
-    {{end}}
+<!-- Stats -->
+<div class="w-stats" style="margin-bottom:0.5rem;">
+    <span><b>{{.Issue.Comments}}</b> comments</span>
+    <span style="color:var(--color-text-muted);">·</span>
+    <span>updated {{.Issue.UpdatedAt}}</span>
+    {{if .Issue.Labels}}<span style="margin-left:0.3rem;">{{range .Issue.Labels}}<span class="badge" style="font-size:0.6rem;">{{.}}</span> {{end}}</span>{{end}}
 </div>
 
+<!-- Body -->
 {{if .Issue.Body}}
-<div class="card">
-    <h2>Description</h2>
-    <div class="issue-body">
-        <div class="markdown-body" id="issue-body"></div>
-        <script type="text/plain" id="issue-body-raw">{{.Issue.Body}}</script>
-    </div>
+<div class="w-io w-io-in" style="margin-bottom:0.75rem;">
+    <div class="markdown-body" id="issue-body" style="font-size:0.82rem;"></div>
+    <script type="text/plain" id="issue-body-raw">{{.Issue.Body}}</script>
 </div>
+{{end}}
+
+<!-- Comments -->
+{{if .Comments}}
+<div style="margin-bottom:0.75rem;">
+    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Comments ({{len .Comments}})</h2>
+    {{range $i, $c := .Comments}}
+    <div style="margin-bottom:0.4rem;background:var(--color-bg-secondary);border-radius:4px;border-left:3px solid var(--color-border);overflow:hidden;">
+        <div style="padding:0.25rem 0.55rem;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--color-border);font-size:0.72rem;">
+            <strong>{{$c.Author}}</strong>
+            <span style="color:var(--color-text-muted);">{{$c.CreatedAt}}{{if $c.HTMLURL}} <a href="{{$c.HTMLURL}}" target="_blank" style="color:var(--color-text-muted);">↗</a>{{end}}</span>
+        </div>
+        <div class="markdown-body" id="issue-comment-{{$i}}" style="padding:0.4rem 0.55rem;font-size:0.78rem;"></div>
+        <script type="text/plain" id="issue-comment-raw-{{$i}}">{{$c.Body}}</script>
+    </div>
+    {{end}}
+</div>
+{{end}}
+
+<!-- Related Pipeline Runs -->
+<div>
+    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Pipeline Runs</h2>
+    {{if .Runs}}
+    <div class="wr-list">
+    {{range .Runs}}
+        <a href="/runs/{{.RunID}}" class="wr-run">
+            <div class="wr-accent st-{{.Status}}"></div>
+            <div class="wr-body">
+                <div class="wr-row1">
+                    <span class="wr-name">{{.PipelineName}}</span>
+                    <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
+                </div>
+                <div class="wr-row2">
+                    {{if .Duration}}<span><b>{{.Duration}}</b></span>{{end}}
+                    {{if gt .StepsTotal 0}}<span><b>{{.StepsCompleted}}/{{.StepsTotal}}</b> steps</span>{{end}}
+                    {{if .TotalTokens}}<span><b>{{formatTokens .TotalTokens}}</b> tok</span>{{end}}
+                </div>
+            </div>
+            <div class="wr-meta">
+                <span class="wr-date">{{.FormattedStartedAt}}</span>
+            </div>
+        </a>
+    {{end}}
+    </div>
+    {{else}}
+    <div style="padding:1rem;text-align:center;color:var(--color-text-muted);font-size:0.82rem;">No pipeline runs for this issue</div>
+    {{end}}
+</div>
+
+{{end}}
+{{define "scripts"}}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    var raw = document.getElementById('issue-body-raw').textContent;
-    var el = document.getElementById('issue-body');
-    if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
-        el.innerHTML = DOMPurify.sanitize(marked.parse(raw));
-    } else {
-        el.textContent = raw;
+    function renderMd(rawId, targetId) {
+        var raw = document.getElementById(rawId);
+        var el = document.getElementById(targetId);
+        if (!raw || !el) return;
+        if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+            el.innerHTML = DOMPurify.sanitize(marked.parse(raw.textContent));
+        } else { el.textContent = raw.textContent; }
     }
+    renderMd('issue-body-raw', 'issue-body');
+    {{range $i, $c := .Comments}}
+    renderMd('issue-comment-raw-{{$i}}', 'issue-comment-{{$i}}');
+    {{end}}
 });
 </script>
 {{end}}
-
-<div class="card">
-    <h2>Comments{{if .Comments}} ({{len .Comments}}){{end}}</h2>
-    {{if .Comments}}
-    <div class="comments-list">
-        {{range $i, $c := .Comments}}
-        <div class="comment-item">
-            <div class="comment-header">
-                <strong>{{$c.Author}}</strong>
-                <span class="text-muted">
-                    <time datetime="{{$c.TimeISO}}">{{$c.CreatedAt}}</time>
-                    {{if $c.HTMLURL}}<a href="{{$c.HTMLURL}}" target="_blank" rel="noopener noreferrer" class="text-muted" title="View on GitHub">#</a>{{end}}
-                </span>
-            </div>
-            <div class="comment-body markdown-body" id="issue-comment-{{$i}}"></div>
-            <script type="text/plain" id="issue-comment-raw-{{$i}}">{{$c.Body}}</script>
-        </div>
-        {{end}}
-    </div>
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        {{range $i, $c := .Comments}}
-        (function() {
-            var raw = document.getElementById('issue-comment-raw-{{$i}}').textContent;
-            var el = document.getElementById('issue-comment-{{$i}}');
-            if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
-                el.innerHTML = DOMPurify.sanitize(marked.parse(raw));
-            } else {
-                el.textContent = raw;
-            }
-        })();
-        {{end}}
-    });
-    </script>
-    {{else}}
-    <div class="empty-state">
-        <p><strong>No comments</strong></p>
-        <p>No comments have been posted on this issue.</p>
-    </div>
-    {{end}}
-</div>
-
-<div class="card">
-    <h2>Related Pipeline Runs</h2>
-    {{if .Runs}}
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Pipeline</th>
-                <th>Status</th>
-                <th>Steps</th>
-                <th>Tokens</th>
-                <th>Duration</th>
-                <th>Started</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Runs}}
-            <tr>
-                <td><a href="/runs/{{.RunID}}">{{.PipelineName}}</a> <a href="/pipelines/{{.PipelineName}}" class="text-muted" title="View pipeline">&rarr;</a></td>
-                <td><span class="badge {{statusClass .Status}}">{{.Status}}</span></td>
-                <td>{{.StepsCompleted}}/{{.StepsTotal}}</td>
-                <td>{{formatTokens .TotalTokens}}</td>
-                <td>{{if .Duration}}{{.Duration}}{{else}}-{{end}}</td>
-                <td>{{.FormattedStartedAt}}</td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-    {{else}}
-    <div class="empty-state">
-        <p><strong>No pipeline runs</strong></p>
-        <p>No pipelines have been run against this issue yet.</p>
-    </div>
-    {{end}}
-</div>
-{{end}}
-{{define "scripts"}}{{end}}
