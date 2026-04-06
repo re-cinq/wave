@@ -7,11 +7,26 @@ import (
 	"strings"
 
 	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/state"
 )
 
 // handleComposePage handles GET /compose - serves the HTML composition pipelines page.
 func (s *Server) handleComposePage(w http.ResponseWriter, r *http.Request) {
 	pipelines := getCompositionPipelines()
+
+	// Enrich with run counts
+	if s.store != nil {
+		allRuns, err := s.store.ListRuns(state.ListRunsOptions{Limit: 10000})
+		if err == nil {
+			counts := make(map[string]int)
+			for _, run := range allRuns {
+				counts[run.PipelineName]++
+			}
+			for i := range pipelines {
+				pipelines[i].RunCount = counts[pipelines[i].Name]
+			}
+		}
+	}
 
 	data := struct {
 		ActivePage string

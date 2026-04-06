@@ -26,13 +26,17 @@
 <div class="w-stats" style="margin-bottom:0.5rem;">
     {{if .RunCount}}<span><b>{{.RunCount}}</b> runs</span>
     <span style="color:var(--color-text-muted);">·</span>{{end}}
-    {{if .TotalTokens}}<span><b>{{formatTokensShort .TotalTokens}}</b> tok</span>
+    {{if .TotalTokens}}<span><b>{{formatTokens .TotalTokens}}</b> tok</span>
     <span style="color:var(--color-text-muted);">·</span>{{end}}
     <span><span class="w-diff-add">+{{.PR.Additions}}</span> <span class="w-diff-del">-{{.PR.Deletions}}</span></span>
     <span style="color:var(--color-text-muted);">·</span>
     <span><b>{{.PR.ChangedFiles}}</b> files</span>
     <span style="color:var(--color-text-muted);">·</span>
     <span><b>{{.PR.Commits}}</b> commits</span>
+    <span style="color:var(--color-text-muted);">·</span>
+    <span><b>{{.PR.Comments}}</b> comments</span>
+    <span style="color:var(--color-text-muted);">·</span>
+    <span>{{.PR.CreatedAt}}</span>
     {{if .PR.Labels}}
     <span style="margin-left:0.3rem;">{{range .PR.Labels}}<span class="badge" style="font-size:0.6rem;">{{.}}</span> {{end}}</span>
     {{end}}
@@ -45,9 +49,9 @@
 {{end}}
 
 <!-- Related Pipeline Runs (before other sections) -->
+{{if .Runs}}
 <div style="margin-bottom:0.75rem;">
     <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Pipeline Runs</h2>
-    {{if .Runs}}
     <div class="wr-list">
     {{range .Runs}}
         <a href="/runs/{{.RunID}}" class="wr-run">
@@ -69,10 +73,10 @@
         </a>
     {{end}}
     </div>
-    {{else}}
-    <div style="padding:1rem;text-align:center;color:var(--color-text-muted);font-size:0.82rem;">No pipeline runs for this PR</div>
-    {{end}}
 </div>
+{{else}}
+<p style="color:var(--color-text-muted);font-size:0.75rem;margin-bottom:0.5rem;">No pipeline runs for this PR</p>
+{{end}}
 
 <!-- Checks -->
 {{if .PR.Checks}}
@@ -100,10 +104,10 @@
     <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Commits ({{len .CommitDetails}})</h2>
     <div class="w-flow" style="gap:1px;">
     {{range .CommitDetails}}
-        <div style="display:flex;gap:0.5rem;align-items:baseline;padding:0.2rem 0.55rem;background:var(--color-bg-secondary);border-radius:3px;">
-            {{if .HTMLURL}}<a href="{{.HTMLURL}}" target="_blank" style="color:var(--color-link);font-family:var(--font-mono);font-size:0.72rem;">{{.ShortSHA}}</a>{{else}}<span style="color:var(--color-text-muted);font-family:var(--font-mono);font-size:0.72rem;">{{.ShortSHA}}</span>{{end}}
-            <span style="color:var(--color-text);font-size:0.82rem;flex:1;">{{.Message}}</span>
-            <span style="color:var(--color-text-muted);font-size:0.68rem;white-space:nowrap;">{{.Author}} · {{.Date}}</span>
+        <div class="w-commit-row">
+            {{if .HTMLURL}}<a href="{{.HTMLURL}}" target="_blank">{{.ShortSHA}}</a>{{else}}<span class="w-commit-sha">{{.ShortSHA}}</span>{{end}}
+            <span class="w-commit-msg">{{.Message}}</span>
+            <span class="w-commit-meta">{{.Author}} · {{.Date}}</span>
         </div>
     {{end}}
     </div>

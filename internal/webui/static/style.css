@@ -2659,13 +2659,14 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ── Header ── */
-.w-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.2rem; }
-.w-head h1 { font-size: 1.15rem; margin: 0; display: flex; align-items: center; gap: 0.4rem; }
-.w-head .back-link { font-size: 0.72rem; }
-.w-head .actions { display: flex; gap: 0.3rem; }
+.w-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.25rem; }
+.w-head h1 { font-size: 1.15rem; margin: 0; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.w-head .back-link { font-size: 0.72rem; color: var(--color-text-muted); }
+.w-head .back-link:hover { color: var(--color-link); }
+.w-head .actions { display: flex; gap: 0.3rem; align-items: flex-start; padding-top: 0.15rem; }
 
 /* ── Stats bar ── */
-.w-stats { display: flex; gap: 0.5rem; align-items: center; font-size: 0.72rem; color: var(--color-text-secondary); margin-bottom: 0.2rem; flex-wrap: wrap; }
+.w-stats { display: flex; gap: 0.5rem; align-items: center; font-size: 0.72rem; color: var(--color-text-secondary); margin-bottom: 0.4rem; flex-wrap: wrap; padding-bottom: 0.3rem; border-bottom: 1px solid var(--color-border); }
 .w-stats b { color: var(--color-text); font-weight: 600; }
 .w-stats .badge { font-size: 0.6rem; padding: 0 4px; }
 
@@ -3107,6 +3108,13 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
     border: 1px solid var(--color-border);
     padding: 0.5rem 0.6rem;
 }
+.w-commit-row { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.25rem 0.55rem; border-radius: 3px; }
+.w-commit-row:nth-child(odd) { background: var(--color-bg-secondary); }
+.w-commit-row:nth-child(even) { background: var(--color-bg-tertiary); }
+.w-commit-row a { color: var(--color-link); font-family: var(--font-mono); font-size: 0.72rem; }
+.w-commit-row .w-commit-sha { color: var(--color-text-muted); font-family: var(--font-mono); font-size: 0.72rem; }
+.w-commit-row .w-commit-msg { color: var(--color-text); font-size: 0.82rem; flex: 1; }
+.w-commit-row .w-commit-meta { color: var(--color-text-muted); font-size: 0.68rem; white-space: nowrap; }
 .wr-loading.active { display: block; }
 .wr-loading-spinner { display: inline-block; width: 24px; height: 24px; border: 2px solid rgba(99,102,241,0.2); border-top-color: #818cf8; border-radius: 50%; animation: wr-spin 0.6s linear infinite; vertical-align: middle; margin-right: 0.5rem; }
 .wr-loading-text { font-size: 0.82rem; color: var(--color-text-muted); vertical-align: middle; }
