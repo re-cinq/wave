@@ -3071,3 +3071,9 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
     padding: 0.5rem 0;
     border-radius: 0;
 }
+
+/* ── Infinite scroll loading indicator ── */
+.wr-loading { text-align: center; padding: 1rem; display: none; }
+.wr-loading.active { display: block; }
+.wr-loading-spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid rgba(99,102,241,0.2); border-top-color: #818cf8; border-radius: 50%; animation: wr-spin 0.6s linear infinite; vertical-align: middle; margin-right: 0.4rem; }
+.wr-loading-text { font-size: 0.78rem; color: var(--color-text-muted); vertical-align: middle; }

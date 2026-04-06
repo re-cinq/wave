@@ -40,10 +40,27 @@
 {{end}}
 </div>
 {{if .HasMore}}
-<div style="text-align:center;padding:0.5rem;"><a href="/prs?state={{.FilterState}}&page={{add .Page 1}}" style="color:#818cf8;font-size:0.78rem;">Load more</a></div>
+<div class="wr-loading" id="wr-loader" data-next="/prs?state={{.FilterState}}&page={{add .Page 1}}">
+    <span class="wr-loading-spinner"></span><span class="wr-loading-text">Loading...</span>
+</div>
 {{end}}
 {{else}}
 <div style="padding:2rem;text-align:center;color:var(--color-text-muted);font-size:0.85rem;">No pull requests found</div>
 {{end}}
 {{end}}
-{{define "scripts"}}{{end}}
+{{define "scripts"}}
+<script>
+(function(){
+    var loader=document.getElementById('wr-loader');
+    if(!loader)return;
+    var loading=false;
+    window.addEventListener('scroll',function(){
+        if(loading)return;
+        if(loader.getBoundingClientRect().top<window.innerHeight+200){
+            loading=true;loader.classList.add('active');
+            window.location.href=loader.dataset.next;
+        }
+    });
+})();
+</script>
+{{end}}
