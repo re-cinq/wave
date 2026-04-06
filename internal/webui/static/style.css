@@ -2984,3 +2984,67 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 .w-parallel-3 { grid-template-columns: 1fr 1fr 1fr; }
 .w-parallel-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
 .w-parallel-5 { grid-template-columns: 1fr 1fr 1fr 1fr 1fr; }
+
+/* ── Run/Pipeline/Issue List Cards ── */
+/* ── Runs v2 list ── */
+.wr-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+.wr-head h1 { font-size: 1.25rem; margin: 0; }
+
+/* Filter bar */
+.wr-filters { display: flex; gap: 0.3rem; margin-bottom: 0.6rem; align-items: center; flex-wrap: wrap; }
+.wr-filter { padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.72rem; color: var(--color-text-muted); border: 1px solid var(--color-border); background: none; cursor: pointer; text-decoration: none; }
+.wr-filter:hover { background: var(--color-bg-tertiary); color: var(--color-text-secondary); }
+.wr-filter.active { background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.3); color: #a5b4fc; }
+
+/* Run card */
+.wr-list { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.wr-run {
+    display: grid;
+    grid-template-columns: 5px 1fr auto;
+    gap: 0;
+    background: var(--color-bg-secondary);
+    border-radius: 4px;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.1s, box-shadow 0.1s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+.wr-run:hover { background: #1e2d3d; box-shadow: 0 2px 5px rgba(0,0,0,0.3); text-decoration: none; color: inherit; }
+
+/* Status accent bar (left edge) */
+.wr-accent { border-radius: 4px 0 0 4px; }
+.wr-accent.st-completed { background: var(--color-completed); }
+.wr-accent.st-failed { background: var(--color-failed); }
+.wr-accent.st-running { background: var(--color-running); }
+.wr-accent.st-pending { background: var(--color-border); }
+.wr-accent.st-cancelled { background: var(--color-border); }
+
+/* Main content area */
+.wr-body { padding: 0.4rem 0.6rem; min-width: 0; }
+.wr-row1 { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.15rem; }
+.wr-name { font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wr-status { font-size: 0.65rem; }
+.wr-input { font-size: 0.72rem; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 400px; }
+.wr-row2 { display: flex; gap: 0.5rem; align-items: center; font-size: 0.7rem; color: var(--color-text-muted); flex-wrap: wrap; }
+.wr-row2 b { color: var(--color-text-secondary); }
+.wr-row2 .badge { font-size: 0.6rem; padding: 0 3px; }
+
+/* Right meta */
+.wr-meta { padding: 0.4rem 0.6rem; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 0.15rem; white-space: nowrap; }
+.wr-date { font-size: 0.68rem; color: var(--color-text-muted); font-family: var(--font-mono); }
+.wr-dur { font-size: 0.78rem; font-weight: 600; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+.wr-progress { font-size: 0.65rem; color: var(--color-text-muted); }
+
+/* Child run indent */
+.wr-child { margin-left: 1.5rem; opacity: 0.8; }
+.wr-child .wr-run { background: var(--color-bg-tertiary); }
+
+/* Load more */
+.wr-more { text-align: center; padding: 0.5rem; }
+.wr-more a { color: #818cf8; font-size: 0.78rem; text-decoration: none; }
+.wr-more a:hover { text-decoration: underline; }
+
+/* Empty state */
+.wr-empty { text-align: center; padding: 2rem; color: var(--color-text-muted); font-size: 0.85rem; }
