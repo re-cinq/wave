@@ -88,12 +88,10 @@
 <div class="w-io w-io-in">
     <span class="w-io-tag">IN</span>
     {{if .LinkedTitle}}
-    <div style="margin-top:0.2rem;">
-        <div style="display:flex;align-items:baseline;gap:0.4rem;flex-wrap:wrap;">
-            <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:1rem;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
-            {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else}}status-cancelled{{end}}" style="font-size:0.68rem;">{{.LinkedState}}</span>{{end}}
-        </div>
-        {{if .LinkedAuthor}}<div style="font-size:0.72rem;color:var(--color-text-muted);margin-top:0.1rem;">by {{.LinkedAuthor}}</div>{{end}}
+    <div style="display:flex;align-items:baseline;gap:0.4rem;flex-wrap:wrap;margin-top:0.2rem;">
+        <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:1rem;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
+        {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else}}status-cancelled{{end}}" style="font-size:0.68rem;">{{.LinkedState}}</span>{{end}}
+        {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</span>{{end}}
     </div>
     {{else}}
     <div style="margin-top:0.2rem;" class="w-io-text">
@@ -214,26 +212,16 @@
             {{end}}
         </div>
         {{if .LinkedTitle}}
-        <div style="margin-top:0.2rem;">
-            <div style="display:flex;align-items:baseline;gap:0.4rem;flex-wrap:wrap;">
-                <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:1rem;color:#818cf8;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
-                {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else if eq .LinkedState "closed"}}status-cancelled{{end}}" style="font-size:0.68rem;">{{.LinkedState}}</span>{{end}}
-            </div>
-            {{if .LinkedAuthor}}<div style="font-size:0.72rem;color:var(--color-text-muted);margin-top:0.1rem;">by {{.LinkedAuthor}}</div>{{end}}
+        <div style="display:flex;align-items:baseline;gap:0.4rem;flex-wrap:wrap;margin-top:0.2rem;">
+            <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:1rem;color:#818cf8;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
+            {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else if eq .LinkedState "closed"}}status-cancelled{{end}}" style="font-size:0.68rem;">{{.LinkedState}}</span>{{end}}
+            {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</span>{{end}}
         </div>
         {{else if .Run.LinkedURL}}
         <div style="margin-top:0.2rem;"><a href="{{.Run.LinkedURL}}" target="_blank" style="font-size:0.82rem;color:#818cf8;">{{richInput .Run.Input .Run.LinkedURL}} ↗</a></div>
         {{end}}
     </div>
     {{if .Run.ErrorMessage}}<div style="font-size:0.78rem;color:#fca5a5;padding:0.15rem 0.85rem;">{{.Run.ErrorMessage}}</div>{{end}}
-    {{if .ArtifactGroups}}
-    <div class="ws-tabs" style="margin:0.2rem 0.85rem 0;">
-        {{range .ArtifactGroups}}{{$sid := .StepID}}{{range .Artifacts}}
-        <a href="#" class="w-tab" data-run-id="{{$.Run.RunID}}" data-step-id="{{$sid}}" data-artifact-name="{{.Name}}" onclick="v2ToggleOutArtTab(this);return false;"><span style="color:var(--color-text-muted);font-size:0.65rem;">{{$sid}}/</span>{{.Name}} <span class="art-size">{{formatBytes .SizeBytes}}</span></a>
-        {{end}}{{end}}
-    </div>
-    <div class="ws-tabcontent" id="w-out-tc" hidden style="margin:0 0.85rem 0.3rem;background:var(--color-bg-secondary);border:1px solid var(--color-border);border-radius:4px;"></div>
-    {{end}}
 </div>
 
 <!-- Panels are now positioned after the stats bar, before IN card -->
