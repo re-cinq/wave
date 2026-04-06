@@ -1,152 +1,132 @@
-{{define "title"}}{{.Pipeline.Name}}{{if .Pipeline.Description}} · {{.Pipeline.Description}}{{end}} · Wave{{end}}
+{{define "title"}}{{.Pipeline.Name}}{{if .Pipeline.Description}} — {{.Pipeline.Description}}{{end}} · Wave{{end}}
 {{define "content"}}
-<div class="page-header">
+
+<!-- Header -->
+<div class="v2-head">
     <div>
-        <a href="/pipelines" class="back-link" aria-label="Back to pipelines list">&larr; Back to Pipelines</a>
-        <h1>{{.Pipeline.Name}}</h1>
-        {{if .Pipeline.Description}}<p class="persona-desc">{{.Pipeline.Description}}</p>{{end}}
+        <a href="/pipelines" class="back-link">&larr; Pipelines</a>
+        <h1>
+            {{.Pipeline.Name}}
+            {{if .Pipeline.Category}}<span class="badge" style="font-size:0.62rem;background:rgba(99,102,241,0.12);color:#a5b4fc;">{{.Pipeline.Category}}</span>{{end}}
+            {{if .Pipeline.IsComposition}}<span class="badge" style="font-size:0.62rem;background:rgba(139,92,246,0.12);color:#c084fc;">composition</span>{{end}}
+        </h1>
+        {{if .Pipeline.Description}}<p style="margin:0.1rem 0 0.3rem;font-size:0.82rem;color:var(--color-text-secondary);">{{.Pipeline.Description}}</p>{{end}}
     </div>
     <div class="actions">
         <button class="btn btn-primary" onclick="showQuickStart('{{.Pipeline.Name}}')" aria-label="Start pipeline">Start</button>
     </div>
 </div>
 
-<div class="run-summary-bar">
-    <div class="run-summary-stats">
-        <span class="run-stat"><span class="run-stat-label">Steps</span> <span class="run-stat-value">{{len .Pipeline.Steps}}</span></span>
-        <span class="run-stat"><span class="run-stat-label">Runs</span> <span class="run-stat-value"><a href="/runs?pipeline={{.Pipeline.Name}}">{{.RunCount}}</a></span></span>
-        {{if .Pipeline.Category}}<span class="run-stat"><span class="run-stat-label">Category</span> <span class="run-stat-value">{{.Pipeline.Category}}</span></span>{{end}}
-        {{if .Pipeline.IsComposition}}<span class="run-stat"><span class="run-stat-label">Type</span> <span class="run-stat-value">Composition</span></span>{{end}}
-        {{if .Pipeline.Skills}}<span class="run-stat"><span class="run-stat-label">Skills</span> <span class="run-stat-value">{{range $i, $s := .Pipeline.Skills}}{{if $i}}, {{end}}{{$s}}{{end}}</span></span>{{end}}
-    </div>
+<!-- Stats -->
+<div class="v2-stats" style="margin-bottom:0.5rem;">
+    <span><b>{{len .Pipeline.Steps}}</b> steps</span>
+    <span style="color:var(--color-text-muted);">·</span>
+    <span><a href="/runs?pipeline={{.Pipeline.Name}}" style="color:#818cf8;"><b>{{.RunCount}}</b> runs</a></span>
+    {{if .Pipeline.Skills}}<span style="color:var(--color-text-muted);">·</span>
+    <span style="color:var(--color-text-muted);">Skills: {{range $i, $s := .Pipeline.Skills}}{{if $i}}, {{end}}{{$s}}{{end}}</span>{{end}}
 </div>
 
-{{if .DAG}}
-<div class="card">
-    <details open>
-        <summary class="section-toggle"><h2>Pipeline Graph</h2></summary>
-        <div id="dag-container" class="dag-container">
-            {{template "templates/partials/dag_svg.html" .DAG}}
-        </div>
-    </details>
-</div>
-{{end}}
-
-<div class="card">
-    <h2>Steps</h2>
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Step</th>
-                <th>Persona</th>
-                <th>Dependencies</th>
-                <th>Contract</th>
-                <th>Artifacts</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Pipeline.Steps}}
-            <tr>
-                <td><code>{{.ID}}</code></td>
-                <td><a href="/personas/{{.Persona}}" class="badge">{{.Persona}}</a></td>
-                <td>{{if .Dependencies}}{{range $i, $d := .Dependencies}}{{if $i}}, {{end}}<code>{{$d}}</code>{{end}}{{else}}<span class="text-muted">none</span>{{end}}</td>
-                <td>{{if .Contract}}{{if .ContractSchemaName}}<a href="/contracts/{{.ContractSchemaName}}"><code>{{.Contract}}</code></a>{{else}}<code>{{.Contract}}</code>{{end}}{{else}}<span class="text-muted">none</span>{{end}}</td>
-                <td>{{if .Artifacts}}{{range $i, $a := .Artifacts}}{{if $i}}, {{end}}<code>{{$a}}</code>{{end}}{{else}}<span class="text-muted">none</span>{{end}}</td>
-                <td>{{if .Optional}}<span class="badge">optional</span>{{end}}</td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-</div>
-
-<div class="card">
-    <h2>Recent Runs</h2>
-    {{if .Runs}}
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Status</th>
-                <th>Run ID</th>
-                <th>Started</th>
-                <th>Duration</th>
-                <th>Progress</th>
-                <th>Tokens</th>
-            </tr>
-        </thead>
-        <tbody>
-        {{range .Runs}}
-        <tr class="run-row" data-href="/runs/{{.RunID}}">
-            <td>
-                <span class="status-indicator status-indicator-{{.Status}}">
-                    {{if eq .Status "running"}}<span class="spinner spinner-sm" aria-label="Running" role="status"></span>
-                    {{else if eq .Status "completed"}}<span class="status-check">&#10003;</span>
-                    {{else if eq .Status "failed"}}<span class="status-cross">&#10007;</span>
-                    {{else if eq .Status "cancelled"}}<span class="status-dash">&#9644;</span>
-                    {{else}}<span class="status-dot">&#9679;</span>
-                    {{end}}
+<!-- Steps as shapes -->
+<div class="v2-flow">
+{{range $i, $step := .Pipeline.Steps}}
+    {{if $i}}<div class="v2-conn"><span class="v2-conn-dot"></span></div>{{end}}
+    <div class="v2-s st-pending{{if $step.Type}} tp-{{$step.Type}}{{end}}">
+        <div class="v2-s-content">
+            <div class="v2-s-row1">
+                <span class="v2-s-name">
+                    {{if eq $step.Type "pipeline"}}<span class="tp-ico">&#x27D0;</span>
+                    {{else if eq $step.Type "gate"}}<span class="tp-ico">&#x25C6;</span>
+                    {{else if eq $step.Type "conditional"}}<span class="tp-ico">&#x25C6;</span>
+                    {{else if eq $step.Type "command"}}<span class="tp-ico">&gt;_</span>
+                    {{end}}{{$step.ID}}</span>
+                <span class="v2-s-meta">
+                    {{if $step.Persona}}<a href="/personas/{{$step.Persona}}" style="color:#818cf8;font-size:0.68rem;">{{$step.Persona}}</a>{{end}}
+                    {{if $step.Contract}}{{if $step.ContractSchemaName}}<a href="/contracts/{{$step.ContractSchemaName}}" style="color:var(--color-text-muted);font-size:0.62rem;">{{$step.ContractSchemaName}}</a>{{else}}<span style="color:var(--color-text-muted);font-size:0.62rem;">{{$step.Contract}}</span>{{end}}{{end}}
+                    {{if $step.Optional}}<span class="badge" style="font-size:0.55rem;background:rgba(245,158,11,0.12);color:#fbbf24;">optional</span>{{end}}
                 </span>
-                <span class="badge {{statusClass .Status}}">{{.Status}}</span>
-            </td>
-            <td><a href="/runs/{{.RunID}}">{{.RunID}}</a></td>
-            <td><time datetime="{{formatTimeISO .StartedAt}}" title="{{formatTime .StartedAt}}">{{formatTime .StartedAt}}</time></td>
-            <td>{{if .Duration}}{{.Duration}}{{else}}-{{end}}</td>
-            <td>{{if gt .StepsTotal 0}}<span class="run-progress">{{.StepsCompleted}}/{{.StepsTotal}}</span>{{end}}</td>
-            <td>{{formatTokens .TotalTokens}}</td>
-        </tr>
-        {{end}}
-        </tbody>
-    </table>
+            </div>
+            <div class="v2-s-io">
+                {{if $step.Dependencies}}
+                <div class="v2-s-io-in">
+                    <span class="v2-s-io-lbl">deps</span>
+                    <span class="v2-s-io-val">{{range $j, $d := $step.Dependencies}}{{if $j}}, {{end}}{{$d}}{{end}}</span>
+                </div>
+                {{end}}
+                {{if $step.Artifacts}}
+                <div class="v2-s-io-out">
+                    <span class="v2-s-io-lbl">out</span>
+                    <span class="v2-s-io-val">{{range $j, $a := $step.Artifacts}}{{if $j}}, {{end}}{{$a}}{{end}}</span>
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+{{end}}
+</div>
+
+<!-- Recent Runs -->
+<div style="margin-top:1rem;">
+    <h2 style="font-size:1rem;margin-bottom:0.4rem;">Recent Runs</h2>
+    {{if .Runs}}
+    <div class="rv2-list">
+    {{range .Runs}}
+        <a href="/runs/{{.RunID}}" class="rv2-run">
+            <div class="rv2-accent st-{{.Status}}"></div>
+            <div class="rv2-body">
+                <div class="rv2-row1">
+                    <span class="badge rv2-status {{statusClass .Status}}">{{.Status}}</span>
+                    {{if .InputPreview}}<span class="rv2-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
+                </div>
+                <div class="rv2-row2">
+                    {{if .Duration}}<span><b>{{.Duration}}</b></span>{{end}}
+                    {{if gt .StepsTotal 0}}<span><b>{{.StepsCompleted}}/{{.StepsTotal}}</b> steps</span>{{end}}
+                    {{if .TotalTokens}}<span><b>{{formatTokens .TotalTokens}}</b> tok</span>{{end}}
+                    {{range .Models}}<span class="badge badge-model">{{friendlyModel .}}</span>{{end}}
+                </div>
+            </div>
+            <div class="rv2-meta">
+                <span class="rv2-date">{{.FormattedStartedAt}}</span>
+                {{if .Duration}}<span class="rv2-dur">{{.Duration}}</span>{{end}}
+            </div>
+        </a>
+    {{end}}
+    </div>
     {{if gt .RunCount 10}}
-    <div style="margin-top: 0.5rem; text-align: right;">
-        <a href="/runs?pipeline={{.Pipeline.Name}}" class="btn btn-sm">View all {{.RunCount}} runs</a>
+    <div style="margin-top:0.4rem;text-align:right;">
+        <a href="/runs?pipeline={{.Pipeline.Name}}" style="font-size:0.78rem;color:#818cf8;">View all {{.RunCount}} runs</a>
     </div>
     {{end}}
     {{else}}
-    <div class="empty-state"><p>No runs yet for this pipeline.</p></div>
+    <div style="padding:1rem;text-align:center;color:var(--color-text-muted);font-size:0.82rem;">No runs yet</div>
     {{end}}
 </div>
 
+<!-- Quickstart dialog (kept from v1, functional) -->
 <dialog id="quickstart-dialog" class="start-dialog" aria-labelledby="quickstart-title">
-    <h3 id="quickstart-title">Start Pipeline: <span id="quickstart-name"></span></h3>
+    <h3 id="quickstart-title">Start: <span id="quickstart-name"></span></h3>
     <div class="form-group">
-        <label for="quickstart-input">Input (optional)</label>
+        <label for="quickstart-input">Input</label>
         <textarea id="quickstart-input" rows="3" placeholder="Issue URL, feature description..."></textarea>
     </div>
     <details class="advanced-options">
-        <summary>Advanced Options</summary>
+        <summary>Advanced</summary>
         <div class="form-group">
-            <label for="qs-model">Model Override</label>
+            <label for="qs-model">Model</label>
             <select id="qs-model">
-                <option value="">Default (auto)</option>
-                <option value="cheapest">Cheapest (fast, low-cost)</option>
-                <option value="fastest">Fastest (default)</option>
-                <option value="strongest">Strongest (highest quality)</option>
+                <option value="">Default</option>
+                <option value="cheapest">Cheapest</option>
+                <option value="fastest">Fastest</option>
+                <option value="strongest">Strongest</option>
             </select>
         </div>
         <div class="form-group">
-            <label for="qs-from-step">Resume From Step</label>
+            <label for="qs-from-step">Resume From</label>
             <select id="qs-from-step" onchange="onQsFromStepChange()">
                 <option value="">Start from beginning</option>
             </select>
         </div>
-        <div class="form-group" id="qs-steps-group">
-            <label>Run Only These Steps</label>
-            <div id="qs-steps-checks" class="checkbox-list">
-                <span class="text-muted">Loading...</span>
-            </div>
-        </div>
-        <div class="form-group" id="qs-exclude-group">
-            <label>Exclude Steps</label>
-            <div id="qs-exclude-checks" class="checkbox-list">
-                <span class="text-muted">Loading...</span>
-            </div>
-        </div>
         <div class="form-group">
-            <label class="checkbox-label">
-                <input type="checkbox" id="qs-dry-run">
-                Dry Run (validate without executing)
-            </label>
+            <label class="checkbox-label"><input type="checkbox" id="qs-dry-run"> Dry Run</label>
         </div>
     </details>
     <div class="dialog-actions">
@@ -158,99 +138,53 @@
 {{define "scripts"}}
 <script>
 var quickStartPipeline = '';
-
 function showQuickStart(name) {
     quickStartPipeline = name;
     document.getElementById('quickstart-name').textContent = name;
     document.getElementById('quickstart-input').value = '';
-    // Reset advanced options
     var modelEl = document.getElementById('qs-model');
     if (modelEl) modelEl.value = '';
     var fromStepEl = document.getElementById('qs-from-step');
     if (fromStepEl) fromStepEl.innerHTML = '<option value="">Start from beginning</option>';
     var dryRunEl = document.getElementById('qs-dry-run');
     if (dryRunEl) dryRunEl.checked = false;
-    // Load step list
     loadQsStepList(name);
     document.getElementById('quickstart-dialog').showModal();
     document.getElementById('quickstart-input').focus();
 }
-
-function hideQuickStart() {
-    document.getElementById('quickstart-dialog').close();
-    quickStartPipeline = '';
-}
-
+function hideQuickStart() { document.getElementById('quickstart-dialog').close(); quickStartPipeline = ''; }
 function submitQuickStart() {
     if (!quickStartPipeline) return;
     var input = document.getElementById('quickstart-input').value;
     var btn = document.getElementById('quickstart-submit');
     var body = {input: input || ''};
-    // Collect advanced options
     var opts = collectAdvancedOptions('qs');
     Object.keys(opts).forEach(function(k) { body[k] = opts[k]; });
-
     setButtonLoading(btn, true);
     fetchJSON('/api/pipelines/' + encodeURIComponent(quickStartPipeline) + '/start', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body)
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
     }).then(function(data) {
-        if (body.dry_run && data.findings !== undefined) {
-            showDryRunReport(data);
-            setButtonLoading(btn, false);
-            return;
-        }
+        if (body.dry_run && data.findings !== undefined) { showDryRunReport(data); setButtonLoading(btn, false); return; }
         showToast('Pipeline started: ' + data.run_id, 'success', 3000);
         setTimeout(function() { window.location.href = '/runs/' + data.run_id; }, 500);
-    }).catch(function() {
-        setButtonLoading(btn, false);
-    });
+    }).catch(function() { setButtonLoading(btn, false); });
 }
-
-function loadQsStepList(pipelineName) {
+function loadQsStepList(name) {
     var fromStep = document.getElementById('qs-from-step');
-    var stepsChecks = document.getElementById('qs-steps-checks');
-    var excludeChecks = document.getElementById('qs-exclude-checks');
-    fetchJSON('/api/pipelines/' + encodeURIComponent(pipelineName)).then(function(data) {
+    fetchJSON('/api/pipelines/' + encodeURIComponent(name)).then(function(data) {
         var steps = data.steps || [];
         var opts = '<option value="">Start from beginning</option>';
-        for (var i = 0; i < steps.length; i++) {
-            opts += '<option value="' + escapeHTML(steps[i].id) + '">' + escapeHTML(steps[i].id) + '</option>';
-        }
+        for (var i = 0; i < steps.length; i++) opts += '<option value="' + escapeHTML(steps[i].id) + '">' + escapeHTML(steps[i].id) + '</option>';
         if (fromStep) fromStep.innerHTML = opts;
-        var checksHTML = '';
-        for (var i = 0; i < steps.length; i++) {
-            checksHTML += '<label class="checkbox-label"><input type="checkbox" name="qs-steps" value="' + escapeHTML(steps[i].id) + '"> ' + escapeHTML(steps[i].id) + '</label>';
-        }
-        if (stepsChecks) stepsChecks.innerHTML = checksHTML || '<span class="text-muted">No steps</span>';
-        var exclHTML = '';
-        for (var i = 0; i < steps.length; i++) {
-            exclHTML += '<label class="checkbox-label"><input type="checkbox" name="qs-exclude" value="' + escapeHTML(steps[i].id) + '"> ' + escapeHTML(steps[i].id) + '</label>';
-        }
-        if (excludeChecks) excludeChecks.innerHTML = exclHTML || '<span class="text-muted">No steps</span>';
-    }).catch(function() {
-        if (stepsChecks) stepsChecks.innerHTML = '<span class="text-muted">Failed to load steps</span>';
-        if (excludeChecks) excludeChecks.innerHTML = '<span class="text-muted">Failed to load steps</span>';
-    });
+    }).catch(function() {});
 }
-
 function onQsFromStepChange() {
     var fromStep = document.getElementById('qs-from-step');
-    var stepsGroup = document.getElementById('qs-steps-group');
     if (fromStep && fromStep.value) {
-        if (stepsGroup) stepsGroup.style.opacity = '0.5';
         var checks = document.querySelectorAll('#qs-steps-checks input[type="checkbox"]');
         for (var i = 0; i < checks.length; i++) { checks[i].checked = false; checks[i].disabled = true; }
-    } else {
-        if (stepsGroup) stepsGroup.style.opacity = '1';
-        var checks = document.querySelectorAll('#qs-steps-checks input[type="checkbox"]');
-        for (var i = 0; i < checks.length; i++) { checks[i].disabled = false; }
     }
 }
-
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') hideQuickStart();
-});
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hideQuickStart(); });
 </script>
 {{end}}
