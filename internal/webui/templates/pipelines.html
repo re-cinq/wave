@@ -25,8 +25,8 @@
         <div class="wr-body">
             <div class="wr-row1">
                 <span class="wr-name">{{.Name}}</span>
-                {{if .Category}}<span class="badge" style="font-size:0.65rem;background:rgba(99,102,241,0.12);color:#a5b4fc;">{{.Category}}</span>{{end}}
-                {{if .IsComposition}}<span class="badge" style="font-size:0.65rem;background:rgba(139,92,246,0.12);color:#c4b5fd;">composition</span>{{end}}
+                {{if .IsComposition}}<span class="badge" style="font-size:0.65rem;background:rgba(139,92,246,0.12);color:#c4b5fd;">composition</span>
+                {{else if .Category}}<span class="badge" style="font-size:0.65rem;background:rgba(99,102,241,0.12);color:#a5b4fc;">{{.Category}}</span>{{end}}
                 {{if .Disabled}}<span class="badge" style="font-size:0.65rem;background:rgba(239,68,68,0.1);color:#fca5a5;">disabled</span>{{end}}
             </div>
             {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);font-size:0.78rem;">{{.Description}}</span></div>{{end}}
