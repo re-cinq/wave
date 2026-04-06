@@ -74,6 +74,8 @@ type StepDetail struct {
 	GateChoicesData    []pipeline.GateChoice `json:"gate_choices_data,omitempty"` // Structured gate choice data for interactive UI
 	GateFreeform       bool                  `json:"gate_freeform,omitempty"`     // Whether freeform text input is allowed
 	EdgeInfo           string                `json:"edge_info,omitempty"`         // Edge conditions for conditional steps
+	Contract           string                `json:"contract,omitempty"`          // Contract path/type
+	ContractSchemaName string                `json:"contract_schema_name,omitempty"` // Human-readable contract name
 	Model              string                `json:"model,omitempty"`             // Model override for this step
 	Adapter            string                `json:"adapter,omitempty"`           // Adapter used for this step
 	VisitCount         int                   `json:"visit_count,omitempty"`       // Current visit count for graph loop steps
