@@ -10,6 +10,9 @@
         <a href="/prs?state=closed" class="wr-filter{{if eq .FilterState "closed"}} active{{end}}">Closed</a>
         <a href="/prs?state=all" class="wr-filter{{if eq .FilterState "all"}} active{{end}}">All</a>
     </div>
+    <div class="wr-controls">
+        <span style="font-size:0.72rem;color:var(--color-text-muted);">{{len .PullRequests}} PRs</span>
+    </div>
 </div>
 
 {{if .Message}}

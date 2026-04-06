@@ -157,12 +157,26 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Compute aggregate Wave stats
+	runCount := len(relatedRuns)
+	totalTokens := 0
+	lastStatus := ""
+	for _, r := range relatedRuns {
+		totalTokens += r.TotalTokens
+		if lastStatus == "" {
+			lastStatus = r.Status
+		}
+	}
+
 	data := struct {
 		ActivePage    string
 		PR            PRDetail
 		Runs          []RunSummary
 		Comments      []CommentSummary
 		CommitDetails []CommitSummary
+		RunCount      int
+		TotalTokens   int
+		LastStatus    string
 	}{
 		ActivePage: "prs",
 		PR: PRDetail{
@@ -189,6 +203,9 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 		Runs:          relatedRuns,
 		Comments:      comments,
 		CommitDetails: commits,
+		RunCount:      runCount,
+		TotalTokens:   totalTokens,
+		LastStatus:    lastStatus,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -313,6 +330,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 		FilterState:  stateFilter,
 		Page:         page,
 		HasMore:      hasMore,
+		TotalOpen:    len(summaries),
 	}
 }
 
