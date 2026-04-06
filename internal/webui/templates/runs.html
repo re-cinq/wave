@@ -81,23 +81,39 @@
 {{end}}
 {{define "scripts"}}
 <script>
-// Infinite scroll
 (function(){
     var loader=document.getElementById('wr-loader');
     if(!loader)return;
+    var list=document.querySelector('.wr-list');
+    if(!list)return;
     var loading=false;
-    function checkScroll(){
-        if(loading||!loader)return;
-        var rect=loader.getBoundingClientRect();
-        if(rect.top<window.innerHeight+200){
-            loading=true;
-            loader.classList.add('active');
-            var url=loader.dataset.next;
-            window.location.href=url; // Simple: navigate to next page (proper infinite scroll needs API fragment support)
-        }
+    var nextUrl=loader.dataset.next;
+
+    function loadMore(){
+        if(loading||!nextUrl)return;
+        loading=true;
+        loader.classList.add('active');
+        fetch(nextUrl).then(function(r){return r.text()}).then(function(html){
+            var doc=new DOMParser().parseFromString(html,'text/html');
+            doc.querySelectorAll('.wr-list > *').forEach(function(el){
+                list.appendChild(el.cloneNode(true));
+            });
+            var newLoader=doc.getElementById('wr-loader');
+            if(newLoader){
+                nextUrl=newLoader.dataset.next;
+                loading=false;
+                loader.classList.remove('active');
+            } else {
+                loader.remove();
+            }
+        }).catch(function(){loader.classList.remove('active');loading=false;});
     }
-    window.addEventListener('scroll',checkScroll);
-    checkScroll(); // Check on load in case page is short
+    window.addEventListener('scroll',function(){
+        if(loader.getBoundingClientRect().top<window.innerHeight+300) loadMore();
+    });
+    setTimeout(function(){
+        if(loader.getBoundingClientRect().top<window.innerHeight+300) loadMore();
+    },100);
 })();
 </script>
 {{end}}

@@ -383,14 +383,26 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
             if(step.input_artifacts&&step.input_artifacts.length) h+=kv('Receives',step.input_artifacts.map(function(a){return '<code style="background:rgba(34,197,94,0.1);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.72rem;">'+escapeHTML(a)+'</code>';}).join(' '));
             if(step.artifacts&&step.artifacts.length) h+=kv('Produces',step.artifacts.map(function(a){return '<code style="background:rgba(99,102,241,0.1);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.72rem;">'+escapeHTML(a)+'</code>';}).join(' '));
             h+='</div>';
-            // Prompt — render as markdown if possible
+            // Prompt — resolve known variables and render as markdown
             if(step.prompt){
+                var prompt=step.prompt;
+                // Resolve known template variables from run context
+                var runInput='{{.Run.Input}}';
+                prompt=prompt.replace(/\{\{\s*input\s*\}\}/g, runInput||'(input)');
+                prompt=prompt.replace(/\{\{\s*forge\.cli_tool\s*\}\}/g, 'gh');
+                prompt=prompt.replace(/\{\{\s*forge\.type\s*\}\}/g, 'github');
+                prompt=prompt.replace(/\{\{\s*forge\.pr_term\s*\}\}/g, 'pull request');
+                prompt=prompt.replace(/\{\{\s*forge\.pr_command\s*\}\}/g, 'pr');
+                prompt=prompt.replace(/\{\{\s*project\.skill\s*\}\}/g, '(project skill)');
+                prompt=prompt.replace(/\{\{\s*project\.test_command\s*\}\}/g, 'go test ./...');
+                // Highlight remaining unresolved {{ vars }} as badges
+                prompt=prompt.replace(/\{\{([^}]+)\}\}/g, '`$1`');
                 h+='<div style="border-top:1px solid var(--color-border);padding-top:0.4rem;margin-top:0.2rem;">';
-                h+='<div style="color:var(--color-text-muted);font-size:0.68rem;margin-bottom:0.2rem;">Prompt</div>';
+                h+='<div style="color:var(--color-text-muted);font-size:0.68rem;margin-bottom:0.2rem;">Prompt (resolved)</div>';
                 if(typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
-                    h+='<div class="markdown-body" style="padding:0.4rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.78rem;line-height:1.5;">'+DOMPurify.sanitize(marked.parse(step.prompt))+'</div>';
+                    h+='<div class="markdown-body" style="padding:0.4rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.78rem;line-height:1.5;">'+DOMPurify.sanitize(marked.parse(prompt))+'</div>';
                 } else {
-                    h+='<pre style="margin:0;padding:0.5rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.75rem;white-space:pre-wrap;color:var(--color-text-secondary);line-height:1.5;">'+escapeHTML(step.prompt)+'</pre>';
+                    h+='<pre style="margin:0;padding:0.5rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.75rem;white-space:pre-wrap;color:var(--color-text-secondary);line-height:1.5;">'+escapeHTML(prompt)+'</pre>';
                 }
                 h+='</div>';
             }
