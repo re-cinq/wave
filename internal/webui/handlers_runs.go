@@ -373,10 +373,10 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 	// Add forge variables
 	forgeInfo, _ := forge.DetectFromGitRemotes()
-	templateVars["forge.cli_tool"] = forgeInfo.CLITool()
+	templateVars["forge.cli_tool"] = forgeInfo.CLITool
 	templateVars["forge.type"] = string(forgeInfo.Type)
-	templateVars["forge.pr_term"] = forgeInfo.PRTerm()
-	templateVars["forge.pr_command"] = forgeInfo.PRCommand()
+	templateVars["forge.pr_term"] = forgeInfo.PRTerm
+	templateVars["forge.pr_command"] = forgeInfo.PRCommand
 	// Add project variables from manifest
 	if s.manifest != nil && s.manifest.Project != nil {
 		for k, v := range s.manifest.Project.ProjectVars() {
