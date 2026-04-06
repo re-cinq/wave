@@ -663,19 +663,32 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 			edgeInfo = strings.Join(edgeParts, "; ")
 		}
 
+		// Extract contract info for display
+		var contractType, contractSchemaName string
+		if contracts := step.Handover.EffectiveContracts(); len(contracts) > 0 {
+			contractType = contracts[0].Type
+			if contracts[0].Schema != "" {
+				contractSchemaName = contracts[0].Schema
+			} else if contracts[0].SchemaPath != "" {
+				contractSchemaName = contracts[0].SchemaPath
+			}
+		}
+
 		sd := StepDetail{
-			RunID:       runID,
-			StepID:      step.ID,
-			Persona:     resolveForgeVars(step.Persona),
-			State:       "pending",
-			StepType:    stepType,
-			Script:      step.Script,
-			SubPipeline: step.SubPipeline,
-			GatePrompt:  gatePrompt,
-			GateChoices: gateChoices,
-			EdgeInfo:    edgeInfo,
-			Model:       step.Model,
-			MaxVisits:   step.MaxVisits,
+			RunID:              runID,
+			StepID:             step.ID,
+			Persona:            resolveForgeVars(step.Persona),
+			State:              "pending",
+			StepType:           stepType,
+			Script:             step.Script,
+			SubPipeline:        step.SubPipeline,
+			GatePrompt:         gatePrompt,
+			GateChoices:        gateChoices,
+			EdgeInfo:           edgeInfo,
+			Model:              step.Model,
+			MaxVisits:          step.MaxVisits,
+			Contract:           contractType,
+			ContractSchemaName: contractSchemaName,
 		}
 
 		// Populate structured gate data for interactive UI

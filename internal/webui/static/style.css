@@ -2766,6 +2766,8 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-name .tp-ico { font-size: 0.7rem; opacity: 0.5; margin-right: 0.1rem; }
 .ws-meta { display: flex; gap: 0.25rem; align-items: center; font-size: 0.68rem; color: var(--color-text-muted); margin-left: auto; }
 .ws-meta .badge { font-size: 0.62rem; padding: 1px 4px; }
+.ws-code-link { font-family: var(--font-mono); font-size: 0.68rem; padding: 0.05rem 0.35rem; border-radius: 3px; background: rgba(99,102,241,0.1); color: #a5b4fc; text-decoration: none; cursor: pointer; }
+.ws-code-link:hover { background: rgba(99,102,241,0.2); }
 .ws-dur { font-weight: 600; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; font-size: 0.78rem; font-family: var(--font-mono); }
 .ws-tok { color: var(--color-text-muted); font-size: 0.65rem; }
 
@@ -3108,12 +3110,12 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
     border: 1px solid var(--color-border);
     padding: 0.5rem 0.6rem;
 }
-.w-commit-row { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.25rem 0.55rem; border-radius: 3px; }
+.w-commit-row { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.3rem 0.55rem; border-radius: 3px; text-decoration: none; color: inherit; transition: background 0.1s; }
 .w-commit-row:nth-child(odd) { background: var(--color-bg-secondary); }
 .w-commit-row:nth-child(even) { background: var(--color-bg-tertiary); }
-.w-commit-row a { color: var(--color-link); font-family: var(--font-mono); font-size: 0.72rem; }
-.w-commit-row .w-commit-sha { color: var(--color-text-muted); font-family: var(--font-mono); font-size: 0.72rem; }
-.w-commit-row .w-commit-msg { color: var(--color-text); font-size: 0.82rem; flex: 1; }
+.w-commit-row:hover { background: rgba(99,102,241,0.08); }
+.w-commit-row .w-commit-sha { color: var(--color-link); font-family: var(--font-mono); font-size: 0.72rem; flex-shrink: 0; }
+.w-commit-row .w-commit-msg { color: var(--color-text); font-size: 0.85rem; flex: 1; }
 .w-commit-row .w-commit-meta { color: var(--color-text-muted); font-size: 0.68rem; white-space: nowrap; }
 .wr-loading.active { display: block; }
 .wr-loading-spinner { display: inline-block; width: 24px; height: 24px; border: 2px solid rgba(99,102,241,0.2); border-top-color: #818cf8; border-radius: 50%; animation: wr-spin 0.6s linear infinite; vertical-align: middle; margin-right: 0.5rem; }

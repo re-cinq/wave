@@ -42,13 +42,7 @@
     {{end}}
 </div>
 
-<!-- Description -->
-{{if .PR.Body}}
-<div class="markdown-body" id="pr-body" style="font-size:0.82rem;margin-bottom:0.75rem;padding:0.5rem 0;"></div>
-<script type="text/plain" id="pr-body-raw">{{.PR.Body}}</script>
-{{end}}
-
-<!-- Related Pipeline Runs (before other sections) -->
+<!-- Related Pipeline Runs (top priority) -->
 {{if .Runs}}
 <div style="margin-bottom:0.75rem;">
     <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Pipeline Runs</h2>
@@ -78,6 +72,12 @@
 <p style="color:var(--color-text-muted);font-size:0.75rem;margin-bottom:0.5rem;">No pipeline runs for this PR</p>
 {{end}}
 
+<!-- Description -->
+{{if .PR.Body}}
+<div class="markdown-body" id="pr-body" style="font-size:0.82rem;margin-bottom:0.75rem;border:1px solid var(--color-border);border-radius:var(--radius-md);padding:0.6rem 0.8rem;"></div>
+<script type="text/plain" id="pr-body-raw">{{.PR.Body}}</script>
+{{end}}
+
 <!-- Checks -->
 {{if .PR.Checks}}
 <div class="w-section-card" style="margin-bottom:0.75rem;">
@@ -104,11 +104,11 @@
     <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Commits ({{len .CommitDetails}})</h2>
     <div class="w-flow" style="gap:1px;">
     {{range .CommitDetails}}
-        <div class="w-commit-row">
-            {{if .HTMLURL}}<a href="{{.HTMLURL}}" target="_blank">{{.ShortSHA}}</a>{{else}}<span class="w-commit-sha">{{.ShortSHA}}</span>{{end}}
+        {{if .HTMLURL}}<a href="{{.HTMLURL}}" target="_blank" class="w-commit-row">{{else}}<div class="w-commit-row">{{end}}
+            <span class="w-commit-sha">{{.ShortSHA}}</span>
             <span class="w-commit-msg">{{.Message}}</span>
             <span class="w-commit-meta">{{.Author}} · {{.Date}}</span>
-        </div>
+        {{if .HTMLURL}}</a>{{else}}</div>{{end}}
     {{end}}
     </div>
 </div>
