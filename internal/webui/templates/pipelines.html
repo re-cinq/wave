@@ -1,107 +1,52 @@
 {{define "title"}}Pipelines · Wave{{end}}
 {{define "content"}}
-<div class="page-header">
+<div class="w-head">
     <h1>Pipelines</h1>
 </div>
-{{if .Pipelines}}
-<div class="filters">
-    <div class="search-filter">
-        <input type="text" id="pipeline-search" oninput="filterPipelines()" placeholder="Search pipelines..." aria-label="Search pipelines by name or description">
-    </div>
-    <select id="pipeline-category" onchange="filterPipelines()" aria-label="Filter pipelines by category">
-        <option value="">All Categories</option>
-        <option value="audit">audit</option>
-        <option value="bench">bench</option>
-        <option value="doc">doc</option>
-        <option value="impl">impl</option>
-        <option value="ops">ops</option>
-        <option value="plan">plan</option>
-        <option value="test">test</option>
-        <option value="wave">wave</option>
-    </select>
-</div>
 
-<table class="table" id="pipelines-table">
-    <thead>
-        <tr>
-            <th>Pipeline</th>
-            <th>Category</th>
-            <th>Steps</th>
-            <th>Description</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody id="pipeline-tbody">
-        {{range .Pipelines}}
-        <tr data-name="{{.Name}}" data-category="{{.Category}}" data-desc="{{.Description}}">
-            <td>
-                <a href="/pipelines/{{.Name}}"><strong>{{.Name}}</strong></a>
-                {{if .IsComposition}}<span class="badge badge-composition">composition</span>{{end}}
-            </td>
-            <td><span class="badge pipeline-category-badge"></span></td>
-            <td>{{.StepCount}}</td>
-            <td class="pipeline-desc-cell">{{.Description}}</td>
-            <td class="pipeline-actions-cell">
-                <button class="btn btn-sm btn-primary" onclick="showQuickStart('{{.Name}}')" aria-label="Start {{.Name}} pipeline">Start</button>
-                <a href="/runs?pipeline={{.Name}}" class="btn btn-sm" aria-label="View runs for {{.Name}}">Runs</a>
-            </td>
-        </tr>
-        {{end}}
-    </tbody>
-</table>
-<div id="no-results" class="empty-state" style="display:none;">
-    <div class="empty-state-icon">&#128269;</div>
-    <p><strong>No matching pipelines</strong></p>
-    <p>No pipelines match your search or filter criteria.</p>
+{{if .Pipelines}}
+<div class="wr-list">
+{{range .Pipelines}}
+    <div class="wr-run" style="cursor:default;">
+        <div class="wr-accent st-completed"></div>
+        <div class="wr-body">
+            <div class="wr-row1">
+                <a href="/pipelines/{{.Name}}" class="wr-name" style="color:var(--color-text);">{{.Name}}</a>
+                {{if .Category}}<span class="badge" style="font-size:0.58rem;background:rgba(99,102,241,0.12);color:#a5b4fc;">{{.Category}}</span>{{end}}
+            </div>
+            {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);">{{.Description}}</span></div>{{end}}
+        </div>
+        <div class="wr-meta" style="gap:0.3rem;">
+            <button class="btn btn-sm btn-primary" onclick="showQuickStart('{{.Name}}')" style="font-size:0.72rem;padding:0.2rem 0.5rem;">Start</button>
+            <a href="/runs?pipeline={{.Name}}" style="font-size:0.68rem;color:#818cf8;">Runs</a>
+        </div>
+    </div>
+{{end}}
 </div>
 {{else}}
-<div class="empty-state">
-    <div class="empty-state-icon">&#9881;</div>
-    <p><strong>No pipelines found</strong></p>
-    <p>Add pipeline YAML files to <code>.wave/pipelines/</code> to get started.</p>
-</div>
+<div style="padding:2rem;text-align:center;color:var(--color-text-muted);font-size:0.85rem;">No pipelines found</div>
 {{end}}
 
+<!-- Quickstart dialog -->
 <dialog id="quickstart-dialog" class="start-dialog" aria-labelledby="quickstart-title">
-    <h3 id="quickstart-title">Start Pipeline: <span id="quickstart-name"></span></h3>
+    <h3 id="quickstart-title">Start: <span id="quickstart-name"></span></h3>
     <div class="form-group">
-        <label for="quickstart-input">Input (optional)</label>
+        <label for="quickstart-input">Input</label>
         <textarea id="quickstart-input" rows="3" placeholder="Issue URL, feature description..."></textarea>
     </div>
     <details class="advanced-options">
-        <summary>Advanced Options</summary>
+        <summary>Advanced</summary>
         <div class="form-group">
-            <label for="qs-model">Model Override</label>
+            <label for="qs-model">Model</label>
             <select id="qs-model">
-                <option value="">Default (auto)</option>
-                <option value="cheapest">Cheapest (fast, low-cost)</option>
-                <option value="fastest">Fastest (default)</option>
-                <option value="strongest">Strongest (highest quality)</option>
+                <option value="">Default</option>
+                <option value="cheapest">Cheapest</option>
+                <option value="fastest">Fastest</option>
+                <option value="strongest">Strongest</option>
             </select>
         </div>
         <div class="form-group">
-            <label for="qs-from-step">Resume From Step</label>
-            <select id="qs-from-step" onchange="onQsFromStepChange()">
-                <option value="">Start from beginning</option>
-            </select>
-        </div>
-        <div class="form-group" id="qs-steps-group">
-            <label>Run Only These Steps</label>
-            <div id="qs-steps-checks" class="checkbox-list">
-                <span class="text-muted">Loading...</span>
-            </div>
-        </div>
-        <div class="form-group" id="qs-exclude-group">
-            <label>Exclude Steps</label>
-            <div id="qs-exclude-checks" class="checkbox-list">
-                <span class="text-muted">Loading...</span>
-            </div>
-        </div>
-        <div class="form-group">
-            <label class="checkbox-label">
-                <input type="checkbox" id="qs-dry-run">
-                Dry Run (validate without executing)
-            </label>
+            <label class="checkbox-label"><input type="checkbox" id="qs-dry-run"> Dry Run</label>
         </div>
     </details>
     <div class="dialog-actions">
@@ -113,129 +58,30 @@
 {{define "scripts"}}
 <script>
 var quickStartPipeline = '';
-
 function showQuickStart(name) {
     quickStartPipeline = name;
     document.getElementById('quickstart-name').textContent = name;
     document.getElementById('quickstart-input').value = '';
-    // Reset advanced options
-    var modelEl = document.getElementById('qs-model');
-    if (modelEl) modelEl.value = '';
-    var fromStepEl = document.getElementById('qs-from-step');
-    if (fromStepEl) fromStepEl.innerHTML = '<option value="">Start from beginning</option>';
-    var dryRunEl = document.getElementById('qs-dry-run');
-    if (dryRunEl) dryRunEl.checked = false;
-    // Load step list
-    loadQsStepList(name);
     document.getElementById('quickstart-dialog').showModal();
     document.getElementById('quickstart-input').focus();
 }
-
-function hideQuickStart() {
-    document.getElementById('quickstart-dialog').close();
-    quickStartPipeline = '';
-}
-
+function hideQuickStart() { document.getElementById('quickstart-dialog').close(); quickStartPipeline = ''; }
 function submitQuickStart() {
     if (!quickStartPipeline) return;
     var input = document.getElementById('quickstart-input').value;
     var btn = document.getElementById('quickstart-submit');
     var body = {input: input || ''};
-    // Collect advanced options
     var opts = collectAdvancedOptions('qs');
     Object.keys(opts).forEach(function(k) { body[k] = opts[k]; });
-
     setButtonLoading(btn, true);
     fetchJSON('/api/pipelines/' + encodeURIComponent(quickStartPipeline) + '/start', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body)
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
     }).then(function(data) {
-        if (body.dry_run && data.findings !== undefined) {
-            showDryRunReport(data);
-            setButtonLoading(btn, false);
-            return;
-        }
-        showToast('Pipeline started: ' + data.run_id, 'success', 3000);
+        if (body.dry_run && data.findings !== undefined) { showDryRunReport(data); setButtonLoading(btn, false); return; }
+        showToast('Started: ' + data.run_id, 'success', 3000);
         setTimeout(function() { window.location.href = '/runs/' + data.run_id; }, 500);
-    }).catch(function() {
-        setButtonLoading(btn, false);
-    });
+    }).catch(function() { setButtonLoading(btn, false); });
 }
-
-function loadQsStepList(pipelineName) {
-    var fromStep = document.getElementById('qs-from-step');
-    var stepsChecks = document.getElementById('qs-steps-checks');
-    var excludeChecks = document.getElementById('qs-exclude-checks');
-    fetchJSON('/api/pipelines/' + encodeURIComponent(pipelineName)).then(function(data) {
-        var steps = data.steps || [];
-        var opts = '<option value="">Start from beginning</option>';
-        for (var i = 0; i < steps.length; i++) {
-            opts += '<option value="' + escapeHTML(steps[i].id) + '">' + escapeHTML(steps[i].id) + '</option>';
-        }
-        if (fromStep) fromStep.innerHTML = opts;
-        var checksHTML = '';
-        for (var i = 0; i < steps.length; i++) {
-            checksHTML += '<label class="checkbox-label"><input type="checkbox" name="qs-steps" value="' + escapeHTML(steps[i].id) + '"> ' + escapeHTML(steps[i].id) + '</label>';
-        }
-        if (stepsChecks) stepsChecks.innerHTML = checksHTML || '<span class="text-muted">No steps</span>';
-        var exclHTML = '';
-        for (var i = 0; i < steps.length; i++) {
-            exclHTML += '<label class="checkbox-label"><input type="checkbox" name="qs-exclude" value="' + escapeHTML(steps[i].id) + '"> ' + escapeHTML(steps[i].id) + '</label>';
-        }
-        if (excludeChecks) excludeChecks.innerHTML = exclHTML || '<span class="text-muted">No steps</span>';
-    }).catch(function() {
-        if (stepsChecks) stepsChecks.innerHTML = '<span class="text-muted">Failed to load steps</span>';
-        if (excludeChecks) excludeChecks.innerHTML = '<span class="text-muted">Failed to load steps</span>';
-    });
-}
-
-function onQsFromStepChange() {
-    var fromStep = document.getElementById('qs-from-step');
-    var stepsGroup = document.getElementById('qs-steps-group');
-    if (fromStep && fromStep.value) {
-        if (stepsGroup) stepsGroup.style.opacity = '0.5';
-        var checks = document.querySelectorAll('#qs-steps-checks input[type="checkbox"]');
-        for (var i = 0; i < checks.length; i++) { checks[i].checked = false; checks[i].disabled = true; }
-    } else {
-        if (stepsGroup) stepsGroup.style.opacity = '1';
-        var checks = document.querySelectorAll('#qs-steps-checks input[type="checkbox"]');
-        for (var i = 0; i < checks.length; i++) { checks[i].disabled = false; }
-    }
-}
-
-// Set category badges from pipeline name prefix on load
-document.querySelectorAll('#pipeline-tbody tr').forEach(function(row) {
-    var name = row.dataset.name || '';
-    var prefix = name.split('-')[0];
-    var badge = row.querySelector('.pipeline-category-badge');
-    if (badge) badge.textContent = prefix;
-});
-
-function filterPipelines() {
-    var search = document.getElementById('pipeline-search').value.toLowerCase();
-    var category = document.getElementById('pipeline-category').value;
-    var rows = document.querySelectorAll('#pipeline-tbody tr');
-    var visibleCount = 0;
-    rows.forEach(function(row) {
-        var name = row.dataset.name.toLowerCase();
-        var desc = (row.dataset.desc || '').toLowerCase();
-        // Derive category from pipeline name prefix (e.g., "audit-dead-code" → "audit")
-        var namePrefix = name.split('-')[0];
-        var matchSearch = !search || name.indexOf(search) !== -1 || desc.indexOf(search) !== -1;
-        var matchCat = !category || namePrefix === category;
-        var visible = matchSearch && matchCat;
-        row.style.display = visible ? '' : 'none';
-        if (visible) visibleCount++;
-    });
-    var table = document.getElementById('pipelines-table');
-    var noResults = document.getElementById('no-results');
-    if (table) table.style.display = visibleCount === 0 ? 'none' : '';
-    if (noResults) noResults.style.display = visibleCount === 0 ? '' : 'none';
-}
-
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') hideQuickStart();
-});
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hideQuickStart(); });
 </script>
 {{end}}

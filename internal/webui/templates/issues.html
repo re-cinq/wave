@@ -1,225 +1,45 @@
 {{define "title"}}Issues · Wave{{end}}
 {{define "content"}}
-<div class="page-header">
+<div class="w-head">
     <h1>Issues</h1>
 </div>
 
-<div class="filters">
-    <select id="state-filter" onchange="filterIssues()" aria-label="Filter issues by state">
-        <option value="open"{{if eq .FilterState "open"}} selected{{end}}>Open</option>
-        <option value="closed"{{if eq .FilterState "closed"}} selected{{end}}>Closed</option>
-        <option value="all"{{if eq .FilterState "all"}} selected{{end}}>All</option>
-    </select>
-</div>
-
-<div id="label-filter-chips" class="filter-chips" style="display:none;">
-    <span class="filter-chip" id="label-filter-chip">
-        Label: <span id="label-filter-value"></span>
-        <button class="filter-chip-clear" onclick="clearLabelFilter()" title="Remove label filter">&times;</button>
-    </span>
+<div class="wr-filters" style="margin-bottom:0.5rem;">
+    <a href="/issues?state=open" class="wr-filter{{if eq .FilterState "open"}} active{{end}}">Open</a>
+    <a href="/issues?state=closed" class="wr-filter{{if eq .FilterState "closed"}} active{{end}}">Closed</a>
+    <a href="/issues?state=all" class="wr-filter{{if eq .FilterState "all"}} active{{end}}">All</a>
 </div>
 
 {{if .Message}}
-<div class="alert alert-error">
-    <p>{{.Message}}</p>
-</div>
+<div style="padding:1rem;color:#fca5a5;font-size:0.82rem;">{{.Message}}</div>
 {{else if .Issues}}
-<table class="table" id="issues-table">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Title</th>
-                <th>State</th>
-                <th>Author</th>
-                <th>Labels</th>
-                <th>Comments</th>
-                <th>Created</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Issues}}
-            <tr data-labels="{{range $i, $l := .Labels}}{{if $i}},{{end}}{{$l}}{{end}}">
-                <td><a href="/issues/{{.Number}}">#{{.Number}}</a></td>
-                <td><a href="/issues/{{.Number}}">{{.Title}}</a></td>
-                <td>
-                    {{if eq .State "open"}}<span class="badge badge-open">open</span>
-                    {{else}}<span class="badge badge-closed">closed</span>
-                    {{end}}
-                </td>
-                <td>{{.Author}}</td>
-                <td>{{range .Labels}}<span class="badge badge-label" onclick="filterByLabel('{{.}}')" style="cursor:pointer;" title="Click to filter by this label">{{.}}</span> {{end}}</td>
-                <td>{{.Comments}}</td>
-                <td>{{.CreatedAt}}</td>
-                <td style="display:flex; gap:0.25rem; align-items:center;">
-                    <button class="btn btn-primary btn-sm implement-btn" data-issue-url="{{.URL}}" data-issue-number="{{.Number}}">Implement</button>
-                    <button class="btn btn-sm launch-pipeline-btn" data-issue-url="{{.URL}}" data-issue-number="{{.Number}}">Launch Pipeline</button>
-                </td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-    {{if .HasMore}}
-    <div class="pagination">
-        {{if gt .Page 1}}<a href="/issues?state={{.FilterState}}&page={{subtract .Page 1}}" class="btn">Previous</a>{{end}}
-        <span>Page {{.Page}}</span>
-        <a href="/issues?state={{.FilterState}}&page={{add .Page 1}}" class="btn">Next</a>
-    </div>
-    {{else if gt .Page 1}}
-    <div class="pagination">
-        <a href="/issues?state={{.FilterState}}&page={{subtract .Page 1}}" class="btn">Previous</a>
-        <span>Page {{.Page}}</span>
-    </div>
-    {{end}}
-{{else}}
-<div class="empty-state">
-    <div class="empty-state-icon">&#9998;</div>
-    <p><strong>No {{.FilterState}} issues</strong></p>
-    <p>No {{.FilterState}} issues found in this repository.</p>
+<div class="wr-list">
+{{range .Issues}}
+    <a href="/issues/{{.Number}}" class="wr-run">
+        <div class="wr-accent {{if eq .State "open"}}st-running{{else}}st-completed{{end}}"></div>
+        <div class="wr-body">
+            <div class="wr-row1">
+                <span class="wr-name">#{{.Number}} {{.Title}}</span>
+                {{if eq .State "open"}}<span class="badge status-running" style="font-size:0.6rem;">open</span>
+                {{else}}<span class="badge status-completed" style="font-size:0.6rem;">closed</span>{{end}}
+            </div>
+            <div class="wr-row2">
+                <span>{{.Author}}</span>
+                {{if .Comments}}<span><b>{{.Comments}}</b> comments</span>{{end}}
+                {{range .Labels}}<span class="badge" style="font-size:0.55rem;">{{.}}</span>{{end}}
+            </div>
+        </div>
+        <div class="wr-meta">
+            <span class="wr-date">{{.CreatedAt}}</span>
+        </div>
+    </a>
+{{end}}
 </div>
+{{if .HasMore}}
+<div style="text-align:center;padding:0.5rem;"><a href="/issues?state={{.FilterState}}&page={{add .Page 1}}" style="color:#818cf8;font-size:0.78rem;">Load more</a></div>
 {{end}}
-
-<dialog id="pipeline-dialog" class="modal" aria-labelledby="pipeline-dialog-title">
-    <form method="dialog">
-        <h3 id="pipeline-dialog-title">Launch Pipeline for Issue <span id="dialog-issue-number"></span></h3>
-        <div class="form-group">
-            <label for="pipeline-select">Pipeline:</label>
-            <select id="pipeline-select" class="form-control">
-                <option value="">Loading pipelines...</option>
-            </select>
-        </div>
-        <div class="dialog-actions">
-            <button type="button" class="btn" onclick="document.getElementById('pipeline-dialog').close()">Cancel</button>
-            <button type="button" class="btn btn-primary" id="launch-btn">Launch</button>
-        </div>
-    </form>
-</dialog>
+{{else}}
+<div style="padding:2rem;text-align:center;color:var(--color-text-muted);font-size:0.85rem;">No issues found</div>
 {{end}}
-{{define "scripts"}}
-<script>
-(function() {
-    const dialog = document.getElementById('pipeline-dialog');
-    const pipelineSelect = document.getElementById('pipeline-select');
-    const launchBtn = document.getElementById('launch-btn');
-    const issueNumSpan = document.getElementById('dialog-issue-number');
-    let currentIssueURL = '';
-
-    // Load pipelines for the selector
-    fetch('/api/pipelines/info')
-        .then(r => r.json())
-        .then(data => {
-            pipelineSelect.innerHTML = '';
-            (data.pipelines || []).forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.name;
-                opt.textContent = p.name + (p.description ? ' — ' + p.description : '');
-                pipelineSelect.appendChild(opt);
-            });
-        })
-        .catch(() => {
-            pipelineSelect.innerHTML = '<option value="">Failed to load pipelines</option>';
-        });
-
-    document.querySelectorAll('.launch-pipeline-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            currentIssueURL = btn.dataset.issueUrl;
-            issueNumSpan.textContent = '#' + btn.dataset.issueNumber;
-            dialog.showModal();
-        });
-    });
-
-    launchBtn.addEventListener('click', () => {
-        const pipeline = pipelineSelect.value;
-        if (!pipeline) return;
-        setButtonLoading(launchBtn, true);
-        fetchJSON('/api/issues/start', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({issue_url: currentIssueURL, pipeline_name: pipeline})
-        })
-        .then(data => {
-            dialog.close();
-            if (data.run_id) {
-                window.location.href = '/runs/' + data.run_id;
-            }
-        })
-        .catch(() => {
-            setButtonLoading(launchBtn, false);
-        });
-    });
-
-    // Implement button: launches impl-issue directly with the issue URL
-    document.querySelectorAll('.implement-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const issueURL = btn.dataset.issueUrl;
-            setButtonLoading(btn, true);
-            fetchJSON('/api/pipelines/impl-issue/start', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({input: issueURL})
-            })
-            .then(data => {
-                if (data.run_id) {
-                    window.location.href = '/runs/' + data.run_id;
-                }
-            })
-            .catch(() => {
-                setButtonLoading(btn, false);
-            });
-        });
-    });
-})();
-
-function filterIssues() {
-    var params = new URLSearchParams();
-    var stateEl = document.getElementById('state-filter');
-    if (stateEl && stateEl.value) params.set('state', stateEl.value);
-    window.location.search = params.toString();
-}
-
-function filterByLabel(label) {
-    var params = new URLSearchParams(window.location.search);
-    params.set('label', label);
-    history.replaceState(null, '', window.location.pathname + '?' + params.toString());
-    applyLabelFilter(label);
-}
-
-function clearLabelFilter() {
-    var params = new URLSearchParams(window.location.search);
-    params.delete('label');
-    var qs = params.toString();
-    history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
-    applyLabelFilter('');
-}
-
-function applyLabelFilter(label) {
-    var chips = document.getElementById('label-filter-chips');
-    var valueSpan = document.getElementById('label-filter-value');
-    if (label) {
-        valueSpan.textContent = label;
-        chips.style.display = '';
-    } else {
-        chips.style.display = 'none';
-    }
-    var table = document.getElementById('issues-table');
-    if (!table) return;
-    var rows = table.querySelectorAll('tbody tr');
-    for (var i = 0; i < rows.length; i++) {
-        var row = rows[i];
-        if (!label) {
-            row.style.display = '';
-            continue;
-        }
-        var rowLabels = (row.getAttribute('data-labels') || '').split(',');
-        row.style.display = rowLabels.indexOf(label) !== -1 ? '' : 'none';
-    }
-}
-
-// Apply label filter from URL on page load
-(function() {
-    var params = new URLSearchParams(window.location.search);
-    var label = params.get('label');
-    if (label) applyLabelFilter(label);
-})();
-</script>
 {{end}}
+{{define "scripts"}}{{end}}
