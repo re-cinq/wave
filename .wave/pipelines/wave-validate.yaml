@@ -62,17 +62,21 @@ steps:
         source: .wave/output/config-check.json
         schema_path: .wave/contracts/hello-world-result.schema.json
         on_failure: retry
+    edges:
+      - target: sub-pipeline-test
 
   # Step 2: Sub-pipeline composition — validates child pipeline invocation
   - id: sub-pipeline-test
     type: pipeline
     pipeline: ops-hello-world
     dependencies: [check-config]
+    edges:
+      - target: run-tests
 
   # Step 3: Command step — validates shell execution without adapter
   - id: run-tests
     type: command
-    dependencies: [check-config]
+    dependencies: [sub-pipeline-test]
     workspace:
       mount:
         - source: ./
@@ -85,7 +89,7 @@ steps:
     type: conditional
     dependencies: [run-tests]
     edges:
-      - target: generate-report
+      - target: approval-gate
         condition: "outcome=success"
       - target: diagnose-failure
 
@@ -110,7 +114,7 @@ steps:
         type: non_empty_file
         source: .wave/output/diagnosis.md
     edges:
-      - target: generate-report
+      - target: approval-gate
 
   # Step 6: Human gate — validates approval workflow (auto-approved)
   - id: approval-gate
@@ -126,7 +130,6 @@ steps:
           target: _fail
       default: "a"
       timeout: "10s"
-    dependencies: [test-gate, diagnose-failure]
 
   # Step 7: LLM-as-judge — validates subjective quality assessment
   - id: generate-report
