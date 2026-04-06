@@ -15,6 +15,9 @@
         <p style="margin:0.1rem 0 0.3rem;font-size:0.8rem;color:var(--color-text-secondary);">by {{.PR.Author}} · <code style="font-size:0.72rem;">{{.PR.HeadBranch}}</code> &rarr; <code style="font-size:0.72rem;">{{.PR.BaseBranch}}</code></p>
     </div>
     <div class="actions">
+        {{if eq .PR.State "open"}}
+        <a href="{{.PR.URL}}" target="_blank" class="btn btn-sm btn-primary">Merge on GitHub</a>
+        {{end}}
         <a href="{{.PR.URL}}" target="_blank" class="btn btn-sm" style="color:#818cf8;border-color:rgba(99,102,241,0.3);">GitHub ↗</a>
     </div>
 </div>
@@ -41,74 +44,8 @@
 <script type="text/plain" id="pr-body-raw">{{.PR.Body}}</script>
 {{end}}
 
-<!-- Checks -->
-{{if .PR.Checks}}
+<!-- Related Pipeline Runs (before other sections) -->
 <div style="margin-bottom:0.75rem;">
-    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Checks</h2>
-    <div class="w-flow" style="gap:2px;">
-    {{range .PR.Checks}}
-        <div class="ws st-{{if eq .Conclusion "success"}}completed{{else if eq .Conclusion "failure"}}failed{{else if eq .Status "in_progress"}}running{{else}}pending{{end}}" style="padding:0.2rem 0.55rem;">
-            <div class="ws-row1">
-                <span class="ws-name" style="font-size:0.78rem;">{{.Name}}</span>
-                <span class="ws-meta">
-                    <span class="badge {{checkClass .Status .Conclusion}}" style="font-size:0.6rem;">{{checkLabel .Status .Conclusion}}</span>
-                    {{if .URL}}<a href="{{.URL}}" target="_blank" style="color:var(--color-text-muted);font-size:0.68rem;">details ↗</a>{{end}}
-                </span>
-            </div>
-        </div>
-    {{end}}
-    </div>
-</div>
-{{end}}
-
-<!-- Commits -->
-{{if .CommitDetails}}
-<div style="margin-bottom:0.75rem;">
-    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Commits ({{len .CommitDetails}})</h2>
-    <div class="w-flow" style="gap:1px;">
-    {{range .CommitDetails}}
-        <div style="display:flex;gap:0.4rem;align-items:baseline;padding:0.15rem 0.55rem;background:var(--color-bg-secondary);border-radius:3px;font-size:0.75rem;">
-            <a href="{{.HTMLURL}}" target="_blank" style="color:var(--color-text-muted);font-family:var(--font-mono);font-size:0.68rem;">{{.ShortSHA}}</a>
-            <span style="color:var(--color-text);">{{.Message}}</span>
-            <span style="margin-left:auto;color:var(--color-text-muted);font-size:0.65rem;white-space:nowrap;">{{.Author}} · {{.Date}}</span>
-        </div>
-    {{end}}
-    </div>
-</div>
-{{end}}
-
-<!-- Comments -->
-{{if .Comments}}
-<div style="margin-bottom:0.75rem;">
-    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Comments ({{len .Comments}})</h2>
-    {{range $i, $c := .Comments}}
-    <div style="margin-bottom:0.4rem;background:var(--color-bg-secondary);border-radius:4px;border-left:3px solid var(--color-border);overflow:hidden;">
-        <div style="padding:0.25rem 0.55rem;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--color-border);font-size:0.72rem;">
-            <strong>{{$c.Author}}</strong>
-            <span style="color:var(--color-text-muted);">{{$c.CreatedAt}}{{if $c.HTMLURL}} <a href="{{$c.HTMLURL}}" target="_blank" style="color:var(--color-text-muted);">↗</a>{{end}}</span>
-        </div>
-        <div class="markdown-body" id="pr-comment-{{$i}}" style="padding:0.4rem 0.55rem;font-size:0.78rem;"></div>
-        <script type="text/plain" id="pr-comment-raw-{{$i}}">{{$c.Body}}</script>
-    </div>
-    {{end}}
-</div>
-{{end}}
-
-<!-- Review actions (open PRs only) -->
-{{if eq .PR.State "open"}}
-<div style="margin-bottom:0.75rem;background:var(--color-bg-secondary);border-radius:4px;padding:0.5rem 0.6rem;">
-    <h2 style="font-size:0.9rem;margin:0 0 0.3rem;">Review</h2>
-    <textarea id="review-body" rows="2" style="width:100%;padding:0.4rem;border:1px solid var(--color-border);border-radius:4px;font-family:inherit;font-size:0.78rem;resize:vertical;background:var(--color-bg-tertiary);color:var(--color-text);margin-bottom:0.3rem;" placeholder="Leave a comment..."></textarea>
-    <div style="display:flex;gap:0.3rem;align-items:center;">
-        <button id="btn-approve" style="padding:0.25rem 0.6rem;border-radius:4px;font-size:0.75rem;cursor:pointer;border:1px solid rgba(34,197,94,0.3);background:rgba(34,197,94,0.1);color:#4ade80;">Approve</button>
-        <button id="btn-request-changes" style="padding:0.25rem 0.6rem;border-radius:4px;font-size:0.75rem;cursor:pointer;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.1);color:#fca5a5;">Request Changes</button>
-        <span id="review-status" style="margin-left:0.4rem;font-size:0.75rem;"></span>
-    </div>
-</div>
-{{end}}
-
-<!-- Related Pipeline Runs -->
-<div>
     <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Pipeline Runs</h2>
     {{if .Runs}}
     <div class="wr-list">
@@ -136,6 +73,72 @@
     <div style="padding:1rem;text-align:center;color:var(--color-text-muted);font-size:0.82rem;">No pipeline runs for this PR</div>
     {{end}}
 </div>
+
+<!-- Checks -->
+{{if .PR.Checks}}
+<div class="w-section-card" style="margin-bottom:0.75rem;">
+    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Checks</h2>
+    <div class="w-flow" style="gap:2px;">
+    {{range .PR.Checks}}
+        <div class="ws st-{{if eq .Conclusion "success"}}completed{{else if eq .Conclusion "failure"}}failed{{else if eq .Status "in_progress"}}running{{else}}pending{{end}}" style="padding:0.2rem 0.55rem;">
+            <div class="ws-row1">
+                <span class="ws-name" style="font-size:0.78rem;">{{.Name}}</span>
+                <span class="ws-meta">
+                    <span class="badge {{checkClass .Status .Conclusion}}" style="font-size:0.6rem;">{{checkLabel .Status .Conclusion}}</span>
+                    {{if .URL}}<a href="{{.URL}}" target="_blank" style="color:var(--color-text-muted);font-size:0.68rem;">details ↗</a>{{end}}
+                </span>
+            </div>
+        </div>
+    {{end}}
+    </div>
+</div>
+{{end}}
+
+<!-- Commits -->
+{{if .CommitDetails}}
+<div class="w-section-card" style="margin-bottom:0.75rem;">
+    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Commits ({{len .CommitDetails}})</h2>
+    <div class="w-flow" style="gap:1px;">
+    {{range .CommitDetails}}
+        <div style="display:flex;gap:0.5rem;align-items:baseline;padding:0.2rem 0.55rem;background:var(--color-bg-secondary);border-radius:3px;">
+            {{if .HTMLURL}}<a href="{{.HTMLURL}}" target="_blank" style="color:var(--color-link);font-family:var(--font-mono);font-size:0.72rem;">{{.ShortSHA}}</a>{{else}}<span style="color:var(--color-text-muted);font-family:var(--font-mono);font-size:0.72rem;">{{.ShortSHA}}</span>{{end}}
+            <span style="color:var(--color-text);font-size:0.82rem;flex:1;">{{.Message}}</span>
+            <span style="color:var(--color-text-muted);font-size:0.68rem;white-space:nowrap;">{{.Author}} · {{.Date}}</span>
+        </div>
+    {{end}}
+    </div>
+</div>
+{{end}}
+
+<!-- Comments -->
+{{if .Comments}}
+<div style="margin-bottom:0.75rem;">
+    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Comments ({{len .Comments}})</h2>
+    {{range $i, $c := .Comments}}
+    <div class="w-comment-card">
+        <div style="padding:0.25rem 0.55rem;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--color-border);font-size:0.72rem;">
+            <strong>{{$c.Author}}</strong>
+            <span style="color:var(--color-text-muted);">{{$c.CreatedAt}}{{if $c.HTMLURL}} <a href="{{$c.HTMLURL}}" target="_blank" style="color:var(--color-text-muted);">↗</a>{{end}}</span>
+        </div>
+        <div class="markdown-body" id="pr-comment-{{$i}}" style="padding:0.4rem 0.55rem;font-size:0.78rem;"></div>
+        <script type="text/plain" id="pr-comment-raw-{{$i}}">{{$c.Body}}</script>
+    </div>
+    {{end}}
+</div>
+{{end}}
+
+<!-- Review actions (open PRs only) -->
+{{if eq .PR.State "open"}}
+<div class="w-section-card" style="margin-bottom:0.75rem;">
+    <h2 style="font-size:0.9rem;margin:0 0 0.3rem;">Review</h2>
+    <textarea id="review-body" rows="2" style="width:100%;padding:0.4rem;border:1px solid var(--color-border);border-radius:4px;font-family:inherit;font-size:0.78rem;resize:vertical;background:var(--color-bg-tertiary);color:var(--color-text);margin-bottom:0.3rem;" placeholder="Leave a comment..."></textarea>
+    <div style="display:flex;gap:0.3rem;align-items:center;">
+        <button id="btn-approve" class="btn btn-sm" style="border-color:rgba(34,197,94,0.3);color:#4ade80;">Approve</button>
+        <button id="btn-request-changes" class="btn btn-sm" style="border-color:rgba(239,68,68,0.3);color:#fca5a5;">Request Changes</button>
+        <span id="review-status" style="margin-left:0.4rem;font-size:0.75rem;"></span>
+    </div>
+</div>
+{{end}}
 
 {{end}}
 {{define "scripts"}}
