@@ -14,7 +14,10 @@ import (
 
 // handleIssuesPage handles GET /issues - serves the HTML issues page.
 func (s *Server) handleIssuesPage(w http.ResponseWriter, r *http.Request) {
-	stateFilter := validateStateFilter(r.URL.Query().Get("state"))
+	stateFilter := r.URL.Query().Get("state")
+	if stateFilter == "" {
+		stateFilter = "open"
+	}
 	page := parsePageNumber(r)
 	issueData := s.getIssueListData(stateFilter, page)
 
@@ -248,6 +251,14 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 
 	if summaries == nil {
 		summaries = []IssueSummary{}
+	}
+
+	// Enrich with Wave run stats
+	if s.store != nil {
+		allRuns, err := s.store.ListRuns(state.ListRunsOptions{Limit: 10000})
+		if err == nil {
+			enrichSummariesWithRuns(summaries, allRuns, "issue")
+		}
 	}
 
 	return IssueListResponse{

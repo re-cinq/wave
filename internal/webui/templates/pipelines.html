@@ -61,6 +61,12 @@
             <summary style="font-size:0.78rem;color:var(--color-text-muted);cursor:pointer;">Advanced options</summary>
             <div style="padding-top:0.4rem;display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;">
                 <div class="form-group">
+                    <label for="qs-adapter" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Adapter</label>
+                    <select id="qs-adapter" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
+                        <option value="">Default</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="qs-model" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Model</label>
                     <select id="qs-model" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
                         <option value="">Default</option>
@@ -69,8 +75,8 @@
                         <option value="strongest">Strongest</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label class="checkbox-label" style="font-size:0.78rem;color:var(--color-text-secondary);display:flex;align-items:center;gap:0.3rem;padding-top:0.3rem;"><input type="checkbox" id="qs-dry-run"> Dry Run</label>
+                <div class="form-group" style="grid-column:span 2;">
+                    <label class="checkbox-label" style="font-size:0.78rem;color:var(--color-text-secondary);display:flex;align-items:center;gap:0.3rem;"><input type="checkbox" id="qs-dry-run"> Dry Run</label>
                 </div>
             </div>
         </details>
@@ -83,6 +89,16 @@
 {{end}}
 {{define "scripts"}}
 <script>
+// Populate adapter dropdown on dialog open
+function populateAdapters(selectId) {
+    var sel = document.getElementById(selectId);
+    if (!sel) return;
+    fetch('/api/adapters').then(function(r){return r.json()}).then(function(d){
+        var adapters = d.adapters || [];
+        adapters.forEach(function(a){ var o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o); });
+    }).catch(function(){});
+}
+
 // Category filtering
 function filterPipelines(btn) {
     var cat = btn.dataset.cat;
@@ -104,6 +120,7 @@ function showQuickStart(name) {
     document.getElementById('quickstart-name').textContent = name;
     document.getElementById('quickstart-input').value = '';
     document.getElementById('quickstart-dialog').showModal();
+    populateAdapters('qs-adapter');
     document.getElementById('quickstart-input').focus();
 }
 function hideQuickStart() { document.getElementById('quickstart-dialog').close(); quickStartPipeline = ''; }

@@ -118,6 +118,12 @@
             <summary style="font-size:0.78rem;color:var(--color-text-muted);cursor:pointer;">Advanced options</summary>
             <div style="padding-top:0.4rem;display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;">
                 <div class="form-group">
+                    <label for="qs-adapter" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Adapter</label>
+                    <select id="qs-adapter" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
+                        <option value="">Default</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="qs-model" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Model</label>
                     <select id="qs-model" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
                         <option value="">Default</option>
@@ -147,6 +153,14 @@
 {{define "scripts"}}
 <script>
 var quickStartPipeline = '';
+function populateAdapters(selectId) {
+    var sel = document.getElementById(selectId);
+    if (!sel) return;
+    fetch('/api/adapters').then(function(r){return r.json()}).then(function(d){
+        var adapters = d.adapters || [];
+        adapters.forEach(function(a){ var o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o); });
+    }).catch(function(){});
+}
 function showQuickStart(name) {
     quickStartPipeline = name;
     document.getElementById('quickstart-name').textContent = name;
@@ -159,6 +173,7 @@ function showQuickStart(name) {
     if (dryRunEl) dryRunEl.checked = false;
     loadQsStepList(name);
     document.getElementById('quickstart-dialog').showModal();
+    populateAdapters('qs-adapter');
     document.getElementById('quickstart-input').focus();
 }
 function hideQuickStart() { document.getElementById('quickstart-dialog').close(); quickStartPipeline = ''; }

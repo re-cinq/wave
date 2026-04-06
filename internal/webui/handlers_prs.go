@@ -16,7 +16,10 @@ import (
 
 // handlePRsPage handles GET /prs - serves the HTML pull requests page.
 func (s *Server) handlePRsPage(w http.ResponseWriter, r *http.Request) {
-	stateFilter := validateStateFilter(r.URL.Query().Get("state"))
+	stateFilter := r.URL.Query().Get("state")
+	if stateFilter == "" {
+		stateFilter = "open"
+	}
 	page := parsePageNumber(r)
 	prData := s.getPRListData(stateFilter, page)
 
@@ -294,6 +297,14 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 
 	if summaries == nil {
 		summaries = []PRSummary{}
+	}
+
+	// Enrich with Wave run stats
+	if s.store != nil {
+		allRuns, err := s.store.ListRuns(state.ListRunsOptions{Limit: 10000})
+		if err == nil {
+			enrichPRSummariesWithRuns(summaries, allRuns)
+		}
 	}
 
 	return PRListResponse{
