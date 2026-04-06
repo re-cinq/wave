@@ -7,20 +7,19 @@
 {{if .Pipelines}}
 <div class="wr-list">
 {{range .Pipelines}}
-    <div class="wr-run" style="cursor:default;">
+    <a href="/pipelines/{{.Name}}" class="wr-run">
         <div class="wr-accent st-completed"></div>
         <div class="wr-body">
             <div class="wr-row1">
-                <a href="/pipelines/{{.Name}}" class="wr-name" style="color:var(--color-text);">{{.Name}}</a>
+                <span class="wr-name">{{.Name}}</span>
                 {{if .Category}}<span class="badge" style="font-size:0.58rem;background:rgba(99,102,241,0.12);color:#a5b4fc;">{{.Category}}</span>{{end}}
             </div>
             {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);">{{.Description}}</span></div>{{end}}
         </div>
-        <div class="wr-meta" style="gap:0.3rem;">
-            <button class="btn btn-sm btn-primary" onclick="showQuickStart('{{.Name}}')" style="font-size:0.72rem;padding:0.2rem 0.5rem;">Start</button>
-            <a href="/runs?pipeline={{.Name}}" style="font-size:0.68rem;color:#818cf8;">Runs</a>
+        <div class="wr-meta" style="display:flex;flex-direction:row;gap:0.4rem;align-items:center;">
+            <button class="btn btn-sm btn-primary" onclick="event.preventDefault();event.stopPropagation();showQuickStart('{{.Name}}')" style="font-size:0.7rem;padding:0.15rem 0.45rem;">Start</button>
         </div>
-    </div>
+    </a>
 {{end}}
 </div>
 {{else}}
