@@ -37,10 +37,8 @@
 
 <!-- Description -->
 {{if .PR.Body}}
-<div class="w-io w-io-in" style="margin-bottom:0.75rem;">
-    <div class="markdown-body" id="pr-body" style="font-size:0.82rem;"></div>
-    <script type="text/plain" id="pr-body-raw">{{.PR.Body}}</script>
-</div>
+<div class="markdown-body" id="pr-body" style="font-size:0.82rem;margin-bottom:0.75rem;padding:0.5rem 0;"></div>
+<script type="text/plain" id="pr-body-raw">{{.PR.Body}}</script>
 {{end}}
 
 <!-- Checks -->
