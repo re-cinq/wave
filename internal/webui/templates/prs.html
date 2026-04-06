@@ -1,162 +1,49 @@
 {{define "title"}}Pull Requests · Wave{{end}}
 {{define "content"}}
-<div class="page-header">
+<div class="w-head">
     <h1>Pull Requests</h1>
 </div>
 
-<div class="filters">
-    <select id="state-filter" onchange="filterPRs()" aria-label="Filter pull requests by state">
-        <option value="open"{{if eq .FilterState "open"}} selected{{end}}>Open</option>
-        <option value="closed"{{if eq .FilterState "closed"}} selected{{end}}>Closed</option>
-        <option value="all"{{if eq .FilterState "all"}} selected{{end}}>All</option>
-    </select>
-</div>
-
-<div id="label-filter-chips" class="filter-chips" style="display:none;">
-    <span class="filter-chip" id="label-filter-chip">
-        Label: <span id="label-filter-value"></span>
-        <button class="filter-chip-clear" onclick="clearLabelFilter()" title="Remove label filter">&times;</button>
-    </span>
+<div class="wr-filters" style="margin-bottom:0.5rem;">
+    <a href="/prs?state=open" class="wr-filter{{if eq .FilterState "open"}} active{{end}}">Open</a>
+    <a href="/prs?state=closed" class="wr-filter{{if eq .FilterState "closed"}} active{{end}}">Closed</a>
+    <a href="/prs?state=all" class="wr-filter{{if eq .FilterState "all"}} active{{end}}">All</a>
 </div>
 
 {{if .Message}}
-<div class="alert alert-error">
-    <p>{{.Message}}</p>
-</div>
+<div style="padding:1rem;color:#fca5a5;font-size:0.82rem;">{{.Message}}</div>
 {{else if .PullRequests}}
-<table class="table" id="prs-table">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Title</th>
-                <th>State</th>
-                <th>Author</th>
-                <th>Labels</th>
-                <th>Branch</th>
-                <th>Changes</th>
-                <th>Created</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .PullRequests}}
-            <tr data-labels="{{range $i, $l := .Labels}}{{if $i}},{{end}}{{$l}}{{end}}">
-                <td><a href="/prs/{{.Number}}">#{{.Number}}</a></td>
-                <td><a href="/prs/{{.Number}}">{{.Title}}</a></td>
-                <td>
-                    {{if .Merged}}<span class="badge badge-merged">merged</span>
-                    {{else if .Draft}}<span class="badge badge-draft">draft</span>
-                    {{else if eq .State "open"}}<span class="badge badge-open">open</span>
-                    {{else}}<span class="badge badge-closed">closed</span>
-                    {{end}}
-                </td>
-                <td>{{.Author}}</td>
-                <td>{{range .Labels}}<span class="badge badge-label" onclick="filterByLabel('{{.}}')" style="cursor:pointer;" title="Click to filter by this label">{{.}}</span> {{end}}</td>
-                <td><code>{{.HeadBranch}}</code> &rarr; <code>{{.BaseBranch}}</code></td>
-                <td>{{if or .Additions .Deletions .ChangedFiles}}<span class="additions">+{{.Additions}}</span> / <span class="deletions">-{{.Deletions}}</span> ({{.ChangedFiles}} {{pluralize .ChangedFiles "file" "files"}}){{else}}--{{end}}</td>
-                <td>{{.CreatedAt}}</td>
-                <td>
-                    <button class="btn btn-sm review-btn" data-pr-url="{{.URL}}" data-pr-number="{{.Number}}">Review</button>
-                </td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-    {{if .HasMore}}
-    <div class="pagination">
-        {{if gt .Page 1}}<a href="/prs?state={{.FilterState}}&page={{subtract .Page 1}}" class="btn">Previous</a>{{end}}
-        <span>Page {{.Page}}</span>
-        <a href="/prs?state={{.FilterState}}&page={{add .Page 1}}" class="btn">Next</a>
-    </div>
-    {{else if gt .Page 1}}
-    <div class="pagination">
-        <a href="/prs?state={{.FilterState}}&page={{subtract .Page 1}}" class="btn">Previous</a>
-        <span>Page {{.Page}}</span>
-    </div>
-    {{end}}
-{{else}}
-<div class="empty-state">
-    <div class="empty-state-icon">&#128256;</div>
-    <p><strong>No {{.FilterState}} pull requests</strong></p>
-    <p>No {{.FilterState}} pull requests found in this repository.</p>
+<div class="wr-list">
+{{range .PullRequests}}
+    <a href="/prs/{{.Number}}" class="wr-run">
+        <div class="wr-accent {{if .Merged}}st-completed{{else if eq .State "open"}}st-running{{else}}st-pending{{end}}"></div>
+        <div class="wr-body">
+            <div class="wr-row1">
+                <span class="wr-name">#{{.Number}} {{.Title}}</span>
+                {{if .Merged}}<span class="badge status-completed" style="font-size:0.6rem;">merged</span>
+                {{else if .Draft}}<span class="badge" style="font-size:0.6rem;background:rgba(100,116,139,0.15);color:#94a3b8;">draft</span>
+                {{else if eq .State "open"}}<span class="badge status-running" style="font-size:0.6rem;">open</span>
+                {{else}}<span class="badge status-cancelled" style="font-size:0.6rem;">closed</span>{{end}}
+            </div>
+            <div class="wr-row2">
+                <span>{{.Author}}</span>
+                <span><span class="w-diff-add">+{{.Additions}}</span> <span class="w-diff-del">-{{.Deletions}}</span></span>
+                <span>{{.ChangedFiles}} files</span>
+                {{range .Labels}}<span class="badge" style="font-size:0.55rem;">{{.}}</span>{{end}}
+            </div>
+        </div>
+        <div class="wr-meta">
+            <span class="wr-date">{{.CreatedAt}}</span>
+            <span class="wr-progress" style="font-family:var(--font-mono);font-size:0.62rem;">{{.HeadBranch}}</span>
+        </div>
+    </a>
+{{end}}
 </div>
+{{if .HasMore}}
+<div style="text-align:center;padding:0.5rem;"><a href="/prs?state={{.FilterState}}&page={{add .Page 1}}" style="color:#818cf8;font-size:0.78rem;">Load more</a></div>
+{{end}}
+{{else}}
+<div style="padding:2rem;text-align:center;color:var(--color-text-muted);font-size:0.85rem;">No pull requests found</div>
 {{end}}
 {{end}}
-{{define "scripts"}}
-<script>
-// Review button: launches ops-pr-review with the PR URL
-(function() {
-    document.querySelectorAll('.review-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            var prURL = btn.dataset.prUrl;
-            setButtonLoading(btn, true);
-            fetchJSON('/api/pipelines/ops-pr-review/start', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({input: prURL})
-            })
-            .then(function(data) {
-                if (data.run_id) {
-                    window.location.href = '/runs/' + data.run_id;
-                }
-            })
-            .catch(function() {
-                setButtonLoading(btn, false);
-            });
-        });
-    });
-})();
-
-function filterPRs() {
-    var params = new URLSearchParams();
-    var stateEl = document.getElementById('state-filter');
-    if (stateEl && stateEl.value) params.set('state', stateEl.value);
-    window.location.search = params.toString();
-}
-
-function filterByLabel(label) {
-    var params = new URLSearchParams(window.location.search);
-    params.set('label', label);
-    history.replaceState(null, '', window.location.pathname + '?' + params.toString());
-    applyLabelFilter(label);
-}
-
-function clearLabelFilter() {
-    var params = new URLSearchParams(window.location.search);
-    params.delete('label');
-    var qs = params.toString();
-    history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
-    applyLabelFilter('');
-}
-
-function applyLabelFilter(label) {
-    var chips = document.getElementById('label-filter-chips');
-    var valueSpan = document.getElementById('label-filter-value');
-    if (label) {
-        valueSpan.textContent = label;
-        chips.style.display = '';
-    } else {
-        chips.style.display = 'none';
-    }
-    var table = document.getElementById('prs-table');
-    if (!table) return;
-    var rows = table.querySelectorAll('tbody tr');
-    for (var i = 0; i < rows.length; i++) {
-        var row = rows[i];
-        if (!label) {
-            row.style.display = '';
-            continue;
-        }
-        var rowLabels = (row.getAttribute('data-labels') || '').split(',');
-        row.style.display = rowLabels.indexOf(label) !== -1 ? '' : 'none';
-    }
-}
-
-// Apply label filter from URL on page load
-(function() {
-    var params = new URLSearchParams(window.location.search);
-    var label = params.get('label');
-    if (label) applyLabelFilter(label);
-})();
-</script>
-{{end}}
+{{define "scripts"}}{{end}}
