@@ -8,10 +8,10 @@
 <!-- Filters bar -->
 <div class="wr-toolbar">
     <div class="wr-filters">
-        <a href="/runs" class="wr-filter{{if not .FilterStatus}} active{{end}}">All</a>
         <a href="/runs?status=running" class="wr-filter{{if eq .FilterStatus "running"}} active{{end}}">Running</a>
         <a href="/runs?status=completed" class="wr-filter{{if eq .FilterStatus "completed"}} active{{end}}">Completed</a>
         <a href="/runs?status=failed" class="wr-filter{{if eq .FilterStatus "failed"}} active{{end}}">Failed</a>
+        <a href="/runs" class="wr-filter{{if not .FilterStatus}} active{{end}}">All</a>
     </div>
     <div class="wr-controls">
         {{if .Pipelines}}

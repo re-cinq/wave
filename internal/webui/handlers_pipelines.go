@@ -54,6 +54,14 @@ func (s *Server) handlePipelinesPage(w http.ResponseWriter, r *http.Request) {
 	}
 	sort.Strings(catList)
 
+	// Sort pipelines by run count (most used first), then alphabetically
+	sort.SliceStable(pipelines, func(i, j int) bool {
+		if pipelines[i].RunCount != pipelines[j].RunCount {
+			return pipelines[i].RunCount > pipelines[j].RunCount
+		}
+		return pipelines[i].Name < pipelines[j].Name
+	})
+
 	data := struct {
 		ActivePage string
 		Pipelines  []PipelineSummary

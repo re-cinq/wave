@@ -29,6 +29,8 @@
             </div>
             <div class="wr-row2">
                 <span>{{.Author}}</span>
+                {{if .RunCount}}<span><b>{{.RunCount}}</b> runs</span>{{end}}
+                {{if .TotalTokens}}<span><b>{{formatTokensShort .TotalTokens}}</b> tok</span>{{end}}
                 <span><span class="w-diff-add">+{{.Additions}}</span> <span class="w-diff-del">-{{.Deletions}}</span></span>
                 <span>{{.ChangedFiles}} files</span>
                 {{range .Labels}}<span class="badge" style="font-size:0.65rem;">{{.}}</span>{{end}}
