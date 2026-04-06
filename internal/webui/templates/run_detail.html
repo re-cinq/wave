@@ -85,20 +85,18 @@
 
 <!-- INPUT -->
 <div class="w-io w-io-in">
-    <span class="w-io-tag">IN</span>
-    {{if .LinkedTitle}}
-    <div class="w-io-text" style="display:flex;flex-direction:column;gap:0.15rem;">
-        <div style="display:flex;align-items:center;gap:0.4rem;">
-            <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:1.1rem;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
-            {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else}}status-cancelled{{end}}" style="font-size:0.68rem;">{{.LinkedState}}</span>{{end}}
-        </div>
-        {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</span>{{end}}
+    <div style="display:flex;align-items:baseline;gap:0.4rem;flex-wrap:wrap;">
+        <span class="w-io-tag">IN</span>
+        {{if .LinkedTitle}}
+        <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:1.1rem;flex:1;min-width:200px;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
+        {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else}}status-cancelled{{end}}" style="font-size:0.68rem;flex-shrink:0;">{{.LinkedState}}</span>{{end}}
+        {{else}}
+        <span class="w-io-text" style="flex:1;">
+            {{if .Run.LinkedURL}}<a href="{{.Run.LinkedURL}}" target="_blank" style="font-weight:600;">{{richInput .Run.Input .Run.LinkedURL}}</a>{{else if .Run.Input}}{{.Run.Input}}{{else}}<span style="opacity:0.4">no input</span>{{end}}
+        </span>
+        {{end}}
     </div>
-    {{else}}
-    <span class="w-io-text">
-        {{if .Run.LinkedURL}}<a href="{{.Run.LinkedURL}}" target="_blank" style="font-weight:600;">{{richInput .Run.Input .Run.LinkedURL}}</a>{{else if .Run.Input}}{{.Run.Input}}{{else}}<span style="opacity:0.4">no input</span>{{end}}
-    </span>
-    {{end}}
+    {{if .LinkedAuthor}}<div style="font-size:0.72rem;color:var(--color-text-muted);padding-left:2.2rem;">by {{.LinkedAuthor}}</div>{{end}}
 </div>
 
 
@@ -199,7 +197,7 @@
 <!-- OUTPUT -->
 <div class="w-io w-io-out{{if eq .Run.Status "failed"}} st-failed{{end}}">
     <div style="padding:0 0.75rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;">
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.15rem;">
             <span class="w-io-tag">OUT</span>
             <span class="w-io-text">
                 {{if eq .Run.Status "completed"}}<span style="color:#4ade80;">&#10003;</span>{{else if eq .Run.Status "failed"}}<span style="color:#f87171;">&#10007;</span>{{else if eq .Run.Status "running"}}<span class="spinner spinner-sm" style="vertical-align:middle;margin-right:0.2rem;"></span>{{end}}
@@ -212,13 +210,13 @@
             {{end}}
         </div>
         {{if .LinkedTitle}}
-        <div style="margin-top:0.15rem;">
-            <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:1.1rem;color:#818cf8;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
-            {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else if eq .LinkedState "closed"}}status-cancelled{{end}}" style="font-size:0.68rem;margin-left:0.3rem;">{{.LinkedState}}</span>{{end}}
+        <div style="display:flex;align-items:baseline;gap:0.4rem;flex-wrap:wrap;">
+            <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:1.1rem;color:#818cf8;flex:1;min-width:200px;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
+            {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else if eq .LinkedState "closed"}}status-cancelled{{end}}" style="font-size:0.68rem;flex-shrink:0;">{{.LinkedState}}</span>{{end}}
         </div>
-        {{if .LinkedAuthor}}<div style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</div>{{end}}
+        {{if .LinkedAuthor}}<div style="font-size:0.72rem;color:var(--color-text-muted);padding-left:0;">by {{.LinkedAuthor}}</div>{{end}}
         {{else if .Run.LinkedURL}}
-        <div style="margin-top:0.15rem;"><a href="{{.Run.LinkedURL}}" target="_blank" style="font-size:0.82rem;color:#818cf8;">{{richInput .Run.Input .Run.LinkedURL}} ↗</a></div>
+        <div><a href="{{.Run.LinkedURL}}" target="_blank" style="font-size:0.82rem;color:#818cf8;">{{richInput .Run.Input .Run.LinkedURL}} ↗</a></div>
         {{end}}
     </div>
     {{if .Run.ErrorMessage}}<div style="font-size:0.78rem;color:#fca5a5;padding:0.15rem 0.75rem;">{{.Run.ErrorMessage}}</div>{{end}}
@@ -386,19 +384,10 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
             // Prompt — resolve known variables and render as markdown
             if(step.prompt){
                 var prompt=step.prompt;
-                // Resolve known template variables from run context
-                var runInput='{{.Run.Input}}';
-                prompt=prompt.replace(/\{\{\s*input\s*\}\}/g, runInput||'(input)');
-                prompt=prompt.replace(/\{\{\s*forge\.cli_tool\s*\}\}/g, 'gh');
-                prompt=prompt.replace(/\{\{\s*forge\.type\s*\}\}/g, 'github');
-                prompt=prompt.replace(/\{\{\s*forge\.pr_term\s*\}\}/g, 'pull request');
-                prompt=prompt.replace(/\{\{\s*forge\.pr_command\s*\}\}/g, 'pr');
-                prompt=prompt.replace(/\{\{\s*project\.skill\s*\}\}/g, '(project skill)');
-                prompt=prompt.replace(/\{\{\s*project\.test_command\s*\}\}/g, 'go test ./...');
-                // Highlight remaining unresolved {{ vars }} as badges
-                prompt=prompt.replace(/\{\{([^}]+)\}\}/g, '`$1`');
+                // Highlight {{ template_vars }} as inline code (no fake resolution)
+                prompt=prompt.replace(/\{\{([^}]+)\}\}/g, '`{{ $1 }}`');
                 h+='<div style="border-top:1px solid var(--color-border);padding-top:0.4rem;margin-top:0.2rem;">';
-                h+='<div style="color:var(--color-text-muted);font-size:0.68rem;margin-bottom:0.2rem;">Prompt (resolved)</div>';
+                h+='<div style="color:var(--color-text-muted);font-size:0.68rem;margin-bottom:0.2rem;">Prompt template</div>';
                 if(typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
                     h+='<div class="markdown-body" style="padding:0.4rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.78rem;line-height:1.5;">'+DOMPurify.sanitize(marked.parse(prompt))+'</div>';
                 } else {
