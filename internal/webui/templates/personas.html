@@ -1,51 +1,25 @@
 {{define "title"}}Personas · Wave{{end}}
 {{define "content"}}
-<div class="page-header">
-    <h1>Personas</h1>
-    {{if .Personas}}
-    <input type="text" id="persona-search" placeholder="Search personas..."
-           oninput="filterPersonas()" style="padding:0.5rem; background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); border-radius:4px; width:300px;">
-    {{end}}
-</div>
+<div class="w-head"><h1>Personas</h1></div>
+
 {{if .Personas}}
-<table class="table">
-        <thead>
-            <tr>
-                <th>Persona</th>
-                <th>Model</th>
-                <th>Description</th>
-                <th>Tools</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody id="persona-tbody">
-            {{range .Personas}}
-            <tr data-name="{{.Name}}">
-                <td><a href="/personas/{{.Name}}"><strong>{{.Name}}</strong></a></td>
-                <td>{{if .Model}}<span class="badge">{{.Model}}</span>{{else}}<span class="badge" style="opacity:0.5">default</span>{{end}}</td>
-                <td style="max-width:400px;">{{.Description}}</td>
-                <td>{{len .AllowedTools}}</td>
-                <td><a href="/personas/{{.Name}}" class="btn btn-sm">Details</a></td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-{{else}}
-<div class="empty-state">
-    <div class="empty-state-icon">&#128100;</div>
-    <p><strong>No personas configured</strong></p>
-    <p>Add personas to your <code>wave.yaml</code> manifest to define AI agent roles.</p>
+<div class="wr-list">
+{{range .Personas}}
+    <a href="/personas/{{.Name}}" class="wr-run">
+        <div class="wr-accent st-completed"></div>
+        <div class="wr-body">
+            <div class="wr-row1">
+                <span class="wr-name">{{.Name}}</span>
+                {{if .Model}}<span class="badge badge-model" style="font-size:0.6rem;">{{friendlyModel .Model}}</span>{{end}}
+                {{if .Adapter}}<span class="badge badge-adapter" style="font-size:0.6rem;">{{.Adapter}}</span>{{end}}
+            </div>
+            {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);">{{.Description}}</span></div>{{end}}
+        </div>
+    </a>
+{{end}}
 </div>
+{{else}}
+<div style="padding:2rem;text-align:center;color:var(--color-text-muted);">No personas configured</div>
 {{end}}
 {{end}}
-{{define "scripts"}}
-<script>
-function filterPersonas() {
-    var search = document.getElementById('persona-search').value.toLowerCase();
-    var rows = document.querySelectorAll('#persona-tbody tr');
-    rows.forEach(function(row) {
-        row.style.display = row.dataset.name.toLowerCase().includes(search) ? '' : 'none';
-    });
-}
-</script>
-{{end}}
+{{define "scripts"}}{{end}}
