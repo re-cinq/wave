@@ -2771,7 +2771,7 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-io-val { color: var(--color-text-secondary); font-size: 0.75rem; }
 
 /* ── Step tab bar (artifacts + logs, unified) ── */
-.ws-tabs { display: flex; gap: 0; padding: 0; margin: 0.15rem 0.55rem 0; border-bottom: 1px solid var(--color-border); align-items: stretch; overflow-x: auto; }
+.ws-tabs { display: flex; gap: 0; padding: 0; margin: 0.15rem 0 0; border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); padding-left: 0.55rem; align-items: stretch; overflow-x: auto; }
 .w-tab {
     display: inline-flex; align-items: center; gap: 0.2rem;
     padding: 0.4rem 0.75rem;
