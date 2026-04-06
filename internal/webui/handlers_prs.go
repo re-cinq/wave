@@ -324,13 +324,23 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 		}
 	}
 
+	var openCount, closedCount int
+	for _, s := range summaries {
+		if s.State == "open" || s.Draft {
+			openCount++
+		} else {
+			closedCount++
+		}
+	}
+
 	return PRListResponse{
 		PullRequests: summaries,
 		RepoSlug:     s.repoSlug,
 		FilterState:  stateFilter,
 		Page:         page,
 		HasMore:      hasMore,
-		TotalOpen:    len(summaries),
+		TotalOpen:    openCount,
+		TotalClosed:  closedCount,
 	}
 }
 

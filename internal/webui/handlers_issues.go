@@ -278,13 +278,24 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 		}
 	}
 
+	// Count open/closed from current page
+	var openCount, closedCount int
+	for _, s := range summaries {
+		if s.State == "open" {
+			openCount++
+		} else {
+			closedCount++
+		}
+	}
+
 	return IssueListResponse{
 		Issues:      summaries,
 		RepoSlug:    s.repoSlug,
 		FilterState: stateFilter,
 		Page:        page,
 		HasMore:     hasMore,
-		TotalOpen:   len(summaries),
+		TotalOpen:   openCount,
+		TotalClosed: closedCount,
 	}
 }
 
