@@ -29,12 +29,12 @@
                 <span>{{.Author}}</span>
                 <span><span class="w-diff-add">+{{.Additions}}</span> <span class="w-diff-del">-{{.Deletions}}</span></span>
                 <span>{{.ChangedFiles}} files</span>
-                {{range .Labels}}<span class="badge" style="font-size:0.55rem;">{{.}}</span>{{end}}
+                {{range .Labels}}<span class="badge" style="font-size:0.65rem;">{{.}}</span>{{end}}
             </div>
         </div>
         <div class="wr-meta">
             <span class="wr-date">{{.CreatedAt}}</span>
-            <span class="wr-progress" style="font-family:var(--font-mono);font-size:0.62rem;">{{.HeadBranch}}</span>
+            <span class="wr-progress" style="font-family:var(--font-mono);font-size:0.68rem;">{{.HeadBranch}}</span>
         </div>
     </a>
 {{end}}

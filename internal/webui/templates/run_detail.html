@@ -43,7 +43,7 @@
         {{range .Events}}
         <div class="w-ev{{if hasPrefix .State "hook_"}} w-ev-hook{{end}}">
             <span class="w-ev-time">{{formatTime .Timestamp}}</span>
-            <span class="badge {{statusClass .State}}" style="font-size:0.62rem;">{{.State}}</span>
+            <span class="badge {{statusClass .State}}" style="font-size:0.68rem;">{{.State}}</span>
             {{if .StepID}}<span class="w-ev-step">{{.StepID}}</span>{{end}}
             <span class="w-ev-msg">{{.Message}}</span>
             {{if and .DurationMs (hasPrefix .State "hook_")}}<span class="w-ev-dur">{{.DurationMs}}ms</span>{{end}}
@@ -90,7 +90,7 @@
     <div class="w-io-text" style="display:flex;flex-direction:column;gap:0.15rem;">
         <div style="display:flex;align-items:center;gap:0.4rem;">
             <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:1.1rem;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
-            {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else}}status-cancelled{{end}}" style="font-size:0.62rem;">{{.LinkedState}}</span>{{end}}
+            {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else}}status-cancelled{{end}}" style="font-size:0.68rem;">{{.LinkedState}}</span>{{end}}
         </div>
         {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</span>{{end}}
     </div>
@@ -124,7 +124,7 @@
                     {{else if eq $step.StepType "conditional"}}<span class="tp-ico">&#x25C6;</span>
                     {{else if eq $step.StepType "command"}}<span class="tp-ico">&gt;_</span>
                     {{end}}{{$step.StepID}}{{if $step.SubPipeline}} <span style="font-weight:400;color:var(--color-text-muted);font-size:0.65rem;">({{$step.SubPipeline}})</span>{{end}}</span>
-                {{if $step.MaxVisits}}<span class="badge" style="font-size:0.55rem;background:rgba(168,85,247,0.15);color:#a855f7;">{{$step.VisitCount}}/{{$step.MaxVisits}}</span>{{end}}
+                {{if $step.MaxVisits}}<span class="badge" style="font-size:0.65rem;background:rgba(168,85,247,0.15);color:#a855f7;">{{$step.VisitCount}}/{{$step.MaxVisits}}</span>{{end}}
                 <span class="ws-meta">
                     {{if $step.Adapter}}<span class="badge badge-adapter">{{adapterIcon $step.Adapter}}{{$step.Adapter}}</span>{{end}}
                     {{if $step.Model}}<span class="badge badge-model">{{friendlyModel $step.Model}}</span>{{end}}
@@ -171,7 +171,7 @@
                 {{range .}}
                 <a href="/runs/{{.RunID}}" style="display:flex;align-items:center;gap:0.4rem;padding:0.2rem 0.4rem;margin-bottom:0.15rem;background:var(--color-bg-tertiary);border-radius:4px;border-left:3px solid {{if eq .Status "completed"}}var(--color-completed){{else if eq .Status "failed"}}var(--color-failed){{else if eq .Status "running"}}var(--color-running){{else}}var(--color-border){{end}};text-decoration:none;color:inherit;font-size:0.72rem;">
                     <span style="font-weight:600;color:var(--color-text);">{{.PipelineName}}</span>
-                    <span class="badge {{statusClass .Status}}" style="font-size:0.58rem;">{{.Status}}</span>
+                    <span class="badge {{statusClass .Status}}" style="font-size:0.65rem;">{{.Status}}</span>
                     {{if .Duration}}<span style="color:var(--color-text-muted);">{{.Duration}}</span>{{end}}
                     {{if .TotalTokens}}<span style="color:var(--color-text-muted);">{{formatTokens .TotalTokens}} tok</span>{{end}}
                     {{if .InputPreview}}<span style="color:var(--color-text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px;">{{.InputPreview}}</span>{{end}}
@@ -214,7 +214,7 @@
         {{if .LinkedTitle}}
         <div style="margin-top:0.15rem;">
             <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:1.1rem;color:#818cf8;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
-            {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else if eq .LinkedState "closed"}}status-cancelled{{end}}" style="font-size:0.62rem;margin-left:0.3rem;">{{.LinkedState}}</span>{{end}}
+            {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else if eq .LinkedState "closed"}}status-cancelled{{end}}" style="font-size:0.68rem;margin-left:0.3rem;">{{.LinkedState}}</span>{{end}}
         </div>
         {{if .LinkedAuthor}}<div style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</div>{{end}}
         {{else if .Run.LinkedURL}}
@@ -225,7 +225,7 @@
     {{if .ArtifactGroups}}
     <div class="ws-tabs" style="margin:0.2rem 0.45rem 0;">
         {{range .ArtifactGroups}}{{$sid := .StepID}}{{range .Artifacts}}
-        <a href="#" class="w-tab" data-run-id="{{$.Run.RunID}}" data-step-id="{{$sid}}" data-artifact-name="{{.Name}}" onclick="v2ToggleOutArtTab(this);return false;"><span style="color:var(--color-text-muted);font-size:0.58rem;">{{$sid}}/</span>{{.Name}} <span class="art-size">{{formatBytes .SizeBytes}}</span></a>
+        <a href="#" class="w-tab" data-run-id="{{$.Run.RunID}}" data-step-id="{{$sid}}" data-artifact-name="{{.Name}}" onclick="v2ToggleOutArtTab(this);return false;"><span style="color:var(--color-text-muted);font-size:0.65rem;">{{$sid}}/</span>{{.Name}} <span class="art-size">{{formatBytes .SizeBytes}}</span></a>
         {{end}}{{end}}
     </div>
     <div class="ws-tabcontent" id="w-out-tc" hidden style="margin:0 0.45rem 0.3rem;background:var(--color-bg-secondary);border:1px solid var(--color-border);border-radius:4px;"></div>
@@ -609,7 +609,7 @@ function v2RenderObj(obj, name){
 // Render artifact into viewer element
 function v2ShowArt(viewer, url, name){
     viewer.hidden=false;
-    viewer.innerHTML='<div class="w-art-viewer-head"><span>'+escapeHTML(name)+'</span><span style="display:flex;gap:0.3rem;align-items:center;"><span class="av-tabs"></span><a href="'+url+'?raw=true" download style="color:var(--color-text-muted);font-size:0.58rem;">⬇</a></span></div><div class="av-body"><pre style="margin:0;padding:0.3rem;font-size:0.65rem;color:var(--color-text-secondary);"><code>loading…</code></pre></div>';
+    viewer.innerHTML='<div class="w-art-viewer-head"><span>'+escapeHTML(name)+'</span><span style="display:flex;gap:0.3rem;align-items:center;"><span class="av-tabs"></span><a href="'+url+'?raw=true" download style="color:var(--color-text-muted);font-size:0.65rem;">⬇</a></span></div><div class="av-body"><pre style="margin:0;padding:0.3rem;font-size:0.65rem;color:var(--color-text-secondary);"><code>loading…</code></pre></div>';
     fetch(url).then(function(r){return r.json()}).then(function(d){
         var raw=v2Decode(d.content||'');
         var smart=v2SmartRender(raw, name);
