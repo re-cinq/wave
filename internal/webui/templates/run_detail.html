@@ -86,18 +86,22 @@
 
 <!-- INPUT -->
 <div class="w-io w-io-in">
-    <div style="display:flex;align-items:baseline;gap:0.4rem;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.15rem;">
         <span class="w-io-tag">IN</span>
         {{if .LinkedTitle}}
-        <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:1.1rem;flex:1;min-width:200px;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
-        {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else}}status-cancelled{{end}}" style="font-size:0.68rem;flex-shrink:0;">{{.LinkedState}}</span>{{end}}
-        {{else}}
-        <span class="w-io-text" style="flex:1;">
-            {{if .Run.LinkedURL}}<a href="{{.Run.LinkedURL}}" target="_blank" style="font-weight:600;">{{richInput .Run.Input .Run.LinkedURL}}</a>{{else if .Run.Input}}{{.Run.Input}}{{else}}<span style="opacity:0.4">no input</span>{{end}}
-        </span>
+        {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else}}status-cancelled{{end}}" style="font-size:0.68rem;">{{.LinkedState}}</span>{{end}}
         {{end}}
     </div>
-    {{if .LinkedAuthor}}<div style="font-size:0.72rem;color:var(--color-text-muted);padding-left:2.2rem;">by {{.LinkedAuthor}}</div>{{end}}
+    {{if .LinkedTitle}}
+    <div style="padding-left:2.2rem;">
+        <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:1.1rem;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
+        {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);margin-left:0.5rem;">by {{.LinkedAuthor}}</span>{{end}}
+    </div>
+    {{else}}
+    <div style="padding-left:2.2rem;" class="w-io-text">
+        {{if .Run.LinkedURL}}<a href="{{.Run.LinkedURL}}" target="_blank" style="font-weight:600;">{{richInput .Run.Input .Run.LinkedURL}}</a>{{else if .Run.Input}}{{.Run.Input}}{{else}}<span style="opacity:0.4">no input</span>{{end}}
+    </div>
+    {{end}}
 </div>
 
 
@@ -122,7 +126,7 @@
                     {{else if eq $step.StepType "gate"}}<span class="tp-ico">&#x25C6;</span>
                     {{else if eq $step.StepType "conditional"}}<span class="tp-ico">&#x25C6;</span>
                     {{else if eq $step.StepType "command"}}<span class="tp-ico">&gt;_</span>
-                    {{end}}{{$step.StepID}}{{if $step.SubPipeline}} <span style="font-weight:400;color:var(--color-text-muted);font-size:0.65rem;">({{$step.SubPipeline}})</span>{{end}}</span>
+                    {{end}}{{$step.StepID}}{{if $step.SubPipeline}} <span style="font-weight:400;color:var(--color-text-muted);font-size:0.65rem;">({{$step.SubPipeline}})</span>{{end}}{{if eq $step.State "running"}} <span class="spinner spinner-sm" style="vertical-align:middle;"></span>{{end}}</span>
                 {{if $step.MaxVisits}}<span class="badge" style="font-size:0.65rem;background:rgba(168,85,247,0.15);color:#a855f7;">{{$step.VisitCount}}/{{$step.MaxVisits}}</span>{{end}}
                 <span class="ws-meta">
                     {{if $step.Adapter}}<span class="badge badge-adapter">{{adapterIcon $step.Adapter}}{{$step.Adapter}}</span>{{end}}
@@ -130,7 +134,6 @@
                     {{if $step.TokensUsed}}<span class="ws-tok">{{formatTokens $step.TokensUsed}}</span>{{end}}
                     {{if eq $step.StepType "command"}}<span style="color:var(--color-text-muted)">cmd</span>{{end}}
                     {{if $step.Duration}}<span class="ws-dur">{{$step.Duration}}</span>{{end}}
-                    {{if eq $step.State "running"}}<span class="spinner spinner-sm"></span>{{end}}
                 </span>
             </div>
 
@@ -197,8 +200,8 @@
 
 <!-- OUTPUT -->
 <div class="w-io w-io-out{{if eq .Run.Status "failed"}} st-failed{{end}}">
-    <div style="padding:0 0.75rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.15rem;">
+    <div style="padding:0 0.85rem;">
+        <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.15rem;">
             <span class="w-io-tag">OUT</span>
             <span class="w-io-text">
                 {{if eq .Run.Status "completed"}}<span style="color:#4ade80;">&#10003;</span>{{else if eq .Run.Status "failed"}}<span style="color:#f87171;">&#10007;</span>{{else if eq .Run.Status "running"}}<span class="spinner spinner-sm" style="vertical-align:middle;margin-right:0.2rem;"></span>{{end}}
@@ -211,23 +214,23 @@
             {{end}}
         </div>
         {{if .LinkedTitle}}
-        <div style="display:flex;align-items:baseline;gap:0.4rem;flex-wrap:wrap;">
-            <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:1.1rem;color:#818cf8;flex:1;min-width:200px;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
-            {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else if eq .LinkedState "closed"}}status-cancelled{{end}}" style="font-size:0.68rem;flex-shrink:0;">{{.LinkedState}}</span>{{end}}
+        <div style="padding-left:2.2rem;">
+            <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:1.1rem;color:#818cf8;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
+            {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else if eq .LinkedState "closed"}}status-cancelled{{end}}" style="font-size:0.68rem;margin-left:0.4rem;">{{.LinkedState}}</span>{{end}}
+            {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);margin-left:0.5rem;">by {{.LinkedAuthor}}</span>{{end}}
         </div>
-        {{if .LinkedAuthor}}<div style="font-size:0.72rem;color:var(--color-text-muted);padding-left:0;">by {{.LinkedAuthor}}</div>{{end}}
         {{else if .Run.LinkedURL}}
-        <div><a href="{{.Run.LinkedURL}}" target="_blank" style="font-size:0.82rem;color:#818cf8;">{{richInput .Run.Input .Run.LinkedURL}} ↗</a></div>
+        <div style="padding-left:2.2rem;"><a href="{{.Run.LinkedURL}}" target="_blank" style="font-size:0.82rem;color:#818cf8;">{{richInput .Run.Input .Run.LinkedURL}} ↗</a></div>
         {{end}}
     </div>
-    {{if .Run.ErrorMessage}}<div style="font-size:0.78rem;color:#fca5a5;padding:0.15rem 0.75rem;">{{.Run.ErrorMessage}}</div>{{end}}
+    {{if .Run.ErrorMessage}}<div style="font-size:0.78rem;color:#fca5a5;padding:0.15rem 0.85rem;">{{.Run.ErrorMessage}}</div>{{end}}
     {{if .ArtifactGroups}}
-    <div class="ws-tabs" style="margin:0.2rem 0.75rem 0;">
+    <div class="ws-tabs" style="margin:0.2rem 0.85rem 0;">
         {{range .ArtifactGroups}}{{$sid := .StepID}}{{range .Artifacts}}
         <a href="#" class="w-tab" data-run-id="{{$.Run.RunID}}" data-step-id="{{$sid}}" data-artifact-name="{{.Name}}" onclick="v2ToggleOutArtTab(this);return false;"><span style="color:var(--color-text-muted);font-size:0.65rem;">{{$sid}}/</span>{{.Name}} <span class="art-size">{{formatBytes .SizeBytes}}</span></a>
         {{end}}{{end}}
     </div>
-    <div class="ws-tabcontent" id="w-out-tc" hidden style="margin:0 0.75rem 0.3rem;background:var(--color-bg-secondary);border:1px solid var(--color-border);border-radius:4px;"></div>
+    <div class="ws-tabcontent" id="w-out-tc" hidden style="margin:0 0.85rem 0.3rem;background:var(--color-bg-secondary);border:1px solid var(--color-border);border-radius:4px;"></div>
     {{end}}
 </div>
 
@@ -370,11 +373,11 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
             // Config grid
             h+='<div style="display:grid;grid-template-columns:110px 1fr;gap:0.15rem 0.8rem;margin-bottom:0.4rem;">';
             function kv(k,v){return '<span style="color:var(--color-text-muted);font-size:0.72rem;">'+k+'</span><span style="color:var(--color-text);">'+v+'</span>';}
-            if(step.persona) h+=kv('Persona','<a href="/personas/'+escapeHTML(step.persona)+'" style="color:#818cf8;">'+escapeHTML(step.persona)+'</a>');
+            if(step.persona) h+=kv('Persona','<a href="/personas/'+escapeHTML(step.persona)+'" style="color:var(--color-link);"><code style="background:rgba(99,102,241,0.1);color:inherit;">'+escapeHTML(step.persona)+'</code></a>');
             if(step.type) h+=kv('Type','<code>'+escapeHTML(step.type)+'</code>');
-            if(step.sub_pipeline) h+=kv('Sub-pipeline','<a href="/pipelines/'+escapeHTML(step.sub_pipeline)+'" style="color:#818cf8;">'+escapeHTML(step.sub_pipeline)+'</a>');
+            if(step.sub_pipeline) h+=kv('Sub-pipeline','<a href="/pipelines/'+escapeHTML(step.sub_pipeline)+'" style="color:var(--color-link);"><code style="background:rgba(99,102,241,0.1);color:inherit;">'+escapeHTML(step.sub_pipeline)+'</code></a>');
             if(step.dependencies&&step.dependencies.length) h+=kv('Dependencies',step.dependencies.map(function(d){return '<code style="background:rgba(99,102,241,0.1);padding:0.1rem 0.3rem;border-radius:3px;">'+escapeHTML(d)+'</code>';}).join(' '));
-            if(step.contract) h+=kv('Contract',step.contract_schema_name?'<a href="/contracts/'+escapeHTML(step.contract_schema_name)+'" style="color:#818cf8;">'+escapeHTML(step.contract)+'</a>':'<code>'+escapeHTML(step.contract)+'</code>');
+            if(step.contract) h+=kv('Contract',step.contract_schema_name?'<a href="/contracts/'+escapeHTML(step.contract_schema_name)+'" style="color:var(--color-link);" title="'+escapeHTML(step.contract)+'"><code style="background:rgba(99,102,241,0.1);color:inherit;">'+escapeHTML(step.contract_schema_name)+'</code></a>':'<code>'+escapeHTML(step.contract)+'</code>');
             if(step.on_failure) h+=kv('On failure','<code>'+escapeHTML(step.on_failure)+'</code>');
             if(step.retry_policy) h+=kv('Retry','<code>'+escapeHTML(step.retry_policy)+'</code>'+(step.max_attempts?' (max '+step.max_attempts+')':''));
             if(step.thread) h+=kv('Thread','<code>'+escapeHTML(step.thread)+'</code>');
