@@ -147,13 +147,27 @@ func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Compute aggregate Wave stats
+	runCount := len(relatedRuns)
+	totalTokens := 0
+	lastStatus := ""
+	for _, r := range relatedRuns {
+		totalTokens += r.TotalTokens
+		if lastStatus == "" {
+			lastStatus = r.Status
+		}
+	}
+
 	data := struct {
-		ActivePage string
-		Issue      IssueDetail
-		Runs       []RunSummary
-		Comments   []CommentSummary
+		ActivePage  string
+		Issue       IssueDetail
+		Runs        []RunSummary
+		Comments    []CommentSummary
+		RunCount    int
+		TotalTokens int
+		LastStatus  string
 	}{
-		ActivePage: "issues",
+		ActivePage:  "issues",
 		Issue: IssueDetail{
 			Number:    issue.Number,
 			Title:     issue.Title,
@@ -167,8 +181,11 @@ func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt: issue.UpdatedAt.Format("2006-01-02 15:04"),
 			URL:       issue.HTMLURL,
 		},
-		Runs:     relatedRuns,
-		Comments: comments,
+		Runs:        relatedRuns,
+		Comments:    comments,
+		RunCount:    runCount,
+		TotalTokens: totalTokens,
+		LastStatus:  lastStatus,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -267,6 +284,7 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 		FilterState: stateFilter,
 		Page:        page,
 		HasMore:     hasMore,
+		TotalOpen:   len(summaries),
 	}
 }
 

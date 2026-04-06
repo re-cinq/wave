@@ -10,6 +10,9 @@
         <a href="/issues?state=closed" class="wr-filter{{if eq .FilterState "closed"}} active{{end}}">Closed</a>
         <a href="/issues?state=all" class="wr-filter{{if eq .FilterState "all"}} active{{end}}">All</a>
     </div>
+    <div class="wr-controls">
+        <span style="font-size:0.72rem;color:var(--color-text-muted);">{{len .Issues}} issues</span>
+    </div>
 </div>
 
 {{if .Message}}

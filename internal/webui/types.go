@@ -322,6 +322,8 @@ type IssueListResponse struct {
 	FilterState string         `json:"filter_state,omitempty"`
 	Page        int            `json:"page,omitempty"`
 	HasMore     bool           `json:"has_more"`
+	TotalOpen   int            `json:"total_open,omitempty"`
+	TotalClosed int            `json:"total_closed,omitempty"`
 }
 
 // PRSummary is a summary of a GitHub pull request for the API.
@@ -405,6 +407,8 @@ type PRListResponse struct {
 	FilterState  string      `json:"filter_state,omitempty"`
 	Page         int         `json:"page,omitempty"`
 	HasMore      bool        `json:"has_more"`
+	TotalOpen    int         `json:"total_open,omitempty"`
+	TotalClosed  int         `json:"total_closed,omitempty"`
 }
 
 // HealthCheckResult is the result of a single health check for the API.
