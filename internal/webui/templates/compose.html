@@ -5,6 +5,11 @@
 </div>
 
 {{if .Pipelines}}
+<div class="wr-toolbar">
+    <div class="wr-controls">
+        <span style="font-size:0.72rem;color:var(--color-text-muted);">{{len .Pipelines}} pipelines</span>
+    </div>
+</div>
 <div class="wr-list">
 {{range .Pipelines}}
     <a href="/pipelines/{{.Name}}" class="wr-run" data-category="{{.Category}}">
@@ -18,6 +23,7 @@
             {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);font-size:0.78rem;">{{.Description}}</span></div>{{end}}
             <div class="wr-row2" style="margin-top:0.15rem;">
                 <span style="color:var(--color-text-muted);font-size:0.72rem;"><b>{{.StepCount}}</b> steps</span>
+                {{if .RunCount}}<span style="color:var(--color-text-muted);font-size:0.72rem;"><b>{{.RunCount}}</b> runs</span>{{end}}
                 {{if .Steps}}
                 <span style="color:var(--color-text-muted);font-size:0.68rem;font-family:var(--font-mono);display:flex;align-items:center;gap:0.15rem;">
                 {{range $i, $step := .Steps}}{{if $i}}<span style="color:var(--color-border);">&#8594;</span>{{end}}<span style="background:var(--color-bg-tertiary);padding:0.05rem 0.3rem;border-radius:3px;">{{$step.ID}}</span>{{end}}

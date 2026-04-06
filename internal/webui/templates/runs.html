@@ -14,6 +14,7 @@
         <a href="/runs" class="wr-filter{{if not .FilterStatus}} active{{end}}">All</a>
     </div>
     <div class="wr-controls">
+        <input type="text" id="run-search" placeholder="Search runs..." style="padding:0.2rem 0.4rem;border-radius:4px;font-size:0.72rem;color:var(--color-text-secondary);border:1px solid var(--color-border);background:var(--color-bg-tertiary);font-family:var(--font-sans);width:180px;" oninput="filterRuns(this.value)">
         {{if .Pipelines}}
         <select class="wr-select" onchange="location.href='/runs{{if .FilterStatus}}?status={{.FilterStatus}}{{else}}?{{end}}&pipeline='+this.value">
             <option value="">All pipelines</option>
@@ -26,7 +27,7 @@
 </div>
 
 <!-- Run list -->
-<div class="wr-list">
+<div class="wr-list" id="run-list">
 {{if .Runs}}
 {{range .Runs}}
     <a href="/runs/{{.RunID}}" class="wr-run">
@@ -91,6 +92,14 @@
 {{end}}
 {{define "scripts"}}
 <script>
+// Client-side search filter for run cards
+function filterRuns(query) {
+    var q = query.toLowerCase().trim();
+    document.querySelectorAll('#run-list > a.wr-run, #run-list > .wr-child').forEach(function(card) {
+        if (!q) { card.style.display = ''; return; }
+        card.style.display = card.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+    });
+}
 (function(){
     var loader=document.getElementById('wr-loader');
     if(!loader)return;
