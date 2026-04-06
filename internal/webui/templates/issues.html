@@ -25,7 +25,7 @@
             </div>
             <div class="wr-row2">
                 <span>{{.Author}}</span>
-                {{if .Comments}}<span><b>{{.Comments}}</b> comments</span>{{end}}
+                {{if .Comments}}<span><b>{{.Comments}}</b> {{if eq .Comments 1}}comment{{else}}comments{{end}}</span>{{end}}
                 {{range .Labels}}<span class="badge" style="font-size:0.65rem;">{{.}}</span>{{end}}
             </div>
         </div>
