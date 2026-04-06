@@ -2,6 +2,7 @@
 {{define "content"}}
 
 <!-- Header -->
+<script id="wave-vars" type="application/json">{{toJSON .TemplateVars}}</script>
 <div class="w-head">
     <div>
         <a href="/runs" class="back-link">&larr; Runs</a>
@@ -384,9 +385,16 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
             // Prompt — resolve known variables and render as markdown
             if(step.prompt){
                 var prompt=step.prompt;
-                // Resolve {{ input }} — we know this from the run
-                var runInput='{{.Run.Input}}';
-                if(runInput) prompt=prompt.replace(/\{\{\s*input\s*\}\}/g, runInput);
+                // Resolve ALL template variables from server-provided context
+                try{
+                    var vars=JSON.parse(document.getElementById('wave-vars').textContent||'{}');
+                    for(var vk in vars){
+                        if(vars[vk]){
+                            var re=new RegExp('\\{\\{\\s*'+vk.replace(/\./g,'\\.')+'\\s*\\}\\}','g');
+                            prompt=prompt.replace(re, vars[vk]);
+                        }
+                    }
+                }catch(e){}
                 // Highlight remaining unresolved vars as inline code
                 prompt=prompt.replace(/\{\{([^}]+)\}\}/g, function(m){return '`'+m+'`';});
                 h+='<div style="border-top:1px solid var(--color-border);padding-top:0.4rem;margin-top:0.2rem;">';

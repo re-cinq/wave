@@ -3,6 +3,7 @@ package webui
 import (
 	"embed"
 	"fmt"
+	"encoding/json"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -62,6 +63,7 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		"formatBytes":    formatBytesFunc,
 		"richInput":      richInputFunc,
 		"friendlyModel":  friendlyModelFunc,
+		"toJSON": func(v interface{}) string { b, _ := json.Marshal(v); return string(b) },
 		"shortRunID":     func(id string) string { if len(id) > 12 { return id[:12] }; return id },
 		"titleCase": titleCaseFunc,
 		"contains":       strings.Contains,
