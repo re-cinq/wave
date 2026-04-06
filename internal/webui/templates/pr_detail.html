@@ -24,15 +24,15 @@
 
 <!-- Stats -->
 <div class="w-stats" style="margin-bottom:0.5rem;">
+    {{if .RunCount}}<span><b>{{.RunCount}}</b> runs</span>
+    <span style="color:var(--color-text-muted);">·</span>{{end}}
+    {{if .TotalTokens}}<span><b>{{formatTokensShort .TotalTokens}}</b> tok</span>
+    <span style="color:var(--color-text-muted);">·</span>{{end}}
     <span><span class="w-diff-add">+{{.PR.Additions}}</span> <span class="w-diff-del">-{{.PR.Deletions}}</span></span>
     <span style="color:var(--color-text-muted);">·</span>
     <span><b>{{.PR.ChangedFiles}}</b> files</span>
     <span style="color:var(--color-text-muted);">·</span>
     <span><b>{{.PR.Commits}}</b> commits</span>
-    <span style="color:var(--color-text-muted);">·</span>
-    <span><b>{{.PR.Comments}}</b> comments</span>
-    <span style="color:var(--color-text-muted);">·</span>
-    <span>{{.PR.CreatedAt}}</span>
     {{if .PR.Labels}}
     <span style="margin-left:0.3rem;">{{range .PR.Labels}}<span class="badge" style="font-size:0.6rem;">{{.}}</span> {{end}}</span>
     {{end}}
@@ -116,11 +116,14 @@
     <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Comments ({{len .Comments}})</h2>
     {{range $i, $c := .Comments}}
     <div class="w-comment-card">
-        <div style="padding:0.25rem 0.55rem;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--color-border);font-size:0.72rem;">
-            <strong>{{$c.Author}}</strong>
-            <span style="color:var(--color-text-muted);">{{$c.CreatedAt}}{{if $c.HTMLURL}} <a href="{{$c.HTMLURL}}" target="_blank" style="color:var(--color-text-muted);">↗</a>{{end}}</span>
+        <div style="padding:0.35rem 0.65rem;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--color-border);font-size:0.75rem;">
+            <strong style="color:var(--color-text);">{{$c.Author}}</strong>
+            <span style="display:flex;align-items:center;gap:0.5rem;color:var(--color-text-muted);font-size:0.72rem;">
+                <span>{{$c.CreatedAt}}</span>
+                {{if $c.HTMLURL}}<a href="{{$c.HTMLURL}}" target="_blank" style="color:var(--color-text-muted);font-size:0.68rem;padding:0.1rem 0.3rem;border:1px solid var(--color-border);border-radius:3px;text-decoration:none;">view on GitHub</a>{{end}}
+            </span>
         </div>
-        <div class="markdown-body" id="pr-comment-{{$i}}" style="padding:0.4rem 0.55rem;font-size:0.78rem;"></div>
+        <div class="markdown-body" id="pr-comment-{{$i}}" style="padding:0.5rem 0.65rem;font-size:0.8rem;"></div>
         <script type="text/plain" id="pr-comment-raw-{{$i}}">{{$c.Body}}</script>
     </div>
     {{end}}

@@ -16,11 +16,11 @@
                 <span class="badge" style="font-size:0.65rem;background:rgba(99,102,241,0.12);color:#a5b4fc;">composition</span>
             </div>
             {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);font-size:0.78rem;">{{.Description}}</span></div>{{end}}
-            <div class="wr-row2" style="margin-top:0.1rem;">
+            <div class="wr-row2" style="margin-top:0.15rem;">
                 <span style="color:var(--color-text-muted);font-size:0.72rem;"><b>{{.StepCount}}</b> steps</span>
                 {{if .Steps}}
-                <span style="color:var(--color-text-muted);font-size:0.68rem;font-family:var(--font-mono);">
-                {{range $i, $step := .Steps}}{{if $i}}<span style="color:var(--color-border);margin:0 0.15rem;">&#8594;</span>{{end}}<span style="background:var(--color-bg-tertiary);padding:0.05rem 0.25rem;border-radius:3px;">{{$step.ID}}</span>{{end}}
+                <span style="color:var(--color-text-muted);font-size:0.68rem;font-family:var(--font-mono);display:flex;align-items:center;gap:0.15rem;">
+                {{range $i, $step := .Steps}}{{if $i}}<span style="color:var(--color-border);">&#8594;</span>{{end}}<span style="background:var(--color-bg-tertiary);padding:0.05rem 0.3rem;border-radius:3px;">{{$step.ID}}</span>{{end}}
                 </span>
                 {{end}}
                 {{range .Skills}}<span class="badge" style="font-size:0.65rem;background:rgba(34,211,238,0.1);color:#67e8f9;">{{.}}</span>{{end}}
