@@ -1,346 +1,8 @@
 {{define "title"}}{{.Run.PipelineName}} · {{.Run.Status}} · Wave v2{{end}}
 {{define "content"}}
-<style>
-/* ═══════════════════════════════════════════════════════════════════
-   Fat Gantt Shapes v2 – compact, differentiated, deep
-   All colors use var(--color-*) from style.css for theme support.
-   ═══════════════════════════════════════════════════════════════════ */
-
-/* ── Header ── */
-.v2-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.2rem; }
-.v2-head h1 { font-size: 1.15rem; margin: 0; display: flex; align-items: center; gap: 0.4rem; }
-.v2-head .back-link { font-size: 0.72rem; }
-.v2-head .actions { display: flex; gap: 0.3rem; }
-
-/* ── Stats bar ── */
-.v2-stats { display: flex; gap: 0.5rem; align-items: center; font-size: 0.72rem; color: var(--color-text-secondary); margin-bottom: 0.2rem; flex-wrap: wrap; }
-.v2-stats b { color: var(--color-text); font-weight: 600; }
-.v2-stats .badge { font-size: 0.6rem; padding: 0 4px; }
-
-/* ── Progress ── */
-.v2-prog { height: 2px; background: var(--color-bg-tertiary); border-radius: 1px; margin-bottom: 0.3rem; }
-.v2-prog-fill { height: 100%; border-radius: 1px; background: var(--color-completed); transition: width 0.3s; }
-
-/* ── I/O Hero Cards (pill-shaped -- visually distinct from step rectangles) ── */
-.v2-io { border-radius: 6px; padding: 0.5rem 0.85rem; position: relative; }
-.v2-io-in  { background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.3); border-left: 4px solid #6366f1; margin-bottom: 0.75rem; }
-.v2-io-out { background: rgba(34,197,94,0.07); border: 2px solid rgba(34,197,94,0.4); border-left: 4px solid #22c55e; margin-top: 1rem; padding: 0.5rem 0 0; overflow: hidden; }
-.v2-io-out.st-failed { background: rgba(239,68,68,0.07); border-color: rgba(239,68,68,0.35); border-left-color: #ef4444; }
-.v2-io-tag { display: inline-block; font-size: 0.52rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 0 4px; border-radius: 2px; margin-right: 0.35rem; vertical-align: middle; font-family: var(--font-mono); }
-.v2-io-in .v2-io-tag  { background: rgba(99,102,241,0.2); color: #a5b4fc; }
-.v2-io-out .v2-io-tag { background: rgba(34,197,94,0.2); color: #86efac; }
-.v2-io-out.st-failed .v2-io-tag { background: rgba(239,68,68,0.2); color: #fca5a5; }
-.v2-io-text { font-size: 0.8rem; color: var(--color-text); display: inline; }
-.v2-io-text a { color: #818cf8; }
-.v2-io-out .v2-io-text { font-size: 0.82rem; }
-.v2-io-out .v2-io-result { font-size: 0.85rem; font-weight: 600; }
-
-/* ── Timeline Ruler ── */
-.v2-ruler { display: flex; justify-content: space-between; align-items: flex-end; font-size: 0.6rem; color: var(--color-text-muted); padding: 0.1rem 0 0.08rem; border-bottom: 1px solid var(--color-border); margin-bottom: 0.2rem; font-variant-numeric: tabular-nums; }
-.v2-ruler span { min-width: 2rem; }
-
-/* ── Flow container (zero gap -- connectors provide spacing) ── */
-.v2-flow { display: flex; flex-direction: column; gap: 0; }
-
-/* ── Connector arrows (CSS line + triangle, replaces unicode) ── */
-.v2-conn { height: 10px; position: relative; }
-.v2-conn::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 4px; width: 1px; background: var(--color-border); }
-.v2-conn::after  { content: ''; position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 4px solid var(--color-border-light); }
-.v2-conn-dot { display: none; }
-
-/* ── Base shape: sharp rectangle, depth via shadow ── */
-.v2-s {
-    border-radius: 3px;
-    background: var(--color-bg-secondary);
-    position: relative;
-    overflow: hidden;
-    transition: border-color 0.12s, box-shadow 0.12s;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
-}
-.v2-s:hover { box-shadow: 0 2px 5px rgba(0,0,0,0.35); }
-
-/* ── Gantt fill as shape background ── */
-.v2-s-bg { position: absolute; top: 0; left: 0; bottom: 0; border-radius: 3px; opacity: 0.06; pointer-events: none; z-index: 0; }
-.v2-s-bg.st-completed { background: var(--color-completed); }
-.v2-s-bg.st-failed    { background: var(--color-failed); }
-.v2-s-bg.st-running   { background: var(--color-running); animation: v2pulse 2s ease-in-out infinite; }
-@keyframes v2pulse { 0%,100%{opacity:0.03} 50%{opacity:0.1} }
-
-/* ── Status left accent (5px for strong signal) ── */
-.v2-s.st-completed { border-left: 5px solid var(--color-completed); }
-.v2-s.st-failed    { border-left: 5px solid var(--color-failed); }
-.v2-s.st-running   { border-left: 5px solid var(--color-running); }
-.v2-s.st-pending   { border-left: 3px solid var(--color-border); opacity: 0.5; }
-.v2-s.st-skipped   { border-left: 3px solid var(--color-border); opacity: 0.5; }
-.v2-s.st-skipped:hover, .v2-s.st-skipped:focus-within { opacity: 0.9; background: var(--color-bg-secondary); }
-.v2-s.st-pending:hover, .v2-s.st-pending:focus-within { opacity: 0.9; background: var(--color-bg-secondary); }
-
-/* ── Step type differentiation (geometric identity) ── */
-/* Sub-pipeline: purple accent + inset glow */
-.v2-s.tp-pipeline {
-    border: 1.5px solid rgba(139,92,246,0.5); border-left: 5px solid #8b5cf6;
-    box-shadow: inset 0 0 0 1px rgba(139,92,246,0.1), 0 1px 2px rgba(0,0,0,0.25);
-    background: rgba(124,58,237,0.03);
-}
-/* Gate: octagonal clip-path + dashed amber border */
-.v2-s.tp-gate {
-    border: 1.5px dashed rgba(245,158,11,0.45); border-radius: 0;
-    background: rgba(245,158,11,0.03);
-    
-}
-/* Conditional: chevron left edge */
-.v2-s.tp-conditional {
-    border: 1.5px solid rgba(6,182,212,0.35); border-radius: 0;
-    background: rgba(6,182,212,0.03);
-    
-}
-.v2-s.tp-conditional .v2-s-row1,
-.v2-s.tp-conditional .v2-s-io,
-.v2-s.tp-conditional .v2-s-log { padding-left: 0.75rem; }
-/* Command: sharp corners, dashed bottom */
-.v2-s.tp-command {
-    border: 1px solid var(--color-border); border-radius: 0;
-    border-bottom: 2px dashed var(--color-border);
-    background: rgba(71,85,105,0.03);
-}
-
-/* ── Shape content (z-index above gantt bg) ── */
-.v2-s-content { position: relative; z-index: 1; }
-
-/* ── Row 1: name + meta (primary scan target) ── */
-.v2-s-row1 { display: flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.55rem 0.1rem; flex-wrap: wrap; }
-.v2-s-name { font-weight: 700; font-size: 0.9rem; white-space: nowrap; }
-.v2-s-name .tp-ico { font-size: 0.7rem; opacity: 0.5; margin-right: 0.1rem; }
-.v2-s-meta { display: flex; gap: 0.25rem; align-items: center; font-size: 0.68rem; color: var(--color-text-muted); margin-left: auto; }
-.v2-s-meta .badge { font-size: 0.62rem; padding: 1px 4px; }
-.v2-s-dur { font-weight: 600; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; font-size: 0.78rem; font-family: var(--font-mono); }
-.v2-s-tok { color: var(--color-text-muted); font-size: 0.65rem; }
-
-/* ── Row 2: I/O ── */
-.v2-s-io { display: flex; gap: 0.75rem; padding: 0.12rem 0.55rem 0.2rem; font-size: 0.78rem; flex-wrap: wrap; }
-.v2-s-io-in, .v2-s-io-out { display: flex; gap: 0.3rem; align-items: baseline; }
-.v2-s-io-out { padding-left: 0.6rem; border-left: 1px solid rgba(100,116,139,0.25); }
-.v2-s-io-lbl { color: var(--color-text-muted); font-weight: 700; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.03em; font-family: var(--font-mono); flex-shrink: 0; }
-.v2-s-io-val { color: var(--color-text-secondary); font-size: 0.75rem; }
-
-/* ── Step tab bar (artifacts + logs, unified) ── */
-.v2-s-tabs { display: flex; gap: 0; padding: 0; margin: 0.15rem 0.55rem 0; border-bottom: 1px solid var(--color-border); align-items: stretch; overflow-x: auto; }
-.v2-tab {
-    display: inline-flex; align-items: center; gap: 0.2rem;
-    padding: 0.4rem 0.75rem;
-    font-size: 0.75rem; font-family: var(--font-mono);
-    color: var(--color-text-muted); cursor: pointer; text-decoration: none;
-    border-bottom: 2px solid transparent;
-    transition: color 0.1s, border-color 0.1s;
-    white-space: nowrap;
-    background: none; border-top: none; border-left: none; border-right: none;
-}
-.v2-tab:hover { color: var(--color-text-secondary); border-bottom-color: rgba(100,116,139,0.3); text-decoration: none; }
-.v2-tab.active { color: var(--color-text); border-bottom-color: var(--color-text); background: rgba(99,102,241,0.04); }
-.v2-tab .art-size { color: var(--color-text-muted); font-size: 0.6rem; }
-.v2-tab-action {
-    margin-left: auto;
-    color: #fca5a5; font-family: inherit;
-}
-.v2-tab-action:hover { color: #f87171; border-bottom-color: rgba(239,68,68,0.4); }
-/* Content area directly under tabs — no gap, no redundant header */
-.v2-s-tabcontent { margin: 0; padding: 0 0.55rem; overflow: hidden; }
-.v2-s-tabcontent[hidden] { display: none !important; }
-.v2-s-tabcontent .av-smart { padding: 0.5rem 0.6rem; }
-.v2-s-tabcontent .markdown-body { font-size: 0.82rem; line-height: 1.6; }
-.v2-s-tabcontent .markdown-body h1 { font-size: 1.2rem; margin: 0.5rem 0 0.3rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.2rem; }
-.v2-s-tabcontent .markdown-body h2 { font-size: 1rem; margin: 0.4rem 0 0.2rem; }
-.v2-s-tabcontent .markdown-body h3 { font-size: 0.9rem; margin: 0.3rem 0 0.15rem; }
-.v2-s-tabcontent .markdown-body p { margin: 0.3rem 0; }
-.v2-s-tabcontent .markdown-body ul, .v2-s-tabcontent .markdown-body ol { padding-left: 1.2rem; margin: 0.2rem 0; }
-.v2-s-tabcontent .markdown-body code { background: rgba(99,102,241,0.1); padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.78rem; }
-.v2-s-tabcontent .markdown-body pre { background: var(--color-bg-tertiary); padding: 0.4rem; border-radius: 4px; overflow-x: auto; }
-.v2-s-tabcontent .markdown-body pre code { background: none; padding: 0; }
-.v2-s-tabcontent .markdown-body hr { border: none; border-top: 1px solid var(--color-border); margin: 0.5rem 0; }
-.v2-s-tabcontent .markdown-body strong { color: var(--color-text); }
-.v2-s-tabcontent pre { margin: 0; padding: 0.3rem 0.4rem; font-size: 0.68rem; white-space: pre-wrap; word-break: break-all; color: var(--color-text-secondary); }
-.v2-s-tabcontent .av-toggle { display: flex; gap: 3px; padding: 0.25rem 0.4rem; border-bottom: 1px solid var(--color-border); background: rgba(15,23,42,0.5); align-items: center; }
-.v2-s-tabcontent .av-toggle button { padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.65rem; color: var(--color-text-muted); border: none; background: none; cursor: pointer; }
-.v2-s-tabcontent .av-toggle button:hover { color: var(--color-text-secondary); }
-.v2-s-tabcontent .av-toggle button.active { background: #334155; color: #cbd5e1; }
-.v2-s-tabcontent .av-toggle a { font-size: 0.62rem; color: var(--color-text-muted); margin-left: auto; text-decoration: none; }
-.v2-s-tabcontent .av-toggle a:hover { color: var(--color-text-secondary); }
-/* Keep old class for OUT card chips */
-.v2-art-chip {
-    display: inline-flex; align-items: center; gap: 0.15rem;
-    background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2);
-    border-radius: 12px; padding: 2px 10px;
-    font-size: 0.72rem; color: #a5b4fc; cursor: pointer; text-decoration: none;
-    transition: background 0.1s; white-space: nowrap; line-height: 1.6;
-}
-.v2-art-chip:hover { background: rgba(99,102,241,0.18); color: #c7d2fe; }
-.v2-art-chip .art-size { color: var(--color-text-muted); font-size: 0.6rem; }
-
-/* ── Contract verdict ── */
-.v2-ctr { font-size: 0.58rem; padding: 0 3px; border-radius: 2px; font-weight: 700; vertical-align: middle; }
-.v2-ctr-pass { background: rgba(34,197,94,0.15); color: #4ade80; }
-.v2-ctr-fail { background: rgba(239,68,68,0.15); color: #f87171; }
-
-/* ── Bottom gantt bar (2px accent) ── */
-.v2-s-bar { height: 4px; background: var(--color-bg-tertiary); margin: 0; }
-.v2-s-bar-fill { height: 100%; transition: width 0.3s; }
-.v2-s-bar-fill.st-completed { background: var(--color-completed); }
-.v2-s-bar-fill.st-failed    { background: var(--color-failed); }
-.v2-s-bar-fill.st-running   { background: var(--color-running); }
-
-/* ── Logs ── */
-.v2-s-log-body { margin: 0.15rem 0.55rem 0.25rem; background: var(--color-bg-tertiary); border-radius: 4px; padding: 0.4rem; font-family: var(--font-mono); font-size: 0.72rem; line-height: 1.4; white-space: pre-wrap; word-break: break-all; color: var(--color-text-secondary); }
-
-/* ── Error strip ── */
-.v2-s-err { padding: 0.12rem 0.45rem; font-size: 0.68rem; color: #fca5a5; background: rgba(239,68,68,0.1); border-top: 1px solid rgba(239,68,68,0.25); }
-
-/* ── Gate ── */
-.v2-s-gate { padding: 0.08rem 0.45rem 0.15rem; }
-.v2-s-gate-prompt { font-size: 0.7rem; color: var(--color-text); font-style: italic; margin-bottom: 0.1rem; }
-.v2-s-gate-choices { display: flex; gap: 0.2rem; flex-wrap: wrap; }
-.v2-s-gate-btn { padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.65rem; border: 1px solid var(--color-border); background: var(--color-bg-tertiary); color: var(--color-text-secondary); cursor: pointer; transition: border-color 0.12s; }
-.v2-s-gate-btn:hover { border-color: #f59e0b; color: #fbbf24; }
-.v2-s-gate-result { font-size: 0.65rem; color: #4ade80; }
-
-/* ── Conditional edges ── */
-.v2-s-edges { padding: 0.06rem 0.45rem 0.12rem; font-size: 0.65rem; color: var(--color-text-muted); }
-
-/* ── Secondary bar ── */
-.v2-sec { display: flex; gap: 0.25rem; margin-top: 0.5rem; padding: 0.3rem 0; border-top: 1px solid var(--color-border); flex-wrap: wrap; align-items: center; }
-.v2-sec-tab { font-size: 0.75rem; color: var(--color-text-muted); padding: 0.35rem 0.6rem; border-radius: 4px; cursor: pointer; text-decoration: none; transition: background 0.1s; border: none; background: none; min-height: 28px; }
-.v2-sec-tab:hover { background: var(--color-bg-tertiary); color: var(--color-text-secondary); }
-.v2-sec-tab.active { background: var(--color-bg-tertiary); color: var(--color-text); border-bottom: 2px solid #6366f1; }
-
-/* ── Panels ── */
-.v2-panel { background: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: 4px; margin-top: 0.4rem; margin-bottom: 0.75rem; overflow: hidden; }
-.v2-panel[hidden] { display: none !important; }
-/* Hide v1 events/cards that SSE creates outside our v2 panels */
-.events-timeline, .card > .events-timeline, .card:has(.events-timeline) { display: none !important; }
-body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
-.v2-panel-head { padding: 0.35rem 0.6rem; font-size: 0.8rem; font-weight: 600; color: var(--color-text); border-bottom: 1px solid var(--color-border); background: rgba(30,41,59,0.4); }
-
-/* Events */
-.v2-events { }
-.v2-ev { display: flex; gap: 0.4rem; align-items: baseline; padding: 0.15rem 0.6rem; font-size: 0.72rem; border-bottom: 1px solid rgba(51,65,85,0.3); }
-.v2-ev:last-child { border-bottom: none; }
-.v2-ev-hook { opacity: 0.7; }
-.v2-ev-time { color: var(--color-text-muted); font-size: 0.65rem; font-family: var(--font-mono); min-width: 70px; flex-shrink: 0; }
-.v2-ev-step { color: var(--color-text-secondary); font-family: var(--font-mono); font-size: 0.68rem; }
-.v2-ev-msg { color: var(--color-text-secondary); flex: 1; word-break: break-word; }
-.v2-ev-dur { color: var(--color-text-muted); font-size: 0.62rem; }
-
-/* Metrics table */
-.v2-metrics-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
-.v2-metrics-table th { text-align: left; padding: 0.3rem 0.5rem; color: var(--color-text-muted); font-weight: 600; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid var(--color-border); }
-.v2-metrics-table td { padding: 0.25rem 0.5rem; border-bottom: 1px solid rgba(51,65,85,0.3); color: var(--color-text-secondary); }
-.v2-metrics-table tr:last-child td { border-bottom: none; }
-.v2-mt-completed td:first-child { border-left: 3px solid var(--color-completed); }
-.v2-mt-failed td:first-child { border-left: 3px solid var(--color-failed); }
-.v2-mt-running td:first-child { border-left: 3px solid var(--color-running); }
-.v2-mt-pending td:first-child { border-left: 3px solid var(--color-border); }
-
-/* Diff: split-pane (file tree left, diff right) */
-.v2-diff-layout { display: grid; grid-template-columns: 280px 1fr; min-height: 200px; }
-.v2-diff-tree { border-right: 1px solid var(--color-border); overflow-y: auto; }
-.v2-diff-content { overflow: auto; }
-.v2-diff-summary { display: flex; gap: 0.75rem; padding: 0.3rem 0.5rem; font-size: 0.75rem; color: var(--color-text-muted); border-bottom: 1px solid var(--color-border); grid-column: 1 / -1; }
-.v2-diff-summary b { color: var(--color-text); }
-.v2-diff-file { display: flex; gap: 0.3rem; align-items: center; padding: 0.2rem 0.4rem; font-size: 0.7rem; border-bottom: 1px solid rgba(51,65,85,0.2); cursor: pointer; }
-.v2-diff-file:hover { background: var(--color-bg-tertiary); }
-.v2-diff-file.active { background: rgba(99,102,241,0.08); border-left: 2px solid #6366f1; }
-.v2-diff-stat { font-family: var(--font-mono); font-size: 0.62rem; margin-left: auto; white-space: nowrap; }
-.v2-diff-add { color: #4ade80; }
-.v2-diff-del { color: #f87171; }
-.v2-diff-path { color: var(--color-text-secondary); font-family: var(--font-mono); font-size: 0.68rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.v2-diff-status { font-size: 0.58rem; padding: 0 3px; border-radius: 2px; flex-shrink: 0; }
-.v2-diff-status-M { background: rgba(245,158,11,0.12); color: #fbbf24; }
-.v2-diff-status-A { background: rgba(34,197,94,0.12); color: #4ade80; }
-.v2-diff-status-D { background: rgba(239,68,68,0.12); color: #f87171; }
-.v2-diff-status-R { background: rgba(99,102,241,0.12); color: #a5b4fc; }
-.v2-diff-empty { padding: 1rem; color: var(--color-text-muted); font-size: 0.78rem; text-align: center; }
-@media (max-width: 900px) { .v2-diff-layout { grid-template-columns: 1fr; } .v2-diff-tree { border-right: none; border-bottom: 1px solid var(--color-border); max-height: 200px; } }
-
-/* Minimal steps (no data from old runs) */
-.v2-s-minimal { opacity: 0.6; }
-.v2-s-minimal .v2-s-io { display: none; }
-.v2-s-minimal .v2-s-row1 { padding: 0.15rem 0.55rem; }
-
-/* Retro */
-.v2-retro-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.4rem; padding: 0.4rem; }
-.v2-retro-card { background: var(--color-bg-tertiary); border-radius: 4px; padding: 0.4rem 0.5rem; text-align: center; }
-.v2-retro-card-label { font-size: 0.62rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
-.v2-retro-card-value { font-size: 1.1rem; font-weight: 700; color: var(--color-text); margin-top: 0.1rem; }
-
-/* ── Artifact viewer ── */
-.v2-art-viewer { margin: 0.15rem 0.45rem; background: var(--color-bg-tertiary); border-radius: 3px; border: 1px solid var(--color-border); overflow: hidden; }
-.v2-art-viewer-head { padding: 0.2rem 0.4rem; font-size: 0.65rem; color: var(--color-text-muted); background: rgba(30,41,59,0.6); border-bottom: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center; }
-.v2-art-viewer-head .av-tabs { display: flex; gap: 2px; }
-.v2-art-viewer-head .av-tab { padding: 1px 6px; border-radius: 3px; cursor: pointer; font-size: 0.6rem; color: var(--color-text-muted); border: none; background: none; }
-.v2-art-viewer-head .av-tab.active { background: #334155; color: #cbd5e1; }
-.v2-art-viewer-head .av-tab:hover { color: #94a3b8; }
-.v2-art-viewer pre { margin: 0; padding: 0.25rem 0.35rem; font-size: 0.65rem; white-space: pre-wrap; word-break: break-all; color: var(--color-text-secondary); }
-.av-smart { }
-/* Smart view for JSON artifacts */
-.av-smart { padding: 0.4rem 0.5rem; font-size: 0.75rem; }
-.av-kv { display: flex; gap: 0.4rem; padding: 0.12rem 0; border-bottom: 1px solid rgba(51,65,85,0.5); align-items: baseline; }
-.av-kv:last-child { border-bottom: none; }
-.av-key { color: #64748b; min-width: 90px; flex-shrink: 0; font-size: 0.68rem; font-weight: 500; }
-.av-val { color: #e2e8f0; word-break: break-word; }
-.av-val a { color: #818cf8; text-decoration: underline; }
-.av-section { margin-top: 0.35rem; }
-.av-section-title { font-weight: 600; font-size: 0.72rem; color: #94a3b8; margin-bottom: 0.2rem; display: flex; align-items: center; gap: 0.3rem; }
-.av-item { background: #1e293b; border-radius: 4px; padding: 0.2rem 0.4rem; margin-bottom: 0.15rem; display: flex; gap: 0.35rem; align-items: baseline; flex-wrap: wrap; }
-.av-item-head { display: contents; }
-.av-sev { padding: 0px 5px; border-radius: 3px; font-size: 0.6rem; font-weight: 600; line-height: 1.6; }
-.av-sev-critical,.av-sev-major { background: rgba(239,68,68,0.15); color: #f87171; }
-.av-sev-minor { background: rgba(245,158,11,0.12); color: #fbbf24; }
-.av-sev-suggestion,.av-sev-info { background: rgba(99,102,241,0.12); color: #a5b4fc; }
-.av-summary { color: #e2e8f0; font-size: 0.73rem; flex: 1; min-width: 200px; }
-.av-file { color: #64748b; font-size: 0.62rem; font-family: var(--font-mono, monospace); margin-left: auto; white-space: nowrap; }
-.av-detail { color: #94a3b8; font-size: 0.68rem; width: 100%; margin-top: 0.1rem; }
-.av-status { font-size: 0.62rem; padding: 0 4px; border-radius: 2px; }
-.av-status-fixed { background: rgba(34,197,94,0.12); color: #4ade80; }
-.av-status-pending_fix { background: rgba(245,158,11,0.12); color: #fbbf24; }
-.av-status-skip { background: rgba(100,116,139,0.2); color: #94a3b8; }
-.av-stat { display: inline-flex; align-items: center; gap: 0.15rem; padding: 1px 6px; border-radius: 3px; font-size: 0.7rem; font-weight: 600; margin-right: 0.3rem; }
-.av-stat-g { background: rgba(34,197,94,0.12); color: #4ade80; }
-.av-stat-r { background: rgba(239,68,68,0.12); color: #f87171; }
-.av-stat-y { background: rgba(245,158,11,0.12); color: #fbbf24; }
-.av-stat-b { background: rgba(99,102,241,0.12); color: #a5b4fc; }
-
-
-/* ── Compact mode (auto for 8+ steps, expand on hover/focus) ── */
-.v2-compact .v2-s-io,
-.v2-compact .v2-s-log,
-.v2-compact .v2-s-gate,
-.v2-compact .v2-s-edges { display: none; }
-.v2-compact .v2-s-row1 { padding: 0.1rem 0.35rem 0.06rem; }
-.v2-compact .v2-s-name { font-size: 0.7rem; }
-.v2-compact .v2-s-dur { font-size: 0.6rem; }
-.v2-compact .v2-s-bar { height: 1px; }
-.v2-compact .v2-conn { height: 5px; }
-.v2-compact .v2-s:hover .v2-s-io { display: flex; }
-.v2-compact .v2-s:hover .v2-s-log { display: block; }
-.v2-compact .v2-s:hover .v2-s-gate,
-.v2-compact .v2-s:hover .v2-s-edges { display: block; }
-.v2-compact .v2-s:focus-within .v2-s-io { display: flex; }
-.v2-compact .v2-s:focus-within .v2-s-log,
-.v2-compact .v2-s:focus-within .v2-s-gate,
-.v2-compact .v2-s:focus-within .v2-s-edges { display: block; }
-
-/* ── Parallel fork/join ── */
-.v2-parallel { display: grid; gap: 2px; position: relative; padding: 3px 0; }
-.v2-parallel::before, .v2-parallel::after { content: ''; position: absolute; left: 8%; right: 8%; height: 1px; background: var(--color-border); }
-.v2-parallel::before { top: 0; }
-.v2-parallel::after  { bottom: 0; }
-.v2-parallel-2 { grid-template-columns: 1fr 1fr; }
-.v2-parallel-3 { grid-template-columns: 1fr 1fr 1fr; }
-.v2-parallel-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
-.v2-parallel-5 { grid-template-columns: 1fr 1fr 1fr 1fr 1fr; }
-</style>
 
 <!-- Header -->
-<div class="v2-head">
+<div class="w-head">
     <div>
         <a href="/runs" class="back-link">&larr; Runs</a>
         <h1>
@@ -355,7 +17,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 </div>
 
 <!-- Stats + secondary nav on same level -->
-<div class="v2-stats">
+<div class="w-stats">
     <span title="{{.Run.FormattedStartedAt}}"><b data-relative-time="{{.Run.StartedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.Run.FormattedStartedAt}}</b></span>
     <span style="color:var(--color-text-muted);">·</span>
     <span><b{{if eq .Run.Status "running"}} data-live-timer="true" data-started-at="{{.Run.StartedAt.Format "2006-01-02T15:04:05Z07:00"}}"{{end}}>{{if .Run.Duration}}{{.Run.Duration}}{{else}}-{{end}}</b></span>
@@ -366,49 +28,49 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
     {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{friendlyModel .}}</span>{{end}}
     {{range .Models}}<span class="badge badge-model">{{friendlyModel .}}</span>{{end}}
     <span style="margin-left:auto;display:flex;gap:0.15rem;">
-        {{if .Events}}<button class="v2-sec-tab" onclick="v2Tab('events',this)">Events ({{len .Events}})</button>{{end}}
-        <button class="v2-sec-tab" onclick="v2Tab('retro',this)">Retro</button>
-        {{if .Run.BranchName}}<button class="v2-sec-tab" onclick="v2Tab('diff',this)">Changed Files</button>{{end}}
-        <button class="v2-sec-tab" onclick="v2Tab('metrics',this)">Metrics</button>
+        {{if .Events}}<button class="w-sec-tab" onclick="v2Tab('events',this)">Events ({{len .Events}})</button>{{end}}
+        <button class="w-sec-tab" onclick="v2Tab('retro',this)">Retro</button>
+        {{if .Run.BranchName}}<button class="w-sec-tab" onclick="v2Tab('diff',this)">Changed Files</button>{{end}}
+        <button class="w-sec-tab" onclick="v2Tab('metrics',this)">Metrics</button>
     </span>
 </div>
 
 <!-- Panels (open inline below stats bar when tab clicked) -->
-<div id="v2-panel-events" class="v2-panel" hidden>
-    <div class="v2-panel-head">Events <span style="color:var(--color-text-muted);">{{len .Events}}</span></div>
+<div id="w-panel-events" class="w-panel" hidden>
+    <div class="w-panel-head">Events <span style="color:var(--color-text-muted);">{{len .Events}}</span></div>
     {{if .Events}}
-    <div class="v2-events">
+    <div class="w-events">
         {{range .Events}}
-        <div class="v2-ev{{if hasPrefix .State "hook_"}} v2-ev-hook{{end}}">
-            <span class="v2-ev-time">{{formatTime .Timestamp}}</span>
+        <div class="w-ev{{if hasPrefix .State "hook_"}} w-ev-hook{{end}}">
+            <span class="w-ev-time">{{formatTime .Timestamp}}</span>
             <span class="badge {{statusClass .State}}" style="font-size:0.62rem;">{{.State}}</span>
-            {{if .StepID}}<span class="v2-ev-step">{{.StepID}}</span>{{end}}
-            <span class="v2-ev-msg">{{.Message}}</span>
-            {{if and .DurationMs (hasPrefix .State "hook_")}}<span class="v2-ev-dur">{{.DurationMs}}ms</span>{{end}}
+            {{if .StepID}}<span class="w-ev-step">{{.StepID}}</span>{{end}}
+            <span class="w-ev-msg">{{.Message}}</span>
+            {{if and .DurationMs (hasPrefix .State "hook_")}}<span class="w-ev-dur">{{.DurationMs}}ms</span>{{end}}
         </div>
         {{end}}
     </div>
     {{else}}<div style="padding:0.5rem;color:var(--color-text-muted);font-size:0.78rem;">No events</div>{{end}}
 </div>
-<div id="v2-panel-retro" class="v2-panel" hidden>
-    <div class="v2-panel-head">Retrospective</div>
-    <div id="v2-retro-content" style="padding:0.5rem;font-size:0.78rem;color:var(--color-text-muted);">Loading…</div>
+<div id="w-panel-retro" class="w-panel" hidden>
+    <div class="w-panel-head">Retrospective</div>
+    <div id="w-retro-content" style="padding:0.5rem;font-size:0.78rem;color:var(--color-text-muted);">Loading…</div>
 </div>
 {{if .Run.BranchName}}
-<div id="v2-panel-diff" class="v2-panel" hidden>
-    <div class="v2-panel-head">Changed Files</div>
-    <div id="v2-diff-content" style="padding:0.5rem;">
+<div id="w-panel-diff" class="w-panel" hidden>
+    <div class="w-panel-head">Changed Files</div>
+    <div id="w-diff-content" style="padding:0.5rem;">
         <div style="color:var(--color-text-muted);font-size:0.78rem;">Loading…</div>
     </div>
 </div>
 {{end}}
-<div id="v2-panel-metrics" class="v2-panel" hidden>
-    <div class="v2-panel-head">Step Metrics</div>
-    <table class="v2-metrics-table">
+<div id="w-panel-metrics" class="w-panel" hidden>
+    <div class="w-panel-head">Step Metrics</div>
+    <table class="w-metrics-table">
         <thead><tr><th>Step</th><th>Status</th><th>Duration</th><th>Tokens</th><th>Model</th><th>Adapter</th></tr></thead>
         <tbody>
         {{range .Steps}}
-        <tr class="v2-mt-{{.State}}">
+        <tr class="w-mt-{{.State}}">
             <td><strong>{{.StepID}}</strong></td>
             <td><span class="badge {{statusClass .State}}" style="font-size:0.65rem;">{{.State}}</span></td>
             <td style="font-variant-numeric:tabular-nums;">{{if .Duration}}{{.Duration}}{{else}}—{{end}}</td>
@@ -422,10 +84,10 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 </div>
 
 <!-- INPUT -->
-<div class="v2-io v2-io-in">
-    <span class="v2-io-tag">IN</span>
+<div class="w-io w-io-in">
+    <span class="w-io-tag">IN</span>
     {{if .LinkedTitle}}
-    <div class="v2-io-text" style="display:flex;flex-direction:column;gap:0.15rem;">
+    <div class="w-io-text" style="display:flex;flex-direction:column;gap:0.15rem;">
         <div style="display:flex;align-items:center;gap:0.4rem;">
             <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:1.1rem;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
             {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else}}status-cancelled{{end}}" style="font-size:0.62rem;">{{.LinkedState}}</span>{{end}}
@@ -433,7 +95,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
         {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</span>{{end}}
     </div>
     {{else}}
-    <span class="v2-io-text">
+    <span class="w-io-text">
         {{if .Run.LinkedURL}}<a href="{{.Run.LinkedURL}}" target="_blank" style="font-weight:600;">{{richInput .Run.Input .Run.LinkedURL}}</a>{{else if .Run.Input}}{{.Run.Input}}{{else}}<span style="opacity:0.4">no input</span>{{end}}
     </span>
     {{end}}
@@ -441,65 +103,65 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 
 
 <!-- Fat Gantt Shapes -->
-<div class="v2-flow{{if ge (len .Steps) 8}} v2-compact{{end}}">
+<div class="w-flow{{if ge (len .Steps) 8}} w-compact{{end}}">
 {{range $i, $step := .Steps}}
-    {{if $i}}<div class="v2-conn"><span class="v2-conn-dot"></span></div>{{end}}
+    {{if $i}}<div class="w-conn"><span class="w-conn-dot"></span></div>{{end}}
 
-    <div class="v2-s st-{{$step.State}}{{if eq $step.StepType "pipeline"}} tp-pipeline{{else if eq $step.StepType "gate"}} tp-gate{{else if eq $step.StepType "conditional"}} tp-conditional{{else if eq $step.StepType "command"}} tp-command{{end}}{{if and (not $step.Duration) (not $step.TokensUsed) (eq $step.State "completed")}} v2-s-minimal{{end}}" id="v2-{{$step.StepID}}"{{if $step.StartedAt}} data-started-at="{{formatTimeISO $step.StartedAt}}"{{end}}>
+    <div class="ws st-{{$step.State}}{{if eq $step.StepType "pipeline"}} tp-pipeline{{else if eq $step.StepType "gate"}} tp-gate{{else if eq $step.StepType "conditional"}} tp-conditional{{else if eq $step.StepType "command"}} tp-command{{end}}{{if and (not $step.Duration) (not $step.TokensUsed) (eq $step.State "completed")}} ws-minimal{{end}}" id="w-{{$step.StepID}}"{{if $step.StartedAt}} data-started-at="{{formatTimeISO $step.StartedAt}}"{{end}}>
 
         <!-- Gantt fill as background -->
         <!-- Top gantt bar -->
-        <div class="v2-s-bar"><div class="v2-s-bar-fill st-{{$step.State}}" style="margin-left:{{if $step.GanttLeft}}{{printf "%.1f" $step.GanttLeft}}%{{else}}0{{end}};width:{{if $step.GanttWidth}}{{printf "%.1f" $step.GanttWidth}}%{{else}}0%{{end}};"></div></div>
+        <div class="ws-bar"><div class="ws-bar-fill st-{{$step.State}}" style="margin-left:{{if $step.GanttLeft}}{{printf "%.1f" $step.GanttLeft}}%{{else}}0{{end}};width:{{if $step.GanttWidth}}{{printf "%.1f" $step.GanttWidth}}%{{else}}0%{{end}};"></div></div>
 
-        <div class="v2-s-bg st-{{$step.State}}" style="left:{{if $step.GanttLeft}}{{printf "%.1f" $step.GanttLeft}}%{{else}}0{{end}};width:{{if $step.GanttWidth}}{{printf "%.1f" $step.GanttWidth}}%{{else}}0%{{end}};"></div>
+        <div class="ws-bg st-{{$step.State}}" style="left:{{if $step.GanttLeft}}{{printf "%.1f" $step.GanttLeft}}%{{else}}0{{end}};width:{{if $step.GanttWidth}}{{printf "%.1f" $step.GanttWidth}}%{{else}}0%{{end}};"></div>
 
-        <div class="v2-s-content">
+        <div class="ws-content">
             <!-- Row 1: Name + infra + duration -->
-            <div class="v2-s-row1">
-                <span class="v2-s-name">
+            <div class="ws-row1">
+                <span class="ws-name">
                     {{if eq $step.StepType "pipeline"}}<span class="tp-ico">&#x27D0;</span>
                     {{else if eq $step.StepType "gate"}}<span class="tp-ico">&#x25C6;</span>
                     {{else if eq $step.StepType "conditional"}}<span class="tp-ico">&#x25C6;</span>
                     {{else if eq $step.StepType "command"}}<span class="tp-ico">&gt;_</span>
                     {{end}}{{$step.StepID}}{{if $step.SubPipeline}} <span style="font-weight:400;color:var(--color-text-muted);font-size:0.65rem;">({{$step.SubPipeline}})</span>{{end}}</span>
                 {{if $step.MaxVisits}}<span class="badge" style="font-size:0.55rem;background:rgba(168,85,247,0.15);color:#a855f7;">{{$step.VisitCount}}/{{$step.MaxVisits}}</span>{{end}}
-                <span class="v2-s-meta">
+                <span class="ws-meta">
                     {{if $step.Adapter}}<span class="badge badge-adapter">{{adapterIcon $step.Adapter}}{{$step.Adapter}}</span>{{end}}
                     {{if $step.Model}}<span class="badge badge-model">{{friendlyModel $step.Model}}</span>{{end}}
-                    {{if $step.TokensUsed}}<span class="v2-s-tok">{{formatTokens $step.TokensUsed}}</span>{{end}}
+                    {{if $step.TokensUsed}}<span class="ws-tok">{{formatTokens $step.TokensUsed}}</span>{{end}}
                     {{if eq $step.StepType "command"}}<span style="color:var(--color-text-muted)">cmd</span>{{end}}
-                    {{if $step.Duration}}<span class="v2-s-dur">{{$step.Duration}}</span>{{end}}
+                    {{if $step.Duration}}<span class="ws-dur">{{$step.Duration}}</span>{{end}}
                     {{if eq $step.State "running"}}<span class="spinner spinner-sm"></span>{{end}}
                 </span>
             </div>
 
             <!-- Row 2: I/O -->
-            <div class="v2-s-io">
-                <div class="v2-s-io-in">
-                    <span class="v2-s-io-lbl">in</span>
-                    <span class="v2-s-io-val">{{if $step.Action}}{{if gt (len $step.Action) 80}}{{slice $step.Action 0 80}}…{{else}}{{$step.Action}}{{end}}{{else if eq $i 0}}pipeline input{{else}}prev step{{end}}</span>
+            <div class="ws-io">
+                <div class="ws-io-in">
+                    <span class="ws-io-lbl">in</span>
+                    <span class="ws-io-val">{{if $step.Action}}{{if gt (len $step.Action) 80}}{{slice $step.Action 0 80}}…{{else}}{{$step.Action}}{{end}}{{else if eq $i 0}}pipeline input{{else}}prev step{{end}}</span>
                 </div>
-                {{if $step.ReviewVerdict}}<span class="v2-ctr {{if eq $step.ReviewVerdict "pass"}}v2-ctr-pass{{else}}v2-ctr-fail{{end}}">{{$step.ReviewVerdict}}</span>{{end}}
+                {{if $step.ReviewVerdict}}<span class="w-ctr {{if eq $step.ReviewVerdict "pass"}}w-ctr-pass{{else}}w-ctr-fail{{end}}">{{$step.ReviewVerdict}}</span>{{end}}
             </div>
 
             <!-- Error -->
             {{if $step.Error}}
-            <div class="v2-s-err">{{if $step.FailureClass}}<span class="badge badge-failure-{{$step.FailureClass}}" style="font-size:0.65rem;">{{titleCase $step.FailureClass}}</span> {{end}}{{if gt (len $step.Error) 200}}{{slice $step.Error 0 200}}…{{else}}{{$step.Error}}{{end}}</div>
+            <div class="ws-err">{{if $step.FailureClass}}<span class="badge badge-failure-{{$step.FailureClass}}" style="font-size:0.65rem;">{{titleCase $step.FailureClass}}</span> {{end}}{{if gt (len $step.Error) 200}}{{slice $step.Error 0 200}}…{{else}}{{$step.Error}}{{end}}</div>
             {{end}}
 
             <!-- Step config (click header to toggle — independent of tab content) -->
-            <div class="v2-s-config" hidden data-step-id="{{$step.StepID}}"></div>
+            <div class="ws-config" hidden data-step-id="{{$step.StepID}}"></div>
 
             <!-- Gate / Conditional / Command -->
             {{if eq $step.StepType "gate"}}
-            <div class="v2-s-gate">
-                {{if $step.GatePrompt}}<div class="v2-s-gate-prompt">"{{$step.GatePrompt}}"</div>{{end}}
+            <div class="ws-gate">
+                {{if $step.GatePrompt}}<div class="ws-gate-prompt">"{{$step.GatePrompt}}"</div>{{end}}
                 {{if and (eq $step.State "running") $step.GateChoicesData}}
-                <div class="v2-s-gate-choices">{{range $step.GateChoicesData}}<button class="v2-s-gate-btn gate-choice-btn" data-choice-key="{{.Key}}" onclick="selectGateChoice(this)">{{.Label}}</button>{{end}}</div>
-                {{else if $step.GateChoices}}<div class="v2-s-gate-result">→ {{$step.GateChoices}}</div>{{end}}
+                <div class="ws-gate-choices">{{range $step.GateChoicesData}}<button class="ws-gate-btn gate-choice-btn" data-choice-key="{{.Key}}" onclick="selectGateChoice(this)">{{.Label}}</button>{{end}}</div>
+                {{else if $step.GateChoices}}<div class="ws-gate-result">→ {{$step.GateChoices}}</div>{{end}}
             </div>
             {{end}}
-            {{if and (eq $step.StepType "conditional") $step.EdgeInfo}}<div class="v2-s-edges">{{$step.EdgeInfo}}</div>{{end}}
+            {{if and (eq $step.StepType "conditional") $step.EdgeInfo}}<div class="ws-edges">{{$step.EdgeInfo}}</div>{{end}}
             {{if and (eq $step.StepType "command") $step.Script}}<div style="padding:0.06rem 0.55rem 0.15rem;"><pre style="margin:0;font-size:0.68rem;color:var(--color-text-muted);background:var(--color-bg-tertiary);padding:0.2rem 0.4rem;border-radius:3px;overflow-x:auto;"><code>{{$step.Script}}</code></pre></div>{{end}}
 
             <!-- Child runs for sub-pipeline steps -->
@@ -520,14 +182,14 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
             {{end}}
 
             <!-- Tab bar: artifacts + logs -->
-            <div class="v2-s-tabs">
-                {{if $step.Artifacts}}{{range $a := $step.Artifacts}}<a href="#" class="v2-tab" data-run-id="{{$step.RunID}}" data-step-id="{{$step.StepID}}" data-artifact-name="{{$a.Name}}" onclick="v2ToggleArt(this);return false;">{{$a.Name}} <span class="art-size">{{formatBytes $a.SizeBytes}}</span></a>{{end}}{{end}}
-                <a href="#" class="v2-tab" onclick="v2ToggleLogs(this);return false;" data-step-id="{{$step.StepID}}">logs</a>
-                {{if eq $step.State "running"}}<button class="v2-tab v2-tab-action" onclick="cancelRun('{{$step.RunID}}',this)" title="Stop this pipeline">&#9632; stop</button>{{end}}
+            <div class="ws-tabs">
+                {{if $step.Artifacts}}{{range $a := $step.Artifacts}}<a href="#" class="w-tab" data-run-id="{{$step.RunID}}" data-step-id="{{$step.StepID}}" data-artifact-name="{{$a.Name}}" onclick="v2ToggleArt(this);return false;">{{$a.Name}} <span class="art-size">{{formatBytes $a.SizeBytes}}</span></a>{{end}}{{end}}
+                <a href="#" class="w-tab" onclick="v2ToggleLogs(this);return false;" data-step-id="{{$step.StepID}}">logs</a>
+                {{if eq $step.State "running"}}<button class="w-tab w-tab-action" onclick="cancelRun('{{$step.RunID}}',this)" title="Stop this pipeline">&#9632; stop</button>{{end}}
             </div>
 
             <!-- Tab content: artifact viewer OR logs (below tab bar) -->
-            <div class="v2-s-tabcontent" hidden data-step-id="{{$step.StepID}}"></div>
+            <div class="ws-tabcontent" hidden data-step-id="{{$step.StepID}}"></div>
         </div>
 
     </div>
@@ -535,13 +197,13 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 </div>
 
 <!-- OUTPUT -->
-<div class="v2-io v2-io-out{{if eq .Run.Status "failed"}} st-failed{{end}}">
+<div class="w-io w-io-out{{if eq .Run.Status "failed"}} st-failed{{end}}">
     <div style="padding:0 0.75rem;">
         <div style="display:flex;align-items:center;gap:0.5rem;">
-            <span class="v2-io-tag">OUT</span>
-            <span class="v2-io-text">
+            <span class="w-io-tag">OUT</span>
+            <span class="w-io-text">
                 {{if eq .Run.Status "completed"}}<span style="color:#4ade80;">&#10003;</span>{{else if eq .Run.Status "failed"}}<span style="color:#f87171;">&#10007;</span>{{else if eq .Run.Status "running"}}<span class="spinner spinner-sm" style="vertical-align:middle;margin-right:0.2rem;"></span>{{end}}
-                <span class="v2-io-result">{{.Run.Status}}</span>
+                <span class="w-io-result">{{.Run.Status}}</span>
             </span>
             {{if eq .Run.Status "failed"}}
             <div style="margin-left:auto;display:flex;gap:0.3rem;">
@@ -561,12 +223,12 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
     </div>
     {{if .Run.ErrorMessage}}<div style="font-size:0.78rem;color:#fca5a5;padding:0.15rem 0.75rem;">{{.Run.ErrorMessage}}</div>{{end}}
     {{if .ArtifactGroups}}
-    <div class="v2-s-tabs" style="margin:0.2rem 0.45rem 0;">
+    <div class="ws-tabs" style="margin:0.2rem 0.45rem 0;">
         {{range .ArtifactGroups}}{{$sid := .StepID}}{{range .Artifacts}}
-        <a href="#" class="v2-tab" data-run-id="{{$.Run.RunID}}" data-step-id="{{$sid}}" data-artifact-name="{{.Name}}" onclick="v2ToggleOutArtTab(this);return false;"><span style="color:var(--color-text-muted);font-size:0.58rem;">{{$sid}}/</span>{{.Name}} <span class="art-size">{{formatBytes .SizeBytes}}</span></a>
+        <a href="#" class="w-tab" data-run-id="{{$.Run.RunID}}" data-step-id="{{$sid}}" data-artifact-name="{{.Name}}" onclick="v2ToggleOutArtTab(this);return false;"><span style="color:var(--color-text-muted);font-size:0.58rem;">{{$sid}}/</span>{{.Name}} <span class="art-size">{{formatBytes .SizeBytes}}</span></a>
         {{end}}{{end}}
     </div>
-    <div class="v2-s-tabcontent" id="v2-out-tc" hidden style="margin:0 0.45rem 0.3rem;background:var(--color-bg-secondary);border:1px solid var(--color-border);border-radius:4px;"></div>
+    <div class="ws-tabcontent" id="w-out-tc" hidden style="margin:0 0.45rem 0.3rem;background:var(--color-bg-secondary);border:1px solid var(--color-border);border-radius:4px;"></div>
     {{end}}
 </div>
 
@@ -578,11 +240,11 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 <script>
 // Toggle logs tab
 function v2ToggleLogs(tab){
-    var shape=tab.closest('.v2-s');
-    var tc=shape.querySelector('.v2-s-tabcontent');
+    var shape=tab.closest('.w-s');
+    var tc=shape.querySelector('.ws-tabcontent');
     if(!tc)return;
     var wasActive=tab.classList.contains('active');
-    shape.querySelectorAll('.v2-tab').forEach(function(t){t.classList.remove('active')});
+    shape.querySelectorAll('.w-tab').forEach(function(t){t.classList.remove('active')});
     if(wasActive){tc.hidden=true;return;}
     tab.classList.add('active');
     tc.hidden=false;
@@ -654,7 +316,7 @@ if('{{.Run.Status}}'==='running'){
         document.querySelectorAll('[data-live-timer="true"]').forEach(function(el){
             var started=el.getAttribute('data-started-at');
             if(!started){
-                var shape=el.closest('.v2-s');
+                var shape=el.closest('.w-s');
                 if(shape) started=shape.getAttribute('data-started-at');
             }
             if(!started)return;
@@ -663,11 +325,11 @@ if('{{.Run.Status}}'==='running'){
         });
         // Expand running step gantt bars
         if(totalElapsed>0){
-            document.querySelectorAll('.v2-s.st-running').forEach(function(shape){
-                var bar=shape.querySelector('.v2-s-bar-fill');
-                var bg=shape.querySelector('.v2-s-bg');
+            document.querySelectorAll('.ws.st-running').forEach(function(shape){
+                var bar=shape.querySelector('.ws-bar-fill');
+                var bg=shape.querySelector('.ws-bg');
                 var stepStarted=shape.querySelector('[data-started-at]');
-                if(!stepStarted) stepStarted=shape.querySelector('.v2-s-dur');
+                if(!stepStarted) stepStarted=shape.querySelector('.ws-dur');
                 // Calculate: this step started at some offset, its width grows
                 var stepStartAttr=null;
                 shape.querySelectorAll('[data-started-at]').forEach(function(e){stepStartAttr=e.getAttribute('data-started-at');});
@@ -689,16 +351,16 @@ if('{{.Run.Status}}'==='running'){
 })();
 
 // Click step header to show step config (separate from tab content)
-document.querySelectorAll('.v2-s-row1').forEach(function(row){
+document.querySelectorAll('.ws-row1').forEach(function(row){
     row.style.cursor='pointer';
     row.addEventListener('click',function(){
-        var shape=row.closest('.v2-s');
-        var tc=shape.querySelector('.v2-s-config');
+        var shape=row.closest('.w-s');
+        var tc=shape.querySelector('.ws-config');
         if(!tc)return;
         if(!tc.hidden){tc.hidden=true;return;}
         tc.hidden=false;
         tc.dataset.showing='info';
-        var nameEl=shape.querySelector('.v2-s-name');
+        var nameEl=shape.querySelector('.ws-name');
         var stepId=nameEl?nameEl.textContent.trim().split(/\s/)[0]:'';
         tc.innerHTML='<div style="padding:0.5rem 0.6rem;color:var(--color-text-muted);font-size:0.75rem;">Loading step configuration...</div>';
         fetch('/api/pipelines/'+encodeURIComponent('{{.Run.PipelineName}}')).then(function(r){return r.json()}).then(function(d){
@@ -742,12 +404,12 @@ document.querySelectorAll('.v2-s-row1').forEach(function(row){
 var v2LoadedPanels={};
 function v2Tab(name,btn){
     // Toggle: clicking active tab hides it
-    var panel=document.getElementById('v2-panel-'+name);
+    var panel=document.getElementById('w-panel-'+name);
     if(!panel)return;
     var wasActive=btn.classList.contains('active');
     // Hide all panels, deactivate all tabs
-    document.querySelectorAll('.v2-panel').forEach(function(p){p.hidden=true;});
-    document.querySelectorAll('.v2-sec-tab').forEach(function(t){t.classList.remove('active');});
+    document.querySelectorAll('.w-panel').forEach(function(p){p.hidden=true;});
+    document.querySelectorAll('.w-sec-tab').forEach(function(t){t.classList.remove('active');});
     if(wasActive)return; // was open, now closed
     // Show this panel
     panel.hidden=false;
@@ -762,35 +424,35 @@ function v2Tab(name,btn){
 
 // Load diff/changed files
 function v2LoadDiff(){
-    var el=document.getElementById('v2-diff-content');
+    var el=document.getElementById('w-diff-content');
     if(!el)return;
     fetch('/api/runs/{{.Run.RunID}}/diff').then(function(r){return r.json()}).then(function(d){
-        if(!d.available){el.innerHTML='<div class="v2-diff-empty">'+escapeHTML(d.message||'No diff available')+'</div>';return;}
-        var h='<div class="v2-diff-summary"><span><b>'+d.total_files+'</b> files</span><span class="v2-diff-add">+'+d.total_additions+'</span><span class="v2-diff-del">-'+d.total_deletions+'</span></div>';
-        h+='<div class="v2-diff-layout">';
-        h+='<div class="v2-diff-tree" id="v2-diff-tree">';
+        if(!d.available){el.innerHTML='<div class="w-diff-empty">'+escapeHTML(d.message||'No diff available')+'</div>';return;}
+        var h='<div class="w-diff-summary"><span><b>'+d.total_files+'</b> files</span><span class="w-diff-add">+'+d.total_additions+'</span><span class="w-diff-del">-'+d.total_deletions+'</span></div>';
+        h+='<div class="w-diff-layout">';
+        h+='<div class="w-diff-tree" id="w-diff-tree">';
         if(d.files&&d.files.length){
             for(var i=0;i<d.files.length;i++){
                 var f=d.files[i];
-                h+='<div class="v2-diff-file" data-path="'+escapeHTML(f.path)+'" onclick="v2ShowFileDiff(this,\''+escapeHTML(f.path)+'\')">';
-                h+='<span class="v2-diff-status v2-diff-status-'+escapeHTML(f.status)+'">'+escapeHTML(f.status)+'</span>';
-                h+='<span class="v2-diff-path" title="'+escapeHTML(f.path)+'">'+escapeHTML(f.path.split('/').pop())+'</span>';
-                h+='<span class="v2-diff-stat"><span class="v2-diff-add">+'+f.additions+'</span> <span class="v2-diff-del">-'+f.deletions+'</span></span>';
+                h+='<div class="w-diff-file" data-path="'+escapeHTML(f.path)+'" onclick="v2ShowFileDiff(this,\''+escapeHTML(f.path)+'\')">';
+                h+='<span class="w-diff-status w-diff-status-'+escapeHTML(f.status)+'">'+escapeHTML(f.status)+'</span>';
+                h+='<span class="w-diff-path" title="'+escapeHTML(f.path)+'">'+escapeHTML(f.path.split('/').pop())+'</span>';
+                h+='<span class="w-diff-stat"><span class="w-diff-add">+'+f.additions+'</span> <span class="w-diff-del">-'+f.deletions+'</span></span>';
                 h+='</div>';
             }
         }
         h+='</div>';
-        h+='<div class="v2-diff-content" id="v2-diff-viewer"><div class="v2-diff-empty">Select a file to view changes</div></div>';
+        h+='<div class="w-diff-content" id="w-diff-viewer"><div class="w-diff-empty">Select a file to view changes</div></div>';
         h+='</div>';
         el.innerHTML=h;
-    }).catch(function(e){el.innerHTML='<div class="v2-diff-empty" style="color:#fca5a5;">Failed: '+escapeHTML(String(e))+'</div>';});
+    }).catch(function(e){el.innerHTML='<div class="w-diff-empty" style="color:#fca5a5;">Failed: '+escapeHTML(String(e))+'</div>';});
 }
 
 function v2ShowFileDiff(fileEl,path){
     // Highlight active file
-    document.querySelectorAll('.v2-diff-file').forEach(function(f){f.classList.remove('active');});
+    document.querySelectorAll('.w-diff-file').forEach(function(f){f.classList.remove('active');});
     fileEl.classList.add('active');
-    var viewer=document.getElementById('v2-diff-viewer');
+    var viewer=document.getElementById('w-diff-viewer');
     if(!viewer)return;
     viewer.innerHTML='<pre style="margin:0;padding:0.4rem;font-size:0.7rem;color:var(--color-text-secondary);"><code>loading…</code></pre>';
     fetch('/api/runs/{{.Run.RunID}}/diff/'+encodeURIComponent(path)).then(function(r){return r.json()}).then(function(d){
@@ -802,7 +464,7 @@ function v2ShowFileDiff(fileEl,path){
 
 // Load retrospective
 function v2LoadRetro(){
-    var el=document.getElementById('v2-retro-content');
+    var el=document.getElementById('w-retro-content');
     if(!el)return;
     fetch('/api/retros/{{.Run.RunID}}').then(function(r){
         if(r.status===404){el.innerHTML='<span style="color:var(--color-text-muted);">No retrospective data</span>';return null;}
@@ -812,13 +474,13 @@ function v2LoadRetro(){
         var h='';
         if(d.quantitative){
             var q=d.quantitative;
-            h+='<div class="v2-retro-grid">';
-            h+='<div class="v2-retro-card"><div class="v2-retro-card-label">Duration</div><div class="v2-retro-card-value">'+formatMs(q.total_duration_ms)+'</div></div>';
-            h+='<div class="v2-retro-card"><div class="v2-retro-card-label">Steps</div><div class="v2-retro-card-value">'+q.total_steps+'</div></div>';
-            h+='<div class="v2-retro-card"><div class="v2-retro-card-label">Succeeded</div><div class="v2-retro-card-value" style="color:#4ade80;">'+q.success_count+'</div></div>';
-            h+='<div class="v2-retro-card"><div class="v2-retro-card-label">Failed</div><div class="v2-retro-card-value"'+(q.failure_count>0?' style="color:#f87171;"':'')+'>'+q.failure_count+'</div></div>';
-            h+='<div class="v2-retro-card"><div class="v2-retro-card-label">Retries</div><div class="v2-retro-card-value">'+q.total_retries+'</div></div>';
-            h+='<div class="v2-retro-card"><div class="v2-retro-card-label">Tokens</div><div class="v2-retro-card-value">'+(q.total_tokens||0).toLocaleString()+'</div></div>';
+            h+='<div class="w-retro-grid">';
+            h+='<div class="w-retro-card"><div class="w-retro-card-label">Duration</div><div class="w-retro-card-value">'+formatMs(q.total_duration_ms)+'</div></div>';
+            h+='<div class="w-retro-card"><div class="w-retro-card-label">Steps</div><div class="w-retro-card-value">'+q.total_steps+'</div></div>';
+            h+='<div class="w-retro-card"><div class="w-retro-card-label">Succeeded</div><div class="w-retro-card-value" style="color:#4ade80;">'+q.success_count+'</div></div>';
+            h+='<div class="w-retro-card"><div class="w-retro-card-label">Failed</div><div class="w-retro-card-value"'+(q.failure_count>0?' style="color:#f87171;"':'')+'>'+q.failure_count+'</div></div>';
+            h+='<div class="w-retro-card"><div class="w-retro-card-label">Retries</div><div class="w-retro-card-value">'+q.total_retries+'</div></div>';
+            h+='<div class="w-retro-card"><div class="w-retro-card-label">Tokens</div><div class="w-retro-card-value">'+(q.total_tokens||0).toLocaleString()+'</div></div>';
             h+='</div>';
         }
         if(d.narrative){
@@ -947,7 +609,7 @@ function v2RenderObj(obj, name){
 // Render artifact into viewer element
 function v2ShowArt(viewer, url, name){
     viewer.hidden=false;
-    viewer.innerHTML='<div class="v2-art-viewer-head"><span>'+escapeHTML(name)+'</span><span style="display:flex;gap:0.3rem;align-items:center;"><span class="av-tabs"></span><a href="'+url+'?raw=true" download style="color:var(--color-text-muted);font-size:0.58rem;">⬇</a></span></div><div class="av-body"><pre style="margin:0;padding:0.3rem;font-size:0.65rem;color:var(--color-text-secondary);"><code>loading…</code></pre></div>';
+    viewer.innerHTML='<div class="w-art-viewer-head"><span>'+escapeHTML(name)+'</span><span style="display:flex;gap:0.3rem;align-items:center;"><span class="av-tabs"></span><a href="'+url+'?raw=true" download style="color:var(--color-text-muted);font-size:0.58rem;">⬇</a></span></div><div class="av-body"><pre style="margin:0;padding:0.3rem;font-size:0.65rem;color:var(--color-text-secondary);"><code>loading…</code></pre></div>';
     fetch(url).then(function(r){return r.json()}).then(function(d){
         var raw=v2Decode(d.content||'');
         var smart=v2SmartRender(raw, name);
@@ -1021,11 +683,11 @@ function v2ShowArt(viewer, url, name){
 
 // OUT card artifact tab
 function v2ToggleOutArtTab(tab){
-    var outCard=tab.closest('.v2-io-out');
-    var tc=document.getElementById('v2-out-tc');
+    var outCard=tab.closest('.w-io-out');
+    var tc=document.getElementById('w-out-tc');
     if(!tc)return;
     var wasActive=tab.classList.contains('active');
-    outCard.querySelectorAll('.v2-tab').forEach(function(t){t.classList.remove('active')});
+    outCard.querySelectorAll('.w-tab').forEach(function(t){t.classList.remove('active')});
     if(wasActive){tc.hidden=true;return;}
     tab.classList.add('active');
     tc.hidden=false;
@@ -1036,11 +698,11 @@ function v2ToggleOutArtTab(tab){
 
 // Step artifact tab
 function v2ToggleArt(chip){
-    var shape=chip.closest('.v2-s');
-    var tc=shape.querySelector('.v2-s-tabcontent');
+    var shape=chip.closest('.w-s');
+    var tc=shape.querySelector('.ws-tabcontent');
     if(!tc)return;
     var wasActive=chip.classList.contains('active');
-    shape.querySelectorAll('.v2-tab').forEach(function(t){t.classList.remove('active')});
+    shape.querySelectorAll('.w-tab').forEach(function(t){t.classList.remove('active')});
     if(wasActive){tc.hidden=true;return;}
     chip.classList.add('active');
     tc.hidden=false;

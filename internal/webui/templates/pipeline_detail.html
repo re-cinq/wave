@@ -2,7 +2,7 @@
 {{define "content"}}
 
 <!-- Header -->
-<div class="v2-head">
+<div class="w-head">
     <div>
         <a href="/pipelines" class="back-link">&larr; Pipelines</a>
         <h1>
@@ -18,7 +18,7 @@
 </div>
 
 <!-- Stats -->
-<div class="v2-stats" style="margin-bottom:0.5rem;">
+<div class="w-stats" style="margin-bottom:0.5rem;">
     <span><b>{{len .Pipeline.Steps}}</b> steps</span>
     <span style="color:var(--color-text-muted);">·</span>
     <span><a href="/runs?pipeline={{.Pipeline.Name}}" style="color:#818cf8;"><b>{{.RunCount}}</b> runs</a></span>
@@ -27,35 +27,35 @@
 </div>
 
 <!-- Steps as shapes -->
-<div class="v2-flow">
+<div class="w-flow">
 {{range $i, $step := .Pipeline.Steps}}
-    {{if $i}}<div class="v2-conn"><span class="v2-conn-dot"></span></div>{{end}}
-    <div class="v2-s st-pending{{if $step.Type}} tp-{{$step.Type}}{{end}}">
-        <div class="v2-s-content">
-            <div class="v2-s-row1">
-                <span class="v2-s-name">
+    {{if $i}}<div class="w-conn"><span class="w-conn-dot"></span></div>{{end}}
+    <div class="ws st-pending{{if $step.Type}} tp-{{$step.Type}}{{end}}">
+        <div class="ws-content">
+            <div class="ws-row1">
+                <span class="ws-name">
                     {{if eq $step.Type "pipeline"}}<span class="tp-ico">&#x27D0;</span>
                     {{else if eq $step.Type "gate"}}<span class="tp-ico">&#x25C6;</span>
                     {{else if eq $step.Type "conditional"}}<span class="tp-ico">&#x25C6;</span>
                     {{else if eq $step.Type "command"}}<span class="tp-ico">&gt;_</span>
                     {{end}}{{$step.ID}}</span>
-                <span class="v2-s-meta">
+                <span class="ws-meta">
                     {{if $step.Persona}}<a href="/personas/{{$step.Persona}}" style="color:#818cf8;font-size:0.68rem;">{{$step.Persona}}</a>{{end}}
                     {{if $step.Contract}}{{if $step.ContractSchemaName}}<a href="/contracts/{{$step.ContractSchemaName}}" style="color:var(--color-text-muted);font-size:0.62rem;">{{$step.ContractSchemaName}}</a>{{else}}<span style="color:var(--color-text-muted);font-size:0.62rem;">{{$step.Contract}}</span>{{end}}{{end}}
                     {{if $step.Optional}}<span class="badge" style="font-size:0.55rem;background:rgba(245,158,11,0.12);color:#fbbf24;">optional</span>{{end}}
                 </span>
             </div>
-            <div class="v2-s-io">
+            <div class="ws-io">
                 {{if $step.Dependencies}}
-                <div class="v2-s-io-in">
-                    <span class="v2-s-io-lbl">deps</span>
-                    <span class="v2-s-io-val">{{range $j, $d := $step.Dependencies}}{{if $j}}, {{end}}{{$d}}{{end}}</span>
+                <div class="ws-io-in">
+                    <span class="ws-io-lbl">deps</span>
+                    <span class="ws-io-val">{{range $j, $d := $step.Dependencies}}{{if $j}}, {{end}}{{$d}}{{end}}</span>
                 </div>
                 {{end}}
                 {{if $step.Artifacts}}
-                <div class="v2-s-io-out">
-                    <span class="v2-s-io-lbl">out</span>
-                    <span class="v2-s-io-val">{{range $j, $a := $step.Artifacts}}{{if $j}}, {{end}}{{$a}}{{end}}</span>
+                <div class="ws-io-out">
+                    <span class="ws-io-lbl">out</span>
+                    <span class="ws-io-val">{{range $j, $a := $step.Artifacts}}{{if $j}}, {{end}}{{$a}}{{end}}</span>
                 </div>
                 {{end}}
             </div>
@@ -68,25 +68,25 @@
 <div style="margin-top:1rem;">
     <h2 style="font-size:1rem;margin-bottom:0.4rem;">Recent Runs</h2>
     {{if .Runs}}
-    <div class="rv2-list">
+    <div class="wr-list">
     {{range .Runs}}
-        <a href="/runs/{{.RunID}}" class="rv2-run">
-            <div class="rv2-accent st-{{.Status}}"></div>
-            <div class="rv2-body">
-                <div class="rv2-row1">
-                    <span class="badge rv2-status {{statusClass .Status}}">{{.Status}}</span>
-                    {{if .InputPreview}}<span class="rv2-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
+        <a href="/runs/{{.RunID}}" class="wr-run">
+            <div class="wr-accent st-{{.Status}}"></div>
+            <div class="wr-body">
+                <div class="wr-row1">
+                    <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
+                    {{if .InputPreview}}<span class="wr-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
                 </div>
-                <div class="rv2-row2">
+                <div class="wr-row2">
                     {{if .Duration}}<span><b>{{.Duration}}</b></span>{{end}}
                     {{if gt .StepsTotal 0}}<span><b>{{.StepsCompleted}}/{{.StepsTotal}}</b> steps</span>{{end}}
                     {{if .TotalTokens}}<span><b>{{formatTokens .TotalTokens}}</b> tok</span>{{end}}
                     {{range .Models}}<span class="badge badge-model">{{friendlyModel .}}</span>{{end}}
                 </div>
             </div>
-            <div class="rv2-meta">
-                <span class="rv2-date">{{.FormattedStartedAt}}</span>
-                {{if .Duration}}<span class="rv2-dur">{{.Duration}}</span>{{end}}
+            <div class="wr-meta">
+                <span class="wr-date">{{.FormattedStartedAt}}</span>
+                {{if .Duration}}<span class="wr-dur">{{.Duration}}</span>{{end}}
             </div>
         </a>
     {{end}}
