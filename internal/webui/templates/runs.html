@@ -73,7 +73,7 @@
 
 {{if .HasMore}}
 <div class="wr-more">
-    <a href="/runs?cursor={{.NextCursor}}{{if .FilterStatus}}&status={{.FilterStatus}}{{end}}{{if .FilterPipeline}}&pipeline={{.FilterPipeline}}{{end}}">Load more</a>
+    <button onclick="loadMore(this,'/runs?cursor={{.NextCursor}}&format=fragment{{if .FilterStatus}}&status={{.FilterStatus}}{{end}}{{if .FilterPipeline}}&pipeline={{.FilterPipeline}}{{end}}')">Load more</button>
 </div>
 {{end}}
 

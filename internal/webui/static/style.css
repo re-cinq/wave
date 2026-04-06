@@ -3048,3 +3048,16 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 
 /* Empty state */
 .wr-empty { text-align: center; padding: 2rem; color: var(--color-text-muted); font-size: 0.85rem; }
+
+/* ── Load More Button ── */
+.wr-load-more { text-align: center; padding: 0.6rem; }
+.wr-load-more button {
+    padding: 0.3rem 1.2rem; border-radius: 4px; font-size: 0.78rem;
+    color: #818cf8; border: 1px solid rgba(99,102,241,0.3);
+    background: rgba(99,102,241,0.06); cursor: pointer;
+    transition: background 0.15s;
+}
+.wr-load-more button:hover { background: rgba(99,102,241,0.12); }
+.wr-load-more button:disabled { opacity: 0.5; cursor: default; }
+.wr-load-more .wr-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(99,102,241,0.2); border-top-color: #818cf8; border-radius: 50%; animation: wr-spin 0.6s linear infinite; vertical-align: middle; margin-right: 0.3rem; }
+@keyframes wr-spin { to { transform: rotate(360deg); } }
