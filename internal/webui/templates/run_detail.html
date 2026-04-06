@@ -240,7 +240,7 @@
 <script>
 // Toggle logs tab
 function v2ToggleLogs(tab){
-    var shape=tab.closest('.w-s');
+    var shape=tab.closest('.ws');
     var tc=shape.querySelector('.ws-tabcontent');
     if(!tc)return;
     var wasActive=tab.classList.contains('active');
@@ -316,7 +316,7 @@ if('{{.Run.Status}}'==='running'){
         document.querySelectorAll('[data-live-timer="true"]').forEach(function(el){
             var started=el.getAttribute('data-started-at');
             if(!started){
-                var shape=el.closest('.w-s');
+                var shape=el.closest('.ws');
                 if(shape) started=shape.getAttribute('data-started-at');
             }
             if(!started)return;
@@ -354,7 +354,7 @@ if('{{.Run.Status}}'==='running'){
 document.querySelectorAll('.ws-row1').forEach(function(row){
     row.style.cursor='pointer';
     row.addEventListener('click',function(){
-        var shape=row.closest('.w-s');
+        var shape=row.closest('.ws');
         var tc=shape.querySelector('.ws-config');
         if(!tc)return;
         if(!tc.hidden){tc.hidden=true;return;}
@@ -698,7 +698,7 @@ function v2ToggleOutArtTab(tab){
 
 // Step artifact tab
 function v2ToggleArt(chip){
-    var shape=chip.closest('.w-s');
+    var shape=chip.closest('.ws');
     var tc=shape.querySelector('.ws-tabcontent');
     if(!tc)return;
     var wasActive=chip.classList.contains('active');

@@ -72,19 +72,32 @@
 </div>
 
 {{if .HasMore}}
-<div class="wr-more">
-    <button onclick="loadMore(this,'/runs?cursor={{.NextCursor}}&format=fragment{{if .FilterStatus}}&status={{.FilterStatus}}{{end}}{{if .FilterPipeline}}&pipeline={{.FilterPipeline}}{{end}}')">Load more</button>
+<div class="wr-loading" id="wr-loader" data-next="/runs?cursor={{.NextCursor}}{{if .FilterStatus}}&status={{.FilterStatus}}{{end}}{{if .FilterPipeline}}&pipeline={{.FilterPipeline}}{{end}}">
+    <span class="wr-loading-spinner"></span>
+    <span class="wr-loading-text">Loading more...</span>
 </div>
 {{end}}
 
 {{end}}
 {{define "scripts"}}
 <script>
-// Keyboard shortcut: press 'r' to refresh
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'r' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') {
-        location.reload();
+// Infinite scroll
+(function(){
+    var loader=document.getElementById('wr-loader');
+    if(!loader)return;
+    var loading=false;
+    function checkScroll(){
+        if(loading||!loader)return;
+        var rect=loader.getBoundingClientRect();
+        if(rect.top<window.innerHeight+200){
+            loading=true;
+            loader.classList.add('active');
+            var url=loader.dataset.next;
+            window.location.href=url; // Simple: navigate to next page (proper infinite scroll needs API fragment support)
+        }
     }
-});
+    window.addEventListener('scroll',checkScroll);
+    checkScroll(); // Check on load in case page is short
+})();
 </script>
 {{end}}
