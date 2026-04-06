@@ -20,18 +20,48 @@ type PipelineSummary struct {
 	IsComposition bool     `json:"is_composition,omitempty"`
 	Skills        []string `json:"skills,omitempty"`
 	Disabled      bool     `json:"disabled"`
+	RunCount      int      `json:"run_count,omitempty"`
 }
 
 // handlePipelinesPage handles GET /pipelines - serves the HTML pipelines page.
 func (s *Server) handlePipelinesPage(w http.ResponseWriter, r *http.Request) {
 	pipelines := s.getPipelineSummaries()
 
+	// Enrich with run counts
+	if s.store != nil {
+		allRuns, err := s.store.ListRuns(state.ListRunsOptions{Limit: 10000})
+		if err == nil {
+			counts := make(map[string]int)
+			for _, run := range allRuns {
+				counts[run.PipelineName]++
+			}
+			for i := range pipelines {
+				pipelines[i].RunCount = counts[pipelines[i].Name]
+			}
+		}
+	}
+
+	// Collect unique categories
+	categories := make(map[string]bool)
+	for _, p := range pipelines {
+		if p.Category != "" {
+			categories[p.Category] = true
+		}
+	}
+	var catList []string
+	for c := range categories {
+		catList = append(catList, c)
+	}
+	sort.Strings(catList)
+
 	data := struct {
 		ActivePage string
 		Pipelines  []PipelineSummary
+		Categories []string
 	}{
 		ActivePage: "pipelines",
 		Pipelines:  pipelines,
+		Categories: catList,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
