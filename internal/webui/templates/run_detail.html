@@ -384,8 +384,8 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
             // Prompt — resolve known variables and render as markdown
             if(step.prompt){
                 var prompt=step.prompt;
-                // Highlight {{ template_vars }} as inline code (no fake resolution)
-                prompt=prompt.replace(/\{\{([^}]+)\}\}/g, '`{{ $1 }}`');
+                // Highlight template variables as inline code
+                prompt=prompt.replace(/\{\{([^}]+)\}\}/g, function(m,v){return '`'+m+'`';});
                 h+='<div style="border-top:1px solid var(--color-border);padding-top:0.4rem;margin-top:0.2rem;">';
                 h+='<div style="color:var(--color-text-muted);font-size:0.68rem;margin-bottom:0.2rem;">Prompt template</div>';
                 if(typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
