@@ -259,6 +259,7 @@ type CompositionPipeline struct {
 	StepCount   int               `json:"step_count"`
 	Steps       []CompositionStep `json:"steps"`
 	Skills      []string          `json:"skills,omitempty"`
+	RunCount    int               `json:"run_count,omitempty"`
 }
 
 // CompositionStep describes a step in a composition pipeline with its primitive type.
