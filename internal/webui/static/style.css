@@ -2666,7 +2666,7 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .w-head .actions { display: flex; gap: 0.3rem; align-items: flex-start; padding-top: 0.15rem; }
 
 /* ── Stats bar ── */
-.w-stats { display: flex; gap: 0.5rem; align-items: center; font-size: 0.72rem; color: var(--color-text-secondary); margin-bottom: 0.4rem; flex-wrap: wrap; padding-bottom: 0.3rem; border-bottom: 1px solid var(--color-border); }
+.w-stats { display: flex; gap: 0.5rem; align-items: center; font-size: 0.72rem; color: var(--color-text-secondary); margin-bottom: 0.4rem; flex-wrap: wrap; }
 .w-stats b { color: var(--color-text); font-weight: 600; }
 .w-stats .badge { font-size: 0.6rem; padding: 0 4px; }
 
