@@ -368,22 +368,27 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 
 /* Forms */
 /* Start Pipeline Dialog */
-.start-dialog {
+.start-dialog, .w-dialog {
     background: var(--color-bg-secondary); color: var(--color-text);
     border: 1px solid var(--color-border); border-radius: var(--radius-lg);
-    padding: 1.5rem; max-width: 500px; width: 90%;
+    padding: 0; max-width: 500px; width: 90%;
     box-shadow: 0 8px 32px var(--color-shadow);
     margin: auto;
     position: fixed;
     inset: 0;
     height: fit-content;
 }
-.start-dialog[open] {
+.start-dialog[open], .w-dialog[open] {
     overscroll-behavior: contain;
 }
-.start-dialog::backdrop {
+.start-dialog::backdrop, .w-dialog::backdrop {
     background: rgba(0, 0, 0, 0.5);
 }
+.w-dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border-bottom: 1px solid var(--color-border); }
+.w-dialog-close { background: none; border: none; color: var(--color-text-muted); font-size: 1.2rem; cursor: pointer; padding: 0.2rem; line-height: 1; }
+.w-dialog-close:hover { color: var(--color-text); }
+.w-dialog-body { padding: 1rem; }
+.w-dialog-actions { display: flex; justify-content: flex-end; gap: 0.4rem; padding: 0.75rem 1rem; border-top: 1px solid var(--color-border); }
 .start-dialog h3 { margin-bottom: 1rem; }
 
 /* Detail Dialog (contracts, personas) */

@@ -1,23 +1,43 @@
 {{define "title"}}Pipelines · Wave{{end}}
 {{define "content"}}
-<div class="w-head">
+<div class="wr-head">
     <h1>Pipelines</h1>
 </div>
 
 {{if .Pipelines}}
-<div class="wr-list">
+<!-- Category filters -->
+{{if .Categories}}
+<div class="wr-toolbar">
+    <div class="wr-filters">
+        <button class="wr-filter active" data-cat="" onclick="filterPipelines(this)">All</button>
+        {{range .Categories}}<button class="wr-filter" data-cat="{{.}}" onclick="filterPipelines(this)">{{.}}</button>{{end}}
+    </div>
+    <div class="wr-controls">
+        <span style="font-size:0.72rem;color:var(--color-text-muted);">{{len .Pipelines}} pipelines</span>
+    </div>
+</div>
+{{end}}
+
+<div class="wr-list" id="pipeline-list">
 {{range .Pipelines}}
-    <a href="/pipelines/{{.Name}}" class="wr-run">
+    <a href="/pipelines/{{.Name}}" class="wr-run" data-category="{{.Category}}">
         <div class="wr-accent st-defined"></div>
         <div class="wr-body">
             <div class="wr-row1">
                 <span class="wr-name">{{.Name}}</span>
-                {{if .Category}}<span class="badge" style="font-size:0.68rem;background:rgba(99,102,241,0.12);color:#a5b4fc;">{{.Category}}</span>{{end}}
+                {{if .Category}}<span class="badge" style="font-size:0.65rem;background:rgba(99,102,241,0.12);color:#a5b4fc;">{{.Category}}</span>{{end}}
+                {{if .IsComposition}}<span class="badge" style="font-size:0.65rem;background:rgba(139,92,246,0.12);color:#c4b5fd;">composition</span>{{end}}
+                {{if .Disabled}}<span class="badge" style="font-size:0.65rem;background:rgba(239,68,68,0.1);color:#fca5a5;">disabled</span>{{end}}
             </div>
-            {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);">{{.Description}}</span></div>{{end}}
+            {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);font-size:0.78rem;">{{.Description}}</span></div>{{end}}
+            <div class="wr-row2" style="margin-top:0.1rem;">
+                <span style="color:var(--color-text-muted);font-size:0.72rem;"><b>{{.StepCount}}</b> steps</span>
+                {{if .RunCount}}<span style="color:var(--color-text-muted);font-size:0.72rem;"><b>{{.RunCount}}</b> runs</span>{{end}}
+                {{range .Skills}}<span class="badge" style="font-size:0.65rem;background:rgba(34,211,238,0.1);color:#67e8f9;">{{.}}</span>{{end}}
+            </div>
         </div>
         <div class="wr-meta" style="display:flex;flex-direction:row;gap:0.4rem;align-items:center;">
-            <button class="btn btn-sm btn-primary" onclick="event.preventDefault();event.stopPropagation();showQuickStart('{{.Name}}')" style="font-size:0.7rem;padding:0.15rem 0.45rem;">Start</button>
+            <button class="btn btn-sm" onclick="event.preventDefault();event.stopPropagation();showQuickStart('{{.Name}}')" style="font-size:0.68rem;padding:0.15rem 0.45rem;">Start</button>
         </div>
     </a>
 {{end}}
@@ -26,36 +46,58 @@
 <div style="padding:2rem;text-align:center;color:var(--color-text-muted);font-size:0.85rem;">No pipelines found</div>
 {{end}}
 
-<!-- Quickstart dialog -->
-<dialog id="quickstart-dialog" class="start-dialog" aria-labelledby="quickstart-title">
-    <h3 id="quickstart-title">Start: <span id="quickstart-name"></span></h3>
-    <div class="form-group">
-        <label for="quickstart-input">Input</label>
-        <textarea id="quickstart-input" rows="3" placeholder="Issue URL, feature description..."></textarea>
+<!-- Start dialog -->
+<dialog id="quickstart-dialog" class="w-dialog" aria-labelledby="quickstart-title">
+    <div class="w-dialog-head">
+        <h3 id="quickstart-title" style="margin:0;font-size:1rem;">Start: <code id="quickstart-name" style="font-size:0.85rem;"></code></h3>
+        <button class="w-dialog-close" onclick="hideQuickStart()" aria-label="Close">&times;</button>
     </div>
-    <details class="advanced-options">
-        <summary>Advanced</summary>
+    <div class="w-dialog-body">
         <div class="form-group">
-            <label for="qs-model">Model</label>
-            <select id="qs-model">
-                <option value="">Default</option>
-                <option value="cheapest">Cheapest</option>
-                <option value="fastest">Fastest</option>
-                <option value="strongest">Strongest</option>
-            </select>
+            <label for="quickstart-input" style="font-size:0.78rem;color:var(--color-text-secondary);display:block;margin-bottom:0.2rem;">Input</label>
+            <textarea id="quickstart-input" rows="3" placeholder="Issue URL, feature description..." style="width:100%;padding:0.4rem 0.5rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-family:var(--font-sans);font-size:0.82rem;resize:vertical;"></textarea>
         </div>
-        <div class="form-group">
-            <label class="checkbox-label"><input type="checkbox" id="qs-dry-run"> Dry Run</label>
-        </div>
-    </details>
-    <div class="dialog-actions">
-        <button class="btn" onclick="hideQuickStart()">Cancel</button>
-        <button class="btn btn-primary" id="quickstart-submit" onclick="submitQuickStart()">Start</button>
+        <details class="advanced-options" style="margin-top:0.4rem;">
+            <summary style="font-size:0.78rem;color:var(--color-text-muted);cursor:pointer;">Advanced options</summary>
+            <div style="padding-top:0.4rem;display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;">
+                <div class="form-group">
+                    <label for="qs-model" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Model</label>
+                    <select id="qs-model" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
+                        <option value="">Default</option>
+                        <option value="cheapest">Cheapest</option>
+                        <option value="fastest">Fastest</option>
+                        <option value="strongest">Strongest</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label" style="font-size:0.78rem;color:var(--color-text-secondary);display:flex;align-items:center;gap:0.3rem;padding-top:0.3rem;"><input type="checkbox" id="qs-dry-run"> Dry Run</label>
+                </div>
+            </div>
+        </details>
+    </div>
+    <div class="w-dialog-actions">
+        <button class="btn btn-sm" onclick="hideQuickStart()">Cancel</button>
+        <button class="btn btn-sm btn-primary" id="quickstart-submit" onclick="submitQuickStart()">Start Pipeline</button>
     </div>
 </dialog>
 {{end}}
 {{define "scripts"}}
 <script>
+// Category filtering
+function filterPipelines(btn) {
+    var cat = btn.dataset.cat;
+    document.querySelectorAll('.wr-filter').forEach(function(f) { f.classList.remove('active'); });
+    btn.classList.add('active');
+    document.querySelectorAll('#pipeline-list .wr-run').forEach(function(card) {
+        if (!cat || card.dataset.category === cat) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+// Quickstart dialog
 var quickStartPipeline = '';
 function showQuickStart(name) {
     quickStartPipeline = name;
