@@ -111,7 +111,7 @@
 
 /* Reset */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 14px; line-height: 1.5; }
+html { font-size: 15px; line-height: 1.5; }
 body {
     font-family: var(--font-sans);
     background: var(--color-bg);

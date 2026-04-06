@@ -59,6 +59,8 @@
                 </div>
                 {{end}}
             </div>
+            <!-- Config panel (click to expand) -->
+            <div class="ws-config" hidden data-step-id="{{$step.ID}}"></div>
         </div>
     </div>
 {{end}}
@@ -186,5 +188,49 @@ function onQsFromStepChange() {
     }
 }
 document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hideQuickStart(); });
+
+// Click step to show config
+document.querySelectorAll('.ws-row1').forEach(function(row){
+    row.style.cursor='pointer';
+    row.addEventListener('click',function(){
+        var shape=row.closest('.ws')||row.closest('[class*="ws"]')||row.parentElement.parentElement;
+        var tc=shape.querySelector('.ws-config');
+        if(!tc)return;
+        if(!tc.hidden){tc.hidden=true;return;}
+        tc.hidden=false;
+        var nameEl=row.querySelector('.ws-name');
+        var stepId=nameEl?nameEl.textContent.trim().split(/\s/)[0]:'';
+        tc.innerHTML='<div style="padding:0.4rem 0.55rem;color:var(--color-text-muted);font-size:0.72rem;">Loading...</div>';
+        fetch('/api/pipelines/'+encodeURIComponent('{{.Pipeline.Name}}')).then(function(r){return r.json()}).then(function(d){
+            var step=null;
+            for(var i=0;i<(d.steps||[]).length;i++){if(d.steps[i].id===stepId){step=d.steps[i];break;}}
+            if(!step){tc.innerHTML='<div style="padding:0.4rem;">Not found</div>';return;}
+            var h='<div style="padding:0.4rem 0.55rem;font-size:0.78rem;">';
+            h+='<div style="display:grid;grid-template-columns:100px 1fr;gap:0.12rem 0.6rem;">';
+            function kv(k,v){return '<span style="color:var(--color-text-muted);font-size:0.72rem;">'+k+'</span><span>'+v+'</span>';}
+            if(step.persona) h+=kv('Persona','<a href="/personas/'+escapeHTML(step.persona)+'" style="color:#818cf8;">'+escapeHTML(step.persona)+'</a>');
+            if(step.type) h+=kv('Type','<code>'+escapeHTML(step.type)+'</code>');
+            if(step.sub_pipeline) h+=kv('Sub-pipeline','<a href="/pipelines/'+escapeHTML(step.sub_pipeline)+'" style="color:#818cf8;">'+escapeHTML(step.sub_pipeline)+'</a>');
+            if(step.contract) h+=kv('Contract',step.contract_schema_name?'<a href="/contracts/'+escapeHTML(step.contract_schema_name)+'" style="color:#818cf8;">'+escapeHTML(step.contract)+'</a>':'<code>'+escapeHTML(step.contract)+'</code>');
+            if(step.on_failure) h+=kv('On failure','<code>'+escapeHTML(step.on_failure)+'</code>');
+            if(step.retry_policy) h+=kv('Retry','<code>'+escapeHTML(step.retry_policy)+'</code>'+(step.max_attempts?' (max '+step.max_attempts+')':''));
+            if(step.input_artifacts&&step.input_artifacts.length) h+=kv('Receives',step.input_artifacts.map(function(a){return '<code style="background:rgba(34,197,94,0.1);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;">'+escapeHTML(a)+'</code>';}).join(' '));
+            if(step.artifacts&&step.artifacts.length) h+=kv('Produces',step.artifacts.map(function(a){return '<code style="background:rgba(99,102,241,0.1);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;">'+escapeHTML(a)+'</code>';}).join(' '));
+            h+='</div>';
+            if(step.prompt){
+                h+='<div style="border-top:1px solid var(--color-border);padding-top:0.3rem;margin-top:0.2rem;">';
+                h+='<div style="color:var(--color-text-muted);font-size:0.65rem;margin-bottom:0.15rem;">Prompt</div>';
+                if(typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
+                    h+='<div class="markdown-body" style="font-size:0.78rem;line-height:1.5;">'+DOMPurify.sanitize(marked.parse(step.prompt))+'</div>';
+                } else {
+                    h+='<pre style="margin:0;padding:0.4rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.72rem;white-space:pre-wrap;color:var(--color-text-secondary);">'+escapeHTML(step.prompt)+'</pre>';
+                }
+                h+='</div>';
+            }
+            h+='</div>';
+            tc.innerHTML=h;
+        }).catch(function(){tc.innerHTML='<div style="padding:0.4rem;color:#fca5a5;">Failed to load</div>';});
+    });
+});
 </script>
 {{end}}
