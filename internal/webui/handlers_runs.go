@@ -141,6 +141,9 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	limit := parsePageSize(r)
 	status := r.URL.Query().Get("status")
+	if status == "" {
+		status = "running"
+	}
 	pipelineFilter := r.URL.Query().Get("pipeline")
 
 	opts := state.ListRunsOptions{
