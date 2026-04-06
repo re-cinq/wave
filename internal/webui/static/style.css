@@ -2991,10 +2991,14 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 .wr-head h1 { font-size: 1.25rem; margin: 0; }
 
 /* Filter bar */
-.wr-filters { display: flex; gap: 0.3rem; margin-bottom: 0.6rem; align-items: center; flex-wrap: wrap; }
+.wr-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; gap: 0.5rem; flex-wrap: wrap; }
+.wr-filters { display: flex; gap: 0.3rem; align-items: center; flex-wrap: wrap; }
 .wr-filter { padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.72rem; color: var(--color-text-muted); border: 1px solid var(--color-border); background: none; cursor: pointer; text-decoration: none; }
 .wr-filter:hover { background: var(--color-bg-tertiary); color: var(--color-text-secondary); }
 .wr-filter.active { background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.3); color: #a5b4fc; }
+.wr-controls { display: flex; gap: 0.3rem; align-items: center; }
+.wr-select { padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.72rem; color: var(--color-text-secondary); border: 1px solid var(--color-border); background: var(--color-bg-tertiary); cursor: pointer; font-family: var(--font-sans); max-width: 220px; }
+.wr-select:focus { border-color: var(--wave-primary); outline: none; }
 
 /* Run card */
 .wr-list { display: flex; flex-direction: column; gap: 0.35rem; }
@@ -3073,7 +3077,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 }
 
 /* ── Infinite scroll loading indicator ── */
-.wr-loading { text-align: center; padding: 1rem; display: none; }
+.wr-loading { text-align: center; padding: 2rem 1rem; display: none; }
 .wr-loading.active { display: block; }
-.wr-loading-spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid rgba(99,102,241,0.2); border-top-color: #818cf8; border-radius: 50%; animation: wr-spin 0.6s linear infinite; vertical-align: middle; margin-right: 0.4rem; }
-.wr-loading-text { font-size: 0.78rem; color: var(--color-text-muted); vertical-align: middle; }
+.wr-loading-spinner { display: inline-block; width: 24px; height: 24px; border: 2px solid rgba(99,102,241,0.2); border-top-color: #818cf8; border-radius: 50%; animation: wr-spin 0.6s linear infinite; vertical-align: middle; margin-right: 0.5rem; }
+.wr-loading-text { font-size: 0.82rem; color: var(--color-text-muted); vertical-align: middle; }

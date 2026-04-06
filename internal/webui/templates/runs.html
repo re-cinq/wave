@@ -3,16 +3,26 @@
 
 <div class="wr-head">
     <h1>Runs</h1>
-    <div style="display:flex;gap:0.3rem;">
-    </div>
 </div>
 
-<!-- Filters -->
-<div class="wr-filters">
-    <a href="/runs" class="wr-filter{{if not .FilterStatus}} active{{end}}">All</a>
-    <a href="/runs?status=running" class="wr-filter{{if eq .FilterStatus "running"}} active{{end}}">Running</a>
-    <a href="/runs?status=completed" class="wr-filter{{if eq .FilterStatus "completed"}} active{{end}}">Completed</a>
-    <a href="/runs?status=failed" class="wr-filter{{if eq .FilterStatus "failed"}} active{{end}}">Failed</a>
+<!-- Filters bar -->
+<div class="wr-toolbar">
+    <div class="wr-filters">
+        <a href="/runs" class="wr-filter{{if not .FilterStatus}} active{{end}}">All</a>
+        <a href="/runs?status=running" class="wr-filter{{if eq .FilterStatus "running"}} active{{end}}">Running</a>
+        <a href="/runs?status=completed" class="wr-filter{{if eq .FilterStatus "completed"}} active{{end}}">Completed</a>
+        <a href="/runs?status=failed" class="wr-filter{{if eq .FilterStatus "failed"}} active{{end}}">Failed</a>
+    </div>
+    <div class="wr-controls">
+        {{if .Pipelines}}
+        <select class="wr-select" onchange="location.href='/runs{{if .FilterStatus}}?status={{.FilterStatus}}{{else}}?{{end}}&pipeline='+this.value">
+            <option value="">All pipelines</option>
+            {{range .Pipelines}}
+            <option value="{{.}}"{{if $.FilterPipeline}}{{if eq $.FilterPipeline .}} selected{{end}}{{end}}>{{.}}</option>
+            {{end}}
+        </select>
+        {{end}}
+    </div>
 </div>
 
 <!-- Run list -->
@@ -67,7 +77,7 @@
     {{end}}
 {{end}}
 {{else}}
-<div class="wr-empty">No runs found{{if .FilterStatus}} with status "{{.FilterStatus}}"{{end}}</div>
+<div class="wr-empty">No runs found{{if .FilterStatus}} with status "{{.FilterStatus}}"{{end}}{{if .FilterPipeline}} for pipeline "{{.FilterPipeline}}"{{end}}</div>
 {{end}}
 </div>
 
