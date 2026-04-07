@@ -370,10 +370,18 @@ func (s *Server) getPipelineSummaries() []PipelineSummary {
 				hasComposition = true
 			}
 		}
+		// Infer category from name prefix if not explicitly set
+		cat := p.Metadata.Category
+		if cat == "" {
+			if idx := strings.Index(name, "-"); idx > 0 {
+				cat = name[:idx]
+			}
+		}
+
 		summaries = append(summaries, PipelineSummary{
 			Name:          name,
 			Description:   p.Metadata.Description,
-			Category:      p.Metadata.Category,
+			Category:      cat,
 			StepCount:     len(p.Steps),
 			Steps:         stepIDs,
 			IsComposition: hasComposition,
