@@ -10,7 +10,7 @@
             {{if .Pipeline.IsComposition}}<span class="badge" style="font-size:0.68rem;background:rgba(139,92,246,0.12);color:#c084fc;">composition</span>
             {{else if .Pipeline.Category}}<span class="badge" style="font-size:0.68rem;background:rgba(99,102,241,0.12);color:#a5b4fc;">{{.Pipeline.Category}}</span>{{end}}
         </h1>
-        {{if .Pipeline.Description}}<p style="margin:0.1rem 0 0.3rem;font-size:0.82rem;color:var(--color-text-secondary);">{{.Pipeline.Description}}</p>{{end}}
+        {{if .Pipeline.Description}}<p style="margin:0.1rem 0 0.3rem;font-size:0.82rem;color:var(--color-text-secondary);max-width:48rem;">{{.Pipeline.Description}}</p>{{end}}
     </div>
     <div class="actions">
         <button class="btn btn-primary" onclick="showQuickStart('{{.Pipeline.Name}}')" aria-label="Start pipeline">Start</button>

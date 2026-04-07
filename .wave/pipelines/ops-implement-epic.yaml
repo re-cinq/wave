@@ -15,7 +15,11 @@
 kind: WavePipeline
 metadata:
   name: ops-implement-epic
-  description: "Implement all child issues from a parent epic, gate on CI, then summarise"
+  description: >-
+    Epic implementation pipeline that iterates over all child issues of a
+    parent epic, implementing each one sequentially. Gates on CI passing
+    between issues, and produces a summary of all changes, PRs created,
+    and any issues that were skipped or failed.
   category: composition
   release: true
 
