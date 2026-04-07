@@ -3,6 +3,12 @@
 <div class="w-head"><h1>Contracts</h1></div>
 
 {{if .Contracts}}
+<div class="wr-toolbar">
+    <div class="wr-controls">
+        <input type="text" id="contract-search" placeholder="Search contracts..." style="padding:0.2rem 0.4rem;border-radius:4px;font-size:0.72rem;color:var(--color-text-secondary);border:1px solid var(--color-border);background:var(--color-bg-tertiary);font-family:var(--font-sans);width:180px;" oninput="filterItems(this.value)">
+        <span style="font-size:0.72rem;color:var(--color-text-muted);">{{len .Contracts}} contracts</span>
+    </div>
+</div>
 <div class="wr-list">
 {{range .Contracts}}
     <a href="/contracts/{{.Name}}" class="wr-run">
@@ -24,4 +30,14 @@
 <div style="padding:2rem;text-align:center;color:var(--color-text-muted);">No contracts found. Add schemas to <code>.wave/contracts/</code></div>
 {{end}}
 {{end}}
-{{define "scripts"}}{{end}}
+{{define "scripts"}}
+<script>
+function filterItems(query) {
+    var q = query.toLowerCase().trim();
+    document.querySelectorAll('.wr-list > a.wr-run').forEach(function(card) {
+        if (!q) { card.style.display = ''; return; }
+        card.style.display = card.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+    });
+}
+</script>
+{{end}}
