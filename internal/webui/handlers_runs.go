@@ -146,8 +146,14 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	pipelineFilter := r.URL.Query().Get("pipeline")
 
+	// "all" means no status filter
+	queryStatus := status
+	if queryStatus == "all" {
+		queryStatus = ""
+	}
+
 	opts := state.ListRunsOptions{
-		Status:       status,
+		Status:       queryStatus,
 		PipelineName: pipelineFilter,
 		Limit:        limit + 1,
 	}
