@@ -1,7 +1,11 @@
 kind: WavePipeline
 metadata:
   name: ops-pr-review
-  description: "Pull request code review with automated security and quality analysis"
+  description: >-
+    Automated pull request review pipeline that performs security scanning,
+    code quality analysis, and architectural assessment. Reviews each changed
+    file for vulnerabilities, anti-patterns, and maintainability concerns,
+    then posts structured findings as review comments on the PR.
   release: true
 
 chat_context:
