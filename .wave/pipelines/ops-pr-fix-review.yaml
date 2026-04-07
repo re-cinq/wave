@@ -1,7 +1,10 @@
 kind: WavePipeline
 metadata:
   name: ops-pr-fix-review
-  description: "Review → triage → fix → push → reply to review comments on a PR"
+  description: >-
+    Automated PR review-fix pipeline that fetches review comments, triages
+    findings by severity, applies code fixes in priority order, pushes the
+    changes, and replies to each review thread with resolution details.
   category: composition
   release: true
 

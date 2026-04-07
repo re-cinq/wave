@@ -1,7 +1,11 @@
 kind: WavePipeline
 metadata:
   name: ops-rewrite
-  description: "Analyze and rewrite poorly documented issues"
+  description: >-
+    Issue quality improvement pipeline that analyzes under-specified or
+    poorly documented issues, researches the codebase for context, and
+    rewrites the issue body with clear acceptance criteria, technical
+    details, and implementation guidance.
   release: true
 
 skills:

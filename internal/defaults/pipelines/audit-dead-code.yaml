@@ -1,7 +1,11 @@
 kind: WavePipeline
 metadata:
   name: audit-dead-code
-  description: "Find dead or redundant code, remove it, and commit to a feature branch"
+  description: >-
+    Dead code detection pipeline that scans the codebase for unused functions,
+    unreachable branches, orphaned files, and redundant implementations.
+    Removes confirmed dead code, verifies tests still pass, and commits
+    the cleanup to a feature branch.
   release: true
 
 requires:

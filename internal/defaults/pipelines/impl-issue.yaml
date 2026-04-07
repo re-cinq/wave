@@ -1,7 +1,11 @@
 kind: WavePipeline
 metadata:
   name: impl-issue
-  description: "Implement an issue end-to-end: fetch, assess, plan, implement, create PR"
+  description: >-
+    End-to-end issue implementation pipeline that fetches a GitHub issue,
+    assesses feasibility and complexity, generates an implementation plan,
+    writes the code in an isolated worktree, and opens a pull request
+    with the changes.
   release: true
 
 chat_context:
