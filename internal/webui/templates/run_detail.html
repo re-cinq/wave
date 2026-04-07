@@ -10,7 +10,7 @@
             <a href="/pipelines/{{.Run.PipelineName}}">{{.Run.PipelineName}}</a>
             <span class="badge {{statusClass .Run.Status}}">{{.Run.Status}}</span>
         </h1>
-        {{if .PipelineDescription}}<p style="margin:0.1rem 0 0.3rem;font-size:0.8rem;color:var(--color-text-secondary);">{{.PipelineDescription}}</p>{{end}}
+        {{if .PipelineDescription}}<p style="margin:0.1rem 0 0.3rem;font-size:0.8rem;color:var(--color-text-secondary);max-width:48rem;">{{.PipelineDescription}}</p>{{end}}
     </div>
     <div class="actions">
         {{if eq .Run.Status "running"}}<button class="btn btn-sm" style="border-color:rgba(239,68,68,0.4);color:#fca5a5;" onclick="cancelRun('{{.Run.RunID}}', this)">Stop Pipeline</button>{{end}}
