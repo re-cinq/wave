@@ -84,7 +84,7 @@
     <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Checks</h2>
     <div class="w-flow" style="gap:2px;">
     {{range .PR.Checks}}
-        <div class="ws st-{{if eq .Conclusion "success"}}completed{{else if eq .Conclusion "failure"}}failed{{else if eq .Status "in_progress"}}running{{else}}pending{{end}}" style="padding:0.2rem 0.55rem;">
+        <div class="ws st-{{if eq .Conclusion "success"}}completed{{else if eq .Conclusion "failure"}}failed{{else if eq .Status "in_progress"}}running{{else}}pending{{end}}" style="padding:0.2rem var(--ws-pad-x);">
             <div class="ws-row1">
                 <span class="ws-name" style="font-size:0.78rem;">{{.Name}}</span>
                 <span class="ws-meta">
