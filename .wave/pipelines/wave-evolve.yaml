@@ -21,6 +21,35 @@ input:
     type: string
     description: "Evolution focus: what aspect of Wave to analyze and improve"
 
+chat_context:
+  artifact_summaries:
+    - evolution-analysis
+    - verification
+  suggested_questions:
+    - "What improvements were applied to Wave's pipelines?"
+    - "Which prompts or contracts were updated?"
+    - "Did wave validate pass after changes?"
+  focus_areas:
+    - "Pipeline infrastructure improvements"
+    - "Validation and verification results"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  result:
+    step: verify
+    artifact: verification
+
 steps:
   - id: analyze
     persona: navigator

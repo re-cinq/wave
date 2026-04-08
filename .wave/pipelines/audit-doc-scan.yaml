@@ -14,6 +14,34 @@ input:
   source: cli
   example: "docs/"
 
+chat_context:
+  artifact_summaries:
+    - findings
+  suggested_questions:
+    - "What documentation inconsistencies were found?"
+    - "Are ADR decisions still reflected in the code?"
+    - "Is the README accurate?"
+  focus_areas:
+    - "Documentation accuracy vs code reality"
+    - "Stale or missing documentation"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  findings:
+    step: scan
+    artifact: findings
+
 steps:
   - id: scan
     persona: navigator
