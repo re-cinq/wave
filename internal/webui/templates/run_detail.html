@@ -202,7 +202,7 @@
 </div>
 
 <!-- OUTPUT -->
-<div class="w-io w-io-out{{if eq .Run.Status "failed"}} st-failed{{end}}">
+<div class="w-io {{if eq .Run.Status "completed"}}w-io-out{{else if eq .Run.Status "failed"}}w-io-out st-failed{{else}}w-io-pending{{end}}">
     <div class="ws-row1">
         <span class="ws-name">Output</span>
         {{if eq .Run.Status "completed"}}<span style="color:var(--color-completed);">&#10003;</span>
@@ -212,6 +212,7 @@
         <button class="btn btn-sm" style="margin-left:auto;font-size:0.72rem;border-color:rgba(239,68,68,0.3);color:var(--color-failed);" onclick="retryRun('{{.Run.RunID}}',this)">Retry</button>
         {{end}}
     </div>
+    {{if or (eq .Run.Status "completed") (eq .Run.Status "failed")}}
     <div class="ws-io">
         <div class="ws-io-in">
             <span class="ws-io-lbl">OUT</span>
@@ -224,6 +225,7 @@
             {{end}}</span>
         </div>
     </div>
+    {{end}}
     {{if .Run.ErrorMessage}}<div class="ws-err">{{.Run.ErrorMessage}}</div>{{end}}
 </div>
 
@@ -264,12 +266,17 @@ function v2ToggleLogs(tab){
 if('{{.Run.Status}}'==='running'){
     (function(){
         var done=false;
+        var lastSteps={{.Run.StepsCompleted}};
         function checkDone(){
             if(done)return;
             fetch('/api/runs/{{.Run.RunID}}').then(function(r){return r.json()}).then(function(d){
-                if(d.run&&(d.run.status==='completed'||d.run.status==='failed'||d.run.status==='cancelled')){
-                    done=true;
-                    location.reload();
+                if(!d.run)return;
+                if(d.run.status==='completed'||d.run.status==='failed'||d.run.status==='cancelled'){
+                    done=true; location.reload(); return;
+                }
+                // Reload if step count changed (a step completed/started)
+                if(d.run.steps_completed!==lastSteps){
+                    done=true; location.reload();
                 }
             }).catch(function(){});
         }
@@ -279,9 +286,9 @@ if('{{.Run.Status}}'==='running'){
             es.onmessage=function(e){
                 try{
                     var d=JSON.parse(e.data);
-                    if(d.state==='completed'||d.state==='failed'||d.state==='cancelled'){
-                        done=true; es.close();
-                        setTimeout(function(){location.reload();},500);
+                    // Reload on any terminal state (run or step)
+                    if(d.state==='completed'||d.state==='failed'||d.state==='cancelled'||d.state==='step_completed'||d.state==='step_failed'){
+                        if(!done){done=true; es.close(); setTimeout(function(){location.reload();},300);}
                     }
                 }catch(ex){}
             };
