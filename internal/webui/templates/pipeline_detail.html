@@ -255,13 +255,15 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
             if(step.dependencies&&step.dependencies.length) h+=kv('Depends on',step.dependencies.map(function(d){return '<code style="background:var(--color-bg-tertiary);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;">'+escapeHTML(d)+'</code>';}).join(' '));
             h+='</div>';
             if(step.prompt){
-                h+='<div style="border-top:1px solid var(--color-border);padding-top:0.3rem;margin-top:0.2rem;">';
-                h+='<div style="color:var(--color-text-muted);font-size:0.65rem;margin-bottom:0.15rem;">Prompt</div>';
+                h+='<div style="border-top:1px solid var(--color-border);padding:0.3rem 0 0.2rem;margin-top:0.2rem;">';
+                h+='<div style="display:grid;grid-template-columns:100px 1fr;gap:0.12rem 0.6rem;">';
+                h+='<span style="color:var(--color-text-muted);font-size:0.72rem;">Prompt</span>';
                 if(typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
                     h+='<div class="markdown-body" style="font-size:0.78rem;line-height:1.5;">'+DOMPurify.sanitize(marked.parse(step.prompt))+'</div>';
                 } else {
                     h+='<pre style="margin:0;padding:0.4rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.72rem;white-space:pre-wrap;color:var(--color-text-secondary);">'+escapeHTML(step.prompt)+'</pre>';
                 }
+                h+='</div>';
                 h+='</div>';
             }
             h+='</div>';
