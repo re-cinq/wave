@@ -160,7 +160,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var el = document.getElementById(targetId);
         if (!raw || !el) return;
         if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
-            el.innerHTML = DOMPurify.sanitize(marked.parse(raw.textContent));
+            el.innerHTML = DOMPurify.sanitize(marked.parse(raw.textContent), {ADD_TAGS: ['img'], ADD_ATTR: ['src', 'alt', 'width', 'height']});
         } else { el.textContent = raw.textContent; }
     }
     renderMd('pr-body-raw', 'pr-body');
