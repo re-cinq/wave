@@ -2831,7 +2831,7 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-tabcontent .markdown-body pre code { background: none; padding: 0; }
 .ws-tabcontent .markdown-body hr { border: none; border-top: 1px solid #21262d; margin: 0.5rem 0; }
 .ws-tabcontent .markdown-body strong { color: #e6edf3; }
-.ws-tabcontent pre { margin: 0; padding: 0.3rem var(--ws-pad-x); font-size: 0.68rem; white-space: pre-wrap; word-break: break-all; color: #c9d1d9; }
+.ws-tabcontent pre { margin: 0; padding: 0.3rem var(--ws-pad-x); font-size: 0.68rem; white-space: pre; overflow-x: auto; color: #c9d1d9; }
 .ws-tabcontent .av-toggle { display: flex; gap: 3px; padding: 0.25rem 0.4rem; border-bottom: 1px solid #21262d; background: #161b22; align-items: center; }
 .ws-tabcontent .av-toggle button { padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.65rem; color: #8b949e; border: none; background: none; cursor: pointer; }
 .ws-tabcontent .av-toggle button:hover { color: #c9d1d9; }
@@ -2863,9 +2863,11 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 
 /* ── Strip noise inside dark terminal tab content ── */
 .ws-tabcontent [class*="ansi-bg-"] { background-color: transparent !important; }
-.ws-tabcontent code { background: transparent !important; }
-.ws-tabcontent .hljs { background: transparent !important; }
+.ws-tabcontent code { background: transparent !important; padding: 0 !important; margin: 0; }
+.ws-tabcontent .hljs { background: transparent !important; padding: 0 !important; }
 .ws-tabcontent .log-line { background: transparent; border-bottom: none; padding: 0; }
+.ws-tabcontent .log-line-number { display: none; }
+.ws-tabcontent .log-line-content { padding: 0; }
 
 /* ── Logs ── */
 .ws-log-body {
