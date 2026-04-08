@@ -2807,9 +2807,9 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .w-tab .art-size { display: none; }
 .w-tab-action {
     margin-left: auto;
-    color: #fca5a5; font-family: inherit;
+    color: var(--color-failed); font-family: inherit; border: none; background: none; cursor: pointer;
 }
-.w-tab-action:hover { color: #f87171; border-bottom-color: rgba(239,68,68,0.4); }
+.w-tab-action:hover { color: var(--color-failed); opacity: 0.8; }
 /* Content area directly under tabs — no gap, no redundant header */
 .ws-tabcontent { margin: 0; padding: 0; overflow: hidden; }
 .ws-tabcontent[hidden] { display: none !important; }

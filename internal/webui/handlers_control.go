@@ -276,9 +276,13 @@ func (s *Server) handleCancelRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	status := "cancelling"
+	if req.Force {
+		status = "cancelled"
+	}
 	resp := CancelRunResponse{
 		RunID:  runID,
-		Status: "cancelling",
+		Status: status,
 	}
 
 	writeJSON(w, http.StatusOK, resp)

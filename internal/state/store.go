@@ -1059,6 +1059,16 @@ func (s *stateStore) RequestCancellation(runID string, force bool) error {
 		return fmt.Errorf("failed to request cancellation: %w", err)
 	}
 
+	// Force cancel: directly mark the run and all its running steps as cancelled.
+	// This handles orphaned runs whose process is no longer running.
+	if force {
+		if err := s.UpdateRunStatus(runID, "cancelled", "", 0); err != nil {
+			return fmt.Errorf("failed to force-cancel run: %w", err)
+		}
+		// Also cancel all running/pending steps
+		_, _ = s.db.Exec(`UPDATE step_state SET state = 'cancelled', completed_at = ? WHERE pipeline_id = ? AND state IN ('running', 'pending', 'started')`, now, runID)
+	}
+
 	return nil
 }
 
