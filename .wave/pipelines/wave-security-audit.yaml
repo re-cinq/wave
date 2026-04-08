@@ -1,4 +1,4 @@
-kind: WavePipeline
+ykind: WavePipeline
 metadata:
   name: wave-security-audit
   description: >-
@@ -20,6 +20,35 @@ input:
   schema:
     type: string
     description: "Security audit focus area, or empty for full audit"
+
+chat_context:
+  artifact_summaries:
+    - threat-model
+    - security-report
+  suggested_questions:
+    - "What security threats were identified in Wave's architecture?"
+    - "Were any threats confirmed as exploitable?"
+    - "What is the remediation priority?"
+  focus_areas:
+    - "Threat model coverage"
+    - "Confirmed vulnerabilities and mitigations"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  report:
+    step: verify
+    artifact: security-report
 
 steps:
   - id: threat-model
