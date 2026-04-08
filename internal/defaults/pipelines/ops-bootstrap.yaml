@@ -16,6 +16,29 @@ input:
     description: "Project description and intent (e.g. 'Rust CLI tool for processing CSV files')"
   example: "Rust CLI tool for processing CSV files"
 
+chat_context:
+  artifact_summaries:
+    - assessment
+  suggested_questions:
+    - "What project structure was scaffolded?"
+    - "Does the build pass?"
+    - "What files were created?"
+  focus_areas:
+    - "Scaffold completeness"
+    - "Build and test verification"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
 steps:
   - id: assess
     persona: navigator
@@ -81,6 +104,7 @@ steps:
 
   - id: scaffold
     persona: craftsman
+    thread: bootstrap
     model: strongest
     dependencies: [assess]
     memory:
@@ -160,6 +184,7 @@ steps:
 
   - id: commit
     persona: craftsman
+    thread: bootstrap
     model: cheapest
     dependencies: [scaffold]
     workspace:

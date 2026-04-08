@@ -16,6 +16,35 @@ input:
   source: cli
   example: "add webhook support for pipeline completion events"
 
+chat_context:
+  artifact_summaries:
+    - tasks
+    - review
+  suggested_questions:
+    - "How many tasks were identified?"
+    - "What is the estimated total effort?"
+    - "Were any tasks flagged for revision?"
+  focus_areas:
+    - "Task breakdown quality and ordering"
+    - "Review verdict and recommendations"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  review:
+    step: review
+    artifact: review
+
 steps:
   - id: explore
     persona: navigator
