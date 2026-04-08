@@ -32,10 +32,39 @@ input:
   source: cli
   example: "analyze the authentication module"
 
+chat_context:
+  artifact_summaries:
+    - report
+  suggested_questions:
+    - "What were the most critical findings across quality and security?"
+    - "What is the overall health rating?"
+    - "Which recommendations have the highest impact?"
+  focus_areas:
+    - "Combined quality and security assessment"
+    - "Prioritized recommendations"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  report:
+    step: merge
+    artifact: report
+
 steps:
   # ── Track A: Code Quality ──────────────────────────────────────────
   - id: quality-scan
     persona: navigator
+    thread: audit
     model: cheapest
     workspace:
       mount:
@@ -72,6 +101,7 @@ steps:
 
   - id: quality-detail
     persona: navigator
+    thread: audit
     model: cheapest
     dependencies: [quality-scan]
     memory:
@@ -109,6 +139,7 @@ steps:
   # ── Track B: Security ──────────────────────────────────────────────
   - id: security-scan
     persona: navigator
+    thread: audit
     model: cheapest
     workspace:
       mount:
@@ -135,6 +166,7 @@ steps:
 
   - id: security-detail
     persona: navigator
+    thread: audit
     model: cheapest
     dependencies: [security-scan]
     memory:

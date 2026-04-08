@@ -466,6 +466,10 @@ func TestInitCreatesContractFiles(t *testing.T) {
 		if entry.IsDir() {
 			continue
 		}
+		// Only JSON schema contracts should contain $schema; criteria .md files won't
+		if !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
 		path := filepath.Join(".wave", "contracts", entry.Name())
 		content, err := os.ReadFile(path)
 		require.NoError(t, err)

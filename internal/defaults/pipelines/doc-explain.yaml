@@ -16,6 +16,34 @@ input:
   source: cli
   example: "explain the pipeline execution system and how steps are scheduled"
 
+chat_context:
+  artifact_summaries:
+    - explanation
+  suggested_questions:
+    - "What are the key architectural patterns used?"
+    - "How does data flow through the system?"
+    - "What are the main extension points?"
+  focus_areas:
+    - "Architecture and design decisions"
+    - "Code organization and patterns"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  explanation:
+    step: document
+    artifact: explanation
+
 steps:
   - id: explore
     persona: navigator

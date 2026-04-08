@@ -16,6 +16,30 @@ input:
   source: cli
   example: "fix onboarding wizard bugs — personas missing from manifest, model at wrong level"
 
+chat_context:
+  artifact_summaries:
+    - commit
+    - ship
+  suggested_questions:
+    - "Was the PR created and merged successfully?"
+    - "What commits were included?"
+    - "Is the local main branch up to date?"
+  focus_areas:
+    - "PR creation and merge status"
+    - "Post-merge verification"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
 steps:
   - id: commit
     persona: craftsman

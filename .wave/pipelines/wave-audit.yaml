@@ -24,6 +24,36 @@ input:
     type: string
     description: "Audit scope: empty for full audit, time range ('last 30 days', 'since 2026-01-01'), or label filter ('label:enhancement')"
 
+chat_context:
+  artifact_summaries:
+    - findings
+    - triage-report
+    - publish-result
+  suggested_questions:
+    - "What regressions or partial implementations were found?"
+    - "How many remediation issues were created?"
+    - "Which items are highest priority to fix?"
+  focus_areas:
+    - "Implementation fidelity by category"
+    - "Remediation actions and issue creation"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  report:
+    step: publish
+    artifact: publish-result
+
 steps:
   - id: collect-inventory
     persona: "{{ forge.type }}-analyst"
@@ -118,6 +148,7 @@ steps:
 
   - id: audit-items
     persona: navigator
+    thread: audit
     model: cheapest
     dependencies: [collect-inventory]
     memory:
@@ -205,6 +236,7 @@ steps:
 
   - id: compose-triage
     persona: navigator
+    thread: audit
     model: strongest
     dependencies: [audit-items]
     memory:

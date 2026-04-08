@@ -15,6 +15,29 @@ input:
     type: string
     description: "Description of the feature or change to implement"
 
+chat_context:
+  artifact_summaries:
+    - plan
+  suggested_questions:
+    - "What approach was chosen in the plan?"
+    - "Was the plan approved or revised?"
+    - "Did the implementation pass tests?"
+  focus_areas:
+    - "Plan quality and approval status"
+    - "Implementation completeness"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
 steps:
   - id: plan
     persona: navigator
