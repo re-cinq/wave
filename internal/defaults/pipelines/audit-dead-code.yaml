@@ -90,6 +90,7 @@ steps:
 
   - id: clean
     persona: craftsman
+    model: strongest
     dependencies: [scan]
     memory:
       inject_artifacts:
@@ -144,6 +145,7 @@ steps:
 
   - id: verify
     persona: reviewer
+    model: strongest
     dependencies: [clean]
     memory:
       inject_artifacts:
@@ -189,6 +191,7 @@ steps:
 
   - id: create-pr
     persona: craftsman
+    model: cheapest
     dependencies: [verify]
     memory:
       inject_artifacts:

@@ -103,6 +103,7 @@ steps:
 
   - id: document
     persona: philosopher
+    model: strongest
     dependencies: [analyze]
     memory:
       inject_artifacts:

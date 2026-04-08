@@ -61,6 +61,7 @@ steps:
 
   - id: evaluate
     persona: supervisor
+    model: strongest
     dependencies: [gather]
     memory:
       inject_artifacts:
@@ -120,6 +121,7 @@ steps:
 
   - id: verdict
     persona: reviewer
+    model: strongest
     dependencies: [evaluate]
     memory:
       inject_artifacts:

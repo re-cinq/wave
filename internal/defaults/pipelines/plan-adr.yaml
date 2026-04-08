@@ -110,6 +110,7 @@ steps:
 
   - id: draft-record
     persona: philosopher
+    model: strongest
     dependencies: [analyze-options]
     memory:
       inject_artifacts:
@@ -183,6 +184,7 @@ steps:
 
   - id: publish
     persona: craftsman
+    model: cheapest
     dependencies: [draft-record]
     memory:
       inject_artifacts:

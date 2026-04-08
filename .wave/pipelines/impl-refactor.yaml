@@ -46,6 +46,7 @@ steps:
 
   - id: test-baseline
     persona: craftsman
+    model: strongest
     dependencies: [analyze]
     memory:
       inject_artifacts:
@@ -84,6 +85,7 @@ steps:
         type: markdown
   - id: refactor
     persona: craftsman
+    model: strongest
     dependencies: [test-baseline]
     thread: refactor
     memory:
@@ -127,6 +129,7 @@ steps:
 
   - id: verify
     persona: reviewer
+    model: strongest
     dependencies: [refactor]
     exec:
       type: prompt

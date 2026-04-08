@@ -62,6 +62,7 @@ steps:
   # ── Step 3: synthesise a unified markdown report ──────────────────────────
   - id: report
     persona: summarizer
+    model: cheapest
     dependencies: [merge-findings]
     workspace:
       mount:

@@ -76,6 +76,7 @@ steps:
 
   - id: apply-enhancements
     persona: "{{ forge.type }}-enhancer"
+    model: strongest
     dependencies: [scan-and-score]
     memory:
       inject_artifacts:

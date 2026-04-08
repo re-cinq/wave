@@ -126,6 +126,7 @@ steps:
   # Step 7: LLM-as-judge — validates subjective quality assessment
   - id: generate-report
     persona: navigator
+    model: cheapest
     dependencies: [approval-gate]
     exec:
       type: prompt

@@ -69,6 +69,7 @@ steps:
 
   - id: verify
     persona: auditor
+    model: strongest
     dependencies: [threat-model]
     memory:
       inject_artifacts:

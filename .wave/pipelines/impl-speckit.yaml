@@ -86,6 +86,7 @@ steps:
 
   - id: plan
     persona: implementer
+    model: strongest
     dependencies: [clarify]
     memory:
       inject_artifacts:
@@ -115,6 +116,7 @@ steps:
 
   - id: tasks
     persona: implementer
+    model: strongest
     dependencies: [plan]
     memory:
       inject_artifacts:
@@ -144,6 +146,7 @@ steps:
 
   - id: checklist
     persona: implementer
+    model: cheapest
     dependencies: [tasks]
     memory:
       inject_artifacts:
@@ -203,6 +206,7 @@ steps:
 
   - id: implement
     persona: craftsman
+    model: strongest
     dependencies: [analyze]
     max_concurrent_agents: 3
     memory:
@@ -240,6 +244,7 @@ steps:
 
   - id: create-pr
     persona: craftsman
+    model: cheapest
     dependencies: [implement]
     memory:
       inject_artifacts:

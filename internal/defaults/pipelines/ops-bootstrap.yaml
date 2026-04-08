@@ -14,6 +14,7 @@ input:
 steps:
   - id: assess
     persona: navigator
+    model: strongest
     workspace:
       mount:
         - source: ./
@@ -75,6 +76,7 @@ steps:
 
   - id: scaffold
     persona: craftsman
+    model: strongest
     dependencies: [assess]
     memory:
       inject_artifacts:
@@ -153,6 +155,7 @@ steps:
 
   - id: commit
     persona: craftsman
+    model: cheapest
     dependencies: [scaffold]
     workspace:
       type: worktree

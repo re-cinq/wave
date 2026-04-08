@@ -57,6 +57,7 @@ steps:
 
   - id: categorize
     persona: planner
+    model: cheapest
     dependencies: [analyze-commits]
     memory:
       inject_artifacts:
@@ -95,6 +96,7 @@ steps:
 
   - id: format
     persona: philosopher
+    model: cheapest
     dependencies: [categorize]
     memory:
       inject_artifacts:

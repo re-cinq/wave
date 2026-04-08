@@ -65,6 +65,7 @@ steps:
 
   - id: analyze
     persona: reviewer
+    model: strongest
     dependencies: [scan-changes]
     memory:
       inject_artifacts:
@@ -102,6 +103,7 @@ steps:
 
   - id: fix-docs
     persona: craftsman
+    model: strongest
     dependencies: [analyze]
     memory:
       inject_artifacts:
@@ -161,6 +163,7 @@ steps:
 
   - id: create-pr
     persona: craftsman
+    model: cheapest
     dependencies: [fix-docs]
     memory:
       inject_artifacts:

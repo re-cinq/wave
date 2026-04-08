@@ -74,6 +74,7 @@ steps:
 
   - id: draft-update
     persona: "{{ forge.type }}-analyst"
+    model: strongest
     dependencies: [gather-context]
     memory:
       inject_artifacts:
@@ -131,6 +132,7 @@ steps:
 
   - id: apply-update
     persona: "{{ forge.type }}-enhancer"
+    model: strongest
     dependencies: [draft-update]
     memory:
       inject_artifacts:

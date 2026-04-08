@@ -68,6 +68,7 @@ steps:
 
   - id: scope-and-create
     persona: "{{ forge.type }}-scoper"
+    model: strongest
     dependencies: [fetch-epic]
     memory:
       inject_artifacts:
@@ -129,6 +130,7 @@ steps:
 
   - id: verify-report
     persona: "{{ forge.type }}-analyst"
+    model: cheapest
     dependencies: [scope-and-create]
     memory:
       inject_artifacts:

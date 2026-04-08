@@ -57,6 +57,7 @@ steps:
 
   - id: hypothesize
     persona: debugger
+    model: strongest
     thread: debug
     dependencies: [reproduce]
     memory:
@@ -91,6 +92,7 @@ steps:
 
   - id: investigate
     persona: debugger
+    model: strongest
     thread: debug
     dependencies: [hypothesize]
     memory:
@@ -129,6 +131,7 @@ steps:
 
   - id: fix
     persona: craftsman
+    model: strongest
     dependencies: [investigate]
     thread: debug
     max_visits: 3

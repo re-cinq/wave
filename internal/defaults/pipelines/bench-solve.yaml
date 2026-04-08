@@ -13,6 +13,7 @@ input:
 steps:
   - id: solve
     persona: craftsman
+    model: strongest
     workspace:
       type: mount
       source: ./
