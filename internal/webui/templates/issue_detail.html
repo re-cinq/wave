@@ -26,7 +26,7 @@
     <span><b>{{.Issue.Comments}}</b> {{if eq .Issue.Comments 1}}comment{{else}}comments{{end}}</span>
     <span style="color:var(--color-text-muted);">·</span>
     <span>updated {{.Issue.UpdatedAt}}</span>
-    {{if .Issue.Labels}}<span style="margin-left:0.3rem;">{{range .Issue.Labels}}<span class="badge" style="font-size:0.6rem;">{{.}}</span> {{end}}</span>{{end}}
+    {{if .Issue.Labels}}<span style="margin-left:0.3rem;">{{range .Issue.Labels}}<span class="badge" style="font-size:0.6rem;{{if .Color}}background:#{{.Color}}22;color:#{{.Color}};{{end}}">{{.Name}}</span> {{end}}</span>{{end}}
 </div>
 
 <!-- Related Pipeline Runs (top priority) -->

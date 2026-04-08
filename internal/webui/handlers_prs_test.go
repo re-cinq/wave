@@ -358,7 +358,7 @@ func TestGetPRListData_Labels(t *testing.T) {
 					Title:     "Labeled PR",
 					State:     "open",
 					Author:    "alice",
-					Labels:    []string{"bug", "priority:high"},
+					Labels:    []forge.Label{{Name: "bug"}, {Name: "priority:high"}},
 					CreatedAt: time.Now(),
 				},
 				{
@@ -382,7 +382,7 @@ func TestGetPRListData_Labels(t *testing.T) {
 	}
 
 	pr1 := data.PullRequests[0]
-	if len(pr1.Labels) != 2 || pr1.Labels[0] != "bug" || pr1.Labels[1] != "priority:high" {
+	if len(pr1.Labels) != 2 || pr1.Labels[0].Name != "bug" || pr1.Labels[1].Name != "priority:high" {
 		t.Errorf("PR #1: expected labels [bug, priority:high], got %v", pr1.Labels)
 	}
 

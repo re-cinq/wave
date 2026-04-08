@@ -215,6 +215,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 }
 .nav-item.active {
     background: var(--color-bg-tertiary); color: var(--color-text); font-weight: 600;
+    border-left: 3px solid var(--wave-primary); padding-left: calc(0.75rem - 3px);
 }
 .nav-icon {
     width: 18px; height: 18px; flex-shrink: 0;
@@ -2716,9 +2717,9 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
     position: relative;
     overflow: hidden;
     transition: border-color 0.12s, box-shadow 0.12s;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    box-shadow: 0 1px 2px var(--color-shadow);
 }
-.w-s:hover { box-shadow: 0 2px 5px rgba(0,0,0,0.35); }
+.w-s:hover { box-shadow: 0 2px 5px var(--color-shadow); }
 
 /* ── Gantt fill as shape background ── */
 .ws-bg { position: absolute; top: 0; left: 0; bottom: 0; border-radius: 3px; opacity: 0.06; pointer-events: none; z-index: 0; }
@@ -2858,7 +2859,7 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-log-body { margin: 0.15rem var(--ws-pad-x) 0.25rem; background: var(--color-bg-tertiary); border-radius: 4px; padding: 0.4rem; font-family: var(--font-mono); font-size: 0.72rem; line-height: 1.4; white-space: pre-wrap; word-break: break-all; color: var(--color-text-secondary); }
 
 /* ── Error strip ── */
-.ws-err { padding: 0.12rem 0.45rem; font-size: 0.68rem; color: #fca5a5; background: rgba(239,68,68,0.1); border-top: 1px solid rgba(239,68,68,0.25); }
+.ws-err { padding: 0.12rem var(--ws-pad-x); font-size: 0.68rem; color: var(--color-failed); background: var(--color-failed-bg); border-top: 1px solid rgba(239,68,68,0.25); }
 
 /* ── Gate ── */
 .ws-gate { padding: 0.08rem 0.45rem 0.15rem; }

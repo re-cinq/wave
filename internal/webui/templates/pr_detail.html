@@ -38,7 +38,7 @@
     <span style="color:var(--color-text-muted);">·</span>
     <span>{{.PR.CreatedAt}}</span>
     {{if .PR.Labels}}
-    <span style="margin-left:0.3rem;">{{range .PR.Labels}}<span class="badge" style="font-size:0.6rem;">{{.}}</span> {{end}}</span>
+    <span style="margin-left:0.3rem;">{{range .PR.Labels}}<span class="badge" style="font-size:0.6rem;{{if .Color}}background:#{{.Color}}22;color:#{{.Color}};{{end}}">{{.Name}}</span> {{end}}</span>
     {{end}}
 </div>
 

@@ -37,7 +37,7 @@
                 {{if .RunCount}}<span><b>{{.RunCount}}</b> runs</span>{{end}}
                 {{if .TotalTokens}}<span><b>{{formatTokensShort .TotalTokens}}</b> tok</span>{{end}}
                 {{if .Comments}}<span><b>{{.Comments}}</b> {{if eq .Comments 1}}comment{{else}}comments{{end}}</span>{{end}}
-                {{range .Labels}}<span class="badge" style="font-size:0.65rem;">{{.}}</span>{{end}}
+                {{range .Labels}}<span class="badge" style="font-size:0.65rem;{{if .Color}}background:#{{.Color}}22;color:#{{.Color}};{{end}}">{{.Name}}</span>{{end}}
             </div>
         </div>
         <div class="wr-meta">

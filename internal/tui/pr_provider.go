@@ -65,12 +65,16 @@ func (p *DefaultPRDataProvider) FetchPRs() ([]PRData, error) {
 	}
 	var result []PRData
 	for _, pr := range prs {
+		var labelNames []string
+		for _, l := range pr.Labels {
+			labelNames = append(labelNames, l.Name)
+		}
 		result = append(result, PRData{
 			Number:       pr.Number,
 			Title:        pr.Title,
 			State:        pr.State,
 			Author:       pr.Author,
-			Labels:       pr.Labels,
+			Labels:       labelNames,
 			Body:         pr.Body,
 			Draft:        pr.Draft,
 			Merged:       pr.Merged,
