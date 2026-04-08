@@ -59,42 +59,57 @@ steps:
     exec:
       type: prompt
       source: |
-        Scan for redundant implementations and architectural drift.
+        ## Objective
+
+        Scan the codebase for redundant implementations, parallel abstractions, and architectural drift that have accumulated over time. Produce a structured JSON report identifying specific consolidation opportunities with effort estimates and risk assessments. This analysis helps restore architectural coherence after rapid development periods where expedient copy-paste and parallel solutions tend to proliferate.
+
+        ## Context
+
+        This is a single-step analysis pipeline. The codebase is mounted read-only at /project. The caller may provide a package or directory scope via the input variable, or leave it empty for a full codebase scan. No prior pipeline steps feed into this step. This pipeline is most valuable after feature sprints, large merges, or when multiple contributors have worked on similar functionality independently.
 
         Scope: {{ input }}
 
-        ## What to Look For
+        If the scope is empty or blank, scan all packages under internal/ and cmd/. If a specific directory is provided (e.g., "internal/pipeline"), focus analysis on that subtree but still check for cross-package redundancies by searching the full codebase for similar patterns.
 
-        1. **Duplicate logic**: Functions doing the same thing in different packages.
-           Search for similar function signatures and bodies.
+        ## Requirements
 
-        2. **Parallel abstractions**: Multiple interfaces or types representing
-           the same concept (e.g., two different error types for the same domain).
+        Systematically search for each of the following categories of architectural drift:
 
-        3. **Inconsistent patterns**: Same operation done differently in different
-           places (e.g., file reading with os.ReadFile in one place, io.ReadAll in another).
+        1. **Duplicate logic**: Identify functions in different packages that perform the same operation. Search for similar function signatures using Grep (e.g., functions that take the same parameter types and return the same result types). Read the function bodies to confirm behavioral duplication. Pay special attention to utility functions (file I/O, string manipulation, error wrapping, JSON marshaling) that tend to be reimplemented per-package rather than shared.
 
-        4. **Dead abstractions**: Interfaces with only one implementation,
-           wrapper types that add no value.
+        2. **Parallel abstractions**: Find multiple interfaces or types that represent the same domain concept. For example, two different "Result" types in separate packages, two error-wrapping strategies, or two configuration-loading mechanisms. Use Grep to search for type definitions with similar names or field sets. Read the types to determine whether they model the same concept.
 
-        5. **Package boundary violations**: Packages reaching into each other's
-           internals instead of using proper interfaces.
+        3. **Inconsistent patterns**: Identify cases where the same operation is performed using different approaches in different locations. Common examples include: file reading (os.ReadFile vs io.ReadAll vs bufio), JSON handling (json.Unmarshal vs json.NewDecoder), error creation (fmt.Errorf vs errors.New vs custom types), context propagation (explicit parameter vs global). Use Grep to find all call sites of each variant and determine whether one pattern should be canonical.
 
-        6. **Naming inconsistencies**: Same concept with different names across
-           packages (e.g., "workspace" vs "workdir" vs "cwd").
+        4. **Dead abstractions**: Find interfaces with only one implementation (premature abstraction), wrapper types that delegate every method without adding behavior, and factory functions that always return the same concrete type. Use Grep to count implementations of each interface and callers of each wrapper.
 
-        ## Analysis
+        5. **Package boundary violations**: Identify cases where one package reaches into another's internal details instead of using its public API. Look for imports that bypass intended abstraction layers, direct struct field access where accessor methods exist, and type assertions that defeat interface-based dispatch.
 
-        For each finding:
-        - List the affected file:line locations
-        - Explain what's redundant or inconsistent
-        - Propose a consolidation strategy
-        - Assess effort (trivial/small/medium/large) and risk
+        6. **Naming inconsistencies**: Find the same concept referred to by different names across packages. Common examples in Go projects include: "workspace" vs "workdir" vs "cwd," "config" vs "settings" vs "options," "run" vs "execution" vs "invocation," "step" vs "task" vs "job." Use Grep to search for each variant and map which packages use which term.
 
-        Write your findings to `.wave/output/findings.json` (the contract schema defines the required structure).
+        For each finding, perform this analysis:
+        - List all affected file:line locations on both sides of the redundancy.
+        - Explain precisely what is redundant or inconsistent, citing specific code.
+        - Propose a concrete consolidation strategy (which side to keep, what to extract, where to place the shared code).
+        - Assess implementation effort: trivial (rename or delete), small (extract helper, update imports), medium (introduce shared interface, update callers), large (architectural restructuring across multiple packages).
+        - Assess risk: what could break if the consolidation is done incorrectly.
 
-        Use `"type": "duplicate"` for duplicate logic and parallel abstractions, `"type": "style"` for naming
-        inconsistencies, `"type": "other"` for package boundary violations and dead abstractions.
+        ## Constraints and Anti-patterns
+
+        - Do NOT report intentional polymorphism as redundancy. Multiple implementations of a shared interface that serve different backends are by design.
+        - Do NOT flag test utilities that duplicate production patterns for testing convenience.
+        - Do NOT report Go standard library idiom variations (e.g., using both fmt.Sprintf and strings.Builder) unless they cause behavioral inconsistency.
+        - Do NOT modify any files. The workspace is read-only.
+        - Do NOT report findings without reading the actual source code of both locations. Name similarity alone is not sufficient evidence.
+        - Avoid reporting trivially small functions (under 5 lines) as duplicates unless they appear in more than 3 locations.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good scan reads source code from both sides of each reported redundancy, explains the specific behavioral or structural overlap, and proposes a concrete consolidation path with realistic effort estimates. A bad scan reports surface-level name similarities without reading the code, flags intentional design patterns as redundancy, or provides vague recommendations like "these should be consolidated" without explaining how.
     output_artifacts:
       - name: findings
         path: .wave/output/findings.json

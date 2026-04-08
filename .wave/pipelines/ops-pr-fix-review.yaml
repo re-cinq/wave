@@ -160,7 +160,7 @@ steps:
 
         ### Step 5: Produce Output
 
-        Write the structured JSON to `.wave/output/review-findings.json`. The output must
+        Produce the structured JSON matching the contract schema. The output must
         include `pr_number`, `repo`, `head_branch`, `base_branch`, `pr_url`, `pr_title`,
         and a `findings` array containing every extracted finding.
 
@@ -327,7 +327,7 @@ steps:
 
         ## Output Format
 
-        Write JSON to `.wave/output/triage-verdict.json` matching the contract schema.
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
@@ -744,7 +744,7 @@ steps:
 
         ### Step 5: Produce Output Artifact
 
-        Write `.wave/output/resolution-summary.json` with:
+        Produce the result JSON with:
         - `pr_number`, `repo`
         - `total_findings`, `accepted`, `rejected`, `deferred`, `skipped` (counts)
         - `replies_posted`: count of individual replies successfully posted
@@ -764,7 +764,7 @@ steps:
 
         ## Output Format
 
-        Write JSON to `.wave/output/resolution-summary.json` as described in Step 5.
+        Produce output matching the contract schema as described in Step 5.
 
         ## Quality Bar
 

@@ -360,9 +360,9 @@ steps:
            ..."
            ```
 
-        6. **Write the result artifact**: After committing, write a summary to
-           `.wave/output/result.md` describing what was implemented, which plan steps
-           were completed, and any deviations from the plan.
+        6. **Write the result artifact**: After committing, produce a summary describing
+           what was implemented, which plan steps were completed, and any deviations from
+           the plan.
 
         ## Constraints and Anti-patterns
 
@@ -381,7 +381,7 @@ steps:
         ## Output Format
 
         The primary output is the committed code on the worktree branch. Additionally,
-        write `.wave/output/result.md` containing:
+        produce the result artifact containing:
         - Summary of what was implemented (2-3 sentences)
         - List of plan steps completed with status (done/skipped/modified)
         - Files created or modified (with brief description of each change)
@@ -481,7 +481,7 @@ steps:
 
         No explicit output artifact is required beyond the committed fix. The contract
         will re-run the test suite to verify the fix. If you write to
-        `.wave/output/result.md`, include a brief description of the failure, root cause,
+        the result artifact, include a brief description of the failure, root cause,
         and fix applied.
 
         ## Quality Bar
@@ -565,8 +565,8 @@ steps:
            {{ forge.cli_tool }} {{ forge.pr_command }} create --title "$(cat /tmp/wave-pr-title.txt)" --body-file .wave/artifacts/result
            ```
 
-        4. **Capture the PR result**: After creating the PR, write a JSON result to
-           `.wave/output/pr-result.json` containing:
+        4. **Capture the PR result**: After creating the PR, produce a JSON result
+           containing:
            - `pr_url`: The full URL of the created pull request
            - `pr_number`: The PR number
            - `branch`: The branch name

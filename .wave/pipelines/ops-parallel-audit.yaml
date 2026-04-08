@@ -122,7 +122,7 @@ steps:
            message clarity, onboarding friction, and tooling gaps
 
         Their findings have been aggregated by the merge-findings step into a single
-        flat JSON array at `.wave/output/merged-findings.json`. Each finding object in
+        flat JSON array via the merge-findings aggregation step. Each finding object in
         the array contains at minimum: `source` (which audit), `severity` (critical,
         high, medium, low), `title`, `description`, and optionally `file`, `line`, and
         `recommendation`.
@@ -134,7 +134,7 @@ steps:
 
         ### Step 1: Read and Parse Findings
 
-        Read `.wave/output/merged-findings.json`. Parse the array of findings. Count
+        Read the injected `merged_findings` artifact. Parse the array of findings. Count
         totals by source and by severity. If the file is empty or contains an empty
         array, note that all audits returned clean results.
 
@@ -186,7 +186,7 @@ steps:
 
         ### Step 3: Write the Report to Disk
 
-        Write the complete report to `.wave/output/parallel-audit-report.md`.
+        Produce the complete report as markdown.
 
         ## Constraints and Anti-patterns
 
@@ -206,7 +206,7 @@ steps:
 
         ## Output Format
 
-        A single markdown file at `.wave/output/parallel-audit-report.md` with the five
+        A single markdown report with the five
         sections described above.
 
         ## Quality Bar

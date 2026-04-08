@@ -343,7 +343,7 @@ steps:
 
         ## Output Format
 
-        Write a markdown file to `.wave/output/investigation.md` with the following
+        Produce a markdown report with the following
         structure:
         - **H1: Investigation Report**
         - **H2: Summary** — one paragraph stating the confirmed root cause (or that no
@@ -461,7 +461,7 @@ steps:
 
         ## Output Format
 
-        Write a markdown file to `.wave/output/fix-summary.md` with:
+        Produce a markdown summary with:
         - **H2: Fix Applied** — what was changed, which files, which lines
         - **H2: Regression Test** — the test name, what it exercises, its location
         - **H2: Verification** — the reproduction test result and full suite result
