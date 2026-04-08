@@ -2856,6 +2856,12 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-bar-fill.st-failed    { background: var(--color-failed); }
 .ws-bar-fill.st-running   { background: var(--color-running); }
 
+/* ── Strip noise inside dark terminal tab content ── */
+.ws-tabcontent [class*="ansi-bg-"] { background-color: transparent !important; }
+.ws-tabcontent code { background: transparent !important; }
+.ws-tabcontent .hljs { background: transparent !important; }
+.ws-tabcontent .log-line { background: transparent; border-bottom: none; padding: 0; }
+
 /* ── Logs ── */
 .ws-log-body {
     margin: 0;
