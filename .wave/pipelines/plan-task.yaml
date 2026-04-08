@@ -121,7 +121,7 @@ steps:
           no explanation outside the file. The file must parse as valid JSON.
 
         OUTPUT FORMAT:
-        Write structured JSON to .wave/output/exploration.json matching the
+        Produce structured JSON matching the
         plan-exploration schema. Top-level fields: request_summary (string), scope
         (small/medium/large/epic), related_files (array), patterns (array), affected_modules
         (array), testing_landscape (object with test_files array and coverage_gaps array),
@@ -231,7 +231,7 @@ steps:
           no explanation outside the file. The file must parse as valid JSON.
 
         OUTPUT FORMAT:
-        Write structured JSON to .wave/output/tasks.json matching the plan-tasks schema.
+        Produce structured JSON matching the plan-tasks contract schema.
         Top-level fields: feature_summary (object), tasks (array of task objects), phases
         (array of phase objects with task_ids), and timestamp.
 
@@ -359,7 +359,7 @@ steps:
           no explanation outside the file. The file must parse as valid JSON.
 
         OUTPUT FORMAT:
-        Write structured JSON to .wave/output/plan-review.json matching the plan-review
+        Produce structured JSON matching the plan-review contract
         schema. Top-level fields: feature_request (string), task_reviews (array of per-task
         review objects), cross_cutting_concerns (array), recommendations (array), dependency_validation
         (object with is_valid boolean and issues array), verdict (object with decision,

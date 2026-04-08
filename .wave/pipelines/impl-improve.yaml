@@ -362,7 +362,7 @@ steps:
 
         ## Output Format
 
-        Write the verification report to `.wave/output/verification.md` with the following
+        Produce the verification report as markdown with the following
         sections:
         - **Summary**: One paragraph overall assessment
         - **Applied Improvements**: Table with finding ID, description, status (correct/

@@ -326,7 +326,7 @@ steps:
 
         ## Output Format
 
-        Write the explanation document to `.wave/output/explanation.md`. The document must be valid markdown, well-structured with headers, and suitable for inclusion in a project's documentation directory.
+        Produce the explanation document as valid markdown, well-structured with headers, and suitable for inclusion in a project's documentation directory.
 
         ## Quality Bar
 

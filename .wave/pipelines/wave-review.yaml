@@ -149,7 +149,7 @@ steps:
         - Do NOT provide a verdict of APPROVE if there are any REQUEST-level findings.
 
         OUTPUT FORMAT:
-        Write the review as markdown to .wave/output/review.md with sections:
+        Produce the review as markdown with sections:
         # Code Review: <PR title or branch name>
         ## Summary (verdict, file count, finding counts, 2-3 sentence overview)
         ## Per-File Review (one subsection per file with status, findings, suggestions)

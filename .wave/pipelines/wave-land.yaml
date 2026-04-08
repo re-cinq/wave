@@ -112,8 +112,8 @@ steps:
         - NEVER use `git add -A` or `git add .`. Stage specific files only.
         - NEVER include Co-Authored-By lines in commit messages.
         - NEVER include AI attribution in commit messages.
-        - NEVER stage .wave/artifacts/, .wave/output/, or .claude/ directories.
-          Run `git reset HEAD -- .wave/artifacts/ .wave/output/ .claude/` if any
+        - NEVER stage .wave/ or .claude/ directories.
+          Run `git reset HEAD -- .wave/ .claude/` if any
           are accidentally staged.
         - Do NOT create more than 5 commits for a single feature. If changes are
           numerous, group more aggressively rather than creating a long commit chain.

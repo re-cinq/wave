@@ -109,7 +109,7 @@ steps:
           steps depend on it to determine the routing path.
 
         OUTPUT FORMAT:
-        Write a JSON report to .wave/output/config-check.json with:
+        Produce a JSON report with:
         - checks: object with wave_yaml, adapters, personas, pipelines sub-objects,
           each containing status ("pass"/"fail"), details (string), and specific fields
           noted above
@@ -210,7 +210,7 @@ steps:
           diagnosing.
 
         OUTPUT FORMAT:
-        Write a brief diagnosis to .wave/output/diagnosis.md. Use plain markdown with
+        Produce a brief diagnosis as markdown. Use plain markdown with
         a heading and 1-2 paragraphs. Include the specific error or missing file.
 
         QUALITY BAR:
@@ -274,7 +274,7 @@ steps:
               (which proves the executor routed to the correct model).
 
            b. Sub-pipeline composition: The sub-pipeline-test step invoked ops-hello-world
-              as a child pipeline. Check if .wave/output/ contains artifacts from the
+              as a child pipeline. Check if the output directory contains artifacts from the
               child pipeline execution. VERIFIED if child artifacts exist.
 
            c. Command steps: The run-tests step executed a shell command without an LLM
@@ -297,7 +297,7 @@ steps:
               was active even if no retry was needed). Note whether a retry occurred.
 
            g. Lifecycle hooks: Two hooks are configured (log-start on run_start, log-step
-              on step_completed). Check if .wave/output/hook-log.txt exists and contains
+              on step_completed). Check if the hook log file exists and contains
               entries. VERIFIED if the hook log file exists with content.
 
            h. LLM-as-judge: This step's output will be evaluated by an llm_judge
@@ -326,7 +326,7 @@ steps:
         - Do NOT omit any of the 8 feature categories. All must be assessed.
 
         OUTPUT FORMAT:
-        Write structured markdown to .wave/output/validation-report.md with:
+        Produce structured markdown with:
         # Wave Feature Validation Report
         ## Summary (count of VERIFIED/UNTESTED, overall assessment)
         ## Feature Assessment (table or list with feature, status, evidence, notes)

@@ -366,7 +366,7 @@ steps:
 
         ## Output Format
 
-        Write the formatted changelog to `.wave/output/CHANGELOG.md`. The file must be valid markdown that renders correctly on GitHub and in documentation sites.
+        Produce the formatted changelog as valid markdown that renders correctly on GitHub and in documentation sites.
 
         ## Quality Bar
 

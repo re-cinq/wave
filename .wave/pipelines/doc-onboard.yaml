@@ -149,7 +149,7 @@ steps:
 
         ## Output Format
 
-        Write the survey to `.wave/output/project-survey.json` conforming to the project-survey contract schema. Include structured data for each of the 9 survey items above.
+        Produce the survey as structured JSON conforming to the project-survey contract schema. Include structured data for each of the 9 survey items above.
 
         ## Quality Bar
 
@@ -262,7 +262,7 @@ steps:
 
         ## Output Format
 
-        Write the onboarding guide to `.wave/output/onboarding-guide.md`. The document must be valid markdown and suitable for inclusion in the project's docs/ directory.
+        Produce the onboarding guide as valid markdown suitable for inclusion in the project's docs/ directory.
 
         ## Quality Bar
 

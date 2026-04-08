@@ -253,7 +253,7 @@ steps:
 
         ## Output Format
 
-        Write the baseline document to `.wave/output/test-baseline.md`. The contract
+        Produce the baseline document as markdown. The contract
         validates that the test suite passes.
 
         ## Quality Bar
@@ -482,7 +482,7 @@ steps:
 
         ## Output Format
 
-        Write the verification to `.wave/output/verification.md` with sections:
+        Produce the verification as markdown with sections:
         - **Verdict**: PASS or FAIL
         - **Behavioral Analysis**: Before/after comparison for core functions
         - **Caller Verification**: Whether all callers were updated

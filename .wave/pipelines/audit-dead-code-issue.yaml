@@ -161,12 +161,12 @@ steps:
 
         If the scan found zero findings (empty findings array or total_findings == 0):
         - Write a short "No dead code found" message as the report content
-        - Also write an issue result JSON with skipped=true and reason="clean" to `.wave/output/issue-result.json`
+        - Also produce an issue result JSON with skipped=true and reason="clean"
         - Exit early; do not compose the full report structure
 
         ### Compose the Full Report
 
-        If findings exist, write the report as markdown to `.wave/output/report.md` with these sections:
+        If findings exist, produce the report as markdown with these sections:
 
         1. **Header and metadata**: Report title, scan date (from the findings timestamp), and total finding count.
 
@@ -203,7 +203,7 @@ steps:
 
         ## Output Format
 
-        Write the markdown report to `.wave/output/report.md`. The file must be valid GitHub-flavored markdown that renders correctly when used as a GitHub issue body.
+        The report must be valid GitHub-flavored markdown that renders correctly when used as a GitHub issue body.
 
         ## Quality Bar
 
@@ -248,7 +248,7 @@ steps:
 
         If the report content indicates no dead code was found (contains "No dead code found" or similar clean-bill-of-health message):
         - Do NOT create a GitHub issue
-        - Write the result JSON to `.wave/output/issue-result.json` with skipped=true and reason="clean"
+        - Produce the result JSON with skipped=true and reason="clean"
         - Exit early
 
         ### Detect Repository
@@ -281,7 +281,7 @@ steps:
 
         ### Capture Result
 
-        Parse the output of the issue create command to extract the issue URL and number. Write a JSON status report to `.wave/output/issue-result.json` matching the dead-code-issue-result contract schema. Include:
+        Parse the output of the issue create command to extract the issue URL and number. Produce a JSON status report matching the dead-code-issue-result contract schema. Include:
         - `issue.url`: the full GitHub issue URL
         - `issue.number`: the issue number
         - `issue.title`: the issue title as created

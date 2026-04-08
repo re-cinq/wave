@@ -138,7 +138,7 @@ steps:
         - Do NOT modify item bodies or titles. Capture them exactly for the audit step.
 
         OUTPUT FORMAT:
-        Write the inventory as structured JSON to .wave/output/inventory.json with:
+        Produce the inventory as structured JSON with:
         - scope: object with mode ("full", "time_range", or "label"), filter (raw scope
           expression), repository (owner/repo)
         - items: array of inventory item objects as described above
@@ -256,7 +256,7 @@ steps:
           criterion is unmet -- report it honestly.
 
         OUTPUT FORMAT:
-        Write findings as structured JSON to .wave/output/audit-findings.json with:
+        Produce findings as structured JSON with:
         - findings: array of finding objects, each with item_number, item_type, item_url,
           title, category, evidence (array of strings), unmet_criteria (array of strings
           for partial/regressed), remediation (string)
@@ -360,7 +360,7 @@ steps:
           differentiate urgency based on category and severity.
 
         OUTPUT FORMAT:
-        Write the triage report as structured JSON to .wave/output/triage-report.json with:
+        Produce the triage report as structured JSON with:
         - metadata: object with scope (string), timestamp (ISO 8601), repository
           (owner/repo), total_items_audited (integer)
         - summary: object with counts for verified, partial, regressed, obsolete,
@@ -483,7 +483,7 @@ steps:
           the issue as created: false with the error details.
 
         OUTPUT FORMAT:
-        Write the publish result as structured JSON to .wave/output/publish-result.json with:
+        Produce the publish result as structured JSON with:
         - success: boolean (true if all issue creations succeeded or were skipped)
         - repository: owner/repo string
         - issues_created: array of created issue objects (number, url, source_item, category)

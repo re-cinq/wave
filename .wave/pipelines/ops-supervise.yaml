@@ -341,7 +341,7 @@ steps:
 
         ## Output Format
 
-        JSON at `.wave/output/supervision-evaluation.json` matching the contract schema.
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
@@ -475,7 +475,7 @@ steps:
 
         ### Step 5: Produce the Report
 
-        Write a markdown report to `.wave/output/supervision-verdict.md` with these
+        Produce a markdown report with these
         exact sections:
 
         ```
@@ -532,7 +532,7 @@ steps:
 
         ## Output Format
 
-        Markdown at `.wave/output/supervision-verdict.md` with the sections described
+        Produce markdown with the sections described
         above.
 
         ## Quality Bar
