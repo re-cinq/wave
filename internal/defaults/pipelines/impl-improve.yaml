@@ -166,5 +166,11 @@ steps:
         type: markdown
     handover:
       contract:
-        type: non_empty_file
+        type: agent_review
+        persona: navigator
+        criteria_path: .wave/contracts/verification-criteria.md
         source: .wave/output/verification.md
+        model: cheapest
+        token_budget: 8000
+        timeout: 90s
+        on_failure: warn

@@ -22,7 +22,7 @@ var personasFS embed.FS
 //go:embed pipelines/*.yaml
 var pipelinesFS embed.FS
 
-//go:embed contracts/*.json
+//go:embed contracts/*.json contracts/*.md
 var contractsFS embed.FS
 
 //go:embed prompts/**/*.md
