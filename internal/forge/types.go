@@ -2,6 +2,12 @@ package forge
 
 import "time"
 
+// Label is a forge-neutral representation of a label with its display color.
+type Label struct {
+	Name  string `json:"name"`
+	Color string `json:"color,omitempty"` // hex without #, e.g. "e4e669"
+}
+
 // Issue is a forge-neutral representation of an issue/work-item.
 type Issue struct {
 	Number    int
@@ -9,7 +15,7 @@ type Issue struct {
 	Body      string
 	State     string // "open", "closed"
 	Author    string
-	Labels    []string
+	Labels    []Label
 	Assignees []string
 	Comments  int
 	CreatedAt time.Time
@@ -26,7 +32,7 @@ type PullRequest struct {
 	Body         string
 	State        string // "open", "closed", "merged"
 	Author       string
-	Labels       []string
+	Labels       []Label
 	Draft        bool
 	Merged       bool
 	HeadBranch   string

@@ -20,7 +20,7 @@
                 {{if and .Category (ne .Category "composition")}}<span class="badge" style="font-size:0.65rem;background:rgba(139,92,246,0.12);color:#c4b5fd;">{{.Category}}</span>{{end}}
                 <span class="badge" style="font-size:0.65rem;background:rgba(99,102,241,0.12);color:#a5b4fc;">composition</span>
             </div>
-            {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);font-size:0.78rem;">{{.Description}}</span></div>{{end}}
+            {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);font-size:0.78rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:48rem;">{{.Description}}</span></div>{{end}}
             <div class="wr-row2" style="margin-top:0.15rem;">
                 <span style="color:var(--color-text-muted);font-size:0.72rem;"><b>{{.StepCount}}</b> steps</span>
                 {{if .RunCount}}<span style="color:var(--color-text-muted);font-size:0.72rem;"><b>{{.RunCount}}</b> runs</span>{{end}}

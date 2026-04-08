@@ -286,13 +286,19 @@ type PipelineStartInfo struct {
 	StepCount   int    `json:"step_count"`
 }
 
+// LabelBadge is a label with an optional display color for the web UI.
+type LabelBadge struct {
+	Name  string `json:"name"`
+	Color string `json:"color,omitempty"`
+}
+
 // IssueSummary is a summary of a GitHub issue for the API.
 type IssueSummary struct {
-	Number    int      `json:"number"`
-	Title     string   `json:"title"`
-	State     string   `json:"state"`
-	Author    string   `json:"author"`
-	Labels    []string `json:"labels"`
+	Number    int          `json:"number"`
+	Title     string       `json:"title"`
+	State     string       `json:"state"`
+	Author    string       `json:"author"`
+	Labels    []LabelBadge `json:"labels"`
 	Comments  int      `json:"comments"`
 	CreatedAt string   `json:"created_at"`
 	URL       string   `json:"url"`
@@ -304,12 +310,12 @@ type IssueSummary struct {
 
 // IssueDetail holds full issue information for the detail page.
 type IssueDetail struct {
-	Number    int      `json:"number"`
-	Title     string   `json:"title"`
-	State     string   `json:"state"`
-	Body      string   `json:"body"`
-	Author    string   `json:"author"`
-	Labels    []string `json:"labels"`
+	Number    int          `json:"number"`
+	Title     string       `json:"title"`
+	State     string       `json:"state"`
+	Body      string       `json:"body"`
+	Author    string       `json:"author"`
+	Labels    []LabelBadge `json:"labels"`
 	Assignees []string `json:"assignees,omitempty"`
 	Comments  int      `json:"comments"`
 	CreatedAt string   `json:"created_at"`
@@ -331,11 +337,11 @@ type IssueListResponse struct {
 
 // PRSummary is a summary of a GitHub pull request for the API.
 type PRSummary struct {
-	Number       int      `json:"number"`
-	Title        string   `json:"title"`
-	State        string   `json:"state"`
-	Author       string   `json:"author"`
-	Labels       []string `json:"labels,omitempty"`
+	Number       int          `json:"number"`
+	Title        string       `json:"title"`
+	State        string       `json:"state"`
+	Author       string       `json:"author"`
+	Labels       []LabelBadge `json:"labels,omitempty"`
 	Draft        bool     `json:"draft"`
 	Merged       bool     `json:"merged"`
 	HeadBranch   string   `json:"head_branch"`
@@ -381,12 +387,12 @@ type PRCheck struct {
 
 // PRDetail holds full PR information for the detail page.
 type PRDetail struct {
-	Number       int       `json:"number"`
-	Title        string    `json:"title"`
-	State        string    `json:"state"`
-	Body         string    `json:"body"`
-	Author       string    `json:"author"`
-	Labels       []string  `json:"labels,omitempty"`
+	Number       int          `json:"number"`
+	Title        string       `json:"title"`
+	State        string       `json:"state"`
+	Body         string       `json:"body"`
+	Author       string       `json:"author"`
+	Labels       []LabelBadge `json:"labels,omitempty"`
 	Draft        bool      `json:"draft"`
 	Merged       bool      `json:"merged"`
 	HeadBranch   string    `json:"head_branch"`

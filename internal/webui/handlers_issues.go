@@ -174,7 +174,7 @@ func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
 			State:     issue.State,
 			Body:      issue.Body,
 			Author:    issue.Author,
-			Labels:    issue.Labels,
+			Labels:    forgeLabelsToBadges(issue.Labels),
 			Assignees: issue.Assignees,
 			Comments:  issue.Comments,
 			CreatedAt: issue.CreatedAt.Format("2006-01-02 15:04"),
@@ -259,7 +259,7 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 			Title:     issue.Title,
 			State:     issue.State,
 			Author:    issue.Author,
-			Labels:    issue.Labels,
+			Labels:    forgeLabelsToBadges(issue.Labels),
 			Comments:  issue.Comments,
 			CreatedAt: issue.CreatedAt.Format("2006-01-02"),
 			URL:       issue.HTMLURL,
@@ -306,4 +306,16 @@ func splitRepoSlug(slug string) (string, string) {
 		return "", ""
 	}
 	return parts[0], parts[1]
+}
+
+// forgeLabelsToBadges converts forge.Label slice to LabelBadge slice for the web UI.
+func forgeLabelsToBadges(labels []forge.Label) []LabelBadge {
+	if len(labels) == 0 {
+		return nil
+	}
+	result := make([]LabelBadge, len(labels))
+	for i, l := range labels {
+		result[i] = LabelBadge{Name: l.Name, Color: l.Color}
+	}
+	return result
 }
