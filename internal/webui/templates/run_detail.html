@@ -226,6 +226,12 @@
         </div>
     </div>
     {{end}}
+    {{if .OutputArtifacts}}
+    <div class="ws-tabs" style="margin:0 var(--ws-pad-x);">
+        {{range $a := .OutputArtifacts}}<a href="#" class="w-tab" data-run-id="{{$.Run.RunID}}" data-step-id="{{$.OutputStepID}}" data-artifact-name="{{$a.Name}}" onclick="v2ToggleOutArtTab(this);return false;">{{$a.Name}} <span class="art-size">{{formatBytes $a.SizeBytes}}</span></a>{{end}}
+    </div>
+    <div class="ws-tabcontent" id="w-out-tc" hidden></div>
+    {{end}}
     {{if .Run.ErrorMessage}}<div class="ws-err">{{.Run.ErrorMessage}}</div>{{end}}
 </div>
 
