@@ -101,7 +101,7 @@ func (s *Server) handleAPIRunDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get step details from step_state table (what the executor writes to)
-	stepDetails := s.buildStepDetails(runID, run.PipelineName)
+	stepDetails := s.buildStepDetails(runID, run.PipelineName, run.Status)
 
 	// Get events
 	events, err := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 5000})
@@ -235,7 +235,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stepDetails := s.buildStepDetails(runID, run.PipelineName)
+	stepDetails := s.buildStepDetails(runID, run.PipelineName, run.Status)
 
 	// Enrich step I/O descriptions from pipeline definition
 	if p, loadErr := loadPipelineYAML(run.PipelineName); loadErr == nil {
@@ -541,7 +541,7 @@ func runToSummary(r state.RunRecord) RunSummary {
 // the pipeline definition. We use events rather than step_state because the
 // step_state table has a unique constraint on step_id alone (not per-pipeline),
 // causing cross-run collisions.
-func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
+func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...string) []StepDetail {
 	// Load pipeline definition to get ordered step list with personas
 	p, err := loadPipelineYAML(pipelineName)
 	if err != nil {
@@ -787,6 +787,15 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 			artSummaries[j] = artifactToSummary(a)
 		}
 		sd.Artifacts = artSummaries
+
+		// If the run is terminal but step still shows running, override to cancelled
+		rs := ""
+		if len(runStatus) > 0 {
+			rs = runStatus[0]
+		}
+		if (rs == "cancelled" || rs == "failed") && (sd.State == "running" || sd.State == "started") {
+			sd.State = "cancelled"
+		}
 
 		details = append(details, sd)
 	}
