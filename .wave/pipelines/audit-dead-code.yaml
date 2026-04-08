@@ -424,7 +424,7 @@ steps:
 
         ### Step 5: Capture Result
 
-        Write the PR URL, number, and title to `.wave/output/pr-result.json` matching the pr-result contract schema. Include the branch name, removed item count, and verification verdict in the result.
+        Produce the PR URL, number, and title as JSON matching the pr-result contract schema. Include the branch name, removed item count, and verification verdict in the result.
 
         ## Constraints and Anti-patterns
 

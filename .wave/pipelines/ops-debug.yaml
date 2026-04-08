@@ -162,8 +162,8 @@ steps:
 
         ## Context
 
-        The previous "reproduce" step produced the `issue` artifact (injected at
-        `.wave/artifacts/issue`). This artifact contains the reproduction report with:
+        The previous "reproduce" step produced the injected `issue` artifact. It contains
+        the reproduction report with:
         - The exact failure symptom and error output
         - The expected vs. actual behavior
         - The relevant code paths, files, and line ranges
@@ -277,12 +277,11 @@ steps:
         ## Context
 
         Two prior artifacts are injected into your workspace:
-        - `issue` (from the "reproduce" step at `.wave/artifacts/issue`): Contains the
-          reproduction report with the exact failure, error output, relevant files, and
-          environment details.
-        - `hypotheses` (from the "hypothesize" step at `.wave/artifacts/hypotheses`):
-          Contains the ranked list of root-cause hypotheses, each with a description,
-          mechanism, test plan, and likelihood rating.
+        - `issue` (from the "reproduce" step): Contains the reproduction report with the
+          exact failure, error output, relevant files, and environment details.
+        - `hypotheses` (from the "hypothesize" step): Contains the ranked list of
+          root-cause hypotheses, each with a description, mechanism, test plan, and
+          likelihood rating.
 
         Read BOTH artifacts before starting. The hypotheses are pre-ranked — start with
         the highest-ranked hypothesis and work down. You have read-only access to the
@@ -403,8 +402,8 @@ steps:
 
         ## Context
 
-        The `root_cause` artifact (injected from the "investigate" step at
-        `.wave/artifacts/root_cause`) contains the investigation report with:
+        The injected `root_cause` artifact (from the "investigate" step) contains the
+        investigation report with:
         - The confirmed root cause: exact file, function, and line where the bug lives
         - The triggering condition and why the current code is wrong
         - A recommended fix direction (brief sketch, not implementation)

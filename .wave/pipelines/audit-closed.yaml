@@ -131,7 +131,7 @@ steps:
 
         ### 6. Write Output
 
-        Write the inventory as structured JSON to `.wave/artifacts/inventory.json`.
+        Produce the inventory as structured JSON matching the contract schema.
 
         ## Constraints and Anti-patterns
 
@@ -331,7 +331,7 @@ steps:
 
         ### 4. Write the Triage Report
 
-        Write a markdown summary to `.wave/artifacts/triage-report.md` with these sections:
+        Write a markdown triage report with these sections:
 
         1. **Audit Scope** -- Description of what was audited: repository name, scope mode (full/time_range/label), filter expression, date range, total items audited.
         2. **Summary Statistics** -- Counts by status as a markdown table. Include the fidelity rate and regression rate percentages.
@@ -352,7 +352,7 @@ steps:
 
         ## Output Format
 
-        The output is a single markdown file at `.wave/artifacts/triage-report.md`. It must be self-contained and readable without access to the underlying JSON artifacts.
+        The output is a single markdown triage report. It must be self-contained and readable without access to the underlying JSON artifacts.
 
         ## Quality Bar
 

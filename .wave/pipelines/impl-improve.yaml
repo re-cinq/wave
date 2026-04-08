@@ -197,8 +197,8 @@ steps:
 
         ## Context
 
-        The assessment findings have been injected as `.wave/artifacts/findings`. Read this
-        artifact FIRST. It contains:
+        The injected `findings` artifact contains the assessment findings. Read it FIRST.
+        It contains:
         - `findings`: Array of improvement opportunities, each with id, category, file,
           line_range, description, impact, effort, risk, and suggestion
         - `recommended_order`: The optimal order for applying fixes
@@ -309,8 +309,8 @@ steps:
 
         ## Context
 
-        The original assessment findings have been injected as `.wave/artifacts/original_findings`.
-        This contains the full list of findings with their IDs, descriptions, and priorities.
+        The injected `original_findings` artifact contains the full list of findings with
+        their IDs, descriptions, and priorities.
         The implement step has applied some or all of these findings to the codebase.
 
         You have read access to the codebase in its post-improvement state. Use `git diff`

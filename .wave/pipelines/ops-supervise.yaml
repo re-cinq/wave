@@ -134,8 +134,8 @@ steps:
         ```
 
         For the relevant run, list all output artifacts and read their contents:
-        - `.wave/output/` files (pipeline outputs)
-        - `.wave/artifacts/` files (inter-step artifacts)
+        - output files (pipeline outputs)
+        - artifact files (inter-step artifacts)
         - Any log files or error reports
 
         Record the artifact names, types, sizes, and content summaries.
@@ -228,8 +228,8 @@ steps:
 
         ## Context
 
-        The `evidence` artifact (injected at `.wave/artifacts/evidence`) contains the
-        comprehensive evidence bundle from the gather step, including:
+        The injected `evidence` artifact contains the comprehensive evidence bundle from
+        the gather step, including:
         - `git_history`: commits, diffs, and change statistics
         - `session_transcripts`: summaries of agent tool calls, approaches, and detours
         - `pipeline_artifacts`: output files and their contents
@@ -396,13 +396,11 @@ steps:
         ## Context
 
         Two artifacts are injected into your workspace:
-        - `evidence` (at `.wave/artifacts/evidence`): The raw evidence bundle from the
-          gather step — git history, session transcripts, pipeline artifacts, test results,
-          and branch context.
-        - `evaluation` (at `.wave/artifacts/evaluation`): The evaluation from the previous
-          step — ratings for correctness, completeness, test coverage, code quality,
-          efficiency, scope discipline, tool usage, and token economy, each with specific
-          findings.
+        - `evidence`: The raw evidence bundle from the gather step — git history, session
+          transcripts, pipeline artifacts, test results, and branch context.
+        - `evaluation`: The evaluation from the previous step — ratings for correctness,
+          completeness, test coverage, code quality, efficiency, scope discipline, tool
+          usage, and token economy, each with specific findings.
 
         Read BOTH artifacts before starting. Your job is to independently verify the
         evaluation's claims before issuing a verdict. Do not trust the evaluation blindly

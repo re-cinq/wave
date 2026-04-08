@@ -161,9 +161,8 @@ steps:
 
         ## Context
 
-        The previous "assess" step produced the `bootstrap_assessment` artifact (injected
-        into your workspace at `.wave/artifacts/bootstrap_assessment`). This artifact
-        contains:
+        The previous "assess" step produced the injected `bootstrap_assessment` artifact.
+        It contains:
         - `flavour`: the detected language/framework (e.g., "go", "rust", "node")
         - `project_intent`: a description of what the project should do
         - `existing_files`: files already on disk that must NOT be overwritten

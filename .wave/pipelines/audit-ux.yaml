@@ -107,7 +107,7 @@ steps:
 
         ## Output Format
 
-        Produce a markdown report at .wave/output/findings.md with:
+        Produce a markdown report with:
         - **UX Health Summary**: One-line rating for each of the 7 criteria (Good / Needs Work / Poor).
         - **Critical and High Findings**: Detailed analysis with reproduction steps, expected behavior, and fix proposal.
         - **Medium and Low Findings**: Briefer treatment with the same structure.

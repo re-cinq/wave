@@ -216,8 +216,8 @@ steps:
 
         ## Context
 
-        The previous "scan" step produced the `quality_report` artifact (injected at
-        `.wave/artifacts/quality_report`). This artifact contains:
+        The previous "scan" step produced the injected `quality_report` artifact. It
+        contains:
         - `repository`: owner and name
         - `total_issues`: how many issues were fetched
         - `analyzed_count`: how many were analyzed (excluding PRs)
@@ -232,7 +232,7 @@ steps:
 
         ### Step 1: Read and Analyze the Quality Report
 
-        Read `.wave/artifacts/quality_report`. Parse the `poor_quality_issues` array.
+        Read the injected `quality_report` artifact. Parse the `poor_quality_issues` array.
         Count how many issues are available for enhancement.
 
         ### Step 2: Select Issues to Enhance
@@ -295,7 +295,7 @@ steps:
 
         ### Step 4: Write Summary
 
-        Write `.wave/artifacts/enhancement-summary.md` with these sections:
+        Write the enhancement summary with these sections:
 
         - **H2: Repository** — owner/repo
         - **H2: Scan Results** — total issues scanned, total analyzed (excluding PRs),
@@ -327,8 +327,8 @@ steps:
 
         ## Output Format
 
-        Write a markdown file to `.wave/artifacts/enhancement-summary.md` with the
-        sections described in Step 4 above.
+        Produce the enhancement summary as markdown with the sections described in
+        Step 4 above.
 
         ## Quality Bar
 

@@ -141,8 +141,8 @@ steps:
           is as important as identifying what is missing.
 
         OUTPUT FORMAT:
-        Write the threat model as structured JSON to .wave/output/threat-model.json
-        matching the security-scan schema. Include: focus (string), threats (array of
+        Produce the threat model as structured JSON matching the security-scan contract
+        schema. Include: focus (string), threats (array of
         threat objects as described above), summary (object with total_threats,
         by_severity counts, by_category counts), and timestamp.
 
@@ -251,7 +251,7 @@ steps:
           rather than assuming the threat is neutralized.
 
         OUTPUT FORMAT:
-        Write the security report as markdown to .wave/output/security-report.md with:
+        Produce the security report as markdown with:
         # Wave Security Audit Report
         ## Executive Summary (3-5 sentences: total threats, confirmed count, top priority)
         ## Confirmed Vulnerabilities (each with: threat ID, severity, description, data

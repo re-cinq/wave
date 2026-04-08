@@ -174,8 +174,8 @@ steps:
 
         ## Context
 
-        The investigation findings have been injected as `.wave/artifacts/investigation`.
-        Read this artifact FIRST. It contains:
+        The injected `investigation` artifact contains the investigation findings. Read it
+        FIRST. It contains:
         - `root_cause`: The exact file, line, and technical explanation of the bug
         - `trigger_conditions`: What inputs or conditions cause the failure
         - `blast_radius`: Other code paths that may be affected
@@ -241,7 +241,7 @@ steps:
 
         No explicit output artifact is required. The contract validates that the test suite
         passes. If you want to leave notes for the verify step, you may write to
-        `.wave/output/fix-notes.md` but this is optional.
+        a fix-notes file but this is optional.
 
         ## Quality Bar
 
@@ -443,7 +443,7 @@ steps:
 
         ## Output Format
 
-        Write the verdict to `.wave/output/verdict.md` as a structured markdown document:
+        Produce the verdict as a structured markdown document:
         - **Verdict**: GO / NO-GO / CONDITIONAL GO
         - **Summary**: One paragraph explaining the decision
         - **Fix Analysis**: What was changed and whether it addresses the root cause

@@ -97,9 +97,8 @@ steps:
         - Do NOT exceed 20 findings. This is a smoke test, not an exhaustive audit.
 
         OUTPUT FORMAT:
-        Write the JSON report to .wave/output/analysis.json. The file must contain a
-        single valid JSON object (not an array, not wrapped in anything). It will be
-        validated against .wave/contracts/wave-smoke-test.schema.json.
+        Produce the JSON report as a single valid JSON object (not an array, not wrapped
+        in anything). It will be validated against the wave-smoke-test contract schema.
 
         QUALITY BAR:
         A good smoke test analysis proves the pipeline machinery works: the JSON parses,
@@ -147,7 +146,7 @@ steps:
         injected artifact, that itself is a critical finding — report it.
 
         REQUIREMENTS:
-        1. Read the injected artifact from .wave/artifacts/analysis_data. Parse its
+        1. Read the injected `analysis_data` artifact. Parse its
            JSON content to extract the topic, findings, and summary.
         2. Write a markdown summary that includes ALL of the following sections:
            - Title: "Smoke Test Analysis: <topic>"
@@ -174,7 +173,7 @@ steps:
           pipeline is exercising the full prompt-to-artifact-to-injection chain.
 
         OUTPUT FORMAT:
-        Write the markdown summary to .wave/output/summary.md. Use standard markdown
+        Produce the markdown summary. Use standard markdown
         formatting: # for title, ## for sections, numbered lists for findings, bullet
         lists for recommendations.
 
