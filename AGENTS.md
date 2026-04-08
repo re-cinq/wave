@@ -273,6 +273,7 @@ wave logs <run-id> | grep "stream_activity" | tail -3             # Latest activ
 ## Constraints
 
 1. NEVER write contract or artifact schemas in prompts. Wave has to parse, validate and inject them properly into the proper pipeline step. **Exception**: `gh pr create --body-file .wave/artifacts/<name>` and similar CLI commands that require a literal file path are acceptable — the persona needs the path to pass to external tools.
+4. NEVER duplicate contract schema fields in step prompts. When a step has a `json_schema` contract, the schema IS the output format spec. The prompt says "Produce output matching the contract schema." — never enumerate JSON fields, key sections, or structure. Focus prompts on reasoning, constraints, and quality bar. Only describe output format when the step has no `json_schema` contract (e.g., `non_empty_file`, `agent_review`, markdown output).
 2. NEVER pass validations silently. If a validation fails, it must be reported as an error and the step should not complete successfully.
 3. NEVER make bulk-edits to the codebase except it is not functional code; BEWARE personas, pipelines etc. are all functional code and should be edited with the same care as any other code: Individually!
 
