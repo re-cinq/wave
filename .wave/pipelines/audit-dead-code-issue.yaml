@@ -142,6 +142,7 @@ steps:
 
   - id: create-issue
     persona: craftsman
+    model: cheapest
     dependencies: [compose-report]
     memory:
       inject_artifacts:

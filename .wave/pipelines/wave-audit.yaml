@@ -200,6 +200,7 @@ steps:
 
   - id: compose-triage
     persona: navigator
+    model: strongest
     dependencies: [audit-items]
     memory:
       inject_artifacts:
@@ -280,6 +281,7 @@ steps:
 
   - id: publish
     persona: craftsman
+    model: cheapest
     dependencies: [compose-triage]
     memory:
       inject_artifacts:

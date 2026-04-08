@@ -70,6 +70,7 @@ steps:
 
   - id: breakdown
     persona: planner
+    model: strongest
     dependencies: [explore]
     memory:
       inject_artifacts:
@@ -139,6 +140,7 @@ steps:
 
   - id: review
     persona: philosopher
+    model: strongest
     dependencies: [breakdown]
     memory:
       inject_artifacts:

@@ -24,6 +24,7 @@ input:
 steps:
   - id: gather
     persona: "{{ forge.type }}-analyst"
+    model: strongest
     workspace:
       mount:
         - source: ./
@@ -175,6 +176,7 @@ steps:
   # ── Diamond 1: Define (CONVERGENT) ───────────────────────────────────
   - id: converge
     persona: validator
+    model: strongest
     dependencies: [diverge]
     memory:
       inject_artifacts:
@@ -231,6 +233,7 @@ steps:
   # ── Diamond 2: Develop (DIVERGENT) ───────────────────────────────────
   - id: probe
     persona: provocateur
+    model: strongest
     dependencies: [converge]
     memory:
       inject_artifacts:
@@ -307,6 +310,7 @@ steps:
   # ── Diamond 2: Deliver (CONVERGENT) ──────────────────────────────────
   - id: distill
     persona: synthesizer
+    model: strongest
     dependencies: [probe]
     memory:
       inject_artifacts:
@@ -382,6 +386,7 @@ steps:
   # ── Implementation ───────────────────────────────────────────────────
   - id: simplify
     persona: craftsman
+    model: strongest
     dependencies: [distill]
     memory:
       inject_artifacts:
@@ -456,6 +461,7 @@ steps:
   # ── Reporting ────────────────────────────────────────────────────────
   - id: report
     persona: navigator
+    model: cheapest
     dependencies: [simplify]
     memory:
       inject_artifacts:
@@ -494,6 +500,7 @@ steps:
   # ── Publish ─────────────────────────────────────────────────────────
   - id: publish
     persona: craftsman
+    model: cheapest
     dependencies: [report, gather]
     memory:
       inject_artifacts:

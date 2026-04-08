@@ -73,6 +73,7 @@ steps:
 
   - id: plan
     persona: planner
+    model: strongest
     dependencies: [explore]
     memory:
       inject_artifacts:
@@ -117,6 +118,7 @@ steps:
 
   - id: implement
     persona: craftsman
+    model: strongest
     contexts: [execution, delivery]
     dependencies: [plan]
     memory:
@@ -182,6 +184,7 @@ steps:
 
   - id: fix-implement
     persona: craftsman
+    model: fastest
     rework_only: true
     workspace:
       type: worktree
@@ -209,6 +212,7 @@ steps:
   # ── Publish ─────────────────────────────────────────────────────────
   - id: publish
     persona: craftsman
+    model: cheapest
     dependencies: [implement]
     memory:
       inject_artifacts:

@@ -90,6 +90,7 @@ steps:
 
   - id: deep-dive
     persona: auditor
+    model: strongest
     contexts: [security]
     max_concurrent_agents: 3
     dependencies: [scan]
@@ -141,6 +142,7 @@ steps:
 
   - id: report
     persona: summarizer
+    model: cheapest
     contexts: [security]
     dependencies: [deep-dive]
     memory:

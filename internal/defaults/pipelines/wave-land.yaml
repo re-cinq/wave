@@ -14,6 +14,7 @@ input:
 steps:
   - id: commit
     persona: craftsman
+    model: cheapest
     exec:
       type: prompt
       source: |
@@ -54,6 +55,7 @@ steps:
 
   - id: ship
     persona: implementer
+    model: cheapest
     dependencies: [commit]
     workspace:
       ref: commit

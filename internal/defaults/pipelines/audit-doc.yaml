@@ -82,6 +82,7 @@ steps:
 
   - id: analyze-consistency
     persona: reviewer
+    model: strongest
     dependencies: [scan-changes]
     memory:
       inject_artifacts:
@@ -159,6 +160,7 @@ steps:
 
   - id: compose-report
     persona: navigator
+    model: cheapest
     dependencies: [analyze-consistency]
     memory:
       inject_artifacts:
@@ -217,6 +219,7 @@ steps:
 
   - id: publish
     persona: craftsman
+    model: cheapest
     dependencies: [compose-report]
     memory:
       inject_artifacts:

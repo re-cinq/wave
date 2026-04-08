@@ -67,6 +67,7 @@ steps:
 
   - id: fix
     persona: craftsman
+    model: strongest
     contexts: [execution, delivery]
     dependencies: [investigate]
     thread: hotfix
@@ -107,6 +108,7 @@ steps:
 
   - id: fix-retry
     persona: craftsman
+    model: fastest
     rework_only: true
     workspace:
       mount:
@@ -144,6 +146,7 @@ steps:
 
   - id: verify
     persona: reviewer
+    model: strongest
     dependencies: [gate]
     exec:
       type: prompt

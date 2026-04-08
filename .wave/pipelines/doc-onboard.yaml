@@ -66,6 +66,7 @@ steps:
 
   - id: guide
     persona: philosopher
+    model: strongest
     dependencies: [survey]
     memory:
       inject_artifacts:

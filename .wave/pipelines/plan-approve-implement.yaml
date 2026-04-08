@@ -13,6 +13,7 @@ input:
 steps:
   - id: plan
     persona: navigator
+    model: strongest
     exec:
       type: prompt
       source: |
@@ -53,6 +54,7 @@ steps:
 
   - id: implement
     persona: craftsman
+    model: strongest
     exec:
       type: prompt
       source: |
