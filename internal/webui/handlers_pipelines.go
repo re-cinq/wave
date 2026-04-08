@@ -1,6 +1,7 @@
 package webui
 
 import (
+	"encoding/json"
 	"net/http"
 	"path/filepath"
 	"sort"
@@ -120,6 +121,9 @@ type PipelineDetailStep struct {
 	GatePrompt         string   `json:"gate_prompt,omitempty"`
 	GateType           string   `json:"gate_type,omitempty"`
 	EdgeConditions     string   `json:"edge_conditions,omitempty"`
+	IterateOver        []string `json:"iterate_over,omitempty"`
+	IterateMode        string   `json:"iterate_mode,omitempty"`
+	AggregateStrategy  string   `json:"aggregate_strategy,omitempty"`
 }
 
 // PipelineDetail holds full pipeline info for the detail dialog.
@@ -215,6 +219,26 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 		}
 		script = step.Script
 
+		// Iterate/aggregate config
+		var iterateOver []string
+		var iterateMode, aggregateStrategy string
+		if step.Iterate != nil {
+			iterateMode = step.Iterate.Mode
+			if iterateMode == "" {
+				iterateMode = "sequential"
+			}
+			// Parse the over field — it's a JSON array string
+			if step.Iterate.Over != "" {
+				var items []string
+				if err := json.Unmarshal([]byte(step.Iterate.Over), &items); err == nil {
+					iterateOver = items
+				}
+			}
+		}
+		if step.Aggregate != nil {
+			aggregateStrategy = step.Aggregate.Strategy
+		}
+
 		steps = append(steps, PipelineDetailStep{
 			ID:                 step.ID,
 			Type:               step.Type,
@@ -236,6 +260,9 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 			GatePrompt:         gatePrompt,
 			GateType:           gateType,
 			EdgeConditions:     edgeConditions,
+			IterateOver:        iterateOver,
+			IterateMode:        iterateMode,
+			AggregateStrategy:  aggregateStrategy,
 		})
 	}
 	// Compute DAG depth for indentation
