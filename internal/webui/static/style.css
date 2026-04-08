@@ -2785,9 +2785,9 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-config[hidden] { display: none; }
 .ws-config .markdown-body { border: none; background: transparent; padding: 0; color: #c9d1d9; }
 .ws-config .markdown-body strong { color: #e6edf3; }
-.ws-config .av-kv { border-bottom-color: #21262d; }
-.ws-config .av-key { color: #8b949e; }
-.ws-config .av-val { color: #e6edf3; }
+.ws-config .av-kv { border-bottom-color: #21262d; padding: 0.15rem var(--ws-pad-x); font-size: 0.75rem; }
+.ws-config .av-key { color: #8b949e; min-width: 80px; font-size: 0.68rem; }
+.ws-config .av-val { color: #e6edf3; font-size: 0.75rem; }
 .ws-config .av-val a { color: #58a6ff; }
 .ws-config code { background: #21262d; color: #c9d1d9; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.72rem; }
 
@@ -2876,11 +2876,10 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
     font-family: var(--font-mono);
     font-size: 0.72rem;
     line-height: 1.6;
-    white-space: pre-wrap;
-    word-break: break-word;
+    white-space: pre;
     color: #c9d1d9;
     max-height: 400px;
-    overflow-y: auto;
+    overflow: auto;
     border-top: 1px solid var(--color-border);
 }
 
