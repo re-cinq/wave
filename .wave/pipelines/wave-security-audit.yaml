@@ -1,4 +1,4 @@
-ykind: WavePipeline
+kind: WavePipeline
 metadata:
   name: wave-security-audit
   description: >-
