@@ -13,7 +13,10 @@
         {{if .PipelineDescription}}<p style="margin:0.1rem 0 0.3rem;font-size:0.8rem;color:var(--color-text-secondary);max-width:48rem;">{{.PipelineDescription}}</p>{{end}}
     </div>
     <div class="actions">
-        {{if eq .Run.Status "running"}}<button class="btn btn-sm" style="border-color:rgba(239,68,68,0.4);color:#fca5a5;" onclick="cancelRun('{{.Run.RunID}}', this)">Stop Pipeline</button>{{end}}
+        {{if eq .Run.Status "running"}}
+        <button class="btn btn-sm" style="border-color:rgba(239,68,68,0.4);color:var(--color-failed);" onclick="cancelRun('{{.Run.RunID}}', this)">Stop Pipeline</button>
+        <button class="btn btn-sm" style="border-color:rgba(239,68,68,0.4);color:var(--color-failed);font-size:0.68rem;" onclick="forceCancel('{{.Run.RunID}}', this)" title="Force-cancel a stale run whose process is no longer running">Force Stop</button>
+        {{end}}
     </div>
 </div>
 
