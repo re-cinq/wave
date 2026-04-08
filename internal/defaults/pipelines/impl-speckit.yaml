@@ -26,6 +26,19 @@ input:
     type: string
     description: "Natural language feature description to specify and implement"
 
+chat_context:
+  artifact_summaries:
+    - spec-status
+    - analysis-report
+    - pr-result
+  suggested_questions:
+    - "What was the specification outcome?"
+    - "Were all speckit steps completed successfully?"
+    - "Was the PR created and ready for review?"
+  focus_areas:
+    - "Specification and task breakdown quality"
+    - "Implementation and PR status"
+
 hooks:
   - name: log-start
     event: run_start
@@ -33,9 +46,15 @@ hooks:
     command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
     blocking: false
 
+pipeline_outputs:
+  pr:
+    step: create-pr
+    artifact: pr-result
+
 steps:
   - id: specify
     persona: implementer
+    thread: speckit
     model: cheapest
     workspace:
       type: worktree
@@ -61,6 +80,7 @@ steps:
 
   - id: clarify
     persona: implementer
+    thread: speckit
     model: cheapest
     dependencies: [specify]
     memory:
@@ -91,6 +111,7 @@ steps:
 
   - id: plan
     persona: implementer
+    thread: speckit
     model: strongest
     dependencies: [clarify]
     memory:
@@ -121,6 +142,7 @@ steps:
 
   - id: tasks
     persona: implementer
+    thread: speckit
     model: strongest
     dependencies: [plan]
     memory:
@@ -151,6 +173,7 @@ steps:
 
   - id: checklist
     persona: implementer
+    thread: speckit
     model: cheapest
     dependencies: [tasks]
     memory:
@@ -181,6 +204,7 @@ steps:
 
   - id: analyze
     persona: implementer
+    thread: speckit
     model: cheapest
     dependencies: [checklist]
     memory:

@@ -13,10 +13,36 @@ input:
   source: cli
   example: "build a REST API for user management with CRUD operations"
 
+chat_context:
+  artifact_summaries:
+    - spec
+    - implementation-plan
+    - pr-info
+  suggested_questions:
+    - "Does the specification cover all requirements?"
+    - "Is the prototype functional enough for stakeholder review?"
+    - "What implementation tasks remain?"
+  focus_areas:
+    - "Specification completeness"
+    - "Prototype fidelity and implementation progress"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
 steps:
   # Phase 1: Spec - Requirements capture with speckit integration
   - id: spec
     persona: craftsman
+    thread: prototype
     model: strongest
     exec:
       type: prompt
@@ -132,6 +158,7 @@ steps:
   # Phase 3: Dummy - Build authentic functional prototype
   - id: dummy
     persona: craftsman
+    thread: prototype
     model: strongest
     dependencies: [docs]
 
@@ -194,6 +221,7 @@ steps:
   # Phase 4: Implement - Transition to full implementation
   - id: implement
     persona: craftsman
+    thread: prototype
     model: strongest
     dependencies: [dummy]
 
@@ -343,6 +371,7 @@ steps:
 
   - id: pr-fix
     persona: craftsman
+    thread: prototype
     model: strongest
     dependencies: [pr-respond]
 

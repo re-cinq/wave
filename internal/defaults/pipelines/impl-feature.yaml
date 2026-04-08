@@ -16,6 +16,19 @@ input:
   source: cli
   example: "add a --dry-run flag to the run command"
 
+chat_context:
+  artifact_summaries:
+    - exploration
+    - plan
+    - result
+  suggested_questions:
+    - "What changes were made and why?"
+    - "Are there any concerns with the implementation?"
+    - "Is test coverage adequate for the new feature?"
+  focus_areas:
+    - "Code changes and implementation quality"
+    - "Test coverage and PR readiness"
+
 hooks:
   - name: log-start
     event: run_start
@@ -27,6 +40,11 @@ hooks:
     type: command
     command: "echo '[impl-feature] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
     blocking: false
+
+pipeline_outputs:
+  pr:
+    step: publish
+    artifact: pr-result
 
 steps:
   - id: explore
@@ -122,6 +140,7 @@ steps:
 
   - id: implement
     persona: craftsman
+    thread: impl
     model: strongest
     contexts: [execution, delivery]
     dependencies: [plan]
@@ -188,6 +207,7 @@ steps:
 
   - id: fix-implement
     persona: craftsman
+    thread: impl
     model: fastest
     rework_only: true
     workspace:
