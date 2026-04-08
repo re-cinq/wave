@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: audit-doc-scan
-  description: "Scan-only doc/ADR audit — no branches, no PRs, JSON findings output"
+  description: >-
+    Lightweight documentation audit that verifies ADR decisions, guide accuracy,
+    CLAUDE.md structure, and README correctness against the actual codebase.
+    Produces JSON findings without creating branches, PRs, or issues. Use this
+    as a building block in composition pipelines or for quick read-only doc
+    health checks.
   release: true
   category: audit
 

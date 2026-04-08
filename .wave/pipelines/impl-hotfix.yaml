@@ -1,7 +1,11 @@
 kind: WavePipeline
 metadata:
   name: impl-hotfix
-  description: "Quick investigation and fix for production issues"
+  description: >-
+    Investigate and fix a production issue with minimal, targeted changes.
+    Designed for urgent bugs where speed matters. The pipeline investigates root
+    cause and blast radius, applies the smallest safe fix, adds a regression
+    test, and validates with the project test suite before committing.
   release: true
 
 skills:
@@ -67,6 +71,7 @@ steps:
 
   - id: fix
     persona: craftsman
+    model: strongest
     contexts: [execution, delivery]
     dependencies: [investigate]
     thread: hotfix
@@ -107,6 +112,7 @@ steps:
 
   - id: fix-retry
     persona: craftsman
+    model: fastest
     rework_only: true
     workspace:
       mount:
@@ -144,6 +150,7 @@ steps:
 
   - id: verify
     persona: reviewer
+    model: strongest
     dependencies: [gate]
     exec:
       type: prompt

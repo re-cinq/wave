@@ -1,57 +1,55 @@
-{{define "title"}}{{.Contract.Name}}{{if .Contract.Title}} · {{.Contract.Title}}{{end}} · Wave{{end}}
+{{define "title"}}{{.Contract.Name}} · Contract · Wave{{end}}
 {{define "content"}}
-<div class="page-header">
+<div class="w-head">
     <div>
-        <a href="/contracts" class="back-link" aria-label="Back to contracts list">&larr; Back to Contracts</a>
-        <h1>{{.Contract.Name}}{{if .Contract.Title}} <span class="text-muted">— {{.Contract.Title}}</span>{{end}}</h1>
+        <a href="/contracts" class="back-link">&larr; Contracts</a>
+        <h1>{{.Contract.Name}}{{if .Contract.Title}} <span style="font-weight:400;color:var(--color-text-secondary);font-size:0.85rem;">— {{.Contract.Title}}</span>{{end}}</h1>
+        {{if .Contract.Description}}<p style="margin:0.1rem 0 0.3rem;font-size:0.82rem;color:var(--color-text-secondary);">{{.Contract.Description}}</p>{{end}}
     </div>
 </div>
 
-<div class="run-summary-bar">
-    <div class="run-summary-stats">
-        <span class="run-stat"><span class="run-stat-label">Filename</span> <span class="run-stat-value"><code>{{.Contract.Filename}}</code></span></span>
-        <span class="run-stat"><span class="run-stat-label">Type</span> <span class="run-stat-value">JSON Schema</span></span>
-    </div>
+<div class="w-stats" style="margin-bottom:0.6rem;">
+    <span><code style="font-size:0.72rem;">{{.Contract.Filename}}</code></span>
+    <span style="color:var(--color-text-muted);">·</span>
+    <span>JSON Schema</span>
 </div>
 
-{{if .Contract.Description}}
-<div class="card">
-    <h2>Description</h2>
-    <p>{{.Contract.Description}}</p>
-</div>
-{{end}}
-
-<div class="card">
-    <h2>Schema</h2>
-    <pre class="detail-code"><code>{{.Contract.Schema}}</code></pre>
+<!-- Schema -->
+<div style="margin-bottom:0.6rem;">
+    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Schema</h2>
+    <pre style="margin:0;padding:0.5rem;background:var(--color-bg-secondary);border-radius:4px;font-size:0.72rem;overflow-x:auto;color:var(--color-text-secondary);"><code class="language-json">{{.Contract.Schema}}</code></pre>
 </div>
 
-<div class="card">
-    <h2>Used by</h2>
+<!-- Used by -->
+<div>
+    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Used by</h2>
     {{if .UsedBy}}
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Pipeline</th>
-                <th>Step</th>
-                <th>Contract Type</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .UsedBy}}
-            <tr>
-                <td><a href="/pipelines/{{.Pipeline}}">{{.Pipeline}}</a></td>
-                <td><code>{{.StepID}}</code></td>
-                <td><code>{{.ContractType}}</code></td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-    {{else}}
-    <div class="empty-state">
-        <p><strong>Not used by any pipeline</strong></p>
+    <div class="wr-list">
+    {{range .UsedBy}}
+        <a href="/pipelines/{{.Pipeline}}" class="wr-run">
+            <div class="wr-accent st-completed"></div>
+            <div class="wr-body">
+                <div class="wr-row1">
+                    <span class="wr-name">{{.Pipeline}}</span>
+                    <span style="color:var(--color-text-muted);font-size:0.72rem;">step: {{.StepID}}</span>
+                    <span class="badge" style="font-size:0.68rem;">{{.ContractType}}</span>
+                </div>
+            </div>
+        </a>
+    {{end}}
     </div>
+    {{else}}
+    <div style="padding:0.5rem;color:var(--color-text-muted);font-size:0.78rem;">Not used by any pipeline</div>
     {{end}}
 </div>
+
 {{end}}
-{{define "scripts"}}{{end}}
+{{define "scripts"}}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof hljs !== 'undefined') {
+        document.querySelectorAll('code.language-json').forEach(function(el) { hljs.highlightElement(el); });
+    }
+});
+</script>
+{{end}}

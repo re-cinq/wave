@@ -1,70 +1,43 @@
 {{define "title"}}Contracts · Wave{{end}}
 {{define "content"}}
-<div class="page-header">
-    <h1>Contracts</h1>
-</div>
+<div class="w-head"><h1>Contracts</h1></div>
+
 {{if .Contracts}}
-<div class="filters">
-    <div class="search-filter">
-        <input type="text" id="contract-search" oninput="filterContracts()" placeholder="Search contracts..." aria-label="Search contracts by name or description">
+<div class="wr-toolbar">
+    <div class="wr-controls">
+        <input type="text" id="contract-search" placeholder="Search contracts..." style="padding:0.2rem 0.4rem;border-radius:4px;font-size:0.72rem;color:var(--color-text-secondary);border:1px solid var(--color-border);background:var(--color-bg-tertiary);font-family:var(--font-sans);width:180px;" oninput="filterItems(this.value)">
+        <span style="font-size:0.72rem;color:var(--color-text-muted);">{{len .Contracts}} contracts</span>
     </div>
 </div>
-
-<table class="table" id="contracts-table">
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Title</th>
-            <th>Description</th>
-            <th>Filename</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody id="contract-tbody">
-        {{range .Contracts}}
-        <tr data-name="{{.Name}}" data-title="{{.Title}}" data-desc="{{.Description}}">
-            <td><a href="/contracts/{{.Name}}"><strong>{{.Name}}</strong></a></td>
-            <td>{{.Title}}</td>
-            <td class="contract-desc-cell">{{.Description}}</td>
-            <td><code>{{.Filename}}</code></td>
-            <td>
-                <a href="/contracts/{{.Name}}" class="btn btn-sm" aria-label="View schema for {{.Name}}">View Schema</a>
-            </td>
-        </tr>
-        {{end}}
-    </tbody>
-</table>
-<div id="no-results" class="empty-state" style="display:none;">
-    <div class="empty-state-icon">&#128269;</div>
-    <p><strong>No matching contracts</strong></p>
-    <p>No contracts match your search criteria.</p>
+<div class="wr-list">
+{{range .Contracts}}
+    <a href="/contracts/{{.Name}}" class="wr-run">
+        <div class="wr-accent st-defined"></div>
+        <div class="wr-body">
+            <div class="wr-row1">
+                <span class="wr-name">{{.Name}}</span>
+                {{if .Title}}<span style="color:var(--color-text-secondary);font-size:0.75rem;">{{.Title}}</span>{{end}}
+            </div>
+            {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-muted);">{{.Description}}</span></div>{{end}}
+        </div>
+        <div class="wr-meta">
+            <span class="wr-date" style="font-family:var(--font-mono);font-size:0.68rem;">{{.Filename}}</span>
+        </div>
+    </a>
+{{end}}
 </div>
 {{else}}
-<div class="empty-state">
-    <div class="empty-state-icon">&#128220;</div>
-    <p><strong>No contracts found</strong></p>
-    <p>Add JSON schema files to <code>.wave/contracts/</code> to define output validation.</p>
-</div>
+<div style="padding:2rem;text-align:center;color:var(--color-text-muted);">No contracts found. Add schemas to <code>.wave/contracts/</code></div>
 {{end}}
 {{end}}
 {{define "scripts"}}
 <script>
-function filterContracts() {
-    var search = document.getElementById('contract-search').value.toLowerCase();
-    var rows = document.querySelectorAll('#contract-tbody tr');
-    var visibleCount = 0;
-    rows.forEach(function(row) {
-        var name = row.dataset.name.toLowerCase();
-        var title = (row.dataset.title || '').toLowerCase();
-        var desc = (row.dataset.desc || '').toLowerCase();
-        var visible = !search || name.indexOf(search) !== -1 || title.indexOf(search) !== -1 || desc.indexOf(search) !== -1;
-        row.style.display = visible ? '' : 'none';
-        if (visible) visibleCount++;
+function filterItems(query) {
+    var q = query.toLowerCase().trim();
+    document.querySelectorAll('.wr-list > a.wr-run').forEach(function(card) {
+        if (!q) { card.style.display = ''; return; }
+        card.style.display = card.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
     });
-    var table = document.getElementById('contracts-table');
-    var noResults = document.getElementById('no-results');
-    if (table) table.style.display = visibleCount === 0 ? 'none' : '';
-    if (noResults) noResults.style.display = visibleCount === 0 ? '' : 'none';
 }
 </script>
 {{end}}

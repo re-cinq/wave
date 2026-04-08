@@ -1,7 +1,13 @@
 kind: WavePipeline
 metadata:
   name: wave-test-forge
-  description: "Cross-forge smoke test — validates forge detection, CLI auth, API access, and template resolution"
+  description: >-
+    Cross-forge smoke test that validates forge detection, template variable
+    resolution, CLI tool availability, authentication status, and API access
+    for the detected forge (GitHub, GitLab, Gitea, Codeberg, Bitbucket, or
+    local). Use this to verify that Wave's forge abstraction layer works
+    correctly in the current repository environment before running
+    forge-dependent pipelines.
   release: false
   category: wave
 

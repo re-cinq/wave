@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: doc-fix
-  description: "Scan documentation for inconsistencies, fix them, and commit to a feature branch"
+  description: >-
+    Scan documentation for inconsistencies with the current codebase, then fix
+    them on a feature branch. Cross-references docs against exported functions,
+    CLI flags, config options, and API surfaces to find missing, stale, or
+    inaccurate content. A reviewer prioritizes findings, and a craftsman applies
+    docs-only fixes. Use this after major features land to keep docs in sync.
   release: true
 
 skills:
@@ -65,6 +70,7 @@ steps:
 
   - id: analyze
     persona: reviewer
+    model: strongest
     dependencies: [scan-changes]
     memory:
       inject_artifacts:
@@ -102,6 +108,7 @@ steps:
 
   - id: fix-docs
     persona: craftsman
+    model: strongest
     dependencies: [analyze]
     memory:
       inject_artifacts:
@@ -161,6 +168,7 @@ steps:
 
   - id: create-pr
     persona: craftsman
+    model: cheapest
     dependencies: [fix-docs]
     memory:
       inject_artifacts:

@@ -1,87 +1,93 @@
 {{define "title"}}Skills · Wave{{end}}
 {{define "content"}}
-<div class="page-header">
-    <h1>Skills</h1>
-</div>
+<div class="w-head"><h1>Skills</h1></div>
 
 {{if .Installed}}
-<h2>Installed Skills</h2>
-<div class="personas-grid">
-    {{range .Installed}}
-    <div class="card persona-card">
-        <h3>{{.Name}} <span class="badge" style="background:#22c55e;color:#fff;">installed</span></h3>
-        {{if .Description}}
-        <p>{{.Description}}</p>
-        {{end}}
+<div class="wr-toolbar">
+    <div class="wr-controls">
+        <span style="font-size:0.72rem;color:var(--color-text-muted);">{{len .Installed}} installed</span>
     </div>
-    {{end}}
+</div>
+<div class="wr-list">
+{{range .Installed}}
+    <a class="wr-run">
+        <div class="wr-accent st-completed"></div>
+        <div class="wr-body">
+            <div class="wr-row1">
+                <span class="wr-name">{{.Name}}</span>
+                <span class="badge" style="background:var(--color-completed);color:#fff;font-size:0.6rem;">installed</span>
+            </div>
+            {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);">{{.Description}}</span></div>{{end}}
+        </div>
+    </a>
+{{end}}
 </div>
 {{end}}
 
 {{if .Available}}
-<h2>Available Templates</h2>
-<div class="personas-grid">
-    {{range .Available}}
-    <div class="card persona-card" id="skill-card-{{.Name}}">
-        <h3>{{.Name}}</h3>
-        {{if .Description}}
-        <p>{{.Description}}</p>
-        {{end}}
-        <button class="btn btn-primary" onclick="installSkill('{{.Name}}')">Install</button>
+<div class="wr-toolbar" style="{{if .Installed}}margin-top:1.5rem;{{end}}">
+    <div class="wr-controls">
+        <span style="font-size:0.72rem;color:var(--color-text-muted);">{{len .Available}} available</span>
     </div>
-    {{end}}
+</div>
+<div class="wr-list">
+{{range .Available}}
+    <div class="wr-run" id="skill-card-{{.Name}}">
+        <div class="wr-accent st-defined"></div>
+        <div class="wr-body">
+            <div class="wr-row1">
+                <span class="wr-name">{{.Name}}</span>
+            </div>
+            {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);">{{.Description}}</span></div>{{end}}
+        </div>
+        <div class="wr-meta">
+            <button class="btn btn-primary btn-sm" onclick="installSkill('{{.Name}}')">Install</button>
+        </div>
+    </div>
+{{end}}
 </div>
 {{end}}
 
 {{if .Skills}}
-<h2>Pipeline Skill Requirements</h2>
-<div class="personas-grid">
-    {{range .Skills}}
-    <div class="card persona-card">
-        <h3>{{.Name}}</h3>
-        {{if .CommandsGlob}}
-        <div class="persona-meta">
-            <span class="badge">glob: {{.CommandsGlob}}</span>
-        </div>
-        {{end}}
-        {{if .InstallCmd}}
-        <div class="persona-tools">
-            <strong>Install:</strong> <code>{{.InstallCmd}}</code>
-        </div>
-        {{end}}
-        {{if .CheckCmd}}
-        <div class="persona-tools">
-            <strong>Check:</strong> <code>{{.CheckCmd}}</code>
-        </div>
-        {{end}}
-        {{if .CommandFiles}}
-        <div class="persona-tools">
-            <strong>Commands:</strong>
-            {{range .CommandFiles}}<code>{{.}}</code> {{end}}
-        </div>
-        {{end}}
-        {{if .PipelineUsage}}
-        <div class="persona-tools">
-            <strong>Used by:</strong>
-            {{range .PipelineUsage}}<a href="/runs?pipeline={{.}}" class="badge">{{.}}</a> {{end}}
-        </div>
-        {{end}}
+<div class="wr-toolbar" style="{{if or .Installed .Available}}margin-top:1.5rem;{{end}}">
+    <div class="wr-controls">
+        <span style="font-size:0.72rem;color:var(--color-text-muted);">{{len .Skills}} pipeline requirements</span>
     </div>
-    {{end}}
+</div>
+<div class="wr-list">
+{{range .Skills}}
+    <a class="wr-run">
+        <div class="wr-accent st-defined"></div>
+        <div class="wr-body">
+            <div class="wr-row1">
+                <span class="wr-name">{{.Name}}</span>
+                {{if .CommandsGlob}}<span class="badge" style="font-size:0.6rem;">glob: {{.CommandsGlob}}</span>{{end}}
+            </div>
+            <div class="wr-row2">
+                {{if .InstallCmd}}<span style="color:var(--color-text-secondary);font-size:0.72rem;">install: <code>{{.InstallCmd}}</code></span>{{end}}
+                {{if .CheckCmd}}<span style="color:var(--color-text-secondary);font-size:0.72rem;{{if .InstallCmd}}margin-left:0.75rem;{{end}}">check: <code>{{.CheckCmd}}</code></span>{{end}}
+            </div>
+            {{if .PipelineUsage}}
+            <div class="wr-row2">
+                {{range .PipelineUsage}}<a href="/runs?pipeline={{.}}" class="badge" style="font-size:0.6rem;">{{.}}</a> {{end}}
+            </div>
+            {{end}}
+        </div>
+    </a>
+{{end}}
 </div>
 {{end}}
 
 {{if and (not .Installed) (not .Available) (not .Skills)}}
-<div class="empty-state">
-    <div class="empty-state-icon">&#128295;</div>
-    <p><strong>No skills found</strong></p>
-    <p>Skills are declared in pipeline YAML files under <code>requires.skills</code>.</p>
-</div>
+<div style="padding:2rem;text-align:center;color:var(--color-text-muted);">No skills found. Skills are declared in pipeline YAML files under <code>requires.skills</code>.</div>
 {{end}}
-
+{{end}}
+{{define "scripts"}}
 <script>
 function installSkill(name) {
-    var btn = document.querySelector('#skill-card-' + name + ' button');
+    var card = document.getElementById('skill-card-' + name);
+    if (!card) return;
+    var btn = card.querySelector('button');
     if (!btn) return;
     btn.disabled = true;
     btn.textContent = 'Installing...';
@@ -95,7 +101,7 @@ function installSkill(name) {
         if (data.success) {
             btn.textContent = 'Installed';
             btn.classList.remove('btn-primary');
-            btn.style.background = '#22c55e';
+            btn.style.background = 'var(--color-completed)';
             btn.style.color = '#fff';
         } else {
             btn.textContent = 'Failed: ' + (data.error || 'unknown error');

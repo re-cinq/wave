@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: impl-review-loop
-  description: "Implement → review → triage → rework loop until PR passes or max iterations"
+  description: >-
+    Implement a GitHub issue, review the PR, and rework if needed in a closed
+    loop. Chains impl-issue into ops-pr-review, then conditionally triggers
+    rework and re-review when changes are requested. The loop terminates on
+    approval, comment-only feedback, or after one rework cycle. Use this for
+    hands-off issue-to-merge workflows.
   category: composition
   release: true
 

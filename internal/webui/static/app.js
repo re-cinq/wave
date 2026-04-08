@@ -253,6 +253,24 @@ async function cancelRun(runID, btn) {
     }
 }
 
+// Force-cancel a stale run (process no longer running)
+async function forceCancel(runID, btn) {
+    if (!confirm('Force-cancel this run? Use this for stale runs whose process is no longer running.')) return;
+    setButtonLoading(btn, true);
+    try {
+        await fetchJSON('/api/runs/' + encodeURIComponent(runID) + '/cancel', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({force: true})
+        });
+        window.location.reload();
+    } catch (err) {
+        // fetchJSON already showed toast
+    } finally {
+        setButtonLoading(btn, false);
+    }
+}
+
 // Retry a failed pipeline
 async function retryRun(runID, btn) {
     setButtonLoading(btn, true);

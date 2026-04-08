@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: ops-release-harden
-  description: "Security scan, branch on severity, apply hotfixes, generate changelog"
+  description: >-
+    Pre-release hardening pipeline that runs a security audit, branches on
+    finding severity (critical/high triggers hotfixes, medium triggers
+    improvements, low is skipped), and gates on human approval before release.
+    Use this to validate a release branch or tag before cutting a production
+    release.
   category: composition
   release: true
 

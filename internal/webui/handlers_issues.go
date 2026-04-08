@@ -14,7 +14,10 @@ import (
 
 // handleIssuesPage handles GET /issues - serves the HTML issues page.
 func (s *Server) handleIssuesPage(w http.ResponseWriter, r *http.Request) {
-	stateFilter := validateStateFilter(r.URL.Query().Get("state"))
+	stateFilter := r.URL.Query().Get("state")
+	if stateFilter == "" {
+		stateFilter = "open"
+	}
 	page := parsePageNumber(r)
 	issueData := s.getIssueListData(stateFilter, page)
 
@@ -144,28 +147,45 @@ func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Compute aggregate Wave stats
+	runCount := len(relatedRuns)
+	totalTokens := 0
+	lastStatus := ""
+	for _, r := range relatedRuns {
+		totalTokens += r.TotalTokens
+		if lastStatus == "" {
+			lastStatus = r.Status
+		}
+	}
+
 	data := struct {
-		ActivePage string
-		Issue      IssueDetail
-		Runs       []RunSummary
-		Comments   []CommentSummary
+		ActivePage  string
+		Issue       IssueDetail
+		Runs        []RunSummary
+		Comments    []CommentSummary
+		RunCount    int
+		TotalTokens int
+		LastStatus  string
 	}{
-		ActivePage: "issues",
+		ActivePage:  "issues",
 		Issue: IssueDetail{
 			Number:    issue.Number,
 			Title:     issue.Title,
 			State:     issue.State,
 			Body:      issue.Body,
 			Author:    issue.Author,
-			Labels:    issue.Labels,
+			Labels:    forgeLabelsToBadges(issue.Labels),
 			Assignees: issue.Assignees,
 			Comments:  issue.Comments,
 			CreatedAt: issue.CreatedAt.Format("2006-01-02 15:04"),
 			UpdatedAt: issue.UpdatedAt.Format("2006-01-02 15:04"),
 			URL:       issue.HTMLURL,
 		},
-		Runs:     relatedRuns,
-		Comments: comments,
+		Runs:        relatedRuns,
+		Comments:    comments,
+		RunCount:    runCount,
+		TotalTokens: totalTokens,
+		LastStatus:  lastStatus,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -239,7 +259,7 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 			Title:     issue.Title,
 			State:     issue.State,
 			Author:    issue.Author,
-			Labels:    issue.Labels,
+			Labels:    forgeLabelsToBadges(issue.Labels),
 			Comments:  issue.Comments,
 			CreatedAt: issue.CreatedAt.Format("2006-01-02"),
 			URL:       issue.HTMLURL,
@@ -250,12 +270,32 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 		summaries = []IssueSummary{}
 	}
 
+	// Enrich with Wave run stats
+	if s.store != nil {
+		allRuns, err := s.store.ListRuns(state.ListRunsOptions{Limit: 10000})
+		if err == nil {
+			enrichSummariesWithRuns(summaries, allRuns, "issue")
+		}
+	}
+
+	// Count open/closed from current page
+	var openCount, closedCount int
+	for _, s := range summaries {
+		if s.State == "open" {
+			openCount++
+		} else {
+			closedCount++
+		}
+	}
+
 	return IssueListResponse{
 		Issues:      summaries,
 		RepoSlug:    s.repoSlug,
 		FilterState: stateFilter,
 		Page:        page,
 		HasMore:     hasMore,
+		TotalOpen:   openCount,
+		TotalClosed: closedCount,
 	}
 }
 
@@ -266,4 +306,16 @@ func splitRepoSlug(slug string) (string, string) {
 		return "", ""
 	}
 	return parts[0], parts[1]
+}
+
+// forgeLabelsToBadges converts forge.Label slice to LabelBadge slice for the web UI.
+func forgeLabelsToBadges(labels []forge.Label) []LabelBadge {
+	if len(labels) == 0 {
+		return nil
+	}
+	result := make([]LabelBadge, len(labels))
+	for i, l := range labels {
+		result[i] = LabelBadge{Name: l.Name, Color: l.Color}
+	}
+	return result
 }

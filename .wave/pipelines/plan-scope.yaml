@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: plan-scope
-  description: "Decompose an epic into well-scoped child issues"
+  description: >-
+    Decompose a GitHub epic into well-scoped child issues. Fetches the epic,
+    assesses its themes and complexity, then creates individual issues with
+    clear acceptance criteria, dependency links, and scope boundaries. Use this
+    before launching parallel implementation pipelines to ensure each unit of
+    work is independently deliverable.
   release: true
 
 skills:
@@ -68,6 +73,7 @@ steps:
 
   - id: scope-and-create
     persona: "{{ forge.type }}-scoper"
+    model: strongest
     dependencies: [fetch-epic]
     memory:
       inject_artifacts:
@@ -129,6 +135,7 @@ steps:
 
   - id: verify-report
     persona: "{{ forge.type }}-analyst"
+    model: cheapest
     dependencies: [scope-and-create]
     memory:
       inject_artifacts:

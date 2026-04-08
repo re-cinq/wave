@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: audit-ux
-  description: "Evaluate user experience across CLI, TUI, docs, or workflows"
+  description: >-
+    Evaluate user experience across CLI, TUI, documentation, and workflows.
+    Assesses discoverability, error message quality, progressive disclosure,
+    consistency, feedback mechanisms, recovery options, and documentation
+    alignment. Use this to find friction points from the end-user perspective
+    and produce severity-rated improvement recommendations.
   release: true
 
 skills:

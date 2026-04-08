@@ -1,108 +1,70 @@
-{{define "title"}}{{.Persona.Name}}{{if .Persona.Description}} · {{.Persona.Description}}{{end}} · Wave{{end}}
+{{define "title"}}{{.Persona.Name}} · Persona · Wave{{end}}
 {{define "content"}}
-<div class="page-header">
+<div class="w-head">
     <div>
-        <a href="/personas" class="back-link" aria-label="Back to personas list">&larr; Back to Personas</a>
+        <a href="/personas" class="back-link">&larr; Personas</a>
         <h1>{{.Persona.Name}}</h1>
-        {{if .Persona.Description}}<p class="persona-desc">{{.Persona.Description}}</p>{{end}}
+        {{if .Persona.Description}}<p style="margin:0.1rem 0 0.3rem;font-size:0.82rem;color:var(--color-text-secondary);">{{.Persona.Description}}</p>{{end}}
     </div>
 </div>
 
-<div class="run-summary-bar">
-    <div class="run-summary-stats">
-        <span class="run-stat"><span class="run-stat-label">Adapter</span> <span class="run-stat-value">{{.Persona.Adapter}}</span></span>
-        {{if .Persona.Model}}<span class="run-stat"><span class="run-stat-label">Model</span> <span class="run-stat-value">{{.Persona.Model}}</span></span>{{end}}
-        {{if .Persona.Temperature}}<span class="run-stat"><span class="run-stat-label">Temperature</span> <span class="run-stat-value">{{.Persona.Temperature}}</span></span>{{end}}
-        {{if .Persona.Skills}}<span class="run-stat"><span class="run-stat-label">Skills</span> <span class="run-stat-value">{{len .Persona.Skills}}</span></span>{{end}}
-    </div>
+<div class="w-stats" style="margin-bottom:0.6rem;">
+    <span><b>{{.Persona.Adapter}}</b></span>
+    {{if .Persona.Model}}<span style="color:var(--color-text-muted);">·</span><span class="badge badge-model">{{friendlyModel .Persona.Model}}</span>{{end}}
+    {{if .Persona.Temperature}}<span style="color:var(--color-text-muted);">·</span><span>temp {{.Persona.Temperature}}</span>{{end}}
+    {{if .Persona.Skills}}<span style="color:var(--color-text-muted);">·</span><span>{{len .Persona.Skills}} skills</span>{{end}}
 </div>
 
-<div class="card">
-    <h2>Permissions</h2>
-    <dl class="detail-list">
-        {{if .Persona.AllowedTools}}
-        <dt>Allowed Tools</dt>
-        <dd>{{range .Persona.AllowedTools}}<code>{{.}}</code> {{end}}</dd>
-        {{end}}
-        {{if .Persona.DeniedTools}}
-        <dt>Denied Tools</dt>
-        <dd>{{range .Persona.DeniedTools}}<code>{{.}}</code> {{end}}</dd>
-        {{end}}
-        {{if not (or .Persona.AllowedTools .Persona.DeniedTools)}}
-        <dt>Tools</dt>
-        <dd><span class="text-muted">No explicit tool restrictions</span></dd>
-        {{end}}
-    </dl>
+<!-- Permissions -->
+<div style="display:grid;grid-template-columns:100px 1fr;gap:0.15rem 0.6rem;font-size:0.78rem;margin-bottom:0.6rem;padding:0.4rem var(--ws-pad-x);background:var(--color-bg-secondary);border-radius:4px;">
+    {{if .Persona.AllowedTools}}<span style="color:var(--color-text-muted);">Allowed</span><span>{{range .Persona.AllowedTools}}<code style="font-size:0.7rem;background:rgba(34,197,94,0.1);padding:0.1rem 0.3rem;border-radius:3px;margin-right:0.2rem;">{{.}}</code>{{end}}</span>{{end}}
+    {{if .Persona.DeniedTools}}<span style="color:var(--color-text-muted);">Denied</span><span>{{range .Persona.DeniedTools}}<code style="font-size:0.7rem;background:rgba(239,68,68,0.1);padding:0.1rem 0.3rem;border-radius:3px;margin-right:0.2rem;">{{.}}</code>{{end}}</span>{{end}}
+    {{if .TokenScopes}}<span style="color:var(--color-text-muted);">Scopes</span><span>{{range .TokenScopes}}<code style="font-size:0.7rem;">{{.}}</code> {{end}}</span>{{end}}
+    {{if .AllowedDomains}}<span style="color:var(--color-text-muted);">Domains</span><span>{{range .AllowedDomains}}<code style="font-size:0.7rem;">{{.}}</code> {{end}}</span>{{end}}
+    {{if .Persona.Skills}}<span style="color:var(--color-text-muted);">Skills</span><span>{{range .Persona.Skills}}<a href="/skills" class="badge" style="font-size:0.68rem;">{{.}}</a> {{end}}</span>{{end}}
 </div>
 
-{{if or .TokenScopes .AllowedDomains}}
-<div class="card">
-    <h2>Token Scopes &amp; Sandbox</h2>
-    <dl class="detail-list">
-        {{if .TokenScopes}}
-        <dt>Token Scopes</dt>
-        <dd>{{range .TokenScopes}}<code>{{.}}</code> {{end}}</dd>
-        {{end}}
-        {{if .AllowedDomains}}
-        <dt>Allowed Domains</dt>
-        <dd>{{range .AllowedDomains}}<code>{{.}}</code> {{end}}</dd>
-        {{end}}
-    </dl>
-</div>
-{{end}}
-
-{{if .Persona.Skills}}
-<div class="card">
-    <h2>Skills</h2>
-    <div class="persona-tools">
-        {{range .Persona.Skills}}<a href="/skills" class="badge">{{.}}</a> {{end}}
-    </div>
-</div>
-{{end}}
-
+<!-- Prompt -->
 {{if .Persona.Prompt}}
-<div class="card">
-    <h2>System Prompt</h2>
-    <div class="markdown-body" id="persona-prompt"></div>
+<div style="margin-bottom:0.6rem;">
+    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">System Prompt</h2>
+    <div class="markdown-body" id="persona-prompt" style="font-size:0.8rem;"></div>
     <script type="text/plain" id="persona-prompt-raw">{{.Persona.Prompt}}</script>
 </div>
+{{end}}
+
+<!-- Used by -->
+<div>
+    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Used by</h2>
+    {{if .UsedBy}}
+    <div class="wr-list">
+    {{range .UsedBy}}
+        <a href="/pipelines/{{.Pipeline}}" class="wr-run">
+            <div class="wr-accent st-completed"></div>
+            <div class="wr-body">
+                <div class="wr-row1">
+                    <span class="wr-name">{{.Pipeline}}</span>
+                    <span style="color:var(--color-text-muted);font-size:0.72rem;">step: {{.StepID}}</span>
+                </div>
+            </div>
+        </a>
+    {{end}}
+    </div>
+    {{else}}
+    <div style="padding:0.5rem;color:var(--color-text-muted);font-size:0.78rem;">Not used by any pipeline</div>
+    {{end}}
+</div>
+
+{{end}}
+{{define "scripts"}}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    var raw = document.getElementById('persona-prompt-raw').textContent;
+    var raw = document.getElementById('persona-prompt-raw');
     var el = document.getElementById('persona-prompt');
+    if (!raw || !el) return;
     if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
-        el.innerHTML = DOMPurify.sanitize(marked.parse(raw));
-    } else {
-        el.textContent = raw;
-    }
+        el.innerHTML = DOMPurify.sanitize(marked.parse(raw.textContent));
+    } else { el.textContent = raw.textContent; }
 });
 </script>
 {{end}}
-
-<div class="card">
-    <h2>Used by</h2>
-    {{if .UsedBy}}
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Pipeline</th>
-                <th>Step</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .UsedBy}}
-            <tr>
-                <td><a href="/pipelines/{{.Pipeline}}">{{.Pipeline}}</a></td>
-                <td><code>{{.StepID}}</code></td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-    {{else}}
-    <div class="empty-state">
-        <p><strong>Not used by any pipeline</strong></p>
-    </div>
-    {{end}}
-</div>
-{{end}}
-{{define "scripts"}}{{end}}

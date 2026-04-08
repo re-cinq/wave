@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: impl-issue
-  description: "Implement an issue end-to-end: fetch, assess, plan, implement, create PR"
+  description: >-
+    End-to-end GitHub issue implementation. Fetches the issue, assesses
+    feasibility and complexity, generates an implementation plan, writes code
+    in an isolated worktree, and opens a pull request. Use this as the default
+    pipeline for issue-driven work that does not require upfront research or
+    formal specification.
   release: true
 
 chat_context:
@@ -74,6 +79,7 @@ steps:
 
   - id: plan
     persona: implementer
+    model: strongest
     dependencies: [fetch-assess]
     memory:
       inject_artifacts:
@@ -104,6 +110,7 @@ steps:
 
   - id: implement
     persona: craftsman
+    model: strongest
     contexts: [execution, delivery]
     thread: impl
     dependencies: [plan]
@@ -138,6 +145,7 @@ steps:
 
   - id: fix-implement
     persona: craftsman
+    model: fastest
     rework_only: true
     workspace:
       type: worktree
@@ -160,6 +168,7 @@ steps:
 
   - id: create-pr
     persona: "{{ forge.type }}-commenter"
+    model: cheapest
     contexts: [delivery]
     dependencies: [implement]
     memory:
