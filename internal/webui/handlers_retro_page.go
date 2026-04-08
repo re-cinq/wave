@@ -128,10 +128,16 @@ func (s *Server) handleRetrosPage(w http.ResponseWriter, r *http.Request) {
 	// Build list entries
 	listEntries := make([]RetroListEntry, len(records))
 	for i, rec := range records {
+		smoothness := rec.Smoothness
+		if smoothness == "" {
+			if fullRetro, err := storage.Load(rec.RunID); err == nil && fullRetro.Quantitative != nil {
+				smoothness = deriveSmoothness(fullRetro.Quantitative)
+			}
+		}
 		listEntries[i] = RetroListEntry{
 			RunID:      rec.RunID,
 			Pipeline:   rec.PipelineName,
-			Smoothness: rec.Smoothness,
+			Smoothness: smoothness,
 			Status:     rec.Status,
 			CreatedAt:  rec.CreatedAt.Format("Jan 2 15:04"),
 		}
