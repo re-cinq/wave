@@ -20,6 +20,35 @@ input:
   source: cli
   example: "https://github.com/re-cinq/wave/pull/42"
 
+chat_context:
+  artifact_summaries:
+    - findings
+    - publish-result
+  suggested_questions:
+    - "What dead code was found in the PR diff?"
+    - "Were findings posted as a review comment?"
+    - "Are any findings false positives?"
+  focus_areas:
+    - "Dead code in changed files"
+    - "Review comment status"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  report:
+    step: publish
+    artifact: publish-result
+
 steps:
   - id: scan
     persona: navigator

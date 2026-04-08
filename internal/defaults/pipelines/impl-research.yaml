@@ -17,6 +17,19 @@ input:
     type: string
     description: "GitHub issue reference (owner/repo number)"
 
+chat_context:
+  artifact_summaries:
+    - research
+    - implement
+    - review
+  suggested_questions:
+    - "What did the research phase discover?"
+    - "Were the research findings applied in the implementation?"
+    - "What was the review verdict?"
+  focus_areas:
+    - "Research findings and their influence on implementation"
+    - "Review outcome and any concerns"
+
 hooks:
   - name: log-start
     event: run_start
