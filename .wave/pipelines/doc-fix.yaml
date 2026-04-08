@@ -132,8 +132,14 @@ steps:
         type: markdown
     handover:
       contract:
-        type: non_empty_file
+        type: agent_review
+        persona: navigator
+        criteria_path: .wave/contracts/plan-review-criteria.md
         source: .wave/output/fix-plan.md
+        model: cheapest
+        token_budget: 8000
+        timeout: 90s
+        on_failure: warn
 
   - id: fix-docs
     persona: craftsman
