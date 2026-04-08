@@ -35,6 +35,36 @@
       },
       "minItems": 1,
       "description": "Pipeline steps executed in dependency order"
+    },
+    "hooks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/LifecycleHookDef"
+      },
+      "description": "Pipeline-scoped lifecycle hooks"
+    },
+    "pipeline_outputs": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/PipelineOutput"
+      },
+      "description": "Named output aliases for cross-pipeline artifact references"
+    },
+    "chat_context": {
+      "$ref": "#/definitions/ChatContextConfig"
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Declarative skill references required by this pipeline"
+    },
+    "max_step_visits": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 50,
+      "description": "Graph-level maximum total step visits across all steps (default 50)"
     }
   },
   "definitions": {
@@ -57,6 +87,10 @@
           "type": "boolean",
           "default": false,
           "description": "Whether this pipeline is ready for release use"
+        },
+        "category": {
+          "type": "string",
+          "description": "Pipeline category for grouping in the UI"
         },
         "disabled": {
           "type": "boolean",
@@ -156,7 +190,7 @@
         },
         "model": {
           "type": "string",
-          "description": "Override the adapter model for this step (e.g., 'claude-haiku' for cheap analysis). Overrides persona and adapter defaults."
+          "description": "Override the adapter model for this step (e.g., 'claude-haiku-4-5' for cheap analysis). Overrides persona and adapter defaults."
         },
         "adapter": {
           "type": "string",
@@ -196,8 +230,31 @@
           "type": "string",
           "description": "For type: pipeline steps — name of the sub-pipeline to invoke."
         },
+        "input": {
+          "type": "string",
+          "description": "Input template for the sub-pipeline (supports template expressions referencing artifacts and context)."
+        },
         "config": {
           "$ref": "#/definitions/SubPipelineConfig"
+        },
+        "iterate": {
+          "$ref": "#/definitions/IterateConfig"
+        },
+        "branch": {
+          "$ref": "#/definitions/BranchConfig"
+        },
+        "loop": {
+          "$ref": "#/definitions/LoopConfig"
+        },
+        "aggregate": {
+          "$ref": "#/definitions/AggregateConfig"
+        },
+        "contexts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Ontology bounded context filter — when set, only these contexts are injected into the step's CLAUDE.md."
         },
         "dependencies": {
           "type": "array",
@@ -216,6 +273,11 @@
           "minimum": 0,
           "maximum": 10,
           "description": "Maximum concurrent sub-agents the persona may spawn. Values > 1 inject a concurrency hint into the system prompt. Capped at 10."
+        },
+        "concurrency": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Step-level concurrency limit for parallel matrix expansions."
         },
         "memory": {
           "$ref": "#/definitions/MemoryConfig"
@@ -337,16 +399,11 @@
     },
     "ArtifactRef": {
       "type": "object",
-      "required": [
-        "step",
-        "artifact",
-        "as"
-      ],
       "additionalProperties": false,
       "properties": {
         "step": {
           "type": "string",
-          "description": "ID of the step that produced the artifact"
+          "description": "ID of the step that produced the artifact (mutually exclusive with pipeline)"
         },
         "artifact": {
           "type": "string",
@@ -374,6 +431,10 @@
           "type": "boolean",
           "default": false,
           "description": "If true, missing artifact doesn't fail the step"
+        },
+        "pipeline": {
+          "type": "string",
+          "description": "Cross-pipeline artifact source — pipeline name (mutually exclusive with step)"
         }
       }
     },
@@ -523,6 +584,13 @@
         "contract": {
           "$ref": "#/definitions/ContractConfig"
         },
+        "contracts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ContractConfig"
+          },
+          "description": "Ordered list of contracts to validate (takes precedence over the singular contract field)"
+        },
         "compaction": {
           "$ref": "#/definitions/CompactionConfig"
         },
@@ -538,11 +606,6 @@
         "target_step": {
           "type": "string",
           "description": "Target step for review failure routing"
-        },
-        "max_retries": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Maximum retry attempts on handover failure"
         }
       }
     },
@@ -558,7 +621,9 @@
             "typescript_interface",
             "markdown_spec",
             "template",
-            "format"
+            "format",
+            "llm_judge",
+            "agent_review"
           ],
           "description": "Contract validation type"
         },
@@ -594,7 +659,11 @@
           "type": "string",
           "enum": [
             "retry",
-            "fail"
+            "fail",
+            "skip",
+            "continue",
+            "rework",
+            "warn"
           ],
           "description": "Action on validation failure"
         },
@@ -603,22 +672,70 @@
           "minimum": 0,
           "description": "Maximum retry attempts"
         },
-        "progressive_validation": {
-          "type": "boolean",
-          "description": "Enable progressive validation with warnings"
-        },
-        "recovery_level": {
+        "model": {
           "type": "string",
-          "enum": [
-            "conservative",
-            "progressive",
-            "aggressive"
-          ],
-          "description": "JSON recovery aggressiveness"
+          "description": "LLM model for judge evaluation (for type: llm_judge)"
         },
-        "allow_recovery": {
-          "type": "boolean",
-          "description": "Enable automatic JSON recovery"
+        "criteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Evaluation criteria for LLM judge (for type: llm_judge)"
+        },
+        "threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Pass threshold for LLM judge evaluation (0.0-1.0, default 1.0)"
+        },
+        "persona": {
+          "type": "string",
+          "description": "Reviewer persona name for agent_review contracts (must differ from step persona)"
+        },
+        "criteria_path": {
+          "type": "string",
+          "description": "Path to review criteria markdown file (for type: agent_review)"
+        },
+        "context": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ReviewContextSource"
+          },
+          "description": "Context sources provided to the reviewer agent (for type: agent_review)"
+        },
+        "token_budget": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Max tokens for the review agent (0 = unlimited)"
+        },
+        "timeout": {
+          "type": "string",
+          "description": "Duration string for review timeout (e.g., '60s', '5m')"
+        },
+        "rework_step": {
+          "type": "string",
+          "description": "Step ID to execute on review failure when on_failure is 'rework'"
+        }
+      }
+    },
+    "ReviewContextSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": ["git_diff", "artifact"],
+          "description": "Context source type"
+        },
+        "artifact": {
+          "type": "string",
+          "description": "Artifact name when source is 'artifact'"
+        },
+        "max_size": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum bytes for this context source (0 = use default)"
         }
       }
     },
@@ -677,6 +794,11 @@
         "input_template": {
           "type": "string",
           "description": "Go template string for constructing child pipeline input from item fields"
+        },
+        "stacked": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, matrix items are processed in dependency order rather than fully parallel"
         }
       }
     },
@@ -793,12 +915,25 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["approval"],
-          "description": "Gate type"
+          "enum": ["approval", "pr_merge", "ci_pass", "timer"],
+          "description": "Gate type: 'approval' waits for human input, 'pr_merge' waits for PR merge, 'ci_pass' waits for CI, 'timer' waits for a duration"
+        },
+        "auto": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-approve the gate (for testing or CI environments)"
+        },
+        "message": {
+          "type": "string",
+          "description": "Display message shown while the gate is waiting"
+        },
+        "tui_action": {
+          "type": "string",
+          "description": "TUI action identifier for this gate"
         },
         "prompt": {
           "type": "string",
-          "description": "Message displayed to the human reviewer"
+          "description": "Prompt text displayed to the human reviewer"
         },
         "choices": {
           "type": "array",
@@ -819,6 +954,23 @@
         "timeout": {
           "type": "string",
           "description": "Duration to wait for human response (e.g., '1h', '30m')"
+        },
+        "pr_number": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "PR number to wait on (for type: pr_merge)"
+        },
+        "repo": {
+          "type": "string",
+          "description": "'owner/repo' slug for pr_merge / ci_pass gates. Detected from git remotes if empty."
+        },
+        "branch": {
+          "type": "string",
+          "description": "Branch name for ci_pass gate. Detected from git if empty."
+        },
+        "interval": {
+          "type": "string",
+          "description": "Poll interval for pr_merge / ci_pass gates (e.g., '30s'). Default 30s."
         }
       }
     },
@@ -845,8 +997,23 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "inject": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Parent artifact names to inject into the child pipeline"
+        },
+        "extract": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Child artifact names to extract back to the parent pipeline"
+        },
         "max_cycles": {
           "type": "integer",
+          "minimum": 0,
           "description": "Maximum iterations for the child pipeline"
         },
         "timeout": {
@@ -855,7 +1022,208 @@
         },
         "stop_condition": {
           "type": "string",
-          "description": "Condition to stop child pipeline (e.g., 'context.tests_pass=true')"
+          "description": "Template expression for early termination of the child pipeline"
+        }
+      }
+    },
+    "IterateConfig": {
+      "type": "object",
+      "required": ["over", "mode"],
+      "additionalProperties": false,
+      "properties": {
+        "over": {
+          "type": "string",
+          "description": "Template expression resolving to a JSON array of items to iterate over"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["sequential", "parallel"],
+          "description": "Iteration mode: 'sequential' processes items one by one, 'parallel' runs concurrently"
+        },
+        "max_concurrent": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum parallel workers when mode is 'parallel'"
+        }
+      }
+    },
+    "BranchConfig": {
+      "type": "object",
+      "required": ["on", "cases"],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "type": "string",
+          "description": "Template expression to evaluate for branching"
+        },
+        "cases": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Map of value to pipeline name. Use 'skip' as the pipeline name for a no-op branch."
+        }
+      }
+    },
+    "LoopConfig": {
+      "type": "object",
+      "required": ["max_iterations"],
+      "additionalProperties": false,
+      "properties": {
+        "max_iterations": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Hard limit on the number of loop iterations"
+        },
+        "until": {
+          "type": "string",
+          "description": "Template condition for early exit from the loop"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Step"
+          },
+          "description": "Sub-steps to execute per iteration"
+        }
+      }
+    },
+    "AggregateConfig": {
+      "type": "object",
+      "required": ["from", "into", "strategy"],
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "type": "string",
+          "description": "Template expression for the source data to aggregate"
+        },
+        "into": {
+          "type": "string",
+          "description": "Output file path for the aggregated result"
+        },
+        "strategy": {
+          "type": "string",
+          "enum": ["merge_arrays", "concat", "reduce"],
+          "description": "Aggregation strategy: 'merge_arrays' combines JSON arrays, 'concat' concatenates text, 'reduce' applies a reduce function"
+        }
+      }
+    },
+    "PipelineOutput": {
+      "type": "object",
+      "required": ["step", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "step": {
+          "type": "string",
+          "description": "Source step ID"
+        },
+        "artifact": {
+          "type": "string",
+          "description": "Artifact name from the source step"
+        },
+        "field": {
+          "type": "string",
+          "description": "Optional JSON field to extract from the artifact"
+        }
+      }
+    },
+    "ChatContextConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "artifact_summaries": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Artifact names to summarize for the post-pipeline chat session"
+        },
+        "suggested_questions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Pipeline-specific opening questions for the chat session"
+        },
+        "focus_areas": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Areas to highlight in the chat context"
+        },
+        "max_context_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 8000,
+          "description": "Token budget for injected context content (default 8000)"
+        }
+      }
+    },
+    "LifecycleHookDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Hook name for identification in logs"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "run_start",
+            "run_completed",
+            "run_failed",
+            "step_start",
+            "step_completed",
+            "step_failed",
+            "step_retrying",
+            "contract_validated",
+            "artifact_created",
+            "workspace_created"
+          ],
+          "description": "Lifecycle event that triggers this hook"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["command", "http", "llm_judge", "script"],
+          "description": "Hook execution type"
+        },
+        "command": {
+          "type": "string",
+          "description": "Shell command to execute (for type: command)"
+        },
+        "url": {
+          "type": "string",
+          "description": "HTTP endpoint URL (for type: http)"
+        },
+        "model": {
+          "type": "string",
+          "description": "LLM model to use (for type: llm_judge)"
+        },
+        "prompt": {
+          "type": "string",
+          "description": "Prompt template (for type: llm_judge)"
+        },
+        "script": {
+          "type": "string",
+          "description": "Shell script content (for type: script)"
+        },
+        "matcher": {
+          "type": "string",
+          "description": "Optional step ID matcher — hook only fires for matching steps"
+        },
+        "blocking": {
+          "type": "boolean",
+          "description": "Whether hook failure blocks pipeline execution (default varies by event type)"
+        },
+        "fail_open": {
+          "type": "boolean",
+          "description": "When true, hook failure is logged but does not fail the step/pipeline"
+        },
+        "timeout": {
+          "type": "string",
+          "description": "Duration string for hook execution timeout (e.g., '30s', '2m')"
         }
       }
     }

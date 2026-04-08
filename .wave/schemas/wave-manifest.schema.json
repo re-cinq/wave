@@ -49,6 +49,23 @@
       },
       "description": "Named persona configurations"
     },
+    "server": {
+      "$ref": "#/definitions/ServerConfig"
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Global skill references available to all pipelines"
+    },
+    "hooks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/LifecycleHookDef"
+      },
+      "description": "Global lifecycle hooks that apply to all pipeline runs"
+    },
     "runtime": {
       "$ref": "#/definitions/Runtime"
     }
@@ -72,6 +89,11 @@
         "repo": {
           "type": "string",
           "description": "Repository URL"
+        },
+        "forge": {
+          "type": "string",
+          "enum": ["github", "gitlab", "gitea", "forgejo", "bitbucket"],
+          "description": "Manual forge override. Detected automatically from git remotes if omitted."
         }
       }
     },
@@ -83,21 +105,75 @@
           "type": "string",
           "description": "Primary programming language (e.g., 'go', 'typescript')"
         },
+        "flavour": {
+          "type": "string",
+          "description": "Project flavour for template selection (auto-detected if omitted)"
+        },
         "test_command": {
           "type": "string",
           "description": "Command to run tests (referenced as {{ project.test_command }})"
         },
+        "contract_test_command": {
+          "type": "string",
+          "description": "Command to run contract/unit tests (referenced as {{ project.contract_test_command }}). Falls back to test_command if not set."
+        },
         "lint_command": {
           "type": "string",
-          "description": "Command to run linter"
+          "description": "Command to run linter (referenced as {{ project.lint_command }})"
         },
         "build_command": {
           "type": "string",
-          "description": "Command to build the project"
+          "description": "Command to build the project (referenced as {{ project.build_command }})"
+        },
+        "format_command": {
+          "type": "string",
+          "description": "Command to format source files (referenced as {{ project.format_command }})"
         },
         "source_glob": {
           "type": "string",
-          "description": "Glob pattern for source files (e.g., '*.go')"
+          "description": "Glob pattern for source files (e.g., '*.go', 'src/**/*.ts')"
+        },
+        "skill": {
+          "type": "string",
+          "description": "Primary skill name for this project (referenced as {{ project.skill }})"
+        },
+        "services": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/ServiceConfig"
+          },
+          "description": "Per-service configuration for multi-service projects (referenced as {{ project.services.<name>.<field> }})"
+        }
+      }
+    },
+    "ServiceConfig": {
+      "type": "object",
+      "required": ["path"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path to the service directory"
+        },
+        "language": {
+          "type": "string",
+          "description": "Service programming language"
+        },
+        "build_command": {
+          "type": "string",
+          "description": "Build command for this service"
+        },
+        "test_command": {
+          "type": "string",
+          "description": "Test command for this service"
+        },
+        "contract_test_command": {
+          "type": "string",
+          "description": "Contract test command for this service. Falls back to test_command if not set."
+        },
+        "source_glob": {
+          "type": "string",
+          "description": "Source file glob pattern for this service"
         }
       }
     },
@@ -161,6 +237,10 @@
           "type": "string",
           "description": "Path or name of the CLI binary (e.g., 'claude')"
         },
+        "default_model": {
+          "type": "string",
+          "description": "Default model to use when no per-step override is set (e.g., 'claude-opus-4')"
+        },
         "mode": {
           "type": "string",
           "enum": [
@@ -190,6 +270,13 @@
         "hooks_template": {
           "type": "string",
           "description": "Path to hooks template file"
+        },
+        "tier_models": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Maps complexity tiers to model identifiers. Tiers: 'cheapest', 'fastest', 'strongest'. Falls back to routing.complexity_map then default_model."
         }
       }
     },
@@ -221,7 +308,7 @@
         },
         "model": {
           "type": "string",
-          "description": "Model to use (e.g., 'opus', 'sonnet')"
+          "description": "Model to use (e.g., 'claude-opus-4', 'claude-haiku-4-5')"
         },
         "permissions": {
           "$ref": "#/definitions/Permissions"
@@ -231,6 +318,20 @@
         },
         "sandbox": {
           "$ref": "#/definitions/PersonaSandbox"
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Skill names this persona has access to"
+        },
+        "token_scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Token scope labels for preflight validation (e.g., 'github:write', 'aws:read')"
         }
       }
     },
@@ -319,17 +420,26 @@
         "max_concurrent_workers": {
           "type": "integer",
           "minimum": 1,
-          "description": "Maximum parallel step executions"
+          "description": "Maximum parallel step executions (legacy; prefer max_concurrency)"
+        },
+        "max_concurrency": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 10,
+          "description": "Maximum parallel step executions (default 10)"
         },
         "default_timeout_minutes": {
           "type": "integer",
           "minimum": 1,
-          "description": "Default step timeout in minutes"
+          "description": "Default step timeout in minutes (legacy; prefer runtime.timeouts.step_default_minutes)"
         },
         "pipeline_id_hash_length": {
           "type": "integer",
           "minimum": 4,
           "description": "Length of the hash suffix in pipeline run IDs"
+        },
+        "timeouts": {
+          "$ref": "#/definitions/Timeouts"
         },
         "relay": {
           "$ref": "#/definitions/RelayConfig"
@@ -345,6 +455,118 @@
         },
         "sandbox": {
           "$ref": "#/definitions/RuntimeSandbox"
+        },
+        "artifacts": {
+          "$ref": "#/definitions/RuntimeArtifactsConfig"
+        },
+        "circuit_breaker": {
+          "$ref": "#/definitions/CircuitBreakerConfig"
+        },
+        "retros": {
+          "$ref": "#/definitions/RetrosConfig"
+        },
+        "cost": {
+          "$ref": "#/definitions/CostConfig"
+        },
+        "fallbacks": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": "Adapter fallback chains (e.g., anthropic: [openai, gemini])"
+        },
+        "stall_timeout": {
+          "type": "string",
+          "description": "Duration after which a stalled pipeline step is considered failed (e.g., '30m'). 0 or empty = disabled."
+        }
+      }
+    },
+    "Timeouts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "step_default_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Default step timeout in minutes"
+        },
+        "relay_compaction_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Timeout for relay compaction operations in minutes"
+        },
+        "meta_default_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Default timeout for meta-pipeline execution in minutes"
+        },
+        "skill_install_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Timeout for skill installation in seconds"
+        },
+        "skill_cli_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Timeout for skill CLI operations in seconds"
+        },
+        "skill_http_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Timeout for skill HTTP requests in seconds"
+        },
+        "skill_http_header_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Timeout for skill HTTP header reads in seconds"
+        },
+        "skill_publish_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Timeout for skill publish operations in seconds"
+        },
+        "process_grace_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Grace period for subprocess termination in seconds"
+        },
+        "stdout_drain_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Time to wait for stdout drain after process exit in seconds"
+        },
+        "gate_approval_hours": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Default gate approval timeout in hours"
+        },
+        "gate_poll_interval_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Polling interval for pr_merge / ci_pass gates in seconds"
+        },
+        "gate_poll_timeout_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum poll duration for pr_merge / ci_pass gates in minutes"
+        },
+        "git_command_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Timeout for git CLI operations in seconds"
+        },
+        "forge_api_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Timeout for forge API calls (GitHub, GitLab, etc.) in seconds"
+        },
+        "retry_max_delay_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum retry backoff delay in seconds"
         }
       }
     },
@@ -354,7 +576,16 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enable sandbox isolation"
+          "description": "Enable sandbox isolation (uses bubblewrap backend by default)"
+        },
+        "backend": {
+          "type": "string",
+          "enum": ["bubblewrap", "docker", "none"],
+          "description": "Sandbox backend to use. Supersedes the enabled boolean when set."
+        },
+        "docker_image": {
+          "type": "string",
+          "description": "Docker image for the docker sandbox backend (default: ubuntu:24.04)"
         },
         "default_allowed_domains": {
           "type": "array",
@@ -368,7 +599,82 @@
           "items": {
             "type": "string"
           },
-          "description": "Environment variables to pass through to subprocesses"
+          "description": "Environment variables to pass through to sandboxed subprocesses"
+        }
+      }
+    },
+    "RuntimeArtifactsConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_stdout_size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum bytes to capture from stdout per step (default: 10MB)"
+        },
+        "default_artifact_dir": {
+          "type": "string",
+          "description": "Base directory for artifacts (default: '.wave/artifacts')"
+        }
+      }
+    },
+    "CircuitBreakerConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of times the same failure fingerprint must occur before the pipeline is terminated (default: 3)"
+        },
+        "tracked_classes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Failure classes to track for circuit breaking (default: deterministic, contract_failure, test_failure)"
+        }
+      }
+    },
+    "RetrosConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable automatic retrospective generation after pipeline runs (default: true)"
+        },
+        "narrate": {
+          "type": "boolean",
+          "description": "Generate LLM narrative for retrospectives (default: true)"
+        },
+        "narrate_model": {
+          "type": "string",
+          "description": "Model to use for narration (default: 'claude-haiku-4-5')"
+        }
+      }
+    },
+    "CostConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Activate cost tracking for pipeline runs"
+        },
+        "budget_ceiling": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum cost in USD per pipeline run. 0 = unlimited."
+        },
+        "warn_at": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Cost threshold in USD at which to emit a warning. 0 = disabled."
+        },
+        "currency": {
+          "type": "string",
+          "description": "Display currency (default: 'USD')"
         }
       }
     },
@@ -457,6 +763,21 @@
             "$ref": "#/definitions/RoutingRule"
           },
           "description": "Routing rules evaluated in priority order"
+        },
+        "auto_route": {
+          "type": "boolean",
+          "description": "Enable automatic model routing based on step complexity heuristics"
+        },
+        "complexity_map": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Maps complexity tiers to model identifiers. Tiers: 'cheapest', 'fastest', 'strongest'."
+        },
+        "default_tier": {
+          "type": "string",
+          "description": "Fallback complexity tier when classification is inconclusive (default: 'fastest')"
         }
       }
     },
@@ -485,6 +806,131 @@
             "type": "string"
           },
           "description": "Label key-value patterns that must all match"
+        }
+      }
+    },
+    "ServerConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bind": {
+          "type": "string",
+          "description": "Address and port to bind the server (e.g., ':8080', '0.0.0.0:9000')"
+        },
+        "max_concurrent": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum concurrent pipeline runs in server mode"
+        },
+        "auth": {
+          "$ref": "#/definitions/ServerAuthConfig"
+        },
+        "tls": {
+          "$ref": "#/definitions/ServerTLSConfig"
+        }
+      }
+    },
+    "ServerAuthConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["jwt", "mtls", "bearer", "none"],
+          "description": "Authentication mode for server endpoints"
+        },
+        "jwt_secret": {
+          "type": "string",
+          "description": "JWT secret for token validation. Supports ${ENV_VAR} expansion."
+        }
+      }
+    },
+    "ServerTLSConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable TLS for server endpoints"
+        },
+        "cert": {
+          "type": "string",
+          "description": "Path to TLS certificate file"
+        },
+        "key": {
+          "type": "string",
+          "description": "Path to TLS private key file"
+        },
+        "ca": {
+          "type": "string",
+          "description": "Path to CA certificate for mTLS client verification"
+        }
+      }
+    },
+    "LifecycleHookDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Hook name for identification in logs"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "run_start",
+            "run_completed",
+            "run_failed",
+            "step_start",
+            "step_completed",
+            "step_failed",
+            "step_retrying",
+            "contract_validated",
+            "artifact_created",
+            "workspace_created"
+          ],
+          "description": "Lifecycle event that triggers this hook"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["command", "http", "llm_judge", "script"],
+          "description": "Hook execution type"
+        },
+        "command": {
+          "type": "string",
+          "description": "Shell command to execute (for type: command)"
+        },
+        "url": {
+          "type": "string",
+          "description": "HTTP endpoint URL (for type: http)"
+        },
+        "model": {
+          "type": "string",
+          "description": "LLM model to use (for type: llm_judge)"
+        },
+        "prompt": {
+          "type": "string",
+          "description": "Prompt template (for type: llm_judge)"
+        },
+        "script": {
+          "type": "string",
+          "description": "Shell script content (for type: script)"
+        },
+        "matcher": {
+          "type": "string",
+          "description": "Optional step ID matcher — hook only fires for matching steps"
+        },
+        "blocking": {
+          "type": "boolean",
+          "description": "Whether hook failure blocks pipeline execution (default varies by event type)"
+        },
+        "fail_open": {
+          "type": "boolean",
+          "description": "When true, hook failure is logged but does not fail the step/pipeline"
+        },
+        "timeout": {
+          "type": "string",
+          "description": "Duration string for hook execution timeout (e.g., '30s', '2m')"
         }
       }
     }
