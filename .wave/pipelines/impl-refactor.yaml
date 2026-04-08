@@ -137,15 +137,7 @@ steps:
 
         ## Output Format
 
-        Write a structured JSON result to `.wave/output/refactor-analysis.json` matching
-        the contract schema at `.wave/contracts/refactor-analysis.schema.json`. Key fields:
-        - `refactoring_type`: extract, inline, move, rename, or restructure
-        - `request_summary`: Restated refactoring request
-        - `affected_code`: Array of file entries with path, functions, and change type
-        - `callers`: Array of caller entries with file, function, and reference type
-        - `test_coverage`: Map of affected files to their test coverage status
-        - `integration_points`: Array of external connection points
-        - `blast_radius`: contained, moderate, or extensive
+        Produce output matching the contract schema.
 
         ## Quality Bar
 

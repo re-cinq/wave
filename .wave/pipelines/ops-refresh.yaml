@@ -299,12 +299,7 @@ steps:
 
         ## Output Format
 
-        JSON at `.wave/artifact.json` matching the contract schema. Must include:
-        - `title_changed`: boolean
-        - `updated_title`: new title string (or original if unchanged)
-        - `updated_body`: the complete updated issue body text
-        - `section_classifications`: array of {section, classification, evidence} objects
-        - `changes_summary`: list of changes made and why
+        Produce output matching the contract schema.
 
         ## Quality Bar
 

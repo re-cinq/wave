@@ -178,9 +178,7 @@ steps:
 
         ## Output Format
 
-        Write JSON to `.wave/output/review-findings.json` matching the contract schema.
-        The JSON must contain PR metadata at the top level and a `findings` array with
-        one object per extracted review comment.
+        Produce output matching the contract schema.
 
         ## Quality Bar
 

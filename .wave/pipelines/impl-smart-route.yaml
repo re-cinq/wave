@@ -129,14 +129,7 @@ steps:
 
         ## Output Format
 
-        Write a JSON result to `.wave/output/complexity.json` matching the contract schema
-        at `.wave/contracts/issue-assessment.schema.json`. At minimum include:
-        - `complexity`: One of "simple", "medium", or "complex"
-        - `reason`: A 2-3 sentence explanation of why this classification was chosen,
-          referencing specific aspects of the issue (number of files, scope of change,
-          need for specification)
-        - `files_estimated`: Approximate number of files that will change
-        - `key_signals`: What factors drove the classification (labels, scope, ambiguity)
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
