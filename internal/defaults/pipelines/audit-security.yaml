@@ -130,7 +130,7 @@ steps:
 
         ## Output Format
 
-        Write your findings to `.wave/output/findings.json` matching the contract
+        Write your findings to the output artifact path defined above matching the contract
         schema. Each finding must include: severity (CRITICAL/HIGH/MEDIUM/LOW), the
           affected file path and line range, a description of the vulnerability, the
           OWASP category (if applicable), and a suggested remediation direction.
@@ -242,7 +242,7 @@ steps:
 
         ## Output Format
 
-        Produce a markdown report at `.wave/output/security-deep-dive.md` with:
+        Produce a markdown report at the output artifact path defined above with:
         - **Executive Summary** (paragraph: confirmed count, eliminated count, overall
           risk assessment)
         - **Confirmed Vulnerabilities** (one per subsection, each with: severity
@@ -345,7 +345,7 @@ steps:
 
         ## Output Format
 
-        A clean markdown report at `.wave/output/security-report.md` structured for
+        A clean markdown report at the output artifact path defined above structured for
         both quick scanning (executive summary + top 3) and detailed planning
         (remediation roadmap). Use headers, bullet lists, and severity badges
         consistently.
