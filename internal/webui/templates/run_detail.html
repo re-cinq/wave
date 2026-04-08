@@ -245,20 +245,20 @@ function v2ToggleLogs(tab){
     tc.hidden=false;
     var sid=tc.dataset.stepId;
     if(tc.dataset.logLoaded){
-        tc.innerHTML=tc.dataset.logHtml||'<pre style="margin:0;padding:0.3rem;font-size:0.68rem;color:var(--color-text-muted);">(no output)</pre>';
+        tc.innerHTML=tc.dataset.logHtml||'<pre class="ws-log-body">(no output)</pre>';
         return;
     }
-    tc.innerHTML='<pre style="margin:0;padding:0.3rem;font-size:0.68rem;color:var(--color-text-muted);">loading…</pre>';
+    tc.innerHTML='<pre class="ws-log-body">loading…</pre>';
     var rid='{{.Run.RunID}}';
     fetch('/api/runs/'+encodeURIComponent(rid)+'/step-events?step='+encodeURIComponent(sid)+'&limit=500')
     .then(function(r){return r.json()})
     .then(function(d){
         var lines=(d.events||[]).map(function(e){return e.message||''}).filter(Boolean);
-        var html='<pre style="margin:0;padding:0.3rem 0.4rem;font-size:0.68rem;white-space:pre-wrap;word-break:break-all;color:var(--color-text-secondary);"><code>'+(lines.length?escapeHTML(lines.join('\n')):'(no output)')+'</code></pre>';
+        var html='<pre class="ws-log-body"><code>'+(lines.length?escapeHTML(lines.join('\n')):'(no output)')+'</code></pre>';
         tc.dataset.logLoaded='1';
         tc.dataset.logHtml=html;
         tc.innerHTML=html;
-    }).catch(function(){tc.innerHTML='<pre style="margin:0;padding:0.3rem;color:var(--color-failed);">(load failed)</pre>';});
+    }).catch(function(){tc.innerHTML='<pre class="ws-log-body" style="color:var(--color-failed);">(load failed)</pre>';});
 }
 // V2 live updates — SSE with polling fallback
 if('{{.Run.Status}}'==='running'){
