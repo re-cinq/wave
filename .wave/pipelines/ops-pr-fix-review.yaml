@@ -21,6 +21,18 @@ chat_context:
     - "Triage decisions and rationale"
     - "Fix completeness and test results"
 
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
 skills:
   - "{{ project.skill }}"
   - gh-cli
@@ -36,6 +48,11 @@ input:
     type: string
     description: "Pull request URL"
   example: "https://github.com/owner/repo/pull/42"
+
+pipeline_outputs:
+  result:
+    step: reply-comments
+    artifact: resolution-summary
 
 steps:
   - id: fetch-review
@@ -182,6 +199,7 @@ steps:
 
   - id: apply-fixes
     persona: craftsman
+    thread: fix
     contexts: [execution, delivery]
     model: strongest
     dependencies: [triage]
@@ -285,6 +303,7 @@ steps:
 
   - id: retry-fixes
     persona: craftsman
+    thread: fix
     model: fastest
     rework_only: true
     workspace:
@@ -382,6 +401,11 @@ steps:
       - name: resolution-summary
         path: .wave/output/resolution-summary.json
         type: json
+    outcomes:
+      - type: url
+        extract_from: .wave/output/resolution-summary.json
+        json_path: .comment_url
+        label: "Review Comment"
     retry:
       policy: patient
       max_attempts: 2

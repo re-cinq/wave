@@ -20,6 +20,17 @@ input:
     type: string
     description: "Package or area to focus test hardening on, or empty for full scan"
 
+chat_context:
+  artifact_summaries:
+    - coverage-analysis
+  suggested_questions:
+    - "What coverage gaps were identified?"
+    - "How many tests were added?"
+    - "Did all tests pass after hardening?"
+  focus_areas:
+    - "Coverage improvement delta"
+    - "Test quality and edge case coverage"
+
 hooks:
   - name: log-start
     event: run_start

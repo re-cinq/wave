@@ -19,6 +19,34 @@ input:
     type: string
     description: "UX area to audit: cli, tui, docs, onboarding, or empty for full audit"
 
+chat_context:
+  artifact_summaries:
+    - findings
+  suggested_questions:
+    - "What are the biggest UX friction points?"
+    - "Which error messages need improvement?"
+    - "How can discoverability be enhanced?"
+  focus_areas:
+    - "User experience friction points"
+    - "Error message quality and recovery options"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  findings:
+    step: audit
+    artifact: findings
+
 steps:
   - id: audit
     persona: navigator

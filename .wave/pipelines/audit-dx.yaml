@@ -18,6 +18,34 @@ input:
     type: string
     description: "DX area to audit: onboarding, testing, ci, api, or empty for full audit"
 
+chat_context:
+  artifact_summaries:
+    - findings
+  suggested_questions:
+    - "What are the biggest DX friction points?"
+    - "Which improvements would have the most impact for new contributors?"
+    - "How does the setup experience compare to best practices?"
+  focus_areas:
+    - "Developer experience friction points"
+    - "Improvement recommendations by area"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  findings:
+    step: audit
+    artifact: findings
+
 steps:
   - id: audit
     persona: navigator

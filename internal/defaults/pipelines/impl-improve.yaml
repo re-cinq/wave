@@ -16,6 +16,18 @@ input:
   source: cli
   example: "improve error handling in internal/pipeline"
 
+chat_context:
+  artifact_summaries:
+    - assessment
+    - verification
+  suggested_questions:
+    - "What improvements were applied?"
+    - "Were any high-risk items skipped?"
+    - "Did the improvements introduce any regressions?"
+  focus_areas:
+    - "Applied improvements and quality delta"
+    - "Skipped items and risk assessment"
+
 hooks:
   - name: log-start
     event: run_start
@@ -27,6 +39,11 @@ hooks:
     type: command
     command: "echo '[impl-improve] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
     blocking: false
+
+pipeline_outputs:
+  result:
+    step: verify
+    artifact: verification
 
 steps:
   - id: assess
@@ -149,5 +166,11 @@ steps:
         type: markdown
     handover:
       contract:
-        type: non_empty_file
+        type: agent_review
+        persona: navigator
+        criteria_path: .wave/contracts/verification-criteria.md
         source: .wave/output/verification.md
+        model: cheapest
+        token_budget: 8000
+        timeout: 90s
+        on_failure: warn

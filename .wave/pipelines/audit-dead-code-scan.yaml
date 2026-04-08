@@ -14,6 +14,34 @@ input:
   source: cli
   example: "internal/"
 
+chat_context:
+  artifact_summaries:
+    - findings
+  suggested_questions:
+    - "What dead code was detected?"
+    - "Which packages have the most unused exports?"
+    - "Are there unreachable code paths?"
+  focus_areas:
+    - "Unused exports and dead branches"
+    - "Packages with no external importers"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  findings:
+    step: scan
+    artifact: findings
+
 steps:
   - id: scan
     persona: navigator
