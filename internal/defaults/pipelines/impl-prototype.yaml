@@ -597,10 +597,9 @@ steps:
            - **Checklist**: Standard PR checklist (tests pass, no lint warnings, docs updated)
            - **Related Issues**: Link to any related issues with `Closes #N` or `Relates to #N`
 
-        4. **Create the PR using the forge CLI**:
-           ```bash
-           {{ forge.cli_tool }} {{ forge.pr_command }} create --title "<title>" --body-file <body-file>
-           ```
+        4. **Create the PR using the forge CLI**: Use --title-file and
+           --body-file flags to avoid shell injection. Write the title to a
+           temporary file first, then pass it with --title-file.
 
         5. **Capture PR metadata**: Write `pr-info.json` with:
            - `pr_url`: Full URL of the created PR
