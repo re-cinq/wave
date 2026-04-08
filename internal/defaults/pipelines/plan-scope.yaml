@@ -62,24 +62,73 @@ steps:
     exec:
       type: prompt
       source: |
-        Input: {{ input }}
+        OBJECTIVE:
+        Fetch a GitHub epic issue and assess its scope, identifying themes, complexity,
+        and the number of sub-issues needed. Also inventory existing open issues to
+        prevent duplicate creation in the next step.
 
-        Parse the input: extract the repo (first token) and the epic issue number (second token).
+        INPUT: {{ input }}
 
-        Execute these steps:
+        CONTEXT:
+        You are the first step in a three-step scoping pipeline (fetch-epic, scope-and-create,
+        verify-report). Your assessment will be consumed by the scope-and-create step, which
+        will create individual child issues for each work item you identify. The accuracy of
+        your assessment directly determines whether the right sub-issues get created.
 
-        1. Fetch the epic issue with full details:
+        REQUIREMENTS:
+        1. Parse the input to extract the repository (first token, owner/repo format) and
+           the epic issue number (second token, integer).
+        2. Fetch the epic issue with full details:
+           ```bash
            {{ forge.cli_tool }} issue view <NUMBER> --repo <REPO> --json number,title,body,labels,url,comments,author,state
-
-        2. List existing open issues to check for duplicates:
+           ```
+        3. List existing open issues to check for potential duplicates:
+           ```bash
            {{ forge.cli_tool }} issue list --repo <REPO> --limit 50 --json number,title,labels,url
+           ```
+        4. Analyze the fetched epic to determine:
+           - Is this truly an epic/umbrella issue? An epic contains multiple distinct work
+             items. If this is a single task, note that in the assessment with
+             is_epic: false and recommended_sub_issues: 1.
+           - Key themes and work areas: group the work described in the epic body into
+             3-10 logical themes. Each theme should map to one or more sub-issues.
+           - Overall complexity: rate as S (1-2 sub-issues), M (3-5), L (6-8), XL (9+).
+           - Sub-issue count: how many independent, deliverable units of work exist?
+             Each sub-issue should be completable by a single developer in 1-3 days.
+           - Existing issue overlap: for each planned sub-issue, check if an existing
+             open issue already covers that work. If so, record the overlap.
+        5. For each planned sub-issue, provide:
+           - Tentative title (will be refined in the next step)
+           - Theme/category it belongs to
+           - Estimated complexity (S/M/L)
+           - Dependencies on other planned sub-issues
+           - Overlap with existing issues (if any)
 
-        Analyze the epic:
-        - Determine if this is truly an epic/umbrella issue (contains multiple work items)
-        - Identify the key themes and work areas
-        - Estimate overall complexity
-        - Count how many sub-issues should be created (3-10)
-        - List existing issues to avoid creating duplicates
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT create any issues in this step. This step is assessment only.
+        - Do NOT split work too finely. Sub-issues smaller than a few hours of work
+          create overhead that exceeds their value.
+        - Do NOT ignore the existing issue list. Creating duplicate issues wastes
+          reviewer time and fragments discussion.
+        - Do NOT treat the epic body as the only source of scope. Read the comments
+          too -- scope often evolves through discussion.
+        - Do NOT plan more than 10 sub-issues. If the epic is that large, it should
+          be split into multiple epics first.
+
+        OUTPUT FORMAT:
+        Write the assessment as structured JSON to .wave/artifact.json matching the
+        epic-assessment schema. Include: epic (number, title, url, body_summary),
+        is_epic (boolean), themes (array), planned_sub_issues (array with tentative
+        titles, complexity, dependencies, overlap), existing_issues (array of potentially
+        overlapping issues), overall_complexity (S/M/L/XL), and timestamp.
+
+        QUALITY BAR:
+        A good assessment enables the scope-and-create step to create well-bounded
+        sub-issues without further analysis. The themes should be non-overlapping,
+        the sub-issue count should feel "obviously right" to someone familiar with
+        the project, and any overlap with existing issues should be clearly flagged.
+        A bad assessment misses work items from the epic body, creates overlapping
+        themes, or ignores existing issues that cover the same ground.
     output_artifacts:
       - name: epic_assessment
         path: .wave/artifact.json
@@ -95,9 +144,6 @@ steps:
         validate: true
         must_pass: true
         on_failure: retry
-        allow_recovery: true
-        recovery_level: progressive
-        progressive_validation: false
 
   - id: scope-and-create
     persona: "{{ forge.type }}-scoper"
@@ -114,29 +160,88 @@ steps:
     exec:
       type: prompt
       source: |
-        The assessment artifact contains the epic analysis. Use it to create well-scoped child issues.
+        OBJECTIVE:
+        Create well-scoped GitHub child issues for each work item identified in the epic
+        assessment. Each issue must be independently deliverable, have clear acceptance
+        criteria, and reference the parent epic.
 
-        Input: {{ input }}
-        Parse the repo from the input (first token).
+        INPUT: {{ input }}
 
-        For each planned sub-issue, write the body to a temp file and create the issue safely:
-        cat > /tmp/issue-body.md <<'ISSUE_EOF'
-        <body content here>
-        ISSUE_EOF
-        {{ forge.cli_tool }} issue create --repo <REPO> --title '<title>' --body-file /tmp/issue-body.md --label "<labels>"
+        CONTEXT:
+        You are the second step in a three-step scoping pipeline. The fetch-epic step has
+        analyzed the epic and injected its assessment as the "assessment" artifact. This
+        artifact contains: the epic summary, planned sub-issues with tentative titles and
+        complexity estimates, existing issues that might overlap, and the overall complexity
+        rating. Use this assessment as your blueprint for issue creation.
 
-        Each sub-issue body MUST include:
-        - A "Parent: #<epic_number>" reference line
-        - A clear Summary section
-        - Acceptance Criteria as a checkbox list
-        - Dependencies on other sub-issues if applicable
-        - Scope Notes for what is explicitly excluded
+        REQUIREMENTS:
+        1. Read the injected assessment artifact completely. Extract the parent epic number,
+           the planned sub-issues, and any identified overlaps with existing issues.
+        2. Parse the repository from the input (first token, owner/repo format).
+        3. For each planned sub-issue that does NOT overlap with an existing issue:
+           a. Write the issue body to a temporary file using a heredoc to avoid shell
+              escaping problems with markdown:
+              ```bash
+              cat > /tmp/issue-body.md <<'ISSUE_EOF'
+              <issue body content>
+              ISSUE_EOF
+              ```
+           b. Create the issue:
+              ```bash
+              {{ forge.cli_tool }} issue create --repo <REPO> --title '<title>' \
+                --body-file /tmp/issue-body.md --label "<labels>"
+              ```
+           c. Capture the issue number and URL from the command output.
+        4. Each sub-issue body MUST include all of the following sections:
+           - Parent reference: "Parent: #<epic_number>" as the first line
+           - Summary: 2-4 sentences describing what this sub-issue covers and why
+             it is a distinct unit of work
+           - Acceptance Criteria: checkbox list (- [ ] criterion) with 3-7 specific,
+             verifiable criteria. Each criterion should be testable: "the function
+             returns an error when input is nil" not "error handling works"
+           - Dependencies: list of other sub-issue titles this depends on (if any).
+             Use "Depends on: #<number>" format for issues already created
+           - Scope Notes: explicitly state what is NOT included in this sub-issue
+             to prevent scope creep. At least one exclusion per issue.
+           - Complexity: S/M/L estimate from the assessment
+        5. Apply appropriate labels to each issue based on theme (e.g., "enhancement",
+           "bug", "documentation", "refactor"). If the epic has labels, inherit
+           relevant ones.
+        6. If the assessment identified overlaps with existing issues, skip creating
+           those sub-issues and note them as skipped in the output.
+        7. After all issues are created, compile the results.
 
-        After creating all issues, capture each issue's number and URL from the creation output.
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT create issues that overlap with existing open issues identified in the
+          assessment. Skip them and record the overlap.
+        - Do NOT create issues without acceptance criteria. Issues without testable
+          criteria cannot be verified as complete.
+        - Do NOT create issues with vague titles. "Fix stuff" is unacceptable;
+          "Add retry logic to pipeline step executor" is correct.
+        - Do NOT create more than 10 issues. If the assessment calls for more, group
+          smaller items together.
+        - Do NOT include Co-Authored-By or AI attribution in issue bodies.
+        - If {{ forge.cli_tool }} issue create fails for any issue, log the error and
+          continue with remaining issues. Do not abort the entire step.
 
-        Record the results with fields: parent_issue (number, url, repository),
-        created_issues (array of number, title, url, labels, success, complexity, dependencies),
-        total_created, total_failed.
+        OUTPUT FORMAT:
+        Write the results as structured JSON to .wave/artifact.json with:
+        - parent_issue: object with number, url, and repository
+        - created_issues: array of objects, each with number, title, url, labels (array),
+          success (boolean), complexity (S/M/L), dependencies (array of issue numbers)
+        - skipped_issues: array of objects with title and reason (e.g., "overlaps with #42")
+        - total_created: integer count of successfully created issues
+        - total_failed: integer count of failed issue creation attempts
+        - total_skipped: integer count of issues skipped due to overlap
+        - timestamp: ISO 8601 timestamp
+
+        QUALITY BAR:
+        Good sub-issues are independently deliverable (no circular dependencies), have
+        specific and testable acceptance criteria, and reference the parent epic for
+        traceability. A reviewer should be able to read any single sub-issue and understand
+        exactly what needs to be done without referring to the parent epic. Bad sub-issues
+        are vague, lack acceptance criteria, or have unclear boundaries that invite
+        scope creep.
     output_artifacts:
       - name: scope_plan
         path: .wave/artifact.json
@@ -157,9 +262,6 @@ steps:
         validate: true
         must_pass: true
         on_failure: retry
-        allow_recovery: true
-        recovery_level: progressive
-        progressive_validation: false
 
   - id: verify-report
     persona: "{{ forge.type }}-analyst"
@@ -179,29 +281,83 @@ steps:
     exec:
       type: prompt
       source: |
-        Verify the created sub-issues and compile a verification report.
+        OBJECTIVE:
+        Verify that all sub-issues created in the previous step actually exist, are properly
+        formatted, and meet quality standards. Compile a verification report with a
+        pre-rendered markdown summary suitable for posting on the parent epic.
 
-        Input: {{ input }}
-        Parse the repo (first token) and epic number (second token).
+        INPUT: {{ input }}
 
-        Step 1: For each created issue in the results, verify it exists:
-        {{ forge.cli_tool }} issue view <N> --repo <REPO> --json number,title,body,labels
+        CONTEXT:
+        You are the third and final step in the scoping pipeline. Two artifacts are injected:
+        - results: the scope-and-create output with created_issues array
+        - assessment: the original epic assessment with parent issue details
+        Your job is to verify each created issue against the forge API, confirm it meets
+        formatting requirements, and produce a summary. This step is READ-ONLY: the
+        {{ forge.type }}-analyst persona does not have write permissions. Do NOT attempt
+        to post comments or modify issues.
 
-        Check that each issue:
-        - Exists and is open
-        - Has acceptance criteria in the body
-        - References the parent epic
+        REQUIREMENTS:
+        1. Parse the repository (first token) and epic number (second token) from the input.
+        2. Read both injected artifacts to get the list of created issues and the parent
+           epic details.
+        3. For each created issue in the results, verify it exists and is well-formed:
+           ```bash
+           {{ forge.cli_tool }} issue view <N> --repo <REPO> --json number,title,body,labels
+           ```
+           Check each issue for:
+           - Existence: the issue was found and is in OPEN state
+           - Acceptance criteria: the body contains checkbox items (- [ ] ...) under
+             an "Acceptance Criteria" heading or similar
+           - Parent reference: the body contains "Parent: #<epic_number>" or equivalent
+             cross-reference to the epic
+           - Scope notes: the body contains a "Scope Notes" or "Out of Scope" section
+           Record pass/fail for each check.
+        4. If any created issue fails verification, note the specific failure reason.
+           Do NOT attempt to fix issues -- just report the problems.
+        5. Create a pre-rendered markdown summary suitable for posting on the parent epic:
+           - Title: "## Scoping Complete"
+           - Checklist of all sub-issues: "- [ ] #<number> <title>" format
+           - Statistics: total created, total verified, any failures
+           - This markdown goes in the output JSON's markdown_summary field, NOT posted
+             as a comment (this persona is read-only)
+        6. If any issues from the scope-and-create step failed to create (total_failed > 0),
+           include them in the report as unverified with the failure reason.
 
-        Step 2: This step is READ-ONLY. Do NOT post comments -- the github-analyst
-        persona does not have write permissions. Instead, include a pre-rendered markdown
-        summary in the output JSON that a commenter persona could post later.
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT post comments or modify any issues. This is a verification-only step.
+          The {{ forge.type }}-analyst persona does not have write permissions.
+        - Do NOT re-create failed issues. Report the failures for manual follow-up.
+        - Do NOT skip verification for any created issue. Every issue must be checked.
+        - Do NOT fabricate verification results. If the {{ forge.cli_tool }} command fails
+          or returns unexpected output, record the issue as "verification_failed" with
+          the error details.
+        - Do NOT modify the markdown_summary to hide failures. Report accurately.
 
-        Create a markdown summary with a checklist of all sub-issues (- [ ] #<number> <title>).
+        OUTPUT FORMAT:
+        Write the verification report as structured JSON to .wave/artifact.json with:
+        - parent_issue: object with number (integer) and url (string)
+        - verified_issues: array of objects, each with:
+          - number: integer
+          - title: string
+          - url: string
+          - exists: boolean
+          - has_acceptance_criteria: boolean
+          - references_parent: boolean
+          - has_scope_notes: boolean
+          - verification_status: "passed" or "failed"
+          - failure_reasons: array of strings (empty if passed)
+        - markdown_summary: pre-rendered markdown string for the parent epic comment
+        - summary: object with total_verified (integer), total_valid (integer),
+          total_issues_created (integer), total_verification_failures (integer)
+        - timestamp: ISO 8601 timestamp
 
-        Step 3: Compile the verification report with fields:
-        parent_issue (number, url), verified_issues (array of number, title, url, exists,
-        has_acceptance_criteria, references_parent), summary (total_verified, total_valid,
-        total_issues_created, comment_posted, comment_url).
+        QUALITY BAR:
+        A good verification report gives the project maintainer confidence that the
+        scoping was done correctly: every sub-issue exists, has acceptance criteria,
+        and references the parent. The markdown summary should be ready to post as-is.
+        A bad report skips verification checks, hides failures, or produces a markdown
+        summary that does not match the actual verification results.
     output_artifacts:
       - name: scope_report
         path: .wave/artifact.json
@@ -217,6 +373,3 @@ steps:
         validate: true
         must_pass: true
         on_failure: retry
-        allow_recovery: true
-        recovery_level: progressive
-        progressive_validation: false

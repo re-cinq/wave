@@ -264,7 +264,7 @@ steps:
 
         ## Output Format
 
-        After generating all tests, write a summary to `.wave/output/generated-tests.md` listing:
+        After generating all tests, produce a summary listing:
         - Each test file created or modified
         - Each test function written with a one-line description
         - Which coverage gap each test addresses (reference the gap ID from the analysis)
@@ -380,7 +380,7 @@ steps:
 
         ## Output Format
 
-        Write the verification report to `.wave/output/coverage-verification.md` with:
+        Produce the verification report as markdown with:
         - **Coverage Delta**: Before, after, and delta percentages, per-package breakdown
         - **Quality Assessment**: For each new test file, a quality rating (Good / Acceptable / Needs Improvement) with justification
         - **Bug-Catching Score**: How many realistic bug scenarios would be caught by the new tests

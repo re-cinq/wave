@@ -126,8 +126,8 @@ steps:
 
         ### Step 4: Produce Structured Output
 
-        Write a JSON result to `.wave/output/diff-analysis.json` matching the contract
-        schema. The `pr_metadata` field must contain the PR number, URL, head branch,
+        Produce output matching the contract schema. The `pr_metadata` field must contain
+        the PR number, URL, head branch,
         and base branch. The `files` array must contain one entry per changed file with
         all the analysis fields above.
 
@@ -145,7 +145,7 @@ steps:
 
         ## Output Format
 
-        JSON at `.wave/output/diff-analysis.json` matching the contract schema.
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
@@ -260,7 +260,7 @@ steps:
 
         ## Output Format
 
-        Write a markdown file to `.wave/output/security-review.md` with:
+        Produce a markdown report with:
         - **H2: Security Review Summary** — finding count by severity, one-line verdict
         - **H2: Findings** — one H3 per finding with severity, file, line, description,
           and recommendation
@@ -376,7 +376,7 @@ steps:
 
         ## Output Format
 
-        Write a markdown file to `.wave/output/quality-review.md` with:
+        Produce a markdown report with:
         - **H2: Quality Review Summary** — finding count by severity, one-line assessment
         - **H2: Findings** — one H3 per finding with all fields
         - **H2: Test Coverage Assessment** — which changed files have tests, which do not
@@ -490,7 +490,7 @@ steps:
 
         ## Output Format
 
-        Write a markdown file to `.wave/output/slop-review.md` with:
+        Produce a markdown report with:
         - **H2: Slop Review Summary** — finding count by category, one-line assessment
         - **H2: Findings** — one H3 per finding with all fields
         - **H2: Architecture Observations** — notes on how the changes fit (or don't)
@@ -612,7 +612,7 @@ steps:
 
         ## Output Format
 
-        Write JSON to `.wave/output/review-verdict.json` matching the contract schema.
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
@@ -717,7 +717,7 @@ steps:
 
         ### Step 4: Produce Output
 
-        Write `.wave/output/publish-result.json` with:
+        Produce the result JSON with:
         - `pr_number`: the PR number
         - `verdict`: the review verdict string
         - `comment_url`: the URL of the posted comment
@@ -742,7 +742,7 @@ steps:
 
         ## Output Format
 
-        Write JSON to `.wave/output/publish-result.json` matching the contract schema.
+        Produce output matching the contract schema.
 
         ## Quality Bar
 

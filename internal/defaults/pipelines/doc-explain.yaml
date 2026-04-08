@@ -56,28 +56,77 @@ steps:
     exec:
       type: prompt
       source: |
-        Explore the codebase to understand: {{ input }}
+        ## Objective
 
-        ## Exploration Steps
+        Explore the codebase thoroughly to build a comprehensive map of all files, types, functions, call chains, dependencies, tests, and configuration related to the specified topic. This exploration data feeds the analyze step, which will interpret the architecture and design patterns, and ultimately the document step, which will produce the final explanation. The exploration must be broad enough to capture the full picture -- missing a key file here means missing a key concept in the final document.
 
-        1. **Find relevant files**: Use Glob and Grep to locate all files related
-           to the topic. Cast a wide net — include implementations, tests, configs,
-           and documentation.
+        ## Context
 
-        2. **Trace the call graph**: For key entry points, follow the execution flow.
-           Note which functions call which, and how data flows through the system.
+        This is the first step of a three-step pipeline (explore, analyze, document). The analyze step will use this exploration data to identify design patterns, data flow, and extension points. The document step will render the final explanation. The codebase is mounted read-only at /project.
 
-        3. **Identify key abstractions**: Find the core types, interfaces, and structs.
-           Note their responsibilities and relationships.
+        Topic to explore: {{ input }}
 
-        4. **Map dependencies**: Which packages/modules does this depend on?
-           Which depend on it?
+        ## Requirements
 
-        5. **Find tests**: Locate test files that exercise this code.
-           Tests often reveal intended behavior and edge cases.
+        Perform each of these exploration steps systematically:
 
-        6. **Check configuration**: Find config files, constants, or environment
-           variables that affect behavior.
+        1. **Find all relevant files**: Use Glob to find files by name pattern and Grep to find files by content. Cast a wide net:
+           - Search for the topic's key terms in file names and file contents
+           - Include implementation files, test files, configuration files, and documentation
+           - Check multiple directories: internal/, cmd/, docs/, configs/, .wave/
+           - Look for related files that might not use the exact term (e.g., if exploring "pipeline execution," also search for "step," "executor," "scheduler")
+           Record every relevant file path with a brief note on what it contains.
+
+        2. **Trace the call graph**: For each key entry point (main function, CLI command handler, HTTP handler, pipeline step):
+           - Read the entry point function
+           - Follow each function call one level deep
+           - For the most important calls, follow another level deep
+           - Note the call chain as a sequence: EntryPoint -> FunctionA -> FunctionB -> ...
+           - Identify where data transformations happen in the chain
+           Record at least 3 call chains, choosing the most representative execution paths.
+
+        3. **Identify key abstractions**: Find all core types, interfaces, and structs related to the topic:
+           - Read type definitions and their methods
+           - Note which interfaces each type satisfies
+           - Identify the responsibility of each type (what it owns, what it does)
+           - Map relationships: composition (has-a), implementation (is-a), dependency (uses-a)
+           Record each abstraction with its file:line location, responsibility, and relationships.
+
+        4. **Map package dependencies**: Determine the dependency graph:
+           - Which packages/modules does this code import?
+           - Which packages/modules import this code?
+           - Are there circular or surprising dependency paths?
+           - Which dependencies are internal vs external (third-party)?
+           Record the dependency list with direction (depends-on vs depended-on-by).
+
+        5. **Find tests**: Locate all test files that exercise this code:
+           - Find *_test.go files in the same package
+           - Find integration tests that exercise this code from a higher level
+           - Read test function names to understand what scenarios are covered
+           - Note which test helpers, mocks, or fixtures are used
+           Record each test file with a summary of what it tests.
+
+        6. **Check configuration**: Find all configuration that affects this code's behavior:
+           - Config file schemas or parsers that this code reads
+           - Constants and default values
+           - Environment variables referenced by this code
+           - Feature flags or toggle mechanisms
+           Record each configuration point with its location, default value, and effect.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT analyze or interpret the architecture in this step. Just collect the data. Analysis is the next step's job.
+        - Do NOT skip test files or configuration. They are essential for understanding behavior and design intent.
+        - Do NOT stop exploring when you find the "obvious" main file. Follow references to discover the full scope.
+        - Do NOT read entire large files. Read the relevant sections (type definitions, function signatures, key logic blocks).
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good exploration captures the complete surface area: every relevant file, every key abstraction, at least 3 representative call chains, the full dependency graph, and all configuration points. A newcomer reading this data should be able to name every major component involved. A bad exploration finds only the obvious main file, misses test files and configuration, or provides file paths without summaries of what they contain.
 
     output_artifacts:
       - name: exploration
@@ -110,16 +159,74 @@ steps:
     exec:
       type: prompt
       source: |
-        Analyze the architecture and design of the explored code.
+        ## Objective
 
-        Review the injected exploration data, then read the key source files identified. Focus on:
+        Analyze the architecture, design patterns, data flow, error handling, concurrency model, extension points, and design trade-offs of the explored code. This step transforms the raw exploration data (file inventory, call chains, abstractions) into architectural insights that the document step will render into a comprehensive explanation. The analysis must go beyond describing what exists to explaining why it exists and how the pieces interact.
 
-        1. **Design patterns**: What patterns are used and why?
-        2. **Data flow**: How does data enter, transform, and exit?
-        3. **Error handling**: What's the error strategy?
-        4. **Concurrency model**: Goroutines, channels, mutexes?
-        5. **Extension points**: Where can new functionality be added?
-        6. **Design decisions**: What trade-offs were made?
+        ## Context
+
+        This is the second step of a three-step pipeline (explore, analyze, document). The explore step has produced an exploration data artifact (injected as "codebase_map") containing file paths, call chains, abstraction definitions, dependencies, tests, and configuration. This step reads that data, then reads the actual source files to perform deeper architectural analysis. The document step will use this analysis to write the final explanation.
+
+        Read the injected codebase_map artifact first to understand the scope. Then read the key source files identified by the exploration.
+
+        ## Requirements
+
+        Analyze each of these architectural dimensions:
+
+        1. **Design patterns**: Identify which design patterns are used and explain why they are appropriate for this context:
+           - Structural patterns: adapter, decorator, facade, proxy, composite
+           - Behavioral patterns: strategy, observer, command, chain of responsibility, visitor
+           - Creational patterns: factory, builder, singleton, dependency injection
+           - Go-specific patterns: functional options, interface-based polymorphism, embedded types
+           For each pattern identified, cite the specific types/functions that implement it and explain what problem it solves in this codebase.
+
+        2. **Data flow**: Trace how data enters the system, is transformed, and exits:
+           - Entry points: where does external data arrive (CLI args, HTTP requests, file reads, config)?
+           - Transformations: what happens to the data at each stage (parsing, validation, enrichment, computation)?
+           - Storage: is data persisted? Where and in what format?
+           - Exit points: where does data leave (HTTP responses, file writes, CLI output, events)?
+           Create a clear narrative of the main data flow path(s).
+
+        3. **Error handling strategy**: Identify the error handling approach:
+           - How are errors created (fmt.Errorf, custom types, sentinel errors)?
+           - How are errors propagated (return, wrap, panic)?
+           - Where are errors handled vs where are they passed up?
+           - Is there a consistent error wrapping strategy?
+           - Are errors logged, and if so, at what level?
+
+        4. **Concurrency model**: If the code uses concurrency, analyze:
+           - What runs concurrently (goroutines, worker pools, pipelines)?
+           - How is synchronization achieved (channels, mutexes, sync.WaitGroup, context cancellation)?
+           - What shared state exists and how is it protected?
+           - Are there potential race conditions or deadlock risks?
+           If no concurrency is used, note that and explain whether it should be.
+
+        5. **Extension points**: Identify where new functionality can be added:
+           - Interface-based extension: where can a new implementation satisfy an existing interface?
+           - Configuration-based extension: where can behavior be changed via config without code changes?
+           - Plugin-based extension: are there registration mechanisms for new components?
+           For each extension point, describe what a developer would need to do to add new functionality.
+
+        6. **Design decisions and trade-offs**: Identify the key architectural decisions:
+           - What alternatives existed and why was this approach chosen?
+           - What are the trade-offs (performance vs simplicity, flexibility vs complexity)?
+           - Are there any technical debt items or known limitations?
+           - What would need to change if requirements evolved in specific directions?
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT describe code line-by-line. Focus on architectural concepts and patterns.
+        - Do NOT speculate about design decisions without evidence. If the reason for a decision is unclear, note it as "design rationale unclear."
+        - Do NOT critique the architecture. Describe and explain, not judge.
+        - Do NOT skip reading the actual source code. The exploration data provides the map; you must read the territory.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good analysis reveals the "why" behind the "what" -- explaining not just that a factory pattern is used, but why it is necessary for this specific component (e.g., "because sandbox backends need runtime selection based on configuration"). Each design decision includes the trade-off. A bad analysis describes code structure without explaining architectural intent, or lists patterns without connecting them to the problems they solve.
     output_artifacts:
       - name: analysis
         path: .wave/output/analysis.json
@@ -149,21 +256,81 @@ steps:
     exec:
       type: prompt
       source: |
-        Write a comprehensive explanation document.
+        ## Objective
 
-        Review the injected exploration and architecture data, then produce a markdown document with:
+        Write a comprehensive, publication-quality explanation document that enables an experienced developer who is new to this codebase to understand the specified area thoroughly. The document must cover architecture, key concepts, execution flow, design decisions, extension points, testing strategy, and common pitfalls. It must use real file paths, function names, and type names from the codebase -- no generic placeholders.
 
-        1. **Overview** — One paragraph summary
-        2. **Key Concepts** — Core abstractions and terminology (glossary)
-        3. **Architecture** — How pieces fit together (include ASCII diagram)
-        4. **How It Works** — Step-by-step main execution flow with file:line refs
-        5. **Design Decisions** — Decision → Rationale → Trade-off entries
-        6. **Extension Guide** — How to add new functionality
-        7. **Testing Strategy** — How the code is tested
-        8. **Common Pitfalls** — Things that trip people up
+        ## Context
 
-        Write for an experienced developer new to this codebase.
-        Use real file paths, function names, and type names.
+        This is the third and final step of the doc-explain pipeline (explore, analyze, document). The exploration step produced a file/abstraction inventory (injected as "codebase_map"). The analyze step produced architectural insights (injected as "architecture"). This step synthesizes both into a polished markdown document. No additional codebase exploration is needed unless the injected data is insufficient for a specific section.
+
+        Read both injected artifacts:
+        - `codebase_map` (exploration data: files, call chains, abstractions, dependencies, tests, config)
+        - `architecture` (analysis data: patterns, data flow, error handling, concurrency, extension points, design decisions)
+
+        ## Requirements
+
+        Write a markdown document with these sections, each serving a distinct purpose:
+
+        1. **Overview**: One paragraph (4-6 sentences) summarizing what this area of the codebase does, why it exists, and its role in the larger system. A reader should understand the purpose and scope after reading only this paragraph.
+
+        2. **Key Concepts**: A glossary of core abstractions and terminology used in this area. For each concept:
+           - Name (the type or term as used in the code)
+           - Definition (what it represents)
+           - Location (file:line where it is defined)
+           - Relationships (what it interacts with)
+           This section establishes the vocabulary for the rest of the document.
+
+        3. **Architecture**: A structural overview of how the pieces fit together. Include an ASCII diagram showing the major components and their relationships (data flow arrows, dependency directions, composition). The diagram must use real component names from the codebase. Below the diagram, explain each component's responsibility and how they interact.
+
+        4. **How It Works**: A step-by-step walkthrough of the main execution flow, from entry point to completion. For each step:
+           - What happens (in one sentence)
+           - Where it happens (file:line reference)
+           - What data flows in and out
+           Follow the most common execution path. If there are important alternative paths (error handling, early return, different modes), note them as branches from the main flow.
+
+        5. **Design Decisions**: For each significant architectural decision, present:
+           - **Decision**: What was decided (one sentence)
+           - **Rationale**: Why this approach was chosen
+           - **Trade-offs**: What was gained and what was sacrificed
+           - **Alternatives**: What other approaches were considered (if evident from the code)
+           Draw from the analysis step's design_decisions data.
+
+        6. **Extension Guide**: Practical instructions for adding new functionality. For each extension point:
+           - What can be extended (e.g., "Add a new sandbox backend")
+           - What to implement (which interface, which methods)
+           - Where to register (which file, which registration mechanism)
+           - Example: reference an existing implementation as a template
+           This section should enable a developer to add a new component without asking for help.
+
+        7. **Testing Strategy**: How this area is tested:
+           - What types of tests exist (unit, integration, end-to-end)
+           - Where test files are located
+           - What test helpers and mocks are available
+           - How to run the tests
+           - What patterns to follow when writing new tests
+
+        8. **Common Pitfalls**: Things that trip people up when working with this code:
+           - Gotchas that are not obvious from reading the code
+           - Mistakes that are easy to make (and how to avoid them)
+           - Implicit assumptions or contracts that are not enforced by the type system
+           - Edge cases that have caused bugs in the past
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT use placeholder names like "ComponentA" or "the system." Use the real names from the codebase.
+        - Do NOT write for beginners. The audience is an experienced developer who understands Go (or the relevant language) but does not know this codebase.
+        - Do NOT include raw JSON, code dumps, or full file contents. Quote only the specific lines that illustrate a point.
+        - Do NOT skip sections. If a section has limited content (e.g., no concurrency), note "This area does not use concurrency" rather than omitting the section.
+        - Do NOT editorialize about code quality. Explain the architecture as it is.
+
+        ## Output Format
+
+        Produce the explanation document as valid markdown, well-structured with headers, and suitable for inclusion in a project's documentation directory.
+
+        ## Quality Bar
+
+        A good explanation document enables a new team member to become productive in this area of the codebase within one day of reading it. The architecture diagram is accurate enough to navigate the code. The execution flow walkthrough matches what actually happens when you trace through the code. File:line references are correct. A bad explanation is a surface-level overview that could describe any project, uses generic descriptions instead of real code references, or skips the "why" in favor of only the "what."
     output_artifacts:
       - name: explanation
         path: .wave/output/explanation.md

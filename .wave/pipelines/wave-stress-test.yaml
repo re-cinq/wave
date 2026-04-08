@@ -43,7 +43,7 @@ steps:
     model: cheapest
     exec:
       type: prompt
-      source: "Say 'hello' and nothing else. Output to .wave/output/hello.txt"
+      source: "Say 'hello' and nothing else. Write the output to the designated file."
     output_artifacts:
       - name: hello
         path: .wave/output/hello.txt

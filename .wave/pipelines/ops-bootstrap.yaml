@@ -330,8 +330,7 @@ steps:
 
         3. Stage each project file individually by explicit path. For every file shown by
            `git status`, run `git add <filepath>` — but NEVER stage any of these paths:
-           - `.wave/artifacts/` (pipeline-internal artifacts)
-           - `.wave/output/` (pipeline-internal output)
+           - `.wave/` (pipeline-internal files)
            - `.claude/` (Claude Code configuration)
            - `CLAUDE.md` (Claude Code instructions)
            You may stage files using a single `git add` command with multiple paths, but
@@ -364,7 +363,7 @@ steps:
           never be committed.
         - Do NOT include Co-Authored-By, Signed-off-by, or any AI attribution lines in
           the commit message.
-        - Do NOT commit `.wave/artifacts/`, `.wave/output/`, `.claude/`, or `CLAUDE.md`.
+        - Do NOT commit `.wave/`, `.claude/`, or `CLAUDE.md`.
         - Do NOT amend, rebase, or force-push. Create exactly one new commit.
         - Do NOT create the commit if `git status` shows no changes to stage. Report
           that the scaffold step produced no files and exit cleanly.

@@ -282,7 +282,7 @@ steps:
 
         ### 4. Capture Result
 
-        Parse the output of the comment command to extract the comment URL. Write a result JSON to `.wave/output/publish-result.json` matching the gh-pr-comment-result contract schema. Include:
+        Parse the output of the comment command to extract the comment URL. Produce a result JSON matching the gh-pr-comment-result contract schema. Include:
         - `comment_url`: the full URL to the posted comment
         - `pr_number`: the PR number
         - `finding_count`: the number of findings from the review (or 0 if clean)

@@ -132,8 +132,8 @@ steps:
         - Do NOT suggest more than 20 improvements. Focus on the highest-impact ones.
 
         OUTPUT FORMAT:
-        Write the analysis as structured JSON to .wave/output/evolution-analysis.json
-        matching the improvement-assessment schema. Include: focus (string), analysis_scope
+        Produce the analysis as structured JSON matching the improvement-assessment
+        contract schema. Include: focus (string), analysis_scope
         (object listing files examined per category), improvements (array of improvement
         objects as described above), summary (object with total_improvements, by_category
         counts, by_impact counts), and timestamp.
@@ -307,7 +307,7 @@ steps:
           the improvement description, not just check that the file was modified.
 
         OUTPUT FORMAT:
-        Write the verification report as markdown to .wave/output/verification.md. Use
+        Produce the verification report as markdown. Use
         sections: ## Summary, ## Per-Improvement Verification, ## Validation Results,
         ## Unintended Changes, ## Verdict.
 
