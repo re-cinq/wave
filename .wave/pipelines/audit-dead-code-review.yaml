@@ -179,7 +179,7 @@ steps:
 
         ### Compose the Review Comment
 
-        If findings exist, write a markdown summary to `.wave/output/review-comment.md` with these sections:
+        If findings exist, produce a markdown summary with these sections:
 
         1. **Findings count**: A bold line stating the total count and that they are in changed files.
 
@@ -212,7 +212,7 @@ steps:
 
         ## Output Format
 
-        Write the markdown to `.wave/output/review-comment.md`. The file content will be used directly as the body of a PR comment (after the publish step adds a title).
+        The output will be used directly as the body of a PR comment (after the publish step adds a title).
 
         ## Quality Bar
 

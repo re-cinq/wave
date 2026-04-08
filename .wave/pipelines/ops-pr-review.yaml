@@ -193,11 +193,11 @@ steps:
 
         ## Context
 
-        The `changes` artifact (injected at `.wave/artifacts/changes`) contains the
-        structured diff analysis from the previous step, including every changed file,
-        its classification, package membership, and whether tests exist. Read this
-        artifact to understand what files were changed and focus your security review on
-        those files. You do not need to review unchanged files.
+        The injected `changes` artifact contains the structured diff analysis from the
+        previous step, including every changed file, its classification, package
+        membership, and whether tests exist. Read this artifact to understand what files
+        were changed and focus your security review on those files. You do not need to
+        review unchanged files.
 
         ## Requirements
 
@@ -314,10 +314,10 @@ steps:
 
         ## Context
 
-        The `changes` artifact (injected at `.wave/artifacts/changes`) contains the
-        structured diff analysis from the diff-analysis step, including every changed
-        file, its package, change type, and test coverage status. Read this artifact
-        first to understand the scope of changes.
+        The injected `changes` artifact contains the structured diff analysis from the
+        diff-analysis step, including every changed file, its package, change type, and
+        test coverage status. Read this artifact first to understand the scope of
+        changes.
 
         ## Requirements
 
@@ -428,10 +428,10 @@ steps:
 
         ## Context
 
-        The `changes` artifact (injected at `.wave/artifacts/changes`) contains the
-        structured diff analysis from the diff-analysis step. Read this artifact to
-        understand which files were changed and their package membership. Then read the
-        actual source code to evaluate each concern.
+        The injected `changes` artifact contains the structured diff analysis from the
+        diff-analysis step. Read this artifact to understand which files were changed and
+        their package membership. Then read the actual source code to evaluate each
+        concern.
 
         ## Requirements
 
@@ -548,12 +548,12 @@ steps:
         ## Context
 
         Three artifacts are injected into your workspace:
-        - `security_findings` (at `.wave/artifacts/security_findings`): The security
-          review markdown with findings categorized by severity
-        - `quality_findings` (at `.wave/artifacts/quality_findings`): The quality review
-          markdown with error handling, testing, and performance findings
-        - `slop_findings` (at `.wave/artifacts/slop_findings`): The slop review markdown
-          with dead code, duplication, and architectural misfit findings
+        - `security_findings`: The security review markdown with findings categorized by
+          severity
+        - `quality_findings`: The quality review markdown with error handling, testing,
+          and performance findings
+        - `slop_findings`: The slop review markdown with dead code, duplication, and
+          architectural misfit findings
 
         Read ALL three artifacts before forming a verdict. The verdict must consider all
         findings holistically.
@@ -658,12 +658,11 @@ steps:
         ## Context
 
         Two artifacts are injected into your workspace:
-        - `review_summary` (at `.wave/artifacts/review_summary`): The structured review
-          verdict JSON containing the overall verdict (APPROVE/REQUEST_CHANGES/COMMENT/
-          REJECT), finding arrays by severity, and positive notes.
-        - `pr_context` (at `.wave/artifacts/pr_context`): The diff analysis JSON
-          containing PR metadata — especially the PR number needed for the comment
-          command.
+        - `review_summary`: The structured review verdict JSON containing the overall
+          verdict (APPROVE/REQUEST_CHANGES/COMMENT/REJECT), finding arrays by severity,
+          and positive notes.
+        - `pr_context`: The diff analysis JSON containing PR metadata — especially the PR
+          number needed for the comment command.
 
         Read BOTH artifacts before composing the comment.
 

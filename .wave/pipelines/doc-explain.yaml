@@ -265,8 +265,8 @@ steps:
         This is the third and final step of the doc-explain pipeline (explore, analyze, document). The exploration step produced a file/abstraction inventory (injected as "codebase_map"). The analyze step produced architectural insights (injected as "architecture"). This step synthesizes both into a polished markdown document. No additional codebase exploration is needed unless the injected data is insufficient for a specific section.
 
         Read both injected artifacts:
-        - .wave/artifacts/codebase_map (exploration data: files, call chains, abstractions, dependencies, tests, config)
-        - .wave/artifacts/architecture (analysis data: patterns, data flow, error handling, concurrency, extension points, design decisions)
+        - `codebase_map` (exploration data: files, call chains, abstractions, dependencies, tests, config)
+        - `architecture` (analysis data: patterns, data flow, error handling, concurrency, extension points, design decisions)
 
         ## Requirements
 

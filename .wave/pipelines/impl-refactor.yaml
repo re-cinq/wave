@@ -189,8 +189,8 @@ steps:
 
         ## Context
 
-        The refactoring analysis has been injected as `.wave/artifacts/scope`. Read it
-        FIRST. It contains:
+        The injected `scope` artifact contains the refactoring analysis. Read it FIRST.
+        It contains:
         - `affected_code`: All files and functions being refactored
         - `callers`: All consumers that depend on the affected code
         - `test_coverage`: Current test coverage status for each affected file
@@ -313,10 +313,10 @@ steps:
         ## Context
 
         Two artifacts have been injected:
-        - `.wave/artifacts/scope` — the refactoring analysis from the analyze step,
-          containing all affected files, callers, test coverage, and integration points
-        - `.wave/artifacts/tests` — the test baseline from the test-baseline step,
-          confirming which tests exist and that they all pass pre-refactoring
+        - `scope` — the refactoring analysis from the analyze step, containing all
+          affected files, callers, test coverage, and integration points
+        - `tests` — the test baseline from the test-baseline step, confirming which tests
+          exist and that they all pass pre-refactoring
 
         You are on a thread named `refactor`, which means context from this step carries
         over to any rework attempts. You have read-write access to the full project codebase.

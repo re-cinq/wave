@@ -98,7 +98,7 @@ steps:
           invariably wrong about file paths, function names, and existing behavior.
 
         OUTPUT FORMAT:
-        Save the plan to .wave/output/plan.md with this structure:
+        Produce the plan as markdown with this structure:
 
         # Implementation Plan: <concise title>
         ## Summary (2-3 sentences)

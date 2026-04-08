@@ -287,8 +287,8 @@ steps:
 
         ## Context
 
-        The divergent findings have been injected as `.wave/artifacts/divergent_findings`.
-        This contains an array of findings, each with a unique ID (DVG-xxx), category,
+        The injected `divergent_findings` artifact contains an array of findings, each
+        with a unique ID (DVG-xxx), category,
         severity, evidence (file paths, line counts, reference counts), and a description
         of the suspected problem. You have read-only access to the full project codebase
         to verify every claim.
@@ -406,9 +406,9 @@ steps:
         ## Context
 
         Two artifacts have been injected:
-        - `.wave/artifacts/divergent_findings` — the original wide-net findings (DVG-xxx)
-        - `.wave/artifacts/validated_findings` — the converge step's validation results,
-          with each finding classified as CONFIRMED, PARTIALLY_CONFIRMED, or REJECTED
+        - `divergent_findings` — the original wide-net findings (DVG-xxx)
+        - `validated_findings` — the converge step's validation results, with each
+          finding classified as CONFIRMED, PARTIALLY_CONFIRMED, or REJECTED
 
         Focus your effort on CONFIRMED and PARTIALLY_CONFIRMED findings. You may also
         challenge REJECTED findings if you believe the validator was wrong.
@@ -532,15 +532,15 @@ steps:
         ## Context
 
         Three artifacts have been injected:
-        - `.wave/artifacts/context` — issue/PR context from the gather step. If
-          `input_type` is `"issue"` or `"pr"`, the `focus_hint` influences tier assignment
-          (findings related to the focus get a tier boost) but does NOT exclude strong
-          proposals outside the focus area.
-        - `.wave/artifacts/validated_findings` — findings that survived the converge step's
-          scrutiny, each classified as CONFIRMED or PARTIALLY_CONFIRMED
-        - `.wave/artifacts/probed_findings` — deeper connections from the probe step:
-          dependency graphs, cascade chains, cross-finding patterns, and newly discovered
-          findings (DVG-NEW-xxx)
+        - `context` — issue/PR context from the gather step. If `input_type` is `"issue"`
+          or `"pr"`, the `focus_hint` influences tier assignment (findings related to the
+          focus get a tier boost) but does NOT exclude strong proposals outside the focus
+          area.
+        - `validated_findings` — findings that survived the converge step's scrutiny,
+          each classified as CONFIRMED or PARTIALLY_CONFIRMED
+        - `probed_findings` — deeper connections from the probe step: dependency graphs,
+          cascade chains, cross-finding patterns, and newly discovered findings
+          (DVG-NEW-xxx)
 
         Read ALL three artifacts completely before writing any output.
 
@@ -658,11 +658,11 @@ steps:
         ## Context
 
         Two artifacts have been injected:
-        - `.wave/artifacts/validated_findings` — the confirmed findings from the converge
-          step, providing context for why each proposal exists
-        - `.wave/artifacts/proposals` — the convergent proposals from the distill step,
-          containing the ordered list of simplification proposals with tiers, dependencies,
-          impact estimates, and affected files
+        - `validated_findings` — the confirmed findings from the converge step, providing
+          context for why each proposal exists
+        - `proposals` — the convergent proposals from the distill step, containing the
+          ordered list of simplification proposals with tiers, dependencies, impact
+          estimates, and affected files
 
         Read the proposals artifact to understand which proposals to apply and in what
         order. Apply ONLY tier-1 proposals. Respect the dependency order — if SMP-002
@@ -719,7 +719,7 @@ steps:
         After all tier-1 proposals have been attempted:
         1. Run the full test suite one final time to confirm everything is green
         2. Run the project's build command to confirm compilation
-        3. Write a summary to `.wave/output/result.md` covering:
+        3. Produce a summary covering:
            - Proposals applied (with commit hashes)
            - Proposals failed (with error details)
            - Proposals skipped (with reasons)
@@ -740,8 +740,7 @@ steps:
 
         ## Output Format
 
-        Write `.wave/output/result.md` with the summary described above. The contract
-        validates that the test suite passes.
+        Produce the summary as markdown. The contract validates that the test suite passes.
 
         ## Quality Bar
 
@@ -799,11 +798,11 @@ steps:
         ## Context
 
         Two artifacts have been injected:
-        - `.wave/artifacts/proposals` — the convergent proposals from the distill step,
-          containing all simplification proposals with their tiers, impacts, dependencies,
-          and the 80/20 analysis
-        - `.wave/artifacts/result` — the implementation result from the simplify step,
-          containing which proposals were applied, which were skipped, and the test results
+        - `proposals` — the convergent proposals from the distill step, containing all
+          simplification proposals with their tiers, impacts, dependencies, and the 80/20
+          analysis
+        - `result` — the implementation result from the simplify step, containing which
+          proposals were applied, which were skipped, and the test results
 
         You are on the worktree branch `refactor/{{ pipeline_id }}` with all simplification
         commits already made. Use `git log --oneline` to see the commit history.
@@ -863,7 +862,7 @@ steps:
 
         ## Output Format
 
-        Write the report to `.wave/output/report.md` as structured markdown with clear
+        Produce the report as structured markdown with clear
         section headers. The report must be non-empty (contract: non_empty_file).
 
         ## Quality Bar
@@ -913,10 +912,10 @@ steps:
         ## Context
 
         Two artifacts have been injected:
-        - `.wave/artifacts/context` — the context from the gather step, containing
-          `input_type`, and for issue/PR inputs: `repo`, `number`, `title`
-        - `.wave/artifacts/report` — the markdown report from the report step, which
-          will serve as the PR body
+        - `context` — the context from the gather step, containing `input_type`, and for
+          issue/PR inputs: `repo`, `number`, `title`
+        - `report` — the markdown report from the report step, which will serve as the
+          PR body
 
         You are on the worktree branch `refactor/{{ pipeline_id }}` with all simplification
         commits already made.
@@ -961,7 +960,7 @@ steps:
            ```
            If `input_type` is `"local"`, skip this step.
 
-        5. **Write the result JSON**: Write `.wave/output/pr-result.json` with:
+        5. **Produce the result JSON** with:
            - `pr_url`: Full URL of the created PR (or null if creation failed)
            - `pr_number`: The PR number
            - `branch`: The branch name

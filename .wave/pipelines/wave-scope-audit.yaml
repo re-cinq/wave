@@ -115,8 +115,8 @@ steps:
         CONTEXT:
         You are the synthesis step in a composition pipeline. Four parallel audit sub-pipelines
         have completed (dead-code, unwired, duplicates, doc-scan), and their findings have been
-        merged into a single JSON artifact (injected as merged_findings at
-        .wave/artifacts/merged_findings). You also have read-only access to the project codebase
+        merged into a single JSON artifact (injected as `merged_findings`). You also have
+        read-only access to the project codebase
         at /project to verify findings against the actual code. The scope document you produce
         will be reviewed by a human (via the approve-scope gate) before follow-up issues are
         created.
@@ -128,7 +128,7 @@ steps:
         2. Verify key findings against the actual codebase. For the top 10 highest-impact
            findings, use Glob and Read to confirm the finding is accurate. Note any findings
            that are stale or incorrect.
-        3. Produce the unified audit report (.wave/output/audit-synthesis.md):
+        3. Produce the unified audit report:
            - Executive summary: 3 sentences covering overall codebase health, the most
              critical finding category, and the recommended priority action.
            - Top 10 findings by impact: ordered list with finding ID, category, affected
@@ -145,7 +145,7 @@ steps:
            - Recommended consolidation actions: ordered list of specific actions to reduce
              complexity, remove dead code, or merge duplicates. Each action should have a
              clear title suitable for a GitHub issue.
-        4. Produce the scope definition document (.wave/output/wave-scope.md):
+        4. Produce the scope definition document:
            - What Wave IS: 5 bullet points defining Wave's core identity and purpose.
              These should be opinionated and specific, not generic mission statements.
            - What Wave IS NOT: explicit boundaries listing things Wave should not become
@@ -170,9 +170,9 @@ steps:
           actionable without reading the full report.
 
         OUTPUT FORMAT:
-        Produce exactly two files:
-        - .wave/output/audit-synthesis.md: unified audit report (markdown)
-        - .wave/output/wave-scope.md: scope definition document (markdown)
+        Produce exactly two output files:
+        - An audit synthesis report (markdown)
+        - A scope definition document (markdown)
         Both must be well-formatted markdown with headers, tables, and lists.
 
         QUALITY BAR:
@@ -206,7 +206,7 @@ steps:
     gate:
       type: approval
       prompt: |
-        Wave scope audit complete. Review .wave/output/wave-scope.md and .wave/output/audit-synthesis.md.
+        Wave scope audit complete. Review the scope definition and audit synthesis outputs.
 
         Approve to create follow-up issues from the findings, or revise to loop back.
       choices:
@@ -252,7 +252,7 @@ steps:
         forge CLI access. Run-ID: {{ run.id }}
 
         REQUIREMENTS:
-        1. Read the injected scope artifact from .wave/artifacts/scope. Parse the
+        1. Read the injected `scope` artifact. Parse the
            "Follow-Up Issue" section to extract each issue title and its associated
            context from the scope document.
         2. Detect the repository:
@@ -301,7 +301,7 @@ steps:
           similar titles to avoid creating duplicates from re-runs.
 
         OUTPUT FORMAT:
-        Write a summary to .wave/output/created-issues.md with:
+        Produce a summary as markdown with:
         - Title: "## Scope Audit: Created Issues"
         - Table or list of all created issues (number, title, URL)
         - Count of successfully created vs failed

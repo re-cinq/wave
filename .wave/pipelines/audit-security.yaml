@@ -219,7 +219,7 @@ steps:
 
         ## Output Format
 
-        Produce a markdown report at .wave/output/security-deep-dive.md with these sections:
+        Produce a markdown report with these sections:
         - **Executive Summary**: Count of confirmed vs false positive findings, highest confirmed severity, overall risk assessment.
         - **Confirmed Vulnerabilities**: Ordered by severity. Each entry: finding ID, severity, description, data flow trace with file:line references, exploitability assessment, remediation proposal.
         - **False Positives Eliminated**: Each entry: finding ID, original severity, why it is a false positive.
@@ -260,8 +260,8 @@ steps:
         Two prior steps have completed: the scan step produced initial findings (injected as scan_findings), and the deep-dive step verified those findings and produced a detailed analysis (injected as analysis). This synthesis step does not perform additional codebase analysis. It operates purely on the two injected artifacts, combining and condensing them into a polished report.
 
         Read both injected artifacts:
-        - .wave/artifacts/scan_findings (initial scan JSON with all findings)
-        - .wave/artifacts/analysis (deep-dive markdown with verified findings, false positives, data flow traces, and remediation proposals)
+        - `scan_findings` (initial scan JSON with all findings)
+        - `analysis` (deep-dive markdown with verified findings, false positives, data flow traces, and remediation proposals)
 
         ## Requirements
 
@@ -299,7 +299,7 @@ steps:
 
         ## Output Format
 
-        Produce a markdown report at .wave/output/security-report.md formatted for sharing with the development team. Use clear headers, tables for structured data, and bullet points for actionable items. The report should be self-contained and understandable without reading the underlying scan or deep-dive artifacts.
+        Produce a markdown report formatted for sharing with the development team. Use clear headers, tables for structured data, and bullet points for actionable items. The report should be self-contained and understandable without reading the underlying scan or deep-dive artifacts.
 
         ## Quality Bar
 
