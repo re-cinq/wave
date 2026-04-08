@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: plan-task
-  description: "Break down a feature into actionable tasks with structured exploration, planning, and review"
+  description: >-
+    Break down a feature into actionable, ordered tasks. The pipeline explores
+    the codebase to map affected files and patterns, then a planner generates
+    a structured task list with dependencies, complexity estimates, and
+    acceptance criteria. Use this when you need a concrete implementation
+    roadmap before starting to code.
   release: true
 
 skills:
@@ -70,6 +75,7 @@ steps:
 
   - id: breakdown
     persona: planner
+    model: strongest
     dependencies: [explore]
     memory:
       inject_artifacts:
@@ -139,6 +145,7 @@ steps:
 
   - id: review
     persona: philosopher
+    model: strongest
     dependencies: [breakdown]
     memory:
       inject_artifacts:

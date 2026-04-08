@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: wave-test-hardening
-  description: "Harden Wave's test suite — find gaps, add edge cases, improve coverage"
+  description: >-
+    Harden Wave's own test suite by analyzing coverage, identifying untested
+    code paths, and adding targeted tests for edge cases, error paths, nil
+    inputs, and concurrent access scenarios. Loops the hardening step through
+    test verification until all tests pass. Use this after adding new features
+    to Wave to ensure critical packages have adequate test coverage.
   release: false
 
 skills:
@@ -87,6 +92,7 @@ steps:
 
   - id: harden
     persona: craftsman
+    model: strongest
     dependencies: [analyze-coverage]
     thread: harden
     max_visits: 3

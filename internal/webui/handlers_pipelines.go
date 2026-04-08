@@ -1,6 +1,7 @@
 package webui
 
 import (
+	"encoding/json"
 	"net/http"
 	"path/filepath"
 	"sort"
@@ -20,18 +21,56 @@ type PipelineSummary struct {
 	IsComposition bool     `json:"is_composition,omitempty"`
 	Skills        []string `json:"skills,omitempty"`
 	Disabled      bool     `json:"disabled"`
+	RunCount      int      `json:"run_count,omitempty"`
 }
 
 // handlePipelinesPage handles GET /pipelines - serves the HTML pipelines page.
 func (s *Server) handlePipelinesPage(w http.ResponseWriter, r *http.Request) {
 	pipelines := s.getPipelineSummaries()
 
+	// Enrich with run counts
+	if s.store != nil {
+		allRuns, err := s.store.ListRuns(state.ListRunsOptions{Limit: 10000})
+		if err == nil {
+			counts := make(map[string]int)
+			for _, run := range allRuns {
+				counts[run.PipelineName]++
+			}
+			for i := range pipelines {
+				pipelines[i].RunCount = counts[pipelines[i].Name]
+			}
+		}
+	}
+
+	// Collect unique categories
+	categories := make(map[string]bool)
+	for _, p := range pipelines {
+		if p.Category != "" {
+			categories[p.Category] = true
+		}
+	}
+	var catList []string
+	for c := range categories {
+		catList = append(catList, c)
+	}
+	sort.Strings(catList)
+
+	// Sort pipelines by run count (most used first), then alphabetically
+	sort.SliceStable(pipelines, func(i, j int) bool {
+		if pipelines[i].RunCount != pipelines[j].RunCount {
+			return pipelines[i].RunCount > pipelines[j].RunCount
+		}
+		return pipelines[i].Name < pipelines[j].Name
+	})
+
 	data := struct {
 		ActivePage string
 		Pipelines  []PipelineSummary
+		Categories []string
 	}{
 		ActivePage: "pipelines",
 		Pipelines:  pipelines,
+		Categories: catList,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -77,6 +116,14 @@ type PipelineDetailStep struct {
 	Prompt             string   `json:"prompt,omitempty"`
 	SubPipeline        string   `json:"sub_pipeline,omitempty"`
 	Thread             string   `json:"thread,omitempty"`
+	Depth              int      `json:"depth,omitempty"`           // DAG depth for indentation
+	Script             string   `json:"script,omitempty"`
+	GatePrompt         string   `json:"gate_prompt,omitempty"`
+	GateType           string   `json:"gate_type,omitempty"`
+	EdgeConditions     string   `json:"edge_conditions,omitempty"`
+	IterateOver        []string `json:"iterate_over,omitempty"`
+	IterateMode        string   `json:"iterate_mode,omitempty"`
+	AggregateStrategy  string   `json:"aggregate_strategy,omitempty"`
 }
 
 // PipelineDetail holds full pipeline info for the detail dialog.
@@ -146,6 +193,52 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 			maxAttempts = step.Retry.MaxAttempts
 		}
 
+		// Gate/command details
+		var gatePrompt, gateType, edgeConditions, script string
+		if step.Gate != nil {
+			gatePrompt = step.Gate.Message
+			gateType = step.Gate.Type
+		}
+		if step.Branch != nil {
+			var edges []string
+			for k, v := range step.Branch.Cases {
+				edges = append(edges, k+" -> "+v)
+			}
+			edgeConditions = strings.Join(edges, "; ")
+		}
+		if len(step.Edges) > 0 {
+			var edges []string
+			for _, e := range step.Edges {
+				label := e.Target
+				if e.Condition != "" {
+					label += " (" + e.Condition + ")"
+				}
+				edges = append(edges, label)
+			}
+			edgeConditions = strings.Join(edges, ", ")
+		}
+		script = step.Script
+
+		// Iterate/aggregate config
+		var iterateOver []string
+		var iterateMode, aggregateStrategy string
+		if step.Iterate != nil {
+			iterateMode = step.Iterate.Mode
+			if iterateMode == "" {
+				iterateMode = "sequential"
+			}
+			// Parse the over field — it's a JSON array string
+			if step.Iterate.Over != "" {
+				var items []string
+				if err := json.Unmarshal([]byte(step.Iterate.Over), &items); err == nil {
+					iterateOver = items
+				}
+			}
+		}
+		if step.Aggregate != nil {
+			aggregateStrategy = step.Aggregate.Strategy
+		}
+
 		steps = append(steps, PipelineDetailStep{
 			ID:                 step.ID,
 			Type:               step.Type,
@@ -161,10 +254,53 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 			RetryPolicy:        retryPolicy,
 			MaxAttempts:        maxAttempts,
 			Prompt:             prompt,
-			SubPipeline:        step.SubPipeline,
+			SubPipeline:        stripUnresolvedVars(resolveForgeVars(step.SubPipeline)),
 			Thread:             step.Thread,
+			Script:             script,
+			GatePrompt:         gatePrompt,
+			GateType:           gateType,
+			EdgeConditions:     edgeConditions,
+			IterateOver:        iterateOver,
+			IterateMode:        iterateMode,
+			AggregateStrategy:  aggregateStrategy,
 		})
 	}
+	// Compute DAG depth for indentation
+	depthMap := make(map[string]int)
+	var computeDepth func(id string) int
+	stepIndex := make(map[string][]string)
+	for _, s := range steps {
+		stepIndex[s.ID] = s.Dependencies
+	}
+	computeDepth = func(id string) int {
+		if d, ok := depthMap[id]; ok {
+			return d
+		}
+		maxDep := 0
+		for _, dep := range stepIndex[id] {
+			if dd := computeDepth(dep) + 1; dd > maxDep {
+				maxDep = dd
+			}
+		}
+		depthMap[id] = maxDep
+		return maxDep
+	}
+	for i := range steps {
+		steps[i].Depth = computeDepth(steps[i].ID)
+	}
+	// Rework-only steps: infer depth from the step that references them
+	reworkRefs := make(map[string]string) // rework_step -> referencing step
+	for _, step := range p.Steps {
+		if step.Retry.ReworkStep != "" {
+			reworkRefs[step.Retry.ReworkStep] = step.ID
+		}
+	}
+	for i := range steps {
+		if steps[i].Depth == 0 && reworkRefs[steps[i].ID] != "" {
+			steps[i].Depth = depthMap[reworkRefs[steps[i].ID]]
+		}
+	}
+
 	return PipelineDetail{
 		Name:          name,
 		Description:   p.Metadata.Description,
@@ -332,10 +468,18 @@ func (s *Server) getPipelineSummaries() []PipelineSummary {
 				hasComposition = true
 			}
 		}
+		// Infer category from name prefix if not explicitly set
+		cat := p.Metadata.Category
+		if cat == "" {
+			if idx := strings.Index(name, "-"); idx > 0 {
+				cat = name[:idx]
+			}
+		}
+
 		summaries = append(summaries, PipelineSummary{
 			Name:          name,
 			Description:   p.Metadata.Description,
-			Category:      p.Metadata.Category,
+			Category:      cat,
 			StepCount:     len(p.Steps),
 			Steps:         stepIDs,
 			IsComposition: hasComposition,

@@ -74,6 +74,8 @@ type StepDetail struct {
 	GateChoicesData    []pipeline.GateChoice `json:"gate_choices_data,omitempty"` // Structured gate choice data for interactive UI
 	GateFreeform       bool                  `json:"gate_freeform,omitempty"`     // Whether freeform text input is allowed
 	EdgeInfo           string                `json:"edge_info,omitempty"`         // Edge conditions for conditional steps
+	Contract           string                `json:"contract,omitempty"`          // Contract path/type
+	ContractSchemaName string                `json:"contract_schema_name,omitempty"` // Human-readable contract name
 	Model              string                `json:"model,omitempty"`             // Model override for this step
 	Adapter            string                `json:"adapter,omitempty"`           // Adapter used for this step
 	VisitCount         int                   `json:"visit_count,omitempty"`       // Current visit count for graph loop steps
@@ -259,6 +261,7 @@ type CompositionPipeline struct {
 	StepCount   int               `json:"step_count"`
 	Steps       []CompositionStep `json:"steps"`
 	Skills      []string          `json:"skills,omitempty"`
+	RunCount    int               `json:"run_count,omitempty"`
 }
 
 // CompositionStep describes a step in a composition pipeline with its primitive type.
@@ -283,26 +286,36 @@ type PipelineStartInfo struct {
 	StepCount   int    `json:"step_count"`
 }
 
+// LabelBadge is a label with an optional display color for the web UI.
+type LabelBadge struct {
+	Name  string `json:"name"`
+	Color string `json:"color,omitempty"`
+}
+
 // IssueSummary is a summary of a GitHub issue for the API.
 type IssueSummary struct {
-	Number    int      `json:"number"`
-	Title     string   `json:"title"`
-	State     string   `json:"state"`
-	Author    string   `json:"author"`
-	Labels    []string `json:"labels"`
+	Number    int          `json:"number"`
+	Title     string       `json:"title"`
+	State     string       `json:"state"`
+	Author    string       `json:"author"`
+	Labels    []LabelBadge `json:"labels"`
 	Comments  int      `json:"comments"`
 	CreatedAt string   `json:"created_at"`
 	URL       string   `json:"url"`
+	// Wave stats
+	RunCount    int    `json:"run_count,omitempty"`
+	LastStatus string `json:"last_status,omitempty"`
+	TotalTokens int64  `json:"total_tokens,omitempty"`
 }
 
 // IssueDetail holds full issue information for the detail page.
 type IssueDetail struct {
-	Number    int      `json:"number"`
-	Title     string   `json:"title"`
-	State     string   `json:"state"`
-	Body      string   `json:"body"`
-	Author    string   `json:"author"`
-	Labels    []string `json:"labels"`
+	Number    int          `json:"number"`
+	Title     string       `json:"title"`
+	State     string       `json:"state"`
+	Body      string       `json:"body"`
+	Author    string       `json:"author"`
+	Labels    []LabelBadge `json:"labels"`
 	Assignees []string `json:"assignees,omitempty"`
 	Comments  int      `json:"comments"`
 	CreatedAt string   `json:"created_at"`
@@ -318,15 +331,17 @@ type IssueListResponse struct {
 	FilterState string         `json:"filter_state,omitempty"`
 	Page        int            `json:"page,omitempty"`
 	HasMore     bool           `json:"has_more"`
+	TotalOpen   int            `json:"total_open,omitempty"`
+	TotalClosed int            `json:"total_closed,omitempty"`
 }
 
 // PRSummary is a summary of a GitHub pull request for the API.
 type PRSummary struct {
-	Number       int      `json:"number"`
-	Title        string   `json:"title"`
-	State        string   `json:"state"`
-	Author       string   `json:"author"`
-	Labels       []string `json:"labels,omitempty"`
+	Number       int          `json:"number"`
+	Title        string       `json:"title"`
+	State        string       `json:"state"`
+	Author       string       `json:"author"`
+	Labels       []LabelBadge `json:"labels,omitempty"`
 	Draft        bool     `json:"draft"`
 	Merged       bool     `json:"merged"`
 	HeadBranch   string   `json:"head_branch"`
@@ -336,6 +351,10 @@ type PRSummary struct {
 	ChangedFiles int      `json:"changed_files"`
 	CreatedAt    string   `json:"created_at"`
 	URL          string   `json:"url"`
+	// Wave stats
+	RunCount    int    `json:"run_count,omitempty"`
+	LastStatus string `json:"last_status,omitempty"`
+	TotalTokens int64  `json:"total_tokens,omitempty"`
 }
 
 // CommentSummary is a summary of a comment on an issue or PR.
@@ -368,12 +387,12 @@ type PRCheck struct {
 
 // PRDetail holds full PR information for the detail page.
 type PRDetail struct {
-	Number       int       `json:"number"`
-	Title        string    `json:"title"`
-	State        string    `json:"state"`
-	Body         string    `json:"body"`
-	Author       string    `json:"author"`
-	Labels       []string  `json:"labels,omitempty"`
+	Number       int          `json:"number"`
+	Title        string       `json:"title"`
+	State        string       `json:"state"`
+	Body         string       `json:"body"`
+	Author       string       `json:"author"`
+	Labels       []LabelBadge `json:"labels,omitempty"`
 	Draft        bool      `json:"draft"`
 	Merged       bool      `json:"merged"`
 	HeadBranch   string    `json:"head_branch"`
@@ -397,6 +416,8 @@ type PRListResponse struct {
 	FilterState  string      `json:"filter_state,omitempty"`
 	Page         int         `json:"page,omitempty"`
 	HasMore      bool        `json:"has_more"`
+	TotalOpen    int         `json:"total_open,omitempty"`
+	TotalClosed  int         `json:"total_closed,omitempty"`
 }
 
 // HealthCheckResult is the result of a single health check for the API.

@@ -162,7 +162,7 @@ func convertGitHubIssue(gi *github.Issue) *Issue {
 	}
 	for _, l := range gi.Labels {
 		if l != nil {
-			issue.Labels = append(issue.Labels, l.Name)
+			issue.Labels = append(issue.Labels, Label{Name: l.Name, Color: l.Color})
 		}
 	}
 	for _, a := range gi.Assignees {
@@ -197,7 +197,7 @@ func convertGitHubPR(gp *github.PullRequest) *PullRequest {
 	}
 	for _, l := range gp.Labels {
 		if l != nil {
-			pr.Labels = append(pr.Labels, l.Name)
+			pr.Labels = append(pr.Labels, Label{Name: l.Name, Color: l.Color})
 		}
 	}
 	if gp.Head != nil {

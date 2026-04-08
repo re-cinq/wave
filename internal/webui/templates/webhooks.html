@@ -1,8 +1,8 @@
 {{define "title"}}Webhooks · Wave{{end}}
 {{define "content"}}
-<div class="page-header">
+<div class="w-head">
     <h1>Webhooks</h1>
-    <button class="btn btn-primary" onclick="showCreateForm()">Create Webhook</button>
+    <button class="btn btn-primary btn-sm" onclick="showCreateForm()">Create Webhook</button>
 </div>
 
 <!-- Create/Edit Form (hidden by default) -->
@@ -49,51 +49,43 @@
 
 <!-- Webhook List -->
 {{if .Webhooks}}
-<table class="table">
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>URL</th>
-            <th>Events</th>
-            <th>Status</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {{range .Webhooks}}
-        <tr>
-            <td><a href="/webhooks/{{.ID}}"><strong>{{.Name}}</strong></a></td>
-            <td><code style="font-size: 0.85em;">{{.URL}}</code></td>
-            <td>
-                {{range .Events}}<span class="badge">{{.}}</span> {{end}}
-                {{if not .Events}}<span class="badge" style="opacity: 0.5">all events</span>{{end}}
-            </td>
-            <td>
+<div class="wr-list">
+{{range .Webhooks}}
+    <div class="wr-run">
+        <div class="wr-accent {{if .Active}}st-completed{{else}}st-cancelled{{end}}"></div>
+        <div class="wr-body">
+            <div class="wr-row1">
+                <a href="/webhooks/{{.ID}}" class="wr-name">{{.Name}}</a>
                 {{if .Active}}
-                <span class="badge" style="background: var(--color-completed); color: white;">Active</span>
+                <span class="badge" style="background:var(--color-completed);color:#fff;font-size:0.6rem;">Active</span>
                 {{else}}
-                <span class="badge" style="background: var(--color-text-muted); color: white;">Inactive</span>
+                <span class="badge" style="background:var(--color-text-muted);color:#fff;font-size:0.6rem;">Inactive</span>
                 {{end}}
-            </td>
-            <td class="pipeline-actions-cell">
-                <button class="btn btn-sm" onclick="toggleWebhook({{.ID}}, {{.Active}})">
-                    {{if .Active}}Disable{{else}}Enable{{end}}
-                </button>
-                <button class="btn btn-sm" onclick="testWebhook({{.ID}})">Test</button>
-                <button class="btn btn-sm" onclick="editWebhook({{.ID}})">Edit</button>
-                <button class="btn btn-sm btn-danger" data-delete-id="{{.ID}}" data-delete-name="{{.Name}}" onclick="deleteWebhook(this)">Delete</button>
-            </td>
-        </tr>
-        {{end}}
-    </tbody>
-</table>
-{{else}}
-<div class="card" style="text-align: center; padding: 3rem;">
-    <p style="color: var(--color-text-muted); font-size: 1.1rem;">No webhooks configured</p>
-    <p style="color: var(--color-text-muted);">Create a webhook to receive HTTP notifications for pipeline events.</p>
-</div>
+            </div>
+            <div class="wr-row2">
+                <code style="font-size:0.72rem;color:var(--color-text-secondary);">{{.URL}}</code>
+            </div>
+            {{if or .Events (not .Events)}}
+            <div class="wr-row2">
+                {{range .Events}}<span class="badge" style="font-size:0.6rem;">{{.}}</span> {{end}}
+                {{if not .Events}}<span class="badge" style="font-size:0.6rem;opacity:0.5;">all events</span>{{end}}
+            </div>
+            {{end}}
+        </div>
+        <div class="wr-meta">
+            <button class="btn btn-sm" onclick="toggleWebhook({{.ID}}, {{.Active}})">{{if .Active}}Disable{{else}}Enable{{end}}</button>
+            <button class="btn btn-sm" onclick="testWebhook({{.ID}})">Test</button>
+            <button class="btn btn-sm" onclick="editWebhook({{.ID}})">Edit</button>
+            <button class="btn btn-sm btn-danger" data-delete-id="{{.ID}}" data-delete-name="{{.Name}}" onclick="deleteWebhook(this)">Delete</button>
+        </div>
+    </div>
 {{end}}
-
+</div>
+{{else}}
+<div style="padding:2rem;text-align:center;color:var(--color-text-muted);">No webhooks configured. Create a webhook to receive HTTP notifications for pipeline events.</div>
+{{end}}
+{{end}}
+{{define "scripts"}}
 <script>
 function showCreateForm() {
     document.getElementById('webhook-form').style.display = 'block';

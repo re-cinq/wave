@@ -17,7 +17,11 @@
 kind: WavePipeline
 metadata:
   name: ops-parallel-audit
-  description: "Fan out security, dead-code, and DX audits in parallel then merge findings"
+  description: >-
+    Parallel audit pipeline that fans out security vulnerability scanning,
+    dead-code detection, and developer experience analysis as concurrent
+    sub-pipelines. Aggregates all findings into a unified report sorted
+    by severity and actionability.
   category: composition
   release: true
 
@@ -58,6 +62,7 @@ steps:
   # ── Step 3: synthesise a unified markdown report ──────────────────────────
   - id: report
     persona: summarizer
+    model: cheapest
     dependencies: [merge-findings]
     workspace:
       mount:

@@ -3,6 +3,7 @@ package webui
 import (
 	"embed"
 	"fmt"
+	"encoding/json"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -62,6 +63,8 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		"formatBytes":    formatBytesFunc,
 		"richInput":      richInputFunc,
 		"friendlyModel":  friendlyModelFunc,
+	"toJSON": func(v interface{}) string { b, _ := json.Marshal(v); return string(b) },
+		"formatTokensShort": formatTokensShort,
 		"shortRunID":     func(id string) string { if len(id) > 12 { return id[:12] }; return id },
 		"titleCase": titleCaseFunc,
 		"contains":       strings.Contains,
@@ -71,6 +74,7 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		"checkLabel":     checkLabel,
 		"add":              func(a, b int) int { return a + b },
 		"subtract":         func(a, b int) int { return a - b },
+		"multiply":         func(a int, b float64) float64 { return float64(a) * b },
 		"smoothnessLabel":  smoothnessLabel,
 		"frictionLabel":    frictionLabel,
 		"adapterIcon":      adapterIcon,

@@ -1,256 +1,276 @@
-{{define "title"}}{{.Pipeline.Name}}{{if .Pipeline.Description}} · {{.Pipeline.Description}}{{end}} · Wave{{end}}
+{{define "title"}}{{.Pipeline.Name}}{{if .Pipeline.Description}} — {{.Pipeline.Description}}{{end}} · Wave{{end}}
 {{define "content"}}
-<div class="page-header">
+
+<!-- Header -->
+<div class="w-head">
     <div>
-        <a href="/pipelines" class="back-link" aria-label="Back to pipelines list">&larr; Back to Pipelines</a>
-        <h1>{{.Pipeline.Name}}</h1>
-        {{if .Pipeline.Description}}<p class="persona-desc">{{.Pipeline.Description}}</p>{{end}}
+        <a href="/pipelines" class="back-link">&larr; Pipelines</a>
+        <h1>
+            {{.Pipeline.Name}}
+            {{if .Pipeline.IsComposition}}<span class="badge" style="font-size:0.68rem;background:rgba(139,92,246,0.12);color:var(--wave-accent);">composition</span>
+            {{else if .Pipeline.Category}}<span class="badge" style="font-size:0.68rem;background:var(--color-running-bg);color:var(--color-link-hover);">{{.Pipeline.Category}}</span>{{end}}
+        </h1>
+        {{if .Pipeline.Description}}<p style="margin:0.1rem 0 0.3rem;font-size:0.82rem;color:var(--color-text-secondary);max-width:48rem;">{{.Pipeline.Description}}</p>{{end}}
     </div>
     <div class="actions">
         <button class="btn btn-primary" onclick="showQuickStart('{{.Pipeline.Name}}')" aria-label="Start pipeline">Start</button>
     </div>
 </div>
 
-<div class="run-summary-bar">
-    <div class="run-summary-stats">
-        <span class="run-stat"><span class="run-stat-label">Steps</span> <span class="run-stat-value">{{len .Pipeline.Steps}}</span></span>
-        <span class="run-stat"><span class="run-stat-label">Runs</span> <span class="run-stat-value"><a href="/runs?pipeline={{.Pipeline.Name}}">{{.RunCount}}</a></span></span>
-        {{if .Pipeline.Category}}<span class="run-stat"><span class="run-stat-label">Category</span> <span class="run-stat-value">{{.Pipeline.Category}}</span></span>{{end}}
-        {{if .Pipeline.IsComposition}}<span class="run-stat"><span class="run-stat-label">Type</span> <span class="run-stat-value">Composition</span></span>{{end}}
-        {{if .Pipeline.Skills}}<span class="run-stat"><span class="run-stat-label">Skills</span> <span class="run-stat-value">{{range $i, $s := .Pipeline.Skills}}{{if $i}}, {{end}}{{$s}}{{end}}</span></span>{{end}}
-    </div>
+<!-- Stats -->
+<div class="w-stats" style="margin-bottom:0.5rem;">
+    <span><b>{{len .Pipeline.Steps}}</b> steps</span>
+    <span style="color:var(--color-text-muted);">·</span>
+    <span><a href="/runs?pipeline={{.Pipeline.Name}}" style="color:var(--color-link);"><b>{{.RunCount}}</b> runs</a></span>
+    {{if .Pipeline.Skills}}<span style="color:var(--color-text-muted);">·</span>
+    <span style="color:var(--color-text-muted);">Skills: {{range $i, $s := .Pipeline.Skills}}{{if $i}}, {{end}}{{$s}}{{end}}</span>{{end}}
 </div>
 
-{{if .DAG}}
-<div class="card">
-    <details open>
-        <summary class="section-toggle"><h2>Pipeline Graph</h2></summary>
-        <div id="dag-container" class="dag-container">
-            {{template "templates/partials/dag_svg.html" .DAG}}
-        </div>
-    </details>
-</div>
-{{end}}
-
-<div class="card">
-    <h2>Steps</h2>
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Step</th>
-                <th>Persona</th>
-                <th>Dependencies</th>
-                <th>Contract</th>
-                <th>Artifacts</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Pipeline.Steps}}
-            <tr>
-                <td><code>{{.ID}}</code></td>
-                <td><a href="/personas/{{.Persona}}" class="badge">{{.Persona}}</a></td>
-                <td>{{if .Dependencies}}{{range $i, $d := .Dependencies}}{{if $i}}, {{end}}<code>{{$d}}</code>{{end}}{{else}}<span class="text-muted">none</span>{{end}}</td>
-                <td>{{if .Contract}}{{if .ContractSchemaName}}<a href="/contracts/{{.ContractSchemaName}}"><code>{{.Contract}}</code></a>{{else}}<code>{{.Contract}}</code>{{end}}{{else}}<span class="text-muted">none</span>{{end}}</td>
-                <td>{{if .Artifacts}}{{range $i, $a := .Artifacts}}{{if $i}}, {{end}}<code>{{$a}}</code>{{end}}{{else}}<span class="text-muted">none</span>{{end}}</td>
-                <td>{{if .Optional}}<span class="badge">optional</span>{{end}}</td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-</div>
-
-<div class="card">
-    <h2>Recent Runs</h2>
-    {{if .Runs}}
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Status</th>
-                <th>Run ID</th>
-                <th>Started</th>
-                <th>Duration</th>
-                <th>Progress</th>
-                <th>Tokens</th>
-            </tr>
-        </thead>
-        <tbody>
-        {{range .Runs}}
-        <tr class="run-row" data-href="/runs/{{.RunID}}">
-            <td>
-                <span class="status-indicator status-indicator-{{.Status}}">
-                    {{if eq .Status "running"}}<span class="spinner spinner-sm" aria-label="Running" role="status"></span>
-                    {{else if eq .Status "completed"}}<span class="status-check">&#10003;</span>
-                    {{else if eq .Status "failed"}}<span class="status-cross">&#10007;</span>
-                    {{else if eq .Status "cancelled"}}<span class="status-dash">&#9644;</span>
-                    {{else}}<span class="status-dot">&#9679;</span>
-                    {{end}}
+<!-- Steps as shapes -->
+<div class="w-flow">
+{{range $i, $step := .Pipeline.Steps}}
+    {{if $i}}<div class="w-conn"><span class="w-conn-dot"></span></div>{{end}}
+    <div class="ws st-defined{{if $step.Type}} tp-{{$step.Type}}{{end}}" data-step-id="{{$step.ID}}"{{if $step.Depth}} style="margin-left:{{multiply $step.Depth 1.5}}rem;"{{end}}>
+        <div class="ws-content">
+            <div class="ws-row1">
+                <span class="ws-name">
+                    {{if eq $step.Type "pipeline"}}<span class="tp-ico">&#x27D0;</span>
+                    {{else if eq $step.Type "gate"}}<span class="tp-ico">&#x25C6;</span>
+                    {{else if eq $step.Type "conditional"}}<span class="tp-ico">&#x25C6;</span>
+                    {{else if eq $step.Type "command"}}<span class="tp-ico">&gt;_</span>
+                    {{end}}{{$step.ID}}</span>
+                <span class="ws-meta">
+                    {{if $step.Persona}}<a href="/personas/{{$step.Persona}}" class="ws-code-link">{{$step.Persona}}</a>{{end}}
+                    {{if $step.Contract}}{{if $step.ContractSchemaName}}<a href="/contracts/{{$step.ContractSchemaName}}" class="ws-code-link" title="{{$step.Contract}}">{{$step.ContractSchemaName}}</a>{{else}}<span class="ws-code-link" title="{{$step.Contract}}">contract</span>{{end}}{{end}}
+                    {{if $step.SubPipeline}}<a href="/pipelines/{{$step.SubPipeline}}" class="ws-code-link" style="background:rgba(139,92,246,0.1);color:var(--wave-accent);">{{$step.SubPipeline}}</a>{{end}}
+                    {{if $step.Optional}}<span class="badge" style="font-size:0.65rem;background:rgba(245,158,11,0.12);color:#fbbf24;">optional</span>{{end}}
                 </span>
-                <span class="badge {{statusClass .Status}}">{{.Status}}</span>
-            </td>
-            <td><a href="/runs/{{.RunID}}">{{.RunID}}</a></td>
-            <td><time datetime="{{formatTimeISO .StartedAt}}" title="{{formatTime .StartedAt}}">{{formatTime .StartedAt}}</time></td>
-            <td>{{if .Duration}}{{.Duration}}{{else}}-{{end}}</td>
-            <td>{{if gt .StepsTotal 0}}<span class="run-progress">{{.StepsCompleted}}/{{.StepsTotal}}</span>{{end}}</td>
-            <td>{{formatTokens .TotalTokens}}</td>
-        </tr>
-        {{end}}
-        </tbody>
-    </table>
+            </div>
+            <div class="ws-io">
+                {{if $step.Dependencies}}
+                <div class="ws-io-in">
+                    <span class="ws-io-lbl">deps</span>
+                    <span class="ws-io-val">{{range $j, $d := $step.Dependencies}}{{if $j}}, {{end}}{{$d}}{{end}}</span>
+                </div>
+                {{end}}
+                {{if $step.Artifacts}}
+                <div class="ws-io-out">
+                    <span class="ws-io-lbl">out</span>
+                    <span class="ws-io-val">{{range $j, $a := $step.Artifacts}}{{if $j}}, {{end}}{{$a}}{{end}}</span>
+                </div>
+                {{end}}
+            </div>
+            {{if $step.IterateOver}}
+            <div style="padding:0.2rem var(--ws-pad-x) 0.3rem;">
+                {{if $step.IterateMode}}<span style="font-size:0.68rem;color:var(--color-text-muted);margin-right:0.3rem;">{{$step.IterateMode}}</span>{{end}}
+                {{range $step.IterateOver}}
+                <a href="/pipelines/{{.}}" style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.15rem 0.4rem;margin:0.1rem 0.15rem 0.1rem 0;background:var(--color-bg-tertiary);border-radius:4px;border-left:3px solid var(--wave-accent);text-decoration:none;color:inherit;font-size:0.72rem;font-weight:600;">{{.}}</a>
+                {{end}}
+            </div>
+            {{end}}
+            {{if $step.AggregateStrategy}}
+            <div style="padding:0.1rem var(--ws-pad-x);font-size:0.68rem;color:var(--color-text-muted);">strategy: {{$step.AggregateStrategy}}</div>
+            {{end}}
+            <!-- Config panel (click to expand) -->
+            <div class="ws-config" hidden data-step-id="{{$step.ID}}"></div>
+        </div>
+    </div>
+{{end}}
+</div>
+
+<!-- Recent Runs -->
+<div style="margin-top:1rem;">
+    <h2 style="font-size:1rem;margin-bottom:0.4rem;">Recent Runs</h2>
+    {{if .Runs}}
+    <div class="wr-list">
+    {{range .Runs}}
+        <a href="/runs/{{.RunID}}" class="wr-run">
+            <div class="wr-accent st-{{.Status}}"></div>
+            <div class="wr-body">
+                <div class="wr-row1">
+                    <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
+                    {{if .InputPreview}}<span class="wr-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
+                </div>
+                <div class="wr-row2">
+                    {{if .Duration}}<span><b>{{.Duration}}</b></span>{{end}}
+                    {{if gt .StepsTotal 0}}<span><b>{{.StepsCompleted}}/{{.StepsTotal}}</b> steps</span>{{end}}
+                    {{if .TotalTokens}}<span><b>{{formatTokens .TotalTokens}}</b> tok</span>{{end}}
+                    {{range .Models}}<span class="badge badge-model">{{friendlyModel .}}</span>{{end}}
+                </div>
+            </div>
+            <div class="wr-meta">
+                <span class="wr-date">{{.FormattedStartedAt}}</span>
+                {{if .Duration}}<span class="wr-dur">{{.Duration}}</span>{{end}}
+            </div>
+        </a>
+    {{end}}
+    </div>
     {{if gt .RunCount 10}}
-    <div style="margin-top: 0.5rem; text-align: right;">
-        <a href="/runs?pipeline={{.Pipeline.Name}}" class="btn btn-sm">View all {{.RunCount}} runs</a>
+    <div style="margin-top:0.4rem;text-align:right;">
+        <a href="/runs?pipeline={{.Pipeline.Name}}" style="font-size:0.78rem;color:var(--color-link);">View all {{.RunCount}} runs</a>
     </div>
     {{end}}
     {{else}}
-    <div class="empty-state"><p>No runs yet for this pipeline.</p></div>
+    <div style="padding:1rem;text-align:center;color:var(--color-text-muted);font-size:0.82rem;">No runs yet</div>
     {{end}}
 </div>
 
-<dialog id="quickstart-dialog" class="start-dialog" aria-labelledby="quickstart-title">
-    <h3 id="quickstart-title">Start Pipeline: <span id="quickstart-name"></span></h3>
-    <div class="form-group">
-        <label for="quickstart-input">Input (optional)</label>
-        <textarea id="quickstart-input" rows="3" placeholder="Issue URL, feature description..."></textarea>
+<!-- Quickstart dialog -->
+<dialog id="quickstart-dialog" class="w-dialog" aria-labelledby="quickstart-title">
+    <div class="w-dialog-head">
+        <h3 id="quickstart-title" style="margin:0;font-size:1rem;">Start: <code id="quickstart-name" style="font-size:0.85rem;"></code></h3>
+        <button class="w-dialog-close" onclick="hideQuickStart()" aria-label="Close">&times;</button>
     </div>
-    <details class="advanced-options">
-        <summary>Advanced Options</summary>
+    <div class="w-dialog-body">
         <div class="form-group">
-            <label for="qs-model">Model Override</label>
-            <select id="qs-model">
-                <option value="">Default (auto)</option>
-                <option value="cheapest">Cheapest (fast, low-cost)</option>
-                <option value="fastest">Fastest (default)</option>
-                <option value="strongest">Strongest (highest quality)</option>
-            </select>
+            <label for="quickstart-input" style="font-size:0.78rem;color:var(--color-text-secondary);display:block;margin-bottom:0.2rem;">Input</label>
+            <textarea id="quickstart-input" rows="3" placeholder="Issue URL, feature description..." style="width:100%;padding:0.4rem 0.5rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-family:var(--font-sans);font-size:0.82rem;resize:vertical;"></textarea>
         </div>
-        <div class="form-group">
-            <label for="qs-from-step">Resume From Step</label>
-            <select id="qs-from-step" onchange="onQsFromStepChange()">
-                <option value="">Start from beginning</option>
-            </select>
-        </div>
-        <div class="form-group" id="qs-steps-group">
-            <label>Run Only These Steps</label>
-            <div id="qs-steps-checks" class="checkbox-list">
-                <span class="text-muted">Loading...</span>
+        <details class="advanced-options" style="margin-top:0.4rem;">
+            <summary style="font-size:0.78rem;color:var(--color-text-muted);cursor:pointer;">Advanced options</summary>
+            <div style="padding-top:0.4rem;display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;">
+                <div class="form-group">
+                    <label for="qs-adapter" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Adapter</label>
+                    <select id="qs-adapter" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
+                        <option value="">Default</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="qs-model" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Model</label>
+                    <select id="qs-model" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
+                        <option value="">Default</option>
+                        <option value="cheapest">Cheapest</option>
+                        <option value="fastest">Fastest</option>
+                        <option value="strongest">Strongest</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="qs-from-step" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Resume From</label>
+                    <select id="qs-from-step" onchange="onQsFromStepChange()" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
+                        <option value="">Start from beginning</option>
+                    </select>
+                </div>
+                <div class="form-group" style="grid-column:span 2;">
+                    <label class="checkbox-label" style="font-size:0.78rem;color:var(--color-text-secondary);display:flex;align-items:center;gap:0.3rem;"><input type="checkbox" id="qs-dry-run"> Dry Run</label>
+                </div>
             </div>
-        </div>
-        <div class="form-group" id="qs-exclude-group">
-            <label>Exclude Steps</label>
-            <div id="qs-exclude-checks" class="checkbox-list">
-                <span class="text-muted">Loading...</span>
-            </div>
-        </div>
-        <div class="form-group">
-            <label class="checkbox-label">
-                <input type="checkbox" id="qs-dry-run">
-                Dry Run (validate without executing)
-            </label>
-        </div>
-    </details>
-    <div class="dialog-actions">
-        <button class="btn" onclick="hideQuickStart()">Cancel</button>
-        <button class="btn btn-primary" id="quickstart-submit" onclick="submitQuickStart()">Start</button>
+        </details>
+    </div>
+    <div class="w-dialog-actions">
+        <button class="btn btn-sm" onclick="hideQuickStart()">Cancel</button>
+        <button class="btn btn-sm btn-primary" id="quickstart-submit" onclick="submitQuickStart()">Start Pipeline</button>
     </div>
 </dialog>
 {{end}}
 {{define "scripts"}}
 <script>
 var quickStartPipeline = '';
-
+function populateAdapters(selectId) {
+    var sel = document.getElementById(selectId);
+    if (!sel) return;
+    fetch('/api/adapters').then(function(r){return r.json()}).then(function(d){
+        var adapters = d.adapters || [];
+        adapters.forEach(function(a){ var o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o); });
+    }).catch(function(){});
+}
 function showQuickStart(name) {
     quickStartPipeline = name;
     document.getElementById('quickstart-name').textContent = name;
     document.getElementById('quickstart-input').value = '';
-    // Reset advanced options
     var modelEl = document.getElementById('qs-model');
     if (modelEl) modelEl.value = '';
     var fromStepEl = document.getElementById('qs-from-step');
     if (fromStepEl) fromStepEl.innerHTML = '<option value="">Start from beginning</option>';
     var dryRunEl = document.getElementById('qs-dry-run');
     if (dryRunEl) dryRunEl.checked = false;
-    // Load step list
     loadQsStepList(name);
     document.getElementById('quickstart-dialog').showModal();
+    populateAdapters('qs-adapter');
     document.getElementById('quickstart-input').focus();
 }
-
-function hideQuickStart() {
-    document.getElementById('quickstart-dialog').close();
-    quickStartPipeline = '';
-}
-
+function hideQuickStart() { document.getElementById('quickstart-dialog').close(); quickStartPipeline = ''; }
 function submitQuickStart() {
     if (!quickStartPipeline) return;
     var input = document.getElementById('quickstart-input').value;
     var btn = document.getElementById('quickstart-submit');
     var body = {input: input || ''};
-    // Collect advanced options
     var opts = collectAdvancedOptions('qs');
     Object.keys(opts).forEach(function(k) { body[k] = opts[k]; });
-
     setButtonLoading(btn, true);
     fetchJSON('/api/pipelines/' + encodeURIComponent(quickStartPipeline) + '/start', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body)
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
     }).then(function(data) {
-        if (body.dry_run && data.findings !== undefined) {
-            showDryRunReport(data);
-            setButtonLoading(btn, false);
-            return;
-        }
+        if (body.dry_run && data.findings !== undefined) { showDryRunReport(data); setButtonLoading(btn, false); return; }
         showToast('Pipeline started: ' + data.run_id, 'success', 3000);
         setTimeout(function() { window.location.href = '/runs/' + data.run_id; }, 500);
-    }).catch(function() {
-        setButtonLoading(btn, false);
-    });
+    }).catch(function() { setButtonLoading(btn, false); });
 }
-
-function loadQsStepList(pipelineName) {
+function loadQsStepList(name) {
     var fromStep = document.getElementById('qs-from-step');
-    var stepsChecks = document.getElementById('qs-steps-checks');
-    var excludeChecks = document.getElementById('qs-exclude-checks');
-    fetchJSON('/api/pipelines/' + encodeURIComponent(pipelineName)).then(function(data) {
+    fetchJSON('/api/pipelines/' + encodeURIComponent(name)).then(function(data) {
         var steps = data.steps || [];
         var opts = '<option value="">Start from beginning</option>';
-        for (var i = 0; i < steps.length; i++) {
-            opts += '<option value="' + escapeHTML(steps[i].id) + '">' + escapeHTML(steps[i].id) + '</option>';
-        }
+        for (var i = 0; i < steps.length; i++) opts += '<option value="' + escapeHTML(steps[i].id) + '">' + escapeHTML(steps[i].id) + '</option>';
         if (fromStep) fromStep.innerHTML = opts;
-        var checksHTML = '';
-        for (var i = 0; i < steps.length; i++) {
-            checksHTML += '<label class="checkbox-label"><input type="checkbox" name="qs-steps" value="' + escapeHTML(steps[i].id) + '"> ' + escapeHTML(steps[i].id) + '</label>';
-        }
-        if (stepsChecks) stepsChecks.innerHTML = checksHTML || '<span class="text-muted">No steps</span>';
-        var exclHTML = '';
-        for (var i = 0; i < steps.length; i++) {
-            exclHTML += '<label class="checkbox-label"><input type="checkbox" name="qs-exclude" value="' + escapeHTML(steps[i].id) + '"> ' + escapeHTML(steps[i].id) + '</label>';
-        }
-        if (excludeChecks) excludeChecks.innerHTML = exclHTML || '<span class="text-muted">No steps</span>';
-    }).catch(function() {
-        if (stepsChecks) stepsChecks.innerHTML = '<span class="text-muted">Failed to load steps</span>';
-        if (excludeChecks) excludeChecks.innerHTML = '<span class="text-muted">Failed to load steps</span>';
-    });
+    }).catch(function() {});
 }
-
 function onQsFromStepChange() {
     var fromStep = document.getElementById('qs-from-step');
-    var stepsGroup = document.getElementById('qs-steps-group');
     if (fromStep && fromStep.value) {
-        if (stepsGroup) stepsGroup.style.opacity = '0.5';
         var checks = document.querySelectorAll('#qs-steps-checks input[type="checkbox"]');
         for (var i = 0; i < checks.length; i++) { checks[i].checked = false; checks[i].disabled = true; }
-    } else {
-        if (stepsGroup) stepsGroup.style.opacity = '1';
-        var checks = document.querySelectorAll('#qs-steps-checks input[type="checkbox"]');
-        for (var i = 0; i < checks.length; i++) { checks[i].disabled = false; }
     }
 }
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hideQuickStart(); });
 
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') hideQuickStart();
+// Click step to show config
+document.querySelectorAll('.ws-row1').forEach(function(row){
+    row.style.cursor='pointer';
+    row.addEventListener('click',function(){
+        var shape=row.closest('.ws')||row.closest('[class*="ws"]')||row.parentElement.parentElement;
+        var tc=shape.querySelector('.ws-config');
+        if(!tc)return;
+        if(!tc.hidden){tc.hidden=true;return;}
+        tc.hidden=false;
+        var nameEl=row.querySelector('.ws-name');
+        var shape=row.closest('.ws');
+        var stepId=shape?shape.dataset.stepId:'';
+        tc.innerHTML='<div style="padding:0.4rem var(--ws-pad-x);color:var(--color-text-muted);font-size:0.72rem;">Loading...</div>';
+        fetch('/api/pipelines/'+encodeURIComponent('{{.Pipeline.Name}}')).then(function(r){return r.json()}).then(function(d){
+            var step=null;
+            for(var i=0;i<(d.steps||[]).length;i++){if(d.steps[i].id===stepId){step=d.steps[i];break;}}
+            if(!step){tc.innerHTML='<div style="padding:0.4rem;">Not found</div>';return;}
+            // Use same component structure as run detail step shapes
+            var h='';
+            // KV rows using av-kv pattern (same as run detail smart viewer)
+            function kv(k,v){return '<div class="av-kv"><span class="av-key">'+k+'</span><span class="av-val">'+v+'</span></div>';}
+            if(step.persona) h+=kv('Persona','<a href="/personas/'+escapeHTML(step.persona)+'" class="ws-code-link">'+escapeHTML(step.persona)+'</a>');
+            if(step.contract) h+=kv('Contract',step.contract_schema_name?'<a href="/contracts/'+escapeHTML(step.contract_schema_name)+'" class="ws-code-link" title="'+escapeHTML(step.contract)+'">'+escapeHTML(step.contract_schema_name)+'</a>':'<code>'+escapeHTML(step.contract)+'</code>');
+            if(step.on_failure) h+=kv('On failure','<code>'+escapeHTML(step.on_failure)+'</code>');
+            if(step.retry_policy) h+=kv('Retry','<code>'+escapeHTML(step.retry_policy)+'</code>'+(step.max_attempts?' (max '+step.max_attempts+')':''));
+            if(step.input_artifacts&&step.input_artifacts.length) h+=kv('Receives',step.input_artifacts.map(function(a){return '<code>'+escapeHTML(a)+'</code>';}).join(' '));
+            if(step.artifacts&&step.artifacts.length) h+=kv('Produces',step.artifacts.map(function(a){return '<code>'+escapeHTML(a)+'</code>';}).join(' '));
+            if(step.type==='gate'||step.type==='conditional'){
+                if(step.gate_prompt) h+=kv('Gate','<em>'+escapeHTML(step.gate_prompt)+'</em>');
+                if(step.gate_type) h+=kv('Gate type','<code>'+escapeHTML(step.gate_type)+'</code>');
+                if(step.edge_conditions) h+=kv('Edges','<code>'+escapeHTML(step.edge_conditions)+'</code>');
+            }
+            if(step.type==='command'&&step.script) h+=kv('Script','<code>'+escapeHTML(step.script)+'</code>');
+            if(step.sub_pipeline) h+=kv('Sub-pipeline','<a href="/pipelines/'+escapeHTML(step.sub_pipeline)+'" class="ws-code-link" style="background:rgba(139,92,246,0.1);color:var(--wave-accent);">'+escapeHTML(step.sub_pipeline)+'</a>');
+            if(step.thread) h+=kv('Thread','<code>'+escapeHTML(step.thread)+'</code>');
+            if(step.dependencies&&step.dependencies.length) h+=kv('Depends on',step.dependencies.map(function(d){return '<code>'+escapeHTML(d)+'</code>';}).join(' '));
+            // Prompt section
+            if(step.prompt){
+                h+='<div style="padding:0.25rem var(--ws-pad-x);font-size:0.65rem;color:var(--color-text-muted);border-top:1px solid var(--color-border);">Prompt template</div>';
+                if(typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
+                    h+='<div class="markdown-body" style="font-size:0.78rem;line-height:1.5;padding:0.3rem var(--ws-pad-x);">'+DOMPurify.sanitize(marked.parse(step.prompt))+'</div>';
+                } else {
+                    h+='<pre style="margin:0;padding:0.4rem var(--ws-pad-x);font-size:0.72rem;white-space:pre-wrap;color:var(--color-text-secondary);">'+escapeHTML(step.prompt)+'</pre>';
+                }
+            }
+            tc.innerHTML=h;
+        }).catch(function(){tc.innerHTML='<div style="padding:0.4rem;color:var(--color-failed);">Failed to load</div>';});
+    });
 });
 </script>
 {{end}}

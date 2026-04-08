@@ -1,7 +1,11 @@
 kind: WavePipeline
 metadata:
   name: ops-pr-review
-  description: "Pull request code review with automated security and quality analysis"
+  description: >-
+    Automated pull request review pipeline that performs security scanning,
+    code quality analysis, and architectural assessment. Reviews each changed
+    file for vulnerabilities, anti-patterns, and maintainability concerns,
+    then posts structured findings as review comments on the PR.
   release: true
 
 chat_context:
@@ -47,8 +51,8 @@ hooks:
 steps:
   - id: diff-analysis
     persona: navigator
+    model: strongest
     contexts: [execution]
-    adapter: opencode
     workspace:
       mount:
         - source: ./
@@ -99,8 +103,8 @@ steps:
 
   - id: security-review
     persona: reviewer
+    model: strongest
     contexts: [security]
-    adapter: opencode
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:
@@ -139,8 +143,8 @@ steps:
 
   - id: quality-review
     persona: reviewer
+    model: strongest
     contexts: [validation]
-    adapter: opencode
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:
@@ -171,10 +175,43 @@ steps:
         type: non_empty_file
         source: .wave/output/quality-review.md
 
+  - id: slop-review
+    persona: reviewer
+    model: strongest
+    contexts: [validation]
+    dependencies: [diff-analysis]
+    memory:
+      inject_artifacts:
+        - step: diff-analysis
+          artifact: diff
+          as: changes
+    exec:
+      type: prompt
+      source: |
+        Slop review of the PR changes.
+
+        Check for:
+        1. Dead code
+        2. Duplicate code
+        3. Unfinished features
+        4. Glue code, glue tests
+        5. Code that doesn't fit the overall design or architecture
+        6. Code that seems out of place or not fully thought through
+
+        Output findings with severity and suggestions.
+    output_artifacts:
+      - name: quality
+        path: .wave/output/slop-review.md
+        type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/slop-review.md
+
   - id: summary
     persona: summarizer
-    adapter: opencode
-    dependencies: [security-review, quality-review]
+    model: strongest
+    dependencies: [security-review, quality-review, slop-review]
     memory:
       inject_artifacts:
         - step: security-review
@@ -183,6 +220,9 @@ steps:
         - step: quality-review
           artifact: quality
           as: quality_findings
+        - step: slop-review
+          artifact: slop
+          as: slop_findings
     exec:
       type: prompt
       source: |
@@ -207,7 +247,7 @@ steps:
 
   - id: publish
     persona: "{{ forge.type }}-commenter"
-    adapter: opencode
+    model: cheapest
     dependencies: [summary]
     memory:
       inject_artifacts:
@@ -226,7 +266,6 @@ steps:
         2. Read the `pr_context` artifact to get the PR number for the comment command
         3. Format the review verdict into a well-structured, human-readable PR comment
         4. Post it using: {{ forge.cli_tool }} {{ forge.pr_command }} comment <PR_NUMBER> --body-file /tmp/pr-review-comment.md
-
     output_artifacts:
       - name: publish-result
         path: .wave/output/publish-result.json

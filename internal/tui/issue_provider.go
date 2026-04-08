@@ -61,12 +61,16 @@ func (p *DefaultIssueDataProvider) FetchIssues() ([]IssueData, error) {
 		if issue.IsPR {
 			continue
 		}
+		var labelNames []string
+		for _, l := range issue.Labels {
+			labelNames = append(labelNames, l.Name)
+		}
 		result = append(result, IssueData{
 			Number:    issue.Number,
 			Title:     issue.Title,
 			State:     issue.State,
 			Author:    issue.Author,
-			Labels:    issue.Labels,
+			Labels:    labelNames,
 			Assignees: issue.Assignees,
 			Body:      issue.Body,
 			Comments:  issue.Comments,

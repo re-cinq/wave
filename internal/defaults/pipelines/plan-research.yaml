@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: plan-research
-  description: Research an issue and post findings as a comment
+  description: >-
+    Research a GitHub issue using web search and codebase analysis, then post
+    structured findings as an issue comment. Fetches the issue, extracts
+    research topics, runs parallel web searches, synthesizes results, and
+    publishes a summary. Use this as a standalone research step or as the
+    first stage of impl-research.
   release: true
 
 skills:
@@ -22,6 +27,7 @@ input:
 steps:
   - id: fetch-issue
     persona: "{{ forge.type }}-analyst"
+    model: cheapest
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -161,6 +167,7 @@ steps:
 
   - id: synthesize-report
     persona: summarizer
+    model: cheapest
     dependencies: [research-topics]
     memory:
       inject_artifacts:
@@ -221,6 +228,7 @@ steps:
 
   - id: post-comment
     persona: "{{ forge.type }}-commenter"
+    model: cheapest
     dependencies: [synthesize-report]
     memory:
       inject_artifacts:

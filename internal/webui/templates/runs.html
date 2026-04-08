@@ -1,129 +1,77 @@
 {{define "title"}}Runs · Wave{{end}}
 {{define "content"}}
-<style>
-/* ── Runs v2 list ── */
-.rv2-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
-.rv2-head h1 { font-size: 1.25rem; margin: 0; }
 
-/* Filter bar */
-.rv2-filters { display: flex; gap: 0.3rem; margin-bottom: 0.6rem; align-items: center; flex-wrap: wrap; }
-.rv2-filter { padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.72rem; color: var(--color-text-muted); border: 1px solid var(--color-border); background: none; cursor: pointer; text-decoration: none; }
-.rv2-filter:hover { background: var(--color-bg-tertiary); color: var(--color-text-secondary); }
-.rv2-filter.active { background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.3); color: #a5b4fc; }
-
-/* Run card */
-.rv2-list { display: flex; flex-direction: column; gap: 0.35rem; }
-
-.rv2-run {
-    display: grid;
-    grid-template-columns: 5px 1fr auto;
-    gap: 0;
-    background: var(--color-bg-secondary);
-    border-radius: 4px;
-    overflow: hidden;
-    text-decoration: none;
-    color: inherit;
-    transition: background 0.1s, box-shadow 0.1s;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-}
-.rv2-run:hover { background: #1e2d3d; box-shadow: 0 2px 5px rgba(0,0,0,0.3); text-decoration: none; color: inherit; }
-
-/* Status accent bar (left edge) */
-.rv2-accent { border-radius: 4px 0 0 4px; }
-.rv2-accent.st-completed { background: var(--color-completed); }
-.rv2-accent.st-failed { background: var(--color-failed); }
-.rv2-accent.st-running { background: var(--color-running); }
-.rv2-accent.st-pending { background: var(--color-border); }
-.rv2-accent.st-cancelled { background: var(--color-border); }
-
-/* Main content area */
-.rv2-body { padding: 0.4rem 0.6rem; min-width: 0; }
-.rv2-row1 { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.15rem; }
-.rv2-name { font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rv2-status { font-size: 0.65rem; }
-.rv2-input { font-size: 0.72rem; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 400px; }
-.rv2-row2 { display: flex; gap: 0.5rem; align-items: center; font-size: 0.7rem; color: var(--color-text-muted); flex-wrap: wrap; }
-.rv2-row2 b { color: var(--color-text-secondary); }
-.rv2-row2 .badge { font-size: 0.6rem; padding: 0 3px; }
-
-/* Right meta */
-.rv2-meta { padding: 0.4rem 0.6rem; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 0.15rem; white-space: nowrap; }
-.rv2-date { font-size: 0.68rem; color: var(--color-text-muted); font-family: var(--font-mono); }
-.rv2-dur { font-size: 0.78rem; font-weight: 600; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
-.rv2-progress { font-size: 0.65rem; color: var(--color-text-muted); }
-
-/* Child run indent */
-.rv2-child { margin-left: 1.5rem; opacity: 0.8; }
-.rv2-child .rv2-run { background: var(--color-bg-tertiary); }
-
-/* Load more */
-.rv2-more { text-align: center; padding: 0.5rem; }
-.rv2-more a { color: #818cf8; font-size: 0.78rem; text-decoration: none; }
-.rv2-more a:hover { text-decoration: underline; }
-
-/* Empty state */
-.rv2-empty { text-align: center; padding: 2rem; color: var(--color-text-muted); font-size: 0.85rem; }
-</style>
-
-<div class="rv2-head">
+<div class="wr-head">
     <h1>Runs</h1>
-    <div style="display:flex;gap:0.3rem;">
+</div>
+
+<!-- Filters bar -->
+<div class="wr-toolbar">
+    <div class="wr-filters">
+        <a href="/runs?status=running" class="wr-filter{{if eq .FilterStatus "running"}} active{{end}}">Running</a>
+        <a href="/runs?status=completed" class="wr-filter{{if eq .FilterStatus "completed"}} active{{end}}">Completed</a>
+        <a href="/runs?status=failed" class="wr-filter{{if eq .FilterStatus "failed"}} active{{end}}">Failed</a>
+        <a href="/runs?status=cancelled" class="wr-filter{{if eq .FilterStatus "cancelled"}} active{{end}}">Cancelled</a>
+        <a href="/runs?status=all" class="wr-filter{{if eq .FilterStatus "all"}} active{{end}}">All</a>
+    </div>
+    <div class="wr-controls">
+        <input type="text" id="run-search" placeholder="Search runs..." style="padding:0.2rem 0.4rem;border-radius:4px;font-size:0.72rem;color:var(--color-text-secondary);border:1px solid var(--color-border);background:var(--color-bg-tertiary);font-family:var(--font-sans);width:180px;" oninput="filterRuns(this.value)">
+        {{if .Pipelines}}
+        <select class="wr-select" onchange="location.href='/runs{{if .FilterStatus}}?status={{.FilterStatus}}{{else}}?{{end}}&pipeline='+this.value">
+            <option value="">All pipelines</option>
+            {{range .Pipelines}}
+            <option value="{{.}}"{{if $.FilterPipeline}}{{if eq $.FilterPipeline .}} selected{{end}}{{end}}>{{.}}</option>
+            {{end}}
+        </select>
+        {{end}}
     </div>
 </div>
 
-<!-- Filters -->
-<div class="rv2-filters">
-    <a href="/runs" class="rv2-filter{{if not .FilterStatus}} active{{end}}">All</a>
-    <a href="/runs?status=running" class="rv2-filter{{if eq .FilterStatus "running"}} active{{end}}">Running</a>
-    <a href="/runs?status=completed" class="rv2-filter{{if eq .FilterStatus "completed"}} active{{end}}">Completed</a>
-    <a href="/runs?status=failed" class="rv2-filter{{if eq .FilterStatus "failed"}} active{{end}}">Failed</a>
-</div>
-
 <!-- Run list -->
-<div class="rv2-list">
+<div class="wr-list" id="run-list">
 {{if .Runs}}
 {{range .Runs}}
-    <a href="/runs/{{.RunID}}" class="rv2-run">
-        <div class="rv2-accent st-{{.Status}}"></div>
-        <div class="rv2-body">
-            <div class="rv2-row1">
-                <span class="rv2-name">{{.PipelineName}}</span>
-                <span class="badge rv2-status {{statusClass .Status}}">{{.Status}}</span>
-                {{if .InputPreview}}<span class="rv2-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
+    <a href="/runs/{{.RunID}}" class="wr-run">
+        <div class="wr-accent st-{{.Status}}"></div>
+        <div class="wr-body">
+            <div class="wr-row1">
+                <span class="wr-name">{{.PipelineName}}</span>
+                <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
+                {{if .InputPreview}}<span class="wr-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
             </div>
-            <div class="rv2-row2">
+            <div class="wr-row2">
                 {{if gt .StepsTotal 0}}<span><b>{{.StepsCompleted}}/{{.StepsTotal}}</b> steps</span>{{end}}
                 {{if .TotalTokens}}<span><b>{{formatTokens .TotalTokens}}</b> tok</span>{{end}}
                 {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{friendlyModel .}}</span>{{end}}
                 {{range .Models}}<span class="badge badge-model">{{friendlyModel .}}</span>{{end}}
             </div>
         </div>
-        <div class="rv2-meta">
-            <span class="rv2-date">{{.FormattedStartedAt}}</span>
-            {{if .Duration}}<span class="rv2-dur">{{.Duration}}</span>{{end}}
-            {{if .BranchName}}<span class="rv2-progress" style="font-family:var(--font-mono);">{{.BranchName}}</span>{{end}}
+        <div class="wr-meta">
+            <span class="wr-date">{{.FormattedStartedAt}}</span>
+            {{if .Duration}}<span class="wr-dur">{{.Duration}}</span>{{end}}
+            {{if .BranchName}}<span class="wr-progress" style="font-family:var(--font-mono);">{{.BranchName}}</span>{{end}}
         </div>
     </a>
 
     {{if .ChildRuns}}
-    <div class="rv2-child">
+    <div class="wr-child">
     {{range .ChildRuns}}
-        <a href="/runs/{{.RunID}}" class="rv2-run">
-            <div class="rv2-accent st-{{.Status}}"></div>
-            <div class="rv2-body">
-                <div class="rv2-row1">
-                    <span class="rv2-name">{{.PipelineName}}</span>
-                    <span class="badge rv2-status {{statusClass .Status}}">{{.Status}}</span>
-                    {{if .InputPreview}}<span class="rv2-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
+        <a href="/runs/{{.RunID}}" class="wr-run">
+            <div class="wr-accent st-{{.Status}}"></div>
+            <div class="wr-body">
+                <div class="wr-row1">
+                    <span class="wr-name">{{.PipelineName}}</span>
+                    <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
+                    {{if .InputPreview}}<span class="wr-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
                 </div>
-                <div class="rv2-row2">
+                <div class="wr-row2">
                     {{if .Duration}}<span><b>{{.Duration}}</b></span>{{end}}
                     {{if gt .StepsTotal 0}}<span><b>{{.StepsCompleted}}/{{.StepsTotal}}</b> steps</span>{{end}}
                     {{if .TotalTokens}}<span><b>{{formatTokens .TotalTokens}}</b> tok</span>{{end}}
                 </div>
             </div>
-            <div class="rv2-meta">
-                <span class="rv2-date">{{.FormattedStartedAt}}</span>
+            <div class="wr-meta">
+                <span class="wr-date">{{.FormattedStartedAt}}</span>
             </div>
         </a>
     {{end}}
@@ -131,24 +79,61 @@
     {{end}}
 {{end}}
 {{else}}
-<div class="rv2-empty">No runs found{{if .FilterStatus}} with status "{{.FilterStatus}}"{{end}}</div>
+<div class="wr-empty">No runs found{{if .FilterStatus}} with status "{{.FilterStatus}}"{{end}}{{if .FilterPipeline}} for pipeline "{{.FilterPipeline}}"{{end}}</div>
 {{end}}
 </div>
 
 {{if .HasMore}}
-<div class="rv2-more">
-    <a href="/runs?cursor={{.NextCursor}}{{if .FilterStatus}}&status={{.FilterStatus}}{{end}}{{if .FilterPipeline}}&pipeline={{.FilterPipeline}}{{end}}">Load more</a>
+<div class="wr-loading" id="wr-loader" data-next="/runs?cursor={{.NextCursor}}{{if .FilterStatus}}&status={{.FilterStatus}}{{end}}{{if .FilterPipeline}}&pipeline={{.FilterPipeline}}{{end}}">
+    <span class="wr-loading-spinner"></span>
+    <span class="wr-loading-text">Loading more...</span>
 </div>
 {{end}}
 
 {{end}}
 {{define "scripts"}}
 <script>
-// Keyboard shortcut: press 'r' to refresh
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'r' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') {
-        location.reload();
+// Client-side search filter for run cards
+function filterRuns(query) {
+    var q = query.toLowerCase().trim();
+    document.querySelectorAll('#run-list > a.wr-run, #run-list > .wr-child').forEach(function(card) {
+        if (!q) { card.style.display = ''; return; }
+        card.style.display = card.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+    });
+}
+(function(){
+    var loader=document.getElementById('wr-loader');
+    if(!loader)return;
+    var list=document.querySelector('.wr-list');
+    if(!list)return;
+    var loading=false;
+    var nextUrl=loader.dataset.next;
+
+    function loadMore(){
+        if(loading||!nextUrl)return;
+        loading=true;
+        loader.classList.add('active');
+        fetch(nextUrl).then(function(r){return r.text()}).then(function(html){
+            var doc=new DOMParser().parseFromString(html,'text/html');
+            doc.querySelectorAll('.wr-list > *').forEach(function(el){
+                list.appendChild(el.cloneNode(true));
+            });
+            var newLoader=doc.getElementById('wr-loader');
+            if(newLoader){
+                nextUrl=newLoader.dataset.next;
+                loading=false;
+                loader.classList.remove('active');
+            } else {
+                loader.remove();
+            }
+        }).catch(function(){loader.classList.remove('active');loading=false;});
     }
-});
+    window.addEventListener('scroll',function(){
+        if(loader.getBoundingClientRect().top<window.innerHeight+300) loadMore();
+    });
+    setTimeout(function(){
+        if(loader.getBoundingClientRect().top<window.innerHeight+300) loadMore();
+    },100);
+})();
 </script>
 {{end}}

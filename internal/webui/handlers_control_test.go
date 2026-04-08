@@ -240,8 +240,8 @@ func TestHandleCancelRun_WithBody(t *testing.T) {
 	if resp.RunID != runID {
 		t.Errorf("expected run ID %q, got %q", runID, resp.RunID)
 	}
-	if resp.Status != "cancelling" {
-		t.Errorf("expected status 'cancelling', got %q", resp.Status)
+	if resp.Status != "cancelled" {
+		t.Errorf("expected status 'cancelled', got %q", resp.Status)
 	}
 }
 

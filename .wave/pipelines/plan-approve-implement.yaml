@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: plan-approve-implement
-  description: "Plan-approve-implement workflow with human approval gate"
+  description: >-
+    Three-phase workflow with a human approval gate between planning and
+    implementation. A navigator drafts the plan, then a gate pauses execution
+    for human review with approve, revise, or abort options. Implementation
+    only proceeds after explicit approval. Use this when you want to review
+    and optionally refine the plan before any code is written.
   category: impl
 
 input:
@@ -13,6 +18,7 @@ input:
 steps:
   - id: plan
     persona: navigator
+    model: strongest
     exec:
       type: prompt
       source: |
@@ -53,6 +59,7 @@ steps:
 
   - id: implement
     persona: craftsman
+    model: strongest
     exec:
       type: prompt
       source: |

@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: impl-speckit
-  description: "Specification-driven implementation: specify → clarify → plan → tasks → implement → PR"
+  description: >-
+    Specification-driven implementation using the speckit toolchain. Walks
+    through specify, clarify, plan, task breakdown, checklist analysis,
+    implementation, and PR creation. Use this for complex features that benefit
+    from a formal specification and structured task decomposition before any
+    code is written. Requires the specify-cli tool.
   release: true
 
 requires:
@@ -86,6 +91,7 @@ steps:
 
   - id: plan
     persona: implementer
+    model: strongest
     dependencies: [clarify]
     memory:
       inject_artifacts:
@@ -115,6 +121,7 @@ steps:
 
   - id: tasks
     persona: implementer
+    model: strongest
     dependencies: [plan]
     memory:
       inject_artifacts:
@@ -144,6 +151,7 @@ steps:
 
   - id: checklist
     persona: implementer
+    model: cheapest
     dependencies: [tasks]
     memory:
       inject_artifacts:
@@ -203,6 +211,7 @@ steps:
 
   - id: implement
     persona: craftsman
+    model: strongest
     dependencies: [analyze]
     max_concurrent_agents: 3
     memory:
@@ -240,6 +249,7 @@ steps:
 
   - id: create-pr
     persona: craftsman
+    model: cheapest
     dependencies: [implement]
     memory:
       inject_artifacts:

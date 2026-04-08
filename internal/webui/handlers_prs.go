@@ -16,7 +16,10 @@ import (
 
 // handlePRsPage handles GET /prs - serves the HTML pull requests page.
 func (s *Server) handlePRsPage(w http.ResponseWriter, r *http.Request) {
-	stateFilter := validateStateFilter(r.URL.Query().Get("state"))
+	stateFilter := r.URL.Query().Get("state")
+	if stateFilter == "" {
+		stateFilter = "open"
+	}
 	page := parsePageNumber(r)
 	prData := s.getPRListData(stateFilter, page)
 
@@ -154,12 +157,26 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Compute aggregate Wave stats
+	runCount := len(relatedRuns)
+	totalTokens := 0
+	lastStatus := ""
+	for _, r := range relatedRuns {
+		totalTokens += r.TotalTokens
+		if lastStatus == "" {
+			lastStatus = r.Status
+		}
+	}
+
 	data := struct {
 		ActivePage    string
 		PR            PRDetail
 		Runs          []RunSummary
 		Comments      []CommentSummary
 		CommitDetails []CommitSummary
+		RunCount      int
+		TotalTokens   int
+		LastStatus    string
 	}{
 		ActivePage: "prs",
 		PR: PRDetail{
@@ -168,7 +185,7 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 			State:        pr.State,
 			Body:         pr.Body,
 			Author:       pr.Author,
-			Labels:       pr.Labels,
+			Labels:       forgeLabelsToBadges(pr.Labels),
 			Draft:        pr.Draft,
 			Merged:       pr.Merged,
 			HeadBranch:   pr.HeadBranch,
@@ -186,6 +203,9 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 		Runs:          relatedRuns,
 		Comments:      comments,
 		CommitDetails: commits,
+		RunCount:      runCount,
+		TotalTokens:   totalTokens,
+		LastStatus:    lastStatus,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -279,7 +299,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 			Title:        pr.Title,
 			State:        pr.State,
 			Author:       pr.Author,
-			Labels:       pr.Labels,
+			Labels:       forgeLabelsToBadges(pr.Labels),
 			Draft:        pr.Draft,
 			Merged:       pr.Merged,
 			HeadBranch:   pr.HeadBranch,
@@ -296,12 +316,31 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 		summaries = []PRSummary{}
 	}
 
+	// Enrich with Wave run stats
+	if s.store != nil {
+		allRuns, err := s.store.ListRuns(state.ListRunsOptions{Limit: 10000})
+		if err == nil {
+			enrichPRSummariesWithRuns(summaries, allRuns)
+		}
+	}
+
+	var openCount, closedCount int
+	for _, s := range summaries {
+		if s.State == "open" || s.Draft {
+			openCount++
+		} else {
+			closedCount++
+		}
+	}
+
 	return PRListResponse{
 		PullRequests: summaries,
 		RepoSlug:     s.repoSlug,
 		FilterState:  stateFilter,
 		Page:         page,
 		HasMore:      hasMore,
+		TotalOpen:    openCount,
+		TotalClosed:  closedCount,
 	}
 }
 

@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: wave-review
-  description: "Code review of Wave changes — quality, safety, test coverage, and architectural alignment"
+  description: >-
+    Code review pipeline tailored to Wave's own codebase. Reviews a PR or branch
+    for correctness, test coverage, security, performance, architectural alignment
+    with Wave's patterns, CLAUDE.md compliance, and commit style. Produces a
+    per-file assessment with APPROVE, REQUEST_CHANGES, or COMMENT verdict. Use
+    this before merging changes to Wave itself.
   release: false
 
 skills:

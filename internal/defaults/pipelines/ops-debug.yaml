@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: ops-debug
-  description: "Systematic debugging with hypothesis testing"
+  description: >-
+    Systematic debugging pipeline that reproduces a reported issue, forms ranked
+    hypotheses about root cause, tests each hypothesis against the codebase, and
+    applies a minimal fix with a regression test. Use this when a bug has a clear
+    symptom but an unknown cause. Loops the fix step through test verification
+    until all tests pass.
   release: true
 
 skills:
@@ -57,6 +62,7 @@ steps:
 
   - id: hypothesize
     persona: debugger
+    model: strongest
     thread: debug
     dependencies: [reproduce]
     memory:
@@ -91,6 +97,7 @@ steps:
 
   - id: investigate
     persona: debugger
+    model: strongest
     thread: debug
     dependencies: [hypothesize]
     memory:
@@ -129,6 +136,7 @@ steps:
 
   - id: fix
     persona: craftsman
+    model: strongest
     dependencies: [investigate]
     thread: debug
     max_visits: 3

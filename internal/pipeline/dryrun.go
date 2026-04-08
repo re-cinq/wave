@@ -410,6 +410,8 @@ var validContractTypes = map[string]bool{
 	"markdown_spec":        true,
 	"format":               true,
 	"non_empty_file":       true,
+	"llm_judge":            true,
+	"agent_review":         true,
 }
 
 func (v *DryRunValidator) validateContract(step *Step, report *DryRunReport) {

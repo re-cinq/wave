@@ -1,7 +1,11 @@
 kind: WavePipeline
 metadata:
   name: impl-feature
-  description: "Plan, implement, test, and commit a feature to a new branch"
+  description: >-
+    Plan, implement, test, and commit a feature to a new branch. Use this for
+    well-understood feature requests described in plain language. Steps include
+    codebase exploration, structured planning, implementation with contract
+    validation, and a verified commit on a dedicated branch.
   release: true
 
 skills:
@@ -73,6 +77,7 @@ steps:
 
   - id: plan
     persona: planner
+    model: strongest
     dependencies: [explore]
     memory:
       inject_artifacts:
@@ -117,6 +122,7 @@ steps:
 
   - id: implement
     persona: craftsman
+    model: strongest
     contexts: [execution, delivery]
     dependencies: [plan]
     memory:
@@ -182,6 +188,7 @@ steps:
 
   - id: fix-implement
     persona: craftsman
+    model: fastest
     rework_only: true
     workspace:
       type: worktree
@@ -209,6 +216,7 @@ steps:
   # ── Publish ─────────────────────────────────────────────────────────
   - id: publish
     persona: craftsman
+    model: cheapest
     dependencies: [implement]
     memory:
       inject_artifacts:

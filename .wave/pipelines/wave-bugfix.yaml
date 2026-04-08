@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: wave-bugfix
-  description: "Investigate and fix a bug in Wave — root cause analysis, minimal fix, regression test"
+  description: >-
+    Investigate and fix a bug in Wave's own codebase. Performs root cause analysis
+    by tracing execution paths, applies a minimal fix, and adds a regression test
+    that fails without the fix and passes with it. Loops the fix step through
+    test verification until all tests pass. Use this for targeted bug fixes in
+    Wave's Go source code.
   release: false
 
 skills:
@@ -83,6 +88,7 @@ steps:
 
   - id: fix
     persona: craftsman
+    model: strongest
     dependencies: [investigate]
     thread: bugfix
     max_visits: 3

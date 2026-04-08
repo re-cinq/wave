@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: ops-issue-quality
-  description: "Scan open issues for quality and post enhancement suggestions on poor-scoring ones"
+  description: >-
+    Scan all open issues in a repository, score each for title clarity, body
+    completeness, and label hygiene, then post actionable enhancement suggestions
+    as comments on the worst-scoring issues. Use this to improve issue quality
+    across a project. Scores issues on a 0-100 scale and targets those below
+    the quality threshold for remediation.
   release: true
 
 skills:
@@ -113,6 +118,7 @@ steps:
 
   - id: enhance
     persona: "{{ forge.type }}-commenter"
+    model: strongest
     dependencies: [scan]
     memory:
       inject_artifacts:

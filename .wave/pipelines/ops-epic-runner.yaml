@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: ops-epic-runner
-  description: "Scope an epic, implement each child issue sequentially"
+  description: >-
+    End-to-end epic execution pipeline that scopes a parent epic into child
+    issues, then implements each child sequentially using the speckit flow.
+    Use this to take a high-level epic from scoping through implementation
+    in a single pipeline run. Composes plan-scope and impl-speckit as
+    sub-pipelines.
   category: composition
   release: true
 
