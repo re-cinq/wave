@@ -22,6 +22,18 @@ chat_context:
     - "Code quality and maintainability"
     - "Security concerns and vulnerabilities"
 
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
 skills:
   - "{{ project.skill }}"
   - gh-cli
@@ -34,6 +46,11 @@ requires:
 input:
   source: cli
   example: "https://github.com/owner/repo/pull/42"
+
+pipeline_outputs:
+  verdict:
+    step: summary
+    artifact: verdict
 
 steps:
   - id: diff-analysis
@@ -90,6 +107,7 @@ steps:
 
   - id: security-review
     persona: reviewer
+    thread: review
     model: strongest
     contexts: [security]
     dependencies: [diff-analysis]
@@ -131,6 +149,7 @@ steps:
 
   - id: quality-review
     persona: reviewer
+    thread: review
     model: strongest
     contexts: [validation]
     dependencies: [diff-analysis]
@@ -160,8 +179,14 @@ steps:
         type: markdown
     handover:
       contract:
-        type: non_empty_file
+        type: agent_review
+        persona: navigator
+        criteria_path: .wave/contracts/quality-review-criteria.md
         source: .wave/output/quality-review.md
+        model: cheapest
+        token_budget: 8000
+        timeout: 90s
+        on_failure: continue
 
   - id: summary
     persona: summarizer

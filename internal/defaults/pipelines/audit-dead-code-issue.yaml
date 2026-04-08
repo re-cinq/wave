@@ -21,6 +21,35 @@ input:
   source: cli
   example: "scan all packages for dead code and report findings"
 
+chat_context:
+  artifact_summaries:
+    - findings
+    - issue-result
+  suggested_questions:
+    - "How many dead code items were found?"
+    - "Which findings are highest confidence?"
+    - "Was the GitHub issue created successfully?"
+  focus_areas:
+    - "Dead code findings by type and confidence"
+    - "Issue creation status"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  findings:
+    step: create-issue
+    artifact: issue-result
+
 steps:
   - id: scan
     persona: navigator

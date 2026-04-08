@@ -19,6 +19,35 @@ input:
     type: string
     description: "Scan scope: empty for branch diff, 'full' for all files, or a git ref"
 
+chat_context:
+  artifact_summaries:
+    - findings
+    - issue-result
+  suggested_questions:
+    - "What documentation inconsistencies were found?"
+    - "Which findings are most critical to fix?"
+    - "Was the GitHub issue created with the report?"
+  focus_areas:
+    - "Documentation drift severity"
+    - "Remediation priority and issue status"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  findings:
+    step: publish
+    artifact: issue-result
+
 steps:
   - id: scan-changes
     persona: navigator

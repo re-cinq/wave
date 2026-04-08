@@ -48,6 +48,11 @@ hooks:
     command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
     blocking: false
 
+pipeline_outputs:
+  verdict:
+    step: publish
+    artifact: publish-result
+
 steps:
   - id: diff-analysis
     persona: navigator
@@ -103,6 +108,7 @@ steps:
 
   - id: security-review
     persona: reviewer
+    thread: review
     model: strongest
     contexts: [security]
     dependencies: [diff-analysis]
@@ -144,6 +150,7 @@ steps:
 
   - id: quality-review
     persona: reviewer
+    thread: review
     model: strongest
     contexts: [validation]
     dependencies: [diff-analysis]
@@ -173,13 +180,59 @@ steps:
         type: markdown
     handover:
       contract:
-        type: non_empty_file
+        type: agent_review
+        persona: navigator
+        criteria_path: .wave/contracts/quality-review-criteria.md
         source: .wave/output/quality-review.md
+        model: cheapest
+        token_budget: 8000
+        timeout: 90s
+        on_failure: continue
+
+  - id: slop-review
+    persona: reviewer
+    thread: review
+    model: strongest
+    contexts: [validation]
+    dependencies: [diff-analysis]
+    memory:
+      inject_artifacts:
+        - step: diff-analysis
+          artifact: diff
+          as: changes
+    exec:
+      type: prompt
+      source: |
+        Slop review of the PR changes.
+
+        Check for:
+        1. Dead code
+        2. Duplicate code
+        3. Unfinished features
+        4. Glue code, glue tests
+        5. Code that doesn't fit the overall design or architecture
+        6. Code that seems out of place or not fully thought through
+
+        Output findings with severity and suggestions.
+    output_artifacts:
+      - name: quality
+        path: .wave/output/slop-review.md
+        type: markdown
+    handover:
+      contract:
+        type: agent_review
+        persona: navigator
+        criteria_path: .wave/contracts/quality-review-criteria.md
+        source: .wave/output/slop-review.md
+        model: cheapest
+        token_budget: 8000
+        timeout: 90s
+        on_failure: continue
 
   - id: summary
     persona: summarizer
-    model: cheapest
-    dependencies: [security-review, quality-review]
+    model: strongest
+    dependencies: [security-review, quality-review, slop-review]
     memory:
       inject_artifacts:
         - step: security-review
@@ -188,6 +241,9 @@ steps:
         - step: quality-review
           artifact: quality
           as: quality_findings
+        - step: slop-review
+          artifact: slop
+          as: slop_findings
     exec:
       type: prompt
       source: |

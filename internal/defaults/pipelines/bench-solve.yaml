@@ -14,6 +14,28 @@ input:
     type: string
     description: "Problem statement describing the bug or feature to implement"
 
+chat_context:
+  artifact_summaries:
+    - solve
+  suggested_questions:
+    - "Was the problem solved correctly?"
+    - "Do all tests pass after the fix?"
+  focus_areas:
+    - "Solution correctness"
+    - "Test validation"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
 steps:
   - id: solve
     persona: craftsman

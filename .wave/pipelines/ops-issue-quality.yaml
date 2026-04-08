@@ -23,6 +23,35 @@ input:
     type: string
     description: "Repository in owner/repo format"
 
+chat_context:
+  artifact_summaries:
+    - quality-report
+    - enhancement-summary
+  suggested_questions:
+    - "How many issues scored below the quality threshold?"
+    - "What were the most common quality problems?"
+    - "How many enhancement comments were posted?"
+  focus_areas:
+    - "Issue quality scores and patterns"
+    - "Enhancement suggestions posted"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  report:
+    step: enhance
+    artifact: enhancement-summary
+
 steps:
   - id: scan
     persona: "{{ forge.type }}-analyst"
