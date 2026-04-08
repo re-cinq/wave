@@ -92,14 +92,16 @@
 <div class="w-io w-io-in">
     <div class="ws-row1"><span class="ws-name">Input</span></div>
     <div class="ws-io">
-        <span class="w-io-tag">IN</span>
-        {{if .LinkedTitle}}
-            <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:0.82rem;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
-            {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else}}status-cancelled{{end}}" style="font-size:0.68rem;">{{.LinkedState}}</span>{{end}}
-            {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</span>{{end}}
-        {{else}}
-            {{if .Run.LinkedURL}}<a href="{{.Run.LinkedURL}}" target="_blank" style="font-weight:600;">{{richInput .Run.Input .Run.LinkedURL}}</a>{{else if .Run.Input}}{{.Run.Input}}{{else}}<span style="opacity:0.4">no input</span>{{end}}
-        {{end}}
+        <div class="ws-io-in">
+            <span class="ws-io-lbl">IN</span>
+            <span class="ws-io-val">{{if .LinkedTitle}}
+                <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
+                {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else}}status-cancelled{{end}}" style="font-size:0.68rem;">{{.LinkedState}}</span>{{end}}
+                {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</span>{{end}}
+            {{else}}
+                {{if .Run.LinkedURL}}<a href="{{.Run.LinkedURL}}" target="_blank" style="font-weight:600;">{{richInput .Run.Input .Run.LinkedURL}}</a>{{else if .Run.Input}}{{.Run.Input}}{{else}}<span style="opacity:0.4">no input</span>{{end}}
+            {{end}}</span>
+        </div>
     </div>
 </div>
 
@@ -211,14 +213,16 @@
         {{end}}
     </div>
     <div class="ws-io">
-        <span class="w-io-tag">OUT</span>
-        {{if .LinkedTitle}}
-            <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;font-size:0.82rem;color:var(--color-link);">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
-            {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else if eq .LinkedState "closed"}}status-cancelled{{end}}" style="font-size:0.68rem;">{{.LinkedState}}</span>{{end}}
-            {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</span>{{end}}
-        {{else if .Run.LinkedURL}}
-            <a href="{{.Run.LinkedURL}}" target="_blank" style="font-size:0.82rem;color:var(--color-link);">{{richInput .Run.Input .Run.LinkedURL}} ↗</a>
-        {{end}}
+        <div class="ws-io-in">
+            <span class="ws-io-lbl">OUT</span>
+            <span class="ws-io-val">{{if .LinkedTitle}}
+                <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;color:var(--color-link);">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
+                {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else if eq .LinkedState "closed"}}status-cancelled{{end}}" style="font-size:0.68rem;">{{.LinkedState}}</span>{{end}}
+                {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</span>{{end}}
+            {{else if .Run.LinkedURL}}
+                <a href="{{.Run.LinkedURL}}" target="_blank" style="color:var(--color-link);">{{richInput .Run.Input .Run.LinkedURL}} ↗</a>
+            {{end}}</span>
+        </div>
     </div>
     {{if .Run.ErrorMessage}}<div class="ws-err">{{.Run.ErrorMessage}}</div>{{end}}
 </div>
