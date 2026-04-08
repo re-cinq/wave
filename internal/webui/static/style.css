@@ -2783,6 +2783,7 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 /* ── Step config panel (click to expand) ── */
 .ws-config { border-top: 1px solid var(--color-border); background: var(--color-bg-secondary); }
 .ws-config[hidden] { display: none; }
+.ws-config .markdown-body { border: none; background: transparent; padding: 0; }
 
 /* ── Row 2: I/O ── */
 .ws-io { display: flex; gap: 0.75rem; padding: 0.12rem var(--ws-pad-x) var(--ws-pad-y-bot); font-size: 0.78rem; flex-wrap: wrap; }
