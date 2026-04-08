@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: ops-bootstrap
-  description: "Scaffold a greenfield project with language-appropriate structure, CI config, and initial files"
+  description: >-
+    Scaffold a greenfield project with language-appropriate directory structure,
+    CI configuration, and initial source files. Use this when starting a new
+    project from scratch. Detects the project flavour (Go, Rust, Node, Python,
+    C#), generates idiomatic scaffolding, verifies the build passes, and commits
+    the result to a feature branch.
   release: true
 
 input:

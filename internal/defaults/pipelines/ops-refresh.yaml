@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: ops-refresh
-  description: "Refresh a stale issue by comparing it against recent codebase changes"
+  description: >-
+    Refresh a stale issue by comparing its content against recent codebase
+    changes, commits, and releases. Use this when an issue's acceptance criteria,
+    file references, or technical details have drifted from reality. Classifies
+    each section as still-valid, outdated, incomplete, or wrong, then rewrites
+    the issue body and applies the update via the forge CLI.
   release: true
 
 skills:

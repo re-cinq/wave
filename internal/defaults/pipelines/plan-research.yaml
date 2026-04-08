@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: plan-research
-  description: Research an issue and post findings as a comment
+  description: >-
+    Research a GitHub issue using web search and codebase analysis, then post
+    structured findings as an issue comment. Fetches the issue, extracts
+    research topics, runs parallel web searches, synthesizes results, and
+    publishes a summary. Use this as a standalone research step or as the
+    first stage of impl-research.
   release: true
 
 skills:

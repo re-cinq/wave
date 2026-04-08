@@ -1,7 +1,11 @@
 kind: WavePipeline
 metadata:
   name: audit-dead-code-review
-  description: "Scan PR-changed files for dead code and post a review comment"
+  description: >-
+    Scan only the files changed in a pull request for dead code and post a
+    review comment with findings. Use this as a PR review gate to catch dead
+    code introduced or exposed by a change before it merges. Scopes analysis
+    to the PR diff, composes a summary, and publishes it as a PR comment.
   release: true
 
 requires:

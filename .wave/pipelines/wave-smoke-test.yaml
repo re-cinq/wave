@@ -1,7 +1,11 @@
 kind: WavePipeline
 metadata:
   name: wave-smoke-test
-  description: "Minimal pipeline for testing contracts and artifacts"
+  description: >-
+    Minimal two-step pipeline for verifying that Wave's contract validation and
+    artifact injection work end-to-end. Runs a single analysis step with a JSON
+    schema contract, then summarizes the result via artifact injection. Use this
+    as a quick smoke test after changes to the contract or artifact subsystems.
   release: false
 
 input:

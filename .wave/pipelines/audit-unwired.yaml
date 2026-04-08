@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: audit-unwired
-  description: "Find features that exist in code but have no runtime path from CLI, pipelines, or API"
+  description: >-
+    Find features that exist in code but have no runtime path from CLI commands,
+    pipeline execution, WebUI routes, or adapter capabilities. Traces entry points
+    through cmd/ and internal/ to identify exported functions and types with no
+    callers. Use this to detect unwired functionality that was implemented but
+    never connected to a user-facing surface.
   release: true
   category: audit
 

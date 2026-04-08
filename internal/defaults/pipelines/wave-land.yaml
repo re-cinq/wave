@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: wave-land
-  description: "Branch, commit, push, PR, merge, and update local main"
+  description: >-
+    End-to-end landing pipeline that creates a feature branch, commits staged
+    changes with conventional messages, pushes to remote, creates a PR, merges
+    it, and updates the local main branch. Use this to ship uncommitted work
+    in a single command. Handles branch naming, commit grouping, PR creation,
+    merge, and post-merge binary installation.
 
 skills:
   - wave

@@ -1,7 +1,13 @@
 kind: WavePipeline
 metadata:
   name: wave-evolve
-  description: "Evolve Wave's own pipelines, personas, and prompts based on execution analysis"
+  description: >-
+    Self-evolution pipeline that analyzes Wave's own pipeline YAML, persona
+    definitions, prompt templates, and contract schemas for improvement
+    opportunities, then applies the highest-impact changes. Examines prompt
+    clarity, contract accuracy, retry policies, and execution traces to identify
+    where steps retry or produce inconsistent output. Use this to iteratively
+    improve Wave's pipeline infrastructure without modifying Go source code.
   release: false
 
 skills:

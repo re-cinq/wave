@@ -1,7 +1,13 @@
 kind: WavePipeline
 metadata:
   name: doc-onboard
-  description: "Generate a project onboarding guide for new contributors"
+  description: >-
+    Generate a comprehensive onboarding guide for new contributors. Surveys the
+    project structure, build system, architecture, dependencies, testing
+    patterns, and development workflow, then synthesizes a guide covering quick
+    start, project overview, architecture walkthrough, and contribution
+    conventions. Use this for any project that lacks up-to-date contributor
+    documentation.
   release: true
 
 skills:

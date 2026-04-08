@@ -1,7 +1,13 @@
 kind: WavePipeline
 metadata:
   name: ops-supervise
-  description: "Review work quality and process quality, including claudit session transcripts"
+  description: >-
+    Post-hoc supervision pipeline that evaluates both output quality and process
+    quality of completed work. Gathers evidence from git history, session
+    transcripts, pipeline artifacts, and test results, then scores correctness,
+    completeness, test coverage, efficiency, scope discipline, and tool usage.
+    Issues a verdict of APPROVE, PARTIAL_APPROVE, or REWORK with specific action
+    items.
   release: true
 
 input:

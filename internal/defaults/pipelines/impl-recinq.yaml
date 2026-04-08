@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: impl-recinq
-  description: "Rethink and simplify code using divergent-convergent thinking (Double Diamond)"
+  description: >-
+    Rethink and simplify code using the Double Diamond design process. Accepts
+    a GitHub issue, PR, or local path and runs two divergent-convergent cycles:
+    the first discovers and defines the problem space, the second develops and
+    delivers a simplified solution. Use this when existing code has accumulated
+    accidental complexity and needs a fresh perspective.
   release: true
 
 skills:

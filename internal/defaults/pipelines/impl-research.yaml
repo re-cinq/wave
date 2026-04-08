@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: impl-research
-  description: "Research a GitHub issue, implement the solution, then review the PR"
+  description: >-
+    Research a GitHub issue with web search, implement the solution, and review
+    the resulting PR. A composition pipeline that chains plan-research into
+    impl-issue and then ops-pr-review. Use this when an issue involves external
+    APIs, unfamiliar libraries, or domain concepts that require investigation
+    before coding begins.
   category: composition
   release: true
 
