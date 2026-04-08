@@ -30,11 +30,10 @@
 <div class="w-flow">
 {{range $i, $step := .Pipeline.Steps}}
     {{if $i}}<div class="w-conn"><span class="w-conn-dot"></span></div>{{end}}
-    <div class="ws st-defined{{if $step.Type}} tp-{{$step.Type}}{{end}}" data-step-id="{{$step.ID}}">
+    <div class="ws st-defined{{if $step.Type}} tp-{{$step.Type}}{{end}}" data-step-id="{{$step.ID}}"{{if $step.Dependencies}} style="margin-left:1.5rem;"{{end}}>
         <div class="ws-content">
             <div class="ws-row1">
                 <span class="ws-name">
-                    <span style="color:var(--color-text-muted);font-weight:400;font-size:0.68rem;margin-right:0.15rem;">{{add $i 1}}.</span>
                     {{if eq $step.Type "pipeline"}}<span class="tp-ico">&#x27D0;</span>
                     {{else if eq $step.Type "gate"}}<span class="tp-ico">&#x25C6;</span>
                     {{else if eq $step.Type "conditional"}}<span class="tp-ico">&#x25C6;</span>
