@@ -47,40 +47,88 @@ steps:
     exec:
       type: prompt
       source: |
-        Create a feature branch and well-structured git commits for all current changes.
+        OBJECTIVE:
+        Create a feature branch and well-structured git commits for all current changes
+        in the working tree. The commits must be logically grouped, use conventional
+        commit style, and be ready for PR creation in the next step.
 
-        Your workspace is an isolated directory. Change to the project root first:
-        Run `git rev-parse --show-toplevel` from the workspace parent directories to
-        find the repository, then `cd` into it.
+        USER CONTEXT: {{ input }}
 
-        ## Process
+        CONTEXT:
+        You are the first step in a two-step landing pipeline (commit, ship). The ship
+        step will push the branch, create a PR, merge it, and install the updated binary.
+        Your job is to organize the current working tree changes into clean, well-described
+        commits on a feature branch. Your workspace is an isolated directory, so you must
+        find the project root first.
 
-        1. Run `git status` and `git diff --stat` to see all unstaged changes
-        2. If there are no changes to commit, report that and stop
-        3. Create a feature branch from the user context below:
-           - Derive a short kebab-case name with a prefix: `fix/`, `feat/`, `refactor/`, `chore/`
-           - Example: "fix persona permissions" → `fix/persona-permissions`
+        REQUIREMENTS:
+        1. Find the project root:
+           - Run `git rev-parse --show-toplevel` from the workspace parent directories
+             to locate the repository
+           - `cd` into the project root for all subsequent git operations
+        2. Assess the current state:
+           - Run `git status` to see all modified, added, and deleted files
+           - Run `git diff --stat` to see the scope of changes
+           - If there are no changes to commit, write a brief report explaining this
+             and stop. Do NOT create empty commits.
+        3. Create a feature branch:
+           - Derive the branch name from the user context above
+           - Use a short kebab-case name with an appropriate prefix:
+             - `fix/` for bug fixes
+             - `feat/` for new features
+             - `refactor/` for code restructuring
+             - `chore/` for maintenance tasks
+             - `docs/` for documentation changes
+           - Example: "fix persona permissions" becomes `fix/persona-permissions`
            - Run `git checkout -b <branch-name>`
-        4. Run `git log --oneline -10` to see the project's commit message style
-        5. Analyze the changes and group them into logical units:
-           - Each commit should be a single logical change
-           - Separate code changes from test changes from doc changes
-           - Use conventional commit prefixes: feat:, fix:, docs:, refactor:, test:, chore:
-           - Include component scope where appropriate: fix(pipeline):, feat(cli):
-        6. For each logical group:
-           - Stage only the relevant files: `git add <specific-files>`
-           - Create a commit with a clear, descriptive message
-           - NEVER use `git add -A` or `git add .`
-        7. After all commits are created, run `git log --oneline -10` to verify
+        4. Study the project's commit style:
+           - Run `git log --oneline -10` to see recent commit messages
+           - Match the existing style (conventional prefixes, scope in parentheses)
+        5. Analyze and group the changes:
+           - Read through all changed files to understand what was modified and why
+           - Group changes into logical units. Each commit should represent a single
+             coherent change that could be understood and reviewed independently.
+           - Typical groupings:
+             - Core implementation changes (one commit per feature area)
+             - Test additions or modifications (separate commit)
+             - Documentation changes (separate commit)
+             - Configuration or CI changes (separate commit)
+           - If all changes are part of a single logical unit, one commit is fine
+        6. Create commits for each logical group:
+           - Stage only the relevant files: `git add <specific-file-1> <specific-file-2>`
+           - Write a commit message using conventional prefixes:
+             feat:, fix:, docs:, refactor:, test:, chore:
+           - Include component scope where appropriate: fix(pipeline):, feat(cli):,
+             refactor(webui):
+           - Keep the first line under 72 characters
+           - Add a body paragraph if the change needs explanation beyond the title
+           - Focus on "why" not "what" -- the diff shows what changed
+        7. Verify the result:
+           - Run `git log --oneline -10` to confirm all commits are on the branch
+           - Run `git status` to confirm no changes are left uncommitted
 
-        ## Rules
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - NEVER commit directly to main. Always create a feature branch.
+        - NEVER use `git add -A` or `git add .`. Stage specific files only.
+        - NEVER include Co-Authored-By lines in commit messages.
+        - NEVER include AI attribution in commit messages.
+        - NEVER stage .wave/artifacts/, .wave/output/, or .claude/ directories.
+          Run `git reset HEAD -- .wave/artifacts/ .wave/output/ .claude/` if any
+          are accidentally staged.
+        - Do NOT create more than 5 commits for a single feature. If changes are
+          numerous, group more aggressively rather than creating a long commit chain.
+        - Do NOT amend or rebase existing commits on main.
+        - Do NOT leave unstaged changes that should be part of this feature.
 
-        - NEVER include Co-Authored-By lines in commit messages
-        - NEVER include AI attribution in commit messages
-        - Keep commit messages concise (1-2 sentences) focused on "why" not "what"
-        - You MUST create a feature branch — never commit directly to main
+        OUTPUT FORMAT:
+        The output is the git branch with commits ready for pushing. No explicit artifact
+        file is produced. The ship step will use the branch as-is.
 
-        Context from user: {{ input }}
+        QUALITY BAR:
+        Good commits tell a story: each one is a logical unit with a descriptive message
+        that explains the purpose of the change. `git log --oneline` should read like a
+        changelog. Bad commits are either a single "update everything" commit or an
+        excessive chain of trivial commits ("fix typo", "fix another typo", "oops").
 
   - id: ship
     persona: implementer
@@ -91,25 +139,81 @@ steps:
     exec:
       type: prompt
       source: |
-        Ship the committed changes: push, create PR, merge, and update local main.
+        OBJECTIVE:
+        Ship the committed changes by pushing the feature branch, creating a PR, merging
+        it, updating the local main branch, rebuilding the binary, and verifying the
+        installation. This is the delivery step that takes committed code to production.
 
-        Your workspace may not be the project root. Find it with
-        `git rev-parse --show-toplevel` and `cd` into it.
+        CONTEXT:
+        You are the second step in the landing pipeline. The commit step has created a
+        feature branch with well-structured commits. Your workspace may not be the project
+        root -- find it with `git rev-parse --show-toplevel` and `cd` into it. Execute
+        each step below in order. If any step fails with a non-retryable error, stop
+        immediately and report the failure rather than continuing with a broken state.
 
-        Run these steps in order. Stop and report errors if any step fails.
+        REQUIREMENTS:
+        1. Push the branch to the remote:
+           ```bash
+           git push -u origin HEAD
+           ```
+           If push fails due to authentication, report the error with the exact error
+           message and stop. Do NOT retry auth failures.
+        2. Create a pull request:
+           ```bash
+           {{ forge.cli_tool }} {{ forge.pr_command }} create --fill
+           ```
+           The --fill flag auto-populates the PR title and body from the commit messages.
+           If a PR already exists for this branch (command returns "already exists" error),
+           skip creation and proceed to merge.
+        3. Merge the pull request:
+           ```bash
+           {{ forge.cli_tool }} {{ forge.pr_command }} merge --merge --delete-branch
+           ```
+           This merges with a merge commit and deletes the remote branch. If merge fails
+           due to CI checks or review requirements, report the specific failure and stop.
+        4. Switch to main and pull the merge:
+           ```bash
+           git checkout main
+           git pull
+           ```
+        5. Rebuild and install the binary:
+           ```bash
+           make install
+           ```
+           If `make install` fails, try `go install ./cmd/wave/` as a fallback.
+        6. Verify the installation:
+           ```bash
+           wave --version
+           ```
+           The version output should reflect the latest build.
+        7. If any step fails, report:
+           - Which step failed (step number and command)
+           - The exact error message from the command
+           - Whether the failure is retryable or permanent
+           - What state the repository is in (which branch, any uncommitted changes)
 
-        1. **Push**: `git push -u origin HEAD`
-        2. **Create PR**: `{{ forge.cli_tool }} {{ forge.pr_command }} create --fill`
-           If a PR already exists for this branch, skip creation.
-        3. **Merge PR**: `{{ forge.cli_tool }} {{ forge.pr_command }} merge --merge --delete-branch`
-        4. **Switch to main**: `git checkout main`
-        5. **Pull latest**: `git pull`
-        6. **Install**: `make install`
-        7. **Verify**: `wave --version`
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT force push (`git push --force` or `git push -f`). If the push is
+          rejected, diagnose the cause rather than forcing.
+        - Do NOT amend existing commits on the branch.
+        - Do NOT continue past a failed step. Each step depends on the previous one
+          succeeding. Merging a PR that was not created, or installing from a branch
+          that was not merged, produces wrong results.
+        - Do NOT create the PR with --draft. This pipeline is for landing, not for
+          review-later workflows.
+        - If {{ forge.cli_tool }} is not found in PATH, check for it in common
+          locations (e.g., nix store paths, /usr/local/bin). Report if it is truly
+          unavailable.
+        - Do NOT delete the local branch if the remote merge failed. The branch is
+          needed for diagnosing the failure.
 
-        ## Rules
+        OUTPUT FORMAT:
+        No explicit artifact is produced. The outcome is: changes merged to main,
+        binary rebuilt and installed, feature branch cleaned up. Report any failures
+        in the step output.
 
-        - If `git push` fails due to auth, report the error and stop
-        - If `{{ forge.cli_tool }}` is not found, try the full nix store path
-        - Do NOT force push
-        - Do NOT amend existing commits
+        QUALITY BAR:
+        A good ship step completes all 7 steps cleanly: branch pushed, PR created and
+        merged, main updated, binary rebuilt and verified. The git log on main shows
+        the merge commit. A bad ship step leaves the repository in an inconsistent state
+        (branch pushed but not merged, main not updated, binary not rebuilt).

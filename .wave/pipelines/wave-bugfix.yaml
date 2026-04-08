@@ -47,31 +47,86 @@ steps:
     exec:
       type: prompt
       source: |
-        Investigate the reported bug in Wave.
+        OBJECTIVE:
+        Investigate the reported bug in Wave's codebase, identify the root cause through
+        static code analysis and execution path tracing, and produce a structured findings
+        report that the fix step can use to apply a minimal, targeted fix.
 
-        Bug report: {{ input }}
+        BUG REPORT: {{ input }}
 
-        ## Investigation Steps
+        CONTEXT:
+        You are the first step in a three-step bugfix pipeline (investigate, fix, run-tests
+        with a loop). Your findings will be consumed by a craftsman persona who will apply
+        the fix. The quality of the fix depends entirely on the accuracy of your root cause
+        analysis. You have read-only access to the project codebase.
 
-        1. **Reproduce understanding**: Parse the bug report for symptoms, error
-           messages, stack traces, or reproduction steps.
+        REQUIREMENTS:
+        1. Parse the bug report for actionable clues:
+           - Error messages or panic traces (exact strings to search for)
+           - Reproduction steps or conditions that trigger the bug
+           - Affected functionality or CLI commands
+           - Any mentioned file paths, function names, or line numbers
+        2. Search for the bug using Grep:
+           - Search for error message strings verbatim
+           - Search for function names mentioned in the report
+           - Search for related type assertions, nil checks, or error returns in the
+             suspected area
+        3. Trace the execution path:
+           - Starting from the entry point (CLI command handler, HTTP handler, or
+             pipeline step), read the code file by file through the call chain
+           - Map each function call: caller -> callee, noting parameters and return
+             types
+           - Identify where the execution diverges from expected behavior
+        4. Identify the root cause with specificity:
+           - What exact condition triggers the bug? (nil pointer, unchecked type
+             assertion, race condition, off-by-one, logic error, missing error check)
+           - In which file and function does the root cause live? (exact path and
+             function name)
+           - What is the triggering input or state? (what makes this path execute)
+        5. Assess blast radius:
+           - What other code paths share the same bug pattern? Use Grep to find
+             similar constructs elsewhere in the codebase.
+           - Could fixing this bug introduce regressions? Identify callers of the
+             affected function and how they depend on current behavior.
+           - Are there existing tests that should have caught this? If so, why did
+             they miss it?
+        6. Check recent history:
+           - Run `git log --oneline -20` to see recent changes
+           - Run `git log --oneline -10 -- <affected_file>` for the specific file
+           - Was this bug recently introduced? If so, which commit?
+        7. Propose a fix strategy:
+           - Describe the minimal change needed to fix the root cause
+           - Specify which files need modification (exact paths)
+           - Describe the regression test: what input triggers the bug, what assertion
+             verifies the fix
 
-        2. **Search for the bug**: Use Grep to find relevant code paths, error
-           strings, or function names mentioned in the report.
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT guess at the root cause without reading the code. Trace the actual
+          execution path through the source files.
+        - Do NOT propose sweeping refactors. The fix step applies a minimal change.
+          If the code needs broader cleanup, note it as a follow-up, not part of the fix.
+        - Do NOT stop at the symptom. "The function returns nil" is a symptom; "the
+          function returns nil because the map lookup on line 42 succeeds but the value
+          has an empty field" is a root cause.
+        - Do NOT ignore the blast radius assessment. A fix that introduces a new bug
+          is worse than the original.
 
-        3. **Trace the execution path**: Read the code from entry point to failure
-           point. Map the call chain.
+        OUTPUT FORMAT:
+        Write the findings as structured JSON to .wave/output/findings.json matching
+        the bug-investigation schema. Include: bug_summary (string), root_cause (object
+        with file, function, line_range, condition, and explanation), execution_path
+        (array of function call objects), blast_radius (object with similar_patterns,
+        callers_affected, existing_test_gaps), recent_commits (array), fix_strategy
+        (object with description, files_to_modify, regression_test_description), and
+        timestamp.
 
-        4. **Identify root cause**: What specific condition triggers the bug?
-           Is it a nil check, type assertion, race condition, logic error?
-
-        5. **Assess blast radius**: What other code paths share the same pattern?
-           Could the fix introduce regressions?
-
-        6. **Check recent commits**: `git log --oneline -20` — was this recently
-           introduced?
-
-        Produce a findings report with root cause, affected files, and fix strategy.
+        QUALITY BAR:
+        A good investigation pinpoints the exact root cause with file and function
+        references, traces the execution path that triggers it, and proposes a fix
+        strategy specific enough that the craftsman can implement it without further
+        investigation. A bad investigation identifies the symptom but not the cause,
+        proposes a vague "fix the nil check" without specifying where, or misses
+        similar patterns that need the same fix.
     output_artifacts:
       - name: findings
         path: .wave/output/findings.json
@@ -105,17 +160,72 @@ steps:
     exec:
       type: prompt
       source: |
-        Fix the bug based on the investigation findings.
+        OBJECTIVE:
+        Apply a minimal, targeted fix for the bug identified in the investigation findings,
+        add a regression test that proves the fix works, and verify the entire test suite
+        passes. The fix must be the smallest correct change that resolves the root cause.
 
-        ## Rules
+        CONTEXT:
+        You are the second step in a bugfix pipeline. The investigation step has identified
+        the root cause and injected its findings as the "investigation" artifact. This
+        contains: the root cause (file, function, condition), the execution path, blast
+        radius assessment, and a proposed fix strategy. Read the investigation artifact
+        completely before writing any code. You have read-write access to the project
+        codebase. This step may be visited up to 3 times if the test suite fails (the
+        pipeline loops through run-tests and back to this step).
 
-        1. Apply the MINIMAL fix — don't refactor surrounding code
-        2. Add a regression test that reproduces the original bug
-        3. The test must FAIL without the fix and PASS with it
-        4. Run the project's test suite to verify no regressions
-        5. If the fix touches concurrent code, add race detector coverage
+        REQUIREMENTS:
+        1. Read the investigation artifact and understand the root cause, affected files,
+           and proposed fix strategy.
+        2. Read the affected source file(s) to understand the current code before modifying.
+        3. Apply the MINIMAL fix:
+           - Change only what is necessary to resolve the root cause
+           - Do NOT refactor surrounding code, rename variables, or "clean up" unrelated
+             issues. Those are separate tasks.
+           - If the investigation identified similar patterns elsewhere (blast radius),
+             fix those too, but only if they exhibit the same bug
+           - Preserve the existing code style and conventions
+        4. Add a regression test:
+           - The test must reproduce the original bug condition (the input or state that
+             triggers the failure)
+           - The test must FAIL if the fix is reverted and PASS with the fix applied
+           - Name the test descriptively: TestFunctionName_ConditionThatWasBroken
+           - Place the test in the appropriate test file (same package as the fix)
+           - Use table-driven test format if the function already has table-driven tests
+           - Use t.Helper() for any test helper functions
+           - Use t.TempDir() for any filesystem operations
+        5. If the fix touches concurrent code (goroutines, channels, mutexes):
+           - Add or update tests that run with the race detector
+           - Ensure the test exercises the concurrent path
+        6. Run the project's full test suite:
+           - All existing tests must still pass
+           - The new regression test must pass
+           - If any test fails, diagnose and fix the issue before completing
+        7. If this is a re-visit (the pipeline looped back from a failed test run):
+           - Read any error output from the previous attempt
+           - Focus on fixing the specific test failures rather than starting over
 
-        Run the full test suite before finishing.
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT apply a broad fix when a narrow one suffices. "Add nil checks everywhere"
+          is a shotgun fix; "Add nil check in ProcessStep before accessing workspace.Config"
+          is a targeted fix.
+        - Do NOT skip the regression test. A fix without a test will regress.
+        - Do NOT use t.Skip() on the regression test or any failing test.
+        - Do NOT modify test assertions to make them pass. Fix the code, not the tests.
+        - Do NOT add Co-Authored-By or AI attribution in any commits.
+        - Do NOT refactor code that is not directly related to the bug. Note cleanup
+          opportunities in comments if desired, but do not implement them.
+
+        OUTPUT FORMAT:
+        The output is the working codebase with the fix applied and tests passing.
+        The handover contract validates that the project test suite passes. There is
+        no explicit artifact beyond the code changes.
+
+        QUALITY BAR:
+        A good fix is the smallest correct change that resolves the root cause, accompanied
+        by a regression test that would catch recurrence. The test should be obviously
+        related to the bug (descriptive name, clear setup of the triggering condition).
+        A bad fix is overly broad, lacks a regression test, or introduces new failures.
     retry:
       policy: standard
       max_attempts: 3
