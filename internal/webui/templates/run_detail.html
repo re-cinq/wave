@@ -258,7 +258,7 @@ function v2ToggleLogs(tab){
         tc.dataset.logLoaded='1';
         tc.dataset.logHtml=html;
         tc.innerHTML=html;
-    }).catch(function(){tc.innerHTML='<pre style="margin:0;padding:0.3rem;color:#fca5a5;">(load failed)</pre>';});
+    }).catch(function(){tc.innerHTML='<pre style="margin:0;padding:0.3rem;color:var(--color-failed);">(load failed)</pre>';});
 }
 // V2 live updates — SSE with polling fallback
 if('{{.Run.Status}}'==='running'){
@@ -404,7 +404,7 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
             }
             h+='</div>';
             tc.innerHTML=h;
-        }).catch(function(e){tc.innerHTML='<div style="padding:0.5rem;color:#fca5a5;">Error: '+escapeHTML(String(e))+'</div>';});
+        }).catch(function(e){tc.innerHTML='<div style="padding:0.5rem;color:var(--color-failed);">Error: '+escapeHTML(String(e))+'</div>';});
     });
 });
 
@@ -453,7 +453,7 @@ function v2LoadDiff(){
         h+='<div class="w-diff-content" id="w-diff-viewer"><div class="w-diff-empty">Select a file to view changes</div></div>';
         h+='</div>';
         el.innerHTML=h;
-    }).catch(function(e){el.innerHTML='<div class="w-diff-empty" style="color:#fca5a5;">Failed: '+escapeHTML(String(e))+'</div>';});
+    }).catch(function(e){el.innerHTML='<div class="w-diff-empty" style="color:var(--color-failed);">Failed: '+escapeHTML(String(e))+'</div>';});
 }
 
 function v2ShowFileDiff(fileEl,path){
@@ -485,15 +485,16 @@ function v2LoadRetro(){
             h+='<div class="w-retro-grid">';
             h+='<div class="w-retro-card"><div class="w-retro-card-label">Duration</div><div class="w-retro-card-value">'+formatMs(q.total_duration_ms)+'</div></div>';
             h+='<div class="w-retro-card"><div class="w-retro-card-label">Steps</div><div class="w-retro-card-value">'+q.total_steps+'</div></div>';
-            h+='<div class="w-retro-card"><div class="w-retro-card-label">Succeeded</div><div class="w-retro-card-value" style="color:#4ade80;">'+q.success_count+'</div></div>';
-            h+='<div class="w-retro-card"><div class="w-retro-card-label">Failed</div><div class="w-retro-card-value"'+(q.failure_count>0?' style="color:#f87171;"':'')+'>'+q.failure_count+'</div></div>';
+            h+='<div class="w-retro-card"><div class="w-retro-card-label">Succeeded</div><div class="w-retro-card-value" style="color:var(--color-completed);">'+q.success_count+'</div></div>';
+            h+='<div class="w-retro-card"><div class="w-retro-card-label">Failed</div><div class="w-retro-card-value"'+(q.failure_count>0?' style="color:var(--color-failed);"':'')+'>'+q.failure_count+'</div></div>';
             h+='<div class="w-retro-card"><div class="w-retro-card-label">Retries</div><div class="w-retro-card-value">'+q.total_retries+'</div></div>';
             h+='<div class="w-retro-card"><div class="w-retro-card-label">Tokens</div><div class="w-retro-card-value">'+(q.total_tokens||0).toLocaleString()+'</div></div>';
             h+='</div>';
         }
         if(d.narrative){
             var n=d.narrative;
-            if(n.smoothness) h+='<div style="padding:0.3rem 0.4rem;font-size:0.78rem;"><strong>Smoothness:</strong> <span style="color:'+({excellent:'#4ade80',good:'#a3e635',fair:'#fbbf24',poor:'#f87171'}[n.smoothness]||'inherit')+'">'+escapeHTML(n.smoothness)+'</span></div>';
+            var smoothnessColors={excellent:'var(--color-completed)',good:'#a3e635',fair:'#fbbf24',poor:'var(--color-failed)'};
+            if(n.smoothness) h+='<div style="padding:0.3rem 0.4rem;font-size:0.78rem;"><strong>Smoothness:</strong> <span style="color:'+(smoothnessColors[n.smoothness]||'inherit')+'">'+escapeHTML(n.smoothness)+'</span></div>';
             if(n.outcome) h+='<div style="padding:0.15rem 0.4rem;font-size:0.78rem;"><strong>Outcome:</strong> '+escapeHTML(n.outcome)+'</div>';
             if(n.friction_points&&n.friction_points.length){
                 h+='<div style="padding:0.3rem 0.4rem;font-size:0.75rem;"><strong>Friction:</strong><ul style="margin:0.2rem 0 0;padding-left:1.2rem;">';
@@ -504,7 +505,7 @@ function v2LoadRetro(){
             }
         }
         el.innerHTML=h||'<span style="color:var(--color-text-muted);">No data</span>';
-    }).catch(function(e){el.innerHTML='<span style="color:#fca5a5;">'+escapeHTML(String(e))+'</span>';});
+    }).catch(function(e){el.innerHTML='<span style="color:var(--color-failed);">'+escapeHTML(String(e))+'</span>';});
 }
 
 function formatMs(ms){
@@ -599,8 +600,8 @@ function v2RenderObj(obj, name){
                 h+='</div>';
                 if(item.detail) h+='<div class="av-detail">'+escapeHTML(item.detail)+'</div>';
                 if(item.rationale) h+='<div class="av-detail" style="color:var(--color-text-muted);font-style:italic;">'+escapeHTML(item.rationale)+'</div>';
-                if(item.planned_fix) h+='<div class="av-detail" style="color:#4ade80;">→ '+escapeHTML(item.planned_fix)+'</div>';
-                if(item.action) h+='<div class="av-detail" style="color:#818cf8;">→ '+escapeHTML(item.action)+'</div>';
+                if(item.planned_fix) h+='<div class="av-detail" style="color:var(--color-completed);">→ '+escapeHTML(item.planned_fix)+'</div>';
+                if(item.action) h+='<div class="av-detail" style="color:var(--color-link);">→ '+escapeHTML(item.action)+'</div>';
                 if(item.file) h+='<div class="av-file">'+escapeHTML(item.file)+(item.line?':'+item.line:'')+'</div>';
                 if(item.skip_reason) h+='<div class="av-detail" style="color:var(--color-text-muted);">'+escapeHTML(item.skip_reason)+'</div>';
                 h+='</div>';
@@ -753,7 +754,7 @@ function v2ShowArtInline(container,url,name){
                 }
             }
         }
-    }).catch(function(e){container.innerHTML='<pre style="margin:0;padding:0.3rem;color:#fca5a5;">Error: '+escapeHTML(String(e))+'</pre>';});
+    }).catch(function(e){container.innerHTML='<pre style="margin:0;padding:0.3rem;color:var(--color-failed);">Error: '+escapeHTML(String(e))+'</pre>';});
 }
 
 // Toggle smart/raw/rendered views inside artifact content

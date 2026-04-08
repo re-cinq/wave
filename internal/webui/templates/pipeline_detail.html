@@ -7,8 +7,8 @@
         <a href="/pipelines" class="back-link">&larr; Pipelines</a>
         <h1>
             {{.Pipeline.Name}}
-            {{if .Pipeline.IsComposition}}<span class="badge" style="font-size:0.68rem;background:rgba(139,92,246,0.12);color:#c084fc;">composition</span>
-            {{else if .Pipeline.Category}}<span class="badge" style="font-size:0.68rem;background:rgba(99,102,241,0.12);color:#a5b4fc;">{{.Pipeline.Category}}</span>{{end}}
+            {{if .Pipeline.IsComposition}}<span class="badge" style="font-size:0.68rem;background:rgba(139,92,246,0.12);color:var(--wave-accent);">composition</span>
+            {{else if .Pipeline.Category}}<span class="badge" style="font-size:0.68rem;background:var(--color-running-bg);color:var(--color-link-hover);">{{.Pipeline.Category}}</span>{{end}}
         </h1>
         {{if .Pipeline.Description}}<p style="margin:0.1rem 0 0.3rem;font-size:0.82rem;color:var(--color-text-secondary);max-width:48rem;">{{.Pipeline.Description}}</p>{{end}}
     </div>
@@ -21,7 +21,7 @@
 <div class="w-stats" style="margin-bottom:0.5rem;">
     <span><b>{{len .Pipeline.Steps}}</b> steps</span>
     <span style="color:var(--color-text-muted);">·</span>
-    <span><a href="/runs?pipeline={{.Pipeline.Name}}" style="color:#818cf8;"><b>{{.RunCount}}</b> runs</a></span>
+    <span><a href="/runs?pipeline={{.Pipeline.Name}}" style="color:var(--color-link);"><b>{{.RunCount}}</b> runs</a></span>
     {{if .Pipeline.Skills}}<span style="color:var(--color-text-muted);">·</span>
     <span style="color:var(--color-text-muted);">Skills: {{range $i, $s := .Pipeline.Skills}}{{if $i}}, {{end}}{{$s}}{{end}}</span>{{end}}
 </div>
@@ -42,7 +42,7 @@
                 <span class="ws-meta">
                     {{if $step.Persona}}<a href="/personas/{{$step.Persona}}" class="ws-code-link">{{$step.Persona}}</a>{{end}}
                     {{if $step.Contract}}{{if $step.ContractSchemaName}}<a href="/contracts/{{$step.ContractSchemaName}}" class="ws-code-link" title="{{$step.Contract}}">{{$step.ContractSchemaName}}</a>{{else}}<span class="ws-code-link" title="{{$step.Contract}}">contract</span>{{end}}{{end}}
-                    {{if $step.SubPipeline}}<a href="/pipelines/{{$step.SubPipeline}}" class="ws-code-link" style="background:rgba(139,92,246,0.1);color:#c4b5fd;">{{$step.SubPipeline}}</a>{{end}}
+                    {{if $step.SubPipeline}}<a href="/pipelines/{{$step.SubPipeline}}" class="ws-code-link" style="background:rgba(139,92,246,0.1);color:var(--wave-accent);">{{$step.SubPipeline}}</a>{{end}}
                     {{if $step.Optional}}<span class="badge" style="font-size:0.65rem;background:rgba(245,158,11,0.12);color:#fbbf24;">optional</span>{{end}}
                 </span>
             </div>
@@ -96,7 +96,7 @@
     </div>
     {{if gt .RunCount 10}}
     <div style="margin-top:0.4rem;text-align:right;">
-        <a href="/runs?pipeline={{.Pipeline.Name}}" style="font-size:0.78rem;color:#818cf8;">View all {{.RunCount}} runs</a>
+        <a href="/runs?pipeline={{.Pipeline.Name}}" style="font-size:0.78rem;color:var(--color-link);">View all {{.RunCount}} runs</a>
     </div>
     {{end}}
     {{else}}
@@ -266,7 +266,7 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
             }
             h+='</div>';
             tc.innerHTML=h;
-        }).catch(function(){tc.innerHTML='<div style="padding:0.4rem;color:#fca5a5;">Failed to load</div>';});
+        }).catch(function(){tc.innerHTML='<div style="padding:0.4rem;color:var(--color-failed);">Failed to load</div>';});
     });
 });
 </script>

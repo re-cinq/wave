@@ -18,7 +18,7 @@
         {{if eq .PR.State "open"}}
         <a href="{{.PR.URL}}" target="_blank" class="btn btn-sm btn-primary">Merge on GitHub</a>
         {{end}}
-        <a href="{{.PR.URL}}" target="_blank" class="btn btn-sm" style="color:#818cf8;border-color:rgba(99,102,241,0.3);">GitHub ↗</a>
+        <a href="{{.PR.URL}}" target="_blank" class="btn btn-sm" style="color:var(--color-link);border-color:rgba(99,102,241,0.3);">GitHub ↗</a>
     </div>
 </div>
 
@@ -140,11 +140,11 @@
     <h2 style="font-size:0.9rem;margin:0 0 0.3rem;">Review</h2>
     <textarea id="review-body" rows="2" style="width:100%;padding:0.4rem;border:1px solid var(--color-border);border-radius:4px;font-family:inherit;font-size:0.78rem;resize:vertical;background:var(--color-bg-tertiary);color:var(--color-text);margin-bottom:0.3rem;" placeholder="Leave a comment..."></textarea>
     <div style="display:flex;gap:0.3rem;align-items:center;flex-wrap:wrap;">
-        <button id="btn-approve" class="btn btn-sm" style="border-color:rgba(34,197,94,0.3);color:#4ade80;">Approve</button>
-        <button id="btn-request-changes" class="btn btn-sm" style="border-color:rgba(239,68,68,0.3);color:#fca5a5;">Request Changes</button>
+        <button id="btn-approve" class="btn btn-sm" style="border-color:rgba(34,197,94,0.3);color:var(--color-completed);">Approve</button>
+        <button id="btn-request-changes" class="btn btn-sm" style="border-color:rgba(239,68,68,0.3);color:var(--color-failed);">Request Changes</button>
         <span style="border-left:1px solid var(--color-border);height:1.2rem;margin:0 0.2rem;"></span>
         <a href="{{.PR.URL}}/merge" target="_blank" class="btn btn-sm btn-primary" style="font-size:0.72rem;">Merge</a>
-        <a href="{{.PR.URL}}" target="_blank" class="btn btn-sm" style="border-color:rgba(239,68,68,0.3);color:#fca5a5;font-size:0.72rem;">Close</a>
+        <a href="{{.PR.URL}}" target="_blank" class="btn btn-sm" style="border-color:rgba(239,68,68,0.3);color:var(--color-failed);font-size:0.72rem;">Close</a>
         <span id="review-status" style="margin-left:0.4rem;font-size:0.75rem;"></span>
     </div>
 </div>
@@ -178,14 +178,14 @@ document.addEventListener('DOMContentLoaded', function() {
     var statusEl = document.getElementById('review-status');
     function submit(event) {
         var body = bodyEl.value.trim();
-        if (event === 'REQUEST_CHANGES' && !body) { statusEl.textContent = 'Comment required'; statusEl.style.color = '#fca5a5'; return; }
+        if (event === 'REQUEST_CHANGES' && !body) { statusEl.textContent = 'Comment required'; statusEl.style.color = 'var(--color-failed)'; return; }
         approveBtn.disabled = rcBtn.disabled = true;
         statusEl.textContent = 'Submitting...'; statusEl.style.color = '';
         fetch('/api/prs/{{.PR.Number}}/review', {
             method: 'POST', headers: {'Content-Type': 'application/json', 'X-Wave-Request': '1', 'X-CSRF-Token': getCSRFToken()},
             body: JSON.stringify({event: event, body: body})
-        }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error); statusEl.textContent = event === 'APPROVE' ? 'Approved' : 'Changes requested'; statusEl.style.color = event === 'APPROVE' ? '#4ade80' : '#fca5a5'; bodyEl.value = ''; }); })
-        .catch(function(e) { statusEl.textContent = e.message; statusEl.style.color = '#fca5a5'; })
+        }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error); statusEl.textContent = event === 'APPROVE' ? 'Approved' : 'Changes requested'; statusEl.style.color = event === 'APPROVE' ? 'var(--color-completed)' : 'var(--color-failed)'; bodyEl.value = ''; }); })
+        .catch(function(e) { statusEl.textContent = e.message; statusEl.style.color = 'var(--color-failed)'; })
         .finally(function() { approveBtn.disabled = rcBtn.disabled = false; });
     }
     approveBtn.onclick = function() { submit('APPROVE'); };
