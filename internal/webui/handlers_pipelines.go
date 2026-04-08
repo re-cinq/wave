@@ -288,6 +288,18 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 	for i := range steps {
 		steps[i].Depth = computeDepth(steps[i].ID)
 	}
+	// Rework-only steps: infer depth from the step that references them
+	reworkRefs := make(map[string]string) // rework_step -> referencing step
+	for _, step := range p.Steps {
+		if step.Retry.ReworkStep != "" {
+			reworkRefs[step.Retry.ReworkStep] = step.ID
+		}
+	}
+	for i := range steps {
+		if steps[i].Depth == 0 && reworkRefs[steps[i].ID] != "" {
+			steps[i].Depth = depthMap[reworkRefs[steps[i].ID]]
+		}
+	}
 
 	return PipelineDetail{
 		Name:          name,
