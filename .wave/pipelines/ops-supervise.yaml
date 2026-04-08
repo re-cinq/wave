@@ -55,31 +55,139 @@ steps:
     exec:
       type: prompt
       source: |
-        Gather evidence for supervision of: {{ input }}
+        ## Objective
 
-        ## Smart Input Detection
+        Gather all evidence needed to evaluate the quality of completed work — both the
+        output (what was produced) and the process (how it was produced). You must collect
+        git history, session transcripts, pipeline artifacts, test suite results, and
+        branch/PR context into a comprehensive evidence bundle. The evaluation step will
+        interpret this evidence to score quality and process dimensions, so completeness
+        and accuracy here are critical. Missing evidence leads to blind spots in the
+        evaluation.
 
-        Determine what to inspect based on the input:
-        - **Empty or "last pipeline run"**: Find the most recent pipeline run via `.wave/workspaces/` timestamps and recent git activity
-        - **"current pr" or "PR #N"**: Inspect the current or specified pull request (`git log`, `{{ forge.cli_tool }} {{ forge.pr_command }} view`)
-        - **Branch name**: Inspect all commits on that branch vs main
-        - **Free-form description**: Use grep/git log to find relevant recent work
+        Target: {{ input }}
 
-        ## Evidence Collection
+        ## Context
 
-        1. **Git history**: Recent commits with diffs (`git log --stat`, `git diff`)
-        2. **Session transcripts**: Check for claudit git notes (`git notes show <commit>` for each relevant commit). Summarize what happened in each session — tool calls, approach taken, detours, errors
-        3. **Pipeline artifacts**: Scan `.wave/workspaces/` for the relevant pipeline run. List all output artifacts and their contents
-        4. **Test state**: Run the project's test suite to capture current test status
-        5. **Branch/PR context**: Branch name, ahead/behind status, PR state if applicable
+        This is the first step of the ops-supervise pipeline. No prior artifacts exist.
+        You have read-only access to the project directory. The input can be a variety of
+        formats describing what work to inspect — your first job is to interpret the input
+        and determine the scope of evidence collection.
 
-        ## Output
+        ## Requirements
 
-        Produce a comprehensive evidence bundle as structured JSON. Include all raw
-        evidence — the evaluation step will interpret it.
+        ### Step 1: Smart Input Detection
 
-        Be thorough in transcript analysis — the process quality evaluation depends
-        heavily on understanding what the agent actually did vs what it should have done.
+        Determine what to inspect based on the input format:
+
+        - **Empty or "last pipeline run"**: Find the most recent pipeline run by scanning
+          `.wave/workspaces/` directory timestamps and recent git activity. Use
+          `ls -lt .wave/workspaces/` to find the latest run.
+        - **"current pr" or "PR #N"**: Inspect the current or specified pull request. Use
+          `git log` and `{{ forge.cli_tool }} {{ forge.pr_command }} view` to get PR
+          details, commits, and review state.
+        - **Branch name**: Inspect all commits on that branch versus main. Use
+          `git log main..<branch> --stat` to scope the work.
+        - **Free-form description**: Use grep and git log to find relevant recent work
+          matching the description. Search commit messages, file changes, and artifact
+          directories.
+
+        Record which interpretation you chose and why.
+
+        ### Step 2: Collect Git History
+
+        Gather the commit history for the relevant work scope:
+        ```bash
+        git log --stat -20    # last 20 commits with change stats
+        git log --oneline -30 # broader commit history for context
+        ```
+
+        For the most recent commits (up to 10), also collect the diffs:
+        ```bash
+        git show <commit-sha> --stat
+        ```
+
+        Record: commit hashes, messages, authors, dates, files changed, and insertion/
+        deletion counts.
+
+        ### Step 3: Collect Session Transcripts
+
+        Check for claudit git notes on relevant commits:
+        ```bash
+        git notes show <commit-sha> 2>/dev/null
+        ```
+
+        For each commit with notes, summarize the session transcript:
+        - What tools were called and in what order
+        - What approach was taken (direct implementation, research-first, trial-and-error)
+        - Any detours, abandoned approaches, or repeated attempts
+        - Error messages encountered and how they were resolved
+        - Token usage patterns (excessive context gathering, redundant reads)
+
+        If no git notes exist, record that transcripts are unavailable.
+
+        ### Step 4: Collect Pipeline Artifacts
+
+        Scan `.wave/workspaces/` for the relevant pipeline run directory:
+        ```bash
+        ls -la .wave/workspaces/
+        ```
+
+        For the relevant run, list all output artifacts and read their contents:
+        - `.wave/output/` files (pipeline outputs)
+        - `.wave/artifacts/` files (inter-step artifacts)
+        - Any log files or error reports
+
+        Record the artifact names, types, sizes, and content summaries.
+
+        ### Step 5: Capture Test State
+
+        Run the project's test suite to capture the current state:
+        ```bash
+        {{ project.contract_test_command }}
+        ```
+
+        Record: total tests, passed, failed, skipped, and the output of any failures.
+        This establishes whether the work left the codebase in a healthy state.
+
+        ### Step 6: Capture Branch/PR Context
+
+        ```bash
+        git branch -v        # current branch and ahead/behind status
+        git status --short   # any uncommitted changes
+        ```
+
+        If a PR is relevant, fetch its state:
+        ```bash
+        {{ forge.cli_tool }} {{ forge.pr_command }} view <number or URL> --json number,state,title,reviewDecision,mergeable,statusCheckRollup
+        ```
+
+        Record: branch name, tracking status, PR state, review decision, CI status.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT evaluate the evidence in this step. Collection only.
+        - Do NOT modify any files or git state. Read-only access.
+        - Do NOT skip transcript analysis if notes are available. The process quality
+          evaluation depends heavily on this data.
+        - Do NOT collect evidence outside the identified scope. If the input says "PR #42",
+          focus on PR #42's commits, not the entire repository history.
+        - Do NOT truncate test output or artifact contents. The evaluation step needs
+          complete data.
+
+        ## Output Format
+
+        Write JSON to `.wave/output/supervision-evidence.json` matching the contract
+        schema. Must include sections for: git_history, session_transcripts,
+        pipeline_artifacts, test_results, branch_context, and input_interpretation.
+
+        ## Quality Bar
+
+        A good evidence bundle lets the evaluation step assess both output and process
+        quality without re-reading any files. It includes complete test results, detailed
+        transcript summaries, and accurate branch context. A bad evidence bundle skips
+        the transcript analysis (making process evaluation impossible), truncates test
+        output, or collects evidence from the wrong scope.
     output_artifacts:
       - name: evidence
         path: .wave/output/supervision-evidence.json
@@ -111,35 +219,139 @@ steps:
     exec:
       type: prompt
       source: |
-        Evaluate the work quality based on gathered evidence.
+        ## Objective
 
-        The gathered evidence has been injected into your workspace. Read it first.
+        Evaluate the quality of completed work across two dimensions: output quality
+        (what was produced) and process quality (how it was produced). For each sub-
+        dimension, assign a rating with specific evidence from the gathered data. This
+        evaluation will be consumed by the verdict step, which cross-checks your claims
+        before issuing a final decision. Your ratings must be defensible — every "poor"
+        rating needs concrete evidence, and every "excellent" rating needs justification.
 
-        ## Output Quality Assessment
+        ## Context
 
-        For each dimension, score as excellent/good/adequate/poor with specific findings:
+        The `evidence` artifact (injected at `.wave/artifacts/evidence`) contains the
+        comprehensive evidence bundle from the gather step, including:
+        - `git_history`: commits, diffs, and change statistics
+        - `session_transcripts`: summaries of agent tool calls, approaches, and detours
+        - `pipeline_artifacts`: output files and their contents
+        - `test_results`: test suite output (total, passed, failed, skipped)
+        - `branch_context`: branch state, PR status, CI results
+        - `input_interpretation`: what scope was evaluated
 
-        1. **Correctness**: Does the code do what was intended? Check logic, edge cases, error handling
-        2. **Completeness**: Are all requirements addressed? Any gaps or TODOs left?
-        3. **Test coverage**: Are changes adequately tested? Run targeted tests if needed
-        4. **Code quality**: Does it follow project conventions? Clean abstractions? Good naming?
+        Read this artifact THOROUGHLY before starting the evaluation. Every rating must
+        be backed by specific evidence from this bundle.
 
-        ## Process Quality Assessment
+        ## Requirements
 
-        Using the session transcripts from the evidence:
+        ### Output Quality Assessment
 
-        1. **Efficiency**: Was the approach direct? Count unnecessary file reads, repeated searches, abandoned approaches visible in transcripts
-        2. **Scope discipline**: Did the agent stay on task? Flag any scope creep — changes unrelated to the original goal
-        3. **Tool usage**: Were the right tools used? (e.g., Read vs Bash cat, Glob vs find)
-        4. **Token economy**: Was the work concise or bloated? Excessive context gathering? Redundant operations?
+        Score each dimension as excellent / good / adequate / poor. For each rating,
+        provide 2-4 specific findings that justify the score.
 
-        ## Synthesis
+        1. **Correctness**: Does the code do what was intended?
+           - Check the logic of each changed function against its apparent purpose
+           - Look for edge cases that are not handled (nil inputs, empty collections,
+             concurrent access, error propagation)
+           - Verify that error handling is complete and errors are not silently swallowed
+           - If test failures exist in the evidence, analyze what they reveal about
+             correctness
+           - Rating guide: excellent = no logic issues found; good = minor edge cases
+             missed; adequate = some error handling gaps; poor = fundamental logic errors
 
-        - Overall score (excellent/good/adequate/poor)
-        - Key strengths (what went well)
-        - Key concerns (what needs attention)
+        2. **Completeness**: Are all requirements addressed?
+           - If the work was driven by an issue or PR description, check whether all
+             acceptance criteria are met
+           - Look for TODO comments, stub implementations, or placeholder values
+           - Check whether documentation was updated for new features
+           - Rating guide: excellent = all requirements met, no gaps; good = minor gaps;
+             adequate = some requirements partially addressed; poor = significant gaps
 
-        Produce the evaluation as a structured JSON result.
+        3. **Test coverage**: Are changes adequately tested?
+           - For each changed source file, check whether corresponding tests exist
+           - Evaluate test quality: do tests cover error paths, edge cases, and the
+             specific scenarios changed?
+           - Check if new tests were added for new functionality
+           - Run targeted tests if the evidence does not include test output for
+             specific packages
+           - Rating guide: excellent = comprehensive coverage including edge cases;
+             good = happy path covered; adequate = some tests exist; poor = no tests
+             for changed code
+
+        4. **Code quality**: Does it follow project conventions?
+           - Check naming conventions, code organization, and abstraction quality
+           - Look for code duplication within the changes
+           - Evaluate whether the changes are minimal and focused or overly broad
+           - Rating guide: excellent = exemplary code; good = follows conventions;
+             adequate = some style issues; poor = does not follow project patterns
+
+        ### Process Quality Assessment
+
+        Using the session transcripts from the evidence (if available):
+
+        1. **Efficiency**: Was the approach direct?
+           - Count unnecessary file reads, repeated searches, and abandoned approaches
+             visible in transcripts
+           - Identify any detours where the agent went down a wrong path before
+             correcting course
+           - Rating guide: excellent = direct path, no wasted operations; good = minor
+             detours; adequate = some wasted work; poor = significant thrashing
+
+        2. **Scope discipline**: Did the agent stay on task?
+           - Flag any changes unrelated to the original goal (scope creep)
+           - Check whether formatting, refactoring, or "improvement" changes were made
+             outside the scope
+           - Rating guide: excellent = laser-focused; good = minor scope expansion;
+             adequate = some unrelated changes; poor = significant scope creep
+
+        3. **Tool usage**: Were the right tools used?
+           - Check for: Read vs Bash cat, Glob vs find, Edit vs Write for existing files
+           - Flag any unnecessary tool calls or inefficient patterns
+           - Rating guide: excellent = optimal tool selection; good = mostly correct;
+             adequate = some suboptimal choices; poor = systematically wrong tools
+
+        4. **Token economy**: Was the work concise or bloated?
+           - Excessive context gathering (reading files not needed for the task)
+           - Redundant operations (reading the same file multiple times)
+           - Unnecessary verbosity in tool calls or outputs
+           - Rating guide: excellent = minimal and focused; good = some extra context;
+             adequate = noticeable bloat; poor = extreme waste
+
+        If transcripts are unavailable, note this and score process dimensions as
+        "unknown" rather than guessing.
+
+        ### Synthesis
+
+        Produce an overall assessment:
+        - Overall score: excellent / good / adequate / poor (weighted: output quality
+          counts 70%, process quality counts 30%)
+        - Key strengths: 2-3 specific things that went well
+        - Key concerns: 2-3 specific things that need attention
+        - Improvement suggestions: concrete advice for next time
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT rate process quality if transcripts are unavailable. Mark as "unknown".
+        - Do NOT assign "excellent" without specific justification. Excellent means
+          notably above average, not merely acceptable.
+        - Do NOT assign "poor" without concrete evidence. A poor rating must cite
+          specific code, test failures, or transcript evidence.
+        - Do NOT re-investigate the code beyond what the evidence provides. Use the
+          evidence bundle; do not start a separate analysis.
+        - Avoid leniency bias. If tests are failing, that is at least "adequate" at best
+          for correctness, not "good with minor issues."
+
+        ## Output Format
+
+        JSON at `.wave/output/supervision-evaluation.json` matching the contract schema.
+
+        ## Quality Bar
+
+        A good evaluation has ratings that are calibrated to the evidence — every rating
+        is accompanied by specific findings that a third party could verify. A bad
+        evaluation has ratings that do not match the evidence (e.g., rating correctness
+        as "good" when tests are failing), provides vague justifications ("code looks
+        fine"), or rates process quality without transcript data.
     output_artifacts:
       - name: evaluation
         path: .wave/output/supervision-evaluation.json
@@ -174,37 +386,166 @@ steps:
     exec:
       type: prompt
       source: |
-        Synthesize a final supervision verdict.
+        ## Objective
 
-        The gathered evidence and evaluation have been injected into your workspace.
-        Read them both before proceeding.
+        Synthesize a final supervision verdict by cross-checking the evaluation against
+        the raw evidence and performing independent verification. The verdict is the
+        pipeline's primary deliverable — it must be accurate, actionable, and calibrated.
+        If the verdict is REWORK, the action items must be specific enough for a developer
+        to execute without re-investigation. If APPROVE or PARTIAL_APPROVE, the lessons
+        learned must be concrete enough to improve future work.
 
-        ## Independent Verification
+        ## Context
 
-        1. Run the project's test suite
-        2. Cross-check evaluation claims against actual code
-        3. Verify any specific concerns raised in the evaluation
+        Two artifacts are injected into your workspace:
+        - `evidence` (at `.wave/artifacts/evidence`): The raw evidence bundle from the
+          gather step — git history, session transcripts, pipeline artifacts, test results,
+          and branch context.
+        - `evaluation` (at `.wave/artifacts/evaluation`): The evaluation from the previous
+          step — ratings for correctness, completeness, test coverage, code quality,
+          efficiency, scope discipline, tool usage, and token economy, each with specific
+          findings.
 
-        ## Verdict
+        Read BOTH artifacts before starting. Your job is to independently verify the
+        evaluation's claims before issuing a verdict. Do not trust the evaluation blindly
+        — it may have missed issues or misjudged severity.
 
-        Issue one of:
-        - **APPROVE**: Work is good quality, process was efficient. Ship it.
-        - **PARTIAL_APPROVE**: Output is acceptable but process had issues worth noting for improvement.
-        - **REWORK**: Significant issues found that need to be addressed before the work is acceptable.
+        ## Requirements
 
-        ## Action Items (if REWORK or PARTIAL_APPROVE)
+        ### Step 1: Independent Verification
 
-        For each issue requiring action:
-        - Specific file and line references
-        - What needs to change and why
-        - Priority (must-fix vs should-fix)
+        1. **Run the test suite.** Execute the project's test command to get a fresh
+           test result:
+           ```bash
+           {{ project.contract_test_command }}
+           ```
+           Compare the result against the test data in the evidence. If there are
+           discrepancies (e.g., evidence says tests pass but they now fail), note them.
+
+        2. **Cross-check evaluation claims.** For each "poor" or "adequate" rating in
+           the evaluation, verify the cited evidence by reading the actual code or files
+           referenced. Confirm that the findings are accurate.
+
+        3. **Check for missed issues.** Look for problems the evaluation may have
+           overlooked:
+           - Uncommitted changes left in the worktree
+           - Files staged but not committed
+           - Unresolved merge conflicts
+           - Build warnings or deprecation notices
+
+        ### Step 2: Issue the Verdict
+
+        Based on the evaluation and your verification, issue exactly one verdict:
+
+        - **APPROVE**: Output quality is good or excellent across all dimensions, process
+          was efficient, and the test suite passes. The work is ready to ship.
+          Threshold: no "poor" ratings, at most one "adequate" rating, tests passing.
+
+        - **PARTIAL_APPROVE**: Output quality is acceptable (the work achieves its goal
+          and tests pass) but the process had notable issues worth documenting for
+          improvement. Or: output has minor gaps that are acceptable but should be noted.
+          Threshold: no "poor" output quality ratings, tests passing, but process issues
+          or "adequate" output ratings exist.
+
+        - **REWORK**: Significant issues found that must be addressed before the work is
+          acceptable. Tests are failing, critical functionality is missing, or the code
+          has correctness problems that affect users.
+          Threshold: any "poor" output quality rating, OR tests are failing, OR
+          fundamental completeness gaps.
+
+        ### Step 3: Compile Action Items (REWORK or PARTIAL_APPROVE)
+
+        For each issue that requires action, provide:
+        - **File and line**: specific location (e.g., `internal/pipeline/executor.go:142`)
+        - **Description**: what needs to change and why
+        - **Priority**: "must-fix" (blocks approval) or "should-fix" (improvement that
+          should happen but is not blocking)
+        - **Effort estimate**: quick-fix (< 30 min), moderate (1-4 hours), or significant
+          (> 1 day)
+
+        Order action items by priority (must-fix first) then by effort (quick fixes first
+        within each priority tier).
+
+        ### Step 4: Document Lessons Learned
+
+        Regardless of verdict, identify 2-4 concrete lessons:
+        - What should be done differently next time?
+        - What process improvements would prevent the issues found?
+        - What common pitfalls were observed?
+        - What went well and should be replicated?
+
+        Each lesson must be specific and actionable (not "write better tests" but "add
+        edge case tests for nil input in handler functions before marking a step complete").
+
+        ### Step 5: Produce the Report
+
+        Write a markdown report to `.wave/output/supervision-verdict.md` with these
+        exact sections:
+
+        ```
+        ## Verdict: <APPROVE | PARTIAL_APPROVE | REWORK>
+
+        <2-3 sentence summary of the verdict and key reasoning>
+
+        ## Output Quality
+
+        | Dimension     | Rating    | Key Finding                  |
+        |---------------|-----------|------------------------------|
+        | Correctness   | good      | Error handling complete       |
+        | Completeness  | adequate  | Missing docs for new export  |
+        | Test Coverage | good      | Edge cases covered           |
+        | Code Quality  | excellent | Clean abstractions           |
+
+        <1-2 paragraphs of detail>
+
+        ## Process Quality
+
+        | Dimension        | Rating  | Key Finding                |
+        |------------------|---------|----------------------------|
+        | Efficiency       | good    | Minor detour in step 3     |
+        | Scope Discipline | good    | Stayed focused             |
+        | Tool Usage       | adequate| Used Bash cat instead of Read |
+        | Token Economy    | good    | Minimal waste              |
+
+        <1-2 paragraphs of detail>
+
+        ## Action Items
+
+        1. **[must-fix]** `internal/pkg/foo.go:42` — Add nil check before map access
+           (quick-fix)
+        2. **[should-fix]** `internal/pkg/bar_test.go` — Add test for empty input case
+           (moderate)
 
         ## Lessons Learned
 
-        What should be done differently next time? Process improvements, common pitfalls observed.
+        1. <specific lesson>
+        2. <specific lesson>
+        ```
 
-        Produce the verdict as a markdown report with clear sections:
-        ## Verdict, ## Output Quality, ## Process Quality, ## Action Items, ## Lessons Learned
+        ## Constraints and Anti-patterns
+
+        - Do NOT issue APPROVE if tests are failing. Ever.
+        - Do NOT issue REWORK for process issues alone. REWORK is for output quality
+          problems. Process issues result in PARTIAL_APPROVE at worst.
+        - Do NOT provide vague action items. "Fix the tests" is not acceptable. "Add nil
+          check at executor.go:142 for the case where state.Steps is nil" is.
+        - Do NOT skip independent verification. The evaluation may contain errors.
+        - Do NOT copy the evaluation verbatim. Synthesize and add your own verification.
+        - Avoid rubber-stamping. If the evaluation says everything is excellent but tests
+          are failing, override the evaluation.
+
+        ## Output Format
+
+        Markdown at `.wave/output/supervision-verdict.md` with the sections described
+        above.
+
+        ## Quality Bar
+
+        A good verdict is calibrated: APPROVE means genuinely ready to ship, REWORK means
+        genuinely needs work, and the action items are specific enough to execute without
+        re-investigation. A bad verdict contradicts the evidence (approving with failing
+        tests), provides vague action items, or skips independent verification and
+        rubber-stamps the evaluation.
     output_artifacts:
       - name: verdict
         path: .wave/output/supervision-verdict.md

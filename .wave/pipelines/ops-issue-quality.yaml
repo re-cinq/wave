@@ -64,43 +64,103 @@ steps:
     exec:
       type: prompt
       source: |
-        Scan all open issues in the repository and produce a quality report.
+        ## Objective
+
+        Scan all open issues in a repository, score each for quality across three
+        dimensions (title clarity, body completeness, and label hygiene), and produce a
+        structured quality report. The report identifies every issue scoring below the
+        quality threshold and provides specific, actionable problems and recommendations
+        for each. This report feeds the next step, which will post enhancement suggestions
+        on the worst-scoring issues.
 
         Repository: {{ input }}
 
-        Split the input on "/" to get OWNER and REPO.
+        ## Context
 
-        ## Fetch Open Issues
+        This is the first step of the ops-issue-quality pipeline. No prior artifacts
+        exist. You have read-only access to the project directory and access to the forge
+        CLI tool ({{ forge.cli_tool }}). The input is a repository identifier in
+        `owner/repo` format. You will fetch all open issues and apply a deterministic
+        scoring rubric. The "enhance" step downstream will consume your report and post
+        comments on the worst issues, so your scoring must be consistent and your
+        recommendations must be specific enough to act on.
+
+        ## Requirements
+
+        ### Step 1: Parse Input
+
+        Split the input on "/" to extract OWNER and REPO. Validate that both are non-empty
+        strings.
+
+        ### Step 2: Fetch Open Issues
 
         ```bash
         {{ forge.cli_tool }} issue list --repo {{ input }} --state open --limit 200 \
           --json number,title,body,labels,url,assignees,milestone,createdAt,updatedAt,comments
         ```
 
-        ## Analyze Each Issue
+        If the fetch returns zero issues, produce an empty report and stop.
 
-        For every issue (skip pull requests — items where the URL contains "/pull/"), evaluate:
+        ### Step 3: Filter Out Pull Requests
 
-        1. **Title quality**
-           - Too short (< 10 chars): -20 points
-           - All lowercase (> 5 chars): -5 points
-           - All uppercase (> 5 chars): -10 points
-           - Vague terms ("issue", "problem", "help", "bug?", "question") with title < 30 chars: -10 points
-           - Fewer than 3 words: -15 points
+        Some forges return pull requests mixed with issues. Skip any item where the URL
+        contains "/pull/" — these are pull requests, not issues. Record the count of
+        skipped PRs for the report metadata.
 
-        2. **Body quality**
-           - Empty body: -40 points
-           - Body < 50 chars: -25 points
-           - Body < 100 chars: -10 points
-           - Single sentence (< 2 sentence-ending punctuation marks) with body > 20 chars: -10 points
-           - No structured sections (missing keywords like "steps to reproduce", "expected behavior", "actual behavior", "environment", "version", "screenshot", "reproduction") with body > 100 chars: -5 points
+        ### Step 4: Score Each Issue
 
-        3. **Labels**
-           - No labels: -10 points
+        For every genuine issue, start at 100 points and apply the following deductions.
+        Apply ALL matching deductions — they are cumulative. Floor the score at 0.
 
-        Start every issue at score 100 and apply deductions. Floor at 0.
+        **Title quality deductions:**
+        - Title shorter than 10 characters: -20 points
+        - Title is all lowercase and longer than 5 characters: -5 points
+        - Title is all uppercase and longer than 5 characters: -10 points
+        - Title contains vague terms ("issue", "problem", "help", "bug?", "question",
+          "fix", "update", "thing") AND title is shorter than 30 characters: -10 points
+        - Title has fewer than 3 words: -15 points
 
-        ## Output
+        **Body quality deductions:**
+        - Body is empty or null: -40 points
+        - Body is non-empty but shorter than 50 characters: -25 points
+        - Body is between 50-100 characters: -10 points
+        - Body has only one sentence (fewer than 2 sentence-ending punctuation marks)
+          and body length exceeds 20 characters: -10 points
+        - Body is longer than 100 characters but lacks structured sections (none of
+          these keywords found case-insensitively: "steps to reproduce", "expected
+          behavior", "actual behavior", "environment", "version", "screenshot",
+          "reproduction", "acceptance criteria", "description"): -5 points
+
+        **Label deductions:**
+        - No labels assigned: -10 points
+
+        ### Step 5: Generate Recommendations
+
+        For each issue scoring below 70, produce:
+        - A `problems` list naming each specific deduction that was applied (e.g.,
+          "Title too short: 8 characters, minimum recommended is 20")
+        - A `recommendations` list with actionable suggestions (e.g., "Add a descriptive
+          title that includes the affected component and the symptom", "Add an
+          'Expected behavior' section to the issue body")
+
+        ### Step 6: Produce Output
+
+        Sort poor-quality issues by score ascending (worst first). Truncate issue bodies
+        to 500 characters in the output to keep the JSON manageable.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT modify any issues in this step. Scoring and reporting only.
+        - Do NOT use subjective judgment. Apply the scoring rubric mechanically. The
+          rubric is the source of truth — do not override scores based on your opinion
+          of the issue's quality.
+        - Do NOT fetch more than 200 issues. If the repository has more, the first 200
+          are sufficient for this analysis.
+        - Do NOT include issues with score >= 70 in the `poor_quality_issues` array.
+        - Do NOT skip the label check for issues that already score poorly. All
+          deductions apply regardless of current score.
+
+        ## Output Format
 
         Write a JSON file to `.wave/artifacts/quality-report.json` with this structure:
 
@@ -110,26 +170,32 @@ steps:
             "owner": "<OWNER>",
             "name": "<REPO>"
           },
-          "total_issues": <count of issues fetched>,
-          "analyzed_count": <count of issues analyzed (excluding PRs)>,
+          "total_issues": 45,
+          "analyzed_count": 42,
           "poor_quality_issues": [
             {
-              "number": <issue number>,
-              "title": "<issue title>",
-              "body": "<issue body — truncate at 500 chars>",
-              "quality_score": <0-100>,
-              "problems": ["<problem description>", ...],
-              "recommendations": ["<recommendation>", ...],
-              "labels": ["<label name>", ...],
-              "url": "<issue HTML URL>"
+              "number": 17,
+              "title": "bug",
+              "body": "<truncated to 500 chars>",
+              "quality_score": 25,
+              "problems": ["Title too short (3 chars)", "Title has fewer than 3 words", "Empty body", "No labels"],
+              "recommendations": ["Rename to describe the symptom and affected component", "Add a body with reproduction steps", "Add a bug or enhancement label"],
+              "labels": [],
+              "url": "https://github.com/owner/repo/issues/17"
             }
           ],
           "quality_threshold": 70,
-          "timestamp": "<ISO 8601 timestamp>"
+          "timestamp": "2026-04-08T12:00:00Z"
         }
         ```
 
-        Include ALL issues with quality_score < 70 in `poor_quality_issues`, sorted by quality_score ascending (worst first).
+        ## Quality Bar
+
+        A good quality report applies the scoring rubric consistently across all issues,
+        produces recommendations that are specific and actionable (not generic "improve
+        the issue"), and correctly sorts by score. A bad report applies deductions
+        inconsistently, generates vague recommendations ("make the issue better"), or
+        includes issues above the threshold in the poor-quality list.
     output_artifacts:
       - name: quality-report
         path: .wave/artifacts/quality-report.json
@@ -162,60 +228,141 @@ steps:
     exec:
       type: prompt
       source: |
-        Post enhancement suggestions as comments on the worst-scoring issues.
+        ## Objective
+
+        Post constructive enhancement suggestions as comments on the worst-scoring issues
+        identified in the quality report. Each comment must be specific, actionable, and
+        helpful — not generic advice. After posting, produce a summary report documenting
+        which issues received comments, which were skipped, and why. The goal is to
+        improve issue quality across the repository without creating noise or annoying
+        maintainers with excessive comments.
 
         Repository: {{ input }}
 
-        ## Read Quality Report
+        ## Context
 
-        Read the injected quality_report artifact. It contains the full quality analysis with per-issue scores, problems, and recommendations.
+        The previous "scan" step produced the `quality_report` artifact (injected at
+        `.wave/artifacts/quality_report`). This artifact contains:
+        - `repository`: owner and name
+        - `total_issues`: how many issues were fetched
+        - `analyzed_count`: how many were analyzed (excluding PRs)
+        - `poor_quality_issues`: array of issues scoring below 70, sorted by score
+          ascending (worst first), each with `number`, `title`, `body`, `quality_score`,
+          `problems`, `recommendations`, `labels`, and `url`
+        - `quality_threshold`: 70
 
-        ## Select Issues to Enhance
+        Read this artifact FIRST. Your work is driven entirely by the quality report.
 
-        From `poor_quality_issues`, select issues where `quality_score < 50`. Process at most 10 issues to avoid comment spam.
+        ## Requirements
 
-        If no issues have score < 50, check issues with score < 70 and select the 5 worst.
+        ### Step 1: Read and Analyze the Quality Report
 
-        If there are no poor quality issues at all, write a summary noting the repository has good issue quality and skip posting.
+        Read `.wave/artifacts/quality_report`. Parse the `poor_quality_issues` array.
+        Count how many issues are available for enhancement.
 
-        ## Post Enhancement Comment
+        ### Step 2: Select Issues to Enhance
 
-        For each selected issue, compose a helpful comment and post it:
+        Apply this selection logic in order:
 
-        ```bash
-        cat > /tmp/issue-enhance-<NUMBER>.md <<'COMMENT_EOF'
-        ## Issue Quality Suggestions
+        1. From `poor_quality_issues`, select all issues where `quality_score < 50`.
+           If this yields more than 10 issues, take only the 10 worst (lowest scores).
+        2. If no issues have score < 50, select the 5 worst issues from those with
+           score < 70.
+        3. If there are no poor quality issues at all (empty array), skip to Step 4
+           and write a summary noting the repository has good issue quality.
 
-        This issue has been automatically reviewed for clarity and completeness.
+        This tiered selection prevents comment spam on repositories where most issues
+        are borderline (score 60-69) while ensuring the truly bad issues always get
+        attention.
 
-        **Quality Score**: <score>/100
+        ### Step 3: Post Enhancement Comments
 
-        **Problems identified**:
-        <bulleted list of problems>
+        For each selected issue, compose and post a comment following this exact structure:
 
-        **Recommendations**:
-        <bulleted list of recommendations>
+        1. Write the comment body to a temporary file:
+           ```bash
+           cat > /tmp/issue-enhance-<NUMBER>.md <<'COMMENT_EOF'
+           ## Issue Quality Suggestions
 
-        Consider updating this issue with the suggestions above to help maintainers triage and implement it more effectively.
+           This issue has been automatically reviewed for clarity and completeness.
 
-        ---
-        *Posted by [Wave](https://github.com/re-cinq/wave) ops-issue-quality pipeline*
-        COMMENT_EOF
-        {{ forge.cli_tool }} issue comment <NUMBER> --repo {{ input }} --body-file /tmp/issue-enhance-<NUMBER>.md
-        ```
+           **Quality Score**: <score>/100
 
-        Clean up temp files after posting each comment.
+           **Problems identified**:
+           - <problem 1 — be specific, e.g., "Title is only 5 characters long">
+           - <problem 2>
+           ...
 
-        ## Write Summary
+           **Recommendations**:
+           - <recommendation 1 — be actionable, e.g., "Rename the title to include the affected component and symptom, such as 'Pipeline executor panics on nil state during resume'">
+           - <recommendation 2>
+           ...
 
-        After processing all issues, write `.wave/artifacts/enhancement-summary.md` with:
+           Consider updating this issue with the suggestions above to help maintainers
+           triage and implement it more effectively.
 
-        1. **Repository**: owner/repo
-        2. **Issues Scanned**: total count
-        3. **Poor Quality Issues**: count below threshold
-        4. **Comments Posted**: count and issue numbers
-        5. **Skipped**: count of issues not commented on and reason (score >= 50, or batch limit reached)
-        6. For each commented issue: number, title, score, and a brief note on the main problems addressed
+           ---
+           *Posted by [Wave](https://github.com/re-cinq/wave) ops-issue-quality pipeline*
+           COMMENT_EOF
+           ```
+
+        2. Post the comment:
+           ```bash
+           {{ forge.cli_tool }} issue comment <NUMBER> --repo {{ input }} --body-file /tmp/issue-enhance-<NUMBER>.md
+           ```
+
+        3. Clean up the temp file:
+           ```bash
+           rm -f /tmp/issue-enhance-<NUMBER>.md
+           ```
+
+        4. Record whether the post succeeded or failed for the summary.
+
+        ### Step 4: Write Summary
+
+        Write `.wave/artifacts/enhancement-summary.md` with these sections:
+
+        - **H2: Repository** — owner/repo
+        - **H2: Scan Results** — total issues scanned, total analyzed (excluding PRs),
+          total below quality threshold
+        - **H2: Comments Posted** — count of comments posted, list of issue numbers
+          with their scores
+        - **H2: Skipped Issues** — count and reason for each skip (score above cutoff,
+          batch limit reached, post failed)
+        - **H2: Per-Issue Details** — for each commented issue: number, title, score,
+          and a one-line summary of the main problems addressed
+        - **H2: Overall Assessment** — one paragraph characterizing the repository's
+          issue quality (e.g., "Most issues are well-documented; 3 outliers need
+          attention" vs. "Widespread quality issues suggest the project would benefit
+          from an issue template")
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT post more than 10 comments in a single run. This prevents flooding the
+          issue tracker.
+        - Do NOT post comments on issues scoring 70 or above. The threshold is firm.
+        - Do NOT modify issue titles, bodies, or labels. Only post comments.
+        - Do NOT post duplicate comments. If an issue already has a "Issue Quality
+          Suggestions" comment (check via the comments field in the quality report),
+          skip it.
+        - Do NOT use harsh or condescending language. The tone must be constructive and
+          helpful: "Consider adding..." not "This issue is poorly written."
+        - Do NOT post generic recommendations. Every recommendation must reference the
+          specific problem it addresses.
+
+        ## Output Format
+
+        Write a markdown file to `.wave/artifacts/enhancement-summary.md` with the
+        sections described in Step 4 above.
+
+        ## Quality Bar
+
+        Good enhancement comments give the issue author a clear, specific action they can
+        take in under 2 minutes to meaningfully improve the issue (e.g., "Add a 'Steps
+        to Reproduce' section describing how to trigger the error"). Bad enhancement
+        comments are generic ("improve the description"), condescending, or posted on
+        issues that are actually fine. The summary should give a project maintainer a
+        quick snapshot of issue health across the repository.
     output_artifacts:
       - name: enhancement-summary
         path: .wave/artifacts/enhancement-summary.md
