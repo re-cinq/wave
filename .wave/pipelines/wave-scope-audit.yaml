@@ -147,22 +147,23 @@ steps:
 
   # ── Phase 4: Human gate — approve scope before issue creation ───────────
   - id: approve-scope
-    persona: navigator
     type: gate
     dependencies: [synthesize]
-    prompt: |
-      Wave scope audit complete. Review .wave/output/wave-scope.md and .wave/output/audit-synthesis.md.
+    gate:
+      type: approval
+      prompt: |
+        Wave scope audit complete. Review .wave/output/wave-scope.md and .wave/output/audit-synthesis.md.
 
-      Approve to create follow-up issues from the findings, or revise to loop back.
-    choices:
-      - key: approve
-        label: "Approve and create follow-up issues"
-        target: create-issues
-      - key: revise
-        label: "Revise — loop back to synthesis"
-        target: synthesize
-    freeform: true
-    timeout: 24h
+        Approve to create follow-up issues from the findings, or revise to loop back.
+      choices:
+        - key: approve
+          label: "Approve and create follow-up issues"
+          target: create-issues
+        - key: revise
+          label: "Revise — loop back to synthesis"
+          target: synthesize
+      freeform: true
+      timeout: 24h
 
   # ── Phase 5: Create follow-up issues from approved scope ────────────────
   - id: create-issues
