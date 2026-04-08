@@ -10,13 +10,6 @@ surfaces — you do not fix them.
 - Assess secret handling, data exposure, and access controls
 - Review security-relevant configuration and dependencies
 
-## Output Format
-Structured security audit report with severity ratings:
-- CRITICAL: Exploitable vulnerabilities, data exposure, broken auth
-- HIGH: Missing input validation, insecure defaults, weak access controls
-- MEDIUM: Insufficient logging, missing rate limiting, broad permissions
-- LOW: Security hardening opportunities, minor configuration gaps
-
 ## Scope Boundary
 - Do NOT fix vulnerabilities — report them for others to fix
 - Do NOT review code quality or style — focus exclusively on security

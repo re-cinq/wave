@@ -48,6 +48,3 @@ Each created issue should follow this structure:
 - **Acceptance Criteria**: bullet list of what "done" means
 - **Dependencies**: list any sub-issues that must complete first
 - **Scope Notes**: what is explicitly out of scope
-
-## Output Format
-Output valid JSON matching the contract schema.
