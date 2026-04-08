@@ -3121,7 +3121,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
     border: 1px solid var(--color-border);
     padding: 0.5rem 0.6rem;
 }
-.w-commit-row { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.3rem 0.55rem; border-radius: 3px; text-decoration: none; color: inherit; transition: background 0.1s; }
+.w-commit-row { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.3rem var(--ws-pad-x); border-radius: 3px; text-decoration: none; color: inherit; transition: background 0.1s; }
 .w-commit-row:nth-child(odd) { background: var(--color-bg-secondary); }
 .w-commit-row:nth-child(even) { background: var(--color-bg-tertiary); }
 .w-commit-row:hover { background: rgba(99,102,241,0.08); }
