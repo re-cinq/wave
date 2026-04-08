@@ -117,8 +117,8 @@ steps:
 
         ### Step 4: Produce Output
 
-        Write JSON to `.wave/output/diff-analysis.json` matching the contract schema.
-        Include `pr_metadata` with number, URL, head branch, and base branch.
+        Produce output matching the contract schema. Include `pr_metadata` with number,
+        URL, head branch, and base branch.
 
         ## Constraints and Anti-patterns
 
@@ -130,7 +130,7 @@ steps:
 
         ## Output Format
 
-        JSON at `.wave/output/diff-analysis.json` matching the contract schema.
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
@@ -176,9 +176,9 @@ steps:
 
         ## Context
 
-        The `changes` artifact (at `.wave/artifacts/changes`) contains the structured
-        diff analysis with every changed file, its classification, package membership,
-        and test coverage status. Focus your review on changed files only.
+        The injected `changes` artifact contains the structured diff analysis with every
+        changed file, its classification, package membership, and test coverage status.
+        Focus your review on changed files only.
 
         ## Requirements
 
@@ -237,7 +237,7 @@ steps:
 
         ## Output Format
 
-        Write a markdown file to `.wave/output/security-review.md` with these sections:
+        Produce a markdown report with these sections:
         - **H2: Security Review Summary** — total finding count by severity, one-line
           verdict (e.g., "No critical vulnerabilities found; 2 medium-severity input
           validation gaps identified")
@@ -295,9 +295,9 @@ steps:
 
         ## Context
 
-        The `changes` artifact (at `.wave/artifacts/changes`) contains the structured
-        diff analysis with every changed file, package membership, and test coverage
-        status. Read this artifact first to understand scope.
+        The injected `changes` artifact contains the structured diff analysis with every
+        changed file, package membership, and test coverage status. Read this artifact
+        first to understand scope.
 
         ## Requirements
 
@@ -357,7 +357,7 @@ steps:
 
         ## Output Format
 
-        Write a markdown file to `.wave/output/quality-review.md` with these sections:
+        Produce a markdown report with these sections:
         - **H2: Quality Review Summary** — total finding count by severity, one-line
           quality assessment
         - **H2: Findings** — one H3 per finding with severity, file, line, description,
@@ -414,10 +414,9 @@ steps:
         ## Context
 
         Two artifacts are injected:
-        - `security_findings` (at `.wave/artifacts/security_findings`): Security review
-          markdown with findings by severity.
-        - `quality_findings` (at `.wave/artifacts/quality_findings`): Quality review
-          markdown with error handling, testing, and performance findings.
+        - `security_findings`: Security review markdown with findings by severity.
+        - `quality_findings`: Quality review markdown with error handling, testing, and
+          performance findings.
 
         Read BOTH artifacts before forming a verdict.
 

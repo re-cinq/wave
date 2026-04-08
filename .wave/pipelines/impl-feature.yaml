@@ -189,8 +189,8 @@ steps:
         ## Context
 
         The codebase exploration artifact has been injected into your workspace as the
-        `context` artifact. Read `.wave/artifacts/context` FIRST before doing anything else.
-        It contains:
+        `context` artifact. Read the injected `context` artifact FIRST before doing anything
+        else. It contains:
         - A restated understanding of the feature request
         - All relevant files with their paths, purposes, and key symbols
         - Codebase conventions that must be followed
@@ -309,11 +309,10 @@ steps:
         ## Context
 
         Two artifacts have been injected into your workspace:
-        - `.wave/artifacts/context` — the codebase exploration from the explore step,
-          containing relevant files, conventions, dependency maps, test patterns, and risks
-        - `.wave/artifacts/impl_plan` — the implementation plan from the plan step,
-          containing ordered steps, acceptance criteria, test requirements, and commit
-          message suggestion
+        - `context` — the codebase exploration from the explore step, containing relevant
+          files, conventions, dependency maps, test patterns, and risks
+        - `impl_plan` — the implementation plan from the plan step, containing ordered
+          steps, acceptance criteria, test requirements, and commit message suggestion
 
         Read BOTH artifacts completely before writing any code. The plan is your primary
         guide — follow it in order. The exploration is your reference for codebase
@@ -532,9 +531,9 @@ steps:
 
         ## Context
 
-        The implementation result artifact has been injected as `.wave/artifacts/result`.
-        It contains a summary of what was implemented, which plan steps were completed,
-        files modified, and test results. Use this to compose the PR description.
+        The injected `result` artifact contains a summary of what was implemented, which
+        plan steps were completed, files modified, and test results. Use this to compose
+        the PR description.
 
         You are on the worktree branch `feat/{{ pipeline_id }}` with all implementation
         commits already made. The branch has not been pushed yet.

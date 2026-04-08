@@ -238,7 +238,7 @@ steps:
 
         ## Output Format
 
-        Produce the fix plan as markdown at `.wave/output/fix-plan.md` with:
+        Produce the fix plan as markdown with:
         - A summary section with the scope statistics
         - An ordered list of fixes, each with finding ID, file path, change description, rationale, source of truth, and effort
         - A section listing eliminated false positives with reasons
@@ -340,7 +340,7 @@ steps:
 
         ### 4. Write Summary
 
-        Write a summary to `.wave/output/result.md` including:
+        Produce a summary including:
         - Branch name
         - Complete list of files modified with what was changed in each
         - Findings fixed (with finding IDs and titles)
@@ -359,7 +359,7 @@ steps:
 
         ## Output Format
 
-        Write the summary to `.wave/output/result.md` as markdown.
+        Produce the summary as markdown.
 
         ## Quality Bar
 
@@ -468,7 +468,7 @@ steps:
 
         ### Step 5: Capture Result
 
-        Write the PR URL, number, and title to `.wave/output/pr-result.json` matching the pr-result contract schema. Include the branch name and finding counts.
+        Produce the PR URL, number, and title as JSON matching the pr-result contract schema. Include the branch name and finding counts.
 
         ## Constraints and Anti-patterns
 
@@ -481,7 +481,7 @@ steps:
 
         ## Output Format
 
-        Write the PR result to `.wave/output/pr-result.json` conforming to the pr-result contract schema.
+        Produce output matching the pr-result contract schema.
 
         ## Quality Bar
 

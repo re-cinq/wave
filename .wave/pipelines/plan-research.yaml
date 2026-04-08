@@ -81,7 +81,7 @@ steps:
         REQUIREMENTS:
         1. Validate the input:
            - CRITICAL: If the input above is empty, blank, or missing, you MUST immediately
-             fail. Write an error JSON to .wave/output/issue-content.json with issue_number: 0
+             fail. Write an error JSON with issue_number: 0
              and title: "ERROR: No input provided -- expected a GitHub issue URL or owner/repo
              number". Do NOT guess, infer, or use any example values. Stop here.
            - Accepted formats (parse the actual input, never fabricate values):
@@ -115,8 +115,7 @@ steps:
           Parse the ACTUAL input value.
 
         OUTPUT FORMAT:
-        Write the structured JSON to .wave/output/issue-content.json. The file must
-        contain a single valid JSON object matching the issue-content schema.
+        Produce the structured JSON matching the issue-content contract schema.
 
         QUALITY BAR:
         A good fetch produces an exact, faithful representation of the issue that
@@ -208,8 +207,8 @@ steps:
           merge them into one topic with combined questions.
 
         OUTPUT FORMAT:
-        Write structured JSON to .wave/output/research-topics.json matching the
-        research-topics schema. The JSON must include: issue_reference (number, title, url),
+        Produce structured JSON matching the research-topics contract schema. The JSON
+        must include: issue_reference (number, title, url),
         topics (array of topic objects as described above), total_topics (integer), and
         timestamp (ISO 8601).
 
@@ -315,8 +314,8 @@ steps:
           even if the findings are brief.
 
         OUTPUT FORMAT:
-        Write structured JSON to .wave/output/research-findings.json matching the
-        research-findings schema. Include: topics_researched (array of topic_id + findings),
+        Produce structured JSON matching the research-findings contract schema. Include:
+        topics_researched (array of topic_id + findings),
         total_findings (integer), research_gaps (array of gap descriptions), and timestamp.
 
         QUALITY BAR:
@@ -418,8 +417,8 @@ steps:
           length limits, and overly long reports are not read.
 
         OUTPUT FORMAT:
-        Write the report as structured JSON to .wave/output/research-report.json matching
-        the research-report schema. All sections described above must be present.
+        Produce the report as structured JSON matching the research-report contract schema.
+        All sections described above must be present.
 
         QUALITY BAR:
         A good synthesis report is a document the issue author would find genuinely useful:
@@ -513,7 +512,7 @@ steps:
           output, set comment.url to null.
 
         OUTPUT FORMAT:
-        Write the result as structured JSON to .wave/output/comment-result.json with:
+        Produce the result as structured JSON with:
         - success: boolean (true if comment was posted successfully)
         - issue_reference: object with number (integer) and repository (string)
         - comment: object with id (integer or null), url (string or null), and

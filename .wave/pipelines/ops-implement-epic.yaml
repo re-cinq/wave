@@ -229,9 +229,8 @@ steps:
            iterate step)
         3. Waited for CI to pass across all opened PRs (ci-gate step)
 
-        The `epic_children` artifact (injected at `.wave/artifacts/epic_children`)
-        contains the parent epic URL, the repository identifier, the parent title, and
-        the list of child URLs that were processed.
+        The injected `epic_children` artifact contains the parent epic URL, the repository
+        identifier, the parent title, and the list of child URLs that were processed.
 
         ## Requirements
 
@@ -275,8 +274,7 @@ steps:
            ```
 
         5. **Clean up and produce output.** Remove `/tmp/summary.md` after posting.
-           Write the result JSON to `.wave/output/epic-summary.json` including the
-           comment URL.
+           Produce the result JSON including the comment URL.
 
         ## Constraints and Anti-patterns
 
@@ -291,7 +289,7 @@ steps:
 
         ## Output Format
 
-        Write a JSON file to `.wave/output/epic-summary.json` with:
+        Produce a JSON file matching the contract schema with:
         ```json
         {
           "parent_url": "https://github.com/owner/repo/issues/N",

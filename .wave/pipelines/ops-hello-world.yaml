@@ -140,15 +140,14 @@ steps:
 
         ## Context
 
-        The previous "greet" step should have produced a `greeting_file` artifact
-        (injected at `.wave/artifacts/greeting_file`). This artifact should contain a
-        single line of text: "Hello from Wave! Your message was: <user input>". Your
-        job is to read the injected artifact, validate its content, and produce a
-        structured JSON report.
+        The previous "greet" step should have produced the injected `greeting_file`
+        artifact. It should contain a single line of text: "Hello from Wave! Your message
+        was: <user input>". Your job is to read the injected artifact, validate its
+        content, and produce a structured JSON report.
 
         ## Requirements
 
-        1. Check that the file `.wave/artifacts/greeting_file` exists. If it does not
+        1. Check that the injected `greeting_file` artifact exists. If it does not
            exist, record a failure with the reason "artifact_missing".
 
         2. Read the contents of the file. If the file is empty (zero bytes), record a

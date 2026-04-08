@@ -105,7 +105,7 @@ steps:
 
         ## Output Format
 
-        Produce a markdown report at .wave/output/findings.md with:
+        Produce a markdown report with:
         - **Overall DX Score**: A rating for each area (Good / Needs Work / Poor) with one-line justification.
         - **Findings by Area**: Grouped under each of the 7 areas, ordered by severity within each group.
         - **Top 5 Quick Wins**: Low-effort, high-impact improvements across all areas.

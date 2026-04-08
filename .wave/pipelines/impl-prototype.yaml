@@ -179,7 +179,7 @@ steps:
 
         ## Context
 
-        The specification from the previous step has been injected as `.wave/artifacts/input-spec.md`.
+        The injected `input-spec` artifact contains the specification from the previous step.
         Read it completely before starting. It contains:
         - Feature overview and business value
         - User stories with acceptance criteria
@@ -307,10 +307,10 @@ steps:
         ## Context
 
         Two artifacts from prior steps have been injected:
-        - `.wave/artifacts/feature-docs.md` — the developer documentation with usage
-          examples, API reference, and integration guide
-        - `.wave/artifacts/spec.md` — the feature specification with user stories,
-          requirements, and acceptance criteria
+        - `feature-docs` — the developer documentation with usage examples, API reference,
+          and integration guide
+        - `spec` — the feature specification with user stories, requirements, and acceptance
+          criteria
 
         Read both before starting. The specification defines WHAT to build. The
         documentation defines how users will interact with it. Your prototype must be
@@ -442,12 +442,10 @@ steps:
         ## Context
 
         Three artifacts from prior steps have been injected:
-        - `.wave/artifacts/spec.md` — the feature specification with requirements and
-          acceptance criteria
-        - `.wave/artifacts/feature-docs.md` — developer documentation with usage examples
-          and API reference
-        - `.wave/artifacts/prototype/` — the working prototype with stub implementations
-          and interface definitions
+        - `spec` — the feature specification with requirements and acceptance criteria
+        - `feature-docs` — developer documentation with usage examples and API reference
+        - `prototype` — the working prototype with stub implementations and interface
+          definitions
 
         Read all three before starting. The prototype establishes the interface contract —
         your implementation must not break those interfaces. The specification defines the
@@ -574,9 +572,9 @@ steps:
 
         ## Context
 
-        The implementation plan has been injected as `.wave/artifacts/implementation-plan.md`.
-        It contains the ordered plan for what was implemented, the stub replacement
-        checklist, and the overall approach. Use this to compose the PR description.
+        The injected `implementation-plan` artifact contains the ordered plan for what was
+        implemented, the stub replacement checklist, and the overall approach. Use this to
+        compose the PR description.
 
         You are on the implementation branch with all code changes committed. The branch
         has not been pushed to the remote yet.

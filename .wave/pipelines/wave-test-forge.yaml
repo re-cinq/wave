@@ -112,7 +112,7 @@ steps:
           steps depend on knowing whether detection succeeded.
 
         OUTPUT FORMAT:
-        Write a JSON report to .wave/output/forge-detect.json with these fields:
+        Produce a JSON report with these fields:
         - forge_type, cli_tool, pr_command, pr_term, prefix, host, owner, repo, run_id:
           string values as resolved (use "not_set" for empty values)
         - git_remote_url: the actual git remote URL for verification
@@ -309,7 +309,7 @@ steps:
            Rules for ForgeLocal: CLI skipped, auth skipped, and API skipped are all
            expected. Only detection must pass. Overall status should be PASS if detection
            is valid.
-        3. Write the markdown report (.wave/output/forge-report.md) with:
+        3. Write the markdown report with:
            - Title: "Forge Validation Report"
            - Overall status in a prominent header: PASS / PARTIAL / FAIL
            - Summary: 2-3 sentences explaining the overall result
@@ -321,7 +321,7 @@ steps:
            - Recommendations: actionable items to fix any failures. For PASS status,
              note that no action is needed. For PARTIAL/FAIL, list specific steps
              (install CLI tool, configure auth token, fix remote URL, etc.)
-        4. Write the structured JSON report (.wave/output/forge-report.json) with:
+        4. Write the structured JSON report with:
            - overall_status: "pass", "partial", or "fail"
            - forge_type: the detected forge type
            - checks: object with detection, cli, auth, api sub-objects, each containing
@@ -343,8 +343,8 @@ steps:
 
         OUTPUT FORMAT:
         Produce exactly two files:
-        - .wave/output/forge-report.md: human-readable markdown summary
-        - .wave/output/forge-report.json: structured JSON for programmatic use
+        - A human-readable markdown report
+        - A structured JSON report for programmatic use
 
         QUALITY BAR:
         A good synthesis report gives a project operator a clear answer: "Is the forge

@@ -230,8 +230,8 @@ steps:
 
         ## Context
 
-        The `impl_plan` artifact (injected at `.wave/artifacts/impl_plan`) contains the
-        enhancement plan from the scan-and-score step, including:
+        The injected `impl_plan` artifact contains the enhancement plan from the
+        scan-and-score step, including:
         - `repository`: the owner/repo string for CLI commands
         - `issues_to_enhance`: array of enhancement plans, each with `issue_number`,
           `suggested_title`, `body_template`, `suggested_labels`, and `enhancements`

@@ -107,7 +107,7 @@ steps:
 
         ### 4. Write Output
 
-        Write the scan results as structured JSON to `.wave/output/scan-results.json`.
+        Produce the scan results as structured JSON.
 
         ## Constraints and Anti-patterns
 
@@ -269,12 +269,12 @@ steps:
 
         If the consistency report has `summary.clean == true` (zero inconsistencies):
         - Write a short "No documentation inconsistencies found" message to the report file
-        - Also write an issue result JSON with skipped=true and reason="clean" to `.wave/output/issue-result.json`
+        - Also produce an issue result JSON with skipped=true and reason="clean"
         - Exit early; do not compose the full report structure
 
         ### Compose the Full Report
 
-        If inconsistencies exist, write the report as markdown to `.wave/output/report.md` with these sections:
+        If inconsistencies exist, write the report as markdown with these sections:
 
         1. **Header and metadata**: Report title ("Documentation Consistency Report"), scan date (from the findings timestamp), total inconsistency count, and scan mode (diff vs full).
 
@@ -316,7 +316,7 @@ steps:
 
         ## Output Format
 
-        Write the markdown report to `.wave/output/report.md`. The file must be valid GitHub-flavored markdown that renders correctly as a GitHub issue body.
+        The report must be valid GitHub-flavored markdown that renders correctly as a GitHub issue body.
 
         ## Quality Bar
 
@@ -361,7 +361,7 @@ steps:
 
         If the report content indicates no inconsistencies were found (contains "No documentation inconsistencies found" or similar clean message):
         - Do NOT create a GitHub issue
-        - Write the result JSON to `.wave/output/issue-result.json` with skipped=true and reason="clean"
+        - Produce the result JSON with skipped=true and reason="clean"
         - Exit early
 
         ### Detect Repository
@@ -394,7 +394,7 @@ steps:
 
         ### Capture Result
 
-        Parse the output of the issue create command to extract the issue URL and number. Write a JSON status report to `.wave/output/issue-result.json` matching the doc-issue-result contract schema. Include:
+        Parse the output of the issue create command to extract the issue URL and number. Produce a JSON status report matching the doc-issue-result contract schema. Include:
         - `issue_url`: the full GitHub issue URL
         - `issue_number`: the issue number
         - `title`: the issue title as created

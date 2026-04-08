@@ -112,7 +112,7 @@ steps:
           is worse than the original.
 
         OUTPUT FORMAT:
-        Write the findings as structured JSON to .wave/output/findings.json matching
+        Write the findings as structured JSON matching
         the bug-investigation schema. Include: bug_summary (string), root_cause (object
         with file, function, line_range, condition, and explanation), execution_path
         (array of function call objects), blast_radius (object with similar_patterns,

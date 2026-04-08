@@ -231,8 +231,8 @@ steps:
 
         ## Context
 
-        The previous "fetch-review" step produced the `raw_findings` artifact (injected
-        at `.wave/artifacts/raw_findings`). This artifact contains:
+        The previous "fetch-review" step produced the injected `raw_findings` artifact.
+        It contains:
         - `pr_number`, `repo`, `head_branch`, `base_branch`, `pr_url`, `pr_title`
         - `findings`: array of review comments, each with `source_id`, `reviewer`,
           `is_bot`, `severity`, `file`, `line`, `description`, and `has_suggestion`
@@ -245,7 +245,7 @@ steps:
         ### Step 1: Checkout the PR Branch
 
         ```bash
-        HEAD_BRANCH=$(cat .wave/artifacts/raw_findings | jq -r '.head_branch')
+        HEAD_BRANCH=$(cat .wave/artifacts/raw_findings | jq -r '.head_branch')  # reads the injected artifact
         git fetch origin "$HEAD_BRANCH"
         git checkout "$HEAD_BRANCH"
         ```
@@ -383,12 +383,12 @@ steps:
         ## Context
 
         Two artifacts are injected into your workspace:
-        - `triage` (from the "triage" step at `.wave/artifacts/triage`): Contains the
-          triaged verdict with `head_branch`, the `fixes` array (accepted findings sorted
-          by priority), and the rejected/deferred/skipped lists. Each fix has `severity`,
-          `action_detail`, `blast_radius`, `test_coverage`, and `confidence`.
-        - `raw_findings` (from the "fetch-review" step at `.wave/artifacts/raw_findings`):
-          Contains the original PR metadata including branch name and repo.
+        - `triage` (from the "triage" step): Contains the triaged verdict with
+          `head_branch`, the `fixes` array (accepted findings sorted by priority), and
+          the rejected/deferred/skipped lists. Each fix has `severity`, `action_detail`,
+          `blast_radius`, `test_coverage`, and `confidence`.
+        - `raw_findings` (from the "fetch-review" step): Contains the original PR
+          metadata including branch name and repo.
 
         Read BOTH artifacts before starting. This step has read-write access to a worktree
         and will commit and push changes to the PR branch.
@@ -398,7 +398,7 @@ steps:
         ### Step 1: Checkout the PR Branch
 
         ```bash
-        HEAD_BRANCH=$(cat .wave/artifacts/triage | jq -r '.head_branch')
+        HEAD_BRANCH=$(cat .wave/artifacts/triage | jq -r '.head_branch')  # reads the injected artifact
         git fetch origin "$HEAD_BRANCH"
         git checkout "$HEAD_BRANCH"
         ```
@@ -407,7 +407,7 @@ steps:
 
         ### Step 2: Understand the Triage Verdict
 
-        Read `.wave/artifacts/triage` and enumerate:
+        Read the injected `triage` artifact and enumerate:
         - Total number of accepted fixes
         - The severity and priority order of each fix
         - The specific `action_detail` describing what to change
@@ -465,7 +465,7 @@ steps:
 
         git commit -m "fix: address review findings
 
-        $(cat .wave/artifacts/triage | jq -r '.fixes[] | "- [\(.severity)] \(.summary)"' | head -10)"
+        $(cat .wave/artifacts/triage | jq -r '.fixes[] | "- [\(.severity)] \(.summary)"' | head -10)"  # reads the injected artifact
 
         git push origin "$HEAD_BRANCH"
         ```
@@ -482,7 +482,7 @@ steps:
           other issues, ignore them — they are out of scope.
         - Do NOT `git add -A`, `git add .`, or `git add --all`. Stage files by explicit
           path only.
-        - Do NOT stage `.wave/artifacts/`, `.wave/output/`, `.claude/`, or `CLAUDE.md`.
+        - Do NOT stage Wave-internal directories (`.wave/`, `.claude/`) or `CLAUDE.md`.
         - Do NOT refactor, rename, or "improve" surrounding code. Minimal fixes only.
         - Do NOT apply rejected, deferred, or skipped findings. Only the `fixes` array.
         - If a fix has `confidence: "low"`, proceed with extra caution — double-check the
@@ -575,7 +575,7 @@ steps:
         - Do NOT use `git add -A`, `git add .`, or `git add --all`. Stage files by
           explicit path to avoid committing Wave-internal files.
         - Do NOT force push or rebase the branch. Add a new commit.
-        - Do NOT stage `.wave/artifacts/`, `.wave/output/`, `.claude/`, or `CLAUDE.md`.
+        - Do NOT stage Wave-internal directories (`.wave/`, `.claude/`) or `CLAUDE.md`.
         - Do NOT introduce new features, refactors, or improvements. This is a pure
           correction step.
         - If the test failure appears unrelated to the previous fix (a flaky test or
@@ -644,12 +644,11 @@ steps:
         ## Context
 
         Two artifacts are injected into your workspace:
-        - `raw_findings` (at `.wave/artifacts/raw_findings`): Contains the original
-          review data including `pr_number`, `repo`, and each finding's `source_id`
-          (comment/review IDs needed for replying to specific comments).
-        - `triage` (at `.wave/artifacts/triage`): Contains the triage verdict with
-          `fixes` (accepted findings), `rejected`, `deferred`, and `skipped` arrays,
-          each with rationale.
+        - `raw_findings`: Contains the original review data including `pr_number`, `repo`,
+          and each finding's `source_id` (comment/review IDs needed for replying to
+          specific comments).
+        - `triage`: Contains the triage verdict with `fixes` (accepted findings),
+          `rejected`, `deferred`, and `skipped` arrays, each with rationale.
 
         The apply-fixes step has already committed and pushed the code changes. This step
         is read-only — you only post comments, not modify code.
@@ -659,7 +658,7 @@ steps:
         ### Step 1: Extract PR Metadata
 
         ```bash
-        PR_NUMBER=$(cat .wave/artifacts/raw_findings | jq -r '.pr_number')
+        PR_NUMBER=$(cat .wave/artifacts/raw_findings | jq -r '.pr_number')  # reads the injected artifact
         REPO=$(cat .wave/artifacts/raw_findings | jq -r '.repo')
         echo "PR: $REPO#$PR_NUMBER"
         ```

@@ -105,7 +105,7 @@ steps:
           the current state. Surface-level findings lead to poorly evaluated options.
 
         OUTPUT FORMAT:
-        Write structured JSON to .wave/output/adr-context.json with these fields:
+        Produce structured JSON with these fields:
         - decision_topic: string (the decision being explored)
         - current_state: object with description (string), affected_files (array of
           file path strings), affected_components (array of component name strings)
@@ -216,7 +216,7 @@ steps:
           group similar approaches and evaluate the representative choice.
 
         OUTPUT FORMAT:
-        Write structured JSON to .wave/output/adr-options.json with these fields:
+        Produce structured JSON with these fields:
         - decision_topic: string
         - options: array of option objects, each with name, description, pros (array
           of strings), cons (array of strings), effort (S/M/L/XL with justification),
@@ -353,7 +353,7 @@ steps:
           technical documents.
 
         OUTPUT FORMAT:
-        Write the complete ADR to .wave/output/adr.md as a single markdown file.
+        Produce the complete ADR as a single markdown file.
 
         QUALITY BAR:
         A good ADR is understandable by someone who was not part of the original
@@ -392,12 +392,12 @@ steps:
 
         CONTEXT:
         You are the final step in a four-step ADR pipeline. The adr artifact has been
-        injected into your workspace at .wave/artifacts/adr. This contains the complete
-        markdown ADR document drafted by the previous step. You are working in a worktree
-        on a dedicated branch (docs/{{ pipeline_id }}), so you can commit directly.
+        injected as the `adr` artifact. This contains the complete markdown ADR document
+        drafted by the previous step. You are working in a worktree on a dedicated branch
+        (docs/{{ pipeline_id }}), so you can commit directly.
 
         REQUIREMENTS:
-        1. Read the ADR artifact from .wave/artifacts/adr to get the full content.
+        1. Read the injected `adr` artifact to get the full content.
         2. Determine the correct file location and numbering:
            - Check if a docs/adr/ directory exists: `ls docs/adr/ 2>/dev/null`
            - If it exists, count existing ADR files to determine the next number.
@@ -422,7 +422,7 @@ steps:
              --body-file .wave/artifacts/adr
            ```
         6. Capture the PR URL from the creation output.
-        7. Write the result to .wave/output/pr-result.json with fields:
+        7. Produce the result JSON with fields:
            - pr_url: the URL of the created PR
            - pr_number: the PR number
            - branch: the branch name
@@ -441,7 +441,7 @@ steps:
           output JSON with pr_url set to empty string rather than failing silently.
 
         OUTPUT FORMAT:
-        Write the result as JSON to .wave/output/pr-result.json matching the
+        Produce the result as JSON matching the
         pr-result schema (pr_url, pr_number, branch, and timestamp fields).
 
         QUALITY BAR:

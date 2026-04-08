@@ -215,8 +215,8 @@ steps:
 
         ## Context
 
-        The `context` artifact (injected at `.wave/artifacts/context`) contains the
-        gathered issue context from the previous step, including:
+        The injected `context` artifact contains the gathered issue context from the
+        previous step, including:
         - `issue_body`: the complete original issue text
         - `issue_title`: the current title
         - `criticism`: the user's specific complaints (may be empty)
@@ -352,12 +352,10 @@ steps:
         ## Context
 
         Two artifacts are injected into your workspace:
-        - `draft` (at `.wave/artifacts/draft`): The update draft containing
-          `title_changed`, `updated_title`, `updated_body`, `section_classifications`,
-          and `changes_summary`.
-        - `context` (at `.wave/artifacts/context`): The original issue context containing
-          `repo`, `issue_number`, `issue_url`, and the original title and body for
-          comparison.
+        - `draft`: The update draft containing `title_changed`, `updated_title`,
+          `updated_body`, `section_classifications`, and `changes_summary`.
+        - `context`: The original issue context containing `repo`, `issue_number`,
+          `issue_url`, and the original title and body for comparison.
 
         Read BOTH artifacts before starting. Extract REPO and NUMBER from the context
         artifact.

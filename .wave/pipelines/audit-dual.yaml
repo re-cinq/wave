@@ -156,7 +156,7 @@ steps:
 
         ## Requirements
 
-        For each finding in the injected scan_results artifact (.wave/artifacts/scan_results):
+        For each finding in the injected `scan_results` artifact:
 
         1. **Verify the finding**: Read the actual source code at the reported location. Confirm the issue exists and is correctly categorized. Eliminate false positives by checking whether the reported pattern has a legitimate justification (e.g., a "complex" function that is necessarily complex due to protocol requirements).
 
@@ -176,7 +176,7 @@ steps:
 
         ## Output Format
 
-        Produce a markdown report at .wave/output/quality-detail.md with these sections:
+        Produce a markdown report with these sections:
         - **Summary**: Total findings verified, false positives eliminated, top 3 most impactful issues.
         - **Critical and High Findings**: Detailed analysis of each, with file:line references, impact assessment, refactoring proposal, and related pattern locations.
         - **Medium and Low Findings**: Briefer treatment with the same structure.
@@ -244,7 +244,7 @@ steps:
 
         ## Output Format
 
-        Output a structured JSON report to .wave/output/security-scan.json. Include a findings array where each finding has: id, type (use "security"), severity (critical/high/medium/low), file, line, description (the vulnerability), evidence (the data flow from source to sink), and recommendation (the specific fix). Include a summary with total findings and severity breakdown.
+        Produce a structured JSON report. Include a findings array where each finding has: id, type (use "security"), severity (critical/high/medium/low), file, line, description (the vulnerability), evidence (the data flow from source to sink), and recommendation (the specific fix). Include a summary with total findings and severity breakdown.
 
         ## Quality Bar
 
@@ -283,7 +283,7 @@ steps:
 
         ## Requirements
 
-        For each finding in the injected scan_results artifact (.wave/artifacts/scan_results):
+        For each finding in the injected `scan_results` artifact:
 
         1. **Verify the vulnerability**: Read the actual source code at the reported location. Confirm the vulnerable pattern exists. Check whether the vulnerability has already been mitigated by validation, sanitization, or access control that the initial scan may have missed. Eliminate false positives by examining the full context around the flagged code.
 
@@ -304,7 +304,7 @@ steps:
 
         ## Output Format
 
-        Produce a markdown report at .wave/output/security-detail.md with these sections:
+        Produce a markdown report with these sections:
         - **Executive Summary**: Total confirmed vs false positive count, highest severity finding, overall risk assessment.
         - **Confirmed Vulnerabilities**: Ordered by severity (critical first). Each entry includes: description, data flow trace with file:line references, exploitability assessment, remediation proposal, and related pattern locations.
         - **False Positives Eliminated**: Findings from the scan that were determined to be non-issues, with explanation of why.
@@ -347,9 +347,9 @@ steps:
 
         Two independent analysis tracks have completed: the quality track (quality-scan followed by quality-detail) and the security track (security-scan followed by security-detail). Their detailed reports have been injected as artifacts. This merge step is the convergence point where both tracks' findings are combined. No additional codebase analysis is needed; this step operates purely on the two injected reports.
 
-        Read both reports:
-        - .wave/artifacts/quality_findings (code quality detail report)
-        - .wave/artifacts/security_findings (security detail report)
+        Read both injected artifacts:
+        - `quality_findings` (code quality detail report)
+        - `security_findings` (security detail report)
 
         ## Requirements
 
@@ -374,7 +374,7 @@ steps:
 
         ## Output Format
 
-        Produce a markdown report at .wave/output/dual-analysis-report.md with these sections in order:
+        Produce a markdown report with these sections in order:
         1. Executive Summary (with health rating)
         2. Cross-Cutting Concerns
         3. Critical and High-Priority Issues (unified from both tracks)

@@ -133,8 +133,8 @@ steps:
         - Do NOT suggest more than 30 improvements. Focus on the highest-impact gaps.
 
         OUTPUT FORMAT:
-        Write the analysis as structured JSON to .wave/output/coverage-analysis.json
-        matching the improvement-assessment schema. Include: focus (string), coverage_summary
+        Produce the analysis as structured JSON matching the improvement-assessment
+        contract schema. Include: focus (string), coverage_summary
         (object with overall percentage, per-package percentages), improvements (array of
         gap objects as described above), and timestamp.
 
