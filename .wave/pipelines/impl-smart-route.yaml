@@ -44,14 +44,106 @@ steps:
     exec:
       type: prompt
       source: |
-        Assess complexity of: {{ input }}
+        COMPLEXITY ASSESSMENT — determine the right pipeline for this issue.
 
-        Classify as:
-        - simple: single file change, clear fix, < 50 lines
-        - medium: 2-5 files, well-scoped feature, clear acceptance criteria
-        - complex: 5+ files, needs spec/plan/tasks, architectural impact
+        ## Objective
 
-        Output JSON: {"complexity": "simple|medium|complex", "reason": "..."}
+        Assess the complexity of the given GitHub issue to route it to the appropriate
+        implementation pipeline. Simple and medium issues go to impl-issue (direct
+        implementation). Complex issues go to impl-speckit (specification-driven
+        development with formal task decomposition). Your classification must be accurate
+        — misrouting a complex issue to impl-issue wastes time on a failed implementation,
+        while misrouting a simple issue to impl-speckit wastes time on unnecessary
+        specification overhead.
+
+        Issue input: {{ input }}
+
+        ## Context
+
+        You are the first (and only assessment) step in a routing pipeline. The issue
+        input may be a GitHub issue URL, a repo/number pair, or a plain text description.
+        If it is a GitHub URL or repo reference, fetch the issue details using the forge
+        CLI to get the full title, body, labels, and comments. If it is plain text, assess
+        based on the description alone.
+
+        Your output feeds directly into a branch step that routes to either `impl-issue`
+        or `impl-speckit` based on the `complexity` field.
+
+        ## Requirements
+
+        1. **Fetch the issue details** (if applicable): If the input contains a GitHub
+           issue reference, fetch the full issue:
+           ```bash
+           {{ forge.cli_tool }} issue view <number> --repo <owner/repo> --json title,body,labels,comments
+           ```
+           Read the title, body, labels, and any comments to understand the full scope.
+
+        2. **Analyze the scope**: Determine what the issue is asking for. Consider:
+           - How many files will likely need to change?
+           - Is the change localized to one module or does it span multiple packages?
+           - Are there clear acceptance criteria, or does the issue need further breakdown?
+           - Does the issue involve new APIs, new types, or new architectural patterns?
+           - Are there dependencies on other issues or external systems?
+
+        3. **Classify the complexity** using these criteria:
+
+           **Simple** (route to impl-issue):
+           - Single file change or very small set of closely related files
+           - Clear, unambiguous fix or feature with obvious implementation path
+           - Less than approximately 50 lines of production code change
+           - No new public APIs, types, or architectural decisions
+           - Examples: bug fixes, adding a flag, updating a validation rule, fixing a typo
+
+           **Medium** (route to impl-issue):
+           - 2-5 files affected, well-scoped to a single feature area
+           - Clear acceptance criteria that can be verified with tests
+           - Requires some design decisions but within established patterns
+           - May add new functions or types but within existing packages
+           - Examples: adding a new command, extending an existing API, adding a new handler
+
+           **Complex** (route to impl-speckit):
+           - 5+ files affected across multiple packages or layers
+           - Requires formal specification — the issue does not fully define what to build
+           - Involves new architectural patterns, new packages, or cross-cutting concerns
+           - Needs task decomposition before implementation can begin
+           - Has dependencies on multiple subsystems or external integrations
+           - Examples: new subsystem, major refactoring, new adapter type, workflow engine
+
+        4. **Consider labels and context**: GitHub labels often indicate complexity:
+           - `bug`, `typo`, `docs` typically indicate simple issues
+           - `enhancement`, `feature` can be medium or complex
+           - `epic`, `architecture`, `breaking-change` typically indicate complex issues
+
+        5. **When in doubt, classify upward**: It is better to route a medium issue to
+           impl-speckit (which will complete it correctly with some overhead) than to route
+           a complex issue to impl-issue (which may fail entirely). If you are between two
+           classifications, pick the higher one.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT implement anything. Your sole job is classification.
+        - Do NOT modify any files. This is a read-only assessment step.
+        - Do NOT default to "medium" without analysis. Each classification must be earned.
+        - Do NOT classify based on the issue title alone. Read the full body and comments.
+        - Do NOT ignore labels — they carry signal from the issue author.
+
+        ## Output Format
+
+        Write a JSON result to `.wave/output/complexity.json` matching the contract schema
+        at `.wave/contracts/issue-assessment.schema.json`. At minimum include:
+        - `complexity`: One of "simple", "medium", or "complex"
+        - `reason`: A 2-3 sentence explanation of why this classification was chosen,
+          referencing specific aspects of the issue (number of files, scope of change,
+          need for specification)
+        - `files_estimated`: Approximate number of files that will change
+        - `key_signals`: What factors drove the classification (labels, scope, ambiguity)
+
+        ## Quality Bar
+
+        A good assessment correctly routes 90%+ of issues on the first try. The reason
+        field is specific enough that a human reading it would agree with the classification.
+        A bad assessment defaults to "medium" for everything, ignores the issue body, or
+        classifies complex multi-package changes as simple because the issue title is short.
     output_artifacts:
       - name: assessment
         path: .wave/output/complexity.json
