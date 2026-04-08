@@ -807,8 +807,7 @@
       "type": "object",
       "required": [
         "type",
-        "extract_from",
-        "json_path"
+        "extract_from"
       ],
       "additionalProperties": false,
       "properties": {
@@ -818,17 +817,19 @@
             "pr",
             "issue",
             "url",
-            "deployment"
+            "deployment",
+            "file",
+            "artifact"
           ],
-          "description": "Outcome type, determines how it is displayed in the summary"
+          "description": "Outcome type, determines how it is displayed in the summary. 'file' and 'artifact' use the extract_from path directly (no json_path needed)."
         },
         "extract_from": {
           "type": "string",
-          "description": "Path to JSON artifact relative to workspace (e.g., 'output/publish-result.json')"
+          "description": "Path to artifact relative to workspace. For file/artifact types this IS the deliverable path. For pr/issue/url/deployment, it points to a JSON file to extract from."
         },
         "json_path": {
           "type": "string",
-          "description": "Dot-notation path to extract value from JSON (e.g., '.comment_url')"
+          "description": "Dot-notation path to extract value from JSON (e.g., '.comment_url'). Required for pr/issue/url/deployment types, not needed for file/artifact."
         },
         "label": {
           "type": "string",
