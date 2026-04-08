@@ -2784,10 +2784,11 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-config { border-top: 1px solid var(--color-border); background: var(--color-bg-tertiary); }
 .ws-config[hidden] { display: none; }
 .ws-config .markdown-body { border: none; background: transparent; padding: 0; }
-.ws-config .av-kv { padding: 0.15rem var(--ws-pad-x); font-size: 0.75rem; }
-.ws-config .av-key { min-width: 80px; font-size: 0.68rem; }
-.ws-config .av-val { font-size: 0.75rem; }
-.ws-config code { padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.72rem; }
+.ws-config .av-kv { padding: 0.15rem var(--ws-pad-x); font-size: 0.75rem; border-bottom-color: var(--color-border); }
+.ws-config .av-key { min-width: 80px; font-size: 0.68rem; color: var(--color-text-muted); }
+.ws-config .av-val { font-size: 0.75rem; color: var(--color-text); }
+.ws-config .av-val a { color: var(--color-link); }
+.ws-config code { padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.72rem; background: var(--color-bg-secondary); color: var(--color-text); }
 
 /* ── Row 2: I/O ── */
 .ws-io { display: flex; gap: 0.75rem; padding: 0.12rem var(--ws-pad-x) var(--ws-pad-y-bot); font-size: 0.78rem; flex-wrap: wrap; }
