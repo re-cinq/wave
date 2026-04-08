@@ -40,7 +40,7 @@ func TestConvertGitHubIssue(t *testing.T) {
 	if len(issue.Labels) != 2 {
 		t.Fatalf("Labels = %d, want 2", len(issue.Labels))
 	}
-	if issue.Labels[0] != "bug" || issue.Labels[1] != "critical" {
+	if issue.Labels[0].Name != "bug" || issue.Labels[1].Name != "critical" {
 		t.Errorf("Labels = %v, want [bug critical]", issue.Labels)
 	}
 	if len(issue.Assignees) != 2 {
