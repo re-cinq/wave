@@ -223,12 +223,12 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
         tc.hidden=false;
         var nameEl=row.querySelector('.ws-name');
         var stepId=nameEl?nameEl.textContent.trim().split(/\s/)[0]:'';
-        tc.innerHTML='<div style="padding:0.4rem 0.55rem;color:var(--color-text-muted);font-size:0.72rem;">Loading...</div>';
+        tc.innerHTML='<div style="padding:0.4rem var(--ws-pad-x);color:var(--color-text-muted);font-size:0.72rem;">Loading...</div>';
         fetch('/api/pipelines/'+encodeURIComponent('{{.Pipeline.Name}}')).then(function(r){return r.json()}).then(function(d){
             var step=null;
             for(var i=0;i<(d.steps||[]).length;i++){if(d.steps[i].id===stepId){step=d.steps[i];break;}}
             if(!step){tc.innerHTML='<div style="padding:0.4rem;">Not found</div>';return;}
-            var h='<div style="padding:0.4rem 0.55rem;font-size:0.78rem;">';
+            var h='<div style="padding:0.4rem var(--ws-pad-x);font-size:0.78rem;">';
             h+='<div style="display:grid;grid-template-columns:100px 1fr;gap:0.12rem 0.6rem;">';
             function kv(k,v){return '<span style="color:var(--color-text-muted);font-size:0.72rem;">'+k+'</span><span>'+v+'</span>';}
             if(step.persona) h+=kv('Persona','<a href="/personas/'+escapeHTML(step.persona)+'" style="color:var(--color-link);"><code style="background:rgba(99,102,241,0.1);color:inherit;">'+escapeHTML(step.persona)+'</code></a>');

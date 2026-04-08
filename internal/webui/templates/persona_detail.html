@@ -16,7 +16,7 @@
 </div>
 
 <!-- Permissions -->
-<div style="display:grid;grid-template-columns:100px 1fr;gap:0.15rem 0.6rem;font-size:0.78rem;margin-bottom:0.6rem;padding:0.4rem 0.55rem;background:var(--color-bg-secondary);border-radius:4px;">
+<div style="display:grid;grid-template-columns:100px 1fr;gap:0.15rem 0.6rem;font-size:0.78rem;margin-bottom:0.6rem;padding:0.4rem var(--ws-pad-x);background:var(--color-bg-secondary);border-radius:4px;">
     {{if .Persona.AllowedTools}}<span style="color:var(--color-text-muted);">Allowed</span><span>{{range .Persona.AllowedTools}}<code style="font-size:0.7rem;background:rgba(34,197,94,0.1);padding:0.1rem 0.3rem;border-radius:3px;margin-right:0.2rem;">{{.}}</code>{{end}}</span>{{end}}
     {{if .Persona.DeniedTools}}<span style="color:var(--color-text-muted);">Denied</span><span>{{range .Persona.DeniedTools}}<code style="font-size:0.7rem;background:rgba(239,68,68,0.1);padding:0.1rem 0.3rem;border-radius:3px;margin-right:0.2rem;">{{.}}</code>{{end}}</span>{{end}}
     {{if .TokenScopes}}<span style="color:var(--color-text-muted);">Scopes</span><span>{{range .TokenScopes}}<code style="font-size:0.7rem;">{{.}}</code> {{end}}</span>{{end}}
