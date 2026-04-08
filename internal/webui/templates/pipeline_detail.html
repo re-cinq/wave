@@ -60,6 +60,17 @@
                 </div>
                 {{end}}
             </div>
+            {{if $step.IterateOver}}
+            <div style="padding:0.2rem var(--ws-pad-x) 0.3rem;">
+                {{if $step.IterateMode}}<span style="font-size:0.68rem;color:var(--color-text-muted);margin-right:0.3rem;">{{$step.IterateMode}}</span>{{end}}
+                {{range $step.IterateOver}}
+                <a href="/pipelines/{{.}}" style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.15rem 0.4rem;margin:0.1rem 0.15rem 0.1rem 0;background:var(--color-bg-tertiary);border-radius:4px;border-left:3px solid var(--wave-accent);text-decoration:none;color:inherit;font-size:0.72rem;font-weight:600;">{{.}}</a>
+                {{end}}
+            </div>
+            {{end}}
+            {{if $step.AggregateStrategy}}
+            <div style="padding:0.1rem var(--ws-pad-x);font-size:0.68rem;color:var(--color-text-muted);">strategy: {{$step.AggregateStrategy}}</div>
+            {{end}}
             <!-- Config panel (click to expand) -->
             <div class="ws-config" hidden data-step-id="{{$step.ID}}"></div>
         </div>
