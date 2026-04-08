@@ -4525,6 +4525,23 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 			continue
 		}
 
+		// file/artifact types: use the artifact path directly as the deliverable value
+		if outcome.Type == "file" || outcome.Type == "artifact" {
+			label := outcome.Label
+			if label == "" {
+				label = outcome.Type
+			}
+			e.registerOutcomeDeliverable(step.ID, outcome.Type, label, artifactPath, fmt.Sprintf("Produced by step %s", step.ID))
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      StateRunning,
+				Message:    fmt.Sprintf("outcome: %s = %s", label, artifactPath),
+			})
+			continue
+		}
+
 		// Wildcard path: extract all array elements as separate deliverables
 		if ContainsWildcard(outcome.JSONPath) {
 			e.processWildcardOutcome(execution, step, outcome, data)
@@ -4640,6 +4657,10 @@ func (e *DefaultPipelineExecutor) registerOutcomeDeliverable(stepID, outcomeType
 		e.deliverableTracker.AddIssue(stepID, label, value, desc)
 	case "deployment":
 		e.deliverableTracker.AddDeployment(stepID, label, value, desc)
+	case "file":
+		e.deliverableTracker.AddFile(stepID, label, value, desc)
+	case "artifact":
+		e.deliverableTracker.AddArtifact(stepID, label, value, desc)
 	default:
 		// "url" or any unknown type → generic URL
 		e.deliverableTracker.AddURL(stepID, label, value, desc)
