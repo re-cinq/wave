@@ -149,21 +149,7 @@ steps:
 
         ## Output Format
 
-        Write a JSON file to `.wave/output/epic-children.json` with this structure:
-        ```json
-        {
-          "parent_url": "https://github.com/owner/repo/issues/N",
-          "repo": "owner/repo",
-          "parent_title": "Title of the epic issue",
-          "child_urls": [
-            "https://github.com/owner/repo/issues/A",
-            "https://github.com/owner/repo/issues/B"
-          ],
-          "excluded": [
-            {"url": "https://github.com/owner/repo/issues/C", "reason": "closed"}
-          ]
-        }
-        ```
+        Produce output matching the contract schema.
 
         ## Quality Bar
 

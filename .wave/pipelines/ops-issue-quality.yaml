@@ -162,32 +162,7 @@ steps:
 
         ## Output Format
 
-        Write a JSON file to `.wave/artifacts/quality-report.json` with this structure:
-
-        ```json
-        {
-          "repository": {
-            "owner": "<OWNER>",
-            "name": "<REPO>"
-          },
-          "total_issues": 45,
-          "analyzed_count": 42,
-          "poor_quality_issues": [
-            {
-              "number": 17,
-              "title": "bug",
-              "body": "<truncated to 500 chars>",
-              "quality_score": 25,
-              "problems": ["Title too short (3 chars)", "Title has fewer than 3 words", "Empty body", "No labels"],
-              "recommendations": ["Rename to describe the symptom and affected component", "Add a body with reproduction steps", "Add a bug or enhancement label"],
-              "labels": [],
-              "url": "https://github.com/owner/repo/issues/17"
-            }
-          ],
-          "quality_threshold": 70,
-          "timestamp": "2026-04-08T12:00:00Z"
-        }
-        ```
+        Produce output matching the contract schema.
 
         ## Quality Bar
 

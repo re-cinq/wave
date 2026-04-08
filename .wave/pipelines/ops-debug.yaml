@@ -114,16 +114,7 @@ steps:
 
         ## Output Format
 
-        Write a JSON file to `.wave/output/reproduction.json` matching the contract
-        schema. The JSON must include at minimum:
-        - `issue_summary`: one-sentence description of the problem
-        - `expected_behavior`: what should happen
-        - `actual_behavior`: what actually happens (include error messages verbatim)
-        - `reproduction_steps`: ordered list of steps to trigger the bug
-        - `relevant_files`: list of file paths and line ranges involved
-        - `environment`: OS, language version, relevant config
-        - `reproduction_result`: "confirmed" | "could_not_reproduce" | "partial"
-        - `raw_error_output`: the exact error text from the reproduction attempt
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
@@ -230,9 +221,7 @@ steps:
 
         ## Output Format
 
-        Write a JSON file to `.wave/output/hypotheses.json` matching the contract schema.
-        The JSON must contain an ordered array of hypothesis objects, ranked from most to
-        least promising.
+        Produce output matching the contract schema.
 
         ## Quality Bar
 

@@ -111,28 +111,7 @@ steps:
 
         ## Output Format
 
-        Write a JSON file to `.wave/output/bootstrap-assessment.json` with exactly this
-        structure. Every field is required; use null for unknown values, empty arrays for
-        no items.
-
-        ```json
-        {
-          "flavour": "go|rust|node|bun|deno|python|csharp|...",
-          "project_intent": "2-3 sentence description of what the project does, derived from user input and any docs found",
-          "existing_files": ["relative/path/to/file1", "relative/path/to/file2"],
-          "scaffold_recommendations": {
-            "files_to_create": ["go.mod", "cmd/app/main.go", "internal/", ".github/workflows/ci.yml", ".gitignore", "README.md"],
-            "build_system": "cargo|go|npm|bun|pip|dotnet",
-            "ci_provider": "github-actions",
-            "gitignore_patterns": ["*.exe", "/vendor/", "/dist/"]
-          },
-          "wave_config": {
-            "language": "value from wave.yaml or null",
-            "build_command": "value from wave.yaml or null",
-            "test_command": "value from wave.yaml or null"
-          }
-        }
-        ```
+        Produce output matching the contract schema.
 
         ## Quality Bar
 

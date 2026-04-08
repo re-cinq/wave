@@ -133,11 +133,7 @@ steps:
 
         ## Output Format
 
-        Write the analysis to `.wave/output/coverage-analysis.json` conforming to the coverage-analysis contract schema. Include:
-        - `current_coverage`: overall percentage and per-package breakdown
-        - `gaps`: array of coverage gap objects, each with: function_name, file, line, coverage_percent, gap_type (zero_coverage, partial_coverage, missing_edge_case), priority (1-5), description, dependencies_to_mock, suggested_test_cases (array of test case descriptions)
-        - `existing_patterns`: description of testing patterns found in the codebase (test helpers, mock types, fixtures)
-        - `summary`: total gaps, gaps by priority, estimated test count to write
+        Produce output matching the contract schema.
 
         ## Quality Bar
 

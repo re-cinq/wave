@@ -476,10 +476,7 @@ steps:
 
         ## Output Format
 
-        Write JSON to `.wave/output/review-verdict.json` matching the contract schema.
-        The JSON must include all fields: `verdict`, `summary`, `critical_findings`,
-        `major_findings`, `minor_findings`, and `positive_notes`. Empty arrays are
-        acceptable for finding categories with no entries.
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
