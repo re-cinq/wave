@@ -2781,9 +2781,15 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-tok { color: var(--color-text-muted); font-size: 0.65rem; }
 
 /* ── Step config panel (click to expand) ── */
-.ws-config { border-top: 1px solid var(--color-border); background: var(--color-bg-secondary); }
+.ws-config { border-top: 1px solid var(--color-border); background: #0d1117; color: #c9d1d9; }
 .ws-config[hidden] { display: none; }
-.ws-config .markdown-body { border: none; background: transparent; padding: 0; }
+.ws-config .markdown-body { border: none; background: transparent; padding: 0; color: #c9d1d9; }
+.ws-config .markdown-body strong { color: #e6edf3; }
+.ws-config .av-kv { border-bottom-color: #21262d; }
+.ws-config .av-key { color: #8b949e; }
+.ws-config .av-val { color: #e6edf3; }
+.ws-config .av-val a { color: #58a6ff; }
+.ws-config code { background: #21262d; color: #c9d1d9; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.72rem; }
 
 /* ── Row 2: I/O ── */
 .ws-io { display: flex; gap: 0.75rem; padding: 0.12rem var(--ws-pad-x) var(--ws-pad-y-bot); font-size: 0.78rem; flex-wrap: wrap; }
