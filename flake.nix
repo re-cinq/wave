@@ -112,6 +112,7 @@
           mkdir -p "$HOME/.local/share/uv"
           mkdir -p "$HOME/notes"
           touch -a "$HOME/.local/bin/wave"
+          touch -a "$HOME/.local/bin/opencode-patched"
           touch -a "$HOME/.claude.json"
 
           BWRAP_ARGS=(
@@ -163,6 +164,7 @@
             # Read-only: local tools
             --ro-bind-try "$HOME/.local/bin/notesium" "$HOME/.local/bin/notesium"
             --ro-bind-try "$HOME/.local/bin/claudit" "$HOME/.local/bin/claudit"
+            --ro-bind-try "$HOME/.local/bin/opencode-patched" "$HOME/.local/bin/opencode-patched"
 
             # Writable: wave binary (go build target)
             --bind-try "$HOME/.local/bin/wave" "$HOME/.local/bin/wave"
@@ -255,7 +257,7 @@
                 echo "  Read-only:  / (entire root)"
                 echo "              ~/.ssh, ~/.gitconfig, ~/.config/git"
                 echo "              ~/.config/gh, ~/.npmrc, ~/.config/nvm"
-                echo "              ~/.local/notesium, ~/.local/claudit"
+                echo "              ~/.local/bin/{notesium,claudit,opencode-patched}"
                 echo ""
                 exec wave-sandbox ${pkgs.bash}/bin/bash --rcfile <(cat << 'WAVE_BASHRC'
                   PS1="[sandbox] \w \$ "
