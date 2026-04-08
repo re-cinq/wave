@@ -253,16 +253,13 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
             if(step.thread) h+=kv('Thread','<code>'+escapeHTML(step.thread)+'</code>');
             // Dependencies (if not already shown in I/O)
             if(step.dependencies&&step.dependencies.length) h+=kv('Depends on',step.dependencies.map(function(d){return '<code style="background:var(--color-bg-tertiary);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;">'+escapeHTML(d)+'</code>';}).join(' '));
-            h+='</div>';
+            h+='</div>'; // close kv grid
             if(step.prompt){
-                h+='<div style="border-top:1px solid var(--color-border);padding:0.3rem 0 0.2rem;margin-top:0.2rem;">';
-                h+='<div style="color:var(--color-text-muted);font-size:0.72rem;margin-bottom:0.2rem;">Prompt</div>';
                 if(typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
-                    h+='<div class="markdown-body" style="font-size:0.78rem;line-height:1.5;margin-left:100px;">'+DOMPurify.sanitize(marked.parse(step.prompt))+'</div>';
+                    h+='<div class="markdown-body" style="font-size:0.78rem;line-height:1.5;padding:0.3rem 0;border-top:1px solid var(--color-border);">'+DOMPurify.sanitize(marked.parse(step.prompt))+'</div>';
                 } else {
-                    h+='<pre style="margin:0 0 0 100px;padding:0.4rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.72rem;white-space:pre-wrap;color:var(--color-text-secondary);">'+escapeHTML(step.prompt)+'</pre>';
+                    h+='<pre style="margin:0;padding:0.4rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.72rem;white-space:pre-wrap;color:var(--color-text-secondary);border-top:1px solid var(--color-border);">'+escapeHTML(step.prompt)+'</pre>';
                 }
-                h+='</div>';
             }
             h+='</div>';
             tc.innerHTML=h;
