@@ -142,7 +142,7 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	limit := parsePageSize(r)
 	status := r.URL.Query().Get("status")
 	if status == "" {
-		status = "running"
+		status = "all"
 	}
 	pipelineFilter := r.URL.Query().Get("pipeline")
 
@@ -317,8 +317,10 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Compute the last step's output for the OUTPUT card
+	// Compute the last step's output artifacts for the OUTPUT card
 	var outputSummary string
+	var outputArtifacts []ArtifactSummary
+	var outputStepID string
 	if len(stepDetails) > 0 {
 		last := stepDetails[len(stepDetails)-1]
 		for i := len(stepDetails) - 1; i >= 0; i-- {
@@ -328,6 +330,8 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if len(last.Artifacts) > 0 {
+			outputArtifacts = last.Artifacts
+			outputStepID = last.StepID
 			var names []string
 			for _, a := range last.Artifacts {
 				names = append(names, a.Name)
@@ -411,6 +415,8 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		Adapters            []string
 		Models              []string
 		OutputSummary       string
+		OutputArtifacts     []ArtifactSummary
+		OutputStepID        string
 		LinkedTitle         string
 		LinkedState         string
 		LinkedAuthor        string
@@ -428,6 +434,8 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		Adapters:            uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return sd.Adapter })),
 		Models:              uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return sd.Model })),
 		OutputSummary:       outputSummary,
+		OutputArtifacts:     outputArtifacts,
+		OutputStepID:        outputStepID,
 		LinkedTitle:         linkedTitle,
 		LinkedState:         linkedState,
 		LinkedAuthor:        linkedAuthor,

@@ -73,7 +73,7 @@ func (s *Server) handleRetrosPage(w http.ResponseWriter, r *http.Request) {
 		if smoothness == "" && fullRetro.Quantitative != nil {
 			smoothness = deriveSmoothness(fullRetro.Quantitative)
 		}
-		if smoothness == "effortless" || smoothness == "smooth" {
+		if smoothness == "effortless" || smoothness == "smooth" || smoothness == "bumpy" {
 			agg.successes++
 		}
 
