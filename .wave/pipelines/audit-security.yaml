@@ -58,43 +58,80 @@ steps:
     exec:
       type: prompt
       source: |
-        Perform a security scan of: {{ input }}
+        ## Objective
 
-        ## Scan Process
+        Perform a comprehensive security vulnerability scan of the specified scope, mapping the attack surface, checking against OWASP Top 10 categories, scanning for language-specific vulnerability patterns, auditing secrets and configuration, and reviewing dependency usage. Produce structured JSON findings that the subsequent deep-dive step will verify and prioritize.
 
-        1. **Map attack surface**: Identify all entry points (HTTP handlers, CLI args,
-           file parsers, IPC endpoints, database queries, external API calls)
+        ## Context
 
-        2. **Check OWASP Top 10**:
-           - Injection (SQL, command, LDAP, XPath)
-           - Broken authentication/authorization
-           - Sensitive data exposure
-           - XML external entities (XXE)
-           - Broken access control
-           - Security misconfiguration
-           - Cross-site scripting (XSS)
-           - Insecure deserialization
-           - Using components with known vulnerabilities
-           - Insufficient logging and monitoring
+        This is the first step of a three-step security audit pipeline. The findings produced here will be injected into the deep-dive step for detailed verification, and then into the report step for synthesis. The codebase is mounted read-only at /project. The scan should be thorough but may include findings that require verification; the deep-dive step will eliminate false positives.
 
-        3. **Scan for common Go vulnerabilities** (if Go project):
-           - Unchecked errors on security-critical operations
-           - Race conditions on shared state
-           - Path traversal via unsanitized file paths
-           - Template injection
-           - Unsafe use of reflect or unsafe packages
+        Target: {{ input }}
 
-        4. **Check secrets and configuration**:
-           - Hardcoded credentials, API keys, tokens
-           - Insecure default configurations
-           - Missing TLS/encryption
-           - Overly permissive file permissions
+        Interpret the input to identify the relevant source files. If the input names a module, component, or directory, use Glob and Grep to locate all files belonging to that scope. If the input is a general description, search for files related to that concept. If the input is broad (e.g., "full audit"), scan the entire codebase with emphasis on boundary code (HTTP handlers, CLI parsers, file I/O, external API calls).
 
-        5. **Review dependency usage**:
-           - Known vulnerable patterns in dependency usage
-           - Outdated security practices
+        ## Requirements
 
-        Write your findings to `.wave/output/findings.json` (the contract schema defines the required structure).
+        Execute the following scan process systematically:
+
+        1. **Map the attack surface**: Before checking for specific vulnerabilities, build a complete inventory of entry points where untrusted data enters the system. Search for:
+           - HTTP handlers and middleware (look for http.HandleFunc, http.Handler, gin/echo/chi router registrations)
+           - CLI argument parsing (look for cobra command definitions, flag.Parse, os.Args usage)
+           - File parsers (look for os.Open, os.ReadFile, json.Unmarshal, yaml.Unmarshal on user-provided paths)
+           - IPC endpoints (look for net.Listen, gRPC service registrations, Unix socket creation)
+           - Database queries (look for sql.DB.Query, sql.DB.Exec with string concatenation)
+           - External API calls (look for http.Client.Do, http.Get/Post with user-controlled URLs)
+           For each entry point, note the file:line location and what type of untrusted data it accepts.
+
+        2. **Check OWASP Top 10**: For each category, search for the specific vulnerable patterns:
+           - **Injection**: String concatenation in SQL queries, os/exec.Command with user input, filepath operations with unsanitized paths, LDAP query construction, XPath expressions with external data.
+           - **Broken authentication/authorization**: Endpoints without auth middleware, hardcoded bypass conditions, missing authorization checks after authentication.
+           - **Sensitive data exposure**: Sensitive fields in log output, error messages containing credentials, unencrypted storage of tokens/passwords, missing HTTPS enforcement.
+           - **XXE**: XML parsing with external entity resolution enabled (xml.NewDecoder without disabling entities).
+           - **Broken access control**: Missing ownership checks, IDOR patterns (direct object reference without authorization), privilege escalation paths.
+           - **Security misconfiguration**: Debug mode enabled in production config, overly permissive CORS, default credentials, unnecessary features enabled.
+           - **XSS**: User input rendered in HTML without escaping, use of text/template instead of html/template for web output.
+           - **Insecure deserialization**: Unmarshaling untrusted data into types with custom UnmarshalJSON that performs dangerous operations.
+           - **Known vulnerabilities**: Check go.mod for dependencies with known CVEs (search for the dependency name + "CVE" or check version against known vulnerable ranges).
+           - **Insufficient logging**: Security-critical operations (auth failures, access denials, data modifications) without audit logging.
+
+        3. **Scan for Go-specific vulnerabilities**: These patterns are particularly dangerous in Go codebases:
+           - Unchecked errors on security-critical operations (file permissions, crypto operations, TLS handshakes). Use Grep to find patterns where error returns are assigned to `_`.
+           - Race conditions on shared state: look for global variables accessed from goroutines without mutex protection, particularly configuration and credential caches.
+           - Path traversal: look for filepath.Join or string concatenation to build file paths from user input without subsequent filepath.Clean and prefix validation.
+           - Template injection: look for text/template usage with user-controlled template strings.
+           - Unsafe package usage: search for `import "unsafe"` and evaluate whether the usage is justified.
+
+        4. **Audit secrets and configuration**:
+           - Search for string literals that match credential patterns: API keys (long alphanumeric strings), tokens (JWT patterns, Bearer tokens), passwords, connection strings with embedded credentials.
+           - Check configuration files for plaintext secrets, default passwords, or credential templates.
+           - Look for .env files, credential JSON files, or PEM keys that should be in .gitignore but are tracked.
+           - Verify that TLS configuration uses secure protocols and cipher suites.
+           - Check file permission settings for overly permissive modes (0777, 0666).
+
+        5. **Review dependency security posture**:
+           - Read go.mod (or equivalent) and identify security-sensitive dependencies (crypto, auth, HTTP, database drivers).
+           - Check whether dependencies are pinned to specific versions or use floating ranges.
+           - Look for vendored dependencies that may be outdated.
+           - Check for deprecated packages that have known replacements.
+
+        For each finding, provide the data flow from untrusted source to vulnerable sink where applicable. Initial confidence can be "suspected" -- the deep-dive step will verify.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT report theoretical vulnerabilities that require the attacker to already have code execution on the system.
+        - Do NOT flag test-only code unless it demonstrates a pattern likely to be copied into production.
+        - Do NOT flag standard security-conscious patterns as vulnerabilities (e.g., using crypto/rand instead of math/rand is correct, not a finding).
+        - Do NOT modify any files. The workspace is read-only.
+        - Prioritize breadth in this scan step. The deep-dive step will handle depth.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good security scan maps the attack surface before checking for vulnerabilities, traces data flow for each injection finding, and distinguishes between confirmed vulnerabilities and suspected patterns that need verification. A bad scan lists OWASP categories without checking whether they apply, reports every use of os/exec as "command injection" regardless of input source, or misses obvious vulnerabilities while reporting theoretical ones.
 
     output_artifacts:
       - name: findings
@@ -129,34 +166,70 @@ steps:
     exec:
       type: prompt
       source: |
-        Perform a deep security analysis based on the injected scan results.
+        ## Objective
 
-        For each finding with severity HIGH or CRITICAL:
+        Perform a deep verification and analysis of the security scan findings, focusing on HIGH and CRITICAL severity items. For each finding, verify the vulnerability against the actual source code, trace the complete data flow from untrusted input to vulnerable sink, assess real-world exploitability, discover related vulnerable patterns, and propose specific remediation. The goal is to eliminate false positives, confirm true vulnerabilities, and produce an actionable remediation plan.
 
-        1. **Verify the finding**: Read the actual source code at the reported location.
-           Confirm the vulnerability exists (eliminate false positives).
+        ## Context
 
-        2. **Trace the data flow**: Follow untrusted input from entry point to sink.
-           Identify all transformations and validation (or lack thereof).
+        The scan step has already produced initial findings in the injected scan_findings artifact. This step reads those findings and performs in-depth verification. The codebase is mounted read-only at /project. This step should spend the majority of its effort on HIGH and CRITICAL findings, as these are the items that will drive the remediation roadmap in the final report step.
 
-        3. **Assess exploitability**: Could an attacker realistically exploit this?
-           What preconditions are needed? What's the impact?
+        ## Requirements
 
-        4. **Check for related patterns**: Search for similar vulnerable patterns
-           elsewhere in the codebase using Grep.
+        Process findings in severity order, starting with CRITICAL, then HIGH:
 
-        5. **Propose remediation**: Specific, actionable fix with code examples.
-           Prioritize by effort vs. impact.
+        1. **Verify each finding against source code**: Read the actual source code at the reported file:line location. Confirm that the vulnerable pattern exists exactly as described. Check whether the vulnerability has already been mitigated by validation, sanitization, authorization checks, or architectural constraints that the initial scan may have missed. Key verification questions:
+           - Does the untrusted data actually reach the reported sink, or is there validation in between?
+           - Is the reported entry point actually reachable in the current configuration?
+           - Could the vulnerable code path only be triggered by an authenticated/authorized user, reducing the severity?
+           Mark findings as "confirmed," "downgraded" (lower severity than reported), or "false_positive" with justification.
 
-        For MEDIUM and LOW findings, do a lighter review confirming they're real.
+        2. **Trace the complete data flow**: For each confirmed HIGH or CRITICAL finding, document the full path from entry point to sink:
+           - Entry point: where untrusted data enters (HTTP handler, CLI arg, file read)
+           - Transformations: every function the data passes through, with file:line references
+           - Validation points: where input is validated, sanitized, or constrained (note what is checked and what is not)
+           - Sink: where the data reaches a dangerous operation (exec, file write, SQL query, response body)
+           This trace should be detailed enough that a developer can follow it to implement the fix.
 
-        Produce a markdown report with these sections:
-        - Executive Summary
-        - Confirmed Vulnerabilities (with severity badges)
-        - False Positives Eliminated
-        - Data Flow Analysis
-        - Remediation Plan (ordered by priority)
-        - Related Patterns Found
+        3. **Assess exploitability**: For each confirmed finding, determine:
+           - Attack prerequisites: What access level is required (unauthenticated, authenticated, admin, local)?
+           - Attack complexity: How difficult is the exploit to execute (trivial one-liner, requires chaining, requires specific configuration)?
+           - Impact: What can the attacker achieve (remote code execution, data exfiltration, denial of service, privilege escalation, information disclosure)?
+           - Likelihood: Given the deployment model and user base, how likely is exploitation?
+           Assign a CVSS-style risk score combining these factors: CRITICAL (easy exploit, severe impact), HIGH (moderate exploit, severe impact or easy exploit, moderate impact), MEDIUM (defense-in-depth improvement), LOW (hardening opportunity).
+
+        4. **Search for related vulnerable patterns**: For each confirmed vulnerability class, use Grep to search the entire codebase for similar patterns. If command injection exists in one handler, check ALL handlers for the same pattern. If path traversal affects one file-serving function, check ALL file-serving functions. Report the full extent of each vulnerability class, including locations that may not have been caught by the initial scan.
+
+        5. **Propose specific remediation**: For each confirmed finding and related pattern, describe:
+           - The exact fix: which function to call, which validation to add, which architectural change to make
+           - Where to apply it: specific file:line locations
+           - What to test: how to verify the fix works and does not break functionality
+           - Effort estimate: trivial (< 1 hour), small (< 4 hours), medium (< 1 day), large (multi-day)
+           Prioritize fixes by impact-to-effort ratio: a trivial fix for a CRITICAL vulnerability comes first.
+
+        For MEDIUM and LOW findings, perform a lighter review: read the source code to confirm the finding is real, mark as confirmed or false_positive, and include a one-line remediation note. Do not perform full data flow tracing for these.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT upgrade findings without evidence. If the scan rated something as MEDIUM, only upgrade it if your deeper analysis reveals worse impact than initially assessed.
+        - Do NOT skip verification for any HIGH or CRITICAL finding, even if it seems obvious. False positives at high severity waste remediation effort.
+        - Do NOT propose fixes that break functionality. If a fix would change behavior, note the trade-off explicitly.
+        - Do NOT produce actual code patches or diffs. Describe the fix in prose specific enough for a developer to implement.
+        - Do NOT modify any files. The workspace is read-only.
+
+        ## Output Format
+
+        Produce a markdown report at .wave/output/security-deep-dive.md with these sections:
+        - **Executive Summary**: Count of confirmed vs false positive findings, highest confirmed severity, overall risk assessment.
+        - **Confirmed Vulnerabilities**: Ordered by severity. Each entry: finding ID, severity, description, data flow trace with file:line references, exploitability assessment, remediation proposal.
+        - **False Positives Eliminated**: Each entry: finding ID, original severity, why it is a false positive.
+        - **Data Flow Analysis**: For CRITICAL and HIGH findings, the complete trace from entry to sink.
+        - **Related Patterns Found**: Grouped by vulnerability class, listing all locations where the pattern appears.
+        - **Remediation Plan**: Ordered by priority (impact/effort ratio), with effort estimates.
+
+        ## Quality Bar
+
+        A good deep dive confirms or eliminates every HIGH and CRITICAL finding with evidence, provides complete data flow traces that a developer can follow, and discovers related patterns the scan missed. Each remediation proposal is specific enough to implement without further security research. A bad deep dive restates scan findings without reading the source code, marks everything as "confirmed" without verification, or proposes generic advice ("sanitize all input") instead of specific fixes.
     output_artifacts:
       - name: deep_dive
         path: .wave/output/security-deep-dive.md
@@ -178,17 +251,59 @@ steps:
     exec:
       type: prompt
       source: |
-        Synthesize the injected scan findings and deep-dive analysis into a final report.
+        ## Objective
 
-        Create a concise, actionable security report:
+        Synthesize the initial scan findings and the deep-dive verification analysis into a final, executive-level security report. The report must distill technical findings into clear risk communication, provide a prioritized remediation roadmap, and acknowledge existing security strengths. This report is the deliverable that gets shared with the development team and stakeholders.
 
-        1. **Risk Score**: Overall risk rating (CRITICAL/HIGH/MEDIUM/LOW) with justification
-        2. **Top 3 Issues**: The most important findings to fix immediately
-        3. **Quick Wins**: Low-effort fixes that improve security posture
-        4. **Remediation Roadmap**: Ordered list of fixes by priority
-        5. **What's Good**: Security practices already in place
+        ## Context
 
-        Format as a clean markdown report suitable for sharing with the team.
+        Two prior steps have completed: the scan step produced initial findings (injected as scan_findings), and the deep-dive step verified those findings and produced a detailed analysis (injected as analysis). This synthesis step does not perform additional codebase analysis. It operates purely on the two injected artifacts, combining and condensing them into a polished report.
+
+        Read both injected artifacts:
+        - .wave/artifacts/scan_findings (initial scan JSON with all findings)
+        - .wave/artifacts/analysis (deep-dive markdown with verified findings, false positives, data flow traces, and remediation proposals)
+
+        ## Requirements
+
+        Produce a report with these sections:
+
+        1. **Overall Risk Score**: Assign a single risk rating (CRITICAL, HIGH, MEDIUM, or LOW) with a 2-3 sentence justification. The rating should reflect the worst confirmed vulnerability:
+           - CRITICAL: At least one confirmed critical vulnerability (exploitable RCE, auth bypass, data breach vector)
+           - HIGH: No critical findings but one or more confirmed high-severity vulnerabilities
+           - MEDIUM: No high findings but defense-in-depth gaps that should be addressed
+           - LOW: No significant vulnerabilities; minor hardening opportunities only
+           If the deep-dive eliminated false positives that lowered the effective severity, call that out explicitly.
+
+        2. **Top 3 Issues**: Select the three most important findings to address immediately. For each, provide: a one-sentence description, the risk (what could happen if unaddressed), and the fix (one-sentence summary of the remediation from the deep-dive). These should be the findings with the highest combination of severity and exploitability.
+
+        3. **Quick Wins**: List fixes that are low-effort (trivial or small) but meaningfully improve security posture. These are items the team can address in a single sprint without significant planning. For each, provide the finding ID, one-line description, and effort estimate.
+
+        4. **Remediation Roadmap**: Present the complete list of confirmed findings as an ordered remediation plan. Group by priority tier:
+           - **Immediate** (address this week): Critical and easily-exploitable high findings
+           - **Short-term** (address this sprint): Remaining high findings and high-impact medium findings
+           - **Medium-term** (address this quarter): Remaining medium findings and defense-in-depth improvements
+           - **Backlog**: Low-severity hardening opportunities
+           For each item, include: finding ID, severity, one-line description, effort estimate, and which component/team owns the fix.
+
+        5. **Security Strengths**: Identify and acknowledge security practices that are already working well. This provides balance, highlights patterns to preserve, and recognizes good work. Examples: consistent use of parameterized queries, proper TLS configuration, comprehensive auth middleware, good secret management practices.
+
+        6. **Metrics**: Provide a summary table with: total findings from scan, findings confirmed by deep-dive, false positives eliminated, findings by severity (after deep-dive adjustment), estimated total remediation effort, and attack surface size (entry points mapped).
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT introduce new findings. This step works only with what the scan and deep-dive produced.
+        - Do NOT include the full technical detail of data flow traces. Reference finding IDs and point to the deep-dive report for details.
+        - Do NOT use fear-based language or exaggerate risk. Present findings factually with evidence-based severity ratings.
+        - Do NOT recommend purchasing security tools or services. Focus on code-level fixes the team can implement.
+        - Keep the report concise. An executive should be able to read the Risk Score, Top 3, and Quick Wins sections in under 5 minutes.
+
+        ## Output Format
+
+        Produce a markdown report at .wave/output/security-report.md formatted for sharing with the development team. Use clear headers, tables for structured data, and bullet points for actionable items. The report should be self-contained and understandable without reading the underlying scan or deep-dive artifacts.
+
+        ## Quality Bar
+
+        A good final report translates technical vulnerabilities into business risk that non-security stakeholders can understand, provides a realistic remediation timeline that respects development capacity, and balances urgency with acknowledgment of existing strengths. A bad report is either a wall of technical jargon that only security engineers can parse, or a generic "you should fix everything" without prioritization and effort estimates.
     output_artifacts:
       - name: report
         path: .wave/output/security-report.md

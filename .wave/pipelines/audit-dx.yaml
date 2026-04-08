@@ -60,36 +60,60 @@ steps:
     exec:
       type: prompt
       source: |
-        Perform a developer experience audit of: {{ input }}
+        ## Objective
 
-        ## Evaluation Areas
+        Evaluate the developer experience across the entire contributor lifecycle: from initial setup through code navigation, testing, debugging, API usage, extensibility, and CI/CD. Produce a severity-rated report identifying specific friction points that slow down contributors and integrators, with actionable improvement recommendations for each area.
 
-        1. **Setup experience**: Can a new contributor get running quickly?
-           Check README, Makefile/scripts, dependency installation, IDE setup.
+        ## Context
 
-        2. **Code navigation**: Is the codebase easy to navigate?
-           Check package organization, naming, documentation, godoc comments.
+        This is a single-step analysis pipeline. The codebase is mounted read-only at /project. The caller may provide a specific DX area to audit (e.g., "onboarding", "testing", "ci", "api") or leave the input empty for a full audit covering all areas. No prior pipeline steps feed into this step.
 
-        3. **Testing**: Is it easy to write and run tests?
-           Check test helpers, mocks, fixtures, CI integration.
+        Focus area: {{ input }}
 
-        4. **Debugging**: Can developers debug issues efficiently?
-           Check logging, debug flags, error messages, stack traces.
+        If the input specifies a single area, perform a deep audit of that area. If the input is empty or general, perform a breadth-first audit covering all seven areas below, then go deeper on the areas with the most significant findings.
 
-        5. **API surface**: Is the internal API surface clean?
-           Check exported vs unexported, interface boundaries, type safety.
+        ## Requirements
 
-        6. **Extensibility**: Can developers add new pipelines, personas,
-           contracts without modifying core code?
-           Check plugin points, configuration, documentation.
+        Evaluate each of the following areas by actually inspecting the project's files, not by making assumptions:
 
-        7. **CI/CD**: Is the CI pipeline fast and reliable?
-           Check test times, flaky tests, build reproducibility.
+        1. **Setup experience**: Simulate a new contributor's first 30 minutes. Read the README.md for setup instructions. Check whether all prerequisites are listed. Verify that build commands (Makefile targets, scripts in package.json, etc.) exist and are documented. Look for a Dockerfile or docker-compose.yml for containerized development. Check whether IDE configuration is provided (.vscode/, .idea/, .editorconfig). Assess: How many steps from clone to running tests? Are there undocumented prerequisites? Does `make` or the equivalent build tool work with the documented instructions?
 
-        ## Output
+        2. **Code navigation**: Evaluate how easy it is to find things. Check whether package names clearly communicate their purpose. Verify that top-level directories follow conventional Go project layout or the project's own documented conventions. Check for godoc comments on exported types and functions. Look for architecture documentation (ADRs, diagrams, ARCHITECTURE.md) that helps a newcomer build a mental model. Assess: Can a developer find the implementation of a CLI command within 2 minutes? Is the dependency graph intuitive?
 
-        Produce a markdown report with findings grouped by area,
-        severity ratings, and specific improvement recommendations.
+        3. **Testing**: Evaluate the testing developer experience. Check whether test helpers and fixtures are well-organized and documented. Look for mock generation tools or hand-written mocks. Verify that `go test ./...` (or equivalent) runs cleanly. Check for test data management patterns. Look for testing documentation that explains how to write tests in this project. Assess: Can a developer write a new test by following existing patterns? Are test utilities discoverable?
+
+        4. **Debugging**: Evaluate debugging support. Check for structured logging with configurable verbosity levels. Look for debug flags or environment variables that enable verbose output. Examine error messages in error-handling paths: are they descriptive and actionable, or generic? Check whether errors include stack traces or context chains. Look for profiling entry points (pprof, trace). Assess: When something fails, does the error output tell the developer exactly what went wrong and where?
+
+        5. **API surface cleanliness**: Evaluate the internal package API. Check the ratio of exported to unexported symbols in key packages. Look for interfaces that are too wide (many methods) or too narrow (single-use). Check for consistent parameter ordering across similar functions. Verify that types are used instead of primitive types for domain concepts (e.g., typed IDs instead of raw strings). Assess: Can a developer use a package correctly by reading only its exported symbols and doc comments?
+
+        6. **Extensibility**: Evaluate how easy it is to add new functionality. Check whether adding a new pipeline, persona, contract type, or adapter requires modifying core code or just adding configuration/files. Look for plugin points, registration patterns, and configuration-driven behavior. Check for documentation on the extension process. Assess: Can a developer add a new pipeline YAML without touching Go code? Can a new adapter be added by implementing an interface?
+
+        7. **CI/CD**: Evaluate the CI pipeline. Read .github/workflows/ (or equivalent CI configuration). Check for test parallelism, caching, and matrix builds. Look for flaky test patterns (retry logic, known-flaky annotations). Check build reproducibility (pinned dependencies, lockfiles). Assess: How long does CI take? Are failures actionable or cryptic?
+
+        For each finding, provide:
+        - Severity: critical (blocks a contributor from starting), high (causes significant confusion or wasted time), medium (suboptimal but workable), low (polish opportunity)
+        - Current state: what exists today, with specific file references
+        - Impact: who is affected and how often
+        - Recommendation: specific improvement with estimated effort
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT rate based on personal preference. Rate based on measurable friction (steps required, undocumented prerequisites, error message quality).
+        - Do NOT recommend adding heavy processes or tools. Recommendations should reduce friction, not add bureaucracy.
+        - Do NOT modify any files. The workspace is read-only.
+        - Do NOT focus exclusively on the happy path. The DX of error cases and edge cases matters more than the happy path.
+
+        ## Output Format
+
+        Produce a markdown report at .wave/output/findings.md with:
+        - **Overall DX Score**: A rating for each area (Good / Needs Work / Poor) with one-line justification.
+        - **Findings by Area**: Grouped under each of the 7 areas, ordered by severity within each group.
+        - **Top 5 Quick Wins**: Low-effort, high-impact improvements across all areas.
+        - **Top 5 Strategic Improvements**: Higher-effort changes with the most DX payoff.
+
+        ## Quality Bar
+
+        A good DX audit is grounded in specific file references and concrete observations ("README.md line 42 says 'run make build' but no Makefile exists"), not abstract opinions ("the documentation could be better"). Each recommendation includes enough detail for someone to implement it without further research. A bad audit lists generic best practices without checking whether they apply to this specific project.
     output_artifacts:
       - name: findings
         path: .wave/output/findings.md

@@ -57,32 +57,90 @@ steps:
     exec:
       type: prompt
       source: |
-        Scan the repository for documentation inconsistencies: {{ input }}
+        ## Objective
 
-        ## Process
+        Scan the repository to identify all documentation inconsistencies with the current codebase, producing a structured inventory of findings that the analyze step will prioritize and the fix-docs step will remediate. Each finding must include the documentation location, the code location, the nature of the inconsistency, and a suggested fix. This scan forms the foundation for automated documentation repair.
 
-        1. **Identify documentation files**: Find all markdown files, README,
-           CONTRIBUTING, docs/ directory, inline code comments with doc references.
+        ## Context
 
-        2. **Identify code surface area**: Scan for exported functions, CLI commands,
-           config options, environment variables, API endpoints.
+        This is the first step of a four-step pipeline (scan-changes, analyze, fix-docs, create-pr). The analyze step will prioritize these findings and determine which can be fixed by editing docs alone. The fix-docs step will apply the fixes on a feature branch. The create-pr step will submit the changes. The codebase is mounted read-only at /project.
 
-        3. **Cross-reference**: For each documented feature, verify it exists in code.
-           For each code feature, verify it's documented.
+        Scope: {{ input }}
 
-        4. **Check accuracy**: Compare documented behavior, flags, options, and
-           examples against actual implementation.
+        If the scope is empty, perform a full documentation audit. If a specific area is mentioned, focus on documentation related to that area but still cross-reference against the full codebase.
 
-        5. **Categorize findings**:
-           - MISSING_DOCS: Feature in code, not in docs
-           - STALE_DOCS: Docs reference removed/changed feature
-           - INACCURATE: Docs describe wrong behavior
-           - INCOMPLETE: Docs exist but missing details
+        ## Requirements
 
-        Write your findings as structured JSON.
-        Include: scan_scope, findings (id, type, severity, title, doc_location, code_location,
-        description, suggested_fix), summary (total_findings, by_type, by_severity, fixable_count),
-        and timestamp.
+        ### 1. Identify Documentation Files
+
+        Discover all documentation surfaces in the project:
+        - Markdown files in the project root (README.md, CONTRIBUTING.md, CHANGELOG.md, CLAUDE.md, AGENTS.md)
+        - Documentation directories (docs/, doc/, guides/, wiki/)
+        - Architecture Decision Records (docs/adrs/)
+        - Inline documentation: godoc comments on exported types and functions in key packages
+        - Configuration documentation: comments in config schemas, YAML files, or dedicated config docs
+        - Pipeline documentation: YAML file descriptions and prompt content in .wave/pipelines/
+
+        Build a list of all documentation files with their paths.
+
+        ### 2. Identify Code Surface Area
+
+        Scan the codebase for the public API and user-facing surface:
+        - Exported functions and types in key packages (use Grep for `^func [A-Z]` and `^type [A-Z]` patterns)
+        - CLI commands and subcommands (search cmd/ for cobra command registrations)
+        - Configuration options (search for config struct definitions, environment variable access, flag definitions)
+        - Environment variables (search for os.Getenv, os.LookupEnv patterns)
+        - API endpoints (search for HTTP handler registrations)
+        - Pipeline names and descriptions (search .wave/pipelines/ for metadata.name fields)
+
+        ### 3. Cross-Reference
+
+        For each documented feature, verify it exists in code:
+        - Does the documented function/type still exist at the documented location?
+        - Does the documented CLI command still exist with the documented flags?
+        - Does the documented config option still exist with the documented default?
+
+        For each code feature, check if it is documented:
+        - Do exported functions have godoc comments?
+        - Are CLI commands documented in the CLI reference or help text?
+        - Are config options documented?
+        - Are environment variables documented?
+
+        ### 4. Check Accuracy
+
+        For features that are both documented and present in code, verify accuracy:
+        - Do documented flag names match actual flag names?
+        - Do documented default values match actual defaults?
+        - Do documented behavior descriptions match actual implementation?
+        - Do documented examples still work with current code?
+
+        ### 5. Categorize Findings
+
+        Assign each finding one of these types:
+        - **MISSING_DOCS**: Feature exists in code but has no documentation. The fix is to write new documentation.
+        - **STALE_DOCS**: Documentation references a feature that has been removed, renamed, or significantly changed. The fix is to update or remove the documentation.
+        - **INACCURATE**: Documentation describes behavior that differs from the actual implementation. The fix is to correct the documentation.
+        - **INCOMPLETE**: Documentation exists but is missing important details (missing flags, missing options, missing edge cases). The fix is to add the missing information.
+
+        For each finding, also determine:
+        - Whether it can be fixed by editing documentation alone (fixable=true) or requires code changes (fixable=false)
+        - The severity: critical (blocks usage), high (causes confusion), medium (incomplete), low (minor)
+        - A suggested fix describing what documentation change would resolve the inconsistency
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT report documentation style issues (grammar, formatting) as findings. Only report factual inconsistencies.
+        - Do NOT report test-internal documentation as needing public docs.
+        - Do NOT modify any files. This step is read-only.
+        - Do NOT report findings without both a documentation location and a code location. A finding must identify both sides of the inconsistency.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good scan cross-references every documented feature against the code and every code feature against the documentation, catching both stale docs and missing docs. Each finding includes a concrete suggested fix that the fix-docs step can implement. A bad scan only checks whether files exist without reading their content, misses environment variables and config options, or provides vague descriptions like "docs might be outdated."
     output_artifacts:
       - name: scan_results
         path: .wave/output/doc-scan.json
@@ -114,18 +172,81 @@ steps:
     exec:
       type: prompt
       source: |
-        Review the doc scan findings and prioritize fixes.
+        ## Objective
 
-        For each finding:
-        1. Verify it's a real inconsistency (not a false positive)
-        2. Assess if it can be fixed by editing docs alone
-        3. Prioritize: CRITICAL/HIGH first, then by effort
+        Review the documentation scan findings, eliminate false positives, assess which inconsistencies can be resolved with docs-only edits, and produce a prioritized fix plan that the fix-docs step can execute. The plan must specify exactly which files to edit, what changes to make, and in what order, so the fix-docs step can work through it mechanically without re-analyzing the codebase.
 
-        Produce a fix plan as markdown:
-        - Ordered list of fixes to apply
-        - For each: which file to edit, what to change, why
-        - Skip items that require code changes (docs-only fixes)
-        - Estimated scope of changes
+        ## Context
+
+        This is the second step of a four-step pipeline (scan-changes, analyze, fix-docs, create-pr). The scan step has produced findings injected as the "scan" artifact. This step reviews those findings, verifies they are real, and produces a fix plan. The fix-docs step will execute this plan on a worktree branch. The codebase is mounted read-only at /project.
+
+        Read the injected scan artifact first. Parse the findings array, noting each finding's type, severity, doc_location, code_location, description, and suggested_fix.
+
+        ## Requirements
+
+        ### 1. Verify Each Finding
+
+        For each finding from the scan, read both the documentation location and the code location to confirm the inconsistency is real:
+        - Read the documentation file at the reported location. Confirm the problematic text exists.
+        - Read the code at the reported location. Confirm the current implementation differs from what the documentation claims.
+        - If the finding is a false positive (e.g., the documentation is actually correct, or the code location was misidentified), mark it as eliminated and note why.
+
+        ### 2. Assess Fixability
+
+        For each verified finding, determine whether it can be fixed by editing documentation alone:
+        - **Fixable by docs edit**: The code is correct and the documentation needs to match it. Examples: updating a flag name in docs, correcting a default value, adding missing documentation for an existing feature.
+        - **Requires code change**: The documentation describes the desired behavior but the code does not implement it. These should be flagged but NOT included in the fix plan (they are feature requests or bug reports, not doc fixes).
+        - **Ambiguous**: It is unclear whether the docs or the code is "correct." Flag these for human review.
+
+        Only include docs-fixable items in the fix plan.
+
+        ### 3. Prioritize Fixes
+
+        Order the fix plan by priority:
+        1. CRITICAL severity findings first (blocking user issues)
+        2. HIGH severity findings (causes confusion or incorrect usage)
+        3. MEDIUM severity findings (incomplete but not wrong)
+        4. LOW severity findings (minor improvements)
+        Within each severity level, order by estimated effort (smallest first, to maximize fixes completed).
+
+        ### 4. Write the Fix Plan
+
+        For each fix to apply, specify:
+        - **Finding ID**: The ID from the scan results
+        - **File to edit**: The exact documentation file path
+        - **What to change**: Precisely what text to modify, add, or remove. Be as specific as possible: "Change 'flag --verbose' to '--verbose-mode' on line 42" rather than "update the flag name."
+        - **Why**: One sentence explaining the inconsistency
+        - **Source of truth**: The code file:line that contains the correct information
+        - **Effort**: trivial (single word/line change), small (paragraph rewrite), medium (section rewrite)
+
+        ### 5. Estimate Scope
+
+        At the end of the plan, provide a summary:
+        - Total findings from scan
+        - False positives eliminated
+        - Findings requiring code changes (excluded)
+        - Findings included in fix plan
+        - Estimated total files to modify
+        - Estimated effort (trivial/small/medium/large overall)
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT include fixes that require code changes. This pipeline fixes documentation only.
+        - Do NOT reorder the fix plan after prioritizing. The fix-docs step will execute top-to-bottom.
+        - Do NOT provide vague instructions like "update the documentation." Each fix must specify the exact file, the exact change, and where to find the correct information.
+        - Do NOT modify any files in this step. Produce the plan only.
+
+        ## Output Format
+
+        Produce the fix plan as markdown at `.wave/output/fix-plan.md` with:
+        - A summary section with the scope statistics
+        - An ordered list of fixes, each with finding ID, file path, change description, rationale, source of truth, and effort
+        - A section listing eliminated false positives with reasons
+        - A section listing findings excluded because they require code changes
+
+        ## Quality Bar
+
+        A good fix plan is specific enough that the fix-docs step can apply each change without re-reading the codebase. Each fix identifies the exact text to change and where to find the correct value. A bad fix plan says "update README" without specifying what to change, includes fixes that require code modifications, or fails to verify findings against the actual code.
     output_artifacts:
       - name: fix_plan
         path: .wave/output/fix-plan.md
@@ -160,34 +281,89 @@ steps:
     exec:
       type: prompt
       source: |
-        Fix the documentation inconsistencies on this isolated worktree branch.
+        ## Objective
 
-        ## Process
+        Apply the prioritized documentation fixes from the fix plan to the actual documentation files on this isolated worktree branch. Each fix must be minimal, focused, and preserve existing formatting. After all fixes are applied, verify no broken links or formatting issues were introduced, then commit the changes with a detailed message listing every fix applied.
 
-        1. **Apply fixes** following the priority order from the plan:
-           - Edit documentation files to fix each inconsistency
-           - Keep changes minimal and focused
-           - Preserve existing formatting and style
-           - Do NOT modify source code — docs-only changes
+        ## Context
 
-        2. **Verify**: Ensure no broken links or formatting issues
+        This is the third step of a four-step pipeline (scan-changes, analyze, fix-docs, create-pr). The scan results (injected as "scan") contain the original findings. The fix plan (injected as "impl_plan") contains the prioritized, verified list of documentation changes to make. You are running on an isolated worktree branch (`fix/{{ pipeline_id }}`). The create-pr step will push this branch and open a PR.
 
-        3. **Commit**:
-           ```bash
-           git add <changed-doc-files>
-           git commit -m "docs: sync documentation with implementation
+        Read both injected artifacts first:
+        - The scan artifact: for reference to original findings, code locations, and severity ratings
+        - The impl_plan artifact: for the ordered list of fixes to apply, specifying exactly which files to edit and what to change
 
-           Fix N documentation inconsistencies found by doc-fix pipeline:
-           - DOC-001: <title>
-           - DOC-002: <title>
-           ..."
-           ```
+        ## Requirements
 
-        Write a summary including:
+        ### 1. Apply Fixes in Priority Order
+
+        Work through the fix plan top-to-bottom. For each fix:
+        - Read the documentation file at the specified location
+        - Make the exact change described in the fix plan
+        - Keep changes minimal and focused: change only what the plan specifies
+        - Preserve existing formatting, indentation, and style of the documentation file
+        - Do NOT modify source code files. Only edit documentation files (*.md, docs/, README, CONTRIBUTING, CHANGELOG, CLAUDE.md, etc.)
+        - Track which fixes were successfully applied and which were skipped (e.g., if the text to change was not found at the expected location)
+
+        ### 2. Verify Documentation Integrity
+
+        After all fixes are applied, perform a lightweight verification:
+        - Check that markdown files are still well-formed (no unclosed code blocks, no broken header hierarchy)
+        - Verify that any internal links (e.g., `[see guide](docs/guides/foo.md)`) still point to existing files
+        - Ensure no content was accidentally deleted during edits
+        - If any fix introduced a formatting issue, correct it
+
+        ### 3. Commit the Changes
+
+        Stage only the documentation files that were modified:
+        ```bash
+        git add <changed-doc-files>
+        ```
+
+        Do NOT use `git add -A` or `git add .` as this may stage unrelated files.
+
+        Commit with a detailed message listing every fix:
+        ```bash
+        git commit -m "docs: sync documentation with implementation
+
+        Fix N documentation inconsistencies found by doc-fix pipeline:
+        - DOC-001: <title> (<file>)
+        - DOC-002: <title> (<file>)
+        ...
+
+        Skipped M items:
+        - DOC-003: <reason>
+        ..."
+        ```
+
+        Do NOT include Co-Authored-By or AI attribution in the commit message.
+
+        ### 4. Write Summary
+
+        Write a summary to `.wave/output/result.md` including:
         - Branch name
-        - List of files modified
-        - Findings fixed vs skipped
+        - Complete list of files modified with what was changed in each
+        - Findings fixed (with finding IDs and titles)
+        - Findings skipped (with finding IDs and reasons for skipping)
         - Commit hash
+        - Any issues encountered during the fix process
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT modify source code files. This step edits documentation only.
+        - Do NOT make changes beyond what the fix plan specifies. Do not "improve" documentation you happen to read.
+        - Do NOT restructure or reorganize documentation files. Only fix the specific inconsistencies listed.
+        - Do NOT use `git add -A` or `git add .`. Stage only specific files.
+        - Do NOT run `git checkout`, `git stash`, or switch branches.
+        - If a fix cannot be applied because the expected text does not exist (the documentation was changed by someone else), skip it and note the reason.
+
+        ## Output Format
+
+        Write the summary to `.wave/output/result.md` as markdown.
+
+        ## Quality Bar
+
+        A good fix step applies each change precisely as described in the plan, preserves the existing documentation style, and produces a commit where every change is traceable to a specific finding ID. The summary accurately reports what was fixed and what was skipped. A bad fix step makes broad edits beyond what the plan specifies, changes formatting or style unnecessarily, or fails to track which findings were addressed.
     retry:
       policy: standard
       max_attempts: 2
@@ -221,28 +397,35 @@ steps:
     exec:
       type: prompt
       source: |
-        Create a pull request for the documentation fixes.
+        ## Objective
 
-        ## Working Directory
+        Push the documentation fix branch and create a pull request with a comprehensive description summarizing the scan findings, the fixes applied, the findings skipped, and the overall scope of changes. The PR description must be detailed enough for a reviewer to understand each documentation change without reading the pipeline artifacts.
 
-        You are running in an **isolated git worktree** shared with previous pipeline steps.
-        Your working directory IS the project root. The branch already exists from the
-        fix-docs step — just push it and create the PR.
+        ## Context
 
-        ## SAFETY: Do NOT Modify the Working Tree
+        This is the fourth and final step of the doc-fix pipeline (scan-changes, analyze, fix-docs, create-pr). The scan results (injected as "scan") contain the original findings. The fix result (injected as "fix_result") contains the summary of what was fixed and what was skipped. You are running in an isolated git worktree where the branch and commit already exist from the fix-docs step.
 
-        This step MUST NOT run `git checkout`, `git stash`, or any command that changes
-        the current branch or working tree state.
+        Read both injected artifacts to compose the PR description.
 
-        ## Instructions
+        ## Requirements
 
-        ### Step 1: Push the Branch
+        ### Step 1: Load and Parse Context
+
+        Read both injected artifacts:
+        - The scan artifact: parse to get total findings, severity breakdown, and finding types
+        - The fix_result artifact: parse to get the list of files modified, findings fixed (with IDs and titles), findings skipped (with reasons), and the commit hash
+
+        ### Step 2: Push the Branch
 
         ```bash
         git push -u origin HEAD
         ```
 
-        ### Step 2: Create Pull Request
+        If the push fails due to an existing remote branch, do NOT force-push. Investigate and report the error.
+
+        ### Step 3: Create Pull Request
+
+        Compose a detailed PR body from the artifact data, then create the PR:
 
         ```bash
         {{ forge.cli_tool }} {{ forge.pr_command }} create --title "docs: sync documentation with implementation" --body "$(cat <<'PREOF'
@@ -250,34 +433,59 @@ steps:
 
         Automated documentation sync to fix inconsistencies between docs and code.
 
-        <summarize: N findings fixed, types of issues addressed>
+        <summarize: N findings fixed out of M total, types of issues addressed (STALE_DOCS, MISSING_DOCS, INACCURATE, INCOMPLETE)>
 
         ## Changes
 
-        <list each doc file modified and what was fixed>
+        <for each documentation file modified, list: file path, what was changed, which finding ID it addresses>
 
         ## Findings Addressed
 
-        <list each finding ID, type, and resolution>
+        <for each finding fixed, list: finding ID, type, severity, one-line title, which file was edited>
 
         ## Skipped
 
-        <list any findings that were skipped and why>
+        <for each finding skipped, list: finding ID, reason for skip (requires code change, false positive, text not found at expected location)>
+
+        ## Test Plan
+
+        - All documentation changes are docs-only (no source code modifications)
+        - Markdown formatting verified after edits
+        - Internal links checked for validity
         PREOF
         )"
         ```
 
-        ### Step 3: Request Copilot Review (Best-Effort)
+        Replace all placeholder text in angle brackets with actual data from the artifacts. Do NOT leave template placeholders in the PR body.
+
+        ### Step 4: Request Copilot Review (Best-Effort)
 
         ```bash
         {{ forge.cli_tool }} {{ forge.pr_command }} edit --add-reviewer "copilot" 2>/dev/null || true
         ```
 
-        ## CONSTRAINTS
+        This may fail if Copilot reviews are not enabled. The failure is acceptable.
 
-        - Do NOT spawn Task subagents — work directly in the main context
-        - Do NOT run `git checkout`, `git stash`, or any branch-switching commands
-        - Do NOT include Co-Authored-By or AI attribution in commits
+        ### Step 5: Capture Result
+
+        Write the PR URL, number, and title to `.wave/output/pr-result.json` matching the pr-result contract schema. Include the branch name and finding counts.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT modify the working tree. No additional edits, no new commits.
+        - Do NOT run `git checkout`, `git stash`, or any branch-switching commands.
+        - Do NOT spawn Task subagents. Work directly in the main context.
+        - Do NOT include Co-Authored-By or AI attribution.
+        - Do NOT leave placeholder text in the PR body.
+        - Do NOT force-push under any circumstances.
+
+        ## Output Format
+
+        Write the PR result to `.wave/output/pr-result.json` conforming to the pr-result contract schema.
+
+        ## Quality Bar
+
+        A good PR description lists every documentation file changed with what was modified, maps each change to a finding ID, and explains why certain findings were skipped. A reviewer can approve by reading the PR description alone. A bad PR description uses generic language, leaves template placeholders, or omits the mapping between findings and changes.
 
     output_artifacts:
       - name: pr-result
