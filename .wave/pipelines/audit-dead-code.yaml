@@ -65,48 +65,69 @@ steps:
     exec:
       type: prompt
       source: |
-        Scan for dead or redundant code: {{ input }}
+        ## Objective
 
-        ## Pre-Scan: Ensure Code is Up-to-Date
+        Perform a comprehensive scan for dead or redundant code across the codebase, identifying unused exports, unreachable branches, orphaned files, redundant implementations, stale tests, unused dependencies, and commented-out code blocks. Produce verified, high-confidence findings that the subsequent clean step can safely act on. This is the foundation step: false positives here waste remediation effort, and false negatives leave dead code in place.
+
+        ## Context
+
+        This is the first step of a four-step pipeline (scan, clean, verify, create-pr). The clean step will use these findings to actually remove dead code on an isolated worktree branch. The verify step will review the removals for safety. The create-pr step will submit the changes. Because downstream steps perform destructive operations based on these findings, accuracy is critical. Only high and medium confidence findings should be reported.
+
+        Scope: {{ input }}
+
+        ## Requirements
+
+        ### Pre-Scan: Ensure Code is Up-to-Date
 
         Before scanning, verify the local code matches the remote to avoid analyzing stale code:
         ```bash
         git fetch origin
         ```
-        If the local HEAD is behind origin/main, warn in your output that findings may
-        need re-verification against the latest main branch.
+        If the local HEAD is behind origin/main, include a warning in the output summary that findings may need re-verification against the latest main branch. Do not attempt to merge or rebase.
 
-        ## What to Look For
+        ### Dead Code Categories
 
-        1. **Unused exports**: Exported functions, types, constants, or variables
-           that are never referenced outside their package.
+        Scan systematically for each of these categories:
 
-        2. **Unreachable code**: Code after return/panic, impossible branches,
-           dead switch cases.
+        1. **Unused exports**: For every exported function, type, constant, or variable in each package within scope, search the entire codebase for references outside the declaring package. Use Grep with exact symbol names across /project/internal/ and /project/cmd/. A symbol is confirmed dead if zero external references exist after ruling out false-positive sources (interface satisfaction, reflect-based usage, build tags).
 
-        3. **Orphaned files**: Files not imported by any other file in the project.
+        2. **Unreachable code**: Search for code after unconditional return, panic(), or os.Exit() statements. Identify switch/select cases that can never be reached due to prior exhaustive matching. Look for if-else branches guarded by constant conditions. Check for error-handling code after functions that never return errors in practice.
 
-        4. **Redundant code**: Duplicate functions, copy-paste blocks,
-           wrappers that add no value.
+        3. **Orphaned files**: Identify Go source files whose package is never imported by any other file in the project. Also look for non-Go files (configs, scripts, templates) that are never referenced from any Go code or build configuration.
 
-        5. **Stale tests**: Tests for functions that no longer exist,
-           or tests that test nothing meaningful.
+        4. **Redundant code**: Find duplicate functions (identical or near-identical signatures and bodies) across different packages. Identify wrapper functions that add no value (simply call through to another function with the same parameters). Look for copy-paste blocks of 10+ lines that appear in multiple locations.
 
-        6. **Unused dependencies**: Imports that are no longer needed.
+        5. **Stale tests**: Find test functions that reference functions or types that no longer exist. Identify tests that assert nothing meaningful (only check err == nil without verifying results). Look for tests with t.Skip() that reference resolved issues.
 
-        7. **Commented-out code**: Large blocks of commented code that
-           should be deleted (git has history).
+        6. **Unused dependencies**: Check for imported packages that are not actually used (the Go compiler catches most of these, but check for blank imports `_` that may no longer be needed for side effects). Check go.mod for dependencies not imported anywhere.
 
-        ## Verification
+        7. **Commented-out code**: Search for blocks of 3+ consecutive commented lines that contain code syntax (function signatures, variable declarations, control flow keywords). These should be deleted since git history preserves the original code.
 
-        For each finding, verify it's truly dead:
-        - Grep for all references across the entire codebase
-        - Check for reflect-based or string-based usage
-        - Check if it's part of an interface implementation
-        - Check for build tag conditional compilation
+        ### Verification Protocol
 
-        Write your findings to `.wave/output/findings.json` (the contract schema defines the required structure).
-        Only include findings with high or medium confidence. Skip low confidence.
+        For each candidate finding, perform these verification steps before including it:
+        - Grep for ALL references across the entire codebase (not just the declaring package)
+        - Check for reflect-based or string-based usage (search for the symbol name as a string literal)
+        - Check if the symbol exists to satisfy an interface (search for the interface definition and confirm whether the type implements it)
+        - Check for build tag conditional compilation (`//go:build` or `// +build` directives)
+        - Check for usage from generated code or external tools
+        - Assign confidence: HIGH (zero references found after thorough search), MEDIUM (references exist only in tests or only via indirect patterns)
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT include LOW confidence findings. The clean step will act on these findings, so false positives cause reverted changes and wasted build cycles.
+        - Do NOT report init() functions, main() functions, or package-level variable initializations as unused.
+        - Do NOT report standard interface implementations (io.Reader, fmt.Stringer, error, etc.) as dead code.
+        - Do NOT modify any files. This step is read-only.
+        - Do NOT use external tools (go vet, staticcheck). This is a manual static analysis using Grep and Read.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good scan produces findings where every reported item has been verified with cross-codebase Grep searches and the evidence section documents exactly what was searched. The clean step should be able to act on each finding without additional investigation. A bad scan reports symbols without verification, includes interface implementations as dead code, or uses vague confidence assessments without documenting the search methodology.
     output_artifacts:
       - name: findings
         path: .wave/output/findings.json
@@ -137,35 +158,88 @@ steps:
     exec:
       type: prompt
       source: |
-        Remove the dead code on this isolated worktree branch.
+        ## Objective
 
-        The scan findings have been injected into your workspace. Read them first.
+        Remove confirmed dead code from the codebase on an isolated worktree branch, proceeding incrementally from safest to riskiest removals, verifying the build after each change, and producing a clean commit with a detailed message listing every removed item. The end state must be a branch that builds cleanly, passes all tests, and contains only intentional dead-code removals.
 
-        ## Process
+        ## Context
 
-        1. **Remove dead code** — ONLY high-confidence findings:
-           - Start with unused imports (safest)
-           - Then commented-out code blocks
-           - Then unused exports
-           - Then orphaned files
-           - Skip anything with confidence=medium unless trivially safe
-           - After each removal, verify the build still passes
+        This is the second step of a four-step pipeline (scan, clean, verify, create-pr). The scan step has produced findings identifying dead code with confidence ratings. Those findings have been injected into your workspace as the "findings" artifact. You are running on an isolated git worktree branch (`chore/{{ pipeline_id }}`), so your changes do not affect the main branch. The verify step will review your changes for safety, and the create-pr step will submit them.
 
-        2. Run the full test suite and fix any failures before committing.
+        Read the injected findings artifact first. Parse each finding to understand what to remove, where it is, and its confidence level.
 
-        3. **Commit**:
-           ```bash
-           git add <specific-files>
-           git commit -m "chore: remove dead code
+        ## Requirements
 
-           Removed N items of dead code:
-           - DC-001: <symbol> (unused export)
-           - DC-002: <file> (orphaned file)
-           ..."
-           ```
+        ### 1. Plan the Removal Order
 
-        If ANY test fails after a removal, revert that specific removal
-        and continue with the next item.
+        Sort findings by safety, processing them in this order:
+        1. **Unused imports and blank imports** (safest -- the Go compiler validates these)
+        2. **Commented-out code blocks** (safe -- no behavioral change)
+        3. **Unused exported functions and types** (moderate risk -- Grep verification provides confidence)
+        4. **Orphaned files** (moderate risk -- file-level deletion)
+        5. **Stale tests** (moderate risk -- removing tests, not production code)
+        6. **Redundant/duplicate code** (highest risk -- requires choosing which copy to keep)
+
+        Within each category, process HIGH confidence findings first. Skip MEDIUM confidence findings unless the removal is trivially safe (e.g., a 3-line commented-out block).
+
+        ### 2. Incremental Removal with Verification
+
+        For each finding to remove:
+        - Make the removal edit (delete the function, remove the file, delete the comment block)
+        - Run `go build ./...` to verify the build still passes
+        - If the build fails, IMMEDIATELY revert the change (`git checkout -- <file>`) and skip this finding
+        - If the build passes, continue to the next finding
+        - Track which findings were successfully removed and which were skipped
+
+        After all removals are complete, run the full test suite:
+        ```bash
+        go test ./...
+        ```
+        If any tests fail, identify which removal caused the failure, revert that specific removal, and re-run tests until all pass.
+
+        ### 3. Commit the Changes
+
+        Stage only the files you intentionally modified:
+        ```bash
+        git add <specific-files>
+        ```
+
+        Do NOT use `git add -A` or `git add .` as this may stage unrelated files.
+
+        Commit with a detailed message:
+        ```bash
+        git commit -m "chore: remove dead code
+
+        Removed N items of dead code:
+        - DC-001: <symbol> (unused export) in <file>
+        - DC-002: <file> (orphaned file)
+        - DC-003: <block description> (commented-out code)
+        ...
+
+        Skipped M items:
+        - DC-004: <reason for skip>
+        ..."
+        ```
+
+        Do NOT include Co-Authored-By or AI attribution in the commit message.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT remove MEDIUM confidence findings unless the removal is trivially safe and the build confirms it.
+        - Do NOT remove multiple items at once before checking the build. Process one finding at a time.
+        - Do NOT modify code behavior. If removing a function requires updating callers, the finding was a false positive -- skip it.
+        - Do NOT add new code, refactor existing code, or make any changes beyond dead code removal.
+        - Do NOT use `git add -A` or `git add .`. Stage only specific files.
+        - Do NOT run `git checkout`, `git stash`, or switch branches. Stay on the worktree branch.
+        - If a removal causes a cascade of compilation errors across multiple files, revert it. The finding was likely a false positive.
+
+        ## Output Format
+
+        The output of this step is the committed changes on the worktree branch. The commit message serves as the record of what was removed and what was skipped.
+
+        ## Quality Bar
+
+        A good clean step processes findings incrementally, catches build failures immediately by reverting individual removals, and produces a commit where every change is a clear dead-code deletion with no behavioral side effects. The commit message lists every removed item by finding ID. A bad clean step applies all removals at once, debugs cascading failures, or includes unrelated changes in the commit.
     retry:
       policy: standard
       max_attempts: 3
@@ -188,26 +262,62 @@ steps:
     exec:
       type: prompt
       source: |
-        Verify the dead code removal was safe.
+        ## Objective
 
-        The original scan findings have been injected into your workspace. Read them first.
+        Verify that the dead code removal performed by the clean step was safe, complete, and focused. This is a safety gate: the verification must confirm that only high-confidence dead code was removed, no false positives were accidentally deleted, the project builds and all tests pass, and the commit contains no unrelated changes. The verdict determines whether the pipeline proceeds to create a PR or halts for human review.
 
-        Check:
-        1. Were only high-confidence items removed?
-        2. Are all tests still passing?
-        3. Does the project still build cleanly?
-        4. Were any false positives accidentally removed?
-        5. Is the commit focused (no unrelated changes)?
+        ## Context
 
-        Produce a structured JSON verification report matching the contract schema.
+        This is the third step of a four-step pipeline (scan, clean, verify, create-pr). The scan step identified dead code. The clean step removed it on an isolated worktree branch and committed the changes. The original scan findings have been injected as the "original_findings" artifact. You are running on the same worktree branch where the clean step made its changes. If this step produces a CLEAN verdict, the create-pr step will push the branch and open a PR. If it produces NEEDS_REVIEW, the contract validation will intentionally fail and the pipeline will halt.
 
-        The `verdict` field MUST be either:
-        - `"CLEAN"` — all removals are safe, tests pass, no false positives detected
-        - `"NEEDS_REVIEW"` — potential issues found that require human review
+        Read the injected original_findings artifact first, then examine the changes made by the clean step.
 
-        **Important**: The contract schema only accepts `"CLEAN"`. If you set verdict
-        to `"NEEDS_REVIEW"`, contract validation will intentionally fail and the
-        pipeline will halt before creating a PR. This is the desired safety behavior.
+        ## Requirements
+
+        Perform each of these verification checks:
+
+        1. **Confidence check**: Review the git diff to see what was removed. Cross-reference each removal against the original scan findings. Verify that only HIGH confidence findings were removed. If any MEDIUM confidence findings were removed, verify they were trivially safe (e.g., commented-out code blocks). If any finding was removed that is not in the scan results at all, flag it as an unauthorized change.
+
+        2. **Build verification**: Run `go build ./...` to confirm the project compiles cleanly with no errors or warnings. If the build fails, the verdict MUST be NEEDS_REVIEW.
+
+        3. **Test verification**: Run `go test ./...` to confirm all tests pass. If any test fails, the verdict MUST be NEEDS_REVIEW. Note which tests fail and correlate with the removals.
+
+        4. **False positive check**: For each removed symbol or file, perform a quick verification that it was genuinely dead:
+           - For removed exported functions: Grep the codebase to confirm no callers exist
+           - For removed files: Grep for imports of the file's package to confirm no importers
+           - For removed commented-out code: Verify the removal was purely comments, not active code
+           If any removal appears to have deleted code that is actually used, flag it.
+
+        5. **Commit focus check**: Review the git diff to confirm that:
+           - Only dead-code removals are present (no refactoring, no formatting changes, no new code)
+           - No unrelated files were modified
+           - No files that should be preserved (.gitignore, go.mod, go.sum) were accidentally changed
+           - The commit message accurately lists what was removed
+
+        6. **Completeness check**: Compare the original findings against what was removed. Note any findings that were skipped and verify the skip reasons are valid (build failure, medium confidence, cascading errors).
+
+        ### Verdict Decision
+
+        Set the `verdict` field based on the results:
+        - `"CLEAN"` -- all of the following are true: only high-confidence items were removed, build passes, all tests pass, no false positives detected, commit is focused with no unrelated changes
+        - `"NEEDS_REVIEW"` -- any of the following are true: a potentially-used symbol was removed, build fails, tests fail, unauthorized changes are present, or the commit includes non-dead-code modifications
+
+        **Important**: The contract schema only accepts `"CLEAN"`. If you set verdict to `"NEEDS_REVIEW"`, contract validation will intentionally fail and the pipeline will halt before creating a PR. This is the desired safety behavior -- it prevents shipping questionable changes.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT fix issues found during verification. Your job is to report, not to remediate. If something is wrong, set NEEDS_REVIEW and describe the problem.
+        - Do NOT modify any files or make commits. This is a read-only verification step.
+        - Do NOT set CLEAN if you have any doubt. Err on the side of NEEDS_REVIEW. A halted pipeline is better than a bad PR.
+        - Do NOT skip the build and test verification steps. They are mandatory regardless of how the diff looks.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good verification catches subtle issues like a removed function that is referenced via reflect, a test that passes only because the tested function was also removed, or an unrelated formatting change that slipped into the commit. A bad verification rubber-stamps the changes by checking only that the build passes without examining what was actually removed.
     output_artifacts:
       - name: verification
         path: .wave/output/verification.json
@@ -240,25 +350,25 @@ steps:
     exec:
       type: prompt
       source: |
-        Create a pull request for the dead code removal.
+        ## Objective
 
-        ## Working Directory
+        Push the dead code removal branch and create a pull request with a comprehensive description summarizing the scan findings, the removals performed, the verification outcome, and the test plan. The PR description must be detailed enough for a reviewer to understand what was removed and why, without needing to read the underlying pipeline artifacts.
 
-        You are running in an **isolated git worktree** shared with previous pipeline steps.
-        Your working directory IS the project root. The branch already exists from the
-        clean step — just push it and create the PR.
+        ## Context
 
-        ## SAFETY: Do NOT Modify the Working Tree
+        This is the fourth and final step of the audit-dead-code pipeline (scan, clean, verify, create-pr). The scan step identified dead code. The clean step removed it and committed the changes on this worktree branch. The verify step confirmed the removals are safe (CLEAN verdict). Both the scan findings and verification report have been injected into your workspace. You are running in an isolated git worktree where the branch and commit already exist from prior steps.
 
-        This step MUST NOT run `git checkout`, `git stash`, or any command that changes
-        the current branch or working tree state.
+        Read the injected findings artifact and the verification_report artifact to understand what was found, what was removed, and the verification outcome.
 
-        ## Instructions
+        ## Requirements
 
-        ### Step 1: Load Context
+        ### Step 1: Load and Parse Context
 
-        The scan findings and verification report have been injected into your workspace.
-        Read them both to understand what was found and the verification outcome.
+        Read both injected artifacts:
+        - The findings artifact: parse to get the list of dead code items, their IDs, types, locations, and confidence levels
+        - The verification report: parse to get the verdict, removed items, skipped items, and check results
+
+        Prepare a summary: count of items removed by category (unused exports, orphaned files, commented-out code, etc.), estimated lines saved, and any items that were skipped with reasons.
 
         ### Step 2: Push the Branch
 
@@ -266,7 +376,11 @@ steps:
         git push -u origin HEAD
         ```
 
+        If the push fails due to an existing remote branch, force-push is NOT allowed. Investigate the conflict and report the error.
+
         ### Step 3: Create Pull Request
+
+        Compose a detailed PR body from the artifact data, then create the PR:
 
         ```bash
         {{ forge.cli_tool }} {{ forge.pr_command }} create --title "chore: remove dead code" --body "$(cat <<'PREOF'
@@ -274,24 +388,31 @@ steps:
 
         Automated dead code removal based on static analysis scan.
 
-        <summarize what was removed: N items, types, estimated lines saved>
+        <summarize what was removed: N items by category, estimated lines saved, packages affected>
 
         ## Verification
 
-        <summarize verification report: CLEAN or NEEDS_REVIEW, test status>
+        <summarize verification report: CLEAN verdict, build status, test status, false positive check result>
 
         ## Removed Items
 
-        <list each removed item with its ID, type, and location>
+        <for each removed item, list: finding ID, category (unused export / orphaned file / etc.), symbol or file name, file:line location>
+
+        ## Skipped Items
+
+        <for each skipped item, list: finding ID, reason for skip (medium confidence / build failure / etc.)>
 
         ## Test Plan
 
-        - Full test suite passed after each removal
-        - Build verified clean after all removals
-        - Auditor persona verified no false positives
+        - Full test suite passed after each incremental removal
+        - Build verified clean after all removals applied
+        - Verification step confirmed no false positives
+        - All checks passed: confidence, build, tests, commit focus, completeness
         PREOF
         )"
         ```
+
+        Replace all placeholder text in angle brackets with actual data from the artifacts. Do NOT leave template placeholders in the PR body.
 
         ### Step 4: Request Copilot Review (Best-Effort)
 
@@ -299,11 +420,28 @@ steps:
         {{ forge.cli_tool }} {{ forge.pr_command }} edit --add-reviewer "copilot" 2>/dev/null || true
         ```
 
-        ## CONSTRAINTS
+        This may fail if the repository does not have Copilot reviews enabled. The failure is acceptable.
 
-        - Do NOT spawn Task subagents — work directly in the main context
-        - Do NOT run `git checkout`, `git stash`, or any branch-switching commands
-        - Do NOT include Co-Authored-By or AI attribution in commits
+        ### Step 5: Capture Result
+
+        Write the PR URL, number, and title to `.wave/output/pr-result.json` matching the pr-result contract schema. Include the branch name, removed item count, and verification verdict in the result.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT modify the working tree. No code changes, no additional commits, no file edits.
+        - Do NOT run `git checkout`, `git stash`, or any branch-switching commands.
+        - Do NOT spawn Task subagents. Work directly in the main context.
+        - Do NOT include Co-Authored-By or AI attribution in any output.
+        - Do NOT leave placeholder text in the PR body. Every angle-bracket section must be replaced with real data.
+        - Do NOT force-push under any circumstances.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good PR description enables a reviewer to approve or request changes without reading any pipeline artifacts. It lists every removed item with enough context (file, symbol, category) to evaluate the removal. The test plan section confirms that verification was thorough. A bad PR description uses generic language ("removed some dead code") or leaves template placeholders unfilled.
 
     output_artifacts:
       - name: pr-result

@@ -63,38 +63,50 @@ steps:
     exec:
       type: prompt
       source: |
-        Fetch all closed issues and merged PRs for audit inventory.
+        ## Objective
 
-        ## Detect Repository
+        Fetch all closed issues and merged pull requests within the specified scope and build a structured inventory for downstream audit verification. This inventory serves as the complete input for the audit step, which will check each item against the current codebase. The inventory must be thorough, correctly scoped, and enriched with metadata (acceptance criteria, linked PRs, merge commits) that the audit step needs to perform verification.
+
+        ## Context
+
+        This is the first step of a three-step pipeline (inventory, audit, triage). The audit step depends on this inventory to know what to verify. The triage step depends on the audit findings to produce a prioritized report. The codebase is mounted read-only. The forge CLI tool ({{ forge.cli_tool }}) is available for querying issues and PRs.
+
+        ## Requirements
+
+        ### 1. Detect Repository
 
         Run: `{{ forge.cli_tool }} repo view --json nameWithOwner --jq .nameWithOwner`
 
-        ## Parse Scope
+        Store the result as the repository identifier for the scope metadata.
+
+        ### 2. Parse Scope
 
         Input: {{ input }}
 
         Determine the scope mode from the input:
 
-        - **Empty or blank input**: Full audit — fetch ALL closed issues and merged PRs
+        - **Empty or blank input**: Full audit -- fetch ALL closed issues and merged PRs with no date or label filter. This can produce large inventories; handle pagination.
         - **Time range** (e.g., "last 30 days", "last 7 days", "since 2026-01-01"):
-          - For "last N days": calculate the date N days ago, use `closed:>YYYY-MM-DD` / `merged:>YYYY-MM-DD`
-          - For "since YYYY-MM-DD": use `closed:>YYYY-MM-DD` / `merged:>YYYY-MM-DD`
+          - For "last N days": calculate the date N days ago from today, use `closed:>YYYY-MM-DD` / `merged:>YYYY-MM-DD` as search filters
+          - For "since YYYY-MM-DD": use `closed:>YYYY-MM-DD` / `merged:>YYYY-MM-DD` directly
         - **Label filter** (e.g., "label:enhancement", "label:bug"):
           - Extract the label name after "label:"
           - Add `--label <name>` to both issue and PR queries
 
-        ## Fetch Closed Issues
+        If the input does not clearly match any of these patterns, treat it as a full audit and note the unrecognized input in the scope metadata.
+
+        ### 3. Fetch Closed Issues
 
         ```bash
         {{ forge.cli_tool }} issue list --state closed --json number,title,body,labels,closedAt,stateReason,url \
           --limit 500 [--search "closed:>YYYY-MM-DD"] [--label <name>]
         ```
 
-        Filter out issues where `stateReason` is `NOT_PLANNED` — these represent intentional non-implementation and should be excluded.
+        Filter out issues where `stateReason` is `NOT_PLANNED` -- these represent intentional non-implementation and must be excluded from audit. Count the excluded items for the summary.
 
-        If the result count equals the limit (500), make additional paginated calls to fetch remaining items.
+        If the result count equals the limit (500), make additional paginated calls to fetch remaining items. The audit must cover the complete set, not just the first page.
 
-        ## Fetch Merged PRs
+        ### 4. Fetch Merged PRs
 
         ```bash
         {{ forge.cli_tool }} {{ forge.pr_command }} list --state merged --json number,title,body,files,mergeCommit,closedAt,url \
@@ -103,29 +115,39 @@ steps:
 
         If the result count equals the limit, paginate for more.
 
-        ## Build Inventory
+        ### 5. Build Inventory
 
-        For each closed issue:
-        - `number`, `type` ("issue"), `title`, `url`, `body`, `labels` (array)
+        For each closed issue, extract:
+        - `number`, `type` ("issue"), `title`, `url`, `body`, `labels` (array of label names)
         - `closed_at`: ISO 8601 timestamp
-        - `linked_prs`: Search body for "Fixes #N", "Closes #N", or PR cross-references
-        - `acceptance_criteria`: Extract from issue body by looking for checklist patterns (`- [ ]`, `- [x]`) or sections titled "Acceptance Criteria", "Requirements", or similar headers
+        - `linked_prs`: Search the issue body for "Fixes #N", "Closes #N", "Resolves #N", or PR cross-references. Also check for linked PR URLs.
+        - `acceptance_criteria`: Extract from the issue body by looking for checklist patterns (`- [ ]`, `- [x]`) or sections titled "Acceptance Criteria", "Requirements", "Definition of Done", or similar headers. If no structured criteria are found, extract the key requirements from the issue description.
 
-        For each merged PR:
-        - `number`, `type` ("pr"), `title`, `url`, `body`, `labels` (array)
+        For each merged PR, extract:
+        - `number`, `type` ("pr"), `title`, `url`, `body`, `labels` (array of label names)
         - `merged_at`: ISO 8601 timestamp (from `closedAt`)
         - `merge_commit`: the mergeCommit SHA
         - `files_changed`: count of modified files from the PR
 
-        ## Output
+        ### 6. Write Output
 
         Write the inventory as structured JSON to `.wave/artifacts/inventory.json`.
 
-        The JSON must include:
-        - `scope`: object with `mode` ("full", "time_range", or "label"), `filter` (the raw scope expression), `repository` (owner/repo)
-        - `items`: array of inventory items (issues and PRs combined)
-        - `summary`: object with `total_issues`, `total_prs`, `excluded_not_planned` counts
-        - `timestamp`: current ISO 8601 timestamp
+        ## Constraints and Anti-patterns
+
+        - Do NOT attempt to verify items against the codebase in this step. That is the audit step's responsibility.
+        - Do NOT skip pagination. An incomplete inventory means the audit will miss items.
+        - Do NOT include NOT_PLANNED issues. These are intentionally excluded.
+        - Do NOT truncate issue or PR bodies. The audit step needs the full text to extract verification targets.
+        - If the forge CLI command fails (rate limit, network error), retry once before failing.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good inventory captures every closed issue and merged PR within scope with correctly parsed metadata. Acceptance criteria are extracted even from unstructured issue bodies. Linked PRs are identified from cross-reference patterns in issue bodies. A bad inventory truncates at the first page of results, omits acceptance criteria extraction, or includes NOT_PLANNED issues that will generate false "not implemented" findings in the audit step.
 
     output_artifacts:
       - name: inventory
@@ -158,60 +180,75 @@ steps:
     exec:
       type: prompt
       source: |
-        Audit each closed issue and merged PR against the current codebase to verify implementation fidelity.
+        ## Objective
 
-        ## Read Inventory
+        Audit each closed issue and merged PR in the inventory against the current codebase to verify implementation fidelity. For each item, determine whether the described work is fully present in the codebase at HEAD, partially implemented, regressed, obsolete, or never implemented. Every classification must be backed by concrete evidence from file existence checks, Grep searches, code reads, and git history analysis.
 
-        Read the injected inventory artifact to get the list of items to audit.
+        ## Context
 
-        ## Verification Methodology
+        This is the second step of a three-step pipeline (inventory, audit, triage). The inventory step has already fetched all closed issues and merged PRs within scope and injected them as the inventory artifact. This step reads that inventory and verifies each item against the live codebase. The triage step will consume this step's findings to produce a prioritized remediation report. The codebase is mounted read-only.
 
-        For each inventory item, perform static analysis verification:
+        Read the injected inventory artifact to get the list of items to audit. Parse the items array and the scope metadata.
 
-        1. **Read the item description** — identify what should exist in the codebase: specific functions, types, handlers, configuration options, CLI flags, test files, documentation
-        2. **Check file existence** — use Glob to verify that referenced files still exist at HEAD
-        3. **Search for key artifacts** — use Grep to find function names, type definitions, handler registrations, and other code artifacts mentioned in the issue/PR
-        4. **Read relevant code** — use Read to verify logic matches the described behavior
-        5. **Check test coverage** — verify related test files exist and contain assertions matching the acceptance criteria
-        6. **Detect regressions** — run `git log --oneline --all -- <file>` to check if key files were modified after implementation. Run `git log --grep="Revert" --oneline` to find revert commits that may have undone the work
+        ## Requirements
 
-        ## Classification Rules
+        ### Verification Methodology
+
+        For each inventory item, perform a multi-layered static analysis verification:
+
+        1. **Read the item description**: Parse the issue body or PR description to identify what should exist in the codebase. Extract specific targets: function names, type definitions, handler registrations, CLI flags, configuration options, file paths, test expectations, and documentation changes.
+
+        2. **Check file existence**: Use Glob to verify that all files referenced in the issue/PR still exist at HEAD. If the item mentions creating new files, verify they are present. If the item mentions modifying existing files, verify the files exist.
+
+        3. **Search for key artifacts**: Use Grep to find the specific code artifacts mentioned in the issue/PR. Search for function names, type definitions, constant values, struct fields, handler registrations, and other identifiable code elements. Use exact symbol names to avoid false matches from substrings.
+
+        4. **Read and verify logic**: Use Read to examine the source code at locations found by Grep. Verify that the logic matches what the issue/PR describes. For bug fixes, check that the fix condition is present. For features, check that the feature's behavior is implemented, not just stubbed.
+
+        5. **Check test coverage**: Verify that related test files exist and contain assertions that exercise the implemented functionality. Look for test function names that reference the issue number or feature name. Check that tests cover both happy path and the specific conditions described in the acceptance criteria.
+
+        6. **Detect regressions**: Run `git log --oneline --all -- <file>` for key implementation files to check if they were modified after the implementing PR merged. Run `git log --grep="Revert" --oneline` to find revert commits that may have undone the work. If a revert is found, verify whether the revert was itself reverted (re-applied) by checking subsequent commits.
+
+        ### Classification Rules
 
         Assign exactly ONE fidelity category per item:
 
-        - **fully_implemented**: All referenced files exist, key functions/types are present via Grep, logic reads match the described behavior, related tests exist
-        - **partial**: Some but not all acceptance criteria have matching code evidence. For each partial finding, list WHICH criteria passed and WHICH did not
-        - **regressed**: Was implemented but later broken or reverted. Include the revert commit SHAs and affected file paths as evidence
-        - **obsolete**: Referenced files have been deleted at HEAD, or the codebase has diverged significantly enough that the item no longer applies
-        - **not_implemented**: No evidence of implementation; issue or PR describes work that does not appear in the codebase
+        - **fully_implemented**: All referenced files exist, key functions/types are present via Grep, Read confirms logic matches the described behavior, related tests exist. This is the positive case; the implementation is intact.
+        - **partial**: Some but not all acceptance criteria have matching code evidence. For each partial finding, list explicitly WHICH criteria passed (with file:line references) and WHICH did not (what was searched for but not found). If an issue has 5 acceptance criteria and 3 are verified, it is partial.
+        - **regressed**: Evidence indicates the feature was once implemented but is now broken or missing. This includes: revert commits that undone the implementing PR, key files deleted after implementation, or test failures introduced by subsequent changes. Include the revert commit SHAs and affected file paths as evidence.
+        - **obsolete**: The referenced files have been deleted at HEAD, the architecture has diverged significantly enough that the item no longer applies, or the feature was intentionally replaced by a different approach. The item is not "missing" -- it is genuinely no longer relevant.
+        - **not_implemented**: No evidence of implementation found despite thorough searching. The issue or PR describes work that does not appear in the codebase at HEAD.
 
-        ## Evidence Requirements
+        ### Evidence Requirements
 
-        Every finding MUST include evidence:
-        - For **fully_implemented**: file paths confirming existence, Grep matches for key code artifacts
-        - For **partial**: which criteria passed (with file:line references) and which did not (what was searched for but not found)
-        - For **regressed**: revert commit SHAs, `git log` output showing modification/deletion after the implementing PR
-        - For **obsolete**: evidence that files no longer exist or architecture has changed
-        - For **not_implemented**: description of what was expected to exist but does not
+        Every finding MUST include concrete evidence:
+        - For **fully_implemented**: file paths confirming existence, Grep output showing key symbols, test file paths
+        - For **partial**: which criteria passed (with file:line references from Grep/Read) and which did not (exact search terms used and absence of matches)
+        - For **regressed**: revert commit SHAs, git log output showing deletion/modification after the implementing PR, before/after file state
+        - For **obsolete**: evidence that files no longer exist (Glob output), or evidence of architectural replacement
+        - For **not_implemented**: description of what was expected to exist, the Grep patterns used to search, and confirmation of absence
 
-        ## Edge Cases
+        ### Edge Cases
 
-        - **Issues with no traceable code changes**: Mark as "not_implemented" with a note explaining the lack of implementation evidence
-        - **Issues referencing deleted files**: Mark as "obsolete" with evidence that the referenced code no longer exists at HEAD
-        - **Large inventories**: Focus on the most impactful items first — non-trivial issues with acceptance criteria. If context limits approach, prioritize quality of analysis over quantity
+        - **Issues with no traceable code changes** (e.g., process changes, discussion issues): Mark as "not_implemented" with a note explaining these are not code-verifiable items.
+        - **Issues referencing deleted files**: Mark as "obsolete" with evidence that the referenced paths no longer exist.
+        - **Large inventories**: If the inventory contains more items than can be thoroughly audited within context limits, prioritize: (1) issues with explicit acceptance criteria, (2) issues labeled as features or bugs, (3) PRs with large file change counts. Note in the summary how many items were fully audited vs skipped.
+        - **Linked issue-PR pairs**: When an issue has linked PRs, verify via the PR's merge commit and changed files rather than searching the whole codebase.
 
-        ## Output
+        ## Constraints and Anti-patterns
 
-        Write your findings to `.wave/output/findings.json` (the contract schema defines the required structure).
+        - Do NOT classify an item as fully_implemented based solely on file existence. You must verify the logic matches the described behavior.
+        - Do NOT classify an item as not_implemented without performing at least 3 different Grep searches for key terms from the issue.
+        - Do NOT run tests or build the project. This is static analysis only (Glob, Grep, Read, git log).
+        - Do NOT modify any files.
+        - Do NOT spend excessive time on items with vague descriptions and no acceptance criteria. Classify them quickly and move on to items where meaningful verification is possible.
 
-        For each audited item, create a finding entry:
-        - `type`: "other" (implementation fidelity finding)
-        - `severity`: "high" for regressed, "medium" for partial/not_implemented, "low" for obsolete
-        - `description`: item title, number, type (issue/pr), and implementation status (fully_implemented, partial, regressed, obsolete, not_implemented)
-        - `evidence`: evidence strings joined together
-        - `recommendation`: "fix" for regressed/partial, "investigate" for not_implemented, "remove" for obsolete, "keep" for fully_implemented
+        ## Output Format
 
-        Also include a `summary` field with counts by status and a `scanned_at` timestamp.
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good audit verifies each item with multiple search strategies and provides evidence that would convince a skeptical reviewer. Classification is precise: partial items list exactly which criteria passed and failed. Regressed items cite specific commits. A bad audit classifies items based on title keywords alone, marks everything as "fully_implemented" because a vaguely-related file exists, or reports "not_implemented" without demonstrating that a thorough search was performed.
 
     output_artifacts:
       - name: findings
@@ -247,55 +284,79 @@ steps:
     exec:
       type: prompt
       source: |
-        Compose a triage summary from the audit findings with prioritized remediation recommendations.
+        ## Objective
 
-        ## Read Inputs
+        Compose a prioritized triage summary from the audit findings, organizing items by implementation status, calculating fidelity statistics, generating remediation actions ranked by urgency, and producing a team-ready markdown report with clickable links and actionable next steps. This is the final deliverable of the audit-closed pipeline and should be useful without needing to reference the raw findings.
 
-        Read the injected inventory artifact to get scope and repository metadata.
-        Read the injected audit report artifact to get the per-item verification results.
+        ## Context
 
-        ## Group Findings by Status
+        This is the third and final step of the audit-closed pipeline. The inventory step fetched all closed issues and merged PRs. The audit step verified each item against the codebase and classified them into fidelity categories (fully_implemented, partial, regressed, obsolete, not_implemented). Both artifacts have been injected into this step. This step performs no codebase analysis; it operates purely on the two injected artifacts to produce a human-readable triage report.
 
-        Organize all findings into groups by implementation status, in this order:
-        1. **regressed** — highest priority, was working but now broken
-        2. **partial** — some criteria unmet
-        3. **not_implemented** — no implementation found
-        4. **obsolete** — no longer applicable
-        5. **fully_implemented** — fully intact (included for reference)
+        Read the injected inventory artifact to get scope metadata (repository, time range, filter mode).
+        Read the injected audit report artifact to get the per-item verification results and evidence.
 
-        ## Summary Statistics
+        ## Requirements
 
-        Calculate counts for each status:
-        - `fully_implemented`: number of fully verified items
-        - `partial`: number with some criteria unmet
-        - `regressed`: number that were broken or reverted
-        - `obsolete`: number no longer applicable
-        - `not_implemented`: number with no implementation evidence
+        ### 1. Group Findings by Status
 
-        ## Prioritized Remediation Actions
+        Parse the audit findings and organize them into groups by implementation status, in this priority order:
+        1. **regressed** -- highest priority: was working but is now broken or reverted
+        2. **partial** -- some acceptance criteria are met, others are not
+        3. **not_implemented** -- no evidence of implementation found
+        4. **obsolete** -- the item is no longer applicable to the current architecture
+        5. **fully_implemented** -- the implementation is intact and verified
 
-        Generate an ordered list of remediation actions for non-fully-implemented items. Priority ranking:
+        ### 2. Calculate Summary Statistics
 
-        1. **regressed** items (highest priority — was working, now broken)
-        2. **partial** items with many unmet criteria (sort by unmet count descending)
-        3. **partial** items with fewer unmet criteria
-        4. **not_implemented** items (moderate priority — work was never done)
-        5. **obsolete** items are EXCLUDED from actions — they are intentionally non-applicable
+        Compute counts for each status category. Also calculate:
+        - Overall fidelity rate: fully_implemented / (total - obsolete) as a percentage
+        - Regression rate: regressed / total as a percentage
+        - Items needing action: regressed + partial + not_implemented
+
+        ### 3. Generate Prioritized Remediation Actions
+
+        For each non-fully-implemented, non-obsolete item, create a remediation action entry. Priority ranking:
+        1. **Regressed items** (highest priority -- these represent actual regressions in shipped functionality)
+        2. **Partial items with many unmet criteria** (sort by number of unmet criteria descending)
+        3. **Partial items with fewer unmet criteria**
+        4. **Not-implemented items** (moderate priority -- work was planned but never completed)
+
+        For each remediation action, specify:
+        - The issue/PR number and title
+        - What is broken or missing (from the audit evidence)
+        - Concrete remediation steps (restore reverted code, implement missing criteria, investigate and decide)
+        - Estimated effort if determinable from the scope of the issue
+
+        Obsolete items are EXCLUDED from the remediation list -- they are intentionally non-applicable and do not need action.
+
+        ### 4. Write the Triage Report
+
+        Write a markdown summary to `.wave/artifacts/triage-report.md` with these sections:
+
+        1. **Audit Scope** -- Description of what was audited: repository name, scope mode (full/time_range/label), filter expression, date range, total items audited.
+        2. **Summary Statistics** -- Counts by status as a markdown table. Include the fidelity rate and regression rate percentages.
+        3. **Regressed Items** (if any) -- Bulleted list with: issue/PR number as clickable link to the GitHub URL, title, revert commit SHAs or evidence of regression, and specific remediation steps.
+        4. **Partial Implementation Items** (if any) -- Bulleted list with: issue/PR number as clickable link, title, which criteria passed and which failed (from audit evidence), and remediation steps to complete the implementation.
+        5. **Not Implemented Items** (if any) -- Bulleted list with: issue/PR number as clickable link, title, what the issue described, and what would need to be done to implement it.
+        6. **Obsolete Items** -- Count only, with a brief explanation that these items are no longer applicable due to architectural changes or intentional replacement.
+        7. **Fully Implemented Items** -- Count only, with confirmation that these items' implementations are intact at HEAD.
+        8. **Recommended Next Steps** -- Actionable recommendations for the team: which items to address first, suggested approach (dedicated sprint, individual PRs, etc.), and whether any items should be re-opened as new issues.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT re-analyze the codebase. This step operates only on the injected artifacts.
+        - Do NOT include raw JSON data in the markdown report. Translate all technical data into readable prose and tables.
+        - Do NOT omit the clickable GitHub URLs. Every issue/PR reference must be a link using the URL from the inventory.
+        - Do NOT inflate urgency. Regressed items are genuinely urgent; not-implemented items may be low priority depending on the team's current goals.
+        - Do NOT include obsolete items in the remediation action list. They are informational only.
 
         ## Output Format
 
-        Write a markdown summary to `.wave/artifacts/triage-report.md` with:
+        The output is a single markdown file at `.wave/artifacts/triage-report.md`. It must be self-contained and readable without access to the underlying JSON artifacts.
 
-        1. **Audit Scope** — Description of what was audited (time range, labels, etc.)
-        2. **Summary Statistics** — Counts by status as a table or list
-        3. **Regressed Items** (if any) — Bulleted list with issue numbers, titles, revert commit SHAs, and remediation steps
-        4. **Partial Implementation Items** (if any) — Bulleted list with issue numbers, titles, which criteria failed, and remediation steps
-        5. **Not Implemented Items** (if any) — Bulleted list with issue numbers, titles, and what would need to be done
-        6. **Obsolete Items** — Count only, explanation that these are no longer applicable
-        7. **Fully Implemented Items** — Count only, confirmation of fidelity
-        8. **Recommended Next Steps** — Actionable recommendations for the team
+        ## Quality Bar
 
-        All issue/PR references should be clickable links to their GitHub URLs.
+        A good triage report enables a team lead to understand the codebase's implementation fidelity in 5 minutes, identify the most urgent items to fix, and assign work based on the remediation steps provided. Every issue reference is a clickable link. The fidelity rate gives an at-a-glance health metric. A bad triage report dumps raw finding data without prioritization, omits links, or provides generic remediation advice ("fix the regression") without specifics.
 
     output_artifacts:
       - name: triage-report

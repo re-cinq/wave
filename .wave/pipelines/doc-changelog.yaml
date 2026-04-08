@@ -54,26 +54,91 @@ steps:
     exec:
       type: prompt
       source: |
-        Analyze git history for changelog generation: {{ input }}
+        ## Objective
 
-        ## Process
+        Analyze the git commit history within the specified range and produce a structured JSON representation of all changes, categorized by conventional commit type, with breaking changes identified, scopes extracted, and metadata captured. This structured output feeds the categorize step, which will transform technical commit messages into user-facing descriptions.
 
-        1. **Determine range**: Parse input to identify the commit range.
-           If tags mentioned, use them. If time period, calculate dates.
-           If unclear, use last tag to HEAD (or last 50 commits).
+        ## Context
 
-        2. **Extract commits**: Use `git log --format` to get hash, author,
-           date, subject, and body for each commit.
+        This is the first step of a three-step pipeline (analyze-commits, categorize, format). The categorize step will use this structured commit data to write user-facing descriptions and deduplicate related commits. The format step will render the final changelog. The codebase is available in a worktree workspace with full git history.
 
-        3. **Parse conventional commits**: Categorize by prefix:
-           feat → Features, fix → Fixes, docs → Documentation,
-           refactor → Refactoring, test → Testing, chore → Maintenance,
-           perf → Performance, ci → CI/CD, no prefix → Other
+        Input: {{ input }}
 
-        4. **Identify breaking changes**: Look for `BREAKING CHANGE:` in body,
-           `!` after prefix, API removals in body.
+        ## Requirements
 
-        5. **Extract scope**: Parse from prefix (e.g., `fix(pipeline):` → "pipeline")
+        ### 1. Determine the Commit Range
+
+        Parse the input to identify the commit range:
+        - **Tag range** (e.g., "v0.1.0 to HEAD", "from v0.1.0 to v0.2.0"): Extract the tag names and use `git log <tag1>..<tag2>` (or `<tag>..HEAD` if only one tag is given).
+        - **Time period** (e.g., "last 30 days", "since 2026-01-01"): Calculate the appropriate date and use `git log --after=<date>`.
+        - **Specific range** (e.g., "abc123..def456"): Use the commit range directly.
+        - **Unclear or empty input**: Find the most recent tag with `git describe --tags --abbrev=0`. If a tag exists, use `<tag>..HEAD`. If no tags exist, use the last 50 commits (`git log -n 50`).
+
+        Verify the range produces commits. If zero commits are found, try broadening the range (e.g., go back one more tag). If still no commits, report this in the output.
+
+        ### 2. Extract Commit Data
+
+        Use `git log --format` with the determined range to extract for each commit:
+        - `hash`: the full commit SHA
+        - `short_hash`: the abbreviated SHA
+        - `author`: author name
+        - `author_email`: author email
+        - `date`: author date in ISO 8601 format
+        - `subject`: the first line of the commit message
+        - `body`: the remainder of the commit message (may be empty)
+
+        ### 3. Parse Conventional Commits
+
+        For each commit, parse the subject line according to conventional commit format (`type(scope): description`):
+        - Extract the `type` prefix: feat, fix, docs, refactor, test, chore, perf, ci, build, style, revert
+        - Extract the optional `scope` in parentheses (e.g., `fix(pipeline):` produces scope "pipeline")
+        - Extract the `description` after the colon
+        - If the subject does not follow conventional commit format, set type to "other" and use the full subject as the description
+
+        Map types to changelog categories:
+        - feat -> "Features"
+        - fix -> "Fixes"
+        - docs -> "Documentation"
+        - refactor -> "Refactoring"
+        - test -> "Testing"
+        - chore -> "Maintenance"
+        - perf -> "Performance"
+        - ci -> "CI/CD"
+        - build -> "Build"
+        - style -> "Style"
+        - revert -> "Reverts"
+        - other -> "Other"
+
+        ### 4. Identify Breaking Changes
+
+        A commit is a breaking change if any of these are true:
+        - The subject contains `!` after the type/scope (e.g., `feat(api)!: remove endpoint`)
+        - The body contains `BREAKING CHANGE:` or `BREAKING-CHANGE:` (case-insensitive)
+        - The body explicitly mentions removing a public API, renaming a command, or changing default behavior
+
+        For each breaking change, extract the migration note from the body text following the BREAKING CHANGE marker.
+
+        ### 5. Extract Additional Metadata
+
+        - Count total commits in the range
+        - Identify unique authors and their commit counts
+        - Identify the date range (earliest and latest commit dates)
+        - Note merge commits separately (they may need deduplication with their squashed equivalents)
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT filter or deduplicate commits in this step. The categorize step handles deduplication.
+        - Do NOT rewrite commit messages. Preserve the original subject and body exactly.
+        - Do NOT include commits outside the specified range.
+        - Do NOT skip merge commits or revert commits. Include them so the categorize step can handle deduplication intelligently.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good commit analysis correctly parses every conventional commit prefix and scope, identifies all breaking changes (including those marked only in the body), and captures the full commit body for context. A bad analysis misparses scopes, misses breaking changes that use the body marker instead of the `!` suffix, or truncates commit bodies.
     output_artifacts:
       - name: commits
         path: .wave/output/commit-analysis.json
@@ -103,16 +168,80 @@ steps:
     exec:
       type: prompt
       source: |
-        Categorize and describe changes for a changelog using the injected commit analysis.
+        ## Objective
 
-        ## Rules
+        Transform the raw commit analysis into user-facing changelog entries by rewriting technical commit messages into clear descriptions, deduplicating related commits into single entries, grouping changes by category, and ensuring breaking changes are prominently highlighted with migration notes. The output is a structured JSON that the format step will render into the final markdown changelog.
 
-        1. **Group by type** into sections
-        2. **Write user-facing descriptions**: Rewrite technical messages into
-           clear descriptions focused on what changed and why it matters.
-        3. **Highlight breaking changes** first with migration notes
-        4. **Deduplicate**: Combine commits for the same logical change
-        5. **Add context** for significant features
+        ## Context
+
+        This is the second step of a three-step pipeline (analyze-commits, categorize, format). The analyze-commits step has produced structured commit data injected as the "raw_commits" artifact. This step transforms that data into user-facing content. The format step will take this output and render it as markdown following the Keep a Changelog format.
+
+        Read the injected raw_commits artifact first. Parse the commits array, breaking change flags, and category counts.
+
+        ## Requirements
+
+        ### 1. Group Commits by Category
+
+        Organize commits into sections based on their parsed type:
+        - Breaking Changes (regardless of original type -- any breaking change goes here first)
+        - Features (feat)
+        - Fixes (fix)
+        - Performance (perf)
+        - Documentation (docs)
+        - Refactoring (refactor)
+        - Testing (test)
+        - CI/CD (ci)
+        - Maintenance (chore, build, style)
+        - Other (unrecognized prefixes)
+
+        ### 2. Rewrite Commit Messages as User-Facing Descriptions
+
+        For each commit, transform the technical commit message into a description that answers "what changed and why it matters to users":
+        - Replace internal jargon with user-visible impact ("fix race condition in pipeline executor" becomes "Fix pipeline steps occasionally running out of order under concurrent execution")
+        - Remove implementation details unless they help users understand the change
+        - Use present tense ("Add X" not "Added X")
+        - Keep each description to one sentence, two at most for significant features
+        - Preserve the scope prefix in bold if it helps categorize the change (e.g., **pipeline**: description)
+        - For breaking changes, include a clear migration note: what was the old behavior, what is the new behavior, and what users need to do
+
+        ### 3. Deduplicate Related Commits
+
+        Combine commits that represent the same logical change into a single entry:
+        - Multiple commits with the same scope and similar descriptions -> merge into one entry
+        - A commit followed by "fix: address review feedback" or "fix: lint" -> keep only the original commit's description
+        - A revert commit followed by a re-application -> omit both (net zero change)
+        - Merge commits that duplicate their squashed source commits -> keep only one
+        - When deduplicating, note all contributing commit hashes for traceability
+
+        ### 4. Highlight Breaking Changes
+
+        Breaking changes must appear in their own section at the top of the changelog, before all other sections. For each breaking change:
+        - Write a clear description of what changed
+        - Include a migration note explaining what users need to do
+        - Reference the commit hash for traceability
+
+        ### 5. Add Context for Significant Features
+
+        For commits with type "feat" that represent significant new functionality:
+        - Include a brief explanation of the feature's purpose and value
+        - If the commit body contains usage examples, preserve them
+        - Note any new dependencies or prerequisites
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT preserve raw commit messages verbatim. The whole point of this step is to rewrite them for users.
+        - Do NOT lose traceability. Every entry must reference at least one commit hash.
+        - Do NOT include internal-only changes (CI config tweaks, test-only refactors) unless they affect users.
+        - Do NOT merge unrelated commits just because they have the same prefix. Only merge commits that address the same logical change.
+        - Do NOT editorialize beyond clarity. Describe what changed, not whether the change was a good idea.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good categorization transforms "fix(webui): nil pointer in handler" into "Fix crash when loading pipeline detail pages with missing step data" -- user-visible impact, not implementation detail. Breaking changes include specific migration instructions. A bad categorization copies commit messages verbatim, fails to deduplicate a commit and its follow-up lint fix, or describes breaking changes without migration guidance.
     output_artifacts:
       - name: categorized
         path: .wave/output/categorized-changes.json
@@ -145,10 +274,31 @@ steps:
     exec:
       type: prompt
       source: |
-        Format the injected commit analysis and categorized changes into a polished changelog.
+        ## Objective
 
-        Use Keep a Changelog format:
+        Render the categorized changes into a polished, publication-ready markdown changelog following the Keep a Changelog format. The output must be a complete, standalone document that can be appended to an existing CHANGELOG.md file or published as a release notes document. Every section should be present only if it has entries, entries should be ordered by impact, and the document should be scannable by both developers and end users.
 
+        ## Context
+
+        This is the third and final step of the doc-changelog pipeline (analyze-commits, categorize, format). Both the raw commit analysis (injected as "raw_commits") and the categorized changes (injected as "changes") are available. The raw commits provide metadata (date range, authors), while the categorized changes provide the user-facing descriptions organized by section. This step performs no analysis; it is purely a formatting and rendering step.
+
+        Read both injected artifacts to access the date range, version information, section entries, and contributor list.
+
+        ## Requirements
+
+        ### 1. Determine the Version Header
+
+        From the raw commits metadata:
+        - If the range references a tag, use the tag name as the version (e.g., "[v0.2.0]")
+        - If the range is a date range, use the date range (e.g., "[2026-03-01 to 2026-04-01]")
+        - If no clear version is available, use "[Unreleased]"
+        - Add the current date in YYYY-MM-DD format after the version
+
+        ### 2. Render Using Keep a Changelog Format
+
+        Format the output as:
+
+        ```markdown
         # Changelog
 
         ## [Version or Date Range] - YYYY-MM-DD
@@ -163,17 +313,64 @@ steps:
         - **scope**: Bug fix description
 
         ### Changed
-        - **scope**: Change description
+        - **scope**: Change description (refactoring, performance improvements)
 
         ### Security
         - **scope**: Security fix description
 
-        Rules:
-        - Only include sections with entries
-        - Bold scope if present
-        - Most notable entries first per section
-        - One line per entry, concise
-        - Contributors list at bottom
+        ### Documentation
+        - **scope**: Documentation change description
+
+        ### Maintenance
+        - **scope**: CI/CD, build, chore changes
+
+        ### Contributors
+        - Name (N commits)
+        ```
+
+        ### 3. Formatting Rules
+
+        Apply these rules strictly:
+        - **Only include sections with entries**: If there are no security fixes, omit the Security section entirely. Do not include empty sections.
+        - **Breaking Changes always first**: If breaking changes exist, their section must be the first section after the version header.
+        - **Bold scope if present**: Format as `- **scope**: Description`. If no scope, format as `- Description`.
+        - **Most notable entries first**: Within each section, order entries by significance. User-visible features before internal improvements. Crash fixes before minor fixes.
+        - **One line per entry**: Keep entries concise. Maximum two sentences. The full details are in commit messages and PRs, not the changelog.
+        - **Migration notes for breaking changes**: Each breaking change entry must include "Migration:" followed by specific instructions. Do not omit migration guidance.
+        - **Contributors at bottom**: List all unique contributors with their commit counts, sorted by commit count descending.
+        - **No commit hashes in the rendered output**: The changelog is user-facing. Commit hashes belong in git history, not in the changelog.
+
+        ### 4. Map Section Names
+
+        Map the categorized change sections to Keep a Changelog section names:
+        - Breaking Changes -> "Breaking Changes"
+        - Features -> "Added"
+        - Fixes -> "Fixed"
+        - Performance -> "Changed"
+        - Refactoring -> "Changed"
+        - Security -> "Security"
+        - Documentation -> "Documentation"
+        - Testing -> omit (internal concern, not user-facing)
+        - CI/CD -> "Maintenance" (only if it affects users, e.g., release process changes)
+        - Maintenance -> "Maintenance"
+
+        If both Performance and Refactoring entries exist, merge them into a single "Changed" section.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT include internal-only changes (test refactors, CI config tweaks) unless they affect the user experience.
+        - Do NOT include commit hashes, PR numbers, or other technical references in the rendered output.
+        - Do NOT include empty sections with "No changes" placeholders.
+        - Do NOT use emoji or decorative formatting.
+        - Do NOT include the raw commit data. This is a user-facing document.
+
+        ## Output Format
+
+        Write the formatted changelog to `.wave/output/CHANGELOG.md`. The file must be valid markdown that renders correctly on GitHub and in documentation sites.
+
+        ## Quality Bar
+
+        A good changelog is scannable in 30 seconds, communicates the most important changes in the first 3 entries, includes migration instructions for every breaking change, and reads naturally to someone who uses the product but does not contribute to it. A bad changelog is a reformatted git log, includes internal implementation details, omits migration guidance for breaking changes, or includes empty sections.
     output_artifacts:
       - name: changelog
         path: .wave/output/CHANGELOG.md
