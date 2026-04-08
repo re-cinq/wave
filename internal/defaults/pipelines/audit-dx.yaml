@@ -141,7 +141,7 @@ steps:
 
         ## Output Format
 
-        A markdown report at `.wave/output/findings.md` with these sections:
+        A markdown report at the output artifact path defined above with these sections:
         - **Executive Summary** (2-3 sentences: overall DX rating and top concern)
         - **Area-by-Area Findings** (one subsection per area, each with severity badge,
           evidence citations, and improvement recommendations)
