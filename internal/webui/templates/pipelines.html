@@ -113,8 +113,17 @@ function applyFilters() {
     var activeCat = cat.cat || '';
     var q = (document.getElementById('pipeline-search') || {}).value || '';
     q = q.toLowerCase().trim();
+    var list = document.getElementById('pipeline-list');
+    var cards = Array.from(list.querySelectorAll('.wr-run'));
+    // Sort: frequent by run count desc, everything else alphabetical
+    if (activeCat === 'frequent') {
+        cards.sort(function(a, b) { return (parseInt(b.dataset.runs||'0',10)) - (parseInt(a.dataset.runs||'0',10)); });
+    } else {
+        cards.sort(function(a, b) { var na = a.querySelector('.wr-name'); var nb = b.querySelector('.wr-name'); return (na?na.textContent:'').localeCompare(nb?nb.textContent:''); });
+    }
     var visible = 0;
-    document.querySelectorAll('#pipeline-list .wr-run').forEach(function(card) {
+    cards.forEach(function(card) {
+        list.appendChild(card); // re-order in DOM
         var catMatch;
         if (activeCat === 'frequent') {
             catMatch = parseInt(card.dataset.runs || '0', 10) > 0;
