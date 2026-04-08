@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: audit-junk-code
-  description: "Identify accidental complexity, conceptual misalignment, and technical debt"
+  description: >-
+    Identify accidental complexity, conceptual misalignment, and technical debt
+    across the codebase. Scans for over-engineering, copy-paste drift, stale
+    TODOs, misplaced abstractions, complexity hotspots, and meaningless tests.
+    Use this to find code that compiles but does not belong -- the kind of
+    structural debt that accumulates silently during rapid iteration.
   release: true
 
 skills:

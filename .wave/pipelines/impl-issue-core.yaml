@@ -1,7 +1,11 @@
 kind: WavePipeline
 metadata:
   name: impl-issue-core
-  description: "Core implementation pipeline — assess, plan, implement. No PR creation. For use in composition pipelines."
+  description: >-
+    Core implementation pipeline that assesses, plans, and implements a GitHub
+    issue without creating a pull request. Intended as a building block for
+    composition pipelines that need implementation logic but handle PR creation
+    or review loops separately.
   release: false
 
 chat_context:

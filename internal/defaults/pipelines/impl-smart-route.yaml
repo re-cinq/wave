@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: impl-smart-route
-  description: "Auto-route issues to impl-issue or impl-speckit based on complexity assessment"
+  description: >-
+    Automatically route a GitHub issue to the right implementation pipeline
+    based on complexity. A navigator assesses the issue as simple, medium, or
+    complex; simple and medium issues are sent to impl-issue, while complex
+    issues are routed to impl-speckit for full specification-driven
+    development. Use this when you are unsure which pipeline fits.
   category: composition
   release: true
 

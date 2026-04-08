@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: wave-audit
-  description: Zero-trust implementation fidelity audit — verifies all closed issues and merged PRs against the current codebase, classifies gaps, and optionally creates remediation issues
+  description: >-
+    Zero-trust implementation fidelity audit for Wave's own repository. Verifies
+    all closed issues and merged PRs against the current codebase, classifies
+    each as verified, partial, regressed, obsolete, or unverifiable, and creates
+    GitHub issues for actionable gaps. Use this for periodic self-auditing to
+    catch regressions and incomplete implementations in Wave itself.
   release: false
 
 skills:

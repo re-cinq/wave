@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: test-gen
-  description: "Generate comprehensive test coverage"
+  description: >-
+    Analyze test coverage gaps and generate tests to fill them. Runs coverage
+    analysis to identify uncovered functions and branches, then writes
+    table-driven tests, edge-case tests, and benchmarks following existing
+    project patterns. Use this as a dedicated test-hardening pass after
+    implementation pipelines have landed code.
   release: true
 
 skills:

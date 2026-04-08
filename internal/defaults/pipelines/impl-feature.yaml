@@ -1,7 +1,11 @@
 kind: WavePipeline
 metadata:
   name: impl-feature
-  description: "Plan, implement, test, and commit a feature to a new branch"
+  description: >-
+    Plan, implement, test, and commit a feature to a new branch. Use this for
+    well-understood feature requests described in plain language. Steps include
+    codebase exploration, structured planning, implementation with contract
+    validation, and a verified commit on a dedicated branch.
   release: true
 
 skills:
