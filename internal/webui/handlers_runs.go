@@ -687,7 +687,7 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 			State:              "pending",
 			StepType:           stepType,
 			Script:             step.Script,
-			SubPipeline:        step.SubPipeline,
+			SubPipeline:        stripUnresolvedVars(resolveForgeVars(step.SubPipeline)),
 			GatePrompt:         gatePrompt,
 			GateChoices:        gateChoices,
 			EdgeInfo:           edgeInfo,
@@ -952,6 +952,21 @@ func resolveForgeVars(s string) string {
 		"{{ forge.prefix }}", forgeInfo.PipelinePrefix,
 	)
 	return r.Replace(s)
+}
+
+// stripUnresolvedVars removes remaining {{ var }} placeholders that weren't
+// resolved by forge or runtime template expansion (e.g. {{ item }}, {{ input }}).
+// Returns empty string if the entire value was a single placeholder.
+func stripUnresolvedVars(s string) string {
+	if !strings.Contains(s, "{{") {
+		return s
+	}
+	// If the whole string is just a template var, return empty
+	trimmed := strings.TrimSpace(s)
+	if strings.HasPrefix(trimmed, "{{") && strings.HasSuffix(trimmed, "}}") && strings.Count(trimmed, "{{") == 1 {
+		return ""
+	}
+	return s
 }
 
 // JSON response helpers

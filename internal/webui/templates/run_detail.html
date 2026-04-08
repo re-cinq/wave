@@ -169,7 +169,7 @@
             {{with index $.ChildRuns $step.StepID}}
             <div style="padding:0.2rem 0.55rem 0.3rem;">
                 {{range .}}
-                <a href="/runs/{{.RunID}}" style="display:flex;align-items:center;gap:0.4rem;padding:0.2rem 0.4rem;margin-bottom:0.15rem;background:var(--color-bg-tertiary);border-radius:4px;border-left:3px solid {{if eq .Status "completed"}}var(--color-completed){{else if eq .Status "failed"}}var(--color-failed){{else if eq .Status "running"}}var(--color-running){{else}}var(--color-border){{end}};text-decoration:none;color:inherit;font-size:0.72rem;">
+                <a href="/runs/{{.RunID}}" style="display:flex;align-items:center;gap:0.4rem;padding:0.2rem 0.4rem;margin-bottom:0.15rem;background:var(--color-bg-tertiary);border-radius:4px;border-left:3px {{if eq .Status "completed"}}dashed{{else}}solid{{end}} {{if eq .Status "completed"}}var(--color-completed){{else if eq .Status "failed"}}var(--color-failed){{else if eq .Status "running"}}var(--color-running){{else}}var(--color-border){{end}};text-decoration:none;color:inherit;font-size:0.72rem;{{if eq .Status "completed"}}opacity:0.7;{{end}}">
                     <span style="font-weight:600;color:var(--color-text);">{{.PipelineName}}</span>
                     <span class="badge {{statusClass .Status}}" style="font-size:0.65rem;">{{.Status}}</span>
                     {{if .Duration}}<span style="color:var(--color-text-muted);">{{.Duration}}</span>{{end}}

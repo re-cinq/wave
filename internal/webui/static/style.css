@@ -2771,6 +2771,10 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-dur { font-weight: 600; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; font-size: 0.78rem; font-family: var(--font-mono); }
 .ws-tok { color: var(--color-text-muted); font-size: 0.65rem; }
 
+/* ── Step config panel (click to expand) ── */
+.ws-config { border-top: 1px solid var(--color-border); background: var(--color-bg-secondary); }
+.ws-config[hidden] { display: none; }
+
 /* ── Row 2: I/O ── */
 .ws-io { display: flex; gap: 0.75rem; padding: 0.12rem 0.55rem 0.2rem; font-size: 0.78rem; flex-wrap: wrap; }
 .ws-io-in, .ws-io-out { display: flex; gap: 0.3rem; align-items: baseline; }
@@ -2779,19 +2783,18 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-io-val { color: var(--color-text-secondary); font-size: 0.75rem; }
 
 /* ── Step tab bar (artifacts + logs, unified) ── */
-.ws-tabs { display: flex; gap: 0; padding: 0; margin: 0.15rem 0 0; border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); padding-left: 0.55rem; align-items: stretch; overflow-x: auto; }
+.ws-tabs { display: flex; gap: 0; padding: 0; margin: 0.15rem 0 0; border-top: 1px solid var(--color-border); align-items: stretch; overflow-x: auto; }
 .w-tab {
     display: inline-flex; align-items: center; gap: 0.2rem;
     padding: 0.4rem 0.75rem;
     font-size: 0.75rem; font-family: var(--font-mono);
     color: var(--color-text-muted); cursor: pointer; text-decoration: none;
-    border-bottom: 2px solid transparent;
-    transition: color 0.1s, border-color 0.1s;
+    transition: color 0.1s;
     white-space: nowrap;
     background: none; border-top: none; border-left: none; border-right: none;
 }
-.w-tab:hover { color: var(--color-text-secondary); border-bottom-color: rgba(100,116,139,0.3); text-decoration: none; }
-.w-tab.active { color: var(--color-text); border-bottom-color: var(--color-text); background: rgba(99,102,241,0.04); }
+.w-tab:hover { color: var(--color-text-secondary); text-decoration: none; }
+.w-tab.active { color: var(--color-text); background: rgba(99,102,241,0.06); }
 .w-tab .art-size { color: var(--color-text-muted); font-size: 0.6rem; }
 .w-tab-action {
     margin-left: auto;
@@ -2814,10 +2817,10 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-tabcontent .markdown-body hr { border: none; border-top: 1px solid var(--color-border); margin: 0.5rem 0; }
 .ws-tabcontent .markdown-body strong { color: var(--color-text); }
 .ws-tabcontent pre { margin: 0; padding: 0.3rem 0.55rem; font-size: 0.68rem; white-space: pre-wrap; word-break: break-all; color: var(--color-text-secondary); }
-.ws-tabcontent .av-toggle { display: flex; gap: 3px; padding: 0.25rem 0.4rem; border-bottom: 1px solid var(--color-border); background: rgba(15,23,42,0.5); align-items: center; }
+.ws-tabcontent .av-toggle { display: flex; gap: 3px; padding: 0.25rem 0.4rem; border-bottom: 1px solid var(--color-border); background: var(--color-bg-tertiary); align-items: center; }
 .ws-tabcontent .av-toggle button { padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.65rem; color: var(--color-text-muted); border: none; background: none; cursor: pointer; }
 .ws-tabcontent .av-toggle button:hover { color: var(--color-text-secondary); }
-.ws-tabcontent .av-toggle button.active { background: #334155; color: #cbd5e1; }
+.ws-tabcontent .av-toggle button.active { background: var(--color-bg-secondary); color: var(--color-text); }
 .ws-tabcontent .av-toggle a { font-size: 0.62rem; color: var(--color-text-muted); margin-left: auto; text-decoration: none; }
 .ws-tabcontent .av-toggle a:hover { color: var(--color-text-secondary); }
 /* Keep old class for OUT card chips */
