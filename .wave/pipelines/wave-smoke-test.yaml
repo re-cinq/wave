@@ -12,6 +12,35 @@ input:
   source: cli
   example: "verify contract validation works"
 
+chat_context:
+  artifact_summaries:
+    - analysis
+    - summary
+  suggested_questions:
+    - "Did the smoke test pass?"
+    - "Was contract validation working correctly?"
+    - "Was artifact injection successful?"
+  focus_areas:
+    - "Contract validation status"
+    - "Artifact subsystem health"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  summary:
+    step: summarize
+    artifact: summary
+
 steps:
   - id: analyze
     persona: navigator

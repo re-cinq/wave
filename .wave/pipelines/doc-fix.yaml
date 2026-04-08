@@ -16,6 +16,35 @@ input:
   source: cli
   example: "sync docs with current implementation"
 
+chat_context:
+  artifact_summaries:
+    - scan_results
+    - pr-result
+  suggested_questions:
+    - "What documentation inconsistencies were fixed?"
+    - "Are there remaining gaps that need manual attention?"
+    - "Was the PR created successfully?"
+  focus_areas:
+    - "Documentation completeness"
+    - "Fix accuracy and PR status"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  pr:
+    step: create-pr
+    artifact: pr-result
+
 steps:
   - id: scan-changes
     persona: navigator
@@ -108,6 +137,7 @@ steps:
 
   - id: fix-docs
     persona: craftsman
+    thread: fix
     model: strongest
     dependencies: [analyze]
     memory:
@@ -168,6 +198,7 @@ steps:
 
   - id: create-pr
     persona: craftsman
+    thread: fix
     model: cheapest
     dependencies: [fix-docs]
     memory:
