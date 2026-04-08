@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: plan-adr
-  description: "Create an Architecture Decision Record for a design choice"
+  description: >-
+    Create an Architecture Decision Record (ADR) for a design choice. The
+    pipeline explores the codebase for context, evaluates alternatives with
+    trade-off analysis, and produces a structured ADR document. Use this when
+    you need to capture the rationale behind a significant architectural or
+    technology decision for future reference.
   release: true
 
 skills:
@@ -110,6 +115,7 @@ steps:
 
   - id: draft-record
     persona: philosopher
+    model: strongest
     dependencies: [analyze-options]
     memory:
       inject_artifacts:
@@ -183,6 +189,7 @@ steps:
 
   - id: publish
     persona: craftsman
+    model: cheapest
     dependencies: [draft-record]
     memory:
       inject_artifacts:

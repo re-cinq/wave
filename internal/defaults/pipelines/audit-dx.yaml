@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: audit-dx
-  description: "Evaluate developer experience for contributors and integrators"
+  description: >-
+    Evaluate developer experience across setup, code navigation, testing,
+    debugging, API surface, extensibility, and CI/CD. Use this to identify
+    friction points for new contributors and integrators. Produces a
+    severity-rated report with specific improvement recommendations for each
+    DX area.
   release: true
 
 skills:

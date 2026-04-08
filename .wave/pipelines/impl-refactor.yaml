@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: impl-refactor
-  description: "Safe refactoring with comprehensive test coverage"
+  description: >-
+    Safe, behavior-preserving refactoring backed by comprehensive test coverage.
+    The pipeline analyzes the refactoring scope and caller graph, establishes a
+    test baseline with characterization tests for uncovered paths, applies the
+    refactoring, and verifies that no regressions were introduced. Use this when
+    restructuring code that must not change external behavior.
   release: true
 
 skills:
@@ -46,6 +51,7 @@ steps:
 
   - id: test-baseline
     persona: craftsman
+    model: strongest
     dependencies: [analyze]
     memory:
       inject_artifacts:
@@ -84,6 +90,7 @@ steps:
         type: markdown
   - id: refactor
     persona: craftsman
+    model: strongest
     dependencies: [test-baseline]
     thread: refactor
     memory:
@@ -127,6 +134,7 @@ steps:
 
   - id: verify
     persona: reviewer
+    model: strongest
     dependencies: [refactor]
     exec:
       type: prompt

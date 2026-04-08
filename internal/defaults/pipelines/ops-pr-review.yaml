@@ -1,7 +1,11 @@
 kind: WavePipeline
 metadata:
   name: ops-pr-review
-  description: "Pull request code review with automated security and quality analysis"
+  description: >-
+    Automated pull request review pipeline that performs security scanning,
+    code quality analysis, and architectural assessment. Reviews each changed
+    file for vulnerabilities, anti-patterns, and maintainability concerns,
+    then posts structured findings as review comments on the PR.
   release: true
 
 chat_context:
@@ -99,6 +103,7 @@ steps:
 
   - id: security-review
     persona: reviewer
+    model: strongest
     contexts: [security]
     dependencies: [diff-analysis]
     memory:
@@ -139,6 +144,7 @@ steps:
 
   - id: quality-review
     persona: reviewer
+    model: strongest
     contexts: [validation]
     dependencies: [diff-analysis]
     memory:
@@ -206,6 +212,7 @@ steps:
 
   - id: publish
     persona: "{{ forge.type }}-commenter"
+    model: cheapest
     dependencies: [summary]
     memory:
       inject_artifacts:

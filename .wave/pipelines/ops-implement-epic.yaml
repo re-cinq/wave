@@ -15,7 +15,11 @@
 kind: WavePipeline
 metadata:
   name: ops-implement-epic
-  description: "Implement all child issues from a parent epic, gate on CI, then summarise"
+  description: >-
+    Epic implementation pipeline that iterates over all child issues of a
+    parent epic, implementing each one sequentially. Gates on CI passing
+    between issues, and produces a summary of all changes, PRs created,
+    and any issues that were skipped or failed.
   category: composition
   release: true
 
@@ -34,6 +38,7 @@ steps:
   # ── Step 1: fetch parent issue, emit child issue URLs ─────────────────────
   - id: fetch-children
     persona: "{{ forge.type }}-analyst"
+    model: cheapest
     workspace:
       mount:
         - source: ./
@@ -103,6 +108,7 @@ steps:
   # ── Step 4: post a summary comment on the parent epic ────────────────────
   - id: summarise
     persona: "{{ forge.type }}-commenter"
+    model: cheapest
     dependencies: [ci-gate]
     memory:
       inject_artifacts:

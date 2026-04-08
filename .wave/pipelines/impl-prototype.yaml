@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: impl-prototype
-  description: "Prototype-driven implementation: spec → docs → dummy → implement → PR cycle"
+  description: >-
+    Prototype-driven development following a spec, docs, dummy, implement, PR
+    cycle. Use this for greenfield features where requirements need to be
+    captured before coding begins. Phases produce a formal specification,
+    runnable documentation, a dummy scaffold, a full implementation, and finally
+    a pull request with all artifacts.
   release: true
 
 input:
@@ -12,6 +17,7 @@ steps:
   # Phase 1: Spec - Requirements capture with speckit integration
   - id: spec
     persona: craftsman
+    model: strongest
     exec:
       type: prompt
       source: |
@@ -68,6 +74,7 @@ steps:
   # Phase 2: Docs - Generate runnable documentation from specification
   - id: docs
     persona: philosopher
+    model: cheapest
     dependencies: [spec]
 
     memory:
@@ -125,6 +132,7 @@ steps:
   # Phase 3: Dummy - Build authentic functional prototype
   - id: dummy
     persona: craftsman
+    model: cheapest
     dependencies: [docs]
 
     memory:
@@ -186,6 +194,7 @@ steps:
   # Phase 4: Implement - Transition to full implementation
   - id: implement
     persona: craftsman
+    model: strongest
     dependencies: [dummy]
 
     memory:
@@ -248,6 +257,7 @@ steps:
   # Phase 5: PR-Cycle - Automated pull request lifecycle
   - id: pr-create
     persona: navigator
+    model: cheapest
     dependencies: [implement]
 
     memory:
@@ -312,6 +322,7 @@ steps:
 
   - id: pr-respond
     persona: philosopher
+    model: strongest
     dependencies: [pr-review]
 
     exec:
@@ -332,6 +343,7 @@ steps:
 
   - id: pr-fix
     persona: craftsman
+    model: strongest
     dependencies: [pr-respond]
 
     exec:
@@ -350,6 +362,7 @@ steps:
 
   - id: pr-merge
     persona: navigator
+    model: cheapest
     dependencies: [pr-fix]
 
     exec:

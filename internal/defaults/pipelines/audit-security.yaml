@@ -1,7 +1,13 @@
 kind: WavePipeline
 metadata:
   name: audit-security
-  description: "Comprehensive security vulnerability audit"
+  description: >-
+    Comprehensive security vulnerability audit that maps the attack surface,
+    checks against the OWASP Top 10, scans for language-specific
+    vulnerabilities, and inspects secrets and dependency usage. Follows up with
+    a deep-dive verification of high/critical findings including data flow
+    tracing and exploitability assessment. Produces a prioritized remediation
+    roadmap.
   release: true
 
 skills:
@@ -90,6 +96,7 @@ steps:
 
   - id: deep-dive
     persona: auditor
+    model: strongest
     contexts: [security]
     max_concurrent_agents: 3
     dependencies: [scan]
@@ -141,6 +148,7 @@ steps:
 
   - id: report
     persona: summarizer
+    model: cheapest
     contexts: [security]
     dependencies: [deep-dive]
     memory:

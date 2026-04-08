@@ -1,241 +1,173 @@
 {{define "title"}}Pipelines · Wave{{end}}
 {{define "content"}}
-<div class="page-header">
+<div class="wr-head">
     <h1>Pipelines</h1>
 </div>
-{{if .Pipelines}}
-<div class="filters">
-    <div class="search-filter">
-        <input type="text" id="pipeline-search" oninput="filterPipelines()" placeholder="Search pipelines..." aria-label="Search pipelines by name or description">
-    </div>
-    <select id="pipeline-category" onchange="filterPipelines()" aria-label="Filter pipelines by category">
-        <option value="">All Categories</option>
-        <option value="audit">audit</option>
-        <option value="bench">bench</option>
-        <option value="doc">doc</option>
-        <option value="impl">impl</option>
-        <option value="ops">ops</option>
-        <option value="plan">plan</option>
-        <option value="test">test</option>
-        <option value="wave">wave</option>
-    </select>
-</div>
 
-<table class="table" id="pipelines-table">
-    <thead>
-        <tr>
-            <th>Pipeline</th>
-            <th>Category</th>
-            <th>Steps</th>
-            <th>Description</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody id="pipeline-tbody">
-        {{range .Pipelines}}
-        <tr data-name="{{.Name}}" data-category="{{.Category}}" data-desc="{{.Description}}">
-            <td>
-                <a href="/pipelines/{{.Name}}"><strong>{{.Name}}</strong></a>
-                {{if .IsComposition}}<span class="badge badge-composition">composition</span>{{end}}
-            </td>
-            <td><span class="badge pipeline-category-badge"></span></td>
-            <td>{{.StepCount}}</td>
-            <td class="pipeline-desc-cell">{{.Description}}</td>
-            <td class="pipeline-actions-cell">
-                <button class="btn btn-sm btn-primary" onclick="showQuickStart('{{.Name}}')" aria-label="Start {{.Name}} pipeline">Start</button>
-                <a href="/runs?pipeline={{.Name}}" class="btn btn-sm" aria-label="View runs for {{.Name}}">Runs</a>
-            </td>
-        </tr>
-        {{end}}
-    </tbody>
-</table>
-<div id="no-results" class="empty-state" style="display:none;">
-    <div class="empty-state-icon">&#128269;</div>
-    <p><strong>No matching pipelines</strong></p>
-    <p>No pipelines match your search or filter criteria.</p>
-</div>
-{{else}}
-<div class="empty-state">
-    <div class="empty-state-icon">&#9881;</div>
-    <p><strong>No pipelines found</strong></p>
-    <p>Add pipeline YAML files to <code>.wave/pipelines/</code> to get started.</p>
+{{if .Pipelines}}
+<!-- Category filters -->
+{{if .Categories}}
+<div class="wr-toolbar">
+    <div class="wr-filters">
+        <button class="wr-filter active" data-cat="frequent" onclick="filterPipelines(this)">Frequent</button>
+        <button class="wr-filter" data-cat="" onclick="filterPipelines(this)">All</button>
+        {{range .Categories}}<button class="wr-filter" data-cat="{{.}}" onclick="filterPipelines(this)">{{.}}</button>{{end}}
+    </div>
+    <div class="wr-controls">
+        <input type="text" id="pipeline-search" placeholder="Search pipelines..." style="padding:0.2rem 0.4rem;border-radius:4px;font-size:0.72rem;color:var(--color-text-secondary);border:1px solid var(--color-border);background:var(--color-bg-tertiary);font-family:var(--font-sans);width:180px;" oninput="applyFilters()">
+        <span style="font-size:0.72rem;color:var(--color-text-muted);" id="pipeline-count">{{len .Pipelines}} pipelines</span>
+    </div>
 </div>
 {{end}}
 
-<dialog id="quickstart-dialog" class="start-dialog" aria-labelledby="quickstart-title">
-    <h3 id="quickstart-title">Start Pipeline: <span id="quickstart-name"></span></h3>
-    <div class="form-group">
-        <label for="quickstart-input">Input (optional)</label>
-        <textarea id="quickstart-input" rows="3" placeholder="Issue URL, feature description..."></textarea>
+<div class="wr-list" id="pipeline-list">
+{{range .Pipelines}}
+    <a href="/pipelines/{{.Name}}" class="wr-run" data-category="{{.Category}}" data-runs="{{.RunCount}}">
+        <div class="wr-accent st-defined"></div>
+        <div class="wr-body">
+            <div class="wr-row1">
+                <span class="wr-name">{{.Name}}</span>
+                {{if .IsComposition}}<span class="badge" style="font-size:0.65rem;background:rgba(139,92,246,0.12);color:#c4b5fd;">composition</span>
+                {{else if .Category}}<span class="badge" style="font-size:0.65rem;background:rgba(99,102,241,0.12);color:#a5b4fc;">{{.Category}}</span>{{end}}
+                {{if .Disabled}}<span class="badge" style="font-size:0.65rem;background:rgba(239,68,68,0.1);color:#fca5a5;">disabled</span>{{end}}
+            </div>
+            {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);font-size:0.78rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:48rem;">{{.Description}}</span></div>{{end}}
+            <div class="wr-row2" style="margin-top:0.15rem;">
+                <span style="color:var(--color-text-muted);font-size:0.72rem;"><b>{{.StepCount}}</b> steps</span>
+                {{if .RunCount}}<span style="color:var(--color-text-muted);font-size:0.72rem;"><b>{{.RunCount}}</b> runs</span>{{end}}
+                {{range .Skills}}<span class="badge" style="font-size:0.65rem;background:rgba(34,211,238,0.1);color:#67e8f9;">{{.}}</span>{{end}}
+            </div>
+        </div>
+        <div class="wr-meta" style="display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:0.15rem;">
+            {{if .RunCount}}<span class="wr-date" style="font-size:0.68rem;">{{.RunCount}} runs</span>{{end}}
+            <button class="btn btn-sm" onclick="event.preventDefault();event.stopPropagation();showQuickStart('{{.Name}}')" style="font-size:0.65rem;padding:0.1rem 0.35rem;opacity:0.7;">run</button>
+        </div>
+    </a>
+{{end}}
+</div>
+{{else}}
+<div style="padding:2rem;text-align:center;color:var(--color-text-muted);font-size:0.85rem;">No pipelines found</div>
+{{end}}
+
+<!-- Start dialog -->
+<dialog id="quickstart-dialog" class="w-dialog" aria-labelledby="quickstart-title">
+    <div class="w-dialog-head">
+        <h3 id="quickstart-title" style="margin:0;font-size:1rem;">Start: <code id="quickstart-name" style="font-size:0.85rem;"></code></h3>
+        <button class="w-dialog-close" onclick="hideQuickStart()" aria-label="Close">&times;</button>
     </div>
-    <details class="advanced-options">
-        <summary>Advanced Options</summary>
+    <div class="w-dialog-body">
         <div class="form-group">
-            <label for="qs-model">Model Override</label>
-            <select id="qs-model">
-                <option value="">Default (auto)</option>
-                <option value="cheapest">Cheapest (fast, low-cost)</option>
-                <option value="fastest">Fastest (default)</option>
-                <option value="strongest">Strongest (highest quality)</option>
-            </select>
+            <label for="quickstart-input" style="font-size:0.78rem;color:var(--color-text-secondary);display:block;margin-bottom:0.2rem;">Input</label>
+            <textarea id="quickstart-input" rows="3" placeholder="Issue URL, feature description..." style="width:100%;padding:0.4rem 0.5rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-family:var(--font-sans);font-size:0.82rem;resize:vertical;"></textarea>
         </div>
-        <div class="form-group">
-            <label for="qs-from-step">Resume From Step</label>
-            <select id="qs-from-step" onchange="onQsFromStepChange()">
-                <option value="">Start from beginning</option>
-            </select>
-        </div>
-        <div class="form-group" id="qs-steps-group">
-            <label>Run Only These Steps</label>
-            <div id="qs-steps-checks" class="checkbox-list">
-                <span class="text-muted">Loading...</span>
+        <details class="advanced-options" style="margin-top:0.4rem;">
+            <summary style="font-size:0.78rem;color:var(--color-text-muted);cursor:pointer;">Advanced options</summary>
+            <div style="padding-top:0.4rem;display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;">
+                <div class="form-group">
+                    <label for="qs-adapter" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Adapter</label>
+                    <select id="qs-adapter" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
+                        <option value="">Default</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="qs-model" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Model</label>
+                    <select id="qs-model" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
+                        <option value="">Default</option>
+                        <option value="cheapest">Cheapest</option>
+                        <option value="fastest">Fastest</option>
+                        <option value="strongest">Strongest</option>
+                    </select>
+                </div>
+                <div class="form-group" style="grid-column:span 2;">
+                    <label class="checkbox-label" style="font-size:0.78rem;color:var(--color-text-secondary);display:flex;align-items:center;gap:0.3rem;"><input type="checkbox" id="qs-dry-run"> Dry Run</label>
+                </div>
             </div>
-        </div>
-        <div class="form-group" id="qs-exclude-group">
-            <label>Exclude Steps</label>
-            <div id="qs-exclude-checks" class="checkbox-list">
-                <span class="text-muted">Loading...</span>
-            </div>
-        </div>
-        <div class="form-group">
-            <label class="checkbox-label">
-                <input type="checkbox" id="qs-dry-run">
-                Dry Run (validate without executing)
-            </label>
-        </div>
-    </details>
-    <div class="dialog-actions">
-        <button class="btn" onclick="hideQuickStart()">Cancel</button>
-        <button class="btn btn-primary" id="quickstart-submit" onclick="submitQuickStart()">Start</button>
+        </details>
+    </div>
+    <div class="w-dialog-actions">
+        <button class="btn btn-sm" onclick="hideQuickStart()">Cancel</button>
+        <button class="btn btn-sm btn-primary" id="quickstart-submit" onclick="submitQuickStart()">Start Pipeline</button>
     </div>
 </dialog>
 {{end}}
 {{define "scripts"}}
 <script>
-var quickStartPipeline = '';
+// Populate adapter dropdown on dialog open
+function populateAdapters(selectId) {
+    var sel = document.getElementById(selectId);
+    if (!sel) return;
+    fetch('/api/adapters').then(function(r){return r.json()}).then(function(d){
+        var adapters = d.adapters || [];
+        adapters.forEach(function(a){ var o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o); });
+    }).catch(function(){});
+}
 
+// Combined category + text filtering
+function filterPipelines(btn) {
+    document.querySelectorAll('.wr-filter').forEach(function(f) { f.classList.remove('active'); });
+    btn.classList.add('active');
+    applyFilters();
+}
+function applyFilters() {
+    var cat = (document.querySelector('.wr-filter.active') || {}).dataset || {};
+    var activeCat = cat.cat || '';
+    var q = (document.getElementById('pipeline-search') || {}).value || '';
+    q = q.toLowerCase().trim();
+    var list = document.getElementById('pipeline-list');
+    var cards = Array.from(list.querySelectorAll('.wr-run'));
+    // Sort: frequent by run count desc, everything else alphabetical
+    if (activeCat === 'frequent') {
+        cards.sort(function(a, b) { return (parseInt(b.dataset.runs||'0',10)) - (parseInt(a.dataset.runs||'0',10)); });
+    } else {
+        cards.sort(function(a, b) { var na = a.querySelector('.wr-name'); var nb = b.querySelector('.wr-name'); return (na?na.textContent:'').localeCompare(nb?nb.textContent:''); });
+    }
+    var visible = 0;
+    cards.forEach(function(card) {
+        list.appendChild(card); // re-order in DOM
+        var catMatch;
+        if (activeCat === 'frequent') {
+            catMatch = parseInt(card.dataset.runs || '0', 10) > 0;
+        } else {
+            catMatch = !activeCat || card.dataset.category === activeCat;
+        }
+        var textMatch = !q || card.textContent.toLowerCase().indexOf(q) !== -1;
+        var show = catMatch && textMatch;
+        card.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    var countEl = document.getElementById('pipeline-count');
+    if (countEl) countEl.textContent = visible + ' pipeline' + (visible !== 1 ? 's' : '');
+}
+// Apply "Frequent" filter on page load
+document.addEventListener('DOMContentLoaded', function() { applyFilters(); });
+
+// Quickstart dialog
+var quickStartPipeline = '';
 function showQuickStart(name) {
     quickStartPipeline = name;
     document.getElementById('quickstart-name').textContent = name;
     document.getElementById('quickstart-input').value = '';
-    // Reset advanced options
-    var modelEl = document.getElementById('qs-model');
-    if (modelEl) modelEl.value = '';
-    var fromStepEl = document.getElementById('qs-from-step');
-    if (fromStepEl) fromStepEl.innerHTML = '<option value="">Start from beginning</option>';
-    var dryRunEl = document.getElementById('qs-dry-run');
-    if (dryRunEl) dryRunEl.checked = false;
-    // Load step list
-    loadQsStepList(name);
     document.getElementById('quickstart-dialog').showModal();
+    populateAdapters('qs-adapter');
     document.getElementById('quickstart-input').focus();
 }
-
-function hideQuickStart() {
-    document.getElementById('quickstart-dialog').close();
-    quickStartPipeline = '';
-}
-
+function hideQuickStart() { document.getElementById('quickstart-dialog').close(); quickStartPipeline = ''; }
 function submitQuickStart() {
     if (!quickStartPipeline) return;
     var input = document.getElementById('quickstart-input').value;
     var btn = document.getElementById('quickstart-submit');
     var body = {input: input || ''};
-    // Collect advanced options
     var opts = collectAdvancedOptions('qs');
     Object.keys(opts).forEach(function(k) { body[k] = opts[k]; });
-
     setButtonLoading(btn, true);
     fetchJSON('/api/pipelines/' + encodeURIComponent(quickStartPipeline) + '/start', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body)
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
     }).then(function(data) {
-        if (body.dry_run && data.findings !== undefined) {
-            showDryRunReport(data);
-            setButtonLoading(btn, false);
-            return;
-        }
-        showToast('Pipeline started: ' + data.run_id, 'success', 3000);
+        if (body.dry_run && data.findings !== undefined) { showDryRunReport(data); setButtonLoading(btn, false); return; }
+        showToast('Started: ' + data.run_id, 'success', 3000);
         setTimeout(function() { window.location.href = '/runs/' + data.run_id; }, 500);
-    }).catch(function() {
-        setButtonLoading(btn, false);
-    });
+    }).catch(function() { setButtonLoading(btn, false); });
 }
-
-function loadQsStepList(pipelineName) {
-    var fromStep = document.getElementById('qs-from-step');
-    var stepsChecks = document.getElementById('qs-steps-checks');
-    var excludeChecks = document.getElementById('qs-exclude-checks');
-    fetchJSON('/api/pipelines/' + encodeURIComponent(pipelineName)).then(function(data) {
-        var steps = data.steps || [];
-        var opts = '<option value="">Start from beginning</option>';
-        for (var i = 0; i < steps.length; i++) {
-            opts += '<option value="' + escapeHTML(steps[i].id) + '">' + escapeHTML(steps[i].id) + '</option>';
-        }
-        if (fromStep) fromStep.innerHTML = opts;
-        var checksHTML = '';
-        for (var i = 0; i < steps.length; i++) {
-            checksHTML += '<label class="checkbox-label"><input type="checkbox" name="qs-steps" value="' + escapeHTML(steps[i].id) + '"> ' + escapeHTML(steps[i].id) + '</label>';
-        }
-        if (stepsChecks) stepsChecks.innerHTML = checksHTML || '<span class="text-muted">No steps</span>';
-        var exclHTML = '';
-        for (var i = 0; i < steps.length; i++) {
-            exclHTML += '<label class="checkbox-label"><input type="checkbox" name="qs-exclude" value="' + escapeHTML(steps[i].id) + '"> ' + escapeHTML(steps[i].id) + '</label>';
-        }
-        if (excludeChecks) excludeChecks.innerHTML = exclHTML || '<span class="text-muted">No steps</span>';
-    }).catch(function() {
-        if (stepsChecks) stepsChecks.innerHTML = '<span class="text-muted">Failed to load steps</span>';
-        if (excludeChecks) excludeChecks.innerHTML = '<span class="text-muted">Failed to load steps</span>';
-    });
-}
-
-function onQsFromStepChange() {
-    var fromStep = document.getElementById('qs-from-step');
-    var stepsGroup = document.getElementById('qs-steps-group');
-    if (fromStep && fromStep.value) {
-        if (stepsGroup) stepsGroup.style.opacity = '0.5';
-        var checks = document.querySelectorAll('#qs-steps-checks input[type="checkbox"]');
-        for (var i = 0; i < checks.length; i++) { checks[i].checked = false; checks[i].disabled = true; }
-    } else {
-        if (stepsGroup) stepsGroup.style.opacity = '1';
-        var checks = document.querySelectorAll('#qs-steps-checks input[type="checkbox"]');
-        for (var i = 0; i < checks.length; i++) { checks[i].disabled = false; }
-    }
-}
-
-// Set category badges from pipeline name prefix on load
-document.querySelectorAll('#pipeline-tbody tr').forEach(function(row) {
-    var name = row.dataset.name || '';
-    var prefix = name.split('-')[0];
-    var badge = row.querySelector('.pipeline-category-badge');
-    if (badge) badge.textContent = prefix;
-});
-
-function filterPipelines() {
-    var search = document.getElementById('pipeline-search').value.toLowerCase();
-    var category = document.getElementById('pipeline-category').value;
-    var rows = document.querySelectorAll('#pipeline-tbody tr');
-    var visibleCount = 0;
-    rows.forEach(function(row) {
-        var name = row.dataset.name.toLowerCase();
-        var desc = (row.dataset.desc || '').toLowerCase();
-        // Derive category from pipeline name prefix (e.g., "audit-dead-code" → "audit")
-        var namePrefix = name.split('-')[0];
-        var matchSearch = !search || name.indexOf(search) !== -1 || desc.indexOf(search) !== -1;
-        var matchCat = !category || namePrefix === category;
-        var visible = matchSearch && matchCat;
-        row.style.display = visible ? '' : 'none';
-        if (visible) visibleCount++;
-    });
-    var table = document.getElementById('pipelines-table');
-    var noResults = document.getElementById('no-results');
-    if (table) table.style.display = visibleCount === 0 ? 'none' : '';
-    if (noResults) noResults.style.display = visibleCount === 0 ? '' : 'none';
-}
-
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') hideQuickStart();
-});
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hideQuickStart(); });
 </script>
 {{end}}

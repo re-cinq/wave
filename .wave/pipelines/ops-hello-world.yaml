@@ -1,7 +1,10 @@
 kind: WavePipeline
 metadata:
   name: ops-hello-world
-  description: "Simple test pipeline to verify Wave is working"
+  description: >-
+    Minimal smoke-test pipeline that validates Wave's core execution loop
+    is functional. Runs a single trivial step to confirm adapter connectivity,
+    workspace creation, and artifact handling all work end-to-end.
   release: true
 
 input:
@@ -11,6 +14,7 @@ input:
 steps:
   - id: greet
     persona: craftsman
+    model: cheapest
     exec:
       type: prompt
       source: |
@@ -26,6 +30,7 @@ steps:
 
   - id: verify
     persona: navigator
+    model: cheapest
     dependencies: [greet]
     memory:
       inject_artifacts:

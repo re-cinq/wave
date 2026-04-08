@@ -1,7 +1,13 @@
 kind: WavePipeline
 metadata:
   name: audit-duplicates
-  description: "Find overlapping or duplicate implementations across packages"
+  description: >-
+    Find overlapping or duplicate implementations across packages by comparing
+    packages that may solve the same problem (sandbox backends, display layers,
+    health checks, routing, state tracking, template variables). Produces JSON
+    findings without creating branches or PRs. Use this as a building block in
+    composition pipelines or to identify consolidation targets after feature
+    sprawl.
   release: true
   category: audit
 

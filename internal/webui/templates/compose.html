@@ -1,108 +1,127 @@
 {{define "title"}}Compose · Wave{{end}}
 {{define "content"}}
-<div class="page-header">
+<div class="wr-head">
     <h1>Composition Pipelines</h1>
 </div>
+
 {{if .Pipelines}}
-<div class="compose-grid">
-    {{range .Pipelines}}
-    <div class="card persona-card">
-        <h3>{{.Name}}</h3>
-        {{if .Description}}<p class="persona-desc">{{.Description}}</p>{{end}}
-        <div class="persona-meta">
-            <span class="badge">{{.StepCount}} steps</span>
-            {{if .Category}}<span class="badge">{{.Category}}</span>{{end}}
-        </div>
-        {{if .Steps}}
-        <div class="compose-flow">
-            {{range $i, $step := .Steps}}
-            {{if $i}}<span class="compose-arrow" aria-hidden="true">&#x2192;</span>{{end}}
-            <span class="compose-node compose-type-{{$step.Type}}" title="{{$step.Type}}{{if $step.SubPipeline}}: {{$step.SubPipeline}}{{end}}">
-                <span class="compose-node-label">{{$step.ID}}</span>
-                <span class="compose-node-type">{{$step.Type}}</span>
-                {{if $step.SubPipeline}}<span class="compose-node-sub">&#x2192; {{$step.SubPipeline}}</span>{{end}}
-                {{if $step.Persona}}<span class="compose-node-sub">{{$step.Persona}}</span>{{end}}
-            </span>
-            {{end}}
-        </div>
-        {{end}}
-        {{if .Steps}}
-        <div class="compose-details">
-            {{range .Steps}}
-            {{if .Details}}
-            <div class="compose-step-detail">
-                <code>{{.ID}}</code>
-                {{range $k, $v := .Details}}
-                <span class="compose-detail-item"><strong>{{$k}}:</strong> {{$v}}</span>
-                {{end}}
-            </div>
-            {{end}}
-            {{end}}
-        </div>
-        {{end}}
-        {{if .Skills}}
-        <div class="persona-tools">
-            <strong>Skills:</strong>
-            {{range .Skills}}<a href="/skills" class="badge">{{.}}</a> {{end}}
-        </div>
-        {{end}}
-        <div class="card-actions" style="display: flex; gap: 0.5rem; align-items: center;">
-            <button class="btn btn-primary btn-sm" onclick="runPipeline('{{.Name}}')">Run</button>
-            <a href="/runs?pipeline={{.Name}}" class="btn btn-sm">See Runs</a>
-            <a href="/pipelines/{{.Name}}" class="btn btn-sm">Details</a>
-        </div>
+<div class="wr-toolbar">
+    <div class="wr-controls">
+        <span style="font-size:0.72rem;color:var(--color-text-muted);">{{len .Pipelines}} pipelines</span>
     </div>
-    {{end}}
+</div>
+<div class="wr-list">
+{{range .Pipelines}}
+    <a href="/pipelines/{{.Name}}" class="wr-run" data-category="{{.Category}}">
+        <div class="wr-accent st-defined" style="border-left-color:#8b5cf6;"></div>
+        <div class="wr-body">
+            <div class="wr-row1">
+                <span class="wr-name">{{.Name}}</span>
+                {{if and .Category (ne .Category "composition")}}<span class="badge" style="font-size:0.65rem;background:rgba(139,92,246,0.12);color:#c4b5fd;">{{.Category}}</span>{{end}}
+                <span class="badge" style="font-size:0.65rem;background:rgba(99,102,241,0.12);color:#a5b4fc;">composition</span>
+            </div>
+            {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);font-size:0.78rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:48rem;">{{.Description}}</span></div>{{end}}
+            <div class="wr-row2" style="margin-top:0.15rem;">
+                <span style="color:var(--color-text-muted);font-size:0.72rem;"><b>{{.StepCount}}</b> steps</span>
+                {{if .RunCount}}<span style="color:var(--color-text-muted);font-size:0.72rem;"><b>{{.RunCount}}</b> runs</span>{{end}}
+                {{if .Steps}}
+                <span style="color:var(--color-text-muted);font-size:0.68rem;font-family:var(--font-mono);display:flex;align-items:center;gap:0.15rem;">
+                {{range $i, $step := .Steps}}{{if $i}}<span style="color:var(--color-border);">&#8594;</span>{{end}}<span style="background:var(--color-bg-tertiary);padding:0.05rem 0.3rem;border-radius:3px;">{{$step.ID}}</span>{{end}}
+                </span>
+                {{end}}
+                {{range .Skills}}<span class="badge" style="font-size:0.65rem;background:rgba(34,211,238,0.1);color:#67e8f9;">{{.}}</span>{{end}}
+            </div>
+        </div>
+        <div class="wr-meta" style="display:flex;flex-direction:row;gap:0.4rem;align-items:center;">
+            <button class="btn btn-sm" onclick="event.preventDefault();event.stopPropagation();showComposeRun('{{.Name}}')" style="font-size:0.68rem;padding:0.15rem 0.45rem;">Start</button>
+        </div>
+    </a>
+{{end}}
 </div>
 
-<div id="run-dialog" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--color-bg); border:1px solid var(--color-border); border-radius:8px; padding:1.5rem; z-index:1000; min-width:400px;">
-    <h3>Run Pipeline</h3>
-    <p id="run-pipeline-name"></p>
-    <label for="run-input" style="display:block; margin-bottom:0.25rem; font-weight:500;">Input</label>
-    <input type="text" id="run-input" placeholder="e.g. issue URL, description, or leave empty" style="width:100%; padding:0.75rem; margin-bottom:1rem; background:var(--color-bg); border:2px solid var(--color-border); color:var(--color-text); border-radius:6px; font-size:1rem;">
-    <div style="display:flex; gap:0.5rem;">
-        <button class="btn btn-primary" onclick="submitRun()">Start</button>
-        <button class="btn" onclick="closeRunDialog()">Cancel</button>
+<!-- Run dialog (synced with pipeline overview w-dialog pattern) -->
+<dialog id="compose-run-dialog" class="w-dialog" aria-labelledby="compose-run-title">
+    <div class="w-dialog-head">
+        <h3 id="compose-run-title" style="margin:0;font-size:1rem;">Start: <code id="compose-run-name" style="font-size:0.85rem;"></code></h3>
+        <button class="w-dialog-close" onclick="closeComposeRun()" aria-label="Close">&times;</button>
     </div>
-</div>
-<div id="run-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999;" onclick="closeRunDialog()"></div>
+    <div class="w-dialog-body">
+        <div class="form-group">
+            <label for="compose-input" style="font-size:0.78rem;color:var(--color-text-secondary);display:block;margin-bottom:0.2rem;">Input</label>
+            <textarea id="compose-input" rows="3" placeholder="Issue URL, feature description..." style="width:100%;padding:0.4rem 0.5rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-family:var(--font-sans);font-size:0.82rem;resize:vertical;"></textarea>
+        </div>
+        <details class="advanced-options" style="margin-top:0.4rem;">
+            <summary style="font-size:0.78rem;color:var(--color-text-muted);cursor:pointer;">Advanced options</summary>
+            <div style="padding-top:0.4rem;display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;">
+                <div class="form-group">
+                    <label for="compose-adapter" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Adapter</label>
+                    <select id="compose-adapter" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
+                        <option value="">Default</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="compose-model" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Model</label>
+                    <select id="compose-model" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
+                        <option value="">Default</option>
+                        <option value="cheapest">Cheapest</option>
+                        <option value="fastest">Fastest</option>
+                        <option value="strongest">Strongest</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label" style="font-size:0.78rem;color:var(--color-text-secondary);display:flex;align-items:center;gap:0.3rem;padding-top:0.3rem;"><input type="checkbox" id="compose-dry-run"> Dry Run</label>
+                </div>
+            </div>
+        </details>
+    </div>
+    <div class="w-dialog-actions">
+        <button class="btn btn-sm" onclick="closeComposeRun()">Cancel</button>
+        <button class="btn btn-sm btn-primary" id="compose-submit" onclick="submitComposeRun()">Start Pipeline</button>
+    </div>
+</dialog>
 <script>
-var currentPipeline = '';
-function runPipeline(name) {
-    currentPipeline = name;
-    document.getElementById('run-pipeline-name').textContent = 'Pipeline: ' + name;
-    document.getElementById('run-input').value = '';
-    document.getElementById('run-dialog').style.display = 'block';
-    document.getElementById('run-overlay').style.display = 'block';
+var composePipeline = '';
+function populateAdapters(selectId) {
+    var sel = document.getElementById(selectId);
+    if (!sel) return;
+    fetch('/api/adapters').then(function(r){return r.json()}).then(function(d){
+        var adapters = d.adapters || [];
+        adapters.forEach(function(a){ var o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o); });
+    }).catch(function(){});
 }
-function closeRunDialog() {
-    document.getElementById('run-dialog').style.display = 'none';
-    document.getElementById('run-overlay').style.display = 'none';
+function showComposeRun(name) {
+    composePipeline = name;
+    document.getElementById('compose-run-name').textContent = name;
+    document.getElementById('compose-input').value = '';
+    document.getElementById('compose-run-dialog').showModal();
+    populateAdapters('compose-adapter');
+    document.getElementById('compose-input').focus();
 }
-function submitRun() {
-    var input = document.getElementById('run-input').value;
-    var btn = document.querySelector('#run-dialog .btn-primary');
+function closeComposeRun() { document.getElementById('compose-run-dialog').close(); composePipeline = ''; }
+function submitComposeRun() {
+    if (!composePipeline) return;
+    var input = document.getElementById('compose-input').value;
+    var btn = document.getElementById('compose-submit');
+    var body = {input: input || ''};
+    var opts = collectAdvancedOptions('compose');
+    Object.keys(opts).forEach(function(k) { body[k] = opts[k]; });
     setButtonLoading(btn, true);
-    fetchJSON('/api/pipelines/' + encodeURIComponent(currentPipeline) + '/start', {
+    fetchJSON('/api/pipelines/' + encodeURIComponent(composePipeline) + '/start', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({input: input})
+        body: JSON.stringify(body)
     }).then(function(d) {
-        closeRunDialog();
+        closeComposeRun();
         if (d.run_id) window.location.href = '/runs/' + d.run_id;
         else showToast('Pipeline started', 'success');
-    }).catch(function() {
-        // fetchJSON already showed toast
-    }).finally(function() {
-        setButtonLoading(btn, false);
-    });
+    }).catch(function() {}).finally(function() { setButtonLoading(btn, false); });
 }
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeComposeRun(); });
 </script>
 {{else}}
-<div class="empty-state">
-    <div class="empty-state-icon">&#128279;</div>
-    <p><strong>No composition pipelines</strong></p>
-    <p>Composition pipelines use primitives like <code>iterate</code>, <code>branch</code>, <code>gate</code>, <code>loop</code>, and <code>aggregate</code>.</p>
+<div style="padding:2rem;text-align:center;color:var(--color-text-muted);font-size:0.85rem;">
+    <p style="margin-bottom:0.5rem;"><strong>No composition pipelines</strong></p>
+    <p style="font-size:0.78rem;">Composition pipelines use primitives like <code>iterate</code>, <code>branch</code>, <code>gate</code>, <code>loop</code>, and <code>aggregate</code>.</p>
 </div>
 {{end}}
 {{end}}

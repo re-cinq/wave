@@ -101,7 +101,7 @@ func (s *Server) handleAPIRunDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get step details from step_state table (what the executor writes to)
-	stepDetails := s.buildStepDetails(runID, run.PipelineName)
+	stepDetails := s.buildStepDetails(runID, run.PipelineName, run.Status)
 
 	// Get events
 	events, err := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 5000})
@@ -141,10 +141,19 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	limit := parsePageSize(r)
 	status := r.URL.Query().Get("status")
+	if status == "" {
+		status = "running"
+	}
 	pipelineFilter := r.URL.Query().Get("pipeline")
 
+	// "all" means no status filter
+	queryStatus := status
+	if queryStatus == "all" {
+		queryStatus = ""
+	}
+
 	opts := state.ListRunsOptions{
-		Status:       status,
+		Status:       queryStatus,
 		PipelineName: pipelineFilter,
 		Limit:        limit + 1,
 	}
@@ -226,7 +235,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stepDetails := s.buildStepDetails(runID, run.PipelineName)
+	stepDetails := s.buildStepDetails(runID, run.PipelineName, run.Status)
 
 	// Enrich step I/O descriptions from pipeline definition
 	if p, loadErr := loadPipelineYAML(run.PipelineName); loadErr == nil {
@@ -367,6 +376,23 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Build template variable map for prompt resolution
+	templateVars := map[string]string{
+		"input": run.Input,
+	}
+	// Add forge variables
+	forgeInfo, _ := forge.DetectFromGitRemotes()
+	templateVars["forge.cli_tool"] = forgeInfo.CLITool
+	templateVars["forge.type"] = string(forgeInfo.Type)
+	templateVars["forge.pr_term"] = forgeInfo.PRTerm
+	templateVars["forge.pr_command"] = forgeInfo.PRCommand
+	// Add project variables from manifest
+	if s.manifest != nil && s.manifest.Project != nil {
+		for k, v := range s.manifest.Project.ProjectVars() {
+			templateVars["project."+k] = v
+		}
+	}
+
 	// Collect child runs for sub-pipeline steps
 	childRuns := make(map[string][]RunSummary)
 	if children, err := s.store.GetChildRuns(runID); err == nil {
@@ -392,6 +418,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		LinkedNumber        int
 		LinkedType          string
 		ChildRuns           map[string][]RunSummary
+		TemplateVars        map[string]string
 	}{
 		ActivePage:          "runs",
 		Run:                 runSummary,
@@ -408,6 +435,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		LinkedNumber:        linkedNumber,
 		LinkedType:          linkedType,
 		ChildRuns:           childRuns,
+		TemplateVars:        templateVars,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -513,7 +541,7 @@ func runToSummary(r state.RunRecord) RunSummary {
 // the pipeline definition. We use events rather than step_state because the
 // step_state table has a unique constraint on step_id alone (not per-pipeline),
 // causing cross-run collisions.
-func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
+func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...string) []StepDetail {
 	// Load pipeline definition to get ordered step list with personas
 	p, err := loadPipelineYAML(pipelineName)
 	if err != nil {
@@ -641,19 +669,32 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 			edgeInfo = strings.Join(edgeParts, "; ")
 		}
 
+		// Extract contract info for display
+		var contractType, contractSchemaName string
+		if contracts := step.Handover.EffectiveContracts(); len(contracts) > 0 {
+			contractType = contracts[0].Type
+			if contracts[0].Schema != "" {
+				contractSchemaName = contracts[0].Schema
+			} else if contracts[0].SchemaPath != "" {
+				contractSchemaName = contracts[0].SchemaPath
+			}
+		}
+
 		sd := StepDetail{
-			RunID:       runID,
-			StepID:      step.ID,
-			Persona:     resolveForgeVars(step.Persona),
-			State:       "pending",
-			StepType:    stepType,
-			Script:      step.Script,
-			SubPipeline: step.SubPipeline,
-			GatePrompt:  gatePrompt,
-			GateChoices: gateChoices,
-			EdgeInfo:    edgeInfo,
-			Model:       step.Model,
-			MaxVisits:   step.MaxVisits,
+			RunID:              runID,
+			StepID:             step.ID,
+			Persona:            resolveForgeVars(step.Persona),
+			State:              "pending",
+			StepType:           stepType,
+			Script:             step.Script,
+			SubPipeline:        stripUnresolvedVars(resolveForgeVars(step.SubPipeline)),
+			GatePrompt:         gatePrompt,
+			GateChoices:        gateChoices,
+			EdgeInfo:           edgeInfo,
+			Model:              step.Model,
+			MaxVisits:          step.MaxVisits,
+			Contract:           contractType,
+			ContractSchemaName: contractSchemaName,
 		}
 
 		// Populate structured gate data for interactive UI
@@ -746,6 +787,15 @@ func (s *Server) buildStepDetails(runID, pipelineName string) []StepDetail {
 			artSummaries[j] = artifactToSummary(a)
 		}
 		sd.Artifacts = artSummaries
+
+		// If the run is terminal but step still shows running, override to cancelled
+		rs := ""
+		if len(runStatus) > 0 {
+			rs = runStatus[0]
+		}
+		if (rs == "cancelled" || rs == "failed") && (sd.State == "running" || sd.State == "started") {
+			sd.State = "cancelled"
+		}
 
 		details = append(details, sd)
 	}
@@ -911,6 +961,21 @@ func resolveForgeVars(s string) string {
 		"{{ forge.prefix }}", forgeInfo.PipelinePrefix,
 	)
 	return r.Replace(s)
+}
+
+// stripUnresolvedVars removes remaining {{ var }} placeholders that weren't
+// resolved by forge or runtime template expansion (e.g. {{ item }}, {{ input }}).
+// Returns empty string if the entire value was a single placeholder.
+func stripUnresolvedVars(s string) string {
+	if !strings.Contains(s, "{{") {
+		return s
+	}
+	// If the whole string is just a template var, return empty
+	trimmed := strings.TrimSpace(s)
+	if strings.HasPrefix(trimmed, "{{") && strings.HasSuffix(trimmed, "}}") && strings.Count(trimmed, "{{") == 1 {
+		return ""
+	}
+	return s
 }
 
 // JSON response helpers

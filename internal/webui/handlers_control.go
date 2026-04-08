@@ -259,7 +259,7 @@ func (s *Server) handleCancelRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if run.Status != "running" && run.Status != "pending" {
+	if !req.Force && run.Status != "running" && run.Status != "pending" {
 		writeJSONError(w, http.StatusConflict, "run is not in a cancellable state (status: "+run.Status+")")
 		return
 	}
@@ -276,9 +276,13 @@ func (s *Server) handleCancelRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	status := "cancelling"
+	if req.Force {
+		status = "cancelled"
+	}
 	resp := CancelRunResponse{
 		RunID:  runID,
-		Status: "cancelling",
+		Status: status,
 	}
 
 	writeJSON(w, http.StatusOK, resp)

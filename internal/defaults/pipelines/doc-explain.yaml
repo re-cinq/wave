@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: doc-explain
-  description: "Deep-dive explanation of code, modules, or architectural patterns"
+  description: >-
+    Produce a deep-dive explanation of code, modules, or architectural patterns.
+    Explores the codebase to trace call graphs and map abstractions, then
+    analyzes design patterns, data flow, concurrency, and extension points.
+    The final output is a polished technical document. Use this to onboard
+    yourself or a teammate onto an unfamiliar area of the system.
   release: true
 
 skills:
@@ -103,6 +108,7 @@ steps:
 
   - id: document
     persona: philosopher
+    model: strongest
     dependencies: [analyze]
     memory:
       inject_artifacts:

@@ -1,254 +1,195 @@
-{{define "title"}}#{{.PR.Number}} · {{.PR.Title}} · Wave{{end}}
+{{define "title"}}PR #{{.PR.Number}} · {{.PR.Title}} · Wave{{end}}
 {{define "content"}}
-<div class="page-header">
+
+<!-- Header -->
+<div class="w-head">
     <div>
-        <a href="/prs" class="back-link" aria-label="Back to pull requests list">&larr; Back to PRs</a>
-        <h1>#{{.PR.Number}} {{.PR.Title}}
+        <a href="/prs" class="back-link">&larr; PRs</a>
+        <h1>
+            #{{.PR.Number}} {{.PR.Title}}
             {{if .PR.Merged}}<span class="badge status-completed">merged</span>
-            {{else if eq .PR.State "open"}}<span class="badge badge-open">open</span>
-            {{else}}<span class="badge badge-closed">closed</span>{{end}}
-            {{if .PR.Draft}}<span class="badge">draft</span>{{end}}
+            {{else if eq .PR.State "open"}}<span class="badge status-running">open</span>
+            {{else}}<span class="badge status-cancelled">closed</span>{{end}}
+            {{if .PR.Draft}}<span class="badge" style="font-size:0.68rem;background:rgba(100,116,139,0.15);color:#94a3b8;">draft</span>{{end}}
         </h1>
+        <p style="margin:0.1rem 0 0.3rem;font-size:0.8rem;color:var(--color-text-secondary);">by {{.PR.Author}} · <code style="font-size:0.72rem;">{{.PR.HeadBranch}}</code> &rarr; <code style="font-size:0.72rem;">{{.PR.BaseBranch}}</code></p>
     </div>
     <div class="actions">
-        <a href="{{.PR.URL}}" target="_blank" rel="noopener noreferrer" class="btn">View on GitHub</a>
+        {{if eq .PR.State "open"}}
+        <a href="{{.PR.URL}}" target="_blank" class="btn btn-sm btn-primary">Merge on GitHub</a>
+        {{end}}
+        <a href="{{.PR.URL}}" target="_blank" class="btn btn-sm" style="color:var(--color-link);border-color:rgba(99,102,241,0.3);">GitHub ↗</a>
     </div>
 </div>
 
-<div class="run-summary-bar">
-    <div class="run-summary-stats">
-        <span class="run-stat"><span class="run-stat-label">Author</span> <span class="run-stat-value">{{.PR.Author}}</span></span>
-        <span class="run-stat"><span class="run-stat-label">Branch</span> <span class="run-stat-value"><code>{{.PR.HeadBranch}}</code> &rarr; <code>{{.PR.BaseBranch}}</code></span></span>
-        <span class="run-stat"><span class="run-stat-label">Changes</span> <span class="run-stat-value"><span class="diff-summary-adds">+{{.PR.Additions}}</span> <span class="diff-summary-dels">-{{.PR.Deletions}}</span> ({{.PR.ChangedFiles}} files)</span></span>
-        <span class="run-stat"><span class="run-stat-label">Commits</span> <span class="run-stat-value">{{.PR.Commits}}</span></span>
-        <span class="run-stat"><span class="run-stat-label">Comments</span> <span class="run-stat-value">{{.PR.Comments}}</span></span>
-        <span class="run-stat"><span class="run-stat-label">Created</span> <span class="run-stat-value">{{.PR.CreatedAt}}</span></span>
-    </div>
+<!-- Stats -->
+<div class="w-stats" style="margin-bottom:0.5rem;">
+    {{if .RunCount}}<span><b>{{.RunCount}}</b> runs</span>
+    <span style="color:var(--color-text-muted);">·</span>{{end}}
+    {{if .TotalTokens}}<span><b>{{formatTokens .TotalTokens}}</b> tok</span>
+    <span style="color:var(--color-text-muted);">·</span>{{end}}
+    <span><span class="w-diff-add">+{{.PR.Additions}}</span> <span class="w-diff-del">-{{.PR.Deletions}}</span></span>
+    <span style="color:var(--color-text-muted);">·</span>
+    <span><b>{{.PR.ChangedFiles}}</b> files</span>
+    <span style="color:var(--color-text-muted);">·</span>
+    <span><b>{{.PR.Commits}}</b> commits</span>
+    <span style="color:var(--color-text-muted);">·</span>
+    <span><b>{{.PR.Comments}}</b> comments</span>
+    <span style="color:var(--color-text-muted);">·</span>
+    <span>{{.PR.CreatedAt}}</span>
     {{if .PR.Labels}}
-    <div class="run-summary-meta">
-        <span class="run-meta-item">{{range .PR.Labels}}<span class="badge">{{.}}</span> {{end}}</span>
-    </div>
+    <span style="margin-left:0.3rem;">{{range .PR.Labels}}<span class="badge" style="font-size:0.6rem;{{if .Color}}background:#{{.Color}}22;color:#{{.Color}};{{end}}">{{.Name}}</span> {{end}}</span>
     {{end}}
 </div>
 
-{{if .PR.Body}}
-<div class="card">
-    <h2>Description</h2>
-    <div class="issue-body">
-        <div class="markdown-body" id="pr-body"></div>
-        <script type="text/plain" id="pr-body-raw">{{.PR.Body}}</script>
+<!-- Related Pipeline Runs (top priority) -->
+{{if .Runs}}
+<div style="margin-bottom:0.75rem;">
+    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Pipeline Runs</h2>
+    <div class="wr-list">
+    {{range .Runs}}
+        <a href="/runs/{{.RunID}}" class="wr-run">
+            <div class="wr-accent st-{{.Status}}"></div>
+            <div class="wr-body">
+                <div class="wr-row1">
+                    <span class="wr-name">{{.PipelineName}}</span>
+                    <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
+                </div>
+                <div class="wr-row2">
+                    {{if .Duration}}<span><b>{{.Duration}}</b></span>{{end}}
+                    {{if gt .StepsTotal 0}}<span><b>{{.StepsCompleted}}/{{.StepsTotal}}</b> steps</span>{{end}}
+                    {{if .TotalTokens}}<span><b>{{formatTokens .TotalTokens}}</b> tok</span>{{end}}
+                </div>
+            </div>
+            <div class="wr-meta">
+                <span class="wr-date">{{.FormattedStartedAt}}</span>
+            </div>
+        </a>
+    {{end}}
     </div>
 </div>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    var raw = document.getElementById('pr-body-raw').textContent;
-    var el = document.getElementById('pr-body');
-    if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
-        el.innerHTML = DOMPurify.sanitize(marked.parse(raw));
-    } else {
-        el.textContent = raw;
-    }
-});
-</script>
+{{else}}
+<p style="color:var(--color-text-muted);font-size:0.75rem;margin-bottom:0.5rem;">No pipeline runs for this PR</p>
 {{end}}
 
-<div class="card">
-    <h2>Status Checks</h2>
-    {{if .PR.Checks}}
-    <table class="table">
-        <thead>
-            <tr>
-                <th style="width: 2.5rem;"></th>
-                <th>Check</th>
-                <th>Status</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .PR.Checks}}
-            <tr>
-                <td><span class="badge {{checkClass .Status .Conclusion}}" style="font-size: 0.85rem;">{{checkIcon .Status .Conclusion}}</span></td>
-                <td>{{.Name}}</td>
-                <td><span class="badge {{checkClass .Status .Conclusion}}">{{checkLabel .Status .Conclusion}}</span></td>
-                <td>{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener noreferrer" class="text-muted">Details &rarr;</a>{{end}}</td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-    {{else}}
-    <div class="empty-state">
-        <p><strong>No status checks</strong></p>
-        <p>No CI/CD checks have been reported for this PR.</p>
-    </div>
-    {{end}}
-</div>
+<!-- Description -->
+{{if .PR.Body}}
+<div class="markdown-body" id="pr-body" style="font-size:0.82rem;margin-bottom:0.75rem;border:1px solid var(--color-border);border-radius:var(--radius-md);padding:0.6rem 0.8rem;"></div>
+<script type="text/plain" id="pr-body-raw">{{.PR.Body}}</script>
+{{end}}
 
-<div class="card">
-    <h2>Commits{{if .CommitDetails}} ({{len .CommitDetails}}){{end}}</h2>
-    {{if .CommitDetails}}
-    <div class="commit-timeline">
-        {{range .CommitDetails}}
-        <div class="commit-timeline-item">
-            <div class="commit-timeline-dot"></div>
-            <div class="commit-timeline-content">
-                <div class="commit-timeline-header">
-                    <a href="{{.HTMLURL}}" target="_blank" rel="noopener noreferrer" class="commit-sha"><code>{{.ShortSHA}}</code></a>
-                    <span class="commit-message">{{.Message}}</span>
-                </div>
-                <div class="commit-timeline-meta">
-                    <span class="commit-author">{{.Author}}</span>
-                    <time datetime="{{.TimeISO}}" class="text-muted">{{.Date}}</time>
-                </div>
-            </div>
-        </div>
-        {{end}}
-    </div>
-    {{else}}
-    <div class="empty-state">
-        <p><strong>No commits</strong></p>
-        <p>Could not fetch commits for this PR.</p>
-    </div>
-    {{end}}
-</div>
-
-<div class="card">
-    <h2>Comments{{if .Comments}} ({{len .Comments}}){{end}}</h2>
-    {{if .Comments}}
-    <div class="comments-list">
-        {{range $i, $c := .Comments}}
-        <div class="comment-item">
-            <div class="comment-header">
-                <strong>{{$c.Author}}</strong>
-                <span class="text-muted">
-                    <time datetime="{{$c.TimeISO}}">{{$c.CreatedAt}}</time>
-                    {{if $c.HTMLURL}}<a href="{{$c.HTMLURL}}" target="_blank" rel="noopener noreferrer" class="text-muted" title="View on GitHub">#</a>{{end}}
+<!-- Checks -->
+{{if .PR.Checks}}
+<div class="w-section-card" style="margin-bottom:0.75rem;">
+    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Checks</h2>
+    <div class="w-flow" style="gap:2px;">
+    {{range .PR.Checks}}
+        <div class="ws st-{{if eq .Conclusion "success"}}completed{{else if eq .Conclusion "failure"}}failed{{else if eq .Status "in_progress"}}running{{else}}pending{{end}}" style="padding:0.2rem var(--ws-pad-x);">
+            <div class="ws-row1">
+                <span class="ws-name" style="font-size:0.78rem;">{{.Name}}</span>
+                <span class="ws-meta">
+                    <span class="badge {{checkClass .Status .Conclusion}}" style="font-size:0.6rem;">{{checkLabel .Status .Conclusion}}</span>
+                    {{if .URL}}<a href="{{.URL}}" target="_blank" style="color:var(--color-text-muted);font-size:0.68rem;">details ↗</a>{{end}}
                 </span>
             </div>
-            <div class="comment-body markdown-body" id="pr-comment-{{$i}}"></div>
-            <script type="text/plain" id="pr-comment-raw-{{$i}}">{{$c.Body}}</script>
         </div>
-        {{end}}
+    {{end}}
     </div>
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        {{range $i, $c := .Comments}}
-        (function() {
-            var raw = document.getElementById('pr-comment-raw-{{$i}}').textContent;
-            var el = document.getElementById('pr-comment-{{$i}}');
-            if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
-                el.innerHTML = DOMPurify.sanitize(marked.parse(raw));
-            } else {
-                el.textContent = raw;
-            }
-        })();
-        {{end}}
-    });
-    </script>
-    {{else}}
-    <div class="empty-state">
-        <p><strong>No comments</strong></p>
-        <p>No comments have been posted on this PR.</p>
+</div>
+{{end}}
+
+<!-- Commits -->
+{{if .CommitDetails}}
+<div class="w-section-card" style="margin-bottom:0.75rem;">
+    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Commits ({{len .CommitDetails}})</h2>
+    <div class="w-flow" style="gap:1px;">
+    {{range .CommitDetails}}
+        {{if .HTMLURL}}<a href="{{.HTMLURL}}" target="_blank" class="w-commit-row">{{else}}<div class="w-commit-row">{{end}}
+            <span class="w-commit-sha">{{.ShortSHA}}</span>
+            <span class="w-commit-msg">{{.Message}}</span>
+            <span class="w-commit-meta">{{.Author}} · {{.Date}}</span>
+        {{if .HTMLURL}}</a>{{else}}</div>{{end}}
+    {{end}}
+    </div>
+</div>
+{{end}}
+
+<!-- Comments -->
+{{if .Comments}}
+<div style="margin-bottom:0.75rem;">
+    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Comments ({{len .Comments}})</h2>
+    {{range $i, $c := .Comments}}
+    <div class="w-comment-card">
+        <div style="padding:0.35rem 0.65rem;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--color-border);font-size:0.75rem;">
+            <strong style="color:var(--color-text);">{{$c.Author}}</strong>
+            <span style="display:flex;align-items:center;gap:0.5rem;color:var(--color-text-muted);font-size:0.72rem;">
+                <span>{{$c.CreatedAt}}</span>
+                {{if $c.HTMLURL}}<a href="{{$c.HTMLURL}}" target="_blank" style="color:var(--color-text-muted);font-size:0.68rem;padding:0.1rem 0.3rem;border:1px solid var(--color-border);border-radius:3px;text-decoration:none;">view on GitHub</a>{{end}}
+            </span>
+        </div>
+        <div class="markdown-body" id="pr-comment-{{$i}}" style="padding:0.5rem 0.65rem;font-size:0.8rem;"></div>
+        <script type="text/plain" id="pr-comment-raw-{{$i}}">{{$c.Body}}</script>
     </div>
     {{end}}
 </div>
+{{end}}
 
+<!-- Review actions (open PRs only) -->
 {{if eq .PR.State "open"}}
-<div class="card">
-    <h2>Review</h2>
-    <div style="margin-bottom: 0.75rem;">
-        <label for="review-body" style="display: block; margin-bottom: 0.25rem; font-weight: 500;">Comment (optional for approve)</label>
-        <textarea id="review-body" rows="3" style="width: 100%; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 0.375rem; font-family: inherit; font-size: 0.875rem; resize: vertical; background: var(--color-bg); color: var(--color-text);" placeholder="Leave a comment..."></textarea>
-    </div>
-    <div style="display: flex; gap: 0.5rem; align-items: center;">
-        <button id="btn-approve" class="btn" style="background: #22863a; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 0.375rem; cursor: pointer; font-weight: 500;">Approve</button>
-        <button id="btn-request-changes" class="btn" style="background: #cb2431; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 0.375rem; cursor: pointer; font-weight: 500;">Request Changes</button>
-        <span id="review-status" style="margin-left: 0.5rem; font-size: 0.875rem;"></span>
+<div class="w-section-card" style="margin-bottom:0.75rem;">
+    <h2 style="font-size:0.9rem;margin:0 0 0.3rem;">Review</h2>
+    <textarea id="review-body" rows="2" style="width:100%;padding:0.4rem;border:1px solid var(--color-border);border-radius:4px;font-family:inherit;font-size:0.78rem;resize:vertical;background:var(--color-bg-tertiary);color:var(--color-text);margin-bottom:0.3rem;" placeholder="Leave a comment..."></textarea>
+    <div style="display:flex;gap:0.3rem;align-items:center;flex-wrap:wrap;">
+        <button id="btn-approve" class="btn btn-sm" style="border-color:rgba(34,197,94,0.3);color:var(--color-completed);">Approve</button>
+        <button id="btn-request-changes" class="btn btn-sm" style="border-color:rgba(239,68,68,0.3);color:var(--color-failed);">Request Changes</button>
+        <span style="border-left:1px solid var(--color-border);height:1.2rem;margin:0 0.2rem;"></span>
+        <a href="{{.PR.URL}}/merge" target="_blank" class="btn btn-sm btn-primary" style="font-size:0.72rem;">Merge</a>
+        <a href="{{.PR.URL}}" target="_blank" class="btn btn-sm" style="border-color:rgba(239,68,68,0.3);color:var(--color-failed);font-size:0.72rem;">Close</a>
+        <span id="review-status" style="margin-left:0.4rem;font-size:0.75rem;"></span>
     </div>
 </div>
+{{end}}
+
+{{end}}
+{{define "scripts"}}
 <script>
+// Render markdown bodies
+document.addEventListener('DOMContentLoaded', function() {
+    function renderMd(rawId, targetId) {
+        var raw = document.getElementById(rawId);
+        var el = document.getElementById(targetId);
+        if (!raw || !el) return;
+        if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+            el.innerHTML = DOMPurify.sanitize(marked.parse(raw.textContent), {ADD_TAGS: ['img'], ADD_ATTR: ['src', 'alt', 'width', 'height']});
+        } else { el.textContent = raw.textContent; }
+    }
+    renderMd('pr-body-raw', 'pr-body');
+    {{range $i, $c := .Comments}}
+    renderMd('pr-comment-raw-{{$i}}', 'pr-comment-{{$i}}');
+    {{end}}
+});
+
+// Review submission
 (function() {
     var approveBtn = document.getElementById('btn-approve');
-    var requestChangesBtn = document.getElementById('btn-request-changes');
+    var rcBtn = document.getElementById('btn-request-changes');
+    if (!approveBtn) return;
     var bodyEl = document.getElementById('review-body');
     var statusEl = document.getElementById('review-status');
-
-    function submitReview(event) {
+    function submit(event) {
         var body = bodyEl.value.trim();
-        if (event === 'REQUEST_CHANGES' && !body) {
-            statusEl.textContent = 'A comment is required when requesting changes.';
-            statusEl.style.color = '#cb2431';
-            return;
-        }
-        approveBtn.disabled = true;
-        requestChangesBtn.disabled = true;
-        statusEl.textContent = 'Submitting...';
-        statusEl.style.color = '';
-
+        if (event === 'REQUEST_CHANGES' && !body) { statusEl.textContent = 'Comment required'; statusEl.style.color = 'var(--color-failed)'; return; }
+        approveBtn.disabled = rcBtn.disabled = true;
+        statusEl.textContent = 'Submitting...'; statusEl.style.color = '';
         fetch('/api/prs/{{.PR.Number}}/review', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Wave-Request': '1',
-                'X-CSRF-Token': getCSRFToken()
-            },
-            body: JSON.stringify({ event: event, body: body })
-        }).then(function(resp) {
-            return resp.json().then(function(data) {
-                if (!resp.ok) {
-                    throw new Error(data.error || 'Review submission failed');
-                }
-                statusEl.textContent = event === 'APPROVE' ? 'Approved!' : 'Changes requested.';
-                statusEl.style.color = event === 'APPROVE' ? '#22863a' : '#cb2431';
-                bodyEl.value = '';
-            });
-        }).catch(function(err) {
-            statusEl.textContent = 'Error: ' + err.message;
-            statusEl.style.color = '#cb2431';
-        }).finally(function() {
-            approveBtn.disabled = false;
-            requestChangesBtn.disabled = false;
-        });
+            method: 'POST', headers: {'Content-Type': 'application/json', 'X-Wave-Request': '1', 'X-CSRF-Token': getCSRFToken()},
+            body: JSON.stringify({event: event, body: body})
+        }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.error); statusEl.textContent = event === 'APPROVE' ? 'Approved' : 'Changes requested'; statusEl.style.color = event === 'APPROVE' ? 'var(--color-completed)' : 'var(--color-failed)'; bodyEl.value = ''; }); })
+        .catch(function(e) { statusEl.textContent = e.message; statusEl.style.color = 'var(--color-failed)'; })
+        .finally(function() { approveBtn.disabled = rcBtn.disabled = false; });
     }
-
-    approveBtn.addEventListener('click', function() { submitReview('APPROVE'); });
-    requestChangesBtn.addEventListener('click', function() { submitReview('REQUEST_CHANGES'); });
+    approveBtn.onclick = function() { submit('APPROVE'); };
+    rcBtn.onclick = function() { submit('REQUEST_CHANGES'); };
 })();
 </script>
 {{end}}
-
-<div class="card">
-    <h2>Related Pipeline Runs</h2>
-    {{if .Runs}}
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Pipeline</th>
-                <th>Status</th>
-                <th>Steps</th>
-                <th>Tokens</th>
-                <th>Duration</th>
-                <th>Started</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Runs}}
-            <tr>
-                <td><a href="/runs/{{.RunID}}">{{.PipelineName}}</a> <a href="/pipelines/{{.PipelineName}}" class="text-muted" title="View pipeline">&rarr;</a></td>
-                <td><span class="badge {{statusClass .Status}}">{{.Status}}</span></td>
-                <td>{{.StepsCompleted}}/{{.StepsTotal}}</td>
-                <td>{{formatTokens .TotalTokens}}</td>
-                <td>{{if .Duration}}{{.Duration}}{{else}}-{{end}}</td>
-                <td>{{.FormattedStartedAt}}</td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-    {{else}}
-    <div class="empty-state">
-        <p><strong>No pipeline runs</strong></p>
-        <p>No pipelines have been run against this PR yet.</p>
-    </div>
-    {{end}}
-</div>
-{{end}}
-{{define "scripts"}}{{end}}

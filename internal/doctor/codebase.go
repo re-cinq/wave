@@ -164,8 +164,8 @@ func forgeIssueToGitHub(fi *forge.Issue) *github.Issue {
 	if fi.Author != "" {
 		gi.User = &github.User{Login: fi.Author}
 	}
-	for _, name := range fi.Labels {
-		gi.Labels = append(gi.Labels, &github.Label{Name: name})
+	for _, l := range fi.Labels {
+		gi.Labels = append(gi.Labels, &github.Label{Name: l.Name, Color: l.Color})
 	}
 	for _, login := range fi.Assignees {
 		gi.Assignees = append(gi.Assignees, &github.User{Login: login})

@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: audit-doc
-  description: Pre-PR documentation consistency gate — scans changes, cross-references docs, and creates a GitHub issue with inconsistencies
+  description: >-
+    Pre-PR documentation consistency gate that scans code changes, cross-references
+    them against documentation (README, guides, ADRs, CLI reference), and creates
+    a GitHub issue listing inconsistencies. Use this before merging to catch doc
+    drift from code changes. Rates each inconsistency by severity and produces a
+    task list for remediation.
   release: true
 
 skills:
@@ -82,6 +87,7 @@ steps:
 
   - id: analyze-consistency
     persona: reviewer
+    model: strongest
     dependencies: [scan-changes]
     memory:
       inject_artifacts:
@@ -159,6 +165,7 @@ steps:
 
   - id: compose-report
     persona: navigator
+    model: cheapest
     dependencies: [analyze-consistency]
     memory:
       inject_artifacts:
@@ -217,6 +224,7 @@ steps:
 
   - id: publish
     persona: craftsman
+    model: cheapest
     dependencies: [compose-report]
     memory:
       inject_artifacts:
