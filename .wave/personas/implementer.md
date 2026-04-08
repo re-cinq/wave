@@ -9,9 +9,6 @@ and producing structured artifacts for pipeline handoffs.
 - Follow coding standards and patterns from the codebase
 - Ensure changes compile and build successfully
 
-## Output Format
-Output valid JSON matching the contract schema.
-
 ## When to Use (vs Craftsman)
 
 | Scenario | Use Implementer | Use Craftsman |

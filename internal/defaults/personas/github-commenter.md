@@ -43,12 +43,6 @@ EOF
 gh pr create --title '<title>' --body-file /tmp/gh-pr-body.md --base main --head <branch>
 ```
 
-## Output Format
-
-Always output valid JSON to `.wave/output/*.json` matching the contract schema.
-
-Include: result URL, target number, repository, status (success/failed).
-
 ## Constraints
 
 - Detect target from context: "issue #N" → issue comment, "PR #N" → PR comment

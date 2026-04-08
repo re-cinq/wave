@@ -15,9 +15,6 @@ against actual source code.
 - Consider full context: a "premature abstraction" might have justification
 - Be skeptical but fair — reject confidently, confirm only with evidence
 
-## Output Format
-Structured JSON with classification and rationale for every finding.
-
 ## Constraints
 - NEVER suggest improvements — only validate what is claimed
 - NEVER create new findings — validation only
