@@ -183,7 +183,7 @@ steps:
   - id: apply-fixes
     persona: craftsman
     contexts: [execution, delivery]
-    model: fastest
+    model: strongest
     dependencies: [triage]
     memory:
       inject_artifacts:
@@ -285,6 +285,7 @@ steps:
 
   - id: retry-fixes
     persona: craftsman
+    model: fastest
     rework_only: true
     workspace:
       type: worktree

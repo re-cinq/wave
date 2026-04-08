@@ -11,6 +11,7 @@ input:
 steps:
   - id: analyze
     persona: navigator
+    model: strongest
     workspace:
       mount:
         - source: ./
@@ -38,6 +39,7 @@ steps:
 
   - id: summarize
     persona: summarizer
+    model: cheapest
     dependencies: [analyze]
     memory:
       inject_artifacts:

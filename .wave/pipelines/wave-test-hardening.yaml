@@ -87,6 +87,7 @@ steps:
 
   - id: harden
     persona: craftsman
+    model: strongest
     dependencies: [analyze-coverage]
     thread: harden
     max_visits: 3

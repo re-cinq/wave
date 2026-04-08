@@ -86,6 +86,7 @@ steps:
 
   - id: security-review
     persona: reviewer
+    model: strongest
     contexts: [security]
     dependencies: [diff-analysis]
     memory:
@@ -126,6 +127,7 @@ steps:
 
   - id: quality-review
     persona: reviewer
+    model: strongest
     contexts: [validation]
     dependencies: [diff-analysis]
     memory:

@@ -83,6 +83,7 @@ steps:
 
   - id: fix
     persona: craftsman
+    model: strongest
     dependencies: [investigate]
     thread: bugfix
     max_visits: 3

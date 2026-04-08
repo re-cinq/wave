@@ -59,6 +59,7 @@ steps:
 
   - id: plan
     persona: implementer
+    model: strongest
     dependencies: [fetch-assess]
     memory:
       inject_artifacts:
@@ -89,6 +90,7 @@ steps:
 
   - id: implement
     persona: craftsman
+    model: strongest
     contexts: [execution, delivery]
     thread: impl
     dependencies: [plan]

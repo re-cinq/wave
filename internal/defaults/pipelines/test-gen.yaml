@@ -55,6 +55,7 @@ steps:
 
   - id: generate-tests
     persona: craftsman
+    model: strongest
     dependencies: [analyze-coverage]
     thread: test-gen
     max_visits: 3

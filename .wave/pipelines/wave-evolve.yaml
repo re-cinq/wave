@@ -76,6 +76,7 @@ steps:
 
   - id: evolve
     persona: craftsman
+    model: strongest
     dependencies: [analyze]
     memory:
       inject_artifacts:
@@ -124,6 +125,7 @@ steps:
 
   - id: verify
     persona: reviewer
+    model: strongest
     dependencies: [evolve]
     memory:
       inject_artifacts:

@@ -140,6 +140,7 @@ steps:
 
   - id: publish
     persona: "{{ forge.type }}-commenter"
+    model: cheapest
     dependencies: [compose]
     memory:
       inject_artifacts:

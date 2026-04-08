@@ -68,6 +68,7 @@ steps:
 
   - id: implement
     persona: craftsman
+    model: strongest
     contexts: [execution, delivery]
     dependencies: [assess]
     memory:
@@ -113,6 +114,7 @@ steps:
 
   - id: verify
     persona: reviewer
+    model: strongest
     dependencies: [implement]
     memory:
       inject_artifacts:
