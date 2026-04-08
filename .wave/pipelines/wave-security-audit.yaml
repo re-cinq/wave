@@ -63,31 +63,94 @@ steps:
     exec:
       type: prompt
       source: |
-        Build a threat model for Wave's security surface.
+        OBJECTIVE:
+        Build a comprehensive threat model for Wave's security surface, mapping each threat
+        to specific code locations in the internal/ package tree. The threat model must
+        identify every path through which untrusted input could cross a security boundary.
 
-        Focus: {{ input }}
+        FOCUS: {{ input }}
 
-        ## Threat Categories
+        CONTEXT:
+        You are the first step in a two-step security audit pipeline (threat-model, verify).
+        Your threat model will be consumed by an auditor persona who will trace data flows
+        and confirm exploitability for each high/critical threat. You have read-only access
+        to the full project codebase. Wave's security surface includes: workspace isolation
+        (bubblewrap and docker sandboxes), persona permission enforcement (deny/allow rules),
+        adapter integration (Claude, Gemini, OpenAI), state management (SQLite), and
+        artifact handling (inter-step data transfer).
 
-        1. **Prompt injection**: Can pipeline inputs or artifact contents manipulate
-           persona behavior? Check system prompt assembly in CLAUDE.md generation.
+        REQUIREMENTS:
+        1. Analyze each threat category systematically:
+           a. Prompt injection: Can pipeline inputs (user-provided strings) or artifact
+              contents (from prior steps) manipulate persona behavior? Examine:
+              - System prompt assembly in internal/adapter/ and CLAUDE.md generation
+              - How {{ input }} and {{ gate.*.text }} values are interpolated into prompts
+              - Whether artifact content injected via memory.inject_artifacts is sanitized
+              - How persona instructions are separated from user-controlled content
+           b. Sandbox escape: Can a persona break out of its workspace isolation? Examine:
+              - Worktree creation in internal/workspace/
+              - Mount mode enforcement (readonly vs readwrite)
+              - Path validation: can relative paths (../) or symlinks escape the sandbox?
+              - Bubblewrap configuration in internal/sandbox/bubblewrap.go
+              - Docker sandbox configuration in internal/sandbox/docker.go
+           c. Permission bypass: Can a persona exceed its declared deny/allow rules? Examine:
+              - How .claude/settings.json is generated from persona definitions
+              - Whether deny rules are enforced at the adapter level or just advisory
+              - Whether a persona can modify its own settings.json during execution
+           d. Credential exposure: Are API tokens, SSH keys, or environment variables
+              accessible to personas that should not have them? Examine:
+              - Environment variable passthrough to sandboxed processes
+              - Token scoping in internal/scope/
+              - Whether GH_TOKEN, API keys, or SSH keys are accessible to all personas
+           e. State corruption: Can a failing step corrupt the SQLite state DB or leave
+              workspaces in an inconsistent state? Examine:
+              - Transaction handling in internal/state/ or internal/db/
+              - Concurrent write protection (multiple pipeline runs)
+              - Workspace cleanup on step failure
+           f. Artifact tampering: Can a step inject malicious content into artifacts that
+              downstream steps trust without validation? Examine:
+              - Artifact write paths (can a step write outside its designated artifact path?)
+              - Contract validation (is it enforced or optional?)
+              - Whether artifacts are validated before injection into downstream steps
+        2. For each identified threat, record:
+           - id: THREAT-### format
+           - category: one of the six categories above
+           - severity: critical (exploitable, high impact), high (exploitable, moderate
+             impact), medium (theoretical, requires specific conditions), low (minimal
+             impact even if exploited)
+           - description: what the threat is and how it could be exploited
+           - code_location: specific file path(s) and function(s) in internal/
+           - attack_vector: how an attacker would trigger this (malicious input, crafted
+             artifact, compromised step, etc.)
+           - existing_mitigations: any defenses already in place
+           - exploitability: easy (no special access needed), moderate (requires specific
+             conditions), hard (requires insider access or complex setup)
+        3. Produce at least 5 threats across different categories. If a category has no
+           threats after thorough analysis, document why (the mitigation that prevents it).
 
-        2. **Sandbox escape**: Can a persona break out of its workspace isolation?
-           Check worktree creation, mount modes, path validation.
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT produce theoretical threats without code references. Every threat must
+          point to a specific file and function where the vulnerability exists or could
+          exist.
+        - Do NOT rate everything as "low" severity. Be honest about real risks.
+        - Do NOT ignore credential exposure. This is consistently the highest-impact
+          finding in security audits of CI/CD tools.
+        - Do NOT treat sandbox isolation as binary (secure/insecure). Examine the specific
+          configuration: what is mounted, what permissions are granted, what escapes exist.
+        - Do NOT skip the "existing_mitigations" field. Understanding what defenses exist
+          is as important as identifying what is missing.
 
-        3. **Permission bypass**: Can a persona exceed its declared deny/allow rules?
-           Check how settings.json is generated and enforced.
+        OUTPUT FORMAT:
+        Write the threat model as structured JSON to .wave/output/threat-model.json
+        matching the security-scan schema. Include: focus (string), threats (array of
+        threat objects as described above), summary (object with total_threats,
+        by_severity counts, by_category counts), and timestamp.
 
-        4. **Credential exposure**: Are API tokens, SSH keys, or environment variables
-           accessible to personas that shouldn't have them?
-
-        5. **State corruption**: Can a failing step corrupt the SQLite state DB
-           or leave workspaces in an inconsistent state?
-
-        6. **Artifact tampering**: Can a step inject malicious content into artifacts
-           that downstream steps trust?
-
-        Map each threat to specific code locations in `internal/`.
+        QUALITY BAR:
+        A good threat model is one where a security engineer would say "yes, these are
+        the real risks, and the severity ratings are honest." Each threat has a clear
+        attack vector and code reference. A bad threat model lists generic OWASP
+        categories without mapping them to actual code paths in the project.
     output_artifacts:
       - name: threat-model
         path: .wave/output/threat-model.json
@@ -119,16 +182,91 @@ steps:
     exec:
       type: prompt
       source: |
-        Verify each threat from the threat model against the actual codebase.
+        OBJECTIVE:
+        Verify each high and critical severity threat from the threat model against the
+        actual codebase, confirming or refuting exploitability through data flow analysis.
+        Produce a security report with confirmed findings, false positives, and a
+        prioritized remediation plan with specific code fixes.
 
-        For each HIGH/CRITICAL threat:
-        1. Read the code at the reported location
-        2. Trace the data flow from untrusted input to security boundary
-        3. Confirm whether the threat is exploitable
-        4. Check for existing mitigations (validation, sanitization, sandboxing)
-        5. Propose specific fixes with code references
+        CONTEXT:
+        You are the second and final step in the security audit pipeline. The threat model
+        artifact (injected as "threats") contains all identified threats with severity
+        ratings, code locations, and attack vectors. Your job is to verify each HIGH and
+        CRITICAL threat by reading the actual code, tracing data flows, and determining
+        whether the threat is genuinely exploitable. You have read-only access to the full
+        project codebase. Medium and low severity threats are included for reference but
+        do not require full verification.
 
-        Produce a security report with confirmed findings and remediation plan.
+        REQUIREMENTS:
+        1. Read the injected threat model artifact completely. Sort threats by severity
+           (critical first, then high).
+        2. For each CRITICAL and HIGH severity threat:
+           a. Read the code at the reported location. Verify the file and function exist.
+              If the location is wrong, search for the actual location using Grep.
+           b. Trace the data flow from untrusted input to the security boundary:
+              - Where does the untrusted input enter? (CLI arg, pipeline input, artifact
+                content, environment variable, HTTP request)
+              - What transformations are applied? (sanitization, validation, encoding)
+              - Where does it cross a security boundary? (shell execution, file write,
+                database query, prompt assembly)
+              - Is there any validation or sanitization between entry and boundary?
+           c. Determine exploitability:
+              - confirmed: the threat is exploitable with a concrete attack scenario.
+                Describe the exact input or condition that triggers the vulnerability.
+              - mitigated: the threat exists in theory but existing defenses prevent
+                exploitation. Describe the mitigation and verify it is correctly
+                implemented.
+              - false_positive: the reported location does not contain the vulnerability,
+                or the attack vector does not work as described. Explain why.
+           d. Check for existing mitigations:
+              - Input validation (regex, allowlists, type checking)
+              - Output sanitization (escaping, encoding)
+              - Sandbox boundaries (mount modes, permission restrictions)
+              - Access controls (token scoping, deny rules)
+           e. For confirmed threats, propose a specific fix:
+              - Which file and function to modify
+              - What validation, sanitization, or check to add
+              - Where in the code to add it (before which operation)
+              - Example code snippet showing the fix pattern
+        3. For MEDIUM and LOW severity threats, provide a brief assessment (1-2 sentences)
+           noting whether the threat seems valid based on your understanding of the code.
+           Full verification is not required for these.
+        4. Compile the remediation plan:
+           - List all confirmed threats in priority order (critical first)
+           - For each, provide the specific fix with file path and function
+           - Estimate effort for each fix (S/M/L)
+           - Note any fixes that could be combined or addressed together
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT accept the threat model at face value. Verify each claim by reading code.
+          Threat models frequently contain false positives.
+        - Do NOT skip data flow tracing. Reading the target function is insufficient; you
+          must trace back to where the input originates and forward to where it is consumed.
+        - Do NOT propose vague fixes. "Add input validation" is insufficient; "Add path
+          traversal check in workspace.go:ResolvePath() before os.Stat() call, rejecting
+          paths containing .. components" is specific.
+        - Do NOT downgrade severity without evidence. If a critical threat is not
+          exploitable, classify it as false_positive, not "medium."
+        - Do NOT ignore mitigations. If a defense exists, verify it works correctly
+          rather than assuming the threat is neutralized.
+
+        OUTPUT FORMAT:
+        Write the security report as markdown to .wave/output/security-report.md with:
+        # Wave Security Audit Report
+        ## Executive Summary (3-5 sentences: total threats, confirmed count, top priority)
+        ## Confirmed Vulnerabilities (each with: threat ID, severity, description, data
+          flow trace, proof of exploitability, proposed fix with code reference)
+        ## Mitigated Threats (each with: threat ID, mitigation description, verification)
+        ## False Positives (each with: threat ID, why it is not exploitable)
+        ## Medium/Low Severity Assessment (brief notes)
+        ## Remediation Plan (prioritized list with effort estimates)
+
+        QUALITY BAR:
+        A good security report distinguishes confirmed vulnerabilities from theoretical
+        threats with concrete evidence. Each confirmed finding has a traceable data flow
+        and a specific fix. The remediation plan is ordered by risk reduction per effort
+        invested. A bad report accepts all threats as confirmed without verification, or
+        dismisses threats without reading the actual code paths.
     output_artifacts:
       - name: security-report
         path: .wave/output/security-report.md
