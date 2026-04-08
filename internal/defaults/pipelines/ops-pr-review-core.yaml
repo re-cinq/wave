@@ -1,7 +1,11 @@
 kind: WavePipeline
 metadata:
   name: ops-pr-review-core
-  description: "Core PR review — analyze, review security + quality, summarize. No comment posting. For use in composition pipelines."
+  description: >-
+    Core pull request review building block that performs diff analysis, security
+    scanning, and code quality assessment, then synthesizes a verdict. Does not
+    post comments or interact with the forge. Designed for embedding in
+    composition pipelines that handle their own publishing step.
   release: false
 
 chat_context:

@@ -53,7 +53,6 @@ steps:
     persona: navigator
     model: strongest
     contexts: [execution]
-
     workspace:
       mount:
         - source: ./
@@ -106,7 +105,6 @@ steps:
     persona: reviewer
     model: strongest
     contexts: [security]
-
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:
@@ -147,7 +145,6 @@ steps:
     persona: reviewer
     model: strongest
     contexts: [validation]
-
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:
@@ -182,7 +179,6 @@ steps:
     persona: reviewer
     model: strongest
     contexts: [validation]
-
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:
@@ -215,7 +211,6 @@ steps:
   - id: summary
     persona: summarizer
     model: strongest
-
     dependencies: [security-review, quality-review, slop-review]
     memory:
       inject_artifacts:
@@ -253,7 +248,6 @@ steps:
   - id: publish
     persona: "{{ forge.type }}-commenter"
     model: cheapest
-
     dependencies: [summary]
     memory:
       inject_artifacts:
@@ -272,7 +266,6 @@ steps:
         2. Read the `pr_context` artifact to get the PR number for the comment command
         3. Format the review verdict into a well-structured, human-readable PR comment
         4. Post it using: {{ forge.cli_tool }} {{ forge.pr_command }} comment <PR_NUMBER> --body-file /tmp/pr-review-comment.md
-
     output_artifacts:
       - name: publish-result
         path: .wave/output/publish-result.json

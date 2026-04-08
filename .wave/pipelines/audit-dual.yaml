@@ -17,7 +17,12 @@
 kind: WavePipeline
 metadata:
   name: audit-dual
-  description: "Parallel code-quality and security analysis with independent tracks"
+  description: >-
+    Parallel dual-track analysis that runs independent code quality and security
+    scans simultaneously, deepens each track's findings, then merges both into a
+    unified assessment with an executive summary and prioritized recommendations.
+    Use this for a comprehensive module-level review that covers both
+    maintainability and vulnerability concerns in a single run.
   release: true
 
 skills:

@@ -1,7 +1,11 @@
 kind: WavePipeline
 metadata:
   name: impl-improve
-  description: "Analyze code and apply targeted improvements"
+  description: >-
+    Assess a codebase area for quality issues and apply targeted improvements.
+    Use this when code works but could be better -- the pipeline audits error
+    handling, performance, testability, and maintainability, then applies
+    high-impact, low-risk fixes while preserving existing behavior.
   release: true
 
 skills:

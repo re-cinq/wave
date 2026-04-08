@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: audit-quality-loop
-  description: "Supervise work, loop improvements until quality passes"
+  description: >-
+    Iterative quality improvement loop that supervises completed work, applies
+    improvements if quality is insufficient, and re-checks until the supervision
+    verdict passes or the maximum iteration count is reached. Composes
+    ops-supervise and impl-improve in a feedback loop. Use this when you want
+    automated quality convergence rather than a single-pass review.
   category: composition
   release: true
 

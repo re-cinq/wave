@@ -1,7 +1,13 @@
 kind: WavePipeline
 metadata:
   name: wave-security-audit
-  description: "Security audit of Wave's own codebase — prompt injection, sandbox escapes, permission enforcement"
+  description: >-
+    Security audit tailored to Wave's own threat model. Builds a threat model
+    covering prompt injection, sandbox escape, permission bypass, credential
+    exposure, state corruption, and artifact tampering, then verifies each
+    high/critical threat against the actual codebase with data flow tracing.
+    Use this to validate Wave's security boundaries after changes to workspace
+    isolation, persona enforcement, or adapter integration.
   release: false
 
 skills:

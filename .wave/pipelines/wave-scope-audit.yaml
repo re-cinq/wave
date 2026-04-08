@@ -25,7 +25,12 @@
 kind: WavePipeline
 metadata:
   name: wave-scope-audit
-  description: "Deep composition audit — fan-out 6 audits, merge, synthesize scope document, gate, create issues"
+  description: >-
+    Deep composition audit that fans out dead-code, unwired, duplicate, and doc
+    scans in parallel, merges all findings, and synthesizes a unified scope
+    document defining what Wave is and is not. Gates on human approval before
+    creating follow-up issues. Use this to establish or refine Wave's
+    architectural boundaries and generate a prioritized cleanup backlog.
   category: composition
   release: false
 

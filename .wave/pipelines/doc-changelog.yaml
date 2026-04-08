@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: doc-changelog
-  description: "Generate structured changelog from git history"
+  description: >-
+    Generate a structured, user-facing changelog from git history. Parses
+    conventional commit prefixes, groups changes by category, highlights
+    breaking changes with migration notes, and deduplicates related commits.
+    Use this before a release to produce a polished changelog covering a tag
+    range or time period.
   release: true
 
 skills:

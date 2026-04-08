@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: audit-closed
-  description: "Audit closed GitHub issues and merged PRs for implementation fidelity"
+  description: >-
+    Audit closed issues and merged PRs against the current codebase to verify
+    implementation fidelity. Fetches the full inventory, classifies each item
+    as fully implemented, partial, regressed, obsolete, or not implemented,
+    then produces a prioritized triage report with remediation recommendations.
+    Use this to catch regressions and verify that shipped work is still intact.
   release: true
 
 skills:

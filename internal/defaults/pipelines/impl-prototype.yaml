@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: impl-prototype
-  description: "Prototype-driven implementation: spec → docs → dummy → implement → PR cycle"
+  description: >-
+    Prototype-driven development following a spec, docs, dummy, implement, PR
+    cycle. Use this for greenfield features where requirements need to be
+    captured before coding begins. Phases produce a formal specification,
+    runnable documentation, a dummy scaffold, a full implementation, and finally
+    a pull request with all artifacts.
   release: true
 
 input:

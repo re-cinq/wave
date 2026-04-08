@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: audit-dead-code-scan
-  description: "Scan-only dead code detection — no branches, no PRs, JSON findings output"
+  description: >-
+    Lightweight dead code scan that produces JSON findings without creating
+    branches, PRs, or issues. Checks for unused exports, packages with no
+    external importers, and unreachable code paths. Use this as a building
+    block in composition pipelines or for quick read-only analysis of a
+    specific directory scope.
   release: true
   category: audit
 

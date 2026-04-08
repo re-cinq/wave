@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: audit-consolidate
-  description: "Detect redundant implementations and architectural drift"
+  description: >-
+    Detect redundant implementations, parallel abstractions, and architectural
+    drift across the codebase. Scans for duplicate logic, inconsistent patterns,
+    dead abstractions, package boundary violations, and naming mismatches. Use
+    this after rapid development periods to identify consolidation opportunities
+    and restore architectural coherence.
   release: true
 
 skills:

@@ -1,7 +1,12 @@
 kind: WavePipeline
 metadata:
   name: wave-validate
-  description: "Validate every Wave feature — self-test pipeline exercising all epic #589 capabilities"
+  description: >-
+    Self-test pipeline that exercises Wave's core capabilities in a single run:
+    model routing, sub-pipeline composition, command steps, conditional edges,
+    thread continuity, retry policies, lifecycle hooks, and LLM-as-judge
+    contracts. Use this after changes to the executor or graph walker to verify
+    that all feature subsystems still work end-to-end.
   release: false
   category: wave
 
