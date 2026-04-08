@@ -122,7 +122,6 @@ steps:
     model: strongest
     dependencies: [test-baseline]
     thread: refactor
-    thread: refactor
     memory:
       inject_artifacts:
         - step: analyze

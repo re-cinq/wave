@@ -23,6 +23,34 @@ input:
     type: string
     description: "GitHub repo with optional issue number, or full issue URL"
 
+chat_context:
+  artifact_summaries:
+    - enhancement_results
+  suggested_questions:
+    - "Which issues were enhanced?"
+    - "What quality improvements were applied?"
+    - "Were all enhancements applied successfully?"
+  focus_areas:
+    - "Issue quality improvements"
+    - "Enhancement success rate"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  result:
+    step: apply-enhancements
+    artifact: enhancement_results
+
 steps:
   - id: scan-and-score
     persona: "{{ forge.type }}-analyst"
