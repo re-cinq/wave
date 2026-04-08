@@ -55,38 +55,95 @@ steps:
     exec:
       type: prompt
       source: |
-        Analyze test coverage and find gaps in Wave's test suite.
+        OBJECTIVE:
+        Analyze Wave's test coverage to identify gaps, untested code paths, and quality
+        issues in existing tests. Produce a prioritized assessment of test improvements
+        that the harden step can implement.
 
-        Focus: {{ input }}
+        FOCUS: {{ input }}
 
-        ## Analysis
+        CONTEXT:
+        You are the first step in a four-step test hardening pipeline (analyze-coverage,
+        harden, run-tests, gate with loop). Your analysis will be consumed by a craftsman
+        persona who will add tests to cover the identified gaps. The pipeline loops: if
+        new tests fail, the harden step is re-visited. This is a Wave self-evolution
+        pipeline that always targets Wave's own Go codebase. You have read-only access
+        to the project.
 
-        1. **Run coverage analysis** (hardcoded Go commands — this is a Wave self-evolution
-           pipeline that always targets Wave's own Go codebase):
+        REQUIREMENTS:
+        1. Run coverage analysis (hardcoded Go commands for Wave's codebase):
            ```bash
            go test -coverprofile=coverage.out ./... 2>&1 || true
-           go tool cover -func=coverage.out | tail -20
+           go tool cover -func=coverage.out | tail -50
            ```
+           Parse the coverage output to identify per-function coverage percentages.
+           Note: some tests may fail; that is expected. The coverage report is still
+           valid for functions in packages where tests pass.
+        2. Identify uncovered code paths:
+           - List all functions with 0% coverage, grouped by package
+           - Highlight critical packages with low coverage: pipeline, contract,
+             workspace, adapter, sandbox, state, scope, webui
+           - For each uncovered function, read the code to understand what it does and
+             what inputs would exercise it
+           - Estimate the difficulty of testing each function: easy (pure function, no
+             dependencies), moderate (requires mocks or test fixtures), hard (requires
+             complex setup, integration testing, or concurrent test harness)
+        3. Check for untested edge cases in each focused package:
+           - Error paths: are error returns tested? Check that test cases include
+             invalid inputs, missing files, permission errors, network failures
+           - Nil/empty input handling: are nil pointers, empty slices, zero values,
+             and empty strings tested?
+           - Concurrent access: for types with mutex fields or goroutine usage, are
+             there tests exercising concurrent access?
+           - Boundary conditions: max retries, timeout expiration, large inputs (1MB+
+             artifacts), empty pipeline steps
+        4. Review existing test quality:
+           - Are tests table-driven where the function has multiple input/output cases?
+             If not, note which test functions should be converted.
+           - Do tests check error messages (strings.Contains or errors.Is/As), not just
+             error existence (err != nil)?
+           - Are mocks and fakes used consistently? Is there a standard pattern (e.g.,
+             configCapturingAdapter, MockAdapter)?
+           - Are tests isolated? Check for shared state between test cases (package-level
+             variables modified by tests, shared temp directories).
+           - Do test helpers use t.Helper() for clean stack traces?
+           - Do filesystem tests use t.TempDir() for isolation?
+        5. Find missing integration tests:
+           - Identify scenarios where multiple packages interact (e.g., pipeline executor
+             calling adapter, contract validator checking step output, workspace manager
+             creating worktrees)
+           - Check if these interaction points have integration tests
+           - Note which interactions are most critical and most likely to break
+        6. Prioritize improvements:
+           - Each improvement must have: id (GAP-###), package, function/area, gap_type
+             (uncovered/edge_case/quality/integration), priority (critical/high/medium/low),
+             difficulty (easy/moderate/hard), description
+           - Sort by: critical gaps in critical packages first, then high-impact easy
+             improvements, then moderate difficulty improvements
 
-        2. **Identify uncovered code paths**: Look for functions with 0% coverage,
-           especially in critical packages (pipeline, contract, workspace, adapter).
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT suggest testing private/unexported helper functions directly. Test them
+          through the public API.
+        - Do NOT suggest tests that duplicate existing coverage. Read the existing test
+          file before recommending new tests for a function.
+        - Do NOT prioritize cosmetic test improvements (renaming, reformatting) over
+          coverage gaps. Coverage gaps are always higher priority.
+        - Do NOT recommend t.Skip() for any test. If a test is hard to write, mark it
+          as "hard" difficulty, not "skip."
+        - Do NOT suggest more than 30 improvements. Focus on the highest-impact gaps.
 
-        3. **Check edge cases**: For each package, identify:
-           - Error paths not exercised
-           - Nil/empty input handling
-           - Concurrent access scenarios
-           - Boundary conditions (max retries, timeouts, large inputs)
+        OUTPUT FORMAT:
+        Write the analysis as structured JSON to .wave/output/coverage-analysis.json
+        matching the improvement-assessment schema. Include: focus (string), coverage_summary
+        (object with overall percentage, per-package percentages), improvements (array of
+        gap objects as described above), and timestamp.
 
-        4. **Review existing test quality**:
-           - Are tests table-driven where appropriate?
-           - Do tests check error messages, not just error existence?
-           - Are mocks/fakes used consistently?
-           - Are tests isolated (no shared state between cases)?
-
-        5. **Find missing integration tests**: Check for scenarios where multiple
-           packages interact but there's no test covering the interaction.
-
-        Produce a prioritized list of test improvements.
+        QUALITY BAR:
+        A good coverage analysis identifies the gaps that matter most: untested error
+        paths in critical packages, missing edge case coverage for core types, and absent
+        integration tests for key interaction points. A bad analysis lists every uncovered
+        function without prioritization or recommends tests for trivial helper functions
+        while missing critical gaps in the pipeline executor.
     output_artifacts:
       - name: coverage-analysis
         path: .wave/output/coverage-analysis.json
@@ -121,20 +178,83 @@ steps:
     exec:
       type: prompt
       source: |
-        Add tests to cover the identified gaps.
+        OBJECTIVE:
+        Add tests to cover the highest-priority gaps identified in the coverage analysis,
+        following Go testing conventions and ensuring all existing tests continue to pass.
+        Focus on the most impactful gaps first, working down the priority list.
 
-        ## Rules
+        CONTEXT:
+        You are the second step in the test hardening pipeline. The coverage analysis
+        artifact (injected as "findings") contains a prioritized list of test gaps with
+        package names, function names, gap types, and difficulty ratings. You have
+        read-write access to the project codebase. This step may be visited up to 3 times
+        if the test suite fails (the pipeline loops through run-tests and back to this step).
+        If this is a re-visit, focus on fixing the specific test failures from the previous
+        run rather than adding more new tests.
 
-        1. Follow Go testing conventions: table-driven tests, descriptive names
-        2. Each test should test ONE thing clearly
-        3. Use `t.Helper()` for test helpers
-        4. Use `t.TempDir()` for filesystem isolation
-        5. Check error messages, not just error existence
-        6. Run the project's test suite after adding tests
-        7. Do NOT use `t.Skip()` without a linked issue
-        8. Focus on the highest-impact gaps first
+        REQUIREMENTS:
+        1. Read the findings artifact to get the prioritized list of test gaps. Start with
+           critical and high-priority items.
+        2. For each gap you address:
+           a. Read the existing test file for the package (if it exists) to understand
+              the current test patterns and avoid duplication.
+           b. Read the source file containing the function to test. Understand its
+              inputs, outputs, error conditions, and edge cases.
+           c. Write the test following these Go testing conventions:
+              - Use table-driven tests when the function has multiple input/output
+                scenarios. Each test case should have a descriptive name field.
+              - Use descriptive test names: TestFunctionName_ConditionBeingTested
+              - Each test should test ONE thing clearly. If you need to verify multiple
+                behaviors, use subtests (t.Run).
+              - Use t.Helper() for all test helper functions.
+              - Use t.TempDir() for any test that touches the filesystem.
+              - Check error messages specifically (strings.Contains or errors.Is/As),
+                not just err != nil. Verifying the error type and message catches
+                regressions that change error behavior.
+              - Use the project's existing mock patterns: MockAdapter, configCapturingAdapter,
+                createTestManifest, etc. Read existing tests to find these patterns.
+              - For concurrent tests, use t.Parallel() where appropriate and ensure no
+                shared mutable state between test cases.
+        3. After adding a batch of tests (3-5 new test functions), run the full test suite:
+           ```bash
+           go test ./... 2>&1
+           ```
+           If any test fails (new or existing), diagnose and fix the failure before
+           continuing. Do NOT proceed to add more tests while existing tests are broken.
+        4. If this is a re-visit after a test failure:
+           - Read the error output from the previous run
+           - Identify which specific test(s) failed and why
+           - Fix those failures first before adding any new tests
+        5. Aim to address at least 5 gaps per visit, prioritizing critical and high-priority
+           items. If time/context allows, continue to medium-priority items.
 
-        After each batch of tests, run the full test suite.
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT use t.Skip() without a linked issue number explaining why the test
+          cannot run. Skipped tests are invisible failures.
+        - Do NOT write tests that test implementation details (private struct fields,
+          internal variable names). Test through the public API.
+        - Do NOT write tests that depend on execution order. Each test must be
+          independent and runnable in isolation.
+        - Do NOT modify existing test assertions to make them pass. If an existing test
+          fails after your changes, you introduced a regression -- fix your code.
+        - Do NOT add tests for trivial getters/setters if the findings list has untested
+          error paths or edge cases. Prioritize coverage that catches real bugs.
+        - Do NOT write tests longer than 100 lines. If a test needs that much setup,
+          extract helpers or split into smaller tests.
+        - Do NOT add Co-Authored-By or AI attribution in any files.
+
+        OUTPUT FORMAT:
+        The output is the modified test files with new tests added. The handover contract
+        validates that the project test suite passes. There is no explicit artifact beyond
+        the code changes.
+
+        QUALITY BAR:
+        Good test additions catch real bugs: error paths that panic, edge cases that
+        return wrong results, concurrent access that corrupts state. Each test has a
+        descriptive name, uses table-driven format where appropriate, and follows the
+        project's existing patterns. Bad test additions are boilerplate that checks
+        happy-path-only behavior that is already covered, or tests that are so tightly
+        coupled to implementation that they break on any refactor.
     retry:
       policy: standard
       max_attempts: 3
