@@ -24,6 +24,35 @@ input:
     type: string
     description: "GitHub repository and issue number (e.g. 'owner/repo number')"
 
+chat_context:
+  artifact_summaries:
+    - report
+    - comment-result
+  suggested_questions:
+    - "What were the key research findings?"
+    - "What is the primary recommendation?"
+    - "Was the research comment posted successfully?"
+  focus_areas:
+    - "Research findings and recommendations"
+    - "Source quality and confidence"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  result:
+    step: post-comment
+    artifact: comment-result
+
 steps:
   - id: fetch-issue
     persona: "{{ forge.type }}-analyst"
@@ -68,6 +97,7 @@ steps:
 
   - id: analyze-topics
     persona: researcher
+    thread: research
     model: cheapest
     dependencies: [fetch-issue]
     memory:
@@ -115,6 +145,7 @@ steps:
 
   - id: research-topics
     persona: researcher
+    thread: research
     model: cheapest
     max_concurrent_agents: 5
     dependencies: [analyze-topics]

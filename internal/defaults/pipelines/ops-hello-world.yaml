@@ -11,6 +11,33 @@ input:
   source: cli
   example: "testing Wave"
 
+chat_context:
+  artifact_summaries:
+    - result
+  suggested_questions:
+    - "Did the smoke test pass?"
+    - "Were artifacts created and injected correctly?"
+  focus_areas:
+    - "Core execution loop verification"
+    - "Artifact handling"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  result:
+    step: verify
+    artifact: result
+
 steps:
   - id: greet
     persona: craftsman
