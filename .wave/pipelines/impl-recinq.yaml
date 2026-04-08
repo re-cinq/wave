@@ -131,17 +131,7 @@ steps:
 
         ## Output Format
 
-        Write valid JSON to `.wave/output/context.json` matching the contract schema at
-        `.wave/contracts/recinq-context.schema.json`. The JSON must start with `{` and
-        end with `}`. Key fields:
-        - `input_type`: "issue", "pr", or "local"
-        - `original_input`: The raw input string
-        - `focus_hint`: (for issue/pr) One-sentence description of the focus area
-        - `repo`: (for issue/pr) The owner/repo string
-        - `number`: (for issue/pr) The issue or PR number
-        - `title`: (for issue/pr) The issue or PR title
-        - `labels`: (for issue/pr) Array of label strings
-        - `files`: (for pr only) Array of file paths changed in the PR
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
@@ -356,14 +346,7 @@ steps:
 
         ## Output Format
 
-        Write a JSON document to `.wave/output/validated-findings.json` matching the
-        contract schema at `.wave/contracts/validated-findings.schema.json`. For each
-        finding, include:
-        - `id`: The original DVG-xxx ID
-        - `status`: CONFIRMED, PARTIALLY_CONFIRMED, or REJECTED
-        - `explanation`: Detailed reasoning for the classification
-        - `verified_metrics`: The metrics you actually measured (may differ from claimed)
-        - `adjusted_severity`: Your assessment of severity (may differ from original)
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
@@ -486,13 +469,7 @@ steps:
 
         ## Output Format
 
-        Write a JSON document to `.wave/output/probed-findings.json` matching the
-        contract schema at `.wave/contracts/probed-findings.schema.json`. Include:
-        - `probed_findings`: Array of deepened analysis for each confirmed/partial finding
-        - `new_findings`: Array of newly discovered findings (DVG-NEW-xxx)
-        - `cross_finding_patterns`: Root causes that connect multiple findings
-        - `rejection_challenges`: Any REJECTED findings you believe should be reconsidered
-        - `cascade_maps`: For each finding, the chain of second-order effects
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
@@ -622,14 +599,7 @@ steps:
 
         ## Output Format
 
-        Write a SINGLE JSON object to `.wave/output/convergent-proposals.json` using the
-        Write tool. The file must contain ONLY valid JSON matching the contract schema at
-        `.wave/contracts/convergent-proposals.schema.json`. Key fields:
-        - `source_findings`: Summary counts and rejection reasons
-        - `validation_summary`: One-paragraph process description
-        - `proposals`: Array of proposal objects with all fields above
-        - `eighty_twenty_analysis`: The 20% of proposals yielding 80% of benefit
-        - `timestamp`: ISO 8601 datetime
+        Produce output matching the contract schema.
 
         IMPORTANT: The Write tool call must contain ONLY the JSON object. Contract
         validation will reject non-JSON output.
@@ -1012,9 +982,7 @@ steps:
 
         ## Output Format
 
-        Write `.wave/output/pr-result.json` matching the contract schema at
-        `.wave/contracts/pr-result.schema.json`. Must include `pr_url`, `pr_number`,
-        `branch`, `title`, and `status` fields.
+        Produce output matching the contract schema.
 
         ## Quality Bar
 

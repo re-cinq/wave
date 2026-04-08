@@ -144,13 +144,7 @@ steps:
 
         ## Output Format
 
-        Produce a structured JSON result matching the contract schema at
-        `.wave/contracts/improvement-assessment.schema.json`. Write it to
-        `.wave/output/assessment.json`. Key sections:
-        - `target_area`: The assessed area with file count and line count
-        - `findings`: Array of finding objects with all fields listed above
-        - `summary`: Total finding count by category and severity
-        - `recommended_order`: Ordered list of finding IDs sorted by impact/effort ratio
+        Produce output matching the contract schema.
 
         ## Quality Bar
 

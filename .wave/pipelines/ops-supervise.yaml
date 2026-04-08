@@ -177,9 +177,7 @@ steps:
 
         ## Output Format
 
-        Write JSON to `.wave/output/supervision-evidence.json` matching the contract
-        schema. Must include sections for: git_history, session_transcripts,
-        pipeline_artifacts, test_results, branch_context, and input_interpretation.
+        Produce output matching the contract schema.
 
         ## Quality Bar
 

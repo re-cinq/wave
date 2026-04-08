@@ -136,17 +136,7 @@ steps:
 
         ## Output Format
 
-        Produce a structured JSON result matching the contract schema at
-        `.wave/contracts/feature-exploration.schema.json`. The JSON must be written to
-        `.wave/output/exploration.json`. Key sections should include:
-        - `feature_summary`: Your restated understanding of the feature
-        - `scope`: small, medium, or large with justification
-        - `relevant_files`: Array of file entries with path, relevance, and key symbols
-        - `conventions`: Object documenting the patterns new code must follow
-        - `dependency_map`: Which packages are directly and indirectly affected
-        - `test_landscape`: Existing tests, patterns, gaps
-        - `risks`: Array of identified risks with severity and mitigation notes
-        - `prior_art`: Similar features in the codebase
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
@@ -261,15 +251,7 @@ steps:
 
         ## Output Format
 
-        Produce a structured JSON result matching the contract schema at
-        `.wave/contracts/feature-plan.schema.json`. Write it to `.wave/output/plan.json`.
-        Key sections:
-        - `feature_summary`: Brief restatement of the feature
-        - `steps`: Ordered array of step objects with all fields above
-        - `test_strategy`: Overall testing approach and patterns to use
-        - `commit_message_suggestion`: Conventional commit message for the final commit
-        - `risk_notes`: Steps or areas that carry elevated risk
-        - `estimated_total_complexity`: Sum of step complexities
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
@@ -604,9 +586,7 @@ steps:
 
         ## Output Format
 
-        Write `.wave/output/pr-result.json` matching the contract schema at
-        `.wave/contracts/pr-result.schema.json`. The JSON must include at minimum
-        `pr_url`, `pr_number`, `branch`, `title`, and `status` fields.
+        Produce output matching the contract schema.
 
         ## Quality Bar
 

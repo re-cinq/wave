@@ -180,10 +180,7 @@ steps:
 
         ## Output Format
 
-        JSON at `.wave/artifact.json` matching the contract schema. Must include:
-        - `repository`: owner/repo string
-        - `issues_to_enhance`: array of enhancement plan objects (only issues scoring < 70)
-        - `total_to_enhance`: count of issues in the array
+        Produce output matching the contract schema.
 
         ## Quality Bar
 

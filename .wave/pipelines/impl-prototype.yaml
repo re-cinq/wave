@@ -115,11 +115,7 @@ steps:
 
         ## Output Format
 
-        Create three files in the workspace:
-        - `spec.md`: Complete feature specification (markdown)
-        - `requirements.md`: Extracted and categorized requirements (markdown)
-        - `.wave/artifact.json`: Contract status JSON matching the schema at
-          `.wave/contracts/spec-phase.schema.json`
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
@@ -241,11 +237,7 @@ steps:
 
         ## Output Format
 
-        Create three files:
-        - `feature-docs.md`: Developer-facing documentation (markdown, VitePress-compatible)
-        - `stakeholder-summary.md`: Non-technical stakeholder overview (markdown)
-        - `.wave/artifact.json`: Contract status JSON matching the schema at
-          `.wave/contracts/docs-phase.schema.json`
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
@@ -378,11 +370,7 @@ steps:
 
         ## Output Format
 
-        Create the following:
-        - `prototype/` directory with all working code, organized by architectural layer
-        - `interfaces.md` with complete interface definitions for all public surfaces
-        - `.wave/artifact.json` with contract status JSON matching the schema at
-          `.wave/contracts/dummy-phase.schema.json`
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
@@ -524,12 +512,7 @@ steps:
 
         ## Output Format
 
-        Create the following:
-        - `implementation-plan.md`: Ordered plan for stub replacements with dependencies
-        - `implementation-checklist.md`: Checkbox checklist of all stubs and their status
-        - Updated source code with all stubs replaced by real implementations
-        - `.wave/artifact.json` with contract status JSON matching the schema at
-          `.wave/contracts/implement-phase.schema.json`
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
@@ -639,9 +622,7 @@ steps:
 
         ## Output Format
 
-        Write `pr-info.json` matching the contract schema at
-        `.wave/contracts/pr-result.schema.json`. Must include `pr_url`, `pr_number`,
-        `branch`, `title`, and `status` fields.
+        Produce output matching the contract schema.
 
         ## Quality Bar
 

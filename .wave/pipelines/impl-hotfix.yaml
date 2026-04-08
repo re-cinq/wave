@@ -120,17 +120,7 @@ steps:
 
         ## Output Format
 
-        Produce a structured JSON result matching the contract schema at
-        `.wave/contracts/bug-investigation.schema.json`. Write it to
-        `.wave/output/findings.json`. Key fields:
-        - `issue_summary`: Restated description of the reported problem
-        - `root_cause`: Precise technical explanation with file path and line number
-        - `trigger_conditions`: What causes the bug to manifest
-        - `blast_radius`: List of other code paths or users affected
-        - `recent_commits`: Relevant recent changes to affected files
-        - `proposed_fix_direction`: High-level description of what to change
-        - `regression_test`: Description of the test that would catch this bug
-        - `severity`: critical, high, medium, or low
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
