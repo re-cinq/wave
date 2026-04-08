@@ -74,6 +74,7 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		"checkLabel":     checkLabel,
 		"add":              func(a, b int) int { return a + b },
 		"subtract":         func(a, b int) int { return a - b },
+		"multiply":         func(a int, b float64) float64 { return float64(a) * b },
 		"smoothnessLabel":  smoothnessLabel,
 		"frictionLabel":    frictionLabel,
 		"adapterIcon":      adapterIcon,

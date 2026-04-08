@@ -115,6 +115,7 @@ type PipelineDetailStep struct {
 	Prompt             string   `json:"prompt,omitempty"`
 	SubPipeline        string   `json:"sub_pipeline,omitempty"`
 	Thread             string   `json:"thread,omitempty"`
+	Depth              int      `json:"depth,omitempty"`           // DAG depth for indentation
 	Script             string   `json:"script,omitempty"`
 	GatePrompt         string   `json:"gate_prompt,omitempty"`
 	GateType           string   `json:"gate_type,omitempty"`
@@ -201,6 +202,17 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 			}
 			edgeConditions = strings.Join(edges, "; ")
 		}
+		if len(step.Edges) > 0 {
+			var edges []string
+			for _, e := range step.Edges {
+				label := e.Target
+				if e.Condition != "" {
+					label += " (" + e.Condition + ")"
+				}
+				edges = append(edges, label)
+			}
+			edgeConditions = strings.Join(edges, ", ")
+		}
 		script = step.Script
 
 		steps = append(steps, PipelineDetailStep{
@@ -226,6 +238,30 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 			EdgeConditions:     edgeConditions,
 		})
 	}
+	// Compute DAG depth for indentation
+	depthMap := make(map[string]int)
+	var computeDepth func(id string) int
+	stepIndex := make(map[string][]string)
+	for _, s := range steps {
+		stepIndex[s.ID] = s.Dependencies
+	}
+	computeDepth = func(id string) int {
+		if d, ok := depthMap[id]; ok {
+			return d
+		}
+		maxDep := 0
+		for _, dep := range stepIndex[id] {
+			if dd := computeDepth(dep) + 1; dd > maxDep {
+				maxDep = dd
+			}
+		}
+		depthMap[id] = maxDep
+		return maxDep
+	}
+	for i := range steps {
+		steps[i].Depth = computeDepth(steps[i].ID)
+	}
+
 	return PipelineDetail{
 		Name:          name,
 		Description:   p.Metadata.Description,
