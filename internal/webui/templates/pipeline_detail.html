@@ -229,39 +229,34 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
             var step=null;
             for(var i=0;i<(d.steps||[]).length;i++){if(d.steps[i].id===stepId){step=d.steps[i];break;}}
             if(!step){tc.innerHTML='<div style="padding:0.4rem;">Not found</div>';return;}
-            var h='<div style="padding:0.4rem var(--ws-pad-x);font-size:0.78rem;">';
-            h+='<div style="display:grid;grid-template-columns:100px 1fr;gap:0.12rem 0.6rem;">';
-            function kv(k,v){return '<span style="color:var(--color-text-muted);font-size:0.72rem;">'+k+'</span><span>'+v+'</span>';}
-            if(step.persona) h+=kv('Persona','<a href="/personas/'+escapeHTML(step.persona)+'" style="color:var(--color-link);"><code style="background:rgba(99,102,241,0.1);color:inherit;">'+escapeHTML(step.persona)+'</code></a>');
-            if(step.type) h+=kv('Type','<code>'+escapeHTML(step.type)+'</code>');
-            if(step.sub_pipeline) h+=kv('Sub-pipeline','<a href="/pipelines/'+escapeHTML(step.sub_pipeline)+'" style="color:var(--color-link);"><code style="background:rgba(99,102,241,0.1);color:inherit;">'+escapeHTML(step.sub_pipeline)+'</code></a>');
-            if(step.contract) h+=kv('Contract',step.contract_schema_name?'<a href="/contracts/'+escapeHTML(step.contract_schema_name)+'" style="color:var(--color-link);" title="'+escapeHTML(step.contract)+'"><code style="background:rgba(99,102,241,0.1);color:inherit;">'+escapeHTML(step.contract_schema_name)+'</code></a>':'<code>'+escapeHTML(step.contract)+'</code>');
+            // Use same component structure as run detail step shapes
+            var h='';
+            // KV rows using av-kv pattern (same as run detail smart viewer)
+            function kv(k,v){return '<div class="av-kv"><span class="av-key">'+k+'</span><span class="av-val">'+v+'</span></div>';}
+            if(step.persona) h+=kv('Persona','<a href="/personas/'+escapeHTML(step.persona)+'" class="ws-code-link">'+escapeHTML(step.persona)+'</a>');
+            if(step.contract) h+=kv('Contract',step.contract_schema_name?'<a href="/contracts/'+escapeHTML(step.contract_schema_name)+'" class="ws-code-link" title="'+escapeHTML(step.contract)+'">'+escapeHTML(step.contract_schema_name)+'</a>':'<code>'+escapeHTML(step.contract)+'</code>');
             if(step.on_failure) h+=kv('On failure','<code>'+escapeHTML(step.on_failure)+'</code>');
             if(step.retry_policy) h+=kv('Retry','<code>'+escapeHTML(step.retry_policy)+'</code>'+(step.max_attempts?' (max '+step.max_attempts+')':''));
-            if(step.input_artifacts&&step.input_artifacts.length) h+=kv('Receives',step.input_artifacts.map(function(a){return '<code style="background:rgba(34,197,94,0.1);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;">'+escapeHTML(a)+'</code>';}).join(' '));
-            if(step.artifacts&&step.artifacts.length) h+=kv('Produces',step.artifacts.map(function(a){return '<code style="background:rgba(99,102,241,0.1);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;">'+escapeHTML(a)+'</code>';}).join(' '));
-            h+='</div>';
-            // Gate info
+            if(step.input_artifacts&&step.input_artifacts.length) h+=kv('Receives',step.input_artifacts.map(function(a){return '<code>'+escapeHTML(a)+'</code>';}).join(' '));
+            if(step.artifacts&&step.artifacts.length) h+=kv('Produces',step.artifacts.map(function(a){return '<code>'+escapeHTML(a)+'</code>';}).join(' '));
             if(step.type==='gate'||step.type==='conditional'){
                 if(step.gate_prompt) h+=kv('Gate','<em>'+escapeHTML(step.gate_prompt)+'</em>');
                 if(step.gate_type) h+=kv('Gate type','<code>'+escapeHTML(step.gate_type)+'</code>');
                 if(step.edge_conditions) h+=kv('Edges','<code>'+escapeHTML(step.edge_conditions)+'</code>');
             }
-            // Command info
             if(step.type==='command'&&step.script) h+=kv('Script','<code>'+escapeHTML(step.script)+'</code>');
-            // Thread
+            if(step.sub_pipeline) h+=kv('Sub-pipeline','<a href="/pipelines/'+escapeHTML(step.sub_pipeline)+'" class="ws-code-link" style="background:rgba(139,92,246,0.1);color:var(--wave-accent);">'+escapeHTML(step.sub_pipeline)+'</a>');
             if(step.thread) h+=kv('Thread','<code>'+escapeHTML(step.thread)+'</code>');
-            // Dependencies (if not already shown in I/O)
-            if(step.dependencies&&step.dependencies.length) h+=kv('Depends on',step.dependencies.map(function(d){return '<code style="background:var(--color-bg-tertiary);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;">'+escapeHTML(d)+'</code>';}).join(' '));
-            h+='</div>'; // close kv grid
+            if(step.dependencies&&step.dependencies.length) h+=kv('Depends on',step.dependencies.map(function(d){return '<code>'+escapeHTML(d)+'</code>';}).join(' '));
+            // Prompt in dark terminal style (same as run detail tabcontent)
             if(step.prompt){
+                h+='<div style="padding:0.25rem var(--ws-pad-x);font-size:0.65rem;color:#8b949e;border-top:1px solid #21262d;">Prompt template</div>';
                 if(typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
-                    h+='<div class="markdown-body" style="font-size:0.78rem;line-height:1.5;padding:0.3rem 0;border-top:1px solid var(--color-border);">'+DOMPurify.sanitize(marked.parse(step.prompt))+'</div>';
+                    h+='<div class="markdown-body" style="font-size:0.78rem;line-height:1.5;padding:0.3rem var(--ws-pad-x);">'+DOMPurify.sanitize(marked.parse(step.prompt))+'</div>';
                 } else {
-                    h+='<pre style="margin:0;padding:0.4rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.72rem;white-space:pre-wrap;color:var(--color-text-secondary);border-top:1px solid var(--color-border);">'+escapeHTML(step.prompt)+'</pre>';
+                    h+='<pre class="ws-log-body"><code>'+escapeHTML(step.prompt)+'</code></pre>';
                 }
             }
-            h+='</div>';
             tc.innerHTML=h;
         }).catch(function(){tc.innerHTML='<div style="padding:0.4rem;color:var(--color-failed);">Failed to load</div>';});
     });
