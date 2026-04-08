@@ -23,9 +23,6 @@ For each finding, gather concrete metrics:
 - Change frequency (`git log --oneline <file> | wc -l`)
 - Dependency fan-out (imports in vs imports out)
 
-## Output Format
-Valid JSON matching the contract schema. Each finding gets a unique DVG-xxx ID.
-
 ## Ontology Challenge Patterns
 
 When reviewing ontology artifacts in composition pipelines:

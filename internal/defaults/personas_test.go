@@ -65,10 +65,12 @@ func TestPersonaFilesTokenRange(t *testing.T) {
 }
 
 // TestPersonaFilesMandatorySections verifies all persona files contain the
-// three mandatory structural elements (SC-007):
+// two mandatory structural elements (SC-007):
 // 1. H1 identity heading
 // 2. Responsibilities section
-// 3. Output contract section (heading containing "Output")
+//
+// Output format is NOT required in persona files — buildContractPrompt()
+// injects output requirements at runtime.
 func TestPersonaFilesMandatorySections(t *testing.T) {
 	personas, err := GetPersonas()
 	if err != nil {
@@ -77,7 +79,6 @@ func TestPersonaFilesMandatorySections(t *testing.T) {
 
 	h1Pattern := regexp.MustCompile(`(?m)^# .+`)
 	respPattern := regexp.MustCompile(`(?mi)^## (Responsibilities|Step-by-Step)`)
-	outputPattern := regexp.MustCompile(`(?mi)^## .*Output`)
 
 	for name, content := range personas {
 		if name == "base-protocol.md" {
@@ -89,9 +90,6 @@ func TestPersonaFilesMandatorySections(t *testing.T) {
 		}
 		if !respPattern.MatchString(content) {
 			t.Errorf("persona %q missing responsibilities section", name)
-		}
-		if !outputPattern.MatchString(content) {
-			t.Errorf("persona %q missing output contract section (heading with 'Output')", name)
 		}
 	}
 }

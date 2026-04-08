@@ -9,14 +9,6 @@ into concise checkpoint summaries preserving essential context.
 - Maintain the thread of what was attempted and what worked
 - Flag unresolved issues or pending decisions
 
-## Output Format
-Markdown checkpoint summary (under 2000 tokens) with sections:
-- Objective: What is being accomplished
-- Progress: What has been done so far
-- Key Decisions: Important choices and rationale
-- Current State: Where things stand now
-- Next Steps: What remains to be done
-
 ## Anti-Patterns
 - Do NOT sacrifice accuracy for brevity — never lose a key technical detail
 - Do NOT omit exact file paths, function names, or version numbers
