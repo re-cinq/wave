@@ -62,30 +62,117 @@ steps:
     exec:
       type: prompt
       source: |
+        ## Objective
+
+        Gather all contextual information needed to determine whether an issue has drifted
+        from the current state of the codebase. You must fetch the issue content, collect
+        recent commits and releases since the issue was created, and verify whether file
+        paths referenced in the issue body still exist. This evidence bundle will be
+        consumed by the draft-update step to classify each section of the issue as valid,
+        outdated, incomplete, or wrong.
+
         Input: {{ input }}
 
-        Parse the input:
-        - If the input is a URL (https://github.com/OWNER/REPO/issues/NUM), extract REPO and NUMBER.
-        - If the input is "owner/repo number", extract REPO (first token) and NUMBER (second token).
-        - Split on " -- " to separate the identifier from optional criticism.
-        - If there is text after " -- ", that is the user's CRITICISM about what's wrong with the issue.
+        ## Context
 
-        Execute these steps:
+        This is the first step of the ops-refresh pipeline. No prior artifacts exist. You
+        have access to a worktree and the forge CLI. The input can be either a full issue
+        URL, an "owner/repo number" pair, or either format followed by " -- " and the
+        user's criticism of what they believe is wrong with the issue. The criticism (if
+        present) is a high-priority signal — it tells the draft step exactly what the
+        issue author wants fixed.
 
-        1. Fetch the full issue:
-           {{ forge.cli_tool }} issue view NUMBER --repo REPO --json number,title,body,labels,url,createdAt,comments
+        ## Requirements
 
-        2. Get recent commits since the issue was created (cap at 30):
-           git log --since="<createdAt>" --oneline -30
+        ### Step 1: Parse the Input
 
-        3. Get releases since the issue was created:
-           {{ forge.cli_tool }} release list --repo REPO --limit 20
-           Filter to only releases after the issue's createdAt date.
+        Determine the format and extract components:
+        - **Full URL**: `https://github.com/OWNER/REPO/issues/NUM` — extract REPO
+          (as "OWNER/REPO") and NUMBER.
+        - **Short form**: `owner/repo number` — extract REPO (first token) and NUMBER
+          (second token).
+        - **With criticism**: Either format above followed by ` -- <criticism text>`.
+          Split on " -- " to separate the identifier from the criticism. If no " -- " is
+          present, the criticism is empty.
 
-        4. Scan the issue body for file path references (backtick-quoted paths, relative paths).
-           For each referenced file, check if it still exists.
+        Record REPO, NUMBER, and CRITICISM as separate values in the output.
 
-        Produce a JSON result matching the contract schema.
+        ### Step 2: Fetch the Issue
+
+        ```bash
+        {{ forge.cli_tool }} issue view NUMBER --repo REPO \
+          --json number,title,body,labels,url,createdAt,comments
+        ```
+
+        If the issue does not exist or cannot be fetched, fail with a clear error.
+        Record the full issue body, title, labels, creation date, and URL.
+
+        ### Step 3: Collect Codebase Changes Since Issue Creation
+
+        Get recent commits since the issue was created (cap at 30):
+        ```bash
+        git log --since="<createdAt>" --oneline -30
+        ```
+
+        Get releases since the issue was created:
+        ```bash
+        {{ forge.cli_tool }} release list --repo REPO --limit 20
+        ```
+        Filter to only releases published after the issue's `createdAt` date.
+
+        Record both the commit list and the release list in the output. These help the
+        draft step determine whether the codebase has changed in ways that affect the
+        issue's accuracy.
+
+        ### Step 4: Verify File References
+
+        Scan the issue body for file path references. Look for:
+        - Backtick-quoted paths: `` `internal/pipeline/executor.go` ``
+        - Relative paths in prose: "see internal/pipeline/executor.go"
+        - Code block references: paths mentioned in code fence blocks
+        - Import-style references: `"github.com/owner/repo/internal/pkg"`
+
+        For each extracted path, check whether the file still exists on disk:
+        ```bash
+        test -f <path> && echo "exists" || echo "missing"
+        ```
+
+        Categorize each reference as `exists` or `missing`. Record both lists.
+
+        ### Step 5: Produce Output
+
+        Write a JSON result to `.wave/artifact.json` matching the contract schema. The
+        output must include:
+        - `repo`: owner/repo string
+        - `issue_number`: the issue number
+        - `issue_url`: the full URL
+        - `issue_title`: the current title
+        - `issue_body`: the full body text
+        - `issue_labels`: array of label names
+        - `created_at`: ISO timestamp
+        - `criticism`: the user's criticism text (empty string if none)
+        - `recent_commits`: array of recent commit one-liners
+        - `recent_releases`: array of release tags/names after issue creation
+        - `referenced_files`: object with `exists` and `missing` arrays
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT modify the issue in this step. Context gathering only.
+        - Do NOT judge whether the issue is outdated. That is the draft step's job.
+        - Do NOT skip the file reference scan, even if the issue body is short.
+        - Do NOT fetch more than 30 commits or 20 releases — keep the context bounded.
+        - Do NOT truncate the issue body. The draft step needs the complete text.
+
+        ## Output Format
+
+        JSON at `.wave/artifact.json` matching the contract schema.
+
+        ## Quality Bar
+
+        A good context bundle contains the complete issue text, all relevant commits and
+        releases, and accurate file existence checks. A bad context bundle truncates the
+        issue body, misses file references, or fails to extract the criticism portion of
+        the input.
     output_artifacts:
       - name: issue_context
         path: .wave/artifact.json
@@ -101,9 +188,6 @@ steps:
         validate: true
         must_pass: true
         on_failure: retry
-        allow_recovery: true
-        recovery_level: progressive
-        progressive_validation: false
 
   - id: draft-update
     persona: "{{ forge.type }}-analyst"
@@ -120,30 +204,114 @@ steps:
     exec:
       type: prompt
       source: |
-        The context artifact contains the gathered issue context.
+        ## Objective
 
-        Compare the original issue against the codebase changes and draft an updated version.
+        Compare the original issue content against the current codebase state and draft
+        an updated version that accurately reflects reality. Each section of the issue
+        body must be classified as still-valid, outdated, incomplete, or wrong, and the
+        updated draft must address every deficiency found. If the user provided criticism,
+        those points take absolute priority. The output is a draft that the apply-update
+        step will push to the forge — so it must be publication-ready.
 
-        Step 1: Analyze each section of the issue body. Classify each as:
-        - STILL_VALID: Content is accurate and up-to-date
-        - OUTDATED: Content references old behavior, removed files, or superseded patterns
-        - INCOMPLETE: Content is partially correct but missing recent developments
-        - WRONG: Content is factually incorrect given current codebase state
+        ## Context
 
-        Step 2: If there is user criticism (non-empty "criticism" field), address EVERY point raised.
-        The criticism takes priority — it represents what the issue author thinks is wrong.
+        The `context` artifact (injected at `.wave/artifacts/context`) contains the
+        gathered issue context from the previous step, including:
+        - `issue_body`: the complete original issue text
+        - `issue_title`: the current title
+        - `criticism`: the user's specific complaints (may be empty)
+        - `recent_commits`: commits since the issue was created
+        - `recent_releases`: releases since the issue was created
+        - `referenced_files`: object with `exists` and `missing` arrays showing which
+          file paths referenced in the issue still exist on disk
 
-        Step 3: Draft the updated issue:
-        - Preserve sections classified as STILL_VALID (do not rewrite what works)
-        - Rewrite OUTDATED and WRONG sections to reflect current reality
-        - Expand INCOMPLETE sections with missing information
-        - If the title needs updating, draft a new title
-        - Append a "---\n**Changes since original**" section at the bottom listing what changed and why
+        You also have access to the worktree, so you can read current source files to
+        verify whether issue claims about code behavior are still accurate.
 
-        Step 4: If file paths in the issue body are now missing (from referenced_files.missing),
-        update or remove those references.
+        ## Requirements
 
-        Produce a JSON result matching the contract schema.
+        ### Step 1: Section-by-Section Analysis
+
+        Parse the issue body into logical sections (by markdown headers, paragraph
+        breaks, or list groups). For each section, classify it:
+
+        - **STILL_VALID**: Content is factually accurate given the current codebase. No
+          changes needed. Verify by reading referenced files or checking recent commits.
+        - **OUTDATED**: Content references behavior, files, APIs, or patterns that have
+          since changed. The commits or releases in the context should reveal what changed.
+        - **INCOMPLETE**: Content is partially correct but missing developments that
+          happened since the issue was written. Recent commits may show relevant additions.
+        - **WRONG**: Content is factually incorrect given current codebase state. A
+          function does not exist where the issue says it does, or the described behavior
+          is opposite to what the code does.
+
+        Record the classification for each section with specific evidence (which commit
+        changed the referenced code, which file was renamed, etc.).
+
+        ### Step 2: Address User Criticism
+
+        If the `criticism` field is non-empty, it contains the user's explicit complaints
+        about the issue. Address EVERY point raised in the criticism. The criticism takes
+        absolute priority over your own analysis — if the user says the acceptance
+        criteria are wrong, those sections must be rewritten regardless of your
+        independent assessment.
+
+        Map each criticism point to specific sections of the issue body and ensure the
+        draft addresses each one.
+
+        ### Step 3: Draft the Updated Issue
+
+        Compose the updated issue following these rules:
+        - **Preserve STILL_VALID sections** verbatim. Do not rewrite what works.
+        - **Rewrite OUTDATED and WRONG sections** to reflect current reality. Use the
+          current source code as ground truth. Update file paths, function names, API
+          signatures, and behavioral descriptions.
+        - **Expand INCOMPLETE sections** with missing information discovered from recent
+          commits, releases, or current source code.
+        - **Update the title** if it no longer accurately describes the issue. Set
+          `title_changed: true` in the output and provide `updated_title`.
+        - **Fix file references**: replace missing file paths (from
+          `referenced_files.missing`) with current paths if the file was renamed, or
+          remove the reference if the file was deleted.
+        - **Append a changelog**: add a `---\n**Changes since original**` section at the
+          bottom of the body listing every change made and why.
+
+        ### Step 4: Verify the Draft
+
+        Before producing output, re-read the draft and verify:
+        - Every criticism point has been addressed
+        - No stale file paths remain
+        - Acceptance criteria (if present) match current codebase capabilities
+        - The tone and style match the original issue (do not impose a different voice)
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT rewrite STILL_VALID sections for style or grammar. Preserve the
+          original author's voice.
+        - Do NOT add new requirements or scope to the issue. The refresh updates what
+          exists, it does not expand the issue's intent.
+        - Do NOT remove sections unless they are entirely obsolete. Prefer updating to
+          deleting.
+        - Do NOT modify labels, assignees, or milestone. Only title and body.
+        - Do NOT truncate the issue body. The full updated text must be included.
+        - Avoid introducing your own opinions about how the issue should be solved.
+          Refresh is about accuracy, not direction.
+
+        ## Output Format
+
+        JSON at `.wave/artifact.json` matching the contract schema. Must include:
+        - `title_changed`: boolean
+        - `updated_title`: new title string (or original if unchanged)
+        - `updated_body`: the complete updated issue body text
+        - `section_classifications`: array of {section, classification, evidence} objects
+        - `changes_summary`: list of changes made and why
+
+        ## Quality Bar
+
+        A good draft preserves the original author's intent while making every factual
+        claim accurate. The changelog section clearly explains what changed and why. A
+        bad draft rewrites the entire issue in a different voice, adds or removes scope,
+        or leaves stale file references because it did not check the missing files list.
     output_artifacts:
       - name: update_draft
         path: .wave/artifact.json
@@ -159,9 +327,6 @@ steps:
         validate: true
         must_pass: true
         on_failure: retry
-        allow_recovery: true
-        recovery_level: progressive
-        progressive_validation: false
 
   - id: apply-update
     persona: "{{ forge.type }}-enhancer"
@@ -181,21 +346,109 @@ steps:
     exec:
       type: prompt
       source: |
-        Extract the repo and issue number from the available artifacts.
+        ## Objective
 
-        Apply the update:
-        - If title_changed is true:
-          {{ forge.cli_tool }} issue edit <NUMBER> --repo <REPO> --title '<updated_title>'
-        - Write the updated_body to a temp file, then apply it:
-          {{ forge.cli_tool }} issue edit <NUMBER> --repo <REPO> --body-file <temp_file>
-        - Clean up the temp file after applying.
+        Apply the drafted issue update to the forge using the CLI tool, then verify that
+        the update was applied correctly by re-fetching the issue and comparing. This is
+        the final step — after this, the issue should be accurate and up-to-date. Any
+        discrepancies between what was intended and what was applied must be flagged in
+        the output.
 
-        Verify the update was applied:
+        ## Context
+
+        Two artifacts are injected into your workspace:
+        - `draft` (at `.wave/artifacts/draft`): The update draft containing
+          `title_changed`, `updated_title`, `updated_body`, `section_classifications`,
+          and `changes_summary`.
+        - `context` (at `.wave/artifacts/context`): The original issue context containing
+          `repo`, `issue_number`, `issue_url`, and the original title and body for
+          comparison.
+
+        Read BOTH artifacts before starting. Extract REPO and NUMBER from the context
+        artifact.
+
+        ## Requirements
+
+        ### Step 1: Extract Identifiers
+
+        Read the `context` artifact and extract:
+        - `repo`: the owner/repo string for the `--repo` flag
+        - `issue_number`: the issue number for the edit command
+
+        ### Step 2: Apply Title Update (if changed)
+
+        Check `title_changed` in the draft artifact. If true:
+        ```bash
+        {{ forge.cli_tool }} issue edit <NUMBER> --repo <REPO> --title '<updated_title>'
+        ```
+
+        Be careful with shell quoting — if the title contains single quotes, use a
+        different quoting strategy or escape them.
+
+        ### Step 3: Apply Body Update
+
+        Write the `updated_body` from the draft to a temporary file, then apply it:
+        ```bash
+        cat > /tmp/issue-body-update.md <<'BODY_EOF'
+        <updated_body content>
+        BODY_EOF
+        {{ forge.cli_tool }} issue edit <NUMBER> --repo <REPO> --body-file /tmp/issue-body-update.md
+        ```
+
+        Clean up the temp file after the edit command succeeds:
+        ```bash
+        rm -f /tmp/issue-body-update.md
+        ```
+
+        ### Step 4: Verify the Update
+
+        Re-fetch the issue to confirm the update was applied:
+        ```bash
         {{ forge.cli_tool }} issue view <NUMBER> --repo <REPO> --json number,title,body,url
+        ```
 
-        Compare the returned title and body against what was intended. Flag any discrepancies.
+        Compare the returned title and body against the intended values from the draft
+        artifact. Check for:
+        - Title matches (if it was updated)
+        - Body content matches (accounting for minor whitespace normalization by the
+          forge platform)
+        - No truncation occurred (some forges have body length limits)
 
-        Record the results as a JSON object matching the contract schema.
+        If any discrepancies are found, record them in the output's `discrepancies` field
+        with specific details about what differs.
+
+        ### Step 5: Record Results
+
+        Write a JSON result to `.wave/artifact.json` matching the contract schema. Include:
+        - `repo`: owner/repo
+        - `issue_number`: the issue number
+        - `url`: the issue URL
+        - `title_updated`: boolean
+        - `body_updated`: boolean
+        - `verification_passed`: boolean (true if title and body match expectations)
+        - `discrepancies`: array of {field, expected_snippet, actual_snippet} if any
+        - `changes_applied`: summary list from the draft's changes_summary
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT modify the draft content. Apply it exactly as written by the draft step.
+        - Do NOT apply updates if the draft is missing or malformed. Report the error.
+        - Do NOT skip verification. Always re-fetch and compare.
+        - Do NOT close the issue. The refresh pipeline only updates content.
+        - Do NOT modify labels, assignees, or milestone — title and body only.
+        - Do NOT edit the issue multiple times to "fix" formatting. Apply once, verify
+          once, report discrepancies.
+
+        ## Output Format
+
+        JSON at `.wave/artifact.json` matching the contract schema.
+
+        ## Quality Bar
+
+        A good apply step results in the issue's forge page showing exactly the content
+        from the draft, with verification confirming the match. A bad apply step has
+        quoting issues that corrupt the title, truncates the body, or skips verification
+        and reports success without confirming.
     output_artifacts:
       - name: update_result
         path: .wave/artifact.json
@@ -216,6 +469,3 @@ steps:
         validate: true
         must_pass: true
         on_failure: retry
-        allow_recovery: true
-        recovery_level: progressive
-        progressive_validation: false

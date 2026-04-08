@@ -70,29 +70,86 @@ steps:
       source: |
         CONTEXT GATHERING — parse input and fetch GitHub context if applicable.
 
+        ## Objective
+
+        Parse the input to determine its type (GitHub issue, GitHub PR, or local
+        path/description), fetch any remote context, and produce a structured JSON
+        document that all subsequent pipeline steps will use as their starting point.
+        This step is the gateway — every other step depends on the context you produce.
+
         Input: {{ input }}
 
-        ## Instructions
+        ## Context
 
-        Determine what kind of input this is:
+        You are the first step in the recinq (rethink and simplify) pipeline. No prior
+        artifacts exist. You have read-only access to the project codebase. Your output
+        will be injected into the diverge step, which will use the `focus_hint` or
+        `original_input` to determine where to start searching for simplification
+        opportunities.
 
-        1. **GitHub Issue URL**: Contains `github.com` and `/issues/`
-           - Extract owner/repo and issue number from the URL
-           - Run: `{{ forge.cli_tool }} issue view <number> --repo <owner/repo> --json title,body,labels`
-           - Extract a `focus_hint` summarizing what should be simplified
+        ## Requirements
 
-        2. **GitHub PR URL**: Contains `github.com` and `/pull/`
-           - Extract owner/repo and PR number from the URL
-           - Run: `{{ forge.cli_tool }} {{ forge.pr_command }} view <number> --repo <owner/repo> --json title,body,labels,files`
-           - Extract a `focus_hint` summarizing what the PR is about
+        1. **Determine input type**: Analyze the input string to classify it:
 
-        3. **Local path or description**: Anything else
-           - Set `input_type` to `"local"`
-           - Pass through the original input as-is
+           a. **GitHub Issue URL**: Contains `github.com` and `/issues/`
+              - Extract owner/repo and issue number from the URL
+              - Run: `{{ forge.cli_tool }} issue view <number> --repo <owner/repo> --json title,body,labels`
+              - Set `input_type` to `"issue"`
+              - Set `focus_hint` to a one-sentence summary of what should be simplified,
+                derived from the issue title and body
+              - Include `repo`, `number`, `title`, and `labels` in the output
 
-        ## Output
+           b. **GitHub PR URL**: Contains `github.com` and `/pull/`
+              - Extract owner/repo and PR number from the URL
+              - Run: `{{ forge.cli_tool }} {{ forge.pr_command }} view <number> --repo <owner/repo> --json title,body,labels,files`
+              - Set `input_type` to `"pr"`
+              - Set `focus_hint` to a one-sentence summary of what the PR touches
+              - Include `repo`, `number`, `title`, `labels`, and `files` in the output
 
-        IMPORTANT: The output MUST be valid JSON. Do NOT include markdown fencing.
+           c. **Local path or description**: Anything else
+              - Set `input_type` to `"local"`
+              - Set `original_input` to the raw input string
+              - If the input looks like a file path, verify it exists with `ls`
+
+        2. **Handle errors gracefully**: If a `{{ forge.cli_tool }}` command fails (e.g.,
+           repo not found, issue not found, authentication failure), log the error and
+           fall back to treating the input as a local path/description.
+
+        3. **Produce the focus hint**: The `focus_hint` is critical for issue and PR inputs.
+           It tells the diverge step WHERE to start looking. Make it specific — not "improve
+           the code" but "simplify the pipeline executor's step dispatch logic" or "reduce
+           indirection in the adapter layer."
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT analyze the codebase in this step. Context gathering is purely about
+          parsing the input and fetching remote data.
+        - Do NOT propose simplifications — that is the diverge step's job.
+        - Do NOT include markdown fencing or prose in the output. The output must be raw
+          JSON only.
+        - Do NOT modify any files. This is a read-only step.
+
+        ## Output Format
+
+        Write valid JSON to `.wave/output/context.json` matching the contract schema at
+        `.wave/contracts/recinq-context.schema.json`. The JSON must start with `{` and
+        end with `}`. Key fields:
+        - `input_type`: "issue", "pr", or "local"
+        - `original_input`: The raw input string
+        - `focus_hint`: (for issue/pr) One-sentence description of the focus area
+        - `repo`: (for issue/pr) The owner/repo string
+        - `number`: (for issue/pr) The issue or PR number
+        - `title`: (for issue/pr) The issue or PR title
+        - `labels`: (for issue/pr) Array of label strings
+        - `files`: (for pr only) Array of file paths changed in the PR
+
+        ## Quality Bar
+
+        A good context gathering step correctly classifies the input on the first attempt,
+        fetches all available metadata, and produces a focus hint that is specific enough
+        to direct the diverge step to the right area of the codebase. A bad context step
+        misclassifies the input, fails to fetch remote data without falling back, or
+        produces a vague focus hint that does not help narrow the search.
     output_artifacts:
       - name: context
         path: .wave/output/context.json
@@ -226,30 +283,95 @@ steps:
     exec:
       type: prompt
       source: |
-        CONVERGENT VALIDATION — separate signal from noise.
+        CONVERGENT VALIDATION — separate signal from noise in the divergent findings.
 
-        This is a purely CONVERGENT step. Your job is analytical, not creative.
-        Judge every finding on technical merit alone. No speculation, no new ideas.
+        ## Objective
+
+        Rigorously validate every finding from the divergent phase. Your job is purely
+        analytical — judge each finding on technical merit by reading the actual code and
+        verifying the cited metrics. The provocateur was told to be aggressive and flag
+        everything suspicious. Your job is to be skeptical and filter out false positives.
+        Only findings that survive your scrutiny will proceed to the second diamond.
 
         Target: {{ input }}
 
-        ## For Every DVG-xxx Finding
+        ## Context
 
-        1. **Read the actual code** cited as evidence — don't trust the provocateur's summary
-        2. **Verify the metrics** — check reference counts, line counts, change frequency
-        3. **Assess**: Is this a real problem or a false positive?
-           - Does the "premature abstraction" actually have a second implementation planned?
-           - Is the "dead weight" actually used via reflection or codegen?
-           - Is the "unnecessary indirection" actually providing error handling or logging?
-        4. **Classify**:
-           - `CONFIRMED` — real problem, metrics check out, code supports the claim
-           - `PARTIALLY_CONFIRMED` — real concern but overstated, or scope is narrower than claimed
-           - `REJECTED` — false positive, justified complexity, or incorrect metrics
-        5. **Explain**: For every classification, write WHY. For rejections, explain what
-           the provocateur got wrong.
+        The divergent findings have been injected as `.wave/artifacts/divergent_findings`.
+        This contains an array of findings, each with a unique ID (DVG-xxx), category,
+        severity, evidence (file paths, line counts, reference counts), and a description
+        of the suspected problem. You have read-only access to the full project codebase
+        to verify every claim.
 
-        Be RIGOROUS. The provocateur was told to be aggressive — your job is to be skeptical.
-        A finding that survives your scrutiny is genuinely worth addressing.
+        ## Requirements
+
+        For EVERY DVG-xxx finding in the artifact, perform these steps in order:
+
+        1. **Read the actual code**: Open the cited files and read the code at the cited
+           locations. Do NOT trust the provocateur's summary — verify every claim yourself.
+           The provocateur may have misread the code, missed context, or drawn incorrect
+           conclusions.
+
+        2. **Verify the metrics**: Re-run the evidence commands cited in the finding:
+           - `wc -l` to verify line counts
+           - `grep -r` to verify reference/usage counts
+           - `git log --oneline <file> | wc -l` to verify change frequency
+           If the metrics do not match the finding's claims, note the discrepancy.
+
+        3. **Assess the finding**: Is this a real problem or a false positive? Consider:
+           - Does the "premature abstraction" actually have a second implementation planned
+             or in progress on another branch?
+           - Is the "dead weight" actually used via reflection, codegen, or external tooling?
+           - Is the "unnecessary indirection" actually providing error handling, logging,
+             tracing, or other cross-cutting concerns?
+           - Is the "overengineering" actually supporting a documented requirement?
+           - Is the "copy-paste drift" actually intentional differentiation for different
+             contexts?
+
+        4. **Classify the finding** using one of three statuses:
+           - `CONFIRMED` — the finding is real. The metrics check out, the code supports
+             the claim, and there is a genuine simplification opportunity.
+           - `PARTIALLY_CONFIRMED` — there is a real concern, but it is overstated. The
+             scope is narrower than claimed, or the severity is lower. Explain what is
+             accurate and what is exaggerated.
+           - `REJECTED` — false positive. The complexity is justified, the metrics are
+             wrong, or the finding misunderstands the code's purpose. Explain what the
+             provocateur got wrong.
+
+        5. **Write a detailed explanation**: For every classification, explain WHY you
+           reached that conclusion. For rejections, be specific about what evidence
+           contradicts the finding. For confirmations, note whether the finding understates
+           or overstates the opportunity.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT add new findings. This is a convergent step — filter, do not create.
+        - Do NOT speculate. Every assessment must be backed by reading actual code.
+        - Do NOT rubber-stamp findings. If you confirm everything, you have not done your job.
+        - Do NOT reject findings based on personal preference. Reject only when the evidence
+          does not support the claim.
+        - Do NOT skip findings. Every DVG-xxx must receive a classification.
+        - This is a purely CONVERGENT step. Your job is analytical, not creative. No
+          speculation, no new ideas.
+
+        ## Output Format
+
+        Write a JSON document to `.wave/output/validated-findings.json` matching the
+        contract schema at `.wave/contracts/validated-findings.schema.json`. For each
+        finding, include:
+        - `id`: The original DVG-xxx ID
+        - `status`: CONFIRMED, PARTIALLY_CONFIRMED, or REJECTED
+        - `explanation`: Detailed reasoning for the classification
+        - `verified_metrics`: The metrics you actually measured (may differ from claimed)
+        - `adjusted_severity`: Your assessment of severity (may differ from original)
+
+        ## Quality Bar
+
+        A good validation rejects 20-40% of findings with precise explanations of what
+        was wrong, confirms the rest with verified metrics, and produces an artifact that
+        the second diamond can trust completely. A bad validation either confirms everything
+        without checking (rubber stamp) or rejects valid findings based on insufficient
+        investigation.
     output_artifacts:
       - name: validated_findings
         path: .wave/output/validated-findings.json
@@ -286,47 +408,98 @@ steps:
     exec:
       type: prompt
       source: |
-        SECOND DIVERGENCE — probe deeper into confirmed findings.
+        SECOND DIVERGENCE — probe deeper into confirmed findings and discover connections.
 
-        The first pass cast a wide net. The validator filtered it down.
-        Now YOU go deeper on what survived. This is DIVERGENT thinking again —
-        expand, connect, discover what the first pass missed.
+        ## Objective
 
-        Focus on findings with status CONFIRMED or PARTIALLY_CONFIRMED.
+        The first diverge pass cast a wide net. The converge step filtered it down to
+        confirmed findings. Now you go DEEP on what survived. This is divergent thinking
+        again — expand outward from each confirmed finding, trace dependencies, discover
+        second-order effects, spot cross-finding patterns, and find what the first pass
+        missed. The confirmed findings are your starting points, not your boundaries.
 
         Target: {{ input }}
 
-        ## Your Mission
+        ## Context
 
-        For each confirmed finding, probe OUTWARD:
+        Two artifacts have been injected:
+        - `.wave/artifacts/divergent_findings` — the original wide-net findings (DVG-xxx)
+        - `.wave/artifacts/validated_findings` — the converge step's validation results,
+          with each finding classified as CONFIRMED, PARTIALLY_CONFIRMED, or REJECTED
 
-        1. **Trace the dependency graph**: What calls this code? What does it call?
-           If we simplify X, what happens to its callers and callees?
+        Focus your effort on CONFIRMED and PARTIALLY_CONFIRMED findings. You may also
+        challenge REJECTED findings if you believe the validator was wrong.
 
-        2. **Find second-order effects**: If we remove abstraction A, does layer B
-           also become unnecessary? Do test helpers simplify? Do error paths collapse?
+        You have read-only access to the full project codebase.
 
-        3. **Spot patterns across findings**: Do three findings all stem from the same
-           over-abstraction? Is there a root cause that would address multiple DVGs at once?
+        ## Requirements
 
-        4. **Discover what was MISSED**: With the validated findings as context, look for
-           related opportunities the first pass didn't see. The confirmed findings reveal
-           the codebase's real pressure points — what else lurks nearby?
+        For each confirmed or partially confirmed finding, perform the following probes:
 
-        5. **Challenge the rejections**: Were any findings rejected too hastily?
-           Read the validator's rationale — do you disagree?
+        1. **Trace the dependency graph**: Map what calls the affected code and what it
+           calls. If we simplify function X, what happens to its callers? Do they simplify
+           too, or do they break? What happens to its callees — do they become orphaned?
+           Use Grep to find all references to each function, type, and interface involved.
+
+        2. **Find second-order effects**: Simplifications cascade. If we remove abstraction A:
+           - Does layer B that wraps A also become unnecessary?
+           - Do test helpers that mock A become dead code?
+           - Do error paths that handle A's special cases collapse?
+           - Do configuration options that parameterize A lose their purpose?
+           Map the full cascade chain for each confirmed finding.
+
+        3. **Spot patterns across findings**: Look for root causes that connect multiple
+           findings. Do three DVGs all stem from the same over-abstraction? Is there a
+           design decision made early that created complexity in five different places?
+           Identifying a shared root cause means one fix could address multiple findings.
+
+        4. **Discover what was MISSED**: The confirmed findings reveal the codebase's real
+           pressure points. With that knowledge, look for related opportunities the first
+           pass did not see:
+           - Adjacent modules with the same antipatterns
+           - Helper functions or utilities that exist only to serve the complex code
+           - Test infrastructure that is complex only because the production code is complex
+           - Documentation or comments that exist only because the code is hard to understand
+           Assign new findings IDs starting with DVG-NEW-001.
+
+        5. **Challenge rejections**: Read the validator's rationale for each REJECTED
+           finding. Do you disagree with any rejection? If so, present counter-evidence.
+           The validator may have missed context or misunderstood the code.
 
         ## Evidence Requirements
 
-        Same standard as the first diverge pass:
+        Same standard as the first diverge pass — no claim without evidence:
         - `wc -l` for line counts
         - `grep -r` for usage/reference counts
         - `git log --oneline <file> | wc -l` for change frequency
-        - Concrete file paths and code references
+        - Concrete file paths and code references for every claim
+        - For new findings (DVG-NEW-xxx), provide the same level of evidence as the
+          first pass
 
-        ## Output
+        ## Constraints and Anti-patterns
 
-        Go DEEP. The first pass was wide, this pass is deep. Follow every thread.
+        - Do NOT repeat the first diverge pass. You have its findings — build on them.
+        - Do NOT ignore the converge step's work. If a finding was REJECTED with solid
+          reasoning, do not re-assert it without new evidence.
+        - Do NOT lose focus. Go deep on confirmed findings, not wide on the whole codebase.
+        - Do NOT speculate without evidence. Every claim needs file paths and metrics.
+
+        ## Output Format
+
+        Write a JSON document to `.wave/output/probed-findings.json` matching the
+        contract schema at `.wave/contracts/probed-findings.schema.json`. Include:
+        - `probed_findings`: Array of deepened analysis for each confirmed/partial finding
+        - `new_findings`: Array of newly discovered findings (DVG-NEW-xxx)
+        - `cross_finding_patterns`: Root causes that connect multiple findings
+        - `rejection_challenges`: Any REJECTED findings you believe should be reconsidered
+        - `cascade_maps`: For each finding, the chain of second-order effects
+
+        ## Quality Bar
+
+        A good probe uncovers connections and cascades that make simplification proposals
+        more impactful — "if we fix DVG-003, then DVG-007 and DVG-012 also resolve for
+        free." A bad probe merely repeats the first pass findings in different words without
+        discovering anything new.
     output_artifacts:
       - name: probed_findings
         path: .wave/output/probed-findings.json
@@ -366,43 +539,108 @@ steps:
     exec:
       type: prompt
       source: |
-        FINAL CONVERGENCE — write a JSON object to `.wave/output/convergent-proposals.json`.
+        FINAL CONVERGENCE — synthesize all findings into actionable simplification proposals.
+
+        ## Objective
+
+        Synthesize the validated findings and probed connections into a prioritized set of
+        simplification proposals. Each proposal groups related findings that share a root
+        cause, assigns a tier (do now / do next / consider later), estimates impact, and
+        lists affected files. The proposals artifact is the direct input to the simplify
+        step — it must be precise enough for a developer to execute each proposal
+        mechanically.
 
         Target: {{ input }}
 
-        Read ALL injected artifacts first:
-        - `.wave/artifacts/context` — issue/PR context from the gather step
-        - `.wave/artifacts/validated_findings` — findings that survived scrutiny
-        - `.wave/artifacts/probed_findings` — deeper connections, patterns, new discoveries
+        ## Context
 
-        Then write a SINGLE JSON object (no markdown, no prose, no code fences) to
-        the output file using the Write tool. The file must start with `{` and end with `}`.
+        Three artifacts have been injected:
+        - `.wave/artifacts/context` — issue/PR context from the gather step. If
+          `input_type` is `"issue"` or `"pr"`, the `focus_hint` influences tier assignment
+          (findings related to the focus get a tier boost) but does NOT exclude strong
+          proposals outside the focus area.
+        - `.wave/artifacts/validated_findings` — findings that survived the converge step's
+          scrutiny, each classified as CONFIRMED or PARTIALLY_CONFIRMED
+        - `.wave/artifacts/probed_findings` — deeper connections from the probe step:
+          dependency graphs, cascade chains, cross-finding patterns, and newly discovered
+          findings (DVG-NEW-xxx)
 
-        ## How to populate each field
+        Read ALL three artifacts completely before writing any output.
 
-        **`source_findings`**: Count how many findings you reviewed, confirmed, partially
-        confirmed, or rejected. Include rejection reasons.
+        ## Requirements
 
-        **`validation_summary`**: One paragraph describing the converge→diverge→converge
-        validation process and what survived.
+        1. **Group findings into proposals**: Identify findings that share a root cause or
+           would be addressed by the same code change. Each group becomes one proposal.
+           A single proposal should target a coherent simplification that can be applied
+           and tested independently.
 
-        **`proposals`** array — for each proposal:
-        - `id`: SMP-001, SMP-002, etc.
-        - Group findings that share a root cause into a single proposal
-        - Incorporate second-order effects from the probe step into `impact` estimates
-        - Include DVG-NEW-xxx discoveries from the probe step (pre-validated)
-        - If context shows `input_type` is `"issue"` or `"pr"`, use `focus_hint` as ONE
-          input when assigning `tier`, but do not discard strong proposals outside scope
-        - `tier`: 1=do now, 2=do next, 3=consider later
-        - `files`: list actual file paths affected
-        - `dependencies`: SMP-xxx IDs that must be applied first
+        2. **For each proposal, populate all fields**:
+           - `id`: SMP-001, SMP-002, etc. — sequential numbering
+           - `title`: A descriptive name for the simplification (e.g., "Inline single-use
+             WorkspaceHelper interface")
+           - `description`: What to change and why, in 2-3 sentences
+           - `source_findings`: List of DVG-xxx and DVG-NEW-xxx IDs that motivate this
+             proposal
+           - `impact`: Estimated effect — lines of code removed, abstractions eliminated,
+             complexity reduction. Incorporate second-order effects from the probe step's
+             cascade maps.
+           - `risk`: low (mechanical change), medium (touches multiple callers), or high
+             (could change behavior if done incorrectly)
+           - `tier`: 1 = do now (high impact, low risk, no dependencies), 2 = do next
+             (moderate impact or risk), 3 = consider later (low impact or high risk)
+           - `files`: Array of actual file paths that will be modified
+           - `dependencies`: Array of SMP-xxx IDs that must be applied before this one
+             (e.g., if SMP-002 removes a type that SMP-005 depends on, SMP-005 depends
+             on SMP-002)
 
-        **`eighty_twenty_analysis`**: Which 20% of proposals yield 80% of the benefit?
+        3. **Populate the source_findings summary**: Count how many total findings were
+           reviewed across both diamonds. How many were CONFIRMED, PARTIALLY_CONFIRMED,
+           or REJECTED? Include brief rejection reasons for transparency.
 
-        **`timestamp`**: ISO 8601 datetime.
+        4. **Write the validation_summary**: One paragraph describing the full validation
+           pipeline: diverge (wide net), converge (skeptical filter), probe (deep dive),
+           and distill (synthesis). What survived? What was the overall confirmation rate?
 
-        IMPORTANT: The Write tool call must contain ONLY the JSON object.
-        Contract validation will reject non-JSON output.
+        5. **Perform the 80/20 analysis**: Identify which 20% of proposals would deliver
+           80% of the total simplification benefit. This helps the simplify step prioritize
+           if it runs out of time or context.
+
+        6. **Include the timestamp**: ISO 8601 datetime for the analysis.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT write markdown, prose, or code fences. The output must be a raw JSON
+          object that starts with `{` and ends with `}`.
+        - Do NOT create proposals that cannot be applied independently (unless they have
+          explicit dependency links).
+        - Do NOT discard strong proposals just because they fall outside the focus_hint
+          scope. The focus_hint is a priority signal, not a filter.
+        - Do NOT create vague proposals ("clean up the code"). Every proposal must
+          identify specific files and specific changes.
+        - Do NOT create proposals for REJECTED findings unless the probe step successfully
+          challenged the rejection.
+
+        ## Output Format
+
+        Write a SINGLE JSON object to `.wave/output/convergent-proposals.json` using the
+        Write tool. The file must contain ONLY valid JSON matching the contract schema at
+        `.wave/contracts/convergent-proposals.schema.json`. Key fields:
+        - `source_findings`: Summary counts and rejection reasons
+        - `validation_summary`: One-paragraph process description
+        - `proposals`: Array of proposal objects with all fields above
+        - `eighty_twenty_analysis`: The 20% of proposals yielding 80% of benefit
+        - `timestamp`: ISO 8601 datetime
+
+        IMPORTANT: The Write tool call must contain ONLY the JSON object. Contract
+        validation will reject non-JSON output.
+
+        ## Quality Bar
+
+        A good distillation produces 5-15 well-scoped proposals with clear dependency
+        ordering, accurate tier assignments, and precise file lists. The 80/20 analysis
+        correctly identifies the highest-leverage changes. A bad distillation produces
+        vague proposals, ignores dependencies, or fails to group related findings — leading
+        to redundant or conflicting changes in the simplify step.
     output_artifacts:
       - name: proposals
         path: .wave/output/convergent-proposals.json
@@ -437,19 +675,55 @@ steps:
     exec:
       type: prompt
       source: |
-        IMPLEMENTATION — apply the best simplification proposals.
+        IMPLEMENTATION — apply tier-1 simplification proposals as atomic commits.
 
-        ## Process
+        ## Objective
 
-        Apply ONLY tier-1 proposals, in dependency order.
+        Apply the tier-1 simplification proposals from the distill step to the codebase.
+        Each proposal gets its own atomic commit. The implementation must preserve all
+        existing behavior — this is refactoring, not feature work. After all proposals
+        are applied (or attempted), the full test suite must pass and the project must
+        build successfully. Failed proposals are reverted and logged, not debugged.
 
-        For each proposal (SMP-xxx):
+        ## Context
 
-        1. **Announce**: Print which proposal you're applying and what it does
-        2. **Apply**: Make the code changes
-        3. **Build**: Run the project's build command — must succeed
-        4. **Test**: Run the project's test suite — must pass
-        5. **Commit**: If build and tests pass:
+        Two artifacts have been injected:
+        - `.wave/artifacts/validated_findings` — the confirmed findings from the converge
+          step, providing context for why each proposal exists
+        - `.wave/artifacts/proposals` — the convergent proposals from the distill step,
+          containing the ordered list of simplification proposals with tiers, dependencies,
+          impact estimates, and affected files
+
+        Read the proposals artifact to understand which proposals to apply and in what
+        order. Apply ONLY tier-1 proposals. Respect the dependency order — if SMP-002
+        depends on SMP-001, apply SMP-001 first.
+
+        You are on an isolated worktree branch (`refactor/{{ pipeline_id }}`). You have
+        full read-write access.
+
+        ## Requirements
+
+        For each tier-1 proposal (SMP-xxx), in dependency order:
+
+        1. **Announce**: Print which proposal you are applying, its ID, title, and a
+           one-line summary of what it does. This creates a clear log trail.
+
+        2. **Read the context**: Review the source findings (DVG-xxx) cited by the
+           proposal. Understand what the original problem is and what the proposed
+           simplification achieves.
+
+        3. **Apply the code changes**: Make the modifications described in the proposal.
+           Follow the existing codebase conventions (naming, error handling, imports).
+           Touch only the files listed in the proposal's `files` field.
+
+        4. **Build**: Run the project's build command. The build must succeed. If it
+           fails, the code change has an error that must be fixed before proceeding.
+
+        5. **Test**: Run the project's test suite. All tests must pass. If they do not,
+           the simplification has changed behavior — which violates the refactoring
+           constraint.
+
+        6. **Commit if passing**: If both build and tests pass, create an atomic commit:
            ```bash
            git add <specific-files>
            git commit -m "refactor: <proposal title>
@@ -457,25 +731,55 @@ steps:
            Applies SMP-xxx: <brief description>
            Source findings: <DVG-xxx list>"
            ```
-        6. **Revert if failing**: If tests fail after applying, revert:
+
+        7. **Revert if failing**: If tests fail after applying the proposal and you cannot
+           fix the issue with a trivial correction (< 5 lines), revert all changes:
            ```bash
            git checkout -- .
            ```
-           Log the failure and move to the next proposal.
+           Log the failure (proposal ID, error message, which test failed) and move to
+           the next proposal. Do NOT spend time debugging — the distill step may have
+           misjudged the feasibility.
+
+        8. **Handle dependency failures**: If a proposal depends on a failed proposal,
+           skip it and log the reason: "SMP-xxx skipped because dependency SMP-yyy failed."
 
         ## Final Verification
 
-        After all tier-1 proposals are applied (or attempted):
-        1. Run the full test suite
-        2. Run the project's build command
-        3. Summarize what was applied, what was skipped, and net lines changed
+        After all tier-1 proposals have been attempted:
+        1. Run the full test suite one final time to confirm everything is green
+        2. Run the project's build command to confirm compilation
+        3. Write a summary to `.wave/output/result.md` covering:
+           - Proposals applied (with commit hashes)
+           - Proposals failed (with error details)
+           - Proposals skipped (with reasons)
+           - Net lines added/removed (from `git diff --stat`)
 
-        ## Important
+        ## Constraints and Anti-patterns
 
-        - Each proposal gets its own atomic commit
-        - Never combine proposals in a single commit
-        - If a proposal depends on a failed proposal, skip it too
-        - Commit each proposal as a separate atomic commit
+        - Do NOT apply tier-2 or tier-3 proposals. Only tier-1 is in scope.
+        - Do NOT combine multiple proposals in a single commit. One proposal = one commit.
+        - Do NOT change behavior. If a test fails, the proposal is wrong — revert, do not
+          fix the test to match new behavior.
+        - Do NOT spend more than 5 minutes on any single proposal. If it does not apply
+          cleanly, revert and move on.
+        - Do NOT add new abstractions. The goal is simplification — less code, fewer layers.
+        - Do NOT modify test files unless the proposal specifically targets test
+          infrastructure simplification.
+        - Do NOT use `git add -A` or `git add .` — stage specific files only.
+
+        ## Output Format
+
+        Write `.wave/output/result.md` with the summary described above. The contract
+        validates that the test suite passes.
+
+        ## Quality Bar
+
+        A good implementation applies 80%+ of tier-1 proposals cleanly, each as an atomic
+        commit with a descriptive message. Failed proposals are logged with enough detail
+        to understand why. The final codebase is simpler (fewer lines, fewer abstractions)
+        while all tests still pass. A bad implementation skips most proposals, combines
+        changes into single commits, or introduces test failures.
     retry:
       policy: standard
       max_attempts: 3
@@ -512,17 +816,93 @@ steps:
     exec:
       type: prompt
       source: |
-        REPORT — compose a summary of what recinq found and applied.
+        REPORT — compose a comprehensive summary of the recinq analysis and results.
 
-        Run `git log --oneline` to see the commits on this branch.
+        ## Objective
 
-        ## Compose the Report
+        Produce a polished markdown report that summarizes the entire recinq pipeline run:
+        what was analyzed, what was found, what was applied, and what remains for future
+        consideration. This report serves two purposes: it is the PR body for the
+        refactoring pull request, and it is the permanent record of the simplification
+        analysis. It must be readable by both technical and semi-technical audiences.
 
-        Write a markdown report containing:
-        - **Summary**: One-paragraph overview of what recinq found and applied
-        - **Proposals**: List of all proposals with their tier, impact, and status (applied/skipped/failed)
-        - **Changes Applied**: Summary of commits made, files changed, net lines removed
-        - **Remaining Opportunities**: Tier-2 and tier-3 proposals for future consideration
+        ## Context
+
+        Two artifacts have been injected:
+        - `.wave/artifacts/proposals` — the convergent proposals from the distill step,
+          containing all simplification proposals with their tiers, impacts, dependencies,
+          and the 80/20 analysis
+        - `.wave/artifacts/result` — the implementation result from the simplify step,
+          containing which proposals were applied, which were skipped, and the test results
+
+        You are on the worktree branch `refactor/{{ pipeline_id }}` with all simplification
+        commits already made. Use `git log --oneline` to see the commit history.
+
+        ## Requirements
+
+        1. **Gather the data**: Before writing, collect:
+           - `git log --oneline` to see all commits on this branch
+           - `git diff --stat main...HEAD` (or appropriate base) to see file change summary
+           - The proposals artifact for the full list of proposals and their tiers
+           - The result artifact for which proposals were applied
+
+        2. **Write the Summary section**: One paragraph (3-5 sentences) that answers:
+           - What area of the codebase was analyzed?
+           - How many findings survived validation?
+           - How many proposals were generated and at what tiers?
+           - How many tier-1 proposals were successfully applied?
+           - What is the net impact (lines removed, complexity reduced)?
+
+        3. **Write the Proposals section**: A table or list of ALL proposals (not just
+           applied ones) with columns for:
+           - Proposal ID (SMP-xxx)
+           - Tier (1, 2, or 3)
+           - Title / brief description
+           - Impact estimate (lines, complexity reduction)
+           - Status: applied, skipped (with reason), or failed (with reason)
+           - Source findings (DVG-xxx IDs)
+
+        4. **Write the Changes Applied section**: For each successfully applied proposal:
+           - The commit hash and message
+           - Files changed (list from git diff)
+           - Net lines added/removed
+           - Brief description of what the simplification achieved
+
+        5. **Write the Remaining Opportunities section**: For tier-2 and tier-3 proposals:
+           - Brief description of the opportunity
+           - Why it was not applied in this pass (tier classification, risk, dependencies)
+           - Suggested approach if someone wants to tackle it later
+           - Estimated effort
+
+        6. **Write the Metrics section**: Quantitative summary:
+           - Total findings from diverge step
+           - Findings confirmed vs rejected in converge step
+           - Proposals generated in distill step
+           - Proposals applied vs skipped vs failed in simplify step
+           - Net lines of code removed
+           - Number of files modified
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT modify any code in this step. The report is a document, not a code change.
+        - Do NOT invent data. Every number must come from git history or the artifacts.
+        - Do NOT omit failed proposals. Transparency about what did not work is as important
+          as reporting what did.
+        - Do NOT use vague language. "Improved the code" is not useful. "Removed 47 lines
+          of dead code from executor.go by inlining the unused WorkspaceHelper interface" is.
+
+        ## Output Format
+
+        Write the report to `.wave/output/report.md` as structured markdown with clear
+        section headers. The report must be non-empty (contract: non_empty_file).
+
+        ## Quality Bar
+
+        A good report gives a reader who was not involved in the pipeline run a complete
+        understanding of what was analyzed, what was found, what was changed, and what
+        remains — in under 5 minutes of reading. A bad report is either too terse (listing
+        only commit hashes) or too verbose (rehashing every finding in full detail instead
+        of summarizing).
     output_artifacts:
       - name: report
         path: .wave/output/report.md
@@ -551,16 +931,37 @@ steps:
     exec:
       type: prompt
       source: |
-        PUBLISH — push the branch and create a pull request.
+        PUBLISH — push the branch, open a PR, and link back to the source.
 
-        ## Steps
+        ## Objective
 
-        1. Push the branch:
+        Push the refactoring branch to the remote, create a pull request using the recinq
+        report as the PR body, and if the original input was a GitHub issue or PR, post a
+        comment linking back to the new refactoring PR. This closes the loop — the person
+        who filed the issue or PR can see that a simplification was performed.
+
+        ## Context
+
+        Two artifacts have been injected:
+        - `.wave/artifacts/context` — the context from the gather step, containing
+          `input_type`, and for issue/PR inputs: `repo`, `number`, `title`
+        - `.wave/artifacts/report` — the markdown report from the report step, which
+          will serve as the PR body
+
+        You are on the worktree branch `refactor/{{ pipeline_id }}` with all simplification
+        commits already made.
+
+        ## Requirements
+
+        1. **Push the branch**: Push to the remote with upstream tracking:
            ```bash
            git push -u origin HEAD
            ```
+           If the push fails, retry once. If it fails again, log the error and continue
+           to capture the failure in the result JSON.
 
-        2. Create a pull request using the report as the body:
+        2. **Compose the PR title**: Extract the most recent commit subject and ensure it
+           follows conventional commit format. Default to `refactor:` prefix:
            ```bash
            COMMIT_SUBJECT=$(git log --format=%s -1)
            if echo "$COMMIT_SUBJECT" | grep -qE '^(feat|fix|docs|refactor|test|chore|ci|style|perf)(\(.*\))?!?:'; then
@@ -568,24 +969,58 @@ steps:
            else
              echo "refactor: $COMMIT_SUBJECT" > /tmp/wave-pr-title.txt
            fi
-           {{ forge.cli_tool }} {{ forge.pr_command }} create --title "$(cat /tmp/wave-pr-title.txt)" --body-file .wave/artifacts/report
            ```
 
-        3. If the context artifact shows `input_type` is `"issue"` or `"pr"`,
-           post the PR URL as a comment on the source:
+        3. **Create the pull request**: Use the forge CLI to open the PR with the report
+           as the body:
+           ```bash
+           {{ forge.cli_tool }} {{ forge.pr_command }} create --title "$(cat /tmp/wave-pr-title.txt)" --body-file .wave/artifacts/report
+           ```
+           Capture the PR URL from the command output.
+
+        4. **Link back to the source** (conditional): Read the context artifact. If
+           `input_type` is `"issue"`, post the PR URL as a comment on the original issue:
            ```bash
            echo "Refactoring PR: <pr-url>" > /tmp/recinq-comment.md
            {{ forge.cli_tool }} issue comment <number> --repo <repo> --body-file /tmp/recinq-comment.md
            ```
-           or for PRs:
+           If `input_type` is `"pr"`, post on the original PR:
            ```bash
            echo "Refactoring PR: <pr-url>" > /tmp/recinq-comment.md
            {{ forge.cli_tool }} {{ forge.pr_command }} comment <number> --repo <repo> --body-file /tmp/recinq-comment.md
            ```
+           If `input_type` is `"local"`, skip this step.
 
-        4. Write the JSON status report to the output artifact path.
+        5. **Write the result JSON**: Write `.wave/output/pr-result.json` with:
+           - `pr_url`: Full URL of the created PR (or null if creation failed)
+           - `pr_number`: The PR number
+           - `branch`: The branch name
+           - `title`: The PR title used
+           - `status`: "created" or "failed"
+           - `source_linked`: true/false indicating whether a comment was posted on the
+             source issue/PR
 
-        If any `{{ forge.cli_tool }}` command fails, log the error and continue.
+        ## Constraints and Anti-patterns
+
+        - Do NOT modify any source code in this step. Publishing is push-and-PR only.
+        - Do NOT force-push or rebase. Push the branch exactly as committed.
+        - Do NOT fail the step if the source comment cannot be posted — the PR itself is
+          the critical deliverable.
+        - If any `{{ forge.cli_tool }}` command fails, log the error and continue to the
+          next step. Capture failures in the result JSON.
+        - Do NOT add labels, assignees, or reviewers unless project conventions require it.
+
+        ## Output Format
+
+        Write `.wave/output/pr-result.json` matching the contract schema at
+        `.wave/contracts/pr-result.schema.json`. Must include `pr_url`, `pr_number`,
+        `branch`, `title`, and `status` fields.
+
+        ## Quality Bar
+
+        A good publish step creates a PR on the first attempt with the full report as its
+        body, and posts a linkback comment on the source issue/PR. A bad publish step fails
+        silently, creates PRs with empty bodies, or does not link back to the source.
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json
