@@ -218,7 +218,7 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 			RetryPolicy:        retryPolicy,
 			MaxAttempts:        maxAttempts,
 			Prompt:             prompt,
-			SubPipeline:        step.SubPipeline,
+			SubPipeline:        stripUnresolvedVars(resolveForgeVars(step.SubPipeline)),
 			Thread:             step.Thread,
 			Script:             script,
 			GatePrompt:         gatePrompt,
