@@ -115,6 +115,10 @@ type PipelineDetailStep struct {
 	Prompt             string   `json:"prompt,omitempty"`
 	SubPipeline        string   `json:"sub_pipeline,omitempty"`
 	Thread             string   `json:"thread,omitempty"`
+	Script             string   `json:"script,omitempty"`
+	GatePrompt         string   `json:"gate_prompt,omitempty"`
+	GateType           string   `json:"gate_type,omitempty"`
+	EdgeConditions     string   `json:"edge_conditions,omitempty"`
 }
 
 // PipelineDetail holds full pipeline info for the detail dialog.
@@ -184,6 +188,21 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 			maxAttempts = step.Retry.MaxAttempts
 		}
 
+		// Gate/command details
+		var gatePrompt, gateType, edgeConditions, script string
+		if step.Gate != nil {
+			gatePrompt = step.Gate.Message
+			gateType = step.Gate.Type
+		}
+		if step.Branch != nil {
+			var edges []string
+			for k, v := range step.Branch.Cases {
+				edges = append(edges, k+" -> "+v)
+			}
+			edgeConditions = strings.Join(edges, "; ")
+		}
+		script = step.Script
+
 		steps = append(steps, PipelineDetailStep{
 			ID:                 step.ID,
 			Type:               step.Type,
@@ -201,6 +220,10 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 			Prompt:             prompt,
 			SubPipeline:        step.SubPipeline,
 			Thread:             step.Thread,
+			Script:             script,
+			GatePrompt:         gatePrompt,
+			GateType:           gateType,
+			EdgeConditions:     edgeConditions,
 		})
 	}
 	return PipelineDetail{
