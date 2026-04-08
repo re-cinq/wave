@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 
@@ -24,7 +25,11 @@ func (l *YAMLPipelineLoader) Load(path string) (*Pipeline, error) {
 
 func (l *YAMLPipelineLoader) Unmarshal(data []byte) (*Pipeline, error) {
 	var pipeline Pipeline
-	if err := yaml.Unmarshal(data, &pipeline); err != nil {
+	// Use strict decoder that rejects unknown YAML fields.
+	// This catches hallucinated fields like allow_recovery, recovery_level, etc.
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&pipeline); err != nil {
 		return nil, fmt.Errorf("failed to parse pipeline YAML: %w", err)
 	}
 
