@@ -1640,8 +1640,11 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 						"error":         err.Error(),
 					},
 				)
-				// Set up attempt context for prompt adaptation on next retry
-				if step.Retry.AdaptPrompt {
+				// Always inject failure context into the next retry attempt.
+				// Previously gated behind AdaptPrompt, but contract failures
+				// are the most common retry trigger and agents need to know
+				// *what* failed to avoid starting from scratch.
+				{
 					errMsg := err.Error()
 					// Capture stdout tail from results if available
 					stdoutTail := ""
@@ -1657,13 +1660,26 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					}
 					execution.mu.Unlock()
 
+					// Extract contract-specific errors when the failure came
+					// from contract validation so the agent gets actionable
+					// detail about which contract failed and why.
+					var contractErrors []string
+					if strings.Contains(errMsg, "contract validation failed") {
+						inner := err
+						for uw := errors.Unwrap(inner); uw != nil; uw = errors.Unwrap(inner) {
+							inner = uw
+						}
+						contractErrors = append(contractErrors, inner.Error())
+					}
+
 					execution.mu.Lock()
 					execution.AttemptContexts[step.ID] = &AttemptContext{
-						Attempt:      attempt + 1,
-						MaxAttempts:  maxAttempts,
-						PriorError:   errMsg,
-						FailureClass: failureClass,
-						PriorStdout:  stdoutTail,
+						Attempt:        attempt + 1,
+						MaxAttempts:    maxAttempts,
+						PriorError:     errMsg,
+						FailureClass:   failureClass,
+						PriorStdout:    stdoutTail,
+						ContractErrors: contractErrors,
 					}
 					execution.mu.Unlock()
 				}
@@ -3702,7 +3718,11 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 			sb.WriteString(fmt.Sprintf("A review agent found issues with the previous implementation. Structured feedback is available at: `%s`\n", attemptCtx.ReviewFeedbackPath))
 			sb.WriteString("Read this file to understand the specific issues and suggestions before making changes.\n\n")
 		}
-		sb.WriteString("Please address the issues from the previous attempt and try a different approach if needed.\n\n---\n\n")
+		if len(attemptCtx.ContractErrors) > 0 {
+			sb.WriteString("Fix the specific failure above. Do not start from scratch.\n\n---\n\n")
+		} else {
+			sb.WriteString("Please address the issues from the previous attempt and try a different approach if needed.\n\n---\n\n")
+		}
 		sb.WriteString(prompt)
 		prompt = sb.String()
 	}
