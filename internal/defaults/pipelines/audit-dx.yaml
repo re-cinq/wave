@@ -22,6 +22,7 @@ input:
 chat_context:
   artifact_summaries:
     - findings
+    - report
   suggested_questions:
     - "What are the biggest DX friction points?"
     - "Which improvements would have the most impact for new contributors?"
@@ -46,6 +47,9 @@ pipeline_outputs:
   findings:
     step: audit
     artifact: findings
+  report:
+    step: audit
+    artifact: report
 
 steps:
   - id: audit
@@ -141,12 +145,23 @@ steps:
 
         ## Output Format
 
-        A markdown report at the output artifact path defined above with these sections:
-        - **Executive Summary** (2-3 sentences: overall DX rating and top concern)
-        - **Area-by-Area Findings** (one subsection per area, each with severity badge,
-          evidence citations, and improvement recommendations)
-        - **Quick Wins** (highest-impact, lowest-effort fixes — maximum 5)
-        - **Prioritized Roadmap** (ordered list of improvements by impact)
+        You must produce TWO output artifacts:
+
+        1. **JSON findings** conforming to the contract schema — one finding object per
+           issue discovered. All findings use type `"dx"`. Map your severity ratings to
+           schema severities: areas rated excellent/good need no finding entry, fair maps
+           to `"medium"` or `"low"`, poor maps to `"high"` or `"critical"` depending on
+           impact to contributor velocity.
+
+        2. **Markdown report** — the human-readable version with these sections:
+           - **Executive Summary** (2-3 sentences: overall DX rating and top concern)
+           - **Area-by-Area Findings** (one subsection per area, each with severity badge,
+             evidence citations, and improvement recommendations)
+           - **Quick Wins** (highest-impact, lowest-effort fixes — maximum 5)
+           - **Prioritized Roadmap** (ordered list of improvements by impact)
+
+        Both artifacts must be consistent — every finding in the JSON must appear in the
+        markdown report and vice versa.
 
         ## Quality Bar
 
@@ -156,9 +171,14 @@ steps:
         praise or ungrounded criticism fails the quality bar.
     output_artifacts:
       - name: findings
+        path: .wave/output/findings.json
+        type: json
+      - name: report
         path: .wave/output/findings.md
         type: markdown
     handover:
       contract:
-        type: non_empty_file
-        source: .wave/output/findings.md
+        type: json_schema
+        source: .wave/output/findings.json
+        schema_path: .wave/contracts/shared-findings.schema.json
+        on_failure: skip
