@@ -26,7 +26,7 @@ func defaultCommandRunner(ctx context.Context, name string, args ...string) ([]b
 
 // GateExecutor handles blocking gate steps.
 type GateExecutor struct {
-	emitter  event.EventEmitter
+	emitterMixin
 	store    state.StateStore
 	runner   commandRunner // injectable for tests
 	timeouts *manifest.Timeouts
@@ -36,21 +36,21 @@ type GateExecutor struct {
 // NewGateExecutor creates a gate executor.
 func NewGateExecutor(emitter event.EventEmitter, store state.StateStore, timeouts *manifest.Timeouts) *GateExecutor {
 	return &GateExecutor{
-		emitter:  emitter,
-		store:    store,
-		runner:   defaultCommandRunner,
-		timeouts: timeouts,
+		emitterMixin: emitterMixin{emitter: emitter},
+		store:        store,
+		runner:       defaultCommandRunner,
+		timeouts:     timeouts,
 	}
 }
 
 // NewGateExecutorWithHandler creates a gate executor with an interactive handler.
 func NewGateExecutorWithHandler(emitter event.EventEmitter, store state.StateStore, timeouts *manifest.Timeouts, handler GateHandler) *GateExecutor {
 	return &GateExecutor{
-		emitter:  emitter,
-		store:    store,
-		runner:   defaultCommandRunner,
-		timeouts: timeouts,
-		handler:  handler,
+		emitterMixin: emitterMixin{emitter: emitter},
+		store:        store,
+		runner:       defaultCommandRunner,
+		timeouts:     timeouts,
+		handler:      handler,
 	}
 }
 
@@ -474,8 +474,3 @@ func (g *GateExecutor) executeCIPass(ctx context.Context, gate *GateConfig) erro
 	}
 }
 
-func (g *GateExecutor) emit(ev event.Event) {
-	if g.emitter != nil {
-		g.emitter.Emit(ev)
-	}
-}

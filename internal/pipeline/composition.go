@@ -23,8 +23,8 @@ type SubPipelineLoader func(dir, name string) (*Pipeline, error)
 // gate, loop, aggregate, sub-pipeline) and delegates actual pipeline execution
 // to SequenceExecutor / DefaultPipelineExecutor.
 type CompositionExecutor struct {
+	emitterMixin
 	seqExecutor    *SequenceExecutor
-	emitter        event.EventEmitter
 	store          state.StateStore
 	tmplCtx        *TemplateContext
 	manifest       *manifest.Manifest
@@ -49,8 +49,8 @@ func NewCompositionExecutor(
 		wsRoot = ".wave/workspaces"
 	}
 	return &CompositionExecutor{
+		emitterMixin: emitterMixin{emitter: emitter},
 		seqExecutor:  seqExecutor,
-		emitter:      emitter,
 		store:        store,
 		tmplCtx:      NewTemplateContext(input, wsRoot),
 		manifest:     m,
@@ -550,11 +550,6 @@ func (c *CompositionExecutor) resolveStepInput(step *Step) (string, error) {
 	return c.tmplCtx.Input, nil
 }
 
-func (c *CompositionExecutor) emit(ev event.Event) {
-	if c.emitter != nil {
-		c.emitter.Emit(ev)
-	}
-}
 
 // mergeJSONArrays takes a JSON string containing multiple arrays and merges them.
 // If the input is an array of arrays, the inner arrays are flattened into one.

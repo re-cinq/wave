@@ -2429,18 +2429,18 @@ func TestMatrixExecutor_Stacked_ParentNoOutputBranch(t *testing.T) {
 	}
 }
 
-func TestMatrixExecutor_StackedBaseBranchFromContext(t *testing.T) {
+func TestMatrixExecutor_stackedBaseBranchFromContext(t *testing.T) {
 	// Test the context-based stacked base branch propagation
 	ctx := context.Background()
 
 	// No stacked base in plain context
-	if branch := StackedBaseBranchFromContext(ctx); branch != "" {
+	if branch := stackedBaseBranchFromContext(ctx); branch != "" {
 		t.Errorf("Expected empty stacked base from plain context, got %q", branch)
 	}
 
 	// With stacked base
 	ctx = context.WithValue(ctx, stackedBaseBranchKey{}, "feature/parent")
-	if branch := StackedBaseBranchFromContext(ctx); branch != "feature/parent" {
+	if branch := stackedBaseBranchFromContext(ctx); branch != "feature/parent" {
 		t.Errorf("Expected 'feature/parent', got %q", branch)
 	}
 }
@@ -2460,7 +2460,7 @@ func (a *stackedBranchTrackingAdapter) Run(ctx context.Context, cfg adapter.Adap
 	a.mu.Unlock()
 
 	// Capture stacked base from context
-	if base := StackedBaseBranchFromContext(ctx); base != "" {
+	if base := stackedBaseBranchFromContext(ctx); base != "" {
 		a.mu.Lock()
 		a.branchCaptures[idx] = base
 		a.mu.Unlock()

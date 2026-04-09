@@ -598,7 +598,7 @@ func (m *mockSkillStore) Write(_ skill.Skill) error    { return nil }
 func (m *mockSkillStore) List() ([]skill.Skill, error) { return nil, nil }
 func (m *mockSkillStore) Delete(_ string) error        { return nil }
 
-func TestValidatePipelineSkills(t *testing.T) {
+func Test_validatePipelineSkills(t *testing.T) {
 	t.Run("valid skills pass validation", func(t *testing.T) {
 		store := &mockSkillStore{skills: map[string]skill.Skill{
 			"speckit": {Name: "speckit", Description: "Speckit skill"},
@@ -609,7 +609,7 @@ func TestValidatePipelineSkills(t *testing.T) {
 			Skills:   []string{"speckit", "golang"},
 		}
 
-		errs := ValidatePipelineSkills(p, store)
+		errs := validatePipelineSkills(p, store)
 		if len(errs) != 0 {
 			t.Errorf("expected no errors, got: %v", errs)
 		}
@@ -622,7 +622,7 @@ func TestValidatePipelineSkills(t *testing.T) {
 			Skills:   []string{"INVALID_NAME"},
 		}
 
-		errs := ValidatePipelineSkills(p, store)
+		errs := validatePipelineSkills(p, store)
 		if len(errs) == 0 {
 			t.Fatal("expected error for invalid skill name format, got none")
 		}
@@ -644,7 +644,7 @@ func TestValidatePipelineSkills(t *testing.T) {
 			Skills:   []string{"nonexistent-skill"},
 		}
 
-		errs := ValidatePipelineSkills(p, store)
+		errs := validatePipelineSkills(p, store)
 		if len(errs) == 0 {
 			t.Fatal("expected error for nonexistent skill, got none")
 		}
@@ -663,7 +663,7 @@ func TestValidatePipelineSkills(t *testing.T) {
 			Metadata: PipelineMetadata{Name: "test-pipeline"},
 		}
 
-		errs := ValidatePipelineSkills(p, store)
+		errs := validatePipelineSkills(p, store)
 		if len(errs) != 0 {
 			t.Errorf("expected no errors for pipeline without skills, got: %v", errs)
 		}

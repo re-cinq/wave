@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/recinq/wave/internal/fileutil"
 )
 
 // Provisioner discovers and copies skill command files into a workspace.
@@ -58,7 +60,7 @@ func (p *Provisioner) Provision(workspacePath string, skillNames []string) error
 			fileName := filepath.Base(src)
 			dst := filepath.Join(targetDir, fileName)
 
-			if err := copyFile(src, dst); err != nil {
+			if err := fileutil.CopyFile(src, dst); err != nil {
 				return fmt.Errorf("failed to copy skill command %q: %w", fileName, err)
 			}
 		}
@@ -107,20 +109,6 @@ func (p *Provisioner) ProvisionAll(workspacePath string) error {
 	return p.Provision(workspacePath, names)
 }
 
-// copyFile copies a single file from src to dst.
-func copyFile(src, dst string) error {
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return err
-	}
-
-	// Preserve directory structure
-	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
-		return err
-	}
-
-	return os.WriteFile(dst, data, 0644)
-}
 
 // FormatSkillCommandPrompt generates a prompt fragment that tells the agent
 // to use a slash command with the given arguments.
