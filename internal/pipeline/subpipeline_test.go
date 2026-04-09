@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/recinq/wave/internal/fileutil"
 )
 
 func TestSubPipelineConfig_Validate(t *testing.T) {
@@ -345,7 +347,7 @@ func TestSubPipelineTimeout(t *testing.T) {
 	})
 }
 
-func TestDetectSubPipelineCycles(t *testing.T) {
+func Test_detectSubPipelineCycles(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// pipeline-a references pipeline-b
@@ -379,7 +381,7 @@ steps:
 		},
 	}
 
-	err := DetectSubPipelineCycles(p, tmpDir)
+	err := detectSubPipelineCycles(p, tmpDir)
 	if err == nil {
 		t.Fatal("expected cycle detection error, got nil")
 	}
@@ -388,7 +390,7 @@ steps:
 	}
 }
 
-func TestDetectSubPipelineCycles_Transitive(t *testing.T) {
+func Test_detectSubPipelineCycles_Transitive(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// A -> B -> C -> A (transitive cycle)
@@ -431,7 +433,7 @@ steps:
 		},
 	}
 
-	err := DetectSubPipelineCycles(p, tmpDir)
+	err := detectSubPipelineCycles(p, tmpDir)
 	if err == nil {
 		t.Fatal("expected cycle detection error for transitive cycle, got nil")
 	}
@@ -527,8 +529,8 @@ func TestCopyFile(t *testing.T) {
 	}
 
 	dest := filepath.Join(tmpDir, "subdir", "dest.txt")
-	if err := copyFile(src, dest); err != nil {
-		t.Fatalf("copyFile() error: %v", err)
+	if err := fileutil.CopyFile(src, dest); err != nil {
+		t.Fatalf("CopyFile() error: %v", err)
 	}
 
 	got, err := os.ReadFile(dest)
@@ -536,7 +538,7 @@ func TestCopyFile(t *testing.T) {
 		t.Fatalf("failed to read dest: %v", err)
 	}
 	if string(got) != "hello" {
-		t.Errorf("copyFile content = %q, want %q", string(got), "hello")
+		t.Errorf("CopyFile content = %q, want %q", string(got), "hello")
 	}
 }
 
@@ -555,7 +557,7 @@ func TestEvaluateStopCondition_DoneValue(t *testing.T) {
 	}
 }
 
-func TestDetectSubPipelineCycles_NoCycle(t *testing.T) {
+func Test_detectSubPipelineCycles_NoCycle(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// pipeline-a references pipeline-b
@@ -592,7 +594,7 @@ steps:
 		},
 	}
 
-	err := DetectSubPipelineCycles(p, tmpDir)
+	err := detectSubPipelineCycles(p, tmpDir)
 	if err != nil {
 		t.Errorf("expected no error for acyclic pipelines, got: %v", err)
 	}

@@ -13,13 +13,13 @@ import (
 
 // Step lifecycle state constants — canonical source: state.StepState.
 const (
-	StatePending   = string(state.StatePending)
-	StateRunning   = string(state.StateRunning)
-	StateCompleted = string(state.StateCompleted)
-	StateFailed    = string(state.StateFailed)
-	StateRetrying  = string(state.StateRetrying)
-	StateSkipped   = string(state.StateSkipped)
-	StateReworking = string(state.StateReworking)
+	statePending   = string(state.StatePending)
+	stateRunning   = string(state.StateRunning)
+	stateCompleted = string(state.StateCompleted)
+	stateFailed    = string(state.StateFailed)
+	stateRetrying  = string(state.StateRetrying)
+	stateSkipped   = string(state.StateSkipped)
+	stateReworking = string(state.StateReworking)
 )
 
 // OnFailure policy constants for contract and step failure handling.

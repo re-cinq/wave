@@ -185,7 +185,7 @@ func TestStressTest_Executor_CircuitBreakerWithFailureClassification(t *testing.
 	attempts := store.getAttempts()
 	var failedAttempts []string
 	for _, a := range attempts {
-		if a.State == StateFailed {
+		if a.State == stateFailed {
 			failedAttempts = append(failedAttempts, a.FailureClass)
 		}
 	}
@@ -322,7 +322,7 @@ func TestStressTest_PipelineYAML_Parseable(t *testing.T) {
 		},
 	}
 
-	assert.True(t, IsGraphPipeline(p),
+	assert.True(t, isGraphPipeline(p),
 		"pipeline with edges should be detected as graph pipeline")
 
 	// Verify the step structure

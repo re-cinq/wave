@@ -523,7 +523,7 @@ func (m *MatrixExecutor) createWorkerStep(step *Step, item interface{}) *Step {
 	// Replace {{ task }} template variable in the exec source
 	prompt := workerStep.Exec.Source
 	for _, pattern := range []string{"{{ task }}", "{{task}}", "{{ task}}", "{{task }}"} {
-		for idx := indexOf(prompt, pattern); idx != -1; idx = indexOf(prompt, pattern) {
+		for idx := strings.Index(prompt, pattern); idx != -1; idx = strings.Index(prompt, pattern) {
 			prompt = prompt[:idx] + itemStr + prompt[idx+len(pattern):]
 		}
 	}
@@ -1117,7 +1117,7 @@ func (m *MatrixExecutor) childPipelineWorker(childPipeline *Pipeline) matrixWork
 		childExecutor := m.executor.NewChildExecutor()
 
 		// Apply stacked base branch override from context (set by wrapWorkerWithBaseBranch)
-		if baseBranch := StackedBaseBranchFromContext(ctx); baseBranch != "" {
+		if baseBranch := stackedBaseBranchFromContext(ctx); baseBranch != "" {
 			childExecutor.stackedBaseBranch = baseBranch
 		}
 
@@ -1168,8 +1168,8 @@ func (m *MatrixExecutor) wrapWorkerWithBaseBranch(worker matrixWorkerFunc, baseB
 	}
 }
 
-// StackedBaseBranchFromContext extracts the stacked base branch override from context.
-func StackedBaseBranchFromContext(ctx context.Context) string {
+// stackedBaseBranchFromContext extracts the stacked base branch override from context.
+func stackedBaseBranchFromContext(ctx context.Context) string {
 	if v, ok := ctx.Value(stackedBaseBranchKey{}).(string); ok {
 		return v
 	}

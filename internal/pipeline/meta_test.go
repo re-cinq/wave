@@ -536,13 +536,13 @@ func TestMetaPipelineDepthLimitEnforcement(t *testing.T) {
 		},
 		{
 			name:         "uses default max depth when 0",
-			maxDepth:     0, // Should use DefaultMaxDepth (3)
+			maxDepth:     0, // Should use defaultMaxDepth (3)
 			currentDepth: 2,
 			wantErr:      false,
 		},
 		{
 			name:         "default max depth blocks at 3",
-			maxDepth:     0, // Should use DefaultMaxDepth (3)
+			maxDepth:     0, // Should use defaultMaxDepth (3)
 			currentDepth: 3,
 			wantErr:      true,
 			errContains:  "depth limit reached",
@@ -1059,7 +1059,7 @@ func TestMetaPipelineFailureTracePreservation(t *testing.T) {
 					}
 				}
 				// Only check for started event if we got past depth check
-				if executor.currentDepth < DefaultMaxDepth && !hasMetaStarted {
+				if executor.currentDepth < defaultMaxDepth && !hasMetaStarted {
 					t.Error("meta_started event should be emitted before failure")
 				}
 			} else {

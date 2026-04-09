@@ -13,9 +13,9 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// ErrParallelStagePartialFailure indicates that one or more pipelines in a
+// errParallelStagePartialFailure indicates that one or more pipelines in a
 // parallel stage failed while other pipelines completed successfully.
-var ErrParallelStagePartialFailure = errors.New("parallel stage partial failure")
+var errParallelStagePartialFailure = errors.New("parallel stage partial failure")
 
 // SequenceResult holds the outcome of a sequence execution.
 type SequenceResult struct {
@@ -27,7 +27,7 @@ type SequenceResult struct {
 type PipelineResult struct {
 	PipelineName string
 	RunID        string
-	Status       string // StateCompleted, StateFailed
+	Status       string // stateCompleted, stateFailed
 	Error        error
 	TokensUsed   int
 	Duration     time.Duration
@@ -35,9 +35,9 @@ type PipelineResult struct {
 
 // SequenceExecutor runs a list of pipelines in order.
 type SequenceExecutor struct {
+	emitterMixin
 	newExecutor     func(opts ...ExecutorOption) *DefaultPipelineExecutor
 	baseOpts        []ExecutorOption
-	emitter         event.EventEmitter
 	store           state.StateStore
 	mu              sync.Mutex                   // protects pipelineOutputs
 	pipelineOutputs map[string]map[string][]byte // pipelineName -> artifactName -> data
@@ -55,9 +55,9 @@ func NewSequenceExecutor(
 	store state.StateStore,
 ) *SequenceExecutor {
 	return &SequenceExecutor{
+		emitterMixin:    emitterMixin{emitter: emitter},
 		newExecutor:     newExecutor,
 		baseOpts:        baseOpts,
-		emitter:         emitter,
 		store:           store,
 		pipelineOutputs: make(map[string]map[string][]byte),
 	}
@@ -131,7 +131,7 @@ func (s *SequenceExecutor) Execute(ctx context.Context, pipelines []*Pipeline, m
 		}
 
 		if execErr != nil {
-			pr.Status = StateFailed
+			pr.Status = stateFailed
 			pr.Error = execErr
 			result.PipelineResults = append(result.PipelineResults, pr)
 			result.TotalTokens += pr.TokensUsed
@@ -147,7 +147,7 @@ func (s *SequenceExecutor) Execute(ctx context.Context, pipelines []*Pipeline, m
 			return result, fmt.Errorf("sequence failed at pipeline %d/%d (%s): %w", i+1, len(pipelines), pipelineName, execErr)
 		}
 
-		pr.Status = StateCompleted
+		pr.Status = stateCompleted
 		result.PipelineResults = append(result.PipelineResults, pr)
 		result.TotalTokens += pr.TokensUsed
 
@@ -212,7 +212,7 @@ func (s *SequenceExecutor) ExecutePlan(ctx context.Context, plan ExecutionPlan, 
 				result.TotalTokens += pr.TokensUsed
 			}
 			if err != nil {
-				if !plan.FailFast && errors.Is(err, ErrParallelStagePartialFailure) {
+				if !plan.FailFast && errors.Is(err, errParallelStagePartialFailure) {
 					hadFailures = true
 				} else {
 					return result, err
@@ -250,11 +250,11 @@ func (s *SequenceExecutor) ExecutePlan(ctx context.Context, plan ExecutionPlan, 
 		// Collect all failed pipeline names for the aggregate error
 		var failedNames []string
 		for _, pr := range result.PipelineResults {
-			if pr.Status == StateFailed {
+			if pr.Status == stateFailed {
 				failedNames = append(failedNames, pr.PipelineName)
 			}
 		}
-		return result, fmt.Errorf("%w: %v", ErrParallelStagePartialFailure, failedNames)
+		return result, fmt.Errorf("%w: %v", errParallelStagePartialFailure, failedNames)
 	}
 
 	s.emit(event.Event{
@@ -306,12 +306,12 @@ func (s *SequenceExecutor) executeParallelStage(ctx context.Context, stage Stage
 	if err == nil && !failFast {
 		var failedNames []string
 		for _, pr := range results {
-			if pr.Status == StateFailed {
+			if pr.Status == stateFailed {
 				failedNames = append(failedNames, pr.PipelineName)
 			}
 		}
 		if len(failedNames) > 0 {
-			err = fmt.Errorf("%w: %v", ErrParallelStagePartialFailure, failedNames)
+			err = fmt.Errorf("%w: %v", errParallelStagePartialFailure, failedNames)
 		}
 	}
 
@@ -375,12 +375,12 @@ func (s *SequenceExecutor) executeSinglePipeline(ctx context.Context, p *Pipelin
 	}
 
 	if execErr != nil {
-		pr.Status = StateFailed
+		pr.Status = stateFailed
 		pr.Error = execErr
 		return pr, execErr
 	}
 
-	pr.Status = StateCompleted
+	pr.Status = stateCompleted
 	s.recordPipelineOutputs(p, runID, ".wave/workspaces")
 	return pr, nil
 }
@@ -463,8 +463,3 @@ func (s *SequenceExecutor) GetPipelineOutputs() map[string]map[string][]byte {
 	return s.pipelineOutputs
 }
 
-func (s *SequenceExecutor) emit(ev event.Event) {
-	if s.emitter != nil {
-		s.emitter.Emit(ev)
-	}
-}
