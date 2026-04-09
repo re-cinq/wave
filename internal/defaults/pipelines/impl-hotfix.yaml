@@ -252,7 +252,7 @@ steps:
         while leaving the root cause intact.
     retry:
       policy: standard
-      max_attempts: 3
+      max_attempts: 2
       on_failure: rework
       rework_step: fix-retry
     handover:

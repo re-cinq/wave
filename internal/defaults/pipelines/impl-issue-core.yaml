@@ -134,7 +134,7 @@ steps:
       source_path: .wave/prompts/implement/implement.md
     retry:
       policy: aggressive
-      max_attempts: 3
+      max_attempts: 2
     handover:
       contract:
         type: test_suite

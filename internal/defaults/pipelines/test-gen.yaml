@@ -273,7 +273,7 @@ steps:
         A good test generation produces tests that catch real bugs: if someone introduced a regression, at least one of these tests would fail. Tests have descriptive names that document what they verify. Table-driven tests cover the input space systematically. Mocks are minimal and focused. A bad test generation produces tests that only exercise the happy path, use meaningless assertions, or test implementation details that break when the code is refactored without behavioral change.
     retry:
       policy: standard
-      max_attempts: 3
+      max_attempts: 2
     handover:
       contract:
         type: test_suite
