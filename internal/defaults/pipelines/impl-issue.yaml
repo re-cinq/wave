@@ -150,7 +150,7 @@ steps:
 
   - id: fix-implement
     persona: craftsman
-    model: fastest
+    model: balanced
     rework_only: true
     workspace:
       type: worktree

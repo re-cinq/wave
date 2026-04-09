@@ -267,7 +267,7 @@ steps:
 
   - id: fix-retry
     persona: craftsman
-    model: fastest
+    model: balanced
     rework_only: true
     workspace:
       mount:

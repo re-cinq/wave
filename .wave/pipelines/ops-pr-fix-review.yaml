@@ -203,7 +203,7 @@ steps:
   - id: triage
     persona: navigator
     contexts: [configuration, execution]
-    model: fastest
+    model: balanced
     dependencies: [fetch-review]
     memory:
       inject_artifacts:
@@ -517,7 +517,7 @@ steps:
   - id: retry-fixes
     persona: craftsman
     thread: fix
-    model: fastest
+    model: balanced
     rework_only: true
     workspace:
       type: worktree

@@ -7,10 +7,10 @@ import (
 )
 
 // Complexity tier constants returned by ClassifyStepComplexity.
-// These tiers guide model selection: cheapest (cost), fastest (latency), strongest (capability).
+// Three tiers: cheapest (cost), balanced (quality/cost), strongest (capability).
 const (
 	TierCheapest  = "cheapest"
-	TierFastest   = "fastest"
+	TierBalanced  = "balanced"
 	TierStrongest = "strongest"
 )
 
@@ -36,12 +36,12 @@ var strongestPersonaKeywords = []string{
 }
 
 // ClassifyStepComplexity returns a complexity tier for the given step and persona.
-// The tier is one of TierCheapest, TierFastest, or TierStrongest.
+// The tier is one of TierCheapest, TierBalanced, or TierStrongest.
 //
 // Classification heuristics (evaluated in order):
 //   - cheapest: persona name contains a lightweight keyword, OR step type is "command"/"conditional"
 //   - strongest: persona name contains a complex keyword, OR step uses sub_pipeline/loop/branch/aggregate
-//   - fastest: fallthrough for everything else (balance of cost and capability)
+//   - balanced: fallthrough for everything else (balance of cost and capability)
 func ClassifyStepComplexity(step *Step, persona *manifest.Persona, personaName string) string {
 	// Normalize persona name for keyword matching.
 	lowerName := strings.ToLower(personaName)
@@ -66,5 +66,36 @@ func ClassifyStepComplexity(step *Step, persona *manifest.Persona, personaName s
 		}
 	}
 
-	return TierFastest
+	return TierBalanced
+}
+
+// TierRank returns the cost rank of a tier (lower = cheaper).
+// Used to resolve conflicts: when multiple tiers apply, the cheaper one wins.
+func TierRank(tier string) int {
+	switch tier {
+	case TierCheapest:
+		return 0
+	case TierBalanced:
+		return 1
+	case TierStrongest:
+		return 2
+	default:
+		return -1 // not a tier (literal model name)
+	}
+}
+
+// CheaperTier returns the cheaper of two tier names.
+// If either is not a recognized tier, it returns the other.
+func CheaperTier(a, b string) string {
+	ra, rb := TierRank(a), TierRank(b)
+	if ra < 0 {
+		return b
+	}
+	if rb < 0 {
+		return a
+	}
+	if ra <= rb {
+		return a
+	}
+	return b
 }
