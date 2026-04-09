@@ -2814,8 +2814,7 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-meta .badge { font-size: 0.62rem; padding: 1px 4px; }
 .ws-code-link { font-family: var(--font-mono); font-size: 0.68rem; padding: 0.05rem 0.35rem; border-radius: 3px; background: rgba(99,102,241,0.1); color: var(--color-link-hover); text-decoration: none; cursor: pointer; }
 .ws-code-link:hover { background: rgba(99,102,241,0.2); }
-.ws-corner { position: absolute; bottom: 0.15rem; right: 0.4rem; display: flex; align-items: center; gap: 0.4rem; z-index: 1; }
-.ws-dur { font-weight: 600; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; font-size: 0.72rem; font-family: var(--font-mono); }
+.ws-dur { font-weight: 600; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; font-size: 0.72rem; font-family: var(--font-mono); margin-left: auto; }
 .ws-tok { color: var(--color-text-muted); font-size: 0.75rem; font-weight: 400; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
 
 /* ── Step config panel (click to expand) ── */
