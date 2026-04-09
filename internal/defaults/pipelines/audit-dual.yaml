@@ -23,7 +23,7 @@ metadata:
     both into a unified assessment with an executive summary and prioritized
     recommendations. Use this for a comprehensive module-level review that
     covers both maintainability and vulnerability concerns in a single run.
-  release: true
+  release: false
 
 skills:
   - software-design
