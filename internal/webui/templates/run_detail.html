@@ -100,7 +100,7 @@
                 {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else}}status-cancelled{{end}}" style="font-size:0.68rem;">{{.LinkedState}}</span>{{end}}
                 {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</span>{{end}}
             {{else}}
-                {{if .Run.LinkedURL}}<a href="{{.Run.LinkedURL}}" target="_blank" style="font-weight:600;">{{richInput .Run.Input .Run.LinkedURL}}</a>{{else if .Run.Input}}{{.Run.Input}}{{else}}<span style="opacity:0.4">no input</span>{{end}}
+                {{if .Run.LinkedURL}}<a href="{{.Run.LinkedURL}}" target="_blank" style="font-weight:600;">{{richInput .Run.Input .Run.LinkedURL}}</a>{{else if and .Run.Input (not (hasPrefix .Run.Input "{{"))}}{{.Run.Input}}{{else}}<span style="opacity:0.4">no input</span>{{end}}
             {{end}}</span>
         </div>
     </div>
