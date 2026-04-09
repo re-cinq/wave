@@ -10,7 +10,7 @@ metadata:
   release: false
 
 requires:
-  tools: []
+  tools:
     - gh
 
 skills:
