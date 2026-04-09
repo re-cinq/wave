@@ -36,10 +36,10 @@
         "categories": {
           "type": "object",
           "properties": {
-            "go_code": {
+            "source_code": {
               "type": "array",
               "items": { "type": "string" },
-              "description": "Changed Go source files"
+              "description": "Changed source files"
             },
             "cli_commands": {
               "type": "array",

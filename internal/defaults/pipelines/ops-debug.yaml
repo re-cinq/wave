@@ -89,7 +89,7 @@ steps:
         3. **Create minimal reproduction steps.** Write a numbered sequence of commands
            or actions that reliably trigger the bug. If a specific test fails, identify
            the exact test function name and the command to run it (e.g.,
-           `go test -run TestFoo ./internal/pkg/`). If the issue requires specific input
+           `{{ project.test_command }}` with a filter for the specific test). If the issue requires specific input
            data, describe that data. If you can reduce the reproduction to a smaller
            scope, do so.
 
@@ -99,7 +99,7 @@ steps:
            Read the actual source files — do not guess at code paths.
 
         5. **Note environmental factors.** Record anything that might influence
-           reproduction: Go version, OS, build tags, feature flags, configuration values
+           reproduction: language runtime version, OS, build tags, feature flags, configuration values
            from wave.yaml, presence or absence of specific environment variables,
            concurrency settings, or filesystem state.
 
@@ -209,7 +209,7 @@ steps:
 
         5. **Consider systemic patterns.** After forming individual hypotheses, check
            whether the bug could be an instance of a known anti-pattern: missing nil
-           checks after map lookups, goroutine-unsafe field access, incorrect error
+           checks after map lookups, thread-unsafe field access, incorrect error
            wrapping that loses context, or interface satisfaction gaps.
 
         ## Constraints and Anti-patterns
@@ -321,7 +321,7 @@ steps:
 
         5. **Examine data flow end-to-end.** Trace the values from input to the failure
            point. Look for: implicit type conversions, nil propagation through call
-           chains, goroutine interleaving, map access patterns, interface method dispatch,
+           chains, thread interleaving, map access patterns, interface method dispatch,
            and error swallowing.
 
         6. **Stop when root cause is found.** Once a hypothesis is confirmed, you do not
