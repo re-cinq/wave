@@ -8,7 +8,7 @@ metadata:
     Use this to validate a release branch or tag before cutting a production
     release.
   category: composition
-  release: true
+  release: false
 
 input:
   source: cli
