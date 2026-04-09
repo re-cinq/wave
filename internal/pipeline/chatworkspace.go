@@ -23,7 +23,7 @@ const (
 
 // ChatWorkspaceOptions configures the chat workspace preparation.
 type ChatWorkspaceOptions struct {
-	Model        string   // Model override (e.g., "sonnet", "opus")
+	Model        string   // Model override: literal model identifier (e.g., "claude-sonnet-4") passed to the adapter
 	Mode         ChatMode // defaults to ChatModeAnalysis if empty
 	StepFilter   string   // If set, scope the chat context to this step ID
 	ArtifactName string   // If set, focus on a specific artifact by name
@@ -62,9 +62,6 @@ func PrepareChatWorkspace(ctx *ChatContext, opts ChatWorkspaceOptions) (string, 
 	}
 
 	model := opts.Model
-	if model == "" {
-		model = "sonnet"
-	}
 
 	var perms chatPermissions
 	switch mode {
@@ -131,7 +128,7 @@ func PrepareChatWorkspace(ctx *ChatContext, opts ChatWorkspaceOptions) (string, 
 }
 
 type chatSettings struct {
-	Model       string          `json:"model"`
+	Model       string          `json:"model,omitempty"`
 	Permissions chatPermissions `json:"permissions"`
 }
 

@@ -277,7 +277,7 @@ type Step struct {
 	ID                  string           `yaml:"id"`
 	Persona             string           `yaml:"persona"`
 	Adapter             string           `yaml:"adapter,omitempty"` // Step-level adapter override (e.g., "codex", "gemini")
-	Model               string           `yaml:"model,omitempty"`   // Step-level model override (e.g., "claude-haiku-4-5")
+	Model               string           `yaml:"model,omitempty"`   // Step-level model override: tier name (cheapest, balanced, strongest) or literal model ID
 	Dependencies        []string         `yaml:"dependencies,omitempty"`
 	TimeoutMinutes      int              `yaml:"timeout_minutes,omitempty"`
 	Optional            bool             `yaml:"optional,omitempty"`

@@ -835,7 +835,8 @@ func buildRestrictionSection(cfg AdapterRunConfig) string {
 // (defined in the commands package where the manifest import is already present)
 // or build the struct directly.
 type PersonaSpec struct {
-	// Model is the Claude model identifier (e.g. "opus", "sonnet").
+	// Model is the Claude model identifier (e.g. "claude-opus-4") or tier alias
+	// (cheapest, balanced, strongest, resolved before this point by the executor).
 	// Leave empty to omit the frontmatter field and inherit the CLI default.
 	Model string
 

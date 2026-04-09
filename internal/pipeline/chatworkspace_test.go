@@ -175,8 +175,10 @@ func TestPrepareChatWorkspace_DefaultModel(t *testing.T) {
 	var settings map[string]interface{}
 	_ = json.Unmarshal(settingsData, &settings)
 
-	if model, ok := settings["model"].(string); !ok || model != "sonnet" {
-		t.Errorf("expected default model 'sonnet', got %v", settings["model"])
+	// When no model is specified, the model field should be omitted from settings.json
+	// so the adapter uses its own default rather than a hardcoded model name.
+	if model, ok := settings["model"]; ok && model != "" {
+		t.Errorf("expected model field to be absent or empty when no model specified, got %v", model)
 	}
 }
 
