@@ -228,7 +228,7 @@ steps:
         A bad fix is overly broad, lacks a regression test, or introduces new failures.
     retry:
       policy: standard
-      max_attempts: 3
+      max_attempts: 2
     handover:
       contract:
         type: test_suite

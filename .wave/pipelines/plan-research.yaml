@@ -127,7 +127,7 @@ steps:
         type: json
     retry:
       policy: aggressive
-      max_attempts: 3
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
@@ -537,7 +537,7 @@ steps:
         label: "Research Comment"
     retry:
       policy: aggressive
-      max_attempts: 3
+      max_attempts: 2
     handover:
       contract:
         type: json_schema
