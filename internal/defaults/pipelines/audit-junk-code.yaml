@@ -7,7 +7,7 @@ metadata:
     TODOs, misplaced abstractions, complexity hotspots, and meaningless tests.
     Use this to find code that compiles but does not belong -- the kind of
     structural debt that accumulates silently during rapid iteration.
-  release: true
+  release: false
 
 skills:
   - software-design

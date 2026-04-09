@@ -8,7 +8,7 @@ metadata:
     in a single pipeline run. Composes plan-scope and impl-speckit as
     sub-pipelines.
   category: composition
-  release: true
+  release: false
 
 input:
   source: cli
