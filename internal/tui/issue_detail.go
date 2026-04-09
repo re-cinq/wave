@@ -20,7 +20,6 @@ type IssueDetailModel struct {
 	pipelines     []PipelineInfo
 	chooserActive bool
 	chooserCursor int
-	pipelinesDir  string
 }
 
 // NewIssueDetailModel creates a new issue detail model.
