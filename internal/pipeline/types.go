@@ -466,9 +466,10 @@ type ContractConfig struct {
 
 // ReviewContextSource defines a single context item provided to the reviewing agent.
 type ReviewContextSource struct {
-	Source   string `yaml:"source,omitempty"`   // "git_diff" or "artifact"
-	Artifact string `yaml:"artifact,omitempty"` // Artifact name when source is "artifact"
-	MaxSize  int    `yaml:"max_size,omitempty"` // Max bytes for this source (0 = use default)
+	Source   string `yaml:"source,omitempty"`    // "git_diff" or "artifact"
+	Artifact string `yaml:"artifact,omitempty"`  // Artifact name when source is "artifact"
+	MaxSize  int    `yaml:"max_size,omitempty"`  // Max bytes for this source (0 = use default)
+	DiffBase string `yaml:"diff_base,omitempty"` // Git ref to diff against (e.g. "main"); auto-detected if empty
 }
 
 type CompactionConfig struct {
