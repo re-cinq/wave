@@ -1,0 +1,126 @@
+kind: WavePipeline
+metadata:
+  name: audit-correctness
+  description: >-
+    Correctness audit that verifies implementation against issue requirements.
+    Checks for logic errors, missing features, incomplete implementations, and
+    requirement gaps. Produces structured findings in shared-findings format for
+    cross-pipeline aggregation.
+  release: true
+
+skills:
+  - software-design
+
+input:
+  source: cli
+  example: "audit correctness of the authentication module implementation"
+
+chat_context:
+  artifact_summaries:
+    - findings
+    - report
+  suggested_questions:
+    - "Which requirements are unaddressed or partially implemented?"
+    - "What logic errors were found?"
+    - "Are all acceptance criteria met?"
+  focus_areas:
+    - "Requirement coverage and correctness"
+    - "Logic errors and edge cases"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] correctness audit started run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-findings
+    event: step_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] step completed: $WAVE_HOOK_STEP_ID' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  report:
+    step: report
+    artifact: report
+
+steps:
+  - id: scan
+    persona: navigator
+    contexts: [validation]
+    model: cheapest
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source_path: .wave/prompts/audit/correctness-scan.md
+    output_artifacts:
+      - name: findings
+        path: .wave/output/findings.json
+        type: json
+    retry:
+      policy: patient
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/findings.json
+        schema_path: .wave/contracts/shared-findings.schema.json
+        on_failure: skip
+
+  - id: report
+    persona: summarizer
+    model: cheapest
+    contexts: [validation]
+    dependencies: [scan]
+    memory:
+      inject_artifacts:
+        - step: scan
+          artifact: findings
+          as: scan_findings
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Synthesize the correctness scan findings into a concise, actionable report.
+        Your audience is the engineering team that needs to understand which requirements
+        are met, which have gaps, and what logic errors exist.
+
+        ## Context
+
+        The injected `scan_findings` artifact contains structured findings from the
+        correctness scan. Each finding has a type, severity, file reference, and
+        description. Your job is to organize these into a clear narrative.
+
+        ## Requirements
+
+        1. **Requirements Coverage Summary**: Table showing each identified requirement
+           and its implementation status (complete, partial, missing).
+        2. **Critical Issues**: Logic errors or missing core requirements that must be
+           addressed before the implementation can be considered complete.
+        3. **Minor Gaps**: Non-blocking issues like edge cases not handled or partial
+           implementations that are functional but incomplete.
+        4. **Recommendations**: Prioritized list of fixes ordered by severity and effort.
+
+        ## Output Format
+
+        A clean markdown report at the output artifact path. Use headers, tables, and
+        bullet lists for scannability.
+    output_artifacts:
+      - name: report
+        path: .wave/output/correctness-report.md
+        type: markdown
+    handover:
+      contract:
+        type: agent_review
+        persona: navigator
+        criteria_path: .wave/contracts/quality-review-criteria.md
+        source: .wave/output/correctness-report.md
+        model: cheapest
+        token_budget: 8000
+        timeout: 90s
+        on_failure: warn
