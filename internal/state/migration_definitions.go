@@ -437,5 +437,11 @@ ALTER TABLE event_log ADD COLUMN adapter TEXT;`,
 			Down: `ALTER TABLE event_log DROP COLUMN model;
 ALTER TABLE event_log DROP COLUMN adapter;`,
 		},
+		{
+			Version:     20,
+			Description: "Add configured_model column to event_log for tier tracking",
+			Up:          `ALTER TABLE event_log ADD COLUMN configured_model TEXT DEFAULT '';`,
+			Down:        `ALTER TABLE event_log DROP COLUMN configured_model;`,
+		},
 	}
 }

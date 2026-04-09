@@ -49,7 +49,7 @@ func (l *loggingEmitter) Emit(ev event.Event) {
 
 	// Only log meaningful events to the database — skip empty heartbeat ticks
 	if l.store != nil && !isHeartbeat(ev) {
-		if err := l.store.LogEvent(l.runID, ev.StepID, ev.State, ev.Persona, ev.Message, ev.TokensUsed, ev.DurationMs, ev.Model, ev.Adapter); err != nil {
+		if err := l.store.LogEvent(l.runID, ev.StepID, ev.State, ev.Persona, ev.Message, ev.TokensUsed, ev.DurationMs, ev.Model, ev.ConfiguredModel, ev.Adapter); err != nil {
 			log.Printf("Warning: failed to log event for run %s: %v", l.runID, err)
 		}
 	}

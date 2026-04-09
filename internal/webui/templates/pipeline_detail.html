@@ -95,7 +95,7 @@
                     {{if .Duration}}<span><b>{{.Duration}}</b></span>{{end}}
                     {{if gt .StepsTotal 0}}<span><b>{{.StepsCompleted}}/{{.StepsTotal}}</b> steps</span>{{end}}
                     {{if .TotalTokens}}<span><b>{{formatTokens .TotalTokens}}</b> tok</span>{{end}}
-                    {{range .Models}}<span class="badge badge-model">{{friendlyModel .}}</span>{{end}}
+                    {{range .Models}}<span class="badge badge-model {{modelTierClass .}}">{{friendlyModel .}}</span>{{end}}
                 </div>
             </div>
             <div class="wr-meta">
