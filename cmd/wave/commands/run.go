@@ -57,6 +57,7 @@ type RunOptions struct {
 	Detach            bool   // --detach flag for background execution
 	AutoApprove       bool   // --auto-approve flag for skipping approval gates
 	NoRetro           bool   // --no-retro flag to skip retrospective generation
+	ForceModel        bool   // --force-model overrides all step/persona model tiers
 }
 
 func NewRunCmd() *cobra.Command {
@@ -168,7 +169,8 @@ Model formats vary by adapter: claude uses "haiku"/"opus", opencode uses
 	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
 	cmd.Flags().StringVar(&opts.RunID, "run", "", "Resume from a specific run (uses that run's input)")
-	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for this run (e.g. haiku, opus)")
+	cmd.Flags().StringVar(&opts.Model, "model", "", "Model for this run — tier name (cheapest/balanced/strongest) or literal (haiku/opus). Takes the cheaper of CLI and step tiers unless --force-model is set.")
+	cmd.Flags().BoolVar(&opts.ForceModel, "force-model", false, "Force --model on all steps, ignoring per-step and per-persona model tiers")
 	cmd.Flags().StringVar(&opts.Adapter, "adapter", "", "Override adapter for this run (e.g. claude, gemini, opencode, codex)")
 	cmd.Flags().BoolVar(&opts.PreserveWorkspace, "preserve-workspace", false, "Preserve workspace from previous run (for debugging)")
 	cmd.Flags().StringVar(&opts.Steps, "steps", "", "Run only the named steps (comma-separated)")
@@ -427,6 +429,9 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 	if opts.Model != "" {
 		execOpts = append(execOpts, pipeline.WithModelOverride(opts.Model))
+	}
+	if opts.ForceModel {
+		execOpts = append(execOpts, pipeline.WithForceModel(true))
 	}
 	registry := adapter.NewAdapterRegistry(nil)
 	if opts.Mock {
@@ -746,6 +751,9 @@ func runDetached(opts RunOptions, p *pipeline.Pipeline, _ *manifest.Manifest) er
 	}
 	if opts.Model != "" {
 		args = append(args, "--model", opts.Model)
+	}
+	if opts.ForceModel {
+		args = append(args, "--force-model")
 	}
 	if opts.Adapter != "" {
 		args = append(args, "--adapter", opts.Adapter)
