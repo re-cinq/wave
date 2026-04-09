@@ -171,7 +171,7 @@ steps:
     dependencies: [rework-gate]
     condition: "{{ rework-gate.output.decision == 'fail' }}"
     loop:
-      max_iterations: "{{ params.full_impl_cycle.max_rework_iterations }}"
+      max_iterations: 3
       until: "{{ rework-loop.output.decision == 'pass' }}"
       steps:
         - id: rework
@@ -332,7 +332,7 @@ steps:
     dependencies: [review]
     condition: "{{ review.output.verdict != 'APPROVE' }}"
     loop:
-      max_iterations: "{{ params.full_impl_cycle.max_review_iterations }}"
+      max_iterations: 3
       until: "{{ review-loop.output.verdict == 'APPROVE' }}"
       steps:
         - id: fix
