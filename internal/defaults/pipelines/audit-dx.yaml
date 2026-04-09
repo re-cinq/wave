@@ -148,12 +148,10 @@ steps:
         You must produce TWO output artifacts:
 
         1. **JSON findings** conforming to the contract schema — one finding object per
-           issue discovered. Use `"type": "dx"` for all findings. Map severity ratings:
-           excellent/good = no finding needed, fair = `"medium"` or `"low"`, poor = `"high"`
-           or `"critical"` depending on impact. Set `"recommendation"` to the most
-           appropriate action (`"fix"`, `"refactor"`, `"document"`, `"investigate"`).
-           Include the `"file"` and `"line"` fields when a finding references a specific
-           location. Provide a one-line `"summary"` and set `"scan_type"` to `"dx"`.
+           issue discovered. All findings use type `"dx"`. Map your severity ratings to
+           schema severities: areas rated excellent/good need no finding entry, fair maps
+           to `"medium"` or `"low"`, poor maps to `"high"` or `"critical"` depending on
+           impact to contributor velocity.
 
         2. **Markdown report** — the human-readable version with these sections:
            - **Executive Summary** (2-3 sentences: overall DX rating and top concern)
