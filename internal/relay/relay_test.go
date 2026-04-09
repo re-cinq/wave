@@ -151,7 +151,7 @@ Decision 2
 *Generated at test 1
 Decision*
 `
-	os.WriteFile(workspacePath+"/checkpoint.md", []byte(checkpointContent), 0644)
+	_ = os.WriteFile(workspacePath+"/checkpoint.md", []byte(checkpointContent), 0644)
 
 	checkpoint, err := ParseCheckpoint(workspacePath)
 	if err != nil {
@@ -180,7 +180,7 @@ Decision 1
 ---
 *Generated at test*
 `
-	os.WriteFile(workspacePath+"/checkpoint.md", []byte(checkpointContent), 0644)
+	_ = os.WriteFile(workspacePath+"/checkpoint.md", []byte(checkpointContent), 0644)
 
 	prompt, err := InjectCheckpointPrompt(workspacePath)
 	if err != nil {
@@ -867,10 +867,8 @@ func Test_validateConfig(t *testing.T) {
 				if tc.errorType != nil && !errors.Is(err, tc.errorType) {
 					t.Errorf("expected error type %v, got: %v", tc.errorType, err)
 				}
-			} else {
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %v", err)
 			}
 		})
 	}

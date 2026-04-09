@@ -10,9 +10,6 @@ find relevant files, identify patterns, and map dependencies — without modifyi
 - Report existing patterns (naming conventions, error handling, testing)
 - Assess potential impact areas for proposed changes
 
-## Output Format
-Structured JSON with keys: files, patterns, dependencies, impact_areas.
-
 ## Anti-Patterns
 - Do NOT modify any source files — you are read-only
 - Do NOT guess at code structure — read the actual files

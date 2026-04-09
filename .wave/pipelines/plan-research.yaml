@@ -63,24 +63,64 @@ steps:
     exec:
       type: prompt
       source: |
-        Fetch the GitHub issue specified in the input: {{ input }}
+        OBJECTIVE:
+        Fetch a GitHub issue by its number and repository, parse its contents, and produce
+        a structured JSON representation that downstream steps will use for research topic
+        extraction and web research. The output must faithfully represent the issue content
+        without modification or interpretation.
 
-        CRITICAL: If the input above is empty, blank, or missing, you MUST immediately fail.
-        Write an error JSON to .wave/output/issue-content.json with issue_number: 0 and
-        title: "ERROR: No input provided — expected a GitHub issue URL or owner/repo number".
-        Do NOT guess, infer, or use any example. Stop here.
+        INPUT: {{ input }}
 
-        Accepted input formats (parse the actual input, never fabricate values):
-        - Full URL: https://github.com/owner/repo/issues/123
-        - Short form: owner/repo 123
+        CONTEXT:
+        You are the first step in a five-step research pipeline (fetch-issue, analyze-topics,
+        research-topics, synthesize-report, post-comment). Your output feeds directly into
+        the analyze-topics step, which will extract research questions from the issue content.
+        The accuracy of the entire research pipeline depends on you faithfully capturing the
+        issue's title, body, labels, and comments.
 
-        Parse the input to extract the repository and issue number.
-        Fetch the issue:
+        REQUIREMENTS:
+        1. Validate the input:
+           - CRITICAL: If the input above is empty, blank, or missing, you MUST immediately
+             fail. Write an error JSON with issue_number: 0
+             and title: "ERROR: No input provided -- expected a GitHub issue URL or owner/repo
+             number". Do NOT guess, infer, or use any example values. Stop here.
+           - Accepted formats (parse the actual input, never fabricate values):
+             - Full URL: https://github.com/owner/repo/issues/123
+             - Short form: owner/repo 123
+           - Extract the repository (owner/repo) and issue number from the input.
+        2. Fetch the issue with full details:
+           {{ forge.cli_tool }} issue view <number> --repo <owner/repo> --json number,title,body,labels,state,author,createdAt,url,comments
+        3. Parse the command output and construct a structured JSON object capturing:
+           - issue_number: integer
+           - title: string (exact title from the issue)
+           - body: string (full issue body, preserving markdown formatting)
+           - labels: array of label name strings
+           - state: string (OPEN/CLOSED)
+           - author: string (GitHub username)
+           - created_at: ISO 8601 timestamp
+           - url: full issue URL
+           - comments: array of comment objects with author, body, and created_at
+           - repository: object with owner and repo fields
+        4. If the issue has more than 20 comments, include only the first 20 and note
+           the total count in a comments_truncated field.
 
-        {{ forge.cli_tool }} issue view <number> --repo <owner/repo> --json number,title,body,labels,state,author,createdAt,url,comments
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT modify the issue body or title. Capture them exactly as returned by
+          the API. Do not summarize, paraphrase, or clean up formatting.
+        - Do NOT fabricate any values. If a field is missing from the API response,
+          use null rather than guessing.
+        - Do NOT proceed if the {{ forge.cli_tool }} command fails. Write the error
+          message to the output JSON with issue_number: 0 and the error details.
+        - Do NOT hardcode repository names or issue numbers from the example input.
+          Parse the ACTUAL input value.
 
-        Parse the output and produce structured JSON with the issue content.
-        Include repository information in the output.
+        OUTPUT FORMAT:
+        Produce the structured JSON matching the issue-content contract schema.
+
+        QUALITY BAR:
+        A good fetch produces an exact, faithful representation of the issue that
+        downstream steps can rely on. A bad fetch modifies content, omits comments,
+        or fabricates data that causes the research to address the wrong questions.
     output_artifacts:
       - name: issue-content
         path: .wave/output/issue-content.json
@@ -111,24 +151,72 @@ steps:
     exec:
       type: prompt
       source: |
-        Analyze the GitHub issue and extract research topics.
+        OBJECTIVE:
+        Analyze the fetched GitHub issue and extract a prioritized list of research topics
+        with specific questions and search keywords. Each topic should represent a distinct
+        area where external research (web searches, documentation lookups) would provide
+        actionable insights for resolving the issue.
 
-        Identify:
-        1. Key technical questions that need external research
-        2. Domain concepts that require clarification
-        3. External dependencies, libraries, or tools to investigate
-        4. Similar problems/solutions that might provide guidance
+        CONTEXT:
+        You are the second step in a five-step research pipeline. The fetch-issue step has
+        already retrieved the GitHub issue and injected it as the "issue" artifact. The
+        research-topics step that follows will use your output to execute parallel web
+        searches. The quality of the research depends on you extracting the right questions
+        and providing effective search keywords.
 
-        For each topic, provide:
-        - A unique ID (TOPIC-001, TOPIC-002, etc.)
-        - A clear title
-        - Specific questions to answer (1-5 questions per topic)
-        - Search keywords for web research
-        - Priority (critical/high/medium/low based on relevance to solving the issue)
-        - Category (technical/documentation/best_practices/security/performance/compatibility/other)
+        REQUIREMENTS:
+        1. Read the injected issue artifact completely. Understand the issue's core
+           problem, any constraints mentioned, and what the author is trying to achieve.
+        2. Identify research topics across these dimensions:
+           - Key technical questions that need external research (e.g., "How does library X
+             handle concurrent connections?")
+           - Domain concepts that require clarification (e.g., "What is the difference
+             between eventual and strong consistency in this context?")
+           - External dependencies, libraries, or tools to investigate (e.g., "What are
+             the current alternatives to library X for Go?")
+           - Similar problems and solutions in the ecosystem (e.g., "How do other CLI
+             tools handle plugin discovery?")
+           - Security or compliance considerations if applicable
+           - Performance characteristics or benchmarks if relevant
+        3. For each topic, provide:
+           - id: unique identifier (TOPIC-001, TOPIC-002, etc.)
+           - title: concise, descriptive title (5-15 words)
+           - questions: 1-5 specific questions to answer through research. Each question
+             should be answerable (not rhetorical) and relevant to the issue.
+           - search_keywords: array of 2-5 keyword strings optimized for web search.
+             Include library names, version numbers, and technology-specific terms.
+           - priority: critical (blocking issue resolution), high (important for a good
+             solution), medium (useful context), or low (nice to know)
+           - category: technical, documentation, best_practices, security, performance,
+             compatibility, or other
+        4. Rank topics by priority. Place critical and high-priority topics first.
+        5. Limit to 10 most important topics. If the issue is simple, fewer is fine
+           (minimum 2). Do not pad with low-value topics to reach 10.
 
-        Focus on topics that will provide actionable insights for the issue author.
-        Limit to 10 most important topics.
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT generate topics that can be answered by reading the project's own codebase.
+          Those are not research topics; they are exploration tasks already handled by
+          other pipeline types.
+        - Do NOT produce vague topics like "research best practices." Every topic must be
+          specific to the issue at hand.
+        - Do NOT include questions that the issue body already answers. Read carefully
+          before extracting topics.
+        - Do NOT use generic search keywords. "Go testing" is too broad; "Go table-driven
+          test pattern testify assert" is actionable.
+        - Do NOT duplicate topics. If two topics would produce overlapping search results,
+          merge them into one topic with combined questions.
+
+        OUTPUT FORMAT:
+        Produce structured JSON matching the research-topics contract schema. The JSON
+        must include: issue_reference (number, title, url),
+        topics (array of topic objects as described above), total_topics (integer), and
+        timestamp (ISO 8601).
+
+        QUALITY BAR:
+        Good research topics are specific, non-overlapping, and ordered by impact on
+        resolving the issue. Each topic's search keywords should, when entered into a
+        search engine, return relevant results on the first page. Bad topics are vague,
+        redundant, or address questions already answered in the issue body.
     output_artifacts:
       - name: topics
         path: .wave/output/research-topics.json
@@ -163,25 +251,78 @@ steps:
     exec:
       type: prompt
       source: |
-        Research the topics identified in the research plan.
+        OBJECTIVE:
+        Execute web research for each topic identified in the research plan, producing
+        structured findings with source attribution, credibility assessment, and confidence
+        ratings. The findings must be thorough enough to support a synthesis report that
+        will be posted as a GitHub issue comment.
 
-        For each topic in the research plan:
-        1. Execute web searches using the provided keywords
-        2. Evaluate source credibility (official docs > authoritative > community)
-        3. Extract relevant findings with key points
-        4. Include direct quotes where helpful
-        5. Rate your confidence in the answer (high/medium/low/inconclusive)
+        CONTEXT:
+        You are the third step in a five-step research pipeline. Two artifacts are injected:
+        - issue: the original GitHub issue content
+        - research_plan: the research topics with questions and search keywords
+        Read both artifacts before starting. The research plan contains prioritized topics,
+        each with specific questions and search keywords. Your job is to answer those
+        questions through web research. Your findings will be consumed by the
+        synthesize-report step to produce a coherent summary.
 
-        For each finding:
-        - Assign a unique ID (FINDING-001, FINDING-002, etc.)
-        - Provide a summary (20-2000 characters)
-        - List key points as bullet items
-        - Include source URL, title, and type
-        - Rate relevance to the topic (0-1)
+        REQUIREMENTS:
+        1. Process topics in priority order (critical first, then high, medium, low).
+        2. For each topic in the research plan:
+           a. Execute web searches using the provided search keywords. Try multiple
+              keyword combinations if initial results are poor.
+           b. Evaluate source credibility using this hierarchy:
+              - official_docs: Official documentation, specification documents, RFCs
+              - authoritative: Peer-reviewed papers, established tech blogs (e.g.,
+                official engineering blogs), conference talks
+              - community: Stack Overflow answers, GitHub discussions, tutorials
+              - unverified: Personal blogs, forum posts without supporting evidence
+           c. Extract relevant findings that directly answer the topic's questions.
+           d. For findings that contain specific technical claims, include direct
+              quotes to preserve accuracy.
+           e. Rate your confidence in the answer:
+              - high: Multiple credible sources agree, clear evidence
+              - medium: Some evidence but sources are limited or partially conflicting
+              - low: Single source or indirect evidence only
+              - inconclusive: No useful results found despite multiple searches
+        3. For each finding, produce a structured object with:
+           - id: unique identifier (FINDING-001, FINDING-002, etc.)
+           - topic_id: reference to the TOPIC-### it addresses
+           - summary: concise summary (20-2000 characters)
+           - key_points: array of bullet point strings (2-10 per finding)
+           - source: object with url, title, type (official_docs/authoritative/
+             community/unverified), and accessed_at timestamp
+           - relevance: float 0-1 indicating how directly this answers the topic
+           - confidence: high/medium/low/inconclusive
+           - direct_quotes: array of quoted strings (optional, include when precision
+             matters)
+        4. If a topic yields no useful results after at least 3 different search
+           attempts, create a finding with confidence "inconclusive" explaining what
+           was searched and why results were inadequate.
+        5. Document research gaps: topics where the available information is outdated,
+           contradictory, or insufficient for the issue at hand.
 
-        Always include source URLs for attribution.
-        If a topic yields no useful results, mark confidence as "inconclusive".
-        Document any gaps in the research.
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT fabricate sources or URLs. Every source must be a real web page you
+          accessed during research. If you cannot find a source, say so.
+        - Do NOT provide findings without source attribution. Unsourced claims are
+          worthless in a research report.
+        - Do NOT include irrelevant findings just to pad the output. Each finding must
+          directly address one of the topic's questions.
+        - Do NOT copy entire web pages. Extract only the relevant sections and summarize.
+        - Do NOT skip low-priority topics entirely. Give them at least one search attempt,
+          even if the findings are brief.
+
+        OUTPUT FORMAT:
+        Produce structured JSON matching the research-findings contract schema. Include:
+        topics_researched (array of topic_id + findings),
+        total_findings (integer), research_gaps (array of gap descriptions), and timestamp.
+
+        QUALITY BAR:
+        Good findings are well-sourced, directly answer the research questions, and provide
+        enough detail for the synthesis step to produce actionable recommendations. Bad
+        findings are unsourced, tangential to the actual questions, or marked as
+        "inconclusive" without evidence of genuine search effort.
     output_artifacts:
       - name: findings
         path: .wave/output/research-findings.json
@@ -214,35 +355,76 @@ steps:
     exec:
       type: prompt
       source: |
-        Synthesize the research findings into a coherent report for the GitHub issue.
+        OBJECTIVE:
+        Synthesize all research findings into a coherent, publication-quality report that
+        will be posted as a GitHub issue comment. The report must distill raw findings into
+        actionable recommendations, properly attribute all sources, and be formatted as
+        ready-to-post GitHub markdown.
 
-        Create a well-structured research report that includes:
+        CONTEXT:
+        You are the fourth step in a five-step research pipeline. Two artifacts are injected:
+        - original_issue: the GitHub issue content (number, title, body, repository)
+        - research: the structured research findings with sources and confidence ratings
+        Read both artifacts completely. Your report will be posted as a comment on the
+        original issue by the next step (post-comment), so the markdown_content field must
+        be ready to post without further editing.
 
-        1. Executive Summary:
-           - Brief overview (50-1000 chars)
-           - Key findings (1-7 bullet points)
-           - Primary recommendation
-           - Confidence assessment (high/medium/low)
+        REQUIREMENTS:
+        1. Read both injected artifacts. Understand the original issue's question and the
+           research findings that address it.
+        2. Create a structured JSON report with these sections:
+           a. Executive Summary:
+              - overview: brief summary of what was researched and why (50-1000 chars)
+              - key_findings: 1-7 bullet points highlighting the most important discoveries
+              - primary_recommendation: the single most actionable takeaway
+              - confidence: overall confidence assessment (high/medium/low)
+           b. Detailed Findings:
+              - Organize by topic/section from the research plan
+              - Synthesize findings from multiple sources into coherent narratives
+              - Include code examples where they clarify technical points
+              - Reference sources using SRC-### IDs (defined in the sources section)
+              - Resolve contradictions between sources, noting which source is more credible
+           c. Recommendations:
+              - Actionable items with IDs (REC-001, REC-002, etc.)
+              - Each recommendation must have: description, priority (critical/high/medium/
+                low), effort estimate (S/M/L/XL), and rationale
+              - Maximum 10 recommendations, ordered by priority
+              - Each recommendation must be traced back to specific findings
+           d. Sources:
+              - List all sources with IDs (SRC-001, SRC-002, etc.)
+              - Each source: url, title, type (official_docs/authoritative/community/
+                unverified), reliability (high/medium/low)
+              - Include only sources actually referenced in the report
+           e. Pre-rendered Markdown (markdown_content field):
+              - Generate complete GitHub-flavored markdown ready for posting as a comment
+              - Start with: "## Research Findings (Wave Pipeline)"
+              - Use proper headers (###), bullet points, code blocks, and tables
+              - Include inline source references as [SRC-###] citations
+              - End with a formatted sources section listing all referenced URLs
+              - Footer: "---\n*Generated by [Wave](https://github.com/re-cinq/wave)
+                issue-research pipeline*"
 
-        2. Detailed Findings:
-           - Organize by topic/section
-           - Include code examples where relevant
-           - Reference sources using SRC-### IDs
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT include findings that are not supported by the research. If the research
+          step marked a topic as "inconclusive," say so honestly rather than speculating.
+        - Do NOT recommend actions that contradict the research findings. Every
+          recommendation must be grounded in evidence from the sources.
+        - Do NOT produce a markdown_content field that differs from the structured data.
+          The markdown is a rendering of the same information, not a separate document.
+        - Do NOT include raw JSON or data dumps in the markdown_content. Format
+          everything for human readability.
+        - Do NOT exceed 3000 words in the markdown_content. GitHub comments have practical
+          length limits, and overly long reports are not read.
 
-        3. Recommendations:
-           - Actionable items with IDs (REC-001, REC-002, etc.)
-           - Priority and effort estimates
-           - Maximum 10 recommendations
+        OUTPUT FORMAT:
+        Produce the report as structured JSON matching the research-report contract schema.
+        All sections described above must be present.
 
-        4. Sources:
-           - List all sources with IDs (SRC-001, SRC-002, etc.)
-           - Include URL, title, type, and reliability
-
-        5. Pre-rendered Markdown:
-           - Generate complete markdown_content field ready for GitHub comment
-           - Use proper headers, bullet points, and formatting
-           - Include a header: "## Research Findings (Wave Pipeline)"
-           - End with sources section
+        QUALITY BAR:
+        A good synthesis report is a document the issue author would find genuinely useful:
+        clear recommendations backed by cited evidence, honest about uncertainty, and
+        formatted for easy reading. A bad report is a data dump that restates raw findings
+        without synthesis, makes unsupported recommendations, or is too long to read.
     output_artifacts:
       - name: report
         path: .wave/output/research-report.json
@@ -275,33 +457,75 @@ steps:
     exec:
       type: prompt
       source: |
-        Post the research report as a comment on the GitHub issue.
+        OBJECTIVE:
+        Post the synthesized research report as a comment on the original GitHub issue,
+        then capture the result (comment URL or error details) as a structured JSON output.
+        This is the final step that delivers the research to the issue author.
 
-        Steps:
-        1. Read the issue details to get the repository and issue number
-        2. Read the report to get the markdown_content
-        3. Write the markdown content to a file, then use {{ forge.cli_tool }} to post the comment:
+        CONTEXT:
+        You are the fifth and final step in the research pipeline. Two artifacts are injected:
+        - issue: the original GitHub issue content with number, repository, and URL
+        - report: the synthesized research report containing a pre-rendered markdown_content
+          field ready for posting
+        The report's markdown_content field was specifically designed for GitHub comment
+        posting and should be used as-is. Do not modify its content.
 
-           # Write to file to avoid shell escaping issues with large markdown
+        REQUIREMENTS:
+        1. Read the injected issue artifact to extract:
+           - The issue number
+           - The repository (owner/repo format)
+        2. Read the injected report artifact to extract the markdown_content field.
+           This contains the complete, pre-formatted GitHub comment body.
+        3. Write the markdown content to a temporary file to avoid shell escaping issues
+           with large markdown documents:
+           ```bash
            cat > /tmp/comment-body.md << 'COMMENT_EOF'
-           <markdown_content>
+           <markdown_content from the report artifact>
            COMMENT_EOF
-
+           ```
+        4. Post the comment using the forge CLI:
+           ```bash
            {{ forge.cli_tool }} issue comment <number> --repo <owner/repo> --body-file /tmp/comment-body.md
+           ```
+        5. Verify the command succeeded by checking the exit code and output.
+        6. If successful, extract the comment URL from the command output. The
+           {{ forge.cli_tool }} typically outputs the comment URL after posting.
+        7. If the post fails:
+           - Capture the error message and exit code
+           - Determine if the error is retryable (network issues, rate limits) or
+             permanent (authentication failure, issue closed/locked)
+           - Record the error details in the output
+        8. Clean up the temporary file: `rm -f /tmp/comment-body.md`
 
-        4. Add a footer to the comment:
-           ---
-           *Generated by [Wave](https://github.com/re-cinq/wave) issue-research pipeline*
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT modify the markdown_content before posting. It was pre-rendered by the
+          synthesis step and should be posted exactly as-is.
+        - Do NOT use echo or inline strings for the comment body. Large markdown with
+          special characters will break shell escaping. Always use a heredoc to a temp
+          file, then --body-file.
+        - Do NOT retry posting if the error is a permanent failure (401 auth error,
+          404 issue not found, 422 issue locked). Only retry on transient errors
+          (network timeout, 429 rate limit, 500 server error).
+        - Do NOT post multiple comments. If the first attempt succeeds, do not post
+          again even if result capture fails.
+        - Do NOT fabricate the comment URL. If you cannot extract it from the command
+          output, set comment.url to null.
 
-        5. Capture the result and verify success
-        6. If successful, extract the comment URL from the output
+        OUTPUT FORMAT:
+        Produce the result as structured JSON with:
+        - success: boolean (true if comment was posted successfully)
+        - issue_reference: object with number (integer) and repository (string)
+        - comment: object with id (integer or null), url (string or null), and
+          body_length (integer) if successful
+        - error: object with code (string), message (string), retryable (boolean)
+          if failed; null if successful
+        - timestamp: current ISO 8601 timestamp
 
-        Record the result with:
-        - success: true/false
-        - issue_reference: issue number and repository
-        - comment: id, url, body_length (if successful)
-        - error: code, message, retryable (if failed)
-        - timestamp: current time
+        QUALITY BAR:
+        A good post-comment step delivers the research to the issue author with a single,
+        clean comment and accurate result tracking. A bad step posts duplicate comments,
+        corrupts the markdown formatting through bad shell escaping, or silently fails
+        without recording the error.
     output_artifacts:
       - name: comment-result
         path: .wave/output/comment-result.json

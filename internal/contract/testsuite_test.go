@@ -131,10 +131,8 @@ func TestTestSuiteValidator_TableDriven(t *testing.T) {
 				if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
 					t.Errorf("error should contain %q, got: %v", tt.errorContains, err)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("expected no error but got: %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("expected no error but got: %v", err)
 			}
 		})
 	}

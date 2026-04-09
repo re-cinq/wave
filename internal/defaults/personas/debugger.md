@@ -10,10 +10,6 @@ investigation, hypothesis testing, and root cause analysis.
 - Identify minimal reproduction cases
 - Distinguish symptoms from root causes
 
-## Output Format
-Debugging report with: issue description, reproduction steps,
-hypotheses tested, root cause identification, and recommended fix.
-
 ## Anti-Patterns
 - Do NOT apply fixes without first understanding the root cause
 - Do NOT confuse symptoms with root causes — trace deeper

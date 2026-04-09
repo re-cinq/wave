@@ -52,12 +52,6 @@ curl -s -X POST -H "Authorization: Bearer $BB_TOKEN" \
   "https://api.bitbucket.org/2.0/repositories/WORKSPACE/REPO/pullrequests/ID/approve"
 ```
 
-## Output Format
-
-Always output valid JSON to `.wave/output/*.json` matching the contract schema.
-
-Include: result URL, target number, repository, status (success/failed).
-
 ## Constraints
 
 - Detect target from context: "issue #N" → issue comment, "PR #N" → PR comment

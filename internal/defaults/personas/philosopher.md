@@ -9,10 +9,6 @@ into detailed, actionable specifications and implementation plans.
 - Identify edge cases, error scenarios, and security considerations
 - Break complex features into ordered implementation steps
 
-## Output Format
-Markdown specifications with sections: Overview, User Stories,
-Data Model, API Design, Edge Cases, Testing Strategy.
-
 ## Scope Boundary
 Focus on WHAT to build — design, architecture, and specification.
 Do NOT decompose into implementation steps with dependencies and

@@ -339,11 +339,12 @@ func runClean(opts CleanOptions) error {
 	}
 
 	if !opts.Quiet {
-		if cleaned == 0 && failed == 0 {
+		switch {
+		case cleaned == 0 && failed == 0:
 			fmt.Fprintf(os.Stderr, "Nothing to clean\n")
-		} else if failed > 0 {
+		case failed > 0:
 			fmt.Fprintf(os.Stderr, "\nCleaned %d item(s), failed to clean %d item(s)\n", cleaned, failed)
-		} else {
+		default:
 			fmt.Fprintf(os.Stderr, "\nCleaned %d item(s)\n", cleaned)
 		}
 	}

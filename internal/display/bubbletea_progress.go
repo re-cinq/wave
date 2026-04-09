@@ -119,7 +119,8 @@ func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int
 	// Start the program in a goroutine
 	go func() {
 		if _, err := display.program.Run(); err != nil {
-			// Handle error silently for now
+			// Bubbletea program errors are non-fatal; silently ignored.
+			_ = err
 		}
 	}()
 
@@ -413,11 +414,12 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		weightedProgress := (completedWeight + currentWeight) * 100.0
 
 		// Clamp to [0, 100] range
-		if weightedProgress < 0 {
+		switch {
+		case weightedProgress < 0:
 			overallProgress = 0
-		} else if weightedProgress > 100 {
+		case weightedProgress > 100:
 			overallProgress = 100
-		} else {
+		default:
 			overallProgress = int(weightedProgress)
 		}
 	}

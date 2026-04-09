@@ -16,7 +16,7 @@ import (
 // buildCompatibilityResult creates a CompatibilityResult from a sequence of
 // two pipelines for testing renderArtifactFlow.
 func buildCompatibilityResult(
-	sourceName, targetName string,
+	sourceName, targetName string, //nolint:unparam // test helper
 	outputs []pipeline.ArtifactDef,
 	inputs []pipeline.ArtifactRef,
 ) CompatibilityResult {

@@ -70,7 +70,7 @@ func TestNewReadOnlyStateStore_ConcurrentReads(t *testing.T) {
 		t.Fatalf("failed to create state store: %v", err)
 	}
 	for i := 0; i < 10; i++ {
-		store.CreateRun("pipeline", "input")
+		_, _ = store.CreateRun("pipeline", "input")
 	}
 	store.Close()
 

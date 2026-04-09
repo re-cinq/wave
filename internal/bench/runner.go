@@ -179,7 +179,7 @@ func (s *SubprocessRunner) runWavePipeline(ctx context.Context, task BenchTask, 
 }
 
 // runClaudeDirect invokes `claude -p` with the problem statement directly.
-func (s *SubprocessRunner) runClaudeDirect(ctx context.Context, task BenchTask, cfg RunConfig, dir string) error {
+func (s *SubprocessRunner) runClaudeDirect(ctx context.Context, task BenchTask, _ RunConfig, dir string) error {
 	claudeBin := "claude"
 
 	args := []string{

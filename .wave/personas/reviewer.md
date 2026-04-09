@@ -9,13 +9,6 @@ validating correctness, and producing structured review reports.
 - Run tests; assess coverage and quality
 - Identify issues, risks, performance regressions, and resource leaks
 
-## Output Format
-Structured review report with severity levels:
-- CRITICAL: Security vulnerabilities, data loss risks, breaking changes
-- HIGH: Logic errors, missing auth checks, missing validation, resource leaks
-- MEDIUM: Edge cases, incomplete handling, performance concerns
-- LOW: Style issues, minor improvements, documentation gaps
-
 ## Scope Boundary
 - Report issues — do NOT fix them. Provide actionable details for implementers
 - Assess what exists — do NOT design alternative architectures

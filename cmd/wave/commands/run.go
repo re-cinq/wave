@@ -113,8 +113,8 @@ Model formats vary by adapter: claude uses "haiku"/"opus", opencode uses
 
 			// If no pipeline specified, try smart routing from input type
 			if opts.Pipeline == "" && opts.Input != "" {
-				suggested, err := suggestPipelineFromInput(opts.Input)
-				if err == nil && suggested != "" {
+				suggested := suggestPipelineFromInput(opts.Input)
+				if suggested != "" {
 					if isInteractive() {
 						sel, err := tui.RunPipelineSelector(pipelinesDir(), suggested)
 						if err != nil {
@@ -578,12 +578,13 @@ func runRun(opts RunOptions, debug bool) error {
 	// Update the pipeline_run record so the dashboard reflects final status
 	if store != nil {
 		tokens := executor.GetTotalTokens()
-		if ctx.Err() != nil {
+		switch {
+		case ctx.Err() != nil:
 			_ = store.UpdateRunStatus(runID, "cancelled", "pipeline cancelled", tokens)
 			_ = store.ClearCancellation(runID)
-		} else if execErr != nil {
+		case execErr != nil:
 			_ = store.UpdateRunStatus(runID, "failed", execErr.Error(), tokens)
-		} else {
+		default:
 			_ = store.UpdateRunStatus(runID, "completed", "", tokens)
 		}
 	}
@@ -594,7 +595,7 @@ func runRun(opts RunOptions, debug bool) error {
 		var (
 			stepErr *pipeline.StepError
 			stepID  string
-			cause   error = execErr
+			cause   = execErr
 		)
 		if errors.As(execErr, &stepErr) {
 			stepID = stepErr.StepID
@@ -706,7 +707,7 @@ func runRun(opts RunOptions, debug bool) error {
 // the current process session. The subprocess inherits all flags except --detach,
 // so it runs the pipeline in-process in its own session group. This mirrors the
 // TUI's pipeline_launcher.go pattern (Setsid + Process.Release).
-func runDetached(opts RunOptions, p *pipeline.Pipeline, m *manifest.Manifest) error {
+func runDetached(opts RunOptions, p *pipeline.Pipeline, _ *manifest.Manifest) error {
 	// Initialize state store to create a run ID visible to wave status / wave logs.
 	stateDB := ".wave/state.db"
 	store, err := state.NewStateStore(stateDB)
@@ -833,7 +834,7 @@ func buildDetachEnv() []string {
 	return env
 }
 
-func loadPipeline(name string, m *manifest.Manifest) (*pipeline.Pipeline, error) {
+func loadPipeline(name string, _ *manifest.Manifest) (*pipeline.Pipeline, error) {
 	candidates := []string{
 		".wave/pipelines/" + name + ".yaml",
 		".wave/pipelines/" + name,
@@ -875,13 +876,13 @@ func isInteractive() bool {
 
 // suggestPipelineFromInput classifies the input and returns the best pipeline
 // suggestion. Returns empty string if no suggestion is available.
-func suggestPipelineFromInput(input string) (string, error) {
+func suggestPipelineFromInput(input string) string {
 	inputType := suggest.ClassifyInput(input)
 	suggestions := suggest.SuggestPipelineForInput(inputType)
 	if len(suggestions) == 0 {
-		return "", nil
+		return ""
 	}
-	return suggestions[0], nil
+	return suggestions[0]
 }
 
 // pipelinesDir returns the default pipeline directory.

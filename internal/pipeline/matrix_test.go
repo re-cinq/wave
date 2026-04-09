@@ -2310,7 +2310,9 @@ func TestMatrixExecutor_Stacked_OutputBranchCapture(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a child pipeline YAML
-	childPipelineYAML := `name: test-child
+	childPipelineYAML := `kind: WavePipeline
+metadata:
+  name: test-child
 steps:
   - id: implement
     persona: worker

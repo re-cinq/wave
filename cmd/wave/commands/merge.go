@@ -86,7 +86,7 @@ With --all, merges all open PRs that have approved reviews, oldest first.`,
 var prURLPattern = regexp.MustCompile(`https?://[^/]+/[^/]+/[^/]+/(?:pull|merge_requests|pulls)/(\d+)`)
 
 // parsePRInput extracts a PR number from a URL or plain number string.
-func parsePRInput(input string, fi forge.ForgeInfo) (int, error) {
+func parsePRInput(input string, _ forge.ForgeInfo) (int, error) {
 	input = strings.TrimSpace(input)
 
 	// Try plain number first.
@@ -209,7 +209,7 @@ func mergeGiteaAPI(fi forge.ForgeInfo, number int, token string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("Gitea API returned %d", resp.StatusCode)
+		return fmt.Errorf("gitea API returned %d", resp.StatusCode)
 	}
 	return nil
 }

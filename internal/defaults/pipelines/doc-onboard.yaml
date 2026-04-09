@@ -57,33 +57,103 @@ steps:
     exec:
       type: prompt
       source: |
-        Survey this project to build an onboarding guide: {{ input }}
+        ## Objective
 
-        ## Survey Checklist
+        Survey the project comprehensively to collect all information needed to write an onboarding guide for new contributors. The survey must cover project identity, build system, directory structure, architecture, dependencies, configuration, testing patterns, development workflow, and existing documentation. The output is a structured JSON artifact that the guide-writing step will transform into a polished onboarding document.
 
-        1. **Project identity**: Find README, package manifests (go.mod, package.json),
-           license, and config files. Determine language, framework, purpose.
+        ## Context
 
-        2. **Build system**: How to build, test, and run the project.
-           Find Makefiles, scripts, CI configs, Dockerfiles.
+        This is the first step of a two-step pipeline (survey, guide). The guide step will use this survey data to write a comprehensive onboarding guide. The codebase is mounted read-only at /project. The survey must be thorough enough that the guide step can write the entire onboarding document without needing to re-read the codebase.
 
-        3. **Directory structure**: Map the top-level layout and key directories.
-           What does each directory contain?
+        Survey scope: {{ input }}
 
-        4. **Architecture**: Identify the main components and how they interact.
-           Find entry points (main.go, index.ts, etc.).
+        If the input provides specific guidance (e.g., "focus on the CLI workflow"), adapt the survey to emphasize that area while still covering all checklist items. If the input is general, perform a full survey.
 
-        5. **Dependencies**: List key dependencies and their purposes.
-           Check go.mod, package.json, requirements.txt, etc.
+        ## Requirements
 
-        6. **Configuration**: Find environment variables, config files, feature flags.
+        Perform each survey item systematically by reading actual project files:
 
-        7. **Testing**: Where are tests? How to run them? What patterns are used?
+        1. **Project identity**: Find and read the following files to determine the project's identity:
+           - README.md (or README): project purpose, description, badges
+           - Package manifests: go.mod, package.json, Cargo.toml, requirements.txt, pyproject.toml
+           - License file: LICENSE, LICENSE.md
+           - Configuration files: .editorconfig, .gitignore, .gitattributes
+           Record: language, framework/libraries, project purpose (one sentence), license type, repository URL.
 
-        8. **Development workflow**: Find contributing guides, PR templates,
-           commit conventions, branch strategies.
+        2. **Build system**: Find and document how to build, test, and run the project:
+           - Check for Makefile, Justfile, or Taskfile (read targets/recipes)
+           - Check for build scripts in scripts/ or bin/ directories
+           - Check for Dockerfile, docker-compose.yml
+           - Check for CI configuration (.github/workflows/, .gitlab-ci.yml, .circleci/)
+           - Determine the exact commands: build command, test command, run command, lint command
+           Record each command with its purpose and expected output.
 
-        9. **Documentation**: Where is documentation? Is it up to date?
+        3. **Directory structure**: Map the top-level layout:
+           - List every top-level directory with a one-sentence description of its contents
+           - Identify the most important directories that a new contributor will work in most often
+           - Note any directories that follow convention (cmd/, internal/, pkg/, docs/, test/)
+           - Note any non-obvious directories with their purpose
+           Record the full directory tree (top 2 levels) with annotations.
+
+        4. **Architecture**: Identify the main components and their interactions:
+           - Find all entry points: main.go, index.ts, main.py, or equivalent
+           - Identify the major subsystems or modules
+           - Determine how components communicate (function calls, interfaces, events, HTTP, gRPC)
+           - Note any architecture documentation (ADRs, ARCHITECTURE.md, diagrams)
+           Record: entry points with file paths, major components with their packages, interaction patterns.
+
+        5. **Dependencies**: List key dependencies and their purposes:
+           - Read the dependency manifest (go.mod, package.json, etc.)
+           - Identify the most important dependencies (frameworks, database drivers, CLI libraries, test libraries)
+           - Note the dependency management tool (go modules, npm, pip, cargo)
+           - Check for vendored dependencies
+           Record: key dependencies (top 10-15) with their purpose and version.
+
+        6. **Configuration**: Find all configuration surfaces:
+           - Environment variables: search for os.Getenv, process.env, or equivalent
+           - Configuration files: YAML, JSON, TOML files that control behavior
+           - Feature flags or toggle mechanisms
+           - Default values and where they are set
+           Record: each configuration option with its name, source, default value, and purpose.
+
+        7. **Testing**: Survey the testing landscape:
+           - Where are test files located (alongside source, in test/ directory, etc.)?
+           - What testing frameworks are used?
+           - What test patterns are used (table-driven, BDD, snapshot, etc.)?
+           - Are there test helpers, fixtures, or mocks? Where?
+           - How to run tests (exact command)
+           - Are there integration or end-to-end tests?
+           Record: test locations, frameworks, patterns, helper locations, and commands.
+
+        8. **Development workflow**: Find contributing and workflow documentation:
+           - CONTRIBUTING.md or contributing guide
+           - PR templates (.github/pull_request_template.md)
+           - Issue templates (.github/ISSUE_TEMPLATE/)
+           - Commit message conventions (conventional commits, other)
+           - Branch strategy (main, develop, feature branches)
+           - Code review process
+           Record: each workflow element with its location and content summary.
+
+        9. **Existing documentation**: Inventory all documentation:
+           - List all documentation files and directories
+           - Note which docs appear current vs potentially stale
+           - Identify gaps (areas of the project with no documentation)
+           Record: each doc file with a summary and currency assessment.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT analyze or interpret the architecture deeply. Just collect the facts. The guide step interprets.
+        - Do NOT assume the project follows any standard layout. Discover the actual structure.
+        - Do NOT skip reading files. The guide step needs specifics, not assumptions.
+        - Do NOT modify any files. The workspace is read-only.
+
+        ## Output Format
+
+        Produce the survey as structured JSON conforming to the project-survey contract schema. Include structured data for each of the 9 survey items above.
+
+        ## Quality Bar
+
+        A good survey captures the exact commands to build, test, and run the project, identifies every configuration surface, and provides specific file paths for everything. A developer reading the survey should be able to reconstruct the project's setup from scratch. A bad survey provides generic descriptions ("there is a Makefile") without reading the actual content, or misses key directories and configuration.
     output_artifacts:
       - name: survey
         path: .wave/output/project-survey.json
@@ -110,50 +180,93 @@ steps:
     exec:
       type: prompt
       source: |
-        Write a comprehensive onboarding guide for new contributors.
+        ## Objective
 
-        Using the injected project survey data, write a guide with these sections:
+        Write a comprehensive, publication-quality onboarding guide that enables a new contributor to go from zero to productive in one day. The guide must use real commands, real file paths, and real examples from this specific project -- not generic software development advice. Every instruction must be immediately actionable: a reader should be able to follow the Quick Start section from top to bottom and have a working development environment.
 
-        # Onboarding Guide: [Project Name]
+        ## Context
 
-        ## Quick Start
-        - Prerequisites (what to install)
-        - Clone and build (exact commands)
-        - Run tests (exact commands)
-        - Run the project (exact commands)
+        This is the second and final step of the doc-onboard pipeline (survey, guide). The survey step has collected detailed information about the project's identity, build system, directory structure, architecture, dependencies, configuration, testing patterns, development workflow, and existing documentation. All of this data is injected as the "project_info" artifact.
 
-        ## Project Overview
-        - What this project does (2-3 sentences)
-        - Key technologies and why they were chosen
-        - High-level architecture (ASCII diagram)
+        Read the injected project_info artifact first. Use this data as the authoritative source for all facts in the guide.
 
-        ## Directory Map
-        - What each top-level directory contains
-        - Where to find things (tests, configs, docs)
+        ## Requirements
 
-        ## Core Concepts
-        - Key abstractions and terminology
-        - How the main components interact
-        - Data flow through the system
+        Write a markdown document with these sections. Each section has a specific purpose and audience:
 
-        ## Development Workflow
-        - How to create a feature branch
-        - Commit message conventions
-        - How to run tests before pushing
-        - PR process
+        ### 1. Quick Start (for someone who just cloned the repo)
 
-        ## Common Tasks
-        - "I want to add a new [feature/command/endpoint]" → where to start
-        - "I want to fix a bug" → debugging approach
-        - "I want to understand [component]" → where to look
+        This section must get a developer from "I just cloned this" to "I ran the tests and they pass" in the shortest possible path:
+        - **Prerequisites**: Exact tools to install with version requirements (e.g., "Go 1.22+", "Node 18+", "Docker"). Include installation commands for common platforms where helpful.
+        - **Clone and build**: Exact terminal commands from git clone to successful build. Include expected output so the reader knows it worked.
+        - **Run tests**: Exact command to run the test suite. Note expected duration and what "success" looks like.
+        - **Run the project**: Exact command to start the application locally. Include a simple smoke test (e.g., "visit http://localhost:8080" or "run `wave --help`").
 
-        ## Helpful Resources
-        - Documentation locations
-        - Key files to read first
-        - Related external docs
+        Every command in this section must work if typed verbatim into a terminal.
 
-        Write for someone on their first day with this codebase.
-        Be specific — use real paths, real commands, real examples.
+        ### 2. Project Overview (for someone who wants the big picture)
+
+        - What this project does: 2-3 sentences explaining the purpose and value proposition
+        - Key technologies: list the major frameworks and libraries with a one-line justification for each
+        - High-level architecture: an ASCII diagram showing the major components and their relationships, using real component names from the codebase. Below the diagram, a 2-3 sentence explanation of how the components interact.
+
+        ### 3. Directory Map (for someone who needs to find things)
+
+        A structured map of the project layout:
+        - What each top-level directory contains (one line per directory)
+        - Where to find specific things: "tests are alongside source files in *_test.go", "configuration schemas are in .wave/contracts/", "pipeline definitions are in .wave/pipelines/"
+        - Which directories a new contributor will work in most often
+        - Which directories they can safely ignore initially
+
+        ### 4. Core Concepts (for someone who needs the mental model)
+
+        A glossary of the project's key abstractions and terminology:
+        - For each concept: name, definition, where it is defined (file path), and how it relates to other concepts
+        - How the main components interact: describe the primary execution flow in 5-10 steps
+        - Data flow: how data enters the system, what happens to it, and how it exits
+
+        This section should give the reader the vocabulary to understand code reviews and technical discussions.
+
+        ### 5. Development Workflow (for someone about to make their first change)
+
+        Step-by-step instructions for the standard development loop:
+        - How to create a feature branch (naming convention, base branch)
+        - Commit message conventions (format, prefixes, examples of good and bad messages)
+        - How to run tests before pushing (exact commands, what must pass)
+        - How to create a PR (process, template, reviewers)
+        - Code review expectations (what reviewers look for, how to address feedback)
+
+        ### 6. Common Tasks (for someone with a specific goal)
+
+        Task-oriented guidance for the most common contributor activities:
+        - "I want to add a new CLI command" -- which files to create/modify, which patterns to follow, which existing command to use as a template
+        - "I want to add a new pipeline" -- where to put the YAML, what fields are required, how to test it
+        - "I want to fix a bug" -- how to reproduce, how to find the relevant code, debugging tools and techniques
+        - "I want to understand a component" -- recommended reading order, key files to start with
+        - Adapt these tasks to what this project actually supports. If it is a library rather than a CLI tool, adjust accordingly.
+
+        ### 7. Helpful Resources (for someone who wants to go deeper)
+
+        - Documentation locations: where to find guides, references, ADRs
+        - Key files to read first: the 5-10 most important files for understanding the codebase, in recommended reading order
+        - External documentation: links to framework docs, language docs, or specification documents that are relevant
+        - Where to ask questions: issue tracker, discussion forum, chat channels
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT write generic software development advice. Every instruction must be specific to THIS project.
+        - Do NOT use placeholder names or hypothetical examples. Use real file paths, real function names, real commands.
+        - Do NOT assume the reader knows the project's domain. Explain terminology.
+        - Do NOT include information that is not supported by the survey data. If the survey did not find a contributing guide, do not invent conventions.
+        - Write for someone on their first day with this codebase, not their first day as a developer.
+
+        ## Output Format
+
+        Produce the onboarding guide as valid markdown suitable for inclusion in the project's docs/ directory.
+
+        ## Quality Bar
+
+        A good onboarding guide passes the "first day" test: a developer who reads it on Monday morning can submit their first PR by Monday afternoon. Every command works when copy-pasted. The architecture diagram matches the actual code. The common tasks section provides step-by-step instructions, not vague pointers. A bad guide reads like a generic "how to contribute to open source" article, uses placeholder text, or provides instructions that do not work because the project has diverged from the documented setup.
     output_artifacts:
       - name: guide
         path: .wave/output/onboarding-guide.md

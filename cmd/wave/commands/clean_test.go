@@ -115,7 +115,7 @@ func (e *cleanTestEnv) listWorkspaces() []string {
 }
 
 // executeCleanCmd runs the clean command with given arguments and returns output/error
-func executeCleanCmd(args ...string) (stdout, stderr string, err error) {
+func executeCleanCmd(args ...string) (stdout, stderr string, err error) { //nolint:unparam // test helper
 	cmd := NewCleanCmd()
 
 	var outBuf, errBuf bytes.Buffer
@@ -313,7 +313,7 @@ func TestCleanKeepLastN(t *testing.T) {
 			assert.Len(t, env.listWorkspaces(), tc.workspaceCount)
 
 			// Build args with proper string conversion for keepLast
-			keepLastStr := "0"
+			var keepLastStr string
 			if tc.keepLast < 10 {
 				keepLastStr = string(rune('0' + tc.keepLast))
 			} else {

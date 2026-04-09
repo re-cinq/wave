@@ -182,7 +182,7 @@ func TestResolveOutputConfig_JsonAlone(t *testing.T) {
 	root.PersistentFlags().BoolP("debug", "d", false, "")
 	root.PersistentFlags().Bool("no-tui", false, "")
 
-	root.PersistentFlags().Set("json", "true")
+	_ = root.PersistentFlags().Set("json", "true")
 
 	rf, err := ResolveOutputConfig(root)
 	require.NoError(t, err)
@@ -200,7 +200,7 @@ func TestResolveOutputConfig_QuietAlone(t *testing.T) {
 	root.PersistentFlags().BoolP("debug", "d", false, "")
 	root.PersistentFlags().Bool("no-tui", false, "")
 
-	root.PersistentFlags().Set("quiet", "true")
+	_ = root.PersistentFlags().Set("quiet", "true")
 
 	rf, err := ResolveOutputConfig(root)
 	require.NoError(t, err)
@@ -218,8 +218,8 @@ func TestResolveOutputConfig_JsonOutputConflict(t *testing.T) {
 	root.PersistentFlags().BoolP("debug", "d", false, "")
 	root.PersistentFlags().Bool("no-tui", false, "")
 
-	root.PersistentFlags().Set("json", "true")
-	root.PersistentFlags().Set("output", "text")
+	_ = root.PersistentFlags().Set("json", "true")
+	_ = root.PersistentFlags().Set("output", "text")
 
 	_, err := ResolveOutputConfig(root)
 	require.Error(t, err)
@@ -238,8 +238,8 @@ func TestResolveOutputConfig_QuietOutputConflict(t *testing.T) {
 	root.PersistentFlags().BoolP("debug", "d", false, "")
 	root.PersistentFlags().Bool("no-tui", false, "")
 
-	root.PersistentFlags().Set("quiet", "true")
-	root.PersistentFlags().Set("output", "json")
+	_ = root.PersistentFlags().Set("quiet", "true")
+	_ = root.PersistentFlags().Set("output", "json")
 
 	_, err := ResolveOutputConfig(root)
 	require.Error(t, err)
@@ -258,8 +258,8 @@ func TestResolveOutputConfig_JsonQuietNoConflict(t *testing.T) {
 	root.PersistentFlags().BoolP("debug", "d", false, "")
 	root.PersistentFlags().Bool("no-tui", false, "")
 
-	root.PersistentFlags().Set("json", "true")
-	root.PersistentFlags().Set("quiet", "true")
+	_ = root.PersistentFlags().Set("json", "true")
+	_ = root.PersistentFlags().Set("quiet", "true")
 
 	rf, err := ResolveOutputConfig(root)
 	require.NoError(t, err)
@@ -276,7 +276,7 @@ func TestResolveOutputConfig_NoColor(t *testing.T) {
 	root.PersistentFlags().BoolP("debug", "d", false, "")
 	root.PersistentFlags().Bool("no-tui", false, "")
 
-	root.PersistentFlags().Set("no-color", "true")
+	_ = root.PersistentFlags().Set("no-color", "true")
 
 	rf, err := ResolveOutputConfig(root)
 	require.NoError(t, err)
@@ -293,8 +293,8 @@ func TestResolveOutputConfig_QuietVerbose(t *testing.T) {
 	root.PersistentFlags().BoolP("debug", "d", false, "")
 	root.PersistentFlags().Bool("no-tui", false, "")
 
-	root.PersistentFlags().Set("quiet", "true")
-	root.PersistentFlags().Set("verbose", "true")
+	_ = root.PersistentFlags().Set("quiet", "true")
+	_ = root.PersistentFlags().Set("verbose", "true")
 
 	rf, err := ResolveOutputConfig(root)
 	require.NoError(t, err)
@@ -308,7 +308,7 @@ func TestResolveFormat_RootJsonOverridesLocal(t *testing.T) {
 	root.PersistentFlags().Bool("quiet", false, "")
 	root.PersistentFlags().StringP("output", "o", "auto", "")
 
-	root.PersistentFlags().Set("json", "true")
+	_ = root.PersistentFlags().Set("json", "true")
 
 	result := ResolveFormat(root, "table")
 	assert.Equal(t, "json", result)
@@ -320,7 +320,7 @@ func TestResolveFormat_RootQuietOverridesLocal(t *testing.T) {
 	root.PersistentFlags().Bool("quiet", false, "")
 	root.PersistentFlags().StringP("output", "o", "auto", "")
 
-	root.PersistentFlags().Set("quiet", "true")
+	_ = root.PersistentFlags().Set("quiet", "true")
 
 	result := ResolveFormat(root, "json")
 	assert.Equal(t, "quiet", result)
@@ -342,7 +342,7 @@ func TestResolveFormat_OutputTextMapsToTable(t *testing.T) {
 	root.PersistentFlags().Bool("quiet", false, "")
 	root.PersistentFlags().StringP("output", "o", "auto", "")
 
-	root.PersistentFlags().Set("output", "text")
+	_ = root.PersistentFlags().Set("output", "text")
 
 	result := ResolveFormat(root, "json")
 	assert.Equal(t, "table", result)

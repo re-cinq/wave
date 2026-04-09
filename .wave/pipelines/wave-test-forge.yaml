@@ -59,20 +59,73 @@ steps:
     exec:
       type: prompt
       source: |
-        You are validating Wave's forge detection. Report these values:
+        OBJECTIVE:
+        Validate that Wave's forge detection system correctly identifies the forge type
+        and resolves all template variables. Produce a structured JSON report capturing
+        every forge-related template variable and its resolved value.
 
-        1. Forge type: {{ forge.type }}
-        2. CLI tool: {{ forge.cli_tool }}
-        3. PR command: {{ forge.pr_command }}
-        4. PR term: {{ forge.pr_term }}
-        5. Pipeline prefix: {{ forge.prefix }}
-        6. Host: {{ forge.host }}
-        7. Owner: {{ forge.owner }}
-        8. Repo: {{ forge.repo }}
-        9. Run ID: {{ run.id }}
+        CONTEXT:
+        You are the first step in a five-step forge validation pipeline. The template
+        variables below have been resolved by Wave's executor before this prompt reached
+        you. Your job is to record their values and identify any that are missing or
+        unexpected. Subsequent steps will verify CLI availability, authentication, and
+        API access based on your report. You have read-only access to the project codebase.
 
-        Write a JSON report to .wave/output/forge-detect.json with these fields.
-        If any value is empty, note it as "not_set" (this is expected for ForgeLocal).
+        REQUIREMENTS:
+        1. Record each resolved template variable value:
+           - forge_type: {{ forge.type }}
+           - cli_tool: {{ forge.cli_tool }}
+           - pr_command: {{ forge.pr_command }}
+           - pr_term: {{ forge.pr_term }}
+           - prefix: {{ forge.prefix }}
+           - host: {{ forge.host }}
+           - owner: {{ forge.owner }}
+           - repo: {{ forge.repo }}
+           - run_id: {{ run.id }}
+        2. Validate the values:
+           - forge_type should be one of: github, gitlab, gitea, forgejo, codeberg,
+             bitbucket, local. Flag any unexpected value.
+           - cli_tool should be the CLI binary name for the detected forge (gh for github,
+             glab for gitlab, tea for gitea/forgejo/codeberg, empty for local).
+           - pr_command should match the forge convention (pr for github, mr for gitlab,
+             pr for gitea/codeberg, empty for local).
+           - owner and repo should be non-empty for all forges except local.
+        3. Check the git remote configuration to verify forge detection is consistent:
+           - Read .git/config or run `git remote -v` to see the remote URLs
+           - Verify that the detected forge type matches the remote URL pattern
+             (github.com -> github, gitlab.com -> gitlab, etc.)
+        4. If any value is empty, note it as "not_set". For ForgeLocal, this is expected
+           for cli_tool, pr_command, host, owner, and repo. For other forge types, empty
+           values indicate a detection problem.
+        5. Write the JSON report with all values and a validation_status field:
+           - "pass": all values are consistent with the detected forge type
+           - "warn": some values are empty but the forge is functional
+           - "fail": forge type does not match remote URL, or critical values are missing
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT modify any template variable values. Report them exactly as resolved.
+        - Do NOT assume the forge type. Read the actual resolved value, even if you
+          can infer it from the repository URL.
+        - Do NOT skip the git remote verification. The forge detection should match
+          the remote URL; mismatches indicate a bug in forge detection.
+        - Do NOT produce the report without the validation_status field. Downstream
+          steps depend on knowing whether detection succeeded.
+
+        OUTPUT FORMAT:
+        Produce a JSON report with these fields:
+        - forge_type, cli_tool, pr_command, pr_term, prefix, host, owner, repo, run_id:
+          string values as resolved (use "not_set" for empty values)
+        - git_remote_url: the actual git remote URL for verification
+        - validation_status: "pass", "warn", or "fail"
+        - validation_notes: array of strings describing any issues found
+        - timestamp: ISO 8601 timestamp
+
+        QUALITY BAR:
+        A good detection report confirms that forge template variables resolve correctly
+        and are consistent with the git remote configuration. The validation_status
+        accurately reflects whether the forge abstraction layer is working. A bad report
+        records values without validating them or misses the consistency check between
+        detected forge type and actual remote URL.
     output_artifacts:
       - name: forge-detect
         path: .wave/output/forge-detect.json
@@ -233,15 +286,73 @@ steps:
     exec:
       type: prompt
       source: |
-        Review the forge validation results from all prior steps.
+        OBJECTIVE:
+        Synthesize the results from all four preceding forge validation steps (detection,
+        CLI check, auth check, API check) into a comprehensive summary report. Produce
+        both a human-readable markdown report and a structured JSON report.
 
-        Write a summary report to .wave/output/forge-report.md with:
-        1. Overall status (PASS / PARTIAL / FAIL)
-        2. Per-check results table
-        3. Any issues found
-        4. Recommendations
+        CONTEXT:
+        You are the final step in the forge validation pipeline. Four artifacts are injected:
+        - detection: forge detection results with template variable values and validation status
+        - cli: CLI tool availability check (found/not_found/skipped)
+        - auth: authentication status check (ok/failed/skipped)
+        - api: API access test results (ok/failed/skipped)
+        Some of these may indicate "skipped" status (expected for ForgeLocal). Read all four
+        artifacts before synthesizing.
 
-        Also write .wave/output/forge-report.json with structured results.
+        REQUIREMENTS:
+        1. Read all four injected artifacts. For each, extract the key status information.
+        2. Determine the overall status:
+           - PASS: all checks passed (or were correctly skipped for ForgeLocal)
+           - PARTIAL: some checks passed but others failed or were unexpectedly skipped
+           - FAIL: critical checks failed (detection wrong, CLI missing, auth failed)
+           Rules for ForgeLocal: CLI skipped, auth skipped, and API skipped are all
+           expected. Only detection must pass. Overall status should be PASS if detection
+           is valid.
+        3. Write the markdown report with:
+           - Title: "Forge Validation Report"
+           - Overall status in a prominent header: PASS / PARTIAL / FAIL
+           - Summary: 2-3 sentences explaining the overall result
+           - Per-check results table with columns:
+             | Check | Status | Details |
+             Each row: detection, cli, auth, api with their status and key details
+           - Issues found: list any checks that failed or returned unexpected results.
+             For each issue, explain what went wrong and why it matters.
+           - Recommendations: actionable items to fix any failures. For PASS status,
+             note that no action is needed. For PARTIAL/FAIL, list specific steps
+             (install CLI tool, configure auth token, fix remote URL, etc.)
+        4. Write the structured JSON report with:
+           - overall_status: "pass", "partial", or "fail"
+           - forge_type: the detected forge type
+           - checks: object with detection, cli, auth, api sub-objects, each containing
+             status (pass/fail/skip) and details (string)
+           - issues: array of issue descriptions (empty if all passed)
+           - recommendations: array of recommendation strings
+           - timestamp: ISO 8601 timestamp
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT report FAIL if checks were correctly skipped for ForgeLocal. Skipping
+          CLI/auth/API checks is expected behavior for local forges.
+        - Do NOT ignore failed checks. If auth failed, it means forge-dependent pipelines
+          (scope, research, implement) will fail. This must be prominently reported.
+        - Do NOT produce empty recommendations for PARTIAL or FAIL status. Every failure
+          should have at least one actionable recommendation.
+        - Do NOT duplicate information between the markdown and JSON reports. The markdown
+          is for human reading; the JSON is for programmatic consumption. They should
+          contain the same data in different formats.
+
+        OUTPUT FORMAT:
+        Produce exactly two files:
+        - A human-readable markdown report
+        - A structured JSON report for programmatic use
+
+        QUALITY BAR:
+        A good synthesis report gives a project operator a clear answer: "Is the forge
+        integration working, and if not, what do I need to fix?" The per-check table
+        should be scannable in 10 seconds. The recommendations should be copy-pasteable
+        commands (e.g., "Run `gh auth login` to fix authentication"). A bad report buries
+        the overall status in prose, omits actionable recommendations, or incorrectly
+        reports FAIL when checks were legitimately skipped.
     output_artifacts:
       - name: forge-report
         path: .wave/output/forge-report.md

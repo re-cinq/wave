@@ -545,39 +545,6 @@ func renderAnalyzeText(w io.Writer, result *AnalyzeResult, f *display.Formatter)
 	}
 }
 
-// updateManifestOntology writes proposed ontology changes back to wave.yaml.
-// This is used when new contexts are detected that should be added to the manifest.
-func updateManifestOntology(manifestPath string, ontology *manifest.Ontology) error {
-	rawData, err := os.ReadFile(manifestPath)
-	if err != nil {
-		return err
-	}
-
-	var raw map[string]interface{}
-	if err := yaml.Unmarshal(rawData, &raw); err != nil {
-		return err
-	}
-
-	// Marshal ontology to generic map
-	ontologyBytes, err := yaml.Marshal(ontology)
-	if err != nil {
-		return err
-	}
-	var ontologyMap map[string]interface{}
-	if err := yaml.Unmarshal(ontologyBytes, &ontologyMap); err != nil {
-		return err
-	}
-
-	raw["ontology"] = ontologyMap
-
-	outData, err := yaml.Marshal(raw)
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(manifestPath, outData, 0o644)
-}
-
 // deepAnalysisResult is the expected JSON output from the deep analysis agent.
 type deepAnalysisResult struct {
 	Contexts []deepContextResult `json:"contexts"`
@@ -774,7 +741,7 @@ Write the JSON to .wave/output/deep-analysis.json`, m.Ontology.Telos, contextLis
 }
 
 // generateDeepSkillContent creates a rich SKILL.md from deep analysis results.
-func generateDeepSkillContent(ctx deepContextResult, telos string) string {
+func generateDeepSkillContent(ctx deepContextResult, _ string) string {
 	var b strings.Builder
 
 	b.WriteString("---\n")

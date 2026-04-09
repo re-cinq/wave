@@ -66,32 +66,94 @@ steps:
     exec:
       type: prompt
       source: |
-        Analyze the code changes for: {{ input }}
+        ## Objective
 
-        ## Step 1: Extract PR Metadata
+        Analyze all code changes in a pull request to produce a structured diff analysis
+        that downstream review steps (security, quality, slop) will consume. You must
+        identify every modified file, map which modules and packages are affected,
+        determine whether related tests exist and need updating, and flag potential
+        breaking API changes. The analysis must be thorough enough that reviewers in
+        parallel steps can work from your analysis without re-fetching the diff.
 
-        First, fetch PR metadata to populate the `pr_metadata` field in the output:
+        PR: {{ input }}
+
+        ## Context
+
+        This is the first step of the ops-pr-review pipeline. No prior artifacts exist.
+        You have read-only access to the project directory and access to the forge CLI.
+        The security-review, quality-review, and slop-review steps will all receive your
+        output as their primary input, so completeness and accuracy here determine the
+        quality of the entire review pipeline.
+
+        ## Requirements
+
+        ### Step 1: Extract PR Metadata
+
+        Fetch PR metadata to populate the `pr_metadata` field:
         ```bash
         {{ forge.cli_tool }} {{ forge.pr_command }} view {{ input }} --json number,headRefName,baseRefName,url
         ```
-        Extract the number, url, headRefName (→ head_branch), and baseRefName (→ base_branch).
+        Extract: number, URL, headRefName (map to `head_branch`), baseRefName (map to
+        `base_branch`). These fields are required by the contract schema.
 
-        ## Step 2: Checkout the PR Branch
+        ### Step 2: Checkout the PR Branch
 
-        Checkout the PR's head branch to ensure you analyze the correct code:
         ```bash
         {{ forge.cli_tool }} {{ forge.pr_command }} checkout {{ input }}
         ```
+        This ensures you analyze the actual code state, not the base branch.
 
-        ## Step 3: Analyze Changes
+        ### Step 3: Analyze the Diff
 
-        1. Identify all modified files and their purposes
-        2. Map the change scope (which modules/packages affected)
-        3. Find related tests that should be updated
-        4. Check for breaking API changes
+        Run `git diff <base_branch>...HEAD` to get the full diff. Then for each changed
+        file:
 
-        Produce a structured result matching the contract schema.
-        The `pr_metadata` field must contain the PR number, URL, head branch, and base branch.
+        1. **Classify the change type**: new file, modified, deleted, renamed.
+        2. **Identify the file's purpose**: source code, test, configuration, CI,
+           documentation, schema, migration.
+        3. **Map the module/package**: which Go package, npm module, Python package, or
+           crate does this file belong to? Record the package path.
+        4. **Count change magnitude**: lines added, lines removed, net change.
+        5. **Check for test files**: for each modified source file, check whether a
+           corresponding test file exists. If it does, check whether it was also modified
+           in this PR. Flag source files with no test coverage.
+        6. **Detect breaking API changes**: look for renamed/removed exported functions,
+           changed function signatures, removed struct fields, changed interface methods,
+           or modified public constants. These require special attention in review.
+        7. **Identify cross-cutting concerns**: does this PR touch error handling
+           patterns, logging, configuration loading, or security-sensitive paths (auth,
+           crypto, input parsing)?
+
+        ### Step 4: Produce Structured Output
+
+        Produce output matching the contract schema. The `pr_metadata` field must contain
+        the PR number, URL, head branch,
+        and base branch. The `files` array must contain one entry per changed file with
+        all the analysis fields above.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT attempt to review the code for quality or security in this step. Your
+          job is structural analysis only. The parallel review steps handle evaluation.
+        - Do NOT modify any files. This step is read-only.
+        - Do NOT skip binary files, configuration files, or CI files in the analysis.
+          Every changed file must appear in the output.
+        - Do NOT guess at package membership. Read the actual import paths or module
+          declarations.
+        - Avoid producing a flat list of files without structural grouping. Group by
+          package/module to give reviewers meaningful context.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good diff analysis lets a reviewer understand the PR's scope in under 30
+        seconds: how many files changed, which packages are affected, whether tests
+        cover the changes, and whether any breaking API changes exist. A bad analysis
+        is a flat file list without classification, misses test coverage gaps, or fails
+        to detect breaking changes.
     output_artifacts:
       - name: diff
         path: .wave/output/diff-analysis.json
@@ -120,17 +182,97 @@ steps:
     exec:
       type: prompt
       source: |
-        Security review of the PR changes.
+        ## Objective
 
-        Check for:
-        1. SQL injection, XSS, CSRF vulnerabilities
-        2. Hardcoded secrets or credentials
-        3. Insecure deserialization
-        4. Missing input validation
-        5. Authentication/authorization gaps
-        6. Sensitive data exposure
+        Perform a focused security review of the code changes in this pull request.
+        Identify vulnerabilities, credential exposure, injection risks, authentication
+        gaps, and unsafe data handling. Every finding must reference a specific file and
+        line, include a severity rating, and provide a concrete remediation suggestion.
+        This review will be synthesized with quality and slop reviews to produce a final
+        verdict.
 
-        Output findings with severity (CRITICAL/HIGH/MEDIUM/LOW).
+        ## Context
+
+        The injected `changes` artifact contains the structured diff analysis from the
+        previous step, including every changed file, its classification, package
+        membership, and whether tests exist. Read this artifact to understand what files
+        were changed and focus your security review on those files. You do not need to
+        review unchanged files.
+
+        ## Requirements
+
+        For each changed file in the diff analysis, check for the following security
+        concerns. Read the actual source code, not just the diff — vulnerabilities can
+        exist in context around the changed lines.
+
+        1. **Injection vulnerabilities**: SQL injection (string concatenation in queries),
+           command injection (unsanitized input in exec/system calls), XSS (unescaped
+           user input in HTML/template output), LDAP injection, path traversal
+           (user-controlled file paths without validation).
+
+        2. **Hardcoded secrets**: API keys, passwords, tokens, private keys, or
+           connection strings embedded in source code. Check string literals, constant
+           declarations, and configuration defaults. Also check for secrets in test
+           files that might be real credentials.
+
+        3. **Insecure deserialization**: Unmarshaling untrusted input without validation,
+           using unsafe deserializers (e.g., yaml.Unmarshal on user input without strict
+           mode), or deserializing into interface{} types.
+
+        4. **Missing input validation**: Functions that accept external input (HTTP
+           handlers, CLI argument parsers, file readers) without validating type, length,
+           range, or format. Pay special attention to inputs that flow into security-
+           sensitive operations.
+
+        5. **Authentication and authorization gaps**: Missing auth checks on new
+           endpoints, incorrect permission verification, token handling without expiry
+           validation, or session management issues.
+
+        6. **Sensitive data exposure**: Logging of credentials, tokens, or PII. Error
+           messages that leak internal state. Debug endpoints left enabled. Response
+           bodies that include more data than the client needs.
+
+        7. **Cryptographic issues**: Use of deprecated algorithms (MD5, SHA1 for
+           security purposes), insufficient key lengths, hardcoded IVs or salts, or
+           missing TLS verification.
+
+        For each finding, record:
+        - **Severity**: CRITICAL (exploitable vulnerability), HIGH (security weakness
+          likely exploitable), MEDIUM (defense-in-depth concern), LOW (best-practice
+          deviation)
+        - **File and line**: exact location
+        - **Description**: what the vulnerability is and how it could be exploited
+        - **Recommendation**: specific remediation steps
+
+        If no security issues are found, explicitly state that the changes appear secure
+        and note what was checked. A clean security review is a valid and valuable outcome.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT flag style or quality issues. This is a security review only.
+        - Do NOT inflate severity. A missing Content-Type header is LOW, not HIGH.
+        - Do NOT skip test files. Tests can contain real credentials or reveal security
+          assumptions.
+        - Do NOT report pre-existing vulnerabilities unless the PR makes them worse or
+          more exploitable.
+        - Avoid false positives from pattern matching. Verify that the flagged code
+          actually handles untrusted input before calling it a vulnerability.
+
+        ## Output Format
+
+        Produce a markdown report with:
+        - **H2: Security Review Summary** — finding count by severity, one-line verdict
+        - **H2: Findings** — one H3 per finding with severity, file, line, description,
+          and recommendation
+        - **H2: Areas Checked** — list of security categories examined, even if clean
+
+        ## Quality Bar
+
+        A good security review has zero false positives, catches real vulnerabilities
+        with precise file/line references, and provides actionable remediation. A bad
+        security review flags every string concatenation as "possible injection" without
+        checking whether the string is user-controlled, or reports no findings without
+        documenting what was actually checked.
     output_artifacts:
       - name: security
         path: .wave/output/security-review.md
@@ -161,18 +303,91 @@ steps:
     exec:
       type: prompt
       source: |
-        Quality review of the PR changes.
+        ## Objective
 
-        Check for:
-        1. Error handling completeness
-        2. Edge cases not covered
-        3. Code duplication
-        4. Naming consistency
-        5. Missing or inadequate tests
-        6. Performance implications
-        7. Documentation gaps
+        Perform a code quality review of the changes in this pull request, focusing on
+        error handling, edge cases, code duplication, naming consistency, test adequacy,
+        performance implications, and documentation completeness. Each finding must be
+        specific, reference a file and line, include a severity rating, and provide a
+        concrete suggestion for improvement. This review complements the security and
+        slop reviews and will be synthesized into a final verdict.
 
-        Output findings with severity and suggestions.
+        ## Context
+
+        The injected `changes` artifact contains the structured diff analysis from the
+        diff-analysis step, including every changed file, its package, change type, and
+        test coverage status. Read this artifact first to understand the scope of
+        changes.
+
+        ## Requirements
+
+        Examine each changed file and evaluate the following quality dimensions. Read the
+        actual source code to understand context — do not review the diff in isolation.
+
+        1. **Error handling completeness**: Are all error returns checked? Are errors
+           wrapped with sufficient context for debugging (e.g., `fmt.Errorf("doing X: %w", err)`)?
+           Are there bare `return err` calls that lose context? Are errors silently
+           swallowed (`_ = someFunc()`)? Are panic/recover patterns used appropriately?
+
+        2. **Edge cases not covered**: What inputs or states could cause unexpected
+           behavior? Nil/null inputs, empty collections, zero values, negative numbers,
+           concurrent access, context cancellation, network timeouts. For each edge case
+           found, note whether a test covers it.
+
+        3. **Code duplication**: Are there copy-pasted blocks that should be extracted
+           into a shared function? Check both within the PR and against existing code in
+           the same package. Minor duplication (2-3 lines of boilerplate) is acceptable;
+           significant logic duplication (10+ lines) should be flagged.
+
+        4. **Naming consistency**: Do new identifiers follow the project's conventions?
+           Check function names, variable names, constant names, and package names
+           against existing code in the same module. Flag inconsistencies (e.g., mixing
+           camelCase and snake_case, or using abbreviations inconsistently).
+
+        5. **Missing or inadequate tests**: For each changed source file, check whether
+           tests exist and whether they cover the new or modified code paths. Flag
+           functions with no test coverage. Flag tests that only test the happy path
+           without error cases.
+
+        6. **Performance implications**: Large allocations in hot paths, unbounded loops,
+           O(n^2) algorithms on potentially large inputs, missing context timeouts on
+           network calls, unnecessary serialization/deserialization cycles.
+
+        7. **Documentation gaps**: Are new exported functions documented? Are complex
+           algorithms explained? Are non-obvious design decisions commented? Check for
+           stale comments that no longer match the code.
+
+        For each finding, record:
+        - **Severity**: HIGH (correctness risk), MEDIUM (maintainability concern),
+          LOW (style or best-practice suggestion)
+        - **File and line**: exact location
+        - **Description**: what the issue is
+        - **Suggestion**: how to fix it
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT duplicate security review findings. Focus on quality, not security.
+        - Do NOT flag subjective style preferences unless the project has a documented
+          style guide that is being violated.
+        - Do NOT flag auto-generated files (protobuf, swagger, etc.) for quality issues.
+        - Do NOT review files that were not changed by this PR.
+        - Avoid nitpicking. Focus on findings that affect correctness, maintainability,
+          or performance — not cosmetic preferences.
+
+        ## Output Format
+
+        Produce a markdown report with:
+        - **H2: Quality Review Summary** — finding count by severity, one-line assessment
+        - **H2: Findings** — one H3 per finding with all fields
+        - **H2: Test Coverage Assessment** — which changed files have tests, which do not
+
+        ## Quality Bar
+
+        A good quality review catches real issues that would cause maintenance headaches
+        or runtime failures, provides actionable suggestions, and correctly identifies
+        test coverage gaps. A bad quality review nitpicks formatting, flags every missing
+        comment as a documentation gap, or misses genuine error handling problems while
+        fixating on variable names.
     output_artifacts:
       - name: quality
         path: .wave/output/quality-review.md
@@ -202,17 +417,92 @@ steps:
     exec:
       type: prompt
       source: |
-        Slop review of the PR changes.
+        ## Objective
 
-        Check for:
-        1. Dead code
-        2. Duplicate code
-        3. Unfinished features
-        4. Glue code, glue tests
-        5. Code that doesn't fit the overall design or architecture
-        6. Code that seems out of place or not fully thought through
+        Perform a "slop review" of the PR changes — a focused check for code that is
+        dead, duplicated, unfinished, or architecturally misplaced. This review targets
+        the kind of low-quality code that accumulates when changes are made hastily or
+        without full understanding of the existing architecture. The slop review is
+        specifically looking for code that should not have been written, not code that
+        was written badly (that is the quality review's job).
 
-        Output findings with severity and suggestions.
+        ## Context
+
+        The injected `changes` artifact contains the structured diff analysis from the
+        diff-analysis step. Read this artifact to understand which files were changed and
+        their package membership. Then read the actual source code to evaluate each
+        concern.
+
+        ## Requirements
+
+        Examine each changed file and evaluate these slop indicators:
+
+        1. **Dead code**: Functions, methods, constants, or variables added by this PR
+           that are never called or referenced. Check both within the changed files and
+           across the package. Exported symbols that are part of a public API may not
+           have callers yet — flag these only if they appear to be orphaned (no tests,
+           no documentation, no obvious future use).
+
+        2. **Duplicate code**: Code in this PR that duplicates existing functionality
+           elsewhere in the codebase. This is different from the quality review's
+           duplication check — here you are looking for whole-function or whole-feature
+           duplication, not just repeated code blocks. Did the author reimplement
+           something that already exists in a utility package?
+
+        3. **Unfinished features**: TODO comments, stub implementations, commented-out
+           code, or feature flags that are never toggled. Code paths that handle one
+           case but have an empty `else` or `default` branch. Functions that return
+           hardcoded values where real logic should be.
+
+        4. **Glue code and glue tests**: Adapter code or test wrappers that exist only
+           to connect two things that should be connected more directly. Tests that test
+           the glue rather than the actual behavior. Tests that mock so many dependencies
+           that they test nothing real.
+
+        5. **Architectural misfits**: Code placed in the wrong package or module. A
+           handler function in a model package. Business logic in a transport layer.
+           Database queries in an HTTP handler. Check against the project's package
+           structure and naming conventions to identify misplacements.
+
+        6. **Half-baked abstractions**: Interfaces with one implementation, generic
+           frameworks used for one case, or abstraction layers that add complexity
+           without enabling any actual variation. Premature generalization is slop.
+
+        For each finding, record:
+        - **Severity**: HIGH (will cause confusion or maintenance burden), MEDIUM
+          (code smell that should be addressed), LOW (minor slop, acceptable for now)
+        - **File and line**: exact location
+        - **Description**: what the slop is and why it matters
+        - **Suggestion**: what to do instead (remove, merge, relocate, simplify)
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT duplicate quality or security findings. Slop review covers different
+          concerns.
+        - Do NOT flag intentional scaffolding or placeholder code if the PR description
+          mentions it as work-in-progress.
+        - Do NOT flag code as "dead" if it is exported and part of a public API — it may
+          have external callers.
+        - Do NOT report the absence of features as slop. Slop is about what IS there
+          that should not be, not what is missing.
+        - Avoid being overly aggressive. Not every abstraction is premature, and not
+          every test helper is glue. Use judgment.
+
+        ## Output Format
+
+        Produce a markdown report with:
+        - **H2: Slop Review Summary** — finding count by category, one-line assessment
+        - **H2: Findings** — one H3 per finding with all fields
+        - **H2: Architecture Observations** — notes on how the changes fit (or don't)
+          into the existing codebase structure
+
+        ## Quality Bar
+
+        A good slop review catches code that will become a maintenance burden — dead
+        functions nobody calls, duplicate logic that will drift out of sync, or code
+        placed in the wrong layer. A bad slop review flags every utility function as
+        "unnecessary abstraction" or every TODO as "unfinished feature" without
+        understanding the project's development stage and conventions.
     output_artifacts:
       - name: quality
         path: .wave/output/slop-review.md
@@ -246,14 +536,91 @@ steps:
     exec:
       type: prompt
       source: |
-        Synthesize the review findings into a final verdict.
+        ## Objective
 
-        Produce a structured JSON result matching the contract schema.
+        Synthesize the findings from three parallel review tracks (security, quality,
+        and slop) into a single, coherent review verdict. You must weigh findings by
+        severity, deduplicate across review tracks, resolve any contradictions, and
+        produce a final recommendation: APPROVE, REQUEST_CHANGES, COMMENT, or REJECT.
+        The verdict must be structured JSON that the publish step can format into a
+        human-readable PR comment.
 
-        Use APPROVE only when there are no critical or major issues.
-        Use REQUEST_CHANGES when there are blocking issues that must be fixed.
-        Use COMMENT for non-blocking observations.
-        Use REJECT only for fundamental design problems.
+        ## Context
+
+        Three artifacts are injected into your workspace:
+        - `security_findings`: The security review markdown with findings categorized by
+          severity
+        - `quality_findings`: The quality review markdown with error handling, testing,
+          and performance findings
+        - `slop_findings`: The slop review markdown with dead code, duplication, and
+          architectural misfit findings
+
+        Read ALL three artifacts before forming a verdict. The verdict must consider all
+        findings holistically.
+
+        ## Requirements
+
+        ### Step 1: Parse All Findings
+
+        Extract every finding from each review artifact. For each, note its source
+        (security, quality, or slop), severity, file, and description.
+
+        ### Step 2: Deduplicate
+
+        Check for findings that appear in multiple reviews (e.g., a missing input
+        validation flagged by both security and quality). Keep the higher-severity
+        version and note the sources.
+
+        ### Step 3: Determine the Verdict
+
+        Apply these decision rules strictly:
+
+        - **APPROVE**: Use ONLY when there are zero CRITICAL or HIGH findings across all
+          three reviews. MEDIUM and LOW findings alone do not block approval. This means
+          the code is safe to merge with minor observations noted.
+        - **REQUEST_CHANGES**: Use when there are HIGH findings that must be fixed before
+          merge, but the overall approach is sound. This is the most common verdict for
+          PRs with real issues.
+        - **COMMENT**: Use for PRs where all findings are MEDIUM or LOW and are
+          non-blocking observations. The author should be aware of them but is not
+          required to address them before merge.
+        - **REJECT**: Use ONLY for fundamental design problems — the PR's approach is
+          wrong, not just its implementation. This should be rare. If the architecture is
+          fine but there are many bugs, use REQUEST_CHANGES.
+
+        ### Step 4: Compose the Verdict
+
+        For the structured JSON output, include:
+        - `verdict`: one of APPROVE, REQUEST_CHANGES, COMMENT, REJECT
+        - `summary`: 2-3 sentence overall assessment
+        - `critical_findings`: array of CRITICAL severity findings (blocking)
+        - `major_findings`: array of HIGH severity findings (should fix)
+        - `minor_findings`: array of MEDIUM/LOW findings (non-blocking)
+        - `positive_notes`: what the PR does well (always include at least one)
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT approve a PR with CRITICAL findings, regardless of context.
+        - Do NOT reject a PR because of implementation quality issues. REJECT is reserved
+          for fundamental design problems only.
+        - Do NOT add new findings in this step. Only synthesize what the review steps
+          produced.
+        - Do NOT inflate severity during synthesis. If the security review rated something
+          as MEDIUM, do not upgrade it to HIGH in the verdict.
+        - Do NOT produce an empty positive_notes array. Every PR has something done right,
+          even if it is just "the commit messages are clear."
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good verdict correctly reflects the severity distribution across all three
+        reviews, provides a clear recommendation that matches the findings, and includes
+        balanced commentary (issues AND strengths). A bad verdict contradicts the findings
+        (approving despite critical issues, or rejecting over minor style concerns), or
+        omits entire review tracks from consideration.
     output_artifacts:
       - name: verdict
         path: .wave/output/review-verdict.json
@@ -280,12 +647,109 @@ steps:
     exec:
       type: prompt
       source: |
-        Post the code review as a PR comment.
+        ## Objective
 
-        1. Read the `review_summary` artifact — it contains the structured review verdict
-        2. Read the `pr_context` artifact to get the PR number for the comment command
-        3. Format the review verdict into a well-structured, human-readable PR comment
-        4. Post it using: {{ forge.cli_tool }} {{ forge.pr_command }} comment <PR_NUMBER> --body-file /tmp/pr-review-comment.md
+        Format the review verdict into a well-structured, human-readable PR comment and
+        post it to the pull request. This is the public-facing output of the entire
+        review pipeline — it must be clear, professional, and actionable. The comment
+        should enable the PR author to understand the verdict at a glance and know
+        exactly what needs to change (if anything) before the PR can merge.
+
+        ## Context
+
+        Two artifacts are injected into your workspace:
+        - `review_summary`: The structured review verdict JSON containing the overall
+          verdict (APPROVE/REQUEST_CHANGES/COMMENT/REJECT), finding arrays by severity,
+          and positive notes.
+        - `pr_context`: The diff analysis JSON containing PR metadata — especially the PR
+          number needed for the comment command.
+
+        Read BOTH artifacts before composing the comment.
+
+        ## Requirements
+
+        ### Step 1: Extract PR Number
+
+        Read `pr_context` and extract the PR number from `pr_metadata.number`. Parse the
+        repository owner/name if needed for the comment command.
+
+        ### Step 2: Compose the Review Comment
+
+        Write the comment body to `/tmp/pr-review-comment.md` with this structure:
+
+        ```markdown
+        ## Code Review: <VERDICT>
+
+        <2-3 sentence summary from the verdict>
+
+        ### Critical Findings
+        <numbered list of critical findings, or "None" if clean>
+
+        ### Major Findings
+        <numbered list of high-severity findings, or "None">
+
+        ### Minor Observations
+        <bulleted list of medium/low findings, or "None">
+
+        ### Positive Notes
+        <bulleted list of things done well>
+
+        ---
+        *Automated review by [Wave](https://github.com/re-cinq/wave) ops-pr-review pipeline*
+        ```
+
+        For each finding, include: the file path, a one-line description, and the
+        recommended fix. Keep it concise — the full review artifacts contain the details.
+
+        The verdict header should use clear language:
+        - APPROVE: "Approved — no blocking issues found"
+        - REQUEST_CHANGES: "Changes Requested — N issue(s) to address"
+        - COMMENT: "Observations — non-blocking feedback"
+        - REJECT: "Rejected — fundamental design concerns"
+
+        ### Step 3: Post the Comment
+
+        ```bash
+        {{ forge.cli_tool }} {{ forge.pr_command }} comment <PR_NUMBER> --body-file /tmp/pr-review-comment.md
+        ```
+
+        Capture the comment URL from the command output.
+
+        ### Step 4: Produce Output
+
+        Produce the result JSON with:
+        - `pr_number`: the PR number
+        - `verdict`: the review verdict string
+        - `comment_url`: the URL of the posted comment
+        - `findings_count`: total findings posted
+        - `posted`: true if the comment was posted successfully
+
+        Clean up `/tmp/pr-review-comment.md` after posting.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT modify the verdict or findings. Publish exactly what the summary step
+          produced.
+        - Do NOT post multiple comments. Write one comprehensive review comment.
+        - Do NOT include raw JSON in the PR comment. Format everything as human-readable
+          markdown.
+        - Do NOT use aggressive or condescending language. The tone must be professional
+          and constructive, as if written by a senior colleague.
+        - Do NOT post a comment if the verdict JSON is missing or malformed. Report the
+          error in the output artifact instead.
+        - Keep the comment under 4000 characters if possible. Reviewers skim long
+          comments.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good PR comment lets the author understand the verdict and required changes in
+        under 60 seconds. It uses clear headings, concise finding descriptions, and
+        provides specific file references. A bad comment is a wall of unformatted text,
+        includes raw JSON, or uses a hostile tone that discourages the author.
     output_artifacts:
       - name: publish-result
         path: .wave/output/publish-result.json
