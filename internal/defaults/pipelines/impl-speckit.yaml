@@ -251,7 +251,7 @@ steps:
       source_path: .wave/prompts/speckit-flow/implement.md
     retry:
       policy: standard
-      max_attempts: 3
+      max_attempts: 2
     handover:
       contracts:
         - type: test_suite
