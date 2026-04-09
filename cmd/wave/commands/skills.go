@@ -7,14 +7,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/recinq/wave/internal/display"
+	"github.com/recinq/wave/internal/skill"
+	"github.com/recinq/wave/internal/timeouts"
+	"github.com/spf13/cobra"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
-	"github.com/recinq/wave/internal/display"
-	"github.com/recinq/wave/internal/timeouts"
-	"github.com/recinq/wave/internal/skill"
-	"github.com/spf13/cobra"
 )
 
 // tesslTimeout is the maximum duration for tessl subprocess calls.

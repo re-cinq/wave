@@ -267,13 +267,13 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 
 		// Create a simple recovery result for consistent error formatting
 		recoveryResult = &RecoveryResult{
-			OriginalInput:  string(data),
-			RecoveredJSON:  string(data),
-			IsValid:        true,
-			AppliedFixes:   []string{},
-			Warnings:       []string{},
-			RecoveryLevel:  ConservativeRecovery,
-			ParsedData:     artifact,
+			OriginalInput: string(data),
+			RecoveredJSON: string(data),
+			IsValid:       true,
+			AppliedFixes:  []string{},
+			Warnings:      []string{},
+			RecoveryLevel: ConservativeRecovery,
+			ParsedData:    artifact,
 		}
 	}
 

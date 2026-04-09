@@ -37,7 +37,7 @@ func newMockAnthropicServer(t *testing.T, judgeResp JudgeResponse) *httptest.Ser
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(apiResp)
+		_ = json.NewEncoder(w).Encode(apiResp)
 	}))
 
 	return server
@@ -47,8 +47,8 @@ func setupLLMJudgeTest(t *testing.T, content string) string {
 	t.Helper()
 	workspacePath := t.TempDir()
 	waveDir := filepath.Join(workspacePath, ".wave")
-	os.MkdirAll(waveDir, 0755)
-	os.WriteFile(filepath.Join(waveDir, "artifact.json"), []byte(content), 0644)
+	_ = os.MkdirAll(waveDir, 0755)
+	_ = os.WriteFile(filepath.Join(waveDir, "artifact.json"), []byte(content), 0644)
 	return workspacePath
 }
 
@@ -252,8 +252,8 @@ func TestLLMJudge_NoAPIKey_FallsThroughToCLI(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "")
 
 	tmpDir := t.TempDir()
-	os.MkdirAll(filepath.Join(tmpDir, ".wave"), 0o755)
-	os.WriteFile(filepath.Join(tmpDir, ".wave", "artifact.json"), []byte(`{"test": true}`), 0o644)
+	_ = os.MkdirAll(filepath.Join(tmpDir, ".wave"), 0o755)
+	_ = os.WriteFile(filepath.Join(tmpDir, ".wave", "artifact.json"), []byte(`{"test": true}`), 0o644)
 
 	cfg := ContractConfig{
 		Type:     "llm_judge",
@@ -326,7 +326,7 @@ func TestLLMJudge_MalformedResponse(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(apiResp)
+		_ = json.NewEncoder(w).Encode(apiResp)
 	}))
 	defer server.Close()
 

@@ -452,7 +452,7 @@ func TestContractFailureRetry(t *testing.T) {
 
 	// Create an adapter that fails the first 2 attempts
 	retryAdapter := &retryTrackingAdapter{
-		attempts: &attemptCount,
+		attempts:  &attemptCount,
 		failUntil: 2,
 		successAdapter: adapter.NewMockAdapter(
 			adapter.WithStdoutJSON(`{"status": "success"}`),
@@ -545,7 +545,7 @@ func TestContractFailureExhaustsRetries(t *testing.T) {
 func TestBuildContractPrompt_JSONSchema(t *testing.T) {
 	tmpDir := t.TempDir()
 	schemaPath := filepath.Join(tmpDir, "test.schema.json")
-	os.WriteFile(schemaPath, []byte(`{"required": ["name", "status", "results"], "properties": {"name": {"type": "string"}, "status": {"type": "string"}, "results": {"type": "array"}}}`), 0644)
+	_ = os.WriteFile(schemaPath, []byte(`{"required": ["name", "status", "results"], "properties": {"name": {"type": "string"}, "status": {"type": "string"}, "results": {"type": "array"}}}`), 0644)
 
 	executor := createSchemaTestExecutor(tmpDir)
 
@@ -902,7 +902,7 @@ func TestEmptyResultContentDoesNotOverwriteArtifacts(t *testing.T) {
 
 	// Create existing artifact file with content
 	artifactPath := tmpDir + "/workspace-test/step1/output.json"
-	os.MkdirAll(tmpDir + "/workspace-test/step1", 0755)
+	_ = os.MkdirAll(tmpDir+"/workspace-test/step1", 0755)
 	existingContent := `{"previous": "step-result"}`
 	err := os.WriteFile(artifactPath, []byte(existingContent), 0644)
 	require.NoError(t, err)
@@ -1193,7 +1193,7 @@ func TestRegressionProductionIssues(t *testing.T) {
 		}
 		itemsJSON, _ := json.Marshal(items)
 		itemsFile := filepath.Join(tmpDir, "items.json")
-		os.WriteFile(itemsFile, itemsJSON, 0644)
+		_ = os.WriteFile(itemsFile, itemsJSON, 0644)
 
 		m := testutil.CreateTestManifest(tmpDir)
 
@@ -1281,7 +1281,7 @@ func TestWriteOutputArtifactsPreservesExistingFiles(t *testing.T) {
 
 	// Create existing artifact file with persona-written content
 	artifactDir := filepath.Join(tmpDir, "workspace-test", "step1", "output")
-	os.MkdirAll(artifactDir, 0755)
+	_ = os.MkdirAll(artifactDir, 0755)
 	artifactPath := filepath.Join(artifactDir, "issue-content.json")
 	personaContent := `{"issue": "structured data from persona"}`
 	err := os.WriteFile(artifactPath, []byte(personaContent), 0644)
@@ -1344,7 +1344,6 @@ func (a *configCapturingAdapter) getLastConfig() adapter.AdapterRunConfig {
 	defer a.mu.Unlock()
 	return a.lastConfig
 }
-
 
 // TestExecuteStep_NonZeroExitCode_EmitsWarning verifies that a non-zero adapter exit code
 // emits a warning event but still allows the step to complete (work may have been done).
@@ -1730,17 +1729,17 @@ func TestCleanupWorktrees_Dedup(t *testing.T) {
 	repoRoot := "/tmp/test-repo"
 
 	execution := &PipelineExecution{
-		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "dedup-test"}},
-		States:         make(map[string]string),
-		Results:        make(map[string]map[string]interface{}),
-		ArtifactPaths:  make(map[string]string),
+		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "dedup-test"}},
+		States:        make(map[string]string),
+		Results:       make(map[string]map[string]interface{}),
+		ArtifactPaths: make(map[string]string),
 		WorkspacePaths: map[string]string{
-			"step1":                       sharedPath,
-			"step1__worktree_repo_root":   repoRoot,
-			"step2":                       sharedPath,
-			"step2__worktree_repo_root":   repoRoot,
-			"step3":                       sharedPath,
-			"step3__worktree_repo_root":   repoRoot,
+			"step1":                     sharedPath,
+			"step1__worktree_repo_root": repoRoot,
+			"step2":                     sharedPath,
+			"step2__worktree_repo_root": repoRoot,
+			"step3":                     sharedPath,
+			"step3__worktree_repo_root": repoRoot,
 		},
 		WorktreePaths: make(map[string]*WorktreeInfo),
 		Input:         "test",
@@ -2552,15 +2551,15 @@ func (a *outcomeTestAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConf
 		// Write to common output locations
 		for _, dir := range []string{"output", ".wave/output"} {
 			outDir := filepath.Join(cfg.WorkspacePath, dir)
-			os.MkdirAll(outDir, 0755)
+			_ = os.MkdirAll(outDir, 0755)
 			// Write all JSON files in this directory
 			entries, _ := filepath.Glob(filepath.Join(outDir, "*.json"))
 			if len(entries) == 0 {
 				// Pre-create common artifact files
-				os.WriteFile(filepath.Join(outDir, "publish-result.json"), []byte(a.artifactJSON), 0644)
-				os.WriteFile(filepath.Join(outDir, "pr-result.json"), []byte(a.artifactJSON), 0644)
-				os.WriteFile(filepath.Join(outDir, "issue-result.json"), []byte(a.artifactJSON), 0644)
-				os.WriteFile(filepath.Join(outDir, "deploy-result.json"), []byte(a.artifactJSON), 0644)
+				_ = os.WriteFile(filepath.Join(outDir, "publish-result.json"), []byte(a.artifactJSON), 0644)
+				_ = os.WriteFile(filepath.Join(outDir, "pr-result.json"), []byte(a.artifactJSON), 0644)
+				_ = os.WriteFile(filepath.Join(outDir, "issue-result.json"), []byte(a.artifactJSON), 0644)
+				_ = os.WriteFile(filepath.Join(outDir, "deploy-result.json"), []byte(a.artifactJSON), 0644)
 			}
 		}
 	}
@@ -2714,9 +2713,9 @@ func TestOutcomeExtractionNonEmptyArrayOOBStillEmitsWarning(t *testing.T) {
 
 // modelCapturingAdapter captures the AdapterRunConfig.Model for each step execution.
 type modelCapturingAdapter struct {
-	mu      sync.Mutex
-	models  map[string]string // stepID -> model
-	inner   adapter.AdapterRunner
+	mu     sync.Mutex
+	models map[string]string // stepID -> model
+	inner  adapter.AdapterRunner
 }
 
 func newModelCapturingAdapter() *modelCapturingAdapter {
@@ -3008,12 +3007,12 @@ func TestPollCancellation_StopsWhenContextCancelled(t *testing.T) {
 
 // countingFailAdapter fails the first N calls then succeeds.
 type countingFailAdapter struct {
-	mu           sync.Mutex
-	failCount    int // how many calls should fail
-	callCount    int
-	failError    error
-	successMock  *adapter.MockAdapter
-	lastConfigs  []adapter.AdapterRunConfig
+	mu          sync.Mutex
+	failCount   int // how many calls should fail
+	callCount   int
+	failError   error
+	successMock *adapter.MockAdapter
+	lastConfigs []adapter.AdapterRunConfig
 }
 
 func newCountingFailAdapter(failCount int, failErr error) *countingFailAdapter {
@@ -4197,7 +4196,6 @@ func TestExecuteWithNilFilter(t *testing.T) {
 	assert.Equal(t, []string{"step-a", "step-b"}, order, "all steps should execute with nil filter")
 }
 
-
 // ============================================================================
 // Rework Branching Tests
 // ============================================================================
@@ -4810,11 +4808,11 @@ func TestSkillProvisioningIntegration(t *testing.T) {
 // TestTransitiveSkip_DiamondDependency verifies transitive skip propagation
 // through a diamond-shaped dependency graph:
 //
-//	    A (optional, fails)
-//	   / \
-//	  B   C
-//	   \ /
-//	    D
+//	  A (optional, fails)
+//	 / \
+//	B   C
+//	 \ /
+//	  D
 //
 // All of B, C, D should be skipped. Pipeline should succeed because A is optional.
 func TestTransitiveSkip_DiamondDependency(t *testing.T) {
@@ -5215,7 +5213,6 @@ func TestThreadValidation_InvalidFidelity(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid fidelity value")
 }
 
-
 // TestExecutor_GateStep_AutoApprove verifies that a pipeline with a gate step
 // using auto-approve mode completes all steps successfully. The gate has choices
 // with a default, and auto-approve selects the default (approve -> implement).
@@ -5507,7 +5504,6 @@ func TestExecutor_GateStep_TemplateVars(t *testing.T) {
 	assert.Empty(t, decision.Target, "decision target should be empty (natural DAG flow)")
 }
 
-
 // TestExecuteStep_FailureClassification_Transient verifies that a transient failure
 // (rate limit StepError) is classified correctly and the step retries.
 func TestExecuteStep_FailureClassification_Transient(t *testing.T) {
@@ -5692,7 +5688,7 @@ func TestExecuteStep_FailureClassification_Canceled(t *testing.T) {
 
 	// Use a mock adapter with a simulated delay so that it respects ctx.Done()
 	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithSimulatedDelay(10*time.Second),
+		adapter.WithSimulatedDelay(10 * time.Second),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -5845,7 +5841,7 @@ steps:
 	// Override CWD so the executor finds .wave/pipelines/ relative to tmpDir
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "iterate-test"},
@@ -5909,7 +5905,7 @@ steps:
 
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "parallel-iterate-test"},
@@ -5951,7 +5947,7 @@ func TestAggregateInDAG(t *testing.T) {
 
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	outputPath := filepath.Join(tmpDir, ".wave", "output", "merged.json")
 
@@ -6012,7 +6008,7 @@ steps:
 
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "branch-test"},

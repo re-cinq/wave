@@ -22,12 +22,12 @@ type ErrorWrapper struct {
 
 // WrapperDetectionResult contains the results of error wrapper detection
 type WrapperDetectionResult struct {
-	IsWrapper      bool
-	ErrorWrapper   *ErrorWrapper
-	RawContent     []byte
-	ExtractedFrom  string // source field name
-	Confidence     string // "high", "medium", "low"
-	FieldsMatched  []string
+	IsWrapper     bool
+	ErrorWrapper  *ErrorWrapper
+	RawContent    []byte
+	ExtractedFrom string // source field name
+	Confidence    string // "high", "medium", "low"
+	FieldsMatched []string
 }
 
 // DetectErrorWrapper analyzes input to determine if it's an error wrapper structure

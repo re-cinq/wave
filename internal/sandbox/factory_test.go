@@ -8,11 +8,11 @@ import (
 
 func TestNewSandbox(t *testing.T) {
 	tests := []struct {
-		name        string
-		backend     SandboxBackendType
-		wantType    string
-		wantErr     bool
-		skipDocker  bool
+		name       string
+		backend    SandboxBackendType
+		wantType   string
+		wantErr    bool
+		skipDocker bool
 	}{
 		{
 			name:     "none returns NoneSandbox",

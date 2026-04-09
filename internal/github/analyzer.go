@@ -33,11 +33,11 @@ func NewAnalyzer(client *Client) *Analyzer {
 // AnalyzeIssue performs comprehensive analysis on a GitHub issue
 func (a *Analyzer) AnalyzeIssue(ctx context.Context, issue *Issue) *IssueAnalysis {
 	analysis := &IssueAnalysis{
-		Issue:        issue,
-		QualityScore: 100,
-		Problems:     []string{},
+		Issue:           issue,
+		QualityScore:    100,
+		Problems:        []string{},
 		Recommendations: []string{},
-		Metadata:     make(map[string]interface{}),
+		Metadata:        make(map[string]interface{}),
 	}
 
 	// Analyze title

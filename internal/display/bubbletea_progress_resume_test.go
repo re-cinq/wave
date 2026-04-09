@@ -28,11 +28,11 @@ func newTestBubbleTeaDisplay() *BubbleTeaProgressDisplay {
 
 func TestUpdateFromEvent_StreamActivityGuard(t *testing.T) {
 	tests := []struct {
-		name            string
-		setupSteps      func(d *BubbleTeaProgressDisplay)
-		event           event.Event
-		wantActivity    bool   // should stepToolActivity have an entry after event
-		wantToolName    string // expected lastToolName after event
+		name         string
+		setupSteps   func(d *BubbleTeaProgressDisplay)
+		event        event.Event
+		wantActivity bool   // should stepToolActivity have an entry after event
+		wantToolName string // expected lastToolName after event
 	}{
 		{
 			name: "stream_activity for completed step is dropped",
@@ -44,11 +44,11 @@ func TestUpdateFromEvent_StreamActivityGuard(t *testing.T) {
 				d.stepOrder = []string{"step-1"}
 			},
 			event: event.Event{
-				StepID:   "step-1",
-				State:    "stream_activity",
-				ToolName: "Bash",
+				StepID:     "step-1",
+				State:      "stream_activity",
+				ToolName:   "Bash",
 				ToolTarget: "git status",
-				Timestamp: time.Now(),
+				Timestamp:  time.Now(),
 			},
 			wantActivity: false,
 			wantToolName: "",
@@ -63,11 +63,11 @@ func TestUpdateFromEvent_StreamActivityGuard(t *testing.T) {
 				d.stepOrder = []string{"step-1"}
 			},
 			event: event.Event{
-				StepID:   "step-1",
-				State:    "stream_activity",
-				ToolName: "Read",
+				StepID:     "step-1",
+				State:      "stream_activity",
+				ToolName:   "Read",
 				ToolTarget: "main.go",
-				Timestamp: time.Now(),
+				Timestamp:  time.Now(),
 			},
 			wantActivity: false,
 			wantToolName: "",
@@ -83,11 +83,11 @@ func TestUpdateFromEvent_StreamActivityGuard(t *testing.T) {
 				d.currentStepID = "step-1"
 			},
 			event: event.Event{
-				StepID:   "step-1",
-				State:    "stream_activity",
-				ToolName: "Write",
+				StepID:     "step-1",
+				State:      "stream_activity",
+				ToolName:   "Write",
 				ToolTarget: "output.go",
-				Timestamp: time.Now(),
+				Timestamp:  time.Now(),
 			},
 			wantActivity: true,
 			wantToolName: "Write",
@@ -169,17 +169,17 @@ func TestUpdateFromEvent_SyntheticCompletionMarksStepDone(t *testing.T) {
 
 	// Simulate synthetic completion events (as emitted by ResumeFromStep)
 	d.updateFromEvent(event.Event{
-		StepID:  "step-1",
-		State:   "completed",
-		Persona: "navigator",
-		Message: "Completed in prior run",
+		StepID:    "step-1",
+		State:     "completed",
+		Persona:   "navigator",
+		Message:   "Completed in prior run",
 		Timestamp: time.Now(),
 	})
 	d.updateFromEvent(event.Event{
-		StepID:  "step-2",
-		State:   "completed",
-		Persona: "auditor",
-		Message: "Completed in prior run",
+		StepID:    "step-2",
+		State:     "completed",
+		Persona:   "auditor",
+		Message:   "Completed in prior run",
 		Timestamp: time.Now(),
 	})
 

@@ -1848,7 +1848,7 @@ func TestInitMergeEdgeCases(t *testing.T) {
 		require.NoError(t, os.MkdirAll(".wave/personas", 0755))
 		// Make personas directory read-only
 		require.NoError(t, os.Chmod(".wave/personas", 0555))
-		defer os.Chmod(".wave/personas", 0755) // restore for cleanup
+		defer func() { _ = os.Chmod(".wave/personas", 0755) }() // restore for cleanup
 
 		cmd := NewInitCmd()
 		cmd.SetArgs([]string{"--merge", "--yes"})

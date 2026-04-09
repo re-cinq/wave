@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/spf13/cobra"
 	"github.com/recinq/wave/internal/state"
+	"github.com/spf13/cobra"
 )
 
 // NewMigrateCmd creates the migrate command
@@ -97,7 +97,7 @@ rolling back migrations.`,
 			fmt.Print("Continue? (y/N): ")
 
 			var response string
-			fmt.Scanln(&response)
+			_, _ = fmt.Scanln(&response)
 			if response != "y" && response != "Y" {
 				fmt.Println("Rollback cancelled")
 				return nil

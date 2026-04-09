@@ -251,7 +251,7 @@ func runResume(opts ResumeOptions, debug bool) error {
 	}
 
 	// Transition new run record to running.
-	store.UpdateRunStatus(resumeRunID, "running", "", 0)
+	_ = store.UpdateRunStatus(resumeRunID, "running", "", 0)
 
 	pipelineStart := time.Now()
 
@@ -260,12 +260,12 @@ func runResume(opts ResumeOptions, debug bool) error {
 	// Update run status.
 	tokens := executor.GetTotalTokens()
 	if ctx.Err() != nil {
-		store.UpdateRunStatus(resumeRunID, "cancelled", "pipeline cancelled", tokens)
-		store.ClearCancellation(resumeRunID)
+		_ = store.UpdateRunStatus(resumeRunID, "cancelled", "pipeline cancelled", tokens)
+		_ = store.ClearCancellation(resumeRunID)
 	} else if execErr != nil {
-		store.UpdateRunStatus(resumeRunID, "failed", execErr.Error(), tokens)
+		_ = store.UpdateRunStatus(resumeRunID, "failed", execErr.Error(), tokens)
 	} else {
-		store.UpdateRunStatus(resumeRunID, "completed", "", tokens)
+		_ = store.UpdateRunStatus(resumeRunID, "completed", "", tokens)
 	}
 
 	if execErr != nil {

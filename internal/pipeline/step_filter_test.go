@@ -225,11 +225,11 @@ func TestStepFilter_ValidateDependencies(t *testing.T) {
 	p := testPipeline()
 
 	tests := []struct {
-		name            string
-		filter          *StepFilter
-		artifactExists  func(string) bool
-		expectError     bool
-		errorContains   string
+		name           string
+		filter         *StepFilter
+		artifactExists func(string) bool
+		expectError    bool
+		errorContains  string
 	}{
 		{
 			name:   "nil filter passes",
@@ -240,11 +240,11 @@ func TestStepFilter_ValidateDependencies(t *testing.T) {
 			filter: &StepFilter{Exclude: []string{"create-pr"}},
 		},
 		{
-			name:          "dependency excluded without prior artifacts fails",
-			filter:        &StepFilter{Include: []string{"plan", "implement"}},
+			name:           "dependency excluded without prior artifacts fails",
+			filter:         &StepFilter{Include: []string{"plan", "implement"}},
 			artifactExists: func(stepID string) bool { return false },
-			expectError:   true,
-			errorContains: "depends on",
+			expectError:    true,
+			errorContains:  "depends on",
 		},
 		{
 			name:   "dependency excluded but prior artifacts exist passes",

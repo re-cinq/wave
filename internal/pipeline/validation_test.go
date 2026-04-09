@@ -37,10 +37,10 @@ func TestPhaseSkipValidator(t *testing.T) {
 			expectError:    false,
 		},
 		{
-			name:     "resume from spec with no prerequisites",
-			fromStep: "spec",
+			name:           "resume from spec with no prerequisites",
+			fromStep:       "spec",
 			setupWorkspace: func(t *testing.T, tempDir string) {},
-			expectError: false,
+			expectError:    false,
 		},
 		{
 			name:     "resume from docs with completed spec",
@@ -66,11 +66,11 @@ func TestPhaseSkipValidator(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:     "skip to docs without completed spec",
-			fromStep: "docs",
+			name:           "skip to docs without completed spec",
+			fromStep:       "docs",
 			setupWorkspace: func(t *testing.T, tempDir string) {},
-			expectError: true,
-			errorContains: "prerequisite phase 'spec' not completed",
+			expectError:    true,
+			errorContains:  "prerequisite phase 'spec' not completed",
 		},
 		{
 			name:     "skip to dummy without completed docs",
@@ -91,7 +91,7 @@ func TestPhaseSkipValidator(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			expectError: true,
+			expectError:   true,
 			errorContains: "prerequisite phase 'docs' not completed",
 		},
 		{
@@ -146,7 +146,7 @@ func TestPhaseSkipValidator(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chdir(originalWd)
+			defer func() { _ = os.Chdir(originalWd) }()
 
 			err = os.Chdir(tempDir)
 			if err != nil {
@@ -283,7 +283,7 @@ func TestStaleArtifactDetector(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chdir(originalWd)
+			defer func() { _ = os.Chdir(originalWd) }()
 
 			err = os.Chdir(tempDir)
 			if err != nil {
@@ -314,10 +314,10 @@ func TestErrorMessageProvider(t *testing.T) {
 	provider := NewErrorMessageProvider()
 
 	tests := []struct {
-		name              string
-		phase             string
-		originalError     error
-		expectedContains  []string
+		name             string
+		phase            string
+		originalError    error
+		expectedContains []string
 	}{
 		{
 			name:          "spec phase failure",
@@ -434,7 +434,7 @@ func TestConcurrencyValidator(t *testing.T) {
 		{
 			name: "acquire same workspace again",
 			action: func() error {
-				validator.AcquireWorkspaceLock("pipeline1", "workspace1")
+				_ = validator.AcquireWorkspaceLock("pipeline1", "workspace1")
 				return validator.AcquireWorkspaceLock("pipeline2", "workspace1")
 			},
 			expectError:   true,
@@ -443,7 +443,7 @@ func TestConcurrencyValidator(t *testing.T) {
 		{
 			name: "acquire same pipeline again",
 			action: func() error {
-				validator.AcquireWorkspaceLock("pipeline1", "workspace1")
+				_ = validator.AcquireWorkspaceLock("pipeline1", "workspace1")
 				return validator.AcquireWorkspaceLock("pipeline1", "workspace2")
 			},
 			expectError:   true,
@@ -452,7 +452,7 @@ func TestConcurrencyValidator(t *testing.T) {
 		{
 			name: "acquire after release",
 			action: func() error {
-				validator.AcquireWorkspaceLock("pipeline1", "workspace1")
+				_ = validator.AcquireWorkspaceLock("pipeline1", "workspace1")
 				validator.ReleaseWorkspaceLock("pipeline1")
 				return validator.AcquireWorkspaceLock("pipeline2", "workspace1")
 			},
@@ -525,8 +525,8 @@ func TestConcurrencyValidator_GetRunningPipelines(t *testing.T) {
 	}
 
 	// Acquire some locks
-	validator.AcquireWorkspaceLock("pipeline1", "workspace1")
-	validator.AcquireWorkspaceLock("pipeline2", "workspace2")
+	_ = validator.AcquireWorkspaceLock("pipeline1", "workspace1")
+	_ = validator.AcquireWorkspaceLock("pipeline2", "workspace2")
 
 	// Check running pipelines
 	running = validator.GetRunningPipelines()

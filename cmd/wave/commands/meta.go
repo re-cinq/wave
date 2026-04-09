@@ -207,7 +207,7 @@ func saveMetaPipeline(p *pipeline.Pipeline, savePath string) error {
 	}
 	// Create parent directories for the save path
 	if dir := filepath.Dir(savePath); dir != "" {
-		os.MkdirAll(dir, 0755)
+		_ = os.MkdirAll(dir, 0755)
 	}
 	data, err := yaml.Marshal(p)
 	if err != nil {

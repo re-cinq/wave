@@ -69,9 +69,11 @@ func (m *mockChatStore) GetRetrospective(runID string) (*state.RetrospectiveReco
 func (m *mockChatStore) ListRetrospectives(opts state.ListRetrosOptions) ([]state.RetrospectiveRecord, error) {
 	return nil, nil
 }
-func (m *mockChatStore) DeleteRetrospective(runID string) error                       { return nil }
-func (m *mockChatStore) UpdateRetrospectiveSmoothness(runID string, smoothness string) error { return nil }
-func (m *mockChatStore) UpdateRetrospectiveStatus(runID string, status string) error  { return nil }
+func (m *mockChatStore) DeleteRetrospective(runID string) error { return nil }
+func (m *mockChatStore) UpdateRetrospectiveSmoothness(runID string, smoothness string) error {
+	return nil
+}
+func (m *mockChatStore) UpdateRetrospectiveStatus(runID string, status string) error { return nil }
 
 func TestBuildChatContext(t *testing.T) {
 	now := time.Now()

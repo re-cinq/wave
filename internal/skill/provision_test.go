@@ -186,8 +186,8 @@ func (m *mockStoreForTraversal) Read(name string) (Skill, error) {
 	return Skill{}, fmt.Errorf("skill %q not found", name)
 }
 
-func (m *mockStoreForTraversal) Write(skill Skill) error { return nil }
-func (m *mockStoreForTraversal) List() ([]Skill, error)  { return nil, nil }
+func (m *mockStoreForTraversal) Write(skill Skill) error  { return nil }
+func (m *mockStoreForTraversal) List() ([]Skill, error)   { return nil, nil }
 func (m *mockStoreForTraversal) Delete(name string) error { return nil }
 
 // --- T009: TestProvisionFromStore_AllResources — US4-1: all resource dirs provisioned ---

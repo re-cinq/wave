@@ -56,7 +56,7 @@ func TestPrototypeImplementPhaseInitialization(t *testing.T) {
 			if err := os.Chdir("../.."); err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chdir(originalWd)
+			defer func() { _ = os.Chdir(originalWd) }()
 
 			// Create mock adapter for testing
 			mockAdapter := adapter.NewMockAdapter()
@@ -163,9 +163,9 @@ func TestPrototypeImplementPhaseArtifactInjection(t *testing.T) {
 
 	// Verify output artifacts configuration
 	expectedArtifacts := map[string]string{
-		"implementation-plan":   "implementation-plan.md",
-		"progress-checklist":    "implementation-checklist.md",
-		"contract_data":         "artifact.json",
+		"implementation-plan": "implementation-plan.md",
+		"progress-checklist":  "implementation-checklist.md",
+		"contract_data":       "artifact.json",
 	}
 
 	if len(implementStep.OutputArtifacts) != len(expectedArtifacts) {

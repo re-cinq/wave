@@ -312,7 +312,7 @@ func probeForgeType(host string) ForgeType {
 	// Probe order: Forgejo before Gitea because Forgejo also serves the Gitea
 	// endpoint, so checking the Forgejo-specific one first avoids misclassification.
 	probes := []struct {
-		path     string
+		path      string
 		forgeType ForgeType
 	}{
 		{"/api/forgejo/v1/version", ForgeForgejo},

@@ -16,22 +16,22 @@ type markdownSpecValidator struct{}
 
 // SpecData represents the structured data extracted from a Speckit markdown file
 type SpecData struct {
-	Title           string          `json:"title"`
-	UserStories     []UserStory     `json:"user_stories"`
-	DataModel       interface{}     `json:"data_model,omitempty"`
-	APIDesign       interface{}     `json:"api_design,omitempty"`
-	EdgeCases       []string        `json:"edge_cases,omitempty"`
-	TestingStrategy interface{}     `json:"testing_strategy,omitempty"`
-	ImplementationSteps []string    `json:"implementation_steps,omitempty"`
-	FileChanges     []FileChange    `json:"file_changes,omitempty"`
-	RiskAssessment  interface{}     `json:"risk_assessment,omitempty"`
+	Title               string       `json:"title"`
+	UserStories         []UserStory  `json:"user_stories"`
+	DataModel           interface{}  `json:"data_model,omitempty"`
+	APIDesign           interface{}  `json:"api_design,omitempty"`
+	EdgeCases           []string     `json:"edge_cases,omitempty"`
+	TestingStrategy     interface{}  `json:"testing_strategy,omitempty"`
+	ImplementationSteps []string     `json:"implementation_steps,omitempty"`
+	FileChanges         []FileChange `json:"file_changes,omitempty"`
+	RiskAssessment      interface{}  `json:"risk_assessment,omitempty"`
 }
 
 // UserStory represents a user story with acceptance criteria
 type UserStory struct {
-	AsA              string   `json:"as_a"`
-	IWant            string   `json:"i_want"`
-	SoThat           string   `json:"so_that"`
+	AsA                string   `json:"as_a"`
+	IWant              string   `json:"i_want"`
+	SoThat             string   `json:"so_that"`
 	AcceptanceCriteria []string `json:"acceptance_criteria"`
 }
 
@@ -247,7 +247,7 @@ func processSection(spec *SpecData, sectionName, content string) error {
 
 	switch {
 	case strings.Contains(lowerSection, "title") || lowerSection == "overview":
-		if spec.Title == "" {  // Only set if not already set
+		if spec.Title == "" { // Only set if not already set
 			spec.Title = extractFirstLine(content)
 		}
 
@@ -350,7 +350,7 @@ func parseUserStories(content string) ([]UserStory, error) {
 			if asAStart != -1 && iWantStart != -1 {
 				// Extract "as a" part
 				asAEnd := iWantStart
-				currentStory.AsA = strings.TrimSpace(line[asAStart+5:asAEnd])
+				currentStory.AsA = strings.TrimSpace(line[asAStart+5 : asAEnd])
 				currentStory.AsA = strings.TrimSuffix(currentStory.AsA, ",")
 
 				// Extract "I want" part
@@ -358,7 +358,7 @@ func parseUserStories(content string) ([]UserStory, error) {
 				if soThatStart != -1 {
 					iWantEnd = soThatStart
 				}
-				currentStory.IWant = strings.TrimSpace(line[iWantStart+6:iWantEnd])
+				currentStory.IWant = strings.TrimSpace(line[iWantStart+6 : iWantEnd])
 				currentStory.IWant = strings.TrimSuffix(currentStory.IWant, ",")
 
 				// Extract "so that" part if present
@@ -444,8 +444,8 @@ func parseFileChanges(content string) ([]FileChange, error) {
 
 		// Check if line looks like a file path
 		if strings.Contains(line, ".go") || strings.Contains(line, ".js") ||
-		   strings.Contains(line, ".ts") || strings.Contains(line, ".py") ||
-		   strings.Contains(line, "/") {
+			strings.Contains(line, ".ts") || strings.Contains(line, ".py") ||
+			strings.Contains(line, "/") {
 
 			// Save previous file if exists
 			if currentFile != nil {
@@ -664,6 +664,7 @@ func (v *markdownSpecValidator) validateAgainstSchema(jsonData []byte, schemaPat
 
 	return nil
 }
+
 // extractUserIntent extracts the user intent from narrative text
 func extractUserIntent(content string) string {
 	content = strings.ToLower(content)
@@ -761,7 +762,7 @@ func extractAcceptanceScenarios(content string) []string {
 
 		// Look for acceptance scenarios section
 		if strings.Contains(strings.ToLower(line), "acceptance") &&
-		   (strings.Contains(strings.ToLower(line), "scenario") || strings.Contains(strings.ToLower(line), "criteria")) {
+			(strings.Contains(strings.ToLower(line), "scenario") || strings.Contains(strings.ToLower(line), "criteria")) {
 			inScenarios = true
 			continue
 		}
@@ -777,7 +778,7 @@ func extractAcceptanceScenarios(content string) []string {
 		if inScenarios {
 			// Extract numbered or bulleted scenarios
 			if strings.HasPrefix(line, "1. ") || strings.HasPrefix(line, "2. ") || strings.HasPrefix(line, "3. ") ||
-			   strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "* ") || strings.HasPrefix(line, "• ") {
+				strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "* ") || strings.HasPrefix(line, "• ") {
 				scenario := line
 				// Clean up numbering and bullets
 				scenario = strings.TrimLeft(scenario, "123456789. -*•")

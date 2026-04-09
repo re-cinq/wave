@@ -15,7 +15,7 @@ func setupTestWorkspaceManager(t *testing.T) (WorkspaceManager, string) {
 
 	wm, err := NewWorkspaceManager(tmpDir)
 	if err != nil {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 		t.Fatalf("Failed to create workspace manager: %v", err)
 	}
 
@@ -411,7 +411,7 @@ func TestListWorkspacesSortedByTime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create workspaces with specific modification times
 	workspaces := []struct {
@@ -471,7 +471,7 @@ func TestListWorkspacesSortedByTime_EmptyDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	result, err := ListWorkspacesSortedByTime(tmpDir)
 	if err != nil {
@@ -487,7 +487,7 @@ func TestListWorkspacesSortedByTime_SkipsFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create a directory
 	if err := os.MkdirAll(filepath.Join(tmpDir, "real-workspace"), 0755); err != nil {

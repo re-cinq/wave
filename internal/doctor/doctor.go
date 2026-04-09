@@ -17,7 +17,7 @@ import (
 type Status int
 
 const (
-	StatusOK   Status = iota
+	StatusOK Status = iota
 	StatusWarn
 	StatusErr
 )
@@ -54,17 +54,17 @@ type CheckResult struct {
 type Report struct {
 	Results   []CheckResult    `json:"results"`
 	Summary   Status           `json:"summary"`
-	ForgeInfo *forge.ForgeInfo  `json:"forge,omitempty"`
+	ForgeInfo *forge.ForgeInfo `json:"forge,omitempty"`
 	Codebase  *CodebaseHealth  `json:"codebase,omitempty"`
 }
 
 // Options configures which checks to run.
 type Options struct {
-	ManifestPath   string
-	WaveDir        string
-	PipelinesDir   string
-	Fix            bool
-	SkipCodebase   bool
+	ManifestPath string
+	WaveDir      string
+	PipelinesDir string
+	Fix          bool
+	SkipCodebase bool
 
 	// ForgeClient is the forge API client for codebase analysis.
 	ForgeClient forge.Client

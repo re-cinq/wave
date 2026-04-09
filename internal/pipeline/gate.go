@@ -236,10 +236,10 @@ func (g *GateExecutor) resolveForge() (forge.ForgeInfo, error) {
 	if info.Type == forge.ForgeUnknown {
 		// Default to GitHub when detection fails (most common case).
 		info = forge.ForgeInfo{
-			Type:       forge.ForgeGitHub,
-			CLITool:    "gh",
-			PRCommand:  "pr",
-			PRTerm:     "Pull Request",
+			Type:      forge.ForgeGitHub,
+			CLITool:   "gh",
+			PRCommand: "pr",
+			PRTerm:    "Pull Request",
 		}
 	}
 	return info, nil

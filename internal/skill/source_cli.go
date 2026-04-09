@@ -127,7 +127,7 @@ func (a *TesslAdapter) Install(ctx context.Context, ref string, store Store) (*I
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	ctx, cancel := context.WithTimeout(ctx, CLITimeout)
 	defer cancel()
@@ -181,7 +181,7 @@ func (a *BMADAdapter) Install(ctx context.Context, _ string, store Store) (*Inst
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	ctx, cancel := context.WithTimeout(ctx, CLITimeout)
 	defer cancel()
@@ -234,7 +234,7 @@ func (a *OpenSpecAdapter) Install(ctx context.Context, _ string, store Store) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	ctx, cancel := context.WithTimeout(ctx, CLITimeout)
 	defer cancel()
@@ -287,7 +287,7 @@ func (a *SpecKitAdapter) Install(ctx context.Context, _ string, store Store) (*I
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	ctx, cancel := context.WithTimeout(ctx, CLITimeout)
 	defer cancel()

@@ -129,11 +129,11 @@ func TestAnalyzer_AnalyzeIssue(t *testing.T) {
 	analyzer := NewAnalyzer(nil)
 
 	tests := []struct {
-		name             string
-		issue            *Issue
-		expectLowScore   bool
-		expectProblems   bool
-		minQualityScore  int
+		name            string
+		issue           *Issue
+		expectLowScore  bool
+		expectProblems  bool
+		minQualityScore int
 	}{
 		{
 			name: "high quality issue",
@@ -284,8 +284,8 @@ func TestAnalyzer_GenerateEnhancementSuggestions(t *testing.T) {
 	analyzer := NewAnalyzer(nil)
 
 	tests := []struct {
-		name                 string
-		issue                *Issue
+		name                  string
+		issue                 *Issue
 		expectTitleSuggestion bool
 		expectBodySuggestion  bool
 		expectLabelSuggestion bool
@@ -416,8 +416,8 @@ func TestCapitalize(t *testing.T) {
 
 func TestGenerateBodyTemplate(t *testing.T) {
 	tests := []struct {
-		name        string
-		issue       *Issue
+		name              string
+		issue             *Issue
 		expectEnhancement bool
 	}{
 		{

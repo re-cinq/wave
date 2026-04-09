@@ -156,19 +156,19 @@ type testProvider struct {
 	healthErr   error
 }
 
-func (p *testProvider) FetchGitState() (GitState, error)            { return p.gitState, p.gitErr }
-func (p *testProvider) FetchManifestInfo() (ManifestInfo, error)    { return p.manifest, p.manifestErr }
+func (p *testProvider) FetchGitState() (GitState, error)                { return p.gitState, p.gitErr }
+func (p *testProvider) FetchManifestInfo() (ManifestInfo, error)        { return p.manifest, p.manifestErr }
 func (p *testProvider) FetchGitHubInfo(repo string) (GitHubInfo, error) { return p.github, p.githubErr }
-func (p *testProvider) FetchPipelineHealth() (HealthStatus, error)  { return p.health, p.healthErr }
+func (p *testProvider) FetchPipelineHealth() (HealthStatus, error)      { return p.health, p.healthErr }
 
 func TestHeaderModel_Update_GitStateMsg(t *testing.T) {
 	tests := []struct {
-		name           string
-		msg            GitStateMsg
-		wantBranch     string
-		wantCommit     string
-		wantDirty      bool
-		wantRemote     string
+		name       string
+		msg        GitStateMsg
+		wantBranch string
+		wantCommit string
+		wantDirty  bool
+		wantRemote string
 	}{
 		{
 			name: "successful git state sets all fields",
@@ -456,10 +456,10 @@ func TestHeaderModel_View_ColumnPriorityAtDifferentWidths(t *testing.T) {
 	h.metadata.IssuesCount = 42
 
 	tests := []struct {
-		name           string
-		width          int
-		alwaysPresent  []string
-		maybePresent   []string // these may or may not appear depending on width
+		name          string
+		width         int
+		alwaysPresent []string
+		maybePresent  []string // these may or may not appear depending on width
 	}{
 		{
 			name:          "width 80 - logo always visible, some columns hidden",

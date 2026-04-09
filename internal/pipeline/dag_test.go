@@ -594,9 +594,9 @@ func (m *mockSkillStore) Read(name string) (skill.Skill, error) {
 	return skill.Skill{}, fmt.Errorf("%w: %s", skill.ErrNotFound, name)
 }
 
-func (m *mockSkillStore) Write(_ skill.Skill) error { return nil }
+func (m *mockSkillStore) Write(_ skill.Skill) error    { return nil }
 func (m *mockSkillStore) List() ([]skill.Skill, error) { return nil, nil }
-func (m *mockSkillStore) Delete(_ string) error { return nil }
+func (m *mockSkillStore) Delete(_ string) error        { return nil }
 
 func TestValidatePipelineSkills(t *testing.T) {
 	t.Run("valid skills pass validation", func(t *testing.T) {

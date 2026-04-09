@@ -21,8 +21,8 @@ type pendingGate struct {
 // It is safe for concurrent use. Each run can have at most one pending gate
 // at a time (gates are sequential within a pipeline execution).
 type GateRegistry struct {
-	mu       sync.Mutex
-	pending  map[string]*pendingGate // runID -> pending gate
+	mu      sync.Mutex
+	pending map[string]*pendingGate // runID -> pending gate
 }
 
 // NewGateRegistry creates an empty gate registry.

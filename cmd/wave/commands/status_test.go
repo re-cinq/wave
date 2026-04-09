@@ -144,10 +144,10 @@ func executeStatusCmd(args ...string) (stdout, stderr string, err error) {
 	os.Stderr = oldStderr
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 
 	var stderrBuf bytes.Buffer
-	stderrBuf.ReadFrom(re)
+	_, _ = stderrBuf.ReadFrom(re)
 
 	return buf.String(), stderrBuf.String(), err
 }
@@ -159,7 +159,7 @@ func TestStatusCmd_NoDatabase(t *testing.T) {
 	defer h.restore()
 
 	// Remove the database
-	os.RemoveAll(filepath.Join(h.tmpDir, ".wave"))
+	_ = os.RemoveAll(filepath.Join(h.tmpDir, ".wave"))
 
 	_, stderr, err := executeStatusCmd()
 	require.NoError(t, err)

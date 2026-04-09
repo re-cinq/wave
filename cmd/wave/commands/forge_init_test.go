@@ -18,8 +18,8 @@ import (
 func TestCrossForgeInit(t *testing.T) {
 	forges := []struct {
 		name              string
-		remoteURL         string         // empty → use DetectWithOverride for local
-		forgeOverride     string         // non-empty only for ForgeLocal
+		remoteURL         string // empty → use DetectWithOverride for local
+		forgeOverride     string // non-empty only for ForgeLocal
 		wantForgeType     forge.ForgeType
 		wantCLI           string
 		wantPrefix        string
@@ -247,9 +247,9 @@ func TestCrossForgeInit_PipelineFilterExclusion(t *testing.T) {
 	}
 
 	tests := []struct {
-		forgeType       forge.ForgeType
-		wantIncluded    []string
-		wantExcluded    []string
+		forgeType    forge.ForgeType
+		wantIncluded []string
+		wantExcluded []string
 	}{
 		{
 			forge.ForgeGitHub,

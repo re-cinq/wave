@@ -329,8 +329,8 @@ runtime:
 	// Create prompt files
 	for _, f := range []string{"prompts/nav.md", "prompts/impl.md"} {
 		p := filepath.Join(tmpDir, f)
-		os.MkdirAll(filepath.Dir(p), 0755)
-		os.WriteFile(p, []byte("# Persona"), 0644)
+		_ = os.MkdirAll(filepath.Dir(p), 0755)
+		_ = os.WriteFile(p, []byte("# Persona"), 0644)
 	}
 
 	m, err := Load(manifestPath)
@@ -404,9 +404,9 @@ personas:
 runtime:
   workspace_root: ./workspace
 `
-	os.WriteFile(manifestPath, []byte(manifestContent), 0644)
-	os.MkdirAll(filepath.Join(tmpDir, "prompts"), 0755)
-	os.WriteFile(filepath.Join(tmpDir, "prompts", "nav.md"), []byte("# Nav"), 0644)
+	_ = os.WriteFile(manifestPath, []byte(manifestContent), 0644)
+	_ = os.MkdirAll(filepath.Join(tmpDir, "prompts"), 0755)
+	_ = os.WriteFile(filepath.Join(tmpDir, "prompts", "nav.md"), []byte("# Nav"), 0644)
 
 	m, err := Load(manifestPath)
 	if err != nil {
@@ -427,7 +427,6 @@ runtime:
 		t.Error("expected nil persona sandbox when not configured")
 	}
 }
-
 
 func TestManifestGetPersona(t *testing.T) {
 	m := &Manifest{
@@ -695,17 +694,17 @@ system_prompt_file: prompts/nav.md
 		wantEmpty bool
 	}{
 		{
-			name: "pipeline skills null",
+			name:    "pipeline skills null",
 			yamlStr: "kind: WavePipeline\nmetadata:\n  name: test\nskills: null\ninput:\n  source: cli\nsteps: []\n",
 			wantNil: true,
 		},
 		{
-			name: "pipeline skills empty list",
-			yamlStr: "kind: WavePipeline\nmetadata:\n  name: test\nskills: []\ninput:\n  source: cli\nsteps: []\n",
+			name:      "pipeline skills empty list",
+			yamlStr:   "kind: WavePipeline\nmetadata:\n  name: test\nskills: []\ninput:\n  source: cli\nsteps: []\n",
 			wantEmpty: true,
 		},
 		{
-			name: "pipeline skills missing key",
+			name:    "pipeline skills missing key",
 			yamlStr: "kind: WavePipeline\nmetadata:\n  name: test\ninput:\n  source: cli\nsteps: []\n",
 			wantNil: true,
 		},

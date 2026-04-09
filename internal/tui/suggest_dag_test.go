@@ -167,11 +167,11 @@ func TestRenderDAG_Parallel_ContainsConcurrentLabel(t *testing.T) {
 
 func TestRenderDAG_TableDriven(t *testing.T) {
 	tests := []struct {
-		name             string
-		proposal         SuggestProposedPipeline
-		wantEmpty        bool
-		wantContains     []string
-		wantNotContains  []string
+		name            string
+		proposal        SuggestProposedPipeline
+		wantEmpty       bool
+		wantContains    []string
+		wantNotContains []string
 	}{
 		{
 			name: "single type no sequence",

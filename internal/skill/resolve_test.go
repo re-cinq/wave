@@ -7,11 +7,12 @@ import (
 )
 
 // SC-005 Traceability: ResolveSkills test cases map to acceptance criteria as follows:
-//   "all empty returns nil"                        → US3-4: all nil → nil
-//   "global only sorted"                           → US3-1: global-only resolved
-//   "all three scopes merged deduped sorted"       → US3-3: all scopes merged sorted
-//   "duplicate across scopes appears once"         → US3-2: global+persona deduplicated
-//   "empty slices not nil"                         → US3-5: all empty → nil
+//
+//	"all empty returns nil"                        → US3-4: all nil → nil
+//	"global only sorted"                           → US3-1: global-only resolved
+//	"all three scopes merged deduped sorted"       → US3-3: all scopes merged sorted
+//	"duplicate across scopes appears once"         → US3-2: global+persona deduplicated
+//	"empty slices not nil"                         → US3-5: all empty → nil
 func TestResolveSkills(t *testing.T) {
 	tests := []struct {
 		name     string

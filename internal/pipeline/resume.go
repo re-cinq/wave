@@ -199,13 +199,13 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 
 // ResumeState holds state information needed for resumption
 type ResumeState struct {
-	States             map[string]string
-	Results            map[string]map[string]interface{}
-	ArtifactPaths      map[string]string
-	WorkspacePaths     map[string]string
-	CompletedSteps     []string
-	FailureContexts    map[string]*AttemptContext // stepID -> failure context from prior run
-	ReworkTransitions  map[string]string          // failedStepID -> reworkStepID
+	States            map[string]string
+	Results           map[string]map[string]interface{}
+	ArtifactPaths     map[string]string
+	WorkspacePaths    map[string]string
+	CompletedSteps    []string
+	FailureContexts   map[string]*AttemptContext // stepID -> failure context from prior run
+	ReworkTransitions map[string]string          // failedStepID -> reworkStepID
 }
 
 // lookupStepPersona finds the persona for a step by ID in the full pipeline.

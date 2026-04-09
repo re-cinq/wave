@@ -1,11 +1,11 @@
 package audit
 
 import (
-	"time"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCredentialScrubbing(t *testing.T) {
@@ -188,7 +188,8 @@ func TestClose(t *testing.T) {
 // TestCredentialScrubbingPatterns_ComprehensivePatterns tests that common
 // credential patterns matching KEY=VALUE format are properly redacted.
 // The current implementation uses regex to match patterns like:
-//   API_KEY=value, TOKEN=value, SECRET=value, PASSWORD=value, etc.
+//
+//	API_KEY=value, TOKEN=value, SECRET=value, PASSWORD=value, etc.
 func TestCredentialScrubbingPatterns_ComprehensivePatterns(t *testing.T) {
 	traceDir := filepath.Join(t.TempDir(), "traces")
 	logger, err := NewTraceLoggerWithDir(traceDir)
@@ -271,8 +272,8 @@ func TestCredentialScrubbingPatterns_PreservesNonCredentials(t *testing.T) {
 
 	// These should NOT be scrubbed
 	testCases := []struct {
-		name   string
-		input  string
+		name  string
+		input string
 	}{
 		{"normal path", "/home/user/project/src/main.go"},
 		{"function call", "func GetAPIResponse() error"},
@@ -315,23 +316,23 @@ func TestCredentialScrubbingPatterns_MultipleCredentialsInText(t *testing.T) {
 	defer logger.Close()
 
 	testCases := []struct {
-		name                 string
-		input                string
+		name                  string
+		input                 string
 		shouldContainRedacted bool
 	}{
 		{
-			name:  "command with api_key",
-			input: "curl -d 'api_key=key456abc' https://api.example.com",
+			name:                  "command with api_key",
+			input:                 "curl -d 'api_key=key456abc' https://api.example.com",
 			shouldContainRedacted: true,
 		},
 		{
-			name:  "env vars format",
-			input: "API_KEY=key1abc SECRET=secret2xyz TOKEN=token3def PASSWORD=pass4ghi",
+			name:                  "env vars format",
+			input:                 "API_KEY=key1abc SECRET=secret2xyz TOKEN=token3def PASSWORD=pass4ghi",
 			shouldContainRedacted: true,
 		},
 		{
-			name:  "shell export command",
-			input: "export API_KEY=sk-1234567890abcdef",
+			name:                  "shell export command",
+			input:                 "export API_KEY=sk-1234567890abcdef",
 			shouldContainRedacted: true,
 		},
 	}

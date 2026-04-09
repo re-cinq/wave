@@ -181,7 +181,7 @@ func runCleanup(opts CleanupOptions) error {
 		fmt.Fprintf(os.Stderr, "About to remove %d orphaned worktree(s), freeing %s\n", len(orphaned), formatSize(totalSize))
 		fmt.Fprintf(os.Stderr, "Continue? [y/N] ")
 		var response string
-		fmt.Scanln(&response)
+		_, _ = fmt.Scanln(&response)
 		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
 			fmt.Fprintf(os.Stderr, "Aborted\n")
 			return nil
@@ -199,12 +199,12 @@ func runCleanup(opts CleanupOptions) error {
 		if err := cmd.Run(); err != nil {
 			// Fall back to direct removal if git worktree remove fails.
 			// Make dirs writable first (readonly mounts block removal).
-			filepath.Walk(wt.Path, func(path string, info os.FileInfo, err error) error {
+			_ = filepath.Walk(wt.Path, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return nil
 				}
 				if info.IsDir() {
-					os.Chmod(path, 0755)
+					_ = os.Chmod(path, 0755)
 				}
 				return nil
 			})

@@ -27,15 +27,15 @@ var (
 
 // PipelineContext holds dynamic variables for template resolution during pipeline execution
 type PipelineContext struct {
-	mu              sync.Mutex        `json:"-"` // protects map access during concurrent steps
-	BranchName      string            `json:"branch_name"`
-	FeatureNum      string            `json:"feature_num"`
-	SpeckitMode     bool              `json:"speckit_mode"`
-	PipelineID      string            `json:"pipeline_id"`      // Runtime ID with hash suffix
-	PipelineName    string            `json:"pipeline_name"`    // Logical pipeline name
-	StepID          string            `json:"step_id"`
-	CustomVariables map[string]string `json:"custom_variables,omitempty"`
-	ArtifactPaths   map[string]string `json:"artifact_paths,omitempty"` // Artifact name -> path for template resolution
+	mu              sync.Mutex               `json:"-"` // protects map access during concurrent steps
+	BranchName      string                   `json:"branch_name"`
+	FeatureNum      string                   `json:"feature_num"`
+	SpeckitMode     bool                     `json:"speckit_mode"`
+	PipelineID      string                   `json:"pipeline_id"`   // Runtime ID with hash suffix
+	PipelineName    string                   `json:"pipeline_name"` // Logical pipeline name
+	StepID          string                   `json:"step_id"`
+	CustomVariables map[string]string        `json:"custom_variables,omitempty"`
+	ArtifactPaths   map[string]string        `json:"artifact_paths,omitempty"` // Artifact name -> path for template resolution
 	GateDecisions   map[string]*GateDecision `json:"gate_decisions,omitempty"` // stepID -> gate decision
 }
 
@@ -278,8 +278,8 @@ func (ctx *PipelineContext) MergeFrom(child *PipelineContext, namespace string) 
 // IsSpeckitCompatible returns true if the current context appears to be for Speckit workflows
 func (ctx *PipelineContext) IsSpeckitCompatible() bool {
 	return ctx.SpeckitMode ||
-		   strings.Contains(ctx.BranchName, "-") ||
-		   ctx.FeatureNum != ""
+		strings.Contains(ctx.BranchName, "-") ||
+		ctx.FeatureNum != ""
 }
 
 // GetSpeckitPath generates a Speckit-compatible path for the current context
@@ -317,18 +317,18 @@ func (ctx *PipelineContext) GetSpeckitPath(filename string) string {
 // ToTemplateVars converts the context to a map for use with existing template systems
 func (ctx *PipelineContext) ToTemplateVars() map[string]string {
 	vars := map[string]string{
-		"pipeline_id":           ctx.PipelineID,
-		"pipeline_name":        ctx.PipelineName,
-		"step_id":               ctx.StepID,
-		"branch_name":           ctx.BranchName,
-		"feature_num":           ctx.FeatureNum,
-		"pipeline_context.branch_name":    ctx.BranchName,
-		"pipeline_context.feature_num":    ctx.FeatureNum,
-		"pipeline_context.pipeline_id":    ctx.PipelineID,
-		"pipeline_context.pipeline_name":  ctx.PipelineName,
-		"pipeline_context.step_id":        ctx.StepID,
-		"run.id":                          ctx.PipelineID,
-		"run.name":                        ctx.PipelineName,
+		"pipeline_id":                    ctx.PipelineID,
+		"pipeline_name":                  ctx.PipelineName,
+		"step_id":                        ctx.StepID,
+		"branch_name":                    ctx.BranchName,
+		"feature_num":                    ctx.FeatureNum,
+		"pipeline_context.branch_name":   ctx.BranchName,
+		"pipeline_context.feature_num":   ctx.FeatureNum,
+		"pipeline_context.pipeline_id":   ctx.PipelineID,
+		"pipeline_context.pipeline_name": ctx.PipelineName,
+		"pipeline_context.step_id":       ctx.StepID,
+		"run.id":                         ctx.PipelineID,
+		"run.name":                       ctx.PipelineName,
 	}
 
 	// Snapshot maps under lock

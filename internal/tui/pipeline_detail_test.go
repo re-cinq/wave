@@ -66,10 +66,10 @@ func updateAndView(m PipelineDetailModel, msgs ...tea.Msg) string {
 // fullAvailableDetail returns a fully-populated AvailableDetail for testing.
 func fullAvailableDetail() *AvailableDetail {
 	return &AvailableDetail{
-		Name:         "speckit-flow",
-		Description:  "A specification pipeline",
-		Category:     "spec",
-		StepCount:    3,
+		Name:        "speckit-flow",
+		Description: "A specification pipeline",
+		Category:    "spec",
+		StepCount:   3,
 		Steps: []StepSummary{
 			{ID: "specify", Persona: "navigator"},
 			{ID: "clarify", Persona: "navigator"},

@@ -23,12 +23,12 @@ type FailureClassifier struct{}
 type FailureType string
 
 const (
-	FailureTypeSchemaMismatch   FailureType = "schema_mismatch"
-	FailureTypeMissingContent   FailureType = "missing_content"
-	FailureTypeFormatError      FailureType = "format_error"
-	FailureTypeQualityGate      FailureType = "quality_gate"
-	FailureTypeStructure        FailureType = "structure"
-	FailureTypeUnknown          FailureType = "unknown"
+	FailureTypeSchemaMismatch FailureType = "schema_mismatch"
+	FailureTypeMissingContent FailureType = "missing_content"
+	FailureTypeFormatError    FailureType = "format_error"
+	FailureTypeQualityGate    FailureType = "quality_gate"
+	FailureTypeStructure      FailureType = "structure"
+	FailureTypeUnknown        FailureType = "unknown"
 )
 
 // ClassifiedFailure contains details about a validation failure
@@ -192,11 +192,11 @@ func (c *FailureClassifier) classifyValidationError(err *ValidationError) *Class
 
 // AdaptiveRetryStrategy implements intelligent retry logic based on failure type
 type AdaptiveRetryStrategy struct {
-	MaxRetries     int
-	BaseDelay      time.Duration
-	MaxDelay       time.Duration
-	BackoffFactor  float64
-	Classifier     *FailureClassifier
+	MaxRetries    int
+	BaseDelay     time.Duration
+	MaxDelay      time.Duration
+	BackoffFactor float64
+	Classifier    *FailureClassifier
 }
 
 // NewAdaptiveRetryStrategy creates a new adaptive retry strategy
