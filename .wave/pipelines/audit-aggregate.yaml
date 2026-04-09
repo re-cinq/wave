@@ -1,0 +1,52 @@
+kind: WavePipeline
+metadata:
+  name: audit-aggregate
+  description: >-
+    Aggregation pipeline that reads findings from all audit dimensions (security,
+    correctness, architecture, tests, coverage), merges them into a single flattened
+    array, and tracks which audits contributed. Used as input to the rework gate
+    for verdict synthesis.
+  category: composition
+  release: false
+
+input:
+  source: cli
+  example: "aggregate findings from all audit pipelines"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] audit aggregation started run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  aggregated:
+    step: aggregate
+    artifact: aggregated-findings
+
+steps:
+  - id: aggregate
+    persona: navigator
+    model: cheapest
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source_path: .wave/prompts/full-impl-cycle/audit-aggregate.md
+    output_artifacts:
+      - name: aggregated-findings
+        path: .wave/output/aggregated-findings.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/aggregated-findings.json
+        schema_path: .wave/contracts/aggregated-findings.schema.json
+        on_failure: skip
