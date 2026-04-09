@@ -183,6 +183,22 @@ steps:
 | `concat` | Concatenate text outputs |
 | `reduce` | Custom reduction logic |
 
+### Key Extraction
+
+When sub-pipelines produce JSON objects that wrap an array (e.g., `{"findings": [...], "summary": "..."}`), use the `key` field to extract and merge only the array values:
+
+```yaml
+  - id: collect
+    aggregate:
+      from: "{{ steps.run-audits.results }}"
+      into: .wave/output/merged-findings.json
+      strategy: merge_arrays
+      key: findings
+    dependencies: [run-audits]
+```
+
+This extracts the `findings` array from each object and merges them into a single flat array. Without `key`, `merge_arrays` expects each element to already be an array.
+
 ## Combining Primitives
 
 Composition primitives can be combined in a single pipeline:
