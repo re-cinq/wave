@@ -31,6 +31,11 @@ chat_context:
     - "Quality convergence iterations"
     - "Improvement effectiveness"
 
+pipeline_outputs:
+  quality-check:
+    step: quality-check
+    artifact: verdict
+
 hooks:
   - name: log-start
     event: run_start

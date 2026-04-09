@@ -28,6 +28,11 @@ chat_context:
     - "Epic scoping and child issue status"
     - "Implementation completion rate"
 
+pipeline_outputs:
+  scope:
+    step: scope
+    artifact: scope
+
 hooks:
   - name: log-start
     event: run_start
