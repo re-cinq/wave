@@ -417,7 +417,7 @@ steps:
   - id: fix-implement
     persona: craftsman
     thread: impl
-    model: fastest
+    model: balanced
     rework_only: true
     workspace:
       type: worktree

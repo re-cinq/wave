@@ -80,6 +80,7 @@ type DefaultPipelineExecutor struct {
 	stepTimeoutOverride time.Duration
 	// Model override (from CLI --model flag)
 	modelOverride   string
+	forceModel      bool
 	adapterOverride string
 	// Cross-pipeline artifacts from prior stages in a sequence
 	crossPipelineArtifacts map[string]map[string][]byte // pipelineName -> artifactName -> data
@@ -157,6 +158,10 @@ func WithStepTimeout(d time.Duration) ExecutorOption {
 
 func WithModelOverride(model string) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.modelOverride = model }
+}
+
+func WithForceModel(force bool) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.forceModel = force }
 }
 
 func WithAdapterOverride(adapter string) ExecutorOption {
@@ -3247,19 +3252,57 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	return nil
 }
 
-// resolveModel applies model precedence (strongest to weakest):
-// 1. CLI --model flag
-// 2. Step-level model in pipeline YAML
-// 3. Persona-level model in wave.yaml
-// 4. Auto-routing based on complexity heuristics (when routing.auto_route is enabled)
-// 5. Adapter default (empty string)
+// resolveModel applies model precedence:
+//
+// When --model is a tier name (cheapest/balanced/strongest):
+//
+//	The effective tier is the CHEAPER of the CLI tier and the step/persona tier.
+//	This means --model balanced + step model: cheapest → cheapest (step wins).
+//	The CLI flag sets a ceiling, not a floor.
+//
+// When --model is a literal model name (e.g., "haiku", "sonnet"):
+//
+//	The literal model is used for all steps regardless of YAML tiers.
+//
+// When --force-model is set:
+//
+//	The CLI model overrides everything unconditionally.
+//
+// Otherwise: step model > persona model > auto-route > adapter default.
 func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Persona, routing *manifest.RoutingConfig, personaName string) string {
+	// Force override — bypasses all tier logic
+	if e.forceModel {
+		if e.modelOverride != "" {
+			return e.modelOverride
+		}
+	}
+
+	// Determine step-level tier (if any)
+	stepTier := ""
+	if step != nil && step.Model != "" {
+		stepTier = step.Model
+	} else if persona.Model != "" {
+		stepTier = persona.Model
+	}
+
 	if e.modelOverride != "" {
+		overrideRank := TierRank(e.modelOverride)
+		if overrideRank >= 0 && stepTier != "" {
+			// Both are tiers — use the cheaper one
+			effectiveTier := CheaperTier(e.modelOverride, stepTier)
+			if resolved, isTier := resolveTierModel(effectiveTier, routing); isTier {
+				return resolved
+			}
+			return effectiveTier
+		}
+		// CLI is a literal model name — use it directly
 		return e.modelOverride
 	}
+
+	// No CLI override — use step, persona, auto-route
 	if step != nil && step.Model != "" {
 		if resolved, isTier := resolveTierModel(step.Model, routing); isTier {
-			return resolved // may be empty (adapter default)
+			return resolved
 		}
 		return step.Model
 	}
@@ -3269,7 +3312,6 @@ func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Per
 		}
 		return persona.Model
 	}
-	// Tier 4: auto-route based on complexity heuristics
 	if routing != nil && routing.AutoRoute {
 		tier := ClassifyStepComplexity(step, persona, personaName)
 		if model := routing.ResolveComplexityModel(tier); model != "" {
@@ -3279,12 +3321,12 @@ func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Per
 	return ""
 }
 
-// resolveTierModel checks if a model string is a tier name (cheapest/fastest/strongest)
+// resolveTierModel checks if a model string is a tier name (cheapest/balanced/strongest)
 // and resolves it to an actual model via the routing complexity map.
 // Returns (resolved model, true) if input is a tier name, or ("", false) if it's a literal model.
 func resolveTierModel(model string, routing *manifest.RoutingConfig) (string, bool) {
 	switch model {
-	case TierCheapest, TierFastest, TierStrongest:
+	case TierCheapest, TierBalanced, TierStrongest:
 		return routing.ResolveComplexityModel(model), true
 	default:
 		return "", false
