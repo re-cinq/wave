@@ -3,9 +3,10 @@ metadata:
   name: ops-pr-review-core
   description: >-
     Core pull request review building block that performs diff analysis, security
-    scanning, and code quality assessment, then synthesizes a verdict. Does not
-    post comments or interact with the forge. Designed for embedding in
-    composition pipelines that handle their own publishing step.
+    scanning, code quality assessment, and slop detection, then synthesizes a
+    verdict. Does not post comments or interact with the forge. Designed for
+    embedding in composition pipelines (such as ops-pr-review) that add their
+    own publishing step.
   release: false
 
 chat_context:
@@ -13,6 +14,7 @@ chat_context:
     - diff
     - security
     - quality
+    - slop
     - verdict
   suggested_questions:
     - "What issues were found in the review?"
@@ -51,6 +53,9 @@ pipeline_outputs:
   verdict:
     step: summary
     artifact: verdict
+  diff:
+    step: diff-analysis
+    artifact: diff
 
 steps:
   - id: diff-analysis
@@ -388,10 +393,120 @@ steps:
         timeout: 90s
         on_failure: continue
 
+  - id: slop-review
+    persona: reviewer
+    thread: review
+    model: strongest
+    contexts: [validation]
+    dependencies: [diff-analysis]
+    memory:
+      inject_artifacts:
+        - step: diff-analysis
+          artifact: diff
+          as: changes
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Perform a "slop review" of the PR changes — a focused check for code that is
+        dead, duplicated, unfinished, or architecturally misplaced. This review targets
+        the kind of low-quality code that accumulates when changes are made hastily or
+        without full understanding of the existing architecture. The slop review is
+        specifically looking for code that should not have been written, not code that
+        was written badly (that is the quality review's job). This is the core variant —
+        the findings feed into the summary step rather than being posted directly.
+
+        ## Context
+
+        The injected `changes` artifact contains the structured diff analysis from the
+        diff-analysis step. Read this artifact to understand which files were changed and
+        their package membership. Then read the actual source code to evaluate each
+        concern.
+
+        ## Requirements
+
+        Examine each changed file and evaluate these slop indicators:
+
+        1. **Dead code**: Functions, methods, constants, or variables added by this PR
+           that are never called or referenced. Check both within the changed files and
+           across the package. Exported symbols that are part of a public API may not
+           have callers yet — flag these only if they appear to be orphaned (no tests,
+           no documentation, no obvious future use).
+
+        2. **Duplicate code**: Code in this PR that duplicates existing functionality
+           elsewhere in the codebase. This is different from the quality review's
+           duplication check — here you are looking for whole-function or whole-feature
+           duplication, not just repeated code blocks. Did the author reimplement
+           something that already exists in a utility package?
+
+        3. **Unfinished features**: TODO comments, stub implementations, commented-out
+           code, or feature flags that are never toggled. Code paths that handle one
+           case but have an empty `else` or `default` branch. Functions that return
+           hardcoded values where real logic should be.
+
+        4. **Glue code and glue tests**: Adapter code or test wrappers that exist only
+           to connect two things that should be connected more directly. Tests that test
+           the glue rather than the actual behavior. Tests that mock so many dependencies
+           that they test nothing real.
+
+        5. **Architectural misfits**: Code placed in the wrong package or module. A
+           handler function in a model package. Business logic in a transport layer.
+           Database queries in an HTTP handler. Check against the project's package
+           structure and naming conventions to identify misplacements.
+
+        6. **Half-baked abstractions**: Interfaces with one implementation, generic
+           frameworks used for one case, or abstraction layers that add complexity
+           without enabling any actual variation. Premature generalization is slop.
+
+        For each finding, record:
+        - **Severity**: HIGH (will cause confusion or maintenance burden), MEDIUM
+          (code smell that should be addressed), LOW (minor slop, acceptable for now)
+        - **File and line**: exact location
+        - **Description**: what the slop is and why it matters
+        - **Suggestion**: what to do instead (remove, merge, relocate, simplify)
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT duplicate quality or security findings. Slop review covers different
+          concerns.
+        - Do NOT flag intentional scaffolding or placeholder code if the PR description
+          mentions it as work-in-progress.
+        - Do NOT flag code as "dead" if it is exported and part of a public API — it may
+          have external callers.
+        - Do NOT report the absence of features as slop. Slop is about what IS there
+          that should not be, not what is missing.
+        - Avoid being overly aggressive. Not every abstraction is premature, and not
+          every test helper is glue. Use judgment.
+
+        ## Output Format
+
+        Produce a markdown report with:
+        - **H2: Slop Review Summary** — finding count by category, one-line assessment
+        - **H2: Findings** — one H3 per finding with all fields
+        - **H2: Architecture Observations** — notes on how the changes fit (or don't)
+          into the existing codebase structure
+
+        ## Quality Bar
+
+        A good slop review catches code that will become a maintenance burden — dead
+        functions nobody calls, duplicate logic that will drift out of sync, or code
+        placed in the wrong layer. A bad slop review flags every utility function as
+        "unnecessary abstraction" or every TODO as "unfinished feature" without
+        understanding the project's development stage and conventions.
+    output_artifacts:
+      - name: slop
+        path: .wave/output/slop-review.md
+        type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/slop-review.md
+
   - id: summary
     persona: summarizer
-    model: cheapest
-    dependencies: [security-review, quality-review]
+    model: strongest
+    dependencies: [security-review, quality-review, slop-review]
     memory:
       inject_artifacts:
         - step: security-review
@@ -400,48 +515,58 @@ steps:
         - step: quality-review
           artifact: quality
           as: quality_findings
+        - step: slop-review
+          artifact: slop
+          as: slop_findings
     exec:
       type: prompt
       source: |
         ## Objective
 
-        Synthesize findings from the security and quality review tracks into a single
-        review verdict. Weigh findings by severity, deduplicate across tracks, resolve
-        contradictions, and produce a final recommendation. This is the core variant —
-        the verdict JSON is consumed by composition pipelines that handle their own
-        publishing. No comments are posted to the forge in this step.
+        Synthesize findings from three parallel review tracks (security, quality, and
+        slop) into a single, coherent review verdict. Weigh findings by severity,
+        deduplicate across review tracks, resolve contradictions, and produce a final
+        recommendation. This is the core variant — the verdict JSON is consumed by
+        composition pipelines (such as ops-pr-review) that handle their own publishing.
+        No comments are posted to the forge in this step.
 
         ## Context
 
-        Two artifacts are injected:
-        - `security_findings`: Security review markdown with findings by severity.
+        Three artifacts are injected:
+        - `security_findings`: Security review markdown with findings categorized by
+          severity.
         - `quality_findings`: Quality review markdown with error handling, testing, and
           performance findings.
+        - `slop_findings`: Slop review markdown with dead code, duplication, and
+          architectural misfit findings.
 
-        Read BOTH artifacts before forming a verdict.
+        Read ALL three artifacts before forming a verdict.
 
         ## Requirements
 
         ### Step 1: Parse All Findings
 
-        Extract every finding from both reviews. For each, note source (security or
-        quality), severity, file, and description.
+        Extract every finding from each review artifact. For each, note its source
+        (security, quality, or slop), severity, file, and description.
 
         ### Step 2: Deduplicate
 
-        Remove findings that appear in both reviews. Keep the higher-severity version
-        and note both sources.
+        Check for findings that appear in multiple reviews (e.g., a missing input
+        validation flagged by both security and quality). Keep the higher-severity
+        version and note the sources.
 
         ### Step 3: Determine the Verdict
 
-        Apply these rules strictly:
-        - **APPROVE**: Zero CRITICAL or HIGH findings across both reviews. MEDIUM and
-          LOW findings alone do not block. Safe to merge with observations noted.
-        - **REQUEST_CHANGES**: HIGH findings exist that must be fixed, but the approach
-          is sound.
-        - **COMMENT**: All findings are MEDIUM or LOW. Non-blocking observations only.
-        - **REJECT**: Fundamental design problems. The approach is wrong, not just the
-          implementation. This should be rare.
+        Apply these decision rules strictly:
+
+        - **APPROVE**: Use ONLY when there are zero CRITICAL or HIGH findings across all
+          three reviews. MEDIUM and LOW findings alone do not block approval.
+        - **REQUEST_CHANGES**: Use when there are HIGH findings that must be fixed before
+          merge, but the overall approach is sound.
+        - **COMMENT**: Use for PRs where all findings are MEDIUM or LOW and are
+          non-blocking observations only.
+        - **REJECT**: Use ONLY for fundamental design problems — the PR's approach is
+          wrong, not just its implementation. This should be rare.
 
         ### Step 4: Compose the Verdict JSON
 
@@ -460,16 +585,14 @@ steps:
         - Do NOT reject for implementation quality issues. REJECT is reserved exclusively
           for fundamental design problems where the approach is wrong, not just the
           implementation. Use REQUEST_CHANGES for fixable issues.
-        - Do NOT add new findings in this step. Your job is to synthesize what the review
-          steps already found. If you notice something new, it is too late — the review
-          steps should have caught it.
-        - Do NOT inflate severity during synthesis. If the security review rated a finding
-          as MEDIUM, do not upgrade it to HIGH in the verdict just because it sounds
-          concerning.
+        - Do NOT add new findings in this step. Synthesize only what the review steps
+          already found.
+        - Do NOT inflate severity during synthesis. If a review rated a finding as MEDIUM,
+          do not upgrade it to HIGH in the verdict.
         - Do NOT produce an empty `positive_notes` array. Every PR has something done
           right — clean commit messages, well-structured tests, clear naming, correct
           error handling. Find at least one genuine strength.
-        - Do NOT produce a verdict that contradicts the findings. If both reviews are
+        - Do NOT produce a verdict that contradicts the findings. If all reviews are
           clean (no HIGH or CRITICAL findings), the verdict should be APPROVE or COMMENT,
           not REQUEST_CHANGES.
 
@@ -479,13 +602,12 @@ steps:
 
         ## Quality Bar
 
-        A good verdict accurately reflects the severity distribution across both review
-        tracks, provides a clear recommendation that logically follows from the findings,
-        and includes balanced commentary covering both issues and strengths. The verdict
-        should be something a human reviewer would agree with after reading the same
-        findings. A bad verdict contradicts the evidence (approving despite critical
-        issues, or rejecting over minor style concerns), ignores an entire review track
-        in the synthesis, or produces a generic summary that could apply to any PR.
+        A good verdict correctly reflects the severity distribution across all three
+        reviews, provides a clear recommendation that matches the findings, and includes
+        balanced commentary (issues AND strengths). A bad verdict contradicts the findings
+        (approving despite critical issues, or rejecting over minor style concerns),
+        ignores an entire review track, or produces a generic summary that could apply
+        to any PR.
     output_artifacts:
       - name: verdict
         path: .wave/output/review-verdict.json
