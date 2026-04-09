@@ -36,20 +36,20 @@
         <div class="wr-body">
             <div class="wr-row1">
                 <span class="wr-name">{{.PipelineName}}</span>
-                <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
                 {{if .InputPreview}}<span class="wr-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
+                <span class="wr-right">
+                    <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
+                    {{if .Duration}}<span class="wr-dur">{{.Duration}}</span>{{end}}
+                </span>
             </div>
             <div class="wr-row2">
-                {{if gt .StepsTotal 0}}<span><b>{{.StepsCompleted}}/{{.StepsTotal}}</b> steps</span>{{end}}
-                {{if .TotalTokens}}<span><b>{{formatTokens .TotalTokens}}</b> tok</span>{{end}}
-                {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{friendlyModel .}}</span>{{end}}
-                {{range .Models}}<span class="badge badge-model">{{friendlyModel .}}</span>{{end}}
+                {{if gt .StepsTotal 0}}<span>{{.StepsCompleted}}/{{.StepsTotal}}</span>{{end}}
+                {{range .Models}}<span class="badge badge-model {{modelTierClass .}}">{{friendlyModel .}}</span>{{end}}
+                {{if .TotalTokens}}<span>{{formatTokens .TotalTokens}}</span>{{end}}
+                <span class="wr-right">
+                    <span class="wr-date">{{.FormattedStartedAt}}</span>
+                </span>
             </div>
-        </div>
-        <div class="wr-meta">
-            <span class="wr-date">{{.FormattedStartedAt}}</span>
-            {{if .Duration}}<span class="wr-dur">{{.Duration}}</span>{{end}}
-            {{if .BranchName}}<span class="wr-progress" style="font-family:var(--font-mono);">{{.BranchName}}</span>{{end}}
         </div>
     </a>
 
@@ -61,17 +61,19 @@
             <div class="wr-body">
                 <div class="wr-row1">
                     <span class="wr-name">{{.PipelineName}}</span>
-                    <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
                     {{if .InputPreview}}<span class="wr-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
+                    <span class="wr-right">
+                        <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
+                        {{if .Duration}}<span class="wr-dur">{{.Duration}}</span>{{end}}
+                    </span>
                 </div>
                 <div class="wr-row2">
-                    {{if .Duration}}<span><b>{{.Duration}}</b></span>{{end}}
-                    {{if gt .StepsTotal 0}}<span><b>{{.StepsCompleted}}/{{.StepsTotal}}</b> steps</span>{{end}}
-                    {{if .TotalTokens}}<span><b>{{formatTokens .TotalTokens}}</b> tok</span>{{end}}
+                    {{if gt .StepsTotal 0}}<span>{{.StepsCompleted}}/{{.StepsTotal}}</span>{{end}}
+                    {{range .Models}}<span class="badge badge-model {{modelTierClass .}}">{{friendlyModel .}}</span>{{end}}
+                    <span class="wr-right">
+                        <span class="wr-date">{{.FormattedStartedAt}}</span>
+                    </span>
                 </div>
-            </div>
-            <div class="wr-meta">
-                <span class="wr-date">{{.FormattedStartedAt}}</span>
             </div>
         </a>
     {{end}}

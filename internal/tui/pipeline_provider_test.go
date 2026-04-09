@@ -40,7 +40,7 @@ func (b baseStateStore) ListRuns(state.ListRunsOptions) ([]state.RunRecord, erro
 	return nil, nil
 }
 func (b baseStateStore) DeleteRun(string) error { return nil }
-func (b baseStateStore) LogEvent(string, string, string, string, string, int, int64, string, string) error {
+func (b baseStateStore) LogEvent(string, string, string, string, string, int, int64, string, string, string) error {
 	return nil
 }
 func (b baseStateStore) GetEvents(string, state.EventQueryOptions) ([]state.LogRecord, error) {

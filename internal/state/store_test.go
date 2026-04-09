@@ -1239,7 +1239,7 @@ func TestDeleteRun(t *testing.T) {
 		require.NoError(t, err)
 
 		// Add associated data
-		err = store.LogEvent(runID, "step-1", "running", "dev", "started", 100, 500, "", "")
+		err = store.LogEvent(runID, "step-1", "running", "dev", "started", 100, 500, "", "", "")
 		require.NoError(t, err)
 		err = store.RegisterArtifact(runID, "step-1", "output.txt", "/path/output.txt", "file", 1024)
 		require.NoError(t, err)
@@ -1326,7 +1326,7 @@ func TestLogEvent(t *testing.T) {
 			runID, err := store.CreateRun("test", "")
 			require.NoError(t, err)
 
-			err = store.LogEvent(runID, tc.stepID, tc.state, tc.persona, tc.message, tc.tokens, tc.durationMs, "", "")
+			err = store.LogEvent(runID, tc.stepID, tc.state, tc.persona, tc.message, tc.tokens, tc.durationMs, "", "", "")
 			require.NoError(t, err)
 
 			events, err := store.GetEvents(runID, EventQueryOptions{})
@@ -1357,7 +1357,7 @@ func TestGetEvents(t *testing.T) {
 
 		for i := 0; i < 5; i++ {
 			stepID := stepIDFromIndex(i)
-			err = store.LogEvent(runID, stepID, "running", "dev", "message", 10, 100, "", "")
+			err = store.LogEvent(runID, stepID, "running", "dev", "message", 10, 100, "", "", "")
 			require.NoError(t, err)
 		}
 
@@ -1373,11 +1373,11 @@ func TestGetEvents(t *testing.T) {
 		runID, err := store.CreateRun("test", "")
 		require.NoError(t, err)
 
-		err = store.LogEvent(runID, "step-1", "running", "dev", "msg1", 10, 100, "", "")
+		err = store.LogEvent(runID, "step-1", "running", "dev", "msg1", 10, 100, "", "", "")
 		require.NoError(t, err)
-		err = store.LogEvent(runID, "step-2", "running", "dev", "msg2", 10, 100, "", "")
+		err = store.LogEvent(runID, "step-2", "running", "dev", "msg2", 10, 100, "", "", "")
 		require.NoError(t, err)
-		err = store.LogEvent(runID, "step-1", "completed", "dev", "msg3", 10, 100, "", "")
+		err = store.LogEvent(runID, "step-1", "completed", "dev", "msg3", 10, 100, "", "", "")
 		require.NoError(t, err)
 
 		events, err := store.GetEvents(runID, EventQueryOptions{StepID: "step-1"})
@@ -1396,11 +1396,11 @@ func TestGetEvents(t *testing.T) {
 		runID, err := store.CreateRun("test", "")
 		require.NoError(t, err)
 
-		err = store.LogEvent(runID, "step-1", "running", "dev", "started", 10, 100, "", "")
+		err = store.LogEvent(runID, "step-1", "running", "dev", "started", 10, 100, "", "", "")
 		require.NoError(t, err)
-		err = store.LogEvent(runID, "step-1", "failed", "dev", "error occurred", 10, 100, "", "")
+		err = store.LogEvent(runID, "step-1", "failed", "dev", "error occurred", 10, 100, "", "", "")
 		require.NoError(t, err)
-		err = store.LogEvent(runID, "step-2", "completed", "dev", "done", 10, 100, "", "")
+		err = store.LogEvent(runID, "step-2", "completed", "dev", "done", 10, 100, "", "", "")
 		require.NoError(t, err)
 
 		events, err := store.GetEvents(runID, EventQueryOptions{ErrorsOnly: true})
@@ -1417,7 +1417,7 @@ func TestGetEvents(t *testing.T) {
 		require.NoError(t, err)
 
 		for i := 0; i < 10; i++ {
-			err = store.LogEvent(runID, "step-1", "running", "dev", "msg", i, 100, "", "")
+			err = store.LogEvent(runID, "step-1", "running", "dev", "msg", i, 100, "", "", "")
 			require.NoError(t, err)
 		}
 
@@ -1439,12 +1439,12 @@ func TestGetEvents(t *testing.T) {
 		runID, err := store.CreateRun("test", "")
 		require.NoError(t, err)
 
-		err = store.LogEvent(runID, "step-1", "running", "dev", "first", 10, 100, "", "")
+		err = store.LogEvent(runID, "step-1", "running", "dev", "first", 10, 100, "", "", "")
 		require.NoError(t, err)
 
 		time.Sleep(1100 * time.Millisecond)
 
-		err = store.LogEvent(runID, "step-2", "running", "dev", "second", 20, 200, "", "")
+		err = store.LogEvent(runID, "step-2", "running", "dev", "second", 20, 200, "", "", "")
 		require.NoError(t, err)
 
 		events, err := store.GetEvents(runID, EventQueryOptions{})
@@ -1694,7 +1694,7 @@ func TestConcurrentOpsAccess(t *testing.T) {
 				defer wg.Done()
 				for j := 0; j < numEvents; j++ {
 					stepID := stepIDFromIndices(workerID, j)
-					err := store.LogEvent(runID, stepID, "running", "dev", "msg", j, int64(j*100), "", "")
+					err := store.LogEvent(runID, stepID, "running", "dev", "msg", j, int64(j*100), "", "", "")
 					assert.NoError(t, err)
 				}
 			}(i)
