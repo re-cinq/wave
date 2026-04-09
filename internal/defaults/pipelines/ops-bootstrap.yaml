@@ -27,6 +27,11 @@ chat_context:
     - "Scaffold completeness"
     - "Build and test verification"
 
+pipeline_outputs:
+  assessment:
+    step: assess
+    artifact: assessment
+
 hooks:
   - name: log-start
     event: run_start

@@ -25,6 +25,11 @@ chat_context:
     - "Complexity assessment"
     - "Pipeline routing decision"
 
+pipeline_outputs:
+  assessment:
+    step: assess
+    artifact: assessment
+
 hooks:
   - name: log-start
     event: run_start
