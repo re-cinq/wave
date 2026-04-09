@@ -5016,29 +5016,45 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 
 	// Extract child artifacts and merge context variables
 	childExec := childExecutor.LastExecution()
-	if step.Config != nil && childExec != nil {
-		// Determine parent workspace for artifact extraction
-		parentWorkspace := "."
-		execution.mu.Lock()
-		if ws, ok := execution.WorkspacePaths[step.ID]; ok && ws != "" {
-			parentWorkspace = ws
-		}
-		execution.mu.Unlock()
+	if childExec != nil {
+		if step.Config != nil {
+			// Determine parent workspace for artifact extraction
+			parentWorkspace := "."
+			execution.mu.Lock()
+			if ws, ok := execution.WorkspacePaths[step.ID]; ok && ws != "" {
+				parentWorkspace = ws
+			}
+			execution.mu.Unlock()
 
-		if len(step.Config.Extract) > 0 {
-			if err := extractSubPipelineArtifacts(step.Config, childExec.Context, pipelineName, execution.Context, parentWorkspace); err != nil {
-				return fmt.Errorf("failed to extract sub-pipeline artifacts: %w", err)
+			if len(step.Config.Extract) > 0 {
+				if err := extractSubPipelineArtifacts(step.Config, childExec.Context, pipelineName, execution.Context, parentWorkspace); err != nil {
+					return fmt.Errorf("failed to extract sub-pipeline artifacts: %w", err)
+				}
+			}
+
+			// Evaluate stop condition if configured
+			if step.Config.StopCondition != "" {
+				if evaluateStopCondition(step.Config.StopCondition, childExec.Context) {
+					execution.Context.SetCustomVariable("sub_pipeline_stop", "true")
+				}
 			}
 		}
 
 		// Merge child context variables into parent (last-writer-wins)
 		execution.Context.MergeFrom(childExec.Context, pipelineName)
 
-		// Evaluate stop condition if configured
-		if step.Config.StopCondition != "" {
-			if evaluateStopCondition(step.Config.StopCondition, childExec.Context) {
-				execution.Context.SetCustomVariable("sub_pipeline_stop", "true")
-			}
+		// Propagate child execution-level artifact paths into the parent context
+		// so that iterate steps can collect outputs from all child sub-pipelines.
+		childExec.mu.Lock()
+		childArtifacts := make(map[string]string, len(childExec.ArtifactPaths))
+		for k, v := range childExec.ArtifactPaths {
+			childArtifacts[k] = v
+		}
+		childExec.mu.Unlock()
+
+		for key, path := range childArtifacts {
+			nsKey := pipelineName + "." + key
+			execution.Context.SetArtifactPath(nsKey, path)
 		}
 	}
 
@@ -5091,7 +5107,9 @@ func (e *DefaultPipelineExecutor) executeIterateInDAG(ctx context.Context, execu
 		return e.executeIterateParallelInDAG(ctx, execution, step, pipelineNameTmpl, items)
 	}
 
-	// Sequential iterate
+	// Sequential iterate — track resolved pipeline names so we can collect outputs.
+	resolvedNames := make([]string, 0, len(items))
+
 	for i, item := range items {
 		select {
 		case <-ctx.Done():
@@ -5107,6 +5125,7 @@ func (e *DefaultPipelineExecutor) executeIterateInDAG(ctx context.Context, execu
 		if err != nil {
 			return fmt.Errorf("iterate item %d: failed to resolve pipeline name: %w", i, err)
 		}
+		resolvedNames = append(resolvedNames, resolvedName)
 
 		// Resolve input
 		input := execution.Input
@@ -5132,6 +5151,12 @@ func (e *DefaultPipelineExecutor) executeIterateInDAG(ctx context.Context, execu
 		}
 	}
 
+	// Collect outputs from all child sub-pipelines and register under the
+	// iterate step's ID so downstream steps can reference {{ stepID.output }}.
+	if err := e.collectIterateOutputs(execution, step, resolvedNames); err != nil {
+		return fmt.Errorf("iterate: failed to collect outputs: %w", err)
+	}
+
 	e.emit(event.Event{
 		Timestamp:      time.Now(),
 		PipelineID:     pipelineID,
@@ -5153,17 +5178,18 @@ func (e *DefaultPipelineExecutor) executeIterateParallelInDAG(ctx context.Contex
 		maxConcurrent = len(items)
 	}
 
-	g, gctx := errgroup.WithContext(ctx)
-	g.SetLimit(maxConcurrent)
-
+	// Pre-resolve all pipeline names so we can track them for output collection.
+	resolvedNames := make([]string, len(items))
+	resolvedInputs := make([]string, len(items))
 	for i, item := range items {
 		tmplCtx := NewTemplateContext(execution.Input, "")
 		tmplCtx.Item = item
 
-		resolvedName, err := ResolveTemplate(pipelineNameTmpl, tmplCtx)
+		name, err := ResolveTemplate(pipelineNameTmpl, tmplCtx)
 		if err != nil {
 			return fmt.Errorf("iterate item %d: failed to resolve pipeline name: %w", i, err)
 		}
+		resolvedNames[i] = name
 
 		input := execution.Input
 		if step.SubInput != "" {
@@ -5172,6 +5198,15 @@ func (e *DefaultPipelineExecutor) executeIterateParallelInDAG(ctx context.Contex
 				return fmt.Errorf("iterate item %d: failed to resolve input: %w", i, err)
 			}
 		}
+		resolvedInputs[i] = input
+	}
+
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(maxConcurrent)
+
+	for i := range items {
+		resolvedName := resolvedNames[i]
+		input := resolvedInputs[i]
 
 		e.emit(event.Event{
 			Timestamp:  time.Now(),
@@ -5190,6 +5225,12 @@ func (e *DefaultPipelineExecutor) executeIterateParallelInDAG(ctx context.Contex
 		return err
 	}
 
+	// Collect outputs from all child sub-pipelines and register under the
+	// iterate step's ID so downstream steps can reference {{ stepID.output }}.
+	if err := e.collectIterateOutputs(execution, step, resolvedNames); err != nil {
+		return fmt.Errorf("iterate: failed to collect outputs: %w", err)
+	}
+
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
 		PipelineID: pipelineID,
@@ -5201,12 +5242,92 @@ func (e *DefaultPipelineExecutor) executeIterateParallelInDAG(ctx context.Contex
 	return nil
 }
 
+// collectIterateOutputs scans the parent execution's context for artifacts
+// merged from child sub-pipelines (via MergeFrom) and assembles them into a
+// JSON array. The collected output is written to .wave/output/<stepID>-collected.json
+// and registered in execution.ArtifactPaths so {{ stepID.output }} resolves to
+// the combined result for downstream aggregate steps.
+func (e *DefaultPipelineExecutor) collectIterateOutputs(execution *PipelineExecution, step *Step, resolvedNames []string) error {
+	if execution.Context == nil {
+		return nil
+	}
+
+	// For each child pipeline name, find the first artifact path that was
+	// merged under its namespace (e.g. "audit-alpha.scan:output") and read
+	// its content. Order matches the original items array.
+	collected := make([]json.RawMessage, 0, len(resolvedNames))
+	execution.Context.mu.Lock()
+	artifactSnapshot := make(map[string]string, len(execution.Context.ArtifactPaths))
+	for k, v := range execution.Context.ArtifactPaths {
+		artifactSnapshot[k] = v
+	}
+	execution.Context.mu.Unlock()
+
+	for _, name := range resolvedNames {
+		prefix := name + "."
+		var artPath string
+		for key, path := range artifactSnapshot {
+			if strings.HasPrefix(key, prefix) {
+				artPath = path
+				break
+			}
+		}
+
+		if artPath == "" {
+			// No artifact found for this child — include null placeholder
+			// to keep the array aligned with the items array.
+			collected = append(collected, json.RawMessage("null"))
+			continue
+		}
+
+		data, err := os.ReadFile(artPath)
+		if err != nil {
+			collected = append(collected, json.RawMessage("null"))
+			continue
+		}
+
+		// If the content is valid JSON, include it raw; otherwise wrap as a string.
+		if json.Valid(data) {
+			collected = append(collected, json.RawMessage(data))
+		} else {
+			quoted, _ := json.Marshal(string(data))
+			collected = append(collected, json.RawMessage(quoted))
+		}
+	}
+
+	arrayBytes, err := json.Marshal(collected)
+	if err != nil {
+		return fmt.Errorf("failed to marshal collected outputs: %w", err)
+	}
+
+	// Write to .wave/output/<stepID>-collected.json
+	outputDir := filepath.Join(".wave", "output")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	outputPath := filepath.Join(outputDir, step.ID+"-collected.json")
+	if err := os.WriteFile(outputPath, arrayBytes, 0644); err != nil {
+		return fmt.Errorf("failed to write collected output: %w", err)
+	}
+
+	// Register in execution.ArtifactPaths so resolveStepOutputRef can find it
+	// via the standard "stepID:<artifactName>" key convention.
+	execution.mu.Lock()
+	execution.ArtifactPaths[step.ID+":collected-output"] = outputPath
+	execution.mu.Unlock()
+
+	return nil
+}
+
 // executeAggregateInDAG collects outputs from prior steps and writes them to a file.
 func (e *DefaultPipelineExecutor) executeAggregateInDAG(_ context.Context, execution *PipelineExecution, step *Step) error {
 	pipelineID := execution.Status.ID
 
-	// Resolve the source expression
+	// Resolve the source expression — step output references like
+	// {{ run-audits.output }} must be resolved before context placeholders.
 	sourceExpr := step.Aggregate.From
+	sourceExpr = e.resolveStepOutputRef(sourceExpr, execution)
 	if execution.Context != nil {
 		sourceExpr = execution.Context.ResolvePlaceholders(sourceExpr)
 	}
