@@ -26,6 +26,6 @@
     </td>
     <td>{{formatTokens .TotalTokens}}</td>
     <td class="pills-cell">{{range $i, $a := .Adapters}}{{if $i}} {{end}}<span class="badge badge-adapter">{{adapterIcon $a}}{{$a}}</span>{{end}}</td>
-    <td class="pills-cell">{{range $i, $m := .Models}}{{if $i}} {{end}}<span class="badge badge-model">{{$m}}</span>{{end}}</td>
+    <td class="pills-cell">{{range $i, $m := .Models}}{{if $i}} {{end}}<span class="badge badge-model {{modelTierClass $m}}">{{$m}}</span>{{end}}</td>
 </tr>
 {{end}}

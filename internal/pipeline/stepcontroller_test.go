@@ -22,7 +22,7 @@ type loggedEvent struct {
 	runID, stepID, state, persona, message string
 }
 
-func (m *mockStepStore) LogEvent(runID string, stepID string, st string, persona string, message string, tokens int, durationMs int64, model string, adapter string) error {
+func (m *mockStepStore) LogEvent(runID string, stepID string, st string, persona string, message string, tokens int, durationMs int64, model string, configuredModel string, adapter string) error {
 	m.loggedEvents = append(m.loggedEvents, loggedEvent{runID, stepID, st, persona, message})
 	return nil
 }

@@ -31,7 +31,7 @@
     <span style="color:var(--color-text-muted);">·</span>
     <span><b>{{formatTokens .Run.TotalTokens}}</b> tok</span>
     {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{friendlyModel .}}</span>{{end}}
-    {{range .Models}}<span class="badge badge-model">{{friendlyModel .}}</span>{{end}}
+    {{range .Models}}<span class="badge badge-model {{modelTierClass .}}">{{friendlyModel .}}</span>{{end}}
     <span style="margin-left:auto;display:flex;gap:0.15rem;">
         {{if .Events}}<button class="w-sec-tab" onclick="v2Tab('events',this)">Events ({{len .Events}})</button>{{end}}
         <button class="w-sec-tab" onclick="v2Tab('retro',this)">Retro</button>
@@ -72,7 +72,7 @@
 <div id="w-panel-metrics" class="w-panel" hidden>
     <div class="w-panel-head">Step Metrics</div>
     <table class="w-metrics-table">
-        <thead><tr><th>Step</th><th>Status</th><th>Duration</th><th>Tokens</th><th>Model</th><th>Adapter</th></tr></thead>
+        <thead><tr><th>Step</th><th>Status</th><th>Duration</th><th>Tokens</th><th>Tier</th><th>Resolved Model</th><th>Adapter</th></tr></thead>
         <tbody>
         {{range .Steps}}
         <tr class="w-mt-{{.State}}">
@@ -80,7 +80,8 @@
             <td><span class="badge {{statusClass .State}}" style="font-size:0.65rem;">{{.State}}</span></td>
             <td style="font-variant-numeric:tabular-nums;">{{if .Duration}}{{.Duration}}{{else}}—{{end}}</td>
             <td style="font-variant-numeric:tabular-nums;">{{if .TokensUsed}}{{formatTokens .TokensUsed}}{{else}}—{{end}}</td>
-            <td>{{if .Model}}{{.Model}}{{else}}—{{end}}</td>
+            <td>{{if .ConfiguredModel}}<span class="badge badge-model {{modelTierClass .ConfiguredModel}}">{{friendlyModel .ConfiguredModel}}</span>{{else if .Model}}<span class="badge badge-model {{modelTierClass .Model}}">{{friendlyModel .Model}}</span>{{else}}—{{end}}</td>
+            <td style="font-family:var(--font-mono);font-size:0.72rem;color:var(--color-text-muted);">{{if .Model}}{{.Model}}{{else}}—{{end}}</td>
             <td>{{if .Adapter}}{{.Adapter}}{{else}}—{{end}}</td>
         </tr>
         {{end}}
@@ -133,7 +134,7 @@
                     {{if $step.Persona}}<a href="/personas/{{$step.Persona}}" class="ws-code-link">{{$step.Persona}}</a>{{end}}
                     {{if $step.Contract}}{{if $step.ContractSchemaName}}<a href="/contracts/{{$step.ContractSchemaName}}" class="ws-code-link" title="{{$step.Contract}}">{{$step.ContractSchemaName}}</a>{{else}}<span class="ws-code-link" title="{{$step.Contract}}">contract</span>{{end}}{{end}}
                     {{if $step.Adapter}}<span class="badge badge-adapter">{{adapterIcon $step.Adapter}}{{$step.Adapter}}</span>{{end}}
-                    {{if $step.Model}}<span class="badge badge-model">{{friendlyModel $step.Model}}</span>{{end}}
+                    {{if $step.ConfiguredModel}}<span class="badge badge-model {{modelTierClass $step.ConfiguredModel}}" title="{{$step.Model}}">{{friendlyModel $step.ConfiguredModel}}</span>{{else if $step.Model}}<span class="badge badge-model {{modelTierClass $step.Model}}" title="{{$step.Model}}">{{friendlyModel $step.Model}}</span>{{end}}
                     {{if $step.TokensUsed}}<span class="ws-tok">{{formatTokens $step.TokensUsed}}</span>{{end}}
                     {{if eq $step.StepType "command"}}<span style="color:var(--color-text-muted)">cmd</span>{{end}}
                     {{if $step.Duration}}<span class="ws-dur">{{$step.Duration}}</span>{{end}}
@@ -227,7 +228,7 @@
     </div>
     {{end}}
     {{if .OutputArtifacts}}
-    <div class="ws-tabs" style="margin:0 var(--ws-pad-x);">
+    <div class="ws-tabs">
         {{range $a := .OutputArtifacts}}<a href="#" class="w-tab" data-run-id="{{$.Run.RunID}}" data-step-id="{{$.OutputStepID}}" data-artifact-name="{{$a.Name}}" onclick="v2ToggleOutArtTab(this);return false;">{{$a.Name}} <span class="art-size">{{formatBytes $a.SizeBytes}}</span></a>{{end}}
     </div>
     <div class="ws-tabcontent" id="w-out-tc" hidden></div>

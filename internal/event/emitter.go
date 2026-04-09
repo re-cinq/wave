@@ -42,8 +42,9 @@ type Event struct {
 	ToolTarget string `json:"tool_target,omitempty"` // Target (file path, command, pattern)
 
 	// Step metadata fields (FR-010: model and adapter type in step-start events)
-	Model       string  `json:"model,omitempty"`       // Model name (e.g., "opus", "sonnet")
-	Adapter     string  `json:"adapter,omitempty"`     // Adapter type (e.g., "claude")
+	Model           string `json:"model,omitempty"`            // Resolved model ID (e.g., "claude-haiku-4-5")
+	ConfiguredModel string `json:"configured_model,omitempty"` // Tier from pipeline config (e.g., "cheapest")
+	Adapter         string `json:"adapter,omitempty"`          // Adapter type (e.g., "claude")
 	Temperature float64 `json:"temperature,omitempty"` // Temperature setting for this step
 
 	// Recovery hints (populated on failure events only)

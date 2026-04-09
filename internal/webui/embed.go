@@ -84,6 +84,7 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		"frictionLabel":   frictionLabel,
 		"adapterIcon":     adapterIcon,
 		"forgeIcon":       forgeIcon,
+		"modelTierClass":  modelTierClass,
 		"pluralize": func(n int, singular, plural string) string {
 			if n == 1 {
 				return singular
@@ -354,28 +355,40 @@ func richInputFunc(input, linkedURL string) string {
 	return input
 }
 
-// friendlyModelFunc converts raw model IDs to human-friendly display names.
+// friendlyModelFunc converts raw model IDs to tier display names.
+// All models are normalized to the Wave tier vocabulary:
+// cheapest / balanced / strongest.
 func friendlyModelFunc(model string) string {
 	m := strings.ToLower(model)
 	switch {
-	case strings.Contains(m, "opus"):
-		return "Opus"
-	case strings.Contains(m, "sonnet"):
-		return "Sonnet"
-	case strings.Contains(m, "haiku"):
-		return "Haiku"
-	case m == "cheapest":
-		return "Cheapest"
-	case m == "balanced":
-		return "Balanced"
-	case m == "strongest":
-		return "Strongest"
+	case strings.Contains(m, "opus"), m == "strongest":
+		return "strongest"
+	case strings.Contains(m, "sonnet"), m == "balanced":
+		return "balanced"
+	case strings.Contains(m, "haiku"), m == "cheapest", m == "fastest":
+		return "cheapest"
 	default:
-		// Truncate long model IDs: "claude-sonnet-4-20250514" → "Sonnet 4"
 		if len(model) > 20 {
 			return model[:20] + "…"
 		}
 		return model
+	}
+}
+
+// modelTierClass returns a CSS class for the model's capability tier.
+// Maps model names to tier-strongest / tier-balanced / tier-cheapest so
+// badges are color-coded by capability rather than a single color.
+func modelTierClass(model string) string {
+	m := strings.ToLower(model)
+	switch {
+	case strings.Contains(m, "opus"), m == "strongest":
+		return "tier-strongest"
+	case strings.Contains(m, "sonnet"), m == "balanced":
+		return "tier-balanced"
+	case strings.Contains(m, "haiku"), m == "cheapest", m == "fastest":
+		return "tier-cheapest"
+	default:
+		return ""
 	}
 }
 
