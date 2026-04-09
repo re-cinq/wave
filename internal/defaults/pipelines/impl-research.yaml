@@ -30,6 +30,11 @@ chat_context:
     - "Research findings and their influence on implementation"
     - "Review outcome and any concerns"
 
+pipeline_outputs:
+  verdict:
+    step: review
+    artifact: verdict
+
 hooks:
   - name: log-start
     event: run_start
