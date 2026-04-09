@@ -49,58 +49,25 @@ requires:
 
 steps:
   - id: implement
-    type: pipeline
-    pipeline: impl-issue
+    pipeline: impl-issue-core
     input: "{{ input }}"
 
-  - id: review
-    type: pipeline
-    pipeline: ops-pr-review
+  - id: create-pr
+    pipeline: wave-land
+    input: "{{ input }}"
     dependencies: [implement]
-    input: "{{ implement.output.pr_url }}"
 
-  - id: check-verdict
-    type: conditional
-    dependencies: [review]
-    condition:
-      artifact: review.verdict
-      json_path: .verdict
-    edges:
-      - target: done
-        condition: "outcome=APPROVE"
-      - target: rework
-        condition: "outcome=REQUEST_CHANGES"
-      - target: done
-        condition: "outcome=COMMENT"
-
-  - id: rework
-    type: pipeline
-    pipeline: ops-pr-fix-review
-    dependencies: [check-verdict]
-    input: "{{ implement.output.pr_url }}"
-
-  - id: re-review
-    type: pipeline
-    pipeline: ops-pr-review
-    dependencies: [rework]
-    input: "{{ implement.output.pr_url }}"
-
-  - id: check-re-review
-    type: conditional
-    dependencies: [re-review]
-    condition:
-      artifact: re-review.verdict
-      json_path: .verdict
-    edges:
-      - target: done
-        condition: "outcome=APPROVE"
-      - target: done
-        condition: "outcome=REQUEST_CHANGES"
-      - target: done
-        condition: "outcome=COMMENT"
-
-  - id: done
-    type: command
-    dependencies: [check-verdict, check-re-review]
-    command: |
-      echo "Review loop complete for {{ input }}"
+  - id: review-fix
+    dependencies: [create-pr]
+    pipeline: ops-pr-review-core
+    input: "{{ create-pr.output.pr_url }}"
+    loop:
+      max_iterations: 3
+      until: "{{ review-fix.output.verdict == 'APPROVE' }}"
+      steps:
+        - id: fix
+          pipeline: impl-issue-core
+          input: "Fix based on review feedback: {{ review-fix.output.verdict }}"
+        - id: re-review
+          pipeline: ops-pr-review-core
+          input: "{{ create-pr.output.pr_url }}"

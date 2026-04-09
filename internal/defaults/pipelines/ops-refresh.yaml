@@ -141,8 +141,7 @@ steps:
 
         ### Step 5: Produce Output
 
-        Write a JSON result to `.wave/artifact.json` matching the contract schema. The
-        output must include:
+        Produce output matching the contract schema. Include:
         - `repo`: owner/repo string
         - `issue_number`: the issue number
         - `issue_url`: the full URL
@@ -165,7 +164,7 @@ steps:
 
         ## Output Format
 
-        JSON at `.wave/artifact.json` matching the contract schema.
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
@@ -412,7 +411,7 @@ steps:
 
         ### Step 5: Record Results
 
-        Write a JSON result to `.wave/artifact.json` matching the contract schema. Include:
+        Produce output matching the contract schema. Include:
         - `repo`: owner/repo
         - `issue_number`: the issue number
         - `url`: the issue URL
@@ -434,7 +433,7 @@ steps:
 
         ## Output Format
 
-        JSON at `.wave/artifact.json` matching the contract schema.
+        Produce output matching the contract schema.
 
         ## Quality Bar
 
