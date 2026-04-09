@@ -26,6 +26,11 @@ chat_context:
     - "Review findings and rework status"
     - "PR merge readiness"
 
+pipeline_outputs:
+  verdict:
+    step: review-fix
+    artifact: verdict
+
 hooks:
   - name: log-start
     event: run_start
