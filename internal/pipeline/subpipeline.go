@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 // injectSubPipelineArtifacts copies named artifacts from the parent execution's
@@ -181,7 +180,3 @@ func copyDir(src, dest string) error {
 
 	return nil
 }
-
-// SubPipelineTimeout is the default timeout for sub-pipeline execution when
-// no explicit timeout is configured.
-const SubPipelineDefaultTimeout = 2 * time.Hour
