@@ -6317,3 +6317,87 @@ func TestBranchInDAG_Skip(t *testing.T) {
 	assert.Equal(t, 0, len(configs),
 		"skip branch should not invoke any adapter")
 }
+
+// TestRetryInjectsContractFailureContext verifies that when a step's contract
+// validation fails and the step retries, the next attempt's prompt includes
+// the contract failure details so the agent can fix the specific error.
+func TestRetryInjectsContractFailureContext(t *testing.T) {
+	// Use a counting adapter that captures every prompt. Both attempts
+	// succeed at the adapter level — the failure comes from the contract.
+	capAdapter := &countingFailAdapter{
+		failCount:   0, // adapter always succeeds
+		successMock: adapter.NewMockAdapter(adapter.WithStdoutJSON(`{"status":"ok"}`)),
+	}
+
+	collector := testutil.NewEventCollector()
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	executor := NewDefaultPipelineExecutor(capAdapter,
+		WithEmitter(collector),
+	)
+
+	// Create a shell script that fails on the first call and succeeds on
+	// the second. Uses a counter file to track invocations.
+	counterFile := filepath.Join(tmpDir, "contract_counter")
+	scriptFile := filepath.Join(tmpDir, "contract_check.sh")
+	scriptContent := fmt.Sprintf(`#!/bin/sh
+count=$(cat "%s" 2>/dev/null || echo 0)
+count=$((count+1))
+echo $count > "%s"
+if [ $count -le 1 ]; then
+  echo "FAIL: TestWidget expected 42 got 0"
+  exit 1
+fi
+`, counterFile, counterFile)
+	require.NoError(t, os.WriteFile(scriptFile, []byte(scriptContent), 0755))
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "retry-contract-ctx"},
+		Steps: []Step{
+			{
+				ID:      "step-1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "implement the feature"},
+				Retry: RetryConfig{
+					MaxAttempts: 2,
+					BaseDelay:   "1ms",
+				},
+				Handover: HandoverConfig{
+					Contract: ContractConfig{
+						Type:      "test_suite",
+						Command:   scriptFile,
+						OnFailure: OnFailureFail,
+					},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test input")
+	assert.NoError(t, err, "pipeline should succeed on second attempt after contract passes")
+
+	// The adapter should have been called exactly twice
+	configs := capAdapter.getLastConfigs()
+	require.Equal(t, 2, len(configs), "adapter should be called twice (first attempt + retry)")
+
+	// First attempt: no retry context in prompt
+	assert.NotContains(t, configs[0].Prompt, "RETRY CONTEXT",
+		"first attempt should NOT have retry context")
+
+	// Second attempt: must contain retry context with contract failure details
+	secondPrompt := configs[1].Prompt
+	assert.Contains(t, secondPrompt, "RETRY CONTEXT",
+		"second attempt should have RETRY CONTEXT header")
+	assert.Contains(t, secondPrompt, "attempt 2 of 2",
+		"second attempt should show attempt number")
+	assert.Contains(t, secondPrompt, "Contract Validation Errors",
+		"second attempt should contain contract validation errors section")
+	assert.Contains(t, secondPrompt, "TestWidget",
+		"second attempt should contain the specific test failure output")
+	assert.Contains(t, secondPrompt, "Fix the specific failure above",
+		"second attempt should instruct agent not to start from scratch")
+}
