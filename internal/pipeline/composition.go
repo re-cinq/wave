@@ -166,6 +166,8 @@ func (c *CompositionExecutor) executeIterate(ctx context.Context, p *Pipeline, s
 }
 
 func (c *CompositionExecutor) executeIterateSequential(ctx context.Context, p *Pipeline, step *Step, pipelineNameTmpl string, items []json.RawMessage) error {
+	resolvedNames := make([]string, 0, len(items))
+
 	for i, item := range items {
 		select {
 		case <-ctx.Done():
@@ -190,6 +192,7 @@ func (c *CompositionExecutor) executeIterateSequential(ctx context.Context, p *P
 		if err != nil {
 			return fmt.Errorf("item %d: failed to resolve pipeline name: %w", i, err)
 		}
+		resolvedNames = append(resolvedNames, resolvedName)
 
 		// Resolve input template
 		input, err := c.resolveStepInput(step)
@@ -202,6 +205,10 @@ func (c *CompositionExecutor) executeIterateSequential(ctx context.Context, p *P
 			return fmt.Errorf("item %d: pipeline %q failed: %w", i, resolvedName, err)
 		}
 	}
+
+	// Collect outputs from all child sub-pipelines and register under the
+	// iterate step's ID so downstream steps can reference {{ stepID.output }}.
+	c.collectIterateOutputs(step, resolvedNames)
 
 	c.emit(event.Event{
 		Timestamp:  time.Now(),
@@ -220,40 +227,48 @@ func (c *CompositionExecutor) executeIterateParallel(ctx context.Context, p *Pip
 		maxConcurrent = len(items)
 	}
 
+	// Pre-resolve all pipeline names so we can track them for output collection.
+	resolvedNames := make([]string, len(items))
+	resolvedInputs := make([]string, len(items))
+	for i, item := range items {
+		localCtx := NewTemplateContext(c.tmplCtx.Input, c.tmplCtx.WorkspaceRoot)
+		for k, v := range c.tmplCtx.StepOutputs {
+			localCtx.StepOutputs[k] = v
+		}
+		localCtx.Item = item
+
+		name, err := ResolveTemplate(pipelineNameTmpl, localCtx)
+		if err != nil {
+			return fmt.Errorf("item %d: failed to resolve pipeline name: %w", i, err)
+		}
+		resolvedNames[i] = name
+
+		input := c.tmplCtx.Input
+		if step.SubInput != "" {
+			input, err = ResolveTemplate(step.SubInput, localCtx)
+			if err != nil {
+				return fmt.Errorf("item %d: %w", i, err)
+			}
+		}
+		resolvedInputs[i] = input
+	}
+
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(maxConcurrent)
 
-	for i, item := range items {
+	for i := range items {
+		resolvedName := resolvedNames[i]
+		input := resolvedInputs[i]
+
+		c.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: p.Metadata.Name,
+			StepID:     step.ID,
+			State:      event.StateIterationProgress,
+			Message:    fmt.Sprintf("parallel item %d/%d: %s", i+1, len(items), resolvedName),
+		})
+
 		g.Go(func() error {
-			// Each goroutine needs its own template context for item
-			localCtx := NewTemplateContext(c.tmplCtx.Input, c.tmplCtx.WorkspaceRoot)
-			for k, v := range c.tmplCtx.StepOutputs {
-				localCtx.StepOutputs[k] = v
-			}
-			localCtx.Item = item
-
-			// Resolve pipeline name per item
-			resolvedName, err := ResolveTemplate(pipelineNameTmpl, localCtx)
-			if err != nil {
-				return fmt.Errorf("item %d: failed to resolve pipeline name: %w", i, err)
-			}
-
-			c.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: p.Metadata.Name,
-				StepID:     step.ID,
-				State:      event.StateIterationProgress,
-				Message:    fmt.Sprintf("parallel item %d/%d: %s", i+1, len(items), resolvedName),
-			})
-
-			input := c.tmplCtx.Input
-			if step.SubInput != "" {
-				input, err = ResolveTemplate(step.SubInput, localCtx)
-				if err != nil {
-					return fmt.Errorf("item %d: %w", i, err)
-				}
-			}
-
 			return c.runSubPipeline(gctx, resolvedName, input)
 		})
 	}
@@ -261,6 +276,10 @@ func (c *CompositionExecutor) executeIterateParallel(ctx context.Context, p *Pip
 	if err := g.Wait(); err != nil {
 		return err
 	}
+
+	// Collect outputs from all child sub-pipelines and register under the
+	// iterate step's ID so downstream steps can reference {{ stepID.output }}.
+	c.collectIterateOutputs(step, resolvedNames)
 
 	c.emit(event.Event{
 		Timestamp:  time.Now(),
@@ -271,6 +290,33 @@ func (c *CompositionExecutor) executeIterateParallel(ctx context.Context, p *Pip
 	})
 
 	return nil
+}
+
+// collectIterateOutputs assembles the outputs from all child sub-pipelines into
+// a JSON array and registers it under the iterate step's own ID. This allows
+// downstream steps to reference {{ stepID.output }} to get the collected result.
+func (c *CompositionExecutor) collectIterateOutputs(step *Step, resolvedNames []string) {
+	collected := make([]json.RawMessage, 0, len(resolvedNames))
+	for _, name := range resolvedNames {
+		data, ok := c.tmplCtx.StepOutputs[name]
+		if !ok || len(data) == 0 {
+			collected = append(collected, json.RawMessage("null"))
+			continue
+		}
+		if json.Valid(data) {
+			collected = append(collected, json.RawMessage(data))
+		} else {
+			quoted, _ := json.Marshal(string(data))
+			collected = append(collected, json.RawMessage(quoted))
+		}
+	}
+
+	arrayBytes, err := json.Marshal(collected)
+	if err != nil {
+		return
+	}
+
+	c.tmplCtx.SetStepOutput(step.ID, arrayBytes)
 }
 
 // executeBranch evaluates a condition and runs the matching pipeline.
