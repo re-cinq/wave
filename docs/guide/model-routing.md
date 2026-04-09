@@ -9,7 +9,7 @@ Wave classifies pipeline steps into three complexity tiers based on persona and 
 | Tier | Intent | Use Case |
 |------|--------|----------|
 | `cheapest` | Cost-optimized | Navigation, summarization, scanning |
-| `fastest` | Latency-optimized | Balanced speed/cost for standard tasks |
+| `balanced` | Latency-optimized | Balanced speed/cost for standard tasks |
 | `strongest` | Capability-optimized | Complex reasoning, code generation |
 
 ## Adapter Tier Models
@@ -23,14 +23,14 @@ adapters:
     default_model: sonnet
     tier_models:
       cheapest: haiku
-      fastest: ""
+      balanced: ""
       strongest: opus
   opencode:
     binary: opencode
     default_model: opencode/big-pickle
     tier_models:
       cheapest: opencode/big-pickle
-      fastest: opencode/big-pickle
+      balanced: opencode/big-pickle
       strongest: opencode/big-pickle
 ```
 
@@ -45,7 +45,7 @@ routing:
   auto_route: true
   complexity_map:
     cheapest: haiku
-    fastest: ""
+    balanced: ""
     strongest: opus
 ```
 

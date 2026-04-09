@@ -59,7 +59,7 @@ chat_context:
 steps:
   - id: analyze
     persona: navigator
-    model: fastest
+    model: balanced
     memory:
       strategy: fresh
     workspace:
@@ -145,7 +145,7 @@ steps:
 | `id` | **yes** | - | Unique step identifier |
 | `persona` | conditional | - | Persona from wave.yaml (required for prompt steps) |
 | `adapter` | no | - | Step-level adapter override (e.g., `codex`, `gemini`) |
-| `model` | no | - | Step-level model tier or name (e.g., `fastest`, `strongest`, `claude-haiku-4-5`) |
+| `model` | no | - | Step-level model tier or name (e.g., `balanced`, `strongest`, `claude-haiku-4-5`) |
 | `exec.type` | conditional | - | `prompt`, `command`, or `slash_command` |
 | `exec.source` | conditional | - | Prompt template or shell command |
 | `exec.source_path` | no | - | Path to a prompt file (alternative to inline `source`) |
@@ -314,7 +314,7 @@ Override the model tier or specific model at the step level. See the [Model Rout
 steps:
   - id: triage
     persona: navigator
-    model: fastest
+    model: balanced
     exec:
       type: prompt
       source: "Classify the issue"
@@ -327,7 +327,7 @@ steps:
       source: "Implement the solution"
 ```
 
-Valid model tiers: `cheapest`, `fastest`, `strongest`. You can also specify exact model names (e.g., `claude-haiku-4-5`).
+Valid model tiers: `cheapest`, `balanced`, `strongest`. You can also specify exact model names (e.g., `claude-haiku-4-5`).
 
 ---
 
