@@ -262,10 +262,8 @@ func TestSettingsJSONSandboxSettings(t *testing.T) {
 						t.Errorf("allowedDomains[%d] = %q, want %q", i, settings.Sandbox.Network.AllowedDomains[i], want)
 					}
 				}
-			} else {
-				if settings.Sandbox.Network != nil {
-					t.Errorf("expected no network settings, got %+v", settings.Sandbox.Network)
-				}
+			} else if settings.Sandbox.Network != nil {
+				t.Errorf("expected no network settings, got %+v", settings.Sandbox.Network)
 			}
 		})
 	}
@@ -2012,7 +2010,7 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 		if baseIdx == -1 || promptIdx == -1 || contractIdx == -1 {
 			t.Fatalf("missing sections: base=%d prompt=%d contract=%d", baseIdx, promptIdx, contractIdx)
 		}
-		if !(baseIdx < promptIdx && promptIdx < contractIdx) {
+		if baseIdx >= promptIdx || promptIdx >= contractIdx {
 			t.Errorf("wrong section order: base=%d prompt=%d contract=%d", baseIdx, promptIdx, contractIdx)
 		}
 	})

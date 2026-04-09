@@ -29,11 +29,9 @@ func newValidateCmdWithRoot() *cobra.Command {
 
 // testHelper provides common utilities for validate command tests.
 type testHelper struct {
-	t          *testing.T
-	tmpDir     string
-	origDir    string
-	origStdout *os.File
-	outBuf     *bytes.Buffer
+	t       *testing.T
+	tmpDir  string
+	origDir string
 }
 
 // newTestHelper creates a test helper with a temporary directory.
@@ -72,27 +70,6 @@ func (h *testHelper) writeFile(relPath, content string) {
 	require.NoError(h.t, err, "failed to create directory: %s", dir)
 	err = os.WriteFile(fullPath, []byte(content), 0644)
 	require.NoError(h.t, err, "failed to write file: %s", relPath)
-}
-
-// captureOutput captures stdout for testing.
-func (h *testHelper) captureOutput() {
-	h.t.Helper()
-	h.origStdout = os.Stdout
-	r, w, err := os.Pipe()
-	require.NoError(h.t, err, "failed to create pipe")
-	os.Stdout = w
-	h.outBuf = new(bytes.Buffer)
-	go func() {
-		_, _ = h.outBuf.ReadFrom(r)
-	}()
-}
-
-// getOutput restores stdout and returns captured output.
-func (h *testHelper) getOutput() string {
-	h.t.Helper()
-	os.Stdout.Close()
-	os.Stdout = h.origStdout
-	return h.outBuf.String()
 }
 
 // T024: Test helpers for validate command tests

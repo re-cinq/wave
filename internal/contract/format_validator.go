@@ -296,7 +296,7 @@ func (v *FormatValidator) validateAnalysisFormat(output map[string]interface{}) 
 }
 
 // validateGenericFormat performs basic format validation
-func (v *FormatValidator) validateGenericFormat(output map[string]interface{}, cfg ContractConfig) error {
+func (v *FormatValidator) validateGenericFormat(output map[string]interface{}, _ ContractConfig) error {
 	violations := []string{}
 
 	// Check that output is not empty

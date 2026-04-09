@@ -968,14 +968,15 @@ func (m LiveOutputModel) renderHeader(nc bool) string {
 
 	// Line 2: Status with step progress and completion counts
 	var statusStr string
-	if m.completed {
+	switch {
+	case m.completed:
 		statusStr = "Finished"
-	} else if m.tailingPersisted {
+	case m.tailingPersisted:
 		statusStr = "▶ Tailing persisted events"
 		if m.stepNumber > 0 {
 			statusStr = fmt.Sprintf("▶ Tailing persisted events (step %d/%d: %s)", m.stepNumber, m.totalSteps, m.currentStep)
 		}
-	} else if m.stepNumber > 0 {
+	case m.stepNumber > 0:
 		statusStr = fmt.Sprintf("▶ Running (step %d/%d: %s)", m.stepNumber, m.totalSteps, m.currentStep)
 		var okCount, failCount int
 		for _, s := range m.dashSteps {
@@ -993,7 +994,7 @@ func (m LiveOutputModel) renderHeader(nc bool) string {
 			}
 			statusStr += fmt.Sprintf(" (%s)", counts)
 		}
-	} else {
+	default:
 		statusStr = "▶ Running"
 	}
 	elapsed := formatElapsed(time.Since(m.startedAt))

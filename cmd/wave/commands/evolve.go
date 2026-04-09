@@ -38,7 +38,7 @@ const (
 	evolveLowSignalMinRuns  = 5
 )
 
-func runEvolve(cmd *cobra.Command, m *manifest.Manifest, manifestPath string) error {
+func runEvolve(cmd *cobra.Command, m *manifest.Manifest, _ string) error {
 	outputCfg := GetOutputConfig(cmd)
 	format := ResolveFormat(cmd, "text")
 	if outputCfg.Format == OutputFormatJSON {

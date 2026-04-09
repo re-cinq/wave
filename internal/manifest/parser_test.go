@@ -266,7 +266,7 @@ func TestManifestGetAdapter(t *testing.T) {
 
 	adapter := m.GetAdapter("claude")
 	if adapter == nil {
-		t.Error("Expected to find claude adapter")
+		t.Fatal("Expected to find claude adapter")
 	}
 	if adapter.Binary != "claude" {
 		t.Errorf("Expected adapter binary 'claude', got '%s'", adapter.Binary)
@@ -438,7 +438,7 @@ func TestManifestGetPersona(t *testing.T) {
 
 	persona := m.GetPersona("navigator")
 	if persona == nil {
-		t.Error("Expected to find navigator persona")
+		t.Fatal("Expected to find navigator persona")
 	}
 	if persona.Adapter != "claude" {
 		t.Errorf("Expected persona adapter 'claude', got '%s'", persona.Adapter)

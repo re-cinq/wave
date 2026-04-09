@@ -288,7 +288,7 @@ func TestRelayMonitor_StressTest(t *testing.T) {
 	wg.Add(numGoroutines)
 
 	for i := 0; i < numGoroutines; i++ {
-		go func(goroutineID int) {
+		go func() {
 			defer wg.Done()
 			for j := 0; j < operationsPerGoroutine; j++ {
 				// Mix different operations to stress test
@@ -303,7 +303,7 @@ func TestRelayMonitor_StressTest(t *testing.T) {
 					m.getTokenCount("test string")
 				}
 			}
-		}(i)
+		}()
 	}
 
 	wg.Wait()

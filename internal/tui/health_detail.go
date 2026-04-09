@@ -107,7 +107,7 @@ func (m HealthDetailModel) View() string {
 	return m.viewport.View()
 }
 
-func renderHealthDetail(check *HealthCheck, width int) string {
+func renderHealthDetail(check *HealthCheck, _ int) string {
 	if check == nil {
 		return ""
 	}

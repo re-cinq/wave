@@ -35,8 +35,7 @@ func (m *SuggestDetailModel) SetFocused(focused bool) {
 
 // Update handles messages.
 func (m SuggestDetailModel) Update(msg tea.Msg) (SuggestDetailModel, tea.Cmd) {
-	switch msg := msg.(type) {
-	case SuggestSelectedMsg:
+	if msg, ok := msg.(SuggestSelectedMsg); ok {
 		p := msg.Pipeline
 		m.selected = &p
 		m.multiSelected = msg.MultiSelected
@@ -138,7 +137,7 @@ func (m SuggestDetailModel) View() string {
 		sb.WriteString(sectionStyle.Render("Pipeline Steps"))
 		sb.WriteString("\n")
 		for i, step := range p.Steps {
-			connector := "  "
+			var connector string
 			if i < len(p.Steps)-1 {
 				connector = "├─"
 			} else {

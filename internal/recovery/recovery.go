@@ -74,7 +74,7 @@ func BuildRecoveryBlock(opts RecoveryBlockOpts) *RecoveryBlock {
 	if opts.StepID != "" {
 		workspacePath = filepath.Join(workspacePath, opts.StepID)
 	}
-	workspacePath = workspacePath + "/"
+	workspacePath += "/"
 
 	block := &RecoveryBlock{
 		PipelineName:  opts.PipelineName,

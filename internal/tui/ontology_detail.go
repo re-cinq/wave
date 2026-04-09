@@ -56,8 +56,7 @@ func (m *OntologyDetailModel) SetContext(info *OntologyInfo) {
 
 // Update handles messages.
 func (m OntologyDetailModel) Update(msg tea.Msg) (OntologyDetailModel, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		if m.focused {
 			var cmd tea.Cmd
 			m.viewport, cmd = m.viewport.Update(msg)
@@ -84,7 +83,7 @@ func (m OntologyDetailModel) View() string {
 	return m.viewport.View()
 }
 
-func renderOntologyDetail(info *OntologyInfo, width int) string {
+func renderOntologyDetail(info *OntologyInfo, _ int) string {
 	if info == nil {
 		return ""
 	}

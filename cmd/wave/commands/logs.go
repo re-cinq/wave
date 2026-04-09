@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"time"
 
@@ -279,9 +278,6 @@ func queryLogs(db *sql.DB, runID string, opts LogsOptions) ([]LogsEntry, error) 
 	query += " ORDER BY timestamp ASC, id ASC"
 
 	if opts.Tail > 0 {
-		// To get last N, we need to wrap in a subquery
-		query = fmt.Sprintf(`SELECT * FROM (%s) ORDER BY timestamp ASC`, query+" LIMIT "+strconv.Itoa(opts.Tail))
-		// Actually, let's use a simpler approach - order DESC first, then re-order
 		query = `SELECT timestamp, step_id, state, persona, message, tokens_used, duration_ms
 		         FROM event_log
 		         WHERE run_id = ?`

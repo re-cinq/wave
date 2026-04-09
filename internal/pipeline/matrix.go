@@ -1057,7 +1057,7 @@ func (m *MatrixExecutor) computeTiers(idToIndex map[string]int, deps map[string]
 }
 
 // shouldSkipItem checks if an item should be skipped because a dependency failed.
-func (m *MatrixExecutor) shouldSkipItem(id string, itemDeps []string, failed map[string]bool) (bool, string) {
+func (m *MatrixExecutor) shouldSkipItem(_ string, itemDeps []string, failed map[string]bool) (bool, string) {
 	for _, dep := range itemDeps {
 		if failed[dep] {
 			return true, fmt.Sprintf("dependency %q failed", dep)

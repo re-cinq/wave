@@ -85,11 +85,12 @@ func DetectErrorWrapper(input []byte) (*WrapperDetectionResult, error) {
 		result.ExtractedFrom = "raw_output"
 
 		// Determine confidence based on number of matched fields
-		if indicators >= 6 {
+		switch {
+		case indicators >= 6:
 			result.Confidence = "high"
-		} else if indicators >= 4 {
+		case indicators >= 4:
 			result.Confidence = "medium"
-		} else {
+		default:
 			result.Confidence = "low"
 		}
 
@@ -97,9 +98,10 @@ func DetectErrorWrapper(input []byte) (*WrapperDetectionResult, error) {
 		var testJSON interface{}
 		if err := json.Unmarshal(result.RawContent, &testJSON); err != nil {
 			// Raw output is not valid JSON, lower confidence
-			if result.Confidence == "high" {
+			switch result.Confidence {
+			case "high":
 				result.Confidence = "medium"
-			} else if result.Confidence == "medium" {
+			case "medium":
 				result.Confidence = "low"
 			}
 		}

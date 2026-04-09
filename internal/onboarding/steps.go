@@ -474,28 +474,26 @@ func (s *ModelSelectionStep) Run(cfg *WizardConfig) (*StepResult, error) {
 				}
 			}
 		}
-	} else {
+	} else if cfg.Interactive {
 		// Unknown adapter — prompt for free-text model name
-		if cfg.Interactive {
-			inputForm := huh.NewForm(
-				huh.NewGroup(
-					huh.NewInput().
-						Title("Enter model name (leave blank for adapter default)").
-						Value(&selectedModel).
-						Placeholder("e.g. gpt-4o"),
-				).Title("Step 5 of 8 — Model Selection").
-					Description("Enter the model name for your adapter."),
-			).WithTheme(tui.WaveTheme())
+		inputForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Enter model name (leave blank for adapter default)").
+					Value(&selectedModel).
+					Placeholder("e.g. gpt-4o"),
+			).Title("Step 5 of 8 — Model Selection").
+				Description("Enter the model name for your adapter."),
+		).WithTheme(tui.WaveTheme())
 
-			if err := inputForm.Run(); err != nil {
-				if err == huh.ErrUserAborted {
-					return nil, fmt.Errorf("wizard cancelled by user")
-				}
-				return nil, err
+		if err := inputForm.Run(); err != nil {
+			if err == huh.ErrUserAborted {
+				return nil, fmt.Errorf("wizard cancelled by user")
 			}
+			return nil, err
 		}
-		// Non-interactive unknown adapter: leave model empty (no override)
 	}
+	// Non-interactive unknown adapter: leave model empty (no override)
 
 	return &StepResult{
 		Data: map[string]interface{}{

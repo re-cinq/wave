@@ -272,7 +272,7 @@ func FilterByForge(proposals []ProposedPipeline, fi *forge.ForgeInfo) []Proposed
 
 // detectSequences checks if complementary pipelines are both proposed (e.g.
 // research + implement) and adds a sequence proposal that chains them.
-func detectSequences(proposals []ProposedPipeline, catalog []string, prefix string) []ProposedPipeline {
+func detectSequences(proposals []ProposedPipeline, _ []string, _ string) []ProposedPipeline {
 	byBase := make(map[string]int) // base name → index in proposals
 	for i, p := range proposals {
 		base := stripForgePrefix(p.Name)

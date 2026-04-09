@@ -298,22 +298,6 @@ func (m HeaderModel) renderCommitValue() string {
 	return style.Render(hash)
 }
 
-// joinWithSep adds separator spacing between column strings.
-func joinWithSep(items []string) []string {
-	if len(items) == 0 {
-		return nil
-	}
-	result := make([]string, 0, len(items)*2-1)
-	sep := lipgloss.NewStyle().Foreground(lipgloss.Color("238")).Render(" │ ")
-	for i, item := range items {
-		if i > 0 {
-			result = append(result, sep)
-		}
-		result = append(result, item)
-	}
-	return result
-}
-
 // Async command factories
 
 func (m HeaderModel) fetchGitState() tea.Msg {

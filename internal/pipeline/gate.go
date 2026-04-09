@@ -209,7 +209,7 @@ func parsePollGateTiming(gate *GateConfig) (interval, timeout time.Duration, err
 }
 
 // resolveRepo returns the "owner/repo" slug from gate config or git remotes.
-func (g *GateExecutor) resolveRepo(ctx context.Context, gate *GateConfig) (string, error) {
+func (g *GateExecutor) resolveRepo(_ context.Context, gate *GateConfig) (string, error) {
 	if gate.Repo != "" {
 		return gate.Repo, nil
 	}
