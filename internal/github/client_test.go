@@ -111,7 +111,7 @@ func TestClient_UpdateIssue(t *testing.T) {
 		assert.Equal(t, "PATCH", r.Method)
 
 		var update IssueUpdate
-		json.NewDecoder(r.Body).Decode(&update)
+		_ = json.NewDecoder(r.Body).Decode(&update)
 		assert.NotNil(t, update.Title)
 		assert.Equal(t, "Updated Title", *update.Title)
 
@@ -140,7 +140,7 @@ func TestClient_CreatePullRequest(t *testing.T) {
 		assert.Equal(t, "POST", r.Method)
 
 		var req CreatePullRequestRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req)
 		assert.Equal(t, "Test PR", req.Title)
 		assert.Equal(t, "feature", req.Head)
 		assert.Equal(t, "main", req.Base)

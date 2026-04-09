@@ -75,10 +75,8 @@ func TestJSONCleaner_CleanJSONOutput(t *testing.T) {
 				if !cleaner.IsValidJSON(cleaned) {
 					t.Fatal("cleaned output is not valid JSON")
 				}
-			} else {
-				if err == nil {
-					t.Fatal("expected error for invalid JSON")
-				}
+			} else if err == nil {
+				t.Fatal("expected error for invalid JSON")
 			}
 
 			if tt.shouldClean && len(changes) == 0 && tt.shouldPass {

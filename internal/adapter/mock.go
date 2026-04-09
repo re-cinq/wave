@@ -95,10 +95,7 @@ func (m *MockAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterRe
 		tokens = 2000 + rand.Intn(6000)
 	}
 
-	var artifacts []string
-	for _, art := range extractArtifactNames(stdout) {
-		artifacts = append(artifacts, art)
-	}
+	artifacts := append([]string(nil), extractArtifactNames(stdout)...)
 
 	return &AdapterResult{
 		ExitCode:      m.Config.ExitCode,
@@ -168,7 +165,7 @@ func generateRealisticOutput(cfg AdapterRunConfig) string {
 	}
 }
 
-func generateNavigatorOutput(cfg AdapterRunConfig) string {
+func generateNavigatorOutput(_ AdapterRunConfig) string {
 	data := map[string]interface{}{
 		"files": []map[string]string{
 			{"path": "internal/pipeline/executor.go", "purpose": "Core pipeline execution engine with DAG traversal and step orchestration"},
@@ -234,7 +231,7 @@ func generateSpecPhaseOutput(cfg AdapterRunConfig) string {
 }
 
 // generateDocsPhaseOutput returns docs-phase.schema.json compliant output
-func generateDocsPhaseOutput(cfg AdapterRunConfig) string {
+func generateDocsPhaseOutput(_ AdapterRunConfig) string {
 	data := map[string]interface{}{
 		"phase": "docs",
 		"artifacts": map[string]interface{}{
@@ -264,7 +261,7 @@ func generateDocsPhaseOutput(cfg AdapterRunConfig) string {
 }
 
 // generateDummyPhaseOutput returns dummy-phase.schema.json compliant output
-func generateDummyPhaseOutput(cfg AdapterRunConfig) string {
+func generateDummyPhaseOutput(_ AdapterRunConfig) string {
 	data := map[string]interface{}{
 		"phase": "dummy",
 		"artifacts": map[string]interface{}{
@@ -294,7 +291,7 @@ func generateDummyPhaseOutput(cfg AdapterRunConfig) string {
 }
 
 // generateImplementPhaseOutput returns implement-phase.schema.json compliant output
-func generateImplementPhaseOutput(cfg AdapterRunConfig) string {
+func generateImplementPhaseOutput(_ AdapterRunConfig) string {
 	data := map[string]interface{}{
 		"phase": "implement",
 		"artifacts": map[string]interface{}{
@@ -404,7 +401,7 @@ func generateGenericOutput(cfg AdapterRunConfig) string {
 }
 
 // generateIssueAssessmentOutput returns issue-assessment.schema.json compliant output
-func generateIssueAssessmentOutput(cfg AdapterRunConfig) string {
+func generateIssueAssessmentOutput(_ AdapterRunConfig) string {
 	data := map[string]interface{}{
 		"implementable": true,
 		"issue": map[string]interface{}{
@@ -432,7 +429,7 @@ func generateIssueAssessmentOutput(cfg AdapterRunConfig) string {
 }
 
 // generateIssuePlanOutput returns issue-impl-plan.schema.json compliant output
-func generateIssuePlanOutput(cfg AdapterRunConfig) string {
+func generateIssuePlanOutput(_ AdapterRunConfig) string {
 	data := map[string]interface{}{
 		"issue_number": 50,
 		"branch_name":  "050-mock-issue",
@@ -465,7 +462,7 @@ func generateIssuePlanOutput(cfg AdapterRunConfig) string {
 }
 
 // generateIssuePROutput returns PR result output for gh-implement create-pr step
-func generateIssuePROutput(cfg AdapterRunConfig) string {
+func generateIssuePROutput(_ AdapterRunConfig) string {
 	data := map[string]interface{}{
 		"pr_url":                   "https://github.com/re-cinq/wave/pull/51",
 		"pr_number":                51,
@@ -479,7 +476,7 @@ func generateIssuePROutput(cfg AdapterRunConfig) string {
 }
 
 // generateEpicScopePlanOutput returns epic-scope-plan.schema.json compliant output
-func generateEpicScopePlanOutput(cfg AdapterRunConfig) string {
+func generateEpicScopePlanOutput(_ AdapterRunConfig) string {
 	data := map[string]interface{}{
 		"parent_issue": map[string]interface{}{
 			"owner":  "re-cinq",
@@ -530,7 +527,7 @@ func generateEpicScopePlanOutput(cfg AdapterRunConfig) string {
 }
 
 // generateEpicReportOutput returns epic-report.schema.json compliant output
-func generateEpicReportOutput(cfg AdapterRunConfig) string {
+func generateEpicReportOutput(_ AdapterRunConfig) string {
 	data := map[string]interface{}{
 		"parent_issue": map[string]interface{}{
 			"owner":  "re-cinq",
@@ -612,10 +609,7 @@ func (r *MockAdapterRegistry) Get(name string) *MockAdapter {
 }
 
 func (r *MockAdapterRegistry) CreateRunner(name string) AdapterRunner {
-	adapter := r.Get(name)
-	if adapter == nil {
-		adapter = NewMockAdapter()
-	}
+	_ = r.Get(name)
 	return &registeredRunner{
 		registry: r,
 		name:     name,

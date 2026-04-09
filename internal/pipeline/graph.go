@@ -62,11 +62,9 @@ type StepExecutor func(ctx context.Context, step *Step) (*StepResult, error)
 // initialVisitCounts can be provided to resume from a previous state.
 func (gw *GraphWalker) Walk(ctx context.Context, stepExecutor StepExecutor, initialVisitCounts map[string]int) error {
 	// Restore visit counts from previous state (resume support)
-	if initialVisitCounts != nil {
-		for k, v := range initialVisitCounts {
-			gw.visitCounts[k] = v
-			gw.totalVisits += v
-		}
+	for k, v := range initialVisitCounts {
+		gw.visitCounts[k] = v
+		gw.totalVisits += v
 	}
 
 	// Find the entry point: first step in the pipeline

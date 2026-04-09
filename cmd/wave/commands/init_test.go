@@ -52,7 +52,7 @@ func (e *testEnv) cleanup() {
 }
 
 // executeInitCmd runs the init command with given arguments and returns output/error.
-func executeInitCmd(args ...string) (stdout, stderr string, err error) {
+func executeInitCmd(args ...string) (stdout, stderr string, err error) { //nolint:unparam // kept for interface/future use
 	cmd := NewInitCmd()
 
 	var outBuf, errBuf bytes.Buffer
@@ -77,7 +77,7 @@ func dirExists(path string) bool {
 }
 
 // readYAML reads and unmarshals a YAML file.
-func readYAML(path string) (map[string]interface{}, error) {
+func readYAML(path string) (map[string]interface{}, error) { //nolint:unparam // kept for interface/future use
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err

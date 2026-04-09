@@ -38,14 +38,8 @@ func TestCredentialScrubbing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := logger.scrub(tt.input)
-			if tt.expected == "[REDACTED]" {
-				if result != tt.expected {
-					t.Errorf("scrub(%q) = %q, want %q", tt.input, result, tt.expected)
-				}
-			} else {
-				if result != tt.expected {
-					t.Errorf("scrub(%q) = %q, want %q", tt.input, result, tt.expected)
-				}
+			if result != tt.expected {
+				t.Errorf("scrub(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
 	}

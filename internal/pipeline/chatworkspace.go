@@ -146,13 +146,14 @@ type chatPermissions struct {
 func buildChatClaudeMd(ctx *ChatContext, mode ChatMode, stepFilter, artifactName string) string {
 	var b strings.Builder
 
-	if stepFilter != "" {
+	switch {
+	case stepFilter != "":
 		fmt.Fprintf(&b, "# Wave Step Analysis: %s\n\n", stepFilter)
 		fmt.Fprintf(&b, "You are analyzing step **%s** from a Wave pipeline run.\n\n", stepFilter)
-	} else if artifactName != "" {
+	case artifactName != "":
 		fmt.Fprintf(&b, "# Wave Artifact Analysis: %s\n\n", artifactName)
 		fmt.Fprintf(&b, "You are analyzing artifact **%s** from a Wave pipeline run.\n\n", artifactName)
-	} else {
+	default:
 		b.WriteString("# Wave Pipeline Analysis\n\n")
 		b.WriteString("You are analyzing a completed Wave pipeline run.\n\n")
 	}
@@ -411,7 +412,7 @@ func chatFormatDuration(d time.Duration) string {
 	seconds := int(d.Seconds()) % 60
 	if minutes >= 60 {
 		hours := minutes / 60
-		minutes = minutes % 60
+		minutes %= 60
 		return fmt.Sprintf("%dh%dm", hours, minutes)
 	}
 	return fmt.Sprintf("%dm%ds", minutes, seconds)

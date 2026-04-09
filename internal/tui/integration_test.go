@@ -73,7 +73,7 @@ func (p *integrationPipelineProvider) FetchAvailablePipelines() ([]PipelineInfo,
 }
 
 // newIntegrationApp creates an AppModel wired with integration-level mock providers.
-func newIntegrationApp(projectName string, pipelines []PipelineInfo) AppModel {
+func newIntegrationApp(projectName string, pipelines []PipelineInfo) AppModel { //nolint:unparam // test helper
 	meta := &integrationMockProvider{projectName: projectName}
 	pipeProv := &integrationPipelineProvider{available: pipelines}
 	return NewAppModel(meta, pipeProv, nil, LaunchDependencies{})
@@ -106,7 +106,7 @@ func TestApp_Renders(t *testing.T) {
 		return bytes.Contains(captured, []byte("╦")) && bytes.Contains(captured, []byte("q: quit"))
 	}, teatest.WithDuration(3*time.Second), teatest.WithCheckInterval(50*time.Millisecond))
 
-	tm.Quit()
+	_ = tm.Quit()
 	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
 
 	outStr := stripAnsi(string(captured))

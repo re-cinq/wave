@@ -86,33 +86,6 @@ type NextStep struct {
 	URL     string // Optional URL to open
 }
 
-// deliverableTypePriority returns a sort priority for deliverable types.
-// Lower values = higher priority (shown first).
-func deliverableTypePriority(t deliverable.DeliverableType) int {
-	switch t {
-	case deliverable.TypePR:
-		return 0
-	case deliverable.TypeIssue:
-		return 1
-	case deliverable.TypeBranch:
-		return 2
-	case deliverable.TypeDeployment:
-		return 3
-	case deliverable.TypeFile:
-		return 4
-	case deliverable.TypeURL:
-		return 5
-	case deliverable.TypeArtifact:
-		return 6
-	case deliverable.TypeContract:
-		return 7
-	case deliverable.TypeLog:
-		return 8
-	default:
-		return 9
-	}
-}
-
 // isOutcomeWorthy returns true if the deliverable type should appear in the
 // outcome summary (as opposed to detail-level deliverables).
 func isOutcomeWorthy(t deliverable.DeliverableType) bool {
@@ -310,12 +283,13 @@ func RenderOutcomeSummary(outcome *PipelineOutcome, verbose bool, formatter *For
 
 		// Branch
 		if outcome.Branch != "" {
-			if outcome.PushError != "" {
+			switch {
+			case outcome.PushError != "":
 				b.WriteString(fmt.Sprintf("  %s Branch: %s %s\n",
 					formatter.Warning("⚠"),
 					outcome.Branch,
 					formatter.Warning(fmt.Sprintf("(push failed: %s)", outcome.PushError))))
-			} else if outcome.Pushed {
+			case outcome.Pushed:
 				ref := outcome.RemoteRef
 				if ref == "" {
 					ref = "origin/" + outcome.Branch
@@ -324,7 +298,7 @@ func RenderOutcomeSummary(outcome *PipelineOutcome, verbose bool, formatter *For
 					formatter.Success("✓"),
 					outcome.Branch,
 					formatter.Muted(ref)))
-			} else {
+			default:
 				b.WriteString(fmt.Sprintf("  %s Branch: %s %s\n",
 					formatter.Success("✓"),
 					outcome.Branch,
@@ -431,11 +405,12 @@ func RenderOutcomeSummary(outcome *PipelineOutcome, verbose bool, formatter *For
 		b.WriteString(formatter.Bold("Next Steps"))
 		b.WriteString("\n")
 		for _, step := range outcome.NextSteps {
-			if step.URL != "" {
+			switch {
+			case step.URL != "":
 				b.WriteString(fmt.Sprintf("  → %s\n    %s\n", step.Label, formatter.Primary(step.URL)))
-			} else if step.Command != "" {
+			case step.Command != "":
 				b.WriteString(fmt.Sprintf("  → %s\n    %s\n", step.Label, formatter.Muted(step.Command)))
-			} else {
+			default:
 				b.WriteString(fmt.Sprintf("  → %s\n", step.Label))
 			}
 		}

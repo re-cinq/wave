@@ -420,7 +420,7 @@ func (e *MetaPipelineExecutor) lintAndFormatJSON(content, schemaPath string) ([]
 }
 
 // attemptJSONFix tries to fix common JSON syntax errors.
-func (e *MetaPipelineExecutor) attemptJSONFix(content string) (string, error) {
+func (e *MetaPipelineExecutor) attemptJSONFix(content string) (string, error) { //nolint:unparam // error return kept for future use
 	content = strings.TrimSpace(content)
 
 	// Count braces to detect missing closing braces
@@ -759,7 +759,7 @@ func extractYAMLFromCodeBlock(content string) string {
 }
 
 // extractSchemaDefinitions parses schema definitions from the SCHEMAS section.
-func extractSchemaDefinitions(content string, schemas map[string]string) error {
+func extractSchemaDefinitions(content string, schemas map[string]string) error { //nolint:unparam // error return kept for future use
 	lines := strings.Split(content, "\n")
 	var currentSchemaPath string
 	var currentSchemaLines []string

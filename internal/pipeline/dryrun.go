@@ -326,7 +326,7 @@ func (v *DryRunValidator) validateExecConfig(step *Step, report *DryRunReport) {
 
 func (v *DryRunValidator) validateInjectArtifacts(
 	step *Step,
-	p *Pipeline,
+	_ *Pipeline,
 	stepArtifacts map[string]map[string]bool,
 	report *DryRunReport,
 ) {

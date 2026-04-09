@@ -225,11 +225,12 @@ func (d *Dashboard) renderStepStatusPanel(ctx *PipelineContext) string {
 						tokenText = fmt.Sprintf("%s tokens", FormatTokenCount(tokens))
 					}
 				}
-				if durationText != "" && tokenText != "" {
+				switch {
+				case durationText != "" && tokenText != "":
 					stepLine += fmt.Sprintf(" (%s, %s)", durationText, tokenText)
-				} else if durationText != "" {
+				case durationText != "":
 					stepLine += fmt.Sprintf(" (%s)", durationText)
-				} else if tokenText != "" {
+				case tokenText != "":
 					stepLine += fmt.Sprintf(" (%s)", tokenText)
 				}
 			}

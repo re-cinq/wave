@@ -98,7 +98,7 @@ func TestScheduler_CancelledContext(t *testing.T) {
 	}
 
 	close(blocker)
-	s.Shutdown(context.Background())
+	_ = s.Shutdown(context.Background())
 }
 
 func TestScheduler_ActiveCount(t *testing.T) {
@@ -110,7 +110,7 @@ func TestScheduler_ActiveCount(t *testing.T) {
 
 	blocker := make(chan struct{})
 	for i := 0; i < 3; i++ {
-		s.Submit(context.Background(), func() {
+		_ = s.Submit(context.Background(), func() {
 			<-blocker
 		})
 	}
@@ -123,7 +123,7 @@ func TestScheduler_ActiveCount(t *testing.T) {
 	}
 
 	close(blocker)
-	s.Shutdown(context.Background())
+	_ = s.Shutdown(context.Background())
 
 	if s.ActiveCount() != 0 {
 		t.Errorf("expected 0 active after shutdown, got %d", s.ActiveCount())
@@ -135,7 +135,7 @@ func TestScheduler_Shutdown(t *testing.T) {
 
 	var completed atomic.Int32
 	for i := 0; i < 5; i++ {
-		s.Submit(context.Background(), func() {
+		_ = s.Submit(context.Background(), func() {
 			time.Sleep(50 * time.Millisecond)
 			completed.Add(1)
 		})
@@ -155,7 +155,7 @@ func TestScheduler_ShutdownTimeout(t *testing.T) {
 	s := NewScheduler(1)
 
 	blocker := make(chan struct{})
-	s.Submit(context.Background(), func() {
+	_ = s.Submit(context.Background(), func() {
 		<-blocker
 	})
 
@@ -169,7 +169,7 @@ func TestScheduler_ShutdownTimeout(t *testing.T) {
 
 	close(blocker)
 	// Clean up
-	s.Shutdown(context.Background())
+	_ = s.Shutdown(context.Background())
 }
 
 func TestScheduler_SlotRelease(t *testing.T) {

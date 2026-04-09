@@ -74,25 +74,26 @@ func (m StatusBarModel) View() string {
 	label := labelStyle.Render(viewLabel)
 
 	var hintsText string
-	if m.formActive && m.focusPane == FocusPaneRight {
+	switch {
+	case m.formActive && m.focusPane == FocusPaneRight:
 		hintsText = "Tab: next  Shift+Tab: prev  Enter: launch  Esc: cancel"
-	} else if m.composeActive {
+	case m.composeActive:
 		hintsText = "a: add  x: remove  Shift+↑↓: reorder  Enter: start  Esc: cancel"
-	} else if m.liveOutputActive && m.focusPane == FocusPaneRight {
+	case m.liveOutputActive && m.focusPane == FocusPaneRight:
 		hintsText = "v: verbose  d: debug  o: output-only  l: log  c: cancel  ↑↓: scroll  Esc: back"
-	} else if m.runningInfoActive && m.focusPane == FocusPaneRight {
+	case m.runningInfoActive && m.focusPane == FocusPaneRight:
 		hintsText = "c: dismiss  l: logs  ↑↓: scroll  Esc: back"
-	} else if m.finishedDetailActive && m.focusPane == FocusPaneRight {
+	case m.finishedDetailActive && m.focusPane == FocusPaneRight:
 		hintsText = "[Enter] Chat  [b] Branch  [d] Diff  [l] Logs  [Esc] Back"
-	} else if m.focusPane == FocusPaneRight {
+	case m.focusPane == FocusPaneRight:
 		hintsText = "↑↓: scroll  Esc: back  q: quit  ctrl+c: exit"
-	} else if m.currentView == ViewHealth {
+	case m.currentView == ViewHealth:
 		hintsText = "↑↓: navigate  r: recheck  Enter: view  Tab/Shift+Tab: views  q: quit"
-	} else if m.currentView == ViewIssues && m.focusPane == FocusPaneLeft {
+	case m.currentView == ViewIssues && m.focusPane == FocusPaneLeft:
 		hintsText = "↑↓: navigate  Enter: view  /: filter  Tab/Shift+Tab: views  q: quit"
-	} else if m.currentView == ViewIssues && m.focusPane == FocusPaneRight {
+	case m.currentView == ViewIssues && m.focusPane == FocusPaneRight:
 		hintsText = "Enter: launch pipeline  ↑↓: scroll  Esc: back"
-	} else {
+	default:
 		hintsText = "↑↓: navigate  Enter: view  /: filter  s: compose  c: cancel  Tab/Shift+Tab: views  q: quit"
 	}
 	hints := hintsStyle.Render(hintsText)

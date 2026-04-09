@@ -214,14 +214,15 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 		}
 
 	case DetailDataMsg:
-		if msg.Err != nil {
+		switch {
+		case msg.Err != nil:
 			m.launchError = msg.Err.Error()
 			m.launchErrorTitle = ""
 			m.paneState = stateError
-		} else if msg.AvailableDetail != nil {
+		case msg.AvailableDetail != nil:
 			m.availableDetail = msg.AvailableDetail
 			m.paneState = stateAvailableDetail
-		} else if msg.FinishedDetail != nil {
+		case msg.FinishedDetail != nil:
 			m.finishedDetail = msg.FinishedDetail
 			m.branchDeleted = msg.FinishedDetail.BranchDeleted
 			m.paneState = stateFinishedDetail

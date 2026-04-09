@@ -222,7 +222,7 @@ func (r *ResumeManager) lookupStepPersona(p *Pipeline, stepID string) string {
 // When priorRunID is non-empty, only that run's workspace directory is searched
 // for artifact paths. Otherwise, all matching run directories are scanned and
 // the most recent match is used.
-func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID ...string) (*ResumeState, error) {
+func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID ...string) (*ResumeState, error) { //nolint:unparam // error return kept for future use
 	state := &ResumeState{
 		States:            make(map[string]string),
 		Results:           make(map[string]map[string]interface{}),

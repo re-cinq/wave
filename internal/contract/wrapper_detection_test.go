@@ -237,10 +237,8 @@ func TestWrapperDetectionResult_GetDebugInfo(t *testing.T) {
 				if debug.ExtractionMethod != tt.result.ExtractedFrom {
 					t.Errorf("ExtractionMethod = %q, want %q", debug.ExtractionMethod, tt.result.ExtractedFrom)
 				}
-			} else {
-				if debug.ExtractedLength != 0 {
-					t.Errorf("ExtractedLength should be 0 for non-wrapper, got %d", debug.ExtractedLength)
-				}
+			} else if debug.ExtractedLength != 0 {
+				t.Errorf("ExtractedLength should be 0 for non-wrapper, got %d", debug.ExtractedLength)
 			}
 		})
 	}

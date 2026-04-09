@@ -87,10 +87,6 @@ func TestFormatRecoveryBlock_Indentation(t *testing.T) {
 		if strings.HasSuffix(line, ":") && !strings.HasPrefix(line, "  ") {
 			t.Errorf("label line not properly indented: %q", line)
 		}
-		// Commands should be indented with 4 spaces
-		if strings.HasPrefix(line, "    wave ") || strings.HasPrefix(line, "    ls ") {
-			continue // properly indented command
-		}
 	}
 }
 

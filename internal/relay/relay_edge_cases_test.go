@@ -184,7 +184,7 @@ func TestRelayMonitor_Compact_EdgeCases(t *testing.T) {
 		adapter := &mockCompactionAdapter{}
 		m := NewRelayMonitor(RelayMonitorConfig{}, adapter)
 
-		_, err := m.Compact(nil, "history", "", "", t.TempDir())
+		_, err := m.Compact(nil, "history", "", "", t.TempDir()) //nolint:staticcheck // SA1012: testing nil-context guard
 		if err == nil {
 			t.Error("expected error with nil context")
 		}

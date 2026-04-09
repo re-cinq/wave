@@ -317,9 +317,10 @@ func TestPreflightRecovery_MixedFailures(t *testing.T) {
 	var missingSkills, missingTools []string
 	for _, r := range results {
 		if !r.OK {
-			if r.Kind == "skill" {
+			switch r.Kind {
+			case "skill":
 				missingSkills = append(missingSkills, r.Name)
-			} else if r.Kind == "tool" {
+			case "tool":
 				missingTools = append(missingTools, r.Name)
 			}
 		}
@@ -635,9 +636,10 @@ func TestPreflightRecovery_EndToEndFlow(t *testing.T) {
 		var missingSkills, missingTools []string
 		for _, r := range results {
 			if !r.OK {
-				if r.Kind == "skill" {
+				switch r.Kind {
+				case "skill":
 					missingSkills = append(missingSkills, r.Name)
-				} else if r.Kind == "tool" {
+				case "tool":
 					missingTools = append(missingTools, r.Name)
 				}
 			}
