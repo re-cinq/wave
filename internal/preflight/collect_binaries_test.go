@@ -83,7 +83,7 @@ func TestCollectAdapterBinaries(t *testing.T) {
 			want: []string{"claude", "codex"},
 		},
 		{
-			name: "unknown persona skipped",
+			name:     "unknown persona skipped",
 			personas: map[string]Persona{},
 			adapters: map[string]AdapterDef{
 				"claude": {Binary: "claude"},

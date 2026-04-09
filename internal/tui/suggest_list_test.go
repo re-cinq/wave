@@ -144,10 +144,10 @@ func TestSuggestListModel_MultiSelectEnter_EmitsSuggestComposeMsg(t *testing.T) 
 	m := newTestSuggestList(proposals)
 
 	// Select pipeline-a and pipeline-c
-	m, _ = suggestSendKey(m, " ")       // select pipeline-a at index 0
-	m, _ = suggestSendKey(m, "j")       // move to index 1
-	m, _ = suggestSendKey(m, "j")       // move to index 2
-	m, _ = suggestSendKey(m, " ")       // select pipeline-c at index 2
+	m, _ = suggestSendKey(m, " ") // select pipeline-a at index 0
+	m, _ = suggestSendKey(m, "j") // move to index 1
+	m, _ = suggestSendKey(m, "j") // move to index 2
+	m, _ = suggestSendKey(m, " ") // select pipeline-c at index 2
 	require.Equal(t, 2, len(m.selected))
 
 	_, cmd := suggestSendKeyType(m, tea.KeyEnter)
@@ -273,9 +273,9 @@ func TestSuggestListModel_MultiSelect(t *testing.T) {
 		m := newTestSuggestList(proposals)
 
 		// Select first two
-		m, _ = suggestSendKey(m, " ")       // select 0
-		m, _ = suggestSendKey(m, "j")       // move down
-		m, _ = suggestSendKey(m, " ")       // select 1
+		m, _ = suggestSendKey(m, " ") // select 0
+		m, _ = suggestSendKey(m, "j") // move down
+		m, _ = suggestSendKey(m, " ") // select 1
 		require.Equal(t, 2, len(m.selected))
 
 		_, cmd := suggestSendKeyType(m, tea.KeyEnter)

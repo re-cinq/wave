@@ -107,10 +107,10 @@ func executeArtifactsCmd(args ...string) (stdout, stderr string, err error) {
 	os.Stderr = oldStderr
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 
 	var stderrBuf bytes.Buffer
-	stderrBuf.ReadFrom(re)
+	_, _ = stderrBuf.ReadFrom(re)
 
 	return buf.String(), stderrBuf.String(), err
 }
@@ -254,7 +254,7 @@ func TestArtifactsCmd_MissingArtifactsWarning(t *testing.T) {
 
 	// Create an artifact then delete it (simulate missing file)
 	artifactPath := env.createArtifact("debug", "investigate", "analysis.md", "# Analysis")
-	os.Remove(artifactPath)
+	_ = os.Remove(artifactPath)
 
 	// Create another valid artifact
 	env.createArtifact("debug", "investigate", "valid.md", "# Valid")
@@ -511,9 +511,9 @@ func TestArtifactsCmd_NonArtifactFilesIgnored(t *testing.T) {
 
 	// Create non-artifact files
 	stepDir := filepath.Join(".wave", "workspaces", "debug", "step1")
-	os.WriteFile(filepath.Join(stepDir, "binary.exe"), []byte{0x00, 0x01}, 0644)
-	os.WriteFile(filepath.Join(stepDir, "image.png"), []byte{0x89, 0x50}, 0644)
-	os.WriteFile(filepath.Join(stepDir, "source.go"), []byte("package main"), 0644)
+	_ = os.WriteFile(filepath.Join(stepDir, "binary.exe"), []byte{0x00, 0x01}, 0644)
+	_ = os.WriteFile(filepath.Join(stepDir, "image.png"), []byte{0x89, 0x50}, 0644)
+	_ = os.WriteFile(filepath.Join(stepDir, "source.go"), []byte("package main"), 0644)
 
 	// Create one valid artifact
 	env.createArtifact("debug", "step1", "readme.md", "# Readme")

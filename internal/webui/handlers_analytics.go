@@ -37,11 +37,11 @@ type TokenAnalytics struct {
 
 // PipelineTokenStat holds aggregated token stats for a single pipeline.
 type PipelineTokenStat struct {
-	Name      string
-	AvgTokens int
+	Name        string
+	AvgTokens   int
 	TotalTokens int
-	RunCount  int
-	Pct       int // percentage of max for bar width
+	RunCount    int
+	Pct         int // percentage of max for bar width
 }
 
 // PersonaTokenStat holds aggregated token stats for a single persona.
@@ -59,7 +59,7 @@ type RunTokenPoint struct {
 	RunID        string
 	PipelineName string
 	Tokens       int
-	Pct          int    // percentage of max for bar height
+	Pct          int // percentage of max for bar height
 	Status       string
 	StartedAt    string // formatted date
 }

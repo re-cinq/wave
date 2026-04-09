@@ -253,16 +253,16 @@ func TestConcurrencyExecutor_ResultAggregation(t *testing.T) {
 	}
 
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "agg-test"}},
-		Manifest: m,
-		States:   make(map[string]string),
-		Results:  make(map[string]map[string]interface{}),
-		ArtifactPaths:  make(map[string]string),
-		WorkspacePaths: make(map[string]string),
-		WorktreePaths:  make(map[string]*WorktreeInfo),
-		Input:          "test",
-		Status:         &PipelineStatus{ID: "agg-test-12345678", PipelineName: "agg-test"},
-		Context:        &PipelineContext{},
+		Pipeline:        &Pipeline{Metadata: PipelineMetadata{Name: "agg-test"}},
+		Manifest:        m,
+		States:          make(map[string]string),
+		Results:         make(map[string]map[string]interface{}),
+		ArtifactPaths:   make(map[string]string),
+		WorkspacePaths:  make(map[string]string),
+		WorktreePaths:   make(map[string]*WorktreeInfo),
+		Input:           "test",
+		Status:          &PipelineStatus{ID: "agg-test-12345678", PipelineName: "agg-test"},
+		Context:         &PipelineContext{},
 		AttemptContexts: make(map[string]*AttemptContext),
 	}
 
@@ -310,16 +310,16 @@ func TestConcurrencyExecutor_WorkspaceIsolation(t *testing.T) {
 	}
 
 	execution := &PipelineExecution{
-		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "iso-test"}},
-		Manifest: m,
-		States:   make(map[string]string),
-		Results:  make(map[string]map[string]interface{}),
-		ArtifactPaths:  make(map[string]string),
-		WorkspacePaths: make(map[string]string),
-		WorktreePaths:  make(map[string]*WorktreeInfo),
-		Input:          "test",
-		Status:         &PipelineStatus{ID: "iso-test-12345678", PipelineName: "iso-test"},
-		Context:        &PipelineContext{},
+		Pipeline:        &Pipeline{Metadata: PipelineMetadata{Name: "iso-test"}},
+		Manifest:        m,
+		States:          make(map[string]string),
+		Results:         make(map[string]map[string]interface{}),
+		ArtifactPaths:   make(map[string]string),
+		WorkspacePaths:  make(map[string]string),
+		WorktreePaths:   make(map[string]*WorktreeInfo),
+		Input:           "test",
+		Status:          &PipelineStatus{ID: "iso-test-12345678", PipelineName: "iso-test"},
+		Context:         &PipelineContext{},
 		AttemptContexts: make(map[string]*AttemptContext),
 	}
 

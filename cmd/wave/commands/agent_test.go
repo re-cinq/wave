@@ -158,7 +158,7 @@ personas:
 	// Run from tmpDir so relative paths resolve
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	outputPath := filepath.Join(tmpDir, "nav.agent.md")
 	cmd := NewAgentCmd()

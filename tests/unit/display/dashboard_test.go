@@ -178,9 +178,9 @@ func TestCapabilityDetector(t *testing.T) {
 // TestSelectColorPalette tests color palette selection.
 func TestSelectColorPalette(t *testing.T) {
 	tests := []struct {
-		name      string
-		colorMode string
-		asciiOnly bool
+		name        string
+		colorMode   string
+		asciiOnly   bool
 		expectASCII bool
 	}{
 		{"ascii only", "auto", true, true},

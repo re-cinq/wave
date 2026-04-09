@@ -62,8 +62,8 @@ type Result struct {
 
 // Checker validates that pipeline dependencies are satisfied before execution.
 type Checker struct {
-	skills  map[string]skill.SkillConfig
-	runCmd  func(name string, args ...string) error // for testing
+	skills map[string]skill.SkillConfig
+	runCmd func(name string, args ...string) error // for testing
 }
 
 // NewChecker creates a preflight checker with the given skill configurations.

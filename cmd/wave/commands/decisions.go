@@ -24,8 +24,8 @@ type DecisionsOptions struct {
 
 // DecisionsOutput represents the JSON output for the decisions command.
 type DecisionsOutput struct {
-	RunID     string           `json:"run_id"`
-	Decisions []DecisionEntry  `json:"decisions"`
+	RunID     string          `json:"run_id"`
+	Decisions []DecisionEntry `json:"decisions"`
 }
 
 // DecisionEntry represents a single decision in the output.

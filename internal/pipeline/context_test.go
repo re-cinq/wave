@@ -359,8 +359,8 @@ func TestPipelineContext_IsSpeckitCompatible(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "empty_context",
-			context: &PipelineContext{},
+			name:     "empty_context",
+			context:  &PipelineContext{},
 			expected: false,
 		},
 	}

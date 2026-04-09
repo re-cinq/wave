@@ -14,53 +14,53 @@ func TestFailureClassifier(t *testing.T) {
 	classifier := &FailureClassifier{}
 
 	tests := []struct {
-		name           string
-		err            error
-		expectedType   FailureType
-		expectedRetry  bool
-		minConfidence  float64
+		name          string
+		err           error
+		expectedType  FailureType
+		expectedRetry bool
+		minConfidence float64
 	}{
 		{
-			name:           "schema mismatch error",
-			err:            errors.New("artifact does not match schema: missing required field 'name'"),
-			expectedType:   FailureTypeSchemaMismatch,
-			expectedRetry:  true,
-			minConfidence:  0.8,
+			name:          "schema mismatch error",
+			err:           errors.New("artifact does not match schema: missing required field 'name'"),
+			expectedType:  FailureTypeSchemaMismatch,
+			expectedRetry: true,
+			minConfidence: 0.8,
 		},
 		{
-			name:           "missing content error",
-			err:            errors.New("required field 'description' is missing"),
-			expectedType:   FailureTypeMissingContent,
-			expectedRetry:  true,
-			minConfidence:  0.8,
+			name:          "missing content error",
+			err:           errors.New("required field 'description' is missing"),
+			expectedType:  FailureTypeMissingContent,
+			expectedRetry: true,
+			minConfidence: 0.8,
 		},
 		{
-			name:           "JSON parse error",
-			err:            errors.New("failed to parse JSON: unexpected token at position 10"),
-			expectedType:   FailureTypeFormatError,
-			expectedRetry:  true,
-			minConfidence:  0.9,
+			name:          "JSON parse error",
+			err:           errors.New("failed to parse JSON: unexpected token at position 10"),
+			expectedType:  FailureTypeFormatError,
+			expectedRetry: true,
+			minConfidence: 0.9,
 		},
 		{
-			name:           "structure error",
-			err:            errors.New("markdown structure invalid: heading hierarchy broken"),
-			expectedType:   FailureTypeStructure,
-			expectedRetry:  true,
-			minConfidence:  0.7,
+			name:          "structure error",
+			err:           errors.New("markdown structure invalid: heading hierarchy broken"),
+			expectedType:  FailureTypeStructure,
+			expectedRetry: true,
+			minConfidence: 0.7,
 		},
 		{
-			name:           "quality gate error",
-			err:            errors.New("quality gate failed: content completeness below threshold"),
-			expectedType:   FailureTypeQualityGate,
-			expectedRetry:  true,
-			minConfidence:  0.8,
+			name:          "quality gate error",
+			err:           errors.New("quality gate failed: content completeness below threshold"),
+			expectedType:  FailureTypeQualityGate,
+			expectedRetry: true,
+			minConfidence: 0.8,
 		},
 		{
-			name:           "unknown error",
-			err:            errors.New("something went wrong"),
-			expectedType:   FailureTypeUnknown,
-			expectedRetry:  false,
-			minConfidence:  0.0,
+			name:          "unknown error",
+			err:           errors.New("something went wrong"),
+			expectedType:  FailureTypeUnknown,
+			expectedRetry: false,
+			minConfidence: 0.0,
 		},
 	}
 
@@ -80,9 +80,9 @@ func TestFailureClassifierWithValidationError(t *testing.T) {
 	classifier := &FailureClassifier{}
 
 	tests := []struct {
-		name         string
+		name          string
 		validationErr *ValidationError
-		expectedType FailureType
+		expectedType  FailureType
 	}{
 		{
 			name: "json_schema parse error",

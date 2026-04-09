@@ -141,7 +141,7 @@ func TestPipelineProgressTracking(t *testing.T) {
 		// Simulate progress
 		for progress := 0; progress <= 100; progress += 25 {
 			step.Progress = progress
-			pipeline.Progress = ((stepNum - 1) * 100 + progress) / len(steps)
+			pipeline.Progress = ((stepNum-1)*100 + progress) / len(steps)
 
 			// Verify progress is within bounds
 			if step.Progress < 0 || step.Progress > 100 {
@@ -294,4 +294,3 @@ func TestDisplayConfigFromEnvironment(t *testing.T) {
 		t.Errorf("expected valid RefreshRate, got %d", config.RefreshRate)
 	}
 }
-

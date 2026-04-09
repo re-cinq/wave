@@ -56,7 +56,7 @@ func TestPrototypeDocsPhaseInitialization(t *testing.T) {
 			if err := os.Chdir("../.."); err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chdir(originalWd)
+			defer func() { _ = os.Chdir(originalWd) }()
 
 			// Create mock adapter for testing
 			mockAdapter := adapter.NewMockAdapter()

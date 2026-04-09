@@ -45,7 +45,7 @@ func setupTestStoreWithFile(t *testing.T) (StateStore, func()) {
 		if err := store.Close(); err != nil {
 			t.Errorf("failed to close test store: %v", err)
 		}
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 	}
 
 	return store, cleanup

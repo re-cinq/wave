@@ -18,15 +18,15 @@ import (
 
 const (
 	maxExtractedFiles = 1000
-	maxExtractedSize  = 100 * 1024 * 1024 // 100 MB
+	maxExtractedSize  = 100 * 1024 * 1024    // 100 MB
 	maxResponseSize   = maxExtractedSize + 1 // 100 MB + 1 byte for overflow detection
 )
 
 // URLAdapter installs skills from remote archive URLs.
 type URLAdapter struct {
-	client     *http.Client
+	client *http.Client
 	// skipSSRF disables SSRF validation for testing with localhost servers.
-	skipSSRF   bool
+	skipSSRF bool
 }
 
 // NewURLAdapter creates a URLAdapter with configured timeouts.
@@ -152,7 +152,7 @@ func (a *URLAdapter) Install(ctx context.Context, ref string, store Store) (*Ins
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Detect archive format by URL extension
 	lower := strings.ToLower(ref)

@@ -220,7 +220,6 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
 // handleRunDetailPage renders the Fat Gantt Shapes prototype at /runs2/{id}.
 func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	runID := r.PathValue("id")
@@ -240,8 +239,8 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	// Enrich step I/O descriptions from pipeline definition
 	if p, loadErr := loadPipelineYAML(run.PipelineName); loadErr == nil {
 		type stepRef struct {
-			deps     []string
-			injects  []string
+			deps    []string
+			injects []string
 		}
 		stepRefs := make(map[string]stepRef)
 		for _, ps := range p.Steps {
@@ -558,19 +557,19 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 
 	// Build step state from events: track latest state, timestamps, tokens per step
 	type stepInfo struct {
-		state          string
-		persona        string
-		startedAt      *time.Time
-		completedAt    *time.Time
-		tokens         int
-		durationMs     int64
-		errMsg         string
-		model          string
-		adapter        string
-		reviewVerdict  string
-		reviewIssues   int
-		reviewPersona  string
-		reviewTokens   int
+		state         string
+		persona       string
+		startedAt     *time.Time
+		completedAt   *time.Time
+		tokens        int
+		durationMs    int64
+		errMsg        string
+		model         string
+		adapter       string
+		reviewVerdict string
+		reviewIssues  int
+		reviewPersona string
+		reviewTokens  int
 	}
 	stepMap := make(map[string]*stepInfo)
 
@@ -1133,7 +1132,7 @@ func parseReviewCompletedMessage(msg string) (verdict string, issueCount int, re
 		case strings.HasPrefix(part, "verdict="):
 			verdict = strings.TrimPrefix(part, "verdict=")
 		case strings.HasPrefix(part, "issues="):
-			fmt.Sscanf(strings.TrimPrefix(part, "issues="), "%d", &issueCount)
+			_, _ = fmt.Sscanf(strings.TrimPrefix(part, "issues="), "%d", &issueCount)
 		case strings.HasPrefix(part, "reviewer="):
 			reviewer = strings.TrimPrefix(part, "reviewer=")
 		}

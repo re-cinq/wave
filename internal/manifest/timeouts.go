@@ -49,7 +49,6 @@ type Timeouts struct {
 	RetryMaxDelaySec    int `yaml:"retry_max_delay_seconds,omitempty"`
 }
 
-
 func (t *Timeouts) GetStepDefault() time.Duration {
 	if t != nil && t.StepDefaultMin > 0 {
 		return time.Duration(t.StepDefaultMin) * time.Minute

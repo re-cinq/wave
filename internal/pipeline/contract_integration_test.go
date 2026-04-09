@@ -349,8 +349,8 @@ func TestContractIntegration_SchemaInjectedIntoPrompt(t *testing.T) {
 
 	// Write artifact manually since we're using capturing adapter
 	stepWorkspace := filepath.Join(tmpDir, "schema-injection-test", "analyze")
-	os.MkdirAll(filepath.Join(stepWorkspace, ".wave"), 0755)
-	os.WriteFile(filepath.Join(stepWorkspace, ".wave", "artifact.json"), []byte(validArtifact), 0644)
+	_ = os.MkdirAll(filepath.Join(stepWorkspace, ".wave"), 0755)
+	_ = os.WriteFile(filepath.Join(stepWorkspace, ".wave", "artifact.json"), []byte(validArtifact), 0644)
 
 	_ = executor.Execute(ctx, p, m, "test")
 
@@ -409,8 +409,8 @@ func TestContractIntegration_InlineSchemaInjectedIntoPrompt(t *testing.T) {
 
 	// Write artifact
 	stepWorkspace := filepath.Join(tmpDir, "inline-schema-test", "check")
-	os.MkdirAll(filepath.Join(stepWorkspace, ".wave"), 0755)
-	os.WriteFile(filepath.Join(stepWorkspace, ".wave", "artifact.json"), []byte(`{"status": "complete"}`), 0644)
+	_ = os.MkdirAll(filepath.Join(stepWorkspace, ".wave"), 0755)
+	_ = os.WriteFile(filepath.Join(stepWorkspace, ".wave", "artifact.json"), []byte(`{"status": "complete"}`), 0644)
 
 	_ = executor.Execute(ctx, p, m, "test")
 

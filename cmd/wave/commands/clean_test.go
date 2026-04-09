@@ -150,8 +150,8 @@ func executeCleanCmdCapturingStdout(args ...string) (string, error) {
 	os.Stderr = oldStderr
 
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
-	io.Copy(&buf, re)
+	_, _ = io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, re)
 	return buf.String(), err
 }
 
@@ -708,7 +708,7 @@ func TestCleanOlderThanRemovesOldWorkspaces(t *testing.T) {
 	env.createWaveStructure()
 
 	// Create workspaces with different ages
-	env.createWorkspace("ws-old", time.Now().Add(-48*time.Hour))   // 2 days old
+	env.createWorkspace("ws-old", time.Now().Add(-48*time.Hour))    // 2 days old
 	env.createWorkspace("ws-recent", time.Now().Add(-12*time.Hour)) // 12 hours old
 
 	// Run clean --older-than 24h (should only remove ws-old)

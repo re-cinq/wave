@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
-	"sync"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -26,10 +26,10 @@ type MatrixResult struct {
 	Output        map[string]interface{}
 	ModifiedFiles []string
 	Error         error
-	Skipped    bool
-	SkipReason string
-	ItemID       string
-	OutputBranch string
+	Skipped       bool
+	SkipReason    string
+	ItemID        string
+	OutputBranch  string
 }
 
 // TierContext tracks accumulated branch state during stacked tier execution.
@@ -701,8 +701,8 @@ func (m *MatrixExecutor) tieredExecution(ctx context.Context, execution *Pipelin
 	}
 
 	allResults := make([]MatrixResult, 0, len(items))
-	failed := make(map[string]bool)     // IDs of items that failed
-	succeeded := make(map[string]bool)   // IDs of items that succeeded
+	failed := make(map[string]bool)    // IDs of items that failed
+	succeeded := make(map[string]bool) // IDs of items that succeeded
 
 	// Initialize stacking context when stacked mode is active with dependency tiers
 	var tierCtx *TierContext

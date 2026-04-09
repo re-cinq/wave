@@ -281,12 +281,12 @@ func TestRelayMonitor_ThresholdDetection_EdgeCases(t *testing.T) {
 	adapter := &mockCompactionAdapter{}
 
 	testCases := []struct {
-		name               string
-		config             RelayMonitorConfig
-		tokensUsed         int
-		thresholdPercent   int
-		expected           bool
-		description        string
+		name             string
+		config           RelayMonitorConfig
+		tokensUsed       int
+		thresholdPercent int
+		expected         bool
+		description      string
 	}{
 		{
 			name: "exactly at threshold boundary",
@@ -569,8 +569,8 @@ func TestRelayMonitor_Compact_WriteFailure(t *testing.T) {
 	t.Run("fails when workspace is read-only", func(t *testing.T) {
 		workspacePath := t.TempDir()
 		// Make directory read-only
-		os.Chmod(workspacePath, 0555)
-		defer os.Chmod(workspacePath, 0755) // Restore for cleanup
+		_ = os.Chmod(workspacePath, 0555)
+		defer func() { _ = os.Chmod(workspacePath, 0755) }() // Restore for cleanup
 
 		_, err := m.Compact(context.Background(), "test history", "", "", workspacePath)
 		if err == nil {
@@ -1012,4 +1012,3 @@ func TestRelayMonitor_ErrorTypes(t *testing.T) {
 		}
 	})
 }
-

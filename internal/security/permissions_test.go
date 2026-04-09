@@ -425,8 +425,8 @@ func TestGenerateEventID_Uniqueness(t *testing.T) {
 // TestPathSanitization_ForDisplay tests path sanitization for safe display.
 func TestPathSanitization_ForDisplay(t *testing.T) {
 	testCases := []struct {
-		path     string
-		maxLen   int
+		path   string
+		maxLen int
 	}{
 		{"artifact.json", 50},
 		{"a/very/long/path/that/exceeds/fifty/characters/and/should/be/truncated/artifact.json", 50},

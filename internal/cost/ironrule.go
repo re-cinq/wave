@@ -5,16 +5,16 @@ import "fmt"
 // ModelContextWindow maps model names to their maximum context window size in tokens.
 // Matched by prefix (e.g. "claude-opus" matches "claude-opus-4-6").
 var ModelContextWindow = map[string]int{
-	"claude-opus":       1_000_000,
-	"claude-sonnet":     200_000,
-	"claude-haiku":      200_000,
-	"gpt-4o":            128_000,
-	"gpt-4o-mini":       128_000,
-	"o3":                200_000,
-	"o3-mini":           200_000,
-	"o4-mini":           200_000,
-	"gemini-2.5-pro":    1_000_000,
-	"gemini-2.5-flash":  1_000_000,
+	"claude-opus":      1_000_000,
+	"claude-sonnet":    200_000,
+	"claude-haiku":     200_000,
+	"gpt-4o":           128_000,
+	"gpt-4o-mini":      128_000,
+	"o3":               200_000,
+	"o3-mini":          200_000,
+	"o4-mini":          200_000,
+	"gemini-2.5-pro":   1_000_000,
+	"gemini-2.5-flash": 1_000_000,
 }
 
 // DefaultContextWindow is used when model is unknown.

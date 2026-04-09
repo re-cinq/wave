@@ -31,22 +31,22 @@ const (
 type ViolationSource string
 
 const (
-	SourceSchemaPath        ViolationSource = "schema_path"
-	SourceUserInput         ViolationSource = "user_input"
-	SourceMetaPipeline      ViolationSource = "meta_pipeline"
+	SourceSchemaPath         ViolationSource = "schema_path"
+	SourceUserInput          ViolationSource = "user_input"
+	SourceMetaPipeline       ViolationSource = "meta_pipeline"
 	SourceContractValidation ViolationSource = "contract_validation"
 )
 
 // SecurityViolationEvent represents a detected security attempt
 type SecurityViolationEvent struct {
-	ID               string          `json:"id"`
-	Timestamp        time.Time       `json:"timestamp"`
-	Type             string          `json:"type"`
-	Source           string          `json:"source"`
-	SanitizedDetails string          `json:"sanitized_details"`
-	Severity         Severity        `json:"severity"`
-	Blocked          bool            `json:"blocked"`
-	UserID           string          `json:"user_id,omitempty"`
+	ID               string    `json:"id"`
+	Timestamp        time.Time `json:"timestamp"`
+	Type             string    `json:"type"`
+	Source           string    `json:"source"`
+	SanitizedDetails string    `json:"sanitized_details"`
+	Severity         Severity  `json:"severity"`
+	Blocked          bool      `json:"blocked"`
+	UserID           string    `json:"user_id,omitempty"`
 }
 
 // SchemaValidationResult contains outcome of schema validation
@@ -71,19 +71,19 @@ type PersonaReference struct {
 
 // InputSanitizationRecord tracks sanitization actions
 type InputSanitizationRecord struct {
-	InputHash          string   `json:"input_hash"`
-	InputType          string   `json:"input_type"`
-	SanitizationRules  []string `json:"sanitization_rules"`
-	ChangesDetected    bool     `json:"changes_detected"`
-	SanitizedLength    int      `json:"sanitized_length"`
-	OriginalLength     int      `json:"original_length"`
-	RiskScore          int      `json:"risk_score"`
+	InputHash         string   `json:"input_hash"`
+	InputType         string   `json:"input_type"`
+	SanitizationRules []string `json:"sanitization_rules"`
+	ChangesDetected   bool     `json:"changes_detected"`
+	SanitizedLength   int      `json:"sanitized_length"`
+	OriginalLength    int      `json:"original_length"`
+	RiskScore         int      `json:"risk_score"`
 }
 
 // GenerateEventID creates a unique identifier for security events
 func GenerateEventID() string {
 	bytes := make([]byte, 16)
-	rand.Read(bytes)
+	_, _ = rand.Read(bytes)
 	return fmt.Sprintf("sec-%x", bytes)
 }
 

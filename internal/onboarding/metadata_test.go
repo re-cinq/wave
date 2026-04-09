@@ -136,7 +136,7 @@ func TestExtractProjectMetadata(t *testing.T) {
 		{
 			name: "go.mod present alongside Cargo.toml returns go.mod result",
 			files: map[string]string{
-				"go.mod":    "module github.com/example/go-project\n",
+				"go.mod":     "module github.com/example/go-project\n",
 				"Cargo.toml": "[package]\nname = \"rust-crate\"\n",
 			},
 			expected: ProjectMetadata{Name: "go-project"},

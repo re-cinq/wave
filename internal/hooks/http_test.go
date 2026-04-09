@@ -43,13 +43,15 @@ func TestExecuteHTTP(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tc.responseCode)
-				w.Write([]byte(tc.responseBody))
+				_, _ = w.Write([]byte(tc.responseBody))
 			}))
 			defer server.Close()
 			hook := &LifecycleHookDef{Name: "test-http-hook", Type: HookTypeHTTP, URL: server.URL, Timeout: "5s"}
 			result := executeHTTP(context.Background(), hook, HookEvent{Type: EventStepStart, PipelineID: "test-pipeline", StepID: "test-step"})
 			assert.Equal(t, tc.expectedDecision, result.Decision)
-			if tc.checkReason { assert.Contains(t, result.Reason, tc.expectedReason) }
+			if tc.checkReason {
+				assert.Contains(t, result.Reason, tc.expectedReason)
+			}
 		})
 	}
 }
@@ -63,7 +65,7 @@ func TestExecuteHTTPPostBodyContainsEvent(t *testing.T) {
 		receivedBody, err = io.ReadAll(r.Body)
 		require.NoError(t, err)
 		w.WriteHeader(200)
-		w.Write([]byte(`{"ok":true}`))
+		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer server.Close()
 	hook := &LifecycleHookDef{Name: "body-hook", Type: HookTypeHTTP, URL: server.URL, Timeout: "5s"}
@@ -96,7 +98,10 @@ func TestExecuteHTTPSSRFBlocked(t *testing.T) {
 }
 
 func TestValidateHTTPTarget(t *testing.T) {
-	for _, tc := range []struct{ name, url string; wantErr bool }{
+	for _, tc := range []struct {
+		name, url string
+		wantErr   bool
+	}{
 		{"public IP", "https://8.8.8.8/webhook", false},
 		{"localhost", "http://localhost/hook", true},
 		{"localhost.", "http://localhost./hook", true},
@@ -110,7 +115,11 @@ func TestValidateHTTPTarget(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := validateHTTPTarget(tc.url)
-			if tc.wantErr { assert.Error(t, err) } else { assert.NoError(t, err) }
+			if tc.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }
@@ -119,7 +128,9 @@ func TestExecuteHTTPLimitedResponseBody(t *testing.T) {
 	disableSSRFValidation(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
-		for i := 0; i < maxResponseBodySize+1024; i++ { w.Write([]byte("x")) }
+		for i := 0; i < maxResponseBodySize+1024; i++ {
+			_, _ = w.Write([]byte("x"))
+		}
 	}))
 	defer server.Close()
 	result := executeHTTP(context.Background(), &LifecycleHookDef{Name: "large", Type: HookTypeHTTP, URL: server.URL, Timeout: "5s"}, HookEvent{Type: EventStepStart, PipelineID: "test"})

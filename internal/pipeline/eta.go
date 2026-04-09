@@ -11,11 +11,11 @@ import (
 // from the state store combined with actual durations from the current run.
 // It is safe for concurrent use.
 type ETACalculator struct {
-	mu              sync.Mutex
-	historicalAvg   map[string]int64 // stepID -> historical average duration (ms)
+	mu               sync.Mutex
+	historicalAvg    map[string]int64 // stepID -> historical average duration (ms)
 	currentDurations map[string]int64 // stepID -> actual duration from current run (ms)
-	completedSteps  map[string]bool  // stepID -> true if completed in current run
-	stepOrder       []string         // ordered step IDs
+	completedSteps   map[string]bool  // stepID -> true if completed in current run
+	stepOrder        []string         // ordered step IDs
 }
 
 // NewETACalculator creates an ETACalculator by querying historical step performance

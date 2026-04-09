@@ -228,11 +228,11 @@ func (a *GitHubAdapter) analyzeIssues(ctx context.Context, op *GitHubOperation) 
 	}
 
 	return map[string]interface{}{
-		"analyses": analyses,
-		"count":    len(analyses),
+		"analyses":  analyses,
+		"count":     len(analyses),
 		"threshold": threshold,
-		"owner":    op.Owner,
-		"repo":     op.Repo,
+		"owner":     op.Owner,
+		"repo":      op.Repo,
 	}, nil
 }
 

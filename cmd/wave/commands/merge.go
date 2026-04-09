@@ -280,7 +280,7 @@ func runMergeAll(fi forge.ForgeInfo, opts MergeOptions) error {
 
 		fmt.Fprintf(os.Stderr, "\nProceed? [y/N] ")
 		var response string
-		fmt.Scanln(&response)
+		_, _ = fmt.Scanln(&response)
 		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
 			fmt.Fprintf(os.Stderr, "Aborted\n")
 			return nil

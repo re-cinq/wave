@@ -75,12 +75,12 @@ func (f *ValidationErrorFormatter) FormatJSONSchemaError(err error, recoveryResu
 
 // SchemaErrorAnalysis contains analysis of a schema validation error
 type SchemaErrorAnalysis struct {
-	MainMessage     string
-	ErrorType       string
-	Suggestions     []string
-	CommonPitfalls  []string
-	Example         string
-	Retryable       bool
+	MainMessage    string
+	ErrorType      string
+	Suggestions    []string
+	CommonPitfalls []string
+	Example        string
+	Retryable      bool
 }
 
 // analyzeSchemaError analyzes the error message and provides specific guidance
@@ -116,7 +116,7 @@ Valid:   {"name": "example", "type": "feature", "required": true}`
 
 	// Analyze for type mismatches
 	if (strings.Contains(errorMsgLower, "got") && strings.Contains(errorMsgLower, "want")) ||
-	   (strings.Contains(errorMsgLower, "type") && (strings.Contains(errorMsgLower, "expected") || strings.Contains(errorMsgLower, "invalid"))) {
+		(strings.Contains(errorMsgLower, "type") && (strings.Contains(errorMsgLower, "expected") || strings.Contains(errorMsgLower, "invalid"))) {
 		analysis.ErrorType = "type_mismatch"
 		analysis.MainMessage = "Field types don't match the schema requirements"
 		analysis.Suggestions = []string{
@@ -288,4 +288,3 @@ func (f *ValidationErrorFormatter) ExtractFieldPath(errorMsg string) string {
 
 	return ""
 }
-
