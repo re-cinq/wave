@@ -241,7 +241,7 @@ steps:
         A good clean step processes findings incrementally, catches build failures immediately by reverting individual removals, and produces a commit where every change is a clear dead-code deletion with no behavioral side effects. The commit message lists every removed item by finding ID. A bad clean step applies all removals at once, debugs cascading failures, or includes unrelated changes in the commit.
     retry:
       policy: standard
-      max_attempts: 3
+      max_attempts: 2
     handover:
       contract:
         type: test_suite

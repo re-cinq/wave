@@ -482,7 +482,7 @@ steps:
         of the root cause.
     retry:
       policy: aggressive
-      max_attempts: 3
+      max_attempts: 2
     output_artifacts:
       - name: fix
         path: .wave/output/fix-summary.md

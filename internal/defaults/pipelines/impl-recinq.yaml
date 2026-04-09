@@ -751,7 +751,7 @@ steps:
         changes into single commits, or introduces test failures.
     retry:
       policy: standard
-      max_attempts: 3
+      max_attempts: 2
     handover:
       contract:
         type: test_suite
