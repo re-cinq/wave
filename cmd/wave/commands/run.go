@@ -78,7 +78,7 @@ Model formats vary by adapter: claude uses "haiku"/"opus", opencode uses
 "provider/model", gemini uses "gemini-2.0-pro", codex uses "gpt-4o".`,
 		Example: `  wave run ops-pr-review "Review the authentication changes"
   wave run --pipeline impl-speckit --input "add user auth"
-  wave run impl-hotfix --dry-run
+  wave run impl-issue --dry-run
   wave run migrate --from-step validate
   wave run my-pipeline --model haiku
   wave run my-pipeline --adapter opencode --model openai/gpt-4o
