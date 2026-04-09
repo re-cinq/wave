@@ -200,7 +200,7 @@ func buildChatClaudeMd(ctx *ChatContext, mode ChatMode, stepFilter, artifactName
 	for i, step := range steps {
 		state := step.State
 		if state == "" {
-			state = StatePending
+			state = statePending
 		}
 		fmt.Fprintf(&b, "| %d | %s | %s | %s | %s | %s |\n",
 			i+1, step.StepID, step.Persona, state,
@@ -488,7 +488,7 @@ func generatePostMortemQuestions(ctx *ChatContext) []string {
 	// Find failed steps
 	var failedSteps []string
 	for _, step := range ctx.Steps {
-		if step.State == StateFailed {
+		if step.State == stateFailed {
 			failedSteps = append(failedSteps, step.StepID)
 		}
 	}
@@ -515,7 +515,7 @@ func generatePostMortemQuestions(ctx *ChatContext) []string {
 	}
 
 	switch {
-	case ctx.Run.Status == StateFailed:
+	case ctx.Run.Status == stateFailed:
 		// Failed run questions
 		if len(failedSteps) > 0 {
 			questions = append(questions, fmt.Sprintf("What caused the failure in step '%s' and how can it be resolved?", failedSteps[0]))

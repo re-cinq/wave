@@ -470,7 +470,7 @@ func writeProjectReference(b *strings.Builder, chatCtx *ChatContext) {
 // stepStateDisplay returns a display string for the step state.
 func stepStateDisplay(s string) string {
 	if s == "" {
-		return StatePending
+		return statePending
 	}
 	return s
 }

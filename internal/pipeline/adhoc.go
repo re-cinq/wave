@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	DefaultNavigatorPersona = "navigator"
+	defaultNavigatorPersona = "navigator"
 )
 
 type AdHocOptions struct {
@@ -24,7 +24,7 @@ func GenerateAdHocPipeline(opts AdHocOptions) (*Pipeline, error) {
 
 	navigatorPersona := opts.NavigatorPersona
 	if navigatorPersona == "" {
-		navigatorPersona = DefaultNavigatorPersona
+		navigatorPersona = defaultNavigatorPersona
 	}
 
 	executePersona := opts.ExecutePersona

@@ -286,7 +286,7 @@ func TestGraphWalker_CircuitBreaker(t *testing.T) {
 
 // --- 5.4: Backward compatibility tests ---
 
-func TestIsGraphPipeline_DAGMode(t *testing.T) {
+func Test_isGraphPipeline_DAGMode(t *testing.T) {
 	// Existing pipeline with no edges or conditional types should return false.
 	p := &Pipeline{
 		Steps: []Step{
@@ -295,12 +295,12 @@ func TestIsGraphPipeline_DAGMode(t *testing.T) {
 			{ID: "step3", Dependencies: []string{"step2"}},
 		},
 	}
-	if IsGraphPipeline(p) {
-		t.Error("expected IsGraphPipeline to return false for DAG-only pipeline")
+	if isGraphPipeline(p) {
+		t.Error("expected isGraphPipeline to return false for DAG-only pipeline")
 	}
 }
 
-func TestIsGraphPipeline_GraphMode(t *testing.T) {
+func Test_isGraphPipeline_GraphMode(t *testing.T) {
 	// Pipeline with edges should return true.
 	tests := []struct {
 		name     string
@@ -337,8 +337,8 @@ func TestIsGraphPipeline_GraphMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if !IsGraphPipeline(tt.pipeline) {
-				t.Error("expected IsGraphPipeline to return true for graph-mode pipeline")
+			if !isGraphPipeline(tt.pipeline) {
+				t.Error("expected isGraphPipeline to return true for graph-mode pipeline")
 			}
 		})
 	}
@@ -949,10 +949,10 @@ func TestExecuteGraphPipeline_CommandStepIntegration(t *testing.T) {
 	foundInit := false
 	foundVerify := false
 	for _, ev := range events {
-		if ev.StepID == "init" && ev.State == StateCompleted {
+		if ev.StepID == "init" && ev.State == stateCompleted {
 			foundInit = true
 		}
-		if ev.StepID == "verify" && ev.State == StateCompleted {
+		if ev.StepID == "verify" && ev.State == stateCompleted {
 			foundVerify = true
 		}
 	}

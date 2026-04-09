@@ -54,7 +54,7 @@ func TestHooksFireAtCorrectLifecyclePoints(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithHookRunner(hr),
+		withHookRunner(hr),
 	)
 
 	tmpDir := t.TempDir()
@@ -147,7 +147,7 @@ func TestBlockingStepStartHookAbortsPipeline(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithHookRunner(hr),
+		withHookRunner(hr),
 	)
 
 	tmpDir := t.TempDir()
@@ -186,7 +186,7 @@ func TestNonBlockingHooksContinue(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithHookRunner(hr),
+		withHookRunner(hr),
 	)
 
 	tmpDir := t.TempDir()
