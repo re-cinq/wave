@@ -14,7 +14,7 @@
           "type": {
             "type": "string",
             "description": "Finding category",
-            "enum": ["dead-code", "unwired", "duplicate", "doc-drift", "junk-code", "security", "dx", "performance", "style", "other"]
+            "enum": ["dead-code", "unwired", "duplicate", "doc-drift", "junk-code", "security", "dx", "performance", "style", "correctness", "architecture", "test", "coverage", "other"]
           },
           "severity": {
             "type": "string",
