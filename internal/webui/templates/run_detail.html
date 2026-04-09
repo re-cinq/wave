@@ -144,7 +144,7 @@
             <div class="ws-io">
                 <div class="ws-io-in">
                     <span class="ws-io-lbl">in</span>
-                    <span class="ws-io-val">{{if $step.Action}}{{if gt (len $step.Action) 80}}{{slice $step.Action 0 80}}…{{else}}{{$step.Action}}{{end}}{{else if eq $i 0}}pipeline input{{else}}prev step{{end}}</span>
+                    <span class="ws-io-val">{{if and $step.Action (not (hasPrefix $step.Action "{{"))}}{{if gt (len $step.Action) 80}}{{slice $step.Action 0 80}}…{{else}}{{$step.Action}}{{end}}{{else if eq $i 0}}pipeline input{{else}}prev step{{end}}</span>
                 </div>
                 {{if $step.ReviewVerdict}}<span class="w-ctr {{if eq $step.ReviewVerdict "pass"}}w-ctr-pass{{else}}w-ctr-fail{{end}}">{{$step.ReviewVerdict}}</span>{{end}}
             </div>
