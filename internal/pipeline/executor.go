@@ -2689,9 +2689,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 
 	// When the resolved adapter differs from the persona's adapter but the
-	// model was not explicitly set at the same or higher tier, the model
-	// likely belongs to a different adapter ecosystem (e.g., "sonnet" is
-	// Claude-specific, meaningless to Gemini). Fall back to the target
+	// model was not explicitly set at the same or higher tier, the resolved
+	// model may belong to a different adapter ecosystem (e.g., a Claude-specific
+	// literal model ID is meaningless to Gemini). Fall back to the target
 	// adapter's default_model from the manifest.
 	if resolvedAdapterName != persona.Adapter && e.modelOverride == "" && step.Model == "" {
 		if adapterDef != nil && adapterDef.DefaultModel != "" {
@@ -3284,7 +3284,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 //	This means --model balanced + step model: cheapest → cheapest (step wins).
 //	The CLI flag sets a ceiling, not a floor.
 //
-// When --model is a literal model name (e.g., "haiku", "sonnet"):
+// When --model is a literal model name (e.g., "claude-sonnet-4"):
 //
 //	The literal model is used for all steps regardless of YAML tiers.
 //

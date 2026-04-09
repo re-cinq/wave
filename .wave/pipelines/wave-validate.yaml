@@ -46,7 +46,7 @@ pipeline_outputs:
     artifact: report
 
 steps:
-  # Step 1: Model routing — uses haiku for cheap analysis
+  # Step 1: Model routing — uses cheapest tier for cost-efficient analysis
   - id: check-config
     persona: navigator
     contexts: [configuration, delivery]

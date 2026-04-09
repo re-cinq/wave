@@ -85,7 +85,7 @@ type Persona struct {
 	Description      string          `yaml:"description,omitempty"`
 	SystemPromptFile string          `yaml:"system_prompt_file"`
 	Temperature      float64         `yaml:"temperature,omitempty"`
-	Model            string          `yaml:"model,omitempty"` // Model to use (e.g., "opus", "sonnet")
+	Model            string          `yaml:"model,omitempty"` // Model tier (cheapest, balanced, strongest) or literal model identifier
 	Permissions      Permissions     `yaml:"permissions,omitempty"`
 	Hooks            HookConfig      `yaml:"hooks,omitempty"`
 	Sandbox          *PersonaSandbox `yaml:"sandbox,omitempty"`
@@ -122,7 +122,7 @@ type CircuitBreakerConfig struct {
 type RetrosConfig struct {
 	Enabled      *bool  `yaml:"enabled,omitempty"`       // default: true
 	Narrate      *bool  `yaml:"narrate,omitempty"`       // LLM narrative (default: true)
-	NarrateModel string `yaml:"narrate_model,omitempty"` // cheap model for narration (default: "claude-haiku-4-5")
+	NarrateModel string `yaml:"narrate_model,omitempty"` // model for narration; defaults to cheapest tier model
 }
 
 // IsEnabled returns whether retro generation is enabled (default: true).
@@ -141,10 +141,12 @@ func (c *RetrosConfig) IsNarrateEnabled() bool {
 	return *c.Narrate
 }
 
-// GetNarrateModel returns the model to use for narration (default: "claude-haiku-4-5").
+// GetNarrateModel returns the model to use for narration.
+// Defaults to the cheapest tier model from DefaultComplexityMap.
+// Set runtime.retros.narrate_model in wave.yaml to override.
 func (c *RetrosConfig) GetNarrateModel() string {
 	if c == nil || c.NarrateModel == "" {
-		return "claude-haiku-4-5"
+		return DefaultComplexityMap()["cheapest"]
 	}
 	return c.NarrateModel
 }

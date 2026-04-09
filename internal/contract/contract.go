@@ -29,7 +29,7 @@ type ContractConfig struct {
 	DebugMode               bool `json:"debug_mode,omitempty"`                // Enable debug logging for wrapper detection
 
 	// LLM judge settings
-	Model     string   `json:"model,omitempty"`     // LLM model for judge evaluation (e.g. "claude-haiku-4-5")
+	Model     string   `json:"model,omitempty"`     // LLM model for judge evaluation; accepts tier names (cheapest, balanced, strongest) or literal model IDs
 	Criteria  []string `json:"criteria,omitempty"`  // Evaluation criteria for LLM judge
 	Threshold float64  `json:"threshold,omitempty"` // Pass threshold (0.0-1.0), default 1.0
 
