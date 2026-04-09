@@ -5339,7 +5339,7 @@ func (e *DefaultPipelineExecutor) executeAggregateInDAG(_ context.Context, execu
 	case "concat":
 		result = sourceExpr
 	case "merge_arrays":
-		result, err = mergeJSONArrays(sourceExpr)
+		result, err = mergeJSONArrays(sourceExpr, step.Aggregate.Key)
 		if err != nil {
 			return fmt.Errorf("merge_arrays failed: %w", err)
 		}

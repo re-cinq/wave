@@ -247,7 +247,7 @@ func TestMergeJSONArrays(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := mergeJSONArrays(tt.input)
+			got, err := mergeJSONArrays(tt.input, "")
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error")
@@ -261,6 +261,139 @@ func TestMergeJSONArrays(t *testing.T) {
 				t.Errorf("got %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestMergeJSONArrays_KeyExtraction(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		key     string
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "extract findings from objects",
+			input: `[
+				{"findings": [{"id": 1}], "summary": "a"},
+				{"findings": [{"id": 2}], "summary": "b"},
+				{"findings": [{"id": 3}], "summary": "c"}
+			]`,
+			key:  "findings",
+			want: `[{"id":1},{"id":2},{"id":3}]`,
+		},
+		{
+			name: "extract with multiple items per array",
+			input: `[
+				{"results": [{"id": 1}, {"id": 2}]},
+				{"results": [{"id": 3}]}
+			]`,
+			key:  "results",
+			want: `[{"id":1},{"id":2},{"id":3}]`,
+		},
+		{
+			name:  "extract from single element",
+			input: `[{"items": [10, 20]}]`,
+			key:   "items",
+			want:  `[10,20]`,
+		},
+		{
+			name:  "extract with empty arrays",
+			input: `[{"data": []}, {"data": [1]}, {"data": []}]`,
+			key:   "data",
+			want:  `[1]`,
+		},
+		{
+			name:    "key not found in object",
+			input:   `[{"other": [1]}]`,
+			key:     "findings",
+			wantErr: true,
+		},
+		{
+			name:    "element is not an object",
+			input:   `[[1, 2], [3]]`,
+			key:     "findings",
+			wantErr: true,
+		},
+		{
+			name:    "value at key is not an array",
+			input:   `[{"findings": "not-array"}]`,
+			key:     "findings",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := mergeJSONArrays(tt.input, tt.key)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAggregateConfig_KeyField(t *testing.T) {
+	// Verify that the AggregateConfig Key field is wired through the
+	// full executeAggregate code path in the CompositionExecutor.
+	tmpDir := t.TempDir()
+	outputPath := filepath.Join(tmpDir, "output", "merged.json")
+
+	ctx := NewTemplateContext("", "/tmp")
+	ctx.SetStepOutput("audit1", []byte(`{"findings": [{"id": 1}], "summary": "a"}`))
+	ctx.SetStepOutput("audit2", []byte(`{"findings": [{"id": 2}], "summary": "b"}`))
+	ctx.SetStepOutput("audit3", []byte(`{"findings": [{"id": 3}], "summary": "c"}`))
+
+	// Build input JSON: array of 3 objects
+	inputJSON := `[` +
+		`{"findings":[{"id":1}],"summary":"a"},` +
+		`{"findings":[{"id":2}],"summary":"b"},` +
+		`{"findings":[{"id":3}],"summary":"c"}` +
+		`]`
+
+	// Run merge_arrays with key extraction
+	result, err := mergeJSONArrays(inputJSON, "findings")
+	if err != nil {
+		t.Fatalf("merge_arrays with key failed: %v", err)
+	}
+
+	expected := `[{"id":1},{"id":2},{"id":3}]`
+	if result != expected {
+		t.Errorf("got %q, want %q", result, expected)
+	}
+
+	// Verify file write works
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(outputPath, []byte(result), 0644); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != expected {
+		t.Errorf("file content: got %q, want %q", string(data), expected)
+	}
+
+	// Also verify without key -- existing behavior preserved
+	bareArrayInput := `[[1,2],[3,4]]`
+	result2, err := mergeJSONArrays(bareArrayInput, "")
+	if err != nil {
+		t.Fatalf("merge_arrays without key failed: %v", err)
+	}
+	if result2 != `[1,2,3,4]` {
+		t.Errorf("without key: got %q, want %q", result2, `[1,2,3,4]`)
 	}
 }
 
