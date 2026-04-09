@@ -15,7 +15,6 @@ var (
 	tscAvailable bool
 	tscVersion   string
 	tscCheckOnce sync.Once
-	tscCheckErr  error
 )
 
 func (v *typeScriptValidator) Validate(cfg ContractConfig, workspacePath string) error {
@@ -99,7 +98,6 @@ func CheckTypeScriptAvailability() (available bool, version string) {
 		cmd := exec.Command("tsc", "--version")
 		output, err := cmd.Output()
 		if err != nil {
-			tscCheckErr = err
 			tscAvailable = false
 			return
 		}
@@ -115,7 +113,6 @@ func ResetTypeScriptAvailabilityCache() {
 	tscCheckOnce = sync.Once{}
 	tscAvailable = false
 	tscVersion = ""
-	tscCheckErr = nil
 }
 
 // extractTypeScriptErrors parses tsc output and extracts individual error messages.
