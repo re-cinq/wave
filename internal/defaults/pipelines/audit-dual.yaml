@@ -94,7 +94,7 @@ steps:
 
         2. **Complexity hotspots**: Identify functions exceeding 50 lines. Look for deeply nested control flow (3+ levels of if/for/switch nesting). Check for functions with many parameters (6+) or return values (4+). Note cyclomatic complexity indicators: count the number of branching statements (if, switch cases, for loops) in each function.
 
-        3. **Naming inconsistencies and style violations**: Check that names follow Go conventions (or the project's established conventions). Look for abbreviations used inconsistently, CamelCase vs snake_case mixing, and misleading names (e.g., a function named "Get" that modifies state). Verify that package names match directory names and are lowercase without underscores.
+        3. **Naming inconsistencies and style violations**: Check that names follow the project's established naming conventions. Look for abbreviations used inconsistently, casing style mixing (e.g., camelCase vs snake_case), and misleading names (e.g., a function named "Get" that modifies state). Verify that module and package names are consistent with the project's conventions.
 
         4. **Missing or outdated documentation**: Check for exported functions without doc comments. Verify that existing doc comments accurately describe the current behavior. Look for TODO/FIXME comments that reference resolved issues or removed functionality.
 
@@ -104,7 +104,7 @@ steps:
 
         ## Constraints and Anti-patterns
 
-        - Do NOT report standard Go idioms as style violations (e.g., single-letter loop variables, blank identifier usage).
+        - Do NOT report standard language idioms as style violations (e.g., single-letter loop variables, idiomatic error handling patterns).
         - Do NOT flag test files for complexity or naming unless they contain production logic.
         - Do NOT modify any files.
         - Focus on actionable findings. Reporting 50 trivial style nits dilutes the value of the analysis.

@@ -85,7 +85,7 @@ steps:
 
         5. **Package boundary violations**: Identify cases where one package reaches into another's internal details instead of using its public API. Look for imports that bypass intended abstraction layers, direct struct field access where accessor methods exist, and type assertions that defeat interface-based dispatch.
 
-        6. **Naming inconsistencies**: Find the same concept referred to by different names across packages. Common examples in Go projects include: "workspace" vs "workdir" vs "cwd," "config" vs "settings" vs "options," "run" vs "execution" vs "invocation," "step" vs "task" vs "job." Use Grep to search for each variant and map which packages use which term.
+        6. **Naming inconsistencies**: Find the same concept referred to by different names across packages. Common examples include: "workspace" vs "workdir" vs "cwd," "config" vs "settings" vs "options," "run" vs "execution" vs "invocation," "step" vs "task" vs "job." Use Grep to search for each variant and map which packages use which term.
 
         For each finding, perform this analysis:
         - List all affected file:line locations on both sides of the redundancy.
@@ -98,7 +98,7 @@ steps:
 
         - Do NOT report intentional polymorphism as redundancy. Multiple implementations of a shared interface that serve different backends are by design.
         - Do NOT flag test utilities that duplicate production patterns for testing convenience.
-        - Do NOT report Go standard library idiom variations (e.g., using both fmt.Sprintf and strings.Builder) unless they cause behavioral inconsistency.
+        - Do NOT report standard library idiom variations (e.g., using multiple equivalent standard library APIs for the same operation) unless they cause behavioral inconsistency.
         - Do NOT modify any files. The workspace is read-only.
         - Do NOT report findings without reading the actual source code of both locations. Name similarity alone is not sufficient evidence.
         - Avoid reporting trivially small functions (under 5 lines) as duplicates unless they appear in more than 3 locations.

@@ -110,8 +110,8 @@ steps:
 
         6. **Audit robustness**: Check for:
            - **Missing nil checks**: Pointer dereferences without nil guards
-           - **Race conditions**: Shared state accessed from multiple goroutines without sync
-           - **Resource leaks**: Open files, connections, or goroutines not properly cleaned up
+           - **Race conditions**: Shared state accessed from multiple concurrent operations without synchronization
+           - **Resource leaks**: Open files, connections, or background tasks not properly cleaned up
            - **Panic risks**: Index out of bounds, type assertion without comma-ok
 
         7. **Audit maintainability**: Check for:

@@ -244,10 +244,12 @@ steps:
 
         1. If the assessment's `wave_config.build_command` is set, run that command.
            Otherwise, run the default build command for the flavour (e.g., `go build ./...`
-           for Go, `cargo build` for Rust).
+           for Go, `cargo build` for Rust, `npm run build` for Node, `python -m build` for
+           Python, `dotnet build` for C#).
         2. If the assessment's `wave_config.test_command` is set, run that command.
            Otherwise, run the default test command for the flavour (e.g., `go test ./...`
-           for Go, `cargo test` for Rust).
+           for Go, `cargo test` for Rust, `npm test` for Node, `pytest` for Python,
+           `dotnet test` for C#).
         3. If either command fails, diagnose and fix the issue. Do not leave the project
            in a broken state.
 

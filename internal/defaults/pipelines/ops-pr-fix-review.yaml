@@ -430,7 +430,7 @@ steps:
         - Apply the MINIMAL change that addresses the `action_detail`. This means
           changing only the lines necessary to fix the specific issue.
         - After applying each fix, verify the file still compiles/parses correctly by
-          checking syntax (e.g., `go vet ./...` for Go, or equivalent)
+          running `{{ project.lint_command }}`
         - Record which files and lines you modified for the commit message
 
         ### Step 4: Run the Full Test Suite

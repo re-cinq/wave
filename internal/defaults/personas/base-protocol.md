@@ -56,8 +56,8 @@ These are the available variables:
 | `{{ pipeline_id }}` | string | Unique identifier for the current pipeline run |
 | `{{ forge.cli_tool }}` | string | Git forge CLI tool name (`gh`, `glab`, `tea`, `bb`) |
 | `{{ forge.pr_command }}` | string | Forge-specific PR subcommand (`pr`, `mr`, `pulls`) |
-| `{{ project.test_command }}` | string | Project's test command (e.g., `go test ./...`) |
-| `{{ project.build_command }}` | string | Project's build command (e.g., `go build ./...`) |
+| `{{ project.test_command }}` | string | Project's test command (e.g., `go test ./...`, `npm test`, `cargo test`) |
+| `{{ project.build_command }}` | string | Project's build command (e.g., `go build ./...`, `npm run build`, `cargo build`) |
 | `{{ project.skill }}` | string | Project's primary skill identifier |
 | `{{ run.id }}` | string | Pipeline run ID (alias for `pipeline_id`) — use for traceability |
 | `{{ run.name }}` | string | Pipeline name (alias for `pipeline_name`) |

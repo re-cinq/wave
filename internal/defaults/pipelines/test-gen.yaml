@@ -71,14 +71,11 @@ steps:
 
         ### 1. Run Coverage Analysis
 
-        Execute the project's test command with coverage flags to determine the current state:
+        Execute the project's test command with coverage flags to determine the current state. Use `{{ project.test_command }}` as the base test command and add coverage flags appropriate for the project's language. For example:
         ```bash
-        go test -coverprofile=coverage.out -covermode=atomic ./...
+        {{ project.test_command }} -coverprofile=coverage.out -covermode=atomic
         ```
-        If the scope targets a specific package, run coverage for that package:
-        ```bash
-        go test -coverprofile=coverage.out -covermode=atomic ./<package>/...
-        ```
+        If the scope targets a specific package or directory, narrow the test command to that area.
 
         Parse the coverage output to extract:
         - Per-package coverage percentages
@@ -217,7 +214,7 @@ steps:
         **Edge case tests** (for boundary conditions):
         - Empty inputs, nil pointers, zero-length slices, empty maps
         - Maximum length inputs, very large numbers
-        - Concurrent access (if the function is meant to be goroutine-safe)
+        - Concurrent access (if the function is meant to be thread-safe)
         - Re-entrant calls (calling the function while it is already running)
 
         ### 3. Create Mocks Where Needed
@@ -246,11 +243,7 @@ steps:
 
         ### 6. Verify Tests Compile and Pass
 
-        After writing all tests, run:
-        ```bash
-        go test ./path/to/package/...
-        ```
-        If any test fails, fix it immediately before moving to the next coverage gap. Do not leave failing tests.
+        After writing all tests, run `{{ project.test_command }}` to verify the tests compile and pass. If any test fails, fix it immediately before moving to the next coverage gap. Do not leave failing tests.
 
         ## Constraints and Anti-patterns
 
@@ -320,9 +313,9 @@ steps:
 
         ### 1. Re-run Coverage Analysis
 
-        Run the test suite with coverage again:
+        Run the test suite with coverage again, using `{{ project.test_command }}` with coverage flags appropriate for the project's language:
         ```bash
-        go test -coverprofile=coverage_after.out -covermode=atomic ./...
+        {{ project.test_command }} -coverprofile=coverage_after.out -covermode=atomic
         ```
 
         Compare the new coverage against the baseline from the analyze-coverage step:

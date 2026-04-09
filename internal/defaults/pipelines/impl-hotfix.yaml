@@ -417,7 +417,7 @@ steps:
         4. **Check for similar patterns**: Are there other code paths with the same
            vulnerability? If the bug was a missing nil check, are there other places where
            the same variable is dereferenced without a check? If the bug was a race condition,
-           are there other goroutines accessing the same shared state? List any related
+           are there other concurrent operations accessing the same shared state? List any related
            locations and whether they need separate fixes.
 
         5. **Assess production safety**: Consider:

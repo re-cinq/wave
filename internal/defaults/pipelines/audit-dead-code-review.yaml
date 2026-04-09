@@ -10,7 +10,6 @@ metadata:
 
 requires:
   tools:
-    - go
     - gh
 
 skills:
@@ -108,8 +107,8 @@ steps:
         For each candidate finding, verify it is truly dead by searching the FULL codebase (not just the PR diff):
         - Grep for all references to the symbol across internal/, cmd/, and test files
         - Check for reflect-based or string-based usage
-        - Check if the symbol satisfies an interface
-        - Check for build tag conditional compilation
+        - Check if the symbol satisfies an interface or trait
+        - Check for conditional compilation directives (build tags, feature flags, platform-specific compilation)
         - Assign confidence: HIGH (zero external references after thorough search) or MEDIUM (edge cases like test-only usage)
 
         Only include findings with HIGH or MEDIUM confidence. Discard LOW confidence candidates.
@@ -120,7 +119,7 @@ steps:
         - Do NOT report pre-existing dead code in unchanged files. Only report dead code in files touched by this PR.
         - Do NOT report symbols that were removed by the PR as dead code (they are being cleaned up, which is good).
         - Do NOT modify any files. The workspace is read-only.
-        - Do NOT report standard Go patterns (init(), interface implementations, blank imports for side effects) as dead code.
+        - Do NOT report standard language patterns (initialization hooks, interface implementations, side-effect imports) as dead code.
         - Keep findings actionable. Each finding should describe something the PR author can fix before merging.
 
         ## Output Format

@@ -22,7 +22,7 @@
           },
           "package": {
             "type": "string",
-            "description": "Go package path (e.g., internal/bench)"
+            "description": "Module or package path (e.g., internal/bench, src/utils)"
           },
           "file": {
             "type": "string",

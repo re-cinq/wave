@@ -201,8 +201,8 @@ steps:
           specific to the issue at hand.
         - Do NOT include questions that the issue body already answers. Read carefully
           before extracting topics.
-        - Do NOT use generic search keywords. "Go testing" is too broad; "Go table-driven
-          test pattern testify assert" is actionable.
+        - Do NOT use generic search keywords. "unit testing" is too broad; "parameterized
+          test pattern pytest fixtures assertion library" is actionable.
         - Do NOT duplicate topics. If two topics would produce overlapping search results,
           merge them into one topic with combined questions.
 

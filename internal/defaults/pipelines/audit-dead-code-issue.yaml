@@ -11,7 +11,6 @@ metadata:
 
 requires:
   tools:
-    - go
     - gh
 
 skills:
@@ -82,13 +81,13 @@ steps:
 
         2. **Unreachable code**: Search for code after unconditional return, panic(), or os.Exit() statements. Identify switch/select cases that can never be reached. Look for if-else branches guarded by constant conditions that always evaluate the same way.
 
-        3. **Orphaned files**: Identify source files whose package is never imported by any other file in the project. Also check for non-Go files (configs, scripts) not referenced from any Go code.
+        3. **Orphaned files**: Identify source files whose module or package is never imported by any other file in the project. Also check for non-source files (configs, scripts) not referenced from any code.
 
         4. **Redundant code**: Find duplicate functions with identical or near-identical signatures and bodies across different packages. Identify wrapper functions that add no value. Look for copy-paste blocks of 10+ lines appearing in multiple locations.
 
         5. **Stale tests**: Find test functions that reference symbols that no longer exist. Identify tests with t.Skip() that reference resolved issues. Look for tests that assert nothing meaningful.
 
-        6. **Unused dependencies**: Check for blank imports (`_`) where the side effect is no longer needed. Check go.mod for dependencies not imported anywhere in the codebase.
+        6. **Unused dependencies**: Check for imports kept only for side effects that may no longer be needed. Check the project's dependency manifest (go.mod, package.json, Cargo.toml, pyproject.toml, etc.) for dependencies not imported anywhere in the codebase.
 
         7. **Commented-out code**: Search for blocks of 3+ consecutive commented lines containing code syntax. These should be deleted since git preserves history.
 
@@ -100,15 +99,15 @@ steps:
         - Grep for all references across the entire codebase (internal/, cmd/, and any other source directories)
         - Check for reflect-based or string-based usage (search for the symbol name as a string literal)
         - Check if the symbol exists to satisfy an interface (find the interface definition and verify)
-        - Check for build tag conditional compilation (`//go:build` or `// +build`)
+        - Check for conditional compilation directives (build tags, feature flags, platform-specific compilation)
         - Assign confidence: HIGH (zero references, thorough search), MEDIUM (references only in tests, or indirect usage patterns)
 
         Only include findings with HIGH or MEDIUM confidence. Skip LOW confidence candidates entirely.
 
         ## Constraints and Anti-patterns
 
-        - Do NOT include findings where the symbol is used by an interface implementation, even if the interface itself has few callers.
-        - Do NOT report init() functions, main() functions, or standard Go interface methods (String, Error, MarshalJSON) as dead code.
+        - Do NOT include findings where the symbol is used by an interface or trait implementation, even if the interface itself has few callers.
+        - Do NOT report entry-point functions (main, init, module initializers) or standard interface/trait methods required by the language runtime as dead code.
         - Do NOT modify any files. The workspace is read-only.
         - Do NOT report more than 50 findings. If more candidates exist, keep the highest-confidence ones and note the truncation.
 

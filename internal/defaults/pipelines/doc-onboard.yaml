@@ -214,7 +214,7 @@ steps:
 
         A structured map of the project layout:
         - What each top-level directory contains (one line per directory)
-        - Where to find specific things: "tests are alongside source files in *_test.go", "configuration schemas are in .wave/contracts/", "pipeline definitions are in .wave/pipelines/"
+        - Where to find specific things: "tests are alongside source files in test files", "configuration schemas are in .wave/contracts/", "pipeline definitions are in .wave/pipelines/"
         - Which directories a new contributor will work in most often
         - Which directories they can safely ignore initially
 

@@ -12,7 +12,7 @@ previous step and is already checked out.
 
 1. Find the branch name and feature directory from the spec info artifact
 
-2. **Verify implementation**: Run `go test -race ./...` one final time to confirm
+2. **Verify implementation**: Run `{{ project.test_command }}` one final time to confirm
    all tests pass. If tests fail, fix them before proceeding.
 
 3. **Stage changes**: Review all modified and new files with `git status` and `git diff`.

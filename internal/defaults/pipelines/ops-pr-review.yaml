@@ -111,8 +111,8 @@ steps:
         1. **Classify the change type**: new file, modified, deleted, renamed.
         2. **Identify the file's purpose**: source code, test, configuration, CI,
            documentation, schema, migration.
-        3. **Map the module/package**: which Go package, npm module, Python package, or
-           crate does this file belong to? Record the package path.
+        3. **Map the module/package**: which package or module does this file belong to?
+           Record the package path.
         4. **Count change magnitude**: lines added, lines removed, net change.
         5. **Check for test files**: for each modified source file, check whether a
            corresponding test file exists. If it does, check whether it was also modified
