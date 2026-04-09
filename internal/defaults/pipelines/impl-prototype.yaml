@@ -100,7 +100,7 @@ steps:
         4. **Use speckit integration** where available to validate specification quality
            and structure.
 
-        5. **Create artifact.json** with status information for the contract.
+        5. **Produce output matching the contract schema.**
 
         ## Constraints and Anti-patterns
 
@@ -221,7 +221,7 @@ steps:
            - Code blocks with language identifiers
            - Admonition blocks for warnings, tips, and notes (using `:::` syntax)
 
-        4. **Create artifact.json** with contract status information.
+        4. **Produce output matching the contract schema.**
 
         ## Constraints and Anti-patterns
 
@@ -352,7 +352,7 @@ steps:
         6. **Validate against user stories**: Walk through each user story from the spec
            and verify the prototype supports the described flow. Note any gaps.
 
-        7. **Create artifact.json** with contract status information.
+        7. **Produce output matching the contract schema.**
 
         ## Constraints and Anti-patterns
 
@@ -495,7 +495,7 @@ steps:
            - Integration tests if the function interacts with external systems
            - Tests that match the acceptance criteria from the specification
 
-        7. **Create artifact.json** with contract status information.
+        7. **Produce output matching the contract schema.**
 
         ## Constraints and Anti-patterns
 
@@ -601,7 +601,7 @@ steps:
            --body-file flags to avoid shell injection. Write the title to a
            temporary file first, then pass it with --title-file.
 
-        5. **Capture PR metadata**: Write `pr-info.json` with:
+        5. **Capture PR metadata**: Produce output matching the contract schema, including:
            - `pr_url`: Full URL of the created PR
            - `pr_number`: The PR number
            - `branch`: Branch name
