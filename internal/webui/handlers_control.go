@@ -7,7 +7,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
@@ -56,12 +60,124 @@ func isHeartbeat(ev event.Event) bool {
 	return ev.Message == "" && (ev.State == "step_progress" || ev.State == "stream_activity") && ev.TokensUsed == 0 && ev.DurationMs == 0
 }
 
-// launchPipelineExecution starts pipeline execution in a background goroutine.
-// It sets up the adapter, emitter, audit logger, and executor, then launches
-// the pipeline. This is shared by handleStartPipeline, handleRetryRun, and handleResumeRun.
-// When fromStep is non-empty, execution resumes from that step using ResumeWithValidation.
-func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *pipeline.Pipeline, opts RunOptions, fromStep ...string) {
-	// Resolve adapter: prefer explicit override, then manifest, then default
+// launchPipelineExecution starts pipeline execution as a detached subprocess.
+// The subprocess runs `wave run --pipeline <name> --run <runID> --input <input>`,
+// fully independent of the server process. Server shutdown does not cancel runs.
+// Dry-run mode is handled in-process since it completes instantly.
+// This is shared by handleStartPipeline, handleRetryRun, and handleResumeRun.
+// When fromStep is non-empty, the subprocess resumes from that step.
+func (s *Server) launchPipelineExecution(runID, pipelineName, input string, _ *pipeline.Pipeline, opts RunOptions, fromStep ...string) {
+	// Dry-run: handle in-process (instant, no subprocess needed)
+	if opts.DryRun {
+		if err := s.rwStore.UpdateRunStatus(runID, "completed", "dry run (validation only)", 0); err != nil {
+			log.Printf("Warning: failed to update run %s status for dry-run: %v", runID, err)
+		}
+		return
+	}
+
+	// Spawn a detached subprocess — same mechanism as `wave run --detach`
+	if err := s.spawnDetachedRun(runID, pipelineName, input, opts, fromStep...); err != nil {
+		log.Printf("Error: failed to spawn detached run %s: %v — falling back to in-process", runID, err)
+		s.launchInProcess(runID, pipelineName, input, opts, fromStep...)
+		return
+	}
+}
+
+// spawnDetachedRun launches a `wave run` subprocess that is fully detached from
+// the server process. The subprocess inherits the run ID and writes to the shared
+// state DB, so the web UI can track progress via SSE and the runs page.
+func (s *Server) spawnDetachedRun(runID, pipelineName, input string, opts RunOptions, fromStep ...string) error {
+	args := []string{"run", "--pipeline", pipelineName, "--run", runID}
+	if input != "" {
+		args = append(args, "--input", input)
+	}
+	if len(fromStep) > 0 && fromStep[0] != "" {
+		args = append(args, "--from-step", fromStep[0])
+	}
+	if opts.Model != "" {
+		args = append(args, "--model", opts.Model)
+	}
+	if opts.Adapter != "" {
+		args = append(args, "--adapter", opts.Adapter)
+	}
+	if opts.Timeout > 0 {
+		args = append(args, "--timeout", fmt.Sprintf("%d", opts.Timeout))
+	}
+	if opts.Steps != "" {
+		args = append(args, "--steps", opts.Steps)
+	}
+	if opts.Exclude != "" {
+		args = append(args, "--exclude", opts.Exclude)
+	}
+	args = append(args, "--debug")
+
+	waveBin, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to find wave binary: %w", err)
+	}
+
+	cmd := exec.Command(waveBin, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	cmd.Dir = s.repoDir
+	cmd.Env = buildServerDetachEnv()
+
+	// Redirect output to .wave/logs/<runID>.log
+	logsDir := filepath.Join(s.repoDir, ".wave", "logs")
+	if mkErr := os.MkdirAll(logsDir, 0o755); mkErr != nil {
+		return fmt.Errorf("failed to create logs directory: %w", mkErr)
+	}
+	logPath := filepath.Join(logsDir, runID+".log")
+	logFile, logErr := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if logErr != nil {
+		return fmt.Errorf("failed to create log file: %w", logErr)
+	}
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+
+	if startErr := cmd.Start(); startErr != nil {
+		logFile.Close()
+		return fmt.Errorf("failed to start detached pipeline: %w", startErr)
+	}
+
+	logFile.Close()
+
+	_ = s.rwStore.UpdateRunPID(runID, cmd.Process.Pid)
+	_ = cmd.Process.Release()
+
+	log.Printf("Pipeline %s (%s) launched as detached process (PID %d)", pipelineName, runID, cmd.Process.Pid)
+	return nil
+}
+
+// buildServerDetachEnv constructs environment for detached subprocesses spawned by the server.
+func buildServerDetachEnv() []string {
+	path := os.Getenv("PATH")
+	home := os.Getenv("HOME")
+	if home != "" {
+		toolBin := filepath.Join(home, ".local", "bin")
+		if !strings.Contains(path, toolBin) {
+			path = toolBin + string(os.PathListSeparator) + path
+		}
+	}
+
+	env := []string{
+		"HOME=" + home,
+		"PATH=" + path,
+	}
+	for _, key := range []string{
+		"ANTHROPIC_API_KEY", "CLAUDE_CODE_USE_BEDROCK", "AWS_PROFILE", "AWS_REGION",
+		"TERM", "USER", "SHELL", "GH_TOKEN", "GITHUB_TOKEN",
+		"XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME",
+	} {
+		if val, ok := os.LookupEnv(key); ok {
+			env = append(env, key+"="+val)
+		}
+	}
+	return env
+}
+
+// launchInProcess is the fallback when detached spawn fails. It runs the pipeline
+// in a goroutine tied to the server process (original behavior).
+func (s *Server) launchInProcess(runID, pipelineName, input string, opts RunOptions, fromStep ...string) {
 	var runner adapter.AdapterRunner
 	if opts.Adapter != "" {
 		runner = adapter.ResolveAdapter(opts.Adapter)
@@ -75,22 +191,17 @@ func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *p
 		runner = adapter.ResolveAdapter("claude-code")
 	}
 
-	// Create a logging emitter that writes to both SSE broker and state store
 	emitter := &loggingEmitter{
 		inner: s.broker,
 		store: s.rwStore,
 		runID: runID,
 	}
 
-	// Create audit trace logger for this run
 	traceLogger, traceErr := audit.NewTraceLogger()
 	if traceErr != nil {
 		log.Printf("Warning: failed to create trace logger: %v", traceErr)
 	}
 
-	// Create executor — use the DB runID as the executor's pipeline ID
-	// so that SaveStepState/SavePipelineState writes match what the dashboard queries.
-	// Always enable debug mode for detailed event messages in the dashboard.
 	execOpts := []pipeline.ExecutorOption{
 		pipeline.WithRunID(runID),
 		pipeline.WithStateStore(s.rwStore),
@@ -121,13 +232,12 @@ func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *p
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 
-	// Execute via scheduler for concurrency control
 	ctx, cancel := context.WithCancel(context.Background())
 	s.mu.Lock()
 	s.activeRuns[runID] = cancel
 	s.mu.Unlock()
 
-	runFn := func() {
+	go func() {
 		defer func() {
 			if traceLogger != nil {
 				traceLogger.Close()
@@ -138,15 +248,6 @@ func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *p
 			cancel()
 		}()
 
-		// Dry-run: validate pipeline without executing
-		if opts.DryRun {
-			if err := s.rwStore.UpdateRunStatus(runID, "completed", "dry run (validation only)", 0); err != nil {
-				log.Printf("Warning: failed to update run %s status for dry-run: %v", runID, err)
-			}
-			return
-		}
-
-		// Update to running
 		if err := s.rwStore.UpdateRunStatus(runID, "running", "", 0); err != nil {
 			log.Printf("Warning: failed to update run %s to running: %v", runID, err)
 		}
@@ -158,9 +259,9 @@ func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *p
 
 		var execErr error
 		if len(fromStep) > 0 && fromStep[0] != "" {
-			execErr = executor.ResumeWithValidation(ctx, p, m, input, fromStep[0], false, runID)
+			execErr = executor.ResumeWithValidation(ctx, &pipeline.Pipeline{}, m, input, fromStep[0], false, runID)
 		} else {
-			execErr = executor.Execute(ctx, p, m, input)
+			execErr = executor.Execute(ctx, &pipeline.Pipeline{}, m, input)
 		}
 
 		tokens := executor.GetTotalTokens()
@@ -174,16 +275,7 @@ func (s *Server) launchPipelineExecution(runID, pipelineName, input string, p *p
 				log.Printf("Warning: failed to update run %s to completed: %v", runID, err)
 			}
 		}
-	}
-
-	if s.scheduler != nil {
-		if err := s.scheduler.Submit(ctx, runFn); err != nil {
-			log.Printf("Warning: scheduler submit failed for run %s: %v — running directly", runID, err)
-			go runFn()
-		}
-	} else {
-		go runFn()
-	}
+	}()
 }
 
 // handleStartPipeline handles POST /api/pipelines/{name}/start
