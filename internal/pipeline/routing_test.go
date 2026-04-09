@@ -161,19 +161,19 @@ func TestClassifyStepComplexity(t *testing.T) {
 		},
 		// Fastest tier: fallthrough
 		{
-			name:        "generic step and persona routes to fastest",
+			name:        "generic step and persona routes to balanced",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
 			personaName: "generic-persona",
-			want:        TierFastest,
+			want:        TierBalanced,
 		},
 		// Fastest tier: nil step
 		{
-			name:        "nil step with generic persona routes to fastest",
+			name:        "nil step with generic persona routes to balanced",
 			step:        nil,
 			persona:     &manifest.Persona{},
 			personaName: "generic-persona",
-			want:        TierFastest,
+			want:        TierBalanced,
 		},
 		// Priority: step type beats persona name (command step with strongest persona)
 		{
@@ -249,7 +249,7 @@ func TestResolveModelWithAutoRouting(t *testing.T) {
 			want:        "claude-opus-4",
 		},
 		{
-			name:        "auto-routing returns empty for fastest tier (adapter default)",
+			name:        "auto-routing returns empty for balanced tier (adapter default)",
 			override:    "",
 			step:        &Step{},
 			persona:     &manifest.Persona{},
@@ -342,9 +342,9 @@ func TestResolveModelWithAutoRouting(t *testing.T) {
 			want:        "claude-opus-4",
 		},
 		{
-			name:        "step model as tier name 'fastest' resolves to empty (adapter default)",
+			name:        "step model as tier name 'balanced' resolves to empty (adapter default)",
 			override:    "",
-			step:        &Step{Model: "fastest"},
+			step:        &Step{Model: "balanced"},
 			persona:     &manifest.Persona{},
 			routing:     &manifest.RoutingConfig{AutoRoute: true},
 			personaName: "any",
@@ -413,9 +413,9 @@ func TestRoutingConfigResolveComplexityModel(t *testing.T) {
 			want:    "claude-opus-4",
 		},
 		{
-			name:    "nil routing uses defaults for fastest (empty = adapter default)",
+			name:    "nil routing uses defaults for balanced (empty = adapter default)",
 			routing: nil,
-			tier:    "fastest",
+			tier:    "balanced",
 			want:    "",
 		},
 		{
@@ -467,14 +467,14 @@ func TestRoutingConfigEffectiveDefaultTier(t *testing.T) {
 		want    string
 	}{
 		{
-			name:    "nil routing returns fastest",
+			name:    "nil routing returns balanced",
 			routing: nil,
-			want:    "fastest",
+			want:    "balanced",
 		},
 		{
-			name:    "empty default tier returns fastest",
+			name:    "empty default tier returns balanced",
 			routing: &manifest.RoutingConfig{},
-			want:    "fastest",
+			want:    "balanced",
 		},
 		{
 			name: "custom default tier is returned",
@@ -496,7 +496,7 @@ func TestRoutingConfigEffectiveDefaultTier(t *testing.T) {
 func TestDefaultComplexityMap(t *testing.T) {
 	m := manifest.DefaultComplexityMap()
 	assert.Equal(t, "claude-haiku-4-5", m["cheapest"])
-	assert.Equal(t, "", m["fastest"])
+	assert.Equal(t, "", m["balanced"])
 	assert.Equal(t, "claude-opus-4", m["strongest"])
 	assert.Len(t, m, 3)
 }

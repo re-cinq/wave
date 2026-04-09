@@ -366,8 +366,8 @@ func friendlyModelFunc(model string) string {
 		return "Haiku"
 	case m == "cheapest":
 		return "Cheapest"
-	case m == "fastest":
-		return "Fastest"
+	case m == "balanced":
+		return "Balanced"
 	case m == "strongest":
 		return "Strongest"
 	default:
