@@ -135,7 +135,7 @@ type RetryConfig struct {
 	Backoff     string `yaml:"backoff,omitempty"`      // "fixed", "linear", "exponential". Default: "linear"
 	BaseDelay   string `yaml:"base_delay,omitempty"`   // Duration string like "2s". Default: "1s"
 	MaxDelay    string `yaml:"max_delay,omitempty"`    // Maximum delay cap. Default: "30s"
-	AdaptPrompt bool   `yaml:"adapt_prompt,omitempty"` // Inject prior failure context. Default: false
+	AdaptPrompt bool   `yaml:"adapt_prompt,omitempty"` // Deprecated: failure context is now always injected on retry. Kept for YAML compat.
 	OnFailure   string `yaml:"on_failure,omitempty"`   // "fail", "skip", "continue", "rework". Default: "fail"
 	ReworkStep  string `yaml:"rework_step,omitempty"`  // Step ID to execute when on_failure is "rework"
 }
