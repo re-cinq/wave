@@ -73,11 +73,9 @@ steps:
 
         Execute the project's test command with coverage flags to determine the current state:
         ```bash
-        go test -coverprofile=coverage.out -covermode=atomic ./...
+        {{ project.test_command }} -coverprofile=coverage.out -covermode=atomic
         ```
-        If the scope targets a specific package, run coverage for that package:
-        ```bash
-        go test -coverprofile=coverage.out -covermode=atomic ./<package>/...
+        If the scope targets a specific package, run coverage for that package only. Adapt the coverage command to the project's test framework (e.g., add the package path or module filter as appropriate).
         ```
 
         Parse the coverage output to extract:
@@ -188,7 +186,7 @@ steps:
         ### 1. Study Existing Test Patterns
 
         Before writing any tests, read 2-3 existing test files in the target package (or nearby packages) to understand:
-        - Test file naming convention (*_test.go, *_test.ts, etc.)
+        - Test file naming convention (language-specific test file patterns)
         - Test function naming convention (TestFunction_Condition_Expected, or other)
         - Whether table-driven tests are used and their structure
         - What test helpers exist (setup functions, cleanup functions, assertion helpers)
@@ -217,7 +215,7 @@ steps:
         **Edge case tests** (for boundary conditions):
         - Empty inputs, nil pointers, zero-length slices, empty maps
         - Maximum length inputs, very large numbers
-        - Concurrent access (if the function is meant to be goroutine-safe)
+        - Concurrent access (if the function is meant to be thread-safe)
         - Re-entrant calls (calling the function while it is already running)
 
         ### 3. Create Mocks Where Needed
@@ -231,8 +229,8 @@ steps:
         ### 4. Write Benchmarks for Hot Paths
 
         For functions identified as performance-critical in the coverage analysis:
-        - Write BenchmarkXxx functions following Go benchmark conventions
-        - Include b.ResetTimer() after setup
+        - Write benchmark functions following the project's benchmark conventions
+        - Include setup/teardown separation from the measured portion
         - Test with representative input sizes
         - Only benchmark functions where performance actually matters (not every function needs a benchmark)
 
@@ -248,7 +246,7 @@ steps:
 
         After writing all tests, run:
         ```bash
-        go test ./path/to/package/...
+        {{ project.test_command }}
         ```
         If any test fails, fix it immediately before moving to the next coverage gap. Do not leave failing tests.
 
@@ -322,7 +320,7 @@ steps:
 
         Run the test suite with coverage again:
         ```bash
-        go test -coverprofile=coverage_after.out -covermode=atomic ./...
+        {{ project.test_command }} -coverprofile=coverage_after.out -covermode=atomic
         ```
 
         Compare the new coverage against the baseline from the analyze-coverage step:
