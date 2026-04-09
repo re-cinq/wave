@@ -611,10 +611,10 @@ func TestHandleSSE_BackfillOnReconnect(t *testing.T) {
 	}
 
 	// Log some events to the DB
-	if err := rwStore.LogEvent(runID, "step1", "started", "navigator", "Starting step1", 0, 0, "", ""); err != nil {
+	if err := rwStore.LogEvent(runID, "step1", "started", "navigator", "Starting step1", 0, 0, "", "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
-	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Processing", 100, 1000, "", ""); err != nil {
+	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Processing", 100, 1000, "", "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
 
@@ -628,7 +628,7 @@ func TestHandleSSE_BackfillOnReconnect(t *testing.T) {
 	}
 
 	// Add a third event after the first two
-	if err := rwStore.LogEvent(runID, "step1", "completed", "navigator", "Done", 200, 2000, "", ""); err != nil {
+	if err := rwStore.LogEvent(runID, "step1", "completed", "navigator", "Done", 200, 2000, "", "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
 
@@ -1731,10 +1731,10 @@ func TestHandleRunLogs(t *testing.T) {
 	runID, _ := rwStore.CreateRun("test-pipeline", "input")
 
 	// Log some events
-	if err := rwStore.LogEvent(runID, "step1", "started", "navigator", "Starting step1", 0, 0, "", ""); err != nil {
+	if err := rwStore.LogEvent(runID, "step1", "started", "navigator", "Starting step1", 0, 0, "", "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
-	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Processing", 100, 1000, "", ""); err != nil {
+	if err := rwStore.LogEvent(runID, "step1", "running", "navigator", "Processing", 100, 1000, "", "", ""); err != nil {
 		t.Fatalf("failed to log event: %v", err)
 	}
 

@@ -10,7 +10,7 @@
 
 <div class="w-stats" style="margin-bottom:0.6rem;">
     <span><b>{{.Persona.Adapter}}</b></span>
-    {{if .Persona.Model}}<span style="color:var(--color-text-muted);">·</span><span class="badge badge-model">{{friendlyModel .Persona.Model}}</span>{{end}}
+    {{if .Persona.Model}}<span style="color:var(--color-text-muted);">·</span><span class="badge badge-model {{modelTierClass .Persona.Model}}">{{friendlyModel .Persona.Model}}</span>{{end}}
     {{if .Persona.Temperature}}<span style="color:var(--color-text-muted);">·</span><span>temp {{.Persona.Temperature}}</span>{{end}}
     {{if .Persona.Skills}}<span style="color:var(--color-text-muted);">·</span><span>{{len .Persona.Skills}} skills</span>{{end}}
 </div>

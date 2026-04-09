@@ -212,7 +212,7 @@ func (m *MockStateStore) DeleteRun(runID string) error {
 	return nil
 }
 
-func (m *MockStateStore) LogEvent(runID, stepID, st, persona, message string, tokens int, durationMs int64, model, adapter string) error {
+func (m *MockStateStore) LogEvent(runID, stepID, st, persona, message string, tokens int, durationMs int64, model, configuredModel, adapter string) error {
 	if m.logEvent != nil {
 		return m.logEvent(runID, stepID, st, persona, message, tokens, durationMs)
 	}

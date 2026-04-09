@@ -20,6 +20,21 @@ import (
 // githubURLPattern matches GitHub issue and PR URLs.
 var githubURLPattern = regexp.MustCompile(`https://github\.com/[\w.\-]+/[\w.\-]+/(?:issues|pull)/\d+`)
 
+// formatSmartTime returns a compact human-readable timestamp.
+// Same day: "15:04", same year: "Jan 2 15:04", older: "Jan 2, 2006".
+func formatSmartTime(t time.Time) string {
+	now := time.Now()
+	y1, m1, d1 := now.Date()
+	y2, m2, d2 := t.Date()
+	if y1 == y2 && m1 == m2 && d1 == d2 {
+		return t.Format("15:04")
+	}
+	if y1 == y2 {
+		return t.Format("Jan 2 15:04")
+	}
+	return t.Format("Jan 2, 2006")
+}
+
 // parseLinkedURL extracts the first GitHub issue or PR URL from the input string.
 func parseLinkedURL(input string) string {
 	return githubURLPattern.FindString(input)
@@ -118,10 +133,7 @@ func (s *Server) handleAPIRunDetail(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("[webui] failed to get artifacts for run %s: %v", runID, err)
 	}
-	artSummaries := make([]ArtifactSummary, len(allArts))
-	for i, a := range allArts {
-		artSummaries[i] = artifactToSummary(a)
-	}
+	artSummaries := deduplicateArtifacts(allArts)
 
 	resp := RunDetailResponse{
 		Run:       runToSummary(*run),
@@ -432,7 +444,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		PipelineDescription: pipelineDescription,
 		ArtifactGroups:      artifactGroups,
 		Adapters:            uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return sd.Adapter })),
-		Models:              uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return sd.Model })),
+		Models:              uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return friendlyModelFunc(sd.Model) })),
 		OutputSummary:       outputSummary,
 		OutputArtifacts:     outputArtifacts,
 		OutputStepID:        outputStepID,
@@ -487,8 +499,9 @@ func (s *Server) enrichRunSummaries(summaries []RunSummary, runs []state.RunReco
 			summaries[i].Adapters = append(summaries[i].Adapters, a)
 		}
 		for m := range modelSet {
-			summaries[i].Models = append(summaries[i].Models, m)
+			summaries[i].Models = append(summaries[i].Models, friendlyModelFunc(m))
 		}
+		summaries[i].Models = uniqueStrings(summaries[i].Models)
 	}
 }
 
@@ -530,10 +543,11 @@ func runToSummary(r state.RunRecord) RunSummary {
 		summary.LinkedURL = parseLinkedURL(r.Input)
 	}
 
-	// Human-readable timestamps
-	summary.FormattedStartedAt = r.StartedAt.Format("Jan 2 15:04:05")
+	// Human-readable timestamps — compact for list views.
+	// Same day: "15:04", same year: "Jan 2 15:04", older: "Jan 2, 2006".
+	summary.FormattedStartedAt = formatSmartTime(r.StartedAt)
 	if r.CompletedAt != nil {
-		summary.FormattedCompletedAt = r.CompletedAt.Format("Jan 2 15:04:05")
+		summary.FormattedCompletedAt = formatSmartTime(*r.CompletedAt)
 	}
 
 	// Compute step progress from pipeline definition
@@ -572,8 +586,9 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 		tokens        int
 		durationMs    int64
 		errMsg        string
-		model         string
-		adapter       string
+		model           string
+		configuredModel string
+		adapter         string
 		reviewVerdict string
 		reviewIssues  int
 		reviewPersona string
@@ -630,6 +645,9 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 		}
 		if ev.Model != "" {
 			si.model = ev.Model
+		}
+		if ev.ConfiguredModel != "" {
+			si.configuredModel = ev.ConfiguredModel
 		}
 		if ev.Adapter != "" {
 			si.adapter = ev.Adapter
@@ -720,6 +738,9 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 			if si.model != "" {
 				sd.Model = si.model
 			}
+			if si.configuredModel != "" {
+				sd.ConfiguredModel = si.configuredModel
+			}
 			if si.adapter != "" {
 				sd.Adapter = si.adapter
 			}
@@ -789,11 +810,7 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 		if artErr != nil {
 			log.Printf("[webui] failed to get artifacts for run %s step %s: %v", runID, step.ID, artErr)
 		}
-		artSummaries := make([]ArtifactSummary, len(arts))
-		for j, a := range arts {
-			artSummaries[j] = artifactToSummary(a)
-		}
-		sd.Artifacts = artSummaries
+		sd.Artifacts = deduplicateArtifacts(arts)
 
 		// If the run is terminal but step still shows running, override to cancelled
 		rs := ""
@@ -870,6 +887,24 @@ func eventToSummary(e state.LogRecord) EventSummary {
 		Model:      e.Model,
 		Adapter:    e.Adapter,
 	}
+}
+
+// deduplicateArtifacts keeps only the last artifact per name.
+// Multiple writes to the same artifact name (e.g. retries) create
+// duplicate rows — we show only the most recent one.
+func deduplicateArtifacts(arts []state.ArtifactRecord) []ArtifactSummary {
+	seen := make(map[string]int) // name → index in result
+	var result []ArtifactSummary
+	for _, a := range arts {
+		s := artifactToSummary(a)
+		if idx, ok := seen[s.Name]; ok {
+			result[idx] = s // overwrite with later entry
+		} else {
+			seen[s.Name] = len(result)
+			result = append(result, s)
+		}
+	}
+	return result
 }
 
 func artifactToSummary(a state.ArtifactRecord) ArtifactSummary {

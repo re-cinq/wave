@@ -335,3 +335,32 @@ func TestFormatTokensFunc(t *testing.T) {
 		})
 	}
 }
+
+func TestModelTierClass(t *testing.T) {
+	tests := []struct {
+		model string
+		want  string
+	}{
+		{"claude-opus-4-20250514", "tier-strongest"},
+		{"opus", "tier-strongest"},
+		{"strongest", "tier-strongest"},
+		{"claude-sonnet-4-20250514", "tier-balanced"},
+		{"sonnet", "tier-balanced"},
+		{"balanced", "tier-balanced"},
+		{"claude-haiku-4-5-20251001", "tier-cheapest"},
+		{"haiku", "tier-cheapest"},
+		{"cheapest", "tier-cheapest"},
+		{"fastest", "tier-cheapest"},
+		{"unknown-model", ""},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.model, func(t *testing.T) {
+			got := modelTierClass(tt.model)
+			if got != tt.want {
+				t.Errorf("modelTierClass(%q) = %q, want %q", tt.model, got, tt.want)
+			}
+		})
+	}
+}
