@@ -167,7 +167,7 @@
             </div>
             {{end}}
             {{if and (eq $step.StepType "conditional") $step.EdgeInfo}}<div class="ws-edges">{{$step.EdgeInfo}}</div>{{end}}
-            {{if and (eq $step.StepType "command") $step.Script}}<div style="padding:0.06rem var(--ws-pad-x) 0.15rem;"><pre style="margin:0;font-size:0.68rem;color:var(--color-text-muted);background:var(--color-bg-tertiary);padding:0.2rem 0.4rem;border-radius:3px;overflow-x:auto;"><code>{{$step.Script}}</code></pre></div>{{end}}
+            {{if and (eq $step.StepType "command") $step.Script}}<div style="padding:0.06rem var(--ws-pad-x) 0.15rem;"><pre style="margin:0;font-size:0.68rem;color:var(--color-text-muted);background:var(--color-bg-tertiary);padding:0.2rem 0.4rem;border-radius:3px;overflow-x:auto;"><code class="ws-resolve-vars">{{$step.Script}}</code></pre></div>{{end}}
 
             <!-- Child runs for sub-pipeline steps -->
             {{if eq $step.StepType "pipeline"}}
@@ -576,19 +576,22 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
             if(step.input_artifacts&&step.input_artifacts.length) h+=kv('Receives',step.input_artifacts.map(function(a){return '<code style="background:rgba(34,197,94,0.1);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.72rem;">'+escapeHTML(a)+'</code>';}).join(' '));
             if(step.artifacts&&step.artifacts.length) h+=kv('Produces',step.artifacts.map(function(a){return '<code style="background:rgba(99,102,241,0.1);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.72rem;">'+escapeHTML(a)+'</code>';}).join(' '));
             h+='</div>';
-            // Prompt — resolve known variables and render as markdown
-            if(step.prompt){
-                var prompt=step.prompt;
-                // Resolve ALL template variables from server-provided context
+            // Resolve template vars in any string
+            function resolveVars(s){
                 try{
                     var vars=JSON.parse(document.getElementById('wave-vars').textContent||'{}');
-                    for(var vk in vars){
-                        if(vars[vk]){
-                            var re=new RegExp('\\{\\{\\s*'+vk.replace(/\./g,'\\.')+'\\s*\\}\\}','g');
-                            prompt=prompt.replace(re, vars[vk]);
-                        }
-                    }
+                    for(var vk in vars){if(vars[vk]){var re=new RegExp('\\{\\{\\s*'+vk.replace(/\./g,'\\.')+'\\s*\\}\\}','g');s=s.replace(re,vars[vk]);}}
                 }catch(e){}
+                return s;
+            }
+            // Resolve script field
+            if(step.script){
+                var cmd=resolveVars(step.script);
+                h+=kv('Command','<code>'+escapeHTML(cmd)+'</code>');
+            }
+            // Prompt — resolve known variables and render as markdown
+            if(step.prompt){
+                var prompt=resolveVars(step.prompt);
                 // Highlight remaining unresolved vars as inline code
                 prompt=prompt.replace(/\{\{([^}]+)\}\}/g, function(m){return '`'+m+'`';});
                 h+='<div style="border-top:1px solid var(--color-border);padding-top:0.4rem;margin-top:0.2rem;">';
@@ -1002,6 +1005,17 @@ function v2ArtView(btn,view){
         var iso=el.getAttribute('data-relative-time');
         if(iso) el.textContent=relTime(iso);
     });
+})();
+// Resolve template vars in inline command displays
+(function(){
+    try{
+        var vars=JSON.parse(document.getElementById('wave-vars').textContent||'{}');
+        document.querySelectorAll('.ws-resolve-vars').forEach(function(el){
+            var s=el.textContent;
+            for(var k in vars){if(vars[k]){var re=new RegExp('\\{\\{\\s*'+k.replace(/\./g,'\\.')+'\\s*\\}\\}','g');s=s.replace(re,vars[k]);}}
+            el.textContent=s;
+        });
+    }catch(e){}
 })();
 </script>
 {{end}}
