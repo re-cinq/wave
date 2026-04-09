@@ -288,7 +288,7 @@ steps:
 
         ### Step 4: Produce Results
 
-        Write a JSON result to `.wave/artifact.json` matching the contract schema:
+        Produce output matching the contract schema. Include:
         - `enhanced_issues`: array of objects, each with:
           - `issue_number`: the issue number
           - `success`: boolean
@@ -314,7 +314,7 @@ steps:
 
         ## Output Format
 
-        JSON at `.wave/artifact.json` matching the contract schema.
+        Produce output matching the contract schema.
 
         ## Quality Bar
 

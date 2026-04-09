@@ -116,8 +116,7 @@ steps:
           be split into multiple epics first.
 
         OUTPUT FORMAT:
-        Write the assessment as structured JSON to .wave/artifact.json matching the
-        epic-assessment schema. Include: epic (number, title, url, body_summary),
+        Produce output matching the contract schema. Include: epic (number, title, url, body_summary),
         is_epic (boolean), themes (array), planned_sub_issues (array with tentative
         titles, complexity, dependencies, overlap), existing_issues (array of potentially
         overlapping issues), overall_complexity (S/M/L/XL), and timestamp.
@@ -225,7 +224,7 @@ steps:
           continue with remaining issues. Do not abort the entire step.
 
         OUTPUT FORMAT:
-        Write the results as structured JSON to .wave/artifact.json with:
+        Produce output matching the contract schema. Include:
         - parent_issue: object with number, url, and repository
         - created_issues: array of objects, each with number, title, url, labels (array),
           success (boolean), complexity (S/M/L), dependencies (array of issue numbers)
@@ -335,7 +334,7 @@ steps:
         - Do NOT modify the markdown_summary to hide failures. Report accurately.
 
         OUTPUT FORMAT:
-        Write the verification report as structured JSON to .wave/artifact.json with:
+        Produce output matching the contract schema. Include:
         - parent_issue: object with number (integer) and url (string)
         - verified_issues: array of objects, each with:
           - number: integer
