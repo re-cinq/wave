@@ -315,7 +315,7 @@ func TestHandleArtifact_TruncationForOversizedArtifact(t *testing.T) {
 	dir := t.TempDir()
 	artifactPath := filepath.Join(dir, "large.txt")
 
-	// Create a file larger than maxArtifactSize (1 MB)
+	// Create a file larger than maxArtifactSize (1 MB) to trigger truncation.
 	largeContent := strings.Repeat("A", maxArtifactSize+100)
 	if err := os.WriteFile(artifactPath, []byte(largeContent), 0600); err != nil {
 		t.Fatalf("failed to write temp file: %v", err)
