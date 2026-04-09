@@ -363,6 +363,109 @@ func TestCompositionExecutor_SubPipelineBackwardCompatibility(t *testing.T) {
 	}
 }
 
+// TestCompositionExecutor_IterateCollectsOutputs verifies that after an iterate
+// step completes, the collected output is registered under the step's ID in the
+// template context so {{ stepID.output }} resolves for downstream steps.
+func TestCompositionExecutor_IterateCollectsOutputs(t *testing.T) {
+	ctx := NewTemplateContext("test-input", "/tmp")
+
+	// Simulate what runSubPipeline does: store output per child pipeline name
+	ctx.SetStepOutput("audit-alpha", []byte(`{"findings": ["a1", "a2"]}`))
+	ctx.SetStepOutput("audit-beta", []byte(`{"findings": ["b1"]}`))
+	ctx.SetStepOutput("audit-gamma", []byte(`{"findings": ["c1", "c2", "c3"]}`))
+
+	ce := &CompositionExecutor{tmplCtx: ctx}
+
+	step := &Step{ID: "run-audits"}
+	resolvedNames := []string{"audit-alpha", "audit-beta", "audit-gamma"}
+
+	ce.collectIterateOutputs(step, resolvedNames)
+
+	// Verify the iterate step's output was registered
+	data, ok := ctx.StepOutputs["run-audits"]
+	if !ok {
+		t.Fatal("expected output for iterate step 'run-audits'")
+	}
+
+	// Verify it's a valid JSON array with 3 entries
+	var collected []json.RawMessage
+	if err := json.Unmarshal(data, &collected); err != nil {
+		t.Fatalf("collected output is not valid JSON array: %v", err)
+	}
+	if len(collected) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(collected))
+	}
+
+	// Verify each entry matches the original child output
+	var first map[string]interface{}
+	if err := json.Unmarshal(collected[0], &first); err != nil {
+		t.Fatalf("entry 0 is not valid JSON: %v", err)
+	}
+	findings, ok := first["findings"].([]interface{})
+	if !ok || len(findings) != 2 {
+		t.Errorf("entry 0: expected findings with 2 items, got %v", first["findings"])
+	}
+
+	// Verify the output can be resolved via {{ run-audits.output }}
+	resolved, err := ResolveTemplate("{{ run-audits.output }}", ctx)
+	if err != nil {
+		t.Fatalf("failed to resolve {{ run-audits.output }}: %v", err)
+	}
+	if resolved == "" {
+		t.Error("resolved output should not be empty")
+	}
+
+	// Verify the resolved output is a valid JSON array
+	var resolvedArr []json.RawMessage
+	if err := json.Unmarshal([]byte(resolved), &resolvedArr); err != nil {
+		t.Fatalf("resolved output is not a valid JSON array: %v", err)
+	}
+	if len(resolvedArr) != 3 {
+		t.Errorf("expected 3 entries in resolved output, got %d", len(resolvedArr))
+	}
+}
+
+// TestCompositionExecutor_IterateCollectsOutputs_NullForMissing verifies that
+// missing child outputs are represented as null in the collected array.
+func TestCompositionExecutor_IterateCollectsOutputs_NullForMissing(t *testing.T) {
+	ctx := NewTemplateContext("test-input", "/tmp")
+
+	// Only one of three children produced output
+	ctx.SetStepOutput("audit-alpha", []byte(`{"ok": true}`))
+
+	ce := &CompositionExecutor{tmplCtx: ctx}
+
+	step := &Step{ID: "run-audits"}
+	resolvedNames := []string{"audit-alpha", "audit-beta", "audit-gamma"}
+
+	ce.collectIterateOutputs(step, resolvedNames)
+
+	data, ok := ctx.StepOutputs["run-audits"]
+	if !ok {
+		t.Fatal("expected output for iterate step")
+	}
+
+	var collected []json.RawMessage
+	if err := json.Unmarshal(data, &collected); err != nil {
+		t.Fatalf("not valid JSON array: %v", err)
+	}
+	if len(collected) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(collected))
+	}
+
+	// First entry should be valid JSON
+	if string(collected[0]) == "null" {
+		t.Error("entry 0 should not be null")
+	}
+	// Entries for missing children should be null
+	if string(collected[1]) != "null" {
+		t.Errorf("entry 1: expected null, got %s", string(collected[1]))
+	}
+	if string(collected[2]) != "null" {
+		t.Errorf("entry 2: expected null, got %s", string(collected[2]))
+	}
+}
+
 func TestCompositionExecutor_Execute_Gate_Auto(t *testing.T) {
 	emitter := testutil.NewEventCollector()
 	m := &manifest.Manifest{}

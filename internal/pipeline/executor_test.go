@@ -5933,6 +5933,252 @@ steps:
 		"adapter should be called at least 3 times (once per parallel item)")
 }
 
+// TestIterateInDAG_CollectsOutputs verifies that after an iterate step completes,
+// the collected output is registered under the step's ID in ArtifactPaths so
+// downstream steps can reference {{ stepID.output }}.
+func TestIterateInDAG_CollectsOutputs(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	capAdapter := &allConfigCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"findings": ["issue-1"]}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector))
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	pipelinesDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	require.NoError(t, os.MkdirAll(pipelinesDir, 0755))
+
+	// Child pipelines that produce a stdout artifact so it gets stored
+	childYAML := `kind: WavePipeline
+metadata:
+  name: %s
+steps:
+  - id: scan
+    persona: navigator
+    exec:
+      type: prompt
+      source: "scan"
+    output_artifacts:
+      - name: result
+        source: stdout
+`
+	for _, name := range []string{"audit-alpha", "audit-beta", "audit-gamma"} {
+		path := filepath.Join(pipelinesDir, name+".yaml")
+		require.NoError(t, os.WriteFile(path, []byte(fmt.Sprintf(childYAML, name)), 0644))
+	}
+
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmpDir))
+	defer func() { _ = os.Chdir(origDir) }()
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "iterate-collect-test"},
+		Steps: []Step{
+			{
+				ID:          "run-audits",
+				SubPipeline: "{{ item }}",
+				Iterate: &IterateConfig{
+					Over: `["audit-alpha", "audit-beta", "audit-gamma"]`,
+					Mode: "sequential",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// Verify that ArtifactPaths has the collected output under the iterate step's ID
+	exec := executor.LastExecution()
+	require.NotNil(t, exec)
+
+	collectedPath, ok := exec.ArtifactPaths["run-audits:collected-output"]
+	assert.True(t, ok, "ArtifactPaths should contain run-audits:collected-output")
+	assert.NotEmpty(t, collectedPath, "collected output path should not be empty")
+
+	// Read the collected file and verify it's a JSON array
+	data, err := os.ReadFile(collectedPath)
+	require.NoError(t, err)
+
+	var collected []json.RawMessage
+	require.NoError(t, json.Unmarshal(data, &collected))
+	assert.Len(t, collected, 3, "collected output should have 3 entries")
+
+	// Each entry should be the stdout JSON from the child pipeline
+	for i, entry := range collected {
+		var parsed map[string]interface{}
+		err := json.Unmarshal(entry, &parsed)
+		require.NoError(t, err, "entry %d should be valid JSON", i)
+		assert.Contains(t, parsed, "findings", "entry %d should contain findings key", i)
+	}
+}
+
+// TestIterateInDAG_Parallel_CollectsOutputs verifies parallel iterate also collects outputs.
+func TestIterateInDAG_Parallel_CollectsOutputs(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	capAdapter := &allConfigCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "done"}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector))
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	pipelinesDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	require.NoError(t, os.MkdirAll(pipelinesDir, 0755))
+
+	childYAML := `kind: WavePipeline
+metadata:
+  name: %s
+steps:
+  - id: process
+    persona: navigator
+    exec:
+      type: prompt
+      source: "process"
+    output_artifacts:
+      - name: output
+        source: stdout
+`
+	for _, name := range []string{"job-a", "job-b"} {
+		path := filepath.Join(pipelinesDir, name+".yaml")
+		require.NoError(t, os.WriteFile(path, []byte(fmt.Sprintf(childYAML, name)), 0644))
+	}
+
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmpDir))
+	defer func() { _ = os.Chdir(origDir) }()
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "parallel-collect-test"},
+		Steps: []Step{
+			{
+				ID:          "fan-out",
+				SubPipeline: "{{ item }}",
+				Iterate: &IterateConfig{
+					Over: `["job-a", "job-b"]`,
+					Mode: "parallel",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	exec := executor.LastExecution()
+	require.NotNil(t, exec)
+
+	collectedPath, ok := exec.ArtifactPaths["fan-out:collected-output"]
+	assert.True(t, ok, "ArtifactPaths should contain fan-out:collected-output")
+
+	data, err := os.ReadFile(collectedPath)
+	require.NoError(t, err)
+
+	var collected []json.RawMessage
+	require.NoError(t, json.Unmarshal(data, &collected))
+	assert.Len(t, collected, 2, "collected output should have 2 entries")
+}
+
+// TestIterateInDAG_OutputResolvesInAggregate verifies the end-to-end flow:
+// iterate step produces collected output, then aggregate step references it
+// via {{ stepID.output }}.
+func TestIterateInDAG_OutputResolvesInAggregate(t *testing.T) {
+	collector := testutil.NewEventCollector()
+	capAdapter := &allConfigCapturingAdapter{
+		MockAdapter: adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"findings": ["f1"]}`),
+			adapter.WithTokensUsed(100),
+		),
+	}
+
+	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector))
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	pipelinesDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	require.NoError(t, os.MkdirAll(pipelinesDir, 0755))
+
+	childYAML := `kind: WavePipeline
+metadata:
+  name: %s
+steps:
+  - id: scan
+    persona: navigator
+    exec:
+      type: prompt
+      source: "scan"
+    output_artifacts:
+      - name: result
+        source: stdout
+`
+	for _, name := range []string{"audit-a", "audit-b"} {
+		path := filepath.Join(pipelinesDir, name+".yaml")
+		require.NoError(t, os.WriteFile(path, []byte(fmt.Sprintf(childYAML, name)), 0644))
+	}
+
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmpDir))
+	defer func() { _ = os.Chdir(origDir) }()
+
+	outputPath := filepath.Join(tmpDir, ".wave", "output", "merged.json")
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "iterate-aggregate-test"},
+		Steps: []Step{
+			{
+				ID:          "run-audits",
+				SubPipeline: "{{ item }}",
+				Iterate: &IterateConfig{
+					Over: `["audit-a", "audit-b"]`,
+					Mode: "sequential",
+				},
+			},
+			{
+				ID:           "merge-findings",
+				Dependencies: []string{"run-audits"},
+				Aggregate: &AggregateConfig{
+					From:     "{{ run-audits.output }}",
+					Into:     outputPath,
+					Strategy: "merge_arrays",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.NoError(t, err)
+
+	// Verify the aggregate output was written
+	data, err := os.ReadFile(outputPath)
+	require.NoError(t, err)
+
+	// The merged output should be a flattened array from both child pipelines
+	var merged []json.RawMessage
+	require.NoError(t, json.Unmarshal(data, &merged))
+	assert.GreaterOrEqual(t, len(merged), 2,
+		"merged output should contain entries from both child pipelines")
+}
+
 // TestAggregateInDAG verifies the aggregate primitive merges output to a file.
 func TestAggregateInDAG(t *testing.T) {
 	collector := testutil.NewEventCollector()
