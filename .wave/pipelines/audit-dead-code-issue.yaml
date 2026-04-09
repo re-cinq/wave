@@ -3,10 +3,10 @@ metadata:
   name: audit-dead-code-issue
   description: >-
     Scan the codebase for dead code (unused exports, unreachable branches,
-    orphaned files, stale tests, commented-out blocks) and create a GitHub issue
-    with a structured task list of findings. Use this for periodic hygiene checks
-    when you want a tracked issue rather than an immediate PR. Each finding
-    includes confidence level, location, and suggested action.
+    orphaned files, stale tests, commented-out blocks) and create a GitHub
+    issue with a structured task list of findings. Use this for periodic
+    hygiene checks when you want a tracked issue rather than an immediate PR.
+    Each finding includes confidence level, location, and suggested action.
   release: true
 
 requires:
