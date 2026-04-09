@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Interface Design",
-  "description": "Go interface definitions derived from ontology entities",
+  "description": "Interface definitions derived from ontology entities",
   "type": "object",
   "required": ["package_name", "interfaces"],
   "properties": {

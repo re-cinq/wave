@@ -26,7 +26,7 @@ Follow the `/speckit.implement` workflow:
    **Polish**: Unit tests, performance optimization, documentation
 
 6. For each completed task, mark it as `[X]` in tasks.md
-7. Run `go test -race ./...` after each phase to catch regressions early
+7. Run `{{ project.test_command }}` after each phase to catch regressions early
 8. Final validation: verify all tasks complete, tests pass, spec requirements met
 
 ## Agent Usage

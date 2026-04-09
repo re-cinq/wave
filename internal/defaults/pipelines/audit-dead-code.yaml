@@ -9,8 +9,7 @@ metadata:
   release: true
 
 requires:
-  tools:
-    - go
+  tools: []
 
 skills:
   - software-design
@@ -93,13 +92,13 @@ steps:
 
         2. **Unreachable code**: Search for code after unconditional return, panic(), or os.Exit() statements. Identify switch/select cases that can never be reached due to prior exhaustive matching. Look for if-else branches guarded by constant conditions. Check for error-handling code after functions that never return errors in practice.
 
-        3. **Orphaned files**: Identify Go source files whose package is never imported by any other file in the project. Also look for non-Go files (configs, scripts, templates) that are never referenced from any Go code or build configuration.
+        3. **Orphaned files**: Identify source files whose module or package is never imported by any other file in the project. Also look for non-source files (configs, scripts, templates) that are never referenced from any source code or build configuration.
 
         4. **Redundant code**: Find duplicate functions (identical or near-identical signatures and bodies) across different packages. Identify wrapper functions that add no value (simply call through to another function with the same parameters). Look for copy-paste blocks of 10+ lines that appear in multiple locations.
 
         5. **Stale tests**: Find test functions that reference functions or types that no longer exist. Identify tests that assert nothing meaningful (only check err == nil without verifying results). Look for tests with t.Skip() that reference resolved issues.
 
-        6. **Unused dependencies**: Check for imported packages that are not actually used (the Go compiler catches most of these, but check for blank imports `_` that may no longer be needed for side effects). Check go.mod for dependencies not imported anywhere.
+        6. **Unused dependencies**: Check for imported packages that are not actually used. Check the project's dependency manifest for dependencies not imported anywhere in the codebase.
 
         7. **Commented-out code**: Search for blocks of 3+ consecutive commented lines that contain code syntax (function signatures, variable declarations, control flow keywords). These should be deleted since git history preserves the original code.
 
@@ -109,7 +108,7 @@ steps:
         - Grep for ALL references across the entire codebase (not just the declaring package)
         - Check for reflect-based or string-based usage (search for the symbol name as a string literal)
         - Check if the symbol exists to satisfy an interface (search for the interface definition and confirm whether the type implements it)
-        - Check for build tag conditional compilation (`//go:build` or `// +build` directives)
+        - Check for build tag conditional compilation or platform-specific build constraints
         - Check for usage from generated code or external tools
         - Assign confidence: HIGH (zero references found after thorough search), MEDIUM (references exist only in tests or only via indirect patterns)
 
@@ -119,7 +118,7 @@ steps:
         - Do NOT report init() functions, main() functions, or package-level variable initializations as unused.
         - Do NOT report standard interface implementations (io.Reader, fmt.Stringer, error, etc.) as dead code.
         - Do NOT modify any files. This step is read-only.
-        - Do NOT use external tools (go vet, staticcheck). This is a manual static analysis using Grep and Read.
+        - Do NOT use external linting or analysis tools. This is a manual static analysis using Grep and Read.
 
         ## Output Format
 
@@ -173,7 +172,7 @@ steps:
         ### 1. Plan the Removal Order
 
         Sort findings by safety, processing them in this order:
-        1. **Unused imports and blank imports** (safest -- the Go compiler validates these)
+        1. **Unused imports and blank imports** (safest -- the compiler validates these)
         2. **Commented-out code blocks** (safe -- no behavioral change)
         3. **Unused exported functions and types** (moderate risk -- Grep verification provides confidence)
         4. **Orphaned files** (moderate risk -- file-level deletion)
@@ -186,14 +185,14 @@ steps:
 
         For each finding to remove:
         - Make the removal edit (delete the function, remove the file, delete the comment block)
-        - Run `go build ./...` to verify the build still passes
+        - Run `{{ project.build_command }}` to verify the build still passes
         - If the build fails, IMMEDIATELY revert the change (`git checkout -- <file>`) and skip this finding
         - If the build passes, continue to the next finding
         - Track which findings were successfully removed and which were skipped
 
         After all removals are complete, run the full test suite:
         ```bash
-        go test ./...
+        {{ project.test_command }}
         ```
         If any tests fail, identify which removal caused the failure, revert that specific removal, and re-run tests until all pass.
 
@@ -278,9 +277,9 @@ steps:
 
         1. **Confidence check**: Review the git diff to see what was removed. Cross-reference each removal against the original scan findings. Verify that only HIGH confidence findings were removed. If any MEDIUM confidence findings were removed, verify they were trivially safe (e.g., commented-out code blocks). If any finding was removed that is not in the scan results at all, flag it as an unauthorized change.
 
-        2. **Build verification**: Run `go build ./...` to confirm the project compiles cleanly with no errors or warnings. If the build fails, the verdict MUST be NEEDS_REVIEW.
+        2. **Build verification**: Run `{{ project.build_command }}` to confirm the project compiles cleanly with no errors or warnings. If the build fails, the verdict MUST be NEEDS_REVIEW.
 
-        3. **Test verification**: Run `go test ./...` to confirm all tests pass. If any test fails, the verdict MUST be NEEDS_REVIEW. Note which tests fail and correlate with the removals.
+        3. **Test verification**: Run `{{ project.test_command }}` to confirm all tests pass. If any test fails, the verdict MUST be NEEDS_REVIEW. Note which tests fail and correlate with the removals.
 
         4. **False positive check**: For each removed symbol or file, perform a quick verification that it was genuinely dead:
            - For removed exported functions: Grep the codebase to confirm no callers exist
@@ -291,7 +290,7 @@ steps:
         5. **Commit focus check**: Review the git diff to confirm that:
            - Only dead-code removals are present (no refactoring, no formatting changes, no new code)
            - No unrelated files were modified
-           - No files that should be preserved (.gitignore, go.mod, go.sum) were accidentally changed
+           - No files that should be preserved (.gitignore, dependency manifests, lock files) were accidentally changed
            - The commit message accurately lists what was removed
 
         6. **Completeness check**: Compare the original findings against what was removed. Note any findings that were skipped and verify the skip reasons are valid (build failure, medium confidence, cascading errors).

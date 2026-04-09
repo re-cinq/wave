@@ -100,7 +100,7 @@ steps:
            Record the dependency list with direction (depends-on vs depended-on-by).
 
         5. **Find tests**: Locate all test files that exercise this code:
-           - Find *_test.go files in the same package
+           - Find test files in the same package
            - Find integration tests that exercise this code from a higher level
            - Read test function names to understand what scenarios are covered
            - Note which test helpers, mocks, or fixtures are used
@@ -177,7 +177,7 @@ steps:
            - Structural patterns: adapter, decorator, facade, proxy, composite
            - Behavioral patterns: strategy, observer, command, chain of responsibility, visitor
            - Creational patterns: factory, builder, singleton, dependency injection
-           - Go-specific patterns: functional options, interface-based polymorphism, embedded types
+           - Language-specific patterns: functional options, interface-based polymorphism, embedded types, mixins
            For each pattern identified, cite the specific types/functions that implement it and explain what problem it solves in this codebase.
 
         2. **Data flow**: Trace how data enters the system, is transformed, and exits:
@@ -195,7 +195,7 @@ steps:
            - Are errors logged, and if so, at what level?
 
         4. **Concurrency model**: If the code uses concurrency, analyze:
-           - What runs concurrently (goroutines, worker pools, pipelines)?
+           - What runs concurrently (threads, worker pools, async tasks, pipelines)?
            - How is synchronization achieved (channels, mutexes, sync.WaitGroup, context cancellation)?
            - What shared state exists and how is it protected?
            - Are there potential race conditions or deadlock risks?
@@ -319,7 +319,7 @@ steps:
         ## Constraints and Anti-patterns
 
         - Do NOT use placeholder names like "ComponentA" or "the system." Use the real names from the codebase.
-        - Do NOT write for beginners. The audience is an experienced developer who understands Go (or the relevant language) but does not know this codebase.
+        - Do NOT write for beginners. The audience is an experienced developer who understands the project's language and toolchain but does not know this codebase.
         - Do NOT include raw JSON, code dumps, or full file contents. Quote only the specific lines that illustrate a point.
         - Do NOT skip sections. If a section has limited content (e.g., no concurrency), note "This area does not use concurrency" rather than omitting the section.
         - Do NOT editorialize about code quality. Explain the architecture as it is.
