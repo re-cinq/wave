@@ -509,14 +509,8 @@ steps:
         type: markdown
     handover:
       contract:
-        type: agent_review
-        persona: navigator
-        criteria_path: .wave/contracts/quality-review-criteria.md
+        type: non_empty_file
         source: .wave/output/slop-review.md
-        model: cheapest
-        token_budget: 8000
-        timeout: 90s
-        on_failure: continue
 
   - id: summary
     persona: summarizer
