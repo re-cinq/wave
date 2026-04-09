@@ -8,6 +8,7 @@ metadata:
     only proceeds after explicit approval. Use this when you want to review
     and optionally refine the plan before any code is written.
   category: impl
+  release: false
 
 input:
   source: argument

@@ -7,6 +7,7 @@ metadata:
     it, and updates the local main branch. Use this to ship uncommitted work
     in a single command. Handles branch naming, commit grouping, PR creation,
     merge, and post-merge binary installation.
+  release: false
 
 skills:
   - wave
