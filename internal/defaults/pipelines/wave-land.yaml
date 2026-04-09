@@ -29,6 +29,11 @@ chat_context:
     - "PR creation and merge status"
     - "Post-merge verification"
 
+pipeline_outputs:
+  pr:
+    step: ship
+    artifact: ship-result
+
 hooks:
   - name: log-start
     event: run_start
@@ -137,6 +142,10 @@ steps:
     dependencies: [commit]
     workspace:
       ref: commit
+    output_artifacts:
+      - name: ship-result
+        path: .wave/output/ship-result.json
+        type: json
     exec:
       type: prompt
       source: |
@@ -209,9 +218,13 @@ steps:
           needed for diagnosing the failure.
 
         OUTPUT FORMAT:
-        No explicit artifact is produced. The outcome is: changes merged to main,
-        binary rebuilt and installed, feature branch cleaned up. Report any failures
-        in the step output.
+        After creating the PR, write a JSON file to .wave/output/ship-result.json with
+        the PR URL and number:
+        ```json
+        { "pr_url": "<full PR URL>", "pr_number": <number>, "merged": true }
+        ```
+        If the merge fails, set "merged" to false and add a "failure" field with
+        the error message.
 
         QUALITY BAR:
         A good ship step completes all 7 steps cleanly: branch pushed, PR created and
