@@ -2927,6 +2927,192 @@ func TestResolveModelMethod(t *testing.T) {
 	assert.Equal(t, "", executor2.resolveModel(nil, p3, nil, "navigator"))
 }
 
+func TestResolveModel_ForceModelEmpty(t *testing.T) {
+	// forceModel=true but modelOverride="" — should fall through to step/persona/auto-route
+	executor := &DefaultPipelineExecutor{forceModel: true, modelOverride: ""}
+	persona := &manifest.Persona{Model: "opus"}
+
+	got := executor.resolveModel(nil, persona, nil, "craftsman")
+	// forceModel with empty override does NOT return early — falls through
+	// persona model "opus" is not a tier, so returned as-is
+	assert.Equal(t, "opus", got)
+}
+
+func TestResolveModel_ForceModelWithValue(t *testing.T) {
+	executor := &DefaultPipelineExecutor{forceModel: true, modelOverride: "claude-haiku-4-5"}
+	persona := &manifest.Persona{Model: "opus"}
+
+	got := executor.resolveModel(nil, persona, nil, "craftsman")
+	assert.Equal(t, "claude-haiku-4-5", got)
+}
+
+func TestResolveModel_StepModelBalancedTier(t *testing.T) {
+	// step.Model="balanced" with nil routing — ResolveComplexityModel returns "" for balanced
+	executor := &DefaultPipelineExecutor{}
+	persona := &manifest.Persona{}
+	step := &Step{Model: "balanced"}
+
+	got := executor.resolveModel(step, persona, nil, "test")
+	// resolveTierModel("balanced", nil) → routing.ResolveComplexityModel("balanced") → ""
+	// isTier=true, so returns ""
+	assert.Equal(t, "", got)
+}
+
+func TestResolveModel_StepModelCheapestTier(t *testing.T) {
+	executor := &DefaultPipelineExecutor{}
+	persona := &manifest.Persona{}
+	step := &Step{Model: "cheapest"}
+
+	got := executor.resolveModel(step, persona, nil, "test")
+	assert.Equal(t, "claude-haiku-4-5", got)
+}
+
+func TestResolveModel_StepModelStrongestTier(t *testing.T) {
+	executor := &DefaultPipelineExecutor{}
+	persona := &manifest.Persona{}
+	step := &Step{Model: "strongest"}
+
+	got := executor.resolveModel(step, persona, nil, "test")
+	assert.Equal(t, "claude-opus-4", got)
+}
+
+func TestResolveModel_StepModelLiteral(t *testing.T) {
+	executor := &DefaultPipelineExecutor{}
+	persona := &manifest.Persona{}
+	step := &Step{Model: "claude-sonnet-4"}
+
+	got := executor.resolveModel(step, persona, nil, "test")
+	assert.Equal(t, "claude-sonnet-4", got)
+}
+
+func TestResolveModel_PersonaModelTier(t *testing.T) {
+	executor := &DefaultPipelineExecutor{}
+	persona := &manifest.Persona{Model: "cheapest"}
+
+	got := executor.resolveModel(nil, persona, nil, "navigator")
+	assert.Equal(t, "claude-haiku-4-5", got)
+}
+
+func TestResolveModel_AutoRoute_BalancedReturnsEmpty(t *testing.T) {
+	// auto_route=true, no step/persona model, ClassifyStepComplexity returns balanced for generic persona
+	executor := &DefaultPipelineExecutor{}
+	persona := &manifest.Persona{}
+	step := &Step{ID: "generic-step"}
+	routing := &manifest.RoutingConfig{AutoRoute: true}
+
+	got := executor.resolveModel(step, persona, routing, "generic")
+	// ClassifyStepComplexity returns "balanced" for generic persona
+	// routing.ResolveComplexityModel("balanced") returns "" (balanced maps to empty)
+	// model == "" → falls through, returns ""
+	assert.Equal(t, "", got)
+}
+
+func TestResolveModel_AutoRoute_CheapestReturnsModel(t *testing.T) {
+	executor := &DefaultPipelineExecutor{}
+	persona := &manifest.Persona{}
+	step := &Step{ID: "navigate", Type: StepTypeCommand}
+	routing := &manifest.RoutingConfig{AutoRoute: true}
+
+	got := executor.resolveModel(step, persona, routing, "navigator")
+	// ClassifyStepComplexity: step type "command" → cheapest
+	// routing.ResolveComplexityModel("cheapest") → "claude-haiku-4-5"
+	assert.Equal(t, "claude-haiku-4-5", got)
+}
+
+func TestResolveModel_CLITierVsStepTier_CheaperWins(t *testing.T) {
+	// CLI override is "cheapest", step model is "strongest" → cheapest wins
+	executor := &DefaultPipelineExecutor{modelOverride: "cheapest"}
+	persona := &manifest.Persona{}
+	step := &Step{Model: "strongest"}
+
+	got := executor.resolveModel(step, persona, nil, "test")
+	// Both are tiers, CheaperTier("cheapest","strongest") → "cheapest"
+	// resolveTierModel("cheapest", nil) → "claude-haiku-4-5"
+	assert.Equal(t, "claude-haiku-4-5", got)
+}
+
+func TestResolveModel_CLITierVsStepTier_BalancedResolvesEmpty(t *testing.T) {
+	// CLI override is "balanced", step model is "strongest" → balanced wins (cheaper)
+	// But balanced resolves to empty string
+	executor := &DefaultPipelineExecutor{modelOverride: "balanced"}
+	persona := &manifest.Persona{}
+	step := &Step{Model: "strongest"}
+
+	got := executor.resolveModel(step, persona, nil, "test")
+	// CheaperTier("balanced","strongest") → "balanced"
+	// resolveTierModel("balanced", nil) → "", isTier=true
+	assert.Equal(t, "", got)
+}
+
+func TestResolveModel_CLILiteralOverridesStepTier(t *testing.T) {
+	// CLI is a literal model name, step has a tier — CLI literal wins
+	executor := &DefaultPipelineExecutor{modelOverride: "claude-sonnet-4"}
+	persona := &manifest.Persona{}
+	step := &Step{Model: "strongest"}
+
+	got := executor.resolveModel(step, persona, nil, "test")
+	// TierRank("claude-sonnet-4") = -1 (not a tier), so CLI literal wins
+	assert.Equal(t, "claude-sonnet-4", got)
+}
+
+func TestResolveTierModel(t *testing.T) {
+	tests := []struct {
+		name    string
+		model   string
+		routing *manifest.RoutingConfig
+		want    string
+		isTier  bool
+	}{
+		{
+			name:    "cheapest tier nil routing",
+			model:   "cheapest",
+			routing: nil,
+			want:    "claude-haiku-4-5",
+			isTier:  true,
+		},
+		{
+			name:    "balanced tier nil routing returns empty",
+			model:   "balanced",
+			routing: nil,
+			want:    "",
+			isTier:  true,
+		},
+		{
+			name:    "strongest tier nil routing",
+			model:   "strongest",
+			routing: nil,
+			want:    "claude-opus-4",
+			isTier:  true,
+		},
+		{
+			name:    "literal model not a tier",
+			model:   "claude-sonnet-4",
+			routing: nil,
+			want:    "",
+			isTier:  false,
+		},
+		{
+			name:  "cheapest tier with custom routing",
+			model: "cheapest",
+			routing: &manifest.RoutingConfig{
+				ComplexityMap: map[string]string{
+					"cheapest": "my-custom-model",
+				},
+			},
+			want:   "my-custom-model",
+			isTier: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, isTier := resolveTierModel(tt.model, tt.routing)
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.isTier, isTier)
+		})
+	}
+}
+
 // cancellableMockStore embeds testutil.MockStateStore and adds configurable CheckCancellation.
 type cancellableMockStore struct {
 	testutil.MockStateStore
@@ -6400,4 +6586,152 @@ fi
 		"second attempt should contain the specific test failure output")
 	assert.Contains(t, secondPrompt, "Fix the specific failure above",
 		"second attempt should instruct agent not to start from scratch")
+}
+
+// TestResolveWorkspaceStepRefs_ArtifactsNamedField verifies that
+// {{ steps.STEP_ID.artifacts.ARTIFACT_NAME.JSON_PATH }} is resolved from
+// execution.ArtifactPaths at workspace creation time.
+func TestResolveWorkspaceStepRefs_ArtifactsNamedField(t *testing.T) {
+	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+
+	tmpDir := t.TempDir()
+
+	// Write a JSON artifact file that the prior step would have produced.
+	artFile := filepath.Join(tmpDir, "review-findings.json")
+	err := os.WriteFile(artFile, []byte(`{"head_branch":"feat/my-feature","number":42}`), 0644)
+	require.NoError(t, err)
+
+	execution := &PipelineExecution{
+		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "ws-stepref-test"}},
+		Manifest:       &manifest.Manifest{},
+		WorkspacePaths: make(map[string]string),
+		WorktreePaths:  make(map[string]*WorktreeInfo),
+		ArtifactPaths:  map[string]string{"fetch-review:review-findings": artFile},
+		Status:         &PipelineStatus{ID: "ws-stepref-test"},
+		Context:        NewPipelineContext("ws-stepref-test", "ws-stepref-test", "apply-fixes"),
+	}
+
+	// Resolve branch template referencing prior step artifact field.
+	branch, err := executor.resolveWorkspaceStepRefs(
+		"{{ steps.fetch-review.artifacts.review-findings.head_branch }}", execution)
+	require.NoError(t, err)
+	assert.Equal(t, "feat/my-feature", branch)
+}
+
+// TestResolveWorkspaceStepRefs_Output verifies that
+// {{ steps.STEP_ID.output.JSON_FIELD }} is resolved from the first artifact.
+func TestResolveWorkspaceStepRefs_Output(t *testing.T) {
+	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+
+	tmpDir := t.TempDir()
+	artFile := filepath.Join(tmpDir, "step-output.json")
+	err := os.WriteFile(artFile, []byte(`{"branch":"fix/issue-123"}`), 0644)
+	require.NoError(t, err)
+
+	execution := &PipelineExecution{
+		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "ws-output-test"}},
+		Manifest:       &manifest.Manifest{},
+		WorkspacePaths: make(map[string]string),
+		WorktreePaths:  make(map[string]*WorktreeInfo),
+		ArtifactPaths:  map[string]string{"fetch-pr:pr-meta": artFile},
+		Status:         &PipelineStatus{ID: "ws-output-test"},
+		Context:        NewPipelineContext("ws-output-test", "ws-output-test", "apply-fixes"),
+	}
+
+	branch, err := executor.resolveWorkspaceStepRefs(
+		"{{ steps.fetch-pr.output.branch }}", execution)
+	require.NoError(t, err)
+	assert.Equal(t, "fix/issue-123", branch)
+}
+
+// TestResolveWorkspaceStepRefs_MissingStep verifies a clear error when the
+// referenced step artifact does not exist.
+func TestResolveWorkspaceStepRefs_MissingStep(t *testing.T) {
+	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+
+	execution := &PipelineExecution{
+		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "ws-missing-test"}},
+		Manifest:       &manifest.Manifest{},
+		WorkspacePaths: make(map[string]string),
+		WorktreePaths:  make(map[string]*WorktreeInfo),
+		ArtifactPaths:  make(map[string]string), // empty — step never ran
+		Status:         &PipelineStatus{ID: "ws-missing-test"},
+		Context:        NewPipelineContext("ws-missing-test", "ws-missing-test", "apply-fixes"),
+	}
+
+	_, err := executor.resolveWorkspaceStepRefs(
+		"{{ steps.fetch-review.artifacts.review-findings.head_branch }}", execution)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "fetch-review")
+}
+
+// TestResolveWorkspaceStepRefs_NoStepsRef verifies that non-steps templates
+// are passed through unchanged (they are resolved by ResolvePlaceholders later).
+func TestResolveWorkspaceStepRefs_NoStepsRef(t *testing.T) {
+	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+
+	execution := &PipelineExecution{
+		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "ws-passthrough-test"}},
+		Manifest:       &manifest.Manifest{},
+		WorkspacePaths: make(map[string]string),
+		WorktreePaths:  make(map[string]*WorktreeInfo),
+		ArtifactPaths:  make(map[string]string),
+		Status:         &PipelineStatus{ID: "ws-passthrough-test"},
+		Context:        NewPipelineContext("ws-passthrough-test", "ws-passthrough-test", "step1"),
+	}
+
+	// A plain pipeline_id reference should be returned unchanged.
+	result, err := executor.resolveWorkspaceStepRefs("wave/{{ pipeline_id }}/my-branch", execution)
+	require.NoError(t, err)
+	assert.Equal(t, "wave/{{ pipeline_id }}/my-branch", result, "non-steps templates should pass through unchanged")
+}
+
+// TestCreateStepWorkspace_DeferredBranch verifies end-to-end that a worktree
+// workspace whose branch is derived from a prior step's artifact is correctly
+// resolved via resolveWorkspaceStepRefs before worktree creation.
+//
+// The test does not actually create a real git worktree; it short-circuits via
+// the WorktreePaths cache (pre-populated to simulate a worktree that was
+// already created on the resolved branch).
+func TestCreateStepWorkspace_DeferredBranch(t *testing.T) {
+	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+
+	tmpDir := t.TempDir()
+
+	// Write the artifact that encodes the dynamic branch name.
+	artFile := filepath.Join(tmpDir, "pr-info.json")
+	err := os.WriteFile(artFile, []byte(`{"headRefName":"feat/deferred-123"}`), 0644)
+	require.NoError(t, err)
+
+	resolvedBranch := "feat/deferred-123"
+	cachedPath := "/tmp/deferred-worktree-path"
+	cachedRepoRoot := "/tmp/deferred-repo-root"
+
+	execution := &PipelineExecution{
+		Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "deferred-branch-test"}},
+		Manifest: &manifest.Manifest{},
+		ArtifactPaths: map[string]string{
+			"fetch-pr:pr-info": artFile,
+		},
+		WorkspacePaths: make(map[string]string),
+		WorktreePaths: map[string]*WorktreeInfo{
+			resolvedBranch: {AbsPath: cachedPath, RepoRoot: cachedRepoRoot},
+		},
+		Status:  &PipelineStatus{ID: "deferred-branch-test"},
+		Context: NewPipelineContext("deferred-branch-test", "deferred-branch-test", "apply-fixes"),
+	}
+
+	step := &Step{
+		ID:      "apply-fixes",
+		Persona: "craftsman",
+		Workspace: WorkspaceConfig{
+			Type:   "worktree",
+			Branch: "{{ steps.fetch-pr.artifacts.pr-info.headRefName }}",
+		},
+	}
+
+	wsPath, err := executor.createStepWorkspace(execution, step)
+	require.NoError(t, err)
+	assert.Equal(t, cachedPath, wsPath, "workspace should be the pre-cached worktree for the resolved branch")
+	assert.Equal(t, cachedRepoRoot, execution.WorkspacePaths["apply-fixes__worktree_repo_root"])
 }
