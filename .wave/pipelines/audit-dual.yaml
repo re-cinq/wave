@@ -1,0 +1,268 @@
+# Independent Parallel Tracks Pattern
+#
+# This pipeline demonstrates two fully independent analysis tracks
+# running simultaneously and converging at a final merge step.
+# Unlike the fan-out pattern (used in ops-pr-review.yaml), these tracks
+# have NO shared upstream step — they start independently and converge
+# only at the end.
+#
+# Execution flow:
+#
+#   quality-scan     security-scan      ← both start immediately (no deps)
+#       │                  │
+#   quality-detail   security-detail    ← each track continues independently
+#       └────────┬─────────┘
+#             merge                     ← converges results from both tracks
+
+kind: WavePipeline
+metadata:
+  name: audit-dual
+  description: >-
+    Parallel dual-track analysis that runs independent code quality and
+    security scans simultaneously, deepens each track's findings, then merges
+    both into a unified assessment with an executive summary and prioritized
+    recommendations. Use this for a comprehensive module-level review that
+    covers both maintainability and vulnerability concerns in a single run.
+  release: false
+
+skills:
+  - software-design
+
+input:
+  source: cli
+  example: "analyze the authentication module"
+
+chat_context:
+  artifact_summaries:
+    - report
+  suggested_questions:
+    - "What were the most critical findings across quality and security?"
+    - "What is the overall health rating?"
+    - "Which recommendations have the highest impact?"
+  focus_areas:
+    - "Combined quality and security assessment"
+    - "Prioritized recommendations"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  report:
+    step: merge
+    artifact: report
+
+steps:
+  # ── Track A: Code Quality ──────────────────────────────────────────
+  - id: quality-scan
+    persona: navigator
+    thread: audit
+    model: cheapest
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Perform a thorough code quality scan of the specified area, identifying duplication, complexity, style issues, documentation gaps, and dead code. This is the first step of the quality track in a dual-track parallel analysis pipeline. The findings produced here will be deepened in a subsequent detail step and eventually merged with security findings.
+
+        ## Context
+
+        This step runs in parallel with the security-scan step. They share no data and have no dependencies on each other. The codebase is mounted read-only at /project. The caller provides a scope describing what to analyze (a module name, directory path, or general description).
+
+        Target: {{ input }}
+
+        Interpret the input to identify the relevant source files. If the input names a module or component, use Glob and Grep to locate all files belonging to that module. If the input is a directory path, scan that directory tree. If the input is a general description (e.g., "the authentication module"), search for files related to that concept.
+
+        ## Requirements
+
+        Scan systematically for each of these quality dimensions:
+
+        1. **Code duplication and copy-paste patterns**: Search for functions with identical or near-identical signatures across different files. Look for code blocks of 10+ lines that appear in multiple locations with minor variations. Use Grep to find repeated patterns. For each duplicate, identify the original and the copy, and note any behavioral drift between them.
+
+        2. **Complexity hotspots**: Identify functions exceeding 50 lines. Look for deeply nested control flow (3+ levels of if/for/switch nesting). Check for functions with many parameters (6+) or return values (4+). Note cyclomatic complexity indicators: count the number of branching statements (if, switch cases, for loops) in each function.
+
+        3. **Naming inconsistencies and style violations**: Check that names follow the project's established conventions. Look for abbreviations used inconsistently, naming style mixing, and misleading names (e.g., a function named "Get" that modifies state). Verify that module or package names match directory names and follow the project's naming convention.
+
+        4. **Missing or outdated documentation**: Check for exported functions without doc comments. Verify that existing doc comments accurately describe the current behavior. Look for TODO/FIXME comments that reference resolved issues or removed functionality.
+
+        5. **Unused exports, dead code, and unreachable branches**: Search for exported symbols with no callers outside their package. Identify code after return/panic statements. Look for switch cases that can never be reached.
+
+        For each finding, read the source code to confirm the issue is real and assess its severity based on maintainability impact.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT report standard language idioms as style violations (e.g., single-letter loop variables, blank identifier usage).
+        - Do NOT flag test files for complexity or naming unless they contain production logic.
+        - Do NOT modify any files.
+        - Focus on actionable findings. Reporting 50 trivial style nits dilutes the value of the analysis.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good quality scan reads the actual source code for each finding, provides specific file:line references, and distinguishes between high-impact issues (behavioral duplication, complex critical-path functions) and low-impact ones (minor style preferences). A bad scan lists generic categories without examining actual code or reports every function over 20 lines as "complex."
+    output_artifacts:
+      - name: findings
+        path: .wave/output/findings.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/findings.json
+        schema_path: .wave/contracts/shared-findings.schema.json
+        on_failure: skip
+
+  - id: quality-detail
+    persona: navigator
+    thread: audit
+    model: cheapest
+    dependencies: [quality-scan]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: quality-scan
+          artifact: findings
+          as: scan_results
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Deepen the code quality analysis from the scan results.
+
+        For each finding in .wave/artifacts/scan_results:
+        1. Verify the finding by reading the source code
+        2. Assess severity and impact on maintainability
+        3. Suggest specific refactoring with code examples
+        4. Search for similar patterns elsewhere in the codebase
+
+        Produce a markdown report with prioritized recommendations.
+    output_artifacts:
+      - name: quality_report
+        path: .wave/output/quality-detail.md
+        type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/quality-detail.md
+
+  # ── Track B: Security ──────────────────────────────────────────────
+  - id: security-scan
+    persona: navigator
+    thread: audit
+    model: cheapest
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Perform a security scan of: {{ input }}
+
+        Check for:
+        1. Injection vulnerabilities (SQL, command, path traversal)
+        2. Authentication and authorization gaps
+        3. Hardcoded secrets or credentials
+        4. Insecure data handling (missing encryption, logging sensitive data)
+        5. Input validation gaps at system boundaries
+
+        Output a structured JSON report matching the contract schema.
+    output_artifacts:
+      - name: security_scan
+        path: .wave/output/security-scan.json
+        type: json
+
+  - id: security-detail
+    persona: navigator
+    thread: audit
+    model: cheapest
+    dependencies: [security-scan]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: security-scan
+          artifact: security_scan
+          as: scan_results
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Deepen the security analysis from the scan results.
+
+        For each finding in .wave/artifacts/scan_results:
+        1. Verify by reading the actual source code
+        2. Trace data flow from entry point to sink
+        3. Assess exploitability and real-world impact
+        4. Propose specific remediation with code examples
+
+        Produce a markdown report with severity-ordered findings.
+    output_artifacts:
+      - name: security_report
+        path: .wave/output/security-detail.md
+        type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/security-detail.md
+
+  # ── Merge: Converge both tracks ────────────────────────────────────
+  - id: merge
+    persona: summarizer
+    model: cheapest
+    dependencies: [quality-detail, security-detail]
+    memory:
+      strategy: fresh
+      inject_artifacts:
+        - step: quality-detail
+          artifact: quality_report
+          as: quality_findings
+        - step: security-detail
+          artifact: security_report
+          as: security_findings
+    exec:
+      type: prompt
+      source: |
+        Synthesize the quality and security analysis reports into a
+        unified assessment.
+
+        Read both reports:
+        - .wave/artifacts/quality_findings (code quality)
+        - .wave/artifacts/security_findings (security)
+
+        Produce a final report with:
+        1. Executive summary with overall health rating
+        2. Critical issues requiring immediate attention
+        3. Top recommendations ordered by impact
+        4. Positive observations and strengths
+    output_artifacts:
+      - name: report
+        path: .wave/output/dual-analysis-report.md
+        type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/dual-analysis-report.md

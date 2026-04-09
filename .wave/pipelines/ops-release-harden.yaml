@@ -1,0 +1,68 @@
+kind: WavePipeline
+metadata:
+  name: ops-release-harden
+  description: >-
+    Pre-release hardening pipeline that runs a security audit, branches on
+    finding severity (critical/high triggers hotfixes, medium triggers
+    improvements, low is skipped), and gates on human approval before release.
+    Use this to validate a release branch or tag before cutting a production
+    release.
+  category: composition
+  release: false
+
+input:
+  source: cli
+  example: "v1.0.0"
+  schema:
+    type: string
+    description: "Release version or branch to harden"
+
+chat_context:
+  artifact_summaries:
+    - scan
+  suggested_questions:
+    - "What security issues were found in the release candidate?"
+    - "Were hotfixes or improvements applied?"
+    - "Is the release approved for production?"
+  focus_areas:
+    - "Security scan results"
+    - "Hardening actions and approval status"
+
+pipeline_outputs:
+  scan:
+    step: scan
+    artifact: report
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+steps:
+  - id: scan
+    pipeline: audit-security
+    input: "{{input}}"
+
+  - id: triage
+    dependencies: [scan]
+    branch:
+      on: "{{scan.output.risk_level}}"
+      cases:
+        critical: impl-hotfix
+        high: impl-hotfix
+        medium: impl-improve
+        low: skip
+
+  - id: gate
+    dependencies: [triage]
+    gate:
+      type: approval
+      message: "Review security fixes before release"
+      timeout: "4h"

@@ -1,0 +1,512 @@
+kind: WavePipeline
+metadata:
+  name: impl-refactor
+  description: >-
+    Safe, behavior-preserving refactoring backed by comprehensive test coverage.
+    The pipeline analyzes the refactoring scope and caller graph, establishes a
+    test baseline with characterization tests for uncovered paths, applies the
+    refactoring, and verifies that no regressions were introduced. Use this when
+    restructuring code that must not change external behavior.
+  release: true
+
+skills:
+  - "{{ project.skill }}"
+  - software-design
+
+input:
+  source: cli
+  example: "extract workspace manager from executor into its own package"
+
+chat_context:
+  artifact_summaries:
+    - analysis
+    - verification
+  suggested_questions:
+    - "What was refactored and how?"
+    - "Was existing behavior preserved?"
+    - "Did test coverage decrease?"
+  focus_areas:
+    - "Refactoring scope and safety"
+    - "Test baseline comparison"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  result:
+    step: verify
+    artifact: verification
+
+steps:
+  - id: analyze
+    persona: navigator
+    model: cheapest
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        REFACTORING ANALYSIS — map the full scope and impact of the proposed change.
+
+        ## Objective
+
+        Analyze the refactoring request to produce a comprehensive scope document. This
+        document must identify every file that will be directly modified, every caller or
+        consumer that depends on the code being refactored, all existing test coverage,
+        and all integration points where the refactored code connects to other systems.
+        The analysis is the foundation for the entire pipeline — if you miss a caller or
+        dependency here, the refactoring step will break it without knowing.
+
+        Refactoring request: {{ input }}
+
+        ## Context
+
+        You are the first step in the refactoring pipeline. No prior artifacts exist. You
+        have read-only access to the full project codebase. Your output (the `analysis`
+        artifact) will be used by the test-baseline step to write characterization tests
+        and by the refactor step to execute the changes. Both steps depend entirely on
+        the accuracy and completeness of your analysis.
+
+        ## Requirements
+
+        1. **Parse the refactoring request**: Understand what structural change is being
+           asked for. Common refactoring types include:
+           - Extract: Pull code out of a large function/file into a new one
+           - Inline: Remove an abstraction by inlining its logic into callers
+           - Move: Relocate code from one package/module to another
+           - Rename: Change names of types, functions, or packages
+           - Restructure: Reorganize code organization without changing behavior
+           Identify which type applies and restate the request precisely.
+
+        2. **Identify all directly affected code**: Use Glob and Grep to find every file
+           that contains the code being refactored. For each file, record:
+           - Full file path
+           - What code in this file is being changed (functions, types, interfaces)
+           - How it will change (moved, renamed, restructured, deleted)
+           - Approximate line count of the affected code
+
+        3. **Map all callers and consumers**: For every function, type, or interface being
+           refactored, find every place in the codebase that references it:
+           - Direct callers (functions that call the code)
+           - Type users (code that creates instances or uses the type)
+           - Interface implementors (types that implement the interface)
+           - Configuration references (config files, YAML, JSON that mention the code)
+           Use `grep -r` extensively. Do not rely on IDE-style analysis — grep is your
+           source of truth.
+
+        4. **Assess existing test coverage**: For each affected file, find the corresponding
+           test file(s). Determine:
+           - Which functions have tests and which do not
+           - What kind of tests exist (unit, integration, table-driven)
+           - Whether the tests verify behavior (assertions on outputs) or just exercise
+             code paths (no assertions)
+           - Coverage gaps: code paths with no test coverage that the refactoring will touch
+
+        5. **Identify integration points**: Where does the affected code connect to external
+           systems, databases, file I/O, network calls, or other packages? These are the
+           highest-risk points for a refactoring — changes here can break things that tests
+           do not cover.
+
+        6. **Estimate blast radius**: Categorize the impact:
+           - Contained: Changes are isolated to 1-2 files, no external callers
+           - Moderate: 3-10 files affected, some callers need updates
+           - Extensive: 10+ files, many callers, potential configuration changes
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT propose solutions or refactoring approaches. That is the refactor step's
+          job. Your job is to map the terrain.
+        - Do NOT miss callers. A missed caller will become a compilation error or runtime
+          failure after the refactoring.
+        - Do NOT count test files as "affected code" unless the tests themselves need to
+          be restructured (not just updated for new imports).
+        - Do NOT produce a superficial analysis. Read the actual code, do not rely on file
+          names or directory structure alone.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good analysis makes the test-baseline step trivial — every gap is identified,
+        every caller is documented, every integration point is flagged. A bad analysis
+        misses callers that break after refactoring, underestimates the blast radius, or
+        confuses test existence with test adequacy.
+    output_artifacts:
+      - name: analysis
+        path: .wave/output/refactor-analysis.json
+        type: json
+    retry:
+      policy: patient
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/refactor-analysis.json
+        schema_path: .wave/contracts/refactor-analysis.schema.json
+        on_failure: retry
+
+  - id: test-baseline
+    persona: craftsman
+    model: strongest
+    dependencies: [analyze]
+    memory:
+      inject_artifacts:
+        - step: analyze
+          artifact: analysis
+          as: scope
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readwrite
+    exec:
+      type: prompt
+      source: |
+        TEST BASELINE — establish comprehensive coverage before any refactoring begins.
+
+        ## Objective
+
+        Before any code is moved, renamed, or restructured, ensure that every affected
+        code path has test coverage. Run the existing test suite to establish a passing
+        baseline, then write characterization tests for any uncovered paths and integration
+        tests for affected callers. The goal is a safety net that will catch any behavioral
+        change introduced by the refactoring. No refactoring should begin until this step
+        produces a fully green test suite with adequate coverage.
+
+        ## Context
+
+        The injected `scope` artifact contains the refactoring analysis. Read it FIRST.
+        It contains:
+        - `affected_code`: All files and functions being refactored
+        - `callers`: All consumers that depend on the affected code
+        - `test_coverage`: Current test coverage status for each affected file
+        - `integration_points`: External connection points
+        - `blast_radius`: The estimated scope of impact
+
+        You have read-write access to the project codebase. You are working on the same
+        workspace that the refactor step will use — any tests you write here will be
+        available during the refactoring.
+
+        ## Requirements
+
+        1. **Run the existing test suite**: Execute the full project test suite and record
+           the results. All tests must pass. If any existing tests fail BEFORE you make
+           changes, document the failure — it is a pre-existing issue, not caused by this
+           pipeline. Do not attempt to fix pre-existing failures unless they are in the
+           affected code.
+
+        2. **Identify coverage gaps**: Compare the `test_coverage` from the analysis
+           artifact against actual test files. For each function or code path being
+           refactored that lacks test coverage:
+           - Determine what the function does (read the code)
+           - Identify its inputs and outputs
+           - Note its current behavior including edge cases
+
+        3. **Write characterization tests**: For each uncovered code path, write a
+           characterization test that documents the CURRENT behavior:
+           - The test should call the function with representative inputs
+           - Assert on the actual outputs (not what the outputs "should" be)
+           - Cover happy path, error path, and edge cases
+           - Name the test clearly: `TestFunctionName_CharacterizesBehavior`
+           These tests serve as a behavioral snapshot — if the refactoring changes any
+           behavior, these tests will catch it.
+
+        4. **Write integration tests for callers**: For each caller identified in the
+           analysis that does not have adequate integration test coverage:
+           - Write a test that exercises the caller's use of the affected code
+           - Assert that the caller produces the expected output
+           - Cover the most common usage patterns
+
+        5. **Document the baseline**: Write a baseline document that captures:
+           - Total test count before and after your additions
+           - Which characterization tests were added and what they cover
+           - Which integration tests were added and what callers they protect
+           - Any pre-existing test failures noted
+
+        6. **Verify all tests pass**: Run the full suite again after adding new tests.
+           Every test — existing and new — must pass.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT refactor any code in this step. This step is test-writing only.
+        - Do NOT write tests that test implementation details (private functions, internal
+          state). Test the public interface and observable behavior.
+        - Do NOT write trivial tests that do not add safety value (e.g., testing that a
+          getter returns a field).
+        - Do NOT modify existing tests unless they have a bug that prevents them from
+          running.
+        - Follow the project's existing test patterns (table-driven, mocks, fixtures).
+
+        ## Output Format
+
+        Produce the baseline document as markdown. The contract
+        validates that the test suite passes.
+
+        ## Quality Bar
+
+        A good baseline means the refactoring step can be confident that any test failure
+        it encounters was caused by the refactoring, not by a pre-existing gap. Every
+        affected function has at least one test covering its key behavior. A bad baseline
+        adds tests that are too shallow to catch behavioral changes, or misses critical
+        code paths that the refactoring will modify.
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: test_suite
+        command: "{{ project.contract_test_command }}"
+
+        must_pass: true
+        on_failure: retry
+    output_artifacts:
+      - name: baseline
+        path: .wave/output/test-baseline.md
+        type: markdown
+  - id: refactor
+    persona: craftsman
+    model: strongest
+    dependencies: [test-baseline]
+    thread: refactor
+    memory:
+      inject_artifacts:
+        - step: analyze
+          artifact: analysis
+          as: scope
+        - step: test-baseline
+          artifact: baseline
+          as: tests
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readwrite
+    exec:
+      type: prompt
+      source: |
+        REFACTORING — execute the structural change while preserving all behavior.
+
+        ## Objective
+
+        Perform the refactoring described in the original request. The refactoring must be
+        behavior-preserving: after all changes are applied, every existing test must still
+        pass, and no observable output, side effect, or error message should change. Make
+        atomic, reviewable changes. Commit frequently so that each commit represents a
+        single logical step of the refactoring.
+
+        Refactoring request: {{ input }}
+
+        ## Context
+
+        Two artifacts have been injected:
+        - `scope` — the refactoring analysis from the analyze step, containing all
+          affected files, callers, test coverage, and integration points
+        - `tests` — the test baseline from the test-baseline step, confirming which tests
+          exist and that they all pass pre-refactoring
+
+        You are on a thread named `refactor`, which means context from this step carries
+        over to any rework attempts. You have read-write access to the full project codebase.
+
+        ## Requirements
+
+        1. **Plan the execution order**: Based on the analysis artifact, determine the
+           safest order of changes. Common patterns:
+           - For extract refactoring: Create the new target first, then move code, then
+             update callers, then remove the original
+           - For inline refactoring: Update callers one at a time, then remove the
+             abstraction
+           - For move refactoring: Create the new location, copy code, update imports in
+             callers, verify, then remove the original
+           - For rename refactoring: Update the definition, then all callers, in a single
+             commit (partial renames break the build)
+
+        2. **Make atomic changes**: Each change should be the smallest meaningful unit that
+           leaves the codebase in a compilable, testable state. After each change:
+           a. Verify the code compiles
+           b. Run the relevant test package
+           c. If tests pass, commit with a descriptive message
+           d. If tests fail, fix the issue before moving on
+
+        3. **Update all callers**: The analysis artifact lists every caller of the affected
+           code. Update each caller to use the new structure (new import paths, new function
+           names, new types). Do NOT skip any caller — a missed caller is a build failure.
+
+        4. **Preserve behavior absolutely**: This is the cardinal rule of refactoring. If
+           you are tempted to "improve" something while refactoring, resist. Behavioral
+           changes require their own pipeline. Specifically:
+           - Do not change function semantics (what inputs produce what outputs)
+           - Do not change error messages or error types
+           - Do not change log messages or log levels
+           - Do not change the order of operations if it could affect side effects
+           - Do not change configuration defaults
+
+        5. **Keep commits small and focused**: Each commit should represent one logical step:
+           - "Extract WorkspaceManager interface from executor"
+           - "Move workspace logic to internal/workspace package"
+           - "Update all callers to use new workspace package"
+           A reviewer should be able to understand each commit independently.
+
+        6. **Run the full test suite before finishing**: After all changes are applied, run
+           the complete test suite. Every test must pass, including the characterization
+           tests from the baseline step.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT change behavior. Period. If a test fails because behavior changed, you
+          made a mistake — fix the refactoring, not the test.
+        - Do NOT combine structural changes with behavioral changes in the same PR.
+        - Do NOT skip updating callers that the analysis identified.
+        - Do NOT leave commented-out code or TODO markers. Remove old code completely.
+        - Do NOT add new features or fix bugs as part of the refactoring.
+        - Do NOT modify test assertions unless the test itself needs to import from a new
+          location. Test logic and assertions must not change.
+        - Do NOT use `git add -A` — stage specific files only.
+
+        ## Output Format
+
+        No explicit output artifact is required. The contract validates that the test suite
+        passes. The verify step will independently review the changes.
+
+        ## Quality Bar
+
+        A good refactoring produces a clean commit history where each commit is a single
+        logical step, all tests pass after every commit, and the final codebase has the
+        new structure while maintaining identical behavior. A reviewer can follow the
+        progression of commits and understand the refactoring without reading the full
+        diff. A bad refactoring combines everything in one commit, breaks tests mid-way,
+        or sneaks in behavioral changes alongside the structural change.
+    retry:
+      policy: standard
+      max_attempts: 3
+    handover:
+      contract:
+        type: test_suite
+        command: "{{ project.contract_test_command }}"
+        must_pass: false
+        on_failure: retry
+      compaction:
+        trigger: "token_limit_80%"
+        persona: summarizer
+
+  - id: verify
+    persona: reviewer
+    model: strongest
+    dependencies: [refactor]
+    exec:
+      type: prompt
+      source: |
+        VERIFICATION — confirm the refactoring is behavior-preserving and complete.
+
+        ## Objective
+
+        Independently verify that the refactoring preserves all existing behavior, that
+        all callers have been updated, that test coverage has not decreased, and that the
+        new code structure is an improvement over the old one. Your output is a PASS or FAIL
+        verdict. This is the final gate — if you pass the refactoring, it will be merged.
+
+        ## Context
+
+        The refactoring step has completed and all tests pass. However, passing tests do
+        not guarantee the refactoring is correct — tests may not cover all callers, and
+        behavioral changes may be subtle. You have read access to the codebase in its
+        post-refactoring state.
+
+        ## Requirements
+
+        1. **Review the full diff**: Run `git diff` against the appropriate base to see
+           every change. Examine each modified file. For each change, verify:
+           - Is this a pure structural change (rename, move, extract) or does it alter logic?
+           - Are there any semantic differences between the old and new code?
+           - Are error handling patterns preserved (same error types, same wrapping)?
+
+        2. **Compare before/after behavior**: For the core functions that were refactored:
+           - Do they accept the same inputs and produce the same outputs?
+           - Do they handle the same error conditions in the same way?
+           - Do they have the same side effects (logging, metrics, file I/O)?
+           - If behavior changed, this is a FAIL regardless of whether tests pass.
+
+        3. **Check test coverage**: Compare the test count and coverage before and after.
+           The test-baseline step established the pre-refactoring baseline. Verify:
+           - No tests were deleted without replacement
+           - Characterization tests still exist and still pass
+           - Integration tests for callers still exercise the correct code paths
+           - Test coverage (measured by which functions are called) has not decreased
+
+        4. **Verify all callers were updated**: Cross-reference the caller list from the
+           analysis artifact (if available) with the actual changes. Use `grep -r` to
+           search for any remaining references to old function names, old package paths,
+           or old type names. Any stale reference is a FAIL.
+
+        5. **Look for missed edge cases**: Consider scenarios the tests might not cover:
+           - Nil/empty inputs to refactored functions
+           - Concurrent access patterns
+           - Error propagation through the new call chain
+           - Configuration-dependent code paths
+
+        6. **Assess code quality improvement**: The refactoring should leave the code in
+           a better structural state. Evaluate:
+           - Is the new organization clearer than the old one?
+           - Are responsibilities better separated?
+           - Is the code easier to navigate and understand?
+           - Did the refactoring reduce duplication or complexity?
+
+        7. **Write the verdict**:
+           - **PASS**: Behavior is preserved, all callers updated, test coverage maintained,
+             code quality improved. Safe to merge.
+           - **FAIL**: Explain exactly what is wrong. Common failures:
+             - Behavioral change detected (with specific code reference)
+             - Caller not updated (with file path and line)
+             - Test coverage decreased (with specific test gap)
+             - Stale references to old code remain
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT modify any files. This is a read-only verification step.
+        - Do NOT approve based on "tests pass" alone. Verify independently.
+        - Do NOT suggest additional refactoring. Scope is verifying what was done.
+        - Do NOT fail based on style preferences. Fail only on concrete issues.
+
+        ## Output Format
+
+        Produce the verification as markdown with sections:
+        - **Verdict**: PASS or FAIL
+        - **Behavioral Analysis**: Before/after comparison for core functions
+        - **Caller Verification**: Whether all callers were updated
+        - **Test Coverage Assessment**: Before/after test metrics
+        - **Code Quality Assessment**: Whether the structure improved
+        - **Issues Found**: (if FAIL) Specific problems with file/line references
+
+        ## Quality Bar
+
+        A good verification catches stale references, subtle behavioral changes, or
+        coverage gaps that the test suite missed. A bad verification rubber-stamps the
+        refactoring or fails it based on subjective code style preferences rather than
+        objective behavior preservation.
+    output_artifacts:
+      - name: verification
+        path: .wave/output/verification.md
+        type: markdown
+    handover:
+      contract:
+        type: agent_review
+        persona: navigator
+        criteria_path: .wave/contracts/verification-criteria.md
+        source: .wave/output/verification.md
+        model: cheapest
+        token_budget: 8000
+        timeout: 90s
+        on_failure: warn

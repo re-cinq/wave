@@ -1,0 +1,59 @@
+kind: WavePipeline
+metadata:
+  name: ops-epic-runner
+  description: >-
+    End-to-end epic execution pipeline that scopes a parent epic into child
+    issues, then implements each child sequentially using the speckit flow.
+    Use this to take a high-level epic from scoping through implementation
+    in a single pipeline run. Composes plan-scope and impl-speckit as
+    sub-pipelines.
+  category: composition
+  release: false
+
+input:
+  source: cli
+  example: "re-cinq/wave 42"
+  schema:
+    type: string
+    description: "GitHub epic reference (owner/repo number)"
+
+chat_context:
+  artifact_summaries:
+    - scope
+  suggested_questions:
+    - "How many child issues were scoped and implemented?"
+    - "Did all implementations succeed?"
+    - "Are there any remaining child issues?"
+  focus_areas:
+    - "Epic scoping and child issue status"
+    - "Implementation completion rate"
+
+pipeline_outputs:
+  scope:
+    step: scope
+    artifact: scope
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+steps:
+  - id: scope
+    pipeline: plan-scope
+    input: "{{input}}"
+
+  - id: implement-all
+    dependencies: [scope]
+    pipeline: impl-speckit
+    input: "{{item.url}} — child of {{input}}, see parent for full context"
+    iterate:
+      over: "{{scope.output.child_issues}}"
+      mode: sequential
