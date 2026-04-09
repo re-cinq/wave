@@ -412,7 +412,7 @@ func (c *CompositionExecutor) executeAggregate(step *Step) error {
 	case "concat":
 		result = sourceData
 	case "merge_arrays":
-		result, err = mergeJSONArrays(sourceData)
+		result, err = mergeJSONArrays(sourceData, step.Aggregate.Key)
 		if err != nil {
 			return fmt.Errorf("merge_arrays failed: %w", err)
 		}
@@ -513,10 +513,41 @@ func (c *CompositionExecutor) emit(ev event.Event) {
 // mergeJSONArrays takes a JSON string containing multiple arrays and merges them.
 // If the input is an array of arrays, the inner arrays are flattened into one.
 // If the input is already a flat array (no inner arrays), it is returned as-is.
-func mergeJSONArrays(data string) (string, error) {
+//
+// When key is non-empty, each element is expected to be a JSON object and the
+// value at that key is extracted before merging. This supports the common pattern
+// where sub-pipelines produce {"findings": [...], "summary": "..."} envelopes
+// and only the array field should be merged.
+func mergeJSONArrays(data string, key string) (string, error) {
 	var elements []json.RawMessage
 	if err := json.Unmarshal([]byte(data), &elements); err != nil {
 		return "", fmt.Errorf("cannot parse as JSON array: %w", err)
+	}
+
+	// When a key is specified, extract that field from each element first.
+	if key != "" {
+		extracted := make([]json.RawMessage, 0, len(elements))
+		for i, elem := range elements {
+			var obj map[string]json.RawMessage
+			if err := json.Unmarshal(elem, &obj); err != nil {
+				return "", fmt.Errorf("element %d: expected JSON object for key extraction, got: %s", i, truncateJSON(elem))
+			}
+			val, ok := obj[key]
+			if !ok {
+				return "", fmt.Errorf("element %d: key %q not found in object", i, key)
+			}
+			// The extracted value should be an array; unwrap its items directly.
+			var inner []json.RawMessage
+			if err := json.Unmarshal(val, &inner); err != nil {
+				return "", fmt.Errorf("element %d: value at key %q is not a JSON array", i, key)
+			}
+			extracted = append(extracted, inner...)
+		}
+		result, err := json.Marshal(extracted)
+		if err != nil {
+			return "", err
+		}
+		return string(result), nil
 	}
 
 	// Check if any element is itself an array -- if so, flatten all.
@@ -551,6 +582,15 @@ func mergeJSONArrays(data string) (string, error) {
 		return "", err
 	}
 	return string(result), nil
+}
+
+// truncateJSON returns a short representation of a JSON value for error messages.
+func truncateJSON(data json.RawMessage) string {
+	s := string(data)
+	if len(s) > 60 {
+		return s[:60] + "..."
+	}
+	return s
 }
 
 // ValidateCompositionTemplates checks that all template references in a composition

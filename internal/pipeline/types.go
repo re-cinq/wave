@@ -664,9 +664,10 @@ type LoopConfig struct {
 
 // AggregateConfig configures output collection from prior steps.
 type AggregateConfig struct {
-	From     string `yaml:"from"`     // Template expression for source data
-	Into     string `yaml:"into"`     // Output file path
-	Strategy string `yaml:"strategy"` // "merge_arrays", "concat", "reduce"
+	From     string `yaml:"from"`              // Template expression for source data
+	Into     string `yaml:"into"`              // Output file path
+	Strategy string `yaml:"strategy"`          // "merge_arrays", "concat", "reduce"
+	Key      string `yaml:"key,omitempty"`     // JSON object key to extract before merging (merge_arrays only)
 }
 
 type SubPipelineConfig struct {

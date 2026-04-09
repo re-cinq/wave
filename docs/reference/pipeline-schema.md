@@ -1026,6 +1026,7 @@ steps:
       from: "{{ steps.process-items.results }}"
       into: .wave/output/combined.json
       strategy: merge_arrays
+      key: findings          # extract .findings from each JSON object before merging
     dependencies: [process-items]
 ```
 
@@ -1036,12 +1037,13 @@ steps:
 | `from` | **yes** | Template expression for source data |
 | `into` | **yes** | Output file path |
 | `strategy` | **yes** | `merge_arrays`, `concat`, or `reduce` |
+| `key` | no | JSON object key to extract before merging (`merge_arrays` only). When set, each element is expected to be an object and the value at this key (which must be an array) is extracted and merged. |
 
 ### Aggregation Strategies
 
 | Strategy | Description |
 |----------|-------------|
-| `merge_arrays` | Merge JSON arrays from all items into one array |
+| `merge_arrays` | Merge JSON arrays from all items into one array. When `key` is set, extracts the named field from each JSON object before merging. |
 | `concat` | Concatenate text outputs |
 | `reduce` | Custom reduction (requires reduce template) |
 
