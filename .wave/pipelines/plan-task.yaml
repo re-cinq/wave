@@ -1,0 +1,386 @@
+kind: WavePipeline
+metadata:
+  name: plan-task
+  description: >-
+    Break down a feature into actionable, ordered tasks. The pipeline explores
+    the codebase to map affected files and patterns, then a planner generates
+    a structured task list with dependencies, complexity estimates, and
+    acceptance criteria. Use this when you need a concrete implementation
+    roadmap before starting to code.
+  release: true
+
+skills:
+  - software-architecture
+
+input:
+  source: cli
+  example: "add webhook support for pipeline completion events"
+
+chat_context:
+  artifact_summaries:
+    - tasks
+    - review
+  suggested_questions:
+    - "How many tasks were identified?"
+    - "What is the estimated total effort?"
+    - "Were any tasks flagged for revision?"
+  focus_areas:
+    - "Task breakdown quality and ordering"
+    - "Review verdict and recommendations"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  review:
+    step: review
+    artifact: review
+
+steps:
+  - id: explore
+    persona: navigator
+    model: cheapest
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        OBJECTIVE:
+        Explore the codebase to gather comprehensive context for a feature or task,
+        producing a structured JSON exploration report that a planner persona will use
+        (without any other context) to break the work into actionable implementation tasks.
+
+        FEATURE/TASK: {{ input }}
+
+        CONTEXT:
+        You are the first step in a three-step task planning pipeline (explore, breakdown,
+        review). Your exploration output is the ONLY context the planner will have. If you
+        miss a relevant file, pattern, or risk, the planner will produce an incomplete or
+        incorrect task breakdown. Thoroughness here prevents rework later. You have
+        read-only access to the full project codebase.
+
+        REQUIREMENTS:
+        1. Understand the request: Summarize what is being asked in 2-3 sentences. Assess
+           scope: small (1-2 files), medium (3-7 files), large (8-15 files), epic (16+ files).
+           Identify the primary subsystem this feature touches.
+        2. Find related files: Use Glob to discover files by name pattern and Grep to
+           search for relevant functions, types, and identifiers. For each relevant file,
+           record:
+           - path: absolute file path
+           - relevance: primary (will be modified), secondary (provides context or interfaces),
+             or reference (similar pattern to follow)
+           - reason: why this file matters for the feature (one sentence)
+           - key_symbols: array of function names, type definitions, constants, and
+             interfaces defined in or relevant within the file
+           Examine at least 10 files. For large-scope features, examine 20+.
+        3. Identify patterns: Read the most relevant files (at minimum the primary files)
+           and document the codebase conventions. Assign each pattern a PAT-### ID:
+           - must_follow: violating this would break consistency, compilation, or runtime
+             behavior (e.g., error wrapping convention, interface satisfaction)
+           - should_follow: strong convention with occasional exceptions (e.g., table-driven
+             tests, specific naming scheme)
+           - informational: good to know but not binding (e.g., comment style)
+           Document at least 3 patterns. Include code snippets showing the pattern in use.
+        4. Map affected modules: List every package or module that will be directly affected
+           (files changed) or indirectly affected (depends on changed code, or depended upon
+           by changed code). For each, note:
+           - module_path: the package or directory path
+           - impact: direct (code changes needed) or indirect (may need testing/verification)
+           - dependencies: what this module imports that is relevant
+           - dependents: what imports this module that might be affected
+        5. Survey testing landscape: Find test files related to the affected code. For each
+           test file, note: path, what it tests, testing patterns used (table-driven, mocks,
+           fixtures, integration), and coverage gaps visible from reading the tests. Identify
+           which tests will need updating and where new tests are needed.
+        6. Assess risks: Identify 2-5 potential risks. For each:
+           - id: RISK-### format
+           - category: breaking_change, performance, security, compatibility, complexity
+           - severity: high, medium, or low
+           - description: what could go wrong
+           - mitigation: how to prevent or handle it
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT write markdown or prose. Output must be valid JSON only.
+        - Do NOT fabricate file paths. Every path must be verified via Glob or Read.
+        - Do NOT perform shallow exploration. If you examine fewer than 10 files, the
+          planner will not have enough context. Read primary files in full.
+        - Do NOT ignore test files. Testing context is critical for task planning.
+        - Do NOT assess risks generically. Every risk must be specific to this feature
+          and this codebase, referencing actual files or patterns.
+        - CRITICAL: Write ONLY the JSON object to the output file. No markdown wrapping,
+          no explanation outside the file. The file must parse as valid JSON.
+
+        OUTPUT FORMAT:
+        Produce structured JSON matching the
+        plan-exploration schema. Top-level fields: request_summary (string), scope
+        (small/medium/large/epic), related_files (array), patterns (array), affected_modules
+        (array), testing_landscape (object with test_files array and coverage_gaps array),
+        risks (array), and timestamp.
+
+        QUALITY BAR:
+        A good exploration enables the planner to create tasks without needing to re-explore
+        the codebase. Every file path is real, every pattern has an example, and every risk
+        is specific. A bad exploration is shallow (few files), misses critical patterns, or
+        fabricates file paths the planner will reference in tasks that turn out to be wrong.
+    output_artifacts:
+      - name: exploration
+        path: .wave/output/exploration.json
+        type: json
+    retry:
+      policy: patient
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/exploration.json
+        schema_path: .wave/contracts/plan-exploration.schema.json
+        on_failure: retry
+
+  - id: breakdown
+    persona: planner
+    model: strongest
+    dependencies: [explore]
+    memory:
+      inject_artifacts:
+        - step: explore
+          artifact: exploration
+          as: context
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        OBJECTIVE:
+        Break down a feature request into actionable, ordered implementation tasks with
+        dependencies, complexity estimates, persona assignments, and acceptance criteria.
+        The task list must be detailed enough that each task can be handed to an agent or
+        developer for independent execution.
+
+        FEATURE REQUEST: {{ input }}
+
+        CONTEXT:
+        You are the second step in a three-step task planning pipeline. The explore step
+        has already analyzed the codebase and injected its findings as the "context"
+        artifact. This contains: related files with relevance ratings, codebase patterns
+        with enforcement levels, affected modules with dependency maps, testing landscape
+        with coverage gaps, and identified risks with severities. You MUST read this
+        artifact completely and use ALL of its information to inform your task breakdown.
+        Do not re-explore the codebase; trust the exploration output.
+
+        REQUIREMENTS:
+        1. Read the injected context artifact. Extract the scope assessment, related files,
+           patterns (especially must_follow patterns), and risks.
+        2. Create tasks following these rules:
+           a. Task IDs: Use T01, T02, T03... format (zero-padded two digits). Maximum 20
+              tasks. If the feature needs more, you are scoping too finely.
+           b. Persona assignment: Assign each task to the most appropriate persona:
+              - navigator: architecture decisions, exploration, planning, design documents
+              - craftsman: implementation, coding, file creation, complex changes
+              - philosopher: review, analysis, quality assessment, trade-off evaluation
+              - auditor: security review, compliance checking, vulnerability assessment
+              - implementer: focused implementation tasks, mechanical code changes
+              - reviewer: code review, test verification, documentation review
+           c. Dependencies: Express as task ID arrays (e.g., ["T01", "T02"]). A task with
+              no dependencies gets an empty array []. Dependencies must be acyclic.
+           d. Complexity: S (<1hr), M (1-4hr), L (4-8hr), XL (>1 day). Justify the
+              estimate based on file count and change type.
+           e. Acceptance criteria: Each task MUST have at least 2 concrete, verifiable
+              criteria. Criteria must be testable: "function X returns error when input
+              is nil" not "error handling works." Reference specific functions or files
+              from the exploration where possible.
+           f. Affected files: List every file each task will create or modify. Use exact
+              paths from the exploration artifact. Mark each as "create", "modify", or
+              "delete".
+           g. Risk references: If the exploration identified a risk relevant to this task,
+              reference it by RISK-### ID.
+        3. Group tasks into execution phases:
+           - Phase 1: tasks with no dependencies (can run in parallel)
+           - Phase 2: tasks that depend only on Phase 1 tasks
+           - Phase N: tasks that depend on Phase N-1 or earlier
+           Tasks within the same phase can run in parallel. The phase ordering must
+           respect all dependency edges.
+        4. Include a feature_summary field with: title, description (2-3 sentences),
+           total_tasks, total_phases, and estimated_total_effort (sum of task estimates).
+        5. For each must_follow pattern from the exploration, verify that at least one
+           task's acceptance criteria ensures compliance with that pattern.
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT create tasks that are not grounded in the exploration. Every affected
+          file should come from the exploration's related_files list.
+        - Do NOT create circular dependencies. The task graph must be a DAG.
+        - Do NOT create tasks without acceptance criteria. Tasks without verifiable
+          criteria cannot be marked as complete.
+        - Do NOT assign all tasks to "craftsman." Use the persona that best fits the
+          task's nature. Architecture decisions go to navigator, reviews to philosopher.
+        - Do NOT create a single monolithic "implement everything" task. Break work into
+          units that are independently verifiable.
+        - Do NOT ignore testing tasks. At minimum, one task should cover writing or
+          updating tests for the feature.
+        - CRITICAL: Write ONLY the JSON object to the output file. No markdown wrapping,
+          no explanation outside the file. The file must parse as valid JSON.
+
+        OUTPUT FORMAT:
+        Produce structured JSON matching the plan-tasks contract schema.
+        Top-level fields: feature_summary (object), tasks (array of task objects), phases
+        (array of phase objects with task_ids), and timestamp.
+
+        QUALITY BAR:
+        A good task breakdown is one where each task can be handed to a different developer
+        (or agent) and executed independently, with clear acceptance criteria that leave no
+        ambiguity about when the task is done. The dependency graph should have maximum
+        parallelism (wide phases) without sacrificing correctness. A bad breakdown has
+        vague tasks, missing dependencies, unreferenced files, or a linear chain where
+        parallel execution was possible.
+    output_artifacts:
+      - name: tasks
+        path: .wave/output/tasks.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/tasks.json
+        schema_path: .wave/contracts/plan-tasks.schema.json
+        on_failure: retry
+
+  - id: review
+    persona: philosopher
+    model: strongest
+    dependencies: [breakdown]
+    memory:
+      inject_artifacts:
+        - step: explore
+          artifact: exploration
+          as: context
+        - step: breakdown
+          artifact: tasks
+          as: task_list
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        OBJECTIVE:
+        Review the task breakdown plan for quality, completeness, and correctness, producing
+        a structured review report with per-task assessments, cross-cutting concern analysis,
+        actionable recommendations, and an overall verdict. The review should catch problems
+        before implementation begins.
+
+        FEATURE REQUEST: {{ input }}
+
+        CONTEXT:
+        You are the third and final step in the task planning pipeline. Two artifacts are
+        injected into your workspace:
+        - context: the codebase exploration from the explore step, containing related files,
+          patterns (with must_follow/should_follow levels), affected modules, testing
+          landscape, and risks
+        - task_list: the task breakdown from the breakdown step, containing feature summary,
+          tasks with dependencies and acceptance criteria, and execution phases
+        Read BOTH artifacts completely before starting your review. Your review is the
+        quality gate: if the plan has problems, you must catch them here before implementation
+        resources are spent on a flawed plan.
+
+        REQUIREMENTS:
+        1. Per-task review: For EACH task in the plan, evaluate and assign a status:
+           - ok: task is well-defined and ready to execute
+           - needs_refinement: good idea but description or criteria need more specificity
+           - missing_details: lacks acceptance criteria, affected files, or dependencies
+           - overcomplicated: should be split into smaller tasks or simplified
+           - wrong_persona: a different persona would be more appropriate for this work
+           - bad_dependencies: dependencies are incorrect, missing, or create a cycle
+           For each issue found, create a review item with:
+           - id: REV-### format
+           - task_id: which task this applies to
+           - severity: critical (blocks execution), major (significant quality issue),
+             minor (improvement opportunity)
+           - status: one of the statuses above
+           - description: what the problem is
+           - suggestion: specific fix (not vague advice)
+        2. Cross-cutting concerns: Look for concerns that span multiple tasks. For each
+           concern found, create an item with CC-### ID:
+           - Testing strategy: Are tests planned? Do they follow codebase patterns
+             identified in the exploration (check must_follow patterns)? Is there a
+             task for integration testing?
+           - Security: If the exploration identified security risks, are they addressed
+             in task acceptance criteria?
+           - Performance: If the feature could affect performance, is there a task for
+             benchmarking or performance testing?
+           - Backward compatibility: If the feature changes APIs or behavior, is there
+             a migration or deprecation task?
+           - Documentation: If the feature adds new user-facing behavior, is there a
+             documentation task?
+        3. Recommendations: Provide actionable recommendations with REC-### IDs. Each
+           recommendation must have:
+           - type: add_task, modify_task, remove_task, reorder, split_task, merge_tasks,
+             change_persona, or add_dependency
+           - target: which task ID(s) this applies to (or "plan" for plan-level changes)
+           - description: what to do and why
+           - priority: must_do (plan is flawed without this), should_do (improves quality),
+             nice_to_have (marginal improvement)
+        4. Dependency graph validation: Verify that:
+           - No circular dependencies exist
+           - Phase assignments are correct (all dependencies in earlier phases)
+           - Maximum parallelism is achieved (tasks that could run in parallel are in
+             the same phase)
+        5. Overall verdict: After completing all reviews, provide exactly one verdict:
+           - approve: plan is ready to execute as-is (no critical or major issues)
+           - approve_with_notes: plan is good but has minor issues worth noting (no
+             critical issues, at most 2 major issues)
+           - revise: plan needs significant changes before execution (any critical issue,
+             or 3+ major issues)
+           Include a confidence score (0.0-1.0) and a brief rationale for the verdict.
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT rubber-stamp the plan. Review critically. If the plan is perfect, say so
+          with specific reasons. But assume the plan has at least some room for improvement.
+        - Do NOT invent issues that are not supported by the exploration context. If the
+          exploration did not find a security risk, do not flag "missing security task"
+          as a cross-cutting concern.
+        - Do NOT provide vague recommendations. "Improve task T03" is unacceptable;
+          "Split T03 into T03a (add the interface) and T03b (implement the adapter)
+          because the current scope covers two distinct deliverables" is correct.
+        - Do NOT ignore the exploration's must_follow patterns. Each one should be
+          traceable to at least one task's acceptance criteria.
+        - CRITICAL: Write ONLY the JSON object to the output file. No markdown wrapping,
+          no explanation outside the file. The file must parse as valid JSON.
+
+        OUTPUT FORMAT:
+        Produce structured JSON matching the plan-review contract
+        schema. Top-level fields: feature_request (string), task_reviews (array of per-task
+        review objects), cross_cutting_concerns (array), recommendations (array), dependency_validation
+        (object with is_valid boolean and issues array), verdict (object with decision,
+        confidence, and rationale), and timestamp.
+
+        QUALITY BAR:
+        A good review catches real problems that would cause implementation failures, provides
+        specific fixes for each issue, and gives an honest verdict. The reader should trust
+        that an "approve" verdict means the plan is actually ready, and a "revise" verdict
+        means there are specific, fixable problems. A bad review either rubber-stamps
+        everything or nitpicks trivially while missing structural problems.
+    output_artifacts:
+      - name: review
+        path: .wave/output/plan-review.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/plan-review.json
+        schema_path: .wave/contracts/plan-review.schema.json
+        on_failure: retry

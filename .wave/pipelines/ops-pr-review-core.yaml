@@ -1,0 +1,498 @@
+kind: WavePipeline
+metadata:
+  name: ops-pr-review-core
+  description: >-
+    Core pull request review building block that performs diff analysis, security
+    scanning, and code quality assessment, then synthesizes a verdict. Does not
+    post comments or interact with the forge. Designed for embedding in
+    composition pipelines that handle their own publishing step.
+  release: false
+
+chat_context:
+  artifact_summaries:
+    - diff
+    - security
+    - quality
+    - verdict
+  suggested_questions:
+    - "What issues were found in the review?"
+    - "Are there any blocking concerns that must be addressed before merging?"
+  focus_areas:
+    - "Review findings and severity"
+    - "Code quality and maintainability"
+    - "Security concerns and vulnerabilities"
+
+skills:
+  - "{{ project.skill }}"
+  - gh-cli
+  - software-design
+
+requires:
+  tools:
+    - gh
+
+input:
+  source: cli
+  example: "https://github.com/owner/repo/pull/42"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  verdict:
+    step: summary
+    artifact: verdict
+
+steps:
+  - id: diff-analysis
+    persona: navigator
+    contexts: [execution]
+    model: cheapest
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Analyze all code changes in a pull request to produce a structured diff analysis
+        that the security-review and quality-review steps will consume. You must identify
+        every modified file, map which modules and packages are affected, determine
+        whether related tests exist and need updating, and flag potential breaking API
+        changes. This is the core review variant — it produces a verdict artifact but
+        does NOT publish comments to the forge. Composition pipelines handle publishing.
+
+        PR: {{ input }}
+
+        ## Context
+
+        This is the first step of the ops-pr-review-core pipeline. No prior artifacts
+        exist. You have read-only access to the project directory and access to the forge
+        CLI. The security-review and quality-review steps will receive your output as
+        their primary input. Completeness here directly determines review quality
+        downstream.
+
+        ## Requirements
+
+        ### Step 1: Extract PR Metadata
+
+        Fetch PR metadata:
+        ```bash
+        {{ forge.cli_tool }} {{ forge.pr_command }} view {{ input }} --json number,headRefName,baseRefName,url
+        ```
+        Extract: number, URL, headRefName (map to `head_branch`), baseRefName (map to
+        `base_branch`). These are required by the contract schema.
+
+        ### Step 2: Checkout the PR Branch
+
+        ```bash
+        {{ forge.cli_tool }} {{ forge.pr_command }} checkout {{ input }}
+        ```
+        Analyze the actual head branch code, not the base.
+
+        ### Step 3: Perform Structural Analysis
+
+        Run `git diff <base_branch>...HEAD` and for each changed file:
+        1. **Classify the change**: new, modified, deleted, renamed.
+        2. **Identify purpose**: source, test, config, CI, docs, schema.
+        3. **Map the package/module**: which package does this file belong to?
+        4. **Count magnitude**: lines added, lines removed, net change.
+        5. **Check test coverage**: does a corresponding test file exist? Was it modified?
+        6. **Detect breaking changes**: renamed/removed exports, changed signatures,
+           modified interfaces, removed struct fields.
+        7. **Flag cross-cutting concerns**: error handling patterns, logging, security-
+           sensitive paths, configuration changes.
+
+        ### Step 4: Produce Output
+
+        Produce output matching the contract schema. Include `pr_metadata` with number,
+        URL, head branch, and base branch.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT evaluate code quality or security. Structural analysis only.
+        - Do NOT modify any files. Read-only step.
+        - Do NOT skip any file type. Every changed file must appear in the output.
+        - Do NOT guess package membership. Read actual import paths.
+        - Avoid flat file lists. Group by package/module for context.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good analysis lets reviewers understand PR scope in 30 seconds: file count,
+        affected packages, test coverage, and breaking changes. A bad analysis is a
+        flat list without classification or misses test coverage gaps.
+    output_artifacts:
+      - name: diff
+        path: .wave/output/diff-analysis.json
+        type: json
+    retry:
+      policy: patient
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/diff-analysis.json
+        schema_path: .wave/contracts/diff-analysis.schema.json
+        on_failure: retry
+
+  - id: security-review
+    persona: reviewer
+    thread: review
+    model: strongest
+    contexts: [security]
+    dependencies: [diff-analysis]
+    memory:
+      inject_artifacts:
+        - step: diff-analysis
+          artifact: diff
+          as: changes
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Perform a focused security review of the code changes in this pull request.
+        Identify vulnerabilities, credential exposure, injection risks, authentication
+        gaps, and unsafe data handling. Every finding must reference a specific file and
+        line, include a severity rating, and provide a concrete remediation. This is the
+        core variant — the verdict is consumed by composition pipelines, not posted
+        directly.
+
+        ## Context
+
+        The injected `changes` artifact contains the structured diff analysis with every
+        changed file, its classification, package membership, and test coverage status.
+        Focus your review on changed files only.
+
+        ## Requirements
+
+        For each changed file, check these security concerns. Read actual source code,
+        not just the diff — vulnerabilities can exist in surrounding context.
+
+        1. **Injection vulnerabilities**: SQL injection (string concatenation in queries),
+           command injection (unsanitized input in exec calls), XSS (unescaped user input
+           in templates), path traversal (user-controlled file paths).
+
+        2. **Hardcoded secrets**: API keys, passwords, tokens, private keys in source.
+           Check string literals, constants, and config defaults. Check test files too.
+
+        3. **Insecure deserialization**: Unmarshaling untrusted input without validation,
+           unsafe deserializers on user input, deserializing into interface{} types.
+
+        4. **Missing input validation**: External input handlers without type, length,
+           range, or format validation. Inputs flowing into security-sensitive operations.
+
+        5. **Authentication/authorization gaps**: Missing auth on new endpoints, incorrect
+           permission checks, token handling without expiry, session issues.
+
+        6. **Sensitive data exposure**: Logging credentials or PII, error messages leaking
+           internal state, debug endpoints, over-broad response bodies.
+
+        7. **Cryptographic issues**: Deprecated algorithms (MD5, SHA1 for security), weak
+           key lengths, hardcoded IVs/salts, missing TLS verification.
+
+        For each finding, produce a structured entry with: severity
+        (CRITICAL/HIGH/MEDIUM/LOW), file path, line number (or line range), a clear
+        description of the vulnerability and its exploitation scenario, and a concrete
+        remediation recommendation. Be specific — "sanitize input" is not sufficient;
+        "use parameterized queries via sql.DB.Query instead of string concatenation in
+        handler.go:45" is.
+
+        If no security issues are found, explicitly state that the changes appear secure.
+        List every security category you checked so the reader knows the review was
+        thorough. A clean security review with documented checks is a valuable finding —
+        it is not a failure to find nothing.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT flag style or quality issues. This is a security-focused review only.
+          Code quality is covered by the quality-review step.
+        - Do NOT inflate severity. A missing Content-Type header is LOW, not HIGH. A
+          missing CSRF token on a state-changing endpoint is HIGH.
+        - Do NOT skip test files. Test files can contain real credentials accidentally
+          committed, or reveal security assumptions that are wrong.
+        - Do NOT report pre-existing vulnerabilities unless this PR makes them worse or
+          more exploitable by changing the surrounding code.
+        - Verify that flagged code actually handles untrusted input before calling it a
+          vulnerability. Not every string concatenation is SQL injection — only those
+          where the string comes from user input.
+        - Do NOT flag standard library usage as insecure without evidence. For example,
+          Go's html/template auto-escapes by default.
+
+        ## Output Format
+
+        Produce a markdown report with these sections:
+        - **H2: Security Review Summary** — total finding count by severity, one-line
+          verdict (e.g., "No critical vulnerabilities found; 2 medium-severity input
+          validation gaps identified")
+        - **H2: Findings** — one H3 per finding with severity, file, line, description,
+          exploitation scenario, and remediation
+        - **H2: Areas Checked** — bulleted list of every security category examined,
+          even if no findings were produced in that category
+
+        ## Quality Bar
+
+        A good security review has zero false positives, catches real vulnerabilities
+        with precise file/line references, provides actionable remediation suggestions,
+        and documents what was checked even when clean. A bad security review flags every
+        string concatenation as "possible injection" without verifying input sources,
+        reports no findings without listing what was examined, or misses obvious issues
+        like hardcoded tokens in test fixtures.
+    output_artifacts:
+      - name: security
+        path: .wave/output/security-review.md
+        type: markdown
+    handover:
+      contract:
+        type: llm_judge
+        source: .wave/output/security-review.md
+        model: cheapest
+        criteria:
+          - "Identifies injection vulnerabilities (SQL, command, XSS) if present in the diff"
+          - "Checks for hardcoded credentials or secrets"
+          - "Assesses authentication and authorization correctness"
+          - "Findings include severity levels and specific file references"
+        threshold: 0.75
+        on_failure: continue
+
+  - id: quality-review
+    persona: reviewer
+    thread: review
+    model: strongest
+    contexts: [validation]
+    dependencies: [diff-analysis]
+    memory:
+      inject_artifacts:
+        - step: diff-analysis
+          artifact: diff
+          as: changes
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Perform a code quality review of the changes in this pull request, focusing on
+        error handling, edge cases, code duplication, naming consistency, test adequacy,
+        performance, and documentation. Each finding must reference a specific file and
+        line, include severity, and provide a concrete suggestion. This is the core
+        variant — the verdict feeds composition pipelines, not direct forge comments.
+
+        ## Context
+
+        The injected `changes` artifact contains the structured diff analysis with every
+        changed file, package membership, and test coverage status. Read this artifact
+        first to understand scope.
+
+        ## Requirements
+
+        Examine each changed file across these quality dimensions. Read actual source
+        code for context, not the diff in isolation.
+
+        1. **Error handling**: Are all error returns checked? Are errors wrapped with
+           context (`fmt.Errorf("doing X: %w", err)`)? Bare `return err` losing context?
+           Silently swallowed errors (`_ = fn()`)? Appropriate panic/recover usage?
+
+        2. **Edge cases**: Nil/null inputs, empty collections, zero values, negative
+           numbers, concurrent access, context cancellation, network timeouts. For each
+           edge case found, note whether a test covers it.
+
+        3. **Code duplication**: Copy-pasted blocks that should be extracted. Check
+           within PR and against existing code. Minor boilerplate (2-3 lines) is
+           acceptable; significant logic duplication (10+ lines) should be flagged.
+
+        4. **Naming consistency**: Do new identifiers follow project conventions? Check
+           functions, variables, constants, packages against existing code. Flag
+           inconsistencies in casing, abbreviations, or naming patterns.
+
+        5. **Test adequacy**: For each changed source file, do tests exist? Do they cover
+           new/modified paths? Flag functions with no coverage and tests that only cover
+           the happy path.
+
+        6. **Performance**: Large allocations in hot paths, unbounded loops, O(n^2) on
+           large inputs, missing timeouts, unnecessary serialization cycles.
+
+        7. **Documentation**: New exports documented? Complex algorithms explained?
+           Non-obvious decisions commented? Stale comments that no longer match code?
+
+        For each finding, produce a structured entry with: severity (HIGH for
+        correctness risks, MEDIUM for maintainability concerns, LOW for style or
+        best-practice suggestions), file path, line number, a clear description of the
+        issue and its potential impact, and a concrete improvement suggestion. Be
+        specific — "add error handling" is not sufficient; "wrap the error from
+        os.ReadFile at config.go:67 with fmt.Errorf to include the file path in the
+        error message" is.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT duplicate findings from the security review. Quality and security are
+          separate concerns. If something is a security vulnerability, the security
+          review will catch it.
+        - Do NOT flag subjective style preferences (tab vs spaces, brace placement)
+          unless the project has a documented style guide that is being violated.
+        - Do NOT flag auto-generated files (protobuf stubs, swagger codegen, etc.) for
+          quality issues. These are not meant to be hand-maintained.
+        - Do NOT review files that were not changed by this PR. Pre-existing quality
+          issues are out of scope.
+        - Focus on findings that affect correctness, maintainability, or performance.
+          Cosmetic preferences without functional impact should be omitted or marked as
+          LOW severity.
+        - Do NOT flag every function without a doc comment. Focus on exported functions
+          with non-obvious behavior.
+
+        ## Output Format
+
+        Produce a markdown report with these sections:
+        - **H2: Quality Review Summary** — total finding count by severity, one-line
+          quality assessment
+        - **H2: Findings** — one H3 per finding with severity, file, line, description,
+          impact, and suggestion
+        - **H2: Test Coverage Assessment** — for each changed source file, note whether
+          tests exist, whether they were updated in this PR, and any coverage gaps
+
+        ## Quality Bar
+
+        A good quality review catches issues that would cause maintenance headaches or
+        runtime failures, provides actionable suggestions with specific code references,
+        and correctly identifies test coverage gaps. The findings should be things a
+        senior developer would flag in a real code review. A bad quality review nitpicks
+        formatting and comment style, flags every missing doc comment as a documentation
+        gap, or misses genuine error handling problems while fixating on variable naming.
+    output_artifacts:
+      - name: quality
+        path: .wave/output/quality-review.md
+        type: markdown
+    handover:
+      contract:
+        type: agent_review
+        persona: navigator
+        criteria_path: .wave/contracts/quality-review-criteria.md
+        source: .wave/output/quality-review.md
+        model: cheapest
+        token_budget: 8000
+        timeout: 90s
+        on_failure: continue
+
+  - id: summary
+    persona: summarizer
+    model: cheapest
+    dependencies: [security-review, quality-review]
+    memory:
+      inject_artifacts:
+        - step: security-review
+          artifact: security
+          as: security_findings
+        - step: quality-review
+          artifact: quality
+          as: quality_findings
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Synthesize findings from the security and quality review tracks into a single
+        review verdict. Weigh findings by severity, deduplicate across tracks, resolve
+        contradictions, and produce a final recommendation. This is the core variant —
+        the verdict JSON is consumed by composition pipelines that handle their own
+        publishing. No comments are posted to the forge in this step.
+
+        ## Context
+
+        Two artifacts are injected:
+        - `security_findings`: Security review markdown with findings by severity.
+        - `quality_findings`: Quality review markdown with error handling, testing, and
+          performance findings.
+
+        Read BOTH artifacts before forming a verdict.
+
+        ## Requirements
+
+        ### Step 1: Parse All Findings
+
+        Extract every finding from both reviews. For each, note source (security or
+        quality), severity, file, and description.
+
+        ### Step 2: Deduplicate
+
+        Remove findings that appear in both reviews. Keep the higher-severity version
+        and note both sources.
+
+        ### Step 3: Determine the Verdict
+
+        Apply these rules strictly:
+        - **APPROVE**: Zero CRITICAL or HIGH findings across both reviews. MEDIUM and
+          LOW findings alone do not block. Safe to merge with observations noted.
+        - **REQUEST_CHANGES**: HIGH findings exist that must be fixed, but the approach
+          is sound.
+        - **COMMENT**: All findings are MEDIUM or LOW. Non-blocking observations only.
+        - **REJECT**: Fundamental design problems. The approach is wrong, not just the
+          implementation. This should be rare.
+
+        ### Step 4: Compose the Verdict JSON
+
+        Include:
+        - `verdict`: APPROVE | REQUEST_CHANGES | COMMENT | REJECT
+        - `summary`: 2-3 sentence overall assessment
+        - `critical_findings`: array of CRITICAL findings
+        - `major_findings`: array of HIGH findings
+        - `minor_findings`: array of MEDIUM/LOW findings
+        - `positive_notes`: what the PR does well (always at least one)
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT approve a PR with CRITICAL findings present, regardless of other factors.
+          A single CRITICAL finding is an automatic REQUEST_CHANGES at minimum.
+        - Do NOT reject for implementation quality issues. REJECT is reserved exclusively
+          for fundamental design problems where the approach is wrong, not just the
+          implementation. Use REQUEST_CHANGES for fixable issues.
+        - Do NOT add new findings in this step. Your job is to synthesize what the review
+          steps already found. If you notice something new, it is too late — the review
+          steps should have caught it.
+        - Do NOT inflate severity during synthesis. If the security review rated a finding
+          as MEDIUM, do not upgrade it to HIGH in the verdict just because it sounds
+          concerning.
+        - Do NOT produce an empty `positive_notes` array. Every PR has something done
+          right — clean commit messages, well-structured tests, clear naming, correct
+          error handling. Find at least one genuine strength.
+        - Do NOT produce a verdict that contradicts the findings. If both reviews are
+          clean (no HIGH or CRITICAL findings), the verdict should be APPROVE or COMMENT,
+          not REQUEST_CHANGES.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good verdict accurately reflects the severity distribution across both review
+        tracks, provides a clear recommendation that logically follows from the findings,
+        and includes balanced commentary covering both issues and strengths. The verdict
+        should be something a human reviewer would agree with after reading the same
+        findings. A bad verdict contradicts the evidence (approving despite critical
+        issues, or rejecting over minor style concerns), ignores an entire review track
+        in the synthesis, or produces a generic summary that could apply to any PR.
+    output_artifacts:
+      - name: verdict
+        path: .wave/output/review-verdict.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/review-verdict.json
+        schema_path: .wave/contracts/shared-review-verdict.schema.json
+        on_failure: skip
