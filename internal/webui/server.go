@@ -278,10 +278,10 @@ func (s *Server) Start() error {
 	case <-ctx.Done():
 		log.Println("Shutting down dashboard server...")
 
-		// Cancel all active runs
+		// Cancel in-process fallback runs only (detached runs are independent processes)
 		s.mu.Lock()
 		for runID, cancelFn := range s.activeRuns {
-			log.Printf("Cancelling active run %s", runID)
+			log.Printf("Cancelling in-process run %s", runID)
 			cancelFn()
 		}
 		s.mu.Unlock()
