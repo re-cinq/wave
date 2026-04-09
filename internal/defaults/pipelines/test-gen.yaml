@@ -71,12 +71,9 @@ steps:
 
         ### 1. Run Coverage Analysis
 
-        Execute the project's test command with coverage flags to determine the current state:
-        ```bash
-        {{ project.test_command }} -coverprofile=coverage.out -covermode=atomic
-        ```
+        Execute the project's test command with coverage enabled to determine the current state. Run the project's coverage command (or adapt `{{ project.test_command }}` with the appropriate coverage flags for the project's language and test framework).
+
         If the scope targets a specific package, run coverage for that package only. Adapt the coverage command to the project's test framework (e.g., add the package path or module filter as appropriate).
-        ```
 
         Parse the coverage output to extract:
         - Per-package coverage percentages
@@ -318,10 +315,7 @@ steps:
 
         ### 1. Re-run Coverage Analysis
 
-        Run the test suite with coverage again:
-        ```bash
-        {{ project.test_command }} -coverprofile=coverage_after.out -covermode=atomic
-        ```
+        Run the test suite with coverage again, using the same coverage command from the initial analysis step.
 
         Compare the new coverage against the baseline from the analyze-coverage step:
         - Calculate the overall coverage delta (percentage points gained)
