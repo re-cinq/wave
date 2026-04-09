@@ -190,12 +190,13 @@
             <div class="ws-tabs">
                 {{if $step.Artifacts}}{{range $a := $step.Artifacts}}<a href="#" class="w-tab" data-run-id="{{$step.RunID}}" data-step-id="{{$step.StepID}}" data-artifact-name="{{$a.Name}}" onclick="v2ToggleArt(this);return false;">{{$a.Name}} <span class="art-size">{{formatBytes $a.SizeBytes}}</span></a>{{end}}{{end}}
                 <a href="#" class="w-tab" onclick="v2ToggleLogs(this);return false;" data-step-id="{{$step.StepID}}">logs</a>
+                {{if $step.Duration}}<span class="ws-dur">{{$step.Duration}}</span>{{end}}
+                {{if eq $step.State "running"}}<button class="w-tab-action" onclick="cancelRun('{{$step.RunID}}',this)" title="Stop this pipeline">&#9632; stop</button>{{end}}
             </div>
 
             <!-- Tab content: artifact viewer OR logs (below tab bar) -->
             <div class="ws-tabcontent" hidden data-step-id="{{$step.StepID}}"></div>
         </div>
-        <span class="ws-corner">{{if $step.Duration}}<span class="ws-dur">{{$step.Duration}}</span>{{end}}{{if eq $step.State "running"}}<button class="w-tab-action" onclick="cancelRun('{{$step.RunID}}',this)" title="Stop this pipeline">&#9632; stop</button>{{end}}</span>
     </div>
 {{end}}
 </div>
@@ -335,15 +336,17 @@ if('{{.Run.Status}}'==='running'){
             }
         }
 
-        // Update duration on a shape (inside .ws-corner, bottom-right)
+        // Update duration on a shape (in tab bar, right-aligned)
         function updateShapeDur(stepID,dur){
             var shape=document.getElementById('w-'+stepID);
             if(!shape)return;
             var durEl=shape.querySelector('.ws-dur');
             if(durEl){durEl.textContent=dur;}
             else{
-                var corner=shape.querySelector('.ws-corner');
-                if(corner){var sp=document.createElement('span');sp.className='ws-dur';sp.textContent=dur;corner.insertBefore(sp,corner.firstChild);}
+                var tabs=shape.querySelector('.ws-tabs');
+                if(tabs){var sp=document.createElement('span');sp.className='ws-dur';sp.textContent=dur;
+                    var stop=tabs.querySelector('.w-tab-action');
+                    if(stop)tabs.insertBefore(sp,stop);else tabs.appendChild(sp);}
             }
         }
 
