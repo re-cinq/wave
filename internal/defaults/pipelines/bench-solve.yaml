@@ -24,6 +24,11 @@ chat_context:
     - "Solution correctness"
     - "Test validation"
 
+pipeline_outputs:
+  solution:
+    step: solve
+    artifact: solve
+
 hooks:
   - name: log-start
     event: run_start

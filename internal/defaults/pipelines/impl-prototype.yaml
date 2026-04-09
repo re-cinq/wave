@@ -26,6 +26,11 @@ chat_context:
     - "Specification completeness"
     - "Prototype fidelity and implementation progress"
 
+pipeline_outputs:
+  pr:
+    step: pr-create
+    artifact: pr-info
+
 hooks:
   - name: log-start
     event: run_start
@@ -638,6 +643,11 @@ steps:
       - name: pr-info
         path: pr-info.json
         type: json
+    outcomes:
+      - type: pr
+        extract_from: pr-info.json
+        json_path: .pr_url
+        label: "Pull Request"
     retry:
       policy: aggressive
       max_attempts: 2
