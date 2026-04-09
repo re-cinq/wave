@@ -135,7 +135,7 @@
                     {{if $step.Persona}}<a href="/personas/{{$step.Persona}}" class="ws-code-link">{{$step.Persona}}</a>{{end}}
                     {{if $step.Contract}}{{if $step.ContractSchemaName}}<a href="/contracts/{{$step.ContractSchemaName}}" class="ws-code-link" title="{{$step.Contract}}">{{$step.ContractSchemaName}}</a>{{else}}<span class="ws-code-link" title="{{$step.Contract}}">contract</span>{{end}}{{end}}
                     {{if $step.Adapter}}<span class="badge badge-adapter">{{adapterIcon $step.Adapter}}{{$step.Adapter}}</span>{{end}}
-                    {{if $step.ConfiguredModel}}<span class="badge badge-model {{modelTierClass $step.ConfiguredModel}}" title="{{$step.Model}}">{{friendlyModel $step.ConfiguredModel}}</span>{{else if $step.Model}}<span class="badge badge-model {{modelTierClass $step.Model}}" title="{{$step.Model}}">{{friendlyModel $step.Model}}</span>{{end}}
+                    {{if $step.Model}}<span class="badge badge-model {{modelTierClass $step.Model}}" title="{{$step.ConfiguredModel}}">{{friendlyModel $step.Model}}</span>{{else if $step.ConfiguredModel}}<span class="badge badge-model {{modelTierClass $step.ConfiguredModel}}">{{friendlyModel $step.ConfiguredModel}}</span>{{end}}
                     {{if eq $step.StepType "command"}}<span style="color:var(--color-text-muted)">cmd</span>{{end}}
                 </span>
             </div>
