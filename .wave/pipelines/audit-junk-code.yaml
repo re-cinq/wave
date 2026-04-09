@@ -1,0 +1,120 @@
+kind: WavePipeline
+metadata:
+  name: audit-junk-code
+  description: >-
+    Identify accidental complexity, conceptual misalignment, and technical debt
+    across the codebase. Scans for over-engineering, copy-paste drift, stale
+    TODOs, misplaced abstractions, complexity hotspots, and meaningless tests.
+    Use this to find code that compiles but does not belong -- the kind of
+    structural debt that accumulates silently during rapid iteration.
+  release: false
+
+skills:
+  - software-design
+
+input:
+  source: cli
+  example: "internal/ — find accidental complexity and dead weight"
+  schema:
+    type: string
+    description: "Package or directory scope to analyze, or empty for full codebase"
+
+chat_context:
+  artifact_summaries:
+    - findings
+  suggested_questions:
+    - "What are the worst complexity hotspots?"
+    - "Where is the most copy-paste drift?"
+    - "Which over-engineered abstractions should be simplified?"
+  focus_areas:
+    - "Accidental complexity and technical debt"
+    - "Cleanup priority by impact and effort"
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+pipeline_outputs:
+  findings:
+    step: scan
+    artifact: findings
+
+steps:
+  - id: scan
+    persona: navigator
+    max_concurrent_agents: 3
+    model: cheapest
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Identify accidental complexity, conceptual misalignment, and structural technical debt that has accumulated in the codebase. This audit targets code that compiles and passes tests but does not belong: over-engineered abstractions, copy-paste drift, stale remnants, misplaced concepts, complexity hotspots, and meaningless tests. The goal is to surface the kind of silent debt that degrades velocity and readability over time.
+
+        ## Context
+
+        This is a single-step analysis pipeline. The codebase is mounted read-only at /project. The caller may provide a package or directory scope via the input variable, or leave it empty for a full codebase scan. No prior pipeline steps feed into this step. This pipeline is most valuable after periods of rapid iteration where expedient solutions tend to calcify into permanent complexity.
+
+        Scope: {{ input }}
+
+        If the scope is empty or blank, scan all packages under internal/ and cmd/. If a specific directory is provided, restrict the primary analysis to that subtree. In either case, when investigating a finding, follow references across the full codebase to assess the true extent of the issue.
+
+        ## Requirements
+
+        Systematically search for each of the following categories of structural debt:
+
+        1. **Over-engineering**: Look for abstractions that serve only one consumer. Search for interfaces with a single implementation (use Grep to find the interface definition, then search for all types that implement it). Identify generic types or functions where a concrete type would be clearer. Look for configuration options or feature flags that are never toggled in practice. Check for builder patterns, factory functions, or strategy patterns that add indirection without adding flexibility. A single-implementation interface is acceptable if it exists for testing (mock injection), but flag it if no test mock exists either.
+
+        2. **Copy-paste drift**: Search for functions with identical or near-identical signatures across different files. Read the function bodies to identify code blocks of 10+ lines that were clearly copied and then modified slightly. Note the specific lines that diverged and assess whether the divergence is intentional (different behavior) or accidental (evolved independently). Common drift locations: error handling blocks, validation logic, serialization/deserialization code.
+
+        3. **Stale code**: Search for TODO and FIXME comments using Grep. For each, check the associated git blame date. Flag TODOs older than 3 months that reference no issue number. Search for large blocks of commented-out code (3+ consecutive commented lines that contain code, not documentation). Identify unused imports and variables that the compiler does not catch (e.g., variables assigned but only used in a subsequently-deleted code path). Look for deprecated function calls where a replacement exists but the old call site was never updated.
+
+        4. **Conceptual misalignment**: Evaluate whether types and functions are in the right packages. Look for domain types defined in utility packages, utility functions defined in domain packages, and cross-cutting concerns scattered across multiple packages. Check for misleading names: functions named "Get" that perform mutations, types named "Manager" that only hold data, packages named "util" or "common" or "helpers" that are grab-bags. Use Grep to find all references to suspect types to understand where they are actually used, then assess whether they belong in the package where they are defined.
+
+        5. **Complexity hotspots**: Identify functions exceeding 50 lines by reading through packages systematically. Look for deeply nested control flow: if statements inside for loops inside switch statements (3+ levels of nesting). Check for functions with many parameters (6+) or many return values (4+). Look for functions that mix multiple concerns (e.g., a function that validates input, transforms data, writes to disk, and sends notifications). Note any function where understanding the control flow requires scrolling.
+
+        6. **Test debt**: Identify tests that assert nothing meaningful (e.g., tests that only check `err == nil` without verifying the result). Look for `t.Skip()` calls without associated issue URLs or explanations. Search for test functions that are commented out entirely. Check for tests that test internal implementation details (e.g., asserting on private struct fields via reflection) rather than behavior. Look for tests with hard-coded sleep calls that indicate flaky timing dependencies.
+
+        For each finding, read the source code to confirm the issue, assess its impact on maintainability and development velocity, and propose a specific remediation.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT report code as "junk" simply because it follows a pattern you would not have chosen. The code must demonstrably add unnecessary complexity, be stale, or be misplaced.
+        - Do NOT flag standard language patterns (initialization functions, side-effect imports, embed directives) as junk.
+        - Do NOT report test helpers in test files as over-engineering unless they are truly unused.
+        - Do NOT modify any files. The workspace is read-only.
+        - Avoid low-value findings. A single over-engineered abstraction that affects 10 callers is more important than 10 unused imports.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good junk code audit distinguishes between code that is complex-because-the-domain-is-complex and code that is complex-because-it-was-written-hastily. Each finding includes a concrete "before and after" vision: what the code does now, what it should look like after remediation, and why the change matters. A bad audit flags every function over 30 lines as a complexity hotspot or reports stylistic preferences as structural debt.
+    output_artifacts:
+      - name: findings
+        path: .wave/output/findings.json
+        type: json
+    retry:
+      policy: patient
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/findings.json
+        schema_path: .wave/contracts/shared-findings.schema.json
+        on_failure: skip
