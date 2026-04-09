@@ -19,6 +19,7 @@ type ReviewContextSource struct {
 	Source   string `json:"source,omitempty"`   // "git_diff" or "artifact"
 	Artifact string `json:"artifact,omitempty"` // Artifact name when source is "artifact"
 	MaxSize  int    `json:"maxSize,omitempty"`  // Max bytes; 0 = default (50KB)
+	DiffBase string `json:"diffBase,omitempty"` // Git ref to diff against (e.g. "main"); auto-detected if empty
 }
 
 // ReviewIssue is a single issue found during an agent review.
@@ -253,7 +254,7 @@ func assembleContext(sources []ReviewContextSource, artifactPaths map[string]str
 	for _, src := range sources {
 		switch src.Source {
 		case "git_diff":
-			diff, err := fetchGitDiff(workspacePath, src.MaxSize)
+			diff, err := fetchGitDiff(workspacePath, src.MaxSize, src.DiffBase)
 			if err != nil {
 				// Non-fatal — include error notice but continue
 				b.WriteString("### Git Diff\n\n")
@@ -280,12 +281,26 @@ func assembleContext(sources []ReviewContextSource, artifactPaths map[string]str
 	return b.String()
 }
 
-// fetchGitDiff runs `git diff HEAD` in the workspace directory.
-func fetchGitDiff(workspacePath string, maxSize int) (string, error) {
+// fetchGitDiff runs `git diff <base>..HEAD` in the workspace directory.
+// When diffBase is empty it auto-detects the merge base by trying origin/main,
+// origin/master, main, and master in order. Falls back to git diff HEAD if none resolve.
+func fetchGitDiff(workspacePath string, maxSize int, diffBase string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "git", "diff", "HEAD")
+	base := diffBase
+	if base == "" {
+		base = detectDiffBase(ctx, workspacePath)
+	}
+
+	var args []string
+	if base != "" {
+		args = []string{"diff", base + "..HEAD"}
+	} else {
+		args = []string{"diff", "HEAD"}
+	}
+
+	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = workspacePath
 	out, err := cmd.Output()
 	if err != nil {
@@ -293,10 +308,24 @@ func fetchGitDiff(workspacePath string, maxSize int) (string, error) {
 	}
 
 	if len(out) == 0 {
-		return "No uncommitted changes detected in workspace.", nil
+		return "No changes detected relative to " + base + ".", nil
 	}
 
 	return truncateContent(string(out), maxSize), nil
+}
+
+// detectDiffBase tries common remote and local branch names to find a diff base.
+// Returns empty string if none resolve.
+func detectDiffBase(ctx context.Context, workspacePath string) string {
+	candidates := []string{"origin/main", "origin/master", "main", "master"}
+	for _, ref := range candidates {
+		cmd := exec.CommandContext(ctx, "git", "rev-parse", "--verify", ref)
+		cmd.Dir = workspacePath
+		if err := cmd.Run(); err == nil {
+			return ref
+		}
+	}
+	return ""
 }
 
 // resolveArtifact looks up an artifact by name in the provided paths map.

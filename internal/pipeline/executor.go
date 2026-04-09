@@ -2544,6 +2544,7 @@ func convertReviewContextSources(sources []ReviewContextSource) []contract.Revie
 			Source:   s.Source,
 			Artifact: s.Artifact,
 			MaxSize:  s.MaxSize,
+			DiffBase: s.DiffBase,
 		}
 	}
 	return out
