@@ -108,11 +108,11 @@
 
 
 <!-- Fat Gantt Shapes -->
-<div class="w-flow{{if ge (len .Steps) 8}} w-compact{{end}}">
+<div class="w-flow">
 {{range $i, $step := .Steps}}
     {{if $i}}<div class="w-conn"><span class="w-conn-dot"></span></div>{{end}}
 
-    <div class="ws st-{{$step.State}}{{if eq $step.StepType "pipeline"}} tp-pipeline{{else if eq $step.StepType "gate"}} tp-gate{{else if eq $step.StepType "conditional"}} tp-conditional{{else if eq $step.StepType "command"}} tp-command{{end}}{{if and (not $step.Duration) (not $step.TokensUsed) (eq $step.State "completed")}} ws-minimal{{end}}" id="w-{{$step.StepID}}"{{if $step.StartedAt}} data-started-at="{{formatTimeISO $step.StartedAt}}"{{end}}>
+    <div class="ws st-{{$step.State}}{{if eq $step.StepType "pipeline"}} tp-pipeline{{else if eq $step.StepType "gate"}} tp-gate{{else if eq $step.StepType "conditional"}} tp-conditional{{else if eq $step.StepType "command"}} tp-command{{end}}" id="w-{{$step.StepID}}"{{if $step.StartedAt}} data-started-at="{{formatTimeISO $step.StartedAt}}"{{end}}>
 
         <!-- Gantt fill as background -->
         <!-- Top gantt bar -->
@@ -130,14 +130,13 @@
                     {{else if eq $step.StepType "command"}}<span class="tp-ico">&gt;_</span>
                     {{end}}{{$step.StepID}}{{if $step.SubPipeline}} <span style="font-weight:400;color:var(--color-text-muted);font-size:0.65rem;">({{$step.SubPipeline}})</span>{{end}}{{if eq $step.State "running"}} <span class="spinner spinner-sm" style="vertical-align:middle;"></span>{{end}}</span>
                 {{if $step.MaxVisits}}<span class="badge" style="font-size:0.65rem;background:rgba(168,85,247,0.15);color:#a855f7;">{{$step.VisitCount}}/{{$step.MaxVisits}}</span>{{end}}
+                {{if $step.TokensUsed}}<span class="ws-tok">{{formatTokens $step.TokensUsed}}</span>{{end}}
                 <span class="ws-meta">
                     {{if $step.Persona}}<a href="/personas/{{$step.Persona}}" class="ws-code-link">{{$step.Persona}}</a>{{end}}
                     {{if $step.Contract}}{{if $step.ContractSchemaName}}<a href="/contracts/{{$step.ContractSchemaName}}" class="ws-code-link" title="{{$step.Contract}}">{{$step.ContractSchemaName}}</a>{{else}}<span class="ws-code-link" title="{{$step.Contract}}">contract</span>{{end}}{{end}}
                     {{if $step.Adapter}}<span class="badge badge-adapter">{{adapterIcon $step.Adapter}}{{$step.Adapter}}</span>{{end}}
                     {{if $step.ConfiguredModel}}<span class="badge badge-model {{modelTierClass $step.ConfiguredModel}}" title="{{$step.Model}}">{{friendlyModel $step.ConfiguredModel}}</span>{{else if $step.Model}}<span class="badge badge-model {{modelTierClass $step.Model}}" title="{{$step.Model}}">{{friendlyModel $step.Model}}</span>{{end}}
-                    {{if $step.TokensUsed}}<span class="ws-tok">{{formatTokens $step.TokensUsed}}</span>{{end}}
                     {{if eq $step.StepType "command"}}<span style="color:var(--color-text-muted)">cmd</span>{{end}}
-                    {{if $step.Duration}}<span class="ws-dur">{{$step.Duration}}</span>{{end}}
                 </span>
             </div>
 
@@ -191,13 +190,12 @@
             <div class="ws-tabs">
                 {{if $step.Artifacts}}{{range $a := $step.Artifacts}}<a href="#" class="w-tab" data-run-id="{{$step.RunID}}" data-step-id="{{$step.StepID}}" data-artifact-name="{{$a.Name}}" onclick="v2ToggleArt(this);return false;">{{$a.Name}} <span class="art-size">{{formatBytes $a.SizeBytes}}</span></a>{{end}}{{end}}
                 <a href="#" class="w-tab" onclick="v2ToggleLogs(this);return false;" data-step-id="{{$step.StepID}}">logs</a>
-                {{if eq $step.State "running"}}<button class="w-tab w-tab-action" onclick="cancelRun('{{$step.RunID}}',this)" title="Stop this pipeline">&#9632; stop</button>{{end}}
             </div>
 
             <!-- Tab content: artifact viewer OR logs (below tab bar) -->
             <div class="ws-tabcontent" hidden data-step-id="{{$step.StepID}}"></div>
         </div>
-
+        <span class="ws-corner">{{if $step.Duration}}<span class="ws-dur">{{$step.Duration}}</span>{{end}}{{if eq $step.State "running"}}<button class="w-tab-action" onclick="cancelRun('{{$step.RunID}}',this)" title="Stop this pipeline">&#9632; stop</button>{{end}}</span>
     </div>
 {{end}}
 </div>
@@ -243,6 +241,24 @@
 <!-- No v1 sse.js/log-viewer.js — v2 uses its own lightweight SSE -->
 <script>
 // Toggle logs tab
+// Snap-to-bottom: scroll to bottom unless user scrolled up
+function snapToBottom(el){
+    if(!el)return;
+    // Consider "near bottom" if within 40px of the bottom
+    var isNearBottom=el.scrollHeight-el.scrollTop-el.clientHeight<40;
+    if(!el._userScrolled||isNearBottom){
+        el.scrollTop=el.scrollHeight;
+    }
+}
+function trackUserScroll(el){
+    if(!el||el._scrollTracked)return;
+    el._scrollTracked=true;
+    el.addEventListener('scroll',function(){
+        var nearBottom=el.scrollHeight-el.scrollTop-el.clientHeight<40;
+        el._userScrolled=!nearBottom;
+    });
+}
+
 function v2ToggleLogs(tab){
     var shape=tab.closest('.ws');
     var tc=shape.querySelector('.ws-tabcontent');
@@ -255,6 +271,8 @@ function v2ToggleLogs(tab){
     var sid=tc.dataset.stepId;
     if(tc.dataset.logLoaded){
         tc.innerHTML=tc.dataset.logHtml||'<pre class="ws-log-body">(no output)</pre>';
+        var logBody=tc.querySelector('.ws-log-body');
+        if(logBody){trackUserScroll(logBody);snapToBottom(logBody);}
         return;
     }
     tc.innerHTML='<pre class="ws-log-body">loading…</pre>';
@@ -267,42 +285,206 @@ function v2ToggleLogs(tab){
         tc.dataset.logLoaded='1';
         tc.dataset.logHtml=html;
         tc.innerHTML=html;
+        var logBody=tc.querySelector('.ws-log-body');
+        if(logBody){trackUserScroll(logBody);snapToBottom(logBody);}
     }).catch(function(){tc.innerHTML='<pre class="ws-log-body" style="color:var(--color-failed);">(load failed)</pre>';});
 }
-// V2 live updates — SSE with polling fallback
+// V2 live updates — SSE with polling fallback (DOM updates, no reload)
 if('{{.Run.Status}}'==='running'){
     (function(){
+        var rid='{{.Run.RunID}}';
         var done=false;
-        var lastSteps={{.Run.StepsCompleted}};
-        function checkDone(){
-            if(done)return;
-            fetch('/api/runs/{{.Run.RunID}}').then(function(r){return r.json()}).then(function(d){
-                if(!d.run)return;
-                if(d.run.status==='completed'||d.run.status==='failed'||d.run.status==='cancelled'){
-                    done=true; location.reload(); return;
-                }
-                // Reload if step count changed (a step completed/started)
-                if(d.run.steps_completed!==lastSteps){
-                    done=true; location.reload();
-                }
-            }).catch(function(){});
+        var stepsCompleted={{.Run.StepsCompleted}};
+        var stepsTotal={{.Run.StepsTotal}};
+        var totalTokens={{.Run.TotalTokens}};
+
+        function fmtTok(n){if(n<1000)return ''+n;if(n<1e6)return (n/1000).toFixed(1)+'k';return (n/1e6).toFixed(1)+'M';}
+
+        // Update a Fat Gantt shape's status class
+        function updateShapeState(stepID,newState){
+            var shape=document.getElementById('w-'+stepID);
+            if(!shape)return;
+            var old=shape.className.match(/st-\w+/);
+            if(old) shape.classList.remove(old[0]);
+            shape.classList.add('st-'+newState);
+            // Update bar fill + bg classes
+            var fill=shape.querySelector('.ws-bar-fill');
+            if(fill){var fc=fill.className.match(/st-\w+/);if(fc)fill.classList.remove(fc[0]);fill.classList.add('st-'+newState);}
+            var bg=shape.querySelector('.ws-bg');
+            if(bg){var bc=bg.className.match(/st-\w+/);if(bc)bg.classList.remove(bc[0]);bg.classList.add('st-'+newState);}
+            // Spinner: add for running, remove for terminal
+            var nameEl=shape.querySelector('.ws-name');
+            if(nameEl){
+                var spinner=nameEl.querySelector('.spinner');
+                if(newState==='running'&&!spinner){
+                    var sp=document.createElement('span');sp.className='spinner spinner-sm';sp.style.verticalAlign='middle';nameEl.appendChild(sp);
+                } else if(newState!=='running'&&spinner){spinner.remove();}
+            }
         }
+
+        // Update tokens on a shape (placed next to step name, before .ws-meta)
+        function updateShapeTokens(stepID,tokens){
+            var shape=document.getElementById('w-'+stepID);
+            if(!shape)return;
+            var tok=shape.querySelector('.ws-tok');
+            if(tok){tok.textContent=fmtTok(tokens);}
+            else{
+                var row1=shape.querySelector('.ws-row1');
+                var meta=shape.querySelector('.ws-meta');
+                if(row1&&meta){var sp=document.createElement('span');sp.className='ws-tok';sp.textContent=fmtTok(tokens);row1.insertBefore(sp,meta);}
+            }
+        }
+
+        // Update duration on a shape (inside .ws-corner, bottom-right)
+        function updateShapeDur(stepID,dur){
+            var shape=document.getElementById('w-'+stepID);
+            if(!shape)return;
+            var durEl=shape.querySelector('.ws-dur');
+            if(durEl){durEl.textContent=dur;}
+            else{
+                var corner=shape.querySelector('.ws-corner');
+                if(corner){var sp=document.createElement('span');sp.className='ws-dur';sp.textContent=dur;corner.insertBefore(sp,corner.firstChild);}
+            }
+        }
+
+        // Update header stats
+        function updateStats(){
+            var statsEl=document.querySelector('.w-stats');
+            if(!statsEl)return;
+            var spans=statsEl.querySelectorAll('span');
+            for(var i=0;i<spans.length;i++){
+                var b=spans[i].querySelector('b');
+                if(!b)continue;
+                if(/steps/.test(spans[i].textContent)){b.textContent=stepsCompleted+'/'+stepsTotal;}
+                if(/tok$/.test(spans[i].textContent.trim())){b.textContent=fmtTok(totalTokens);}
+            }
+        }
+
+        // Update header badge
+        function updateHeaderBadge(status){
+            var badge=document.querySelector('.w-head .badge');
+            if(badge){badge.className='badge status-'+status;badge.textContent=status;}
+        }
+
+        // Handle terminal run state
+        function onTerminal(status){
+            if(done)return;
+            done=true;
+            updateHeaderBadge(status);
+            // Hide stop buttons
+            document.querySelectorAll('.actions .btn').forEach(function(b){if(/Stop|Force/.test(b.textContent))b.style.display='none';});
+            // Reload once to pick up final artifacts/output
+            setTimeout(function(){location.reload();},2000);
+        }
+
         // SSE primary
+        var es;
         try{
-            var es=new EventSource('/api/runs/{{.Run.RunID}}/events');
+            es=new EventSource('/api/runs/'+encodeURIComponent(rid)+'/events');
             es.onmessage=function(e){
-                try{
-                    var d=JSON.parse(e.data);
-                    // Reload on any terminal state (run or step)
-                    if(d.state==='completed'||d.state==='failed'||d.state==='cancelled'||d.state==='step_completed'||d.state==='step_failed'){
-                        if(!done){done=true; es.close(); setTimeout(function(){location.reload();},300);}
-                    }
-                }catch(ex){}
+                if(done)return;
+                try{var d=JSON.parse(e.data);handleEvent(d.state||'',d);}catch(ex){}
             };
             es.onerror=function(){};
         }catch(ex){}
-        // Polling fallback every 5s
-        setInterval(checkDone,5000);
+
+        var stepTokens={}; // track per-step tokens to compute total
+        function handleEvent(type,d){
+            if(d.step_id){
+                if(type==='started'||type==='running') updateShapeState(d.step_id,'running');
+                else if(type==='step_completed'||type==='completed'){if(d.step_id)updateShapeState(d.step_id,'completed');}
+                else if(type==='step_failed'||type==='failed'){if(d.step_id)updateShapeState(d.step_id,'failed');}
+                if(d.tokens_used){
+                    updateShapeTokens(d.step_id,d.tokens_used);
+                    stepTokens[d.step_id]=d.tokens_used;
+                    // Recompute total from all step tokens
+                    var sum=0;for(var k in stepTokens)sum+=stepTokens[k];
+                    totalTokens=sum;
+                    updateStats();
+                }
+                if(d.duration) updateShapeDur(d.step_id,d.duration);
+                updateMetricsRow(d.step_id,type==='step_completed'?'completed':type==='step_failed'?'failed':type,d.duration,d.tokens_used);
+            }
+            if(d.completed_steps!==undefined){stepsCompleted=d.completed_steps;updateStats();}
+            // Terminal run states
+            if(!d.step_id&&(type==='completed'||type==='failed'||type==='cancelled')){
+                onTerminal(type);
+                if(es)es.close();
+            }
+        }
+
+        // Update metrics table row for a step
+        function updateMetricsRow(stepID,state,dur,tokens){
+            var table=document.querySelector('.w-metrics-table');
+            if(!table)return;
+            var rows=table.querySelectorAll('tbody tr');
+            rows.forEach(function(row){
+                var nameCell=row.querySelector('td strong');
+                if(!nameCell||nameCell.textContent!==stepID)return;
+                // Status badge
+                var badge=row.querySelectorAll('td')[1];
+                if(badge){var b=badge.querySelector('.badge');if(b){b.className='badge status-'+state;b.style.fontSize='0.65rem';b.textContent=state.charAt(0).toUpperCase()+state.slice(1);}}
+                // Duration
+                if(dur){var durCell=row.querySelectorAll('td')[2];if(durCell)durCell.textContent=dur;}
+                // Tokens
+                if(tokens){var tokCell=row.querySelectorAll('td')[3];if(tokCell)tokCell.textContent=fmtTok(tokens);}
+            });
+        }
+
+        // Append new events to the events panel
+        var lastEventId={{if .Events}}{{(index .Events (subtract (len .Events) 1)).ID}}{{else}}0{{end}};
+        function fmtEvTime(ts){var d=new Date(ts);var h=d.getHours(),m=d.getMinutes(),s=d.getSeconds();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');}
+        function appendEvents(events){
+            var container=document.querySelector('.w-events');
+            if(!container)return;
+            trackUserScroll(container);
+            var evBtn=document.querySelector('.w-sec-tab');
+            var added=false;
+            events.forEach(function(ev){
+                if(ev.id<=lastEventId)return;
+                lastEventId=ev.id;
+                added=true;
+                var row=document.createElement('div');
+                row.className='w-ev'+(ev.state&&ev.state.indexOf('hook_')===0?' w-ev-hook':'');
+                row.innerHTML='<span class="w-ev-time">'+fmtEvTime(ev.timestamp)+'</span><span class="badge status-'+escapeHTML(ev.state)+'" style="font-size:0.68rem;">'+escapeHTML(ev.state)+'</span>'+(ev.step_id?'<span class="w-ev-step">'+escapeHTML(ev.step_id)+'</span>':'')+'<span class="w-ev-msg">'+escapeHTML(ev.message)+'</span>'+(ev.duration_ms&&ev.state.indexOf('hook_')===0?'<span class="w-ev-dur">'+ev.duration_ms+'ms</span>':'');
+                container.appendChild(row);
+            });
+            if(added) snapToBottom(container);
+            // Update event count in tab button
+            if(evBtn&&/Events/.test(evBtn.textContent)){
+                var total=container.querySelectorAll('.w-ev').length;
+                evBtn.textContent='Events ('+total+')';
+            }
+        }
+
+        // Polling fallback every 5s — partial DOM update
+        var pollTimer=setInterval(function(){
+            if(done){clearInterval(pollTimer);return;}
+            fetch('/api/runs/'+encodeURIComponent(rid)).then(function(r){return r.json()}).then(function(data){
+                if(!data.run)return;
+                if(data.steps){
+                    data.steps.forEach(function(step){
+                        updateShapeState(step.step_id,step.state);
+                        if(step.tokens_used) updateShapeTokens(step.step_id,step.tokens_used);
+                        if(step.duration) updateShapeDur(step.step_id,step.duration);
+                        updateMetricsRow(step.step_id,step.state,step.duration,step.tokens_used);
+                    });
+                }
+                if(data.events) appendEvents(data.events);
+                if(data.run.steps_completed!==undefined) stepsCompleted=data.run.steps_completed;
+                if(data.run.steps_total!==undefined) stepsTotal=data.run.steps_total;
+                // Sum step tokens if run-level total is 0
+                var runTok=data.run.total_tokens||0;
+                if(!runTok&&data.steps){data.steps.forEach(function(s){runTok+=(s.tokens_used||0);});}
+                if(runTok) totalTokens=runTok;
+                updateStats();
+                updateHeaderBadge(data.run.status);
+                if(data.run.status==='completed'||data.run.status==='failed'||data.run.status==='cancelled'){
+                    onTerminal(data.run.status);
+                    if(es)es.close();
+                }
+            }).catch(function(){});
+        },5000);
     })();
 }
 
@@ -442,7 +624,19 @@ function v2Tab(name,btn){
         if(name==='diff') v2LoadDiff();
         if(name==='retro') v2LoadRetro();
     }
+    // Snap events panel to bottom on open
+    if(name==='events'){
+        var evContainer=panel.querySelector('.w-events');
+        if(evContainer){trackUserScroll(evContainer);snapToBottom(evContainer);}
+    }
 }
+
+// Pre-fetch diff file count on page load
+{{if .Run.BranchName}}
+fetch('/api/runs/{{.Run.RunID}}/diff').then(function(r){return r.json()}).then(function(d){
+    if(d.available&&d.total_files){document.querySelectorAll('.w-sec-tab').forEach(function(b){if(/Changed Files/.test(b.textContent))b.textContent='Changed Files ('+d.total_files+')';});}
+}).catch(function(){});
+{{end}}
 
 // Load diff/changed files
 function v2LoadDiff(){
@@ -467,6 +661,9 @@ function v2LoadDiff(){
         h+='<div class="w-diff-content" id="w-diff-viewer"><div class="w-diff-empty">Select a file to view changes</div></div>';
         h+='</div>';
         el.innerHTML=h;
+        // Auto-open first file
+        var first=el.querySelector('.w-diff-file');
+        if(first) first.click();
     }).catch(function(e){el.innerHTML='<div class="w-diff-empty" style="color:var(--color-failed);">Failed: '+escapeHTML(String(e))+'</div>';});
 }
 
@@ -639,9 +836,9 @@ function v2ShowArt(viewer, url, name){
         var body=viewer.querySelector('.av-body');
         var tabs=viewer.querySelector('.av-tabs');
         if(smart){
-            // Show smart view by default, with Raw toggle
+            // Show rendered view by default, with Raw toggle
             body.innerHTML='<div class="av-smart">'+smart+'</div>';
-            tabs.innerHTML='<button class="av-tab active" data-view="smart">Smart</button><button class="av-tab" data-view="raw">Raw</button>';
+            tabs.innerHTML='<button class="av-tab active" data-view="smart">Rendered</button><button class="av-tab" data-view="raw">Raw</button>';
             var rawPre=document.createElement('pre');
             rawPre.style.cssText='margin:0;padding:0.3rem;font-size:0.65rem;display:none;';
             var rawCode=document.createElement('code');
@@ -742,7 +939,9 @@ function v2ShowArtInline(container,url,name){
         var smart=v2SmartRender(raw,name);
         if(smart){
             // JSON: smart view with toggle
-            var h='<div class="av-toggle"><button class="active" onclick="v2ArtView(this,\'smart\')">Smart</button><button onclick="v2ArtView(this,\'raw\')">Raw</button><a href="'+url+'?raw=true" download>download</a></div>';
+            var sz=d.metadata&&d.metadata.size_bytes?d.metadata.size_bytes:0;
+            var szLabel=sz<1024?(sz+' B'):sz<1048576?((sz/1024).toFixed(1)+' KB'):((sz/1048576).toFixed(1)+' MB');
+            var h='<div class="av-toggle"><button class="active" onclick="v2ArtView(this,\'smart\')">Rendered</button><button onclick="v2ArtView(this,\'raw\')">Raw</button><a class="av-dl-btn" href="'+url+'?raw=true" download>&#8681; '+szLabel+'</a></div>';
             h+='<div class="av-smart" data-view="smart">'+smart+'</div>';
             h+='<pre data-view="raw" style="display:none;margin:0;padding:0.3rem 0.4rem;font-size:0.65rem;color:var(--color-text-secondary);"><code class="language-json"></code></pre>';
             container.innerHTML=h;
@@ -753,7 +952,9 @@ function v2ShowArtInline(container,url,name){
             // Markdown or code — detect by extension OR content starting with # or **
             var isMarkdown=(name&&/\.md$/i.test(name))||/^#\s|^\*\*/.test(raw.trim());
             if(isMarkdown&&typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
-                var h='<div class="av-toggle"><button class="active" onclick="v2ArtView(this,\'rendered\')">Rendered</button><button onclick="v2ArtView(this,\'raw\')">Raw</button><a href="'+url+'?raw=true" download>download</a></div>';
+                var sz2=d.metadata&&d.metadata.size_bytes?d.metadata.size_bytes:0;
+                var szLabel2=sz2<1024?(sz2+' B'):sz2<1048576?((sz2/1024).toFixed(1)+' KB'):((sz2/1048576).toFixed(1)+' MB');
+                var h='<div class="av-toggle"><button class="active" onclick="v2ArtView(this,\'rendered\')">Rendered</button><button onclick="v2ArtView(this,\'raw\')">Raw</button><a class="av-dl-btn" href="'+url+'?raw=true" download>&#8681; '+szLabel2+'</a></div>';
                 h+='<div class="av-smart markdown-body" data-view="rendered" style="padding:0.5rem;font-size:0.8rem;">'+DOMPurify.sanitize(marked.parse(raw))+'</div>';
                 h+='<pre data-view="raw" style="display:none;margin:0;padding:0.3rem;font-size:0.65rem;"><code>'+escapeHTML(raw)+'</code></pre>';
                 container.innerHTML=h;
