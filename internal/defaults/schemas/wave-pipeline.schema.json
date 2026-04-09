@@ -190,7 +190,7 @@
         },
         "model": {
           "type": "string",
-          "description": "Override the adapter model for this step (e.g., 'claude-haiku-4-5' for cheap analysis). Overrides persona and adapter defaults."
+          "description": "Override the adapter model for this step. Use tier names (cheapest, balanced, strongest) for adapter-agnostic pipelines, or a literal model identifier for a specific model. Overrides persona and adapter defaults."
         },
         "adapter": {
           "type": "string",

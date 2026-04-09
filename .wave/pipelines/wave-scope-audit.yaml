@@ -16,7 +16,7 @@
 #        │
 #   merge-findings          ← aggregate: merge all findings into one JSON
 #        │
-#   synthesize              ← opus philosopher: unified report + scope document
+#   synthesize              ← strongest philosopher: unified report + scope document
 #        │
 #   approve-scope           ← human gate: review scope doc
 #   ├─ approve → create-issues

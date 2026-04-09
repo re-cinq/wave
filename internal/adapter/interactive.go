@@ -13,7 +13,7 @@ import (
 // InteractiveOptions configures an interactive Claude Code session.
 type InteractiveOptions struct {
 	Adapter      string   // Adapter binary name (e.g., "claude", "opencode", "gemini")
-	Model        string   // Model to use (e.g., "sonnet", "opus")
+	Model        string   // Model to use; tier names (cheapest, balanced, strongest) or literal model identifier
 	AllowedTools []string // Tools to allow (for --allowedTools)
 	AddDirs      []string // Additional directories to include (--add-dir)
 	SystemPrompt string   // Optional system prompt (--system-prompt)

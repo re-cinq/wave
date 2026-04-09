@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/recinq/wave/internal/manifest"
 )
 
 // anthropicAPIURL is the default Anthropic Messages API endpoint.
@@ -27,6 +29,22 @@ var judgeHTTPClient = &http.Client{
 }
 
 type llmJudgeValidator struct{}
+
+// resolveLLMJudgeModel resolves a model string for use by the LLM judge.
+// If model is a tier name (cheapest/balanced/strongest), it is resolved to
+// the actual model identifier via the default complexity map. If model is
+// empty, the cheapest tier default is used. Raw model identifiers are
+// returned unchanged.
+func resolveLLMJudgeModel(model string) string {
+	if model == "" {
+		model = "cheapest"
+	}
+	complexityMap := manifest.DefaultComplexityMap()
+	if resolved, ok := complexityMap[model]; ok && resolved != "" {
+		return resolved
+	}
+	return model
+}
 
 // CriterionResult holds the evaluation result for a single criterion.
 type CriterionResult struct {
@@ -63,10 +81,7 @@ func (v *llmJudgeValidator) Validate(cfg ContractConfig, workspacePath string) e
 	systemPrompt := v.buildSystemPrompt()
 	userPrompt := v.buildUserPrompt(cfg.Criteria, content)
 
-	model := cfg.Model
-	if model == "" {
-		model = "claude-haiku"
-	}
+	model := resolveLLMJudgeModel(cfg.Model)
 
 	// Try API key first, fall back to Claude CLI for OAuth environments
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")

@@ -52,7 +52,7 @@ type AdapterRunConfig struct {
 	DenyTools     []string
 	OutputFormat  string
 	Debug         bool
-	Model         string // Model to use (e.g., "opus", "sonnet", "claude-opus-4-5-20251101")
+	Model         string // Model to use; tier names (cheapest, balanced, strongest) or literal IDs (e.g., "claude-opus-4-5-20251101")
 
 	// Sandbox configuration derived from manifest
 	SandboxEnabled bool     // Master switch from runtime.sandbox.enabled
