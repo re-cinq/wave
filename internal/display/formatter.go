@@ -353,7 +353,7 @@ func (f *Formatter) TableRow(columns []string, widths []int) string {
 			if len(col) > widths[i] {
 				col = col[:widths[i]-3] + "..."
 			} else {
-				col = col + strings.Repeat(" ", widths[i]-len(col))
+				col += strings.Repeat(" ", widths[i]-len(col))
 			}
 		}
 		parts = append(parts, col)

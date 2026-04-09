@@ -106,7 +106,7 @@ Use --validate-only to check compatibility without executing.`,
 
 			// Not validate-only: check for errors before execution
 			if result.Status == tui.CompatibilityError {
-				renderValidationReport(args, result) //nolint:errcheck
+				renderValidationReport(args, result) //nolint:errcheck // best-effort stderr rendering before returning the real error
 				return NewCLIError(CodeContractViolation,
 					"sequence has incompatible artifact flows",
 					"Run 'wave compose --validate-only' to see details, then fix pipeline artifacts")
@@ -258,7 +258,7 @@ func buildExecutionPlan(seq tui.Sequence, args []string) pipeline.ExecutionPlan 
 }
 
 // runComposePlan executes a pipeline execution plan with parallel stage support.
-func runComposePlan(seq tui.Sequence, plan pipeline.ExecutionPlan, input string, manifestPath string, mock bool, outputCfg OutputConfig, debug bool) error {
+func runComposePlan(_ tui.Sequence, plan pipeline.ExecutionPlan, input string, manifestPath string, mock bool, outputCfg OutputConfig, debug bool) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

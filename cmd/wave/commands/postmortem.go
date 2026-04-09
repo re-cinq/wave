@@ -136,11 +136,12 @@ func runPostmortem(opts PostmortemOptions) error {
 
 	// Compute total run duration.
 	var totalDuration time.Duration
-	if run.CompletedAt != nil {
+	switch {
+	case run.CompletedAt != nil:
 		totalDuration = run.CompletedAt.Sub(run.StartedAt)
-	} else if run.CancelledAt != nil {
+	case run.CancelledAt != nil:
 		totalDuration = run.CancelledAt.Sub(run.StartedAt)
-	} else {
+	default:
 		totalDuration = time.Since(run.StartedAt)
 	}
 

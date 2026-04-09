@@ -438,9 +438,9 @@ func TestConcurrentEventEmission_AllStates(t *testing.T) {
 	states := []string{"started", "running", "completed", "failed", "retrying"}
 
 	var wg sync.WaitGroup
-	for i, state := range states {
+	for _, state := range states {
 		wg.Add(1)
-		go func(idx int, s string) {
+		go func(s string) {
 			defer wg.Done()
 			for j := 0; j < 20; j++ {
 				emitter.Emit(Event{
@@ -454,7 +454,7 @@ func TestConcurrentEventEmission_AllStates(t *testing.T) {
 					Artifacts:  []string{fmt.Sprintf("artifact-%d.txt", j)},
 				})
 			}
-		}(i, state)
+		}(state)
 	}
 
 	wg.Wait()

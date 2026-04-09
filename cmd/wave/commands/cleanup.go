@@ -219,7 +219,7 @@ func runCleanup(opts CleanupOptions) error {
 	}
 
 	// Prune stale worktree references after removal.
-	exec.Command("git", "worktree", "prune").Run()
+	_ = exec.Command("git", "worktree", "prune").Run()
 
 	fmt.Fprintf(os.Stderr, "\nRemoved %d orphaned worktree(s), freed %s\n", removed, formatSize(freedBytes))
 	return nil

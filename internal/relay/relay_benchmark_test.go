@@ -91,7 +91,7 @@ Simple decision
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ParseCheckpoint(workspacePath)
+		_, _ = ParseCheckpoint(workspacePath)
 	}
 }
 
@@ -119,7 +119,7 @@ func BenchmarkParseCheckpoint_Large(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ParseCheckpoint(workspacePath)
+		_, _ = ParseCheckpoint(workspacePath)
 	}
 }
 
@@ -142,7 +142,7 @@ Decision about deployment
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		InjectCheckpointPrompt(workspacePath)
+		_, _ = InjectCheckpointPrompt(workspacePath)
 	}
 }
 

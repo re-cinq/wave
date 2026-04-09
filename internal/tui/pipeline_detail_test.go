@@ -695,7 +695,7 @@ func TestPipelineDetailModel_ChatSessionEndedMsg_TriggersRefetch(t *testing.T) {
 	m.finishedDetail = detail
 
 	// Send ChatSessionEndedMsg
-	m, cmd := m.Update(ChatSessionEndedMsg{})
+	_, cmd := m.Update(ChatSessionEndedMsg{})
 
 	assert.NotNil(t, cmd, "should return batch cmd for re-fetch and git refresh")
 }
@@ -859,7 +859,7 @@ func TestPipelineDetailModel_DiffViewEndedMsg_IsHandled(t *testing.T) {
 	m := newTestDetailModel(&mockDetailProvider{})
 	m.paneState = stateFinishedDetail
 
-	m, cmd := m.Update(DiffViewEndedMsg{})
+	_, cmd := m.Update(DiffViewEndedMsg{})
 
 	assert.Nil(t, cmd, "DiffViewEndedMsg should be no-op")
 }

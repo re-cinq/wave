@@ -88,8 +88,7 @@ func (m ComposeListModel) Update(msg tea.Msg) (ComposeListModel, tea.Cmd) {
 		return m, cmd
 	}
 
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		if !m.focused {
 			return m, nil
 		}
@@ -345,11 +344,12 @@ func (m ComposeListModel) View() string {
 					hasWarning = true
 				}
 			}
-			if hasError {
+			switch {
+			case hasError:
 				boundaryStatus[targetIdx] = CompatibilityError
-			} else if hasWarning {
+			case hasWarning:
 				boundaryStatus[targetIdx] = CompatibilityWarning
-			} else {
+			default:
 				boundaryStatus[targetIdx] = CompatibilityValid
 			}
 		}

@@ -222,7 +222,7 @@ func resolveForgePersona(persona string, info forge.ForgeInfo) string {
 
 // createAutoEmitter selects BubbleTea TUI when connected to a TTY,
 // plain text otherwise.
-func createAutoEmitter(cfg OutputConfig, pipelineID, pipelineName string, steps []pipeline.Step, m *manifest.Manifest) EmitterResult {
+func createAutoEmitter(cfg OutputConfig, pipelineID, pipelineName string, steps []pipeline.Step, _ *manifest.Manifest) EmitterResult {
 	termInfo := display.NewTerminalInfo()
 	isTTY := termInfo.IsTTY() && termInfo.SupportsANSI()
 

@@ -226,7 +226,7 @@ func TestThrottledEmitter_ConcurrentAccess(t *testing.T) {
 
 	for g := 0; g < goroutines; g++ {
 		wg.Add(1)
-		go func(id int) {
+		go func() {
 			defer wg.Done()
 			for i := 0; i < eventsPerGoroutine; i++ {
 				state := event.StateStreamActivity
@@ -238,7 +238,7 @@ func TestThrottledEmitter_ConcurrentAccess(t *testing.T) {
 					Message: "concurrent",
 				})
 			}
-		}(g)
+		}()
 	}
 
 	wg.Wait()

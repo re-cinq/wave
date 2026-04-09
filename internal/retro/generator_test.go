@@ -64,7 +64,7 @@ func TestGenerator_Generate(t *testing.T) {
 	}
 
 	// Verify index entry
-	if _, ok := mock.mockRetroIndexer.records["gen-test-1"]; !ok {
+	if _, ok := mock.records["gen-test-1"]; !ok {
 		t.Error("index entry not created")
 	}
 }

@@ -201,13 +201,14 @@ func (m SuggestListModel) View() string {
 
 		// Type badge for sequence/parallel proposals
 		typeBadge := ""
-		if p.Type == "sequence" {
+		switch p.Type {
+		case "sequence":
 			if isSelected {
 				typeBadge = "[seq] "
 			} else {
 				typeBadge = lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render("[seq]") + " "
 			}
-		} else if p.Type == "parallel" {
+		case "parallel":
 			if isSelected {
 				typeBadge = "[par] "
 			} else {

@@ -241,6 +241,7 @@ func (t *Tracker) AddWorkspaceFiles(stepID, workspacePath string) {
 		}
 	}
 }
+
 // AddArtifact is a convenience method to add an artifact deliverable
 func (t *Tracker) AddArtifact(stepID, name, artifactPath, description string) {
 	t.Add(NewArtifactDeliverable(stepID, name, artifactPath, description))

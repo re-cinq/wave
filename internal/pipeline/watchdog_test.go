@@ -34,15 +34,12 @@ func TestStallWatchdog_ActivityResetsTimeout(t *testing.T) {
 		ticker := time.NewTicker(50 * time.Millisecond)
 		defer ticker.Stop()
 		count := 0
-		for {
-			select {
-			case <-ticker.C:
-				w.NotifyActivity()
-				count++
-				if count >= 5 {
-					close(stopActivity)
-					return
-				}
+		for range ticker.C {
+			w.NotifyActivity()
+			count++
+			if count >= 5 {
+				close(stopActivity)
+				return
 			}
 		}
 	}()

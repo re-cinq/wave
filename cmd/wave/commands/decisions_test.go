@@ -116,7 +116,7 @@ func (h *decisionsTestHelper) createDecision(runID string, timestamp time.Time, 
 }
 
 // executeDecisionsCmd runs the decisions command with given arguments and returns output/error.
-func executeDecisionsCmd(args ...string) (stdout, stderr string, err error) {
+func executeDecisionsCmd(args ...string) (stdout, stderr string, err error) { //nolint:unparam // test helper
 	cmd := NewDecisionsCmd()
 
 	var outBuf, errBuf bytes.Buffer

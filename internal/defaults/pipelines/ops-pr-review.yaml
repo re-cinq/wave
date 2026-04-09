@@ -417,45 +417,6 @@ steps:
     exec:
       type: prompt
       source: |
-        Slop review of the PR changes.
-
-        Check for:
-        1. Dead code
-        2. Duplicate code
-        3. Unfinished features
-        4. Glue code, glue tests
-        5. Code that doesn't fit the overall design or architecture
-        6. Code that seems out of place or not fully thought through
-
-        Output findings with severity and suggestions.
-    output_artifacts:
-      - name: quality
-        path: .wave/output/slop-review.md
-        type: markdown
-    handover:
-      contract:
-        type: agent_review
-        persona: navigator
-        criteria_path: .wave/contracts/quality-review-criteria.md
-        source: .wave/output/slop-review.md
-        model: cheapest
-        token_budget: 8000
-        timeout: 90s
-        on_failure: continue
-
-  - id: slop-review
-    persona: reviewer
-    model: strongest
-    contexts: [validation]
-    dependencies: [diff-analysis]
-    memory:
-      inject_artifacts:
-        - step: diff-analysis
-          artifact: diff
-          as: changes
-    exec:
-      type: prompt
-      source: |
         ## Objective
 
         Perform a "slop review" of the PR changes — a focused check for code that is

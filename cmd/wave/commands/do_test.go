@@ -14,7 +14,7 @@ import (
 // Test helper functions
 
 // setupTestManifest creates a test manifest file with required personas
-func setupTestManifest(t *testing.T, dir string, personas []string) string {
+func setupTestManifest(t *testing.T, dir string, personas []string) {
 	t.Helper()
 
 	manifestContent := `apiVersion: v1
@@ -58,8 +58,6 @@ personas:
 
 	manifestPath := filepath.Join(dir, "wave.yaml")
 	require.NoError(t, os.WriteFile(manifestPath, []byte(manifestContent), 0644))
-
-	return manifestPath
 }
 
 // captureOutput captures stdout during test execution

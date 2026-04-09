@@ -445,7 +445,7 @@ func TestPipelineListModel_Navigation_RunningItemIncludesRunID(t *testing.T) {
 	m := newTestListModel(running, nil, nil)
 
 	// Move to running item (after pipeline name)
-	m, cmd := sendKey(m, tea.KeyDown)
+	_, cmd := sendKey(m, tea.KeyDown)
 	sel := extractSelectionMsg(cmd)
 	require.NotNil(t, sel)
 

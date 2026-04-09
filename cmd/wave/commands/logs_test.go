@@ -116,7 +116,7 @@ func (h *logsTestHelper) createLogEntry(runID string, timestamp time.Time, stepI
 }
 
 // executeLogsCmd runs the logs command with given arguments and returns output/error.
-func executeLogsCmd(args ...string) (stdout, stderr string, err error) {
+func executeLogsCmd(args ...string) (stdout, stderr string, err error) { //nolint:unparam // kept for interface/future use
 	cmd := NewLogsCmd()
 
 	var outBuf, errBuf bytes.Buffer

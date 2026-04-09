@@ -201,6 +201,7 @@ func NewContractDeliverable(stepID, name, contractPath, description string) *Del
 		CreatedAt:   time.Now(),
 	}
 }
+
 // NewArtifactDeliverable creates an artifact deliverable for pipeline-produced files
 func NewArtifactDeliverable(stepID, name, artifactPath, description string) *Deliverable {
 	return &Deliverable{
