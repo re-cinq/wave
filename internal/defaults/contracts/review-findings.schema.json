@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["pr_number", "pr_url", "head_branch", "findings", "fix_plan_summary"],
+  "properties": {
+    "pr_number": {
+      "type": "integer",
+      "description": "Pull request number"
+    },
+    "pr_url": {
+      "type": "string",
+      "description": "Full PR URL"
+    },
+    "head_branch": {
+      "type": "string",
+      "description": "PR head branch name — used by apply-fixes to checkout"
+    },
+    "base_branch": {
+      "type": "string",
+      "description": "PR base branch name"
+    },
+    "findings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["severity", "summary", "file"],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "major", "minor", "suggestion"]
+          },
+          "summary": {
+            "type": "string",
+            "description": "One-line description of the finding"
+          },
+          "file": {
+            "type": "string",
+            "description": "File path affected"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Line number if applicable"
+          },
+          "detail": {
+            "type": "string",
+            "description": "Full description and fix guidance"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["fix", "skip"],
+            "description": "Whether to fix or skip this finding"
+          },
+          "skip_reason": {
+            "type": "string",
+            "description": "Why this finding is skipped (if action=skip)"
+          }
+        }
+      }
+    },
+    "fix_plan_summary": {
+      "type": "string",
+      "description": "Human-readable summary of what will be fixed"
+    },
+    "critical_count": {
+      "type": "integer"
+    },
+    "major_count": {
+      "type": "integer"
+    }
+  }
+}

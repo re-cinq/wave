@@ -27,6 +27,11 @@ chat_context:
     - "Could the same pattern cause issues elsewhere in the codebase?"
     - "Is the regression test sufficient to prevent recurrence?"
 
+pipeline_outputs:
+  fix:
+    step: fix
+    artifact: fix
+
 hooks:
   - name: log-start
     event: run_start

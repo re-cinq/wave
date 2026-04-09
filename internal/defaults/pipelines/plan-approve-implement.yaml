@@ -27,6 +27,11 @@ chat_context:
     - "Plan quality and approval status"
     - "Implementation completeness"
 
+pipeline_outputs:
+  plan:
+    step: plan
+    artifact: plan
+
 hooks:
   - name: log-start
     event: run_start

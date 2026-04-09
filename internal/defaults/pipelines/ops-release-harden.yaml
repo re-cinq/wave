@@ -28,6 +28,11 @@ chat_context:
     - "Security scan results"
     - "Hardening actions and approval status"
 
+pipeline_outputs:
+  scan:
+    step: scan
+    artifact: report
+
 hooks:
   - name: log-start
     event: run_start
