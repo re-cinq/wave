@@ -3104,7 +3104,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 .wr-progress { font-size: 0.65rem; color: var(--color-text-muted); }
 
 /* Child run indent */
-.wr-child { margin-left: 1.5rem; opacity: 0.85; border-left: 2px solid var(--color-border); padding-left: 0.25rem; }
+.wr-child { margin-left: 1.5rem; opacity: 0.85; border-left: 2px solid var(--color-border); padding-left: 0.25rem; display: flex; flex-direction: column; gap: 0.15rem; }
 .wr-child .wr-run { background: var(--color-bg-tertiary); }
 .wr-child .wr-accent { border-radius: 0; }
 
