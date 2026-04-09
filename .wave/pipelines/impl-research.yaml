@@ -1,0 +1,63 @@
+kind: WavePipeline
+metadata:
+  name: impl-research
+  description: >-
+    Research a GitHub issue with web search, implement the solution, and review
+    the resulting PR. A composition pipeline that chains plan-research into
+    impl-issue and then ops-pr-review. Use this when an issue involves external
+    APIs, unfamiliar libraries, or domain concepts that require investigation
+    before coding begins.
+  category: composition
+  release: true
+
+input:
+  source: cli
+  example: "re-cinq/wave 42"
+  schema:
+    type: string
+    description: "GitHub issue reference (owner/repo number)"
+
+chat_context:
+  artifact_summaries:
+    - research
+    - implement
+    - review
+  suggested_questions:
+    - "What did the research phase discover?"
+    - "Were the research findings applied in the implementation?"
+    - "What was the review verdict?"
+  focus_areas:
+    - "Research findings and their influence on implementation"
+    - "Review outcome and any concerns"
+
+pipeline_outputs:
+  verdict:
+    step: review
+    artifact: verdict
+
+hooks:
+  - name: log-start
+    event: run_start
+    type: command
+    command: "echo '[impl-research] started run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+  - name: log-complete
+    event: run_completed
+    type: command
+    command: "echo '[impl-research] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+steps:
+  - id: research
+    pipeline: plan-research
+    input: "{{input}}"
+
+  - id: implement
+    dependencies: [research]
+    pipeline: impl-speckit
+    input: "{{input}}"
+
+  - id: review
+    dependencies: [implement]
+    pipeline: ops-pr-review
+    input: "{{input}}"
