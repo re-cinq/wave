@@ -1107,6 +1107,10 @@
           "type": "string",
           "enum": ["merge_arrays", "concat", "reduce"],
           "description": "Aggregation strategy: 'merge_arrays' combines JSON arrays, 'concat' concatenates text, 'reduce' applies a reduce function"
+        },
+        "key": {
+          "type": "string",
+          "description": "JSON object key to extract before merging (merge_arrays only). When set, each element is expected to be an object and the value at this key (which must be an array) is extracted and merged."
         }
       }
     },
