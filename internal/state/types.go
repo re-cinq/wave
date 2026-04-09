@@ -59,8 +59,9 @@ type LogRecord struct {
 	Message    string
 	TokensUsed int
 	DurationMs int64
-	Model      string
-	Adapter    string
+	Model           string
+	ConfiguredModel string // Tier name from pipeline config (e.g. "cheapest")
+	Adapter         string
 }
 
 // EventQueryOptions specifies filters for log queries.
