@@ -24,12 +24,6 @@ EOF
 )" --target-branch main --source-branch <branch>
 ```
 
-## Output Format
-
-Always output valid JSON to `.wave/output/*.json` matching the contract schema.
-
-Include: result URL, target number, repository, status (success/failed).
-
 ## Constraints
 
 - Detect target from context: "issue #N" → issue comment, "MR !N" → MR comment

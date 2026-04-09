@@ -100,30 +100,123 @@ steps:
     exec:
       type: prompt
       source: |
+        ## Objective
+
+        Synthesize the merged findings from three parallel audits (security, dead-code,
+        and developer experience) into a single, prioritized markdown report. This report
+        is the primary deliverable of the ops-parallel-audit pipeline — it should give a
+        technical lead or project maintainer a clear picture of codebase health, highlight
+        the most urgent issues, and provide an ordered action plan. The report must be
+        useful on its own without requiring the reader to consult the raw findings.
+
         Input scope: {{ input }}
 
-        Three parallel audits have completed — security, dead-code, and DX.
-        Their findings have been merged into .wave/output/merged-findings.json.
+        ## Context
 
-        Read that file, then produce a unified markdown report:
+        Three parallel audit sub-pipelines have already completed:
+        1. **audit-security**: scanned for vulnerabilities, injection risks, credential
+           exposure, and authentication gaps
+        2. **audit-dead-code**: identified unused functions, unreachable code paths,
+           orphaned files, and unnecessary dependencies
+        3. **audit-dx**: evaluated developer experience — documentation quality, error
+           message clarity, onboarding friction, and tooling gaps
 
-        ## Executive Summary
-        Overall health rating (excellent / good / needs-work / critical) with one
-        paragraph of justification.
+        Their findings have been aggregated by the merge-findings step into a single
+        flat JSON array via the merge-findings aggregation step. Each finding object in
+        the array contains at minimum: `source` (which audit), `severity` (critical,
+        high, medium, low), `title`, `description`, and optionally `file`, `line`, and
+        `recommendation`.
 
-        ## Critical Findings  (severity: critical or high)
-        For each: finding title, audit source, file/line if available, recommended fix.
+        You have read-only access to the project directory, so you can cross-reference
+        findings against actual source files if needed.
 
-        ## All Findings by Priority
-        A table with columns: Priority | Source | Finding | File | Recommendation
+        ## Requirements
 
-        ## Positive Observations
-        Anything that looked unexpectedly clean or well-maintained.
+        ### Step 1: Read and Parse Findings
 
-        ## Recommended Next Steps
-        Ordered action list — highest impact first.
+        Read the injected `merged_findings` artifact. Parse the array of findings. Count
+        totals by source and by severity. If the file is empty or contains an empty
+        array, note that all audits returned clean results.
 
-        Write the report to .wave/output/parallel-audit-report.md.
+        ### Step 2: Write the Report
+
+        Produce a well-structured markdown report with these exact sections:
+
+        **## Executive Summary**
+        - Assign an overall health rating: `excellent` (0 critical/high findings),
+          `good` (0 critical, 1-3 high), `needs-work` (1-2 critical or 4+ high),
+          or `critical` (3+ critical findings).
+        - Write one paragraph justifying the rating. Reference the total finding count
+          and the distribution across sources. Mention the most severe issue by name.
+        - Include a quick-reference stats line:
+          `Findings: N total (C critical, H high, M medium, L low)`
+
+        **## Critical Findings** (severity: critical or high)
+        - For each finding, include:
+          - Finding title (bold)
+          - Audit source (security, dead-code, or dx)
+          - File and line reference if available
+          - Description of the issue
+          - Recommended fix or mitigation
+        - If there are no critical or high findings, write "No critical or high-severity
+          findings detected." and move on.
+
+        **## All Findings by Priority**
+        - A markdown table with these columns:
+          `| Priority | Source | Finding | File | Recommendation |`
+        - Sort by severity descending (critical first, then high, medium, low).
+          Within the same severity, sort by source alphabetically.
+        - Truncate long descriptions to keep the table readable. Use the finding title,
+          not the full description.
+
+        **## Positive Observations**
+        - Note anything that looked unexpectedly clean, well-maintained, or exemplary.
+          For example: "No hardcoded credentials found in any configuration file" or
+          "Test coverage in internal/pipeline/ exceeds expectations."
+        - If the audits were generally clean, acknowledge it. This section provides
+          balance and avoids the report being purely negative.
+
+        **## Recommended Next Steps**
+        - An ordered action list, highest impact first. Each action should reference
+          the specific finding(s) it addresses.
+        - Group related findings into single action items where appropriate (e.g.,
+          "Address 3 missing input validation findings in internal/webui/handlers.go").
+        - For each action, estimate effort: quick-fix (< 30 min), moderate (1-4 hours),
+          or significant (> 1 day).
+
+        ### Step 3: Write the Report to Disk
+
+        Produce the complete report as markdown.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT fabricate findings. Every finding in the report must come from the
+          merged findings JSON. If a finding seems suspicious, note it but do not
+          remove it.
+        - Do NOT repeat the same finding multiple times. Deduplicate if the merge
+          produced duplicates.
+        - Do NOT use severity inflation. A medium finding is medium — do not upgrade it
+          to high because it is in a sensitive area unless the finding metadata says so.
+        - Do NOT skip the Positive Observations section even if there are many findings.
+          Always include at least one positive note.
+        - Do NOT produce a report longer than ~500 lines. Summarize aggressively in the
+          table; use the Critical Findings section for detail on the worst items only.
+        - Avoid generic recommendations ("fix the security issues"). Each recommendation
+          must name the specific files and findings it addresses.
+
+        ## Output Format
+
+        A single markdown report with the five
+        sections described above.
+
+        ## Quality Bar
+
+        A good report lets a technical lead prioritize the next sprint's tech-debt work
+        in under 5 minutes. It clearly distinguishes urgent security issues from nice-to-
+        have DX improvements, provides actionable recommendations with effort estimates,
+        and acknowledges what is already working well. A bad report is a flat list of
+        findings without prioritization, mixes severity levels, or provides generic
+        recommendations that do not reference specific code.
     output_artifacts:
       - name: audit-report
         path: .wave/output/parallel-audit-report.md

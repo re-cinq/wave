@@ -80,15 +80,16 @@ func (m *Manager) Create(worktreePath, branch, base string) error {
 	}
 
 	var cmd *exec.Cmd
-	if branch == "" && base != "" {
+	switch {
+	case branch == "" && base != "":
 		// Detached HEAD at base ref
 		cmd = exec.Command("git", "-C", m.repoRoot, "worktree", "add", "--detach", worktreePath, base)
-	} else if branchExists {
+	case branchExists:
 		cmd = exec.Command("git", "-C", m.repoRoot, "worktree", "add", worktreePath, branch)
-	} else if base != "" {
+	case base != "":
 		// New branch from specific base
 		cmd = exec.Command("git", "-C", m.repoRoot, "worktree", "add", "-b", branch, worktreePath, base)
-	} else {
+	default:
 		// New branch from HEAD (default behavior)
 		cmd = exec.Command("git", "-C", m.repoRoot, "worktree", "add", "-b", branch, worktreePath)
 	}

@@ -74,20 +74,48 @@ steps:
     exec:
       type: prompt
       source: |
-        Perform a code quality scan of: {{ input }}
+        ## Objective
 
-        Identify:
-        1. Code duplication and copy-paste patterns
-        2. Functions exceeding 50 lines or high cyclomatic complexity
-        3. Naming inconsistencies and style violations
-        4. Missing or outdated documentation
-        5. Unused exports, dead code, and unreachable branches
+        Perform a thorough code quality scan of the specified area, identifying duplication, complexity, style issues, documentation gaps, and dead code. This is the first step of the quality track in a dual-track parallel analysis pipeline. The findings produced here will be deepened in a subsequent detail step and eventually merged with security findings.
 
-        Write your findings to `.wave/output/findings.json` (the contract schema defines the required structure).
+        ## Context
 
-        Use `"type": "duplicate"` for code duplication, `"type": "junk-code"` for complexity,
-        `"type": "style"` for naming/style, `"type": "doc-drift"` for documentation,
-        `"type": "dead-code"` for unused exports.
+        This step runs in parallel with the security-scan step. They share no data and have no dependencies on each other. The codebase is mounted read-only at /project. The caller provides a scope describing what to analyze (a module name, directory path, or general description).
+
+        Target: {{ input }}
+
+        Interpret the input to identify the relevant source files. If the input names a module or component, use Glob and Grep to locate all files belonging to that module. If the input is a directory path, scan that directory tree. If the input is a general description (e.g., "the authentication module"), search for files related to that concept.
+
+        ## Requirements
+
+        Scan systematically for each of these quality dimensions:
+
+        1. **Code duplication and copy-paste patterns**: Search for functions with identical or near-identical signatures across different files. Look for code blocks of 10+ lines that appear in multiple locations with minor variations. Use Grep to find repeated patterns. For each duplicate, identify the original and the copy, and note any behavioral drift between them.
+
+        2. **Complexity hotspots**: Identify functions exceeding 50 lines. Look for deeply nested control flow (3+ levels of if/for/switch nesting). Check for functions with many parameters (6+) or return values (4+). Note cyclomatic complexity indicators: count the number of branching statements (if, switch cases, for loops) in each function.
+
+        3. **Naming inconsistencies and style violations**: Check that names follow Go conventions (or the project's established conventions). Look for abbreviations used inconsistently, CamelCase vs snake_case mixing, and misleading names (e.g., a function named "Get" that modifies state). Verify that package names match directory names and are lowercase without underscores.
+
+        4. **Missing or outdated documentation**: Check for exported functions without doc comments. Verify that existing doc comments accurately describe the current behavior. Look for TODO/FIXME comments that reference resolved issues or removed functionality.
+
+        5. **Unused exports, dead code, and unreachable branches**: Search for exported symbols with no callers outside their package. Identify code after return/panic statements. Look for switch cases that can never be reached.
+
+        For each finding, read the source code to confirm the issue is real and assess its severity based on maintainability impact.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT report standard Go idioms as style violations (e.g., single-letter loop variables, blank identifier usage).
+        - Do NOT flag test files for complexity or naming unless they contain production logic.
+        - Do NOT modify any files.
+        - Focus on actionable findings. Reporting 50 trivial style nits dilutes the value of the analysis.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good quality scan reads the actual source code for each finding, provides specific file:line references, and distinguishes between high-impact issues (behavioral duplication, complex critical-path functions) and low-impact ones (minor style preferences). A bad scan lists generic categories without examining actual code or reports every function over 20 lines as "complex."
     output_artifacts:
       - name: findings
         path: .wave/output/findings.json

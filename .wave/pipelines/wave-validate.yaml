@@ -59,13 +59,70 @@ steps:
     exec:
       type: prompt
       source: |
-        Validate Wave configuration. Check:
-        1. wave.yaml exists and parses
-        2. At least one adapter is configured
-        3. At least one persona is defined
-        4. .wave/pipelines/ contains pipeline files
+        OBJECTIVE:
+        Validate the Wave project configuration by checking that all essential files exist,
+        parse correctly, and are internally consistent. Produce a structured JSON report
+        with pass/fail status for each validation check.
 
-        Output a JSON report with pass/fail for each check.
+        CONTEXT:
+        You are the first step in the wave-validate pipeline, which exercises Wave's core
+        capabilities end-to-end. This step validates configuration using a cheap model to
+        verify that model routing works (expensive models are reserved for later steps).
+        Your JSON output will be validated against a contract schema to verify the contract
+        validation subsystem works. You have read-only access to the project codebase at
+        /project.
+
+        REQUIREMENTS:
+        1. Check wave.yaml existence and parsing:
+           - Verify wave.yaml exists at the project root
+           - Read the file and verify it parses as valid YAML
+           - Check that it contains required top-level keys (adapters, personas, or
+             similar configuration sections)
+           - Record: file_exists (boolean), parses_valid (boolean), has_required_keys
+             (boolean)
+        2. Check adapter configuration:
+           - Look for adapter definitions in wave.yaml or the adapters section
+           - Verify at least one adapter is configured
+           - Record: adapter_count (integer), adapter_names (array of strings)
+        3. Check persona definitions:
+           - Look for persona files in .wave/personas/ directory
+           - Verify at least one persona is defined
+           - For each persona, check that it has required fields (role, description)
+           - Record: persona_count (integer), persona_names (array of strings)
+        4. Check pipeline files:
+           - List all .yaml files in .wave/pipelines/
+           - Verify at least one pipeline file exists
+           - For a sample of pipeline files (first 5), verify they parse as valid YAML
+             and contain required fields (kind, metadata.name, steps)
+           - Record: pipeline_count (integer), sample_valid (boolean)
+        5. Overall assessment:
+           - all_checks_passed: boolean (true only if all individual checks pass)
+           - summary: brief string describing the configuration health
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT modify any files. This is a read-only validation step.
+        - Do NOT skip any of the four checks. Each validates a different aspect of
+          the Wave configuration.
+        - Do NOT report a check as "pass" if the underlying file does not exist or
+          does not parse. Be strict.
+        - Do NOT produce the report without the all_checks_passed field. Downstream
+          steps depend on it to determine the routing path.
+
+        OUTPUT FORMAT:
+        Produce a JSON report with:
+        - checks: object with wave_yaml, adapters, personas, pipelines sub-objects,
+          each containing status ("pass"/"fail"), details (string), and specific fields
+          noted above
+        - all_checks_passed: boolean
+        - summary: string
+        - timestamp: ISO 8601 timestamp
+
+        QUALITY BAR:
+        A good configuration check is thorough: it reads actual files and verifies
+        parsing, not just file existence. Each check failure includes a specific error
+        message explaining what went wrong. A bad check only verifies file existence
+        without reading content, or reports "pass" for a file that does not actually
+        parse correctly.
     output_artifacts:
       - name: config-check
         path: .wave/output/config-check.json
@@ -120,8 +177,46 @@ steps:
     exec:
       type: prompt
       source: |
-        Tests failed. Read the test output and diagnose the top failure.
-        Output a brief diagnosis.
+        OBJECTIVE:
+        Diagnose the test failure that caused the pipeline to reach this step. Read the
+        test output, identify the root cause of the top failure, and produce a concise
+        diagnosis that can inform a fix attempt.
+
+        CONTEXT:
+        You are on the failure path of the wave-validate pipeline. The run-tests step
+        (a command step running `test -f wave.yaml`) failed, which means the project
+        mount may not be configured correctly or the file does not exist. This step uses
+        thread continuity (fix-loop thread) and can be visited up to 2 times if the gate
+        routes back through the failure path.
+
+        REQUIREMENTS:
+        1. Examine the workspace to understand why the test failed:
+           - Check if the workspace mount is correct: is /project accessible?
+           - Check if wave.yaml exists at the expected location
+           - List the contents of the current working directory to verify the mount
+        2. Identify the root cause:
+           - Is this a mount configuration issue (workspace not properly set up)?
+           - Is this a file location issue (wave.yaml is elsewhere)?
+           - Is this a pipeline configuration issue (wrong path in the command step)?
+        3. Produce a concise diagnosis (1-2 paragraphs) covering:
+           - What the test was checking
+           - Why it failed (the specific condition that was not met)
+           - What would fix it (if the fix is obvious)
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT attempt to fix the issue. This step diagnoses; it does not repair.
+        - Do NOT produce a multi-page analysis. Keep the diagnosis concise and actionable.
+        - Do NOT speculate without checking. Read the actual filesystem state before
+          diagnosing.
+
+        OUTPUT FORMAT:
+        Produce a brief diagnosis as markdown. Use plain markdown with
+        a heading and 1-2 paragraphs. Include the specific error or missing file.
+
+        QUALITY BAR:
+        A good diagnosis pinpoints exactly why the test failed and what condition was
+        not met. A developer reading it should immediately know what to investigate.
+        A bad diagnosis says "something went wrong" without specifics.
     output_artifacts:
       - name: diagnosis
         path: .wave/output/diagnosis.md
@@ -156,19 +251,93 @@ steps:
     exec:
       type: prompt
       source: |
-        Generate a Wave feature validation report.
+        OBJECTIVE:
+        Generate a comprehensive Wave feature validation report summarizing which executor
+        capabilities were exercised in this pipeline run. Rate each feature as VERIFIED or
+        UNTESTED based on the pipeline execution path.
 
-        Summarize which features were exercised in this pipeline run:
-        - Model routing (haiku on check-config and diagnose steps)
-        - Sub-pipeline composition (wave-smoke-test invoked as child pipeline)
-        - Command steps (run-tests)
-        - Conditional edges (test-gate routing)
-        - Thread continuity (fix-loop thread on diagnose)
-        - Retry policies (patient on check-config)
-        - Lifecycle hooks (log-start and log-step)
-        - LLM-as-judge (on this step's output)
+        CONTEXT:
+        You are the final step in the wave-validate pipeline. This pipeline is designed to
+        exercise Wave's core capabilities in a single run. The pipeline has passed through
+        several steps before reaching you: check-config (model routing), sub-pipeline-test
+        (composition), run-tests (command step), test-gate (conditional routing), and
+        approval-gate (human gate). Your output will be evaluated by an LLM-as-judge
+        contract, which is itself one of the features being validated.
 
-        Rate each as VERIFIED or UNTESTED. Output as structured markdown.
+        REQUIREMENTS:
+        1. For each of the following 8 feature categories, determine whether it was
+           exercised in this pipeline run and rate it as VERIFIED or UNTESTED:
+
+           a. Model routing: The check-config step used model: cheapest, while this
+              step and others use different model tiers. Was the pipeline able to execute
+              steps with different model assignments? VERIFIED if you are running
+              (which proves the executor routed to the correct model).
+
+           b. Sub-pipeline composition: The sub-pipeline-test step invoked ops-hello-world
+              as a child pipeline. Check if the output directory contains artifacts from the
+              child pipeline execution. VERIFIED if child artifacts exist.
+
+           c. Command steps: The run-tests step executed a shell command without an LLM
+              adapter. Check if the pipeline reached this step (it is a dependency of
+              test-gate). VERIFIED if the pipeline reached you (meaning the command step
+              completed successfully).
+
+           d. Conditional edges: The test-gate step routes to either approval-gate
+              (on success) or diagnose-failure (on failure). If you are executing and
+              did not pass through diagnose-failure, the success edge was taken.
+              VERIFIED if the routing worked correctly.
+
+           e. Thread continuity: The diagnose-failure step uses thread: fix-loop for
+              conversation continuity across loop iterations. This is VERIFIED only if
+              the failure path was taken and diagnose-failure executed. Otherwise UNTESTED
+              (which is fine -- it means tests passed).
+
+           f. Retry policies: The check-config step has policy: patient with
+              max_attempts: 2. VERIFIED if the step completed (the retry infrastructure
+              was active even if no retry was needed). Note whether a retry occurred.
+
+           g. Lifecycle hooks: Two hooks are configured (log-start on run_start, log-step
+              on step_completed). Check if the hook log file exists and contains
+              entries. VERIFIED if the hook log file exists with content.
+
+           h. LLM-as-judge: This step's output will be evaluated by an llm_judge
+              contract. This is VERIFIED by definition if you are generating this report
+              (the judge evaluation happens after your output).
+
+        2. For each feature, provide:
+           - Feature name
+           - Status: VERIFIED or UNTESTED
+           - Evidence: what observation confirms the status (file existence, execution
+             path, artifact content)
+           - Notes: any caveats or observations
+
+        3. Include an overall summary:
+           - Count of VERIFIED vs UNTESTED features
+           - Whether the validation run exercised the critical path (all core features)
+           - Any recommendations for improving validation coverage
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT mark features as VERIFIED without evidence. If you cannot confirm the
+          feature was exercised, mark it UNTESTED.
+        - Do NOT mark thread continuity as VERIFIED unless the failure path was actually
+          taken. The success path does not exercise thread continuity.
+        - Do NOT produce a JSON report. This step outputs structured markdown that will
+          be evaluated by the LLM-as-judge contract.
+        - Do NOT omit any of the 8 feature categories. All must be assessed.
+
+        OUTPUT FORMAT:
+        Produce structured markdown with:
+        # Wave Feature Validation Report
+        ## Summary (count of VERIFIED/UNTESTED, overall assessment)
+        ## Feature Assessment (table or list with feature, status, evidence, notes)
+        ## Recommendations (if any features need additional validation)
+
+        QUALITY BAR:
+        A good validation report provides clear evidence for each VERIFIED feature and
+        honest UNTESTED ratings where the execution path did not exercise a feature.
+        The report should cover all 8 categories with specific observations. A bad
+        report rubber-stamps everything as VERIFIED without checking evidence, or misses
+        feature categories.
     output_artifacts:
       - name: report
         path: .wave/output/validation-report.md

@@ -99,8 +99,9 @@ func (v *markdownSpecValidator) Validate(cfg ContractConfig, workspacePath strin
 	// Save the converted JSON for debugging and potential use by next steps
 	jsonOutputPath := strings.TrimSuffix(sourcePath, filepath.Ext(sourcePath)) + ".json"
 	if err := os.WriteFile(jsonOutputPath, jsonData, 0644); err != nil {
-		// Non-fatal - log but don't fail validation
-		// In production, this would go through the audit logger
+		// Non-fatal - log but don't fail validation.
+		// In production, this would go through the audit logger.
+		_ = err
 	}
 
 	return nil
@@ -145,14 +146,14 @@ func findLatestSpeckitDir(specsDir, pattern string) string {
 	// Extract the filename from the pattern (e.g., "spec.md" from "specs/{{branch}}/spec.md")
 	filename := filepath.Base(pattern)
 
+	speckitDirRe := regexp.MustCompile(`^\d{3}-`)
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
 		}
 
 		// Check if this looks like a Speckit feature directory (###-name pattern)
-		matched, _ := regexp.MatchString(`^\d{3}-`, entry.Name())
-		if !matched {
+		if !speckitDirRe.MatchString(entry.Name()) {
 			continue
 		}
 
@@ -315,7 +316,7 @@ func processSection(spec *SpecData, sectionName, content string) error {
 }
 
 // parseUserStories extracts user stories from markdown content
-func parseUserStories(content string) ([]UserStory, error) {
+func parseUserStories(content string) ([]UserStory, error) { //nolint:unparam // kept for interface/future use
 	var stories []UserStory
 
 	// Split by story blocks - look for patterns that start a new story
@@ -331,7 +332,8 @@ func parseUserStories(content string) ([]UserStory, error) {
 		}
 
 		// Check for single-line format first (has both "as a" and "i want")
-		if strings.Contains(strings.ToLower(line), "as a") && strings.Contains(strings.ToLower(line), "i want") {
+		switch {
+		case strings.Contains(strings.ToLower(line), "as a") && strings.Contains(strings.ToLower(line), "i want"):
 			// Handle comma-separated format like "As a user, I want to log in so that I can access my account"
 			// Save previous story if it exists
 			if currentStory != nil {
@@ -369,7 +371,7 @@ func parseUserStories(content string) ([]UserStory, error) {
 			}
 			acceptanceCriteria = []string{}
 			inAcceptance = false
-		} else if strings.HasPrefix(strings.ToLower(line), "as a") || strings.HasPrefix(strings.ToLower(line), "as an") {
+		case strings.HasPrefix(strings.ToLower(line), "as a") || strings.HasPrefix(strings.ToLower(line), "as an"):
 			// Multi-line format starting with "As a"
 			// Save previous story if it exists
 			if currentStory != nil {
@@ -382,15 +384,16 @@ func parseUserStories(content string) ([]UserStory, error) {
 			currentStory.AsA = extractUserStoryValue(line)
 			acceptanceCriteria = []string{}
 			inAcceptance = false
-		} else if currentStory != nil {
+		case currentStory != nil:
 			// Continue parsing current story
-			if strings.HasPrefix(strings.ToLower(line), "i want") {
+			switch {
+			case strings.HasPrefix(strings.ToLower(line), "i want"):
 				currentStory.IWant = extractUserStoryValue(line)
-			} else if strings.HasPrefix(strings.ToLower(line), "so that") {
+			case strings.HasPrefix(strings.ToLower(line), "so that"):
 				currentStory.SoThat = extractUserStoryValue(line)
-			} else if strings.Contains(strings.ToLower(line), "acceptance") {
+			case strings.Contains(strings.ToLower(line), "acceptance"):
 				inAcceptance = true
-			} else if inAcceptance && (strings.HasPrefix(line, "-") || strings.HasPrefix(line, "*") || strings.HasPrefix(line, "•")) {
+			case inAcceptance && (strings.HasPrefix(line, "-") || strings.HasPrefix(line, "*") || strings.HasPrefix(line, "•")):
 				criterion := strings.TrimSpace(strings.TrimLeft(line, "-*•"))
 				if criterion != "" {
 					acceptanceCriteria = append(acceptanceCriteria, criterion)
@@ -429,7 +432,7 @@ func parseUserStories(content string) ([]UserStory, error) {
 }
 
 // parseFileChanges extracts file change descriptions from content
-func parseFileChanges(content string) ([]FileChange, error) {
+func parseFileChanges(content string) ([]FileChange, error) { //nolint:unparam // kept for interface/future use
 	var changes []FileChange
 
 	// Look for file paths and their descriptions

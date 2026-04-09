@@ -55,13 +55,10 @@ func (m *ContractDetailModel) SetContract(info *ContractInfo) {
 
 // Update handles messages.
 func (m ContractDetailModel) Update(msg tea.Msg) (ContractDetailModel, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		if m.focused {
-			var cmd tea.Cmd
-			m.viewport, cmd = m.viewport.Update(msg)
-			return m, cmd
-		}
+	if msg, ok := msg.(tea.KeyMsg); ok && m.focused {
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		return m, cmd
 	}
 
 	return m, nil
@@ -83,7 +80,7 @@ func (m ContractDetailModel) View() string {
 	return m.viewport.View()
 }
 
-func renderContractDetail(info *ContractInfo, width int) string {
+func renderContractDetail(info *ContractInfo, _ int) string {
 	if info == nil {
 		return ""
 	}

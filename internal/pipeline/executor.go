@@ -1133,7 +1133,7 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 
 	// Audit log: command step start
 	if e.logger != nil {
-		e.logger.LogStepStart(pipelineID, step.ID, "command", nil)
+		_ = e.logger.LogStepStart(pipelineID, step.ID, "command", nil)
 	}
 
 	e.emit(event.Event{
@@ -1738,7 +1738,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					Error:      lastErr.Error(),
 				}
 				if e.hookRunner != nil {
-					e.hookRunner.RunHooks(ctx, stepFailedEvt) //nolint:errcheck // non-blocking hook
+					e.hookRunner.RunHooks(ctx, stepFailedEvt)
 				}
 				e.fireWebhooks(ctx, stepFailedEvt)
 				e.recordOntologyUsage(execution, step, "failed")
@@ -2694,15 +2694,18 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 	// Record model routing decision
 	{
-		rationale := "adapter default (no override)"
-		if e.modelOverride != "" {
+		var rationale string
+		switch {
+		case e.modelOverride != "":
 			rationale = "CLI --model flag override"
-		} else if step.Model != "" {
+		case step.Model != "":
 			rationale = "per-step model pinning in pipeline YAML"
-		} else if persona.Model != "" {
+		case persona.Model != "":
 			rationale = "per-persona model configuration"
-		} else if execution.Manifest.Runtime.Routing.AutoRoute {
+		case execution.Manifest.Runtime.Routing.AutoRoute:
 			rationale = "auto-routed based on step complexity"
+		default:
+			rationale = "adapter default (no override)"
 		}
 		modelDisplay := resolvedModel
 		if modelDisplay == "" {
@@ -3459,7 +3462,7 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		// Anchor Claude Code path resolution to the workspace root.
 		// Without .git, Claude Code walks up the directory tree and resolves
 		// relative paths against the project root instead of the workspace.
-		exec.Command("git", "init", "-q", wsPath).Run()
+		_ = exec.Command("git", "init", "-q", wsPath).Run()
 		return wsPath, nil
 	}
 
@@ -3469,7 +3472,7 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		return "", err
 	}
 	// Anchor Claude Code path resolution (see mount-based workspace above)
-	exec.Command("git", "init", "-q", wsPath).Run()
+	_ = exec.Command("git", "init", "-q", wsPath).Run()
 	return wsPath, nil
 }
 
@@ -4203,19 +4206,6 @@ func (e *DefaultPipelineExecutor) checkRelayCompaction(ctx context.Context, exec
 	return nil
 }
 
-// injectCheckpointIfExists checks for a checkpoint.md file in the workspace and
-// prepends checkpoint context to the prompt if found.
-func (e *DefaultPipelineExecutor) injectCheckpointIfExists(workspacePath string, prompt string) string {
-	checkpointPrompt, err := relay.InjectCheckpointPrompt(workspacePath)
-	if err != nil {
-		// No checkpoint found or error reading it - that's fine, just use original prompt
-		return prompt
-	}
-
-	// Prepend checkpoint context to the prompt
-	return checkpointPrompt + "\n\n" + prompt
-}
-
 // trackStepDeliverables automatically tracks deliverables produced by a completed step
 func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecution, step *Step) {
 	if e.deliverableTracker == nil {
@@ -4455,7 +4445,7 @@ func (e *DefaultPipelineExecutor) sanitizeSchemaContent(step *Step, content stri
 
 // schemaFieldPlaceholder returns a JSON placeholder value for a schema property,
 // used in the contract compliance example skeleton.
-func schemaFieldPlaceholder(field string, prop map[string]any) string {
+func schemaFieldPlaceholder(_ string, prop map[string]any) string {
 	if prop == nil {
 		return "\"...\""
 	}
@@ -4521,6 +4511,23 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 				StepID:     step.ID,
 				State:      "warning",
 				Message:    msg,
+			})
+			continue
+		}
+
+		// file/artifact types: use the artifact path directly as the deliverable value
+		if outcome.Type == "file" || outcome.Type == "artifact" {
+			label := outcome.Label
+			if label == "" {
+				label = outcome.Type
+			}
+			e.registerOutcomeDeliverable(step.ID, outcome.Type, label, artifactPath, fmt.Sprintf("Produced by step %s", step.ID))
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      StateRunning,
+				Message:    fmt.Sprintf("outcome: %s = %s", label, artifactPath),
 			})
 			continue
 		}
@@ -4640,6 +4647,10 @@ func (e *DefaultPipelineExecutor) registerOutcomeDeliverable(stepID, outcomeType
 		e.deliverableTracker.AddIssue(stepID, label, value, desc)
 	case "deployment":
 		e.deliverableTracker.AddDeployment(stepID, label, value, desc)
+	case "file":
+		e.deliverableTracker.AddFile(stepID, label, value, desc)
+	case "artifact":
+		e.deliverableTracker.AddArtifact(stepID, label, value, desc)
 	default:
 		// "url" or any unknown type → generic URL
 		e.deliverableTracker.AddURL(stepID, label, value, desc)
@@ -5191,7 +5202,7 @@ func (e *DefaultPipelineExecutor) executeIterateParallelInDAG(ctx context.Contex
 }
 
 // executeAggregateInDAG collects outputs from prior steps and writes them to a file.
-func (e *DefaultPipelineExecutor) executeAggregateInDAG(ctx context.Context, execution *PipelineExecution, step *Step) error {
+func (e *DefaultPipelineExecutor) executeAggregateInDAG(_ context.Context, execution *PipelineExecution, step *Step) error {
 	pipelineID := execution.Status.ID
 
 	// Resolve the source expression

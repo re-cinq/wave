@@ -64,42 +64,103 @@ steps:
     exec:
       type: prompt
       source: |
-        Review the code changes for: {{ input }}
+        OBJECTIVE:
+        Perform a thorough code review of the specified PR or branch, evaluating correctness,
+        test coverage, security, performance, architectural alignment, and commit quality.
+        Produce a structured per-file review with an overall verdict.
 
-        ## Fetch Changes
+        TARGET: {{ input }}
 
-        If the input is a PR number (starts with # or is numeric):
-        ```bash
-        {{ forge.cli_tool }} {{ forge.pr_command }} diff {{ input }}
-        {{ forge.cli_tool }} {{ forge.pr_command }} view {{ input }} --json title,body,files
-        ```
+        CONTEXT:
+        You are a single-step review pipeline. Your output is a markdown review document
+        that can be used directly as a PR review comment or as an internal quality
+        assessment. You have read-only access to the project codebase and can fetch PR
+        details via the forge CLI. Read Wave's CLAUDE.md and AGENTS.md first to understand
+        the project's coding standards and conventions.
 
-        If the input is a branch name:
-        ```bash
-        git diff main...{{ input }}
-        git log main...{{ input }} --oneline
-        ```
+        REQUIREMENTS:
+        1. Fetch the changes to review:
+           - If the input is a PR number (starts with # or is purely numeric):
+             ```bash
+             {{ forge.cli_tool }} {{ forge.pr_command }} diff {{ input }}
+             {{ forge.cli_tool }} {{ forge.pr_command }} view {{ input }} --json title,body,files,commits
+             ```
+           - If the input is a branch name:
+             ```bash
+             git diff main...{{ input }}
+             git log main...{{ input }} --oneline
+             ```
+           - Read the full diff and the list of changed files. For large PRs (>20 files),
+             focus on the most impactful changes first.
+        2. Read the existing code context: for each changed file, read the full file (not
+           just the diff) to understand how the changes fit into the surrounding code.
+        3. Apply the review checklist to every changed file:
+           a. Correctness: Does the code do what it claims? Are edge cases handled?
+              Check for: nil pointer dereferences, unchecked type assertions, off-by-one
+              errors, resource leaks (unclosed files/connections), incorrect error wrapping.
+           b. Tests: Are new features and bug fixes covered by tests? Do tests exercise
+              error paths, not just the happy path? Are tests table-driven where the
+              codebase convention calls for it? Are new test helpers marked with t.Helper()?
+           c. Security: Check for injection vectors (SQL injection, command injection,
+              path traversal). Verify no credentials or tokens are hardcoded. Confirm
+              input validation on all external inputs. Check for TOCTOU (time-of-check
+              to time-of-use) race conditions.
+           d. Performance: Flag unnecessary allocations (especially in hot paths or loops).
+              Identify O(n^2) or worse algorithms where O(n) or O(n log n) is possible.
+              Check for unbounded growth (maps that grow but never shrink, slices without
+              capacity hints).
+           e. Architecture: Does the code follow Wave's patterns? Single responsibility
+              per function/type. Interfaces for testability (not concrete types as
+              dependencies). Structured errors (not string formatting). Consistent
+              naming conventions.
+           f. CLAUDE.md compliance: Read CLAUDE.md and verify the changes follow all
+              stated rules (commit style, no AI attribution, no deprecated patterns).
+           g. Commit quality: Are commits focused on a single logical change? Do they
+              use conventional prefixes (feat:, fix:, etc.)? Are commit messages clear
+              about "why" not just "what"? No Co-Authored-By lines?
+        4. For each file, assign one of these statuses:
+           - APPROVED: No issues found. The code is correct, tested, and follows
+             conventions.
+           - SUGGESTION: Non-blocking improvement ideas. The code works but could be
+             better. Include specific code suggestions.
+           - REQUEST: Must-fix issues before merge. The code has a bug, security
+             vulnerability, missing test, or convention violation that must be addressed.
+           - QUESTION: Something that needs clarification from the author. The reviewer
+             cannot determine correctness without more context.
+           For each non-APPROVED item, provide: file path, line range, category (from
+           the checklist above), severity (critical/major/minor), and a specific
+           description with a suggested fix.
+        5. Summarize the review with:
+           - Total files reviewed
+           - Counts by status (approved, suggestions, requests, questions)
+           - Overall verdict: APPROVE (no requests), REQUEST_CHANGES (any requests),
+             or COMMENT (suggestions/questions only, no requests)
+           - 2-3 sentence summary of the review findings
 
-        ## Review Checklist
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT rubber-stamp the review. Read the actual code changes, not just the
+          file names.
+        - Do NOT flag style preferences as requests. If the code works and follows
+          project conventions, cosmetic preferences are suggestions at most.
+        - Do NOT ignore test coverage. Missing tests for new functionality is always a
+          request-level finding.
+        - Do NOT review files that were not changed. The review scope is the diff.
+        - Do NOT make the review personal. Focus on the code, not the author.
+        - Do NOT provide a verdict of APPROVE if there are any REQUEST-level findings.
 
-        1. **Correctness**: Does the code do what it claims? Are edge cases handled?
-        2. **Tests**: Are new features tested? Do tests cover error paths?
-        3. **Security**: No injection vectors, no credential exposure, proper validation
-        4. **Performance**: No unnecessary allocations, no O(n²) where O(n) suffices
-        5. **Architecture**: Follows Wave's patterns (single responsibility, interfaces
-           for testability, structured errors)
-        6. **CLAUDE.md compliance**: Follows all rules in CLAUDE.md
-        7. **Commits**: Conventional prefixes, no Co-Authored-By, focused changes
+        OUTPUT FORMAT:
+        Produce the review as markdown with sections:
+        # Code Review: <PR title or branch name>
+        ## Summary (verdict, file count, finding counts, 2-3 sentence overview)
+        ## Per-File Review (one subsection per file with status, findings, suggestions)
+        ## Overall Assessment (detailed verdict rationale)
 
-        ## Review Output Format
-
-        For each file changed, note:
-        - **Approved**: No issues found
-        - **Suggestion**: Non-blocking improvement idea
-        - **Request**: Must-fix issue before merge
-        - **Question**: Something that needs clarification
-
-        End with an overall verdict: APPROVE, REQUEST_CHANGES, or COMMENT.
+        QUALITY BAR:
+        A good review catches real bugs and missing tests while respecting the author's
+        design choices. Each finding is specific (file, line, what is wrong, how to fix
+        it). The verdict is consistent with the findings (no APPROVE with outstanding
+        requests). A bad review is either a rubber stamp or a list of nitpicks that
+        misses the actual issues.
     output_artifacts:
       - name: review
         path: .wave/output/review.md

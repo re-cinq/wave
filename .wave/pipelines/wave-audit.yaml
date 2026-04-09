@@ -65,73 +65,92 @@ steps:
     exec:
       type: prompt
       source: |
-        Collect a complete inventory of closed issues and merged PRs for auditing.
+        OBJECTIVE:
+        Collect a complete inventory of closed issues and merged PRs from the repository,
+        filtered by the specified scope (time range, label, or full audit). The inventory
+        is the foundation for the entire audit pipeline -- every subsequent step depends
+        on it being complete and accurate.
 
-        ## Detect Repository
+        INPUT: {{ input }}
 
-        Run: `{{ forge.cli_tool }} repo view --json nameWithOwner --jq .nameWithOwner`
+        CONTEXT:
+        You are the first step in a five-step audit pipeline (collect-inventory, audit-items,
+        compose-triage, publish). Your inventory will be consumed by the audit-items step,
+        which will verify each item against the codebase. Missing items in the inventory
+        means missing findings in the audit. Over-inclusion is better than under-inclusion.
 
-        ## Parse Scope
+        REQUIREMENTS:
+        1. Detect the repository:
+           ```bash
+           {{ forge.cli_tool }} repo view --json nameWithOwner --jq .nameWithOwner
+           ```
+        2. Parse the scope from the input:
+           - Empty or blank input: Full audit -- fetch ALL closed issues and merged PRs
+           - Time range (e.g., "last 30 days", "last 7 days", "since 2026-01-01"):
+             - For "last N days": calculate the date N days ago, use `closed:>YYYY-MM-DD`
+               and `merged:>YYYY-MM-DD`
+             - For "since YYYY-MM-DD": use `closed:>YYYY-MM-DD` and `merged:>YYYY-MM-DD`
+           - Label filter (e.g., "label:enhancement", "label:bug"):
+             - Extract the label name after "label:"
+             - Add `--label <name>` to both issue and PR queries
+        3. Fetch closed issues:
+           ```bash
+           {{ forge.cli_tool }} issue list --state closed \
+             --json number,title,body,labels,closedAt,stateReason,url \
+             --limit 500 [--search "closed:>YYYY-MM-DD"] [--label <name>]
+           ```
+           Filter out issues where stateReason is NOT_PLANNED -- these represent
+           intentional non-implementation and should be excluded from audit.
+           If the result count equals the limit (500), make additional paginated calls
+           to fetch remaining items.
+        4. Fetch merged PRs:
+           ```bash
+           {{ forge.cli_tool }} {{ forge.pr_command }} list --state merged \
+             --json number,title,body,files,mergeCommit,closedAt,url \
+             --limit 500 [--search "merged:>YYYY-MM-DD"] [--label <name>]
+           ```
+           If the result count equals the limit, paginate for more.
+        5. Build the inventory. For each item, extract:
+           - number, type (issue or pr), title, url, body, labels
+           - close_reason: "completed" for issues, "merged" for PRs
+           - closed_at: ISO 8601 timestamp
+           - linked_prs: for issues, search the body for "Fixes #N", "Closes #N",
+             "Related to #N", or PR cross-references
+           - linked_commits: for PRs, include the merge commit SHA
+           - acceptance_criteria: extract from issue body by looking for checklist
+             patterns (- [ ], - [x]) or sections titled "Acceptance Criteria",
+             "Requirements", or similar headers
+        6. Handle edge cases:
+           - Empty results: output a valid inventory JSON with empty items array and
+             a summary indicating zero results. This is not an error.
+           - Rate limits: the {{ forge.cli_tool }} CLI handles rate limits automatically.
+             If you see rate-limit errors, wait briefly and retry.
+           - Very large repositories: if total items exceed 1000, note this in the
+             summary and ensure pagination is complete.
 
-        Input: {{ input }}
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT skip pagination. If any query returns exactly the limit count, there
+          are likely more items. Always check and paginate.
+        - Do NOT include NOT_PLANNED issues. They were intentionally not implemented
+          and should not be audited for implementation fidelity.
+        - Do NOT fabricate items or acceptance criteria. Extract only what exists in
+          the actual issue/PR bodies.
+        - Do NOT modify item bodies or titles. Capture them exactly for the audit step.
 
-        Determine the scope mode from the input:
+        OUTPUT FORMAT:
+        Produce the inventory as structured JSON with:
+        - scope: object with mode ("full", "time_range", or "label"), filter (raw scope
+          expression), repository (owner/repo)
+        - items: array of inventory item objects as described above
+        - summary: object with total_issues, total_prs, excluded_not_planned counts
+        - timestamp: current ISO 8601 timestamp
 
-        - **Empty or blank input**: Full audit — fetch ALL closed issues and merged PRs
-        - **Time range** (e.g., "last 30 days", "last 7 days", "since 2026-01-01"):
-          - For "last N days": calculate the date N days ago, use `closed:>YYYY-MM-DD` / `merged:>YYYY-MM-DD`
-          - For "since YYYY-MM-DD": use `closed:>YYYY-MM-DD` / `merged:>YYYY-MM-DD`
-        - **Label filter** (e.g., "label:enhancement", "label:bug"):
-          - Extract the label name after "label:"
-          - Add `--label <name>` to both issue and PR queries
-
-        ## Fetch Closed Issues
-
-        ```bash
-        {{ forge.cli_tool }} issue list --state closed --json number,title,body,labels,closedAt,stateReason,url \
-          --limit 500 [--search "closed:>YYYY-MM-DD"] [--label <name>]
-        ```
-
-        Filter out issues where `stateReason` is `NOT_PLANNED` — these represent intentional non-implementation and should be excluded.
-
-        If the result count equals the limit (500), make additional paginated calls to fetch remaining items.
-
-        ## Fetch Merged PRs
-
-        ```bash
-        {{ forge.cli_tool }} {{ forge.pr_command }} list --state merged --json number,title,body,files,mergeCommit,closedAt,url \
-          --limit 500 [--search "merged:>YYYY-MM-DD"] [--label <name>]
-        ```
-
-        If the result count equals the limit, paginate for more.
-
-        ## Rate Limit Awareness
-
-        The `{{ forge.cli_tool }}` CLI handles rate limits automatically. If you see rate-limit errors, wait briefly and retry. For very large repositories, space out requests.
-
-        ## Build Inventory
-
-        For each item, extract:
-        - `number`, `type` (issue or pr), `title`, `url`, `body`, `labels`
-        - `close_reason`: "completed" for issues, "merged" for PRs
-        - `closed_at`: ISO 8601 timestamp
-        - `linked_prs`: For issues, search the body for "Fixes #N", "Closes #N", "Related to #N", or PR cross-references
-        - `linked_commits`: For PRs, include the merge commit SHA
-        - `acceptance_criteria`: Extract from issue body by looking for checklist patterns (`- [ ]`, `- [x]`) or sections titled "Acceptance Criteria", "Requirements", or similar headers
-
-        ## Handle Empty Results
-
-        If no items match the scope filters, output a valid inventory JSON with an empty `items` array and a summary indicating zero results. This is not an error.
-
-        ## Output
-
-        Write the inventory as structured JSON to `.wave/output/inventory.json`.
-
-        The JSON must include:
-        - `scope`: object with `mode` ("full", "time_range", or "label"), `filter` (the raw scope expression), `repository` (owner/repo)
-        - `items`: array of inventory items
-        - `summary`: object with `total_issues`, `total_prs`, `excluded_not_planned` counts
-        - `timestamp`: current ISO 8601 timestamp
+        QUALITY BAR:
+        A good inventory is complete (all items matching the scope are included), accurate
+        (fields are extracted correctly from the API response), and properly filtered
+        (NOT_PLANNED excluded). A bad inventory misses items due to incomplete pagination,
+        includes NOT_PLANNED issues that pollute the audit, or has incorrect acceptance
+        criteria extraction.
     output_artifacts:
       - name: inventory
         path: .wave/output/inventory.json
@@ -162,64 +181,94 @@ steps:
     exec:
       type: prompt
       source: |
-        Audit each inventory item against the current codebase to classify implementation fidelity.
+        OBJECTIVE:
+        Audit each inventory item against the current codebase to classify its implementation
+        fidelity, producing evidence-backed findings for every item. Each finding must include
+        concrete code references proving the classification is correct.
 
-        ## Read Inventory
+        CONTEXT:
+        You are the second step in the audit pipeline. The inventory artifact (injected as
+        "inventory") contains all closed issues and merged PRs to audit. For each item, you
+        must verify whether its described functionality still exists in the codebase at HEAD.
+        Your findings will be consumed by the compose-triage step to generate prioritized
+        remediation actions. You have read-only access to the project codebase and git history.
 
-        Read the injected inventory artifact to get the list of items to audit.
+        REQUIREMENTS:
+        1. Read the injected inventory artifact to get the list of items to audit.
+        2. For each inventory item, perform static analysis verification:
+           a. Read the item description to identify what should exist in the codebase:
+              specific functions, types, handlers, configuration options, CLI flags,
+              test files, and documentation.
+           b. Check file existence using Glob to verify that referenced files still
+              exist at HEAD.
+           c. Search for key artifacts using Grep to find function names, type
+              definitions, handler registrations, and other code artifacts mentioned
+              in the issue or PR.
+           d. Read relevant code using Read to verify logic matches the described
+              behavior. Do not just check that a function exists -- verify its logic.
+           e. Check test coverage: verify related test files exist and contain assertions
+              matching the acceptance criteria.
+           f. Detect regressions: run `git log --oneline --all -- <file>` to check if
+              key files were modified after the implementing PR merged. Run
+              `git log --grep="Revert" --oneline` to find revert commits that may have
+              undone the work.
+        3. Classify each item into exactly ONE fidelity category:
+           - verified: all referenced files exist, key functions/types are present via
+             Grep, logic reads match the described behavior, related tests exist
+           - partial: some but not all acceptance criteria have matching code evidence.
+             List WHICH criteria passed and WHICH did not.
+           - regressed: was implemented but later broken or reverted. Include revert
+             commit SHAs and affected file paths as evidence.
+           - obsolete: referenced files have been deleted at HEAD, or the codebase has
+             diverged significantly enough that the item no longer applies
+           - unverifiable: no linked PRs, no commit SHAs, no file references in the
+             issue body -- insufficient evidence to evaluate
+        4. Every finding MUST include evidence:
+           - verified: file paths confirming existence, Grep matches for key code artifacts
+           - partial: which criteria passed (with file:line references) and which did not
+             (what was searched for but not found)
+           - regressed: revert commit SHAs, git log output showing modification/deletion
+             after the implementing PR
+           - obsolete: evidence that files no longer exist or architecture has changed
+           - unverifiable: note the absence of linked PRs, commits, or traceable changes
+        5. Provide remediation details:
+           - partial: describe specifically what needs to change -- which criteria are
+             unmet, which files need modification, what logic is missing
+           - regressed: identify the reverting commit, affected code locations, and what
+             needs to be restored
+           - verified and obsolete: remediation should be empty
+           - unverifiable: suggest adding linked PRs or better traceability to the issue
+        6. Handle edge cases:
+           - Issues with no linked PRs or commits: mark as unverifiable
+           - Issues referencing deleted files: mark as obsolete
+           - Single issues spanning many files: highlight the 5-10 most important paths
+           - Large inventories: prioritize non-trivial issues with acceptance criteria.
+             Quality of analysis over quantity if context limits approach.
 
-        ## Verification Methodology
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT classify items without evidence. Every classification must cite specific
+          files, grep matches, or git log output.
+        - Do NOT mark items as "verified" if you only checked file existence. Verified
+          requires reading the code and confirming logic matches the described behavior.
+        - Do NOT skip the regression detection step. Reverted implementations are the
+          highest-priority audit findings.
+        - Do NOT fabricate evidence. If you cannot find code matching a criterion, that
+          criterion is unmet -- report it honestly.
 
-        For each inventory item, perform static analysis verification:
+        OUTPUT FORMAT:
+        Produce findings as structured JSON with:
+        - findings: array of finding objects, each with item_number, item_type, item_url,
+          title, category, evidence (array of strings), unmet_criteria (array of strings
+          for partial/regressed), remediation (string)
+        - summary: object with total_audited count and by_category breakdown (verified,
+          partial, regressed, obsolete, unverifiable counts)
+        - timestamp: current ISO 8601 timestamp
 
-        1. **Read the item description** — identify what should exist in the codebase: specific functions, types, handlers, configuration options, CLI flags, test files, documentation
-        2. **Check file existence** — use Glob to verify that referenced files still exist at HEAD
-        3. **Search for key artifacts** — use Grep to find function names, type definitions, handler registrations, and other code artifacts mentioned in the issue/PR
-        4. **Read relevant code** — use Read to verify logic matches the described behavior
-        5. **Check test coverage** — verify related test files exist and contain assertions matching the acceptance criteria
-        6. **Detect regressions** — run `git log --oneline --all -- <file>` to check if key files were modified after the implementing PR merged. Run `git log --grep="Revert" --oneline` to find revert commits that may have undone the work
-
-        ## Classification Rules
-
-        Assign exactly ONE fidelity category per item:
-
-        - **verified**: All referenced files exist, key functions/types are present via Grep, logic reads match the described behavior, related tests exist
-        - **partial**: Some but not all acceptance criteria have matching code evidence. For each partial finding, list WHICH criteria passed and WHICH did not
-        - **regressed**: Was implemented but later broken or reverted. Include the revert commit SHAs and affected file paths as evidence. Use `git log --all --oneline -- <file>` and `git log --grep="Revert" --oneline` output
-        - **obsolete**: Referenced files have been deleted at HEAD, or the codebase has diverged significantly enough that the item no longer applies
-        - **unverifiable**: No linked PRs, no commit SHAs, no file references in the issue body — insufficient evidence to evaluate
-
-        ## Evidence Requirements
-
-        Every finding MUST include evidence:
-        - For **verified**: file paths confirming existence, Grep matches for key code artifacts
-        - For **partial**: which criteria passed (with file:line references) and which did not (what was searched for but not found)
-        - For **regressed**: revert commit SHAs, `git log` output showing modification/deletion after the implementing PR
-        - For **obsolete**: evidence that files no longer exist or architecture has changed
-        - For **unverifiable**: note the absence of linked PRs, commits, or traceable code changes
-
-        ## Edge Cases
-
-        - **Issues with no linked PRs or commits**: Mark as "unverifiable" with a note explaining the lack of traceable code changes
-        - **Issues referencing deleted files**: Mark as "obsolete" with evidence that the referenced code no longer exists at HEAD
-        - **Single issues spanning many files**: Summarize the scope, highlighting the 5-10 most important file paths rather than exhaustively listing every touched file
-        - **Large inventories**: Focus on the most impactful items first — non-trivial issues with acceptance criteria. If context limits approach, prioritize quality of analysis over quantity
-
-        ## Remediation Details
-
-        For **partial** items: describe specifically what needs to change — which criteria are unmet, which files need modification, what logic is missing
-        For **regressed** items: identify the reverting commit, the affected code locations, and what needs to be restored
-        For **verified** and **obsolete** items: remediation should be empty
-        For **unverifiable** items: suggest adding linked PRs or better traceability to the issue
-
-        ## Output
-
-        Write the findings as structured JSON to `.wave/output/audit-findings.json`.
-
-        The JSON must include:
-        - `findings`: array of finding objects, each with `item_number`, `item_type`, `item_url`, `title`, `category`, `evidence` (array of strings), `unmet_criteria` (array of strings for partial/regressed), `remediation` (string)
-        - `summary`: object with `total_audited` count and `by_category` breakdown (verified, partial, regressed, obsolete, unverifiable counts)
-        - `timestamp`: current ISO 8601 timestamp
+        QUALITY BAR:
+        A good audit has concrete evidence for every classification. A "verified" finding
+        cites real file paths and function names. A "partial" finding specifies exactly
+        which criteria passed and which did not. A bad audit classifies items based on
+        gut feeling without reading code or checking git history.
     output_artifacts:
       - name: findings
         path: .wave/output/audit-findings.json
@@ -253,55 +302,79 @@ steps:
     exec:
       type: prompt
       source: |
-        Compose a triage report from the audit findings with prioritized remediation actions.
+        OBJECTIVE:
+        Compose a triage report from the audit findings, organizing all findings by fidelity
+        category and generating a prioritized list of remediation actions. The triage report
+        is the decision document that determines which issues get created in the publish step.
 
-        ## Read Inputs
+        CONTEXT:
+        You are the third step in the audit pipeline. Two artifacts are injected:
+        - inventory: the original inventory with scope and repository metadata
+        - findings: the per-item audit results with evidence and classifications
+        Read both artifacts completely. Your triage report will be consumed by the publish
+        step, which creates GitHub issues for actionable findings. The priority ordering
+        you assign directly determines which remediations get attention first.
 
-        Read the injected inventory artifact to get scope and repository metadata.
-        Read the injected findings artifact to get the per-item audit results.
+        REQUIREMENTS:
+        1. Read both injected artifacts. Extract the repository, scope metadata, and all
+           individual findings with their categories and evidence.
+        2. Group findings by fidelity category in this order (highest priority first):
+           a. regressed: was working but now broken (highest priority)
+           b. partial: some acceptance criteria unmet
+           c. unverifiable: no traceable implementation evidence
+           d. obsolete: no longer applicable to current codebase
+           e. verified: fully intact (included for completeness, no action needed)
+        3. Calculate summary statistics:
+           - Count of items in each category
+           - Percentage of total for each category
+           - Overall health score: verified / total_audited as a percentage
+        4. Generate prioritized remediation actions for non-verified items:
+           - Priority 1: regressed items (was working, now broken -- highest urgency)
+           - Priority 2: partial items with many unmet criteria (sort by unmet count
+             descending within this tier)
+           - Priority 3: partial items with fewer unmet criteria
+           - Priority 4: unverifiable items (lowest actionable priority -- need better
+             traceability more than code changes)
+           - EXCLUDE obsolete items from actions entirely -- they are intentionally
+             non-applicable and creating issues for them wastes effort
+           Each action MUST include:
+           - priority: integer rank (1 = highest)
+           - item_number: the original issue/PR number
+           - item_url: URL for reference
+           - category: the fidelity category
+           - action_description: specific remediation describing what needs to change,
+             referencing the unmet criteria or reverted commits. This description should
+             be detailed enough to serve as a GitHub issue body.
+           - estimated_effort: S/M/L based on the scope of remediation needed
+        5. Include all findings in the output (not just actionable ones) so the publish
+           step has the full picture.
 
-        ## Group Findings by Category
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT create actions for verified items. They need no remediation.
+        - Do NOT create actions for obsolete items. They are intentionally non-applicable.
+        - Do NOT reorder the priority tiers. Regressed items are always highest priority
+          because they represent functionality that was working and is now broken.
+        - Do NOT summarize away evidence. Each finding in the output should retain its
+          original evidence from the audit step.
+        - Do NOT assign equal priority to all items. The ranking must meaningfully
+          differentiate urgency based on category and severity.
 
-        Organize all findings into groups by fidelity category, in this order:
-        1. **regressed** — highest priority, was working but now broken
-        2. **partial** — some criteria unmet
-        3. **unverifiable** — no traceable implementation
-        4. **obsolete** — no longer applicable
-        5. **verified** — fully intact (included for completeness)
+        OUTPUT FORMAT:
+        Produce the triage report as structured JSON with:
+        - metadata: object with scope (string), timestamp (ISO 8601), repository
+          (owner/repo), total_items_audited (integer)
+        - summary: object with counts for verified, partial, regressed, obsolete,
+          unverifiable, plus health_score (percentage)
+        - findings: array of all findings grouped by category (regressed first, then
+          partial, unverifiable, obsolete, verified)
+        - prioritized_actions: array of action objects sorted by priority ascending
 
-        ## Summary Statistics
-
-        Calculate counts for each fidelity category:
-        - `verified`: number of fully implemented items
-        - `partial`: number with some criteria unmet
-        - `regressed`: number that were broken or reverted
-        - `obsolete`: number no longer applicable
-        - `unverifiable`: number with no traceable evidence
-
-        ## Prioritized Actions
-
-        Generate an ordered list of remediation actions for non-verified items. Priority ranking:
-
-        1. **regressed** items (highest priority — was working, now broken)
-        2. **partial** items with many unmet criteria (sort by unmet count descending)
-        3. **partial** items with fewer unmet criteria
-        4. **unverifiable** items (lowest actionable priority)
-        5. **obsolete** items are EXCLUDED from actions — they are intentionally non-applicable
-
-        Each action MUST include:
-        - `priority`: integer rank (1 = highest)
-        - `item_number`: the original issue/PR number
-        - `action_description`: specific remediation describing what needs to change, referencing the original issue URL and the specific unmet criteria or reverted commits. Rank by severity (regressed > partial with many unmet > partial with few > unverifiable)
-
-        ## Output
-
-        Write the triage report as structured JSON to `.wave/output/triage-report.json`.
-
-        The JSON must include:
-        - `metadata`: object with `scope` (string describing audit scope), `timestamp` (ISO 8601), `repository` (owner/repo), `total_items_audited` (integer)
-        - `summary`: object with counts for verified, partial, regressed, obsolete, unverifiable
-        - `findings`: array of all findings (grouped by category: regressed first, then partial, unverifiable, obsolete, verified)
-        - `prioritized_actions`: array of action objects sorted by priority
+        QUALITY BAR:
+        A good triage report makes the right items urgent and the right items ignorable.
+        Regressed items are at the top, obsolete items generate no actions, and the
+        priority ordering would look correct to a human project maintainer reviewing it.
+        A bad triage report treats all non-verified items equally, loses evidence during
+        grouping, or creates actions for items that need no remediation.
     output_artifacts:
       - name: triage-report
         path: .wave/output/triage-report.json
@@ -331,65 +404,101 @@ steps:
     exec:
       type: prompt
       source: |
-        Create GitHub issues for actionable audit findings (partial and regressed items).
+        OBJECTIVE:
+        Create GitHub issues for each actionable audit finding (partial and regressed items),
+        then produce a structured result capturing all created issues and any failures. This
+        is the final step that converts audit findings into tracked remediation work.
 
-        ## Read Triage Report
+        CONTEXT:
+        You are the final step in the audit pipeline. The triage report artifact (injected
+        as "triage-report") contains all audit findings grouped by category and a prioritized
+        list of remediation actions. Only "partial" and "regressed" findings should become
+        GitHub issues. Verified, obsolete, and unverifiable findings are excluded from
+        issue creation. You have read-write access and forge CLI access.
 
-        Read the injected triage report artifact to get findings and prioritized actions.
+        REQUIREMENTS:
+        1. Read the injected triage report artifact. Extract the findings and prioritized
+           actions.
+        2. Check for actionable findings:
+           - If all findings are verified, obsolete, or unverifiable (no partial or
+             regressed items), skip issue creation entirely.
+           - Write a publish result with success: true, skipped: true, empty
+             issues_created array, and exit early.
+        3. Detect the repository:
+           ```bash
+           {{ forge.cli_tool }} repo view --json nameWithOwner --jq .nameWithOwner
+           ```
+        4. For each finding with category "partial" or "regressed", create a GitHub issue:
+           a. Write the issue body to a temporary file to avoid shell escaping issues:
+              ```bash
+              cat > /tmp/audit-issue-body.md <<'AUDIT_EOF'
+              ## Audit Finding: <category>
 
-        ## Check for Actionable Findings
+              **Original item**: #<number> — <title>
+              **Original URL**: <url>
+              **Fidelity category**: <category>
 
-        If all findings are verified, obsolete, or unverifiable (no partial or regressed items), skip issue creation:
-        - Write a publish result with `success: true`, `skipped: true`, empty `issues_created` array
-        - Exit early
+              ### Evidence
+              <evidence from the audit findings>
 
-        ## Detect Repository
+              ### Unmet Criteria
+              <list of unmet acceptance criteria, if applicable>
 
-        Run: `{{ forge.cli_tool }} repo view --json nameWithOwner --jq .nameWithOwner`
+              ### Remediation
+              <specific remediation steps from the triage report>
 
-        ## Create Issues for Fixable Gaps
+              ---
+              *Generated by wave-audit pipeline*
+              AUDIT_EOF
+              ```
+           b. Create the issue:
+              ```bash
+              {{ forge.cli_tool }} issue create \
+                --title 'audit: <category> -- <item title>' \
+                --body-file /tmp/audit-issue-body.md \
+                --label "audit"
+              ```
+           c. If the "audit" label does not exist (command fails with label error),
+              retry without the --label flag.
+           d. If issue creation fails for any other reason, log the error and continue
+              with remaining items. Do not abort the entire step on a single failure.
+           e. Capture the issue number and URL from the command output.
+        5. Record results for each created issue:
+           - number: the new issue number
+           - url: the new issue URL
+           - source_item: the original issue/PR number this finding references
+           - category: the fidelity category (partial or regressed)
+           - title: the issue title used
+        6. Compile the final publish result.
 
-        For each finding with category "partial" or "regressed", create a GitHub issue:
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT create issues for verified, obsolete, or unverifiable findings. Only
+          partial and regressed items get issues.
+        - Do NOT create duplicate issues. If an audit issue already exists for a finding
+          (check by searching for "audit: <category> -- <title>"), skip it.
+        - Do NOT use inline strings for issue bodies. Large markdown with evidence and
+          remediation details will break shell escaping. Always use heredoc to temp file.
+        - Do NOT abort if a single issue creation fails. Log the error and continue.
+        - Do NOT fabricate issue URLs or numbers. If you cannot capture the output, record
+          the issue as created: false with the error details.
 
-        ```bash
-        cat > /tmp/audit-issue-body.md <<'AUDIT_EOF'
-        <body with evidence and remediation details>
-        AUDIT_EOF
-        {{ forge.cli_tool }} issue create \
-          --title 'audit: <category> — <item title>' \
-          --body-file /tmp/audit-issue-body.md \
-          --label "audit"
-        ```
+        OUTPUT FORMAT:
+        Produce the publish result as structured JSON with:
+        - success: boolean (true if all issue creations succeeded or were skipped)
+        - repository: owner/repo string
+        - issues_created: array of created issue objects (number, url, source_item, category)
+        - issues_failed: array of failed creation attempts (source_item, error)
+        - issues_skipped: count of findings not turned into issues (verified, obsolete,
+          unverifiable)
+        - skipped: boolean (true if no issues were created because no actionable findings)
+        - timestamp: current ISO 8601 timestamp
 
-        The issue body should include:
-        - Reference to the original issue/PR (number and URL)
-        - Fidelity category and explanation
-        - Evidence from the audit (file paths, code references)
-        - Specific remediation steps from the triage report
-        - Link back to the audit run for context
-
-        If the `audit` label doesn't exist, create without labels.
-        If any `{{ forge.cli_tool }} issue create` command fails, log the error and continue with remaining items.
-
-        ## Capture Results
-
-        For each created issue, record:
-        - `number`: the new issue number
-        - `url`: the new issue URL
-        - `source_item`: the original issue/PR number this finding references
-        - `category`: the fidelity category (partial or regressed)
-
-        ## Output
-
-        Write the publish result as structured JSON to `.wave/output/publish-result.json`.
-
-        The JSON must include:
-        - `success`: boolean (true if all issue creations succeeded or were skipped)
-        - `repository`: owner/repo string
-        - `issues_created`: array of created issue objects
-        - `issues_skipped`: count of findings not turned into issues (verified, obsolete, unverifiable)
-        - `skipped`: boolean (true if no issues were created because no actionable findings)
-        - `timestamp`: current ISO 8601 timestamp
+        QUALITY BAR:
+        A good publish step creates well-formatted, informative issues that a developer can
+        pick up and remediate without re-doing the audit analysis. Each issue body contains
+        the evidence and remediation steps from the triage report. A bad publish step creates
+        issues with missing evidence, vague remediation, or fails silently without recording
+        errors.
     output_artifacts:
       - name: publish-result
         path: .wave/output/publish-result.json

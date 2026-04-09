@@ -24,7 +24,7 @@ func suggestSendKey(m SuggestListModel, key string) (SuggestListModel, tea.Cmd) 
 	return m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
 }
 
-func suggestSendKeyType(m SuggestListModel, kt tea.KeyType) (SuggestListModel, tea.Cmd) {
+func suggestSendKeyType(m SuggestListModel, kt tea.KeyType) (SuggestListModel, tea.Cmd) { //nolint:unparam // test helper
 	return m.Update(tea.KeyMsg{Type: kt})
 }
 

@@ -314,7 +314,7 @@ func TestFailedStepAlwaysHasID(t *testing.T) {
 		adapter.WithFailure(errors.New("simulated timeout")),
 	)
 
-	executor := NewDefaultPipelineExecutor(failingAdapter,
+	_ = NewDefaultPipelineExecutor(failingAdapter,
 		WithEmitter(collector),
 	)
 
@@ -340,7 +340,7 @@ func TestFailedStepAlwaysHasID(t *testing.T) {
 			"step-b": failingAdapter,
 		},
 	}
-	executor = NewDefaultPipelineExecutor(stepAdapter, WithEmitter(collector))
+	executor := NewDefaultPipelineExecutor(stepAdapter, WithEmitter(collector))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

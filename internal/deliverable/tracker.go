@@ -242,6 +242,11 @@ func (t *Tracker) AddWorkspaceFiles(stepID, workspacePath string) {
 	}
 }
 
+// AddArtifact is a convenience method to add an artifact deliverable
+func (t *Tracker) AddArtifact(stepID, name, artifactPath, description string) {
+	t.Add(NewArtifactDeliverable(stepID, name, artifactPath, description))
+}
+
 // AddBranch is a convenience method to add a branch deliverable
 func (t *Tracker) AddBranch(stepID, branchName, worktreePath, description string) {
 	t.Add(NewBranchDeliverable(stepID, branchName, worktreePath, description))

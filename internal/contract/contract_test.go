@@ -155,10 +155,8 @@ func TestJSONSchemaValidator_ValidationFailure_TableDriven(t *testing.T) {
 						t.Error("expected validation details, got none")
 					}
 				}
-			} else {
-				if err != nil {
-					t.Errorf("expected no error but got: %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("expected no error but got: %v", err)
 			}
 		})
 	}

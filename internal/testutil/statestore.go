@@ -16,7 +16,6 @@ type MockStateStore struct {
 
 	// Overridable method implementations
 	savePipelineState            func(id, status, input string) error
-	savePipelineStateLocked      bool // if true, savePipelineState manages its own locking
 	saveStepState                func(pipelineID, stepID string, st state.StepState, errMsg string) error
 	getPipelineState             func(id string) (*state.PipelineStateRecord, error)
 	getStepStates                func(pipelineID string) ([]state.StepStateRecord, error)

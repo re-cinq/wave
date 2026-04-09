@@ -62,39 +62,87 @@ steps:
     exec:
       type: prompt
       source: |
-        Analyze Wave's own pipeline infrastructure for improvement opportunities.
+        OBJECTIVE:
+        Analyze Wave's own pipeline infrastructure (YAML pipelines, persona definitions,
+        prompt templates, and contract schemas) for improvement opportunities, producing
+        a prioritized assessment of changes ranked by impact on pipeline reliability and
+        output quality.
 
-        Focus: {{ input }}
+        FOCUS: {{ input }}
 
-        ## Analysis Scope
+        CONTEXT:
+        You are the first step in a three-step self-evolution pipeline (analyze, evolve,
+        verify). Your analysis will be consumed by a craftsman persona who will apply
+        the highest-impact improvements. Only .wave/ files will be modified -- Go source
+        code is out of scope. You have read-only access to the full project.
 
-        1. **Pipeline YAML files** (`.wave/pipelines/`):
-           - Are prompts clear and unambiguous?
-           - Do contracts match what agents actually produce?
-           - Are retry/failure policies appropriate?
-           - Are artifact handoffs complete and correct?
+        REQUIREMENTS:
+        1. Analyze pipeline YAML files (`.wave/pipelines/`):
+           - Read each pipeline file. For each step with a prompt, evaluate:
+             - Clarity: Is the prompt unambiguous? Could an LLM misinterpret any instruction?
+             - Structure: Does the prompt follow the Objective/Context/Requirements/
+               Constraints/Output/Quality pattern?
+             - Output specification: Is the expected output format explicitly defined with
+               field names and types?
+             - Contract alignment: Does the handover contract schema match what the prompt
+               asks the agent to produce? Read both the prompt and the schema file.
+           - For each pipeline, check retry/failure policies: are they appropriate for the
+             step's nature? (patient for exploration, aggressive for API calls, standard
+             for implementation)
+           - Check artifact handoffs: does every step that consumes an artifact have it
+             properly declared in memory.inject_artifacts?
+        2. Analyze persona definitions (`.wave/personas/`):
+           - Read each persona file. Evaluate:
+             - Role clarity: Is the role description specific enough to guide behavior?
+             - Permission scope: Do deny/allow rules match the persona's actual needs?
+               (e.g., a navigator should not have Bash write permissions)
+             - Constraints: Are behavioral constraints specific enough to prevent drift
+               into other personas' responsibilities?
+        3. Analyze prompt templates (`.wave/prompts/` if present):
+           - Are instructions structured for LLM comprehension (numbered lists, clear
+             sections, explicit constraints)?
+           - Do templates include concrete examples where helpful?
+           - Are output format requirements explicit (field names, types, structure)?
+        4. Analyze contract schemas (`.wave/contracts/`):
+           - For each schema, check: do required fields match what the step prompt asks
+             the agent to produce? Are there required fields that agents consistently
+             struggle to populate? Are there optional fields that should be required?
+           - Cross-reference with actual step prompts to find mismatches.
+        5. Analyze execution patterns if traces are available (`.wave/traces/`):
+           - Which steps retry most often? What causes the retries (contract failure,
+             timeout, error)?
+           - Which contracts fail most? Is it a schema mismatch or agent output quality?
+           - Which prompts produce inconsistent output across runs?
+        6. Produce a prioritized list of improvements:
+           - Each improvement must have: id (IMP-###), category (prompt/contract/persona/
+             pipeline/template), affected_file (path), description (what to change),
+             impact (high/medium/low), risk (high/medium/low), effort (S/M/L)
+           - Sort by impact descending, then by effort ascending (high-impact, low-effort
+             improvements first)
 
-        2. **Persona definitions** (`.wave/personas/`):
-           - Are role descriptions focused and actionable?
-           - Do permissions match actual needs?
-           - Are constraints specific enough to prevent drift?
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT suggest changes to Go source code. This pipeline modifies only .wave/ files.
+        - Do NOT suggest changes you cannot verify. Every finding must reference a specific
+          file path and the specific issue observed.
+        - Do NOT produce generic improvement advice ("improve prompts"). Every improvement
+          must be specific: "In wave-bugfix.yaml step investigate, the prompt does not
+          specify the JSON output schema fields, causing contract failures."
+        - Do NOT prioritize cosmetic changes over functional ones. A prompt that works
+          reliably but is ugly is lower priority than one that causes retries.
+        - Do NOT suggest more than 20 improvements. Focus on the highest-impact ones.
 
-        3. **Prompt templates** (`.wave/prompts/`):
-           - Are instructions structured for LLM comprehension?
-           - Do they include concrete examples?
-           - Are output format requirements explicit?
+        OUTPUT FORMAT:
+        Produce the analysis as structured JSON matching the improvement-assessment
+        contract schema. Include: focus (string), analysis_scope
+        (object listing files examined per category), improvements (array of improvement
+        objects as described above), summary (object with total_improvements, by_category
+        counts, by_impact counts), and timestamp.
 
-        4. **Contract schemas** (`.wave/contracts/`):
-           - Do schemas match what steps actually produce?
-           - Are required fields truly required?
-           - Are validation errors actionable?
-
-        5. **Execution patterns** — check `.wave/traces/` if available:
-           - Which steps retry most often? Why?
-           - Which contracts fail most? Schema mismatch?
-           - Which prompts produce inconsistent output?
-
-        Produce a prioritized list of improvements with impact assessment.
+        QUALITY BAR:
+        A good analysis identifies real problems that cause pipeline failures, retries, or
+        low-quality output, with specific file references and actionable fixes. A bad
+        analysis lists generic advice, misidentifies non-problems as issues, or suggests
+        high-risk changes to working pipelines.
     output_artifacts:
       - name: evolution-analysis
         path: .wave/output/evolution-analysis.json
@@ -126,28 +174,68 @@ steps:
     exec:
       type: prompt
       source: |
-        Apply the recommended improvements to Wave's pipeline infrastructure.
+        OBJECTIVE:
+        Apply the highest-impact improvements identified in the analysis to Wave's pipeline
+        infrastructure files. Each change must be validated before proceeding to the next.
+        Only .wave/ files are in scope.
 
-        IMPORTANT: Only modify files under `.wave/` — pipelines, personas, prompts,
-        and contracts. Do NOT modify Go source code.
+        CONTEXT:
+        You are the second step in the self-evolution pipeline. The analysis artifact
+        (injected as "findings") contains a prioritized list of improvements with file
+        paths, descriptions, impact ratings, and risk levels. Apply improvements in
+        priority order (highest impact, lowest risk first). You have read-write access
+        to the project. Skip any improvement rated as high-risk.
 
-        ## Rules
+        REQUIREMENTS:
+        1. Read the findings artifact completely. Sort improvements by priority: apply
+           high-impact/low-risk first, then high-impact/medium-risk, then medium-impact
+           improvements. Skip all high-risk improvements entirely.
+        2. For each improvement (in priority order):
+           a. Read the target file to understand its current state
+           b. Apply the change described in the improvement
+           c. Validate the change:
+              - For YAML files: ensure the file parses as valid YAML. Check that all
+                required fields are present and template variables ({{ ... }}) are
+                properly formatted.
+              - For JSON schema files: ensure the file parses as valid JSON. Verify
+                that $schema, type, properties, and required fields are consistent.
+              - For persona files: ensure role, description, and permissions are present.
+           d. Run `wave validate` after each change to verify configuration integrity.
+              If validation fails, revert the change and move to the next improvement.
+        3. Make one improvement at a time. Do not batch multiple changes before validation.
+           This ensures that if a change breaks something, you know exactly which change
+           caused it.
+        4. Keep a running log of what was applied and what was skipped, with reasons.
+        5. After all improvements are applied (or skipped), run a final `wave validate`
+           to confirm the overall configuration is healthy.
+        6. Preserve backward compatibility: do not rename pipeline steps, change artifact
+           names, or modify contract schemas in ways that would break in-progress pipeline
+           runs.
 
-        1. Make one improvement at a time
-        2. Validate YAML syntax after each change
-        3. Ensure contract schemas remain valid JSON
-        4. Preserve backward compatibility with existing pipeline runs
-        5. Focus on the highest-impact improvements first
-        6. Skip changes rated as high-risk
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - IMPORTANT: Only modify files under `.wave/` -- pipelines, personas, prompts, and
+          contracts. Do NOT modify Go source code, test files, or any file outside .wave/.
+        - Do NOT apply high-risk improvements regardless of their impact. The verify step
+          cannot catch all regressions from risky changes.
+        - Do NOT batch changes. Apply one, validate, then proceed to the next.
+        - Do NOT modify pipeline step IDs, artifact names, or schema file names. These are
+          referenced by other pipelines and the executor. Renaming them breaks things.
+        - Do NOT "improve" working prompts by rewriting them from scratch. Apply the
+          specific improvement described in the findings.
+        - Do NOT ignore validation failures. If `wave validate` fails after a change,
+          revert and skip that improvement.
 
-        ## Validation
+        OUTPUT FORMAT:
+        The output is the modified .wave/ files. The handover contract validates by running
+        `wave validate`. No explicit artifact is produced beyond the file changes and the
+        validation passing.
 
-        After changes, run:
-        ```bash
-        wave validate
-        ```
-
-        If validation fails, fix the issue before proceeding.
+        QUALITY BAR:
+        A good evolution run applies several high-impact improvements that measurably
+        improve pipeline reliability (fewer retries, clearer prompts, better-aligned
+        contracts) without breaking anything. A bad run applies risky changes that break
+        validation, batches changes making it impossible to isolate failures, or modifies
+        Go source code outside the scope.
     retry:
       policy: standard
       max_attempts: 2
@@ -170,15 +258,65 @@ steps:
     exec:
       type: prompt
       source: |
-        Verify the evolution changes were applied correctly.
+        OBJECTIVE:
+        Verify that all evolution changes were applied correctly, no unintended modifications
+        were made, and the overall Wave configuration remains valid. Produce a structured
+        verification report documenting what was changed and what was validated.
 
-        1. Read modified `.wave/` files and confirm improvements match findings
-        2. Check YAML syntax is valid
-        3. Verify contract schemas are valid JSON
-        4. Confirm no Go source code was modified
-        5. Run `wave validate` to verify configuration integrity
+        CONTEXT:
+        You are the third and final step in the self-evolution pipeline. The analysis
+        artifact (injected as "original_findings") contains the prioritized list of
+        improvements that the evolve step was instructed to apply. The evolve step has
+        already modified .wave/ files. Your job is to verify correctness, not to make
+        additional changes. You have read-only access to the codebase.
 
-        Produce a verification report.
+        REQUIREMENTS:
+        1. Read the original_findings artifact to get the list of improvements that were
+           planned for application.
+        2. For each improvement in the findings:
+           a. Read the target file to check if the improvement was applied
+           b. Verify the change matches what was described in the improvement
+           c. Record status: applied (change matches), skipped (file unchanged, which
+              is expected for high-risk items), or divergent (change was made but does
+              not match the described improvement)
+        3. Validate all modified .wave/ files:
+           a. YAML files: verify they parse as valid YAML. Check that template variables
+              are properly formatted ({{ variable }} with spaces inside braces).
+           b. JSON schema files: verify they parse as valid JSON. Check that required
+              arrays reference only properties that are defined.
+           c. Persona files: verify role, description, and permission fields are present.
+        4. Check for unintended modifications:
+           a. Run `git diff --name-only` to see all changed files
+           b. Confirm ALL changed files are under .wave/. If any Go source files, test
+              files, or files outside .wave/ were modified, flag this as a critical issue.
+        5. Run `wave validate` to verify the overall configuration integrity.
+        6. Produce the verification report as markdown with:
+           - Summary: how many improvements applied, skipped, divergent
+           - Per-improvement details: status, target file, what was verified
+           - Validation results: YAML parsing, JSON parsing, wave validate output
+           - Unintended changes: any files modified outside .wave/ (should be none)
+           - Overall verdict: PASS (all validations succeed, no unintended changes) or
+             FAIL (any validation failure or unintended change)
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT make any modifications to files. This step is verification only.
+        - Do NOT skip the unintended modification check. Catching out-of-scope changes
+          is one of the primary purposes of this step.
+        - Do NOT report "PASS" if any validation fails or unintended changes are detected.
+        - Do NOT verify superficially. Read the actual file content and compare against
+          the improvement description, not just check that the file was modified.
+
+        OUTPUT FORMAT:
+        Produce the verification report as markdown. Use
+        sections: ## Summary, ## Per-Improvement Verification, ## Validation Results,
+        ## Unintended Changes, ## Verdict.
+
+        QUALITY BAR:
+        A good verification report gives confidence that the evolution changes are correct
+        and safe. Each improvement is individually verified against the planned change, all
+        files pass syntax validation, and no unintended modifications slipped through. A
+        bad report rubber-stamps the changes without actually reading files or checking
+        for out-of-scope modifications.
     output_artifacts:
       - name: verification
         path: .wave/output/verification.md

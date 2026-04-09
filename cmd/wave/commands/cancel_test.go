@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"os"
-	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -86,15 +84,6 @@ func (e *cancelTestEnv) createCompletedRun(pipelineName string) string {
 	require.NoError(e.t, err, "failed to update run status")
 
 	return runID
-}
-
-// createPidFile creates a fake PID file for testing force cancellation
-func (e *cancelTestEnv) createPidFile(runID string, pid int) {
-	e.t.Helper()
-
-	pidFile := filepath.Join(".wave", "pids", runID+".pid")
-	err := os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644)
-	require.NoError(e.t, err, "failed to create pid file")
 }
 
 // executeCancelCmd runs the cancel command with given arguments and returns output/error

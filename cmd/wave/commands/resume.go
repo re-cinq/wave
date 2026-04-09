@@ -259,12 +259,13 @@ func runResume(opts ResumeOptions, debug bool) error {
 
 	// Update run status.
 	tokens := executor.GetTotalTokens()
-	if ctx.Err() != nil {
+	switch {
+	case ctx.Err() != nil:
 		_ = store.UpdateRunStatus(resumeRunID, "cancelled", "pipeline cancelled", tokens)
 		_ = store.ClearCancellation(resumeRunID)
-	} else if execErr != nil {
+	case execErr != nil:
 		_ = store.UpdateRunStatus(resumeRunID, "failed", execErr.Error(), tokens)
-	} else {
+	default:
 		_ = store.UpdateRunStatus(resumeRunID, "completed", "", tokens)
 	}
 
@@ -272,7 +273,7 @@ func runResume(opts ResumeOptions, debug bool) error {
 		var (
 			stepErr *pipeline.StepError
 			stepID  string
-			cause   error = execErr
+			cause   = execErr
 		)
 		if errors.As(execErr, &stepErr) {
 			stepID = stepErr.StepID

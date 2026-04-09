@@ -52,7 +52,7 @@ func (e *artifactsTestEnv) createWorkspaceStructure() {
 }
 
 // createPipelineWorkspace creates a pipeline workspace with step directories
-func (e *artifactsTestEnv) createPipelineWorkspace(pipelineName string, steps []string) string {
+func (e *artifactsTestEnv) createPipelineWorkspace(pipelineName string, steps []string) {
 	e.t.Helper()
 
 	pipelineDir := filepath.Join(".wave", "workspaces", pipelineName)
@@ -61,12 +61,10 @@ func (e *artifactsTestEnv) createPipelineWorkspace(pipelineName string, steps []
 		err := os.MkdirAll(stepDir, 0755)
 		require.NoError(e.t, err, "failed to create step directory: %s", step)
 	}
-
-	return pipelineDir
 }
 
 // createArtifact creates a test artifact file in a step directory
-func (e *artifactsTestEnv) createArtifact(pipeline, step, name, content string) string {
+func (e *artifactsTestEnv) createArtifact(pipeline, step, name, content string) string { //nolint:unparam // pipeline param used for test clarity
 	e.t.Helper()
 
 	artifactPath := filepath.Join(".wave", "workspaces", pipeline, step, name)

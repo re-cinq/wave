@@ -56,18 +56,67 @@ steps:
     exec:
       type: prompt
       source: |
-        Audit documentation vs code reality in /project. Scope: {{ input }}
+        ## Objective
 
-        Check:
-        1. docs/adrs/*.md — are ADR decisions reflected in code?
-        2. docs/guides/*.md — are instructions accurate?
-        3. CLAUDE.md — does file structure match actual packages?
-        4. README.md — are features and examples current?
+        Audit the project's documentation against the actual codebase to identify stale, inaccurate, or missing content. This step produces structured JSON findings that downstream composition pipelines or human reviewers can act on. The scan is read-only and must not create branches, PRs, or issues.
 
-        For each doc, verify 3-5 specific claims against the codebase using grep/read.
+        ## Context
 
-        Write your findings to .wave/output/findings.json (the contract schema defines the required structure).
-        Max 25 findings.
+        This is a standalone, single-step pipeline for quick documentation health checks or as a building block in composition pipelines. The codebase is mounted read-only at /project. The caller may provide a directory scope via the input variable (e.g., "docs/") or leave it empty for a full documentation audit. No prior pipeline steps feed into this step.
+
+        Scope: {{ input }}
+
+        If the scope is empty or blank, audit all documentation surfaces across the project. If a specific directory is provided, restrict analysis to documentation files within that subtree but still cross-reference claims against the full codebase.
+
+        ## Requirements
+
+        Systematically audit each documentation surface area:
+
+        1. **ADR decisions (docs/adrs/*.md)**: For each Architecture Decision Record, identify the core decision statement and verify it is reflected in the codebase. For example, if an ADR says "we use bubblewrap for sandboxing," confirm that bubblewrap-related code exists and is active. If an ADR says "we chose X over Y," verify that Y is not still present. Check at least 3 specific claims per ADR against the code using Grep and Read.
+
+        2. **Guide accuracy (docs/guides/*.md)**: For each guide, verify that:
+           - File paths referenced in the guide actually exist at those locations.
+           - Function names, type names, and CLI commands mentioned in the guide match what exists in the code.
+           - Step-by-step instructions reference correct flags, options, and argument formats.
+           - Code examples or command snippets would produce the described result given the current implementation.
+           Check at least 3-5 specific factual claims per guide.
+
+        3. **CLAUDE.md structure**: Verify that the file/package structure described in CLAUDE.md matches the actual directory layout. Check that:
+           - Package descriptions match what the packages actually contain.
+           - Listed files still exist at the stated paths.
+           - Described relationships between components are accurate.
+           - Any workflow or process documentation matches current tooling.
+
+        4. **README.md currency**: Verify that:
+           - Feature lists match what is actually implemented.
+           - Installation and setup instructions work with the current build system.
+           - Example commands and outputs are still accurate.
+           - Badge URLs, links to other docs, and external references are not broken.
+           - Version numbers or compatibility claims are current.
+
+        5. **Cross-reference verification method**: For each claim you audit, use this approach:
+           - Read the documentation passage that makes the claim.
+           - Use Grep to search for the referenced symbol, file, or concept in the codebase.
+           - Use Read to examine the actual implementation when Grep finds a match.
+           - If no match is found, confirm the absence by searching with alternative spellings or paths.
+           Record both the documentation claim and the verification result as evidence.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT report stylistic or formatting issues (typos, grammar, markdown lint) unless they cause factual misunderstanding.
+        - Do NOT flag documentation that is intentionally aspirational or describes planned features, as long as it is clearly marked as such.
+        - Do NOT exceed 25 findings. If more candidates exist, keep only the highest-severity items and note the truncation in the summary.
+        - Do NOT modify any files. The workspace is read-only.
+        - Do NOT report a finding without at least one concrete verification step (a Grep search, a file read, or a path existence check) as evidence.
+        - Avoid reporting missing documentation for internal implementation details that are not part of the public API or user-facing surface.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good scan verifies at least 3 specific claims per documentation file audited, provides concrete evidence for each finding (not just "this looks outdated"), and correctly distinguishes between critical inaccuracies and minor staleness. A bad scan makes vague assertions like "README might be outdated" without checking specific claims, reports formatting issues as findings, or fails to cross-reference documentation statements against the actual code.
     output_artifacts:
       - name: findings
         path: .wave/output/findings.json

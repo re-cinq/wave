@@ -182,10 +182,8 @@ func TestFormatter_TextFormatting(t *testing.T) {
 				if !strings.Contains(result, tt.wantSeq) {
 					t.Errorf("Result should contain formatting sequence %s", tt.wantSeq)
 				}
-			} else {
-				if result != text {
-					t.Errorf("When disabled, should return original text")
-				}
+			} else if result != text {
+				t.Errorf("When disabled, should return original text")
 			}
 		})
 	}

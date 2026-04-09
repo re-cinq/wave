@@ -55,8 +55,7 @@ func (m *SkillDetailModel) SetSkill(info *SkillInfo) {
 
 // Update handles messages.
 func (m SkillDetailModel) Update(msg tea.Msg) (SkillDetailModel, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		if m.focused {
 			var cmd tea.Cmd
 			m.viewport, cmd = m.viewport.Update(msg)
@@ -83,7 +82,7 @@ func (m SkillDetailModel) View() string {
 	return m.viewport.View()
 }
 
-func renderSkillDetail(info *SkillInfo, width int) string {
+func renderSkillDetail(info *SkillInfo, _ int) string {
 	if info == nil {
 		return ""
 	}

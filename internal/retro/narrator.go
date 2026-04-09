@@ -128,11 +128,12 @@ func parseNarrativeResponse(output string) (*Narrative, error) {
 // fallbackNarrative generates a basic narrative when LLM parsing fails.
 func (n *Narrator) fallbackNarrative(quant *QuantitativeData) *Narrative {
 	smoothness := SmoothnessSmooth
-	if quant.FailureCount > 0 {
+	switch {
+	case quant.FailureCount > 0:
 		smoothness = SmoothnessFailed
-	} else if quant.TotalRetries > 2 {
+	case quant.TotalRetries > 2:
 		smoothness = SmoothnessStruggled
-	} else if quant.TotalRetries > 0 {
+	case quant.TotalRetries > 0:
 		smoothness = SmoothnessBumpy
 	}
 

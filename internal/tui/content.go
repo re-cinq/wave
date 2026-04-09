@@ -2065,12 +2065,13 @@ func (m ContentModel) View() string {
 		} else {
 			leftView = renderPlaceholder(m.leftPaneWidth(), m.height, "No repository configured")
 		}
-		if m.issueShowPipeline {
+		switch {
+		case m.issueShowPipeline:
 			// Show pipeline detail when a pipeline child is selected.
 			rightView = m.detail.View()
-		} else if m.issueDetail != nil {
+		case m.issueDetail != nil:
 			rightView = m.issueDetail.View()
-		} else {
+		default:
 			rightView = renderPlaceholder(m.width-m.leftPaneWidth()-3, m.height, "Select an issue to view details")
 		}
 
@@ -2125,11 +2126,12 @@ func (m ContentModel) View() string {
 	}
 	separator = strings.Join(separatorLines, "\n")
 
-	if m.focus == FocusPaneRight {
+	switch m.focus {
+	case FocusPaneRight:
 		leftView = lipgloss.NewStyle().
 			Faint(true).
 			Render(leftView)
-	} else if m.focus == FocusPaneLeft {
+	case FocusPaneLeft:
 		rightView = lipgloss.NewStyle().
 			Faint(true).
 			Render(rightView)

@@ -247,7 +247,7 @@ func validateFallbackNames(fallbacks map[string][]string, filePath string) []err
 	return errs
 }
 
-func validateMetadata(m *Metadata, basePath string) *ValidationError {
+func validateMetadata(m *Metadata, _ string) *ValidationError {
 	if strings.TrimSpace(m.Name) == "" {
 		return &ValidationError{
 			Field:      "metadata.name",
@@ -258,7 +258,7 @@ func validateMetadata(m *Metadata, basePath string) *ValidationError {
 	return nil
 }
 
-func validateRuntime(r *Runtime, basePath string) *ValidationError {
+func validateRuntime(r *Runtime, _ string) *ValidationError {
 	if strings.TrimSpace(r.WorkspaceRoot) == "" {
 		return &ValidationError{
 			Field:      "runtime.workspace_root",
@@ -308,7 +308,7 @@ func validateTimeouts(t *Timeouts, filePath string) []error {
 	return errs
 }
 
-func validateAdaptersWithFile(adapters map[string]Adapter, basePath, filePath string) []error {
+func validateAdaptersWithFile(adapters map[string]Adapter, _, filePath string) []error {
 	var errs []error
 	for name, adapter := range adapters {
 		if strings.TrimSpace(adapter.Binary) == "" {
@@ -316,7 +316,7 @@ func validateAdaptersWithFile(adapters map[string]Adapter, basePath, filePath st
 				File:       filePath,
 				Field:      fmt.Sprintf("adapters.%s.binary", name),
 				Reason:     "is required",
-				Suggestion: fmt.Sprintf("Set 'binary' to the CLI executable name (e.g., 'claude', 'opencode')"),
+				Suggestion: "Set 'binary' to the CLI executable name (e.g., 'claude', 'opencode')",
 			})
 		}
 		if strings.TrimSpace(adapter.Mode) == "" {
@@ -349,7 +349,7 @@ func validatePersonasListWithFile(personas map[string]Persona, adapters map[stri
 				Suggestion: "Set 'adapter' to reference a defined adapter (e.g., 'claude')",
 			})
 		} else if _, ok := adapters[persona.Adapter]; !ok {
-			suggestion := fmt.Sprintf("adapter '%s' not found", persona.Adapter)
+			var suggestion string
 			if len(availableAdapters) > 0 {
 				suggestion = fmt.Sprintf("Available adapters: %v", availableAdapters)
 			} else {

@@ -152,14 +152,15 @@ func containsUTF7Sequence(s string) bool {
 				seqLen = 0
 			}
 		} else {
-			if isBase64Char(c) {
+			switch {
+			case isBase64Char(c):
 				seqLen++
-			} else if c == '-' {
+			case c == '-':
 				if seqLen > 0 {
 					return true
 				}
 				inSeq = false
-			} else {
+			default:
 				inSeq = false
 			}
 		}

@@ -55,12 +55,89 @@ steps:
     exec:
       type: prompt
       source: |
-        Analyze test coverage for: {{ input }}
+        ## Objective
 
-        1. Run coverage analysis using the project test command with coverage flags
-        2. Identify uncovered functions and branches
-        3. Find edge cases not tested
-        4. Map dependencies that need mocking
+        Analyze the current test coverage for the specified scope, identifying uncovered functions, untested branches, missing edge cases, and dependencies that require mocking. Produce a structured coverage gap analysis that the generate-tests step will use to write targeted tests. The analysis must be specific enough that each gap maps to a concrete test case to write.
+
+        ## Context
+
+        This is the first step of a multi-step pipeline with a test-generate-verify loop. The generate-tests step will use this analysis to write new tests. The run-tests step will execute them. The check-quality step may loop back to generate-tests if tests fail. The verify-coverage step will confirm the improvement. The codebase is mounted read-only at /project.
+
+        Scope: {{ input }}
+
+        If the scope specifies a package or directory, focus the analysis on that area. If it is general, identify the packages with the lowest coverage as priority targets.
+
+        ## Requirements
+
+        ### 1. Run Coverage Analysis
+
+        Execute the project's test command with coverage flags to determine the current state:
+        ```bash
+        go test -coverprofile=coverage.out -covermode=atomic ./...
+        ```
+        If the scope targets a specific package, run coverage for that package:
+        ```bash
+        go test -coverprofile=coverage.out -covermode=atomic ./<package>/...
+        ```
+
+        Parse the coverage output to extract:
+        - Per-package coverage percentages
+        - Per-file coverage percentages
+        - List of functions with zero coverage (completely untested)
+        - List of functions with partial coverage (some branches untested)
+
+        If the test command fails, note which packages failed and analyze coverage for the packages that passed.
+
+        ### 2. Identify Uncovered Functions
+
+        For each function with zero or low coverage in the target scope:
+        - Read the function to understand its purpose and behavior
+        - Determine what inputs it accepts and what outputs it produces
+        - Identify the happy path (normal successful execution)
+        - Identify error paths (what can go wrong and how errors are handled)
+        - Note the function's dependencies (other packages, external services, file system, network)
+
+        ### 3. Find Untested Edge Cases
+
+        For each function with partial coverage, identify which branches are not exercised:
+        - Error conditions: what happens when dependencies fail, inputs are invalid, or resources are unavailable?
+        - Boundary conditions: empty inputs, nil pointers, zero values, maximum lengths, concurrent access
+        - State-dependent behavior: what happens when the system is in an unusual state (not initialized, already closed, partially configured)?
+        - Configuration variants: what happens with different configuration combinations?
+
+        ### 4. Map Dependencies Requiring Mocks
+
+        For each uncovered function, identify which dependencies need to be mocked for testing:
+        - External services (HTTP clients, database connections, API clients)
+        - File system operations (file reads, directory listings, file writes)
+        - System calls (os.Getenv, time.Now, os.Exit)
+        - Other internal packages that have side effects
+        Note whether mock implementations already exist in the codebase (check for existing mock files, test helpers, or interface definitions that facilitate mocking).
+
+        ### 5. Prioritize Gaps
+
+        Rank coverage gaps by priority:
+        1. Exported functions with zero coverage in critical packages (these are public API surface)
+        2. Error handling paths in functions that interact with external systems
+        3. Edge cases in complex functions (high cyclomatic complexity, many branches)
+        4. Utility functions with low coverage
+        5. Internal functions that are well-covered by integration tests but lack unit tests
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT modify any files. This step is analysis only.
+        - Do NOT report test files themselves as having coverage gaps.
+        - Do NOT report generated code (if any) as needing hand-written tests.
+        - Do NOT set unrealistic coverage targets. Focus on meaningful coverage (testing behavior, not lines).
+        - If coverage tools are unavailable, fall back to static analysis: read test files and compare against source files to find untested functions.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good coverage analysis identifies specific functions and specific branches that need testing, maps the dependencies that must be mocked, and suggests concrete test cases for each gap. A developer receiving this analysis should know exactly what tests to write. A bad analysis reports only package-level percentages without identifying which functions need tests, or suggests vague "add more tests" without specifying what to test.
     output_artifacts:
       - name: coverage
         path: .wave/output/coverage-analysis.json
@@ -94,16 +171,108 @@ steps:
     exec:
       type: prompt
       source: |
-        Generate tests to improve coverage for: {{ input }}
+        ## Objective
 
-        Requirements:
-        1. Write table-driven tests where appropriate
-        2. Cover happy path, error cases, and edge cases
-        3. Use descriptive test names (TestFunction_Condition_Expected)
-        4. Add mocks for external dependencies
-        5. Include benchmarks for performance-critical code
+        Generate new test functions to fill the coverage gaps identified by the analyze-coverage step. The tests must follow existing codebase patterns, use table-driven structure where appropriate, cover happy paths and error cases and edge cases, and compile and pass on the first attempt. The generated tests become permanent parts of the codebase, so they must be well-structured, maintainable, and genuinely useful for catching regressions.
 
-        Follow existing test patterns in the codebase.
+        ## Context
+
+        This is the test generation step in a multi-step pipeline with a quality feedback loop. The analyze-coverage step has produced a coverage gap analysis injected as the "gaps" artifact. This step generates tests to fill those gaps. The run-tests step will execute the generated tests. If tests fail, the check-quality step may loop back to this step (up to 3 visits via the thread mechanism). The codebase is mounted read-write at /project, so you can create and modify test files directly.
+
+        Scope: {{ input }}
+
+        Read the injected gaps artifact first to understand which functions need tests, what edge cases are missing, and what dependencies require mocking.
+
+        ## Requirements
+
+        ### 1. Study Existing Test Patterns
+
+        Before writing any tests, read 2-3 existing test files in the target package (or nearby packages) to understand:
+        - Test file naming convention (*_test.go, *_test.ts, etc.)
+        - Test function naming convention (TestFunction_Condition_Expected, or other)
+        - Whether table-driven tests are used and their structure
+        - What test helpers exist (setup functions, cleanup functions, assertion helpers)
+        - What mock types exist and how they are used
+        - How test fixtures are managed (inline, fixture files, test data directories)
+        - Import conventions for testing libraries (testify, gomock, etc.)
+
+        Follow these patterns exactly. Do not introduce new testing libraries or patterns.
+
+        ### 2. Write Tests for Each Coverage Gap
+
+        For each gap in the coverage analysis, ordered by priority:
+
+        **Table-driven tests** (for functions with multiple input/output combinations):
+        - Create a test cases slice with descriptive names for each case
+        - Cover: valid input (happy path), invalid input (error case), boundary values (edge case), nil/zero values
+        - Use t.Run() for subtests so individual cases can be identified
+        - Include the expected outcome for each case
+
+        **Error path tests** (for functions that return errors):
+        - Test each documented error condition
+        - Verify the correct error type or message is returned
+        - Test that partial state is properly cleaned up on error
+        - Test that errors from dependencies are correctly wrapped and propagated
+
+        **Edge case tests** (for boundary conditions):
+        - Empty inputs, nil pointers, zero-length slices, empty maps
+        - Maximum length inputs, very large numbers
+        - Concurrent access (if the function is meant to be goroutine-safe)
+        - Re-entrant calls (calling the function while it is already running)
+
+        ### 3. Create Mocks Where Needed
+
+        For dependencies identified in the coverage analysis:
+        - If a mock already exists in the codebase, use it
+        - If no mock exists and the dependency is behind an interface, create a minimal mock implementing only the methods needed for the tests
+        - If the dependency is a concrete type without an interface, consider whether to extract an interface or use a different testing strategy (e.g., integration test with real dependency)
+        - Place mock types in the test file or in a shared test helper file following existing conventions
+
+        ### 4. Write Benchmarks for Hot Paths
+
+        For functions identified as performance-critical in the coverage analysis:
+        - Write BenchmarkXxx functions following Go benchmark conventions
+        - Include b.ResetTimer() after setup
+        - Test with representative input sizes
+        - Only benchmark functions where performance actually matters (not every function needs a benchmark)
+
+        ### 5. Name Tests Descriptively
+
+        Use the pattern: TestFunction_Condition_Expected
+        - TestExecuteStep_ValidConfig_Success
+        - TestExecuteStep_MissingPersona_ReturnsError
+        - TestExecuteStep_NilWorkspace_Panics
+        - TestParseInput_EmptyString_ReturnsDefault
+
+        ### 6. Verify Tests Compile and Pass
+
+        After writing all tests, run:
+        ```bash
+        go test ./path/to/package/...
+        ```
+        If any test fails, fix it immediately before moving to the next coverage gap. Do not leave failing tests.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT write tests that only assert `err == nil` without checking the result. Every test must verify meaningful behavior.
+        - Do NOT write tests that depend on external services, network access, or specific file system state.
+        - Do NOT write tests with `time.Sleep()` for synchronization. Use channels, waitgroups, or polling with deadlines.
+        - Do NOT introduce new testing libraries. Use what the project already uses.
+        - Do NOT write tests for generated code or third-party code.
+        - Do NOT test implementation details (private fields via reflection). Test behavior through the public API.
+        - Do NOT write flaky tests. If a test involves concurrency, use deterministic synchronization.
+
+        ## Output Format
+
+        After generating all tests, produce a summary listing:
+        - Each test file created or modified
+        - Each test function written with a one-line description
+        - Which coverage gap each test addresses (reference the gap ID from the analysis)
+        - Total new test count and estimated coverage improvement
+
+        ## Quality Bar
+
+        A good test generation produces tests that catch real bugs: if someone introduced a regression, at least one of these tests would fail. Tests have descriptive names that document what they verify. Table-driven tests cover the input space systematically. Mocks are minimal and focused. A bad test generation produces tests that only exercise the happy path, use meaningless assertions, or test implementation details that break when the code is refactored without behavioral change.
     retry:
       policy: standard
       max_attempts: 3
@@ -139,15 +308,88 @@ steps:
     exec:
       type: prompt
       source: |
-        Verify the generated tests:
+        ## Objective
 
-        1. Run coverage again — did it improve?
-        2. Are tests meaningful (not just line coverage)?
-        3. Do tests actually catch bugs?
-        4. Are mocks appropriate and minimal?
-        5. Is test code maintainable?
+        Verify that the generated tests are high-quality, meaningful, and actually improve coverage. This step runs the coverage analysis again to measure the improvement, then performs a qualitative review of the generated tests to ensure they test real behavior (not just lines), use appropriate mocking, and are maintainable. The output is a coverage delta report and quality assessment that determines whether the test generation was successful.
 
-        Output: coverage delta and quality assessment
+        ## Context
+
+        This is the verification step of the test-gen pipeline. The generate-tests step has written new test functions. The run-tests step has executed them. This step measures the impact and quality. The codebase is available for reading.
+
+        ## Requirements
+
+        ### 1. Re-run Coverage Analysis
+
+        Run the test suite with coverage again:
+        ```bash
+        go test -coverprofile=coverage_after.out -covermode=atomic ./...
+        ```
+
+        Compare the new coverage against the baseline from the analyze-coverage step:
+        - Calculate the overall coverage delta (percentage points gained)
+        - Calculate per-package coverage deltas
+        - Identify which specific functions went from uncovered to covered
+        - Note any functions that remain uncovered despite new tests being written
+
+        ### 2. Assess Test Quality
+
+        For each newly generated test file, evaluate:
+
+        **Meaningfulness**: Does the test verify actual behavior, or does it just exercise code paths?
+        - A meaningful test: `assert.Equal(t, expected, result.Name)` -- checks a specific output value
+        - A meaningless test: `assert.NoError(t, err)` alone -- only checks that no error occurred without verifying the result
+        - Check that each test has at least one assertion beyond error checking
+
+        **Bug-catching ability**: Would these tests catch a real regression?
+        - Mentally simulate a common bug (off-by-one, nil pointer, wrong field access) and determine whether any of the new tests would fail
+        - Check that edge cases are tested with specific expected values, not just "does not panic"
+
+        **Mock appropriateness**: Are mocks minimal and focused?
+        - Check that mocks implement only the methods needed for the test
+        - Verify that mocks return realistic values (not empty defaults for every method)
+        - Ensure that the mock behavior is documented (what scenario does this mock represent?)
+
+        **Maintainability**: Will these tests age well?
+        - Check that tests do not depend on implementation details that may change
+        - Verify that test names describe the scenario, not the implementation
+        - Ensure that test helpers are shared where appropriate (not copy-pasted)
+        - Check for hardcoded values that should be constants or derived from the code
+
+        ### 3. Calculate Coverage Delta
+
+        Produce a clear summary:
+        - Before: X% overall coverage
+        - After: Y% overall coverage
+        - Delta: +Z percentage points
+        - New tests added: N
+        - Functions newly covered: list
+        - Functions still uncovered: list with reasons (too complex to test in this pass, requires integration test, etc.)
+
+        ### 4. Provide Improvement Recommendations
+
+        If coverage is still below target or tests have quality issues:
+        - Identify the top 3-5 remaining gaps that would have the most coverage impact
+        - Note any tests that should be rewritten for quality reasons
+        - Suggest whether additional test generation passes would be beneficial
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT modify test files in this step. This is a verification step only.
+        - Do NOT count test count as a quality metric. Fewer meaningful tests are better than many shallow tests.
+        - Do NOT set arbitrary coverage targets (e.g., "must reach 80%"). Focus on whether the RIGHT things are tested.
+
+        ## Output Format
+
+        Produce the verification report as markdown with:
+        - **Coverage Delta**: Before, after, and delta percentages, per-package breakdown
+        - **Quality Assessment**: For each new test file, a quality rating (Good / Acceptable / Needs Improvement) with justification
+        - **Bug-Catching Score**: How many realistic bug scenarios would be caught by the new tests
+        - **Remaining Gaps**: Functions still uncovered and why
+        - **Recommendations**: What to do next (additional passes, manual review, etc.)
+
+        ## Quality Bar
+
+        A good verification report honestly assesses whether the generated tests add real value. It distinguishes between coverage improvement (more lines executed) and quality improvement (more bugs would be caught). It identifies tests that should be strengthened and gaps that remain. A bad verification report treats any coverage increase as success without examining whether the tests actually verify behavior.
     output_artifacts:
       - name: verification
         path: .wave/output/coverage-verification.md
