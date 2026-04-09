@@ -10,7 +10,6 @@ metadata:
 
 requires:
   tools:
-    - go
     - gh
 
 skills:

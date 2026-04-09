@@ -507,9 +507,9 @@ steps:
 
         ## Action Items
 
-        1. **[must-fix]** `internal/pkg/foo.go:42` — Add nil check before map access
+        1. **[must-fix]** `path/to/source:42` — Add nil check before map access
            (quick-fix)
-        2. **[should-fix]** `internal/pkg/bar_test.go` — Add test for empty input case
+        2. **[should-fix]** `path/to/test_file` — Add test for empty input case
            (moderate)
 
         ## Lessons Learned

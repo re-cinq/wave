@@ -71,7 +71,7 @@ steps:
         This is the first step of the ops-bootstrap pipeline. No prior artifacts exist. You
         have read-only access to the project directory mounted at /project. The directory may
         be completely empty (true greenfield) or may already contain partial files such as a
-        README, a go.mod, or a wave.yaml. Your job is to survey what exists and decide what
+        README, a dependency manifest, or a wave.yaml. Your job is to survey what exists and decide what
         needs to be created.
 
         ## Requirements
