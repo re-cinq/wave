@@ -7,7 +7,7 @@ metadata:
     as comments on the worst-scoring issues. Use this to improve issue quality
     across a project. Scores issues on a 0-100 scale and targets those below
     the quality threshold for remediation.
-  release: true
+  release: false
 
 skills:
   - gh-cli
