@@ -554,8 +554,7 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
         if(!tc.hidden){tc.hidden=true;return;}
         tc.hidden=false;
         tc.dataset.showing='info';
-        var nameEl=shape.querySelector('.ws-name');
-        var stepId=nameEl?nameEl.textContent.trim().split(/\s/)[0]:'';
+        var stepId=shape.id?shape.id.replace(/^w-/,''):'';
         tc.innerHTML='<div style="padding:0.5rem 0.6rem;color:var(--color-text-muted);font-size:0.75rem;">Loading step configuration...</div>';
         fetch('/api/pipelines/'+encodeURIComponent('{{.Run.PipelineName}}')).then(function(r){return r.json()}).then(function(d){
             var step=null;
