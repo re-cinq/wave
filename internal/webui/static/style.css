@@ -2835,7 +2835,7 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-io-val { color: var(--color-text-secondary); font-size: 0.75rem; }
 
 /* ── Step tab bar (artifacts + logs, unified) ── */
-.ws-tabs { display: flex; gap: 0; padding: 0; margin: 0; align-items: center; overflow-x: auto; }
+.ws-tabs { display: flex; gap: 0.3rem; padding: 0; margin: 0; align-items: center; overflow-x: auto; }
 .w-tab {
     display: inline-flex; align-items: center; gap: 0.2rem;
     padding: var(--ws-tab-pad-y) var(--ws-tab-pad-right) var(--ws-tab-pad-y) var(--ws-pad-x);
@@ -2849,7 +2849,7 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .w-tab.active { color: var(--color-text); background: rgba(99,102,241,0.06); }
 .w-tab .art-size { display: none; }
 .w-tab-action {
-    color: var(--color-failed); font-family: inherit; font-size: 0.68rem; border: none; background: none; cursor: pointer;
+    color: var(--color-failed); font-family: var(--font-mono); font-size: 0.72rem; border: none; background: none; cursor: pointer; padding: var(--ws-tab-pad-y) var(--ws-pad-x); line-height: 1;
 }
 .w-tab-action:hover { color: var(--color-failed); opacity: 0.8; }
 /* Content area directly under tabs — dark terminal bg for all tab content */
