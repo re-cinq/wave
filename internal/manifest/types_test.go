@@ -222,9 +222,9 @@ func TestOntologyVars(t *testing.T) {
 				},
 			},
 			expected: map[string]string{
-				"ontology.telos":            "Financial assistant for SMEs",
-				"ontology.context.billing":  "Payment processing",
-				"ontology.context.auth":     "Authentication and authorization",
+				"ontology.telos":              "Financial assistant for SMEs",
+				"ontology.context.billing":    "Payment processing",
+				"ontology.context.auth":       "Authentication and authorization",
 				"ontology.convention.commits": "conventional",
 				"ontology.convention.testing": "table-driven",
 			},

@@ -7,16 +7,16 @@ import (
 
 func TestLookupPricing(t *testing.T) {
 	tests := []struct {
-		model    string
-		wantIn   float64
-		wantOut  float64
+		model   string
+		wantIn  float64
+		wantOut float64
 	}{
 		{"claude-opus", 15.0, 75.0},
 		{"claude-sonnet", 3.0, 15.0},
 		{"claude-haiku", 0.25, 1.25},
-		{"claude-opus-4-6", 15.0, 75.0},   // prefix match
-		{"claude-sonnet-4-6", 3.0, 15.0},  // prefix match
-		{"claude-haiku-4-5", 0.25, 1.25},  // prefix match
+		{"claude-opus-4-6", 15.0, 75.0},  // prefix match
+		{"claude-sonnet-4-6", 3.0, 15.0}, // prefix match
+		{"claude-haiku-4-5", 0.25, 1.25}, // prefix match
 		{"gpt-4o", 2.5, 10.0},
 		{"gpt-4o-mini", 0.15, 0.6},
 		{"unknown-model", 0, 0},

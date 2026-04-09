@@ -16,8 +16,8 @@ import (
 
 // mockForgeClient implements forge.Client with configurable responses.
 type mockForgeClient struct {
-	listPRs   func(ctx context.Context, owner, repo string, opts forge.ListPullRequestsOptions) ([]*forge.PullRequest, error)
-	getPR     func(ctx context.Context, owner, repo string, number int) (*forge.PullRequest, error)
+	listPRs func(ctx context.Context, owner, repo string, opts forge.ListPullRequestsOptions) ([]*forge.PullRequest, error)
+	getPR   func(ctx context.Context, owner, repo string, number int) (*forge.PullRequest, error)
 }
 
 func (m *mockForgeClient) GetIssue(context.Context, string, string, int) (*forge.Issue, error) {

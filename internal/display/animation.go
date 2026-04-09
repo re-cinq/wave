@@ -7,14 +7,14 @@ import (
 
 // Spinner provides animated loading indicators.
 type Spinner struct {
-	mu        sync.Mutex
-	frames    []string
-	current   int
-	animType  AnimationType
-	running   bool
-	stopChan  chan struct{}
-	ticker    *time.Ticker
-	charSet   UnicodeCharSet
+	mu       sync.Mutex
+	frames   []string
+	current  int
+	animType AnimationType
+	running  bool
+	stopChan chan struct{}
+	ticker   *time.Ticker
+	charSet  UnicodeCharSet
 }
 
 // NewSpinner creates a new spinner with the specified animation type.
@@ -157,4 +157,3 @@ func getAnimationFrames(animType AnimationType, charSet UnicodeCharSet) []string
 		return []string{"|", "/", "-", "\\"}
 	}
 }
-

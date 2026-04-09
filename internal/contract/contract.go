@@ -14,8 +14,8 @@ type ContractConfig struct {
 	SchemaPath  string   `json:"schemaPath,omitempty"`
 	Command     string   `json:"command,omitempty"`
 	CommandArgs []string `json:"commandArgs,omitempty"`
-	Dir         string   `json:"dir,omitempty"`         // Working directory: "project_root", absolute path, or empty for workspace
-	MustPass    bool     `json:"must_pass,omitempty"`    // Determines if validation failure blocks pipeline
+	Dir         string   `json:"dir,omitempty"`       // Working directory: "project_root", absolute path, or empty for workspace
+	MustPass    bool     `json:"must_pass,omitempty"` // Determines if validation failure blocks pipeline
 	MaxRetries  int      `json:"maxRetries,omitempty"`
 
 	// Progressive validation settings
@@ -26,7 +26,7 @@ type ContractConfig struct {
 
 	// Wrapper detection settings
 	DisableWrapperDetection bool `json:"disable_wrapper_detection,omitempty"` // Disable error wrapper detection (default: false, detection enabled)
-	DebugMode              bool `json:"debug_mode,omitempty"`                // Enable debug logging for wrapper detection
+	DebugMode               bool `json:"debug_mode,omitempty"`                // Enable debug logging for wrapper detection
 
 	// LLM judge settings
 	Model     string   `json:"model,omitempty"`     // LLM model for judge evaluation (e.g. "claude-haiku-4-5")
@@ -34,13 +34,13 @@ type ContractConfig struct {
 	Threshold float64  `json:"threshold,omitempty"` // Pass threshold (0.0-1.0), default 1.0
 
 	// Agent review settings
-	Persona      string                `json:"persona,omitempty"`       // Reviewer persona name
-	CriteriaPath string                `json:"criteriaPath,omitempty"`  // Path to review criteria markdown
-	Context      []ReviewContextSource `json:"context,omitempty"`       // Context sources for the reviewer
-	TokenBudget  int                   `json:"tokenBudget,omitempty"`   // Max tokens for review agent
-	Timeout      string                `json:"timeout,omitempty"`       // Duration string for review timeout
-	ReworkStep   string                `json:"reworkStep,omitempty"`    // Step ID for on_failure: rework
-	OnFailure    string                `json:"onFailure,omitempty"`     // "fail", "skip", "continue", "rework"
+	Persona      string                `json:"persona,omitempty"`      // Reviewer persona name
+	CriteriaPath string                `json:"criteriaPath,omitempty"` // Path to review criteria markdown
+	Context      []ReviewContextSource `json:"context,omitempty"`      // Context sources for the reviewer
+	TokenBudget  int                   `json:"tokenBudget,omitempty"`  // Max tokens for review agent
+	Timeout      string                `json:"timeout,omitempty"`      // Duration string for review timeout
+	ReworkStep   string                `json:"reworkStep,omitempty"`   // Step ID for on_failure: rework
+	OnFailure    string                `json:"onFailure,omitempty"`    // "fail", "skip", "continue", "rework"
 	// ArtifactPaths provides artifact name→path mappings for artifact context sources.
 	// This is populated by the executor at validation time, not from YAML.
 	ArtifactPaths map[string]string `json:"artifactPaths,omitempty"`

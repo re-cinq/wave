@@ -59,11 +59,11 @@ func NewJSONRecoveryParser(level RecoveryLevel) *JSONRecoveryParser {
 // ParseWithRecovery attempts to parse JSON with progressive error recovery
 func (p *JSONRecoveryParser) ParseWithRecovery(input string) (*RecoveryResult, error) {
 	result := &RecoveryResult{
-		OriginalInput:  input,
-		RecoveredJSON:  input,
-		RecoveryLevel:  p.RecoveryLevel,
-		AppliedFixes:   []string{},
-		Warnings:       []string{},
+		OriginalInput: input,
+		RecoveredJSON: input,
+		RecoveryLevel: p.RecoveryLevel,
+		AppliedFixes:  []string{},
+		Warnings:      []string{},
 	}
 
 	// First, try parsing as-is
@@ -117,8 +117,8 @@ func (p *JSONRecoveryParser) ParseWithRecovery(input string) (*RecoveryResult, e
 // getRecoveryStrategies returns the list of recovery strategies based on recovery level
 func (p *JSONRecoveryParser) getRecoveryStrategies() []func(string) (string, []string, []string) {
 	strategies := []func(string) (string, []string, []string){
-		p.extractFromAIExplanation,  // Handle AI explanatory text first
-		p.extractJSONFromText,       // Depth-based extraction (most robust) before markdown
+		p.extractFromAIExplanation, // Handle AI explanatory text first
+		p.extractJSONFromText,      // Depth-based extraction (most robust) before markdown
 		p.extractFromMarkdown,
 		p.removeComments,
 		p.fixTrailingCommas,

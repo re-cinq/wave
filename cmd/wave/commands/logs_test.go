@@ -135,7 +135,7 @@ func executeLogsCmd(args ...string) (stdout, stderr string, err error) {
 	os.Stdout = oldStdout
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 
 	return buf.String(), errBuf.String(), err
 }
@@ -147,7 +147,7 @@ func TestLogsCmd_NoDatabase(t *testing.T) {
 	defer h.restore()
 
 	// Remove the database
-	os.RemoveAll(filepath.Join(h.tmpDir, ".wave"))
+	_ = os.RemoveAll(filepath.Join(h.tmpDir, ".wave"))
 
 	stdout, _, err := executeLogsCmd()
 	require.NoError(t, err)

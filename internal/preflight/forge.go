@@ -18,9 +18,9 @@ var forgePipelinePrefixes = []string{"gh-", "gl-", "bb-", "gt-"}
 
 // ForgeStepCheck describes a step that was checked for forge dependencies.
 type ForgeStepCheck struct {
-	StepID  string // Step ID
-	Tool    string // Detected forge CLI tool (e.g. "gh")
-	Reason  string // Human-readable reason
+	StepID string // Step ID
+	Tool   string // Detected forge CLI tool (e.g. "gh")
+	Reason string // Human-readable reason
 }
 
 // ForgeError represents a preflight failure due to forge-dependent steps running

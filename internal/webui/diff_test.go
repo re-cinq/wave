@@ -60,7 +60,7 @@ func setupGitRepo(t *testing.T) string {
 	}
 
 	// Delete a file
-	os.Remove(filepath.Join(dir, "toDelete.go"))
+	_ = os.Remove(filepath.Join(dir, "toDelete.go"))
 
 	// Modify binary file
 	if err := os.WriteFile(filepath.Join(dir, "image.png"), []byte{0x89, 0x50, 0x4E, 0x47, 0x00, 0x00, 0x00, 0x0D, 0xFF}, 0o644); err != nil {

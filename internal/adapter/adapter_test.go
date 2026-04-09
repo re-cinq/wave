@@ -252,7 +252,7 @@ func TestMockAdapterRegistry_RegisterGet(t *testing.T) {
 	n, _ := result.Stdout.Read(stdoutBuf)
 
 	var parsed map[string]string
-	json.Unmarshal(stdoutBuf[:n], &parsed)
+	_ = json.Unmarshal(stdoutBuf[:n], &parsed)
 	if parsed["name"] != "adapter1" {
 		t.Errorf("expected adapter1, got: %s", parsed["name"])
 	}
@@ -277,7 +277,7 @@ func TestMockAdapterRegistry_CreateRunner(t *testing.T) {
 	n, _ := result.Stdout.Read(stdoutBuf)
 
 	var parsed map[string]string
-	json.Unmarshal(stdoutBuf[:n], &parsed)
+	_ = json.Unmarshal(stdoutBuf[:n], &parsed)
 	if parsed["runner"] != "test" {
 		t.Errorf("expected 'test', got: %s", parsed["runner"])
 	}
@@ -505,8 +505,8 @@ func TestPermissionChecker_DenyTakesPrecedenceOverAllow(t *testing.T) {
 	// Even though Write is in allowed list, deny should take precedence
 	checker := NewPermissionChecker(
 		"restricted",
-		[]string{"Read", "Write", "Edit", "Bash"},                // Allow all basic tools
-		[]string{"Write(*)", "Bash(rm -rf*)", "Bash(sudo *)"},    // But deny specific patterns
+		[]string{"Read", "Write", "Edit", "Bash"},             // Allow all basic tools
+		[]string{"Write(*)", "Bash(rm -rf*)", "Bash(sudo *)"}, // But deny specific patterns
 	)
 
 	// Write is allowed but denied by deny pattern - should be blocked
@@ -615,54 +615,54 @@ func TestPermissionChecker_CheckOrder_DenyFirst(t *testing.T) {
 	// 3. Default (no allow patterns -> allow, else deny)
 
 	testCases := []struct {
-		name        string
-		allowed     []string
-		denied      []string
-		tool        string
-		argument    string
-		expectDeny  bool
+		name         string
+		allowed      []string
+		denied       []string
+		tool         string
+		argument     string
+		expectDeny   bool
 		expectReason string
 	}{
 		{
-			name:        "deny checked first - deny matches",
-			allowed:     []string{"Write"},
-			denied:      []string{"Write(*.exe)"},
-			tool:        "Write",
-			argument:    "malware.exe",
-			expectDeny:  true,
+			name:         "deny checked first - deny matches",
+			allowed:      []string{"Write"},
+			denied:       []string{"Write(*.exe)"},
+			tool:         "Write",
+			argument:     "malware.exe",
+			expectDeny:   true,
 			expectReason: "blocked by deny pattern",
 		},
 		{
-			name:        "deny not matched - allow checked",
-			allowed:     []string{"Write"},
-			denied:      []string{"Write(*.exe)"},
-			tool:        "Write",
-			argument:    "document.txt",
-			expectDeny:  false,
+			name:       "deny not matched - allow checked",
+			allowed:    []string{"Write"},
+			denied:     []string{"Write(*.exe)"},
+			tool:       "Write",
+			argument:   "document.txt",
+			expectDeny: false,
 		},
 		{
-			name:        "no deny patterns - allow checked",
-			allowed:     []string{"Read"},
-			denied:      []string{},
-			tool:        "Read",
-			argument:    "file.go",
-			expectDeny:  false,
+			name:       "no deny patterns - allow checked",
+			allowed:    []string{"Read"},
+			denied:     []string{},
+			tool:       "Read",
+			argument:   "file.go",
+			expectDeny: false,
 		},
 		{
-			name:        "no allow patterns - default allow",
-			allowed:     []string{},
-			denied:      []string{},
-			tool:        "Write",
-			argument:    "file.txt",
-			expectDeny:  false,
+			name:       "no allow patterns - default allow",
+			allowed:    []string{},
+			denied:     []string{},
+			tool:       "Write",
+			argument:   "file.txt",
+			expectDeny: false,
 		},
 		{
-			name:        "wildcard deny takes precedence",
-			allowed:     []string{"*"},
-			denied:      []string{"*"},
-			tool:        "Read",
-			argument:    "anything",
-			expectDeny:  true,
+			name:         "wildcard deny takes precedence",
+			allowed:      []string{"*"},
+			denied:       []string{"*"},
+			tool:         "Read",
+			argument:     "anything",
+			expectDeny:   true,
 			expectReason: "blocked by deny pattern",
 		},
 	}
@@ -720,10 +720,10 @@ func TestPermissionError_ContainsPersonaName(t *testing.T) {
 // T059: Add glob pattern matching tests
 func TestPermissionChecker_GlobPatternMatching(t *testing.T) {
 	testCases := []struct {
-		name      string
-		pattern   string
-		tool      string
-		argument  string
+		name        string
+		pattern     string
+		tool        string
+		argument    string
 		shouldMatch bool
 	}{
 		// Simple wildcards
@@ -942,9 +942,9 @@ func TestMatchToolPattern(t *testing.T) {
 // Test parseToolPattern function
 func TestParseToolPattern(t *testing.T) {
 	testCases := []struct {
-		pattern     string
+		pattern      string
 		expectedTool string
-		expectedArg string
+		expectedArg  string
 	}{
 		{"Read", "Read", ""},
 		{"Write(*)", "Write", "*"},

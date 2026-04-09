@@ -19,7 +19,7 @@ func (m *mockStore) Read(name string) (Skill, error) {
 	return s, nil
 }
 
-func (m *mockStore) Write(_ Skill) error   { return nil }
+func (m *mockStore) Write(_ Skill) error    { return nil }
 func (m *mockStore) List() ([]Skill, error) { return nil, nil }
 func (m *mockStore) Delete(_ string) error  { return nil }
 
@@ -32,11 +32,11 @@ func TestValidateSkillRefs(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		names     []string
-		scope     string
-		store     Store
-		wantCount int
+		name       string
+		names      []string
+		scope      string
+		store      Store
+		wantCount  int
 		wantSubstr []string // substrings expected in error messages
 	}{
 		{
@@ -61,19 +61,19 @@ func TestValidateSkillRefs(t *testing.T) {
 			wantCount: 0,
 		},
 		{
-			name:      "invalid format name reports scope",
-			names:     []string{"INVALID"},
-			scope:     "persona:navigator",
-			store:     nil,
-			wantCount: 1,
+			name:       "invalid format name reports scope",
+			names:      []string{"INVALID"},
+			scope:      "persona:navigator",
+			store:      nil,
+			wantCount:  1,
 			wantSubstr: []string{"persona:navigator", "invalid skill name", "INVALID"},
 		},
 		{
-			name:      "valid format but nonexistent in store",
-			names:     []string{"nonexistent"},
-			scope:     "global",
-			store:     store,
-			wantCount: 1,
+			name:       "valid format but nonexistent in store",
+			names:      []string{"nonexistent"},
+			scope:      "global",
+			store:      store,
+			wantCount:  1,
 			wantSubstr: []string{"global", "nonexistent", "not found in store"},
 		},
 		{
@@ -84,11 +84,11 @@ func TestValidateSkillRefs(t *testing.T) {
 			wantCount: 3,
 		},
 		{
-			name:      "mixed valid and invalid only invalid reported",
-			names:     []string{"golang", "INVALID", "speckit"},
-			scope:     "global",
-			store:     store,
-			wantCount: 1,
+			name:       "mixed valid and invalid only invalid reported",
+			names:      []string{"golang", "INVALID", "speckit"},
+			scope:      "global",
+			store:      store,
+			wantCount:  1,
 			wantSubstr: []string{"INVALID"},
 		},
 		{
@@ -99,27 +99,27 @@ func TestValidateSkillRefs(t *testing.T) {
 			wantCount: 0,
 		},
 		{
-			name:      "T020 invalid characters at scope",
-			names:     []string{"my_skill", "my.skill", "MY-SKILL"},
-			scope:     "persona:craftsman",
-			store:     nil,
-			wantCount: 3,
+			name:       "T020 invalid characters at scope",
+			names:      []string{"my_skill", "my.skill", "MY-SKILL"},
+			scope:      "persona:craftsman",
+			store:      nil,
+			wantCount:  3,
 			wantSubstr: []string{"persona:craftsman"},
 		},
 		{
-			name: "T021 missing skills directory all reads fail",
-			names: []string{"golang", "speckit"},
-			scope: "global",
-			store: &mockStore{skills: map[string]Skill{}}, // empty store
-			wantCount: 2,
+			name:       "T021 missing skills directory all reads fail",
+			names:      []string{"golang", "speckit"},
+			scope:      "global",
+			store:      &mockStore{skills: map[string]Skill{}}, // empty store
+			wantCount:  2,
 			wantSubstr: []string{"not found in store"},
 		},
 		{
-			name: "T024 skill dir exists but no SKILL.md",
-			names: []string{"no-skillmd"},
-			scope: "global",
-			store: &mockStore{skills: map[string]Skill{}}, // Read returns error
-			wantCount: 1,
+			name:       "T024 skill dir exists but no SKILL.md",
+			names:      []string{"no-skillmd"},
+			scope:      "global",
+			store:      &mockStore{skills: map[string]Skill{}}, // Read returns error
+			wantCount:  1,
 			wantSubstr: []string{"no-skillmd", "not found in store"},
 		},
 	}
@@ -319,8 +319,8 @@ func TestValidateManifestSkills(t *testing.T) {
 			personas: []PersonaSkills{
 				{Name: "craftsman", Skills: []string{"BAD"}},
 			},
-			store:     nil,
-			wantCount: 1,
+			store:      nil,
+			wantCount:  1,
 			wantSubstr: []string{"persona:craftsman", "BAD"},
 		},
 		{
@@ -330,8 +330,8 @@ func TestValidateManifestSkills(t *testing.T) {
 				{Name: "navigator", Skills: []string{"NAV-BAD"}},
 				{Name: "craftsman", Skills: []string{"CRAFT-BAD"}},
 			},
-			store:     nil,
-			wantCount: 3,
+			store:      nil,
+			wantCount:  3,
 			wantSubstr: []string{"global", "persona:navigator", "persona:craftsman"},
 		},
 		{
@@ -340,8 +340,8 @@ func TestValidateManifestSkills(t *testing.T) {
 			personas: []PersonaSkills{
 				{Name: "navigator", Skills: []string{"missing-nav"}},
 			},
-			store:     store,
-			wantCount: 2,
+			store:      store,
+			wantCount:  2,
 			wantSubstr: []string{"global", "persona:navigator", "not found in store"},
 		},
 		{

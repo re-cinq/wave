@@ -1021,7 +1021,7 @@ func TestScanProject_ConventionUnknownWithoutGit(t *testing.T) {
 func TestParseMakefileTargets(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "Makefile")
-	os.WriteFile(path, []byte(`.PHONY: build test lint
+	_ = os.WriteFile(path, []byte(`.PHONY: build test lint
 
 build:
 	go build ./...
@@ -1046,7 +1046,7 @@ internal-target:
 func TestParsePackageJSONScripts(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "package.json")
-	os.WriteFile(path, []byte(`{
+	_ = os.WriteFile(path, []byte(`{
   "scripts": {
     "build": "tsc",
     "test": "jest",
@@ -1069,13 +1069,13 @@ func TestHasRuffInPyproject(t *testing.T) {
 
 	// With ruff config.
 	path := filepath.Join(dir, "pyproject.toml")
-	os.WriteFile(path, []byte(`[tool.ruff]
+	_ = os.WriteFile(path, []byte(`[tool.ruff]
 line-length = 88
 `), 0644)
 	assert.True(t, hasRuffInPyproject(path))
 
 	// Without ruff config.
-	os.WriteFile(path, []byte(`[project]
+	_ = os.WriteFile(path, []byte(`[project]
 name = "foo"
 `), 0644)
 	assert.False(t, hasRuffInPyproject(path))
@@ -1105,7 +1105,7 @@ use ./standalone
 func TestParseCargoWorkspaceMembers(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "Cargo.toml")
-	os.WriteFile(path, []byte(`[workspace]
+	_ = os.WriteFile(path, []byte(`[workspace]
 members = [
     "crate-a",
     "crate-b",
@@ -1122,7 +1122,7 @@ members = [
 func TestParseCargoWorkspaceMembers_Inline(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "Cargo.toml")
-	os.WriteFile(path, []byte(`[workspace]
+	_ = os.WriteFile(path, []byte(`[workspace]
 members = ["alpha", "beta"]
 `), 0644)
 

@@ -125,4 +125,3 @@ func TestClassifyError(t *testing.T) {
 		})
 	}
 }
-

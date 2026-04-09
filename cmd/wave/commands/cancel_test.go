@@ -118,8 +118,8 @@ func executeCancelCmd(args ...string) (stdout, stderr string, err error) {
 	os.Stderr = oldStderr
 
 	var outBuf, errBuf bytes.Buffer
-	io.Copy(&outBuf, rOut)
-	io.Copy(&errBuf, rErr)
+	_, _ = io.Copy(&outBuf, rOut)
+	_, _ = io.Copy(&errBuf, rErr)
 
 	return outBuf.String(), errBuf.String(), err
 }
@@ -384,7 +384,7 @@ func TestCancelNoStateDB(t *testing.T) {
 	tmpDir := t.TempDir()
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err)
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// Don't create .wave directory - state DB won't exist
 
@@ -425,7 +425,7 @@ func TestForceKillRunNoPidFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err)
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// Create .wave/pids but no pidfile
 	err = os.MkdirAll(".wave/pids", 0755)
@@ -444,7 +444,7 @@ func TestForceKillRunInvalidPid(t *testing.T) {
 	tmpDir := t.TempDir()
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err)
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// Create .wave/pids with invalid pidfile
 	err = os.MkdirAll(".wave/pids", 0755)
@@ -466,7 +466,7 @@ func TestForceKillRunNonExistentProcess(t *testing.T) {
 	tmpDir := t.TempDir()
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err)
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// Create .wave/pids with a PID that (almost certainly) doesn't exist
 	err = os.MkdirAll(".wave/pids", 0755)

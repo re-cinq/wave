@@ -275,7 +275,7 @@ runtime:
 	os.Stdout = oldStdout
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	assert.NoError(t, err, "validate should succeed")
@@ -320,7 +320,7 @@ runtime:
 	os.Stdout = oldStdout
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	assert.NoError(t, err)
@@ -431,7 +431,7 @@ runtime:
 	os.Stdout = oldStdout
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	assert.NoError(t, err)
@@ -523,7 +523,7 @@ runtime:
 	os.Stdout = oldStdout
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	assert.NoError(t, err, "validate should succeed even if adapter binary is not found")
@@ -1162,8 +1162,8 @@ func TestShippedPipelines_ValidateAll(t *testing.T) {
 
 			// Create language marker
 			if lang.marker != "" {
-				os.MkdirAll(filepath.Dir(filepath.Join(dir, lang.marker)), 0o755)
-				os.WriteFile(filepath.Join(dir, lang.marker), []byte(lang.content), 0o644)
+				_ = os.MkdirAll(filepath.Dir(filepath.Join(dir, lang.marker)), 0o755)
+				_ = os.WriteFile(filepath.Join(dir, lang.marker), []byte(lang.content), 0o644)
 			}
 
 			// Write all shipped pipelines
@@ -1171,32 +1171,32 @@ func TestShippedPipelines_ValidateAll(t *testing.T) {
 			assert.NoError(t, err)
 			for name, content := range pipelines {
 				path := filepath.Join(waveDir, "pipelines", name)
-				os.MkdirAll(filepath.Dir(path), 0o755)
-				os.WriteFile(path, []byte(content), 0o644)
+				_ = os.MkdirAll(filepath.Dir(path), 0o755)
+				_ = os.WriteFile(path, []byte(content), 0o644)
 			}
 
 			// Write all shipped contracts
 			contracts, _ := defaults.GetContracts()
 			for name, content := range contracts {
 				path := filepath.Join(waveDir, "contracts", name)
-				os.MkdirAll(filepath.Dir(path), 0o755)
-				os.WriteFile(path, []byte(content), 0o644)
+				_ = os.MkdirAll(filepath.Dir(path), 0o755)
+				_ = os.WriteFile(path, []byte(content), 0o644)
 			}
 
 			// Write persona prompts
 			personas, _ := defaults.GetPersonas()
 			for name, content := range personas {
 				path := filepath.Join(waveDir, "personas", name)
-				os.MkdirAll(filepath.Dir(path), 0o755)
-				os.WriteFile(path, []byte(content), 0o644)
+				_ = os.MkdirAll(filepath.Dir(path), 0o755)
+				_ = os.WriteFile(path, []byte(content), 0o644)
 			}
 
 			// Write prompt files
 			prompts, _ := defaults.GetPrompts()
 			for name, content := range prompts {
 				path := filepath.Join(waveDir, "prompts", name)
-				os.MkdirAll(filepath.Dir(path), 0o755)
-				os.WriteFile(path, []byte(content), 0o644)
+				_ = os.MkdirAll(filepath.Dir(path), 0o755)
+				_ = os.WriteFile(path, []byte(content), 0o644)
 			}
 
 			// Get persona configs for manifest generation
@@ -1204,8 +1204,8 @@ func TestShippedPipelines_ValidateAll(t *testing.T) {
 
 			// Generate manifest via onboarding wizard (non-interactive)
 			origDir, _ := os.Getwd()
-			os.Chdir(dir)
-			defer os.Chdir(origDir)
+			_ = os.Chdir(dir)
+			defer func() { _ = os.Chdir(origDir) }()
 
 			cfg := onboarding.WizardConfig{
 				WaveDir:        waveDir,

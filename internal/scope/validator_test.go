@@ -161,7 +161,7 @@ func TestValidatePersonas_MultiPersonaMixed(t *testing.T) {
 	personas := map[string][]string{
 		"navigator":   {"issues:read"},                    // satisfied by "repo"
 		"implementer": {"issues:write", "packages:write"}, // packages:write needs "write:packages"
-		"auditor":     {},                                  // no scopes — skip
+		"auditor":     {},                                 // no scopes — skip
 	}
 
 	result, err := v.ValidatePersonas(personas)

@@ -13,9 +13,9 @@ import (
 // JIT cost on every call to removeSuspiciousContent and
 // sanitizePromptInjection.
 var (
-	reWhitespace   = regexp.MustCompile(`\s+`)
-	reScriptTag    = regexp.MustCompile(`(?i)<script[^>]*>.*?</script>`)
-	reEventHandler = regexp.MustCompile(`(?i)on\w+\s*=\s*['"][^'"]*['"]`)
+	reWhitespace    = regexp.MustCompile(`\s+`)
+	reScriptTag     = regexp.MustCompile(`(?i)<script[^>]*>.*?</script>`)
+	reEventHandler  = regexp.MustCompile(`(?i)on\w+\s*=\s*['"][^'"]*['"]`)
 	reJavascriptURL = regexp.MustCompile(`(?i)javascript:\s*[^'"]*`)
 )
 

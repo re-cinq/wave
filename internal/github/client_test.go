@@ -66,7 +66,7 @@ func TestClient_GetIssue(t *testing.T) {
 			Body:   "Test body",
 			State:  "open",
 		}
-		json.NewEncoder(w).Encode(issue)
+		_ = json.NewEncoder(w).Encode(issue)
 	}))
 	defer server.Close()
 
@@ -90,7 +90,7 @@ func TestClient_ListIssues(t *testing.T) {
 			{Number: 1, Title: "Issue 1", State: "open"},
 			{Number: 2, Title: "Issue 2", State: "open"},
 		}
-		json.NewEncoder(w).Encode(issues)
+		_ = json.NewEncoder(w).Encode(issues)
 	}))
 	defer server.Close()
 
@@ -120,7 +120,7 @@ func TestClient_UpdateIssue(t *testing.T) {
 			Title:  *update.Title,
 			State:  "open",
 		}
-		json.NewEncoder(w).Encode(issue)
+		_ = json.NewEncoder(w).Encode(issue)
 	}))
 	defer server.Close()
 
@@ -152,7 +152,7 @@ func TestClient_CreatePullRequest(t *testing.T) {
 			Head:   &GitRef{Ref: req.Head},
 			Base:   &GitRef{Ref: req.Base},
 		}
-		json.NewEncoder(w).Encode(pr)
+		_ = json.NewEncoder(w).Encode(pr)
 	}))
 	defer server.Close()
 
@@ -177,13 +177,13 @@ func TestClient_RateLimitHandling(t *testing.T) {
 			w.Header().Set("X-RateLimit-Remaining", "0")
 			w.Header().Set("X-RateLimit-Reset", "9999999999") // Far future
 			w.WriteHeader(http.StatusForbidden)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"message": "API rate limit exceeded",
 			})
 			return
 		}
 		// Second call succeeds
-		json.NewEncoder(w).Encode(Issue{Number: 1})
+		_ = json.NewEncoder(w).Encode(Issue{Number: 1})
 	}))
 	defer server.Close()
 
@@ -196,17 +196,17 @@ func TestClient_RateLimitHandling(t *testing.T) {
 	defer cancel()
 
 	_, err := client.GetIssue(ctx, "owner", "repo", 1)
-	assert.Error(t, err) // Should timeout waiting for rate limit reset
+	assert.Error(t, err)          // Should timeout waiting for rate limit reset
 	assert.Equal(t, 1, callCount) // Only one call made before timeout
 }
 
 func TestClient_ErrorHandling(t *testing.T) {
 	tests := []struct {
-		name           string
-		statusCode     int
-		responseBody   interface{}
-		expectError    bool
-		errorContains  string
+		name          string
+		statusCode    int
+		responseBody  interface{}
+		expectError   bool
+		errorContains string
 	}{
 		{
 			name:       "404 not found",
@@ -235,7 +235,7 @@ func TestClient_ErrorHandling(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tt.statusCode)
-				json.NewEncoder(w).Encode(tt.responseBody)
+				_ = json.NewEncoder(w).Encode(tt.responseBody)
 			}))
 			defer server.Close()
 
@@ -258,7 +258,7 @@ func TestClient_Authentication(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
 		assert.Equal(t, "Bearer test-token", auth)
-		json.NewEncoder(w).Encode(Issue{Number: 1})
+		_ = json.NewEncoder(w).Encode(Issue{Number: 1})
 	}))
 	defer server.Close()
 
@@ -297,7 +297,7 @@ func TestClient_GetCommitCheckRuns(t *testing.T) {
 					},
 				},
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		}))
 		defer server.Close()
 
@@ -322,7 +322,7 @@ func TestClient_GetCommitCheckRuns(t *testing.T) {
 				TotalCount: 0,
 				CheckRuns:  []*CheckRun{},
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		}))
 		defer server.Close()
 
@@ -337,7 +337,7 @@ func TestClient_GetCommitCheckRuns(t *testing.T) {
 	t.Run("server error", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"message": "Internal Server Error",
 			})
 		}))
@@ -351,7 +351,7 @@ func TestClient_GetCommitCheckRuns(t *testing.T) {
 
 	t.Run("invalid JSON response", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("not json"))
+			_, _ = w.Write([]byte("not json"))
 		}))
 		defer server.Close()
 

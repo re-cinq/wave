@@ -21,10 +21,10 @@ func TestClassifyFailure(t *testing.T) {
 			want:   FailureReasonTimeout,
 		},
 		{
-			name:   "deadline exceeded takes priority over subtype",
+			name:    "deadline exceeded takes priority over subtype",
 			subtype: "error_max_turns",
-			ctxErr: context.DeadlineExceeded,
-			want:   FailureReasonTimeout,
+			ctxErr:  context.DeadlineExceeded,
+			want:    FailureReasonTimeout,
 		},
 		{
 			name:    "error_max_turns returns context_exhaustion",

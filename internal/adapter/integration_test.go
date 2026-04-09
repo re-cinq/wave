@@ -135,7 +135,7 @@ func TestAdapterIntegration_ConcurrentAccess(t *testing.T) {
 		name := fmt.Sprintf("worker-%d", i)
 		adapter := NewMockAdapter(
 			WithStdoutJSON(fmt.Sprintf(`{"worker": %d, "timestamp": "%d"}`, i, time.Now().Unix())),
-			WithTokensUsed(100 + i*10),
+			WithTokensUsed(100+i*10),
 		)
 		registry.Register(name, adapter)
 	}
@@ -277,9 +277,9 @@ func TestAdapterIntegration_ClaudeAdapterArgs(t *testing.T) {
 	adapter := NewClaudeAdapter()
 
 	testCases := []struct {
-		name     string
-		config   AdapterRunConfig
-		verify   func([]string) error
+		name   string
+		config AdapterRunConfig
+		verify func([]string) error
 	}{
 		{
 			name: "basic_prompt",

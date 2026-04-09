@@ -42,7 +42,7 @@ func (l *YAMLPipelineLoader) Unmarshal(data []byte) (*Pipeline, error) {
 	return &pipeline, nil
 }
 
-type DAGValidator struct{
+type DAGValidator struct {
 	Warnings []string // Non-fatal validation warnings (e.g., mixed-persona thread groups)
 }
 
@@ -500,4 +500,3 @@ func (v *DAGValidator) ValidateGraph(p *Pipeline) error {
 
 	return nil
 }
-

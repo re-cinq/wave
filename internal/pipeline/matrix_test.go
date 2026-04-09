@@ -23,7 +23,7 @@ func TestMatrixExecutor_ReadItemsSource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create a test JSON file with items
 	items := []map[string]interface{}{
@@ -33,7 +33,7 @@ func TestMatrixExecutor_ReadItemsSource(t *testing.T) {
 	}
 	itemsJSON, _ := json.Marshal(items)
 	itemsFile := filepath.Join(tmpDir, "items.json")
-	os.WriteFile(itemsFile, itemsJSON, 0644)
+	_ = os.WriteFile(itemsFile, itemsJSON, 0644)
 
 	executor := &DefaultPipelineExecutor{}
 	matrixExecutor := NewMatrixExecutor(executor)
@@ -64,7 +64,7 @@ func TestMatrixExecutor_ReadItemsSource_WithItemKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create a JSON file with nested structure
 	data := map[string]interface{}{
@@ -78,7 +78,7 @@ func TestMatrixExecutor_ReadItemsSource_WithItemKey(t *testing.T) {
 	}
 	dataJSON, _ := json.Marshal(data)
 	dataFile := filepath.Join(tmpDir, "data.json")
-	os.WriteFile(dataFile, dataJSON, 0644)
+	_ = os.WriteFile(dataFile, dataJSON, 0644)
 
 	executor := &DefaultPipelineExecutor{}
 	matrixExecutor := NewMatrixExecutor(executor)
@@ -110,15 +110,15 @@ func TestMatrixExecutor_ReadItemsSource_FromPreviousStep(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create a workspace structure mimicking a previous step's output
 	prevStepWS := filepath.Join(tmpDir, "prev_step")
-	os.MkdirAll(prevStepWS, 0755)
+	_ = os.MkdirAll(prevStepWS, 0755)
 
 	items := []string{"item1", "item2", "item3"}
 	itemsJSON, _ := json.Marshal(items)
-	os.WriteFile(filepath.Join(prevStepWS, "output.json"), itemsJSON, 0644)
+	_ = os.WriteFile(filepath.Join(prevStepWS, "output.json"), itemsJSON, 0644)
 
 	executor := &DefaultPipelineExecutor{}
 	matrixExecutor := NewMatrixExecutor(executor)
@@ -378,10 +378,10 @@ func TestMatrixExecutor_Execute_EmptyItems(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create empty items file
-	os.WriteFile(filepath.Join(tmpDir, "empty.json"), []byte("[]"), 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "empty.json"), []byte("[]"), 0644)
 
 	executor := &DefaultPipelineExecutor{}
 	matrixExecutor := NewMatrixExecutor(executor)
@@ -419,7 +419,7 @@ func TestMatrixExecutor_CreateWorkerWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	executor := &DefaultPipelineExecutor{}
 	matrixExecutor := NewMatrixExecutor(executor)
@@ -486,7 +486,7 @@ func TestMatrixExecutor_SpawnsCorrectWorkerCount(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create temp dir: %v", err)
 			}
-			defer os.RemoveAll(tmpDir)
+			defer func() { _ = os.RemoveAll(tmpDir) }()
 
 			// Track worker spawns
 			workerSpawns := &workerSpawnTracker{
@@ -500,7 +500,7 @@ func TestMatrixExecutor_SpawnsCorrectWorkerCount(t *testing.T) {
 			}
 			itemsJSON, _ := json.Marshal(items)
 			itemsFile := filepath.Join(tmpDir, "items.json")
-			os.WriteFile(itemsFile, itemsJSON, 0644)
+			_ = os.WriteFile(itemsFile, itemsJSON, 0644)
 
 			// Create a tracking adapter
 			trackingAdapter := &workerTrackingAdapter{
@@ -527,10 +527,10 @@ func TestMatrixExecutor_SpawnsCorrectWorkerCount(t *testing.T) {
 			}
 
 			execution := &PipelineExecution{
-				Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "worker-count-test"}},
-				Manifest: m,
-				States:   make(map[string]string),
-				Results:  make(map[string]map[string]interface{}),
+				Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "worker-count-test"}},
+				Manifest:       m,
+				States:         make(map[string]string),
+				Results:        make(map[string]map[string]interface{}),
 				ArtifactPaths:  make(map[string]string),
 				WorkspacePaths: make(map[string]string),
 				WorktreePaths:  make(map[string]*WorktreeInfo),
@@ -629,7 +629,7 @@ func TestMatrixExecutor_MaxConcurrencyLimit(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create temp dir: %v", err)
 			}
-			defer os.RemoveAll(tmpDir)
+			defer func() { _ = os.RemoveAll(tmpDir) }()
 
 			// Track concurrent execution
 			concurrencyTracker := &concurrencyLimitTracker{
@@ -644,7 +644,7 @@ func TestMatrixExecutor_MaxConcurrencyLimit(t *testing.T) {
 			}
 			itemsJSON, _ := json.Marshal(items)
 			itemsFile := filepath.Join(tmpDir, "items.json")
-			os.WriteFile(itemsFile, itemsJSON, 0644)
+			_ = os.WriteFile(itemsFile, itemsJSON, 0644)
 
 			// Create adapter that tracks concurrency
 			concurrencyAdapter := &concurrencyTrackingMatrixAdapter{
@@ -672,10 +672,10 @@ func TestMatrixExecutor_MaxConcurrencyLimit(t *testing.T) {
 			}
 
 			execution := &PipelineExecution{
-				Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "concurrency-test"}},
-				Manifest: m,
-				States:   make(map[string]string),
-				Results:  make(map[string]map[string]interface{}),
+				Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "concurrency-test"}},
+				Manifest:       m,
+				States:         make(map[string]string),
+				Results:        make(map[string]map[string]interface{}),
 				ArtifactPaths:  make(map[string]string),
 				WorkspacePaths: make(map[string]string),
 				WorktreePaths:  make(map[string]*WorktreeInfo),
@@ -784,7 +784,7 @@ func TestMatrixExecutor_PartialFailureHandling(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create temp dir: %v", err)
 			}
-			defer os.RemoveAll(tmpDir)
+			defer func() { _ = os.RemoveAll(tmpDir) }()
 
 			// Create items file
 			items := make([]map[string]interface{}, tt.itemCount)
@@ -793,7 +793,7 @@ func TestMatrixExecutor_PartialFailureHandling(t *testing.T) {
 			}
 			itemsJSON, _ := json.Marshal(items)
 			itemsFile := filepath.Join(tmpDir, "items.json")
-			os.WriteFile(itemsFile, itemsJSON, 0644)
+			_ = os.WriteFile(itemsFile, itemsJSON, 0644)
 
 			// Create adapter that fails for specific indices
 			failingSet := make(map[int]bool)
@@ -829,10 +829,10 @@ func TestMatrixExecutor_PartialFailureHandling(t *testing.T) {
 			}
 
 			execution := &PipelineExecution{
-				Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "partial-failure-test"}},
-				Manifest: m,
-				States:   make(map[string]string),
-				Results:  make(map[string]map[string]interface{}),
+				Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "partial-failure-test"}},
+				Manifest:       m,
+				States:         make(map[string]string),
+				Results:        make(map[string]map[string]interface{}),
 				ArtifactPaths:  make(map[string]string),
 				WorkspacePaths: make(map[string]string),
 				WorktreePaths:  make(map[string]*WorktreeInfo),
@@ -930,7 +930,7 @@ func TestMatrixExecutor_ZeroTasks(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create temp dir: %v", err)
 			}
-			defer os.RemoveAll(tmpDir)
+			defer func() { _ = os.RemoveAll(tmpDir) }()
 
 			// Create items file
 			var itemsJSON []byte
@@ -941,7 +941,7 @@ func TestMatrixExecutor_ZeroTasks(t *testing.T) {
 				itemsJSON, _ = json.Marshal(v)
 			}
 			itemsFile := filepath.Join(tmpDir, "items.json")
-			os.WriteFile(itemsFile, itemsJSON, 0644)
+			_ = os.WriteFile(itemsFile, itemsJSON, 0644)
 
 			eventCollector := testutil.NewEventCollector()
 
@@ -964,10 +964,10 @@ func TestMatrixExecutor_ZeroTasks(t *testing.T) {
 			}
 
 			execution := &PipelineExecution{
-				Pipeline: &Pipeline{Metadata: PipelineMetadata{Name: "zero-tasks-test"}},
-				Manifest: m,
-				States:   make(map[string]string),
-				Results:  make(map[string]map[string]interface{}),
+				Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "zero-tasks-test"}},
+				Manifest:       m,
+				States:         make(map[string]string),
+				Results:        make(map[string]map[string]interface{}),
 				ArtifactPaths:  make(map[string]string),
 				WorkspacePaths: make(map[string]string),
 				WorktreePaths:  make(map[string]*WorktreeInfo),
@@ -1041,7 +1041,7 @@ func TestMatrixExecutor_ZeroTasksEdgeCases(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	t.Run("missing items_source file", func(t *testing.T) {
 		executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
@@ -1074,7 +1074,7 @@ func TestMatrixExecutor_ZeroTasksEdgeCases(t *testing.T) {
 
 	t.Run("invalid JSON in items_source", func(t *testing.T) {
 		invalidJSONFile := filepath.Join(tmpDir, "invalid.json")
-		os.WriteFile(invalidJSONFile, []byte("not valid json{"), 0644)
+		_ = os.WriteFile(invalidJSONFile, []byte("not valid json{"), 0644)
 
 		executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
 		matrixExecutor := NewMatrixExecutor(executor)
@@ -1106,7 +1106,7 @@ func TestMatrixExecutor_ZeroTasksEdgeCases(t *testing.T) {
 
 	t.Run("items_source is object not array", func(t *testing.T) {
 		objectJSONFile := filepath.Join(tmpDir, "object.json")
-		os.WriteFile(objectJSONFile, []byte(`{"key": "value"}`), 0644)
+		_ = os.WriteFile(objectJSONFile, []byte(`{"key": "value"}`), 0644)
 
 		executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
 		matrixExecutor := NewMatrixExecutor(executor)

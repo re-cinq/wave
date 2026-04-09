@@ -22,15 +22,15 @@ type DetailPaneState int
 
 const (
 	stateEmpty           DetailPaneState = iota // No selection
-	stateLoading                               // Fetching data
-	stateAvailableDetail                       // Available pipeline config
-	stateFinishedDetail                        // Finished pipeline results
-	stateRunningInfo                           // Running pipeline info
-	stateRunningLive                           // Live output for running pipeline
-	stateConfiguring                           // Argument form active
-	stateLaunching                             // Brief "Starting..." indicator
-	stateError                                 // Launch error display
-	stateComposing                             // Compose mode artifact flow
+	stateLoading                                // Fetching data
+	stateAvailableDetail                        // Available pipeline config
+	stateFinishedDetail                         // Finished pipeline results
+	stateRunningInfo                            // Running pipeline info
+	stateRunningLive                            // Live output for running pipeline
+	stateConfiguring                            // Argument form active
+	stateLaunching                              // Brief "Starting..." indicator
+	stateError                                  // Launch error display
+	stateComposing                              // Compose mode artifact flow
 )
 
 // LaunchDependencies holds the dependencies needed to launch pipelines from the TUI.

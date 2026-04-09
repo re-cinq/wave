@@ -88,7 +88,7 @@ func (a *CodexAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterR
 		if cmd.Process != nil {
 			killProcessGroup(cmd.Process, cfg.ProcessGrace)
 		}
-		cmd.Wait()
+		_ = cmd.Wait()
 		return nil, ctx.Err()
 	case err := <-stdoutDone:
 		if err != nil {
@@ -150,7 +150,7 @@ func (a *CodexAdapter) parseOutput(output string) *AdapterResult {
 
 		var eventType string
 		if raw, ok := obj["type"]; ok {
-			json.Unmarshal(raw, &eventType)
+			_ = json.Unmarshal(raw, &eventType)
 		}
 
 		if eventType == "result" || eventType == "message" {

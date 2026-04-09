@@ -247,7 +247,7 @@ func scanLanguages(dir string, maxFiles int) []LanguageInfo {
 	langCount := make(map[string]int)
 	total := 0
 
-	filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}

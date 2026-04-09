@@ -81,4 +81,3 @@ func (p *DefaultIssueDataProvider) FetchIssues() ([]IssueData, error) {
 	}
 	return result, nil
 }
-

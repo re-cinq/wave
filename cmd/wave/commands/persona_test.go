@@ -17,7 +17,7 @@ func TestRunPersonaCreate_Success(t *testing.T) {
 	origDir, err := os.Getwd()
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	err = runPersonaCreate("my-nav", "navigator")
 	require.NoError(t, err)
@@ -47,7 +47,7 @@ func TestRunPersonaCreate_TemplateNotFound(t *testing.T) {
 	origDir, err := os.Getwd()
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	err = runPersonaCreate("my-persona", "nonexistent-persona")
 	require.Error(t, err)
@@ -63,7 +63,7 @@ func TestRunPersonaCreate_NameCollision_MD(t *testing.T) {
 	origDir, err := os.Getwd()
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// Create the first time
 	err = runPersonaCreate("dup-persona", "navigator")

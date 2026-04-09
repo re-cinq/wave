@@ -273,7 +273,7 @@ func (w *AdapterRunnerWrapper) RunCompaction(ctx context.Context, cfg Compaction
 		Prompt:        prompt,
 		SystemPrompt:  cfg.SystemPrompt,
 		Timeout:       cfg.Timeout,
-		Temperature:   0.3, // Lower temperature for summarization
+		Temperature:   0.3,                              // Lower temperature for summarization
 		AllowedTools:  []string{"Read", "Glob", "Grep"}, // Read-only tools for compaction
 		OutputFormat:  "text",
 	}

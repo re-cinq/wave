@@ -78,12 +78,12 @@ func TestRelayMonitor_ShouldCompact_EdgeCases(t *testing.T) {
 	adapter := &mockCompactionAdapter{}
 
 	testCases := []struct {
-		name               string
-		config             RelayMonitorConfig
-		tokensUsed         int
-		thresholdPercent   int
-		expected           bool
-		description        string
+		name             string
+		config           RelayMonitorConfig
+		tokensUsed       int
+		thresholdPercent int
+		expected         bool
+		description      string
 	}{
 		{
 			name: "negative tokens used",
@@ -355,8 +355,8 @@ func TestCheckpointParsing_EdgeCases(t *testing.T) {
 		description string
 	}{
 		{
-			name: "checkpoint with only header",
-			content: `# Checkpoint`,
+			name:        "checkpoint with only header",
+			content:     `# Checkpoint`,
 			shouldError: false,
 			description: "should handle minimal checkpoint",
 		},

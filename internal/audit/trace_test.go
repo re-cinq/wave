@@ -131,7 +131,7 @@ func TestDebugTracer_ConcurrentEmit(t *testing.T) {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
-			tracer.Emit(TraceEvent{
+			_ = tracer.Emit(TraceEvent{
 				EventType: "adapter_start",
 				StepID:    "step1",
 			})
@@ -172,9 +172,9 @@ func TestReadTraceFile(t *testing.T) {
 		t.Fatalf("failed to create debug tracer: %v", err)
 	}
 
-	tracer.Emit(TraceEvent{EventType: "adapter_start", StepID: "s1", DurationMs: 0})
-	tracer.Emit(TraceEvent{EventType: "adapter_end", StepID: "s1", DurationMs: 3000})
-	tracer.Emit(TraceEvent{EventType: "artifact_injection", StepID: "s2", DurationMs: 50})
+	_ = tracer.Emit(TraceEvent{EventType: "adapter_start", StepID: "s1", DurationMs: 0})
+	_ = tracer.Emit(TraceEvent{EventType: "adapter_end", StepID: "s1", DurationMs: 3000})
+	_ = tracer.Emit(TraceEvent{EventType: "artifact_injection", StepID: "s2", DurationMs: 50})
 	tracer.Close()
 
 	events, err := ReadTraceFile(tracer.TracePath())

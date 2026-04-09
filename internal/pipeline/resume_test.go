@@ -32,11 +32,11 @@ func TestResumeManager_ValidateResumePoint(t *testing.T) {
 	}
 
 	tests := []struct {
-		name            string
-		fromStep        string
-		setupWorkspace  func(t *testing.T, tempDir string)
-		expectError     bool
-		errorContains   string
+		name           string
+		fromStep       string
+		setupWorkspace func(t *testing.T, tempDir string)
+		expectError    bool
+		errorContains  string
 	}{
 		{
 			name:     "valid step exists",
@@ -60,11 +60,11 @@ func TestResumeManager_ValidateResumePoint(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:     "step does not exist",
-			fromStep: "nonexistent",
+			name:           "step does not exist",
+			fromStep:       "nonexistent",
 			setupWorkspace: func(t *testing.T, tempDir string) {},
-			expectError: true,
-			errorContains: "step 'nonexistent' not found",
+			expectError:    true,
+			errorContains:  "step 'nonexistent' not found",
 		},
 		{
 			name:     "missing prerequisite",
@@ -85,7 +85,7 @@ func TestResumeManager_ValidateResumePoint(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			expectError: true,
+			expectError:   true,
 			errorContains: "prerequisite phase 'docs' not completed",
 		},
 	}
@@ -138,7 +138,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 				},
 			},
 			{
-				ID: "docs",
+				ID:           "docs",
 				Dependencies: []string{"spec"},
 				OutputArtifacts: []ArtifactDef{
 					{Name: "feature-docs", Path: "feature-docs.md"},
@@ -146,7 +146,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 				},
 			},
 			{
-				ID: "dummy",
+				ID:           "dummy",
 				Dependencies: []string{"docs"},
 				OutputArtifacts: []ArtifactDef{
 					{Name: "prototype", Path: "prototype/"},
@@ -158,11 +158,11 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 	}
 
 	tests := []struct {
-		name               string
-		fromStep           string
-		setupWorkspace     func(t *testing.T, tempDir string)
-		expectedCompleted  []string
-		expectedArtifactDefs  int
+		name                 string
+		fromStep             string
+		setupWorkspace       func(t *testing.T, tempDir string)
+		expectedCompleted    []string
+		expectedArtifactDefs int
 	}{
 		{
 			name:     "resume from docs - spec completed",
@@ -183,7 +183,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			expectedCompleted: []string{"spec"},
+			expectedCompleted:    []string{"spec"},
 			expectedArtifactDefs: 2, // spec:spec + spec:contract_data
 		},
 		{
@@ -214,7 +214,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 					}
 				}
 			},
-			expectedCompleted: []string{"spec", "docs"},
+			expectedCompleted:    []string{"spec", "docs"},
 			expectedArtifactDefs: 4, // 2 artifacts per phase * 2 phases
 		},
 		{
@@ -223,7 +223,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Don't create any workspaces
 			},
-			expectedCompleted: []string{},
+			expectedCompleted:    []string{},
 			expectedArtifactDefs: 0,
 		},
 	}
@@ -281,7 +281,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 		Metadata: PipelineMetadata{Name: "gh-refresh"},
 		Steps: []Step{
 			{
-				ID: "gather-context",
+				ID:        "gather-context",
 				Workspace: WorkspaceConfig{Type: "worktree"},
 				OutputArtifacts: []ArtifactDef{
 					{Name: "issue_context", Path: "artifact.json"},
@@ -461,9 +461,9 @@ func TestResumeManager_CreateResumeSubpipeline(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		fromStep       string
-		expectedSteps  []string
+		name          string
+		fromStep      string
+		expectedSteps []string
 	}{
 		{
 			name:          "resume from beginning",
@@ -528,10 +528,10 @@ func TestResumeManager_GetRecommendedResumePoint(t *testing.T) {
 	}
 
 	tests := []struct {
-		name            string
-		setupWorkspace  func(t *testing.T, tempDir string)
-		expectedPoint   string
-		expectError     bool
+		name           string
+		setupWorkspace func(t *testing.T, tempDir string)
+		expectedPoint  string
+		expectError    bool
 	}{
 		{
 			name: "no phases completed",
@@ -1070,7 +1070,7 @@ func TestLoadResumeState_LoadsFailureContext(t *testing.T) {
 
 	// Create workspace for specify step
 	specDir := filepath.Join(tmpDir, ".wave/workspaces/prior-run/specify")
-	os.MkdirAll(specDir, 0755)
+	_ = os.MkdirAll(specDir, 0755)
 
 	rs, err := manager.loadResumeState(p, "implement", "prior-run")
 	if err != nil {
@@ -1133,10 +1133,10 @@ func TestLoadResumeState_NoFailureContextWhenStepSucceeded(t *testing.T) {
 		attempts: map[string][]state.StepAttemptRecord{
 			"prior-run:implement": {
 				{
-					RunID:    "prior-run",
-					StepID:   "implement",
-					Attempt:  1,
-					State:    "succeeded",
+					RunID:   "prior-run",
+					StepID:  "implement",
+					Attempt: 1,
+					State:   "succeeded",
 				},
 			},
 		},

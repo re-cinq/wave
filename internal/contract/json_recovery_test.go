@@ -247,7 +247,7 @@ func TestFormatRecoveryReport(t *testing.T) {
 
 func TestIsStructurallyComplete(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		input string
 		want  bool
 	}{

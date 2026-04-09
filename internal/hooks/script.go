@@ -17,7 +17,7 @@ func executeScript(ctx context.Context, hook *LifecycleHookDef, evt HookEvent) H
 	if err != nil {
 		return HookResult{HookName: hook.Name, Decision: DecisionBlock, Reason: "failed to create temp script file: " + err.Error(), Err: err}
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	if _, err := tmpFile.WriteString(hook.Script); err != nil {
 		tmpFile.Close()

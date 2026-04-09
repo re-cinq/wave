@@ -392,12 +392,12 @@ Contract validation passed where configured.
 
 func generateGenericOutput(cfg AdapterRunConfig) string {
 	data := map[string]interface{}{
-		"adapter":      cfg.Adapter,
-		"persona":      cfg.Persona,
-		"workspace":    cfg.WorkspacePath,
-		"prompt_len":   len(cfg.Prompt),
-		"status":       "completed",
-		"tokens_used":  2000 + rand.Intn(4000),
+		"adapter":     cfg.Adapter,
+		"persona":     cfg.Persona,
+		"workspace":   cfg.WorkspacePath,
+		"prompt_len":  len(cfg.Prompt),
+		"status":      "completed",
+		"tokens_used": 2000 + rand.Intn(4000),
 	}
 	out, _ := json.MarshalIndent(data, "", "  ")
 	return string(out)

@@ -658,7 +658,7 @@ func TestTestSuiteValidator_EnvironmentVariables(t *testing.T) {
 	workspacePath := t.TempDir()
 
 	// Set an environment variable and check it's available
-	os.Setenv("TEST_SUITE_VAR", "test_value")
+	_ = os.Setenv("TEST_SUITE_VAR", "test_value")
 	defer os.Unsetenv("TEST_SUITE_VAR")
 
 	cfg := ContractConfig{

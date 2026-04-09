@@ -4,7 +4,7 @@ import "strings"
 
 // ShellEscape escapes a string for safe use in a POSIX shell command.
 // It uses single-quote wrapping with interior single-quote escaping.
-// Empty strings return ''. Strings without special characters are returned as-is.
+// Empty strings return ”. Strings without special characters are returned as-is.
 func ShellEscape(s string) string {
 	if s == "" {
 		return "''"

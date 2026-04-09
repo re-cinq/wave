@@ -17,7 +17,7 @@ func TestRunPipelineCreate_Success(t *testing.T) {
 	origDir, err := os.Getwd()
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	err = runPipelineCreate("my-custom", "ops-hello-world")
 	require.NoError(t, err)
@@ -46,7 +46,7 @@ func TestRunPipelineCreate_TemplateNotFound(t *testing.T) {
 	origDir, err := os.Getwd()
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	err = runPipelineCreate("my-pipeline", "nonexistent-template")
 	require.Error(t, err)
@@ -62,7 +62,7 @@ func TestRunPipelineCreate_NameCollision(t *testing.T) {
 	origDir, err := os.Getwd()
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// Create the first time
 	err = runPipelineCreate("collision-test", "ops-hello-world")

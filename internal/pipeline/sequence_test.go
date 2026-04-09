@@ -761,11 +761,11 @@ func TestSequenceExecutor_CrossPipelineArtifacts_WrittenToDisk(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		step         Step
-		wantFiles    map[string]string // filename -> expected content
-		wantErr      bool
-		errContains  string
+		name        string
+		step        Step
+		wantFiles   map[string]string // filename -> expected content
+		wantErr     bool
+		errContains string
 	}{
 		{
 			name: "required cross-pipeline artifact is written to disk",
@@ -906,4 +906,3 @@ func TestSequenceExecutor_CrossPipelineArtifacts_WrittenToDisk(t *testing.T) {
 		})
 	}
 }
-

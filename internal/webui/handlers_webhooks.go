@@ -106,7 +106,7 @@ func (s *Server) handleAPIWebhooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(webhooks)
+	_ = json.NewEncoder(w).Encode(webhooks)
 }
 
 func (s *Server) handleAPICreateWebhook(w http.ResponseWriter, r *http.Request) {
@@ -159,7 +159,7 @@ func (s *Server) handleAPICreateWebhook(w http.ResponseWriter, r *http.Request) 
 	webhook.ID = id
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(webhook)
+	_ = json.NewEncoder(w).Encode(webhook)
 }
 
 func (s *Server) handleAPIWebhookDetail(w http.ResponseWriter, r *http.Request) {
@@ -187,7 +187,7 @@ func (s *Server) handleAPIWebhookDetail(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (s *Server) handleAPIUpdateWebhook(w http.ResponseWriter, r *http.Request) {
@@ -205,13 +205,13 @@ func (s *Server) handleAPIUpdateWebhook(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var req struct {
-		Name    *string            `json:"name"`
-		URL     *string            `json:"url"`
-		Events  []string           `json:"events"`
-		Matcher *string            `json:"matcher"`
-		Headers map[string]string  `json:"headers"`
-		Secret  *string            `json:"secret"`
-		Active  *bool              `json:"active"`
+		Name    *string           `json:"name"`
+		URL     *string           `json:"url"`
+		Events  []string          `json:"events"`
+		Matcher *string           `json:"matcher"`
+		Headers map[string]string `json:"headers"`
+		Secret  *string           `json:"secret"`
+		Active  *bool             `json:"active"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, fmt.Sprintf("invalid JSON: %s", err), http.StatusBadRequest)
@@ -247,7 +247,7 @@ func (s *Server) handleAPIUpdateWebhook(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(existing)
+	_ = json.NewEncoder(w).Encode(existing)
 }
 
 func (s *Server) handleAPIDeleteWebhook(w http.ResponseWriter, r *http.Request) {
@@ -282,11 +282,11 @@ func (s *Server) handleAPITestWebhook(w http.ResponseWriter, r *http.Request) {
 
 	// Fire a test event
 	testPayload := map[string]interface{}{
-		"type":        "test",
-		"webhook_id":  webhook.ID,
+		"type":         "test",
+		"webhook_id":   webhook.ID,
 		"webhook_name": webhook.Name,
-		"timestamp":   time.Now().Format(time.RFC3339),
-		"message":     "Test webhook delivery from Wave",
+		"timestamp":    time.Now().Format(time.RFC3339),
+		"message":      "Test webhook delivery from Wave",
 	}
 
 	payload, _ := json.Marshal(testPayload)
@@ -302,5 +302,5 @@ func (s *Server) handleAPITestWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
