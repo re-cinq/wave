@@ -2700,17 +2700,24 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 	}
 
+	// Determine the configured (pre-resolution) model for provenance tracking.
+	configuredModel := step.Model
+	if configuredModel == "" {
+		configuredModel = persona.Model
+	}
+
 	e.emit(event.Event{
-		Timestamp:     time.Now(),
-		PipelineID:    pipelineID,
-		StepID:        step.ID,
-		State:         StateRunning,
-		Persona:       resolvedPersona,
-		Message:       fmt.Sprintf("Starting %s persona in %s", resolvedPersona, workspacePath),
-		CurrentAction: "Initializing",
-		Model:         resolvedModel,
-		Adapter:       adapterDef.Binary,
-		Temperature:   persona.Temperature,
+		Timestamp:       time.Now(),
+		PipelineID:      pipelineID,
+		StepID:          step.ID,
+		State:           StateRunning,
+		Persona:         resolvedPersona,
+		Message:         fmt.Sprintf("Starting %s persona in %s", resolvedPersona, workspacePath),
+		CurrentAction:   "Initializing",
+		Model:           resolvedModel,
+		ConfiguredModel: configuredModel,
+		Adapter:         adapterDef.Binary,
+		Temperature:     persona.Temperature,
 	})
 
 	// Record model routing decision

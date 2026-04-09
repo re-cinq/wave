@@ -16,7 +16,7 @@
         <div class="wr-body">
             <div class="wr-row1">
                 <span class="wr-name">{{.Name}}</span>
-                {{if .Model}}<span class="badge badge-model" style="font-size:0.6rem;">{{friendlyModel .Model}}</span>{{end}}
+                {{if .Model}}<span class="badge badge-model {{modelTierClass .Model}}" style="font-size:0.6rem;">{{friendlyModel .Model}}</span>{{end}}
                 {{if .Adapter}}<span class="badge badge-adapter" style="font-size:0.6rem;">{{.Adapter}}</span>{{end}}
             </div>
             {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);">{{.Description}}</span></div>{{end}}
