@@ -7,7 +7,7 @@ metadata:
     issue with a structured task list of findings. Use this for periodic
     hygiene checks when you want a tracked issue rather than an immediate PR.
     Each finding includes confidence level, location, and suggested action.
-  release: true
+  release: false
 
 requires:
   tools:
