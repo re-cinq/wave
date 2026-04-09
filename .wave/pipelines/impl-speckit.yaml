@@ -263,9 +263,10 @@ steps:
           criteria_path: .wave/contracts/impl-review-criteria.md
           model: cheapest
           token_budget: 8000
-          timeout: 90s
+          timeout: 5m
           context:
             - source: git_diff
+              diff_base: main
           on_failure: warn
       compaction:
         trigger: "token_limit_80%"
