@@ -3578,13 +3578,9 @@ func toWorkspaceMounts(mounts []Mount) []workspace.Mount {
 // workspace. If no project-root mount is found, or the step has no mounts,
 // the original workspace path is returned unchanged.
 func resolveCommandWorkDir(workspacePath string, step *Step) string {
-	if len(step.Workspace.Mount) == 0 {
-		return workspacePath
-	}
+	// For mount-based workspaces, find the project root mount
 	for _, m := range step.Workspace.Mount {
 		if m.Source == "./" || m.Source == "." {
-			// Mount target is stored as e.g. "/project" — strip leading
-			// slash to get a relative path within the workspace.
 			target := strings.TrimPrefix(m.Target, "/")
 			if target == "" {
 				continue
@@ -3595,6 +3591,38 @@ func resolveCommandWorkDir(workspacePath string, step *Step) string {
 			}
 		}
 	}
+
+	// For worktree workspaces, look for a __wt_ directory inside the workspace
+	if entries, err := os.ReadDir(workspacePath); err == nil {
+		for _, e := range entries {
+			if e.IsDir() && strings.HasPrefix(e.Name(), "__wt_") {
+				return filepath.Join(workspacePath, e.Name())
+			}
+		}
+	}
+
+	// If the workspace is bare (no source files) and looks empty,
+	// fall back to the project root so commands like "go test ./..." find packages.
+	// Check for common project markers to distinguish a real workspace from bare.
+	projectMarkers := []string{"go.mod", "package.json", "Cargo.toml", "pyproject.toml", "Makefile"}
+	hasMarker := false
+	for _, marker := range projectMarkers {
+		if _, err := os.Stat(filepath.Join(workspacePath, marker)); err == nil {
+			hasMarker = true
+			break
+		}
+	}
+	if !hasMarker {
+		if cwd, err := os.Getwd(); err == nil {
+			// Only fall back if CWD has a project marker
+			for _, marker := range projectMarkers {
+				if _, err := os.Stat(filepath.Join(cwd, marker)); err == nil {
+					return cwd
+				}
+			}
+		}
+	}
+
 	return workspacePath
 }
 
