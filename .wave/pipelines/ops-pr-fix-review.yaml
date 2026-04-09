@@ -504,7 +504,7 @@ steps:
         fixes that were not in the triage verdict.
     retry:
       policy: aggressive
-      max_attempts: 3
+      max_attempts: 2
       on_failure: rework
       rework_step: retry-fixes
     handover:

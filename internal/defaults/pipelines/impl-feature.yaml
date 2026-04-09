@@ -397,7 +397,7 @@ steps:
         requires multiple rework cycles to pass the contract.
     retry:
       policy: standard
-      max_attempts: 3
+      max_attempts: 2
       on_failure: rework
       rework_step: fix-implement
     handover:

@@ -275,7 +275,7 @@ steps:
         so that regressions are hard to isolate.
     retry:
       policy: standard
-      max_attempts: 3
+      max_attempts: 2
     handover:
       contract:
         type: test_suite
