@@ -106,28 +106,82 @@ steps:
     exec:
       type: prompt
       source: |
-        Four parallel audits have completed for Wave. Their merged findings are
-        injected as .wave/artifacts/merged_findings. Read it.
+        OBJECTIVE:
+        Synthesize findings from four parallel audits into two documents: a unified audit
+        report assessing the health of every component, and a scope definition document
+        that establishes what Wave is and is not. These documents define Wave's architectural
+        boundaries going forward.
 
-        Also scan /project to verify findings against the actual codebase.
+        CONTEXT:
+        You are the synthesis step in a composition pipeline. Four parallel audit sub-pipelines
+        have completed (dead-code, unwired, duplicates, doc-scan), and their findings have been
+        merged into a single JSON artifact (injected as `merged_findings`). You also have
+        read-only access to the project codebase
+        at /project to verify findings against the actual code. The scope document you produce
+        will be reviewed by a human (via the approve-scope gate) before follow-up issues are
+        created.
 
-        Produce TWO artifacts:
+        REQUIREMENTS:
+        1. Read the merged findings artifact completely. Parse all findings from each audit
+           sub-pipeline and categorize them by type (dead code, unwired components, duplicates,
+           documentation gaps).
+        2. Verify key findings against the actual codebase. For the top 10 highest-impact
+           findings, use Glob and Read to confirm the finding is accurate. Note any findings
+           that are stale or incorrect.
+        3. Produce the unified audit report:
+           - Executive summary: 3 sentences covering overall codebase health, the most
+             critical finding category, and the recommended priority action.
+           - Top 10 findings by impact: ordered list with finding ID, category, affected
+             file/package, description, and recommended action.
+           - Package health matrix: for every package under internal/, classify as:
+             active (used, tested, maintained), dead (no references, should be removed),
+             or partial (partially used or poorly tested).
+           - Pipeline fleet assessment: for every pipeline in .wave/pipelines/, classify as:
+             core (essential for daily use), useful (valuable but not critical), or
+             remove (dead, redundant, or broken).
+           - Persona fleet assessment: for every persona in .wave/personas/, classify as:
+             essential (used by core pipelines), specialized (used by specific workflows),
+             or remove (unused or redundant).
+           - Recommended consolidation actions: ordered list of specific actions to reduce
+             complexity, remove dead code, or merge duplicates. Each action should have a
+             clear title suitable for a GitHub issue.
+        4. Produce the scope definition document:
+           - What Wave IS: 5 bullet points defining Wave's core identity and purpose.
+             These should be opinionated and specific, not generic mission statements.
+           - What Wave IS NOT: explicit boundaries listing things Wave should not become
+             or do. This prevents scope creep.
+           - Package inventory table: every internal/ package with columns for name,
+             purpose, health status (from the audit), and verdict (keep/remove/merge).
+           - Follow-up issue titles: for each recommended consolidation action, provide
+             a concrete issue title (e.g., "scope: remove dead internal/legacy package")
+             that the create-issues step will use to create GitHub issues.
+        5. Be opinionated. This document defines boundaries. Hedging with "maybe" or
+           "consider" undermines its purpose.
 
-        1. **.wave/output/audit-synthesis.md** — Unified audit report:
-           - Executive summary (3 sentences)
-           - Top 10 findings by impact
-           - Package health matrix (every internal/ package: active/dead/partial)
-           - Pipeline fleet assessment (59 pipelines: core/useful/remove)
-           - Persona fleet assessment (31 personas: essential/specialized/remove)
-           - Recommended consolidation actions (ordered by impact)
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT produce a balanced-sounding report that avoids making decisions. The whole
+          point is to say "remove this" or "keep this" for every component.
+        - Do NOT include findings you could not verify against the codebase. If a merged
+          finding references a file that no longer exists, drop it.
+        - Do NOT produce generic scope statements. "Wave is a pipeline tool" is useless.
+          "Wave orchestrates LLM agents through declarative YAML pipelines with persona
+          isolation and contract validation" is specific.
+        - Do NOT create follow-up issue titles that are vague. Each title must be
+          actionable without reading the full report.
 
-        2. **.wave/output/wave-scope.md** — Scope definition:
-           - What Wave IS (5 bullet points — core identity)
-           - What Wave IS NOT (explicit boundaries)
-           - Package inventory table with verdict per package
-           - Follow-up issue titles for each recommended action
+        OUTPUT FORMAT:
+        Produce exactly two output files:
+        - An audit synthesis report (markdown)
+        - A scope definition document (markdown)
+        Both must be well-formatted markdown with headers, tables, and lists.
 
-        Be opinionated. This defines Wave's boundaries going forward.
+        QUALITY BAR:
+        A good synthesis is a document a project maintainer can read in 10 minutes and
+        come away with clear, actionable decisions about what to keep, remove, and fix.
+        The scope definition should be quotable in README or architecture documents. A bad
+        synthesis is a data dump that lists findings without prioritization or a scope
+        document with generic statements that could apply to any project.
+
         Run-ID: {{ run.id }}
     output_artifacts:
       - name: audit-report
@@ -152,7 +206,7 @@ steps:
     gate:
       type: approval
       prompt: |
-        Wave scope audit complete. Review .wave/output/wave-scope.md and .wave/output/audit-synthesis.md.
+        Wave scope audit complete. Review the scope definition and audit synthesis outputs.
 
         Approve to create follow-up issues from the findings, or revise to loop back.
       choices:
@@ -184,15 +238,81 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the approved scope document at .wave/artifacts/scope.
+        OBJECTIVE:
+        Create GitHub issues for each follow-up action identified in the approved scope
+        document, producing a summary listing all created issues. This converts the
+        approved scope decisions into tracked work items.
 
-        For each "Follow-Up Issue" in the scope document, create a GitHub issue:
-        ```
-        {{ forge.cli_tool }} issue create --title "scope: ..." --body "From wave-scope-audit run {{ run.id }}. ..."
-        ```
+        CONTEXT:
+        You are the final step in the scope audit composition pipeline. The human reviewer
+        has approved the scope document (via the approve-scope gate), so the follow-up
+        actions have been validated. The scope artifact (injected as "scope") contains the
+        approved wave-scope.md document with a "Follow-up issue titles" section listing
+        concrete issue titles. You have read-write access to the project codebase and
+        forge CLI access. Run-ID: {{ run.id }}
 
-        Use label "scope-audit" on all issues.
-        Write a summary to .wave/output/created-issues.md listing all created issues.
+        REQUIREMENTS:
+        1. Read the injected `scope` artifact. Parse the
+           "Follow-Up Issue" section to extract each issue title and its associated
+           context from the scope document.
+        2. Detect the repository:
+           ```bash
+           {{ forge.cli_tool }} repo view --json nameWithOwner --jq .nameWithOwner
+           ```
+        3. For each follow-up issue title in the scope document:
+           a. Write the issue body to a temporary file:
+              ```bash
+              cat > /tmp/scope-issue-body.md <<'SCOPE_EOF'
+              ## Context
+
+              From wave-scope-audit run {{ run.id }}.
+
+              <relevant context from the scope document for this specific action>
+
+              ## Acceptance Criteria
+
+              - [ ] <specific, verifiable criteria derived from the scope document>
+
+              ---
+              *Generated by wave-scope-audit pipeline*
+              SCOPE_EOF
+              ```
+           b. Create the issue:
+              ```bash
+              {{ forge.cli_tool }} issue create \
+                --title "scope: <title from scope document>" \
+                --body-file /tmp/scope-issue-body.md \
+                --label "scope-audit"
+              ```
+           c. If the "scope-audit" label does not exist, create without labels.
+           d. Capture the issue number and URL from the output.
+           e. If creation fails, log the error and continue with remaining issues.
+        4. After all issues are created, compile a summary markdown file listing every
+           created issue with its number, title, and URL.
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT create issues that are not in the approved scope document. The human
+          approved a specific set of follow-up actions; do not add extras.
+        - Do NOT skip any follow-up issue from the scope document unless creation fails.
+        - Do NOT use inline strings for issue bodies. Always use heredoc to temp file.
+        - Do NOT create issues with empty bodies. Each issue must have context from the
+          scope document and at least one acceptance criterion.
+        - Do NOT duplicate issues. Before creating, search for existing issues with
+          similar titles to avoid creating duplicates from re-runs.
+
+        OUTPUT FORMAT:
+        Produce a summary as markdown with:
+        - Title: "## Scope Audit: Created Issues"
+        - Table or list of all created issues (number, title, URL)
+        - Count of successfully created vs failed
+        - Run-ID reference for traceability
+
+        QUALITY BAR:
+        Good issue creation produces well-contextualized issues that a developer can
+        understand and act on without re-reading the entire scope document. Each issue
+        body explains why this action was recommended and what "done" looks like. A bad
+        creation step produces issues with no context, no acceptance criteria, or
+        duplicates existing issues from previous runs.
     output_artifacts:
       - name: created-issues
         path: .wave/output/created-issues.md

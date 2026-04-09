@@ -688,11 +688,12 @@ func computeChangeSummary(assets *initAssets, existingManifest, defaultManifest 
 			Category: category,
 		}
 		existing, err := os.ReadFile(path)
-		if err != nil {
+		switch {
+		case err != nil:
 			entry.Status = FileStatusNew
-		} else if bytes.Equal(existing, []byte(defaultContent)) {
+		case bytes.Equal(existing, []byte(defaultContent)):
 			entry.Status = FileStatusUpToDate
-		} else {
+		default:
 			entry.Status = FileStatusPreserved
 		}
 		return entry
@@ -1150,40 +1151,12 @@ func createExamplePersonas(personas map[string]string) error {
 	return nil
 }
 
-func createExamplePersonasIfMissing(personas map[string]string) error {
-	for filename, content := range personas {
-		path := filepath.Join(".wave", "personas", filename)
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-				absPath, _ := filepath.Abs(path)
-				return fmt.Errorf("failed to write %s: %w", absPath, err)
-			}
-		}
-	}
-
-	return nil
-}
-
 func createExamplePipelines(pipelines map[string]string) error {
 	for filename, content := range pipelines {
 		path := filepath.Join(".wave", "pipelines", filename)
 		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 			absPath, _ := filepath.Abs(path)
 			return fmt.Errorf("failed to write %s: %w", absPath, err)
-		}
-	}
-
-	return nil
-}
-
-func createExamplePipelinesIfMissing(pipelines map[string]string) error {
-	for filename, content := range pipelines {
-		path := filepath.Join(".wave", "pipelines", filename)
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-				absPath, _ := filepath.Abs(path)
-				return fmt.Errorf("failed to write %s: %w", absPath, err)
-			}
 		}
 	}
 
@@ -1202,20 +1175,6 @@ func createExampleContracts(contracts map[string]string) error {
 	return nil
 }
 
-func createExampleContractsIfMissing(contracts map[string]string) error {
-	for filename, content := range contracts {
-		path := filepath.Join(".wave", "contracts", filename)
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-				absPath, _ := filepath.Abs(path)
-				return fmt.Errorf("failed to write %s: %w", absPath, err)
-			}
-		}
-	}
-
-	return nil
-}
-
 func createExamplePrompts(prompts map[string]string) error {
 	for relPath, content := range prompts {
 		path := filepath.Join(".wave", "prompts", relPath)
@@ -1225,23 +1184,6 @@ func createExamplePrompts(prompts map[string]string) error {
 		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 			absPath, _ := filepath.Abs(path)
 			return fmt.Errorf("failed to write %s: %w", absPath, err)
-		}
-	}
-
-	return nil
-}
-
-func createExamplePromptsIfMissing(prompts map[string]string) error {
-	for relPath, content := range prompts {
-		path := filepath.Join(".wave", "prompts", relPath)
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-				return fmt.Errorf("failed to create directory for %s: %w", path, err)
-			}
-			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-				absPath, _ := filepath.Abs(path)
-				return fmt.Errorf("failed to write %s: %w", absPath, err)
-			}
 		}
 	}
 
@@ -1579,7 +1521,7 @@ func runReconfigure(cmd *cobra.Command, opts InitOptions) error {
 }
 
 // removeDeselectedPipelines deletes pipeline YAML files that are not in the selected list.
-func removeDeselectedPipelines(pipelinesDir string, selected []string) error {
+func removeDeselectedPipelines(pipelinesDir string, selected []string) error { //nolint:unparam // error return kept for future use
 	keep := make(map[string]bool)
 	for _, name := range selected {
 		keep[name] = true

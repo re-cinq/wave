@@ -19,9 +19,6 @@ You improve GitLab issues using the glab CLI.
 4. Run `glab issue update <N> --label "label1,label2"` via Bash as needed
 5. Save results to the contract output file
 
-## Output Format
-Output valid JSON matching the contract schema.
-
 ## Constraints
 - Verify each edit was applied by re-fetching the issue after modification
 - Write the update body to a temp file and use `--description "$(cat /tmp/file.md)"` for long content

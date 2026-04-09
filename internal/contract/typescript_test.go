@@ -83,10 +83,8 @@ func TestTypeScriptValidator_WithoutTsc(t *testing.T) {
 				if !hasInstallHint {
 					t.Error("expected error to include npm install instructions")
 				}
-			} else {
-				if err != nil {
-					t.Errorf("expected no error but got: %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("expected no error but got: %v", err)
 			}
 		})
 	}
@@ -171,10 +169,8 @@ func TestTypeScriptValidator_TableDriven(t *testing.T) {
 				if expectedContains != "" && !strings.Contains(err.Error(), expectedContains) {
 					t.Errorf("error should contain %q (tsc available: %v), got: %v", expectedContains, tscAvailable, err)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("expected no error but got: %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("expected no error but got: %v", err)
 			}
 		})
 	}
@@ -269,10 +265,8 @@ const config: Config = { port: "8080", host: 123 };  // wrong types
 						t.Error("expected validation details with tsc errors")
 					}
 				}
-			} else {
-				if err != nil {
-					t.Errorf("expected no error but got: %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("expected no error but got: %v", err)
 			}
 		})
 	}
@@ -293,10 +287,8 @@ func TestCheckTypeScriptAvailability(t *testing.T) {
 		if !strings.Contains(version, "Version") {
 			t.Logf("tsc version: %s", version)
 		}
-	} else {
-		if version != "" {
-			t.Errorf("tsc is not available but version is non-empty: %s", version)
-		}
+	} else if version != "" {
+		t.Errorf("tsc is not available but version is non-empty: %s", version)
 	}
 }
 

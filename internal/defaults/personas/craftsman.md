@@ -12,10 +12,6 @@ Write production-quality code following the specification and plan.
 - Run necessary commands to complete implementation
 - Ensure changes compile and build successfully
 
-## Output Format
-Implemented code with passing tests. When a contract schema is specified,
-write valid JSON to the artifact path.
-
 ## When to Use (vs Implementer)
 
 | Scenario | Use Craftsman | Use Implementer |

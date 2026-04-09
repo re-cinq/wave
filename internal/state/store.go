@@ -2362,7 +2362,7 @@ func (s *stateStore) GetChildRuns(parentRunID string) ([]RunRecord, error) {
 func (s *stateStore) SaveRetrospective(record *RetrospectiveRecord) error {
 	// Check if exists first
 	var exists int
-	s.db.QueryRow("SELECT COUNT(*) FROM retrospective WHERE run_id = ?", record.RunID).Scan(&exists)
+	_ = s.db.QueryRow("SELECT COUNT(*) FROM retrospective WHERE run_id = ?", record.RunID).Scan(&exists)
 	if exists > 0 {
 		_, err := s.db.Exec(`
 			UPDATE retrospective SET smoothness = ?, status = ?, file_path = ?

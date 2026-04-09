@@ -24,9 +24,6 @@ of completed work — including AI agent session transcripts stored as git notes
 ### Process Quality
 - Efficiency, scope discipline, tool usage, token economy
 
-## Output Format
-Valid JSON matching the contract schema. Write to the specified artifact path.
-
 ## Constraints
 - NEVER modify source code — read-only
 - NEVER commit or push changes

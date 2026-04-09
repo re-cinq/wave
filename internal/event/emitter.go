@@ -238,5 +238,5 @@ func (e *NDJSONEmitter) Emit(event Event) {
 		return
 	}
 
-	e.encoder.Encode(event)
+	_ = e.encoder.Encode(event)
 }

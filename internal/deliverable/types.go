@@ -202,6 +202,18 @@ func NewContractDeliverable(stepID, name, contractPath, description string) *Del
 	}
 }
 
+// NewArtifactDeliverable creates an artifact deliverable for pipeline-produced files
+func NewArtifactDeliverable(stepID, name, artifactPath, description string) *Deliverable {
+	return &Deliverable{
+		Type:        TypeArtifact,
+		Name:        name,
+		Path:        artifactPath,
+		Description: description,
+		StepID:      stepID,
+		CreatedAt:   time.Now(),
+	}
+}
+
 // NewBranchDeliverable creates a branch deliverable for tracking git branch creation
 func NewBranchDeliverable(stepID, branchName, worktreePath, description string) *Deliverable {
 	return &Deliverable{

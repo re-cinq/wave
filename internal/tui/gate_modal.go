@@ -123,9 +123,7 @@ func (m GateModalModel) Update(msg tea.Msg) (GateModalModel, tea.Cmd) {
 		return m, nil
 	}
 
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		// Freeform text editing mode.
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		if m.editing {
 			return m.updateFreeformInput(msg)
 		}
@@ -144,7 +142,6 @@ func (m GateModalModel) Update(msg tea.Msg) (GateModalModel, tea.Cmd) {
 		case tea.KeyEsc:
 			return m.cancel()
 		case tea.KeyRunes:
-			// Allow direct key selection (e.g., pressing "a" for approve).
 			key := string(msg.Runes)
 			for i, c := range m.gate.Choices {
 				if c.Key == key {

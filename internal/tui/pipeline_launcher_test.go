@@ -134,7 +134,7 @@ func TestOpenRunLog_CreatesDirectoryAndFile(t *testing.T) {
 	origDir, _ := os.Getwd()
 	tmpDir := t.TempDir()
 	require.NoError(t, os.Chdir(tmpDir))
-	t.Cleanup(func() { os.Chdir(origDir) })
+	t.Cleanup(func() { _ = os.Chdir(origDir) })
 
 	f, err := openRunLog("test-run-123")
 	require.NoError(t, err)
@@ -157,18 +157,18 @@ func TestOpenRunLog_AppendsToExisting(t *testing.T) {
 	origDir, _ := os.Getwd()
 	tmpDir := t.TempDir()
 	require.NoError(t, os.Chdir(tmpDir))
-	t.Cleanup(func() { os.Chdir(origDir) })
+	t.Cleanup(func() { _ = os.Chdir(origDir) })
 
 	// First write
 	f1, err := openRunLog("append-run")
 	require.NoError(t, err)
-	f1.WriteString("first\n")
+	_, _ = f1.WriteString("first\n")
 	f1.Close()
 
 	// Second write (append)
 	f2, err := openRunLog("append-run")
 	require.NoError(t, err)
-	f2.WriteString("second\n")
+	_, _ = f2.WriteString("second\n")
 	f2.Close()
 
 	content, err := os.ReadFile(filepath.Join(".wave", "logs", "append-run.log"))

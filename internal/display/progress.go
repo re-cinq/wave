@@ -791,9 +791,10 @@ func BuildHandoverLines(stepID string, info *HandoverInfo, stepOrder []string) [
 	// Contract line
 	if info.ContractStatus != "" {
 		status := "✓ valid"
-		if info.ContractStatus == "failed" {
+		switch info.ContractStatus {
+		case "failed":
 			status = "✗ failed"
-		} else if info.ContractStatus == "soft_failure" {
+		case "soft_failure":
 			status = "⚠ soft failure"
 		}
 		schema := info.ContractSchema

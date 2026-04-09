@@ -53,9 +53,58 @@ steps:
     exec:
       type: prompt
       source: |
-        Analyze the codebase for: {{ input }}
+        OBJECTIVE:
+        Perform a structured codebase analysis for the given topic, producing a JSON report
+        that validates Wave's contract validation and artifact injection subsystems work
+        end-to-end. This is a smoke test: the content matters less than proving the pipeline
+        machinery (prompt execution, JSON output, schema contract, artifact handoff) functions
+        correctly.
 
-        Provide a structured analysis of your findings.
+        TOPIC: {{ input }}
+
+        CONTEXT:
+        This is the first step of a two-step smoke test pipeline. Your JSON output will be
+        validated against a JSON schema contract, then injected into the next step (summarize)
+        as an artifact. If your output does not parse as valid JSON or does not match the
+        contract schema, the pipeline will retry. You have read-only access to the project
+        codebase through a mount at /project.
+
+        REQUIREMENTS:
+        1. Read at least 3-5 relevant files from the codebase to ground your analysis in
+           real code. Use Glob to find files matching the topic, then Read to examine them.
+        2. Identify the key components, patterns, and structures relevant to the topic.
+        3. Assess the current state: what works well, what could be improved, and what
+           risks or gaps exist.
+        4. Produce a structured JSON report with the following fields:
+           - topic: string describing what was analyzed
+           - files_examined: array of file paths that were read
+           - findings: array of finding objects, each with:
+             - id: unique identifier (FIND-001, FIND-002, etc.)
+             - category: one of "strength", "weakness", "risk", "opportunity"
+             - description: clear description of the finding (50-500 characters)
+             - severity: "high", "medium", or "low"
+             - file_references: array of relevant file paths
+           - summary: brief overall assessment (100-500 characters)
+           - timestamp: current ISO 8601 timestamp
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT produce markdown or prose. The output must be valid JSON only.
+        - Do NOT wrap the JSON in markdown code fences or any other decoration.
+        - Do NOT fabricate file paths. Every path in files_examined and file_references
+          must be a real file you actually read during analysis.
+        - Do NOT produce an empty findings array. If the topic is broad, narrow your
+          focus to the most relevant subsystem and produce at least 3 findings.
+        - Do NOT exceed 20 findings. This is a smoke test, not an exhaustive audit.
+
+        OUTPUT FORMAT:
+        Produce the JSON report as a single valid JSON object (not an array, not wrapped
+        in anything). It will be validated against the wave-smoke-test contract schema.
+
+        QUALITY BAR:
+        A good smoke test analysis proves the pipeline machinery works: the JSON parses,
+        the schema validates, and the content is grounded in real code. A bad analysis
+        has malformed JSON, references nonexistent files, or produces an empty findings
+        array that would not exercise the summarize step meaningfully.
     output_artifacts:
       - name: analysis
         path: .wave/output/analysis.json
@@ -82,12 +131,57 @@ steps:
     exec:
       type: prompt
       source: |
-        Using the injected analysis data, write a brief markdown summary.
+        OBJECTIVE:
+        Synthesize the injected analysis data into a readable markdown summary that
+        demonstrates Wave's artifact injection system works correctly. The summary
+        must reference specific content from the injected artifact to prove the data
+        was received and parsed successfully.
 
-        Include:
-        - What was analyzed
-        - Key findings
-        - Recommended next steps
+        CONTEXT:
+        You are the second step of a two-step smoke test pipeline. The previous step
+        (analyze) produced a structured JSON analysis that was validated against a
+        contract schema. That JSON has been injected into your workspace as the
+        artifact "analysis_data". Your job is to read that artifact and transform it
+        into a human-readable markdown summary. If you cannot find or parse the
+        injected artifact, that itself is a critical finding — report it.
+
+        REQUIREMENTS:
+        1. Read the injected `analysis_data` artifact. Parse its
+           JSON content to extract the topic, findings, and summary.
+        2. Write a markdown summary that includes ALL of the following sections:
+           - Title: "Smoke Test Analysis: <topic>"
+           - Overview: 2-3 sentences summarizing what was analyzed and the overall
+             assessment (pull this from the artifact's summary field)
+           - Key Findings: A numbered list of the top findings, organized by category
+             (strengths, weaknesses, risks, opportunities). For each finding, include
+             its ID, severity, and description as they appear in the artifact.
+           - Files Examined: List the file paths from the artifact to confirm they
+             were actually analyzed.
+           - Recommended Next Steps: Based on the findings, suggest 2-5 concrete
+             actions. Prioritize by severity (high > medium > low).
+           - Pipeline Health: A brief note confirming that artifact injection worked
+             (i.e., you successfully read and parsed the analysis_data artifact).
+        3. The summary should be between 200 and 1000 words.
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT fabricate findings. Every finding in your summary must come from the
+          injected artifact. Quote or paraphrase the artifact, do not invent.
+        - Do NOT produce JSON. This step outputs markdown, not structured data.
+        - Do NOT skip the "Pipeline Health" section. The whole point of this smoke
+          test is to verify the pipeline machinery, and that section proves it worked.
+        - Do NOT produce a one-liner or stub summary. The downstream value of this
+          pipeline is exercising the full prompt-to-artifact-to-injection chain.
+
+        OUTPUT FORMAT:
+        Produce the markdown summary. Use standard markdown
+        formatting: # for title, ## for sections, numbered lists for findings, bullet
+        lists for recommendations.
+
+        QUALITY BAR:
+        A good summary clearly demonstrates that artifact injection worked by
+        referencing specific data from the analysis artifact (finding IDs, file paths,
+        severity ratings). A bad summary is generic boilerplate that could have been
+        written without reading the artifact at all.
     output_artifacts:
       - name: summary
         path: .wave/output/summary.md

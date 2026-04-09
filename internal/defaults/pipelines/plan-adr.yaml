@@ -57,27 +57,72 @@ steps:
     exec:
       type: prompt
       source: |
-        Explore the codebase to gather context for this architectural decision: {{ input }}
+        OBJECTIVE:
+        Explore the codebase to gather comprehensive context for an architectural decision,
+        producing a structured JSON report that a planner persona can use (without any other
+        context) to evaluate options and draft an Architecture Decision Record.
 
-        ## Exploration
+        DECISION TOPIC: {{ input }}
 
-        1. **Understand the decision space**: What part of the system is this about?
-           Find all related code, configs, and documentation.
+        CONTEXT:
+        You are the first step in a four-step ADR pipeline. Your output will be consumed
+        by an analyze-options step that evaluates alternatives, then a draft-record step
+        that writes the formal ADR, and finally a publish step that commits and creates a
+        PR. The quality of the entire ADR depends on the thoroughness of your exploration.
+        You have read-only access to the project codebase.
 
-        2. **Map current state**: How does the system work today?
-           What would be affected by this decision?
+        REQUIREMENTS:
+        1. Understand the decision space: What part of the system does this decision
+           affect? Use Glob and Grep to find all related code, configuration files, and
+           documentation. Read the most relevant files to understand how the affected
+           subsystem currently works. Record every file path you examine.
+        2. Map the current state: How does the system work today in the area this decision
+           touches? What are the key types, functions, and interfaces? What data flows
+           exist? Document the current architecture concisely but completely.
+        3. Find constraints: What technical constraints limit the decision space?
+           Consider: external dependencies and their version requirements, performance
+           requirements or SLAs, deployment model (binary, container, library), language
+           and framework constraints, team skill set (inferred from the tech stack).
+        4. Check precedents: Search for existing ADRs (docs/adr/), design documents,
+           and architecture comments in the codebase. Are there similar decisions already
+           made that set a precedent? Has this topic been discussed in issue comments?
+        5. Identify stakeholders: Which packages, modules, or components would be
+           directly affected? Which would be indirectly affected through transitive
+           dependencies? If the decision affects public APIs or CLI behavior, note the
+           user-facing impact.
+        6. Assess the decision urgency: Is this blocking other work? Is the current
+           state causing active problems, or is this a forward-looking optimization?
 
-        3. **Find constraints**: What technical constraints exist?
-           (dependencies, performance requirements, deployment model, team skills)
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT write prose or markdown. Output must be valid JSON only.
+        - Do NOT fabricate file paths. Every path in affected_files must be verified
+          via Glob or Read.
+        - Do NOT skip the precedent check. Existing ADRs and design decisions heavily
+          constrain new decisions, and missing them leads to contradictory records.
+        - Do NOT focus only on code. Configuration files, CI/CD pipelines, deployment
+          manifests, and documentation are all relevant context.
+        - Do NOT produce shallow exploration. Read at least 5-10 files to understand
+          the current state. Surface-level findings lead to poorly evaluated options.
 
-        4. **Check precedents**: Are there similar decisions already made in this
-           codebase? Look for ADRs, design docs, or relevant comments.
+        OUTPUT FORMAT:
+        Produce structured JSON with these fields:
+        - decision_topic: string (the decision being explored)
+        - current_state: object with description (string), affected_files (array of
+          file path strings), affected_components (array of component name strings)
+        - constraints: array of constraint objects, each with name, description, and
+          severity (hard/soft)
+        - precedents: array of precedent objects, each with source (file path or URL),
+          summary, and relevance (high/medium/low)
+        - stakeholders: array of stakeholder objects, each with name, type
+          (component/package/user/team), and impact_description
+        - urgency: string (blocking/high/medium/low)
+        - timestamp: current ISO 8601 timestamp
 
-        5. **Identify stakeholders**: Which components/teams/users are affected?
-
-        Write your findings as structured JSON.
-        Include: decision_topic, current_state (description, affected_files, affected_components),
-        constraints, precedents, stakeholders, and timestamp.
+        QUALITY BAR:
+        Good context exploration enables the options analysis step to evaluate
+        alternatives against real constraints rather than hypothetical ones. Bad
+        context is shallow (fewer than 5 files read), misses existing precedents,
+        or fabricates constraints not grounded in the codebase.
     output_artifacts:
       - name: context
         path: .wave/output/adr-context.json
@@ -109,25 +154,83 @@ steps:
     exec:
       type: prompt
       source: |
-        Analyze the options for this architectural decision.
+        OBJECTIVE:
+        Analyze all viable options for the architectural decision, performing structured
+        trade-off analysis for each, and produce a recommendation with a confidence
+        assessment. The analysis must be grounded in the codebase context gathered by
+        the previous exploration step.
 
-        Original decision: {{ input }}
+        ORIGINAL DECISION: {{ input }}
 
-        ## Analysis
+        CONTEXT:
+        You are the second step in a four-step ADR pipeline. The explore-context step
+        has already gathered codebase context and injected it as the decision_context
+        artifact. This artifact contains: the current state of the affected subsystem,
+        technical constraints, existing precedents, and identified stakeholders. You
+        must read this artifact first and use it as the foundation for your analysis.
+        You have read-only access to the project codebase to verify any claims.
 
-        For each viable option:
+        REQUIREMENTS:
+        1. Read the injected decision_context artifact completely before starting
+           your analysis. Extract the constraints, current state, and precedents.
+        2. Identify all viable options. Include at minimum:
+           - The status quo (do nothing / keep current approach)
+           - At least two alternative approaches
+           - Any option mentioned in the original decision topic
+        3. For each option, evaluate all of the following dimensions:
+           - Description: What would this look like in practice? How would it
+             integrate with the current codebase? Which files would change?
+           - Pros: Specific benefits to THIS project (not generic advantages).
+             Reference constraints from the context that this option satisfies.
+           - Cons: Honest drawbacks. Reference constraints from the context that
+             this option violates or strains.
+           - Effort: Estimated implementation effort (S: <1 day, M: 1-3 days,
+             L: 3-10 days, XL: >10 days). Justify with file count and complexity.
+           - Risk: What could go wrong during or after implementation? Consider
+             data migration, backward compatibility, performance regression, and
+             operational complexity.
+           - Reversibility: How hard would it be to undo this choice later?
+             (easy: config change, moderate: code refactor, hard: data migration,
+             irreversible: public API change)
+           - Compatibility: How well does this option fit with the existing
+             architecture, patterns, and constraints identified in the context?
+             Rate as strong_fit, acceptable, or poor_fit with justification.
+        4. Produce a clear recommendation:
+           - Which option do you recommend and why?
+           - What is your confidence level? (high: clear winner with strong
+             evidence, medium: best option but trade-offs are significant,
+             low: no clear winner, decision depends on priorities)
+           - Under what conditions would you change your recommendation?
 
-        1. **Describe it**: What would this option look like in practice?
-        2. **Pros**: What are the benefits? Be specific to THIS project.
-        3. **Cons**: What are the drawbacks? Be honest.
-        4. **Effort**: How much work to implement?
-        5. **Risk**: What could go wrong?
-        6. **Reversibility**: How hard to undo if it's the wrong choice?
-        7. **Compatibility**: How well does it fit with existing constraints?
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT ignore the decision_context artifact. Your analysis must reference
+          specific constraints and precedents from the context.
+        - Do NOT evaluate options in a vacuum. Every pro/con must be specific to
+          this project, not generic ("PostgreSQL is fast" is useless; "PostgreSQL
+          handles our 10K pipeline runs/day with room to grow" is useful).
+        - Do NOT omit the status quo option. Sometimes the best decision is to
+          change nothing, and that must be explicitly evaluated.
+        - Do NOT conflate effort with risk. A low-effort option can be high-risk
+          (e.g., quick hack that creates tech debt).
+        - Do NOT produce more than 6 options. If there are many possibilities,
+          group similar approaches and evaluate the representative choice.
 
-        Write your analysis as structured JSON.
-        Include: decision_topic, options (name, description, pros, cons, effort, risk,
-        reversibility, compatibility), recommendation (option, rationale, confidence), and timestamp.
+        OUTPUT FORMAT:
+        Produce structured JSON with these fields:
+        - decision_topic: string
+        - options: array of option objects, each with name, description, pros (array
+          of strings), cons (array of strings), effort (S/M/L/XL with justification),
+          risk (high/medium/low with description), reversibility (easy/moderate/hard/
+          irreversible), compatibility (strong_fit/acceptable/poor_fit with reason)
+        - recommendation: object with option (name), rationale (string), confidence
+          (high/medium/low), conditions_to_change (string)
+        - timestamp: current ISO 8601 timestamp
+
+        QUALITY BAR:
+        A good options analysis lets the ADR author write a compelling "Decision"
+        section that explains why the recommended option was chosen over alternatives.
+        A bad analysis has generic pros/cons, ignores the codebase context, or makes
+        a recommendation without addressing why alternatives were rejected.
     output_artifacts:
       - name: options
         path: .wave/output/adr-options.json
@@ -157,56 +260,107 @@ steps:
     exec:
       type: prompt
       source: |
-        Draft the Architecture Decision Record using the injected context and analysis.
+        OBJECTIVE:
+        Draft a publication-quality Architecture Decision Record (ADR) using the injected
+        context and options analysis. The ADR must stand on its own as a permanent record
+        that future engineers can read to understand why this decision was made, what
+        alternatives were considered, and what consequences follow.
 
-        Use this standard ADR format:
+        CONTEXT:
+        You are the third step in a four-step ADR pipeline. Two artifacts are injected:
+        - decision_context: structured JSON from the codebase exploration step, containing
+          current state, constraints, precedents, and stakeholders
+        - analysis: structured JSON from the options analysis step, containing evaluated
+          options with trade-offs and a recommendation with confidence level
+        Read both artifacts completely before writing. The ADR must synthesize information
+        from both sources into a coherent narrative.
 
-        # ADR-NNN: [Title]
+        REQUIREMENTS:
+        1. Determine the ADR number by reading existing ADR files. If a docs/adr/
+           directory exists, count existing files and increment. If no ADR directory
+           exists, use ADR-001.
+        2. Write the ADR using the standard format below. Every section is mandatory.
+        3. The Context section must explain the problem using information from the
+           decision_context artifact: what is the current state, what constraints exist,
+           and why a decision is needed now.
+        4. The Decision section must clearly state the recommended option from the
+           analysis artifact and explain the rationale in the author's own words (not
+           just copy-paste from the analysis).
+        5. The Options Considered section must cover every option from the analysis,
+           with honest pros and cons for each.
+        6. The Consequences section must be specific and actionable. "Things will be
+           better" is insufficient; "Query latency drops from 200ms to 50ms because
+           we eliminate the JOIN" is the level of specificity required.
+
+        FORMAT:
+        # ADR-NNN: [Concise Title]
 
         ## Status
         Proposed
 
         ## Date
-        YYYY-MM-DD
+        YYYY-MM-DD (use today's date)
 
         ## Context
-        What is the issue that we're seeing that is motivating this decision?
-        Include technical context from the codebase exploration.
+        What is the issue motivating this decision? Include technical context from the
+        codebase exploration: affected components, current architecture, constraints,
+        and any precedents that inform this decision. This section should be 2-4
+        paragraphs and give a reader unfamiliar with the codebase enough background
+        to evaluate the decision.
 
         ## Decision
-        What is the change that we're proposing and/or doing?
-        State the recommended option clearly.
+        State the recommended option clearly in 1-2 paragraphs. Explain why this option
+        was chosen over the alternatives. Reference specific constraints or requirements
+        that made this the best fit.
 
         ## Options Considered
 
         ### Option 1: [Name]
-        Description, pros, cons.
+        Description of what this option entails. Pros: specific benefits. Cons: specific
+        drawbacks. Effort estimate and reversibility assessment.
 
         ### Option 2: [Name]
-        Description, pros, cons.
-
-        (etc.)
+        (same structure for each option)
 
         ## Consequences
 
         ### Positive
-        - What becomes easier or better?
+        - Specific, measurable benefits (e.g., "Reduces pipeline startup from 3s to 200ms")
 
         ### Negative
-        - What becomes harder or worse?
+        - Specific drawbacks and their mitigations
 
         ### Neutral
-        - What other changes are required?
+        - Required changes that are neither positive nor negative (e.g., "Requires
+          updating CI configuration")
 
         ## Implementation Notes
-        - Key steps to implement the decision
-        - Files/components that need changes
+        - Key implementation steps in execution order
+        - Files and components that need changes (with paths)
         - Migration plan if applicable
+        - Testing requirements
 
-        ---
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT copy-paste raw JSON from the artifacts into the ADR. Transform
+          structured data into readable prose.
+        - Do NOT omit any option from the Options Considered section. Even rejected
+          options must be documented so future readers understand why they were rejected.
+        - Do NOT use vague language in Consequences. "Performance may improve" is
+          unacceptable; "Read latency decreases because X" is required.
+        - Do NOT leave placeholder text (NNN, YYYY-MM-DD) in the output. Fill in
+          all values.
+        - Do NOT add emoji, decorative formatting, or marketing language. ADRs are
+          technical documents.
 
-        Write clearly and concisely. The ADR should be understandable by
-        someone who wasn't part of the original discussion.
+        OUTPUT FORMAT:
+        Produce the complete ADR as a single markdown file.
+
+        QUALITY BAR:
+        A good ADR is understandable by someone who was not part of the original
+        discussion, provides enough context to evaluate whether the decision is still
+        valid in the future, and honestly documents both the benefits and costs of the
+        chosen approach. A bad ADR is vague, omits alternatives, or reads like a sales
+        pitch for the chosen option rather than a balanced evaluation.
     output_artifacts:
       - name: adr
         path: .wave/output/adr.md
@@ -231,27 +385,70 @@ steps:
     exec:
       type: prompt
       source: |
-        PUBLISH — commit the ADR and create a pull request.
+        OBJECTIVE:
+        Publish the drafted ADR by committing it to the project's documentation directory,
+        pushing to the remote, and creating a pull request for team review. The ADR must
+        be placed in the correct location with the correct numbering.
 
-        ## Steps
+        CONTEXT:
+        You are the final step in a four-step ADR pipeline. The adr artifact has been
+        injected as the `adr` artifact. This contains the complete markdown ADR document
+        drafted by the previous step. You are working in a worktree on a dedicated branch
+        (docs/{{ pipeline_id }}), so you can commit directly.
 
-        1. Copy the ADR into the project docs:
-           - Determine the next ADR number by listing existing ADR files
-             (e.g., `ls docs/adr/` or similar convention)
-           - Copy `.wave/artifacts/adr` to the appropriate location
-             (e.g., `docs/adr/NNN-title.md`)
-
-        2. Commit:
+        REQUIREMENTS:
+        1. Read the injected `adr` artifact to get the full content.
+        2. Determine the correct file location and numbering:
+           - Check if a docs/adr/ directory exists: `ls docs/adr/ 2>/dev/null`
+           - If it exists, count existing ADR files to determine the next number.
+             Use zero-padded three-digit format (001, 002, etc.).
+           - If no docs/adr/ directory exists, create it: `mkdir -p docs/adr/`
+             and use 001 as the first number.
+           - Derive the filename from the ADR title: lowercase, hyphens for spaces,
+             no special characters. Example: `docs/adr/003-use-sqlite-for-state.md`
+        3. Copy the ADR content to the target location. Ensure the ADR number in the
+           file's title heading matches the filename number.
+        4. Commit the ADR with a conventional commit message:
            ```bash
            git add docs/adr/
            git commit -m "docs: add ADR for <decision topic>"
            ```
-
-        3. Push and create PR:
+           Do NOT include Co-Authored-By or AI attribution in the commit message.
+        5. Push the branch and create a pull request:
            ```bash
            git push -u origin HEAD
-           {{ forge.cli_tool }} {{ forge.pr_command }} create --title "docs: ADR — <decision topic>" --body-file .wave/artifacts/adr
+           {{ forge.cli_tool }} {{ forge.pr_command }} create \
+             --title "docs: ADR -- <decision topic>" \
+             --body-file .wave/artifacts/adr
            ```
+        6. Capture the PR URL from the creation output.
+        7. Produce the result JSON with fields:
+           - pr_url: the URL of the created PR
+           - pr_number: the PR number
+           - branch: the branch name
+           - adr_path: the file path where the ADR was placed
+           - adr_number: the ADR number (integer)
+           - timestamp: current ISO 8601 timestamp
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT modify the ADR content beyond fixing the ADR number in the heading.
+          The content was drafted and should be published as-is.
+        - Do NOT commit files outside the docs/adr/ directory.
+        - Do NOT use git add -A or git add . -- only stage the ADR file.
+        - Do NOT force push or amend existing commits.
+        - Do NOT skip the PR creation. The ADR must go through team review.
+        - If the {{ forge.cli_tool }} command is not available, report the error in the
+          output JSON with pr_url set to empty string rather than failing silently.
+
+        OUTPUT FORMAT:
+        Produce the result as JSON matching the
+        pr-result schema (pr_url, pr_number, branch, and timestamp fields).
+
+        QUALITY BAR:
+        A good publish step results in a clean single-commit PR with the ADR file
+        in the correct location and correct numbering. The PR body should be the ADR
+        content itself so reviewers can read it directly in the PR description. A bad
+        publish step has wrong numbering, missing PR, or commits extraneous files.
     output_artifacts:
       - name: pr-result
         path: .wave/output/pr-result.json

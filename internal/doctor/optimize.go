@@ -143,13 +143,14 @@ func optimizeTestCommand(result *OptimizeResult, profile *ProjectProfile, curren
 	reason := "detected from project analysis"
 	source := "profile"
 
-	if profile.TestRunner.Source == "ci" {
+	switch {
+	case profile.TestRunner.Source == "ci":
 		reason = "detected from CI configuration"
 		source = "ci"
-	} else if profile.TestRunner.Source == "makefile" {
+	case profile.TestRunner.Source == "makefile":
 		reason = "detected from Makefile target"
 		source = "makefile"
-	} else if isSimpleLanguageDefault(current.TestCommand) && proposed != current.TestCommand {
+	case isSimpleLanguageDefault(current.TestCommand) && proposed != current.TestCommand:
 		reason = fmt.Sprintf("upgrade from basic default %q to project-specific command", current.TestCommand)
 		source = profile.TestRunner.Source
 	}

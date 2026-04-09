@@ -67,8 +67,7 @@ func (m *IssueDetailModel) SetPipelines(pipelines []PipelineInfo) {
 
 // Update handles messages.
 func (m IssueDetailModel) Update(msg tea.Msg) (IssueDetailModel, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		if !m.focused {
 			return m, nil
 		}

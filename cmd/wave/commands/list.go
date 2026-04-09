@@ -803,14 +803,15 @@ func collectRunsFromDB(dbPath string, opts ListRunsOptions) ([]RunInfo, error) {
 		var duration string
 		var durationMs int64
 
-		if completedAt.Valid {
+		switch {
+		case completedAt.Valid:
 			endTime := time.Unix(completedAt.Int64, 0)
 			durationMs = endTime.Sub(startTime).Milliseconds()
 			duration = formatDuration(endTime.Sub(startTime))
-		} else if strings.ToLower(status) == "running" {
+		case strings.ToLower(status) == "running":
 			durationMs = time.Since(startTime).Milliseconds()
 			duration = formatDuration(time.Since(startTime)) + " (running)"
-		} else {
+		default:
 			duration = "-"
 		}
 
@@ -891,7 +892,7 @@ func collectRunsFromWorkspaces(opts ListRunsOptions) ([]RunInfo, error) {
 		status, endTime := inferWorkspaceStatus(wsPath, ws.name)
 
 		// Apply status filter
-		if opts.Status != "" && strings.ToLower(status) != strings.ToLower(opts.Status) {
+		if opts.Status != "" && !strings.EqualFold(status, opts.Status) {
 			continue
 		}
 

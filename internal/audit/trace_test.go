@@ -129,13 +129,13 @@ func TestDebugTracer_ConcurrentEmit(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := 0; i < 50; i++ {
 		wg.Add(1)
-		go func(n int) {
+		go func() {
 			defer wg.Done()
 			_ = tracer.Emit(TraceEvent{
 				EventType: "adapter_start",
 				StepID:    "step1",
 			})
-		}(i)
+		}()
 	}
 	wg.Wait()
 

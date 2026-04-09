@@ -116,10 +116,8 @@ func TestParseWithRecovery_RecoveryStrategies(t *testing.T) {
 				if !foundFix {
 					t.Errorf("expected fix containing %q, got fixes: %v", tt.wantFixSubstr, result.AppliedFixes)
 				}
-			} else {
-				if result.IsValid {
-					t.Error("expected invalid result")
-				}
+			} else if result.IsValid {
+				t.Error("expected invalid result")
 			}
 		})
 	}

@@ -18,7 +18,6 @@ var (
 	colorSuccess     = lipgloss.Color("10")  // Bright green — completed
 	colorError       = lipgloss.Color("9")   // Bright red — failed
 	colorMuted       = lipgloss.Color("244") // Medium gray — metadata/inactive
-	colorDim         = lipgloss.Color("240") // Dark gray — empty/not-started
 	colorInfo        = lipgloss.Color("7")   // Light gray — project info
 	colorShimmerCore = lipgloss.Color("15")  // White — shimmer center
 	colorShimmerMid  = lipgloss.Color("14")  // Bright cyan — shimmer fringe
@@ -111,7 +110,7 @@ func (m *ProgressModel) View() string {
 
 // shimmerPosition calculates a ping-pong sweep position across the logo width.
 // It returns a float64 in [0, logoWidth] that bounces back and forth over cycleMs.
-func shimmerPosition(logoWidth int, cycleMs int64) float64 {
+func shimmerPosition(logoWidth int, cycleMs int64) float64 { //nolint:unparam // logoWidth kept for flexibility
 	now := time.Now().UnixMilli()
 	halfCycle := cycleMs / 2
 	phase := now % cycleMs
@@ -262,27 +261,29 @@ func (m *ProgressModel) renderCurrentStep() string {
 				}
 			}
 			// Append tokens alongside duration if available
-			if m.ctx.StepTokensIn != nil {
+			switch {
+			case m.ctx.StepTokensIn != nil:
 				tIn := m.ctx.StepTokensIn[stepID]
 				tOut := m.ctx.StepTokensOut[stepID]
-				if tIn > 0 || tOut > 0 {
+				switch {
+				case tIn > 0 || tOut > 0:
 					stepLine += fmt.Sprintf(" (%s, %s in / %s out)", durationText, FormatTokenCount(tIn), FormatTokenCount(tOut))
-				} else if m.ctx.StepTokens != nil {
+				case m.ctx.StepTokens != nil:
 					if tokens, ok := m.ctx.StepTokens[stepID]; ok && tokens > 0 {
 						stepLine += fmt.Sprintf(" (%s, %s tokens)", durationText, FormatTokenCount(tokens))
 					} else {
 						stepLine += fmt.Sprintf(" (%s)", durationText)
 					}
-				} else {
+				default:
 					stepLine += fmt.Sprintf(" (%s)", durationText)
 				}
-			} else if m.ctx.StepTokens != nil {
+			case m.ctx.StepTokens != nil:
 				if tokens, ok := m.ctx.StepTokens[stepID]; ok && tokens > 0 {
 					stepLine += fmt.Sprintf(" (%s, %s tokens)", durationText, FormatTokenCount(tokens))
 				} else {
 					stepLine += fmt.Sprintf(" (%s)", durationText)
 				}
-			} else {
+			default:
 				stepLine += fmt.Sprintf(" (%s)", durationText)
 			}
 			stepLine = lipgloss.NewStyle().Foreground(colorSuccess).Bold(true).Render(stepLine)
@@ -294,9 +295,7 @@ func (m *ProgressModel) renderCurrentStep() string {
 			// Deliverables
 			if m.ctx.DeliverablesByStep != nil {
 				if stepDeliverables, exists := m.ctx.DeliverablesByStep[stepID]; exists {
-					for _, deliverable := range stepDeliverables {
-						metadataLines = append(metadataLines, deliverable)
-					}
+					metadataLines = append(metadataLines, stepDeliverables...)
 				}
 			}
 
@@ -310,9 +309,10 @@ func (m *ProgressModel) renderCurrentStep() string {
 					// Contract line
 					if info.ContractStatus != "" {
 						status := "✓ valid"
-						if info.ContractStatus == "failed" {
+						switch info.ContractStatus {
+						case "failed":
 							status = "✗ failed"
-						} else if info.ContractStatus == "soft_failure" {
+						case "soft_failure":
 							status = "⚠ soft failure"
 						}
 						schema := info.ContractSchema

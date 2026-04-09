@@ -119,7 +119,7 @@ func (m PersonaDetailModel) View() string {
 	return m.viewport.View()
 }
 
-func renderPersonaDetail(info *PersonaInfo, stats *PersonaStats, width int) string {
+func renderPersonaDetail(info *PersonaInfo, stats *PersonaStats, _ int) string {
 	if info == nil {
 		return ""
 	}

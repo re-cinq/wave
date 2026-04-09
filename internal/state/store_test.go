@@ -883,7 +883,7 @@ func stepIDFromIndices(i, j int) string {
 	return "step-" + string(rune('0'+i)) + "-" + string(rune('0'+j%10))
 }
 
-func verifyStepState(t *testing.T, store StateStore, pipelineID, stepID string, expectedState StepState, expectedRetryCount int) {
+func verifyStepState(t *testing.T, store StateStore, pipelineID, stepID string, expectedState StepState, expectedRetryCount int) { //nolint:unparam // test helper
 	t.Helper()
 
 	steps, err := store.GetStepStates(pipelineID)

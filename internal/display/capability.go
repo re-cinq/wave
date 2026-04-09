@@ -67,7 +67,7 @@ func SelectColorPalette(colorMode string, asciiOnly bool) ColorPalette {
 	}
 
 	// Determine if colors should be used
-	useColors := false
+	var useColors bool
 	switch colorMode {
 	case "on":
 		useColors = true

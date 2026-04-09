@@ -45,16 +45,74 @@ steps:
     exec:
       type: prompt
       source: |
-        Create an implementation plan for the following request:
+        OBJECTIVE:
+        Create a comprehensive implementation plan for the following request, producing a
+        structured markdown document that a craftsman persona can follow without additional
+        context. The plan must be specific enough that an implementer could execute it
+        step-by-step without ambiguity.
 
-        {{ input }}
+        REQUEST: {{ input }}
 
-        Write a clear, structured plan covering:
-        1. What files need to change
-        2. The approach and key decisions
-        3. Testing strategy
+        CONTEXT:
+        You are the first step in a three-phase pipeline: plan, approve (human gate), then
+        implement. The human reviewer will read your plan and decide whether to approve,
+        revise, or abort. Your plan must therefore be clear, honest about trade-offs, and
+        concrete enough to evaluate. You have read-only access to the full project codebase
+        through your workspace. Use Glob, Grep, and Read to explore the codebase before
+        writing the plan.
 
-        Save the plan to .wave/output/plan.md
+        REQUIREMENTS:
+        1. Explore the codebase first. Use Glob to find files relevant to the request.
+           Use Grep to search for related functions, types, and patterns. Read key files
+           to understand the current architecture before proposing changes.
+        2. Identify every file that will need to change. For each file, state:
+           - The file path
+           - What currently exists in that file (brief summary)
+           - What changes are needed and why
+           - Whether this is a new file, a modification, or a deletion
+        3. Describe the implementation approach in detail:
+           - What is the core design decision and why was it chosen over alternatives?
+           - What is the execution order? Which changes must come first?
+           - Are there any dependencies between changes?
+           - What existing patterns in the codebase should this follow?
+        4. Define the testing strategy:
+           - Which existing tests need updating?
+           - What new tests are needed? List them with descriptive names.
+           - What edge cases and error paths must be covered?
+           - Should any integration tests be added?
+        5. Call out risks and open questions:
+           - What could go wrong? What assumptions are being made?
+           - Are there backward compatibility concerns?
+           - Are there performance implications?
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT propose changes you have not verified against the codebase. Every file
+          path must be confirmed to exist (or confirmed as new) via Glob or Read.
+        - Do NOT hand-wave implementation details. "Update the handler" is insufficient;
+          specify which handler, what changes, and why.
+        - Do NOT ignore existing patterns. If the codebase uses table-driven tests, your
+          test plan should use table-driven tests.
+        - Do NOT propose sweeping refactors unless the request explicitly calls for them.
+          Keep the blast radius proportional to the request.
+        - Do NOT skip the exploration phase. Plans written without reading the code are
+          invariably wrong about file paths, function names, and existing behavior.
+
+        OUTPUT FORMAT:
+        Produce the plan as markdown with this structure:
+
+        # Implementation Plan: <concise title>
+        ## Summary (2-3 sentences)
+        ## Files to Change (table: path | action | description)
+        ## Approach (numbered steps with rationale)
+        ## Testing Strategy (new tests, updated tests, edge cases)
+        ## Risks and Open Questions
+        ## Estimated Complexity (S/M/L/XL with justification)
+
+        QUALITY BAR:
+        A good plan lets the human reviewer say "yes, go build this" without asking
+        clarifying questions. A bad plan is vague, misses files, or proposes changes
+        that conflict with existing codebase patterns. The plan should be detailed enough
+        that a different engineer (not the plan author) could implement it faithfully.
     output_artifacts:
       - name: plan
         path: .wave/output/plan.md
@@ -86,14 +144,63 @@ steps:
     exec:
       type: prompt
       source: |
-        Implement the following plan:
+        OBJECTIVE:
+        Implement the approved plan faithfully, producing working code that passes the
+        project's test suite. You must follow the plan from the previous step exactly,
+        incorporating any feedback from the human approval gate.
 
-        {{ input }}
+        ORIGINAL REQUEST: {{ input }}
+        GATE FEEDBACK: {{ gate.approve-plan.text }}
 
-        Gate feedback: {{ gate.approve-plan.text }}
+        CONTEXT:
+        You are the third step in a plan-approve-implement pipeline. The plan artifact
+        (injected as impl_plan) was written by a navigator persona after exploring the
+        codebase, then reviewed and approved by a human. The gate feedback above may
+        contain additional instructions, corrections, or scope adjustments from the
+        human reviewer. If the gate feedback is empty or just "approve", proceed with
+        the plan as written. If the feedback contains revisions, incorporate them.
 
-        Follow the plan created in the previous step.
-        Run tests after implementation.
+        REQUIREMENTS:
+        1. Read the injected plan artifact completely before writing any code.
+        2. Implement changes in the order specified by the plan. If the plan defines
+           dependencies between changes, respect them.
+        3. For each file modification:
+           - Read the current file content first
+           - Apply the changes described in the plan
+           - Verify the change is consistent with surrounding code style
+        4. For each new file:
+           - Follow the project's conventions for file naming, package structure,
+             and import organization
+           - Include appropriate package documentation
+        5. Run the project test suite after all changes are applied:
+           - If tests fail, diagnose the failure and fix it
+           - Do NOT skip failing tests or add t.Skip() without justification
+           - Ensure no regressions in existing tests
+        6. If the gate feedback requested specific revisions to the plan, apply those
+           revisions and note what was changed from the original plan.
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT deviate from the plan without clear justification. The plan was
+          reviewed and approved by a human. If you discover the plan has an error,
+          fix the specific error rather than redesigning the approach.
+        - Do NOT refactor code outside the scope of the plan. Resist the urge to
+          "improve" adjacent code that was not identified for changes.
+        - Do NOT use git add -A or git add . -- stage only the specific files you
+          changed, and reset any Wave-managed files from staging.
+        - Do NOT add Co-Authored-By or AI attribution in any commits.
+        - Do NOT leave TODO comments in the code unless the plan explicitly calls
+          for phased implementation.
+
+        OUTPUT FORMAT:
+        The output is the working codebase with all changes applied. The handover
+        contract validates that the project test suite passes. There is no explicit
+        output artifact beyond the code changes themselves.
+
+        QUALITY BAR:
+        A good implementation is indistinguishable from what an experienced developer
+        would produce: correct, minimal, well-tested, and consistent with the existing
+        codebase. A bad implementation introduces unnecessary changes, breaks existing
+        tests, ignores the plan, or leaves the codebase in an inconsistent state.
     memory:
       strategy: fresh
       inject_artifacts:

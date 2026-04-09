@@ -187,16 +187,15 @@ func renderStageFlowCompact(sb *strings.Builder, result CompatibilityResult, seq
 			if idx < seq.Len() {
 				name = seq.Entries[idx].PipelineName
 			}
-			if isParallel {
-				if j == 0 {
-					sb.WriteString(fmt.Sprintf("  ┌─ %s\n", name))
-				} else if j == len(stage)-1 {
-					sb.WriteString(fmt.Sprintf("  └─ %s\n", name))
-				} else {
-					sb.WriteString(fmt.Sprintf("  ├─ %s\n", name))
-				}
-			} else {
+			switch {
+			case !isParallel:
 				sb.WriteString(fmt.Sprintf("  %s\n", name))
+			case j == 0:
+				sb.WriteString(fmt.Sprintf("  ┌─ %s\n", name))
+			case j == len(stage)-1:
+				sb.WriteString(fmt.Sprintf("  └─ %s\n", name))
+			default:
+				sb.WriteString(fmt.Sprintf("  ├─ %s\n", name))
 			}
 		}
 
@@ -535,7 +534,7 @@ func countDiagnosticsByType(result CompatibilityResult, keyword string) int {
 }
 
 // renderExecutionPlan renders a DAG visualization showing parallel stage groups.
-func renderExecutionPlan(seq Sequence, stages [][]int, width int) string {
+func renderExecutionPlan(seq Sequence, stages [][]int, _ int) string {
 	if len(stages) == 0 {
 		return ""
 	}
@@ -562,11 +561,12 @@ func renderExecutionPlan(seq Sequence, stages [][]int, width int) string {
 				name = seq.Entries[idx].PipelineName
 			}
 			if isParallel {
-				if j == 0 {
+				switch {
+				case j == 0:
 					sb.WriteString(fmt.Sprintf("┌─ %s\n", name))
-				} else if j == len(stage)-1 {
+				case j == len(stage)-1:
 					sb.WriteString(fmt.Sprintf("└─ %s\n", name))
-				} else {
+				default:
 					sb.WriteString(fmt.Sprintf("├─ %s\n", name))
 				}
 			} else {

@@ -16,9 +16,6 @@ to answer technical questions and provide comprehensive context.
 - Cross-reference findings across multiple sources
 - Document conflicts with credibility context
 
-## Output Format
-Output valid JSON matching the contract schema.
-
 ## Composition Pipeline Integration
 
 When operating within composition pipelines:

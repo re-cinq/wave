@@ -24,9 +24,6 @@ You improve Bitbucket issues using the Bitbucket Cloud REST API via curl and jq.
 - Body: `"content": {"raw": "...", "markup": "markdown"}` (NOT `"body"`)
 - Labels: Bitbucket uses `"kind"` (bug/enhancement/proposal/task) and `"component"` — NOT a labels array
 
-## Output Format
-Output valid JSON matching the contract schema.
-
 ## Constraints
 - Verify each edit was applied by re-fetching the issue after modification
 - Always write payloads to `/tmp/bb-payload.json` to avoid shell escaping issues

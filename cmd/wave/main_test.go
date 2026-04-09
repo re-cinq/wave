@@ -11,7 +11,7 @@ func TestShouldLaunchTUI_NoTUIFlag(t *testing.T) {
 	cmd := rootCmd
 	err := cmd.PersistentFlags().Set("no-tui", "true")
 	assert.NoError(t, err)
-	defer cmd.PersistentFlags().Set("no-tui", "false") //nolint:errcheck
+	defer cmd.PersistentFlags().Set("no-tui", "false") //nolint:errcheck // test cleanup, flag always exists
 
 	result := shouldLaunchTUI(cmd)
 	assert.False(t, result)

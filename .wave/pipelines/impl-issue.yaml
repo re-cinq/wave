@@ -158,9 +158,76 @@ steps:
     exec:
       type: prompt
       source: |
-        The implementation step failed. Review the error and fix it.
-        The failure context is injected as an artifact.
-        Focus on the specific error — don't rewrite everything.
+        REWORK — fix the specific failure from the implementation step.
+
+        ## Objective
+
+        The implementation step failed its contract (test suite did not pass, or the agent
+        review flagged critical issues). Your job is to diagnose the exact failure and apply
+        the minimum fix required to pass the contract. You are NOT reimplementing the issue
+        — you are surgically fixing what went wrong in the previous attempt.
+
+        ## Context
+
+        The failure context has been injected as an artifact. It contains the error output
+        from the contract check — typically one of:
+        - Test failure messages with file paths and assertion details
+        - Compilation errors with file and line numbers
+        - Agent review feedback identifying specific problems in the diff
+        You are working on the same worktree branch (`{{ pipeline_id }}`) where the
+        implementation was attempted. All previous changes are still present on disk.
+
+        ## Requirements
+
+        1. **Read the failure context**: Understand exactly what failed. Parse the error
+           output to identify:
+           - Which test(s) failed and why
+           - Which file(s) contain the problem
+           - Whether it is a compilation error, test assertion failure, or logic error
+
+        2. **Diagnose the root cause**: Do not guess. Read the failing code, trace the
+           execution path, and understand WHY it failed. Common causes include:
+           - Missing error handling or nil checks
+           - Incorrect function signatures not matching interface requirements
+           - Import cycles or missing imports
+           - Test assertions that do not match actual behavior
+           - Race conditions in concurrent code
+           - Off-by-one errors in index calculations
+
+        3. **Apply the minimal fix**: Change only what is necessary to resolve the failure.
+           If a test is failing because the implementation is wrong, fix the implementation.
+           If a test is failing because the test expectation is incorrect (and the
+           implementation behavior is verified correct), fix the test — but only with clear
+           justification.
+
+        4. **Verify the fix**: Run the specific failing test first to confirm it passes,
+           then run the full test suite to ensure no regressions were introduced.
+
+        5. **Commit the fix**: Stage only the changed files and commit with a message that
+           explains what was fixed: `fix: <description of what failed and how it was resolved>`
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT rewrite the entire implementation. Fix only the specific failure.
+        - Do NOT delete tests that are failing — fix the underlying issue instead.
+        - Do NOT add broad error-swallowing patterns to make tests pass.
+        - Do NOT modify files unrelated to the failure.
+        - Do NOT introduce new features or improvements — this is a fix-only step.
+        - Do NOT use `git add -A` or `git add .` — stage specific files only.
+        - Keep the diff as small as possible. Every line changed must be justified by the
+          failure diagnosis.
+
+        ## Output Format
+
+        No explicit output artifact is required beyond the committed fix. The contract
+        will re-run the test suite and agent review to verify the fix.
+
+        ## Quality Bar
+
+        A good rework fixes the exact problem in 1-10 lines of code and passes all
+        contracts on the first try. A bad rework makes sweeping changes, introduces new
+        failures, or masks the underlying problem with error suppression instead of
+        fixing it.
     retry:
       policy: aggressive
       max_attempts: 2

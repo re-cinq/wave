@@ -45,11 +45,74 @@ steps:
     exec:
       type: prompt
       source: |
-        You are a simple greeting bot. The user said: "{{ input }}"
+        ## Objective
 
-        Your final response must be ONLY this text (nothing else - no explanation, no markdown):
+        You are a minimal smoke-test agent whose sole purpose is to validate that Wave's
+        core execution pipeline is functional end-to-end. You must produce a single,
+        deterministic greeting string as a text artifact. This tests adapter connectivity,
+        workspace creation, prompt injection, artifact writing, and handover to the next
+        step. Success here means the entire Wave runtime is healthy.
 
-        Hello from Wave! Your message was: {{ input }}
+        The user said: "{{ input }}"
+
+        ## Context
+
+        This is the first step of the ops-hello-world pipeline, which is Wave's built-in
+        smoke test. No prior artifacts exist. There is no workspace mount — you are
+        operating in the default workspace. The pipeline is intentionally trivial because
+        its purpose is infrastructure validation, not useful work. The verify step that
+        follows will check that your output artifact exists and contains the expected
+        content.
+
+        ## Requirements
+
+        1. Write a plain text file to `greeting.txt` containing EXACTLY this string:
+           ```
+           Hello from Wave! Your message was: {{ input }}
+           ```
+        2. The file must contain only this single line. No leading or trailing blank
+           lines, no markdown formatting, no headers, no explanation, no commentary.
+        3. The greeting text must be written as a file on disk at the path `greeting.txt`
+           in your workspace. Do not merely output the text to stdout — it must be a
+           file artifact.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT add any text beyond the exact greeting string specified above. The verify
+          step performs an exact content comparison, so even a single extra character will
+          cause the smoke test to fail.
+        - Do NOT wrap the output in markdown code blocks, bullet points, or headers. The
+          output is plain text, not markdown.
+        - Do NOT add a trailing newline beyond what the file system naturally appends when
+          writing a text file. A single trailing newline is acceptable; two are not.
+        - Do NOT create additional files. Only `greeting.txt`. No logs, no JSON, no
+          status files.
+        - Do NOT attempt anything creative, helpful, or interpretive. This is a
+          deterministic infrastructure test, not a conversational interaction.
+        - Do NOT read any project files, explore the workspace, or perform any action
+          beyond writing the single greeting file.
+        - Do NOT include the template literal `{{ input }}` in the output — the template
+          engine will have already substituted the actual user input before you see this
+          prompt.
+
+        ## Output Format
+
+        A single plain text file at `greeting.txt` containing exactly:
+        ```
+        Hello from Wave! Your message was: <actual user input>
+        ```
+        No JSON wrapper, no markdown, no additional metadata. The file content is this
+        single line and nothing else.
+
+        ## Quality Bar
+
+        Success is binary: the file exists at the correct path and contains the exact
+        expected string with the user's input correctly interpolated. Any deviation —
+        extra whitespace, markdown formatting, missing content, wrong path, doubled
+        greeting text, or creative additions — constitutes a failure. The verify step
+        downstream performs strict validation and will reject anything that does not match
+        the expected format exactly. This is the simplest possible test of Wave's
+        execution pipeline, and there is zero tolerance for deviation.
     output_artifacts:
       - name: greeting
         path: greeting.txt
@@ -67,9 +130,65 @@ steps:
     exec:
       type: prompt
       source: |
-        Verify the greeting artifact exists and contains content.
+        ## Objective
 
-        Output a JSON result confirming verification status.
+        Verify that the greeting artifact produced by the previous "greet" step exists,
+        is non-empty, and contains the expected greeting content. Produce a structured
+        JSON verification result that reports whether the smoke test passed or failed,
+        along with diagnostic details if it failed. This step validates that Wave's
+        artifact injection mechanism works correctly.
+
+        ## Context
+
+        The previous "greet" step should have produced the injected `greeting_file`
+        artifact. It should contain a single line of text: "Hello from Wave! Your message
+        was: <user input>". Your job is to read the injected artifact, validate its
+        content, and produce a structured JSON report.
+
+        ## Requirements
+
+        1. Check that the injected `greeting_file` artifact exists. If it does not
+           exist, record a failure with the reason "artifact_missing".
+
+        2. Read the contents of the file. If the file is empty (zero bytes), record a
+           failure with the reason "artifact_empty".
+
+        3. Validate that the content starts with "Hello from Wave!". If not, record a
+           failure with the reason "unexpected_content" and include the actual content
+           (truncated to 200 characters) in the diagnostic field.
+
+        4. Produce the verification result JSON.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT modify the greeting artifact. This step is read-only verification. You
+          are validating, not fixing.
+        - Do NOT attempt to fix a missing or malformed artifact. Report the failure as-is
+          with accurate diagnostics. The purpose of this step is to detect failures, not
+          mask them.
+        - Do NOT skip any of the three checks (existence, non-empty, content prefix).
+          Even if the first check fails, record the results of all three to provide
+          complete diagnostic information.
+        - Do NOT output the JSON to stdout. Write it as a file to the path specified
+          below. The contract validation reads the file from disk.
+        - Do NOT create any additional files beyond the result JSON.
+        - Do NOT add subjective assessment or commentary. The result is purely factual:
+          each check either passed or failed.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A passing verification means all three checks are true and the status is "pass".
+        A failing verification must include a clear, specific reason so that a developer
+        debugging a Wave runtime issue can immediately identify which component failed:
+        artifact writing (file missing), artifact injection (file present but at wrong
+        path), or content generation (file exists but content is wrong). The failure
+        reason should be a machine-parseable string like "artifact_missing",
+        "artifact_empty", or "unexpected_content" — not a paragraph of prose. Good
+        diagnostic output lets an operator triage the failure in under 10 seconds.
     output_artifacts:
       - name: result
         path: .wave/output/result.json
