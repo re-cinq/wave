@@ -4944,8 +4944,14 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 // using the step's SubInput template or falling back to the pipeline input.
 func (e *DefaultPipelineExecutor) resolveSubPipelineInput(execution *PipelineExecution, step *Step) string {
 	input := execution.Input
-	if step.SubInput != "" && execution.Context != nil {
-		resolved := execution.Context.ResolvePlaceholders(step.SubInput)
+	if step.SubInput != "" {
+		// Resolve {{ input }} directly (not handled by PipelineContext.ResolvePlaceholders)
+		resolved := strings.ReplaceAll(step.SubInput, "{{ input }}", execution.Input)
+		resolved = strings.ReplaceAll(resolved, "{{input}}", execution.Input)
+		// Then resolve remaining pipeline context variables
+		if execution.Context != nil {
+			resolved = execution.Context.ResolvePlaceholders(resolved)
+		}
 		if resolved != "" {
 			input = resolved
 		}
