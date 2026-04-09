@@ -501,7 +501,7 @@ steps:
         "unnecessary abstraction" or every TODO as "unfinished feature" without
         understanding the project's development stage and conventions.
     output_artifacts:
-      - name: quality
+      - name: slop
         path: .wave/output/slop-review.md
         type: markdown
     handover:
