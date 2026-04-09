@@ -10,11 +10,43 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
 )
+
+// templateDB holds the path to a pre-migrated SQLite database that gets copied
+// for each test instead of re-running all 19 migrations every time.
+var (
+	templateDBPath string
+	templateDBOnce sync.Once
+	templateDBErr  error
+)
+
+func getTemplateDB(t *testing.T) string {
+	t.Helper()
+	templateDBOnce.Do(func() {
+		dir, err := os.MkdirTemp("", "webui-test-template-*")
+		if err != nil {
+			templateDBErr = err
+			return
+		}
+		dbPath := filepath.Join(dir, "template.db")
+		store, err := state.NewStateStore(dbPath)
+		if err != nil {
+			templateDBErr = err
+			return
+		}
+		store.Close()
+		templateDBPath = dbPath
+	})
+	if templateDBErr != nil {
+		t.Fatalf("failed to create template DB: %v", templateDBErr)
+	}
+	return templateDBPath
+}
 
 // testTemplates creates minimal stub templates for handler tests.
 // Each page gets its own template set with a "templates/layout.html" entry
@@ -64,11 +96,22 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 }
 
 // testServer creates a test server with a temporary database.
+// It copies a pre-migrated template DB to avoid re-running all migrations per test.
 func testServer(t *testing.T) (*Server, state.StateStore) {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "test.db")
 
-	// Create the database with the RW store
+	// Copy the pre-migrated template DB instead of running migrations each time
+	tmplDB := getTemplateDB(t)
+	data, err := os.ReadFile(tmplDB)
+	if err != nil {
+		t.Fatalf("failed to read template DB: %v", err)
+	}
+	if err := os.WriteFile(dbPath, data, 0o644); err != nil {
+		t.Fatalf("failed to write test DB: %v", err)
+	}
+
+	// Open the already-migrated database
 	rwStore, err := state.NewStateStore(dbPath)
 	if err != nil {
 		t.Fatalf("failed to create state store: %v", err)

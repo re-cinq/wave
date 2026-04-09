@@ -1,6 +1,7 @@
 package hooks
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -128,9 +129,7 @@ func TestExecuteHTTPLimitedResponseBody(t *testing.T) {
 	disableSSRFValidation(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
-		for i := 0; i < maxResponseBodySize+1024; i++ {
-			_, _ = w.Write([]byte("x"))
-		}
+		_, _ = w.Write(bytes.Repeat([]byte("x"), maxResponseBodySize+1024))
 	}))
 	defer server.Close()
 	result := executeHTTP(context.Background(), &LifecycleHookDef{Name: "large", Type: HookTypeHTTP, URL: server.URL, Timeout: "5s"}, HookEvent{Type: EventStepStart, PipelineID: "test"})

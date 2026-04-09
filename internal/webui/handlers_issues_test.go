@@ -131,10 +131,10 @@ func TestHandleAPIIssues_StateParam(t *testing.T) {
 		{"no state with page", "page=3", "open", 3},
 	}
 
+	srv, _ := testServer(t)
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			srv, _ := testServer(t)
-
 			req := httptest.NewRequest("GET", "/api/issues?"+tt.query, nil)
 			rec := httptest.NewRecorder()
 			srv.handleAPIIssues(rec, req)
