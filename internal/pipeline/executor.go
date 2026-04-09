@@ -3404,14 +3404,30 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 
 	// Handle worktree workspace type
 	if step.Workspace.Type == "worktree" {
-		// Resolve branch name from template variables
+		// Resolve branch name from template variables.
+		// Step output references ({{ steps.X.artifacts.Y.field }}) are resolved first
+		// so that branch names can be derived from prior step outputs (e.g. PR head branch).
 		branch := step.Workspace.Branch
+		if branch != "" {
+			resolved, err := e.resolveWorkspaceStepRefs(branch, execution)
+			if err != nil {
+				return "", fmt.Errorf("workspace branch template %q: %w", branch, err)
+			}
+			branch = resolved
+		}
 		if execution.Context != nil && branch != "" {
 			branch = execution.Context.ResolvePlaceholders(branch)
 		}
 
-		// Resolve base ref from template variables
+		// Resolve base ref from template variables (same two-pass resolution).
 		base := step.Workspace.Base
+		if base != "" {
+			resolved, err := e.resolveWorkspaceStepRefs(base, execution)
+			if err != nil {
+				return "", fmt.Errorf("workspace base template %q: %w", base, err)
+			}
+			base = resolved
+		}
 		if execution.Context != nil && base != "" {
 			base = execution.Context.ResolvePlaceholders(base)
 		}
@@ -5806,6 +5822,138 @@ func (a *webhookStoreAdapter) RecordWebhookDeliveryResult(d *hooks.WebhookDelive
 		ResponseTimeMs: d.ResponseTimeMs,
 		Error:          d.Error,
 	})
+}
+
+// resolveWorkspaceStepRefs resolves {{ steps.<step-id>.artifacts.<artifact-name>.<json-path> }}
+// and {{ steps.<step-id>.output.<field> }} references in a workspace config field.
+// This is called just before workspace creation so that branch/base fields can reference
+// outputs from prior steps (e.g. a PR's headRefName fetched by a preceding step).
+//
+// Supported patterns:
+//   - {{ steps.STEP_ID.artifacts.ARTIFACT_NAME.json.path }} — read a JSON field from a named artifact
+//   - {{ steps.STEP_ID.output.json.path }} — read a JSON field from the first artifact of the step
+//
+// Returns an error if a referenced step/artifact does not exist or the JSON path fails.
+func (e *DefaultPipelineExecutor) resolveWorkspaceStepRefs(tmpl string, execution *PipelineExecution) (string, error) {
+	var resolveErr error
+
+	result := templatePattern.ReplaceAllStringFunc(tmpl, func(match string) string {
+		if resolveErr != nil {
+			return match
+		}
+
+		expr := strings.TrimSpace(match[2 : len(match)-2])
+
+		// Only handle {{ steps.* }} references here.
+		if !strings.HasPrefix(expr, "steps.") {
+			return match
+		}
+
+		// steps.STEP_ID.artifacts.ARTIFACT_NAME[.JSON_PATH]
+		// steps.STEP_ID.output[.JSON_PATH]
+		rest := expr[len("steps."):]
+		parts := strings.SplitN(rest, ".", 3) // [STEP_ID, "artifacts"|"output", rest]
+		if len(parts) < 2 {
+			resolveErr = fmt.Errorf("workspace template %q: expected steps.<step-id>.artifacts.<name> or steps.<step-id>.output.<field>", match)
+			return match
+		}
+
+		stepID := parts[0]
+		segment := parts[1]
+
+		execution.mu.Lock()
+		artifactsCopy := make(map[string]string, len(execution.ArtifactPaths))
+		for k, v := range execution.ArtifactPaths {
+			artifactsCopy[k] = v
+		}
+		execution.mu.Unlock()
+
+		switch segment {
+		case "artifacts":
+			// steps.STEP_ID.artifacts.ARTIFACT_NAME[.JSON_PATH]
+			if len(parts) < 3 {
+				resolveErr = fmt.Errorf("workspace template %q: missing artifact name after 'artifacts'", match)
+				return match
+			}
+			// parts[2] = "ARTIFACT_NAME" or "ARTIFACT_NAME.json.path"
+			artAndPath := parts[2]
+			dotIdx := strings.Index(artAndPath, ".")
+			var artifactName, jsonPath string
+			if dotIdx == -1 {
+				artifactName = artAndPath
+				jsonPath = ""
+			} else {
+				artifactName = artAndPath[:dotIdx]
+				jsonPath = artAndPath[dotIdx+1:]
+			}
+
+			key := stepID + ":" + artifactName
+			artPath, ok := artifactsCopy[key]
+			if !ok {
+				resolveErr = fmt.Errorf("workspace template %q: artifact %q from step %q not found (step may not have completed yet)", match, artifactName, stepID)
+				return match
+			}
+
+			data, err := os.ReadFile(artPath)
+			if err != nil {
+				resolveErr = fmt.Errorf("workspace template %q: failed to read artifact %q: %w", match, artPath, err)
+				return match
+			}
+
+			if jsonPath == "" {
+				return strings.TrimSpace(string(data))
+			}
+
+			val, err := ExtractJSONPath(data, "."+jsonPath)
+			if err != nil {
+				resolveErr = fmt.Errorf("workspace template %q: JSON path %q in artifact %q: %w", match, jsonPath, artifactName, err)
+				return match
+			}
+			return val
+
+		case "output":
+			// steps.STEP_ID.output[.JSON_PATH]
+			// Find the first artifact for this step.
+			var artPath string
+			for k, v := range artifactsCopy {
+				if strings.HasPrefix(k, stepID+":") {
+					artPath = v
+					break
+				}
+			}
+			if artPath == "" {
+				resolveErr = fmt.Errorf("workspace template %q: no output found for step %q (step may not have completed yet)", match, stepID)
+				return match
+			}
+
+			data, err := os.ReadFile(artPath)
+			if err != nil {
+				resolveErr = fmt.Errorf("workspace template %q: failed to read output for step %q: %w", match, stepID, err)
+				return match
+			}
+
+			if len(parts) < 3 {
+				return strings.TrimSpace(string(data))
+			}
+
+			jsonPath := parts[2]
+			val, err := ExtractJSONPath(data, "."+jsonPath)
+			if err != nil {
+				resolveErr = fmt.Errorf("workspace template %q: JSON path %q in step %q output: %w", match, jsonPath, stepID, err)
+				return match
+			}
+			return val
+
+		default:
+			resolveErr = fmt.Errorf("workspace template %q: unknown segment %q (expected 'artifacts' or 'output')", match, segment)
+			return match
+		}
+	})
+
+	if resolveErr != nil {
+		return "", resolveErr
+	}
+	return result, nil
 }
 
 // resolveStepOutputRef resolves {{ stepID.output }} and {{ stepID.output.field }}
