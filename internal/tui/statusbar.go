@@ -17,7 +17,7 @@ type StatusBarModel struct {
 	liveOutputActive     bool
 	finishedDetailActive bool
 	runningInfoActive    bool
-	currentView ViewType
+	currentView          ViewType
 }
 
 // NewStatusBarModel creates a new status bar model with default context.

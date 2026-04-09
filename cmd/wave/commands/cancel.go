@@ -210,7 +210,7 @@ func forceKillRun(runID string) error {
 	if err := syscall.Kill(-pid, syscall.SIGTERM); err != nil {
 		// Process may have already exited
 		if err == syscall.ESRCH {
-			os.Remove(pidFile)
+			_ = os.Remove(pidFile)
 			return nil
 		}
 		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to send SIGTERM: %s", err), "The process may have already exited").WithCause(err)
@@ -221,7 +221,7 @@ func forceKillRun(runID string) error {
 		time.Sleep(100 * time.Millisecond)
 		// Check if process is still running
 		if err := syscall.Kill(-pid, 0); err == syscall.ESRCH {
-			os.Remove(pidFile)
+			_ = os.Remove(pidFile)
 			return nil
 		}
 	}
@@ -233,6 +233,6 @@ func forceKillRun(runID string) error {
 		}
 	}
 
-	os.Remove(pidFile)
+	_ = os.Remove(pidFile)
 	return nil
 }

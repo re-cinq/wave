@@ -24,20 +24,20 @@ type BubbleTeaProgressDisplay struct {
 	totalSteps         int
 	steps              map[string]*StepStatus
 	stepOrder          []string
-	stepDurations      map[string]int64      // Track step durations in milliseconds
-	stepTokens         map[string]int        // Track per-step token counts
-	stepModels       map[string]string   // Track per-step model names
-	stepAdapters     map[string]string   // Track per-step adapter types
-	stepTemperatures map[string]float64  // Track per-step temperature settings
-	stepTokensIn     map[string]int      // Track per-step input tokens
-	stepTokensOut    map[string]int      // Track per-step output tokens
-	stepStartTimes     map[string]time.Time  // Track when each step started
+	stepDurations      map[string]int64     // Track step durations in milliseconds
+	stepTokens         map[string]int       // Track per-step token counts
+	stepModels         map[string]string    // Track per-step model names
+	stepAdapters       map[string]string    // Track per-step adapter types
+	stepTemperatures   map[string]float64   // Track per-step temperature settings
+	stepTokensIn       map[string]int       // Track per-step input tokens
+	stepTokensOut      map[string]int       // Track per-step output tokens
+	stepStartTimes     map[string]time.Time // Track when each step started
 	startTime          time.Time
 	enabled            bool
 	verbose            bool
 	deliverableTracker *deliverable.Tracker
 	currentStepID      string                   // Track primary running step (first in order)
-	stepToolActivity   map[string][2]string      // stepID -> [toolName, toolTarget] per-step
+	stepToolActivity   map[string][2]string     // stepID -> [toolName, toolTarget] per-step
 	lastToolName       string                   // Most recent tool name (global fallback)
 	lastToolTarget     string                   // Most recent tool target (global fallback)
 	handoverInfo       map[string]*HandoverInfo // Per-step handover metadata
@@ -465,7 +465,6 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		stepToolActivity[sid] = ta
 	}
 
-
 	// Build handover info with target steps
 	handoversByStep := make(map[string]*HandoverInfo, len(btpd.handoverInfo))
 	for stepID, info := range btpd.handoverInfo {
@@ -531,13 +530,13 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		StepDurations:      btpd.stepDurations,
 		StepTokens:         stepTokens,
 		TotalTokens:        totalTokens,
-		StepModels:       stepModels,
-		StepAdapters:     stepAdapters,
-		StepTemperatures: stepTemperatures,
-		StepTokensIn:     stepTokensIn,
-		StepTokensOut:    stepTokensOut,
-		TotalTokensIn:    totalTokensIn,
-		TotalTokensOut:   totalTokensOut,
+		StepModels:         stepModels,
+		StepAdapters:       stepAdapters,
+		StepTemperatures:   stepTemperatures,
+		StepTokensIn:       stepTokensIn,
+		StepTokensOut:      stepTokensOut,
+		TotalTokensIn:      totalTokensIn,
+		TotalTokensOut:     totalTokensOut,
 		StepPersonas:       stepPersonas,
 		DeliverablesByStep: deliverablesByStep,
 		ElapsedTimeMs:      elapsedMs,
@@ -553,8 +552,8 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		StepToolActivity:   stepToolActivity,
 		LastToolName:       btpd.lastToolName,
 		LastToolTarget:     btpd.lastToolTarget,
-		HandoversByStep:   handoversByStep,
-		Verbose:           btpd.verbose,
+		HandoversByStep:    handoversByStep,
+		Verbose:            btpd.verbose,
 	}
 }
 

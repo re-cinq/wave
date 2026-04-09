@@ -107,9 +107,9 @@ func TestDetectCapabilities(t *testing.T) {
 func TestGetTerminalWidth_WithEnvVar(t *testing.T) {
 	// Save and restore COLUMNS
 	oldColumns := os.Getenv("COLUMNS")
-	defer os.Setenv("COLUMNS", oldColumns)
+	defer func() { _ = os.Setenv("COLUMNS", oldColumns) }()
 
-	os.Setenv("COLUMNS", "120")
+	_ = os.Setenv("COLUMNS", "120")
 	width := getTerminalWidth()
 	// Should return at least the default or detected value
 	if width <= 0 {
@@ -120,9 +120,9 @@ func TestGetTerminalWidth_WithEnvVar(t *testing.T) {
 func TestGetTerminalWidth_InvalidEnvVar(t *testing.T) {
 	// Save and restore COLUMNS
 	oldColumns := os.Getenv("COLUMNS")
-	defer os.Setenv("COLUMNS", oldColumns)
+	defer func() { _ = os.Setenv("COLUMNS", oldColumns) }()
 
-	os.Setenv("COLUMNS", "invalid")
+	_ = os.Setenv("COLUMNS", "invalid")
 	width := getTerminalWidth()
 	// Should fall back to default
 	if width <= 0 {
@@ -133,9 +133,9 @@ func TestGetTerminalWidth_InvalidEnvVar(t *testing.T) {
 func TestGetTerminalHeight_WithEnvVar(t *testing.T) {
 	// Save and restore LINES
 	oldLines := os.Getenv("LINES")
-	defer os.Setenv("LINES", oldLines)
+	defer func() { _ = os.Setenv("LINES", oldLines) }()
 
-	os.Setenv("LINES", "50")
+	_ = os.Setenv("LINES", "50")
 	height := getTerminalHeight()
 	if height <= 0 {
 		t.Errorf("Height should be positive, got %d", height)
@@ -145,9 +145,9 @@ func TestGetTerminalHeight_WithEnvVar(t *testing.T) {
 func TestGetTerminalHeight_InvalidEnvVar(t *testing.T) {
 	// Save and restore LINES
 	oldLines := os.Getenv("LINES")
-	defer os.Setenv("LINES", oldLines)
+	defer func() { _ = os.Setenv("LINES", oldLines) }()
 
-	os.Setenv("LINES", "invalid")
+	_ = os.Setenv("LINES", "invalid")
 	height := getTerminalHeight()
 	if height <= 0 {
 		t.Errorf("Height should be positive even with invalid LINES, got %d", height)
@@ -157,9 +157,9 @@ func TestGetTerminalHeight_InvalidEnvVar(t *testing.T) {
 func TestCheckANSISupport_NoColor(t *testing.T) {
 	// Save and restore NO_COLOR
 	oldNoColor := os.Getenv("NO_COLOR")
-	defer os.Setenv("NO_COLOR", oldNoColor)
+	defer func() { _ = os.Setenv("NO_COLOR", oldNoColor) }()
 
-	os.Setenv("NO_COLOR", "1")
+	_ = os.Setenv("NO_COLOR", "1")
 	result := checkANSISupport()
 	// When NO_COLOR is set, ANSI should be disabled
 	if result && isTerminal() {
@@ -170,9 +170,9 @@ func TestCheckANSISupport_NoColor(t *testing.T) {
 func TestCheckANSISupport_DumbTerm(t *testing.T) {
 	// Save and restore TERM
 	oldTerm := os.Getenv("TERM")
-	defer os.Setenv("TERM", oldTerm)
+	defer func() { _ = os.Setenv("TERM", oldTerm) }()
 
-	os.Setenv("TERM", "dumb")
+	_ = os.Setenv("TERM", "dumb")
 	result := checkANSISupport()
 	if result && isTerminal() {
 		t.Error("ANSI support should be disabled for dumb terminal")
@@ -182,9 +182,9 @@ func TestCheckANSISupport_DumbTerm(t *testing.T) {
 func TestCheckColorSupport(t *testing.T) {
 	// Test with COLORTERM=truecolor
 	oldColorterm := os.Getenv("COLORTERM")
-	defer os.Setenv("COLORTERM", oldColorterm)
+	defer func() { _ = os.Setenv("COLORTERM", oldColorterm) }()
 
-	os.Setenv("COLORTERM", "truecolor")
+	_ = os.Setenv("COLORTERM", "truecolor")
 	result := checkColorSupport()
 	// Should be enabled if ANSI is supported
 	if !result && checkANSISupport() {
@@ -195,9 +195,9 @@ func TestCheckColorSupport(t *testing.T) {
 func TestCheck256ColorSupport(t *testing.T) {
 	// Save and restore TERM
 	oldTerm := os.Getenv("TERM")
-	defer os.Setenv("TERM", oldTerm)
+	defer func() { _ = os.Setenv("TERM", oldTerm) }()
 
-	os.Setenv("TERM", "xterm-256color")
+	_ = os.Setenv("TERM", "xterm-256color")
 	result := check256ColorSupport()
 	// Should be enabled if ANSI is supported
 	if !result && checkANSISupport() {
@@ -208,9 +208,9 @@ func TestCheck256ColorSupport(t *testing.T) {
 func TestCheckUnicodeSupport_UTF8(t *testing.T) {
 	// Save and restore LANG
 	oldLang := os.Getenv("LANG")
-	defer os.Setenv("LANG", oldLang)
+	defer func() { _ = os.Setenv("LANG", oldLang) }()
 
-	os.Setenv("LANG", "en_US.UTF-8")
+	_ = os.Setenv("LANG", "en_US.UTF-8")
 	result := checkUnicodeSupport()
 	if !result {
 		t.Error("Unicode support should be enabled with UTF-8 LANG")
@@ -220,9 +220,9 @@ func TestCheckUnicodeSupport_UTF8(t *testing.T) {
 func TestCheckUnicodeSupport_NoUnicode(t *testing.T) {
 	// Save and restore NO_UNICODE
 	oldNoUnicode := os.Getenv("NO_UNICODE")
-	defer os.Setenv("NO_UNICODE", oldNoUnicode)
+	defer func() { _ = os.Setenv("NO_UNICODE", oldNoUnicode) }()
 
-	os.Setenv("NO_UNICODE", "1")
+	_ = os.Setenv("NO_UNICODE", "1")
 	result := checkUnicodeSupport()
 	if result {
 		t.Error("Unicode support should be disabled when NO_UNICODE is set")
@@ -242,7 +242,7 @@ func TestCheckMouseSupport(t *testing.T) {
 func TestDetectColorScheme_WithCOLORFGBG(t *testing.T) {
 	// Save and restore COLORFGBG
 	oldColorFGBG := os.Getenv("COLORFGBG")
-	defer os.Setenv("COLORFGBG", oldColorFGBG)
+	defer func() { _ = os.Setenv("COLORFGBG", oldColorFGBG) }()
 
 	tests := []struct {
 		name     string
@@ -257,7 +257,7 @@ func TestDetectColorScheme_WithCOLORFGBG(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv("COLORFGBG", tt.value)
+			_ = os.Setenv("COLORFGBG", tt.value)
 			result := detectColorScheme()
 			if tt.wantDark && result != "dark" {
 				t.Errorf("Expected dark, got %q", result)
@@ -280,7 +280,7 @@ func TestIsCI(t *testing.T) {
 	}
 	defer func() {
 		for v, val := range oldValues {
-			os.Setenv(v, val)
+			_ = os.Setenv(v, val)
 		}
 	}()
 
@@ -290,13 +290,13 @@ func TestIsCI(t *testing.T) {
 	}
 
 	// Test with CI=true
-	os.Setenv("CI", "true")
+	_ = os.Setenv("CI", "true")
 	if !isCI() {
 		t.Error("isCI should return true when CI is set")
 	}
 
 	os.Unsetenv("CI")
-	os.Setenv("GITHUB_ACTIONS", "true")
+	_ = os.Setenv("GITHUB_ACTIONS", "true")
 	if !isCI() {
 		t.Error("isCI should return true when GITHUB_ACTIONS is set")
 	}

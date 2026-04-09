@@ -77,10 +77,10 @@ func TestGitHubAdapter_ParseOperation(t *testing.T) {
 
 func TestExtractRepoInfo(t *testing.T) {
 	tests := []struct {
-		name       string
-		text       string
-		wantOwner  string
-		wantRepo   string
+		name      string
+		text      string
+		wantOwner string
+		wantRepo  string
 	}{
 		{
 			name:      "simple owner/repo",
@@ -146,7 +146,7 @@ func TestGitHubAdapter_FormatResult(t *testing.T) {
 	adapter := &GitHubAdapter{}
 
 	data := map[string]interface{}{
-		"test": "value",
+		"test":   "value",
 		"number": 123,
 	}
 

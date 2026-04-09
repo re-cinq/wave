@@ -77,9 +77,9 @@ func TestGetOptimalDisplayConfig(t *testing.T) {
 func TestGetOptimalDisplayConfig_WithNoColor(t *testing.T) {
 	// Save and restore NO_COLOR
 	oldNoColor := os.Getenv("NO_COLOR")
-	defer os.Setenv("NO_COLOR", oldNoColor)
+	defer func() { _ = os.Setenv("NO_COLOR", oldNoColor) }()
 
-	os.Setenv("NO_COLOR", "1")
+	_ = os.Setenv("NO_COLOR", "1")
 	config := GetOptimalDisplayConfig()
 
 	if config.ColorMode != "off" {

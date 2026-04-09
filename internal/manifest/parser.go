@@ -402,8 +402,6 @@ func validatePersonasListWithFile(personas map[string]Persona, adapters map[stri
 	return errs
 }
 
-
-
 func validateOntology(o *Ontology, filePath string) []error {
 	if o == nil {
 		return nil
@@ -578,7 +576,6 @@ func validateHooks(hks []hooks.LifecycleHookDef, filePath string) []error {
 	}
 	return errs
 }
-
 
 // validateFallbacks checks runtime.fallbacks configuration for consistency.
 func validateFallbacks(m *Manifest) []error {

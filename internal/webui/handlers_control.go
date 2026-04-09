@@ -24,12 +24,12 @@ var validPipelineName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 // RunOptions holds CLI-parity options passed from the webui start form.
 type RunOptions struct {
-	Model    string
-	Adapter  string
-	DryRun   bool
-	Timeout  int
-	Steps    string
-	Exclude  string
+	Model   string
+	Adapter string
+	DryRun  bool
+	Timeout int
+	Steps   string
+	Exclude string
 }
 
 // loggingEmitter wraps an event emitter and also logs events to the state store.

@@ -209,8 +209,8 @@ func TestEvolveResult_JSONSerialization(t *testing.T) {
 
 func TestRenderEvolveText_Stable(t *testing.T) {
 	result := &EvolveResult{
-		TotalRuns:    15,
-		Proposals:    nil,
+		TotalRuns: 15,
+		Proposals: nil,
 		ContextStats: []state.OntologyStats{
 			{ContextName: "auth", TotalRuns: 15, Successes: 14, Failures: 1, SuccessRate: 93.3},
 		},

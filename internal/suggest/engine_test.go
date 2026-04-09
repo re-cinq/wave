@@ -12,9 +12,9 @@ import (
 func setupPipelineDir(t *testing.T, names []string) string {
 	t.Helper()
 	dir := filepath.Join(t.TempDir(), "pipelines")
-	os.MkdirAll(dir, 0755)
+	_ = os.MkdirAll(dir, 0755)
 	for _, name := range names {
-		os.WriteFile(filepath.Join(dir, name+".yaml"), []byte("kind: Pipeline\nmetadata:\n  name: "+name+"\nsteps:\n  - id: s1\n    persona: nav\n"), 0644)
+		_ = os.WriteFile(filepath.Join(dir, name+".yaml"), []byte("kind: Pipeline\nmetadata:\n  name: "+name+"\nsteps:\n  - id: s1\n    persona: nav\n"), 0644)
 	}
 	return dir
 }
@@ -348,7 +348,7 @@ func TestStripForgePrefix(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"gh-implement", "implement"},  // stripForgePrefix strips gh- prefix
+		{"gh-implement", "implement"}, // stripForgePrefix strips gh- prefix
 		{"gl-debug", "debug"},
 		{"implement", "implement"},
 		{"bb-review", "review"},
@@ -369,8 +369,8 @@ func TestResolvePipeline(t *testing.T) {
 		base   string
 		want   string
 	}{
-		{"gh", "debug", "ops-debug"},     // taxonomy-prefixed preferred over forge-prefixed
-		{"gl", "debug", "ops-debug"},     // taxonomy-prefixed found, no gl-debug needed
+		{"gh", "debug", "ops-debug"},      // taxonomy-prefixed preferred over forge-prefixed
+		{"gl", "debug", "ops-debug"},      // taxonomy-prefixed found, no gl-debug needed
 		{"gh", "improve", "impl-improve"}, // taxonomy-prefixed resolved
 		{"gh", "nonexistent", ""},         // neither exists
 		{"", "debug", "ops-debug"},        // no forge prefix, taxonomy resolved

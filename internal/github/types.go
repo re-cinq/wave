@@ -7,22 +7,22 @@ import (
 
 // Issue represents a GitHub issue
 type Issue struct {
-	ID          int64      `json:"id"`
-	Number      int        `json:"number"`
-	State       string     `json:"state"`
-	Title       string     `json:"title"`
-	Body        string     `json:"body"`
-	User        *User      `json:"user"`
-	Labels      []*Label   `json:"labels"`
-	Assignees   []*User    `json:"assignees"`
-	Milestone   *Milestone `json:"milestone,omitempty"`
-	Comments    int        `json:"comments"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ClosedAt    *time.Time `json:"closed_at,omitempty"`
-	HTMLURL     string     `json:"html_url"`
-	RepositoryURL string   `json:"repository_url"`
-	PullRequest *struct {
+	ID            int64      `json:"id"`
+	Number        int        `json:"number"`
+	State         string     `json:"state"`
+	Title         string     `json:"title"`
+	Body          string     `json:"body"`
+	User          *User      `json:"user"`
+	Labels        []*Label   `json:"labels"`
+	Assignees     []*User    `json:"assignees"`
+	Milestone     *Milestone `json:"milestone,omitempty"`
+	Comments      int        `json:"comments"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+	ClosedAt      *time.Time `json:"closed_at,omitempty"`
+	HTMLURL       string     `json:"html_url"`
+	RepositoryURL string     `json:"repository_url"`
+	PullRequest   *struct {
 		URL     string `json:"url"`
 		HTMLURL string `json:"html_url"`
 	} `json:"pull_request,omitempty"`
@@ -76,30 +76,30 @@ type IssueComment struct {
 
 // PullRequest represents a GitHub pull request
 type PullRequest struct {
-	ID          int64      `json:"id"`
-	Number      int        `json:"number"`
-	State       string     `json:"state"`
-	Title       string     `json:"title"`
-	Body        string     `json:"body"`
-	User        *User      `json:"user"`
-	Labels      []*Label   `json:"labels"`
-	Assignees   []*User    `json:"assignees"`
-	Milestone   *Milestone `json:"milestone,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ClosedAt    *time.Time `json:"closed_at,omitempty"`
-	MergedAt    *time.Time `json:"merged_at,omitempty"`
-	Head        *GitRef    `json:"head"`
-	Base        *GitRef    `json:"base"`
+	ID           int64      `json:"id"`
+	Number       int        `json:"number"`
+	State        string     `json:"state"`
+	Title        string     `json:"title"`
+	Body         string     `json:"body"`
+	User         *User      `json:"user"`
+	Labels       []*Label   `json:"labels"`
+	Assignees    []*User    `json:"assignees"`
+	Milestone    *Milestone `json:"milestone,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+	ClosedAt     *time.Time `json:"closed_at,omitempty"`
+	MergedAt     *time.Time `json:"merged_at,omitempty"`
+	Head         *GitRef    `json:"head"`
+	Base         *GitRef    `json:"base"`
 	HTMLURL      string     `json:"html_url"`
 	Draft        bool       `json:"draft"`
 	Merged       bool       `json:"merged"`
 	Mergeable    *bool      `json:"mergeable,omitempty"`
-	Comments    int        `json:"comments"`
-	Commits     int        `json:"commits"`
-	Additions   int        `json:"additions"`
-	Deletions   int        `json:"deletions"`
-	ChangedFiles int       `json:"changed_files"`
+	Comments     int        `json:"comments"`
+	Commits      int        `json:"commits"`
+	Additions    int        `json:"additions"`
+	Deletions    int        `json:"deletions"`
+	ChangedFiles int        `json:"changed_files"`
 }
 
 // GitRef represents a git reference (branch/tag)
@@ -132,10 +132,10 @@ type Repository struct {
 
 // Reference represents a git reference
 type Reference struct {
-	Ref    string     `json:"ref"`
-	NodeID string     `json:"node_id"`
-	URL    string     `json:"url"`
-	Object RefObject  `json:"object"`
+	Ref    string    `json:"ref"`
+	NodeID string    `json:"node_id"`
+	URL    string    `json:"url"`
+	Object RefObject `json:"object"`
 }
 
 // RefObject represents the object a reference points to
@@ -177,26 +177,26 @@ type IssueUpdate struct {
 
 // CreatePullRequestRequest represents a request to create a pull request
 type CreatePullRequestRequest struct {
-	Title               string  `json:"title"`
-	Body                string  `json:"body,omitempty"`
-	Head                string  `json:"head"` // branch name
-	Base                string  `json:"base"` // target branch
-	MaintainerCanModify *bool   `json:"maintainer_can_modify,omitempty"`
-	Draft               *bool   `json:"draft,omitempty"`
+	Title               string `json:"title"`
+	Body                string `json:"body,omitempty"`
+	Head                string `json:"head"` // branch name
+	Base                string `json:"base"` // target branch
+	MaintainerCanModify *bool  `json:"maintainer_can_modify,omitempty"`
+	Draft               *bool  `json:"draft,omitempty"`
 }
 
 // PullRequestCommit represents a commit on a pull request.
 type PullRequestCommit struct {
-	SHA     string                   `json:"sha"`
-	Commit  PullRequestCommitDetail  `json:"commit"`
-	Author  *User                    `json:"author"`
-	HTMLURL string                   `json:"html_url"`
+	SHA     string                  `json:"sha"`
+	Commit  PullRequestCommitDetail `json:"commit"`
+	Author  *User                   `json:"author"`
+	HTMLURL string                  `json:"html_url"`
 }
 
 // PullRequestCommitDetail holds the nested commit object returned by the GitHub API.
 type PullRequestCommitDetail struct {
-	Message string                      `json:"message"`
-	Author  PullRequestCommitAuthor     `json:"author"`
+	Message string                  `json:"message"`
+	Author  PullRequestCommitAuthor `json:"author"`
 }
 
 // PullRequestCommitAuthor holds the author info inside a commit object.
@@ -208,10 +208,10 @@ type PullRequestCommitAuthor struct {
 
 // RateLimitStatus represents GitHub API rate limit information
 type RateLimitStatus struct {
-	Limit     int       `json:"limit"`
-	Remaining int       `json:"remaining"`
-	Reset     int64     `json:"reset"` // Unix timestamp
-	Used      int       `json:"used"`
+	Limit     int   `json:"limit"`
+	Remaining int   `json:"remaining"`
+	Reset     int64 `json:"reset"` // Unix timestamp
+	Used      int   `json:"used"`
 }
 
 // ResetTime returns the rate limit reset time

@@ -173,7 +173,7 @@ func TestPrepareChatWorkspace_DefaultModel(t *testing.T) {
 	}
 
 	var settings map[string]interface{}
-	json.Unmarshal(settingsData, &settings)
+	_ = json.Unmarshal(settingsData, &settings)
 
 	if model, ok := settings["model"].(string); !ok || model != "sonnet" {
 		t.Errorf("expected default model 'sonnet', got %v", settings["model"])

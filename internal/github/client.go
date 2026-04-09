@@ -23,11 +23,11 @@ const (
 
 // Client is a production-ready GitHub API client
 type Client struct {
-	baseURL    string
-	httpClient *http.Client
-	token      string
-	userAgent  string
-	maxRetries int
+	baseURL     string
+	httpClient  *http.Client
+	token       string
+	userAgent   string
+	maxRetries  int
 	rateLimiter *RateLimiter
 }
 

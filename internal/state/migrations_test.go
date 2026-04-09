@@ -27,7 +27,7 @@ func setupTestMigrationDB(t *testing.T) (*sql.DB, func()) {
 
 	cleanup := func() {
 		db.Close()
-		os.RemoveAll(tempDir)
+		_ = os.RemoveAll(tempDir)
 	}
 
 	return db, cleanup
@@ -352,7 +352,7 @@ func TestMigrationConfig_LoadFromEnv(t *testing.T) {
 			if value == "" {
 				os.Unsetenv(key)
 			} else {
-				os.Setenv(key, value)
+				_ = os.Setenv(key, value)
 			}
 		}
 	}()
@@ -398,7 +398,7 @@ func TestMigrationConfig_LoadFromEnv(t *testing.T) {
 
 			// Set test environment
 			for key, value := range tt.envVars {
-				os.Setenv(key, value)
+				_ = os.Setenv(key, value)
 			}
 
 			config := LoadMigrationConfigFromEnv()

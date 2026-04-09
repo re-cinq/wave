@@ -26,7 +26,7 @@ type MigrationConfig struct {
 func LoadMigrationConfigFromEnv() *MigrationConfig {
 	config := &MigrationConfig{
 		EnableMigrations:        true, // Default to enabled for new systems
-		AutoMigrate:            true, // Default to automatic migration
+		AutoMigrate:             true, // Default to automatic migration
 		SkipMigrationValidation: false,
 		MaxMigrationVersion:     0, // No limit
 	}

@@ -22,11 +22,11 @@ type ComposeListModel struct {
 	picking      bool
 	picker       *huh.Form
 	pickerTarget *string // heap-allocated target for huh form value binding
-	available   []PipelineInfo
-	validation  CompatibilityResult
-	confirming  bool // T026: inline confirmation for incompatible sequences
-	parallel    bool // When true, launch with --parallel flag
-	breaks      map[int]bool // Stage break after index i (entries above/below form separate stages)
+	available    []PipelineInfo
+	validation   CompatibilityResult
+	confirming   bool         // T026: inline confirmation for incompatible sequences
+	parallel     bool         // When true, launch with --parallel flag
+	breaks       map[int]bool // Stage break after index i (entries above/below form separate stages)
 }
 
 // NewComposeListModel creates a new compose list model. The initial pipeline

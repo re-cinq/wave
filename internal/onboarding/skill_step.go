@@ -4,13 +4,13 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"github.com/charmbracelet/huh"
+	"github.com/recinq/wave/internal/skill"
+	"github.com/recinq/wave/internal/timeouts"
+	"github.com/recinq/wave/internal/tui"
 	"os"
 	"os/exec"
 	"strings"
-	"github.com/charmbracelet/huh"
-	"github.com/recinq/wave/internal/timeouts"
-	"github.com/recinq/wave/internal/skill"
-	"github.com/recinq/wave/internal/tui"
 )
 
 // skillInstallTimeout is the maximum duration for skill installation operations.
@@ -33,12 +33,12 @@ type skillSearchResult struct {
 
 // EcosystemDef defines a skill ecosystem that can be selected during onboarding.
 type EcosystemDef struct {
-	Name        string            // Display name shown in the selection form
-	Value       string            // Value used in form selection
-	Prefix      string            // SourceRouter prefix for installation
+	Name        string              // Display name shown in the selection form
+	Value       string              // Value used in form selection
+	Prefix      string              // SourceRouter prefix for installation
 	Dep         skill.CLIDependency // CLI dependency required by this ecosystem
-	InstallAll  bool              // true if the ecosystem installs all skills at once
-	Description string            // Human-readable description
+	InstallAll  bool                // true if the ecosystem installs all skills at once
+	Description string              // Human-readable description
 }
 
 // ecosystems defines the available skill ecosystems for the onboarding wizard.

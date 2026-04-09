@@ -300,7 +300,7 @@ func TestInjectArtifacts_SkipsEmptyRefs(t *testing.T) {
 	}
 
 	workspacePath := filepath.Join(tmpDir, "ws")
-	os.MkdirAll(workspacePath, 0755)
+	_ = os.MkdirAll(workspacePath, 0755)
 
 	// Refs with empty fields should be skipped
 	refs := []ArtifactRef{
@@ -322,9 +322,9 @@ func TestCreateMount_EmptySourceOrTarget(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
-		source  string
-		target  string
+		name   string
+		source string
+		target string
 	}{
 		{"empty source", "", "/dst"},
 		{"empty target", tmpDir, ""},

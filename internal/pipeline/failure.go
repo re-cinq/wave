@@ -153,7 +153,7 @@ func classifyByMessage(msg string) string {
 
 // Regexp patterns for fingerprint normalization.
 var (
-	reTimestamp  = regexp.MustCompile(`\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.\d]*[Z]?`)
+	reTimestamp = regexp.MustCompile(`\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.\d]*[Z]?`)
 	reLineNum   = regexp.MustCompile(`:\d+:`)
 	reHexAddr   = regexp.MustCompile(`0x[0-9a-fA-F]+`)
 	reUUID      = regexp.MustCompile(`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`)

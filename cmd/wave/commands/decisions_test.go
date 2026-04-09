@@ -135,7 +135,7 @@ func executeDecisionsCmd(args ...string) (stdout, stderr string, err error) {
 	os.Stdout = oldStdout
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 
 	return buf.String(), errBuf.String(), err
 }
@@ -147,7 +147,7 @@ func TestDecisionsCmd_NoDatabase(t *testing.T) {
 	defer h.restore()
 
 	// Remove the database
-	os.RemoveAll(filepath.Join(h.tmpDir, ".wave"))
+	_ = os.RemoveAll(filepath.Join(h.tmpDir, ".wave"))
 
 	stdout, _, err := executeDecisionsCmd()
 	require.NoError(t, err)
@@ -410,7 +410,7 @@ func TestDecisionsCmd_NoDatabaseJSON(t *testing.T) {
 	h.chdir()
 	defer h.restore()
 
-	os.RemoveAll(filepath.Join(h.tmpDir, ".wave"))
+	_ = os.RemoveAll(filepath.Join(h.tmpDir, ".wave"))
 
 	stdout, _, err := executeDecisionsCmd("--format", "json")
 	require.NoError(t, err)

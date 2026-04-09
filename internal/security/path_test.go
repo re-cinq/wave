@@ -26,13 +26,13 @@ func TestValidatePath(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "valid relative path within approved dir",
-			path: ".wave/contracts/schema.json",
+			name:    "valid relative path within approved dir",
+			path:    ".wave/contracts/schema.json",
 			wantErr: false,
 		},
 		{
-			name: "valid relative path in schemas dir",
-			path: ".wave/schemas/output.json",
+			name:    "valid relative path in schemas dir",
+			path:    ".wave/schemas/output.json",
 			wantErr: false,
 		},
 		{

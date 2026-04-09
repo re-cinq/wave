@@ -69,7 +69,7 @@ func TestPrototypeSpecPhaseInitialization(t *testing.T) {
 			if err := os.Chdir("../.."); err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chdir(originalWd)
+			defer func() { _ = os.Chdir(originalWd) }()
 
 			// Create mock adapter for testing
 			mockAdapter := adapter.NewMockAdapter()
@@ -127,7 +127,7 @@ func TestPrototypeSpecPhaseArtifacts(t *testing.T) {
 	if err := os.Chdir("../.."); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() { _ = os.Chdir(originalWd) }()
 
 	mockAdapter := adapter.NewMockAdapter()
 	emitter := event.NewNDJSONEmitter()
@@ -207,8 +207,8 @@ func createPrototypeTestManifest() *manifest.Manifest {
 		},
 		Adapters: map[string]manifest.Adapter{
 			"claude": {
-				Binary:      "claude",
-				Mode:        "headless",
+				Binary:       "claude",
+				Mode:         "headless",
 				OutputFormat: "json",
 				DefaultPermissions: manifest.Permissions{
 					AllowedTools: []string{"Read", "Write", "Edit"},

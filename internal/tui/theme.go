@@ -11,10 +11,10 @@ func WaveTheme() *huh.Theme {
 	t := huh.ThemeBase()
 
 	var (
-		cyan    = lipgloss.Color("6")   // Wave primary — matches logo (standard cyan)
-		white   = lipgloss.Color("7")   // Primary text
-		muted   = lipgloss.Color("244") // Secondary/description text
-		red     = lipgloss.Color("1")   // Errors
+		cyan  = lipgloss.Color("6")   // Wave primary — matches logo (standard cyan)
+		white = lipgloss.Color("7")   // Primary text
+		muted = lipgloss.Color("244") // Secondary/description text
+		red   = lipgloss.Color("1")   // Errors
 	)
 
 	// Focused field styles.

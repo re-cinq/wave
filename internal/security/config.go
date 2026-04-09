@@ -83,7 +83,7 @@ func DefaultSecurityConfig() *SecurityConfig {
 				`(?i)override.*system`,
 			},
 			ContentSizeLimit: 1048576, // 1MB
-			MustPass:       true,
+			MustPass:         true,
 		},
 		PersonaValidation: PersonaValidationConfig{
 			ValidatePersonaReferences:  true,

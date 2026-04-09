@@ -32,8 +32,8 @@ This feature adds OAuth2 authentication to the application.
 		{
 			name: "title too short",
 			output: map[string]interface{}{
-				"title": "Add auth",
-				"body":  "Some body content that meets the minimum length requirement for validation",
+				"title":  "Add auth",
+				"body":   "Some body content that meets the minimum length requirement for validation",
 				"labels": []interface{}{"enhancement"},
 			},
 			wantError: true,
@@ -42,8 +42,8 @@ This feature adds OAuth2 authentication to the application.
 		{
 			name: "title with placeholder",
 			output: map[string]interface{}{
-				"title": "[TODO] Implement feature",
-				"body":  "Some body content that meets the minimum length requirement for validation",
+				"title":  "[TODO] Implement feature",
+				"body":   "Some body content that meets the minimum length requirement for validation",
 				"labels": []interface{}{"enhancement"},
 			},
 			wantError: true,
@@ -62,8 +62,8 @@ This feature adds OAuth2 authentication to the application.
 		{
 			name: "missing required sections",
 			output: map[string]interface{}{
-				"title": "feat: Add user authentication feature",
-				"body": "This is a body without the required sections but long enough to pass length check.",
+				"title":  "feat: Add user authentication feature",
+				"body":   "This is a body without the required sections but long enough to pass length check.",
 				"labels": []interface{}{"enhancement"},
 			},
 			wantError: true,
@@ -342,7 +342,7 @@ func TestFormatValidator_Validate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Test with GitHub issue format
 	issueData := map[string]interface{}{

@@ -465,10 +465,10 @@ func TestPersonaPermission_ArtifactCreationScenarios(t *testing.T) {
 	m := createTestManifestWithPersonas(t)
 
 	testCases := []struct {
-		personaName     string
-		artifactPath    string
-		shouldSucceed   bool
-		description     string
+		personaName   string
+		artifactPath  string
+		shouldSucceed bool
+		description   string
 	}{
 		// Implementer scenarios
 		{"implementer", ".wave/artifact.json", true, "implementer can create artifact.json"},
@@ -537,13 +537,13 @@ func TestPersonaPermission_ToolPatternParsing(t *testing.T) {
 
 	// Verify the pattern structure in reviewer permissions
 	expectedAllowPatterns := map[string]bool{
-		"Read":                true,
-		"Glob":                true,
-		"Grep":                true,
+		"Read":                       true,
+		"Glob":                       true,
+		"Grep":                       true,
 		"Write(.wave/artifact.json)": true,
 		"Write(.wave/artifacts/*)":   true,
-		"Bash(go test*)":       true,
-		"Bash(npm test*)":      true,
+		"Bash(go test*)":             true,
+		"Bash(npm test*)":            true,
 	}
 
 	for _, tool := range reviewer.Permissions.AllowedTools {

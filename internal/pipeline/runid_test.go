@@ -71,9 +71,9 @@ func TestGenerateRunID_Uniqueness(t *testing.T) {
 
 func TestGenerateRunID_PreservesName(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		wantPfx  string
+		name    string
+		input   string
+		wantPfx string
 	}{
 		{"simple name", "my-pipeline", "my-pipeline-"},
 		{"dashes in name", "github-issue-enhancer", "github-issue-enhancer-"},

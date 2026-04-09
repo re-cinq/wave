@@ -127,7 +127,7 @@ func TestCreateExistingBranch(t *testing.T) {
 	}
 
 	// Cleanup
-	mgr.Remove(worktreePath)
+	_ = mgr.Remove(worktreePath)
 }
 
 func TestCreateWithBase(t *testing.T) {
@@ -164,7 +164,7 @@ func TestCreateWithBase(t *testing.T) {
 	}
 
 	// Cleanup
-	mgr.Remove(worktreePath)
+	_ = mgr.Remove(worktreePath)
 }
 
 func TestCreateDetachedWithBase(t *testing.T) {
@@ -231,7 +231,7 @@ func TestCreateDetachedWithBase(t *testing.T) {
 	}
 
 	// Cleanup
-	mgr.Remove(worktreePath)
+	_ = mgr.Remove(worktreePath)
 }
 
 func TestCreate_EmptyPath(t *testing.T) {
@@ -330,6 +330,6 @@ func TestConcurrentWorktreeCreation(t *testing.T) {
 
 	// Cleanup
 	for _, p := range paths {
-		mgr.Remove(p)
+		_ = mgr.Remove(p)
 	}
 }
