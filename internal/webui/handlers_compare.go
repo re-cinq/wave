@@ -21,9 +21,9 @@ type CompareStepRow struct {
 	RightTokens   int    `json:"right_tokens"`
 	DeltaDuration string `json:"delta_duration"` // e.g. "+12s", "-3m 10s"
 	DeltaTokens   string `json:"delta_tokens"`   // e.g. "+1.2k", "-500"
-	DurationClass string `json:"duration_class"`  // "compare-improvement", "compare-regression", or ""
-	TokensClass   string `json:"tokens_class"`    // "compare-improvement", "compare-regression", or ""
-	StateDiff     bool   `json:"state_diff"`      // true if left and right have different terminal states
+	DurationClass string `json:"duration_class"` // "compare-improvement", "compare-regression", or ""
+	TokensClass   string `json:"tokens_class"`   // "compare-improvement", "compare-regression", or ""
+	StateDiff     bool   `json:"state_diff"`     // true if left and right have different terminal states
 }
 
 // CompareResponse is the JSON response for the compare API.

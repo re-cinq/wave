@@ -11,11 +11,11 @@ import (
 
 func TestProgressBar(t *testing.T) {
 	tests := []struct {
-		name     string
-		total    int
-		current  int
-		width    int
-		wantLen  int // Approximate length (may vary with unicode)
+		name    string
+		total   int
+		current int
+		width   int
+		wantLen int // Approximate length (may vary with unicode)
 	}{
 		{
 			name:    "empty progress",
@@ -191,7 +191,7 @@ func TestBasicProgressDisplay(t *testing.T) {
 	// Create test events
 	events := []event.Event{
 		{
-			Timestamp: time.Now(),
+			Timestamp:  time.Now(),
 			PipelineID: "test-pipeline",
 			StepID:     "step1",
 			State:      "started",
@@ -389,7 +389,7 @@ func TestBasicProgressDisplay_HandoverMetadata_VerboseMode(t *testing.T) {
 	now := time.Now()
 
 	// Emit a started event (to track step order)
-	bpd.EmitProgress(event.Event{
+	_ = bpd.EmitProgress(event.Event{
 		Timestamp:  now,
 		PipelineID: "test-pipeline",
 		StepID:     "analyst",
@@ -398,7 +398,7 @@ func TestBasicProgressDisplay_HandoverMetadata_VerboseMode(t *testing.T) {
 	})
 
 	// Emit a second step started (to track as next step)
-	bpd.EmitProgress(event.Event{
+	_ = bpd.EmitProgress(event.Event{
 		Timestamp:  now,
 		PipelineID: "test-pipeline",
 		StepID:     "implementer",
@@ -407,7 +407,7 @@ func TestBasicProgressDisplay_HandoverMetadata_VerboseMode(t *testing.T) {
 	})
 
 	// Emit validating event (to capture contract schema)
-	bpd.EmitProgress(event.Event{
+	_ = bpd.EmitProgress(event.Event{
 		Timestamp:       now,
 		PipelineID:      "test-pipeline",
 		StepID:          "analyst",
@@ -416,7 +416,7 @@ func TestBasicProgressDisplay_HandoverMetadata_VerboseMode(t *testing.T) {
 	})
 
 	// Emit contract_passed event
-	bpd.EmitProgress(event.Event{
+	_ = bpd.EmitProgress(event.Event{
 		Timestamp:  now,
 		PipelineID: "test-pipeline",
 		StepID:     "analyst",
@@ -427,7 +427,7 @@ func TestBasicProgressDisplay_HandoverMetadata_VerboseMode(t *testing.T) {
 	buf.Reset()
 
 	// Emit completed event with artifacts
-	bpd.EmitProgress(event.Event{
+	_ = bpd.EmitProgress(event.Event{
 		Timestamp:  now,
 		PipelineID: "test-pipeline",
 		StepID:     "analyst",
@@ -476,7 +476,7 @@ func TestBasicProgressDisplay_HandoverMetadata_NonVerboseMode(t *testing.T) {
 	now := time.Now()
 
 	// Emit started event
-	bpd.EmitProgress(event.Event{
+	_ = bpd.EmitProgress(event.Event{
 		Timestamp:  now,
 		PipelineID: "test-pipeline",
 		StepID:     "analyst",
@@ -485,7 +485,7 @@ func TestBasicProgressDisplay_HandoverMetadata_NonVerboseMode(t *testing.T) {
 	})
 
 	// Emit validating event
-	bpd.EmitProgress(event.Event{
+	_ = bpd.EmitProgress(event.Event{
 		Timestamp:       now,
 		PipelineID:      "test-pipeline",
 		StepID:          "analyst",
@@ -494,7 +494,7 @@ func TestBasicProgressDisplay_HandoverMetadata_NonVerboseMode(t *testing.T) {
 	})
 
 	// Emit contract_passed event
-	bpd.EmitProgress(event.Event{
+	_ = bpd.EmitProgress(event.Event{
 		Timestamp:  now,
 		PipelineID: "test-pipeline",
 		StepID:     "analyst",
@@ -504,7 +504,7 @@ func TestBasicProgressDisplay_HandoverMetadata_NonVerboseMode(t *testing.T) {
 	buf.Reset()
 
 	// Emit completed event
-	bpd.EmitProgress(event.Event{
+	_ = bpd.EmitProgress(event.Event{
 		Timestamp:  now,
 		PipelineID: "test-pipeline",
 		StepID:     "analyst",
@@ -541,7 +541,7 @@ func TestBasicProgressDisplay_HandoverMetadata_FailedContract(t *testing.T) {
 	now := time.Now()
 
 	// Emit started event
-	bpd.EmitProgress(event.Event{
+	_ = bpd.EmitProgress(event.Event{
 		Timestamp:  now,
 		PipelineID: "test-pipeline",
 		StepID:     "analyst",
@@ -550,7 +550,7 @@ func TestBasicProgressDisplay_HandoverMetadata_FailedContract(t *testing.T) {
 	})
 
 	// Emit validating event
-	bpd.EmitProgress(event.Event{
+	_ = bpd.EmitProgress(event.Event{
 		Timestamp:       now,
 		PipelineID:      "test-pipeline",
 		StepID:          "analyst",
@@ -559,7 +559,7 @@ func TestBasicProgressDisplay_HandoverMetadata_FailedContract(t *testing.T) {
 	})
 
 	// Emit contract_failed event
-	bpd.EmitProgress(event.Event{
+	_ = bpd.EmitProgress(event.Event{
 		Timestamp:  now,
 		PipelineID: "test-pipeline",
 		StepID:     "analyst",
@@ -570,7 +570,7 @@ func TestBasicProgressDisplay_HandoverMetadata_FailedContract(t *testing.T) {
 	buf.Reset()
 
 	// Emit completed event
-	bpd.EmitProgress(event.Event{
+	_ = bpd.EmitProgress(event.Event{
 		Timestamp:  now,
 		PipelineID: "test-pipeline",
 		StepID:     "analyst",
@@ -631,9 +631,9 @@ func TestBasicProgressDisplay_BuildHandoverLines(t *testing.T) {
 			wantLast:  "└─",
 		},
 		{
-			name:   "empty info",
-			stepID: "step1",
-			info:   &HandoverInfo{},
+			name:      "empty info",
+			stepID:    "step1",
+			info:      &HandoverInfo{},
 			wantLines: 1, // only handover target (derived from step order)
 			wantLast:  "└─",
 		},
@@ -660,10 +660,10 @@ func TestBasicProgressDisplay_HandoverLineFormat(t *testing.T) {
 	bpd.stepOrder = []string{"analyst", "implementer", "reviewer"}
 
 	tests := []struct {
-		name           string
-		stepID         string
-		targetStep     string
-		wantHandover   string
+		name         string
+		stepID       string
+		targetStep   string
+		wantHandover string
 	}{
 		{
 			name:         "explicit target step",
@@ -691,18 +691,18 @@ func TestBasicProgressDisplay_HandoverLineFormat(t *testing.T) {
 				TargetStep: tt.targetStep,
 			}
 			lines := bpd.buildHandoverLines(tt.stepID, info)
-			
+
 			// Should have exactly one line (the handover line)
 			if len(lines) != 1 {
 				t.Fatalf("expected 1 line, got %d: %v", len(lines), lines)
 			}
-			
+
 			// Check if the handover line contains the expected format
 			handoverLine := lines[0]
 			if !strings.Contains(handoverLine, tt.wantHandover) {
 				t.Errorf("handover line should contain %q, got: %s", tt.wantHandover, handoverLine)
 			}
-			
+
 			// Verify it has the tree connector
 			if !strings.HasPrefix(handoverLine, "└─") {
 				t.Errorf("handover line should start with tree connector, got: %s", handoverLine)

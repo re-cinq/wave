@@ -38,30 +38,30 @@ const (
 
 // Server is the HTTP server for the Wave dashboard.
 type Server struct {
-	httpServer  *http.Server
-	store       state.StateStore
-	rwStore     state.StateStore // read-write store for execution control
-	manifest    *manifest.Manifest
-	templates   map[string]*template.Template
-	broker      *SSEBroker
-	wsManager   workspace.WorkspaceManager
-	forgeClient forge.Client
-	repoSlug    string // "owner/repo"
-	repoDir     string // git repository root directory
-	bind        string
-	port        int
-	token       string
-	authMode    AuthMode
-	jwtSecret   string
-	scheduler    *Scheduler
-	gateRegistry *GateRegistry
+	httpServer        *http.Server
+	store             state.StateStore
+	rwStore           state.StateStore // read-write store for execution control
+	manifest          *manifest.Manifest
+	templates         map[string]*template.Template
+	broker            *SSEBroker
+	wsManager         workspace.WorkspaceManager
+	forgeClient       forge.Client
+	repoSlug          string // "owner/repo"
+	repoDir           string // git repository root directory
+	bind              string
+	port              int
+	token             string
+	authMode          AuthMode
+	jwtSecret         string
+	scheduler         *Scheduler
+	gateRegistry      *GateRegistry
 	activeRuns        map[string]context.CancelFunc // runID -> cancel
 	disabledPipelines map[string]bool               // pipeline name -> disabled
 	mu                sync.Mutex
-	tlsCert      string
-	tlsKey       string
-	tlsCA        string
-	csrfToken    string
+	tlsCert           string
+	tlsKey            string
+	tlsCA             string
+	csrfToken         string
 }
 
 // ServerConfig holds configuration for the dashboard server.
@@ -146,28 +146,28 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	}
 
 	s := &Server{
-		store:       roStore,
-		rwStore:     rwStore,
-		manifest:    cfg.Manifest,
-		templates:   tmpl,
-		broker:      NewSSEBroker(),
-		wsManager:   wsManager,
-		forgeClient: forgeClient,
-		repoSlug:    repoSlug,
-		repoDir:     repoDir,
-		bind:        cfg.Bind,
-		port:        cfg.Port,
-		token:       cfg.Token,
-		authMode:    authMode,
-		jwtSecret:   cfg.JWTSecret,
-		scheduler:    NewScheduler(cfg.MaxConcurrent),
-		gateRegistry: NewGateRegistry(),
+		store:             roStore,
+		rwStore:           rwStore,
+		manifest:          cfg.Manifest,
+		templates:         tmpl,
+		broker:            NewSSEBroker(),
+		wsManager:         wsManager,
+		forgeClient:       forgeClient,
+		repoSlug:          repoSlug,
+		repoDir:           repoDir,
+		bind:              cfg.Bind,
+		port:              cfg.Port,
+		token:             cfg.Token,
+		authMode:          authMode,
+		jwtSecret:         cfg.JWTSecret,
+		scheduler:         NewScheduler(cfg.MaxConcurrent),
+		gateRegistry:      NewGateRegistry(),
 		activeRuns:        make(map[string]context.CancelFunc),
 		disabledPipelines: make(map[string]bool),
-		tlsCert:     cfg.TLSCert,
-		tlsKey:      cfg.TLSKey,
-		tlsCA:       cfg.TLSCA,
-		csrfToken:   csrfToken,
+		tlsCert:           cfg.TLSCert,
+		tlsKey:            cfg.TLSKey,
+		tlsCA:             cfg.TLSCA,
+		csrfToken:         csrfToken,
 	}
 
 	mux := http.NewServeMux()

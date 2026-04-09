@@ -144,7 +144,7 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 		case <-stdoutDone:
 		case <-time.After(drainTimeout):
 		}
-		cmd.Wait()
+		_ = cmd.Wait()
 
 		// Parse buffered output for token usage and subtype even on timeout
 		parsed := a.parseOutput(stdoutBuf.Bytes())
@@ -405,8 +405,8 @@ func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 // parseOutputResult holds the parsed output data from NDJSON stream.
 type parseOutputResult struct {
 	Tokens        int
-	TokensIn      int      // Input tokens (prompt + cache creation)
-	TokensOut     int      // Output tokens (completion)
+	TokensIn      int // Input tokens (prompt + cache creation)
+	TokensOut     int // Output tokens (completion)
 	Artifacts     []string
 	ResultContent string
 	Subtype       string // Result event subtype: "success", "error_max_turns", "error_during_execution"
@@ -518,7 +518,7 @@ func parseStreamLine(line []byte) (StreamEvent, bool) {
 
 	var eventType string
 	if raw, ok := obj["type"]; ok {
-		json.Unmarshal(raw, &eventType)
+		_ = json.Unmarshal(raw, &eventType)
 	}
 
 	switch eventType {
@@ -539,11 +539,11 @@ func parseStreamLine(line []byte) (StreamEvent, bool) {
 			CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
 		}
 		if raw, ok := obj["usage"]; ok {
-			json.Unmarshal(raw, &usage)
+			_ = json.Unmarshal(raw, &usage)
 		}
 		var subtype string
 		if raw, ok := obj["subtype"]; ok {
-			json.Unmarshal(raw, &subtype)
+			_ = json.Unmarshal(raw, &subtype)
 		}
 		return StreamEvent{
 			Type:      "result",
@@ -734,7 +734,6 @@ func ExtractJSONFromMarkdown(content string) string {
 	return jsonStr
 }
 
-
 // shelljoinArgs formats command arguments for debug logging, quoting any
 // argument that contains shell metacharacters or whitespace so the logged
 // command line is copy-pasteable and not misleading.
@@ -919,4 +918,3 @@ func PersonaToAgentMarkdown(persona PersonaSpec, baseProtocol, ontologySection, 
 
 	return b.String()
 }
-

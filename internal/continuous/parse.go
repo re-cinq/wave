@@ -30,13 +30,13 @@ func ParseSourceURI(uri string) (*SourceConfig, error) {
 		return &SourceConfig{
 			Provider: provider,
 			Params:   params,
-			}, nil
+		}, nil
 	case "file":
 		// For file sources, the entire params section is the path
 		return &SourceConfig{
 			Provider: provider,
 			Params:   map[string]string{"path": rawParams},
-			}, nil
+		}, nil
 	default:
 		return nil, fmt.Errorf("unknown source provider %q: supported providers are github, file", provider)
 	}

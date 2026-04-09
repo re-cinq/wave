@@ -165,7 +165,7 @@ func TestDashboard_Clear(t *testing.T) {
 	}
 
 	// Render then clear
-	dashboard.Render(ctx)
+	_ = dashboard.Render(ctx)
 	dashboard.Clear()
 
 	// Verify lastLines is reset

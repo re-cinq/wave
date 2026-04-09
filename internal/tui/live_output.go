@@ -433,7 +433,6 @@ func (m *LiveOutputModel) updateViewportContent() {
 	}
 }
 
-
 // rebuildBuffer clears and rebuilds the display buffer from raw events using current flags.
 func (m *LiveOutputModel) rebuildBuffer() {
 	m.buffer.head = 0

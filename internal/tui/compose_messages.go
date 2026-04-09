@@ -16,8 +16,8 @@ type ComposeSequenceChangedMsg struct {
 // ComposeStartMsg signals that the user wants to start the sequence.
 type ComposeStartMsg struct {
 	Sequence Sequence
-	Parallel bool     // When true, launch via `wave compose --parallel`
-	Stages   [][]int  // Stage boundaries — each group of indices runs in parallel
+	Parallel bool    // When true, launch via `wave compose --parallel`
+	Stages   [][]int // Stage boundaries — each group of indices runs in parallel
 }
 
 // ComposeCancelMsg signals that compose mode should close.

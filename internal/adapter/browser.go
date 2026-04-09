@@ -17,7 +17,7 @@ import (
 
 // BrowserCommand represents a single browser action with parameters.
 type BrowserCommand struct {
-	Action    string `json:"action"`              // navigate, screenshot, get_text, get_html, click, type
+	Action    string `json:"action"`               // navigate, screenshot, get_text, get_html, click, type
 	URL       string `json:"url,omitempty"`        // For navigate
 	Selector  string `json:"selector,omitempty"`   // CSS selector for click, type, get_text, get_html
 	Value     string `json:"value,omitempty"`      // Text value for type action
@@ -28,10 +28,10 @@ type BrowserCommand struct {
 
 // BrowserResult is the structured response from a browser command.
 type BrowserResult struct {
-	Status     string         `json:"status"`               // "success" or "error"
-	Data       map[string]any `json:"data,omitempty"`       // Command-specific output
-	Error      string         `json:"error,omitempty"`      // Error message if status is "error"
-	DurationMs int64          `json:"duration_ms"`          // Command execution time
+	Status     string         `json:"status"`          // "success" or "error"
+	Data       map[string]any `json:"data,omitempty"`  // Command-specific output
+	Error      string         `json:"error,omitempty"` // Error message if status is "error"
+	DurationMs int64          `json:"duration_ms"`     // Command execution time
 }
 
 // BrowserConfig holds browser-specific configuration.

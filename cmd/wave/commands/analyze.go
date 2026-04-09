@@ -19,11 +19,11 @@ import (
 
 // AnalyzeResult holds the output of the analyze command.
 type AnalyzeResult struct {
-	Telos          string                  `json:"telos,omitempty"`
-	Contexts       []AnalyzeContext        `json:"contexts"`
-	Conventions    map[string]string       `json:"conventions,omitempty"`
-	SkillsWritten  []string                `json:"skills_written,omitempty"`
-	Profile        *doctor.ProjectProfile  `json:"profile,omitempty"`
+	Telos         string                 `json:"telos,omitempty"`
+	Contexts      []AnalyzeContext       `json:"contexts"`
+	Conventions   map[string]string      `json:"conventions,omitempty"`
+	SkillsWritten []string               `json:"skills_written,omitempty"`
+	Profile       *doctor.ProjectProfile `json:"profile,omitempty"`
 }
 
 // AnalyzeContext represents a single bounded context with detected metadata.
@@ -584,10 +584,10 @@ type deepAnalysisResult struct {
 }
 
 type deepContextResult struct {
-	Name            string   `json:"name"`
-	Description     string   `json:"description"`
-	Invariants      []string `json:"invariants"`
-	KeyDecisions    []string `json:"key_decisions"`
+	Name             string   `json:"name"`
+	Description      string   `json:"description"`
+	Invariants       []string `json:"invariants"`
+	KeyDecisions     []string `json:"key_decisions"`
 	DomainVocabulary []struct {
 		Term    string `json:"term"`
 		Meaning string `json:"meaning"`
@@ -709,10 +709,10 @@ Write the JSON to .wave/output/deep-analysis.json`, m.Ontology.Telos, contextLis
 		Prompt:        prompt,
 		SystemPrompt:  "You are a codebase analysis specialist. Extract domain knowledge from code structure, tests, and documentation. Output structured JSON.",
 		// No timeout — deep analysis scales with codebase size
-		Model:         persona.Model,
-		AllowedTools:  []string{"Read", "Glob", "Grep", "Bash(git log*)"},
-		DenyTools:     []string{"Write", "Edit", "Bash(rm*)", "Bash(mv*)"},
-		OutputFormat:  adapterDef.OutputFormat,
+		Model:        persona.Model,
+		AllowedTools: []string{"Read", "Glob", "Grep", "Bash(git log*)"},
+		DenyTools:    []string{"Write", "Edit", "Bash(rm*)", "Bash(mv*)"},
+		OutputFormat: adapterDef.OutputFormat,
 	}
 
 	// Run the adapter
@@ -767,7 +767,7 @@ Write the JSON to .wave/output/deep-analysis.json`, m.Ontology.Telos, contextLis
 	}
 
 	// Remove staleness sentinel after deep refresh
-	os.Remove(".wave/.ontology-stale")
+	_ = os.Remove(".wave/.ontology-stale")
 
 	fmt.Fprintf(os.Stderr, "\n  Deep analysis complete. Review the generated skills before committing.\n")
 	return nil

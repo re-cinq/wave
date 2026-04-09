@@ -49,7 +49,7 @@ func (t *ThrottledProgressEmitter) EmitProgress(evt event.Event) error {
 			pending := t.pendingStreamActivity
 			t.pendingStreamActivity = nil
 			if t.inner != nil {
-				t.inner.EmitProgress(*pending)
+				_ = t.inner.EmitProgress(*pending)
 			}
 		}
 		if t.inner != nil {

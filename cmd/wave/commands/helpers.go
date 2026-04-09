@@ -92,7 +92,6 @@ func formatElapsed(d time.Duration) string {
 	return fmt.Sprintf("%dm%ds", minutes, seconds)
 }
 
-
 // checkOnboarding verifies that onboarding has been completed.
 // It returns an error if onboarding is incomplete, directing the user to run 'wave init'.
 // Existing projects that have a wave.yaml but no .onboarded marker are grandfathered in.

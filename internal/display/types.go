@@ -205,14 +205,14 @@ type PipelineContext struct {
 	CurrentStepName string
 
 	// Timing information
-	PipelineStartTime int64  // Unix nanoseconds
-	CurrentStepStart  int64  // Unix nanoseconds
-	AverageStepTimeMs int64  // Average time per completed step
-	ElapsedTimeMs     int64  // Total elapsed time since pipeline start
+	PipelineStartTime int64 // Unix nanoseconds
+	CurrentStepStart  int64 // Unix nanoseconds
+	AverageStepTimeMs int64 // Average time per completed step
+	ElapsedTimeMs     int64 // Total elapsed time since pipeline start
 
 	// Step status mapping
 	StepStatuses map[string]ProgressState // stepID -> state
-	StepOrder    []string                  // Ordered list of step IDs
+	StepOrder    []string                 // Ordered list of step IDs
 
 	// Step durations in milliseconds
 	StepDurations map[string]int64 // stepID -> duration in ms

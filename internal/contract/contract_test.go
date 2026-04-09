@@ -11,8 +11,8 @@ import (
 func writeTestArtifact(t *testing.T, workspacePath string, data []byte) {
 	t.Helper()
 	waveDir := filepath.Join(workspacePath, ".wave")
-	os.MkdirAll(waveDir, 0755)
-	os.WriteFile(filepath.Join(waveDir, "artifact.json"), data, 0644)
+	_ = os.MkdirAll(waveDir, 0755)
+	_ = os.WriteFile(filepath.Join(waveDir, "artifact.json"), data, 0644)
 }
 
 func TestJSONSchemaValidator_Valid(t *testing.T) {
@@ -63,17 +63,17 @@ func TestJSONSchemaValidator_MissingSchema(t *testing.T) {
 // T072: Test for JSON schema validation failure with detailed error messages
 func TestJSONSchemaValidator_ValidationFailure_TableDriven(t *testing.T) {
 	tests := []struct {
-		name           string
-		schema         string
-		artifact       string
-		expectError    bool
-		errorContains  string
+		name          string
+		schema        string
+		artifact      string
+		expectError   bool
+		errorContains string
 	}{
 		{
-			name:          "valid object",
-			schema:        `{"type": "object", "properties": {"name": {"type": "string"}, "age": {"type": "integer"}}, "required": ["name"]}`,
-			artifact:      `{"name": "Alice", "age": 30}`,
-			expectError:   false,
+			name:        "valid object",
+			schema:      `{"type": "object", "properties": {"name": {"type": "string"}, "age": {"type": "integer"}}, "required": ["name"]}`,
+			artifact:    `{"name": "Alice", "age": 30}`,
+			expectError: false,
 		},
 		{
 			name:          "wrong type for string field",
@@ -111,10 +111,10 @@ func TestJSONSchemaValidator_ValidationFailure_TableDriven(t *testing.T) {
 			errorContains: "contract validation failed",
 		},
 		{
-			name:          "nested object validation",
-			schema:        `{"type": "object", "properties": {"user": {"type": "object", "properties": {"email": {"type": "string", "format": "email"}}}}}`,
-			artifact:      `{"user": {"email": "valid@example.com"}}`,
-			expectError:   false,
+			name:        "nested object validation",
+			schema:      `{"type": "object", "properties": {"user": {"type": "object", "properties": {"email": {"type": "string", "format": "email"}}}}}`,
+			artifact:    `{"user": {"email": "valid@example.com"}}`,
+			expectError: false,
 		},
 		{
 			name:          "additional properties not allowed",
@@ -217,7 +217,7 @@ func TestTypeScriptValidator_MissingFile(t *testing.T) {
 	cfg := ContractConfig{
 		Type:       "typescript_interface",
 		SchemaPath: "/nonexistent/file.ts",
-		MustPass: true, // Enable must_pass to get error for missing file even if tsc unavailable
+		MustPass:   true, // Enable must_pass to get error for missing file even if tsc unavailable
 	}
 	workspacePath := t.TempDir()
 
@@ -249,7 +249,7 @@ func TestTypeScriptValidator_GracefulDegradation(t *testing.T) {
 	cfg := ContractConfig{
 		Type:       "typescript_interface",
 		SchemaPath: "/nonexistent/file.ts",
-		MustPass: false,
+		MustPass:   false,
 	}
 	workspacePath := t.TempDir()
 
@@ -333,28 +333,28 @@ func TestTestSuiteValidator_CommandFailure(t *testing.T) {
 // T075: Test for max_retries exhaustion
 func TestValidateWithRetries_MaxRetriesExhausted(t *testing.T) {
 	tests := []struct {
-		name       string
-		maxRetries int
+		name         string
+		maxRetries   int
 		wantAttempts int
 	}{
 		{
-			name:       "single retry",
-			maxRetries: 1,
+			name:         "single retry",
+			maxRetries:   1,
 			wantAttempts: 1,
 		},
 		{
-			name:       "three retries",
-			maxRetries: 3,
+			name:         "three retries",
+			maxRetries:   3,
 			wantAttempts: 3,
 		},
 		{
-			name:       "five retries",
-			maxRetries: 5,
+			name:         "five retries",
+			maxRetries:   5,
 			wantAttempts: 5,
 		},
 		{
-			name:       "zero defaults to one",
-			maxRetries: 0,
+			name:         "zero defaults to one",
+			maxRetries:   0,
 			wantAttempts: 1,
 		},
 	}
@@ -528,8 +528,8 @@ func TestValidate_AllTypes(t *testing.T) {
 			},
 			setupArtifact: func(workspacePath string) {
 				waveDir := filepath.Join(workspacePath, ".wave")
-				os.MkdirAll(waveDir, 0755)
-				os.WriteFile(filepath.Join(waveDir, "artifact.json"), []byte(`{"value": 42}`), 0644)
+				_ = os.MkdirAll(waveDir, 0755)
+				_ = os.WriteFile(filepath.Join(waveDir, "artifact.json"), []byte(`{"value": 42}`), 0644)
 			},
 			expectError: false,
 		},
@@ -541,8 +541,8 @@ func TestValidate_AllTypes(t *testing.T) {
 			},
 			setupArtifact: func(workspacePath string) {
 				waveDir := filepath.Join(workspacePath, ".wave")
-				os.MkdirAll(waveDir, 0755)
-				os.WriteFile(filepath.Join(waveDir, "artifact.json"), []byte(`{"value": "not a number"}`), 0644)
+				_ = os.MkdirAll(waveDir, 0755)
+				_ = os.WriteFile(filepath.Join(waveDir, "artifact.json"), []byte(`{"value": "not a number"}`), 0644)
 			},
 			expectError: true,
 		},

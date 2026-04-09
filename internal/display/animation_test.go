@@ -162,4 +162,3 @@ func TestGetAnimationFrames(t *testing.T) {
 		})
 	}
 }
-

@@ -95,7 +95,7 @@ func runSubprocess(
 		case <-stdoutDone:
 		case <-time.After(drainTimeout):
 		}
-		cmd.Wait()
+		_ = cmd.Wait()
 
 		parsed := parseOut(stdoutBuf.Bytes())
 		reason := ClassifyFailure(parsed.Subtype, parsed.ResultContent, ctx.Err())

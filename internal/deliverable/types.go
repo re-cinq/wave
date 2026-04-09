@@ -201,6 +201,7 @@ func NewContractDeliverable(stepID, name, contractPath, description string) *Del
 		CreatedAt:   time.Now(),
 	}
 }
+
 // NewBranchDeliverable creates a branch deliverable for tracking git branch creation
 func NewBranchDeliverable(stepID, branchName, worktreePath, description string) *Deliverable {
 	return &Deliverable{

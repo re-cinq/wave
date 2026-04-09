@@ -4,15 +4,15 @@ import "testing"
 
 func TestBuildRecoveryBlock(t *testing.T) {
 	tests := []struct {
-		name           string
-		pipelineName   string
-		input          string
-		stepID         string
-		runID          string
-		errClass       ErrorClass
-		wantHintTypes  []HintType
-		wantNoTypes    []HintType
-		wantWorkspace  string
+		name          string
+		pipelineName  string
+		input         string
+		stepID        string
+		runID         string
+		errClass      ErrorClass
+		wantHintTypes []HintType
+		wantNoTypes   []HintType
+		wantWorkspace string
 	}{
 		{
 			name:          "runtime error produces resume, workspace, debug",
@@ -85,11 +85,11 @@ func TestBuildRecoveryBlock(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			block := BuildRecoveryBlock(RecoveryBlockOpts{
-				PipelineName:  tt.pipelineName,
-				Input:         tt.input,
-				StepID:        tt.stepID,
-				RunID:         tt.runID,
-				ErrClass:      tt.errClass,
+				PipelineName: tt.pipelineName,
+				Input:        tt.input,
+				StepID:       tt.stepID,
+				RunID:        tt.runID,
+				ErrClass:     tt.errClass,
 			})
 
 			if block.PipelineName != tt.pipelineName {
@@ -228,12 +228,12 @@ func TestBuildRecoveryBlock_EmptyStepID(t *testing.T) {
 func TestBuildRecoveryBlock_PreflightNoDoubleSlash(t *testing.T) {
 	// Preflight failures typically have empty stepID, verify no double slash
 	tests := []struct {
-		name             string
-		pipelineName     string
-		runID            string
-		stepID           string
-		workspaceRoot    string
-		expectedPath     string
+		name          string
+		pipelineName  string
+		runID         string
+		stepID        string
+		workspaceRoot string
+		expectedPath  string
 	}{
 		{
 			name:          "preflight with empty stepID and default workspace root",

@@ -8,10 +8,10 @@ import (
 func TestParse(t *testing.T) {
 	t.Run("valid scopes", func(t *testing.T) {
 		tests := []struct {
-			name       string
-			input      string
-			wantScope  TokenScope
-			wantWarns  int
+			name      string
+			input     string
+			wantScope TokenScope
+			wantWarns int
 		}{
 			{
 				name:  "issues:read",

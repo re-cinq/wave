@@ -815,7 +815,6 @@ func renderRunningInfo(name string, input string, startedAt time.Time, width int
 	return sb.String()
 }
 
-
 // toAbsPath converts a relative path to an absolute path.
 // Already-absolute paths are returned unchanged.
 func toAbsPath(p string) string {

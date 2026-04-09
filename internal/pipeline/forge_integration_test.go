@@ -190,11 +190,11 @@ func TestForgeIntegration_SourcePathResolution(t *testing.T) {
 // forge variables correctly for all forge types using synthetic ForgeInfo.
 func TestForgeIntegration_FullExecutorFlow(t *testing.T) {
 	tests := []struct {
-		name       string
-		info       forge.ForgeInfo
-		wantCLI    string
-		wantPR     string
-		wantType   string
+		name     string
+		info     forge.ForgeInfo
+		wantCLI  string
+		wantPR   string
+		wantType string
 	}{
 		{
 			name:     "GitHub",

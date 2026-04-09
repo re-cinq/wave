@@ -1538,7 +1538,7 @@ func runReconfigure(cmd *cobra.Command, opts InitOptions) error {
 	}
 
 	// Clear onboarding state so the wizard runs fresh
-	onboarding.ClearOnboarding(".wave")
+	_ = onboarding.ClearOnboarding(".wave")
 
 	interactive := !opts.Yes && isInitInteractive()
 
@@ -1597,7 +1597,7 @@ func removeDeselectedPipelines(pipelinesDir string, selected []string) error {
 			continue // not a .yaml file
 		}
 		if !keep[name] {
-			os.Remove(filepath.Join(pipelinesDir, e.Name()))
+			_ = os.Remove(filepath.Join(pipelinesDir, e.Name()))
 		}
 	}
 	return nil

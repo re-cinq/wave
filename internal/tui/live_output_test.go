@@ -315,7 +315,7 @@ func TestShouldFormat_WarningAndRetrying(t *testing.T) {
 }
 
 func TestFormatEventLine_NoColor(t *testing.T) {
-	os.Setenv("NO_COLOR", "1")
+	_ = os.Setenv("NO_COLOR", "1")
 	defer os.Unsetenv("NO_COLOR")
 
 	evt := event.Event{
@@ -366,7 +366,7 @@ func TestFormatErrorBlock_MissingOptionalFields(t *testing.T) {
 }
 
 func TestFormatErrorBlock_NoColor(t *testing.T) {
-	os.Setenv("NO_COLOR", "1")
+	_ = os.Setenv("NO_COLOR", "1")
 	defer os.Unsetenv("NO_COLOR")
 
 	evt := event.Event{
@@ -723,7 +723,7 @@ func TestLiveOutputModel_RawEvents_StoredForAllEvents(t *testing.T) {
 }
 
 func TestLiveOutputModel_HandoverMetadata_OnStepCompletion(t *testing.T) {
-	os.Setenv("NO_COLOR", "1")
+	_ = os.Setenv("NO_COLOR", "1")
 	defer os.Unsetenv("NO_COLOR")
 
 	buf := NewEventBuffer(100)
@@ -801,7 +801,7 @@ func TestLiveOutputModel_HandoverMetadata_OnStepCompletion(t *testing.T) {
 }
 
 func TestLiveOutputModel_HandoverMetadata_ContractFailed(t *testing.T) {
-	os.Setenv("NO_COLOR", "1")
+	_ = os.Setenv("NO_COLOR", "1")
 	defer os.Unsetenv("NO_COLOR")
 
 	buf := NewEventBuffer(100)
@@ -951,7 +951,7 @@ func TestLiveOutputModel_DashboardState_UpdatesFromStoredRecords(t *testing.T) {
 }
 
 func TestLiveOutputModel_RenderDashboard_CompletedStep(t *testing.T) {
-	os.Setenv("NO_COLOR", "1")
+	_ = os.Setenv("NO_COLOR", "1")
 	defer os.Unsetenv("NO_COLOR")
 
 	buf := NewEventBuffer(100)
@@ -978,7 +978,7 @@ func TestLiveOutputModel_RenderDashboard_CompletedStep(t *testing.T) {
 }
 
 func TestLiveOutputModel_RenderDashboard_RunningStep(t *testing.T) {
-	os.Setenv("NO_COLOR", "1")
+	_ = os.Setenv("NO_COLOR", "1")
 	defer os.Unsetenv("NO_COLOR")
 
 	buf := NewEventBuffer(100)
@@ -998,7 +998,7 @@ func TestLiveOutputModel_RenderDashboard_RunningStep(t *testing.T) {
 }
 
 func TestLiveOutputModel_RenderDashboard_FailedStep(t *testing.T) {
-	os.Setenv("NO_COLOR", "1")
+	_ = os.Setenv("NO_COLOR", "1")
 	defer os.Unsetenv("NO_COLOR")
 
 	buf := NewEventBuffer(100)
@@ -1021,7 +1021,7 @@ func TestLiveOutputModel_RenderDashboard_FailedStep(t *testing.T) {
 }
 
 func TestLiveOutputModel_RenderDashboard_VerboseHandover(t *testing.T) {
-	os.Setenv("NO_COLOR", "1")
+	_ = os.Setenv("NO_COLOR", "1")
 	defer os.Unsetenv("NO_COLOR")
 
 	buf := NewEventBuffer(100)

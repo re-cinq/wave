@@ -78,7 +78,7 @@ func captureOutput(t *testing.T, f func()) string {
 	os.Stdout = old
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	return buf.String()
 }
 
@@ -91,7 +91,7 @@ func TestDoCommand_GeneratesTwoStepPipeline(t *testing.T) {
 	// Change to test directory
 	oldWd, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldWd)
+	defer func() { _ = os.Chdir(oldWd) }()
 	require.NoError(t, os.Chdir(tmpDir))
 
 	opts := DoOptions{
@@ -120,7 +120,7 @@ func TestDoCommand_PersonaOverride(t *testing.T) {
 	// Change to test directory
 	oldWd, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldWd)
+	defer func() { _ = os.Chdir(oldWd) }()
 	require.NoError(t, os.Chdir(tmpDir))
 
 	opts := DoOptions{
@@ -148,7 +148,7 @@ func TestDoCommand_DryRunOutput(t *testing.T) {
 	// Change to test directory
 	oldWd, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldWd)
+	defer func() { _ = os.Chdir(oldWd) }()
 	require.NoError(t, os.Chdir(tmpDir))
 
 	opts := DoOptions{
@@ -184,7 +184,7 @@ func TestDoCommand_MissingManifestError(t *testing.T) {
 	// Change to test directory (no manifest)
 	oldWd, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldWd)
+	defer func() { _ = os.Chdir(oldWd) }()
 	require.NoError(t, os.Chdir(tmpDir))
 
 	opts := DoOptions{
@@ -216,7 +216,7 @@ metadata:
 	// Change to test directory
 	oldWd, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldWd)
+	defer func() { _ = os.Chdir(oldWd) }()
 	require.NoError(t, os.Chdir(tmpDir))
 
 	opts := DoOptions{
@@ -244,7 +244,7 @@ func TestDoCommand_MissingPersonaError(t *testing.T) {
 	// Change to test directory
 	oldWd, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldWd)
+	defer func() { _ = os.Chdir(oldWd) }()
 	require.NoError(t, os.Chdir(tmpDir))
 
 	opts := DoOptions{
@@ -269,7 +269,7 @@ func TestDoCommand_MissingNavigatorPersonaError(t *testing.T) {
 	// Change to test directory
 	oldWd, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldWd)
+	defer func() { _ = os.Chdir(oldWd) }()
 	require.NoError(t, os.Chdir(tmpDir))
 
 	opts := DoOptions{
@@ -292,7 +292,7 @@ func TestDoCommand_CustomPersonaOverride(t *testing.T) {
 	// Change to test directory
 	oldWd, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldWd)
+	defer func() { _ = os.Chdir(oldWd) }()
 	require.NoError(t, os.Chdir(tmpDir))
 
 	opts := DoOptions{
@@ -356,7 +356,7 @@ func TestDoCommand_MultiWordTaskDescription(t *testing.T) {
 	// Change to test directory
 	oldWd, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldWd)
+	defer func() { _ = os.Chdir(oldWd) }()
 	require.NoError(t, os.Chdir(tmpDir))
 
 	opts := DoOptions{
@@ -384,4 +384,3 @@ func TestDoCommand_EmptyInput(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "at least") || strings.Contains(err.Error(), "requires"))
 }
-

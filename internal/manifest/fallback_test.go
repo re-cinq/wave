@@ -6,9 +6,9 @@ import (
 
 func TestValidateFallbacks(t *testing.T) {
 	tests := []struct {
-		name      string
-		manifest  *Manifest
-		wantErrs  int
+		name     string
+		manifest *Manifest
+		wantErrs int
 	}{
 		{
 			name: "empty fallbacks is valid",

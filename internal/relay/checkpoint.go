@@ -104,4 +104,3 @@ func InjectCheckpointPrompt(workspacePath string) (string, error) {
 
 	return strings.Join(parts, "\n"), nil
 }
-

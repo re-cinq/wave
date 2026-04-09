@@ -13,8 +13,8 @@ import (
 
 // PostmortemOptions holds options for the postmortem command.
 type PostmortemOptions struct {
-	RunID  string
-	JSON   bool
+	RunID string
+	JSON  bool
 }
 
 // failurePattern identifies a recognized failure pattern.
@@ -26,18 +26,18 @@ type failurePattern struct {
 
 // postmortemReport is the structured output of a post-mortem analysis.
 type postmortemReport struct {
-	RunID            string   `json:"run_id"`
-	Pipeline         string   `json:"pipeline"`
-	FailedStep       string   `json:"failed_step"`
-	Attempt          int      `json:"attempt"`
-	TotalDuration    string   `json:"total_duration"`
-	StepDuration     string   `json:"step_duration"`
-	HasStepDuration  bool     `json:"-"`
-	Error            string   `json:"error"`
-	Diagnosis        string   `json:"diagnosis"`
-	Suggestions      []string `json:"suggestions"`
-	Artifacts        []string `json:"artifacts"`
-	ResumeCommand    string   `json:"resume_command"`
+	RunID           string   `json:"run_id"`
+	Pipeline        string   `json:"pipeline"`
+	FailedStep      string   `json:"failed_step"`
+	Attempt         int      `json:"attempt"`
+	TotalDuration   string   `json:"total_duration"`
+	StepDuration    string   `json:"step_duration"`
+	HasStepDuration bool     `json:"-"`
+	Error           string   `json:"error"`
+	Diagnosis       string   `json:"diagnosis"`
+	Suggestions     []string `json:"suggestions"`
+	Artifacts       []string `json:"artifacts"`
+	ResumeCommand   string   `json:"resume_command"`
 }
 
 // NewPostmortemCmd creates the postmortem command.
@@ -212,8 +212,8 @@ func classifyFailure(errMsg string, contractErrors []string) failurePattern {
 			suggestions = append([]string{"Contract errors: " + strings.Join(contractErrors, "; ")}, suggestions...)
 		}
 		return failurePattern{
-			name:      "contract_validation",
-			diagnosis: "Contract validation failure — step output did not satisfy the contract",
+			name:        "contract_validation",
+			diagnosis:   "Contract validation failure — step output did not satisfy the contract",
 			suggestions: suggestions,
 		}
 	}

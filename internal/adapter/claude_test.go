@@ -34,7 +34,7 @@ func setupBaseProtocol(t *testing.T) {
 		t.Fatalf("failed to write base-protocol.md: %v", err)
 	}
 	t.Cleanup(func() {
-		os.RemoveAll(".wave")
+		_ = os.RemoveAll(".wave")
 	})
 }
 
@@ -79,10 +79,10 @@ func TestNoSettingsJSONWhenSandboxDisabled(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := AdapterRunConfig{
-		Persona:      "test",
+		Persona:       "test",
 		WorkspacePath: tmpDir,
-		Model:        "sonnet",
-		AllowedTools: []string{"Read", "Write(.wave/output/*)", "Glob"},
+		Model:         "sonnet",
+		AllowedTools:  []string{"Read", "Write(.wave/output/*)", "Glob"},
 	}
 
 	if err := adapter.prepareWorkspace(tmpDir, cfg); err != nil {
@@ -117,8 +117,8 @@ func TestDenyRulesInAgentFrontmatter(t *testing.T) {
 			wantDeny: []string{"TodoWrite"},
 		},
 		{
-			name: "single deny rule plus auto TodoWrite",
-			deny: []string{"Bash(rm -rf /*)"},
+			name:     "single deny rule plus auto TodoWrite",
+			deny:     []string{"Bash(rm -rf /*)"},
 			wantDeny: []string{"Bash(rm -rf /*)", "TodoWrite"},
 		},
 	}
@@ -1354,9 +1354,9 @@ func TestSkillCommandsCopied(t *testing.T) {
 
 	// Create source skill commands directory
 	srcDir := t.TempDir()
-	os.WriteFile(filepath.Join(srcDir, "speckit.specify.md"), []byte("# Specify"), 0644)
-	os.WriteFile(filepath.Join(srcDir, "speckit.plan.md"), []byte("# Plan"), 0644)
-	os.WriteFile(filepath.Join(srcDir, "not-markdown.txt"), []byte("ignored"), 0644)
+	_ = os.WriteFile(filepath.Join(srcDir, "speckit.specify.md"), []byte("# Specify"), 0644)
+	_ = os.WriteFile(filepath.Join(srcDir, "speckit.plan.md"), []byte("# Plan"), 0644)
+	_ = os.WriteFile(filepath.Join(srcDir, "not-markdown.txt"), []byte("ignored"), 0644)
 
 	cfg := AdapterRunConfig{
 		Persona:          "implementer",
@@ -1621,10 +1621,10 @@ func TestBaseProtocolWithInlinePromptInAgentFile(t *testing.T) {
 // Task 1.2: Token parsing with cache token fields
 func TestParseStreamLine_CacheTokenExclusion(t *testing.T) {
 	tests := []struct {
-		name      string
-		line      []byte
-		wantIn    int
-		wantOut   int
+		name    string
+		line    []byte
+		wantIn  int
+		wantOut int
 	}{
 		{
 			name:    "result excludes cache_read_input_tokens",
@@ -1868,8 +1868,8 @@ func TestSkillSectionInAgentFile(t *testing.T) {
 
 	t.Run("skill section appears between persona and contract", func(t *testing.T) {
 		cfg := AdapterRunConfig{
-			Persona:      "craftsman",
-			SystemPrompt: "# Craftsman\n\nYou are a craftsman.",
+			Persona:        "craftsman",
+			SystemPrompt:   "# Craftsman\n\nYou are a craftsman.",
 			ContractPrompt: "## Contract\n\nYour output must be valid JSON.",
 			ResolvedSkills: []SkillRef{
 				{Name: "golang", Description: "Go development"},

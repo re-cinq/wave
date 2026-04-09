@@ -33,8 +33,8 @@ type BenchResult struct {
 	RunID      string      `json:"run_id"`
 	Pipeline   string      `json:"pipeline"`
 	Status     BenchStatus `json:"status"`
-	DurationMs int64  `json:"duration_ms"`
-	PatchDiff  string `json:"patch_diff,omitempty"`
+	DurationMs int64       `json:"duration_ms"`
+	PatchDiff  string      `json:"patch_diff,omitempty"`
 	Error      string      `json:"error,omitempty"`
 	StartedAt  time.Time   `json:"started_at"`
 }
@@ -98,12 +98,12 @@ type ReportRef struct {
 
 // CompareSummary provides aggregate comparison metrics.
 type CompareSummary struct {
-	Improved    int     `json:"improved"`
-	Regressed   int     `json:"regressed"`
-	Unchanged   int     `json:"unchanged"`
-	OnlyInBase  int     `json:"only_in_base"`
-	OnlyInComp  int     `json:"only_in_compare"`
-	DeltaRate   float64 `json:"delta_rate"`
+	Improved   int     `json:"improved"`
+	Regressed  int     `json:"regressed"`
+	Unchanged  int     `json:"unchanged"`
+	OnlyInBase int     `json:"only_in_base"`
+	OnlyInComp int     `json:"only_in_compare"`
+	DeltaRate  float64 `json:"delta_rate"`
 }
 
 // TaskDiff describes how a single task's result changed between runs.

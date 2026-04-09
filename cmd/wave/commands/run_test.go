@@ -102,7 +102,7 @@ func setupTestWorkspace(t *testing.T) (string, func()) {
 	require.NoError(t, err, "failed to create temp dir")
 
 	cleanup := func() {
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 	}
 	return tmpDir, cleanup
 }
@@ -119,7 +119,7 @@ func captureStderr(f func() error) (string, error) {
 	os.Stderr = old
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	return buf.String(), err
 }
 
@@ -457,8 +457,8 @@ steps:
 
 	// Change to temp dir and test loading
 	oldWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldWd)
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(oldWd) }()
 
 	m := &manifest.Manifest{}
 

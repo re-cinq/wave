@@ -338,13 +338,13 @@ func isCI() bool {
 
 // ResizeHandler manages terminal window resize events.
 type ResizeHandler struct {
-	mu             sync.RWMutex
-	callbacks      []func(width, height int)
-	stopChan       chan struct{}
-	signalChan     chan os.Signal
-	currentWidth   int
-	currentHeight  int
-	running        bool
+	mu            sync.RWMutex
+	callbacks     []func(width, height int)
+	stopChan      chan struct{}
+	signalChan    chan os.Signal
+	currentWidth  int
+	currentHeight int
+	running       bool
 }
 
 // NewResizeHandler creates a new resize handler.

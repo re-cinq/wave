@@ -9,11 +9,11 @@ import (
 
 func TestExtractPreflightMetadata(t *testing.T) {
 	tests := []struct {
-		name             string
-		err              error
-		wantSkills       []string
-		wantTools        []string
-		wantNil          bool
+		name       string
+		err        error
+		wantSkills []string
+		wantTools  []string
+		wantNil    bool
 	}{
 		{
 			name:    "nil error returns nil",

@@ -75,7 +75,7 @@ func (a *GitHubAdapter) Install(ctx context.Context, ref string, store Store) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	ctx, cancel := context.WithTimeout(ctx, CLITimeout)
 	defer cancel()

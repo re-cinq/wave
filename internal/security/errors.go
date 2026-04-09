@@ -38,7 +38,7 @@ func NewPathTraversalError(path string, approved []string) *SecurityValidationEr
 		Message: "path traversal detected in path",
 		Details: map[string]interface{}{
 			"approved_directories": approved,
-			"path_length":         len(path),
+			"path_length":          len(path),
 		},
 		Retryable:    false,
 		SuggestedFix: fmt.Sprintf("Use a path within approved directories: %v", approved),
@@ -65,9 +65,9 @@ func NewInvalidPersonaError(persona string, available []string) *SecurityValidat
 		Type:    string(ViolationInvalidPersona),
 		Message: fmt.Sprintf("persona '%s' not found in manifest", persona),
 		Details: map[string]interface{}{
-			"requested_persona":   persona,
-			"available_personas":  available,
-			"available_count":     len(available),
+			"requested_persona":  persona,
+			"available_personas": available,
+			"available_count":    len(available),
 		},
 		Retryable:    true,
 		SuggestedFix: fmt.Sprintf("Use one of the available personas: %v", available),

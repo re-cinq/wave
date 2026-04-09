@@ -53,13 +53,13 @@ type RecoveryBlock struct {
 
 // RecoveryBlockOpts holds parameters for building a recovery block.
 type RecoveryBlockOpts struct {
-	PipelineName   string
-	Input          string
-	StepID         string
-	RunID          string
-	WorkspaceRoot  string              // defaults to ".wave/workspaces" if empty
-	ErrClass       ErrorClass
-	PreflightMeta  *PreflightMetadata  // nil when not a preflight error
+	PipelineName  string
+	Input         string
+	StepID        string
+	RunID         string
+	WorkspaceRoot string // defaults to ".wave/workspaces" if empty
+	ErrClass      ErrorClass
+	PreflightMeta *PreflightMetadata // nil when not a preflight error
 }
 
 // BuildRecoveryBlock constructs a RecoveryBlock with appropriate hints based on the error class.

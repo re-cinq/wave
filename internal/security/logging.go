@@ -23,13 +23,13 @@ func (sl *SecurityLogger) LogViolation(violationType, source, sanitizedDetails s
 	}
 
 	event := SecurityViolationEvent{
-		ID:                GenerateEventID(),
-		Timestamp:         time.Now(),
-		Type:              violationType,
-		Source:            source,
-		SanitizedDetails:  sanitizedDetails,
-		Severity:          severity,
-		Blocked:           blocked,
+		ID:               GenerateEventID(),
+		Timestamp:        time.Now(),
+		Type:             violationType,
+		Source:           source,
+		SanitizedDetails: sanitizedDetails,
+		Severity:         severity,
+		Blocked:          blocked,
 	}
 
 	// Log to structured output (would integrate with Wave's existing logging)

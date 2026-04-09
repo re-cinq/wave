@@ -21,25 +21,25 @@ import (
 func TestPrototypePipelineEndToEnd(t *testing.T) {
 	// End-to-end test for the complete prototype pipeline
 	tests := []struct {
-		name         string
-		input        string
-		expectSteps  int
-		expectError  bool
-		description  string
+		name        string
+		input       string
+		expectSteps int
+		expectError bool
+		description string
 	}{
 		{
-			name:         "complete prototype pipeline",
-			input:        "Build a task management CLI tool with user authentication",
-			expectSteps:  4, // spec, docs, dummy, implement
-			expectError:  false,
-			description:  "Full pipeline execution from spec to implementation",
+			name:        "complete prototype pipeline",
+			input:       "Build a task management CLI tool with user authentication",
+			expectSteps: 4, // spec, docs, dummy, implement
+			expectError: false,
+			description: "Full pipeline execution from spec to implementation",
 		},
 		{
-			name:         "simple feature pipeline",
-			input:        "Create a file organizer utility",
-			expectSteps:  4,
-			expectError:  false,
-			description:  "Pipeline with simpler feature description",
+			name:        "simple feature pipeline",
+			input:       "Create a file organizer utility",
+			expectSteps: 4,
+			expectError: false,
+			description: "Pipeline with simpler feature description",
 		},
 	}
 
@@ -264,8 +264,8 @@ func TestPrototypePipelineArtifactFlow(t *testing.T) {
 			found := false
 			for _, injection := range toStep.Memory.InjectArtifacts {
 				if injection.Step == flow.fromStep &&
-				   injection.Artifact == flow.artifact &&
-				   injection.As == flow.as {
+					injection.Artifact == flow.artifact &&
+					injection.As == flow.as {
 					found = true
 					break
 				}
@@ -341,8 +341,8 @@ func TestPrototypePipelinePersonaPermissions(t *testing.T) {
 		needsWrite bool
 		needsRead  bool
 	}{
-		"craftsman":  {needsWrite: true, needsRead: true},   // spec, dummy, implement phases
-		"philosopher": {needsWrite: true, needsRead: true},  // docs phase
+		"craftsman":   {needsWrite: true, needsRead: true}, // spec, dummy, implement phases
+		"philosopher": {needsWrite: true, needsRead: true}, // docs phase
 	}
 
 	for _, step := range pipeline.Steps {

@@ -2,8 +2,8 @@ package webui
 
 import (
 	"embed"
-	"fmt"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -54,31 +54,36 @@ var pageTemplates = []string{
 // don't conflict across pages.
 func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Template, error) {
 	funcMap := template.FuncMap{
-		"statusClass":    statusClass,
-		"statusIcon":     statusIcon,
-		"formatDuration": formatDuration,
-		"formatTime":     formatTime,
-		"formatTimeISO":  formatTimeISO,
-		"formatTokens":   formatTokensFunc,
-		"formatBytes":    formatBytesFunc,
-		"richInput":      richInputFunc,
-		"friendlyModel":  friendlyModelFunc,
-	"toJSON": func(v interface{}) string { b, _ := json.Marshal(v); return string(b) },
+		"statusClass":       statusClass,
+		"statusIcon":        statusIcon,
+		"formatDuration":    formatDuration,
+		"formatTime":        formatTime,
+		"formatTimeISO":     formatTimeISO,
+		"formatTokens":      formatTokensFunc,
+		"formatBytes":       formatBytesFunc,
+		"richInput":         richInputFunc,
+		"friendlyModel":     friendlyModelFunc,
+		"toJSON":            func(v interface{}) string { b, _ := json.Marshal(v); return string(b) },
 		"formatTokensShort": formatTokensShort,
-		"shortRunID":     func(id string) string { if len(id) > 12 { return id[:12] }; return id },
-		"titleCase": titleCaseFunc,
-		"contains":       strings.Contains,
-		"hasPrefix":      strings.HasPrefix,
-		"checkClass":     checkClass,
-		"checkIcon":      checkIcon,
-		"checkLabel":     checkLabel,
-		"add":              func(a, b int) int { return a + b },
-		"subtract":         func(a, b int) int { return a - b },
-		"multiply":         func(a int, b float64) float64 { return float64(a) * b },
-		"smoothnessLabel":  smoothnessLabel,
-		"frictionLabel":    frictionLabel,
-		"adapterIcon":      adapterIcon,
-		"forgeIcon":        forgeIcon,
+		"shortRunID": func(id string) string {
+			if len(id) > 12 {
+				return id[:12]
+			}
+			return id
+		},
+		"titleCase":       titleCaseFunc,
+		"contains":        strings.Contains,
+		"hasPrefix":       strings.HasPrefix,
+		"checkClass":      checkClass,
+		"checkIcon":       checkIcon,
+		"checkLabel":      checkLabel,
+		"add":             func(a, b int) int { return a + b },
+		"subtract":        func(a, b int) int { return a - b },
+		"multiply":        func(a int, b float64) float64 { return float64(a) * b },
+		"smoothnessLabel": smoothnessLabel,
+		"frictionLabel":   frictionLabel,
+		"adapterIcon":     adapterIcon,
+		"forgeIcon":       forgeIcon,
 		"pluralize": func(n int, singular, plural string) string {
 			if n == 1 {
 				return singular

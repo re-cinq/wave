@@ -13,7 +13,7 @@ import (
 
 // EvolveProposal represents a single suggested ontology change.
 type EvolveProposal struct {
-	Type        string  `json:"type"`                    // "prune", "promote", "demote", "low_signal"
+	Type        string  `json:"type"` // "prune", "promote", "demote", "low_signal"
 	Context     string  `json:"context"`
 	Invariant   string  `json:"invariant,omitempty"`
 	Reason      string  `json:"reason"`
@@ -23,8 +23,8 @@ type EvolveProposal struct {
 
 // EvolveResult holds all evolution proposals.
 type EvolveResult struct {
-	TotalRuns    int                 `json:"total_runs"`
-	Proposals    []EvolveProposal    `json:"proposals"`
+	TotalRuns    int                   `json:"total_runs"`
+	Proposals    []EvolveProposal      `json:"proposals"`
 	ContextStats []state.OntologyStats `json:"context_stats"`
 }
 
