@@ -179,7 +179,7 @@
                     <span class="badge {{statusClass .Status}}" style="font-size:0.65rem;">{{.Status}}</span>
                     {{if .Duration}}<span style="color:var(--color-text-muted);">{{.Duration}}</span>{{end}}
                     {{if .TotalTokens}}<span style="color:var(--color-text-muted);">{{formatTokens .TotalTokens}} tok</span>{{end}}
-                    {{if .InputPreview}}<span style="color:var(--color-text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px;">{{.InputPreview}}</span>{{end}}
+                    {{if and .InputPreview (not (hasPrefix .InputPreview "{{"))}}<span style="color:var(--color-text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px;">{{.InputPreview}}</span>{{end}}
                 </a>
                 {{end}}
             </div>
