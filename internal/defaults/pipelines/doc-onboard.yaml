@@ -75,7 +75,7 @@ steps:
 
         1. **Project identity**: Find and read the following files to determine the project's identity:
            - README.md (or README): project purpose, description, badges
-           - Package manifests: go.mod, package.json, Cargo.toml, requirements.txt, pyproject.toml
+           - Package manifests: dependency files appropriate to the project language
            - License file: LICENSE, LICENSE.md
            - Configuration files: .editorconfig, .gitignore, .gitattributes
            Record: language, framework/libraries, project purpose (one sentence), license type, repository URL.
@@ -103,9 +103,9 @@ steps:
            Record: entry points with file paths, major components with their packages, interaction patterns.
 
         5. **Dependencies**: List key dependencies and their purposes:
-           - Read the dependency manifest (go.mod, package.json, etc.)
+           - Read the dependency manifest for the project
            - Identify the most important dependencies (frameworks, database drivers, CLI libraries, test libraries)
-           - Note the dependency management tool (go modules, npm, pip, cargo)
+           - Note the dependency management tool used by the project
            - Check for vendored dependencies
            Record: key dependencies (top 10-15) with their purpose and version.
 
@@ -214,7 +214,7 @@ steps:
 
         A structured map of the project layout:
         - What each top-level directory contains (one line per directory)
-        - Where to find specific things: "tests are alongside source files in *_test.go", "configuration schemas are in .wave/contracts/", "pipeline definitions are in .wave/pipelines/"
+        - Where to find specific things: "tests are alongside source files", "configuration schemas are in .wave/contracts/", "pipeline definitions are in .wave/pipelines/"
         - Which directories a new contributor will work in most often
         - Which directories they can safely ignore initially
 
