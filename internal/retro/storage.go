@@ -128,7 +128,7 @@ func (s *Storage) List(pipelineName string, since time.Time, limit int) ([]state
 // Delete removes a retrospective JSON file and its index entry.
 func (s *Storage) Delete(runID string) error {
 	filePath := s.filePath(runID)
-	os.Remove(filePath) // best effort file removal
+	_ = os.Remove(filePath) // best effort file removal
 	return s.indexer.DeleteRetrospective(runID)
 }
 

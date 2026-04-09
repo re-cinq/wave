@@ -119,7 +119,7 @@ func TestMetaCommand_MissingManifestError(t *testing.T) {
 	// Change to test directory (no manifest)
 	oldWd, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldWd)
+	defer func() { _ = os.Chdir(oldWd) }()
 	require.NoError(t, os.Chdir(tmpDir))
 
 	opts := MetaOptions{
@@ -154,7 +154,7 @@ metadata:
 	// Change to test directory
 	oldWd, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldWd)
+	defer func() { _ = os.Chdir(oldWd) }()
 	require.NoError(t, os.Chdir(tmpDir))
 
 	opts := MetaOptions{
@@ -182,7 +182,7 @@ func TestMetaCommand_MissingPhilosopher(t *testing.T) {
 	// Change to test directory
 	oldWd, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldWd)
+	defer func() { _ = os.Chdir(oldWd) }()
 	require.NoError(t, os.Chdir(tmpDir))
 
 	opts := MetaOptions{
@@ -223,7 +223,7 @@ func TestSaveMetaPipelinePath(t *testing.T) {
 	// Change to test directory
 	oldWd, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(oldWd)
+	defer func() { _ = os.Chdir(oldWd) }()
 	require.NoError(t, os.Chdir(tmpDir))
 
 	minimalPipeline := &pipeline.Pipeline{

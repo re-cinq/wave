@@ -57,7 +57,7 @@ func TestPrototypeDummyPhaseInitialization(t *testing.T) {
 			if err := os.Chdir("../.."); err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chdir(originalWd)
+			defer func() { _ = os.Chdir(originalWd) }()
 
 			// Create mock adapter for testing
 			mockAdapter := adapter.NewMockAdapter()
@@ -150,9 +150,9 @@ func TestPrototypeDummyPhaseArtifactInjection(t *testing.T) {
 
 	// Verify output artifacts configuration
 	expectedArtifacts := map[string]string{
-		"prototype":            "prototype/",
+		"prototype":             "prototype/",
 		"interface-definitions": "interfaces.md",
-		"contract_data":        "artifact.json",
+		"contract_data":         "artifact.json",
 	}
 
 	if len(dummyStep.OutputArtifacts) != len(expectedArtifacts) {
@@ -272,4 +272,3 @@ func TestPrototypeDummyPhasePrototypeGeneration(t *testing.T) {
 func containsIgnoreCase(text, substr string) bool {
 	return strings.Contains(strings.ToLower(text), strings.ToLower(substr))
 }
-

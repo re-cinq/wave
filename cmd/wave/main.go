@@ -45,12 +45,12 @@ var rootCmd = &cobra.Command{
 
 		// --no-color sets NO_COLOR env var for downstream code
 		if rf.Output.NoColor {
-			os.Setenv("NO_COLOR", "1")
+			_ = os.Setenv("NO_COLOR", "1")
 		}
 
 		// TERM=dumb implies --no-color and --no-tui
 		if os.Getenv("TERM") == "dumb" {
-			os.Setenv("NO_COLOR", "1")
+			_ = os.Setenv("NO_COLOR", "1")
 		}
 
 		return nil

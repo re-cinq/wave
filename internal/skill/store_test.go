@@ -221,7 +221,7 @@ description: test
 			wantErr: true,
 		},
 		{
-			name: "compatibility too long",
+			name:  "compatibility too long",
 			input: "---\nname: test\ndescription: test\ncompatibility: " + strings.Repeat("x", 501) + "\n---\n",
 
 			wantErr: true,

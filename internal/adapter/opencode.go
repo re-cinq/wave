@@ -260,7 +260,7 @@ func (a *OpenCodeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunC
 		personaPath := filepath.Join(".wave", "personas", cfg.Persona+".md")
 		if data, err := os.ReadFile(personaPath); err == nil {
 			promptPath := filepath.Join(workspacePath, "AGENTS.md")
-			os.WriteFile(promptPath, data, 0644)
+			_ = os.WriteFile(promptPath, data, 0644)
 		}
 	}
 

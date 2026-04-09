@@ -163,7 +163,7 @@ func (r *ProcessGroupRunner) Run(ctx context.Context, cfg AdapterRunConfig) (*Ad
 	select {
 	case <-ctx.Done():
 		killProcessGroup(cmd.Process, cfg.ProcessGrace)
-		cmd.Wait()
+		_ = cmd.Wait()
 		return nil, ctx.Err()
 	case err := <-copyDone:
 		if err != nil {

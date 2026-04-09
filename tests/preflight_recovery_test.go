@@ -9,10 +9,10 @@ import (
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/manifest"
-	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/recovery"
+	"github.com/recinq/wave/internal/skill"
 )
 
 // TestPreflightRecovery_MissingSkill verifies that when a pipeline fails due to a missing skill,
@@ -155,8 +155,8 @@ func TestPreflightRecovery_MissingTool(t *testing.T) {
 
 	m := &manifest.Manifest{
 		Runtime: manifest.Runtime{
-			WorkspaceRoot:         ".wave/workspaces",
-			PipelineIDHashLength:  8,
+			WorkspaceRoot:        ".wave/workspaces",
+			PipelineIDHashLength: 8,
 		},
 		Adapters: map[string]manifest.Adapter{
 			"mock": {},
@@ -258,9 +258,9 @@ func TestPreflightRecovery_MixedFailures(t *testing.T) {
 		Requires: &pipeline.Requires{
 			Skills: map[string]skill.SkillConfig{
 				"missing-skill-alpha": {},
-				"missing-skill-beta": {},
+				"missing-skill-beta":  {},
 			},
-			Tools:  []string{"missing-tool-alpha", "missing-tool-beta"},
+			Tools: []string{"missing-tool-alpha", "missing-tool-beta"},
 		},
 		Steps: []pipeline.Step{
 			{
@@ -272,8 +272,8 @@ func TestPreflightRecovery_MixedFailures(t *testing.T) {
 
 	m := &manifest.Manifest{
 		Runtime: manifest.Runtime{
-			WorkspaceRoot:         ".wave/workspaces",
-			PipelineIDHashLength:  8,
+			WorkspaceRoot:        ".wave/workspaces",
+			PipelineIDHashLength: 8,
 		},
 		Adapters: map[string]manifest.Adapter{
 			"mock": {},
@@ -398,7 +398,7 @@ func TestPreflightRecovery_NoRedundantErrorMessage(t *testing.T) {
 		name         string
 		requirements *pipeline.Requires
 
-		wantErrType  string // "skill" or "tool"
+		wantErrType string // "skill" or "tool"
 	}{
 		{
 			name: "skill failure only",
@@ -407,7 +407,7 @@ func TestPreflightRecovery_NoRedundantErrorMessage(t *testing.T) {
 					"nonexistent-skill": {},
 				},
 			},
-			
+
 			wantErrType: "skill",
 		},
 		{
@@ -415,7 +415,7 @@ func TestPreflightRecovery_NoRedundantErrorMessage(t *testing.T) {
 			requirements: &pipeline.Requires{
 				Tools: []string{"nonexistent-tool-xyz"},
 			},
-			
+
 			wantErrType: "tool",
 		},
 		{
@@ -424,9 +424,9 @@ func TestPreflightRecovery_NoRedundantErrorMessage(t *testing.T) {
 				Skills: map[string]skill.SkillConfig{
 					"nonexistent-skill": {},
 				},
-				Tools:  []string{"nonexistent-tool-xyz"},
+				Tools: []string{"nonexistent-tool-xyz"},
 			},
-			
+
 			wantErrType: "skill", // skill errors are prioritized
 		},
 	}
@@ -569,7 +569,7 @@ func TestPreflightRecovery_EndToEndFlow(t *testing.T) {
 			Skills: map[string]skill.SkillConfig{
 				"speckit": {},
 			},
-			Tools:  []string{"nonexistent-cli-xyz-e2e"},
+			Tools: []string{"nonexistent-cli-xyz-e2e"},
 		},
 		Steps: []pipeline.Step{
 			{

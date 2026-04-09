@@ -118,7 +118,6 @@ func isTTY() bool {
 	return term.IsTerminal(int(os.Stdin.Fd()))
 }
 
-
 func runClean(opts CleanOptions) error {
 	if !opts.All && opts.Pipeline == "" && opts.OlderThan == "" && opts.Status == "" {
 		return NewCLIError(CodeInvalidArgs, "specify --all or --pipeline <name> or --older-than <duration> or --status <status>", "Use --all, --pipeline <name>, --older-than <duration>, or --status <status>")
@@ -275,7 +274,7 @@ func runClean(opts CleanOptions) error {
 		fmt.Fprintf(os.Stderr, "Continue? [y/N] ")
 
 		var response string
-		fmt.Scanln(&response)
+		_, _ = fmt.Scanln(&response)
 		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
 			if !opts.Quiet {
 				fmt.Fprintf(os.Stderr, "Aborted\n")
@@ -311,12 +310,12 @@ func runClean(opts CleanOptions) error {
 
 		for _, target := range batch {
 			// Ensure all dirs are writable before removal (readonly mounts block removal)
-			filepath.Walk(target, func(path string, info os.FileInfo, err error) error {
+			_ = filepath.Walk(target, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return nil
 				}
 				if info.IsDir() {
-					os.Chmod(path, 0755)
+					_ = os.Chmod(path, 0755)
 				}
 				return nil
 			})

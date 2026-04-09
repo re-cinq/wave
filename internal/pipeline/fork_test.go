@@ -124,7 +124,7 @@ func TestForkManager_ListForkPoints(t *testing.T) {
 
 	t.Run("propagates store error", func(t *testing.T) {
 		store := &forkTestStore{
-			MockStateStore:  testutil.NewMockStateStore(),
+			MockStateStore: testutil.NewMockStateStore(),
 			checkpointsErr: fmt.Errorf("db connection lost"),
 		}
 		fm := NewForkManager(store)

@@ -12,10 +12,10 @@ type typeScriptValidator struct{}
 
 // tscAvailability caches the result of tsc availability check
 var (
-	tscAvailable     bool
-	tscVersion       string
-	tscCheckOnce     sync.Once
-	tscCheckErr      error
+	tscAvailable bool
+	tscVersion   string
+	tscCheckOnce sync.Once
+	tscCheckErr  error
 )
 
 func (v *typeScriptValidator) Validate(cfg ContractConfig, workspacePath string) error {

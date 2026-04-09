@@ -558,7 +558,7 @@ func runRun(opts RunOptions, debug bool) error {
 
 	// Transition run from pending → running so dashboards and wave status reflect active execution.
 	if store != nil {
-		store.UpdateRunStatus(runID, "running", "", 0)
+		_ = store.UpdateRunStatus(runID, "running", "", 0)
 	}
 
 	var execErr error
@@ -579,12 +579,12 @@ func runRun(opts RunOptions, debug bool) error {
 	if store != nil {
 		tokens := executor.GetTotalTokens()
 		if ctx.Err() != nil {
-			store.UpdateRunStatus(runID, "cancelled", "pipeline cancelled", tokens)
-			store.ClearCancellation(runID)
+			_ = store.UpdateRunStatus(runID, "cancelled", "pipeline cancelled", tokens)
+			_ = store.ClearCancellation(runID)
 		} else if execErr != nil {
-			store.UpdateRunStatus(runID, "failed", execErr.Error(), tokens)
+			_ = store.UpdateRunStatus(runID, "failed", execErr.Error(), tokens)
 		} else {
-			store.UpdateRunStatus(runID, "completed", "", tokens)
+			_ = store.UpdateRunStatus(runID, "completed", "", tokens)
 		}
 	}
 
@@ -1092,7 +1092,7 @@ func (d *dbLoggingEmitter) Emit(ev event.Event) {
 	if runID == "" {
 		runID = d.runID
 	}
-	d.store.LogEvent(runID, ev.StepID, ev.State, ev.Persona, msg, ev.TokensUsed, ev.DurationMs, ev.Model, ev.Adapter)
+	_ = d.store.LogEvent(runID, ev.StepID, ev.State, ev.Persona, msg, ev.TokensUsed, ev.DurationMs, ev.Model, ev.Adapter)
 }
 
 // relayCompactionAdapter bridges adapter.AdapterRunner to relay.CompactionAdapter.

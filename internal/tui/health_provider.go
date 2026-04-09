@@ -18,7 +18,7 @@ import (
 type HealthCheckStatus int
 
 const (
-	HealthCheckOK       HealthCheckStatus = iota
+	HealthCheckOK HealthCheckStatus = iota
 	HealthCheckWarn
 	HealthCheckErr
 	HealthCheckChecking
@@ -550,14 +550,14 @@ func (p *DefaultHealthDataProvider) checkRetryPolicies() HealthCheckResultMsg {
 
 func (p *DefaultHealthDataProvider) checkEngineCapabilities() HealthCheckResultMsg {
 	capabilities := map[string]string{
-		"Graph Loops":        "Cycle-aware step routing with max_visits",
-		"Gates":              "Approval, timer, PR merge, CI pass gates",
-		"Hooks":              "Lifecycle hooks (pre/post step, pipeline)",
-		"Retro":              "Retrospective analysis after pipeline runs",
-		"Fork/Rewind":        "Pipeline forking and step rewind",
-		"LLM Judge":          "LLM-based contract validation",
-		"Thread Continuity":  "Conversation threading across steps",
-		"Sub-Pipelines":      "Nested pipeline composition",
+		"Graph Loops":       "Cycle-aware step routing with max_visits",
+		"Gates":             "Approval, timer, PR merge, CI pass gates",
+		"Hooks":             "Lifecycle hooks (pre/post step, pipeline)",
+		"Retro":             "Retrospective analysis after pipeline runs",
+		"Fork/Rewind":       "Pipeline forking and step rewind",
+		"LLM Judge":         "LLM-based contract validation",
+		"Thread Continuity": "Conversation threading across steps",
+		"Sub-Pipelines":     "Nested pipeline composition",
 	}
 
 	return HealthCheckResultMsg{

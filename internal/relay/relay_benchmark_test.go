@@ -185,7 +185,7 @@ func BenchmarkAdapterRunnerWrapper_RunCompaction(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		wrapper.RunCompaction(context.Background(), compactionCfg)
+		_, _ = wrapper.RunCompaction(context.Background(), compactionCfg)
 	}
 }
 

@@ -210,11 +210,11 @@ func TestFailureClassifier_Classify(t *testing.T) {
 	classifier := &FailureClassifier{}
 
 	tests := []struct {
-		name       string
-		err        error
-		wantType   FailureType
-		wantRetry  bool
-		wantNil    bool
+		name      string
+		err       error
+		wantType  FailureType
+		wantRetry bool
+		wantNil   bool
 	}{
 		{
 			name:    "nil error",
@@ -510,7 +510,7 @@ func TestValidateWithAdaptiveRetry_TestSuiteFailure(t *testing.T) {
 
 	// Create a script that always fails
 	script := filepath.Join(workspacePath, "fail.sh")
-	os.WriteFile(script, []byte("#!/bin/sh\nexit 1"), 0755)
+	_ = os.WriteFile(script, []byte("#!/bin/sh\nexit 1"), 0755)
 
 	cfg := ContractConfig{
 		Type:       "test_suite",

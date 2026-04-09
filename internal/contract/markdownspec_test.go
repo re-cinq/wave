@@ -13,7 +13,7 @@ func TestMarkdownSpecValidator_Validate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create a test specification schema
 	schemaContent := `{
@@ -222,7 +222,7 @@ func TestMarkdownSpecValidator_SpeckitPathResolution(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create specs directory with feature subdirectory
 	specsDir := filepath.Join(tempDir, "specs")
@@ -301,9 +301,9 @@ Acceptance criteria:
 
 func TestParseUserStories(t *testing.T) {
 	tests := []struct {
-		name     string
-		content  string
-		expected int
+		name        string
+		content     string
+		expected    int
 		description string
 	}{
 		{
@@ -324,7 +324,7 @@ So that: I can control access
 Acceptance criteria:
 - Create user accounts
 - Delete user accounts`,
-			expected: 2,
+			expected:    2,
 			description: "Should parse multiple user stories",
 		},
 		{
@@ -335,13 +335,13 @@ Acceptance criteria:
 * Enter username and password
 * System validates credentials
 * Redirect on success`,
-			expected: 1,
+			expected:    1,
 			description: "Should parse comma-separated format",
 		},
 		{
-			name:     "empty_content",
-			content:  "",
-			expected: 0,
+			name:        "empty_content",
+			content:     "",
+			expected:    0,
 			description: "Should handle empty content",
 		},
 	}

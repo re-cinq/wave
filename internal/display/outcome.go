@@ -26,10 +26,10 @@ type PipelineOutcome struct {
 	Tokens   int
 
 	// Key outcomes (outcome-worthy deliverables)
-	Branch       string       // Branch name (empty if no branch created)
-	Pushed       bool         // Whether branch was pushed
-	RemoteRef    string       // Remote reference (e.g., "origin/branch-name")
-	PushError    string       // Push error message (empty if no error)
+	Branch       string        // Branch name (empty if no branch created)
+	Pushed       bool          // Whether branch was pushed
+	RemoteRef    string        // Remote reference (e.g., "origin/branch-name")
+	PushError    string        // Push error message (empty if no error)
 	PullRequests []OutcomeLink // PR URLs with labels
 	Issues       []OutcomeLink // Issue URLs with labels
 	Deployments  []OutcomeLink // Deployment URLs with labels

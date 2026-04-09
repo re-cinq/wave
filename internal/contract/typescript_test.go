@@ -26,7 +26,7 @@ func TestTypeScriptValidator_WithoutTsc(t *testing.T) {
 			cfg: ContractConfig{
 				Type:       "typescript_interface",
 				SchemaPath: "/some/file.ts",
-				MustPass: false,
+				MustPass:   false,
 			},
 			expectError: false,
 		},
@@ -35,7 +35,7 @@ func TestTypeScriptValidator_WithoutTsc(t *testing.T) {
 			cfg: ContractConfig{
 				Type:       "typescript_interface",
 				SchemaPath: "/some/file.ts",
-				MustPass: true,
+				MustPass:   true,
 			},
 			expectError: true,
 			errorMsg:    "TypeScript compiler (tsc) not available",
@@ -101,21 +101,21 @@ func TestTypeScriptValidator_TableDriven(t *testing.T) {
 	tscAvailable, _ := CheckTypeScriptAvailability()
 
 	tests := []struct {
-		name                   string
-		cfg                    ContractConfig
-		createFile             bool
-		fileContent            string
-		expectError            bool
-		errorContainsWithTsc   string
-		errorContainsNoTsc     string
-		requiresTsc            bool // Skip if tsc not available
+		name                 string
+		cfg                  ContractConfig
+		createFile           bool
+		fileContent          string
+		expectError          bool
+		errorContainsWithTsc string
+		errorContainsNoTsc   string
+		requiresTsc          bool // Skip if tsc not available
 	}{
 		{
 			name: "missing schema path with tsc",
 			cfg: ContractConfig{
 				Type:       "typescript_interface",
 				SchemaPath: "",
-				MustPass: true,
+				MustPass:   true,
 			},
 			createFile:           false,
 			expectError:          true,
@@ -128,7 +128,7 @@ func TestTypeScriptValidator_TableDriven(t *testing.T) {
 			cfg: ContractConfig{
 				Type:       "typescript_interface",
 				SchemaPath: "/nonexistent/path/interface.ts",
-				MustPass: true,
+				MustPass:   true,
 			},
 			createFile:           false,
 			expectError:          true,
@@ -247,7 +247,7 @@ const config: Config = { port: "8080", host: 123 };  // wrong types
 			cfg := ContractConfig{
 				Type:       "typescript_interface",
 				SchemaPath: filePath,
-				MustPass: true,
+				MustPass:   true,
 			}
 
 			err := v.Validate(cfg, workspacePath)

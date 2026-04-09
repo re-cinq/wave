@@ -56,9 +56,9 @@ type RunInfo struct {
 
 // ContractInfo holds information about a contract schema
 type ContractInfo struct {
-	Name      string            `json:"name"`
-	Type      string            `json:"type"`
-	UsedBy    []ContractUsage   `json:"used_by,omitempty"`
+	Name   string          `json:"name"`
+	Type   string          `json:"type"`
+	UsedBy []ContractUsage `json:"used_by,omitempty"`
 }
 
 // ContractUsage shows where a contract is used
@@ -192,7 +192,7 @@ func runList(opts ListOptions, filter string) error {
 		manifestData, err := os.ReadFile(opts.Manifest)
 		if err == nil {
 			var m manifestData2
-			yaml.Unmarshal(manifestData, &m)
+			_ = yaml.Unmarshal(manifestData, &m)
 
 			if showAdapters {
 				output.Adapters = collectAdapters(m.Adapters)
@@ -250,7 +250,7 @@ func runList(opts ListOptions, filter string) error {
 
 	var m manifestData2
 	if err == nil {
-		yaml.Unmarshal(manifestData, &m)
+		_ = yaml.Unmarshal(manifestData, &m)
 	}
 
 	// Order: adapters, runs, pipelines, personas, contracts
@@ -1033,7 +1033,7 @@ func hasStepOutput(stepPath string) bool {
 // getLatestFileTime finds the most recent modification time in a directory tree
 func getLatestFileTime(dirPath string) time.Time {
 	var latest time.Time
-	filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -1054,7 +1054,7 @@ func getDirectoryCreationTime(path string) time.Time {
 	// On most systems, we can only reliably get ModTime
 	// But we can approximate creation time by finding the oldest file
 	var oldest time.Time
-	filepath.Walk(path, func(p string, fi os.FileInfo, err error) error {
+	_ = filepath.Walk(path, func(p string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}

@@ -147,4 +147,3 @@ func TestNonEmptyFileValidator_ViaNewValidator(t *testing.T) {
 		t.Fatal("NewValidator should return a non-nil validator for non_empty_file")
 	}
 }
-

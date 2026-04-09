@@ -43,10 +43,10 @@ func TestCodexAdapter_ParseOutput(t *testing.T) {
 	a := NewCodexAdapter()
 
 	tests := []struct {
-		name    string
-		output  string
-		wantIn  int
-		wantOut int
+		name        string
+		output      string
+		wantIn      int
+		wantOut     int
 		wantContent string
 	}{
 		{
@@ -54,8 +54,8 @@ func TestCodexAdapter_ParseOutput(t *testing.T) {
 			output: "",
 		},
 		{
-			name: "result event with tokens",
-			output: `{"type":"result","usage":{"input_tokens":100,"output_tokens":50},"content":"done"}`,
+			name:        "result event with tokens",
+			output:      `{"type":"result","usage":{"input_tokens":100,"output_tokens":50},"content":"done"}`,
 			wantIn:      100,
 			wantOut:     50,
 			wantContent: "done",
@@ -86,21 +86,21 @@ func TestParseCodexStreamLine(t *testing.T) {
 		wantEvt StreamEvent
 	}{
 		{
-			name: "function_call event",
-			line: `{"type":"function_call","name":"ReadFile","arguments":"/tmp/foo"}`,
-			wantOK: true,
+			name:    "function_call event",
+			line:    `{"type":"function_call","name":"ReadFile","arguments":"/tmp/foo"}`,
+			wantOK:  true,
 			wantEvt: StreamEvent{Type: "tool_use", ToolName: "ReadFile", ToolInput: "/tmp/foo"},
 		},
 		{
-			name: "message event",
-			line: `{"type":"message","content":"analyzing code"}`,
-			wantOK: true,
+			name:    "message event",
+			line:    `{"type":"message","content":"analyzing code"}`,
+			wantOK:  true,
 			wantEvt: StreamEvent{Type: "text", Content: "analyzing code"},
 		},
 		{
-			name: "result event",
-			line: `{"type":"result","usage":{"input_tokens":100,"output_tokens":50},"content":"ok"}`,
-			wantOK: true,
+			name:    "result event",
+			line:    `{"type":"result","usage":{"input_tokens":100,"output_tokens":50},"content":"ok"}`,
+			wantOK:  true,
 			wantEvt: StreamEvent{Type: "result", TokensIn: 100, TokensOut: 50, Content: "ok"},
 		},
 		{

@@ -8,10 +8,10 @@ import (
 
 // Failure reason constants for error classification.
 const (
-	FailureReasonTimeout            = "timeout"
-	FailureReasonContextExhaustion  = "context_exhaustion"
-	FailureReasonRateLimit          = "rate_limit"
-	FailureReasonGeneralError       = "general_error"
+	FailureReasonTimeout           = "timeout"
+	FailureReasonContextExhaustion = "context_exhaustion"
+	FailureReasonRateLimit         = "rate_limit"
+	FailureReasonGeneralError      = "general_error"
 )
 
 // StepError is a structured error type that carries diagnostic data

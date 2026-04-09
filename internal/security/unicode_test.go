@@ -40,7 +40,7 @@ func TestDetectMixedScript(t *testing.T) {
 	}{
 		{"pure Latin", "/home/user/file.txt", false},
 		{"pure ASCII", "simple-path-123", false},
-		{"Cyrillic only", "\u0410\u0411\u0412", false},   // АБВ
+		{"Cyrillic only", "\u0410\u0411\u0412", false},       // АБВ
 		{"Latin + Cyrillic mixed", "hello\u0430world", true}, // а is Cyrillic
 		{"Latin + Greek mixed", "hello\u03B1world", true},    // α is Greek
 		{"CJK with Latin (not confusable)", "file\u4e2d.txt", false},

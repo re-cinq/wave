@@ -40,23 +40,23 @@ func TestParseReviewFeedback(t *testing.T) {
 		errContains string
 	}{
 		{
-			name: "valid pass JSON",
-			stdout: `{"verdict":"pass","issues":[],"suggestions":[],"confidence":0.95,"summary":"looks good"}`,
+			name:        "valid pass JSON",
+			stdout:      `{"verdict":"pass","issues":[],"suggestions":[],"confidence":0.95,"summary":"looks good"}`,
 			wantVerdict: "pass",
 		},
 		{
-			name: "valid fail JSON with issues",
-			stdout: `{"verdict":"fail","issues":[{"severity":"major","description":"Missing tests"}],"suggestions":["Add unit tests"],"confidence":0.8,"summary":"implementation is incomplete"}`,
+			name:        "valid fail JSON with issues",
+			stdout:      `{"verdict":"fail","issues":[{"severity":"major","description":"Missing tests"}],"suggestions":["Add unit tests"],"confidence":0.8,"summary":"implementation is incomplete"}`,
 			wantVerdict: "fail",
 		},
 		{
-			name: "valid warn JSON",
-			stdout: `{"verdict":"warn","issues":[{"severity":"minor","description":"Style issue"}],"suggestions":[],"confidence":0.7,"summary":"minor issues found"}`,
+			name:        "valid warn JSON",
+			stdout:      `{"verdict":"warn","issues":[{"severity":"minor","description":"Style issue"}],"suggestions":[],"confidence":0.7,"summary":"minor issues found"}`,
 			wantVerdict: "warn",
 		},
 		{
-			name: "JSON in markdown fences",
-			stdout: "```json\n{\"verdict\":\"pass\",\"issues\":[],\"suggestions\":[],\"confidence\":0.9,\"summary\":\"ok\"}\n```",
+			name:        "JSON in markdown fences",
+			stdout:      "```json\n{\"verdict\":\"pass\",\"issues\":[],\"suggestions\":[],\"confidence\":0.9,\"summary\":\"ok\"}\n```",
 			wantVerdict: "pass",
 		},
 		{
@@ -150,7 +150,6 @@ func TestBuildReviewPrompt(t *testing.T) {
 		}
 	})
 }
-
 
 // --- agentReviewValidator.RunReview tests (T017) ---
 

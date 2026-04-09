@@ -100,7 +100,7 @@ func (m *classifyMockStore) Read(name string) (Skill, error) {
 	return s, nil
 }
 
-func (m *classifyMockStore) Write(_ Skill) error   { return nil }
+func (m *classifyMockStore) Write(_ Skill) error { return nil }
 func (m *classifyMockStore) List() ([]Skill, error) {
 	var result []Skill
 	for _, s := range m.skills {

@@ -12,15 +12,15 @@ import (
 
 // IssueDetailModel is the right pane model for the Issues view.
 type IssueDetailModel struct {
-	width          int
-	height         int
-	focused        bool
-	viewport       viewport.Model
-	selected       *IssueData
-	pipelines      []PipelineInfo
-	chooserActive  bool
-	chooserCursor  int
-	pipelinesDir   string
+	width         int
+	height        int
+	focused       bool
+	viewport      viewport.Model
+	selected      *IssueData
+	pipelines     []PipelineInfo
+	chooserActive bool
+	chooserCursor int
+	pipelinesDir  string
 }
 
 // NewIssueDetailModel creates a new issue detail model.

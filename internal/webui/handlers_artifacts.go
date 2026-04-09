@@ -1,7 +1,6 @@
 package webui
 
 import (
-
 	"net/http"
 	"os"
 	"path/filepath"

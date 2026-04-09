@@ -10,10 +10,10 @@ import (
 
 // Tracker manages deliverables throughout pipeline execution
 type Tracker struct {
-	mu               sync.RWMutex
-	deliverables     []*Deliverable
-	pipelineID       string
-	outcomeWarnings  []string
+	mu              sync.RWMutex
+	deliverables    []*Deliverable
+	pipelineID      string
+	outcomeWarnings []string
 }
 
 // NewTracker creates a new deliverable tracker
@@ -241,6 +241,7 @@ func (t *Tracker) AddWorkspaceFiles(stepID, workspacePath string) {
 		}
 	}
 }
+
 // AddBranch is a convenience method to add a branch deliverable
 func (t *Tracker) AddBranch(stepID, branchName, worktreePath, description string) {
 	t.Add(NewBranchDeliverable(stepID, branchName, worktreePath, description))

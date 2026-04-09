@@ -10,17 +10,17 @@ import (
 
 // SuggestListModel is the left pane model for the Suggest view.
 type SuggestListModel struct {
-	width      int
-	height     int
-	proposals  []SuggestProposedPipeline
-	cursor     int
-	focused    bool
-	filtering  bool
-	loaded     bool
-	provider   SuggestDataProvider
-	errMsg     string
-	selected   map[int]bool    // Multi-select state: index -> selected
-	launched   map[string]bool // Tracks which proposals have been launched by name
+	width     int
+	height    int
+	proposals []SuggestProposedPipeline
+	cursor    int
+	focused   bool
+	filtering bool
+	loaded    bool
+	provider  SuggestDataProvider
+	errMsg    string
+	selected  map[int]bool    // Multi-select state: index -> selected
+	launched  map[string]bool // Tracks which proposals have been launched by name
 }
 
 // NewSuggestListModel creates a new suggest list model.

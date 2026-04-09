@@ -20,8 +20,8 @@ type CompatibilityStatus int
 
 const (
 	CompatibilityValid   CompatibilityStatus = iota // All flows compatible
-	CompatibilityWarning                             // Optional mismatches only
-	CompatibilityError                               // Required inputs missing
+	CompatibilityWarning                            // Optional mismatches only
+	CompatibilityError                              // Required inputs missing
 )
 
 // Sequence represents an ordered list of pipelines to execute in series.

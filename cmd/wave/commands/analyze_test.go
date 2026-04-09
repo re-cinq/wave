@@ -79,7 +79,7 @@ func TestWriteContextSkills(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	require.NoError(t, os.MkdirAll(".wave/skills", 0755))
 
@@ -110,9 +110,9 @@ func TestWriteContextSkills(t *testing.T) {
 
 func TestCountFiles(t *testing.T) {
 	tmpDir := t.TempDir()
-	os.WriteFile(filepath.Join(tmpDir, "a.go"), []byte(""), 0644)
-	os.WriteFile(filepath.Join(tmpDir, "b.go"), []byte(""), 0644)
-	os.MkdirAll(filepath.Join(tmpDir, "subdir"), 0755)
+	_ = os.WriteFile(filepath.Join(tmpDir, "a.go"), []byte(""), 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "b.go"), []byte(""), 0644)
+	_ = os.MkdirAll(filepath.Join(tmpDir, "subdir"), 0755)
 
 	assert.Equal(t, 2, countFiles(tmpDir))
 	assert.Equal(t, 0, countFiles(filepath.Join(tmpDir, "nonexistent")))
@@ -149,7 +149,7 @@ func TestAnalyzeCmd_EvolveFlagErrorsWithoutDB(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	cmd := NewAnalyzeCmd()
 	rootCmd := &cobra.Command{}

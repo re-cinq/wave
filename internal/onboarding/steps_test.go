@@ -43,7 +43,7 @@ func TestTestConfigStep_GoProject(t *testing.T) {
 	// Change to temp dir for detection
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(dir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	step := &TestConfigStep{}
 	assert.Equal(t, "Test Command Configuration", step.Name())
@@ -63,7 +63,7 @@ func TestTestConfigStep_Reconfigure(t *testing.T) {
 	dir := t.TempDir()
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(dir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	step := &TestConfigStep{}
 	cfg := &WizardConfig{
@@ -92,7 +92,7 @@ func TestTestConfigStep_UnknownProject(t *testing.T) {
 	dir := t.TempDir()
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(dir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	step := &TestConfigStep{}
 	cfg := &WizardConfig{Interactive: false}
@@ -174,7 +174,7 @@ func TestPipelineSelectionStep_NoPipelinesDir(t *testing.T) {
 	dir := t.TempDir()
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(dir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	step := &PipelineSelectionStep{}
 	assert.Equal(t, "Pipeline Selection", step.Name())
@@ -219,7 +219,7 @@ steps:
 
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(dir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	step := &PipelineSelectionStep{}
 	cfg := &WizardConfig{Interactive: false}
@@ -260,7 +260,7 @@ steps:
 
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(dir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	step := &PipelineSelectionStep{}
 	cfg := &WizardConfig{Interactive: false, All: true}

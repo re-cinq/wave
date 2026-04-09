@@ -518,12 +518,12 @@ func TestGraphWalker_ImplementTestFixCycle(t *testing.T) {
 	// Verify the exact execution order
 	expectedCalls := []string{
 		"implement",
-		"test",       // fail #1
-		"fix",        // fix #1
-		"test",       // fail #2
-		"fix",        // fix #2
-		"test",       // success
-		"finalize",   // terminal
+		"test",     // fail #1
+		"fix",      // fix #1
+		"test",     // fail #2
+		"fix",      // fix #2
+		"test",     // success
+		"finalize", // terminal
 	}
 	// Note: gate is conditional so it doesn't appear in executor calls
 	if len(tracker.calls) != len(expectedCalls) {
@@ -1086,8 +1086,8 @@ func TestResolveCommandWorkDir(t *testing.T) {
 
 func TestFilterEnvPassthrough(t *testing.T) {
 	// Set a known env var for testing
-	os.Setenv("WAVE_TEST_PASSTHROUGH", "secret_value")
-	os.Setenv("WAVE_TEST_BLOCKED", "should_not_appear")
+	_ = os.Setenv("WAVE_TEST_PASSTHROUGH", "secret_value")
+	_ = os.Setenv("WAVE_TEST_BLOCKED", "should_not_appear")
 	defer os.Unsetenv("WAVE_TEST_PASSTHROUGH")
 	defer os.Unsetenv("WAVE_TEST_BLOCKED")
 

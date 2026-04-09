@@ -116,7 +116,7 @@ type PipelineDetailStep struct {
 	Prompt             string   `json:"prompt,omitempty"`
 	SubPipeline        string   `json:"sub_pipeline,omitempty"`
 	Thread             string   `json:"thread,omitempty"`
-	Depth              int      `json:"depth,omitempty"`           // DAG depth for indentation
+	Depth              int      `json:"depth,omitempty"` // DAG depth for indentation
 	Script             string   `json:"script,omitempty"`
 	GatePrompt         string   `json:"gate_prompt,omitempty"`
 	GateType           string   `json:"gate_type,omitempty"`
@@ -128,12 +128,12 @@ type PipelineDetailStep struct {
 
 // PipelineDetail holds full pipeline info for the detail dialog.
 type PipelineDetail struct {
-	Name          string                `json:"name"`
-	Description   string                `json:"description,omitempty"`
-	Category      string                `json:"category,omitempty"`
-	IsComposition bool                  `json:"is_composition,omitempty"`
-	Skills        []string              `json:"skills,omitempty"`
-	Steps         []PipelineDetailStep  `json:"steps"`
+	Name          string               `json:"name"`
+	Description   string               `json:"description,omitempty"`
+	Category      string               `json:"category,omitempty"`
+	IsComposition bool                 `json:"is_composition,omitempty"`
+	Skills        []string             `json:"skills,omitempty"`
+	Steps         []PipelineDetailStep `json:"steps"`
 }
 
 // buildPipelineDetail constructs a PipelineDetail from a loaded pipeline.

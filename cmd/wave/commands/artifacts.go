@@ -253,7 +253,7 @@ func scanWorkspaceArtifacts(opts ArtifactsOptions) ([]ArtifactOutput, string, er
 func scanDirectoryForArtifacts(dir string, stepID string) []ArtifactOutput {
 	var artifacts []ArtifactOutput
 
-	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}

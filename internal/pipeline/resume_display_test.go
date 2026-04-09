@@ -35,13 +35,13 @@ func (e *capturingEmitter) Events() []event.Event {
 
 func TestResumeFromStep_SyntheticCompletionEvents(t *testing.T) {
 	tests := []struct {
-		name              string
-		steps             []Step
-		fromStep          string
-		setupWorkspace    func(t *testing.T, tempDir string)
-		wantSynthetic     int      // expected number of synthetic completion events
-		wantSyntheticIDs  []string // expected step IDs in synthetic events
-		wantPersonas      []string // expected personas in synthetic events
+		name             string
+		steps            []Step
+		fromStep         string
+		setupWorkspace   func(t *testing.T, tempDir string)
+		wantSynthetic    int      // expected number of synthetic completion events
+		wantSyntheticIDs []string // expected step IDs in synthetic events
+		wantPersonas     []string // expected personas in synthetic events
 	}{
 		{
 			name: "resume from step 3 of 5 emits 2 synthetic completions",
@@ -112,7 +112,7 @@ func TestResumeFromStep_SyntheticCompletionEvents(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer os.Chdir(origDir)
+			defer func() { _ = os.Chdir(origDir) }()
 			if err := os.Chdir(tempDir); err != nil {
 				t.Fatal(err)
 			}

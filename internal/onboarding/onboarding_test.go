@@ -25,7 +25,7 @@ func TestRunWizard_NonInteractive(t *testing.T) {
 
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(dir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	cfg := WizardConfig{
 		WaveDir:     waveDir,
@@ -100,7 +100,7 @@ func TestRunWizard_Reconfigure(t *testing.T) {
 
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(dir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	existing := &manifest.Manifest{
 		Project: &manifest.Project{
@@ -142,7 +142,7 @@ func TestRunWizard_MarksOnboarded(t *testing.T) {
 
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(dir))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	assert.False(t, IsOnboarded(waveDir))
 

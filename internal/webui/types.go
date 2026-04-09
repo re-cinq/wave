@@ -66,27 +66,27 @@ type StepDetail struct {
 	Error              string                `json:"error,omitempty"`
 	FailureClass       string                `json:"failure_class,omitempty"`
 	Artifacts          []ArtifactSummary     `json:"artifacts,omitempty"`
-	StepType           string                `json:"step_type,omitempty"`         // "conditional", "command", "gate", "pipeline", or ""
-	Script             string                `json:"script,omitempty"`            // Shell script for command steps
-	SubPipeline        string                `json:"sub_pipeline,omitempty"`      // Referenced pipeline for pipeline steps
-	GatePrompt         string                `json:"gate_prompt,omitempty"`       // Gate prompt/message
-	GateChoices        string                `json:"gate_choices,omitempty"`      // Comma-separated gate choice labels
-	GateChoicesData    []pipeline.GateChoice `json:"gate_choices_data,omitempty"` // Structured gate choice data for interactive UI
-	GateFreeform       bool                  `json:"gate_freeform,omitempty"`     // Whether freeform text input is allowed
-	EdgeInfo           string                `json:"edge_info,omitempty"`         // Edge conditions for conditional steps
-	Contract           string                `json:"contract,omitempty"`          // Contract path/type
+	StepType           string                `json:"step_type,omitempty"`            // "conditional", "command", "gate", "pipeline", or ""
+	Script             string                `json:"script,omitempty"`               // Shell script for command steps
+	SubPipeline        string                `json:"sub_pipeline,omitempty"`         // Referenced pipeline for pipeline steps
+	GatePrompt         string                `json:"gate_prompt,omitempty"`          // Gate prompt/message
+	GateChoices        string                `json:"gate_choices,omitempty"`         // Comma-separated gate choice labels
+	GateChoicesData    []pipeline.GateChoice `json:"gate_choices_data,omitempty"`    // Structured gate choice data for interactive UI
+	GateFreeform       bool                  `json:"gate_freeform,omitempty"`        // Whether freeform text input is allowed
+	EdgeInfo           string                `json:"edge_info,omitempty"`            // Edge conditions for conditional steps
+	Contract           string                `json:"contract,omitempty"`             // Contract path/type
 	ContractSchemaName string                `json:"contract_schema_name,omitempty"` // Human-readable contract name
-	Model              string                `json:"model,omitempty"`             // Model override for this step
-	Adapter            string                `json:"adapter,omitempty"`           // Adapter used for this step
-	VisitCount         int                   `json:"visit_count,omitempty"`       // Current visit count for graph loop steps
-	MaxVisits          int                   `json:"max_visits,omitempty"`        // Max visit limit for graph loop steps
-	GanttLeft          float64               `json:"gantt_left,omitempty"`        // Gantt bar left offset (percentage)
-	GanttWidth         float64               `json:"gantt_width,omitempty"`       // Gantt bar width (percentage)
+	Model              string                `json:"model,omitempty"`                // Model override for this step
+	Adapter            string                `json:"adapter,omitempty"`              // Adapter used for this step
+	VisitCount         int                   `json:"visit_count,omitempty"`          // Current visit count for graph loop steps
+	MaxVisits          int                   `json:"max_visits,omitempty"`           // Max visit limit for graph loop steps
+	GanttLeft          float64               `json:"gantt_left,omitempty"`           // Gantt bar left offset (percentage)
+	GanttWidth         float64               `json:"gantt_width,omitempty"`          // Gantt bar width (percentage)
 	// Agent review verdict fields (populated when agent_review contracts run)
-	ReviewVerdict      string                `json:"review_verdict,omitempty"`    // "pass", "fail", or "warn"
-	ReviewIssueCount   int                   `json:"review_issue_count,omitempty"` // Number of issues found
-	ReviewerPersona    string                `json:"reviewer_persona,omitempty"`  // Reviewer persona name
-	ReviewTokens       int                   `json:"review_tokens,omitempty"`     // Tokens used by reviewer
+	ReviewVerdict    string `json:"review_verdict,omitempty"`     // "pass", "fail", or "warn"
+	ReviewIssueCount int    `json:"review_issue_count,omitempty"` // Number of issues found
+	ReviewerPersona  string `json:"reviewer_persona,omitempty"`   // Reviewer persona name
+	ReviewTokens     int    `json:"review_tokens,omitempty"`      // Tokens used by reviewer
 }
 
 // EventSummary holds summary information about a pipeline event.
@@ -299,12 +299,12 @@ type IssueSummary struct {
 	State     string       `json:"state"`
 	Author    string       `json:"author"`
 	Labels    []LabelBadge `json:"labels"`
-	Comments  int      `json:"comments"`
-	CreatedAt string   `json:"created_at"`
-	URL       string   `json:"url"`
+	Comments  int          `json:"comments"`
+	CreatedAt string       `json:"created_at"`
+	URL       string       `json:"url"`
 	// Wave stats
 	RunCount    int    `json:"run_count,omitempty"`
-	LastStatus string `json:"last_status,omitempty"`
+	LastStatus  string `json:"last_status,omitempty"`
 	TotalTokens int64  `json:"total_tokens,omitempty"`
 }
 
@@ -316,11 +316,11 @@ type IssueDetail struct {
 	Body      string       `json:"body"`
 	Author    string       `json:"author"`
 	Labels    []LabelBadge `json:"labels"`
-	Assignees []string `json:"assignees,omitempty"`
-	Comments  int      `json:"comments"`
-	CreatedAt string   `json:"created_at"`
-	UpdatedAt string   `json:"updated_at"`
-	URL       string   `json:"url"`
+	Assignees []string     `json:"assignees,omitempty"`
+	Comments  int          `json:"comments"`
+	CreatedAt string       `json:"created_at"`
+	UpdatedAt string       `json:"updated_at"`
+	URL       string       `json:"url"`
 }
 
 // IssueListResponse is the JSON response for the issue list API.
@@ -342,18 +342,18 @@ type PRSummary struct {
 	State        string       `json:"state"`
 	Author       string       `json:"author"`
 	Labels       []LabelBadge `json:"labels,omitempty"`
-	Draft        bool     `json:"draft"`
-	Merged       bool     `json:"merged"`
-	HeadBranch   string   `json:"head_branch"`
-	BaseBranch   string   `json:"base_branch"`
-	Additions    int      `json:"additions"`
-	Deletions    int      `json:"deletions"`
-	ChangedFiles int      `json:"changed_files"`
-	CreatedAt    string   `json:"created_at"`
-	URL          string   `json:"url"`
+	Draft        bool         `json:"draft"`
+	Merged       bool         `json:"merged"`
+	HeadBranch   string       `json:"head_branch"`
+	BaseBranch   string       `json:"base_branch"`
+	Additions    int          `json:"additions"`
+	Deletions    int          `json:"deletions"`
+	ChangedFiles int          `json:"changed_files"`
+	CreatedAt    string       `json:"created_at"`
+	URL          string       `json:"url"`
 	// Wave stats
 	RunCount    int    `json:"run_count,omitempty"`
-	LastStatus string `json:"last_status,omitempty"`
+	LastStatus  string `json:"last_status,omitempty"`
 	TotalTokens int64  `json:"total_tokens,omitempty"`
 }
 
@@ -393,19 +393,19 @@ type PRDetail struct {
 	Body         string       `json:"body"`
 	Author       string       `json:"author"`
 	Labels       []LabelBadge `json:"labels,omitempty"`
-	Draft        bool      `json:"draft"`
-	Merged       bool      `json:"merged"`
-	HeadBranch   string    `json:"head_branch"`
-	BaseBranch   string    `json:"base_branch"`
-	Additions    int       `json:"additions"`
-	Deletions    int       `json:"deletions"`
-	ChangedFiles int       `json:"changed_files"`
-	Commits      int       `json:"commits"`
-	Comments     int       `json:"comments"`
-	CreatedAt    string    `json:"created_at"`
-	UpdatedAt    string    `json:"updated_at"`
-	URL          string    `json:"url"`
-	Checks       []PRCheck `json:"checks,omitempty"`
+	Draft        bool         `json:"draft"`
+	Merged       bool         `json:"merged"`
+	HeadBranch   string       `json:"head_branch"`
+	BaseBranch   string       `json:"base_branch"`
+	Additions    int          `json:"additions"`
+	Deletions    int          `json:"deletions"`
+	ChangedFiles int          `json:"changed_files"`
+	Commits      int          `json:"commits"`
+	Comments     int          `json:"comments"`
+	CreatedAt    string       `json:"created_at"`
+	UpdatedAt    string       `json:"updated_at"`
+	URL          string       `json:"url"`
+	Checks       []PRCheck    `json:"checks,omitempty"`
 }
 
 // PRListResponse is the JSON response for the PR list API.

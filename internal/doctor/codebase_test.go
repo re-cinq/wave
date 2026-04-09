@@ -35,21 +35,21 @@ func TestAnalyzeCodebase_WithMockServer(t *testing.T) {
 	// Mock PRs endpoint
 	mux.HandleFunc("GET /repos/test/repo/pulls", func(w http.ResponseWriter, r *http.Request) {
 		prs := []github.PullRequest{
-			{Number: 1, UpdatedAt: recentDate, Comments: 0},  // needs review
-			{Number: 2, UpdatedAt: staleDate, Comments: 3},   // stale
-			{Number: 3, UpdatedAt: recentDate, Comments: 1},  // normal
+			{Number: 1, UpdatedAt: recentDate, Comments: 0}, // needs review
+			{Number: 2, UpdatedAt: staleDate, Comments: 3},  // stale
+			{Number: 3, UpdatedAt: recentDate, Comments: 1}, // normal
 		}
-		json.NewEncoder(w).Encode(prs)
+		_ = json.NewEncoder(w).Encode(prs)
 	})
 
 	// Mock issues endpoint
 	mux.HandleFunc("GET /repos/test/repo/issues", func(w http.ResponseWriter, r *http.Request) {
 		issues := []github.Issue{
 			{
-				Number: 10,
-				Title:  "A well-described issue with good context",
-				Body:   "This is a detailed description with steps to reproduce, expected behavior, and actual behavior.",
-				State:  "open",
+				Number:    10,
+				Title:     "A well-described issue with good context",
+				Body:      "This is a detailed description with steps to reproduce, expected behavior, and actual behavior.",
+				State:     "open",
 				Assignees: []*github.User{{Login: "user1"}},
 			},
 			{
@@ -65,7 +65,7 @@ func TestAnalyzeCodebase_WithMockServer(t *testing.T) {
 				State:  "open",
 			},
 		}
-		json.NewEncoder(w).Encode(issues)
+		_ = json.NewEncoder(w).Encode(issues)
 	})
 
 	server := httptest.NewServer(mux)
@@ -84,7 +84,7 @@ func TestAnalyzeCodebase_WithMockServer(t *testing.T) {
 			Repo:  "repo",
 		},
 		ForgeClient: forgeClient,
-		Now:      func() time.Time { return now },
+		Now:         func() time.Time { return now },
 		RunGHCmd: func(args ...string) ([]byte, error) {
 			runs := []ghRunResult{
 				{Status: "completed", Conclusion: "success"},

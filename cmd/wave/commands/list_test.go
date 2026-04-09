@@ -85,7 +85,7 @@ func executeListCmd(args ...string) (stdout, stderr string, err error) {
 	os.Stdout = oldStdout
 
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 
 	return buf.String(), errBuf.String(), err
 }

@@ -130,11 +130,11 @@ type InputSchema struct {
 
 // RetryConfig controls step retry behavior on failure.
 type RetryConfig struct {
-	Policy      string `yaml:"policy,omitempty"`        // "none", "standard", "aggressive", "patient". Resolved to concrete values.
+	Policy      string `yaml:"policy,omitempty"`       // "none", "standard", "aggressive", "patient". Resolved to concrete values.
 	MaxAttempts int    `yaml:"max_attempts,omitempty"` // Total attempts. Default 1 = no retry
 	Backoff     string `yaml:"backoff,omitempty"`      // "fixed", "linear", "exponential". Default: "linear"
 	BaseDelay   string `yaml:"base_delay,omitempty"`   // Duration string like "2s". Default: "1s"
-	MaxDelay    string `yaml:"max_delay,omitempty"`     // Maximum delay cap. Default: "30s"
+	MaxDelay    string `yaml:"max_delay,omitempty"`    // Maximum delay cap. Default: "30s"
 	AdaptPrompt bool   `yaml:"adapt_prompt,omitempty"` // Inject prior failure context. Default: false
 	OnFailure   string `yaml:"on_failure,omitempty"`   // "fail", "skip", "continue", "rework". Default: "fail"
 	ReworkStep  string `yaml:"rework_step,omitempty"`  // Step ID to execute when on_failure is "rework"
@@ -255,16 +255,16 @@ func (r RetryConfig) ComputeDelay(attempt int) time.Duration {
 
 // AttemptContext holds failure context from a prior retry attempt for prompt adaptation.
 type AttemptContext struct {
-	Attempt             int
-	MaxAttempts         int
-	PriorError          string
-	FailureClass        string
-	PriorStdout         string            // last 2000 chars
-	ContractErrors      []string          // Structured contract validation errors
-	StepDuration        time.Duration     // How long the step ran before failing
-	PartialArtifacts    map[string]string // Partial artifact paths (name -> path)
-	FailedStepID        string            // ID of the step that triggered rework
-	ReviewFeedbackPath  string            // Path to review_feedback.json written by agent_review on_failure: rework
+	Attempt            int
+	MaxAttempts        int
+	PriorError         string
+	FailureClass       string
+	PriorStdout        string            // last 2000 chars
+	ContractErrors     []string          // Structured contract validation errors
+	StepDuration       time.Duration     // How long the step ran before failing
+	PartialArtifacts   map[string]string // Partial artifact paths (name -> path)
+	FailedStepID       string            // ID of the step that triggered rework
+	ReviewFeedbackPath string            // Path to review_feedback.json written by agent_review on_failure: rework
 }
 
 // EdgeConfig defines an edge from a step to a target step with an optional condition.
@@ -276,7 +276,7 @@ type EdgeConfig struct {
 type Step struct {
 	ID                  string           `yaml:"id"`
 	Persona             string           `yaml:"persona"`
-	Adapter             string           `yaml:"adapter,omitempty"`  // Step-level adapter override (e.g., "codex", "gemini")
+	Adapter             string           `yaml:"adapter,omitempty"` // Step-level adapter override (e.g., "codex", "gemini")
 	Model               string           `yaml:"model,omitempty"`   // Step-level model override (e.g., "claude-haiku-4-5")
 	Dependencies        []string         `yaml:"dependencies,omitempty"`
 	TimeoutMinutes      int              `yaml:"timeout_minutes,omitempty"`
@@ -309,14 +309,14 @@ type Step struct {
 	Contexts []string `yaml:"contexts,omitempty"`
 
 	// Composition primitives
-	SubPipeline string           `yaml:"pipeline,omitempty"`  // Child pipeline to execute
-	SubInput    string              `yaml:"input,omitempty"`        // Input template for child pipeline
-	Config      *SubPipelineConfig  `yaml:"config,omitempty"`       // Sub-pipeline configuration (artifact flow, lifecycle)
-	Iterate     *IterateConfig   `yaml:"iterate,omitempty"`   // Iteration over items
-	Branch      *BranchConfig    `yaml:"branch,omitempty"`    // Conditional branching
-	Gate        *GateConfig      `yaml:"gate,omitempty"`      // Approval/timer/merge gates
-	Loop        *LoopConfig      `yaml:"loop,omitempty"`      // Feedback loops
-	Aggregate   *AggregateConfig `yaml:"aggregate,omitempty"` // Output aggregation
+	SubPipeline string             `yaml:"pipeline,omitempty"`  // Child pipeline to execute
+	SubInput    string             `yaml:"input,omitempty"`     // Input template for child pipeline
+	Config      *SubPipelineConfig `yaml:"config,omitempty"`    // Sub-pipeline configuration (artifact flow, lifecycle)
+	Iterate     *IterateConfig     `yaml:"iterate,omitempty"`   // Iteration over items
+	Branch      *BranchConfig      `yaml:"branch,omitempty"`    // Conditional branching
+	Gate        *GateConfig        `yaml:"gate,omitempty"`      // Approval/timer/merge gates
+	Loop        *LoopConfig        `yaml:"loop,omitempty"`      // Feedback loops
+	Aggregate   *AggregateConfig   `yaml:"aggregate,omitempty"` // Output aggregation
 }
 
 // IsOptional returns whether this step is marked as optional.
@@ -451,8 +451,8 @@ type ContractConfig struct {
 	MaxRetries int    `yaml:"max_retries,omitempty"`
 
 	// LLM judge settings
-	Model     string   `yaml:"model,omitempty"`    // LLM model for judge evaluation
-	Criteria  []string `yaml:"criteria,omitempty"` // Evaluation criteria for LLM judge
+	Model     string   `yaml:"model,omitempty"`     // LLM model for judge evaluation
+	Criteria  []string `yaml:"criteria,omitempty"`  // Evaluation criteria for LLM judge
 	Threshold float64  `yaml:"threshold,omitempty"` // Pass threshold (0.0-1.0), default 1.0
 
 	// Agent review settings

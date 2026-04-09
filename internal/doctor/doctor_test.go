@@ -13,7 +13,7 @@ import (
 func TestRunChecks_AllHealthy(t *testing.T) {
 	tmp := t.TempDir()
 	manifestPath := filepath.Join(tmp, "wave.yaml")
-	os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+	_ = os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
 kind: Manifest
 metadata:
   name: test-project
@@ -31,12 +31,12 @@ ontology:
 `), 0644)
 
 	pipelinesDir := filepath.Join(tmp, "pipelines")
-	os.MkdirAll(pipelinesDir, 0755)
+	_ = os.MkdirAll(pipelinesDir, 0755)
 
 	// Create context skill so ontology check passes
 	skillDir := filepath.Join(tmp, "skills", "wave-ctx-core")
-	os.MkdirAll(skillDir, 0755)
-	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# Core Context\n"), 0644)
+	_ = os.MkdirAll(skillDir, 0755)
+	_ = os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# Core Context\n"), 0644)
 
 	report, err := RunChecks(context.Background(), Options{
 		ManifestPath: manifestPath,
@@ -131,7 +131,7 @@ func TestRunChecks_MissingManifest(t *testing.T) {
 func TestRunChecks_NoGit(t *testing.T) {
 	tmp := t.TempDir()
 	manifestPath := filepath.Join(tmp, "wave.yaml")
-	os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+	_ = os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
 kind: Manifest
 metadata:
   name: test-project
@@ -177,7 +177,7 @@ runtime:
 func TestRunChecks_MissingAdapter(t *testing.T) {
 	tmp := t.TempDir()
 	manifestPath := filepath.Join(tmp, "wave.yaml")
-	os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+	_ = os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
 kind: Manifest
 metadata:
   name: test-project
@@ -227,7 +227,7 @@ runtime:
 func TestRunChecks_ForgeWithMissingCLI(t *testing.T) {
 	tmp := t.TempDir()
 	manifestPath := filepath.Join(tmp, "wave.yaml")
-	os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+	_ = os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
 kind: Manifest
 metadata:
   name: test-project
@@ -280,7 +280,7 @@ runtime:
 func TestRunChecks_RequiredTools(t *testing.T) {
 	tmp := t.TempDir()
 	manifestPath := filepath.Join(tmp, "wave.yaml")
-	os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+	_ = os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
 kind: Manifest
 metadata:
   name: test-project
@@ -289,8 +289,8 @@ runtime:
 `), 0644)
 
 	pipelinesDir := filepath.Join(tmp, "pipelines")
-	os.MkdirAll(pipelinesDir, 0755)
-	os.WriteFile(filepath.Join(pipelinesDir, "test.yaml"), []byte(`kind: Pipeline
+	_ = os.MkdirAll(pipelinesDir, 0755)
+	_ = os.WriteFile(filepath.Join(pipelinesDir, "test.yaml"), []byte(`kind: Pipeline
 metadata:
   name: test
 requires:
@@ -346,7 +346,7 @@ steps:
 func TestCheckAdapterRegistry_WithAdapters(t *testing.T) {
 	tmp := t.TempDir()
 	manifestPath := filepath.Join(tmp, "wave.yaml")
-	os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+	_ = os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
 kind: Manifest
 metadata:
   name: test-project
@@ -411,7 +411,7 @@ runtime:
 func TestCheckAdapterRegistry_NoAdapters(t *testing.T) {
 	tmp := t.TempDir()
 	manifestPath := filepath.Join(tmp, "wave.yaml")
-	os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+	_ = os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
 kind: Manifest
 metadata:
   name: test-project
@@ -457,7 +457,7 @@ runtime:
 func TestCheckRetryPolicies_AllNamed(t *testing.T) {
 	tmp := t.TempDir()
 	manifestPath := filepath.Join(tmp, "wave.yaml")
-	os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+	_ = os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
 kind: Manifest
 metadata:
   name: test-project
@@ -466,8 +466,8 @@ runtime:
 `), 0644)
 
 	pipelinesDir := filepath.Join(tmp, "pipelines")
-	os.MkdirAll(pipelinesDir, 0755)
-	os.WriteFile(filepath.Join(pipelinesDir, "test.yaml"), []byte(`kind: Pipeline
+	_ = os.MkdirAll(pipelinesDir, 0755)
+	_ = os.WriteFile(filepath.Join(pipelinesDir, "test.yaml"), []byte(`kind: Pipeline
 metadata:
   name: test
 steps:
@@ -516,7 +516,7 @@ steps:
 func TestCheckRetryPolicies_RawMaxAttempts(t *testing.T) {
 	tmp := t.TempDir()
 	manifestPath := filepath.Join(tmp, "wave.yaml")
-	os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+	_ = os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
 kind: Manifest
 metadata:
   name: test-project
@@ -525,8 +525,8 @@ runtime:
 `), 0644)
 
 	pipelinesDir := filepath.Join(tmp, "pipelines")
-	os.MkdirAll(pipelinesDir, 0755)
-	os.WriteFile(filepath.Join(pipelinesDir, "test.yaml"), []byte(`kind: Pipeline
+	_ = os.MkdirAll(pipelinesDir, 0755)
+	_ = os.WriteFile(filepath.Join(pipelinesDir, "test.yaml"), []byte(`kind: Pipeline
 metadata:
   name: test
 steps:
@@ -579,7 +579,7 @@ steps:
 func TestCheckEngineCapabilities(t *testing.T) {
 	tmp := t.TempDir()
 	manifestPath := filepath.Join(tmp, "wave.yaml")
-	os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+	_ = os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
 kind: Manifest
 metadata:
   name: test-project

@@ -184,7 +184,7 @@ func (r *WebhookRunner) deliver(ctx context.Context, wh *WebhookRecord, evt Hook
 		return
 	}
 	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body) //nolint:errcheck
+	_, _ = io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
 	errMsg := ""
 	if resp.StatusCode >= 400 {

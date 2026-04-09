@@ -407,7 +407,7 @@ func TestCheckTools_ReturnsToolError(t *testing.T) {
 	}
 
 	expectedTools := map[string]bool{
-		"nonexistent-tool-xyz-999":     true,
+		"nonexistent-tool-xyz-999":  true,
 		"another-fake-tool-abc-123": true,
 	}
 	for _, tool := range toolErr.MissingTools {

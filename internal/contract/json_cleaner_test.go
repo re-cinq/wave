@@ -168,9 +168,9 @@ func TestJSONCleaner_IsValidJSON(t *testing.T) {
 	cleaner := &JSONCleaner{}
 
 	tests := []struct {
-		name      string
-		input     string
-		isValid   bool
+		name    string
+		input   string
+		isValid bool
 	}{
 		{
 			name:    "valid object",

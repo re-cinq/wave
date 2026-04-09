@@ -179,8 +179,8 @@ func isBase64Char(c byte) bool {
 type dominantScript int
 
 const (
-	scriptNone   dominantScript = iota
-	scriptLatin                 // Latin, ASCII
+	scriptNone  dominantScript = iota
+	scriptLatin                // Latin, ASCII
 	scriptCyrillic
 	scriptGreek
 	scriptArabic

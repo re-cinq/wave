@@ -257,9 +257,9 @@ func TestDetect(t *testing.T) {
 
 func TestForgeInfo_Slug(t *testing.T) {
 	tests := []struct {
-		name  string
-		info  ForgeInfo
-		want  string
+		name string
+		info ForgeInfo
+		want string
 	}{
 		{
 			name: "both set",
@@ -516,9 +516,9 @@ func TestParseRemoteURL(t *testing.T) {
 // by probing their well-known API endpoints.
 func TestProbeForgeType(t *testing.T) {
 	tests := []struct {
-		name      string
-		handler   http.HandlerFunc
-		wantType  ForgeType
+		name     string
+		handler  http.HandlerFunc
+		wantType ForgeType
 	}{
 		{
 			name: "Forgejo version endpoint",
@@ -709,83 +709,83 @@ func TestManifestForgeOverride(t *testing.T) {
 	disableProbing(t)
 
 	tests := []struct {
-		name          string
-		url           string
-		override      string
-		wantType      ForgeType
-		wantCLI       string
-		wantPRTerm    string
+		name       string
+		url        string
+		override   string
+		wantType   ForgeType
+		wantCLI    string
+		wantPRTerm string
 	}{
 		{
-			name:     "Override unknown host to gitlab",
-			url:      "https://git.corp.com/team/app.git",
-			override: "gitlab",
-			wantType: ForgeGitLab,
-			wantCLI:  "glab",
+			name:       "Override unknown host to gitlab",
+			url:        "https://git.corp.com/team/app.git",
+			override:   "gitlab",
+			wantType:   ForgeGitLab,
+			wantCLI:    "glab",
 			wantPRTerm: "Merge Request",
 		},
 		{
-			name:     "Override unknown host to github",
-			url:      "https://git.corp.com/team/app.git",
-			override: "github",
-			wantType: ForgeGitHub,
-			wantCLI:  "gh",
+			name:       "Override unknown host to github",
+			url:        "https://git.corp.com/team/app.git",
+			override:   "github",
+			wantType:   ForgeGitHub,
+			wantCLI:    "gh",
 			wantPRTerm: "Pull Request",
 		},
 		{
-			name:     "Override unknown host to gitea",
-			url:      "https://code.internal.net/team/app.git",
-			override: "gitea",
-			wantType: ForgeGitea,
-			wantCLI:  "tea",
+			name:       "Override unknown host to gitea",
+			url:        "https://code.internal.net/team/app.git",
+			override:   "gitea",
+			wantType:   ForgeGitea,
+			wantCLI:    "tea",
 			wantPRTerm: "Pull Request",
 		},
 		{
-			name:     "Override unknown host to forgejo",
-			url:      "https://code.internal.net/team/app.git",
-			override: "forgejo",
-			wantType: ForgeForgejo,
-			wantCLI:  "tea",
+			name:       "Override unknown host to forgejo",
+			url:        "https://code.internal.net/team/app.git",
+			override:   "forgejo",
+			wantType:   ForgeForgejo,
+			wantCLI:    "tea",
 			wantPRTerm: "Pull Request",
 		},
 		{
-			name:     "Override unknown host to codeberg",
-			url:      "https://git.corp.com/team/app.git",
-			override: "codeberg",
-			wantType: ForgeCodeberg,
-			wantCLI:  "tea",
+			name:       "Override unknown host to codeberg",
+			url:        "https://git.corp.com/team/app.git",
+			override:   "codeberg",
+			wantType:   ForgeCodeberg,
+			wantCLI:    "tea",
 			wantPRTerm: "Pull Request",
 		},
 		{
-			name:     "Override unknown host to bitbucket",
-			url:      "https://git.corp.com/team/app.git",
-			override: "bitbucket",
-			wantType: ForgeBitbucket,
-			wantCLI:  "bb",
+			name:       "Override unknown host to bitbucket",
+			url:        "https://git.corp.com/team/app.git",
+			override:   "bitbucket",
+			wantType:   ForgeBitbucket,
+			wantCLI:    "bb",
 			wantPRTerm: "Pull Request",
 		},
 		{
-			name:     "Override is case-insensitive",
-			url:      "https://git.corp.com/team/app.git",
-			override: "GitLab",
-			wantType: ForgeGitLab,
-			wantCLI:  "glab",
+			name:       "Override is case-insensitive",
+			url:        "https://git.corp.com/team/app.git",
+			override:   "GitLab",
+			wantType:   ForgeGitLab,
+			wantCLI:    "glab",
 			wantPRTerm: "Merge Request",
 		},
 		{
-			name:     "Override overrides hostname detection",
-			url:      "https://github.com/owner/repo.git",
-			override: "gitlab",
-			wantType: ForgeGitLab,
-			wantCLI:  "glab",
+			name:       "Override overrides hostname detection",
+			url:        "https://github.com/owner/repo.git",
+			override:   "gitlab",
+			wantType:   ForgeGitLab,
+			wantCLI:    "glab",
 			wantPRTerm: "Merge Request",
 		},
 		{
-			name:     "Empty override falls through to hostname",
-			url:      "https://github.com/owner/repo.git",
-			override: "",
-			wantType: ForgeGitHub,
-			wantCLI:  "gh",
+			name:       "Empty override falls through to hostname",
+			url:        "https://github.com/owner/repo.git",
+			override:   "",
+			wantType:   ForgeGitHub,
+			wantCLI:    "gh",
 			wantPRTerm: "Pull Request",
 		},
 	}

@@ -96,7 +96,7 @@ func (m *MigrationManager) ApplyMigration(migration Migration) error {
 	if err != nil {
 		return fmt.Errorf("failed to start migration transaction: %w", err)
 	}
-	defer tx.Rollback() // Will be ignored if commit succeeds
+	defer func() { _ = tx.Rollback() }() // Will be ignored if commit succeeds
 
 	// Execute the migration SQL
 	_, err = tx.Exec(migration.Up)
@@ -136,7 +136,7 @@ func (m *MigrationManager) RollbackMigration(migration Migration) error {
 	if err != nil {
 		return fmt.Errorf("failed to start rollback transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Execute the rollback SQL
 	_, err = tx.Exec(migration.Down)

@@ -20,17 +20,17 @@ type Event struct {
 	Persona    string    `json:"persona,omitempty"`
 	Artifacts  []string  `json:"artifacts,omitempty"`
 	TokensUsed int       `json:"tokens_used,omitempty"`
-	TokensIn   int       `json:"tokens_in,omitempty"`   // Input tokens (prompt + cache creation)
-	TokensOut  int       `json:"tokens_out,omitempty"`  // Output tokens (completion)
+	TokensIn   int       `json:"tokens_in,omitempty"`  // Input tokens (prompt + cache creation)
+	TokensOut  int       `json:"tokens_out,omitempty"` // Output tokens (completion)
 
 	// Progress tracking fields (optional, for enhanced visualization)
-	Progress        int     `json:"progress,omitempty"`          // 0-100 percentage for step progress
-	CurrentAction   string  `json:"current_action,omitempty"`    // Current action being performed
-	TotalSteps      int     `json:"total_steps,omitempty"`       // Total steps in pipeline
-	CompletedSteps  int     `json:"completed_steps,omitempty"`   // Number of completed steps
-	EstimatedTimeMs int64   `json:"estimated_time_ms"` // ETA in milliseconds (0 = no estimate)
-	ValidationPhase string  `json:"validation_phase,omitempty"`  // Contract validation phase
-	CompactionStats *string `json:"compaction_stats,omitempty"`  // Compaction statistics (JSON)
+	Progress        int     `json:"progress,omitempty"`         // 0-100 percentage for step progress
+	CurrentAction   string  `json:"current_action,omitempty"`   // Current action being performed
+	TotalSteps      int     `json:"total_steps,omitempty"`      // Total steps in pipeline
+	CompletedSteps  int     `json:"completed_steps,omitempty"`  // Number of completed steps
+	EstimatedTimeMs int64   `json:"estimated_time_ms"`          // ETA in milliseconds (0 = no estimate)
+	ValidationPhase string  `json:"validation_phase,omitempty"` // Contract validation phase
+	CompactionStats *string `json:"compaction_stats,omitempty"` // Compaction statistics (JSON)
 
 	// Error classification fields (context exhaustion handling)
 	FailureReason string `json:"failure_reason,omitempty"` // "timeout", "context_exhaustion", "general_error"
@@ -42,9 +42,9 @@ type Event struct {
 	ToolTarget string `json:"tool_target,omitempty"` // Target (file path, command, pattern)
 
 	// Step metadata fields (FR-010: model and adapter type in step-start events)
-	Model   string `json:"model,omitempty"`   // Model name (e.g., "opus", "sonnet")
-	Adapter string `json:"adapter,omitempty"` // Adapter type (e.g., "claude")
-	Temperature float64 `json:"temperature,omitempty"`  // Temperature setting for this step
+	Model       string  `json:"model,omitempty"`       // Model name (e.g., "opus", "sonnet")
+	Adapter     string  `json:"adapter,omitempty"`     // Adapter type (e.g., "claude")
+	Temperature float64 `json:"temperature,omitempty"` // Temperature setting for this step
 
 	// Recovery hints (populated on failure events only)
 	RecoveryHints []RecoveryHintJSON `json:"recovery_hints,omitempty"`
@@ -126,13 +126,13 @@ const (
 	// Composition primitive states
 	StateIterationStarted   = "iteration_started"   // Iterate step begun
 	StateIterationProgress  = "iteration_progress"  // Individual item processing
-	StateIterationCompleted = "iteration_completed"  // All items processed
-	StateBranchEvaluated    = "branch_evaluated"     // Branch condition resolved
-	StateGateWaiting        = "gate_waiting"         // Gate step blocking
-	StateGateResolved       = "gate_resolved"        // Gate condition met
-	StateLoopIteration      = "loop_iteration"       // Loop iteration started
-	StateLoopCompleted      = "loop_completed"       // Loop terminated
-	StateAggregateCompleted = "aggregate_completed"  // Aggregation finished
+	StateIterationCompleted = "iteration_completed" // All items processed
+	StateBranchEvaluated    = "branch_evaluated"    // Branch condition resolved
+	StateGateWaiting        = "gate_waiting"        // Gate step blocking
+	StateGateResolved       = "gate_resolved"       // Gate condition met
+	StateLoopIteration      = "loop_iteration"      // Loop iteration started
+	StateLoopCompleted      = "loop_completed"      // Loop terminated
+	StateAggregateCompleted = "aggregate_completed" // Aggregation finished
 
 	// Continuous loop states
 	StateLoopStart             = "loop_start"
@@ -157,8 +157,8 @@ type EventEmitter interface {
 
 type NDJSONEmitter struct {
 	encoder         *json.Encoder
-	suppressJSON    bool            // When true, suppresses JSON output to stdout
-	debugVerbose    bool            // When true, emits additional internal state transition events
+	suppressJSON    bool // When true, suppresses JSON output to stdout
+	debugVerbose    bool // When true, emits additional internal state transition events
 	mu              sync.Mutex
 	progressEmitter ProgressEmitter // Optional enhanced progress emitter
 }
@@ -207,7 +207,7 @@ func NewNDJSONEmitterWithProgress(progressEmitter ProgressEmitter) *NDJSONEmitte
 func NewProgressOnlyEmitter(progressEmitter ProgressEmitter) *NDJSONEmitter {
 	return &NDJSONEmitter{
 		encoder:         json.NewEncoder(os.Stdout), // Still needs encoder but won't use it
-		suppressJSON:    true, // Suppress JSON output to stdout
+		suppressJSON:    true,                       // Suppress JSON output to stdout
 		progressEmitter: progressEmitter,
 	}
 }

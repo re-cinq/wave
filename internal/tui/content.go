@@ -72,9 +72,8 @@ type ContentModel struct {
 	issueShowPipeline bool
 
 	// Detached pipeline event polling
-	detachedPollRunID    string
+	detachedPollRunID   string
 	detachedPollAfterID int64
-
 }
 
 // NewContentModel creates a new content model with the given pipeline data providers.

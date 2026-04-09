@@ -146,7 +146,7 @@ func runPersonaCreate(name, template string) error {
 		}
 		if err := os.WriteFile(yamlPath, configData, 0644); err != nil {
 			// Clean up the .md we already wrote
-			os.Remove(mdPath)
+			_ = os.Remove(mdPath)
 			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to write persona config: %v", err), "Check filesystem permissions")
 		}
 		fmt.Fprintf(os.Stderr, "Created persona %q at:\n  %s\n  %s\n(from template %q)\n", name, mdPath, yamlPath, template)

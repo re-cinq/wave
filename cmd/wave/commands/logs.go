@@ -555,7 +555,6 @@ func getLogID(db *sql.DB, runID string, log LogsEntry) int64 {
 	return id
 }
 
-
 // runLogsTrace reads and displays structured NDJSON trace events from a debug trace file.
 func runLogsTrace(opts LogsOptions) error {
 	traceDir := ".wave/traces"

@@ -1105,11 +1105,11 @@ steps:
 `
 
 	tests := []struct {
-		name                    string
-		yaml                    string
-		childExecutorErr        error
-		wantGeneratedPreserved  bool
-		wantResultNonNil        bool
+		name                   string
+		yaml                   string
+		childExecutorErr       error
+		wantGeneratedPreserved bool
+		wantResultNonNil       bool
 	}{
 		{
 			name:                   "preserves pipeline when child executor fails",

@@ -167,7 +167,7 @@ func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
 		TotalTokens int
 		LastStatus  string
 	}{
-		ActivePage:  "issues",
+		ActivePage: "issues",
 		Issue: IssueDetail{
 			Number:    issue.Number,
 			Title:     issue.Title,
