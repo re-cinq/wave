@@ -79,6 +79,7 @@ type StepDetail struct {
 	Model              string                `json:"model,omitempty"`                // Resolved model ID (e.g., "claude-haiku-4-5")
 	ConfiguredModel    string                `json:"configured_model,omitempty"`     // Tier from pipeline config (e.g., "cheapest")
 	Adapter            string                `json:"adapter,omitempty"`              // Adapter used for this step
+	Dependencies       []string              `json:"dependencies,omitempty"`         // Step dependencies (step IDs)
 	VisitCount         int                   `json:"visit_count,omitempty"`          // Current visit count for graph loop steps
 	MaxVisits          int                   `json:"max_visits,omitempty"`           // Max visit limit for graph loop steps
 	GanttLeft          float64               `json:"gantt_left,omitempty"`           // Gantt bar left offset (percentage)
