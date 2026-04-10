@@ -2349,14 +2349,24 @@ func (e *DefaultPipelineExecutor) runSingleContract(
 		contractDisplayName = filepath.Base(c.SchemaPath)
 	}
 
+	// Build contract display name with schema info
+	// Build contract display name with schema info
+	contractDisplay := c.Type
+	if c.SchemaPath != "" {
+		contractDisplay = filepath.Base(c.SchemaPath)
+	} else if c.Schema != "" {
+		contractDisplay = "json_schema"
+	}
+	// Legacy: remove unused variable warning
+	_ = contractDisplayName
 	e.emit(event.Event{
 		Timestamp:       time.Now(),
 		PipelineID:      pipelineID,
 		StepID:          step.ID,
 		State:           "validating",
-		Message:         fmt.Sprintf("Validating %s contract", c.Type),
+		Message:         fmt.Sprintf("Validating %s contract", contractDisplay),
 		CurrentAction:   "Validating contract",
-		ValidationPhase: contractDisplayName,
+		ValidationPhase: contractDisplay,
 	})
 
 	e.trace("contract_validation_start", step.ID, 0, map[string]string{
