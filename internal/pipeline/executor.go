@@ -5413,6 +5413,9 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 	// Propagate step-level adapter override to child sub-pipeline
 	if step.Adapter != "" {
 		childOpts = append(childOpts, WithAdapterOverride(step.Adapter))
+	} else if e.adapterOverride != "" {
+		// Propagate CLI --adapter flag to sub-pipelines
+		childOpts = append(childOpts, WithAdapterOverride(e.adapterOverride))
 	}
 
 	childExecutor := NewDefaultPipelineExecutor(e.runner, childOpts...)
