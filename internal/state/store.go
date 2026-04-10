@@ -1,6 +1,7 @@
 package state
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
@@ -62,6 +63,7 @@ type StateStore interface {
 
 	// Run tracking (ops commands)
 	CreateRun(pipelineName string, input string) (string, error)
+	CreateRunWithLimit(pipelineName string, input string, maxConcurrent int) (string, error)
 	UpdateRunStatus(runID string, status string, currentStep string, tokens int) error
 	UpdateRunBranch(runID string, branch string) error
 	GetRun(runID string) (*RunRecord, error)
@@ -167,6 +169,30 @@ type ListRetrosOptions struct {
 	PipelineName string
 	SinceUnix    int64
 	Limit        int
+}
+
+// WaitForConcurrencySlot polls GetRunningRuns until fewer than maxWorkers
+// pipelines are running. Returns nil when a slot is available, or ctx.Err()
+// if the context is cancelled. This is the single concurrency gate used by
+// CLI --detach, WebUI, and TUI launch paths.
+func WaitForConcurrencySlot(ctx context.Context, store StateStore, maxWorkers int, onWait func(running, max int)) error {
+	for {
+		running, err := store.GetRunningRuns()
+		if err != nil {
+			return nil // can't check, proceed optimistically
+		}
+		if len(running) < maxWorkers {
+			return nil
+		}
+		if onWait != nil {
+			onWait(len(running), maxWorkers)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(5 * time.Second):
+		}
+	}
 }
 
 type stateStore struct {
@@ -517,26 +543,60 @@ func (s *stateStore) Close() error {
 // CreateRun creates a new pipeline run record and returns the generated run ID.
 // Run ID format: {pipeline_name}-{timestamp}-{random} e.g., debug-20260202-143022-a1b2
 func (s *stateStore) CreateRun(pipelineName string, input string) (string, error) {
+	return s.CreateRunWithLimit(pipelineName, input, 0)
+}
+
+// CreateRunWithLimit creates a new run, atomically enforcing a concurrency limit.
+// If maxConcurrent > 0, the INSERT is rejected when the limit is reached.
+// Returns ErrConcurrencyLimit when the limit is hit.
+func (s *stateStore) CreateRunWithLimit(pipelineName string, input string, maxConcurrent int) (string, error) {
 	now := time.Now()
-	// Use crypto/rand for collision-resistant suffix
 	randBytes := make([]byte, 2)
 	if _, err := rand.Read(randBytes); err != nil {
-		// Fallback to nanoseconds if crypto/rand fails
 		randBytes = []byte{byte(now.Nanosecond() >> 8), byte(now.Nanosecond())}
 	}
 	suffix := hex.EncodeToString(randBytes)
 	runID := fmt.Sprintf("%s-%s-%s", pipelineName, now.Format("20060102-150405"), suffix)
 
-	query := `INSERT INTO pipeline_run (run_id, pipeline_name, status, input, started_at)
-	          VALUES (?, ?, 'pending', ?, ?)`
+	if maxConcurrent > 0 {
+		// Atomic check-and-insert within a transaction
+		tx, err := s.db.Begin()
+		if err != nil {
+			return "", fmt.Errorf("failed to begin transaction: %w", err)
+		}
+		defer tx.Rollback()
 
-	_, err := s.db.Exec(query, runID, pipelineName, input, now.Unix())
+		var count int
+		err = tx.QueryRow(`SELECT COUNT(*) FROM pipeline_run WHERE status IN ('running', 'pending') AND started_at > unixepoch() - 300`).Scan(&count)
+		if err != nil {
+			return "", fmt.Errorf("failed to count running runs: %w", err)
+		}
+		if count >= maxConcurrent {
+			return "", ErrConcurrencyLimit
+		}
+
+		_, err = tx.Exec(`INSERT INTO pipeline_run (run_id, pipeline_name, status, input, started_at)
+		                   VALUES (?, ?, 'pending', ?, ?)`, runID, pipelineName, input, now.Unix())
+		if err != nil {
+			return "", fmt.Errorf("failed to create run: %w", err)
+		}
+		if err := tx.Commit(); err != nil {
+			return "", fmt.Errorf("failed to commit run: %w", err)
+		}
+		return runID, nil
+	}
+
+	// No limit — simple insert
+	_, err := s.db.Exec(`INSERT INTO pipeline_run (run_id, pipeline_name, status, input, started_at)
+	                      VALUES (?, ?, 'pending', ?, ?)`, runID, pipelineName, input, now.Unix())
 	if err != nil {
 		return "", fmt.Errorf("failed to create run: %w", err)
 	}
-
 	return runID, nil
 }
+
+// ErrConcurrencyLimit is returned when max_concurrent_workers is reached.
+var ErrConcurrencyLimit = fmt.Errorf("concurrency limit reached")
 
 // UpdateRunStatus updates the status, current step, and token count for a run.
 // Sets completed_at if status is completed, failed, or cancelled.
