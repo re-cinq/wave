@@ -128,7 +128,7 @@
                     {{else if eq $step.StepType "gate"}}<span class="tp-ico">&#x25C6;</span>
                     {{else if eq $step.StepType "conditional"}}<span class="tp-ico">&#x25C6;</span>
                     {{else if eq $step.StepType "command"}}<span class="tp-ico">&gt;_</span>
-                    {{end}}{{$step.StepID}}{{if $step.SubPipeline}} <span style="font-weight:400;color:var(--color-text-muted);font-size:0.65rem;">({{$step.SubPipeline}})</span>{{end}}{{if eq $step.State "running"}} <span class="spinner spinner-sm" style="vertical-align:middle;"></span>{{end}}</span>
+                    {{end}}{{$step.StepID}}{{if $step.SubPipeline}} <span style="font-weight:400;color:var(--color-text-muted);font-size:0.65rem;">({{$step.SubPipeline}})</span>{{end}}{{if eq $step.State "running"}} <span class="spinner spinner-sm" style="vertical-align:middle;margin-left:0.35rem;"></span>{{end}}</span>
                 {{if $step.MaxVisits}}<span class="badge" style="font-size:0.65rem;background:rgba(168,85,247,0.15);color:#a855f7;">{{$step.VisitCount}}/{{$step.MaxVisits}}</span>{{end}}
                 {{if $step.TokensUsed}}<span class="ws-tok">{{formatTokens $step.TokensUsed}}</span>{{end}}
                 <span class="ws-meta">
@@ -144,7 +144,7 @@
             <div class="ws-io">
                 <div class="ws-io-in">
                     <span class="ws-io-lbl">in</span>
-                    <span class="ws-io-val">{{if and $step.Action (not (hasPrefix $step.Action "{{"))}}{{if gt (len $step.Action) 80}}{{slice $step.Action 0 80}}…{{else}}{{$step.Action}}{{end}}{{else if eq $i 0}}pipeline input{{else}}prev step{{end}}</span>
+                    <span class="ws-io-val">{{if and $step.Action (not (hasPrefix $step.Action "{{"))}}{{if gt (len $step.Action) 80}}{{slice $step.Action 0 80}}…{{else}}{{$step.Action}}{{end}}{{else if eq $i 0}}pipeline input{{else if $step.Dependencies}}{{joinStrings $step.Dependencies " + "}}{{else}}prev step{{end}}</span>
                 </div>
                 {{if $step.ReviewVerdict}}<span class="w-ctr {{if eq $step.ReviewVerdict "pass"}}w-ctr-pass{{else}}w-ctr-fail{{end}}">{{$step.ReviewVerdict}}</span>{{end}}
             </div>
@@ -167,7 +167,7 @@
             </div>
             {{end}}
             {{if and (eq $step.StepType "conditional") $step.EdgeInfo}}<div class="ws-edges">{{$step.EdgeInfo}}</div>{{end}}
-            {{if and (eq $step.StepType "command") $step.Script}}<div style="padding:0.06rem var(--ws-pad-x) 0.15rem;"><pre style="margin:0;font-size:0.68rem;color:var(--color-text-muted);background:var(--color-bg-tertiary);padding:0.2rem 0.4rem;border-radius:3px;overflow-x:auto;"><code class="ws-resolve-vars">{{$step.Script}}</code></pre></div>{{end}}
+            {{if and (eq $step.StepType "command") $step.Script}}<div style="padding:0.35rem var(--ws-pad-x) 0.25rem;"><pre style="margin:0;font-size:0.68rem;color:var(--color-text-muted);background:var(--color-bg-tertiary);padding:0.3rem 0.5rem;border-radius:3px;overflow-x:auto;"><code class="ws-resolve-vars">{{$step.Script}}</code></pre></div>{{end}}
 
             <!-- Child runs for sub-pipeline steps -->
             {{if eq $step.StepType "pipeline"}}
@@ -207,7 +207,7 @@
         <span class="ws-name">Output</span>
         {{if eq .Run.Status "completed"}}<span style="color:var(--color-completed);">&#10003;</span>
         {{else if eq .Run.Status "failed"}}<span style="color:var(--color-failed);">&#10007;</span>
-        {{else if eq .Run.Status "running"}}<span class="spinner spinner-sm" style="vertical-align:middle;"></span>{{end}}
+        {{else if eq .Run.Status "running"}}<span class="spinner spinner-sm" style="vertical-align:middle;margin-left:0.35rem;"></span>{{end}}
         {{if eq .Run.Status "failed"}}
         <button class="btn btn-sm" style="margin-left:auto;font-size:0.72rem;border-color:rgba(239,68,68,0.3);color:var(--color-failed);" onclick="retryRun('{{.Run.RunID}}',this)">Retry</button>
         {{end}}

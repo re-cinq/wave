@@ -720,6 +720,7 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 			MaxVisits:          step.MaxVisits,
 			Contract:           contractType,
 			ContractSchemaName: contractSchemaName,
+			Dependencies:       step.Dependencies,
 		}
 
 		// Populate structured gate data for interactive UI
