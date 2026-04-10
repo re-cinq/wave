@@ -165,7 +165,11 @@ steps:
       - name: review
         path: .wave/output/review.md
         type: markdown
+    retry:
+      policy: standard
+      max_attempts: 2
     handover:
       contract:
         type: non_empty_file
         source: .wave/output/review.md
+        on_failure: retry

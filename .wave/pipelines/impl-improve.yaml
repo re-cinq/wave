@@ -289,7 +289,7 @@ steps:
   - id: verify
     persona: reviewer
     model: strongest
-    dependencies: [implement]
+    dependencies: [implement, assess]
     memory:
       inject_artifacts:
         - step: assess

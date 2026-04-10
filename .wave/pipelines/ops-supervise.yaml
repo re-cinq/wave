@@ -367,7 +367,7 @@ steps:
   - id: verdict
     persona: reviewer
     model: strongest
-    dependencies: [evaluate]
+    dependencies: [evaluate, gather]
     memory:
       inject_artifacts:
         - step: gather

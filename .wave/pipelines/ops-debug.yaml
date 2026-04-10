@@ -142,6 +142,8 @@ steps:
         source: .wave/output/reproduction.json
         schema_path: .wave/contracts/debug-reproduction.schema.json
         on_failure: retry
+    edges:
+      - target: hypothesize
 
   - id: hypothesize
     persona: debugger

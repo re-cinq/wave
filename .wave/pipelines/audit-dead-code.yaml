@@ -252,7 +252,7 @@ steps:
   - id: verify
     persona: reviewer
     model: strongest
-    dependencies: [clean]
+    dependencies: [clean, scan]
     memory:
       inject_artifacts:
         - step: scan
@@ -334,7 +334,7 @@ steps:
   - id: create-pr
     persona: craftsman
     model: cheapest
-    dependencies: [verify]
+    dependencies: [verify, scan]
     memory:
       inject_artifacts:
         - step: scan

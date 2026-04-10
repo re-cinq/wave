@@ -284,7 +284,7 @@ steps:
     persona: craftsman
     thread: prototype
     model: strongest
-    dependencies: [docs]
+    dependencies: [docs, spec]
 
     memory:
       inject_artifacts:
@@ -417,7 +417,7 @@ steps:
     persona: craftsman
     thread: prototype
     model: strongest
-    dependencies: [dummy]
+    dependencies: [dummy, spec, docs]
 
     memory:
       inject_artifacts:
