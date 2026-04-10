@@ -387,7 +387,7 @@ func TestResolveModelWithAutoRouting(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			executor := &DefaultPipelineExecutor{modelOverride: tt.override}
-			got := executor.resolveModel(tt.step, tt.persona, tt.routing, tt.personaName)
+			got := executor.resolveModel(tt.step, tt.persona, tt.routing, tt.personaName, nil)
 			assert.Equal(t, tt.want, got)
 		})
 	}
