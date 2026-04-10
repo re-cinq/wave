@@ -5178,10 +5178,24 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 		}
 		childExec.mu.Unlock()
 
+		execution.mu.Lock()
 		for key, path := range childArtifacts {
+			// Namespaced key for iterate/aggregate: "audit-security.scan:findings"
 			nsKey := pipelineName + "." + key
 			execution.Context.SetArtifactPath(nsKey, path)
+
+			// Register under composition step ID so injectArtifacts can find
+			// "audit-security:findings" when a persona step references this
+			// sub-pipeline's output. Only for bare sub-pipeline steps (not
+			// iterate/aggregate which have their own output collection).
+			if step.Iterate == nil && step.Aggregate == nil {
+				if _, artName, ok := strings.Cut(key, ":"); ok {
+					parentKey := step.ID + ":" + artName
+					execution.ArtifactPaths[parentKey] = path
+				}
+			}
 		}
+		execution.mu.Unlock()
 	}
 
 	execution.mu.Lock()
