@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["success", "message"],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether the greeting file was created correctly"
+    },
+    "message": {
+      "type": "string",
+      "description": "Explanation of the verification result"
+    }
+  }
+}
