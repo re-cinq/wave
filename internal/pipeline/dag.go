@@ -441,11 +441,13 @@ func (v *DAGValidator) ValidateGraph(p *Pipeline) error {
 		}
 	}
 
-	// Validate edge targets exist
+	// Validate edge targets exist (allow _complete sentinel for pipeline termination)
 	for _, step := range p.Steps {
 		for _, edge := range step.Edges {
-			if _, exists := stepMap[edge.Target]; !exists {
-				return fmt.Errorf("step %q has edge targeting non-existent step %q", step.ID, edge.Target)
+			if edge.Target != EdgeTargetComplete {
+				if _, exists := stepMap[edge.Target]; !exists {
+					return fmt.Errorf("step %q has edge targeting non-existent step %q", step.ID, edge.Target)
+				}
 			}
 			// Validate condition syntax
 			if edge.Condition != "" {

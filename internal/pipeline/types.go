@@ -46,6 +46,10 @@ const (
 	StepTypeCommand     = "command"
 )
 
+// EdgeTargetComplete is a sentinel edge target that signals pipeline completion.
+// When a conditional step routes to _complete, the graph walker terminates successfully.
+const EdgeTargetComplete = "_complete"
+
 type Pipeline struct {
 	Kind            string                    `yaml:"kind"`
 	Metadata        PipelineMetadata          `yaml:"metadata"`

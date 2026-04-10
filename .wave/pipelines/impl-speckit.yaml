@@ -15,6 +15,7 @@ requires:
       check: specify check
       install: uv tool install --force specify-cli --from git+https://github.com/github/spec-kit.git
       init: specify init
+      optional: true
   tools:
     - git
     - gh
