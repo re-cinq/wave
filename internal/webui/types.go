@@ -81,15 +81,14 @@ type StepDetail struct {
 	Adapter            string                `json:"adapter,omitempty"`              // Adapter used for this step
 	Dependencies       []string              `json:"dependencies,omitempty"`         // Step dependencies (step IDs)
 	VisitCount         int                   `json:"visit_count,omitempty"`          // Current visit count for graph loop steps
-	Output             string                `json:"output,omitempty"`               // Output artifact names for this step
 	MaxVisits          int                   `json:"max_visits,omitempty"`           // Max visit limit for graph loop steps
 	GanttLeft          float64               `json:"gantt_left,omitempty"`           // Gantt bar left offset (percentage)
 	GanttWidth         float64               `json:"gantt_width,omitempty"`          // Gantt bar width (percentage)
-	// Agent review verdict fields (populated when agent_review contracts run)
-	ReviewVerdict    string `json:"review_verdict,omitempty"`     // "pass", "fail", or "warn"
-	ReviewIssueCount int    `json:"review_issue_count,omitempty"` // Number of issues found
-	ReviewerPersona  string `json:"reviewer_persona,omitempty"`   // Reviewer persona name
-	ReviewTokens     int    `json:"review_tokens,omitempty"`      // Tokens used by reviewer
+	ReviewVerdict      string                `json:"review_verdict,omitempty"`       // "pass", "fail", or "warn"
+	ReviewIssues       []string              `json:"review_issues,omitempty"`        // Issue descriptions from LLM review
+	ReviewerPersona    string                `json:"reviewer_persona,omitempty"`     // Persona used for review step
+	ReviewTokens       int                   `json:"review_tokens,omitempty"`        // Tokens used in review step
+	ReviewIssueCount   int                   `json:"review_issue_count,omitempty"`   // Number of review issues found
 }
 
 // EventSummary holds summary information about a pipeline event.
