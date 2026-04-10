@@ -1309,8 +1309,14 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 // inheriting the full parent environment which may contain secrets.
 // PATH is always included to ensure basic command resolution works.
 func filterEnvPassthrough(passthrough []string) []string {
-	allowed := make(map[string]bool, len(passthrough)+1)
-	allowed["PATH"] = true
+	// Always include PATH and essential build/runtime vars that commands need.
+	essentials := []string{"PATH", "HOME", "USER", "TMPDIR",
+		"GOPATH", "GOMODCACHE", "GOCACHE", "GOROOT",
+		"XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME"}
+	allowed := make(map[string]bool, len(passthrough)+len(essentials))
+	for _, name := range essentials {
+		allowed[name] = true
+	}
 	for _, name := range passthrough {
 		allowed[name] = true
 	}
