@@ -2330,8 +2330,10 @@ func (e *DefaultPipelineExecutor) runSingleContract(
 	// Resolve source path
 	resolvedSource := ""
 	if c.Source != "" {
+		// Explicit source: use as-is
 		resolvedSource = execution.Context.ResolveContractSource(c)
 	} else if len(step.OutputArtifacts) > 0 {
+		// No explicit source: use output_artifacts[0].Path directly (root path)
 		resolvedSource = step.OutputArtifacts[0].Path
 	}
 
@@ -2686,7 +2688,11 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 	}
 
-	resolvedModel := e.resolveModel(step, persona, &execution.Manifest.Runtime.Routing, resolvedPersona)
+	var adapterTierModels map[string]string
+	if adapterDef != nil {
+		adapterTierModels = adapterDef.TierModels
+	}
+	resolvedModel := e.resolveModel(step, persona, &execution.Manifest.Runtime.Routing, resolvedPersona, adapterTierModels)
 
 	// When no model was resolved from any tier (CLI, step, persona, auto-route),
 	// fall back to the target adapter's default_model from the manifest.
@@ -3298,8 +3304,8 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 //
 //	The CLI model overrides everything unconditionally.
 //
-// Otherwise: step model > persona model > auto-route > adapter default.
-func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Persona, routing *manifest.RoutingConfig, personaName string) string {
+// Otherwise: step model > persona model > auto-route > adapter tier_models > global routing > adapter default.
+func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Persona, routing *manifest.RoutingConfig, personaName string, adapterTierModels map[string]string) string {
 	// Force override — bypasses all tier logic
 	if e.forceModel {
 		if e.modelOverride != "" {
@@ -3320,7 +3326,7 @@ func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Per
 		if overrideRank >= 0 && stepTier != "" {
 			// Both are tiers — use the cheaper one
 			effectiveTier := CheaperTier(e.modelOverride, stepTier)
-			if resolved, isTier := resolveTierModel(effectiveTier, routing); isTier {
+			if resolved, isTier := resolveTierModel(effectiveTier, routing, adapterTierModels); isTier {
 				return resolved
 			}
 			return effectiveTier
@@ -3331,32 +3337,42 @@ func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Per
 
 	// No CLI override — use step, persona, auto-route
 	if step != nil && step.Model != "" {
-		if resolved, isTier := resolveTierModel(step.Model, routing); isTier {
+		if resolved, isTier := resolveTierModel(step.Model, routing, adapterTierModels); isTier {
 			return resolved
 		}
 		return step.Model
 	}
 	if persona.Model != "" {
-		if resolved, isTier := resolveTierModel(persona.Model, routing); isTier {
+		if resolved, isTier := resolveTierModel(persona.Model, routing, adapterTierModels); isTier {
 			return resolved
 		}
 		return persona.Model
 	}
 	if routing != nil && routing.AutoRoute {
 		tier := ClassifyStepComplexity(step, persona, personaName)
-		if model := routing.ResolveComplexityModel(tier); model != "" {
-			return model
+		if resolved, isTier := resolveTierModel(tier, routing, adapterTierModels); isTier {
+			return resolved
 		}
 	}
 	return ""
 }
 
 // resolveTierModel checks if a model string is a tier name (cheapest/balanced/strongest)
-// and resolves it to an actual model via the routing complexity map.
+// and resolves it to an actual model via:
+//  1. Adapter-specific tier_models (highest priority)
+//  2. Global routing complexity_map
+//
 // Returns (resolved model, true) if input is a tier name, or ("", false) if it's a literal model.
-func resolveTierModel(model string, routing *manifest.RoutingConfig) (string, bool) {
+func resolveTierModel(model string, routing *manifest.RoutingConfig, adapterTierModels map[string]string) (string, bool) {
 	switch model {
 	case TierCheapest, TierBalanced, TierStrongest:
+		// Priority 1: adapter-specific tier_models
+		if adapterTierModels != nil {
+			if m, ok := adapterTierModels[model]; ok && m != "" {
+				return m, true
+			}
+		}
+		// Priority 2: global routing complexity_map
 		return routing.ResolveComplexityModel(model), true
 	default:
 		return "", false
@@ -3804,6 +3820,24 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 				"size":     fmt.Sprintf("%d", len(transcript)),
 			})
 		}
+	}
+
+	// Inject output artifact paths so the persona knows where to write artifacts
+	if len(step.OutputArtifacts) > 0 {
+		var sb strings.Builder
+		sb.WriteString("\n## Output Artifacts\n\n")
+		sb.WriteString("Write the requested artifacts to these paths (in workspace root):\n\n")
+		for _, art := range step.OutputArtifacts {
+			// Use Path if specified, otherwise just the Name
+			artPath := art.Path
+			if artPath == "" {
+				artPath = art.Name
+			}
+			sb.WriteString(fmt.Sprintf("- `%s` (as: %s)\n", artPath, art.Name))
+		}
+		sb.WriteString("\nThe pipeline will validate these artifacts. Write to the exact paths above.\n\n")
+		sb.WriteString(prompt)
+		prompt = sb.String()
 	}
 
 	return prompt
