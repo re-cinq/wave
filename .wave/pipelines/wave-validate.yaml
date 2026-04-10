@@ -252,6 +252,7 @@ steps:
   - id: approval-gate
     gate:
       type: approval
+      auto: true
       prompt: "Approve validation report generation?"
       choices:
         - label: "Approve"

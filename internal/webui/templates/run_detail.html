@@ -147,6 +147,7 @@
                     <span class="ws-io-val">{{if and $step.Action (not (hasPrefix $step.Action "{{"))}}{{if gt (len $step.Action) 80}}{{slice $step.Action 0 80}}…{{else}}{{$step.Action}}{{end}}{{else if eq $i 0}}pipeline input{{else if $step.Dependencies}}{{joinStrings $step.Dependencies " + "}}{{else}}prev step{{end}}</span>
                 </div>
                 {{if $step.ReviewVerdict}}<span class="w-ctr {{if eq $step.ReviewVerdict "pass"}}w-ctr-pass{{else}}w-ctr-fail{{end}}">{{$step.ReviewVerdict}}</span>{{end}}
+                {{if $step.Output}}<div class="ws-io-out" style="margin-top:0.5rem;"><span class="ws-io-lbl">out</span><span class="ws-io-val">{{$step.Output}}</span></div>{{end}}
             </div>
 
             <!-- Error -->
@@ -167,7 +168,7 @@
             </div>
             {{end}}
             {{if and (eq $step.StepType "conditional") $step.EdgeInfo}}<div class="ws-edges">{{$step.EdgeInfo}}</div>{{end}}
-            {{if and (eq $step.StepType "command") $step.Script}}<div style="padding:0.35rem var(--ws-pad-x) 0.25rem;"><pre style="margin:0;font-size:0.68rem;color:var(--color-text-muted);background:var(--color-bg-tertiary);padding:0.3rem 0.5rem;border-radius:3px;overflow-x:auto;"><code class="ws-resolve-vars">{{$step.Script}}</code></pre></div>{{end}}
+            {{if and (eq $step.StepType "command") $step.Script}}<div style="padding:0.5rem var(--ws-pad-x) 0.5rem;"><pre style="margin:0;font-size:0.68rem;color:var(--color-text-muted);background:var(--color-bg-tertiary);padding:0.3rem 0.5rem;border-radius:3px;overflow-x:auto;"><code class="ws-resolve-vars">{{$step.Script}}</code></pre></div>{{end}}
 
             <!-- Child runs for sub-pipeline steps -->
             {{if eq $step.StepType "pipeline"}}
