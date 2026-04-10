@@ -5409,6 +5409,12 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 	}
 
 	childOpts = append(childOpts, WithRegistry(e.registry))
+
+	// Propagate step-level adapter override to child sub-pipeline
+	if step.Adapter != "" {
+		childOpts = append(childOpts, WithAdapterOverride(step.Adapter))
+	}
+
 	childExecutor := NewDefaultPipelineExecutor(e.runner, childOpts...)
 
 	// Mark child run as running in the dashboard
