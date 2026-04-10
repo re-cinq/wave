@@ -1,0 +1,5 @@
+{
+  "model": "glm-4.7-flash",
+  "provider": "ollama",
+  "temperature": 0
+}

@@ -147,7 +147,6 @@
                     <span class="ws-io-val">{{if and $step.Action (not (hasPrefix $step.Action "{{"))}}{{if gt (len $step.Action) 80}}{{slice $step.Action 0 80}}…{{else}}{{$step.Action}}{{end}}{{else if eq $i 0}}pipeline input{{else if $step.Dependencies}}{{joinStrings $step.Dependencies " + "}}{{else}}prev step{{end}}</span>
                 </div>
                 {{if $step.ReviewVerdict}}<span class="w-ctr {{if eq $step.ReviewVerdict "pass"}}w-ctr-pass{{else}}w-ctr-fail{{end}}">{{$step.ReviewVerdict}}</span>{{end}}
-                {{if $step.Output}}<div class="ws-io-out" style="margin-top:0.5rem;"><span class="ws-io-lbl">out</span><span class="ws-io-val">{{$step.Output}}</span></div>{{end}}
             </div>
 
             <!-- Error -->
@@ -215,16 +214,19 @@
     </div>
     {{if or (eq .Run.Status "completed") (eq .Run.Status "failed")}}
     <div class="ws-io">
-        <div class="ws-io-in">
-            <span class="ws-io-lbl">OUT</span>
-            <span class="ws-io-val">{{if .LinkedTitle}}
-                <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;color:var(--color-link);">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
-                {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else if eq .LinkedState "closed"}}status-cancelled{{end}}" style="font-size:0.68rem;">{{.LinkedState}}</span>{{end}}
-                {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</span>{{end}}
-            {{else if .Run.LinkedURL}}
-                <a href="{{.Run.LinkedURL}}" target="_blank" style="color:var(--color-link);">{{richInput .Run.Input .Run.LinkedURL}} ↗</a>
-            {{end}}</span>
-        </div>
+    </div>
+    {{end}}
+    {{if .OutputArtifacts}}
+    <div class="ws-io-in">
+        <span class="ws-io-lbl">out</span>
+        <span class="ws-io-val">{{if .LinkedTitle}}
+            <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;color:var(--color-link);">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
+            {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else if eq .LinkedState "closed"}}status-cancelled{{end}}" style="font-size:0.68rem;">{{.LinkedState}}</span>{{end}}
+            {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</span>{{end}}
+        {{else if .Run.LinkedURL}}
+        <a href="{{.Run.LinkedURL}}" target="_blank" style="color:var(--color-link);">{{richInput .Run.Input .Run.LinkedURL}} ↗</a>
+        {{end}}</span>
+    </div>
     </div>
     {{end}}
     {{if .OutputArtifacts}}

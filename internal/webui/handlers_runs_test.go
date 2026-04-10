@@ -887,7 +887,7 @@ func TestFormatSmartTime(t *testing.T) {
 		t    time.Time
 		want string
 	}{
-		{"today", now.Add(-30 * time.Minute), now.Add(-30 * time.Minute).Format("15:04")},
+		{"today", time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, now.Location()), "12:00"},
 		{"same year", time.Date(now.Year(), 1, 15, 10, 30, 0, 0, time.Local), "Jan 15 10:30"},
 		{"different year", time.Date(2024, 6, 15, 10, 30, 0, 0, time.Local), "Jun 15, 2024"},
 	}
