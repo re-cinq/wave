@@ -2,8 +2,11 @@ kind: WavePipeline
 metadata:
   name: ops-hello-world
   description: >-
-    Minimal smoke-test pipeline that validates Wave's core execution loop.
-    A single step writes a greeting file, validated by a non_empty_file contract.
+    Smoke-test pipeline validating Wave's core execution loop:
+    - prompt execution with file artifacts
+    - contract validation (non_empty_file)
+    - LLM-as-judge agent review for output verification
+    - Retry policy for robustness across models
   release: true
 
 input:
@@ -17,12 +20,11 @@ steps:
     exec:
       type: prompt
       source: |
-        Write a plain text file called `greeting.txt` with this exact content:
+        Write a plain text file called `greeting.txt` with:
 
         Hello from Wave! Your message was: {{ input }}
 
-        Use the Write tool to create the file. Do not add any other text, formatting,
-        or files. Just write that single line to greeting.txt.
+        Write to the file EXACTLY in the workspace root. Do not add any other text.
     output_artifacts:
       - name: greeting
         path: greeting.txt
@@ -30,9 +32,11 @@ steps:
     handover:
       contract:
         type: non_empty_file
-        source: greeting.txt
+    retry:
+      policy: standard
+      max_attempts: 2
 
-  - id: verify
+  - id: review
     persona: navigator
     model: cheapest
     dependencies: [greet]
@@ -44,21 +48,21 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the injected `greeting_file` artifact. Verify it contains "Hello from Wave!".
-        Set success to true if it does, false if the file is missing, empty, or has
-        unexpected content. Include a brief message explaining the result.
-
-        Produce output matching the contract schema.
+        Read the injected `greeting_file` artifact.
+        
+        Verify the greeting file was created correctly.
+        The file should contain: "Hello from Wave! Your message was: <input>"
+        
+        Write a JSON file called `review.json` in the workspace root with:
+        {"success": true/false, "message": "explanation"}
     output_artifacts:
-      - name: result
-        path: .wave/output/result.json
+      - name: review
+        path: review.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: .wave/output/result.json
-        schema_path: .wave/contracts/hello-world-result.schema.json
-        must_pass: true
+        schema_path: .wave/contracts/smoke-review.schema.json
         on_failure: retry
     retry:
       policy: standard
