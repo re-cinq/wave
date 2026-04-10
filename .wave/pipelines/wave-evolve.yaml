@@ -114,9 +114,10 @@ steps:
            - Which contracts fail most? Is it a schema mismatch or agent output quality?
            - Which prompts produce inconsistent output across runs?
         6. Produce a prioritized list of improvements:
-           - Each improvement must have: id (IMP-###), category (prompt/contract/persona/
-             pipeline/template), affected_file (path), description (what to change),
-             impact (high/medium/low), risk (high/medium/low), effort (S/M/L)
+           - Each improvement must have: id (IMP-###), category (one of: error_handling,
+             performance, testability, robustness, maintainability, code_quality),
+             location (file path), title, description (what to change),
+             impact (high/medium/low), risk (none/low/medium/high), effort (trivial/small/medium/large)
            - Sort by impact descending, then by effort ascending (high-impact, low-effort
              improvements first)
 
@@ -133,10 +134,10 @@ steps:
 
         OUTPUT FORMAT:
         Produce the analysis as structured JSON matching the improvement-assessment
-        contract schema. Include: focus (string), analysis_scope
-        (object listing files examined per category), improvements (array of improvement
-        objects as described above), summary (object with total_improvements, by_category
-        counts, by_impact counts), and timestamp.
+        contract schema. Include: target (string describing what was analyzed),
+        findings (array of improvement objects as described above), summary (object
+        with total_findings, by_category counts, quick_wins, high_impact, and
+        overall_quality string), and timestamp (ISO 8601 format).
 
         QUALITY BAR:
         A good analysis identifies real problems that cause pipeline failures, retries, or
@@ -330,4 +331,4 @@ steps:
         model: cheapest
         token_budget: 8000
         timeout: 90s
-        on_failure: warn
+        on_failure: retry
