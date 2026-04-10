@@ -1,10 +1,13 @@
 package onboarding
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"sort"
+	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/recinq/wave/internal/tui"
@@ -13,19 +16,68 @@ import (
 // knownAdapters lists the adapters available for selection.
 var knownAdapters = []struct {
 	Name       string
+	Label      string // Display label (defaults to Name if empty)
 	Binary     string
 	InstallURL string
 }{
 	{Name: "claude", Binary: "claude", InstallURL: "https://docs.anthropic.com/en/docs/claude-code"},
-	{Name: "opencode", Binary: "opencode", InstallURL: "https://opencode.ai"},
+	{Name: "opencode", Label: "opencode (local llm)", Binary: "opencode", InstallURL: "https://opencode.ai"},
+	{Name: "codex", Binary: "codex", InstallURL: "https://github.com/features/codex"},
+	{Name: "gemini", Binary: "gemini", InstallURL: "https://gemini.google.com"},
 	{Name: "ollama", Binary: "ollama", InstallURL: "https://ollama.com"},
 }
 
+// probeAdapter checks if an adapter binary exists and returns a status string.
+func probeAdapter(binary string) string {
+	path, err := exec.LookPath(binary)
+	if err != nil {
+		return "not found"
+	}
+	return fmt.Sprintf("installed: %s", path)
+}
+
+// probeOllamaModels queries a running Ollama server for available models.
+func probeOllamaModels() []string {
+	// Try to connect to local Ollama
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get("http://localhost:11434/api/tags")
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Models []struct {
+			Name string `json:"name"`
+		} `json:"models"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil
+	}
+
+	var models []string
+	for _, m := range result.Models {
+		models = append(models, m.Name)
+	}
+	return models
+}
+
 // adapterModels maps adapter names to their available models.
+// For opencode, we dynamically probe Ollama if available.
 var adapterModels = map[string][]string{
 	"claude":   {"opus", "sonnet", "haiku"},
-	"opencode": {"gpt-4o", "gpt-4o-mini", "o3-mini"},
-	"ollama":   {"llama3.1", "codellama", "deepseek-coder"},
+	"opencode": nil, // Populated at runtime from Ollama
+	"codex":    {"o3", "o3-mini", "gpt-4o"},
+	"gemini":   {"gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"},
+	"ollama":   nil, // Populated at runtime
+}
+
+func init() {
+	// Dynamically populate models for opencode/ollama adapters
+	if models := probeOllamaModels(); len(models) > 0 {
+		adapterModels["opencode"] = models
+		adapterModels["ollama"] = models
+	}
 }
 
 // knownDependencies lists the tools checked during dependency verification.
@@ -339,7 +391,11 @@ func (s *AdapterConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
 			if _, err := exec.LookPath(a.Binary); err == nil {
 				status = "installed"
 			}
-			label := fmt.Sprintf("%-12s (%s)", a.Name, status)
+			displayName := a.Name
+			if a.Label != "" {
+				displayName = a.Label
+			}
+			label := fmt.Sprintf("%-25s (%s)", displayName, status)
 			options = append(options, huh.NewOption(label, a.Name))
 		}
 		options = append(options, huh.NewOption("Other (type manually)", "other"))
