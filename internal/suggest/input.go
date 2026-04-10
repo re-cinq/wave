@@ -137,6 +137,7 @@ func CheckInputPipelineMismatch(input, pipelineName string) *InputMismatch {
 
 	// Build a human-readable mismatch reason.
 	var reason string
+	// Only warn once per run for free text (not per step)
 	switch inputType {
 	case InputTypeIssueURL:
 		reason = "input looks like an issue URL — consider using: " + strings.Join(suggested, ", ")
@@ -145,7 +146,8 @@ func CheckInputPipelineMismatch(input, pipelineName string) *InputMismatch {
 	case InputTypeRepoRef:
 		reason = "input looks like a repo reference — consider using: " + strings.Join(suggested, ", ")
 	case InputTypeFreeText:
-		reason = "input looks like free text — consider using: " + strings.Join(suggested, ", ")
+		// Skip warning - will be handled at run start, not per step warning
+		reason = ""
 	}
 
 	return &InputMismatch{
