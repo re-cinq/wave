@@ -486,10 +486,13 @@ func TestResolveContractDir(t *testing.T) {
 		if err := os.MkdirAll(gitInit, 0755); err != nil {
 			t.Fatal(err)
 		}
-		// git init the temp dir
+		// git init and add a project marker
 		cmd := exec.Command("git", "init", gitInit)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git init failed: %v\n%s", err, out)
+		}
+		if err := os.WriteFile(filepath.Join(gitInit, "go.mod"), []byte("module test\n"), 0644); err != nil {
+			t.Fatal(err)
 		}
 
 		subDir := filepath.Join(gitInit, "sub", "dir")
@@ -506,14 +509,22 @@ func TestResolveContractDir(t *testing.T) {
 		}
 	})
 
-	t.Run("project_root fails outside git repo", func(t *testing.T) {
-		ws := t.TempDir()
-		_, err := resolveContractDir("project_root", ws)
-		if err == nil {
-			t.Error("expected error outside git repo")
+	t.Run("project_root walks up to find project markers", func(t *testing.T) {
+		// Create a nested dir structure with go.mod at the top
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module test\n"), 0644); err != nil {
+			t.Fatal(err)
 		}
-		if !strings.Contains(err.Error(), "git repo") {
-			t.Errorf("error should mention git repo, got: %v", err)
+		nested := filepath.Join(root, "sub", "deep")
+		if err := os.MkdirAll(nested, 0755); err != nil {
+			t.Fatal(err)
+		}
+		dir, err := resolveContractDir("project_root", nested)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dir != root {
+			t.Errorf("expected %q, got %q", root, dir)
 		}
 	})
 
