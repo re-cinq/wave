@@ -39,17 +39,14 @@ hooks:
 
 steps:
   - id: succeed
-    persona: navigator
-    model: cheapest
-    exec:
-      type: prompt
-      source: "Say 'hello' and nothing else. Write the output to the designated file."
+    type: command
+    script: "echo 'hello' > .wave/output/hello.txt && echo 'Step succeeded'"
     output_artifacts:
       - name: hello
         path: .wave/output/hello.txt
         type: text
-    retry:
-      policy: none
+    edges:
+      - target: deliberate-fail
 
   - id: deliberate-fail
     type: command
@@ -59,8 +56,15 @@ steps:
     edges:
       - target: done
         condition: "outcome=success"
-      - target: deliberate-fail
+      - target: recover
+
+  - id: recover
+    type: command
+    script: "echo 'Recovery path reached after deliberate failure'"
+    edges:
+      - target: done
 
   - id: done
     type: command
-    script: "echo 'Pipeline completed successfully'"
+    dependencies: [recover]
+    script: "echo 'Pipeline completed via recovery path'"
