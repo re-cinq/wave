@@ -280,7 +280,7 @@ steps:
   - id: refactor
     persona: craftsman
     model: strongest
-    dependencies: [test-baseline]
+    dependencies: [test-baseline, analyze]
     thread: refactor
     memory:
       inject_artifacts:

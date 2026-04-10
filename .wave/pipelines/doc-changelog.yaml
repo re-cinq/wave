@@ -259,7 +259,7 @@ steps:
   - id: format
     persona: philosopher
     model: cheapest
-    dependencies: [categorize]
+    dependencies: [categorize, analyze-commits]
     memory:
       inject_artifacts:
         - step: analyze-commits
