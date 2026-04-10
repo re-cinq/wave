@@ -64,5 +64,6 @@ steps:
     dependencies: [triage]
     gate:
       type: approval
+      auto: true
       message: "Review security fixes before release"
       timeout: "4h"

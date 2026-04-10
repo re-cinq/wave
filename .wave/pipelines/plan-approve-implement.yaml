@@ -127,6 +127,7 @@ steps:
   - id: approve-plan
     gate:
       type: approval
+      auto: true
       prompt: "Review the implementation plan before proceeding"
       choices:
         - label: "Approve"
