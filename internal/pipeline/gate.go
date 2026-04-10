@@ -102,20 +102,40 @@ func (g *GateExecutor) executeApproval(ctx context.Context, gate *GateConfig) (*
 		return nil, nil
 	}
 
-	// Choice-based gate with a handler
-	if len(gate.Choices) > 0 && g.handler != nil {
-		decision, err := g.handler.Prompt(ctx, gate)
-		if err != nil {
-			return nil, fmt.Errorf("gate prompt failed: %w", err)
+	// Choice-based gate: if auto=true, use default choice; otherwise prompt handler
+	if len(gate.Choices) > 0 {
+		if gate.Auto {
+			// Auto-approve: use default choice, or first choice
+			choice := gate.FindChoiceByKey(gate.Default)
+			if choice == nil && len(gate.Choices) > 0 {
+				choice = &gate.Choices[0]
+			}
+			decision := &GateDecision{
+				Choice: choice.Key,
+				Label:  choice.Label,
+				Target: choice.Target,
+			}
+			g.emit(event.Event{
+				Timestamp: time.Now(),
+				State:     event.StateGateResolved,
+				Message:   fmt.Sprintf("gate auto-approved: %s (%s)", choice.Label, choice.Key),
+			})
+			return decision, nil
 		}
+		if g.handler != nil {
+			decision, err := g.handler.Prompt(ctx, gate)
+			if err != nil {
+				return nil, fmt.Errorf("gate prompt failed: %w", err)
+			}
 
-		g.emit(event.Event{
-			Timestamp: time.Now(),
-			State:     event.StateGateResolved,
-			Message:   fmt.Sprintf("gate resolved: %s (%s)", decision.Label, decision.Choice),
-		})
+			g.emit(event.Event{
+				Timestamp: time.Now(),
+				State:     event.StateGateResolved,
+				Message:   fmt.Sprintf("gate resolved: %s (%s)", decision.Label, decision.Choice),
+			})
 
-		return decision, nil
+			return decision, nil
+		}
 	}
 
 	// Parse timeout

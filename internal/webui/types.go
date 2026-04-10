@@ -81,6 +81,7 @@ type StepDetail struct {
 	Adapter            string                `json:"adapter,omitempty"`              // Adapter used for this step
 	Dependencies       []string              `json:"dependencies,omitempty"`         // Step dependencies (step IDs)
 	VisitCount         int                   `json:"visit_count,omitempty"`          // Current visit count for graph loop steps
+	Output             string                `json:"output,omitempty"`               // Output artifact names for this step
 	MaxVisits          int                   `json:"max_visits,omitempty"`           // Max visit limit for graph loop steps
 	GanttLeft          float64               `json:"gantt_left,omitempty"`           // Gantt bar left offset (percentage)
 	GanttWidth         float64               `json:"gantt_width,omitempty"`          // Gantt bar width (percentage)
