@@ -53,7 +53,7 @@ pipeline_outputs:
 steps:
   - id: analyze
     persona: navigator
-    model: cheapest
+    model: balanced
     workspace:
       mount:
         - source: ./
@@ -237,6 +237,10 @@ steps:
         contracts) without breaking anything. A bad run applies risky changes that break
         validation, batches changes making it impossible to isolate failures, or modifies
         Go source code outside the scope.
+    output_artifacts:
+      - name: evolution-log
+        path: .wave/output/evolution-log.json
+        type: json
     retry:
       policy: standard
       max_attempts: 2
@@ -256,6 +260,9 @@ steps:
         - step: analyze
           artifact: evolution-analysis
           as: original_findings
+        - step: evolve
+          artifact: evolution-log
+          as: evolution_log
     exec:
       type: prompt
       source: |
@@ -331,4 +338,4 @@ steps:
         model: cheapest
         token_budget: 8000
         timeout: 90s
-        on_failure: retry
+        on_failure: rework
