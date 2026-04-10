@@ -97,6 +97,7 @@ steps:
         - Do NOT exceed 20 findings. This is a smoke test, not an exhaustive audit.
 
         OUTPUT FORMAT:
+        Write your JSON output to the artifact path `.wave/output/analysis.json`.
         Produce the JSON report as a single valid JSON object (not an array, not wrapped
         in anything). It will be validated against the wave-smoke-test contract schema.
 
@@ -186,3 +187,8 @@ steps:
       - name: summary
         path: .wave/output/summary.md
         type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/summary.md
+        on_failure: retry

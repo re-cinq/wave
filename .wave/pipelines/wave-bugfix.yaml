@@ -112,10 +112,12 @@ steps:
           is worse than the original.
 
         OUTPUT FORMAT:
-        Write the findings as structured JSON matching
-        the bug-investigation schema. Include: bug_summary (string), root_cause (object
-        with file, function, line_range, condition, and explanation), execution_path
-        (array of function call objects), blast_radius (object with similar_patterns,
+        Write the findings as structured JSON conforming to
+        .wave/contracts/bug-investigation.schema.json. Required fields: root_cause,
+        affected_files, fix_approach. Include these additional fields for richer
+        analysis: bug_summary (string), root_cause as object (with file, function,
+        line_range, condition, and explanation), execution_path (array of function
+        call objects), blast_radius as object (with similar_patterns,
         callers_affected, existing_test_gaps), recent_commits (array), fix_strategy
         (object with description, files_to_modify, regression_test_description), and
         timestamp.

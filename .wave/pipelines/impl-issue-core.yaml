@@ -117,7 +117,7 @@ steps:
     model: strongest
     contexts: [execution, delivery]
     thread: impl
-    dependencies: [plan]
+    dependencies: [plan, fetch-assess]
     memory:
       inject_artifacts:
         - step: fetch-assess
@@ -141,6 +141,29 @@ steps:
         command: "{{ project.contract_test_command }}"
         must_pass: true
         on_failure: retry
+        rework_step: fix-implement
       compaction:
         trigger: "token_limit_80%"
         persona: summarizer
+
+  - id: fix-implement
+    persona: craftsman
+    model: strongest
+    rework_only: true
+    thread: impl
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        The implementation failed contract validation. Read the error, diagnose the
+        failure, apply a minimal fix, and re-run tests.
+    retry:
+      policy: aggressive
+      max_attempts: 2
+    handover:
+      contract:
+        type: test_suite
+        command: "{{ project.contract_test_command }}"
+        must_pass: true

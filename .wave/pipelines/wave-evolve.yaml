@@ -254,7 +254,7 @@ steps:
   - id: verify
     persona: reviewer
     model: strongest
-    dependencies: [evolve]
+    dependencies: [evolve, analyze]
     memory:
       inject_artifacts:
         - step: analyze

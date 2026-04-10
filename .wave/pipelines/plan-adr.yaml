@@ -248,7 +248,7 @@ steps:
   - id: draft-record
     persona: philosopher
     model: strongest
-    dependencies: [analyze-options]
+    dependencies: [analyze-options, explore-context]
     memory:
       inject_artifacts:
         - step: explore-context

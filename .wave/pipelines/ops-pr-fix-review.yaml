@@ -357,7 +357,7 @@ steps:
     thread: fix
     contexts: [execution, delivery]
     model: strongest
-    dependencies: [triage]
+    dependencies: [triage, fetch-review]
     memory:
       inject_artifacts:
         - step: triage
@@ -614,7 +614,7 @@ steps:
     persona: navigator
     contexts: [execution]
     model: cheapest
-    dependencies: [apply-fixes]
+    dependencies: [apply-fixes, fetch-review, triage]
     memory:
       inject_artifacts:
         - step: fetch-review

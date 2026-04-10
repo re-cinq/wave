@@ -50,7 +50,7 @@ steps:
   - id: scan
     persona: navigator
     contexts: [security]
-    model: cheapest
+    model: balanced
     workspace:
       mount:
         - source: ./
@@ -269,7 +269,7 @@ steps:
     persona: summarizer
     model: cheapest
     contexts: [security]
-    dependencies: [deep-dive]
+    dependencies: [deep-dive, scan]
     memory:
       inject_artifacts:
         - step: scan

@@ -294,7 +294,7 @@ steps:
     persona: craftsman
     thread: bootstrap
     model: cheapest
-    dependencies: [scaffold]
+    dependencies: [scaffold, assess]
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
