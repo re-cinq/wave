@@ -5,18 +5,45 @@
 </div>
 
 {{if .Pipelines}}
+
 <!-- Category filters -->
 {{if .Categories}}
 <div class="wr-toolbar">
     <div class="wr-filters">
-        <button class="wr-filter active" data-cat="frequent" onclick="filterPipelines(this)">Frequent</button>
-        <button class="wr-filter" data-cat="" onclick="filterPipelines(this)">All</button>
+        <button class="wr-filter active" data-cat="" onclick="filterPipelines(this)">All</button>
         {{range .Categories}}<button class="wr-filter" data-cat="{{.}}" onclick="filterPipelines(this)">{{.}}</button>{{end}}
     </div>
     <div class="wr-controls">
-        <input type="text" id="pipeline-search" placeholder="Search pipelines..." style="padding:0.2rem 0.4rem;border-radius:4px;font-size:0.72rem;color:var(--color-text-secondary);border:1px solid var(--color-border);background:var(--color-bg-tertiary);font-family:var(--font-sans);width:180px;" oninput="applyFilters()">
-        <span style="font-size:0.72rem;color:var(--color-text-muted);" id="pipeline-count">{{len .Pipelines}} pipelines</span>
+        <input type="text" id="pipeline-search" class="wr-search" placeholder="Search pipelines..." oninput="applyFilters()">
+        <span class="wr-count" id="pipeline-count">{{len .Pipelines}} pipelines</span>
     </div>
+</div>
+{{end}}
+
+<!-- Frequent pipelines section -->
+{{if .FrequentPipelines}}
+<div class="rp-section" id="fp-section">
+  <div class="rp-header rp-header-clickable" role="button" tabindex="0" aria-expanded="true"
+       onclick="toggleFrequentSection()"
+       onkeydown="if(event.key==='Enter'||event.key===' '){toggleFrequentSection();event.preventDefault()}">
+    <span class="rp-label">Frequent</span>
+    <span class="rp-badge" style="background:rgba(99,102,241,0.15);color:#a5b4fc;">{{len .FrequentPipelines}}</span>
+    <span class="rp-chevron">▾</span>
+  </div>
+  <div class="rp-body" style="padding:0;">
+    <div class="fp-list">
+    {{range .FrequentPipelines}}
+      <a href="/pipelines/{{.Name}}" class="fp-row">
+        <span class="wr-name" style="font-size:0.8rem;">{{.Name}}</span>
+        {{if .Description}}<span class="wr-input">{{.Description}}</span>{{end}}
+        <span class="wr-right">
+          <span class="fp-stat">{{.RunCount}}</span>
+          <button class="btn btn-sm pl-run-btn" onclick="event.preventDefault();event.stopPropagation();showQuickStart('{{.Name}}')">run</button>
+        </span>
+      </a>
+    {{end}}
+    </div>
+  </div>
 </div>
 {{end}}
 
@@ -27,20 +54,20 @@
         <div class="wr-body">
             <div class="wr-row1">
                 <span class="wr-name">{{.Name}}</span>
-                {{if .IsComposition}}<span class="badge" style="font-size:0.65rem;background:rgba(139,92,246,0.12);color:#c4b5fd;">composition</span>
-                {{else if .Category}}<span class="badge" style="font-size:0.65rem;background:rgba(99,102,241,0.12);color:#a5b4fc;">{{.Category}}</span>{{end}}
-                {{if .Disabled}}<span class="badge" style="font-size:0.65rem;background:rgba(239,68,68,0.1);color:#fca5a5;">disabled</span>{{end}}
+                {{if .IsComposition}}<span class="badge badge-composition">composition</span>
+                {{else if .Category}}<span class="badge badge-category">{{.Category}}</span>{{end}}
+                {{if .Disabled}}<span class="badge badge-disabled">disabled</span>{{end}}
             </div>
-            {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);font-size:0.78rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:48rem;">{{.Description}}</span></div>{{end}}
-            <div class="wr-row2" style="margin-top:0.15rem;">
-                <span style="color:var(--color-text-muted);font-size:0.72rem;"><b>{{.StepCount}}</b> steps</span>
-                {{if .RunCount}}<span style="color:var(--color-text-muted);font-size:0.72rem;"><b>{{.RunCount}}</b> runs</span>{{end}}
-                {{range .Skills}}<span class="badge" style="font-size:0.65rem;background:rgba(34,211,238,0.1);color:#67e8f9;">{{.}}</span>{{end}}
+            {{if .Description}}<div class="wr-row2"><span class="pl-desc">{{.Description}}</span></div>{{end}}
+            <div class="wr-row2">
+                <span class="pl-meta"><b>{{.StepCount}}</b> steps</span>
+                {{if .RunCount}}<span class="pl-meta"><b>{{.RunCount}}</b> runs</span>{{end}}
+                {{range .Skills}}<span class="badge badge-skill">{{.}}</span>{{end}}
             </div>
         </div>
-        <div class="wr-meta" style="display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:0.15rem;">
-            {{if .RunCount}}<span class="wr-date" style="font-size:0.68rem;">{{.RunCount}} runs</span>{{end}}
-            <button class="btn btn-sm" onclick="event.preventDefault();event.stopPropagation();showQuickStart('{{.Name}}')" style="font-size:0.65rem;padding:0.1rem 0.35rem;opacity:0.7;">run</button>
+        <div class="wr-meta">
+            {{if .RunCount}}<span class="wr-date">{{.RunCount}} runs</span>{{end}}
+            <button class="btn btn-sm pl-run-btn" onclick="event.preventDefault();event.stopPropagation();showQuickStart('{{.Name}}')">run</button>
         </div>
     </a>
 {{end}}
@@ -102,7 +129,7 @@ function populateAdapters(selectId) {
     }).catch(function(){});
 }
 
-// Combined category + text filtering
+// Category + text filtering
 function filterPipelines(btn) {
     document.querySelectorAll('.wr-filter').forEach(function(f) { f.classList.remove('active'); });
     btn.classList.add('active');
@@ -114,22 +141,13 @@ function applyFilters() {
     var q = (document.getElementById('pipeline-search') || {}).value || '';
     q = q.toLowerCase().trim();
     var list = document.getElementById('pipeline-list');
+    if (!list) return;
     var cards = Array.from(list.querySelectorAll('.wr-run'));
-    // Sort: frequent by run count desc, everything else alphabetical
-    if (activeCat === 'frequent') {
-        cards.sort(function(a, b) { return (parseInt(b.dataset.runs||'0',10)) - (parseInt(a.dataset.runs||'0',10)); });
-    } else {
-        cards.sort(function(a, b) { var na = a.querySelector('.wr-name'); var nb = b.querySelector('.wr-name'); return (na?na.textContent:'').localeCompare(nb?nb.textContent:''); });
-    }
+    cards.sort(function(a, b) { var na = a.querySelector('.wr-name'); var nb = b.querySelector('.wr-name'); return (na?na.textContent:'').localeCompare(nb?nb.textContent:''); });
     var visible = 0;
     cards.forEach(function(card) {
-        list.appendChild(card); // re-order in DOM
-        var catMatch;
-        if (activeCat === 'frequent') {
-            catMatch = parseInt(card.dataset.runs || '0', 10) > 0;
-        } else {
-            catMatch = !activeCat || card.dataset.category === activeCat;
-        }
+        list.appendChild(card);
+        var catMatch = !activeCat || card.dataset.category === activeCat;
         var textMatch = !q || card.textContent.toLowerCase().indexOf(q) !== -1;
         var show = catMatch && textMatch;
         card.style.display = show ? '' : 'none';
@@ -138,8 +156,28 @@ function applyFilters() {
     var countEl = document.getElementById('pipeline-count');
     if (countEl) countEl.textContent = visible + ' pipeline' + (visible !== 1 ? 's' : '');
 }
-// Apply "Frequent" filter on page load
 document.addEventListener('DOMContentLoaded', function() { applyFilters(); });
+
+// Frequent section collapse with localStorage persistence
+var FP_KEY = 'wave.fp.collapsed';
+function toggleFrequentSection() {
+    var section = document.getElementById('fp-section');
+    if (!section) return;
+    var header = section.querySelector('.rp-header');
+    var collapsed = section.classList.toggle('collapsed');
+    if (header) header.setAttribute('aria-expanded', String(!collapsed));
+    try { localStorage.setItem(FP_KEY, collapsed ? '1' : '0'); } catch(e) {}
+}
+(function(){
+    try {
+        if (localStorage.getItem(FP_KEY) === '1') {
+            var section = document.getElementById('fp-section');
+            var header = section && section.querySelector('.rp-header');
+            if (section) section.classList.add('collapsed');
+            if (header) header.setAttribute('aria-expanded', 'false');
+        }
+    } catch(e) {}
+})();
 
 // Quickstart dialog
 var quickStartPipeline = '';
