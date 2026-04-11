@@ -561,7 +561,7 @@ func TestTestSuiteValidator_DirField(t *testing.T) {
 	t.Run("dir empty defaults to project_root", func(t *testing.T) {
 		v := &testSuiteValidator{}
 
-		// Create a temp git repo with a marker file
+		// Create a temp git repo with a project marker and a sentinel file
 		ws := t.TempDir()
 		repoDir := filepath.Join(ws, "repo")
 		if err := os.MkdirAll(repoDir, 0755); err != nil {
@@ -570,6 +570,11 @@ func TestTestSuiteValidator_DirField(t *testing.T) {
 		cmd := exec.Command("git", "init", repoDir)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git init failed: %v\n%s", err, out)
+		}
+		// Add a go.mod so resolveContractDir's project-marker walk-up finds repoDir
+		// before any system directories that may also contain project markers.
+		if err := os.WriteFile(filepath.Join(repoDir, "go.mod"), []byte("module test\ngo 1.21\n"), 0644); err != nil {
+			t.Fatal(err)
 		}
 		if err := os.WriteFile(filepath.Join(repoDir, "marker.txt"), []byte("root"), 0644); err != nil {
 			t.Fatal(err)
