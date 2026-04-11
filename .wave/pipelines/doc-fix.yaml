@@ -266,7 +266,7 @@ steps:
     persona: craftsman
     thread: fix
     model: strongest
-    dependencies: [analyze]
+    dependencies: [analyze, scan-changes]
     memory:
       inject_artifacts:
         - step: scan-changes
@@ -382,7 +382,7 @@ steps:
     persona: craftsman
     thread: fix
     model: cheapest
-    dependencies: [fix-docs]
+    dependencies: [fix-docs, scan-changes]
     memory:
       inject_artifacts:
         - step: scan-changes

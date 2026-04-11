@@ -91,6 +91,7 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 			}
 			return plural
 		},
+		"joinStrings": strings.Join,
 	}
 	for _, fm := range extraFuncs {
 		for k, v := range fm {

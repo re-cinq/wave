@@ -199,6 +199,10 @@ func (gw *GraphWalker) evaluateEdges(step *Step, result *StepResult) (string, er
 		}
 
 		if EvaluateCondition(cond, stepCtx) {
+			// _complete sentinel signals pipeline termination
+			if edge.Target == EdgeTargetComplete {
+				return "", nil
+			}
 			// Validate target exists
 			if _, ok := gw.stepMap[edge.Target]; !ok {
 				return "", fmt.Errorf("step %q edge targets non-existent step %q", step.ID, edge.Target)

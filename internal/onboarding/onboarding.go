@@ -16,31 +16,31 @@ func getDefaultTierModels(adapter string) map[string]string {
 	case "claude":
 		return map[string]string{
 			"cheapest":  "haiku",
-			"balanced":   "",
+			"balanced":  "",
 			"strongest": "opus",
 		}
 	case "opencode":
 		return map[string]string{
-			"cheapest":  "opencode/big-pickle",
-			"balanced":   "opencode/big-pickle",
-			"strongest": "opencode/big-pickle",
+			"cheapest":  "",
+			"balanced":  "",
+			"strongest": "",
 		}
 	case "gemini":
 		return map[string]string{
 			"cheapest":  "gemini-2.5-flash-lite",
-			"balanced":   "gemini-2.5-flash-lite",
+			"balanced":  "gemini-2.5-flash-lite",
 			"strongest": "gemini-2.0-pro",
 		}
 	case "codex":
 		return map[string]string{
 			"cheapest":  "gpt-4o-mini",
-			"balanced":   "gpt-4o",
+			"balanced":  "gpt-4o",
 			"strongest": "o3",
 		}
 	default:
 		return map[string]string{
 			"cheapest":  "",
-			"balanced":   "",
+			"balanced":  "",
 			"strongest": "",
 		}
 	}

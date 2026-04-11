@@ -220,7 +220,7 @@ steps:
   - id: create-issue
     persona: craftsman
     model: cheapest
-    dependencies: [compose-report]
+    dependencies: [compose-report, scan]
     memory:
       inject_artifacts:
         - step: scan

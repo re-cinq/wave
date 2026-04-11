@@ -712,7 +712,7 @@ func runRun(opts RunOptions, debug bool) error {
 // the current process session. The subprocess inherits all flags except --detach,
 // so it runs the pipeline in-process in its own session group. This mirrors the
 // TUI's pipeline_launcher.go pattern (Setsid + Process.Release).
-func runDetached(opts RunOptions, p *pipeline.Pipeline, _ *manifest.Manifest) error {
+func runDetached(opts RunOptions, p *pipeline.Pipeline, m *manifest.Manifest) error {
 	// Initialize state store to create a run ID visible to wave status / wave logs.
 	stateDB := ".wave/state.db"
 	store, err := state.NewStateStore(stateDB)
@@ -721,11 +721,29 @@ func runDetached(opts RunOptions, p *pipeline.Pipeline, _ *manifest.Manifest) er
 	}
 	defer store.Close()
 
-	runID, err := store.CreateRun(p.Metadata.Name, opts.Input)
-	if err != nil {
-		return fmt.Errorf("failed to create run record: %w", err)
+	// Enforce max_concurrent_workers atomically via CreateRunWithLimit.
+	maxWorkers := 5 // default
+	if m != nil && m.Runtime.MaxConcurrentWorkers > 0 {
+		maxWorkers = m.Runtime.MaxConcurrentWorkers
 	}
 
+	var runID string
+	notified := false
+	for {
+		var createErr error
+		runID, createErr = store.CreateRunWithLimit(p.Metadata.Name, opts.Input, maxWorkers)
+		if createErr == nil {
+			break
+		}
+		if !errors.Is(createErr, state.ErrConcurrencyLimit) {
+			return fmt.Errorf("failed to create run record: %w", createErr)
+		}
+		if !notified {
+			fmt.Fprintf(os.Stderr, "  Queued: %d/%d workers busy, waiting for a slot...\n", maxWorkers, maxWorkers)
+			notified = true
+		}
+		time.Sleep(5 * time.Second)
+	}
 	// Mark as running so wave status picks it up immediately.
 	_ = store.UpdateRunStatus(runID, "running", "", 0)
 

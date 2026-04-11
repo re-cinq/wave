@@ -244,7 +244,7 @@ steps:
   - id: document
     persona: philosopher
     model: strongest
-    dependencies: [analyze]
+    dependencies: [analyze, explore]
     memory:
       inject_artifacts:
         - step: explore

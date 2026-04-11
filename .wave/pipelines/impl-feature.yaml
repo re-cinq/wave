@@ -279,7 +279,7 @@ steps:
     thread: impl
     model: strongest
     contexts: [execution, delivery]
-    dependencies: [plan]
+    dependencies: [plan, explore]
     memory:
       inject_artifacts:
         - step: explore
@@ -497,7 +497,7 @@ steps:
         type: test_suite
         command: "{{ project.contract_test_command }}"
         must_pass: true
-        on_failure: fail
+        on_failure: retry
     output_artifacts:
       - name: result
         path: .wave/output/result.md
