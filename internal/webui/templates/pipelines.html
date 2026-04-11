@@ -83,30 +83,65 @@
         <button class="w-dialog-close" onclick="hideQuickStart()" aria-label="Close">&times;</button>
     </div>
     <div class="w-dialog-body">
-        <div class="form-group">
-            <label for="quickstart-input" style="font-size:0.78rem;color:var(--color-text-secondary);display:block;margin-bottom:0.2rem;">Input</label>
-            <textarea id="quickstart-input" rows="3" placeholder="Issue URL, feature description..." style="width:100%;padding:0.4rem 0.5rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-family:var(--font-sans);font-size:0.82rem;resize:vertical;"></textarea>
+        <div class="run-form-tier">
+            <div class="form-group">
+                <label for="qs-input">Input</label>
+                <textarea id="qs-input" rows="3" placeholder="Issue URL, feature description..."></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="qs-adapter">Adapter</label>
+                    <select id="qs-adapter"><option value="">Default</option></select>
+                </div>
+                <div class="form-group">
+                    <label for="qs-model">Model</label>
+                    <input type="text" id="qs-model" placeholder="e.g. sonnet, haiku, cheapest">
+                </div>
+            </div>
         </div>
-        <details class="advanced-options" style="margin-top:0.4rem;">
-            <summary style="font-size:0.78rem;color:var(--color-text-muted);cursor:pointer;">Advanced options</summary>
-            <div style="padding-top:0.4rem;display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;">
-                <div class="form-group">
-                    <label for="qs-adapter" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Adapter</label>
-                    <select id="qs-adapter" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
-                        <option value="">Default</option>
-                    </select>
+        <details class="run-form-tier-details">
+            <summary class="run-form-tier-summary">Advanced</summary>
+            <div class="run-form-tier">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="qs-from-step">Resume from step</label>
+                        <input type="text" id="qs-from-step" placeholder="e.g. implement">
+                    </div>
+                    <div class="form-group-checkbox">
+                        <label><input type="checkbox" id="qs-force"> Force</label>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="qs-model" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Model</label>
-                    <select id="qs-model" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
-                        <option value="">Default</option>
-                        <option value="cheapest">Cheapest</option>
-                        <option value="fastest">Fastest</option>
-                        <option value="strongest">Strongest</option>
-                    </select>
+                <div class="form-row">
+                    <div class="form-group-checkbox">
+                        <label><input type="checkbox" id="qs-dry-run"> Dry run</label>
+                    </div>
+                    <div class="form-group-checkbox">
+                        <label><input type="checkbox" id="qs-detach"> Detach</label>
+                    </div>
                 </div>
-                <div class="form-group" style="grid-column:span 2;">
-                    <label class="checkbox-label" style="font-size:0.78rem;color:var(--color-text-secondary);display:flex;align-items:center;gap:0.3rem;"><input type="checkbox" id="qs-dry-run"> Dry Run</label>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="qs-steps">Steps</label>
+                        <input type="text" id="qs-steps" placeholder="e.g. plan,implement">
+                    </div>
+                    <div class="form-group">
+                        <label for="qs-exclude">Exclude</label>
+                        <input type="text" id="qs-exclude" placeholder="e.g. retro,review">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="qs-timeout">Timeout (min)</label>
+                        <input type="number" id="qs-timeout" min="0" placeholder="0 = no limit">
+                    </div>
+                    <div class="form-group">
+                        <label for="qs-on-failure">On failure</label>
+                        <select id="qs-on-failure">
+                            <option value="">Default</option>
+                            <option value="halt">Halt</option>
+                            <option value="skip">Skip</option>
+                        </select>
+                    </div>
                 </div>
             </div>
         </details>
@@ -184,15 +219,15 @@ var quickStartPipeline = '';
 function showQuickStart(name) {
     quickStartPipeline = name;
     document.getElementById('quickstart-name').textContent = name;
-    document.getElementById('quickstart-input').value = '';
+    document.getElementById('qs-input').value = '';
     document.getElementById('quickstart-dialog').showModal();
     populateAdapters('qs-adapter');
-    document.getElementById('quickstart-input').focus();
+    document.getElementById('qs-input').focus();
 }
 function hideQuickStart() { document.getElementById('quickstart-dialog').close(); quickStartPipeline = ''; }
 function submitQuickStart() {
     if (!quickStartPipeline) return;
-    var input = document.getElementById('quickstart-input').value;
+    var input = document.getElementById('qs-input').value;
     var btn = document.getElementById('quickstart-submit');
     var body = {input: input || ''};
     var opts = collectAdvancedOptions('qs');
