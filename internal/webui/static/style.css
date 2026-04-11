@@ -3116,7 +3116,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 /* Main content area */
 .wr-body { padding: 0.4rem 0.6rem; min-width: 0; }
 .wr-row1 { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.1rem; }
-.wr-name { font-weight: 700; font-size: 0.85rem; white-space: nowrap; flex-shrink: 0; }
+.wr-name { font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .wr-status { font-size: 0.62rem; text-transform: capitalize; }
 .wr-input { font-size: 0.8rem; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .wr-right { margin-left: auto; display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
