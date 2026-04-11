@@ -29,12 +29,11 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /prs", s.handlePRsPage)
 	mux.HandleFunc("GET /prs/{number}", s.handlePRDetailPage)
 	mux.HandleFunc("GET /health", s.handleHealthPage)
-	mux.HandleFunc("GET /ontology", s.handleOntologyPage)
+	// Ontology is optional — registered via build tag. See features_ontology.go.
 	mux.HandleFunc("GET /retros", s.handleRetrosPage)
 	mux.HandleFunc("GET /compare", s.handleComparePage)
-	mux.HandleFunc("GET /analytics", s.handleAnalyticsPage)
-	mux.HandleFunc("GET /webhooks", s.handleWebhooksPage)
-	mux.HandleFunc("GET /webhooks/{id}", s.handleWebhookDetailPage)
+	// Analytics and Webhooks are optional — registered via build tags.
+	// See features_analytics.go and features_webhooks.go.
 	mux.HandleFunc("GET /admin", s.handleAdminPage)
 
 	// API endpoints (JSON)
@@ -72,10 +71,8 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/prs/{number}/review", s.handlePRReview)
 	mux.HandleFunc("POST /api/cache/refresh", s.handleAPICacheRefresh)
 	mux.HandleFunc("GET /api/health", s.handleAPIHealth)
-	mux.HandleFunc("GET /api/ontology", s.handleAPIOntology)
+	// api/ontology — see features_ontology.go
 	mux.HandleFunc("GET /api/compare", s.handleAPICompare)
-	mux.HandleFunc("GET /api/analytics", s.handleAPIAnalytics)
-
 	// Retrospective API
 	mux.HandleFunc("GET /api/retros", s.handleAPIRetros)
 	mux.HandleFunc("GET /api/retros/{id}", s.handleAPIRetroDetail)
@@ -89,13 +86,10 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/admin/pipelines/{name}/enable", s.handleEnablePipeline)
 	mux.HandleFunc("GET /api/admin/audit", s.handleAPIAdminAudit)
 
-	// Webhook API
-	mux.HandleFunc("GET /api/webhooks", s.handleAPIWebhooks)
-	mux.HandleFunc("POST /api/webhooks", s.handleAPICreateWebhook)
-	mux.HandleFunc("GET /api/webhooks/{id}", s.handleAPIWebhookDetail)
-	mux.HandleFunc("PUT /api/webhooks/{id}", s.handleAPIUpdateWebhook)
-	mux.HandleFunc("DELETE /api/webhooks/{id}", s.handleAPIDeleteWebhook)
-	mux.HandleFunc("POST /api/webhooks/{id}/test", s.handleAPITestWebhook)
+	// Optional feature routes (analytics, webhooks, etc.)
+	for _, fn := range featureRoutes {
+		fn(s, mux)
+	}
 
 	// Catch-all 404 for unmatched routes
 	mux.HandleFunc("/", s.handleNotFound)
