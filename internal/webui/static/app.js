@@ -164,26 +164,26 @@ function populateAdapterDropdown() {
 // The prefix parameter matches the element ID prefix (e.g. "qs" for "qs-model").
 function collectAdvancedOptions(prefix) {
     var opts = {};
-    var modelEl = document.getElementById(prefix + '-model');
-    if (modelEl && modelEl.value) opts.model = modelEl.value;
-    var fromStepEl = document.getElementById(prefix + '-from-step');
-    if (fromStepEl && fromStepEl.value) opts.from_step = fromStepEl.value;
-    var dryRunEl = document.getElementById(prefix + '-dry-run');
-    if (dryRunEl && dryRunEl.checked) opts.dry_run = true;
-    // Collect selected steps
-    var stepsCbs = document.querySelectorAll('input[name="' + prefix + '-steps"]:checked');
-    if (stepsCbs.length > 0) {
-        var steps = [];
-        for (var i = 0; i < stepsCbs.length; i++) steps.push(stepsCbs[i].value);
-        opts.steps = steps.join(',');
+    // Text/select fields
+    var fields = ['adapter','model','from-step','steps','exclude','timeout','on-failure','source','delay'];
+    for (var f = 0; f < fields.length; f++) {
+        var el = document.getElementById(prefix + '-' + fields[f]);
+        if (el && el.value) {
+            var key = fields[f].replace(/-/g, '_');
+            if (fields[f] === 'timeout') { var n = parseInt(el.value, 10); if (n > 0) opts[key] = n + 'm'; }
+            else if (fields[f] === 'max-iterations') { var v = parseInt(el.value, 10); if (v > 0) opts[key] = v; }
+            else opts[key] = el.value;
+        }
     }
-    // Collect excluded steps
-    var excludeCbs = document.querySelectorAll('input[name="' + prefix + '-exclude"]:checked');
-    if (excludeCbs.length > 0) {
-        var exclude = [];
-        for (var j = 0; j < excludeCbs.length; j++) exclude.push(excludeCbs[j].value);
-        opts.exclude = exclude.join(',');
+    // Checkboxes
+    var checks = ['dry-run','force','detach','continuous'];
+    for (var c = 0; c < checks.length; c++) {
+        var cb = document.getElementById(prefix + '-' + checks[c]);
+        if (cb && cb.checked) opts[checks[c].replace(/-/g, '_')] = true;
     }
+    // Max iterations (number)
+    var maxIt = document.getElementById(prefix + '-max-iterations');
+    if (maxIt && parseInt(maxIt.value, 10) > 0) opts.max_iterations = parseInt(maxIt.value, 10);
     return opts;
 }
 
