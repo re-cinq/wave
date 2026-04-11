@@ -83,6 +83,9 @@ steps:
         on_failure: retry
 
   - id: plan
+    # No contexts: field — inherit-all behavior: all ontology contexts defined in wave.yaml
+    # are automatically injected. This gives the planner the full domain picture.
+    # See AGENTS.md § "Ontology Context Injection" for details.
     persona: implementer
     model: strongest
     dependencies: [fetch-assess]

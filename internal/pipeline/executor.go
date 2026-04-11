@@ -2917,6 +2917,34 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	// Build ontology section from manifest for CLAUDE.md injection
 	ontologySection := ""
 	if execution.Manifest.Ontology != nil {
+		// Build set of defined context names for undefined-reference detection
+		definedContexts := make(map[string]bool, len(execution.Manifest.Ontology.Contexts))
+		for _, ctx := range execution.Manifest.Ontology.Contexts {
+			definedContexts[ctx.Name] = true
+		}
+
+		// Warn on any step.Contexts entries that don't exist in the manifest
+		if len(step.Contexts) > 0 {
+			var undefinedContexts []string
+			for _, name := range step.Contexts {
+				if !definedContexts[name] {
+					undefinedContexts = append(undefinedContexts, name)
+				}
+			}
+			if len(undefinedContexts) > 0 {
+				if e.logger != nil {
+					_ = e.logger.LogOntologyWarn(pipelineID, step.ID, undefinedContexts)
+				}
+				e.emit(event.Event{
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      event.StateOntologyWarn,
+					Message:    fmt.Sprintf("undefined_contexts=[%s]", strings.Join(undefinedContexts, ",")),
+					Timestamp:  time.Now(),
+				})
+			}
+		}
+
 		ontologySection = execution.Manifest.Ontology.RenderMarkdown(step.Contexts)
 		if ontologySection != "" {
 			injected := step.Contexts
