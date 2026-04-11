@@ -37,28 +37,6 @@ func initGitRepo(t *testing.T) string {
 	return dir
 }
 
-// addAndCommit creates a file with content and commits it.
-func addAndCommit(t *testing.T, dir, relPath, content string) {
-	t.Helper()
-	path := filepath.Join(dir, relPath)
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
-	cmd := exec.Command("git", "add", relPath)
-	cmd.Dir = dir
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("git add: %v\n%s", err, out)
-	}
-	cmd = exec.Command("git", "commit", "-m", "add "+relPath)
-	cmd.Dir = dir
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("git commit: %v\n%s", err, out)
-	}
-}
-
 // stageFile writes a file and stages it with git add, so it appears in `git diff HEAD`.
 func stageFile(t *testing.T, dir, relPath, content string) {
 	t.Helper()
