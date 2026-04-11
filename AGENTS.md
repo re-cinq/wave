@@ -264,6 +264,43 @@ wave logs <run-id> | grep "stream_activity" | tail -3             # Latest activ
 3. Close CONFLICTING PRs and re-run from updated main
 4. Pull main after batch: `git pull origin main`
 
+## Ontology Context Injection
+
+Ontology contexts (`wave.yaml` → `ontology.contexts`) are injected into step prompts to encode invariants, key decisions, and domain vocabulary. Understanding how context selection works is important for writing and debugging pipelines.
+
+### Inherit-All vs Explicit Context Selection
+
+**Explicit contexts** — a step with a `contexts:` list receives only the named contexts:
+
+```yaml
+- id: implement
+  contexts: [execution, delivery]   # injects only execution + delivery invariants
+```
+
+**Inherit-all** — a step with **no** `contexts:` field automatically receives **all** defined contexts from `wave.yaml`:
+
+```yaml
+- id: plan
+  # no contexts: field → injects ALL ontology contexts
+```
+
+This is intentional: the plan step typically needs the full domain picture, while implementation steps are narrowed to execution/delivery constraints. The trace log reveals the difference:
+
+```
+[ONTOLOGY_INJECT] step=plan    contexts=[quality,execution,delivery] invariants=11
+[ONTOLOGY_INJECT] step=implement contexts=[execution,delivery]       invariants=7
+```
+
+### Undefined Context Warning
+
+If a step's `contexts:` list references a context name that does **not** exist in `wave.yaml`, the runtime emits an `[ONTOLOGY_WARN]` log line and continues — the step runs unconstrained rather than failing:
+
+```
+[ONTOLOGY_WARN] pipeline=impl-issue step=fetch-assess undefined_contexts=[configuration]
+```
+
+This warning means the step received zero invariants from that context. Fix it by either adding the missing context to `wave.yaml` or correcting the context name in the pipeline step.
+
 ## Custom Pipeline Tips
 
 - **Rapid prototyping**: Use `on_failure: skip` in contract blocks when creating new custom pipelines. This lets the pipeline complete even without schema files, making iteration fast. Graduate to `on_failure: retry` once the pipeline stabilizes.
