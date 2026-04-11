@@ -33,6 +33,9 @@
                 {{else if .Draft}}<span class="badge badge-draft">draft</span>
                 {{else if eq .State "open"}}<span class="badge badge-open">open</span>
                 {{else}}<span class="badge badge-closed">closed</span>{{end}}
+                {{if eq .CheckStatus "success"}}<span class="pr-check pr-check-pass" title="Checks passed">&#x2713;</span>
+                {{else if eq .CheckStatus "failure"}}<span class="pr-check pr-check-fail" title="Checks failed">&#x2717;</span>
+                {{else if eq .CheckStatus "pending"}}<span class="pr-check pr-check-pending" title="Checks pending">&#x25CB;</span>{{end}}
             </div>
             <div class="wr-row2">
                 <span>{{.Author}}</span>

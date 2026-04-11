@@ -3180,6 +3180,10 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 .badge-label { font-size: 0.65rem; }
 .pr-branch { font-family: var(--font-mono); font-size: 0.68rem; }
 .pr-message { padding: 1rem; color: #fca5a5; font-size: 0.82rem; }
+.pr-check { font-size: 0.85rem; font-weight: 700; }
+.pr-check-pass { color: var(--color-completed); }
+.pr-check-fail { color: var(--color-failed); }
+.pr-check-pending { color: var(--color-text-muted); }
 
 /* ── Contracts page ── */
 .ct-title { color: var(--color-text-secondary); font-size: 0.75rem; }

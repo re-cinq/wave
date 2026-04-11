@@ -354,6 +354,8 @@ type PRSummary struct {
 	ChangedFiles int          `json:"changed_files"`
 	CreatedAt    string       `json:"created_at"`
 	URL          string       `json:"url"`
+	// CI check status: "success", "failure", "pending", or ""
+	CheckStatus string `json:"check_status,omitempty"`
 	// Wave stats
 	RunCount    int    `json:"run_count,omitempty"`
 	LastStatus  string `json:"last_status,omitempty"`
