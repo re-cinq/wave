@@ -123,10 +123,18 @@ func resolveContractDir(dir, workspacePath string) (string, error) {
 	}
 
 	if dir == "project_root" {
-		// Walk up from workspacePath to find the real project root.
+		// First, determine the git root to bound our upward search.
 		// Workspace dirs often have their own git init (for Claude Code path anchoring),
 		// so git rev-parse may return the workspace dir instead of the actual project root.
-		// Look for project markers (go.mod, package.json, etc.) to find the real root.
+		// We walk up looking for project markers, but stop at the git root to avoid
+		// overshooting into system directories that may contain stray marker files.
+		gitCmd := exec.Command("git", "rev-parse", "--show-toplevel")
+		gitCmd.Dir = workspacePath
+		gitRoot := ""
+		if out, err := gitCmd.Output(); err == nil {
+			gitRoot = strings.TrimSpace(string(out))
+		}
+
 		projectMarkers := []string{"go.mod", "package.json", "Cargo.toml", "pyproject.toml"}
 		candidate := workspacePath
 		for {
@@ -135,17 +143,19 @@ func resolveContractDir(dir, workspacePath string) (string, error) {
 					return candidate, nil
 				}
 			}
+			// Stop at the git root — don't walk above the repository boundary.
+			if gitRoot != "" && candidate == gitRoot {
+				break
+			}
 			parent := filepath.Dir(candidate)
 			if parent == candidate {
 				break // reached filesystem root
 			}
 			candidate = parent
 		}
-		// Fallback: try git rev-parse (works when project has no marker files)
-		cmd := exec.Command("git", "rev-parse", "--show-toplevel")
-		cmd.Dir = workspacePath
-		if out, err := cmd.Output(); err == nil {
-			return strings.TrimSpace(string(out)), nil
+		// Use git root if available (covers repos with no standard marker files).
+		if gitRoot != "" {
+			return gitRoot, nil
 		}
 		// Last resort: use process CWD
 		if cwd, err := os.Getwd(); err == nil {
