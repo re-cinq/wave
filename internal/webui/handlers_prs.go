@@ -221,7 +221,7 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-const prsPerPage = 50
+const prsPerPage = 10
 
 // enrichPRStats concurrently fetches individual PR details to populate
 // Additions/Deletions/ChangedFiles and CI check status, which the list endpoint omits.
