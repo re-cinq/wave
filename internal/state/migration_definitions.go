@@ -443,5 +443,22 @@ ALTER TABLE event_log DROP COLUMN adapter;`,
 			Up:          `ALTER TABLE event_log ADD COLUMN configured_model TEXT DEFAULT '';`,
 			Down:        `ALTER TABLE event_log DROP COLUMN configured_model;`,
 		},
+		{
+			Version:     21,
+			Description: "Add pipeline_outcome table for persistent outcome tracking",
+			Up: `CREATE TABLE IF NOT EXISTS pipeline_outcome (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    step_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    label TEXT NOT NULL,
+    value TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_outcome_run ON pipeline_outcome(run_id);
+CREATE INDEX IF NOT EXISTS idx_outcome_type_value ON pipeline_outcome(type, value);`,
+			Down: `DROP TABLE IF EXISTS pipeline_outcome;`,
+		},
 	}
 }

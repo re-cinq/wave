@@ -589,6 +589,18 @@ func (m *MockStateStore) GetWebhookDeliveries(webhookID int64, limit int) ([]*st
 	return nil, nil
 }
 
+func (m *MockStateStore) RecordOutcome(runID, stepID, outcomeType, label, value string) error {
+	return nil
+}
+
+func (m *MockStateStore) GetOutcomes(runID string) ([]state.OutcomeRecord, error) {
+	return nil, nil
+}
+
+func (m *MockStateStore) GetOutcomesByValue(outcomeType, value string) ([]state.OutcomeRecord, error) {
+	return nil, nil
+}
+
 // Functional options for overriding specific methods.
 
 func WithSavePipelineState(fn func(id, status, input string) error) MockStateStoreOption {
