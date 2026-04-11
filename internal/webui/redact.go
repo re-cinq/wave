@@ -21,8 +21,16 @@ var credentialPatterns = []*regexp.Regexp{
 
 const redactedPlaceholder = "[REDACTED]"
 
+// maxRedactSize caps the input size for credential scanning. Running 12 regex
+// patterns on multi-megabyte content is too slow for a request handler.
+// Credential tokens are short (<200 chars), so scanning beyond 256 KB is wasteful.
+const maxRedactSize = 256 * 1024
+
 // RedactCredentials replaces known credential patterns in content with a redaction placeholder.
 func RedactCredentials(content string) string {
+	if len(content) > maxRedactSize {
+		return content
+	}
 	result := content
 	for _, pattern := range credentialPatterns {
 		result = pattern.ReplaceAllString(result, redactedPlaceholder)

@@ -33,18 +33,23 @@ func (l *YAMLPipelineLoader) Unmarshal(data []byte) (*Pipeline, error) {
 		return nil, fmt.Errorf("failed to parse pipeline YAML: %w", err)
 	}
 
-	if pipeline.Kind == "" {
-		pipeline.Kind = "WavePipeline"
+	applyPipelineDefaults(&pipeline)
+
+	return &pipeline, nil
+}
+
+// applyPipelineDefaults sets Kind and Memory.Strategy defaults on a parsed Pipeline.
+func applyPipelineDefaults(p *Pipeline) {
+	if p.Kind == "" {
+		p.Kind = "WavePipeline"
 	}
 
 	// Default memory strategy to "fresh" (constitutional requirement)
-	for i := range pipeline.Steps {
-		if pipeline.Steps[i].Memory.Strategy == "" {
-			pipeline.Steps[i].Memory.Strategy = "fresh"
+	for i := range p.Steps {
+		if p.Steps[i].Memory.Strategy == "" {
+			p.Steps[i].Memory.Strategy = "fresh"
 		}
 	}
-
-	return &pipeline, nil
 }
 
 type DAGValidator struct {
@@ -358,19 +363,19 @@ func (v *DAGValidator) TopologicalSort(p *Pipeline) ([]*Step, error) {
 	return result, nil
 }
 
-// ValidatePipelineSkills validates skill references declared in the pipeline's Skills field.
+// validatePipelineSkills validates skill references declared in the pipeline's Skills field.
 // This is called from the executor when a skill store is available.
-func ValidatePipelineSkills(p *Pipeline, store skill.Store) []error {
+func validatePipelineSkills(p *Pipeline, store skill.Store) []error {
 	if len(p.Skills) == 0 || store == nil {
 		return nil
 	}
 	return skill.ValidateSkillRefs(p.Skills, "pipeline:"+p.Metadata.Name, store)
 }
 
-// DetectSubPipelineCycles checks for circular sub-pipeline references across pipelines.
+// detectSubPipelineCycles checks for circular sub-pipeline references across pipelines.
 // It loads referenced sub-pipelines from disk and walks the reference graph.
 // Returns an error if pipeline A references B which transitively references A.
-func DetectSubPipelineCycles(p *Pipeline, pipelinesDir string) error {
+func detectSubPipelineCycles(p *Pipeline, pipelinesDir string) error {
 	visited := map[string]bool{}
 	recStack := map[string]bool{}
 	loader := &YAMLPipelineLoader{}
@@ -410,9 +415,9 @@ func detectSubPipelineCyclesDFS(name, pipelinesDir string, loader *YAMLPipelineL
 	return nil
 }
 
-// IsGraphPipeline returns true if any step defines edges or uses a conditional type,
+// isGraphPipeline returns true if any step defines edges or uses a conditional type,
 // indicating the pipeline should be executed in graph mode rather than DAG mode.
-func IsGraphPipeline(p *Pipeline) bool {
+func isGraphPipeline(p *Pipeline) bool {
 	for _, step := range p.Steps {
 		if len(step.Edges) > 0 || step.Type == StepTypeConditional {
 			return true
