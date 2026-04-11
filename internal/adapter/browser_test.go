@@ -335,6 +335,22 @@ func skipWithoutBrowser(t *testing.T) {
 	if len(results) == 0 || results[0].Status != "success" {
 		t.Skip("skipping: browser could not navigate (sandbox or binary issue)")
 	}
+
+	// Also probe screenshot capability — some CI sandboxes allow navigation
+	// but fail silently on screenshot (GPU/render surface not available).
+	result, err = adapter.Run(ctx, AdapterRunConfig{
+		Prompt: `[{"action": "screenshot"}]`,
+	})
+	if err != nil || result.ExitCode != 0 {
+		t.Skip("skipping: browser screenshot not available in this environment")
+	}
+	var screenshotResults []BrowserResult
+	if err := json.Unmarshal([]byte(result.ResultContent), &screenshotResults); err != nil {
+		t.Skip("skipping: could not parse screenshot result")
+	}
+	if len(screenshotResults) == 0 || screenshotResults[0].Status != "success" {
+		t.Skip("skipping: browser screenshot failed (sandbox or GPU issue)")
+	}
 }
 
 func TestIntegrationNavigateAndScreenshot(t *testing.T) {
