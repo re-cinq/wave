@@ -2453,6 +2453,42 @@ func (e *DefaultPipelineExecutor) runSingleContract(
 				Message:    fmt.Sprintf("agent review completed: verdict=%s issues=%d reviewer=%s", verdict, issueCount, c.Persona),
 			})
 		}
+	case "event_contains":
+		// Query event log for this run+step and validate patterns
+		if e.store != nil {
+			storeEvents, evErr := e.store.GetEvents(pipelineID, state.EventQueryOptions{Limit: 5000})
+			if evErr != nil {
+				valErr = fmt.Errorf("event_contains: failed to query events: %w", evErr)
+			} else {
+				records := make([]contract.EventRecord, len(storeEvents))
+				for i, ev := range storeEvents {
+					records[i] = contract.EventRecord{
+						State:   ev.State,
+						StepID:  ev.StepID,
+						Message: ev.Message,
+					}
+				}
+				valErr = contract.ValidateEventContains(contractCfg, step.ID, records)
+				if valErr == nil {
+					// Emit what was matched so the operator can see evidence
+					for _, pattern := range contractCfg.Events {
+						detail := pattern.State
+						if pattern.Contains != "" {
+							detail += " containing " + fmt.Sprintf("%q", pattern.Contains)
+						}
+						e.emit(event.Event{
+							Timestamp:  time.Now(),
+							PipelineID: pipelineID,
+							StepID:     step.ID,
+							State:      "contract_evidence",
+							Message:    fmt.Sprintf("event_contains matched: %s", detail),
+						})
+					}
+				}
+			}
+		} else {
+			valErr = fmt.Errorf("event_contains: no state store available")
+		}
 	default:
 		valErr = contract.Validate(contractCfg, workspacePath)
 	}

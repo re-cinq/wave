@@ -49,6 +49,9 @@ type ContractConfig struct {
 	Glob     string   `json:"glob,omitempty"`      // Glob pattern for qualifying source files
 	Exclude  []string `json:"exclude,omitempty"`   // Glob patterns for files to exclude
 	MinFiles int      `json:"min_files,omitempty"` // Minimum number of qualifying changed files required (default 1)
+
+	// event_contains contract fields — validated by executor (needs event store access)
+	Events []EventPattern `json:"events,omitempty"` // Expected event patterns to match against the step's event log
 }
 
 // ValidationError provides detailed information about contract validation failures.
