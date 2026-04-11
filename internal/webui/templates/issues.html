@@ -25,7 +25,7 @@
 <div class="wr-list">
 {{range .Issues}}
     <a href="/issues/{{.Number}}" class="wr-run">
-        <div class="wr-accent {{if .LastStatus}}st-{{.LastStatus}}{{else if eq .State "open"}}st-running{{else}}st-completed{{end}}"></div>
+        <div class="wr-accent {{if .LastStatus}}st-{{.LastStatus}}{{else}}st-pending{{end}}"></div>
         <div class="wr-body">
             <div class="wr-row1">
                 <span class="wr-name">#{{.Number}} {{.Title}}</span>
