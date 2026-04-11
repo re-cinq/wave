@@ -90,6 +90,12 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 		if !matched && pr.HeadBranch != "" && run.BranchName == pr.HeadBranch {
 			matched = true
 		}
+		// Match short-form input "owner/repo <number>" (e.g. ops-pr-review gets PR number as input)
+		if !matched && run.Input != "" {
+			if n := extractIssueNumber(run.Input); n == number {
+				matched = true
+			}
+		}
 		if matched {
 			relatedRuns = append(relatedRuns, runToSummary(run))
 		}
@@ -218,8 +224,9 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 const prsPerPage = 50
 
 // enrichPRStats concurrently fetches individual PR details to populate
-// Additions/Deletions/ChangedFiles, which the list endpoint omits.
-func enrichPRStats(ctx context.Context, client forge.Client, owner, repo string, prs []*forge.PullRequest) {
+// Additions/Deletions/ChangedFiles and CI check status, which the list endpoint omits.
+// The returned map is keyed by PR number and contains the aggregate check status.
+func enrichPRStats(ctx context.Context, client forge.Client, owner, repo string, prs []*forge.PullRequest) map[int]string {
 	const workers = 5
 	ch := make(chan int, len(prs))
 	for i := range prs {
@@ -227,6 +234,8 @@ func enrichPRStats(ctx context.Context, client forge.Client, owner, repo string,
 	}
 	close(ch)
 
+	checkStatuses := make(map[int]string, len(prs))
+	var mu sync.Mutex
 	var wg sync.WaitGroup
 	for range min(workers, len(prs)) {
 		wg.Add(1)
@@ -241,10 +250,50 @@ func enrichPRStats(ctx context.Context, client forge.Client, owner, repo string,
 				prs[idx].Additions = detail.Additions
 				prs[idx].Deletions = detail.Deletions
 				prs[idx].ChangedFiles = detail.ChangedFiles
+
+				// Fetch CI check status for the HEAD commit
+				if detail.HeadSHA != "" {
+					checks, err := client.GetCommitChecks(ctx, owner, repo, detail.HeadSHA)
+					if err != nil {
+						log.Printf("[webui] failed to fetch checks for PR #%d: %v", prs[idx].Number, err)
+					} else {
+						status := aggregateCheckStatus(checks)
+						mu.Lock()
+						checkStatuses[prs[idx].Number] = status
+						mu.Unlock()
+					}
+				}
 			}
 		}()
 	}
 	wg.Wait()
+	return checkStatuses
+}
+
+// aggregateCheckStatus derives a single status from a list of check runs.
+// Returns "success" if all completed successfully, "failure" if any failed,
+// "pending" if any are still in progress/queued, or "" if no checks exist.
+func aggregateCheckStatus(checks []*forge.CheckRun) string {
+	if len(checks) == 0 {
+		return ""
+	}
+	hasPending := false
+	for _, c := range checks {
+		if c.Status != "completed" {
+			hasPending = true
+			continue
+		}
+		switch c.Conclusion {
+		case "failure", "timed_out", "action_required":
+			return "failure"
+		case "cancelled":
+			return "failure"
+		}
+	}
+	if hasPending {
+		return "pending"
+	}
+	return "success"
 }
 
 func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
@@ -264,6 +313,15 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 			FilterState:  stateFilter,
 			Page:         page,
 			Message:      "Could not determine repository from git remote.",
+		}
+	}
+
+	// Don't cache "running" state — stale data is misleading
+	cacheKey := fmt.Sprintf("prs:list:%s:%d", stateFilter, page)
+	useCache := stateFilter != "running"
+	if useCache {
+		if cached, ok := s.cache.Get(cacheKey); ok {
+			return cached.(PRListResponse)
 		}
 	}
 
@@ -290,7 +348,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 		prs = prs[:prsPerPage]
 	}
 
-	enrichPRStats(ctx, s.forgeClient, owner, repo, prs)
+	checkStatuses := enrichPRStats(ctx, s.forgeClient, owner, repo, prs)
 
 	var summaries []PRSummary
 	for _, pr := range prs {
@@ -309,6 +367,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 			ChangedFiles: pr.ChangedFiles,
 			CreatedAt:    pr.CreatedAt.Format("2006-01-02"),
 			URL:          pr.HTMLURL,
+			CheckStatus:  checkStatuses[pr.Number],
 		})
 	}
 
@@ -333,7 +392,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 		}
 	}
 
-	return PRListResponse{
+	result := PRListResponse{
 		PullRequests: summaries,
 		RepoSlug:     s.repoSlug,
 		FilterState:  stateFilter,
@@ -342,6 +401,12 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 		TotalOpen:    openCount,
 		TotalClosed:  closedCount,
 	}
+
+	if useCache {
+		s.cache.Set(cacheKey, result)
+	}
+
+	return result
 }
 
 // PRReviewRequest is the JSON body for POST /api/prs/{number}/review.

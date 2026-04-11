@@ -62,6 +62,7 @@ type Server struct {
 	tlsKey            string
 	tlsCA             string
 	csrfToken         string
+	cache             *apiCache
 }
 
 // ServerConfig holds configuration for the dashboard server.
@@ -168,6 +169,7 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		tlsKey:            cfg.TLSKey,
 		tlsCA:             cfg.TLSCA,
 		csrfToken:         csrfToken,
+		cache:             newAPICache(5 * time.Minute),
 	}
 
 	mux := http.NewServeMux()

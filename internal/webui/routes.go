@@ -70,6 +70,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/issues/start", s.handleAPIStartFromIssue)
 	mux.HandleFunc("GET /api/prs", s.handleAPIPRs)
 	mux.HandleFunc("POST /api/prs/{number}/review", s.handlePRReview)
+	mux.HandleFunc("POST /api/cache/refresh", s.handleAPICacheRefresh)
 	mux.HandleFunc("GET /api/health", s.handleAPIHealth)
 	mux.HandleFunc("GET /api/ontology", s.handleAPIOntology)
 	mux.HandleFunc("GET /api/compare", s.handleAPICompare)
