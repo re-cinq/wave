@@ -500,7 +500,7 @@ func TestMigrationDefinitions(t *testing.T) {
 	assert.Len(t, migrations, 21)
 
 	// Check version sequence
-	expectedVersions := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+	expectedVersions := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21}
 	for i, migration := range migrations {
 		assert.Equal(t, expectedVersions[i], migration.Version)
 		assert.NotEmpty(t, migration.Description)
