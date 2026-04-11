@@ -2766,8 +2766,8 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-bg { position: absolute; top: 0; left: 0; bottom: 0; border-radius: 3px; opacity: 0.06; pointer-events: none; z-index: 0; }
 .ws-bg.st-completed { background: var(--color-completed); }
 .ws-bg.st-failed    { background: var(--color-failed); }
-.ws-bg.st-running   { background: var(--color-running); animation: v2pulse 2s ease-in-out infinite; }
-@keyframes v2pulse { 0%,100%{opacity:0.03} 50%{opacity:0.1} }
+.ws-bg.st-running   { background: var(--color-running); animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:0.03} 50%{opacity:0.1} }
 
 /* ── Status left accent (5px for strong signal) ── */
 .ws.st-completed { border-left: 4px solid var(--color-completed); }
@@ -2832,14 +2832,19 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-config code { padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.72rem; background: var(--color-bg-secondary); color: var(--color-text); }
 
 /* ── Row 2: I/O ── */
-.ws-io { display: flex; gap: 0.75rem; padding: 0.12rem var(--ws-pad-x) var(--ws-pad-y-bot); font-size: 0.78rem; flex-wrap: wrap; }
+.ws-io { display: flex; gap: 0.5rem; padding: 0.12rem var(--ws-pad-x) var(--ws-pad-y-bot); font-size: 0.78rem; flex-wrap: wrap; align-items: center; }
 .ws-io-in, .ws-io-out { display: flex; gap: 0.3rem; align-items: baseline; }
 .ws-io-out { padding-left: 0.6rem; border-left: 1px solid rgba(100,116,139,0.25); }
 .ws-io-lbl { color: var(--color-text-muted); font-weight: 700; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.03em; font-family: var(--font-mono); flex-shrink: 0; }
-.ws-io-lbl[onclick] { cursor: pointer; border-radius: 3px; padding: 0.05rem 0.25rem; margin: -0.05rem -0.25rem; transition: background 0.1s, color 0.1s; }
-.ws-io-lbl[onclick]:hover { background: rgba(99,102,241,0.1); color: var(--color-text); }
-.ws-io-lbl[onclick].active { background: rgba(99,102,241,0.15); color: var(--color-text); }
+.ws-io-click { cursor: pointer; transition: color 0.1s; }
+.ws-io-click:hover { color: var(--color-text); }
+.ws-io-click.active { color: var(--color-text); }
 .ws-io-val { color: var(--color-text-secondary); font-size: 0.75rem; }
+.ws-io-sep { width: 1px; height: 0.8em; background: rgba(100,116,139,0.25); flex-shrink: 0; align-self: center; }
+/* Tabs inside I/O row: plain text links matching io-val style */
+.ws-io .w-tab { padding: 0; margin: 0; font-size: 0.75rem; font-family: inherit; color: var(--color-text-secondary); text-decoration: none; transition: color 0.1s; }
+.ws-io .w-tab:hover { color: var(--color-text); }
+.ws-io .w-tab.active { color: var(--color-text); }
 
 /* ── Step tab bar (artifacts + logs, unified) ── */
 .ws-tabs { display: flex; gap: 0.3rem; padding: 0; margin: 0; align-items: center; overflow-x: auto; }
