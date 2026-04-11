@@ -1896,6 +1896,12 @@ func (e *DefaultPipelineExecutor) recordOntologyUsage(execution *PipelineExecuti
 		contractPassed = &passed
 	}
 
+	// Build set of defined context names for lineage status
+	definedCtx := make(map[string]bool, len(execution.Manifest.Ontology.Contexts))
+	for _, ctx := range execution.Manifest.Ontology.Contexts {
+		definedCtx[ctx.Name] = true
+	}
+
 	for _, ctxName := range injectedContexts {
 		invariantCount := 0
 		for _, ctx := range execution.Manifest.Ontology.Contexts {
@@ -1904,9 +1910,14 @@ func (e *DefaultPipelineExecutor) recordOntologyUsage(execution *PipelineExecuti
 				break
 			}
 		}
+		// Undefined contexts get status "undefined" regardless of step outcome
+		lineageStatus := stepStatus
+		if !definedCtx[ctxName] {
+			lineageStatus = "undefined"
+		}
 		if err := e.store.RecordOntologyUsage(
 			execution.Status.ID, step.ID, ctxName,
-			invariantCount, stepStatus, contractPassed,
+			invariantCount, lineageStatus, contractPassed,
 		); err != nil {
 			if e.logger != nil {
 				_ = e.logger.LogToolCall(execution.Status.ID, step.ID, "recordOntologyUsage",
@@ -1914,13 +1925,13 @@ func (e *DefaultPipelineExecutor) recordOntologyUsage(execution *PipelineExecuti
 			}
 		} else {
 			if e.logger != nil {
-				_ = e.logger.LogOntologyLineage(execution.Status.ID, step.ID, ctxName, stepStatus, invariantCount)
+				_ = e.logger.LogOntologyLineage(execution.Status.ID, step.ID, ctxName, lineageStatus, invariantCount)
 			}
 			e.emit(event.Event{
 				PipelineID: execution.Status.ID,
 				StepID:     step.ID,
 				State:      event.StateOntologyLineage,
-				Message:    fmt.Sprintf("context=%s status=%s invariants=%d", ctxName, stepStatus, invariantCount),
+				Message:    fmt.Sprintf("context=%s status=%s invariants=%d", ctxName, lineageStatus, invariantCount),
 				Timestamp:  time.Now(),
 			})
 		}
@@ -2442,6 +2453,42 @@ func (e *DefaultPipelineExecutor) runSingleContract(
 				Message:    fmt.Sprintf("agent review completed: verdict=%s issues=%d reviewer=%s", verdict, issueCount, c.Persona),
 			})
 		}
+	case "event_contains":
+		// Query event log for this run+step and validate patterns
+		if e.store != nil {
+			storeEvents, evErr := e.store.GetEvents(pipelineID, state.EventQueryOptions{Limit: 5000})
+			if evErr != nil {
+				valErr = fmt.Errorf("event_contains: failed to query events: %w", evErr)
+			} else {
+				records := make([]contract.EventRecord, len(storeEvents))
+				for i, ev := range storeEvents {
+					records[i] = contract.EventRecord{
+						State:   ev.State,
+						StepID:  ev.StepID,
+						Message: ev.Message,
+					}
+				}
+				valErr = contract.ValidateEventContains(contractCfg, step.ID, records)
+				if valErr == nil {
+					// Emit what was matched so the operator can see evidence
+					for _, pattern := range contractCfg.Events {
+						detail := pattern.State
+						if pattern.Contains != "" {
+							detail += " containing " + fmt.Sprintf("%q", pattern.Contains)
+						}
+						e.emit(event.Event{
+							Timestamp:  time.Now(),
+							PipelineID: pipelineID,
+							StepID:     step.ID,
+							State:      "contract_evidence",
+							Message:    fmt.Sprintf("event_contains matched: %s", detail),
+						})
+					}
+				}
+			}
+		} else {
+			valErr = fmt.Errorf("event_contains: no state store available")
+		}
 	default:
 		valErr = contract.Validate(contractCfg, workspacePath)
 	}
@@ -2917,6 +2964,34 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	// Build ontology section from manifest for CLAUDE.md injection
 	ontologySection := ""
 	if execution.Manifest.Ontology != nil {
+		// Build set of defined context names for undefined-reference detection
+		definedContexts := make(map[string]bool, len(execution.Manifest.Ontology.Contexts))
+		for _, ctx := range execution.Manifest.Ontology.Contexts {
+			definedContexts[ctx.Name] = true
+		}
+
+		// Warn on any step.Contexts entries that don't exist in the manifest
+		if len(step.Contexts) > 0 {
+			var undefinedContexts []string
+			for _, name := range step.Contexts {
+				if !definedContexts[name] {
+					undefinedContexts = append(undefinedContexts, name)
+				}
+			}
+			if len(undefinedContexts) > 0 {
+				if e.logger != nil {
+					_ = e.logger.LogOntologyWarn(pipelineID, step.ID, undefinedContexts)
+				}
+				e.emit(event.Event{
+					PipelineID: pipelineID,
+					StepID:     step.ID,
+					State:      event.StateOntologyWarn,
+					Message:    fmt.Sprintf("undefined_contexts=[%s]", strings.Join(undefinedContexts, ",")),
+					Timestamp:  time.Now(),
+				})
+			}
+		}
+
 		ontologySection = execution.Manifest.Ontology.RenderMarkdown(step.Contexts)
 		if ontologySection != "" {
 			injected := step.Contexts

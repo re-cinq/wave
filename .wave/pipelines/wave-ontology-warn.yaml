@@ -1,0 +1,54 @@
+# Smoke test: ontology undefined-context warnings
+#
+# Verifies that the executor emits ontology_warn events when a step
+# references contexts that don't exist in wave.yaml. The warning must
+# be non-blocking — the step should still complete successfully with
+# zero invariants injected for the undefined contexts.
+#
+# Expected behavior:
+#   - ontology_warn fires with undefined_contexts=[FAKE_ALPHA,FAKE_BETA]
+#   - ontology_inject shows invariants=N (only from 'execution')
+#   - step completes normally
+#   - ontology_lineage shows FAKE_ALPHA invariants=0, FAKE_BETA invariants=0
+
+kind: WavePipeline
+metadata:
+  name: wave-ontology-warn
+  description: >-
+    Smoke test for ontology undefined-context warnings. References two
+    fake contexts alongside a real one to verify that the executor warns
+    on undefined contexts without blocking execution. Use after changes
+    to ontology injection or context resolution.
+  release: false
+  category: wave
+
+input:
+  source: cli
+  example: "verify ontology warnings"
+
+steps:
+  - id: check-warn
+    persona: implementer
+    model: cheapest
+    contexts: [execution, FAKE_ALPHA, FAKE_BETA]
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        You are a smoke test verifier. Read the current directory listing,
+        confirm you can see the project files, then respond with exactly:
+        "Ontology warning smoke test passed."
+    handover:
+      contract:
+        type: event_contains
+        must_pass: true
+        on_failure: fail
+        events:
+          - state: ontology_warn
+            contains: "FAKE_ALPHA"
+          - state: ontology_warn
+            contains: "FAKE_BETA"
+          - state: ontology_lineage
+            contains: "status=undefined"

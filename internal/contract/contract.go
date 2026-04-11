@@ -44,6 +44,14 @@ type ContractConfig struct {
 	// ArtifactPaths provides artifact name→path mappings for artifact context sources.
 	// This is populated by the executor at validation time, not from YAML.
 	ArtifactPaths map[string]string `json:"artifactPaths,omitempty"`
+
+	// source_diff contract fields
+	Glob     string   `json:"glob,omitempty"`      // Glob pattern for qualifying source files
+	Exclude  []string `json:"exclude,omitempty"`   // Glob patterns for files to exclude
+	MinFiles int      `json:"min_files,omitempty"` // Minimum number of qualifying changed files required (default 1)
+
+	// event_contains contract fields — validated by executor (needs event store access)
+	Events []EventPattern `json:"events,omitempty"` // Expected event patterns to match against the step's event log
 }
 
 // ValidationError provides detailed information about contract validation failures.
@@ -100,6 +108,8 @@ func NewValidator(cfg ContractConfig) ContractValidator {
 		return &nonEmptyFileValidator{}
 	case "llm_judge":
 		return &llmJudgeValidator{}
+	case "source_diff":
+		return &sourceDiffValidator{}
 	case "agent_review":
 		// agent_review requires an adapter runner — NewValidator returns nil.
 		// The executor uses ValidateWithRunner() instead for this type.
