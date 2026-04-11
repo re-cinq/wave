@@ -57,10 +57,10 @@ type PipelineStatus struct {
 }
 
 type DefaultPipelineExecutor struct {
-	runner       adapter.AdapterRunner // Deprecated: use registry for per-step resolution
-	registry     *adapter.AdapterRegistry
-	emitter      event.EventEmitter
-	store        state.StateStore
+	emitterMixin
+	runner   adapter.AdapterRunner // Deprecated: use registry for per-step resolution
+	registry *adapter.AdapterRegistry
+	store    state.StateStore
 	logger       audit.AuditLogger
 	wsManager    workspace.WorkspaceManager
 	relayMonitor *relay.RelayMonitor
@@ -185,13 +185,13 @@ func WithStepFilter(f *StepFilter) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.stepFilter = f }
 }
 
-// WithSkillStore sets the skill store for DirectoryStore-based skill provisioning.
-func WithSkillStore(s skill.Store) ExecutorOption {
+// withSkillStore sets the skill store for DirectoryStore-based skill provisioning.
+func withSkillStore(s skill.Store) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.skillStore = s }
 }
 
-// WithHookRunner sets the lifecycle hook runner for pipeline events.
-func WithHookRunner(r hooks.HookRunner) ExecutorOption {
+// withHookRunner sets the lifecycle hook runner for pipeline events.
+func withHookRunner(r hooks.HookRunner) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.hookRunner = r }
 }
 
@@ -298,10 +298,10 @@ func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOp
 // execution state. Used for child pipeline invocation within matrix strategies.
 func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 	return &DefaultPipelineExecutor{
+		emitterMixin:           emitterMixin{emitter: e.emitter},
 		runner:                 e.runner,
 		registry:               e.registry,
 		adapterOverride:        e.adapterOverride,
-		emitter:                e.emitter,
 		store:                  e.store,
 		logger:                 e.logger,
 		wsManager:              e.wsManager,
@@ -341,7 +341,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 
 	// Detect graph-mode pipelines (edges or conditional steps present)
-	if IsGraphPipeline(p) {
+	if isGraphPipeline(p) {
 		return e.executeGraphPipeline(ctx, p, m, input)
 	}
 
@@ -572,7 +572,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		Status: &PipelineStatus{
 			ID:             pipelineID,
 			PipelineName:   pipelineName,
-			State:          StatePending,
+			State:          statePending,
 			CompletedSteps: []string{},
 			FailedSteps:    []string{},
 			StartedAt:      time.Now(),
@@ -580,7 +580,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 
 	for _, step := range p.Steps {
-		execution.States[step.ID] = StatePending
+		execution.States[step.ID] = statePending
 	}
 
 	e.mu.Lock()
@@ -598,10 +598,10 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 
 	if e.store != nil {
-		_ = e.store.SavePipelineState(pipelineID, StateRunning, input)
+		_ = e.store.SavePipelineState(pipelineID, stateRunning, input)
 	}
 
-	execution.Status.State = StateRunning
+	execution.Status.State = stateRunning
 
 	e.emit(event.Event{
 		Timestamp:      time.Now(),
@@ -721,8 +721,8 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		}
 
 		if err := e.executeStepBatch(ctx, execution, ready); err != nil {
-			// ReQueueError means gate routing reset steps to pending — re-enter the scheduling loop
-			var reQueueErr *ReQueueError
+			// reQueueError means gate routing reset steps to pending — re-enter the scheduling loop
+			var reQueueErr *reQueueError
 			if errors.As(err, &reQueueErr) {
 				// Remove re-queued steps from the completed map so findReadySteps can re-schedule them
 				for stepID := range reQueueErr.ResetSteps {
@@ -736,21 +736,21 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 					execution.mu.Lock()
 					stepState := execution.States[step.ID]
 					execution.mu.Unlock()
-					if stepState == StateCompleted && !completed[step.ID] {
+					if stepState == stateCompleted && !completed[step.ID] {
 						completed[step.ID] = true
 						completedCount++
 					}
 				}
 				continue
 			}
-			execution.Status.State = StateFailed
+			execution.Status.State = stateFailed
 			// Identify which step(s) failed from the batch
 			var failedStepID string
 			for _, step := range ready {
 				execution.mu.Lock()
 				stepState := execution.States[step.ID]
 				execution.mu.Unlock()
-				if stepState == StateFailed || stepState == StateRunning || stepState == StateRetrying {
+				if stepState == stateFailed || stepState == stateRunning || stepState == stateRetrying {
 					execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
 					if failedStepID == "" {
 						failedStepID = step.ID
@@ -764,13 +764,13 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 				execution.Status.FailedSteps = append(execution.Status.FailedSteps, failedStepID)
 			}
 			if e.store != nil {
-				_ = e.store.SavePipelineState(pipelineID, StateFailed, input)
+				_ = e.store.SavePipelineState(pipelineID, stateFailed, input)
 			}
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
 				StepID:     failedStepID,
-				State:      StateFailed,
+				State:      stateFailed,
 				Message:    err.Error(),
 			})
 			// Generate retrospective for failed runs — these are the most valuable
@@ -790,7 +790,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 			stepState := execution.States[step.ID]
 			execution.mu.Unlock()
 
-			if stepState == StateFailed || stepState == StateSkipped {
+			if stepState == stateFailed || stepState == stateSkipped {
 				execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
 			} else {
 				execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
@@ -805,7 +805,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 			execution.mu.Lock()
 			stepState := execution.States[step.ID]
 			execution.mu.Unlock()
-			if stepState == StateCompleted || stepState == StateFailed {
+			if stepState == stateCompleted || stepState == stateFailed {
 				completed[step.ID] = true
 			}
 		}
@@ -816,7 +816,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		e.emit(event.Event{
 			Timestamp:      time.Now(),
 			PipelineID:     pipelineID,
-			State:          StateRunning,
+			State:          stateRunning,
 			TotalSteps:     schedulableSteps,
 			CompletedSteps: completedCount,
 			Progress:       (completedCount * 100) / schedulableSteps,
@@ -829,9 +829,9 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 
 	// Pipeline succeeds if no required steps failed
 	if e.hasRequiredFailures(execution) {
-		execution.Status.State = StateFailed
+		execution.Status.State = stateFailed
 		if e.store != nil {
-			_ = e.store.SavePipelineState(pipelineID, StateFailed, input)
+			_ = e.store.SavePipelineState(pipelineID, stateFailed, input)
 		}
 		// Run run_failed hooks with detached context (non-blocking by default).
 		e.runTerminalHooks(hooks.HookEvent{
@@ -840,9 +840,9 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 			Input:      input,
 		})
 	} else {
-		execution.Status.State = StateCompleted
+		execution.Status.State = stateCompleted
 		if e.store != nil {
-			_ = e.store.SavePipelineState(pipelineID, StateCompleted, input)
+			_ = e.store.SavePipelineState(pipelineID, stateCompleted, input)
 		}
 		// Run run_completed hooks with detached context (non-blocking by default).
 		e.runTerminalHooks(hooks.HookEvent{
@@ -856,7 +856,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
 		PipelineID: pipelineID,
-		State:      StateCompleted,
+		State:      stateCompleted,
 		DurationMs: elapsed,
 		Message:    fmt.Sprintf("%d steps completed", schedulableSteps),
 	})
@@ -946,7 +946,7 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		Status: &PipelineStatus{
 			ID:             pipelineID,
 			PipelineName:   pipelineName,
-			State:          StatePending,
+			State:          statePending,
 			CompletedSteps: []string{},
 			FailedSteps:    []string{},
 			StartedAt:      time.Now(),
@@ -954,7 +954,7 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 	}
 
 	for _, step := range p.Steps {
-		execution.States[step.ID] = StatePending
+		execution.States[step.ID] = statePending
 	}
 
 	e.mu.Lock()
@@ -972,10 +972,10 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 	}
 
 	if e.store != nil {
-		_ = e.store.SavePipelineState(pipelineID, StateRunning, input)
+		_ = e.store.SavePipelineState(pipelineID, stateRunning, input)
 	}
 
-	execution.Status.State = StateRunning
+	execution.Status.State = stateRunning
 
 	e.emit(event.Event{
 		Timestamp:      time.Now(),
@@ -1076,14 +1076,14 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 	execution.Status.CompletedAt = &now
 
 	if err != nil {
-		execution.Status.State = StateFailed
+		execution.Status.State = stateFailed
 		if e.store != nil {
-			_ = e.store.SavePipelineState(pipelineID, StateFailed, input)
+			_ = e.store.SavePipelineState(pipelineID, stateFailed, input)
 		}
 		e.emit(event.Event{
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
-			State:      StateFailed,
+			State:      stateFailed,
 			Message:    err.Error(),
 		})
 		// Generate retrospective for failed runs — these are the most valuable
@@ -1094,16 +1094,16 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		return err
 	}
 
-	execution.Status.State = StateCompleted
+	execution.Status.State = stateCompleted
 	if e.store != nil {
-		_ = e.store.SavePipelineState(pipelineID, StateCompleted, input)
+		_ = e.store.SavePipelineState(pipelineID, stateCompleted, input)
 	}
 
 	elapsed := time.Since(execution.Status.StartedAt).Milliseconds()
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
 		PipelineID: pipelineID,
-		State:      StateCompleted,
+		State:      stateCompleted,
 		DurationMs: elapsed,
 		Message:    fmt.Sprintf("graph pipeline completed: %d steps visited", gw.totalVisits),
 	})
@@ -1128,7 +1128,7 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 	pipelineID := execution.Status.ID
 
 	execution.mu.Lock()
-	execution.States[step.ID] = StateRunning
+	execution.States[step.ID] = stateRunning
 	execution.Status.CurrentStep = step.ID
 	execution.mu.Unlock()
 
@@ -1145,7 +1145,7 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 		Timestamp:  time.Now(),
 		PipelineID: pipelineID,
 		StepID:     step.ID,
-		State:      StateRunning,
+		State:      stateRunning,
 		Message:    fmt.Sprintf("executing command step: %s", step.Script),
 	})
 
@@ -1185,7 +1185,7 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
 				StepID:     step.ID,
-				State:      StateRunning,
+				State:      stateRunning,
 				Message:    fmt.Sprintf("command script sanitized (risk_score=%d, rules=%v)", record.RiskScore, record.SanitizationRules),
 			})
 		}
@@ -1249,7 +1249,7 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 		result.Error = execErr
 
 		execution.mu.Lock()
-		execution.States[step.ID] = StateFailed
+		execution.States[step.ID] = stateFailed
 		execution.mu.Unlock()
 		if e.store != nil {
 			_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, execErr.Error())
@@ -1261,14 +1261,14 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 			exitCode = cmd.ProcessState.ExitCode()
 		}
 		if e.logger != nil {
-			_ = e.logger.LogStepEnd(pipelineID, step.ID, StateFailed, duration, exitCode, len(stdout.String()), 0, execErr.Error())
+			_ = e.logger.LogStepEnd(pipelineID, step.ID, stateFailed, duration, exitCode, len(stdout.String()), 0, execErr.Error())
 		}
 
 		e.emit(event.Event{
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
 			StepID:     step.ID,
-			State:      StateFailed,
+			State:      stateFailed,
 			Message:    fmt.Sprintf("command failed: %v\nstderr: %s", execErr, stderr.String()),
 		})
 
@@ -1278,7 +1278,7 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 	result.Outcome = "success"
 
 	execution.mu.Lock()
-	execution.States[step.ID] = StateCompleted
+	execution.States[step.ID] = stateCompleted
 	execution.mu.Unlock()
 	if e.store != nil {
 		_ = e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
@@ -1290,14 +1290,14 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 		exitCode = cmd.ProcessState.ExitCode()
 	}
 	if e.logger != nil {
-		_ = e.logger.LogStepEnd(pipelineID, step.ID, StateCompleted, duration, exitCode, len(stdout.String()), 0, "")
+		_ = e.logger.LogStepEnd(pipelineID, step.ID, stateCompleted, duration, exitCode, len(stdout.String()), 0, "")
 	}
 
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
 		PipelineID: pipelineID,
 		StepID:     step.ID,
-		State:      StateCompleted,
+		State:      stateCompleted,
 		Message:    "command completed successfully",
 	})
 
@@ -1378,13 +1378,13 @@ func (e *DefaultPipelineExecutor) skipDependentSteps(execution *PipelineExecutio
 				execution.mu.Lock()
 				depState := execution.States[dep]
 				execution.mu.Unlock()
-				if depState == StateFailed || depState == StateSkipped {
+				if depState == stateFailed || depState == stateSkipped {
 					hasFailedDep = true
 				}
 			}
 			if allDepsComplete && hasFailedDep {
 				execution.mu.Lock()
-				execution.States[step.ID] = StateSkipped
+				execution.States[step.ID] = stateSkipped
 				execution.mu.Unlock()
 				if e.store != nil {
 					_ = e.store.SaveStepState(pipelineID, step.ID, state.StateSkipped, "dependency failed")
@@ -1416,7 +1416,7 @@ func (e *DefaultPipelineExecutor) hasRequiredFailures(execution *PipelineExecuti
 	execution.mu.Lock()
 	defer execution.mu.Unlock()
 	for stepID, stepState := range execution.States {
-		if stepState == StateFailed {
+		if stepState == stateFailed {
 			// A failed step is a required failure if the step itself is not optional
 			// AND it was not skipped due to dependency propagation
 			if !stepOptional[stepID] {
@@ -1448,7 +1448,7 @@ func (e *DefaultPipelineExecutor) executeStepBatch(ctx context.Context, executio
 func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *PipelineExecution, step *Step) error {
 	pipelineID := execution.Status.ID
 	execution.mu.Lock()
-	execution.States[step.ID] = StateRunning
+	execution.States[step.ID] = stateRunning
 	execution.Status.CurrentStep = step.ID
 	execution.mu.Unlock()
 
@@ -1494,7 +1494,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 	if e.hookRunner != nil {
 		if _, err := e.hookRunner.RunHooks(ctx, stepStartEvt); err != nil {
 			execution.mu.Lock()
-			execution.States[step.ID] = StateFailed
+			execution.States[step.ID] = stateFailed
 			execution.mu.Unlock()
 			if e.store != nil {
 				_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
@@ -1514,7 +1514,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				return fmt.Errorf("context cancelled, skipping retry: %w", lastErr)
 			}
 			execution.mu.Lock()
-			execution.States[step.ID] = StateRetrying
+			execution.States[step.ID] = stateRetrying
 			execution.mu.Unlock()
 			if e.store != nil {
 				_ = e.store.SaveStepState(pipelineID, step.ID, state.StateRetrying, "")
@@ -1523,7 +1523,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
 				StepID:     step.ID,
-				State:      StateRetrying,
+				State:      stateRetrying,
 				Message:    fmt.Sprintf("attempt %d/%d", attempt, maxAttempts),
 			})
 			// Run step_retrying hooks (non-blocking by default)
@@ -1545,7 +1545,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				RunID:     pipelineID,
 				StepID:    step.ID,
 				Attempt:   attempt,
-				State:     StateRunning,
+				State:     stateRunning,
 				StartedAt: attemptStart,
 			})
 		}
@@ -1595,7 +1595,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					RunID:        pipelineID,
 					StepID:       step.ID,
 					Attempt:      attempt,
-					State:        StateFailed,
+					State:        stateFailed,
 					ErrorMessage: err.Error(),
 					FailureClass: failureClass,
 					DurationMs:   attemptDuration.Milliseconds(),
@@ -1714,7 +1714,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 			switch onFailure {
 			case OnFailureSkip:
 				execution.mu.Lock()
-				execution.States[step.ID] = StateSkipped
+				execution.States[step.ID] = stateSkipped
 				execution.mu.Unlock()
 				if e.store != nil {
 					_ = e.store.SaveStepState(pipelineID, step.ID, state.StateSkipped, err.Error())
@@ -1731,7 +1731,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 
 			case OnFailureContinue:
 				execution.mu.Lock()
-				execution.States[step.ID] = StateFailed
+				execution.States[step.ID] = stateFailed
 				execution.mu.Unlock()
 				if e.store != nil {
 					_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
@@ -1751,7 +1751,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 
 			default: // OnFailureFail
 				execution.mu.Lock()
-				execution.States[step.ID] = StateFailed
+				execution.States[step.ID] = stateFailed
 				execution.mu.Unlock()
 				if e.store != nil {
 					_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
@@ -1793,7 +1793,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		execution.mu.Unlock()
 
 		execution.mu.Lock()
-		execution.States[step.ID] = StateCompleted
+		execution.States[step.ID] = stateCompleted
 		execution.mu.Unlock()
 		if e.store != nil {
 			_ = e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
@@ -1935,7 +1935,7 @@ func (e *DefaultPipelineExecutor) executeReworkStep(ctx context.Context, executi
 
 	// Mark the failed step
 	execution.mu.Lock()
-	execution.States[failedStep.ID] = StateFailed
+	execution.States[failedStep.ID] = stateFailed
 	execution.mu.Unlock()
 	if e.store != nil {
 		_ = e.store.SaveStepState(pipelineID, failedStep.ID, state.StateFailed, failErr.Error())
@@ -2015,7 +2015,7 @@ func (e *DefaultPipelineExecutor) executeReworkStep(ctx context.Context, executi
 	reworkDuration := time.Since(reworkStart)
 	if reworkErr != nil {
 		execution.mu.Lock()
-		execution.States[reworkStep.ID] = StateFailed
+		execution.States[reworkStep.ID] = stateFailed
 		execution.mu.Unlock()
 		if e.store != nil {
 			_ = e.store.SaveStepState(pipelineID, reworkStep.ID, state.StateFailed, reworkErr.Error())
@@ -2044,9 +2044,9 @@ func (e *DefaultPipelineExecutor) executeReworkStep(ctx context.Context, executi
 			execution.ArtifactPaths[originalKey] = artPath
 		}
 	}
-	execution.States[reworkStep.ID] = StateCompleted
+	execution.States[reworkStep.ID] = stateCompleted
 	// Mark the failed step as completed so downstream steps are not skipped
-	execution.States[failedStep.ID] = StateCompleted
+	execution.States[failedStep.ID] = stateCompleted
 	// Record the rework transition for resume support
 	execution.ReworkTransitions[failedStep.ID] = reworkStep.ID
 	execution.mu.Unlock()
@@ -2172,7 +2172,7 @@ func (e *DefaultPipelineExecutor) validateStepContracts(
 			case OnFailureFail:
 				if e.logger != nil {
 					e.logger.LogContractResult(pipelineID, step.ID, c.Type, "fail")
-					_ = e.logger.LogStepEnd(pipelineID, step.ID, StateFailed, time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, cErr.Error())
+					_ = e.logger.LogStepEnd(pipelineID, step.ID, stateFailed, time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, cErr.Error())
 				}
 				if e.store != nil {
 					completedAt := time.Now()
@@ -2538,13 +2538,13 @@ func (e *DefaultPipelineExecutor) triggerContractRework(
 	// Execute the rework step
 	if reworkErr := e.runStepExecution(ctx, execution, reworkStep); reworkErr != nil {
 		execution.mu.Lock()
-		execution.States[reworkStep.ID] = StateFailed
+		execution.States[reworkStep.ID] = stateFailed
 		execution.mu.Unlock()
 		return "", fmt.Errorf("rework step %q failed: %w", reworkStepID, reworkErr)
 	}
 
 	execution.mu.Lock()
-	execution.States[reworkStep.ID] = StateCompleted
+	execution.States[reworkStep.ID] = stateCompleted
 	delete(execution.AttemptContexts, reworkStep.ID)
 	execution.mu.Unlock()
 
@@ -2577,7 +2577,7 @@ func (e *DefaultPipelineExecutor) executeMatrixStep(ctx context.Context, executi
 
 	if err != nil {
 		execution.mu.Lock()
-		execution.States[step.ID] = StateFailed
+		execution.States[step.ID] = stateFailed
 		execution.mu.Unlock()
 		if e.store != nil {
 			_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
@@ -2586,7 +2586,7 @@ func (e *DefaultPipelineExecutor) executeMatrixStep(ctx context.Context, executi
 	}
 
 	execution.mu.Lock()
-	execution.States[step.ID] = StateCompleted
+	execution.States[step.ID] = stateCompleted
 	execution.mu.Unlock()
 	if e.store != nil {
 		_ = e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
@@ -2610,7 +2610,7 @@ func (e *DefaultPipelineExecutor) executeConcurrentStep(ctx context.Context, exe
 
 	if err != nil {
 		execution.mu.Lock()
-		execution.States[step.ID] = StateFailed
+		execution.States[step.ID] = stateFailed
 		execution.mu.Unlock()
 		if e.store != nil {
 			_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
@@ -2619,7 +2619,7 @@ func (e *DefaultPipelineExecutor) executeConcurrentStep(ctx context.Context, exe
 	}
 
 	execution.mu.Lock()
-	execution.States[step.ID] = StateCompleted
+	execution.States[step.ID] = stateCompleted
 	execution.mu.Unlock()
 	if e.store != nil {
 		_ = e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
@@ -2733,7 +2733,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Timestamp:       time.Now(),
 		PipelineID:      pipelineID,
 		StepID:          step.ID,
-		State:           StateRunning,
+		State:           stateRunning,
 		Persona:         resolvedPersona,
 		Message:         fmt.Sprintf("Starting %s persona in %s", resolvedPersona, workspacePath),
 		CurrentAction:   "Initializing",
@@ -3032,14 +3032,14 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	adapterDurationMs := time.Since(stepStart).Milliseconds()
 	if err != nil {
 		e.trace("adapter_end", step.ID, adapterDurationMs, map[string]string{
-			"status": StateFailed,
+			"status": stateFailed,
 			"error":  err.Error(),
 		})
 		// Let the higher-level executor emit a single failure event; just
 		// propagate the error with context so enriched details (e.g. from
 		// *adapter.StepError) remain available to callers.
 		if e.logger != nil {
-			_ = e.logger.LogStepEnd(pipelineID, step.ID, StateFailed, time.Since(stepStart), 0, 0, 0, err.Error())
+			_ = e.logger.LogStepEnd(pipelineID, step.ID, stateFailed, time.Since(stepStart), 0, 0, 0, err.Error())
 		}
 		if e.store != nil {
 			completedAt := time.Now()
@@ -3079,7 +3079,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	// not useful work product. Proceeding would write the error as an artifact.
 	if result.FailureReason == adapter.FailureReasonRateLimit {
 		if e.logger != nil {
-			_ = e.logger.LogStepEnd(pipelineID, step.ID, StateFailed, time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, "rate limited: "+result.ResultContent)
+			_ = e.logger.LogStepEnd(pipelineID, step.ID, stateFailed, time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, "rate limited: "+result.ResultContent)
 		}
 		if e.store != nil {
 			completedAt := time.Now()
@@ -3265,7 +3265,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		Timestamp:  time.Now(),
 		PipelineID: pipelineID,
 		StepID:     step.ID,
-		State:      StateCompleted,
+		State:      stateCompleted,
 		Persona:    resolvedPersona,
 		DurationMs: stepDuration,
 		TokensUsed: result.TokensUsed,
@@ -3743,7 +3743,7 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 
 	// Replace template variables with sanitized input (even if empty)
 	for _, pattern := range []string{"{{ input }}", "{{input}}", "{{ input}}", "{{input }}"} {
-		for idx := indexOf(prompt, pattern); idx != -1; idx = indexOf(prompt, pattern) {
+		for idx := strings.Index(prompt, pattern); idx != -1; idx = strings.Index(prompt, pattern) {
 			prompt = prompt[:idx] + sanitizedInput + prompt[idx+len(pattern):]
 		}
 	}
@@ -3853,14 +3853,6 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 	return prompt
 }
 
-func indexOf(s, sub string) int {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return i
-		}
-	}
-	return -1
-}
 
 func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, step *Step, workspacePath string) error {
 	if len(step.Memory.InjectArtifacts) == 0 {
@@ -4198,11 +4190,6 @@ func (e *DefaultPipelineExecutor) parseStallTimeout(m *manifest.Manifest) time.D
 	return d
 }
 
-func (e *DefaultPipelineExecutor) emit(ev event.Event) {
-	if e.emitter != nil {
-		e.emitter.Emit(ev)
-	}
-}
 
 // terminalHookTimeout is the maximum time terminal hooks (run_completed, run_failed)
 // are allowed to run with a detached context.
@@ -4690,7 +4677,7 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
 				StepID:     step.ID,
-				State:      StateRunning,
+				State:      stateRunning,
 				Message:    fmt.Sprintf("outcome: %s = %s", label, artifactPath),
 			})
 			continue
@@ -4704,7 +4691,7 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 
 		value, err := ExtractJSONPath(data, outcome.JSONPath)
 		if err != nil {
-			var emptyErr *EmptyArrayError
+			var emptyErr *emptyArrayError
 			if errors.As(err, &emptyErr) {
 				// Empty array is a "no results" condition, not an error.
 				// Show a friendly message in the summary only — skip the real-time warning event.
@@ -4736,7 +4723,7 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
 			StepID:     step.ID,
-			State:      StateRunning,
+			State:      stateRunning,
 			Message:    fmt.Sprintf("outcome: %s = %s", label, value),
 		})
 	}
@@ -4795,7 +4782,7 @@ func (e *DefaultPipelineExecutor) processWildcardOutcome(execution *PipelineExec
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
 			StepID:     step.ID,
-			State:      StateRunning,
+			State:      stateRunning,
 			Message:    fmt.Sprintf("outcome: %s = %s", label, value),
 		})
 	}
@@ -4883,16 +4870,16 @@ func (e *DefaultPipelineExecutor) Resume(ctx context.Context, pipelineID string,
 		return fmt.Errorf("step %q not found in pipeline", fromStep)
 	}
 
-	execution.Status.State = StateRunning
+	execution.Status.State = stateRunning
 
 	resuming := false
 	for _, step := range sortedSteps {
 		if !resuming && step.ID == fromStep {
 			resuming = true
 		}
-		if resuming && execution.States[step.ID] != StateCompleted {
+		if resuming && execution.States[step.ID] != stateCompleted {
 			if err := e.executeStep(ctx, execution, step); err != nil {
-				execution.Status.State = StateFailed
+				execution.Status.State = stateFailed
 				execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
 				// Clean up failed pipeline from in-memory storage to prevent memory leak
 				e.cleanupCompletedPipeline(execution.Status.ID)
@@ -4904,7 +4891,7 @@ func (e *DefaultPipelineExecutor) Resume(ctx context.Context, pipelineID string,
 
 	now := time.Now()
 	execution.Status.CompletedAt = &now
-	execution.Status.State = StateCompleted
+	execution.Status.State = stateCompleted
 
 	// Clean up completed pipeline from in-memory storage to prevent memory leak
 	e.cleanupCompletedPipeline(execution.Status.ID)
@@ -4940,7 +4927,7 @@ func (e *DefaultPipelineExecutor) GetStatus(pipelineID string) (*PipelineStatus,
 		}
 
 		// Set completion time if pipeline is completed
-		if stateRecord.Status == StateCompleted || stateRecord.Status == StateFailed {
+		if stateRecord.Status == stateCompleted || stateRecord.Status == stateFailed {
 			status.CompletedAt = &stateRecord.UpdatedAt
 		}
 
@@ -5077,7 +5064,7 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 	subPipeline, err := loader.Load(subPipelinePath)
 	if err != nil {
 		execution.mu.Lock()
-		execution.States[step.ID] = StateFailed
+		execution.States[step.ID] = stateFailed
 		execution.mu.Unlock()
 		if e.store != nil {
 			_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
@@ -5170,7 +5157,7 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 			_ = e.store.UpdateRunStatus(childRunID, "failed", err.Error(), childExecutor.GetTotalTokens())
 		}
 		execution.mu.Lock()
-		execution.States[step.ID] = StateFailed
+		execution.States[step.ID] = stateFailed
 		execution.mu.Unlock()
 		if e.store != nil {
 			_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
@@ -5243,7 +5230,7 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 	}
 
 	execution.mu.Lock()
-	execution.States[step.ID] = StateCompleted
+	execution.States[step.ID] = stateCompleted
 	execution.mu.Unlock()
 	if e.store != nil {
 		_ = e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
@@ -5548,7 +5535,7 @@ func (e *DefaultPipelineExecutor) executeAggregateInDAG(_ context.Context, execu
 	}
 
 	execution.mu.Lock()
-	execution.States[step.ID] = StateCompleted
+	execution.States[step.ID] = stateCompleted
 	execution.mu.Unlock()
 	if e.store != nil {
 		_ = e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
@@ -5594,7 +5581,7 @@ func (e *DefaultPipelineExecutor) executeBranchInDAG(ctx context.Context, execut
 
 	if pipelineName == "skip" {
 		execution.mu.Lock()
-		execution.States[step.ID] = StateCompleted
+		execution.States[step.ID] = stateCompleted
 		execution.mu.Unlock()
 		if e.store != nil {
 			_ = e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "skipped by branch")
@@ -5664,7 +5651,7 @@ func (e *DefaultPipelineExecutor) executeLoopInDAG(ctx context.Context, executio
 					Message:    fmt.Sprintf("loop terminated: condition met at iteration %d", i+1),
 				})
 				execution.mu.Lock()
-				execution.States[step.ID] = StateCompleted
+				execution.States[step.ID] = stateCompleted
 				execution.mu.Unlock()
 				if e.store != nil {
 					_ = e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "loop condition met")
@@ -5683,7 +5670,7 @@ func (e *DefaultPipelineExecutor) executeLoopInDAG(ctx context.Context, executio
 	})
 
 	execution.mu.Lock()
-	execution.States[step.ID] = StateCompleted
+	execution.States[step.ID] = stateCompleted
 	execution.mu.Unlock()
 	if e.store != nil {
 		_ = e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "max iterations reached")
@@ -5727,7 +5714,7 @@ func (e *DefaultPipelineExecutor) executeGateInDAG(ctx context.Context, executio
 	decision, err := gate.ExecuteWithDecision(ctx, step.Gate, nil)
 	if err != nil {
 		execution.mu.Lock()
-		execution.States[step.ID] = StateFailed
+		execution.States[step.ID] = stateFailed
 		execution.mu.Unlock()
 		if e.store != nil {
 			_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
@@ -5767,7 +5754,7 @@ func (e *DefaultPipelineExecutor) executeGateInDAG(ctx context.Context, executio
 	}
 
 	execution.mu.Lock()
-	execution.States[step.ID] = StateCompleted
+	execution.States[step.ID] = stateCompleted
 	execution.mu.Unlock()
 	if e.store != nil {
 		_ = e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
@@ -5783,7 +5770,7 @@ func (e *DefaultPipelineExecutor) executeGateInDAG(ctx context.Context, executio
 
 	// Handle choice routing
 	if decision != nil && decision.Target == "_fail" {
-		return &GateAbortError{StepID: step.ID, Choice: decision.Label}
+		return &gateAbortError{StepID: step.ID, Choice: decision.Label}
 	}
 
 	// If the target is a step ID that has already been completed, re-queue it
@@ -5794,7 +5781,7 @@ func (e *DefaultPipelineExecutor) executeGateInDAG(ctx context.Context, executio
 		targetState := execution.States[decision.Target]
 		execution.mu.Unlock()
 
-		if targetState == StateCompleted || targetState == StateFailed || targetState == StateSkipped {
+		if targetState == stateCompleted || targetState == stateFailed || targetState == stateSkipped {
 			return e.reQueueStep(execution, decision.Target)
 		}
 		// Target is pending/running — normal flow continues
@@ -5842,7 +5829,7 @@ func (e *DefaultPipelineExecutor) reQueueStep(execution *PipelineExecution, targ
 
 	execution.mu.Lock()
 	for stepID := range toReset {
-		execution.States[stepID] = StatePending
+		execution.States[stepID] = statePending
 	}
 	execution.mu.Unlock()
 
@@ -5854,22 +5841,22 @@ func (e *DefaultPipelineExecutor) reQueueStep(execution *PipelineExecution, targ
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
 			StepID:     stepID,
-			State:      StatePending,
+			State:      statePending,
 			Message:    fmt.Sprintf("re-queued by gate routing to %q", targetStepID),
 		})
 	}
 
-	return &ReQueueError{TargetStepID: targetStepID, ResetSteps: toReset}
+	return &reQueueError{TargetStepID: targetStepID, ResetSteps: toReset}
 }
 
-// ReQueueError signals that steps have been re-queued via gate routing.
+// reQueueError signals that steps have been re-queued via gate routing.
 // The main executor loop should handle this by re-entering the scheduling loop.
-type ReQueueError struct {
+type reQueueError struct {
 	TargetStepID string
 	ResetSteps   map[string]bool
 }
 
-func (e *ReQueueError) Error() string {
+func (e *reQueueError) Error() string {
 	return fmt.Sprintf("gate routing: re-queued step %q and %d dependents", e.TargetStepID, len(e.ResetSteps)-1)
 }
 

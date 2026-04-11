@@ -123,6 +123,8 @@ func TestHandleAPIPRs_DefaultState(t *testing.T) {
 }
 
 func TestHandleAPIPRs_StateParam(t *testing.T) {
+	srv, _ := testServer(t)
+
 	tests := []struct {
 		name          string
 		query         string
@@ -140,8 +142,6 @@ func TestHandleAPIPRs_StateParam(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			srv, _ := testServer(t)
-
 			req := httptest.NewRequest("GET", "/api/prs?"+tt.query, nil)
 			rec := httptest.NewRecorder()
 			srv.handleAPIPRs(rec, req)

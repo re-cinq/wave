@@ -265,8 +265,8 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 
 			// Verify completed steps are marked with correct state
 			for _, step := range tt.expectedCompleted {
-				if state.States[step] != StateCompleted {
-					t.Errorf("Expected step %s to have state %s, got %s", step, StateCompleted, state.States[step])
+				if state.States[step] != stateCompleted {
+					t.Errorf("Expected step %s to have state %s, got %s", step, stateCompleted, state.States[step])
 				}
 			}
 		})

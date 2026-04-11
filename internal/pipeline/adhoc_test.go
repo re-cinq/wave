@@ -225,9 +225,9 @@ func TestGenerateAdHocPipeline_CustomNavigatorPersona(t *testing.T) {
 	assert.Equal(t, "custom-navigator", navigateStep.Persona)
 }
 
-// TestGenerateAdHocPipeline_DefaultNavigatorPersona tests that the default
+// TestGenerateAdHocPipeline_defaultNavigatorPersona tests that the default
 // navigator persona is used when not specified
-func TestGenerateAdHocPipeline_DefaultNavigatorPersona(t *testing.T) {
+func TestGenerateAdHocPipeline_defaultNavigatorPersona(t *testing.T) {
 	m := createAdhocTestManifest([]string{"navigator", "craftsman"})
 
 	opts := AdHocOptions{
@@ -248,7 +248,7 @@ func TestGenerateAdHocPipeline_DefaultNavigatorPersona(t *testing.T) {
 		}
 	}
 	require.NotNil(t, navigateStep)
-	assert.Equal(t, DefaultNavigatorPersona, navigateStep.Persona)
+	assert.Equal(t, defaultNavigatorPersona, navigateStep.Persona)
 }
 
 // TestGenerateAdHocPipeline_CustomExecutePersona tests that a custom execute
@@ -512,9 +512,9 @@ func TestInjectArtifacts_NoExecuteStep(t *testing.T) {
 	assert.Empty(t, p.Steps[1].Memory.InjectArtifacts)
 }
 
-// TestDefaultNavigatorPersona tests the DefaultNavigatorPersona constant
-func TestDefaultNavigatorPersona(t *testing.T) {
-	assert.Equal(t, "navigator", DefaultNavigatorPersona)
+// Test_defaultNavigatorPersona tests the defaultNavigatorPersona constant
+func Test_defaultNavigatorPersona(t *testing.T) {
+	assert.Equal(t, "navigator", defaultNavigatorPersona)
 }
 
 // TestGenerateAdHocPipeline_ValidDAG tests that the generated pipeline

@@ -789,7 +789,7 @@ func TestGetStatus(t *testing.T) {
 	status, err := executor.GetStatus(runtimeID)
 	require.NoError(t, err)
 	assert.Equal(t, runtimeID, status.ID)
-	assert.Equal(t, StateCompleted, status.State)
+	assert.Equal(t, stateCompleted, status.State)
 	assert.Contains(t, status.CompletedSteps, "step1")
 	assert.Empty(t, status.FailedSteps)
 	assert.NotNil(t, status.CompletedAt)
@@ -1035,7 +1035,7 @@ func TestMemoryCleanupAfterCompletion(t *testing.T) {
 	status, err := executor.GetStatus(runtimeID)
 	require.NoError(t, err)
 	assert.Equal(t, runtimeID, status.ID)
-	assert.Equal(t, StateCompleted, status.State)
+	assert.Equal(t, stateCompleted, status.State)
 	assert.NotEmpty(t, status.CompletedSteps)
 	assert.NotNil(t, status.CompletedAt)
 }
@@ -1082,7 +1082,7 @@ func TestMemoryCleanupAfterFailure(t *testing.T) {
 	status, err := executor.GetStatus(runtimeID)
 	require.NoError(t, err)
 	assert.Equal(t, runtimeID, status.ID)
-	assert.Equal(t, StateFailed, status.State)
+	assert.Equal(t, stateFailed, status.State)
 	assert.NotEmpty(t, status.FailedSteps)
 }
 
@@ -1134,7 +1134,7 @@ func TestRegressionProductionIssues(t *testing.T) {
 		// Verify status can still be retrieved from persistent storage
 		status, err := executor.GetStatus(runtimeID)
 		require.NoError(t, err)
-		assert.Equal(t, StateCompleted, status.State)
+		assert.Equal(t, stateCompleted, status.State)
 	})
 
 	t.Run("NilContextIsHandledDefensively", func(t *testing.T) {
@@ -1269,7 +1269,7 @@ func TestNilStatusHandlingInTests(t *testing.T) {
 
 	// If we somehow get a status back, it should be valid
 	if status != nil {
-		assert.Equal(t, StateFailed, status.State)
+		assert.Equal(t, stateFailed, status.State)
 		assert.NotEmpty(t, status.FailedSteps)
 	}
 }
@@ -4163,7 +4163,7 @@ func TestOptionalStep_PipelineStatusCompleted(t *testing.T) {
 
 	record, storeErr := stateStore.GetPipelineState(pipelineID)
 	require.NoError(t, storeErr)
-	assert.Equal(t, StateCompleted, record.Status, "pipeline status should be completed")
+	assert.Equal(t, stateCompleted, record.Status, "pipeline status should be completed")
 
 	// Verify the completed event was emitted
 	events := collector.GetEvents()
@@ -4813,7 +4813,7 @@ func TestExecuteWithoutSkillsField(t *testing.T) {
 			adapter.WithTokensUsed(100),
 		)
 
-		// No WithSkillStore option — executor has nil skillStore
+		// No withSkillStore option — executor has nil skillStore
 		executor := NewDefaultPipelineExecutor(mockAdapter,
 			WithEmitter(collector),
 		)
@@ -4951,7 +4951,7 @@ func TestSkillProvisioningIntegration(t *testing.T) {
 		}
 
 		executor := NewDefaultPipelineExecutor(capturingAdapter,
-			WithSkillStore(store),
+			withSkillStore(store),
 		)
 
 		tmpDir := t.TempDir()
@@ -4988,7 +4988,7 @@ func TestSkillProvisioningIntegration(t *testing.T) {
 		)
 
 		executor := NewDefaultPipelineExecutor(mockAdapter,
-			WithSkillStore(store),
+			withSkillStore(store),
 		)
 
 		tmpDir := t.TempDir()
@@ -5490,7 +5490,7 @@ func TestExecutor_GateStep_AutoApprove(t *testing.T) {
 }
 
 // TestExecutor_GateStep_Abort verifies that a pipeline aborts when the gate handler
-// returns a choice targeting _fail. The pipeline should fail with a GateAbortError.
+// returns a choice targeting _fail. The pipeline should fail with a gateAbortError.
 func TestExecutor_GateStep_Abort(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	mockAdapter := adapter.NewMockAdapter(
@@ -5538,14 +5538,14 @@ func TestExecutor_GateStep_Abort(t *testing.T) {
 	err := executor.Execute(ctx, p, m, "test abort gate")
 	require.Error(t, err, "pipeline should fail when gate aborts")
 
-	// The executor wraps GateAbortError inside a StepError
+	// The executor wraps gateAbortError inside a StepError
 	var stepErr *StepError
 	require.True(t, errors.As(err, &stepErr), "error should be a StepError")
 	assert.Equal(t, "approve-plan", stepErr.StepID, "failed step should be approve-plan")
 
-	// Unwrap to find the GateAbortError
-	var abortErr *GateAbortError
-	require.True(t, errors.As(err, &abortErr), "error chain should contain GateAbortError")
+	// Unwrap to find the gateAbortError
+	var abortErr *gateAbortError
+	require.True(t, errors.As(err, &abortErr), "error chain should contain gateAbortError")
 	assert.Equal(t, "approve-plan", abortErr.StepID, "abort error should reference approve-plan")
 }
 
@@ -5755,7 +5755,7 @@ func TestExecuteStep_FailureClassification_Transient(t *testing.T) {
 	attempts := store.getAttempts()
 	var failedAttempts []state.StepAttemptRecord
 	for _, a := range attempts {
-		if a.State == StateFailed {
+		if a.State == stateFailed {
 			failedAttempts = append(failedAttempts, a)
 		}
 	}
@@ -5808,7 +5808,7 @@ func TestExecuteStep_FailureClassification_Deterministic_SkipsRetry(t *testing.T
 	attempts := store.getAttempts()
 	var failedAttempts []state.StepAttemptRecord
 	for _, a := range attempts {
-		if a.State == StateFailed {
+		if a.State == stateFailed {
 			failedAttempts = append(failedAttempts, a)
 		}
 	}
@@ -5931,7 +5931,7 @@ func TestExecuteStep_FailureClassification_Canceled(t *testing.T) {
 	attempts := store.getAttempts()
 	var failedAttempts []state.StepAttemptRecord
 	for _, a := range attempts {
-		if a.State == StateFailed {
+		if a.State == stateFailed {
 			failedAttempts = append(failedAttempts, a)
 		}
 	}

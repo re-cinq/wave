@@ -7,14 +7,14 @@ import (
 	"strings"
 )
 
-// EmptyArrayError is returned when a JSON path indexes into an empty array
+// emptyArrayError is returned when a JSON path indexes into an empty array
 // (index 0 on length 0). This distinguishes a "no results" condition from
 // genuine out-of-bounds errors, allowing callers to produce friendlier messages.
-type EmptyArrayError struct {
+type emptyArrayError struct {
 	Field string
 }
 
-func (e *EmptyArrayError) Error() string {
+func (e *emptyArrayError) Error() string {
 	return fmt.Sprintf("no items in %s", e.Field)
 }
 
@@ -68,7 +68,7 @@ func ExtractJSONPath(data []byte, path string) (string, error) {
 			}
 			if arrayIdx < 0 || arrayIdx >= len(arr) {
 				if arrayIdx == 0 && len(arr) == 0 {
-					return "", &EmptyArrayError{Field: field}
+					return "", &emptyArrayError{Field: field}
 				}
 				return "", fmt.Errorf("array index %d out of bounds (length %d) at %q", arrayIdx, len(arr), field)
 			}

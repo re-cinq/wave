@@ -146,7 +146,7 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 				Timestamp:  time.Now(),
 				PipelineID: pipelineName,
 				StepID:     stepID,
-				State:      StateCompleted,
+				State:      stateCompleted,
 				Persona:    persona,
 				Message:    "Completed in prior run",
 			})
@@ -181,7 +181,7 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 		Status: &PipelineStatus{
 			ID:             pipelineID,
 			PipelineName:   pipelineName,
-			State:          StateRunning,
+			State:          stateRunning,
 			CurrentStep:    fromStep,
 			CompletedSteps: resumeState.CompletedSteps,
 			StartedAt:      time.Now(),
@@ -314,7 +314,7 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID
 		if stepWorkspace != "" {
 			if _, err := os.Stat(stepWorkspace); err == nil {
 				// Step workspace exists, mark as completed
-				state.States[step.ID] = StateCompleted
+				state.States[step.ID] = stateCompleted
 				state.CompletedSteps = append(state.CompletedSteps, step.ID)
 				state.WorkspacePaths[step.ID] = stepWorkspace
 
@@ -334,7 +334,7 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID
 		attempts, err := r.executor.store.GetStepAttempts(resolvedRunID, fromStep)
 		if err == nil && len(attempts) > 0 {
 			last := attempts[len(attempts)-1]
-			if last.State == StateFailed {
+			if last.State == stateFailed {
 				state.FailureContexts[fromStep] = &AttemptContext{
 					Attempt:      last.Attempt,
 					MaxAttempts:  last.Attempt + 1, // at least one more attempt
@@ -455,7 +455,7 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 			// Execute the step (reuse existing step execution logic)
 			if err := r.executeStep(ctx, execution, step); err != nil {
 				execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
-				execution.Status.State = StateFailed
+				execution.Status.State = stateFailed
 
 				// Emit failed event (matching Execute() behavior)
 				if r.executor.emitter != nil {
@@ -463,14 +463,14 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 						Timestamp:  time.Now(),
 						PipelineID: pipelineID,
 						StepID:     step.ID,
-						State:      StateFailed,
+						State:      stateFailed,
 						Message:    err.Error(),
 					})
 				}
 
 				// Persist failed state to store
 				if r.executor.store != nil {
-					_ = r.executor.store.SavePipelineState(pipelineID, StateFailed, execution.Input)
+					_ = r.executor.store.SavePipelineState(pipelineID, stateFailed, execution.Input)
 				}
 
 				return &StepError{StepID: step.ID, Err: err}
@@ -481,7 +481,7 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 	}
 
 	// Mark pipeline as completed
-	execution.Status.State = StateCompleted
+	execution.Status.State = stateCompleted
 	now := time.Now()
 	execution.Status.CompletedAt = &now
 
@@ -489,7 +489,7 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 		r.executor.emitter.Emit(event.Event{
 			Timestamp:      now,
 			PipelineID:     pipelineID,
-			State:          StateCompleted,
+			State:          stateCompleted,
 			Message:        fmt.Sprintf("Pipeline completed successfully (resumed from %s)", fromStep),
 			CompletedSteps: len(execution.Status.CompletedSteps),
 			TotalSteps:     len(sortedSteps),

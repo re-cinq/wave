@@ -115,7 +115,7 @@ func (v *DryRunValidator) Validate(p *Pipeline, m *manifest.Manifest) *DryRunRep
 
 	// 1. Structural validation (DAG or graph mode).
 	dag := &DAGValidator{}
-	if IsGraphPipeline(p) {
+	if isGraphPipeline(p) {
 		if err := dag.ValidateGraph(p); err != nil {
 			report.Findings = append(report.Findings, ValidationFinding{
 				Severity: SeverityError,
