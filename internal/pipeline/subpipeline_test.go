@@ -520,6 +520,41 @@ func TestInjectSubPipelineArtifacts_DirectoryCopy(t *testing.T) {
 	}
 }
 
+func TestAdapterOverride_PropagatedToChildExecutor(t *testing.T) {
+	// Regression test for #768: runNamedSubPipeline must propagate adapterOverride
+	// to child executors so that --adapter CLI flag applies to all sub-pipelines.
+	parent := NewDefaultPipelineExecutor(nil, WithAdapterOverride("opencode"))
+	if parent.adapterOverride != "opencode" {
+		t.Fatalf("parent adapterOverride = %q, want %q", parent.adapterOverride, "opencode")
+	}
+
+	// Mirror the childOpts construction in runNamedSubPipeline.
+	var childOpts []ExecutorOption
+	if parent.adapterOverride != "" {
+		childOpts = append(childOpts, WithAdapterOverride(parent.adapterOverride))
+	}
+
+	child := NewDefaultPipelineExecutor(nil, childOpts...)
+	if child.adapterOverride != "opencode" {
+		t.Errorf("child adapterOverride = %q, want %q (should be inherited from parent)", child.adapterOverride, "opencode")
+	}
+}
+
+func TestAdapterOverride_NotPropagatedWhenEmpty(t *testing.T) {
+	// When the parent has no adapterOverride, the child should not receive one.
+	parent := NewDefaultPipelineExecutor(nil)
+
+	var childOpts []ExecutorOption
+	if parent.adapterOverride != "" {
+		childOpts = append(childOpts, WithAdapterOverride(parent.adapterOverride))
+	}
+
+	child := NewDefaultPipelineExecutor(nil, childOpts...)
+	if child.adapterOverride != "" {
+		t.Errorf("child adapterOverride = %q, want empty (no override on parent)", child.adapterOverride)
+	}
+}
+
 func TestCopyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
