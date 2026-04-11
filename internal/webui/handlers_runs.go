@@ -185,11 +185,18 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		runs = runs[:limit]
 	}
 
-	allSummaries := make([]RunSummary, len(runs))
-	for i, run := range runs {
-		allSummaries[i] = runToSummary(run)
+	allSummaries := make([]RunSummary, 0, len(runs))
+	filteredRuns := make([]state.RunRecord, 0, len(runs))
+	for _, run := range runs {
+		// Running runs are always shown in the dedicated running-pipelines section;
+		// exclude them from the main list to avoid duplication.
+		if run.Status == "running" {
+			continue
+		}
+		allSummaries = append(allSummaries, runToSummary(run))
+		filteredRuns = append(filteredRuns, run)
 	}
-	s.enrichRunSummaries(allSummaries, runs)
+	s.enrichRunSummaries(allSummaries, filteredRuns)
 	summaries := nestChildRuns(allSummaries)
 
 	var nextCursor string
