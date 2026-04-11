@@ -226,11 +226,36 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		runningRecs = nil
 	}
 	runningRuns := make([]RunSummary, 0)
+	// Build parent→children map for nesting child runs under their parent
+	childMap := make(map[string][]RunSummary)
 	for _, rec := range runningRecs {
 		if rec.ParentRunID != "" {
-			continue // exclude child runs
+			childMap[rec.ParentRunID] = append(childMap[rec.ParentRunID], runToSummary(rec))
+			continue
 		}
 		runningRuns = append(runningRuns, runToSummary(rec))
+	}
+	// Also fetch completed/failed children of running parents from the full run list
+	if s.store != nil {
+		for i := range runningRuns {
+			if children, err := s.store.GetChildRuns(runningRuns[i].RunID); err == nil {
+				for _, ch := range children {
+					found := false
+					for _, existing := range childMap[runningRuns[i].RunID] {
+						if existing.RunID == ch.RunID {
+							found = true
+							break
+						}
+					}
+					if !found {
+						childMap[runningRuns[i].RunID] = append(childMap[runningRuns[i].RunID], runToSummary(ch))
+					}
+				}
+			}
+		}
+	}
+	for i := range runningRuns {
+		runningRuns[i].ChildRuns = childMap[runningRuns[i].RunID]
 	}
 	s.enrichRunSummaries(runningRuns, func() []state.RunRecord {
 		var top []state.RunRecord

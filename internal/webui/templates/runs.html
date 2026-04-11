@@ -66,6 +66,24 @@
           </div>
         </div>
       </a>
+      {{if .ChildRuns}}
+      <div class="wr-child">
+      {{range .ChildRuns}}
+        <a href="/runs/{{.RunID}}" class="wr-run">
+          <div class="wr-accent st-{{.Status}}"></div>
+          <div class="wr-body">
+            <div class="wr-row1">
+              <span class="wr-name">{{.PipelineName}}</span>
+              <span class="wr-right">
+                <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
+                {{if .Duration}}<span class="wr-dur">{{.Duration}}</span>{{end}}
+              </span>
+            </div>
+          </div>
+        </a>
+      {{end}}
+      </div>
+      {{end}}
     {{end}}
     </div>
     {{end}}
