@@ -51,6 +51,14 @@ type LaunchConfig struct {
 	DryRun        bool     // Extracted from Flags for convenience
 	Verbose       bool     // Extracted from Flags for convenience
 	Debug         bool     // Extracted from Flags for convenience
+	// Typed fields for Tier 1-3 options
+	Adapter   string
+	Timeout   int
+	FromStep  string
+	Steps     string
+	Exclude   string
+	Detach    bool
+	OnFailure string
 }
 
 // LaunchRequestMsg is emitted when the argument form is submitted.

@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StartIssueRequest",
+  "description": "JSON request body for POST /api/issues/start — carries Tier 1-3 run options for issue-triggered runs.",
+  "type": "object",
+  "required": ["issue_url", "pipeline_name"],
+  "properties": {
+    "issue_url": {
+      "type": "string",
+      "minLength": 1,
+      "description": "GitHub issue URL"
+    },
+    "pipeline_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Pipeline to execute"
+    },
+    "model": {
+      "type": "string",
+      "description": "Model override"
+    },
+    "adapter": {
+      "type": "string",
+      "description": "Adapter override"
+    },
+    "dry_run": {
+      "type": "boolean",
+      "default": false
+    },
+    "from_step": {
+      "type": "string"
+    },
+    "force": {
+      "type": "boolean",
+      "default": false
+    },
+    "detach": {
+      "type": "boolean",
+      "default": false
+    },
+    "timeout": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "steps": {
+      "type": "string"
+    },
+    "exclude": {
+      "type": "string"
+    },
+    "on_failure": {
+      "type": "string",
+      "enum": ["halt", "skip"],
+      "default": "halt"
+    },
+    "continuous": {
+      "type": "boolean",
+      "default": false
+    },
+    "source": {
+      "type": "string"
+    },
+    "max_iterations": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "delay": {
+      "type": "string",
+      "default": "0s"
+    }
+  },
+  "additionalProperties": true
+}

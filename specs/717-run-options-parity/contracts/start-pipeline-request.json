@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StartPipelineRequest",
+  "description": "JSON request body for POST /api/pipelines/{name}/start — carries Tier 1-4 run options.",
+  "type": "object",
+  "required": ["input"],
+  "properties": {
+    "input": {
+      "type": "string",
+      "description": "Free-text input for the pipeline"
+    },
+    "model": {
+      "type": "string",
+      "description": "Model override — tier name (cheapest/balanced/strongest) or literal (haiku/opus)"
+    },
+    "adapter": {
+      "type": "string",
+      "description": "LLM backend override (claude, gemini, opencode, codex)"
+    },
+    "dry_run": {
+      "type": "boolean",
+      "default": false,
+      "description": "Show execution plan without running"
+    },
+    "from_step": {
+      "type": "string",
+      "description": "Resume execution from this step ID"
+    },
+    "force": {
+      "type": "boolean",
+      "default": false,
+      "description": "Skip validation when using from_step"
+    },
+    "detach": {
+      "type": "boolean",
+      "default": false,
+      "description": "Run pipeline as a detached background process"
+    },
+    "timeout": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "description": "Timeout in minutes (0 = no timeout)"
+    },
+    "steps": {
+      "type": "string",
+      "description": "Comma-separated step names to include"
+    },
+    "exclude": {
+      "type": "string",
+      "description": "Comma-separated step names to exclude"
+    },
+    "on_failure": {
+      "type": "string",
+      "enum": ["halt", "skip"],
+      "default": "halt",
+      "description": "Failure policy: halt (default) or skip"
+    },
+    "continuous": {
+      "type": "boolean",
+      "default": false,
+      "description": "Run pipeline in continuous mode"
+    },
+    "source": {
+      "type": "string",
+      "description": "Work item source URI for continuous mode (e.g. github:label=bug)"
+    },
+    "max_iterations": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "description": "Maximum iterations for continuous mode (0 = unlimited)"
+    },
+    "delay": {
+      "type": "string",
+      "default": "0s",
+      "description": "Delay between continuous iterations (e.g. 5s, 1m)"
+    },
+    "mock": {
+      "type": "boolean",
+      "default": false,
+      "description": "Use mock adapter (Tier 4 — dev/debug only)"
+    },
+    "preserve_workspace": {
+      "type": "boolean",
+      "default": false,
+      "description": "Preserve workspace from previous run (Tier 4)"
+    },
+    "auto_approve": {
+      "type": "boolean",
+      "default": false,
+      "description": "Auto-approve all approval gates (Tier 4)"
+    },
+    "no_retro": {
+      "type": "boolean",
+      "default": false,
+      "description": "Skip retrospective generation (Tier 4)"
+    },
+    "force_model": {
+      "type": "boolean",
+      "default": false,
+      "description": "Force model on all steps, ignoring per-step tiers (Tier 4)"
+    }
+  },
+  "additionalProperties": true
+}
