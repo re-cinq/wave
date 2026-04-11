@@ -84,6 +84,7 @@ type StepDetail struct {
 	MaxVisits          int                   `json:"max_visits,omitempty"`           // Max visit limit for graph loop steps
 	GanttLeft          float64               `json:"gantt_left,omitempty"`           // Gantt bar left offset (percentage)
 	GanttWidth         float64               `json:"gantt_width,omitempty"`          // Gantt bar width (percentage)
+	Output             string                `json:"output,omitempty"`               // Output artifact names for this step
 	ReviewVerdict      string                `json:"review_verdict,omitempty"`       // "pass", "fail", or "warn"
 	ReviewIssues       []string              `json:"review_issues,omitempty"`        // Issue descriptions from LLM review
 	ReviewerPersona    string                `json:"reviewer_persona,omitempty"`     // Persona used for review step
