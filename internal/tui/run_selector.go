@@ -30,6 +30,7 @@ func DefaultFlags() []Flag {
 		{Name: "--output json", Description: "Machine-readable JSON output"},
 		{Name: "--dry-run", Description: "Show what would run"},
 		{Name: "--mock", Description: "Use mock adapter"},
+		{Name: "--detach", Description: "Run in background"},
 	}
 }
 

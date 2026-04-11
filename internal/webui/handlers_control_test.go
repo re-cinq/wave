@@ -858,6 +858,201 @@ func TestHandleSubmitRun_DryRun(t *testing.T) {
 
 // --- buildExecOptions / buildStepFilter tests ---
 
+// --- Validation: mutual exclusion and on_failure tests ---
+
+func TestHandleStartPipeline_ContinuousAndFromStepMutualExclusion(t *testing.T) {
+	srv, _ := testServer(t)
+	setupPipelineDir(t, "test-pipeline", []string{"step1", "step2"})
+
+	body := strings.NewReader(`{"input":"test","continuous":true,"from_step":"step1"}`)
+	req := httptest.NewRequest("POST", "/api/pipelines/test-pipeline/start", body)
+	req.SetPathValue("name", "test-pipeline")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.handleStartPipeline(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for continuous+from_step, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "mutually exclusive") {
+		t.Errorf("expected 'mutually exclusive' in error message, got: %s", rec.Body.String())
+	}
+}
+
+func TestHandleStartPipeline_OnFailureValidation(t *testing.T) {
+	tests := []struct {
+		name       string
+		onFailure  string
+		wantStatus int
+	}{
+		{name: "invalid value", onFailure: "invalid", wantStatus: http.StatusBadRequest},
+		{name: "retry is invalid", onFailure: "retry", wantStatus: http.StatusBadRequest},
+		{name: "halt is valid", onFailure: "halt", wantStatus: http.StatusCreated},
+		{name: "skip is valid", onFailure: "skip", wantStatus: http.StatusCreated},
+		{name: "empty is valid", onFailure: "", wantStatus: http.StatusCreated},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv, _ := testServer(t)
+			setupPipelineDir(t, "test-pipeline", []string{"step1"})
+
+			payload := `{"input":"test"`
+			if tt.onFailure != "" {
+				payload += `,"on_failure":"` + tt.onFailure + `"`
+			}
+			payload += `}`
+
+			body := strings.NewReader(payload)
+			req := httptest.NewRequest("POST", "/api/pipelines/test-pipeline/start", body)
+			req.SetPathValue("name", "test-pipeline")
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			srv.handleStartPipeline(rec, req)
+
+			if rec.Code != tt.wantStatus {
+				t.Errorf("on_failure=%q: expected %d, got %d: %s", tt.onFailure, tt.wantStatus, rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestHandleSubmitRun_ContinuousAndFromStepMutualExclusion(t *testing.T) {
+	srv, _ := testServer(t)
+	setupPipelineDir(t, "test-pipeline", []string{"step1", "step2"})
+
+	body := strings.NewReader(`{"pipeline":"test-pipeline","input":"test","continuous":true,"from_step":"step1"}`)
+	req := httptest.NewRequest("POST", "/api/runs", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.handleSubmitRun(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for continuous+from_step, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "mutually exclusive") {
+		t.Errorf("expected 'mutually exclusive' in error message, got: %s", rec.Body.String())
+	}
+}
+
+func TestHandleSubmitRun_OnFailureValidation(t *testing.T) {
+	tests := []struct {
+		name       string
+		onFailure  string
+		wantStatus int
+	}{
+		{name: "invalid value", onFailure: "invalid", wantStatus: http.StatusBadRequest},
+		{name: "halt is valid", onFailure: "halt", wantStatus: http.StatusCreated},
+		{name: "skip is valid", onFailure: "skip", wantStatus: http.StatusCreated},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv, _ := testServer(t)
+			setupPipelineDir(t, "test-pipeline", []string{"step1"})
+
+			payload := `{"pipeline":"test-pipeline","input":"test","on_failure":"` + tt.onFailure + `"}`
+			body := strings.NewReader(payload)
+			req := httptest.NewRequest("POST", "/api/runs", body)
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			srv.handleSubmitRun(rec, req)
+
+			if rec.Code != tt.wantStatus {
+				t.Errorf("on_failure=%q: expected %d, got %d: %s", tt.onFailure, tt.wantStatus, rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
+// --- Test that all new Tier 2-4 fields are accepted ---
+
+func TestHandleStartPipeline_AllNewFieldsAccepted(t *testing.T) {
+	srv, _ := testServer(t)
+	setupPipelineDir(t, "test-pipeline", []string{"step1", "step2"})
+
+	body := strings.NewReader(`{
+		"input": "test",
+		"model": "haiku",
+		"adapter": "claude-code",
+		"dry_run": true,
+		"force": true,
+		"detach": false,
+		"timeout": 30,
+		"steps": "step1",
+		"exclude": "step2",
+		"on_failure": "skip",
+		"source": "webui",
+		"max_iterations": 5,
+		"delay": "10s",
+		"mock": true,
+		"preserve_workspace": true,
+		"auto_approve": true,
+		"no_retro": true,
+		"force_model": true
+	}`)
+	req := httptest.NewRequest("POST", "/api/pipelines/test-pipeline/start", body)
+	req.SetPathValue("name", "test-pipeline")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.handleStartPipeline(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 with all new fields, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp StartPipelineResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.PipelineName != "test-pipeline" {
+		t.Errorf("expected pipeline name 'test-pipeline', got %q", resp.PipelineName)
+	}
+}
+
+func TestHandleSubmitRun_AllNewFieldsAccepted(t *testing.T) {
+	srv, _ := testServer(t)
+	setupPipelineDir(t, "test-pipeline", []string{"step1", "step2"})
+
+	body := strings.NewReader(`{
+		"pipeline": "test-pipeline",
+		"input": "test",
+		"model": "haiku",
+		"adapter": "claude-code",
+		"dry_run": true,
+		"force": true,
+		"detach": false,
+		"timeout": 30,
+		"steps": "step1",
+		"exclude": "step2",
+		"on_failure": "skip",
+		"source": "webui",
+		"max_iterations": 5,
+		"delay": "10s",
+		"mock": true,
+		"preserve_workspace": true,
+		"auto_approve": true,
+		"no_retro": true,
+		"force_model": true
+	}`)
+	req := httptest.NewRequest("POST", "/api/runs", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.handleSubmitRun(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 with all new fields, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp SubmitRunResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.PipelineName != "test-pipeline" {
+		t.Errorf("expected pipeline name 'test-pipeline', got %q", resp.PipelineName)
+	}
+}
+
 func TestIsHeartbeat(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -119,6 +119,7 @@ A user reading the CLI reference docs or the running-pipelines guide sees the fu
 - **TUI from-step picker on a pipeline with no steps defined**: The picker must be disabled with explanatory text.
 - **WebUI form submission with required field (pipeline name) missing**: Inline validation error prevents submission.
 - **Timeout of 0**: Treated as no timeout (infinite). No warning displayed.
+- **--continuous and --from-step combined**: Mutually exclusive — the system MUST reject with a clear error message.
 
 ## Requirements _(mandatory)_
 
@@ -147,11 +148,14 @@ A user reading the CLI reference docs or the running-pipelines guide sees the fu
 
 ### Key Entities
 
-- **RunOptions**: The canonical set of all configuration options for a pipeline run. Defined authoritatively in the CLI; all other surfaces map to this same set.
-- **Tier**: A grouping level (1–4) that determines visibility and placement of run options across all surfaces. Tier 1 = always visible, Tier 2 = collapsible "Advanced", Tier 3 = collapsible "Continuous", Tier 4 = hidden/dev-only.
-- **StartPipelineRequest**: The API contract for initiating a pipeline run from the WebUI. Must carry all tiered options.
-- **StartIssueRequest / StartPRRequest**: API contracts for initiating pipeline runs from issue/PR pages. Must carry at least Tier 1–2 options.
-- **LaunchConfig**: The TUI's internal representation of run configuration, passed to the pipeline launcher subprocess.
+- **RunOptions**: The canonical set of all configuration options for a pipeline run. Defined authoritatively in `cmd/wave/commands/run.go:36-61`; all other surfaces map to this same set.
+- **Tier**: A grouping level (1–4) that determines visibility and placement of run options across all surfaces. Tier 1 = always visible, Tier 2 = collapsible "Advanced", Tier 3 = collapsible "Continuous", Tier 4 = dev/debug-only (API and CLI only, not exposed in WebUI/TUI forms).
+- **Timeout**: Integer field representing minutes. 0 means no timeout (infinite). Matches CLI `--timeout` semantics.
+- **OnFailure**: String enum with valid values `halt` (default) | `skip`. Matches CLI `--on-failure` flag.
+- **Delay**: Duration string (e.g., `5s`, `1m`, `30s`). Default `0s`. Used for continuous mode iteration spacing.
+- **StartPipelineRequest**: The API contract for initiating a pipeline run from the WebUI. Defined in `internal/webui/types.go`. Must be extended to carry all Tier 1–4 options.
+- **StartIssueRequest / StartPRRequest**: API contracts for initiating pipeline runs from issue/PR pages. Must carry Tier 1–3 options. Tier 4 is excluded — issue/PR workflows are user-facing and dev flags add complexity without value.
+- **LaunchConfig**: The TUI's internal representation of run configuration (currently at `internal/tui/pipeline_messages.go:45-54`). Must be extended to carry Tier 1–3 options via typed fields rather than the current `Flags []string` approach.
 
 ## Success Criteria _(mandatory)_
 
@@ -164,3 +168,30 @@ A user reading the CLI reference docs or the running-pipelines guide sees the fu
 - **SC-005**: Issues/PRs pages expose at minimum Adapter and Model overrides, plus Tier 2 via a collapsible section.
 - **SC-006**: All form inputs validate before submission — no invalid requests reach the API handler.
 - **SC-007**: Documentation (CLI reference, running-pipelines guide, CHANGELOG) reflects the full tiered model with consistent terminology.
+
+## Clarifications
+
+### C-001: Timeout unit and format
+**Question**: The spec references "timeout" across all surfaces without specifying the unit or data type.  
+**Resolution**: Timeout is an **integer representing minutes**, matching the CLI definition at `cmd/wave/commands/run.go:168`. Value `0` means no timeout. All surfaces (API, WebUI, TUI) must use the same integer-minutes convention.  
+**Rationale**: The CLI is the canonical source; deviating would cause confusion when values are passed through the API to the subprocess.
+
+### C-002: on-failure valid values
+**Question**: The spec mentions `on_failure: "skip"` in one acceptance scenario but never enumerates all valid values.  
+**Resolution**: Valid values are `halt` (default) and `skip`, matching the CLI flag description at `run.go:182`. The WebUI/TUI should present these as a dropdown/select with `halt` pre-selected.  
+**Rationale**: The CLI only defines two values. Expanding the enum is out of scope for this feature.
+
+### C-003: Tier 4 surface exposure
+**Question**: FR-009 requires Tier 4 flags in the API, but no user story covers Tier 4 in WebUI/TUI. Is this intentional?  
+**Resolution**: **Yes, intentional.** Tier 4 flags (mock, preserve_workspace, auto_approve, no_retro, force_model) are dev/debug tools. They are available via CLI flags and API request fields only. WebUI and TUI forms do not expose them — they add complexity to user-facing forms without matching user need.  
+**Rationale**: Tier 4 is labeled "Dev/Debug" in the tier model. Exposing them in interactive forms would confuse non-developer users.
+
+### C-004: StartIssueRequest / StartPRRequest — Tier 4 inclusion
+**Question**: FR-011 says "Tier 1–3 at minimum" — does that mean Tier 4 should also be included?  
+**Resolution**: **No.** Issue/PR request types carry Tier 1–3 only. The "at minimum" phrasing is clarified to mean "exactly Tier 1–3." Tier 4 flags are not applicable to issue/PR-triggered runs.  
+**Rationale**: Issue/PR workflows are user-initiated from context pages where dev/debug flags have no use case. Keeping the types lean reduces API surface area.
+
+### C-005: Mutual exclusion — continuous + from-step
+**Question**: The spec does not address the interaction between `--continuous` and `--from-step`, but the CLI already validates they are mutually exclusive (`run.go:201-204`).  
+**Resolution**: Added edge case: "continuous and from-step combined" is rejected with a clear error. All surfaces (WebUI, TUI, API) must enforce this mutual exclusion via form validation or server-side rejection.  
+**Rationale**: Continuous mode iterates over work items; from-step resumes a single run at a specific point. Combining them is semantically meaningless, and the CLI already rejects it.

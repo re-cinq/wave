@@ -74,6 +74,24 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 	if config.ModelOverride != "" {
 		args = append(args, "--model", config.ModelOverride)
 	}
+	if config.Adapter != "" {
+		args = append(args, "--adapter", config.Adapter)
+	}
+	if config.Timeout > 0 {
+		args = append(args, "--timeout", fmt.Sprintf("%d", config.Timeout))
+	}
+	if config.FromStep != "" {
+		args = append(args, "--from-step", config.FromStep)
+	}
+	if config.Steps != "" {
+		args = append(args, "--steps", config.Steps)
+	}
+	if config.Exclude != "" {
+		args = append(args, "--exclude", config.Exclude)
+	}
+	if config.OnFailure != "" && config.OnFailure != "halt" {
+		args = append(args, "--on-failure", config.OnFailure)
+	}
 	// Pass through user-selected flags to the subprocess.
 	// Compound flags like "--output text" are split into separate args.
 	for _, f := range config.Flags {

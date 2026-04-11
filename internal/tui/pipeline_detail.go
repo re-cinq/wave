@@ -43,7 +43,13 @@ type PipelineDetailModel struct {
 	launchInput      *string   // Bound to form input field
 	launchModel      *string   // Bound to form model override field
 	launchFlags      *[]string // Bound to form flag multi-select
-	launchErrorTitle string    // "Launch Failed" for launch errors, empty for detail load errors
+	launchAdapter    *string
+	launchTimeout    *string
+	launchFromStep   *string
+	launchSteps      *string
+	launchExclude    *string
+	launchOnFailure  *string
+	launchErrorTitle string // "Launch Failed" for launch errors, empty for detail load errors
 
 	provider DetailDataProvider
 
@@ -104,6 +110,12 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 				Input:         *m.launchInput,
 				ModelOverride: *m.launchModel,
 				Flags:         *m.launchFlags,
+				Adapter:       *m.launchAdapter,
+				Timeout:       parseTimeoutStr(*m.launchTimeout),
+				FromStep:      *m.launchFromStep,
+				Steps:         *m.launchSteps,
+				Exclude:       *m.launchExclude,
+				OnFailure:     *m.launchOnFailure,
 			}
 			// Extract convenience booleans from flags
 			for _, f := range config.Flags {
@@ -236,6 +248,12 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 		m.launchInput = new(string)
 		m.launchModel = new(string)
 		m.launchFlags = new([]string)
+		m.launchAdapter = new(string)
+		m.launchTimeout = new(string)
+		m.launchFromStep = new(string)
+		m.launchSteps = new(string)
+		m.launchExclude = new(string)
+		m.launchOnFailure = new(string)
 
 		// Create the form with input, model override, and flag fields
 		m.launchForm = huh.NewForm(
@@ -247,10 +265,34 @@ func (m PipelineDetailModel) Update(msg tea.Msg) (PipelineDetailModel, tea.Cmd) 
 				huh.NewInput().
 					Title("Model override (optional)").
 					Value(m.launchModel),
+				huh.NewInput().
+					Title("Adapter override (optional)").
+					Value(m.launchAdapter),
 				huh.NewMultiSelect[string]().
 					Title("Options").
 					Options(buildFlagOptions(DefaultFlags())...).
 					Value(m.launchFlags),
+			),
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Timeout in minutes (optional)").
+					Value(m.launchTimeout),
+				huh.NewInput().
+					Title("From step (optional)").
+					Value(m.launchFromStep),
+				huh.NewInput().
+					Title("Steps to include (comma-separated, optional)").
+					Value(m.launchSteps),
+				huh.NewInput().
+					Title("Steps to exclude (comma-separated, optional)").
+					Value(m.launchExclude),
+				huh.NewSelect[string]().
+					Title("On failure").
+					Options(
+						huh.NewOption("halt (default)", "halt"),
+						huh.NewOption("skip", "skip"),
+					).
+					Value(m.launchOnFailure),
 			),
 		).WithTheme(WaveTheme()).WithWidth(m.width).WithHeight(m.height - 3)
 
@@ -824,6 +866,23 @@ func toAbsPath(p string) string {
 		return p
 	}
 	return abs
+}
+
+// parseTimeoutStr parses a timeout string (digits only) into an integer.
+// Returns 0 for empty or non-numeric input.
+func parseTimeoutStr(s string) int {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0
+	}
+	n := 0
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return 0
+		}
+		n = n*10 + int(c-'0')
+	}
+	return n
 }
 
 // formatLogRecord formats a single persisted log record for display.

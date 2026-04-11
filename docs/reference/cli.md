@@ -88,8 +88,55 @@ wave run ops-pr-review --input "Review auth module"
 
 ### Options
 
+Flags are organized into four tiers by usage frequency.
+
+#### Essential (Tier 1)
+
+| Flag | Description |
+|------|-------------|
+| `--pipeline` | Pipeline name to run |
+| `--input` | Input data for the pipeline |
+| `--model` | Model override (tier name or literal) |
+| `--adapter` | Override adapter (claude, gemini, opencode, codex) |
+
+#### Execution (Tier 2)
+
+| Flag | Description |
+|------|-------------|
+| `--from-step` | Start execution from specific step |
+| `--force` | Skip validation checks when using --from-step |
+| `--dry-run` | Show what would be executed without running |
+| `--timeout` | Timeout in minutes (0 = no timeout) |
+| `--steps` | Run only named steps (comma-separated) |
+| `-x, --exclude` | Skip named steps (comma-separated) |
+| `--on-failure` | Failure policy: halt (default) or skip |
+| `--detach` | Run as detached background process |
+
+#### Continuous (Tier 3)
+
+| Flag | Description |
+|------|-------------|
+| `--continuous` | Run in continuous mode |
+| `--source` | Work item source URI |
+| `--max-iterations` | Maximum iterations (0 = unlimited) |
+| `--delay` | Delay between iterations (e.g., 5s, 1m) |
+
+#### Dev/Debug (Tier 4)
+
+| Flag | Description |
+|------|-------------|
+| `--mock` | Use mock adapter (testing) |
+| `--preserve-workspace` | Keep workspace from previous run |
+| `--auto-approve` | Auto-approve approval gates |
+| `--no-retro` | Skip retrospective generation |
+| `--force-model` | Force model on all steps |
+| `--run` | Resume from specific run ID |
+| `--manifest` | Path to manifest file |
+
+### Examples
+
 ```bash
-wave run impl-impl-hotfix --dry-run                 # Preview without executing
+wave run impl-hotfix --dry-run                 # Preview without executing
 wave run impl-speckit --from-step implement    # Start from step (auto-recovers input)
 wave run impl-speckit --from-step implement --force  # Skip validation for --from-step
 wave run impl-recinq --from-step report --run impl-recinq-20260219-fa19  # Recover input from specific run
@@ -102,7 +149,11 @@ wave run check -o quiet                        # Only final result to stderr
 wave run build --model haiku                   # Override adapter model for this run
 wave run impl-issue --adapter opencode --model "zai-coding-plan/glm-5-turbo"  # Override adapter and model
 wave run ops-debug --preserve-workspace        # Preserve workspace from previous run (for debugging)
-wave run --detach impl-issue "fix login bug"    # Detach: run in background, survive shell exit
+wave run --detach impl-issue "fix login bug"   # Detach: run in background, survive shell exit
+wave run impl-issue --steps fetch,implement    # Run only specific steps
+wave run impl-issue -x validate               # Skip the validate step
+wave run impl-issue --on-failure skip          # Continue on step failure
+wave run impl-issue --continuous --source "https://github.com/org/repo/issues" --delay 5m  # Continuous mode
 ```
 
 ### Detached Mode

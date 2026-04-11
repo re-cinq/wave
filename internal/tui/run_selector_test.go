@@ -142,7 +142,7 @@ func TestBuildPipelineOptions(t *testing.T) {
 func TestBuildFlagOptions(t *testing.T) {
 	flags := DefaultFlags()
 	options := buildFlagOptions(flags)
-	assert.Len(t, options, 6)
+	assert.Len(t, options, 7)
 
 	assert.Equal(t, "--verbose", options[0].Value)
 	assert.Equal(t, "--mock", options[5].Value)
@@ -150,7 +150,7 @@ func TestBuildFlagOptions(t *testing.T) {
 
 func TestDefaultFlags(t *testing.T) {
 	flags := DefaultFlags()
-	assert.Len(t, flags, 6)
+	assert.Len(t, flags, 7)
 
 	names := make([]string, len(flags))
 	for i, f := range flags {
@@ -163,6 +163,7 @@ func TestDefaultFlags(t *testing.T) {
 	assert.Contains(t, names, "--output json")
 	assert.Contains(t, names, "--dry-run")
 	assert.Contains(t, names, "--mock")
+	assert.Contains(t, names, "--detach")
 }
 
 func TestSelectionStruct(t *testing.T) {

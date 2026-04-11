@@ -13,7 +13,7 @@
         {{if .Pipeline.Description}}<p style="margin:0.1rem 0 0.3rem;font-size:0.82rem;color:var(--color-text-secondary);max-width:48rem;">{{.Pipeline.Description}}</p>{{end}}
     </div>
     <div class="actions">
-        <button class="btn btn-primary" onclick="showQuickStart('{{.Pipeline.Name}}')" aria-label="Start pipeline">Start</button>
+        <button class="btn btn-primary" onclick="toggleRunForm()" aria-label="Start pipeline" id="start-toggle-btn">Start</button>
     </div>
 </div>
 
@@ -24,6 +24,118 @@
     <span><a href="/runs?pipeline={{.Pipeline.Name}}" style="color:var(--color-link);"><b>{{.RunCount}}</b> runs</a></span>
     {{if .Pipeline.Skills}}<span style="color:var(--color-text-muted);">·</span>
     <span style="color:var(--color-text-muted);">Skills: {{range $i, $s := .Pipeline.Skills}}{{if $i}}, {{end}}{{$s}}{{end}}</span>{{end}}
+</div>
+
+<!-- Inline Run Form -->
+<div id="run-form-panel" class="run-form-panel" hidden>
+    <fieldset class="run-form-fieldset">
+        <legend class="run-form-legend">Start Pipeline</legend>
+
+        <!-- Tier 1: Always visible -->
+        <div class="run-form-tier">
+            <div class="form-group">
+                <label for="rf-input">Input</label>
+                <textarea id="rf-input" rows="3" placeholder="Issue URL, feature description..."></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="rf-adapter">Adapter</label>
+                    <select id="rf-adapter">
+                        <option value="">Default</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="rf-model">Model</label>
+                    <input type="text" id="rf-model" placeholder="e.g. sonnet, haiku, cheapest">
+                </div>
+            </div>
+        </div>
+
+        <!-- Tier 2: Advanced -->
+        <details class="run-form-tier-details">
+            <summary class="run-form-tier-summary">Advanced</summary>
+            <div class="run-form-tier">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="rf-from-step">Resume from step</label>
+                        <select id="rf-from-step" onchange="onFromStepChange()">
+                            <option value="">Start from beginning</option>
+                            {{range .Pipeline.Steps}}<option value="{{.ID}}">{{.ID}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+                    <div class="form-group-checkbox" id="rf-force-group" hidden>
+                        <label><input type="checkbox" id="rf-force"> Force (re-run completed steps)</label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group-checkbox">
+                        <label><input type="checkbox" id="rf-dry-run"> Dry run</label>
+                    </div>
+                    <div class="form-group-checkbox">
+                        <label><input type="checkbox" id="rf-detach"> Detach</label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="rf-steps">Steps (comma-separated)</label>
+                        <input type="text" id="rf-steps" placeholder="e.g. plan,implement">
+                    </div>
+                    <div class="form-group">
+                        <label for="rf-exclude">Exclude (comma-separated)</label>
+                        <input type="text" id="rf-exclude" placeholder="e.g. retro,review">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="rf-timeout">Timeout (minutes)</label>
+                        <input type="number" id="rf-timeout" min="0" placeholder="0 = no limit">
+                    </div>
+                    <div class="form-group">
+                        <label for="rf-on-failure">On failure</label>
+                        <select id="rf-on-failure">
+                            <option value="">Default</option>
+                            <option value="halt">Halt</option>
+                            <option value="skip">Skip</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <!-- Tier 3: Continuous -->
+        <details class="run-form-tier-details">
+            <summary class="run-form-tier-summary">Continuous</summary>
+            <div class="run-form-tier">
+                <div class="form-group-checkbox">
+                    <label><input type="checkbox" id="rf-continuous" onchange="onContinuousChange()"> Enable continuous mode</label>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="rf-source">Source</label>
+                        <input type="text" id="rf-source" placeholder="e.g. github, webhook">
+                    </div>
+                    <div class="form-group">
+                        <label for="rf-max-iterations">Max iterations</label>
+                        <input type="number" id="rf-max-iterations" min="0" placeholder="0 = unlimited">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="rf-delay">Delay between iterations</label>
+                    <input type="text" id="rf-delay" placeholder="e.g. 30s, 5m">
+                </div>
+            </div>
+        </details>
+
+        <!-- Actions -->
+        <div class="run-form-actions">
+            <button class="btn btn-sm" type="button" onclick="toggleRunForm()">Cancel</button>
+            <button class="btn btn-sm btn-primary" type="button" id="rf-submit" onclick="submitRunForm()">Start Pipeline</button>
+        </div>
+    </fieldset>
+
+    <!-- Dry-run report container -->
+    <div id="rf-dry-run-report" class="run-form-dry-report" hidden></div>
 </div>
 
 <!-- Steps as shapes -->
@@ -114,114 +226,114 @@
     <div style="padding:1rem;text-align:center;color:var(--color-text-muted);font-size:0.82rem;">No runs yet</div>
     {{end}}
 </div>
-
-<!-- Quickstart dialog -->
-<dialog id="quickstart-dialog" class="w-dialog" aria-labelledby="quickstart-title">
-    <div class="w-dialog-head">
-        <h3 id="quickstart-title" style="margin:0;font-size:1rem;">Start: <code id="quickstart-name" style="font-size:0.85rem;"></code></h3>
-        <button class="w-dialog-close" onclick="hideQuickStart()" aria-label="Close">&times;</button>
-    </div>
-    <div class="w-dialog-body">
-        <div class="form-group">
-            <label for="quickstart-input" style="font-size:0.78rem;color:var(--color-text-secondary);display:block;margin-bottom:0.2rem;">Input</label>
-            <textarea id="quickstart-input" rows="3" placeholder="Issue URL, feature description..." style="width:100%;padding:0.4rem 0.5rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-family:var(--font-sans);font-size:0.82rem;resize:vertical;"></textarea>
-        </div>
-        <details class="advanced-options" style="margin-top:0.4rem;">
-            <summary style="font-size:0.78rem;color:var(--color-text-muted);cursor:pointer;">Advanced options</summary>
-            <div style="padding-top:0.4rem;display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;">
-                <div class="form-group">
-                    <label for="qs-adapter" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Adapter</label>
-                    <select id="qs-adapter" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
-                        <option value="">Default</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="qs-model" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Model</label>
-                    <select id="qs-model" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
-                        <option value="">Default</option>
-                        <option value="cheapest">Cheapest</option>
-                        <option value="fastest">Fastest</option>
-                        <option value="strongest">Strongest</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="qs-from-step" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Resume From</label>
-                    <select id="qs-from-step" onchange="onQsFromStepChange()" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
-                        <option value="">Start from beginning</option>
-                    </select>
-                </div>
-                <div class="form-group" style="grid-column:span 2;">
-                    <label class="checkbox-label" style="font-size:0.78rem;color:var(--color-text-secondary);display:flex;align-items:center;gap:0.3rem;"><input type="checkbox" id="qs-dry-run"> Dry Run</label>
-                </div>
-            </div>
-        </details>
-    </div>
-    <div class="w-dialog-actions">
-        <button class="btn btn-sm" onclick="hideQuickStart()">Cancel</button>
-        <button class="btn btn-sm btn-primary" id="quickstart-submit" onclick="submitQuickStart()">Start Pipeline</button>
-    </div>
-</dialog>
 {{end}}
 {{define "scripts"}}
 <script>
-var quickStartPipeline = '';
+var adaptersLoaded = false;
 function populateAdapters(selectId) {
+    if (adaptersLoaded) return;
     var sel = document.getElementById(selectId);
     if (!sel) return;
     fetch('/api/adapters').then(function(r){return r.json()}).then(function(d){
         var adapters = d.adapters || [];
         adapters.forEach(function(a){ var o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o); });
+        adaptersLoaded = true;
     }).catch(function(){});
 }
-function showQuickStart(name) {
-    quickStartPipeline = name;
-    document.getElementById('quickstart-name').textContent = name;
-    document.getElementById('quickstart-input').value = '';
-    var modelEl = document.getElementById('qs-model');
-    if (modelEl) modelEl.value = '';
-    var fromStepEl = document.getElementById('qs-from-step');
-    if (fromStepEl) fromStepEl.innerHTML = '<option value="">Start from beginning</option>';
-    var dryRunEl = document.getElementById('qs-dry-run');
-    if (dryRunEl) dryRunEl.checked = false;
-    loadQsStepList(name);
-    document.getElementById('quickstart-dialog').showModal();
-    populateAdapters('qs-adapter');
-    document.getElementById('quickstart-input').focus();
+function toggleRunForm() {
+    var panel = document.getElementById('run-form-panel');
+    if (panel.hidden) {
+        panel.hidden = false;
+        populateAdapters('rf-adapter');
+        document.getElementById('rf-input').focus();
+    } else {
+        panel.hidden = true;
+    }
 }
-function hideQuickStart() { document.getElementById('quickstart-dialog').close(); quickStartPipeline = ''; }
-function submitQuickStart() {
-    if (!quickStartPipeline) return;
-    var input = document.getElementById('quickstart-input').value;
-    var btn = document.getElementById('quickstart-submit');
-    var body = {input: input || ''};
-    var opts = collectAdvancedOptions('qs');
-    Object.keys(opts).forEach(function(k) { body[k] = opts[k]; });
+function onFromStepChange() {
+    var fromStep = document.getElementById('rf-from-step');
+    var forceGroup = document.getElementById('rf-force-group');
+    if (fromStep && forceGroup) {
+        forceGroup.hidden = !fromStep.value;
+        if (!fromStep.value) document.getElementById('rf-force').checked = false;
+    }
+    // Mutual exclusion: from-step disables continuous
+    var cont = document.getElementById('rf-continuous');
+    if (fromStep && fromStep.value && cont) { cont.checked = false; cont.disabled = true; }
+    else if (cont) { cont.disabled = false; }
+}
+function onContinuousChange() {
+    var cont = document.getElementById('rf-continuous');
+    var fromStep = document.getElementById('rf-from-step');
+    // Mutual exclusion: continuous disables from-step
+    if (cont && cont.checked && fromStep) { fromStep.value = ''; fromStep.disabled = true; onFromStepChange(); }
+    else if (fromStep) { fromStep.disabled = false; }
+}
+function submitRunForm() {
+    var btn = document.getElementById('rf-submit');
+    var body = { input: document.getElementById('rf-input').value || '' };
+    // Tier 1
+    var adapter = document.getElementById('rf-adapter').value;
+    var model = document.getElementById('rf-model').value.trim();
+    if (adapter) body.adapter = adapter;
+    if (model) body.model = model;
+    // Tier 2
+    var fromStep = document.getElementById('rf-from-step').value;
+    if (fromStep) body.from_step = fromStep;
+    if (document.getElementById('rf-force').checked) body.force = true;
+    if (document.getElementById('rf-dry-run').checked) body.dry_run = true;
+    if (document.getElementById('rf-detach').checked) body.detach = true;
+    var steps = document.getElementById('rf-steps').value.trim();
+    if (steps) body.steps = steps;
+    var exclude = document.getElementById('rf-exclude').value.trim();
+    if (exclude) body.exclude = exclude;
+    var timeout = parseInt(document.getElementById('rf-timeout').value, 10);
+    if (timeout > 0) body.timeout = timeout;
+    var onFailure = document.getElementById('rf-on-failure').value;
+    if (onFailure) body.on_failure = onFailure;
+    // Tier 3
+    if (document.getElementById('rf-continuous').checked) body.continuous = true;
+    var source = document.getElementById('rf-source').value.trim();
+    if (source) body.source = source;
+    var maxIter = parseInt(document.getElementById('rf-max-iterations').value, 10);
+    if (maxIter > 0) body.max_iterations = maxIter;
+    var delay = document.getElementById('rf-delay').value.trim();
+    if (delay) body.delay = delay;
+
     setButtonLoading(btn, true);
-    fetchJSON('/api/pipelines/' + encodeURIComponent(quickStartPipeline) + '/start', {
+    fetchJSON('/api/pipelines/' + encodeURIComponent('{{.Pipeline.Name}}') + '/start', {
         method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
     }).then(function(data) {
-        if (body.dry_run && data.findings !== undefined) { showDryRunReport(data); setButtonLoading(btn, false); return; }
+        if (body.dry_run && data.findings !== undefined) {
+            renderDryRunReport(data);
+            setButtonLoading(btn, false);
+            return;
+        }
         showToast('Pipeline started: ' + data.run_id, 'success', 3000);
         setTimeout(function() { window.location.href = '/runs/' + data.run_id; }, 500);
     }).catch(function() { setButtonLoading(btn, false); });
 }
-function loadQsStepList(name) {
-    var fromStep = document.getElementById('qs-from-step');
-    fetchJSON('/api/pipelines/' + encodeURIComponent(name)).then(function(data) {
-        var steps = data.steps || [];
-        var opts = '<option value="">Start from beginning</option>';
-        for (var i = 0; i < steps.length; i++) opts += '<option value="' + escapeHTML(steps[i].id) + '">' + escapeHTML(steps[i].id) + '</option>';
-        if (fromStep) fromStep.innerHTML = opts;
-    }).catch(function() {});
-}
-function onQsFromStepChange() {
-    var fromStep = document.getElementById('qs-from-step');
-    if (fromStep && fromStep.value) {
-        var checks = document.querySelectorAll('#qs-steps-checks input[type="checkbox"]');
-        for (var i = 0; i < checks.length; i++) { checks[i].checked = false; checks[i].disabled = true; }
+function renderDryRunReport(data) {
+    var container = document.getElementById('rf-dry-run-report');
+    container.hidden = false;
+    var h = '<h3 style="margin:0 0 0.5rem;font-size:0.9rem;">Dry Run Report</h3>';
+    if (data.findings && data.findings.length > 0) {
+        h += '<ul style="margin:0;padding-left:1.2rem;font-size:0.82rem;">';
+        for (var i = 0; i < data.findings.length; i++) {
+            h += '<li>' + escapeHTML(typeof data.findings[i] === 'string' ? data.findings[i] : JSON.stringify(data.findings[i])) + '</li>';
+        }
+        h += '</ul>';
+    } else {
+        h += '<p style="font-size:0.82rem;color:var(--color-text-muted);">No findings.</p>';
     }
+    if (data.steps_to_run) {
+        h += '<p style="font-size:0.78rem;margin-top:0.4rem;color:var(--color-text-secondary);">Steps: ' + escapeHTML(data.steps_to_run.join(', ')) + '</p>';
+    }
+    container.innerHTML = h;
 }
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hideQuickStart(); });
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { var p = document.getElementById('run-form-panel'); if (!p.hidden) toggleRunForm(); }
+});
 
 // Click step to show config
 document.querySelectorAll('.ws-row1').forEach(function(row){
