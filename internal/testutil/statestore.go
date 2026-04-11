@@ -68,6 +68,7 @@ type MockStateStore struct {
 	getChildRuns                 func(parentRunID string) ([]state.RunRecord, error)
 
 	deleteCheckpointsAfterStep func(runID string, stepIndex int) error
+	createRunWithLimit         func(pipelineName, input string, maxConcurrent int) (string, error)
 	createRunWithFork          func(pipelineName, input, forkedFromRunID string) (string, error)
 	saveCheckpoint             func(record *state.CheckpointRecord) error
 	getCheckpoint              func(runID, stepID string) (*state.CheckpointRecord, error)
@@ -166,6 +167,13 @@ func (m *MockStateStore) Close() error {
 func (m *MockStateStore) CreateRun(pipelineName, input string) (string, error) {
 	if m.createRun != nil {
 		return m.createRun(pipelineName, input)
+	}
+	return "", nil
+}
+
+func (m *MockStateStore) CreateRunWithLimit(pipelineName, input string, maxConcurrent int) (string, error) {
+	if m.createRunWithLimit != nil {
+		return m.createRunWithLimit(pipelineName, input, maxConcurrent)
 	}
 	return "", nil
 }
