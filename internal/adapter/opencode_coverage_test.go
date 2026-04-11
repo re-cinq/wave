@@ -402,7 +402,7 @@ func TestPrepareWorkspace_NonWritableDir(t *testing.T) {
 	if err := os.Chmod(tmpDir, 0555); err != nil {
 		t.Skipf("cannot change permissions: %v", err)
 	}
-	defer os.Chmod(tmpDir, 0755)
+	defer func() { _ = os.Chmod(tmpDir, 0755) }()
 
 	cfg := AdapterRunConfig{
 		SystemPrompt: "should fail",
