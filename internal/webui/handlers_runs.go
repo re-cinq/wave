@@ -723,6 +723,15 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 			Dependencies:       step.Dependencies,
 		}
 
+		// Populate output artifact names for OUT display
+		if len(step.OutputArtifacts) > 0 {
+			var names []string
+			for _, a := range step.OutputArtifacts {
+				names = append(names, a.Name)
+			}
+			sd.Output = strings.Join(names, ", ")
+		}
+
 		// Populate structured gate data for interactive UI
 		if step.Gate != nil {
 			sd.GateChoicesData = step.Gate.Choices
