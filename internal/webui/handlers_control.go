@@ -276,6 +276,10 @@ func (s *Server) launchInProcess(runID, pipelineName, input string, opts RunOpti
 				log.Printf("Warning: failed to update run %s to completed: %v", runID, err)
 			}
 		}
+
+		// Invalidate issue/PR caches so fresh data shows after pipeline completion
+		s.cache.InvalidatePrefix("issues:")
+		s.cache.InvalidatePrefix("prs:")
 	}()
 }
 

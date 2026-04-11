@@ -3,6 +3,7 @@ package webui
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -124,11 +125,21 @@ func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
 		if run.Input == "" {
 			continue
 		}
+		matched := false
 		for _, pat := range patterns {
 			if strings.Contains(run.Input, pat) {
-				relatedRuns = append(relatedRuns, runToSummary(run))
+				matched = true
 				break
 			}
+		}
+		// Also match short-form "owner/repo <number>" input
+		if !matched {
+			if n := extractIssueNumber(run.Input); n == number {
+				matched = true
+			}
+		}
+		if matched {
+			relatedRuns = append(relatedRuns, runToSummary(run))
 		}
 	}
 
@@ -227,6 +238,15 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 		}
 	}
 
+	// Don't cache "running" state — stale data is misleading
+	cacheKey := fmt.Sprintf("issues:list:%s:%d", stateFilter, page)
+	useCache := stateFilter != "running"
+	if useCache {
+		if cached, ok := s.cache.Get(cacheKey); ok {
+			return cached.(IssueListResponse)
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), timeouts.ForgeAPIList)
 	defer cancel()
 
@@ -288,7 +308,7 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 		}
 	}
 
-	return IssueListResponse{
+	result := IssueListResponse{
 		Issues:      summaries,
 		RepoSlug:    s.repoSlug,
 		FilterState: stateFilter,
@@ -297,6 +317,12 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 		TotalOpen:   openCount,
 		TotalClosed: closedCount,
 	}
+
+	if useCache {
+		s.cache.Set(cacheKey, result)
+	}
+
+	return result
 }
 
 // splitRepoSlug splits "owner/repo" into owner and repo parts.
