@@ -595,6 +595,11 @@ func TestTestSuiteValidator_DirField(t *testing.T) {
 		v := &testSuiteValidator{}
 		ws := t.TempDir()
 
+		// Skip if temp dir is inside a git repo (common on CI runners)
+		if _, err := exec.Command("git", "-C", ws, "rev-parse", "--show-toplevel").Output(); err == nil {
+			t.Skip("temp dir is inside a git repo, cannot test non-git behavior")
+		}
+
 		cfg := ContractConfig{
 			Type:    "test_suite",
 			Command: "true",
