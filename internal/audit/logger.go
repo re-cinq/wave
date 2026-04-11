@@ -18,6 +18,7 @@ type AuditLogger interface {
 	LogContractResult(pipelineID, stepID, contractType, result string) error
 	LogOntologyInject(pipelineID, stepID string, contexts []string, invariantCount int) error
 	LogOntologyLineage(pipelineID, stepID, contextName, stepStatus string, invariantCount int) error
+	LogOntologyWarn(pipelineID, stepID string, undefinedContexts []string) error
 	Close() error
 }
 
@@ -144,6 +145,14 @@ func (l *TraceLogger) LogOntologyLineage(pipelineID, stepID, contextName, stepSt
 	timestamp := time.Now().Format(time.RFC3339Nano)
 	line := fmt.Sprintf("%s [ONTOLOGY_LINEAGE] pipeline=%s step=%s context=%s status=%s invariants=%d\n",
 		timestamp, pipelineID, stepID, contextName, stepStatus, invariantCount)
+	_, err := l.file.WriteString(line)
+	return err
+}
+
+func (l *TraceLogger) LogOntologyWarn(pipelineID, stepID string, undefinedContexts []string) error {
+	timestamp := time.Now().Format(time.RFC3339Nano)
+	line := fmt.Sprintf("%s [ONTOLOGY_WARN] pipeline=%s step=%s undefined_contexts=[%s]\n",
+		timestamp, pipelineID, stepID, strings.Join(undefinedContexts, ","))
 	_, err := l.file.WriteString(line)
 	return err
 }

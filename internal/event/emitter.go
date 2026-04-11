@@ -145,6 +145,7 @@ const (
 	// Ontology lifecycle states
 	StateOntologyInject  = "ontology_inject"  // Ontology contexts injected into step
 	StateOntologyLineage = "ontology_lineage" // Ontology decision lineage recorded
+	StateOntologyWarn    = "ontology_warn"    // Step references an undefined ontology context
 
 	// Hook lifecycle states
 	StateHookStarted = "hook_started" // Hook execution begun
