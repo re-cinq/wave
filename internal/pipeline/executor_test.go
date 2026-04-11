@@ -2915,16 +2915,16 @@ func TestResolveModelMethod(t *testing.T) {
 
 	// Persona with no model — use override
 	p1 := &manifest.Persona{Model: ""}
-	assert.Equal(t, "haiku", executor.resolveModel(nil, p1, nil, "navigator"))
+	assert.Equal(t, "haiku", executor.resolveModel(nil, p1, nil, "navigator", nil))
 
 	// Persona with pinned model — CLI override still wins
 	p2 := &manifest.Persona{Model: "opus"}
-	assert.Equal(t, "haiku", executor.resolveModel(nil, p2, nil, "navigator"))
+	assert.Equal(t, "haiku", executor.resolveModel(nil, p2, nil, "navigator", nil))
 
 	// No override, no persona model — empty
 	executor2 := &DefaultPipelineExecutor{modelOverride: ""}
 	p3 := &manifest.Persona{Model: ""}
-	assert.Equal(t, "", executor2.resolveModel(nil, p3, nil, "navigator"))
+	assert.Equal(t, "", executor2.resolveModel(nil, p3, nil, "navigator", nil))
 }
 
 func TestResolveModel_ForceModelEmpty(t *testing.T) {
@@ -2932,7 +2932,7 @@ func TestResolveModel_ForceModelEmpty(t *testing.T) {
 	executor := &DefaultPipelineExecutor{forceModel: true, modelOverride: ""}
 	persona := &manifest.Persona{Model: "opus"}
 
-	got := executor.resolveModel(nil, persona, nil, "craftsman")
+	got := executor.resolveModel(nil, persona, nil, "craftsman", nil)
 	// forceModel with empty override does NOT return early — falls through
 	// persona model "opus" is not a tier, so returned as-is
 	assert.Equal(t, "opus", got)
@@ -2942,7 +2942,7 @@ func TestResolveModel_ForceModelWithValue(t *testing.T) {
 	executor := &DefaultPipelineExecutor{forceModel: true, modelOverride: "claude-haiku-4-5"}
 	persona := &manifest.Persona{Model: "opus"}
 
-	got := executor.resolveModel(nil, persona, nil, "craftsman")
+	got := executor.resolveModel(nil, persona, nil, "craftsman", nil)
 	assert.Equal(t, "claude-haiku-4-5", got)
 }
 
@@ -2952,8 +2952,8 @@ func TestResolveModel_StepModelBalancedTier(t *testing.T) {
 	persona := &manifest.Persona{}
 	step := &Step{Model: "balanced"}
 
-	got := executor.resolveModel(step, persona, nil, "test")
-	// resolveTierModel("balanced", nil) → routing.ResolveComplexityModel("balanced") → ""
+	got := executor.resolveModel(step, persona, nil, "test", nil)
+	// resolveTierModel("balanced", nil, nil) → routing.ResolveComplexityModel("balanced") → ""
 	// isTier=true, so returns ""
 	assert.Equal(t, "", got)
 }
@@ -2963,7 +2963,7 @@ func TestResolveModel_StepModelCheapestTier(t *testing.T) {
 	persona := &manifest.Persona{}
 	step := &Step{Model: "cheapest"}
 
-	got := executor.resolveModel(step, persona, nil, "test")
+	got := executor.resolveModel(step, persona, nil, "test", nil)
 	assert.Equal(t, "claude-haiku-4-5", got)
 }
 
@@ -2972,7 +2972,7 @@ func TestResolveModel_StepModelStrongestTier(t *testing.T) {
 	persona := &manifest.Persona{}
 	step := &Step{Model: "strongest"}
 
-	got := executor.resolveModel(step, persona, nil, "test")
+	got := executor.resolveModel(step, persona, nil, "test", nil)
 	assert.Equal(t, "claude-opus-4", got)
 }
 
@@ -2981,7 +2981,7 @@ func TestResolveModel_StepModelLiteral(t *testing.T) {
 	persona := &manifest.Persona{}
 	step := &Step{Model: "claude-sonnet-4"}
 
-	got := executor.resolveModel(step, persona, nil, "test")
+	got := executor.resolveModel(step, persona, nil, "test", nil)
 	assert.Equal(t, "claude-sonnet-4", got)
 }
 
@@ -2989,7 +2989,7 @@ func TestResolveModel_PersonaModelTier(t *testing.T) {
 	executor := &DefaultPipelineExecutor{}
 	persona := &manifest.Persona{Model: "cheapest"}
 
-	got := executor.resolveModel(nil, persona, nil, "navigator")
+	got := executor.resolveModel(nil, persona, nil, "navigator", nil)
 	assert.Equal(t, "claude-haiku-4-5", got)
 }
 
@@ -3000,7 +3000,7 @@ func TestResolveModel_AutoRoute_BalancedReturnsEmpty(t *testing.T) {
 	step := &Step{ID: "generic-step"}
 	routing := &manifest.RoutingConfig{AutoRoute: true}
 
-	got := executor.resolveModel(step, persona, routing, "generic")
+	got := executor.resolveModel(step, persona, routing, "generic", nil)
 	// ClassifyStepComplexity returns "balanced" for generic persona
 	// routing.ResolveComplexityModel("balanced") returns "" (balanced maps to empty)
 	// model == "" → falls through, returns ""
@@ -3013,7 +3013,7 @@ func TestResolveModel_AutoRoute_CheapestReturnsModel(t *testing.T) {
 	step := &Step{ID: "navigate", Type: StepTypeCommand}
 	routing := &manifest.RoutingConfig{AutoRoute: true}
 
-	got := executor.resolveModel(step, persona, routing, "navigator")
+	got := executor.resolveModel(step, persona, routing, "navigator", nil)
 	// ClassifyStepComplexity: step type "command" → cheapest
 	// routing.ResolveComplexityModel("cheapest") → "claude-haiku-4-5"
 	assert.Equal(t, "claude-haiku-4-5", got)
@@ -3025,9 +3025,9 @@ func TestResolveModel_CLITierVsStepTier_CheaperWins(t *testing.T) {
 	persona := &manifest.Persona{}
 	step := &Step{Model: "strongest"}
 
-	got := executor.resolveModel(step, persona, nil, "test")
+	got := executor.resolveModel(step, persona, nil, "test", nil)
 	// Both are tiers, CheaperTier("cheapest","strongest") → "cheapest"
-	// resolveTierModel("cheapest", nil) → "claude-haiku-4-5"
+	// resolveTierModel("cheapest", nil, nil) → "claude-haiku-4-5"
 	assert.Equal(t, "claude-haiku-4-5", got)
 }
 
@@ -3038,9 +3038,9 @@ func TestResolveModel_CLITierVsStepTier_BalancedResolvesEmpty(t *testing.T) {
 	persona := &manifest.Persona{}
 	step := &Step{Model: "strongest"}
 
-	got := executor.resolveModel(step, persona, nil, "test")
+	got := executor.resolveModel(step, persona, nil, "test", nil)
 	// CheaperTier("balanced","strongest") → "balanced"
-	// resolveTierModel("balanced", nil) → "", isTier=true
+	// resolveTierModel("balanced", nil, nil) → "", isTier=true
 	assert.Equal(t, "", got)
 }
 
@@ -3050,46 +3050,51 @@ func TestResolveModel_CLILiteralOverridesStepTier(t *testing.T) {
 	persona := &manifest.Persona{}
 	step := &Step{Model: "strongest"}
 
-	got := executor.resolveModel(step, persona, nil, "test")
+	got := executor.resolveModel(step, persona, nil, "test", nil)
 	// TierRank("claude-sonnet-4") = -1 (not a tier), so CLI literal wins
 	assert.Equal(t, "claude-sonnet-4", got)
 }
 
 func TestResolveTierModel(t *testing.T) {
 	tests := []struct {
-		name    string
-		model   string
-		routing *manifest.RoutingConfig
-		want    string
-		isTier  bool
+		name              string
+		model             string
+		routing           *manifest.RoutingConfig
+		adapterTierModels map[string]string
+		want              string
+		isTier            bool
 	}{
 		{
-			name:    "cheapest tier nil routing",
-			model:   "cheapest",
-			routing: nil,
-			want:    "claude-haiku-4-5",
-			isTier:  true,
+			name:              "cheapest tier nil routing",
+			model:             "cheapest",
+			routing:           nil,
+			adapterTierModels: nil,
+			want:              "claude-haiku-4-5",
+			isTier:            true,
 		},
 		{
-			name:    "balanced tier nil routing returns empty",
-			model:   "balanced",
-			routing: nil,
-			want:    "",
-			isTier:  true,
+			name:              "balanced tier nil routing returns empty",
+			model:             "balanced",
+			routing:           nil,
+			adapterTierModels: nil,
+			want:              "",
+			isTier:            true,
 		},
 		{
-			name:    "strongest tier nil routing",
-			model:   "strongest",
-			routing: nil,
-			want:    "claude-opus-4",
-			isTier:  true,
+			name:              "strongest tier nil routing",
+			model:             "strongest",
+			routing:           nil,
+			adapterTierModels: nil,
+			want:              "claude-opus-4",
+			isTier:            true,
 		},
 		{
-			name:    "literal model not a tier",
-			model:   "claude-sonnet-4",
-			routing: nil,
-			want:    "",
-			isTier:  false,
+			name:              "literal model not a tier",
+			model:             "claude-sonnet-4",
+			routing:           nil,
+			adapterTierModels: nil,
+			want:              "",
+			isTier:            false,
 		},
 		{
 			name:  "cheapest tier with custom routing",
@@ -3099,14 +3104,29 @@ func TestResolveTierModel(t *testing.T) {
 					"cheapest": "my-custom-model",
 				},
 			},
-			want:   "my-custom-model",
+			adapterTierModels: nil,
+			want:              "my-custom-model",
+			isTier:            true,
+		},
+		{
+			name:  "adapter tier_models takes priority over routing",
+			model: "cheapest",
+			routing: &manifest.RoutingConfig{
+				ComplexityMap: map[string]string{
+					"cheapest": "routing-model",
+				},
+			},
+			adapterTierModels: map[string]string{
+				"cheapest": "adapter-model",
+			},
+			want:   "adapter-model",
 			isTier: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, isTier := resolveTierModel(tt.model, tt.routing)
+			got, isTier := resolveTierModel(tt.model, tt.routing, tt.adapterTierModels)
 			assert.Equal(t, tt.want, got)
 			assert.Equal(t, tt.isTier, isTier)
 		})

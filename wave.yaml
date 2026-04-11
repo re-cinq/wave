@@ -102,6 +102,10 @@ adapters:
     opencode:
         binary: opencode
         default_model: opencode/big-pickle
+        tier_models:
+            cheapest: default
+            balanced: default
+            strongest: default
         default_permissions:
             allowed_tools:
                 - Read

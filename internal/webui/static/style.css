@@ -2720,7 +2720,8 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .w-prog-fill { height: 100%; border-radius: 1px; background: var(--color-completed); transition: width 0.3s; }
 
 /* ── I/O Hero Cards (pill-shaped -- visually distinct from step rectangles) ── */
-.w-io { border-radius: 6px; padding: 0; position: relative; overflow: hidden; }
+.w-io { border-radius: 6px; padding: 0.5rem 0; position: relative; overflow: hidden; }
+.w-io .ws-row1 { display: flex; align-items: center; gap: 0.35rem; padding: 0 var(--ws-pad-x, 0.6rem); }
 .w-io-in  { background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.3); border-left: 5px solid var(--color-running); margin-bottom: 0.75rem; }
 .w-io-out { background: rgba(34,197,94,0.07); border: 1px solid rgba(34,197,94,0.4); border-left: 5px solid var(--color-completed); margin-top: 1rem; }
 .w-io-out.st-failed { background: var(--color-failed-bg); border-color: rgba(239,68,68,0.35); border-left: 5px solid var(--color-failed); }
@@ -2762,8 +2763,8 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-bg { position: absolute; top: 0; left: 0; bottom: 0; border-radius: 3px; opacity: 0.06; pointer-events: none; z-index: 0; }
 .ws-bg.st-completed { background: var(--color-completed); }
 .ws-bg.st-failed    { background: var(--color-failed); }
-.ws-bg.st-running   { background: var(--color-running); animation: v2pulse 2s ease-in-out infinite; }
-@keyframes v2pulse { 0%,100%{opacity:0.03} 50%{opacity:0.1} }
+.ws-bg.st-running   { background: var(--color-running); animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:0.03} 50%{opacity:0.1} }
 
 /* ── Status left accent (5px for strong signal) ── */
 .ws.st-completed { border-left: 4px solid var(--color-completed); }
@@ -2814,7 +2815,7 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-meta .badge { font-size: 0.62rem; padding: 1px 4px; }
 .ws-code-link { font-family: var(--font-mono); font-size: 0.68rem; padding: 0.05rem 0.35rem; border-radius: 3px; background: rgba(99,102,241,0.1); color: var(--color-link-hover); text-decoration: none; cursor: pointer; }
 .ws-code-link:hover { background: rgba(99,102,241,0.2); }
-.ws-dur { font-weight: 600; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; font-size: 0.72rem; font-family: var(--font-mono); margin-left: auto; }
+.ws-dur { font-weight: 600; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; font-size: 0.72rem; font-family: var(--font-mono); margin-left: auto; padding-right: 0.5rem; }
 .ws-tok { color: var(--color-text-muted); font-size: 0.75rem; font-weight: 400; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
 
 /* ── Step config panel (click to expand) ── */
@@ -2828,11 +2829,19 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-config code { padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.72rem; background: var(--color-bg-secondary); color: var(--color-text); }
 
 /* ── Row 2: I/O ── */
-.ws-io { display: flex; gap: 0.75rem; padding: 0.12rem var(--ws-pad-x) var(--ws-pad-y-bot); font-size: 0.78rem; flex-wrap: wrap; }
+.ws-io { display: flex; gap: 0.5rem; padding: 0.12rem var(--ws-pad-x) var(--ws-pad-y-bot); font-size: 0.78rem; flex-wrap: wrap; align-items: baseline; }
 .ws-io-in, .ws-io-out { display: flex; gap: 0.3rem; align-items: baseline; }
 .ws-io-out { padding-left: 0.6rem; border-left: 1px solid rgba(100,116,139,0.25); }
 .ws-io-lbl { color: var(--color-text-muted); font-weight: 700; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.03em; font-family: var(--font-mono); flex-shrink: 0; }
+.ws-io-click { cursor: pointer; transition: color 0.1s; }
+.ws-io-click:hover { color: var(--color-text); }
+.ws-io-click.active { color: var(--color-text); }
 .ws-io-val { color: var(--color-text-secondary); font-size: 0.75rem; }
+.ws-io-sep { width: 1px; height: 0.8em; background: rgba(100,116,139,0.25); flex-shrink: 0; align-self: center; }
+/* Tabs inside I/O row: plain text links matching io-val style, no background */
+.ws-io .w-tab { padding: 0; margin: 0; font-size: 0.75rem; font-family: inherit; color: var(--color-text-secondary); text-decoration: none; background: none; transition: color 0.1s; }
+.ws-io .w-tab:hover { color: var(--color-text); background: none; }
+.ws-io .w-tab.active { color: var(--color-text); background: none; }
 
 /* ── Step tab bar (artifacts + logs, unified) ── */
 .ws-tabs { display: flex; gap: 0.3rem; padding: 0; margin: 0; align-items: center; overflow-x: auto; }
@@ -2852,12 +2861,12 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
     color: var(--color-failed); font-family: var(--font-mono); font-size: 0.72rem; border: none; background: none; cursor: pointer; padding: var(--ws-tab-pad-y) var(--ws-pad-x); line-height: 1;
 }
 .w-tab-action:hover { color: var(--color-failed); opacity: 0.8; }
-/* Content area directly under tabs — dark terminal bg for all tab content */
+/* Content area directly under tabs — always dark terminal, regardless of theme */
 .ws-tabcontent { margin: 0; padding: 0; overflow: hidden; background: #0d1117; color: #c9d1d9; }
 .ws-tabcontent[hidden] { display: none !important; }
 .ws-tabcontent .av-smart { padding: 0.5rem var(--ws-pad-x); color: #c9d1d9; }
 .ws-tabcontent .markdown-body { font-size: 0.82rem; line-height: 1.6; color: #c9d1d9; background: transparent; border: none; }
-.ws-tabcontent .markdown-body h1 { font-size: 1.2rem; margin: 0.5rem 0 0.3rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.2rem; }
+.ws-tabcontent .markdown-body h1 { font-size: 1.2rem; margin: 0.5rem 0 0.3rem; border-bottom: 1px solid #30363d; padding-bottom: 0.2rem; }
 .ws-tabcontent .markdown-body h2 { font-size: 1rem; margin: 0.4rem 0 0.2rem; }
 .ws-tabcontent .markdown-body h3 { font-size: 0.9rem; margin: 0.3rem 0 0.15rem; }
 .ws-tabcontent .markdown-body p { margin: 0.3rem 0; }
@@ -3007,7 +3016,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 .av-smart { }
 /* Smart view for JSON artifacts */
 .av-smart { padding: 0.4rem 0.5rem; font-size: 0.75rem; }
-/* Smart artifact viewer inside dark terminal tab content */
+/* Smart artifact viewer — always dark terminal */
 .av-kv { display: flex; gap: 0.4rem; padding: 0.12rem 0; border-bottom: 1px solid #21262d; align-items: baseline; }
 .av-kv:last-child { border-bottom: none; }
 .av-key { color: #8b949e; min-width: 90px; flex-shrink: 0; font-size: 0.68rem; font-weight: 500; }

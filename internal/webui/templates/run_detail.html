@@ -33,10 +33,10 @@
     {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{friendlyModel .}}</span>{{end}}
     {{range .Models}}<span class="badge badge-model {{modelTierClass .}}">{{friendlyModel .}}</span>{{end}}
     <span style="margin-left:auto;display:flex;gap:0.15rem;">
-        {{if .Events}}<button class="w-sec-tab" onclick="v2Tab('events',this)">Events ({{len .Events}})</button>{{end}}
-        <button class="w-sec-tab" onclick="v2Tab('retro',this)">Retro</button>
-        {{if .Run.BranchName}}<button class="w-sec-tab" onclick="v2Tab('diff',this)">Changed Files</button>{{end}}
-        <button class="w-sec-tab" onclick="v2Tab('metrics',this)">Metrics</button>
+        {{if .Events}}<button class="w-sec-tab" onclick="switchTab('events',this)">Events ({{len .Events}})</button>{{end}}
+        <button class="w-sec-tab" onclick="switchTab('retro',this)">Retro</button>
+        {{if .Run.BranchName}}<button class="w-sec-tab" onclick="switchTab('diff',this)">Changed Files</button>{{end}}
+        <button class="w-sec-tab" onclick="switchTab('metrics',this)">Metrics</button>
     </span>
 </div>
 
@@ -128,7 +128,7 @@
                     {{else if eq $step.StepType "gate"}}<span class="tp-ico">&#x25C6;</span>
                     {{else if eq $step.StepType "conditional"}}<span class="tp-ico">&#x25C6;</span>
                     {{else if eq $step.StepType "command"}}<span class="tp-ico">&gt;_</span>
-                    {{end}}{{$step.StepID}}{{if $step.SubPipeline}} <span style="font-weight:400;color:var(--color-text-muted);font-size:0.65rem;">({{$step.SubPipeline}})</span>{{end}}{{if eq $step.State "running"}} <span class="spinner spinner-sm" style="vertical-align:middle;"></span>{{end}}</span>
+                    {{end}}{{$step.StepID}}{{if $step.SubPipeline}} <span style="font-weight:400;color:var(--color-text-muted);font-size:0.65rem;">({{$step.SubPipeline}})</span>{{end}}{{if eq $step.State "running"}} <span class="spinner spinner-sm" style="vertical-align:middle;margin-left:0.35rem;"></span>{{end}}</span>
                 {{if $step.MaxVisits}}<span class="badge" style="font-size:0.65rem;background:rgba(168,85,247,0.15);color:#a855f7;">{{$step.VisitCount}}/{{$step.MaxVisits}}</span>{{end}}
                 {{if $step.TokensUsed}}<span class="ws-tok">{{formatTokens $step.TokensUsed}}</span>{{end}}
                 <span class="ws-meta">
@@ -140,22 +140,26 @@
                 </span>
             </div>
 
-            <!-- Row 2: I/O -->
+            <!-- Step config (click header to toggle — independent of tab content) -->
+            <div class="ws-config" hidden data-step-id="{{$step.StepID}}"></div>
+
+            <!-- Row 2: I/O + tabs -->
             <div class="ws-io">
-                <div class="ws-io-in">
-                    <span class="ws-io-lbl">in</span>
-                    <span class="ws-io-val">{{if and $step.Action (not (hasPrefix $step.Action "{{"))}}{{if gt (len $step.Action) 80}}{{slice $step.Action 0 80}}…{{else}}{{$step.Action}}{{end}}{{else if eq $i 0}}pipeline input{{else}}prev step{{end}}</span>
-                </div>
+                <span class="ws-io-lbl">IN</span>
+                <span class="ws-io-val ws-io-click" onclick="toggleIn(this)" title="Show prompt">{{if and $step.Action (not (hasPrefix $step.Action "{{"))}}{{if gt (len $step.Action) 80}}{{slice $step.Action 0 80}}…{{else}}{{$step.Action}}{{end}}{{else if eq $i 0}}pipeline input{{else if $step.Dependencies}}{{joinStrings $step.Dependencies " + "}}{{else}}prev step{{end}}</span>
                 {{if $step.ReviewVerdict}}<span class="w-ctr {{if eq $step.ReviewVerdict "pass"}}w-ctr-pass{{else}}w-ctr-fail{{end}}">{{$step.ReviewVerdict}}</span>{{end}}
+                <span class="ws-io-sep"></span>
+                <span class="ws-io-lbl">OUT</span>
+                {{if $step.Artifacts}}{{range $a := $step.Artifacts}}<a href="#" class="w-tab" data-run-id="{{$step.RunID}}" data-step-id="{{$step.StepID}}" data-artifact-name="{{$a.Name}}" onclick="toggleArt(this);return false;">{{$a.Name}} <span class="art-size">{{formatBytes $a.SizeBytes}}</span></a>{{end}}{{end}}
+                <a href="#" class="w-tab" onclick="toggleLogs(this);return false;" data-step-id="{{$step.StepID}}">logs</a>
+                {{if $step.Duration}}<span class="ws-dur">{{$step.Duration}}</span>{{end}}
+                {{if eq $step.State "running"}}<button class="w-tab-action" onclick="cancelRun('{{$step.RunID}}',this)" title="Stop this pipeline">&#9632; stop</button>{{end}}
             </div>
 
             <!-- Error -->
             {{if $step.Error}}
             <div class="ws-err">{{if $step.FailureClass}}<span class="badge badge-failure-{{$step.FailureClass}}" style="font-size:0.65rem;">{{titleCase $step.FailureClass}}</span> {{end}}{{if gt (len $step.Error) 200}}{{slice $step.Error 0 200}}…{{else}}{{$step.Error}}{{end}}</div>
             {{end}}
-
-            <!-- Step config (click header to toggle — independent of tab content) -->
-            <div class="ws-config" hidden data-step-id="{{$step.StepID}}"></div>
 
             <!-- Gate / Conditional / Command -->
             {{if eq $step.StepType "gate"}}
@@ -167,7 +171,7 @@
             </div>
             {{end}}
             {{if and (eq $step.StepType "conditional") $step.EdgeInfo}}<div class="ws-edges">{{$step.EdgeInfo}}</div>{{end}}
-            {{if and (eq $step.StepType "command") $step.Script}}<div style="padding:0.06rem var(--ws-pad-x) 0.15rem;"><pre style="margin:0;font-size:0.68rem;color:var(--color-text-muted);background:var(--color-bg-tertiary);padding:0.2rem 0.4rem;border-radius:3px;overflow-x:auto;"><code class="ws-resolve-vars">{{$step.Script}}</code></pre></div>{{end}}
+            {{if and (eq $step.StepType "command") $step.Script}}<div style="padding:0.5rem var(--ws-pad-x) 0.5rem;"><pre style="margin:0;font-size:0.68rem;color:var(--color-text-muted);background:var(--color-bg-tertiary);padding:0.3rem 0.5rem;border-radius:3px;overflow-x:auto;"><code class="ws-resolve-vars">{{$step.Script}}</code></pre></div>{{end}}
 
             <!-- Child runs for sub-pipeline steps -->
             {{if eq $step.StepType "pipeline"}}
@@ -186,15 +190,7 @@
             {{end}}
             {{end}}
 
-            <!-- Tab bar: artifacts + logs -->
-            <div class="ws-tabs">
-                {{if $step.Artifacts}}{{range $a := $step.Artifacts}}<a href="#" class="w-tab" data-run-id="{{$step.RunID}}" data-step-id="{{$step.StepID}}" data-artifact-name="{{$a.Name}}" onclick="v2ToggleArt(this);return false;">{{$a.Name}} <span class="art-size">{{formatBytes $a.SizeBytes}}</span></a>{{end}}{{end}}
-                <a href="#" class="w-tab" onclick="v2ToggleLogs(this);return false;" data-step-id="{{$step.StepID}}">logs</a>
-                {{if $step.Duration}}<span class="ws-dur">{{$step.Duration}}</span>{{end}}
-                {{if eq $step.State "running"}}<button class="w-tab-action" onclick="cancelRun('{{$step.RunID}}',this)" title="Stop this pipeline">&#9632; stop</button>{{end}}
-            </div>
-
-            <!-- Tab content: artifact viewer OR logs (below tab bar) -->
+            <!-- Tab content: artifact viewer OR logs -->
             <div class="ws-tabcontent" hidden data-step-id="{{$step.StepID}}"></div>
         </div>
     </div>
@@ -202,37 +198,26 @@
 </div>
 
 <!-- OUTPUT -->
-<div class="w-io {{if eq .Run.Status "completed"}}w-io-out{{else if eq .Run.Status "failed"}}w-io-out st-failed{{else}}w-io-pending{{end}}">
+<div class="ws {{if eq .Run.Status "completed"}}st-completed{{else if eq .Run.Status "failed"}}st-failed{{else if eq .Run.Status "running"}}st-running{{else}}st-pending{{end}}" style="margin-top:1rem;">
+    <div class="ws-content">
     <div class="ws-row1">
         <span class="ws-name">Output</span>
         {{if eq .Run.Status "completed"}}<span style="color:var(--color-completed);">&#10003;</span>
         {{else if eq .Run.Status "failed"}}<span style="color:var(--color-failed);">&#10007;</span>
-        {{else if eq .Run.Status "running"}}<span class="spinner spinner-sm" style="vertical-align:middle;"></span>{{end}}
+        {{else if eq .Run.Status "running"}}<span class="spinner spinner-sm" style="vertical-align:middle;margin-left:0.35rem;"></span>{{end}}
         {{if eq .Run.Status "failed"}}
         <button class="btn btn-sm" style="margin-left:auto;font-size:0.72rem;border-color:rgba(239,68,68,0.3);color:var(--color-failed);" onclick="retryRun('{{.Run.RunID}}',this)">Retry</button>
         {{end}}
     </div>
-    {{if or (eq .Run.Status "completed") (eq .Run.Status "failed")}}
-    <div class="ws-io">
-        <div class="ws-io-in">
-            <span class="ws-io-lbl">OUT</span>
-            <span class="ws-io-val">{{if .LinkedTitle}}
-                <a href="{{if eq .LinkedType "pr"}}/prs/{{.LinkedNumber}}{{else if eq .LinkedType "issue"}}/issues/{{.LinkedNumber}}{{else}}{{.Run.LinkedURL}}{{end}}" style="font-weight:600;color:var(--color-link);">{{richInput .Run.Input .Run.LinkedURL}}: {{.LinkedTitle}}</a>
-                {{if .LinkedState}}<span class="badge {{if eq .LinkedState "merged"}}status-completed{{else if eq .LinkedState "open"}}status-running{{else if eq .LinkedState "closed"}}status-cancelled{{end}}" style="font-size:0.68rem;">{{.LinkedState}}</span>{{end}}
-                {{if .LinkedAuthor}}<span style="font-size:0.72rem;color:var(--color-text-muted);">by {{.LinkedAuthor}}</span>{{end}}
-            {{else if .Run.LinkedURL}}
-                <a href="{{.Run.LinkedURL}}" target="_blank" style="color:var(--color-link);">{{richInput .Run.Input .Run.LinkedURL}} ↗</a>
-            {{end}}</span>
-        </div>
-    </div>
-    {{end}}
     {{if .OutputArtifacts}}
-    <div class="ws-tabs">
-        {{range $a := .OutputArtifacts}}<a href="#" class="w-tab" data-run-id="{{$.Run.RunID}}" data-step-id="{{$.OutputStepID}}" data-artifact-name="{{$a.Name}}" onclick="v2ToggleOutArtTab(this);return false;">{{$a.Name}} <span class="art-size">{{formatBytes $a.SizeBytes}}</span></a>{{end}}
+    <div class="ws-io">
+        <span class="ws-io-lbl">OUT</span>
+        {{range $a := .OutputArtifacts}}<a href="#" class="w-tab" data-run-id="{{$.Run.RunID}}" data-step-id="{{$.OutputStepID}}" data-artifact-name="{{$a.Name}}" onclick="toggleOutArt(this);return false;">{{$a.Name}} <span class="art-size">{{formatBytes $a.SizeBytes}}</span></a>{{end}}
     </div>
     <div class="ws-tabcontent" id="w-out-tc" hidden></div>
     {{end}}
     {{if .Run.ErrorMessage}}<div class="ws-err">{{.Run.ErrorMessage}}</div>{{end}}
+    </div>
 </div>
 
 <!-- Panels are now positioned after the stats bar, before IN card -->
@@ -260,12 +245,12 @@ function trackUserScroll(el){
     });
 }
 
-function v2ToggleLogs(tab){
+function toggleLogs(tab){
     var shape=tab.closest('.ws');
     var tc=shape.querySelector('.ws-tabcontent');
     if(!tc)return;
     var wasActive=tab.classList.contains('active');
-    shape.querySelectorAll('.w-tab').forEach(function(t){t.classList.remove('active')});
+    shape.querySelectorAll('.w-tab, .ws-io-click').forEach(function(t){t.classList.remove('active')});
     if(wasActive){tc.hidden=true;return;}
     tab.classList.add('active');
     tc.hidden=false;
@@ -290,6 +275,91 @@ function v2ToggleLogs(tab){
         if(logBody){trackUserScroll(logBody);snapToBottom(logBody);}
     }).catch(function(){tc.innerHTML='<pre class="ws-log-body" style="color:var(--color-failed);">(load failed)</pre>';});
 }
+// Toggle IN tab — show step prompt
+function toggleIn(el){
+    var shape=el.closest('.ws');
+    var tc=shape.querySelector('.ws-tabcontent');
+    if(!tc)return;
+    var wasActive=el.classList.contains('active');
+    shape.querySelectorAll('.w-tab, .ws-io-click').forEach(function(t){t.classList.remove('active')});
+    if(wasActive){tc.hidden=true;return;}
+    el.classList.add('active');
+    tc.hidden=false;
+    var stepId=shape.id?shape.id.replace(/^w-/,''):'';
+    if(tc.dataset.inLoaded&&tc.dataset.inStep===stepId){tc.innerHTML=tc.dataset.inHtml||'';return;}
+    tc.innerHTML='<div style="padding:0.5rem 0.6rem;color:#8b949e;font-size:0.75rem;">Loading prompt…</div>';
+    fetch('/api/pipelines/'+encodeURIComponent('{{.Run.PipelineName}}')).then(function(r){return r.json()}).then(function(d){
+        var step=null;
+        for(var i=0;i<(d.steps||[]).length;i++){if(d.steps[i].id===stepId){step=d.steps[i];break;}}
+        if(!step){tc.innerHTML='<div style="padding:0.5rem;color:#8b949e;">Step not found</div>';return;}
+        function resolveVars(s){
+            try{var vars=JSON.parse(document.getElementById('wave-vars').textContent||'{}');
+            for(var vk in vars){if(vars[vk]){var re=new RegExp('\\{\\{\\s*'+vk.replace(/\./g,'\\.')+'\\s*\\}\\}','g');s=s.replace(re,vars[vk]);}}}
+            catch(e){}return s;
+        }
+        var h='<div style="padding:0.5rem 0.6rem;color:#8b949e;">';
+        if(step.dependencies&&step.dependencies.length){
+            h+='<div style="margin-bottom:0.3rem;font-size:0.72rem;"><span style="color:#8b949e;">from:</span> '+step.dependencies.map(function(dep){return '<code style="background:rgba(99,102,241,0.15);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;color:#c9d1d9;">'+escapeHTML(dep)+'</code>';}).join(' ')+'</div>';
+        }
+        if(step.input_artifacts&&step.input_artifacts.length){
+            h+='<div style="margin-bottom:0.3rem;font-size:0.72rem;"><span style="color:#8b949e;">artifacts:</span> '+step.input_artifacts.map(function(a){return '<code style="background:rgba(34,197,94,0.15);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;color:#c9d1d9;">'+escapeHTML(a)+'</code>';}).join(' ')+'</div>';
+        }
+        if(step.script){
+            var cmd=resolveVars(step.script);
+            h+='<div style="margin-bottom:0.2rem;font-size:0.68rem;color:#8b949e;">command</div>';
+            h+='<pre style="margin:0 0 0.3rem;padding:0.3rem 0.5rem;background:#161b22;border-radius:4px;font-size:0.72rem;overflow-x:auto;color:#c9d1d9;"><code>'+escapeHTML(cmd)+'</code></pre>';
+        }
+        if(step.prompt){
+            var prompt=resolveVars(step.prompt);
+            prompt=prompt.replace(/\{\{([^}]+)\}\}/g,function(m){return '`'+m+'`';});
+            h+='<div style="margin-bottom:0.2rem;font-size:0.68rem;color:#8b949e;">prompt</div>';
+            if(typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
+                h+='<div class="markdown-body" style="padding:0.4rem;background:#161b22;border-radius:4px;font-size:0.78rem;line-height:1.5;">'+DOMPurify.sanitize(marked.parse(prompt),{FORBID_TAGS:['input','textarea','select','button','form']})+'</div>';
+            }else{
+                h+='<pre style="margin:0;padding:0.5rem;background:#161b22;border-radius:4px;font-size:0.75rem;white-space:pre-wrap;line-height:1.5;color:#c9d1d9;">'+escapeHTML(prompt)+'</pre>';
+            }
+        }
+        if(!step.prompt&&!step.script) h+='<div style="color:#8b949e;font-size:0.75rem;">(no prompt)</div>';
+        h+='</div>';
+        tc.dataset.inLoaded='1';
+        tc.dataset.inStep=stepId;
+        tc.dataset.inHtml=h;
+        tc.innerHTML=h;
+    }).catch(function(e){tc.innerHTML='<div style="padding:0.5rem;color:#f85149;">Error: '+escapeHTML(String(e))+'</div>';});
+}
+
+// Toggle OUT tab — show logs
+function toggleOut(el){
+    var shape=el.closest('.ws');
+    var tc=shape.querySelector('.ws-tabcontent');
+    if(!tc)return;
+    var wasActive=el.classList.contains('active');
+    shape.querySelectorAll('.w-tab, .ws-io-click').forEach(function(t){t.classList.remove('active')});
+    if(wasActive){tc.hidden=true;return;}
+    el.classList.add('active');
+    tc.hidden=false;
+    var sid=tc.dataset.stepId;
+    if(tc.dataset.logLoaded){
+        tc.innerHTML=tc.dataset.logHtml||'<pre class="ws-log-body">(no output)</pre>';
+        var logBody=tc.querySelector('.ws-log-body');
+        if(logBody){trackUserScroll(logBody);snapToBottom(logBody);}
+        return;
+    }
+    tc.innerHTML='<pre class="ws-log-body">loading…</pre>';
+    var rid='{{.Run.RunID}}';
+    fetch('/api/runs/'+encodeURIComponent(rid)+'/step-events?step='+encodeURIComponent(sid)+'&limit=500')
+    .then(function(r){return r.json()})
+    .then(function(d){
+        var lines=(d.events||[]).map(function(e){return e.message||''}).filter(Boolean);
+        var html='<pre class="ws-log-body"><code>'+(lines.length?escapeHTML(lines.join('\n')):'(no output)')+'</code></pre>';
+        tc.dataset.logLoaded='1';
+        tc.dataset.logHtml=html;
+        tc.innerHTML=html;
+        var logBody=tc.querySelector('.ws-log-body');
+        if(logBody){trackUserScroll(logBody);snapToBottom(logBody);}
+    }).catch(function(){tc.innerHTML='<pre class="ws-log-body" style="color:var(--color-failed);">(load failed)</pre>';});
+}
+
 // V2 live updates — SSE with polling fallback (DOM updates, no reload)
 if('{{.Run.Status}}'==='running'){
     (function(){
@@ -597,7 +667,7 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
                 h+='<div style="border-top:1px solid var(--color-border);padding-top:0.4rem;margin-top:0.2rem;">';
                 h+='<div style="color:var(--color-text-muted);font-size:0.68rem;margin-bottom:0.2rem;">Prompt template</div>';
                 if(typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
-                    h+='<div class="markdown-body" style="padding:0.4rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.78rem;line-height:1.5;">'+DOMPurify.sanitize(marked.parse(prompt))+'</div>';
+                    h+='<div class="markdown-body" style="padding:0.4rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.78rem;line-height:1.5;">'+DOMPurify.sanitize(marked.parse(prompt),{FORBID_TAGS:['input','textarea','select','button','form']})+'</div>';
                 } else {
                     h+='<pre style="margin:0;padding:0.5rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.75rem;white-space:pre-wrap;color:var(--color-text-secondary);line-height:1.5;">'+escapeHTML(prompt)+'</pre>';
                 }
@@ -605,13 +675,13 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
             }
             h+='</div>';
             tc.innerHTML=h;
-        }).catch(function(e){tc.innerHTML='<div style="padding:0.5rem;color:var(--color-failed);">Error: '+escapeHTML(String(e))+'</div>';});
+        }).catch(function(e){tc.innerHTML='<div style="padding:0.5rem;color:#f85149;">Error: '+escapeHTML(String(e))+'</div>';});
     });
 });
 
 // Tab switching for secondary panels
-var v2LoadedPanels={};
-function v2Tab(name,btn){
+var loadedPanels={};
+function switchTab(name,btn){
     // Toggle: clicking active tab hides it
     var panel=document.getElementById('w-panel-'+name);
     if(!panel)return;
@@ -624,10 +694,10 @@ function v2Tab(name,btn){
     panel.hidden=false;
     btn.classList.add('active');
     // Lazy load content
-    if(!v2LoadedPanels[name]){
-        v2LoadedPanels[name]=true;
-        if(name==='diff') v2LoadDiff();
-        if(name==='retro') v2LoadRetro();
+    if(!loadedPanels[name]){
+        loadedPanels[name]=true;
+        if(name==='diff') loadDiff();
+        if(name==='retro') loadRetro();
     }
     // Snap events panel to bottom on open
     if(name==='events'){
@@ -644,7 +714,7 @@ fetch('/api/runs/{{.Run.RunID}}/diff').then(function(r){return r.json()}).then(f
 {{end}}
 
 // Load diff/changed files
-function v2LoadDiff(){
+function loadDiff(){
     var el=document.getElementById('w-diff-content');
     if(!el)return;
     fetch('/api/runs/{{.Run.RunID}}/diff').then(function(r){return r.json()}).then(function(d){
@@ -655,7 +725,7 @@ function v2LoadDiff(){
         if(d.files&&d.files.length){
             for(var i=0;i<d.files.length;i++){
                 var f=d.files[i];
-                h+='<div class="w-diff-file" data-path="'+escapeHTML(f.path)+'" onclick="v2ShowFileDiff(this,\''+escapeHTML(f.path)+'\')">';
+                h+='<div class="w-diff-file" data-path="'+escapeHTML(f.path)+'" onclick="showFileDiff(this,\''+escapeHTML(f.path)+'\')">';
                 h+='<span class="w-diff-status w-diff-status-'+escapeHTML(f.status)+'">'+escapeHTML(f.status)+'</span>';
                 h+='<span class="w-diff-path" title="'+escapeHTML(f.path)+'">'+escapeHTML(f.path.split('/').pop())+'</span>';
                 h+='<span class="w-diff-stat"><span class="w-diff-add">+'+f.additions+'</span> <span class="w-diff-del">-'+f.deletions+'</span></span>';
@@ -672,7 +742,7 @@ function v2LoadDiff(){
     }).catch(function(e){el.innerHTML='<div class="w-diff-empty" style="color:var(--color-failed);">Failed: '+escapeHTML(String(e))+'</div>';});
 }
 
-function v2ShowFileDiff(fileEl,path){
+function showFileDiff(fileEl,path){
     // Highlight active file
     document.querySelectorAll('.w-diff-file').forEach(function(f){f.classList.remove('active');});
     fileEl.classList.add('active');
@@ -687,7 +757,7 @@ function v2ShowFileDiff(fileEl,path){
 }
 
 // Load retrospective
-function v2LoadRetro(){
+function loadRetro(){
     var el=document.getElementById('w-retro-content');
     if(!el)return;
     fetch('/api/retros/{{.Run.RunID}}').then(function(r){
@@ -736,21 +806,21 @@ function formatMs(ms){
 }
 
 // Pass-through (API now returns clean content)
-function v2Decode(s){return s;}
+function decodeContent(s){return s;}
 
 // Humanize JSON keys: snake_case → Title Case
 function humanKey(k){return k.replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();});}
 
 // Smart render: parse JSON and produce human-readable HTML
-function v2SmartRender(raw, name){
+function smartRender(raw, name){
     try {
         var obj=JSON.parse(raw);
         if(typeof obj!=='object'||obj===null) throw 'not object';
-        return v2RenderObj(obj, name);
+        return renderObj(obj, name);
     } catch(e){ return null; } // fallback to raw
 }
 
-function v2RenderObj(obj, name){
+function renderObj(obj, name){
     var h='';
     // Extract top-level scalars as key-value pairs
     var scalars=[], arrays=[], objects=[];
@@ -832,12 +902,12 @@ function v2RenderObj(obj, name){
 }
 
 // Render artifact into viewer element
-function v2ShowArt(viewer, url, name){
+function showArt(viewer, url, name){
     viewer.hidden=false;
     viewer.innerHTML='<div class="w-art-viewer-head"><span>'+escapeHTML(name)+'</span><span style="display:flex;gap:0.3rem;align-items:center;"><span class="av-tabs"></span><a href="'+url+'?raw=true" download style="color:var(--color-text-muted);font-size:0.65rem;">⬇</a></span></div><div class="av-body"><pre style="margin:0;padding:0.3rem;font-size:0.65rem;color:var(--color-text-secondary);"><code>loading…</code></pre></div>';
     fetch(url).then(function(r){return r.json()}).then(function(d){
-        var raw=v2Decode(d.content||'');
-        var smart=v2SmartRender(raw, name);
+        var raw=decodeContent(d.content||'');
+        var smart=smartRender(raw, name);
         var body=viewer.querySelector('.av-body');
         var tabs=viewer.querySelector('.av-tabs');
         if(smart){
@@ -871,7 +941,7 @@ function v2ShowArt(viewer, url, name){
             var isMarkdown=name&&/\.md$/i.test(name);
             if(isMarkdown&&typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
                 // Markdown: render by default, Raw toggle
-                var rendered='<div class="av-smart markdown-body" style="padding:0.5rem;font-size:0.8rem;">'+DOMPurify.sanitize(marked.parse(raw))+'</div>';
+                var rendered='<div class="av-smart markdown-body" style="padding:0.5rem;font-size:0.8rem;">'+DOMPurify.sanitize(marked.parse(raw),{FORBID_TAGS:['input','textarea','select','button','form']})+'</div>';
                 body.innerHTML=rendered;
                 var rawPre=document.createElement('pre');
                 rawPre.style.cssText='margin:0;padding:0.3rem;font-size:0.65rem;display:none;';
@@ -907,8 +977,8 @@ function v2ShowArt(viewer, url, name){
 }
 
 // OUT card artifact tab
-function v2ToggleOutArtTab(tab){
-    var outCard=tab.closest('.w-io-out');
+function toggleOutArt(tab){
+    var outCard=tab.closest('.ws');
     var tc=document.getElementById('w-out-tc');
     if(!tc)return;
     var wasActive=tab.classList.contains('active');
@@ -918,35 +988,35 @@ function v2ToggleOutArtTab(tab){
     tc.hidden=false;
     var rid=tab.dataset.runId,sid=tab.dataset.stepId,name=tab.dataset.artifactName;
     var url='/api/runs/'+encodeURIComponent(rid)+'/artifacts/'+encodeURIComponent(sid)+'/'+encodeURIComponent(name);
-    v2ShowArtInline(tc,url,name);
+    showArtInline(tc,url,name);
 }
 
 // Step artifact tab
-function v2ToggleArt(chip){
+function toggleArt(chip){
     var shape=chip.closest('.ws');
     var tc=shape.querySelector('.ws-tabcontent');
     if(!tc)return;
     var wasActive=chip.classList.contains('active');
-    shape.querySelectorAll('.w-tab').forEach(function(t){t.classList.remove('active')});
+    shape.querySelectorAll('.w-tab, .ws-io-click').forEach(function(t){t.classList.remove('active')});
     if(wasActive){tc.hidden=true;return;}
     chip.classList.add('active');
     tc.hidden=false;
     var rid=chip.dataset.runId,sid=chip.dataset.stepId,name=chip.dataset.artifactName;
     var url='/api/runs/'+encodeURIComponent(rid)+'/artifacts/'+encodeURIComponent(sid)+'/'+encodeURIComponent(name);
-    v2ShowArtInline(tc,url,name);
+    showArtInline(tc,url,name);
 }
 
 // Render artifact directly into a container (no redundant header)
-function v2ShowArtInline(container,url,name){
+function showArtInline(container,url,name){
     container.innerHTML='<pre style="margin:0;padding:0.3rem;font-size:0.68rem;color:var(--color-text-muted);">loading…</pre>';
     fetch(url).then(function(r){return r.json()}).then(function(d){
-        var raw=v2Decode(d.content||'');
-        var smart=v2SmartRender(raw,name);
+        var raw=decodeContent(d.content||'');
+        var smart=smartRender(raw,name);
         if(smart){
             // JSON: smart view with toggle
             var sz=d.metadata&&d.metadata.size_bytes?d.metadata.size_bytes:0;
             var szLabel=sz<1024?(sz+' B'):sz<1048576?((sz/1024).toFixed(1)+' KB'):((sz/1048576).toFixed(1)+' MB');
-            var h='<div class="av-toggle"><button class="active" onclick="v2ArtView(this,\'smart\')">Rendered</button><button onclick="v2ArtView(this,\'raw\')">Raw</button><a class="av-dl-btn" href="'+url+'?raw=true" download>&#8681; '+szLabel+'</a></div>';
+            var h='<div class="av-toggle"><button class="active" onclick="artView(this,\'smart\')">Rendered</button><button onclick="artView(this,\'raw\')">Raw</button><a class="av-dl-btn" href="'+url+'?raw=true" download>&#8681; '+szLabel+'</a></div>';
             h+='<div class="av-smart" data-view="smart">'+smart+'</div>';
             h+='<pre data-view="raw" style="display:none;margin:0;padding:0.3rem 0.4rem;font-size:0.65rem;color:var(--color-text-secondary);"><code class="language-json"></code></pre>';
             container.innerHTML=h;
@@ -959,8 +1029,8 @@ function v2ShowArtInline(container,url,name){
             if(isMarkdown&&typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
                 var sz2=d.metadata&&d.metadata.size_bytes?d.metadata.size_bytes:0;
                 var szLabel2=sz2<1024?(sz2+' B'):sz2<1048576?((sz2/1024).toFixed(1)+' KB'):((sz2/1048576).toFixed(1)+' MB');
-                var h='<div class="av-toggle"><button class="active" onclick="v2ArtView(this,\'rendered\')">Rendered</button><button onclick="v2ArtView(this,\'raw\')">Raw</button><a class="av-dl-btn" href="'+url+'?raw=true" download>&#8681; '+szLabel2+'</a></div>';
-                h+='<div class="av-smart markdown-body" data-view="rendered" style="padding:0.5rem;font-size:0.8rem;">'+DOMPurify.sanitize(marked.parse(raw))+'</div>';
+                var h='<div class="av-toggle"><button class="active" onclick="artView(this,\'rendered\')">Rendered</button><button onclick="artView(this,\'raw\')">Raw</button><a class="av-dl-btn" href="'+url+'?raw=true" download>&#8681; '+szLabel2+'</a></div>';
+                h+='<div class="av-smart markdown-body" data-view="rendered" style="padding:0.5rem;font-size:0.8rem;">'+DOMPurify.sanitize(marked.parse(raw),{FORBID_TAGS:['input','textarea','select','button','form']})+'</div>';
                 h+='<pre data-view="raw" style="display:none;margin:0;padding:0.3rem;font-size:0.65rem;"><code>'+escapeHTML(raw)+'</code></pre>';
                 container.innerHTML=h;
             } else {
@@ -978,7 +1048,7 @@ function v2ShowArtInline(container,url,name){
 }
 
 // Toggle smart/raw/rendered views inside artifact content
-function v2ArtView(btn,view){
+function artView(btn,view){
     var toggle=btn.parentElement;
     var container=toggle.parentElement;
     toggle.querySelectorAll('button').forEach(function(b){b.classList.remove('active')});

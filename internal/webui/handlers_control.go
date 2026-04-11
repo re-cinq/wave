@@ -76,6 +76,7 @@ func (s *Server) launchPipelineExecution(runID, pipelineName, input string, _ *p
 	}
 
 	// Spawn a detached subprocess — same mechanism as `wave run --detach`
+	// Concurrency is enforced atomically at CreateRunWithLimit in the callers.
 	if err := s.spawnDetachedRun(runID, pipelineName, input, opts, fromStep...); err != nil {
 		log.Printf("Error: failed to spawn detached run %s: %v — falling back to in-process", runID, err)
 		s.launchInProcess(runID, pipelineName, input, opts, fromStep...)

@@ -205,6 +205,7 @@ steps:
     dependencies: [synthesize]
     gate:
       type: approval
+      auto: true
       prompt: |
         Wave scope audit complete. Review the scope definition and audit synthesis outputs.
 

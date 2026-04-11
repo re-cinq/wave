@@ -259,7 +259,7 @@ steps:
   - id: review
     persona: philosopher
     model: strongest
-    dependencies: [breakdown]
+    dependencies: [breakdown, explore]
     memory:
       inject_artifacts:
         - step: explore

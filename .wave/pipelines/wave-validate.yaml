@@ -117,6 +117,21 @@ steps:
         - summary: string
         - timestamp: ISO 8601 timestamp
 
+        EXAMPLE OUTPUT:
+        ```json
+        {
+          "checks": {
+            "wave_yaml": {"status": "pass", "details": "...", "file_exists": true, "parses_valid": true, "has_required_keys": true},
+            "adapters": {"status": "pass", "details": "...", "adapter_count": 1, "adapter_names": ["claude"]},
+            "personas": {"status": "pass", "details": "...", "persona_count": 10, "persona_names": ["craftsman"]},
+            "pipelines": {"status": "pass", "details": "...", "pipeline_count": 70, "sample_valid": true}
+          },
+          "all_checks_passed": true,
+          "summary": "All configuration checks passed.",
+          "timestamp": "2026-04-10T23:20:17Z"
+        }
+        ```
+
         QUALITY BAR:
         A good configuration check is thorough: it reads actual files and verifies
         parsing, not just file existence. Each check failure includes a specific error
@@ -129,12 +144,13 @@ steps:
         type: json
     retry:
       policy: patient
-      max_attempts: 2
+      max_attempts: 3
+      timeout: 300s
     handover:
       contract:
         type: json_schema
         source: .wave/output/config-check.json
-        schema_path: .wave/contracts/hello-world-result.schema.json
+        schema_path: .wave/contracts/config-check.schema.json
         on_failure: retry
     edges:
       - target: sub-pipeline-test
@@ -221,10 +237,14 @@ steps:
       - name: diagnosis
         path: .wave/output/diagnosis.md
         type: markdown
+    retry:
+      policy: patient
+      max_attempts: 2
     handover:
       contract:
         type: non_empty_file
         source: .wave/output/diagnosis.md
+        on_failure: retry
     edges:
       - target: approval-gate
 
@@ -232,6 +252,7 @@ steps:
   - id: approval-gate
     gate:
       type: approval
+      auto: true
       prompt: "Approve validation report generation?"
       choices:
         - label: "Approve"
@@ -354,5 +375,5 @@ steps:
           - "Report covers all 8 feature categories"
           - "Each feature has a clear VERIFIED or UNTESTED status"
           - "Report is structured and readable"
-        threshold: 0.66
+        threshold: 0.80
         on_failure: continue
