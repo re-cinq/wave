@@ -431,7 +431,7 @@ func TestSequenceExecutor_ExecutePlan_ParallelFailFastFalse(t *testing.T) {
 
 	// Should return an error (partial failure)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrParallelStagePartialFailure)
+	assert.ErrorIs(t, err, errParallelStagePartialFailure)
 
 	// All 3 pipelines should have results
 	require.Len(t, result.PipelineResults, 3)
@@ -623,7 +623,7 @@ func TestSequenceExecutor_ExecutePlan_SequentialFailFastFalse(t *testing.T) {
 
 	result, err := seq.ExecutePlan(ctx, plan, m, "sequential-fail-fast-false test")
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrParallelStagePartialFailure)
+	assert.ErrorIs(t, err, errParallelStagePartialFailure)
 
 	// All 3 pipelines should have been attempted since fail-fast is false
 	require.Len(t, result.PipelineResults, 3)

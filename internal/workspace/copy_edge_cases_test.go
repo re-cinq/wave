@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/recinq/wave/internal/fileutil"
 )
 
 func TestCopyRecursive_LargeFileSkipped(t *testing.T) {
@@ -147,7 +149,7 @@ func TestCopyFile_SingleFile(t *testing.T) {
 	}
 
 	dstFile := filepath.Join(tmpDir, "dest.txt")
-	if err := copyFile(srcFile, dstFile); err != nil {
+	if err := fileutil.CopyFile(srcFile, dstFile); err != nil {
 		t.Fatalf("copyFile failed: %v", err)
 	}
 
@@ -162,7 +164,7 @@ func TestCopyFile_SingleFile(t *testing.T) {
 
 func TestCopyFile_SourceNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	err := copyFile(filepath.Join(tmpDir, "nonexistent"), filepath.Join(tmpDir, "dest"))
+	err := fileutil.CopyFile(filepath.Join(tmpDir, "nonexistent"), filepath.Join(tmpDir, "dest"))
 	if err == nil {
 		t.Error("expected error for non-existent source file")
 	}

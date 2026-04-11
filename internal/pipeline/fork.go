@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/recinq/wave/internal/fileutil"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -113,7 +114,7 @@ func (fm *ForkManager) copyArtifacts(checkpoint *state.CheckpointRecord, sourceR
 			dstPath = filepath.Join(".wave", "artifacts", newRunID, filepath.Base(srcPath))
 		}
 
-		if err := copyFile(srcPath, dstPath); err != nil {
+		if err := fileutil.CopyFile(srcPath, dstPath); err != nil {
 			return fmt.Errorf("failed to copy artifact %s: %w", srcPath, err)
 		}
 	}

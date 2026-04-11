@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/recinq/wave/internal/fileutil"
 )
 
 // ArtifactRef references an artifact from a previous step for injection
@@ -257,32 +259,13 @@ func copyRecursive(src, dst string) error {
 			if info.Size() > 10*1024*1024 {
 				return nil
 			}
-			return copyFile(path, targetPath)
+			return fileutil.CopyFile(path, targetPath)
 		})
 	}
 
-	return copyFile(src, dst)
+	return fileutil.CopyFile(src, dst)
 }
 
-func copyFile(src, dst string) error {
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer srcFile.Close()
-
-	dstFile, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer dstFile.Close()
-
-	if _, err := dstFile.ReadFrom(srcFile); err != nil {
-		return err
-	}
-
-	return dstFile.Sync()
-}
 
 func (wm *workspaceManager) CleanAll(root string) error {
 	if root == "" {

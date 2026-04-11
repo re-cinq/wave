@@ -17,20 +17,20 @@ import (
 )
 
 const (
-	DefaultMaxDepth       = 3
-	DefaultMaxTotalSteps  = 20
-	DefaultMaxTotalTokens = 500000
+	defaultMaxDepth       = 3
+	defaultMaxTotalSteps  = 20
+	defaultMaxTotalTokens = 500000
 
-	PhilosopherPersona = "philosopher"
-	NavigatorPersona   = "navigator"
+	philosopherPersona = "philosopher"
+	metaNavigatorPersona   = "navigator"
 )
 
 // MetaPipelineExecutor executes meta-pipelines that can generate and execute
 // child pipelines dynamically using a philosopher persona.
 type MetaPipelineExecutor struct {
+	emitterMixin
 	runner   adapter.AdapterRunner
 	registry *adapter.AdapterRegistry
-	emitter  event.EventEmitter
 	executor PipelineExecutor
 	loader   *YAMLPipelineLoader
 
@@ -266,7 +266,7 @@ func (e *MetaPipelineExecutor) invokePhilosopher(ctx context.Context, task strin
 
 // invokePhilosopherWithSchemas calls the philosopher persona to generate pipeline and schemas.
 func (e *MetaPipelineExecutor) invokePhilosopherWithSchemas(ctx context.Context, task string, m *manifest.Manifest) (*PipelineGenerationResult, int, error) {
-	persona := m.GetPersona(PhilosopherPersona)
+	persona := m.GetPersona(philosopherPersona)
 	if persona == nil {
 		return nil, 0, fmt.Errorf("philosopher persona not found in manifest")
 	}
@@ -299,7 +299,7 @@ func (e *MetaPipelineExecutor) invokePhilosopherWithSchemas(ctx context.Context,
 
 	cfg := adapter.AdapterRunConfig{
 		Adapter:       adapterDef.Binary,
-		Persona:       PhilosopherPersona,
+		Persona:       philosopherPersona,
 		WorkspacePath: metaWorkspace,
 		Prompt:        prompt,
 		Timeout:       e.getTimeout(m),
@@ -875,8 +875,8 @@ func ValidateGeneratedPipeline(p *Pipeline, opts ...ValidationOption) error {
 		return fmt.Errorf("failed to sort steps: %w", err)
 	}
 
-	if len(sortedSteps) > 0 && sortedSteps[0].Persona != NavigatorPersona {
-		return fmt.Errorf("first step must use %q persona, got %q", NavigatorPersona, sortedSteps[0].Persona)
+	if len(sortedSteps) > 0 && sortedSteps[0].Persona != metaNavigatorPersona {
+		return fmt.Errorf("first step must use %q persona, got %q", metaNavigatorPersona, sortedSteps[0].Persona)
 	}
 
 	// Semantic checks: contract, fresh memory, schemas, and manifest-aware persona validation
@@ -949,13 +949,13 @@ func (e *MetaPipelineExecutor) getMetaConfig(m *manifest.Manifest) manifest.Meta
 	config := m.Runtime.MetaPipeline
 
 	if config.MaxDepth == 0 {
-		config.MaxDepth = DefaultMaxDepth
+		config.MaxDepth = defaultMaxDepth
 	}
 	if config.MaxTotalSteps == 0 {
-		config.MaxTotalSteps = DefaultMaxTotalSteps
+		config.MaxTotalSteps = defaultMaxTotalSteps
 	}
 	if config.MaxTotalTokens == 0 {
-		config.MaxTotalTokens = DefaultMaxTotalTokens
+		config.MaxTotalTokens = defaultMaxTotalTokens
 	}
 
 	return config
@@ -1013,12 +1013,6 @@ func (e *MetaPipelineExecutor) getPipelineID() string {
 	return fmt.Sprintf("meta:%d", e.currentDepth)
 }
 
-// emit sends an event through the emitter if available.
-func (e *MetaPipelineExecutor) emit(ev event.Event) {
-	if e.emitter != nil {
-		e.emitter.Emit(ev)
-	}
-}
 
 // truncate shortens a string to the specified length.
 func truncate(s string, maxLen int) string {
@@ -1032,9 +1026,9 @@ func truncate(s string, maxLen int) string {
 // nested meta-pipelines with incremented depth.
 func (e *MetaPipelineExecutor) CreateChildMetaExecutor() *MetaPipelineExecutor {
 	child := &MetaPipelineExecutor{
+		emitterMixin:     emitterMixin{emitter: e.emitter},
 		runner:           e.runner,
 		registry:         e.registry,
-		emitter:          e.emitter,
 		executor:         e.executor,
 		loader:           e.loader,
 		currentDepth:     e.currentDepth + 1,
@@ -1059,16 +1053,7 @@ func ValidatePipelineYAML(data []byte) (*Pipeline, error) {
 		return nil, fmt.Errorf("invalid YAML syntax: %w", err)
 	}
 
-	if pipeline.Kind == "" {
-		pipeline.Kind = "WavePipeline"
-	}
-
-	// Default memory strategy to "fresh" (constitutional requirement)
-	for i := range pipeline.Steps {
-		if pipeline.Steps[i].Memory.Strategy == "" {
-			pipeline.Steps[i].Memory.Strategy = "fresh"
-		}
-	}
+	applyPipelineDefaults(&pipeline)
 
 	if pipeline.Kind != "WavePipeline" {
 		return nil, fmt.Errorf("invalid kind: expected WavePipeline, got %s", pipeline.Kind)
