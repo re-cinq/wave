@@ -162,6 +162,11 @@ type StateStore interface {
 	DeleteWebhook(id int64) error
 	RecordWebhookDelivery(delivery *WebhookDelivery) error
 	GetWebhookDeliveries(webhookID int64, limit int) ([]*WebhookDelivery, error)
+
+	// Pipeline outcome persistence (survives worktree cleanup)
+	RecordOutcome(runID, stepID, outcomeType, label, value string) error
+	GetOutcomes(runID string) ([]OutcomeRecord, error)
+	GetOutcomesByValue(outcomeType, value string) ([]OutcomeRecord, error)
 }
 
 // ListRetrosOptions specifies filters for listing retrospectives.
@@ -2768,6 +2773,56 @@ func (s *stateStore) GetWebhookDeliveries(webhookID int64, limit int) ([]*Webhoo
 		return nil, fmt.Errorf("error iterating webhook deliveries: %w", err)
 	}
 	return deliveries, nil
+}
+
+// RecordOutcome persists a pipeline outcome (PR URL, issue URL, etc.) in the state DB.
+// This survives worktree cleanup, unlike artifact files.
+func (s *stateStore) RecordOutcome(runID, stepID, outcomeType, label, value string) error {
+	_, err := s.db.Exec(
+		"INSERT INTO pipeline_outcome (run_id, step_id, type, label, value, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+		runID, stepID, outcomeType, label, value, time.Now().Unix(),
+	)
+	return err
+}
+
+// GetOutcomes returns all outcomes for a run.
+func (s *stateStore) GetOutcomes(runID string) ([]OutcomeRecord, error) {
+	rows, err := s.db.Query(
+		"SELECT id, run_id, step_id, type, label, value, created_at FROM pipeline_outcome WHERE run_id = ? ORDER BY created_at",
+		runID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanOutcomeRows(rows)
+}
+
+// GetOutcomesByValue finds runs that produced a specific outcome value (e.g., a PR URL).
+func (s *stateStore) GetOutcomesByValue(outcomeType, value string) ([]OutcomeRecord, error) {
+	rows, err := s.db.Query(
+		"SELECT id, run_id, step_id, type, label, value, created_at FROM pipeline_outcome WHERE type = ? AND value LIKE ? ORDER BY created_at DESC",
+		outcomeType, "%"+value+"%",
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanOutcomeRows(rows)
+}
+
+func scanOutcomeRows(rows *sql.Rows) ([]OutcomeRecord, error) {
+	var records []OutcomeRecord
+	for rows.Next() {
+		var r OutcomeRecord
+		var createdAt int64
+		if err := rows.Scan(&r.ID, &r.RunID, &r.StepID, &r.Type, &r.Label, &r.Value, &createdAt); err != nil {
+			return nil, err
+		}
+		r.CreatedAt = time.Unix(createdAt, 0)
+		records = append(records, r)
+	}
+	return records, rows.Err()
 }
 
 // scanWebhookRow scans a single webhook row.

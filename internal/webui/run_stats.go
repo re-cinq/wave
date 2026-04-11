@@ -76,12 +76,15 @@ func extractIssueNumber(input string) int {
 }
 
 // enrichPRSummariesWithRuns adds Wave pipeline run stats to PR summaries.
-// PRs match by /pull/<N> URL, branch name, or short-form "owner/repo <N>".
-func enrichPRSummariesWithRuns(summaries []PRSummary, runs []state.RunRecord) {
+// PRs match by /pull/<N> URL, branch name, short-form "owner/repo <N>",
+// or outcome records (persisted PR URLs from pipeline outputs).
+func enrichPRSummariesWithRuns(summaries []PRSummary, runs []state.RunRecord, store state.StateStore) {
 	// Map by number (from URL/short-form) and by branch name
 	numMap := make(map[int][]state.RunRecord)
 	branchMap := make(map[string][]state.RunRecord)
+	runByID := make(map[string]state.RunRecord)
 	for _, run := range runs {
+		runByID[run.RunID] = run
 		if run.Input != "" {
 			if num := extractIssueNumber(run.Input); num > 0 {
 				numMap[num] = append(numMap[num], run)
@@ -93,7 +96,7 @@ func enrichPRSummariesWithRuns(summaries []PRSummary, runs []state.RunRecord) {
 	}
 
 	for i := range summaries {
-		// Deduplicate: collect unique run IDs from both sources
+		// Deduplicate: collect unique run IDs from all sources
 		seen := make(map[string]bool)
 		var matching []state.RunRecord
 		for _, r := range numMap[summaries[i].Number] {
@@ -107,6 +110,20 @@ func enrichPRSummariesWithRuns(summaries []PRSummary, runs []state.RunRecord) {
 				if !seen[r.RunID] {
 					seen[r.RunID] = true
 					matching = append(matching, r)
+				}
+			}
+		}
+		// Check persisted outcomes for runs that produced this PR URL
+		if store != nil {
+			prPattern := fmt.Sprintf("/pull/%d", summaries[i].Number)
+			if outcomes, err := store.GetOutcomesByValue("pr", prPattern); err == nil {
+				for _, o := range outcomes {
+					if !seen[o.RunID] {
+						if run, ok := runByID[o.RunID]; ok {
+							seen[o.RunID] = true
+							matching = append(matching, run)
+						}
+					}
 				}
 			}
 		}
