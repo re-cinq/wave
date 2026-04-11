@@ -39,7 +39,7 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 		},
 	}
 	pages := map[string]string{
-		"templates/runs.html":           `<html><body><nav>{{if eq .ActivePage "runs"}}<a class="nav-link-active">Runs</a>{{end}}</nav>{{range .Runs}}<div>{{.RunID}}</div>{{end}}</body></html>`,
+		"templates/runs.html":           `<html><body><nav>{{if eq .ActivePage "runs"}}<a class="nav-link-active">Runs</a>{{end}}</nav><div class="rp-section"><span class="rp-badge">{{.RunningCount}}</span>{{if eq .RunningCount 0}}<div class="rp-empty"><a href="/pipelines">Start a pipeline</a></div>{{else}}{{range .RunningRuns}}<a href="/runs/{{.RunID}}" class="wr-run"><span>{{.PipelineName}}</span></a>{{end}}{{end}}</div>{{range .Runs}}<div>{{.RunID}}</div>{{end}}</body></html>`,
 		"templates/run_detail.html":     `<html><body><nav>{{if eq .ActivePage "runs"}}<a class="nav-link-active">Runs</a>{{end}}</nav><div>{{.Run.RunID}}</div></body></html>`,
 		"templates/personas.html":       `<html><body>{{range .Personas}}<div>{{.Name}}</div>{{end}}</body></html>`,
 		"templates/pipelines.html":      `<html><body>{{range .Pipelines}}<div>{{.Name}}</div>{{end}}</body></html>`,
