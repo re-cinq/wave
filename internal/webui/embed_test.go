@@ -266,7 +266,8 @@ func TestFormatTimeISO(t *testing.T) {
 
 func TestParseTemplates(t *testing.T) {
 	tmpl, err := parseTemplates(template.FuncMap{
-		"csrfToken": func() string { return "test-token" },
+		"csrfToken":      func() string { return "test-token" },
+		"featureEnabled": func(name string) bool { return true },
 	})
 	if err != nil {
 		t.Fatalf("parseTemplates() error: %v", err)
