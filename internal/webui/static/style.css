@@ -2832,7 +2832,7 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-config code { padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.72rem; background: var(--color-bg-secondary); color: var(--color-text); }
 
 /* ── Row 2: I/O ── */
-.ws-io { display: flex; gap: 0.5rem; padding: 0.12rem var(--ws-pad-x) var(--ws-pad-y-bot); font-size: 0.78rem; flex-wrap: wrap; align-items: center; }
+.ws-io { display: flex; gap: 0.5rem; padding: 0.12rem var(--ws-pad-x) var(--ws-pad-y-bot); font-size: 0.78rem; flex-wrap: wrap; align-items: baseline; }
 .ws-io-in, .ws-io-out { display: flex; gap: 0.3rem; align-items: baseline; }
 .ws-io-out { padding-left: 0.6rem; border-left: 1px solid rgba(100,116,139,0.25); }
 .ws-io-lbl { color: var(--color-text-muted); font-weight: 700; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.03em; font-family: var(--font-mono); flex-shrink: 0; }
@@ -2841,10 +2841,10 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-io-click.active { color: var(--color-text); }
 .ws-io-val { color: var(--color-text-secondary); font-size: 0.75rem; }
 .ws-io-sep { width: 1px; height: 0.8em; background: rgba(100,116,139,0.25); flex-shrink: 0; align-self: center; }
-/* Tabs inside I/O row: plain text links matching io-val style */
-.ws-io .w-tab { padding: 0; margin: 0; font-size: 0.75rem; font-family: inherit; color: var(--color-text-secondary); text-decoration: none; transition: color 0.1s; }
-.ws-io .w-tab:hover { color: var(--color-text); }
-.ws-io .w-tab.active { color: var(--color-text); }
+/* Tabs inside I/O row: plain text links matching io-val style, no background */
+.ws-io .w-tab { padding: 0; margin: 0; font-size: 0.75rem; font-family: inherit; color: var(--color-text-secondary); text-decoration: none; background: none; transition: color 0.1s; }
+.ws-io .w-tab:hover { color: var(--color-text); background: none; }
+.ws-io .w-tab.active { color: var(--color-text); background: none; }
 
 /* ── Step tab bar (artifacts + logs, unified) ── */
 .ws-tabs { display: flex; gap: 0.3rem; padding: 0; margin: 0; align-items: center; overflow-x: auto; }
