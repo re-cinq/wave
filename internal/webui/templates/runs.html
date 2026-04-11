@@ -8,7 +8,6 @@
 <!-- Filters bar -->
 <div class="wr-toolbar">
     <div class="wr-filters">
-        <a href="/runs?status=running" class="wr-filter{{if eq .FilterStatus "running"}} active{{end}}">Running</a>
         <a href="/runs?status=completed" class="wr-filter{{if eq .FilterStatus "completed"}} active{{end}}">Completed</a>
         <a href="/runs?status=failed" class="wr-filter{{if eq .FilterStatus "failed"}} active{{end}}">Failed</a>
         <a href="/runs?status=cancelled" class="wr-filter{{if eq .FilterStatus "cancelled"}} active{{end}}">Cancelled</a>
@@ -29,13 +28,13 @@
 
 <!-- Running pipelines section -->
 <div class="rp-section">
-  <div class="rp-header" role="button" tabindex="0"
-       aria-expanded="true" aria-controls="rp-section-body"
+  <div class="rp-header{{if gt .RunningCount 0}} rp-header-clickable{{end}}"
+       {{if gt .RunningCount 0}}role="button" tabindex="0" aria-expanded="true" aria-controls="rp-section-body"
        onclick="toggleRunningSection()"
-       onkeydown="if(event.key==='Enter'||event.key===' '){toggleRunningSection();event.preventDefault()}">
+       onkeydown="if(event.key==='Enter'||event.key===' '){toggleRunningSection();event.preventDefault()}"{{end}}>
     <span class="rp-label">Running</span>
     <span class="rp-badge">{{.RunningCount}}</span>
-    <span class="rp-chevron">▾</span>
+    {{if gt .RunningCount 0}}<span class="rp-chevron">▾</span>{{end}}
   </div>
   <div id="rp-section-body" class="rp-body">
     {{if eq .RunningCount 0}}
@@ -141,14 +140,24 @@
 {{end}}
 {{define "scripts"}}
 <script>
+var RP_KEY = 'wave.rp.collapsed';
 function toggleRunningSection() {
     var section = document.querySelector('.rp-section');
     var header = section.querySelector('.rp-header');
-    var body = document.getElementById('rp-section-body');
-    var expanded = header.getAttribute('aria-expanded') === 'true';
-    header.setAttribute('aria-expanded', String(!expanded));
-    section.classList.toggle('collapsed', expanded);
+    var collapsed = section.classList.toggle('collapsed');
+    header.setAttribute('aria-expanded', String(!collapsed));
+    try { localStorage.setItem(RP_KEY, collapsed ? '1' : '0'); } catch(e) {}
 }
+(function(){
+    try {
+        if (localStorage.getItem(RP_KEY) === '1') {
+            var section = document.querySelector('.rp-section');
+            var header = section && section.querySelector('.rp-header');
+            if (section) { section.classList.add('collapsed'); }
+            if (header) { header.setAttribute('aria-expanded', 'false'); }
+        }
+    } catch(e) {}
+})();
 // Client-side search filter for run cards
 function filterRuns(query) {
     var q = query.toLowerCase().trim();
