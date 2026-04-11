@@ -21,8 +21,8 @@ func TestPhantomRunRecords_DetachWithFromStep(t *testing.T) {
 	// Test for issue #700: --from-step with --detach creates 3 phantom run records
 	// This test should be run with a clean state database
 
-	// Clean up any existing state
-	cleanupTestState(t)
+	// Register cleanup via t.Cleanup so state is always removed even on test failure
+	t.Cleanup(func() { cleanupTestState(t) })
 
 	// Create a simple test pipeline
 	testPipeline := `
@@ -123,8 +123,6 @@ runtime:
 		"Expected only 1 new pipeline run record, but found %d extra records (initial: %d, final: %d)",
 		len(finalCount)-len(initialCount), len(initialCount), len(finalCount))
 
-	// Clean up
-	cleanupTestState(t)
 }
 
 func cleanupTestState(t *testing.T) {

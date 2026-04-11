@@ -340,15 +340,9 @@ func runRun(opts RunOptions, debug bool) error {
 	// subprocess path and TUI subprocesses, regardless of whether --from-step is also set),
 	// or prefer CreateRun() so CLI runs appear in the dashboard.
 	// Falls back to GenerateRunID() if the state store is unavailable.
-	var runID string
-	if opts.RunID != "" {
-		// Pre-created run ID (from --detach subprocess or TUI) — always reuse it.
-		runID = opts.RunID
-	} else if store != nil {
-		runID, err = store.CreateRun(p.Metadata.Name, opts.Input)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to create run record: %v\n", err)
-		}
+	runID, resolveIDErr := resolveRunID(opts.RunID, store, p.Metadata.Name, opts.Input)
+	if resolveIDErr != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to create run record: %v\n", resolveIDErr)
 	}
 	if runID == "" {
 		runID = pipeline.GenerateRunID(p.Metadata.Name, m.Runtime.PipelineIDHashLength)
@@ -858,6 +852,24 @@ func buildDetachEnv() []string {
 		}
 	}
 	return env
+}
+
+// resolveRunID selects or creates the run ID for a pipeline execution.
+// When runIDOpt is non-empty (set via --run by the --detach subprocess or TUI),
+// it is always reused regardless of whether --from-step is also set — preventing
+// a second CreateRun call and the phantom run records reported in issue #700.
+// When a state store is available and no run ID was pre-created, CreateRun is
+// called so the run is visible in the dashboard.
+// Returns ("", nil) when neither source yields an ID; the caller should then
+// fall back to GenerateRunID.
+func resolveRunID(runIDOpt string, store state.StateStore, pipelineName, input string) (string, error) {
+	if runIDOpt != "" {
+		return runIDOpt, nil
+	}
+	if store != nil {
+		return store.CreateRun(pipelineName, input)
+	}
+	return "", nil
 }
 
 func loadPipeline(name string, _ *manifest.Manifest) (*pipeline.Pipeline, error) {
