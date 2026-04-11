@@ -216,7 +216,7 @@ func parsePageNumber2(s string) int {
 	return n
 }
 
-const issuesPerPage = 50
+const issuesPerPage = 10
 
 func (s *Server) getIssueListData(stateFilter string, page int) IssueListResponse {
 	if s.forgeClient == nil || s.repoSlug == "" {
