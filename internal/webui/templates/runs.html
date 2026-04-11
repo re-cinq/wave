@@ -106,9 +106,10 @@
                 </span>
             </div>
             <div class="wr-row2">
-                {{if gt .StepsTotal 0}}<span>{{.StepsCompleted}}/{{.StepsTotal}}</span>{{end}}
+                {{if gt .StepsTotal 0}}<span>{{.StepsCompleted}}/{{.StepsTotal}} steps</span>{{end}}
+                {{if .TotalTokens}}<span>{{formatTokens .TotalTokens}} tok</span>{{end}}
                 {{range .Models}}<span class="badge badge-model {{modelTierClass .}}">{{friendlyModel .}}</span>{{end}}
-                {{if .TotalTokens}}<span>{{formatTokens .TotalTokens}}</span>{{end}}
+                {{range .Adapters}}<span class="badge badge-adapter">{{.}}</span>{{end}}
                 <span class="wr-right">
                     <span class="wr-date">{{.FormattedStartedAt}}</span>
                 </span>
