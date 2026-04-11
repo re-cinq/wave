@@ -880,6 +880,105 @@ steps:
 	}
 }
 
+// TestHandleRunsPage_RunningSection_Populated verifies that a running run
+// appears in the rp-section with the correct count badge and a link to the run.
+func TestHandleRunsPage_RunningSection_Populated(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	runID, err := rwStore.CreateRun("test-pipeline", "input")
+	if err != nil {
+		t.Fatalf("failed to create run: %v", err)
+	}
+	if err := rwStore.UpdateRunStatus(runID, "running", "", 0); err != nil {
+		t.Fatalf("failed to update run status: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/runs", nil)
+	rec := httptest.NewRecorder()
+	srv.handleRunsPage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "rp-section") {
+		t.Error("expected rp-section in response body")
+	}
+	if !strings.Contains(body, "rp-badge") {
+		t.Error("expected rp-badge in response body")
+	}
+	if !strings.Contains(body, `href="/runs/`+runID+`"`) {
+		t.Errorf("expected link to run %q in response body", runID)
+	}
+}
+
+// TestHandleRunsPage_RunningSection_Empty verifies that the empty-state CTA
+// is shown when no pipelines are running.
+func TestHandleRunsPage_RunningSection_Empty(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	// Create a completed run — should not appear in running section
+	runID, _ := rwStore.CreateRun("test-pipeline", "input")
+	if err := rwStore.UpdateRunStatus(runID, "completed", "", 0); err != nil {
+		t.Fatalf("failed to update run status: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/runs", nil)
+	rec := httptest.NewRecorder()
+	srv.handleRunsPage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "rp-empty") {
+		t.Error("expected rp-empty class when no running pipelines")
+	}
+	if !strings.Contains(body, `href="/pipelines"`) {
+		t.Error("expected CTA link to /pipelines in empty state")
+	}
+}
+
+// TestHandleRunsPage_RunningSection_FilterRespected verifies that the pipeline
+// filter query parameter is applied to the running section (FR-008).
+func TestHandleRunsPage_RunningSection_FilterRespected(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	run1ID, err := rwStore.CreateRun("pipeline-alpha", "input")
+	if err != nil {
+		t.Fatalf("failed to create run1: %v", err)
+	}
+	if err := rwStore.UpdateRunStatus(run1ID, "running", "", 0); err != nil {
+		t.Fatalf("failed to update run1 status: %v", err)
+	}
+
+	run2ID, err := rwStore.CreateRun("pipeline-beta", "input")
+	if err != nil {
+		t.Fatalf("failed to create run2: %v", err)
+	}
+	if err := rwStore.UpdateRunStatus(run2ID, "running", "", 0); err != nil {
+		t.Fatalf("failed to update run2 status: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/runs?pipeline=pipeline-alpha", nil)
+	rec := httptest.NewRecorder()
+	srv.handleRunsPage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, `href="/runs/`+run1ID+`"`) {
+		t.Errorf("expected link to run1 %q for pipeline-alpha filter", run1ID)
+	}
+	if strings.Contains(body, `href="/runs/`+run2ID+`"`) {
+		t.Errorf("did not expect link to run2 %q when filtered to pipeline-alpha", run2ID)
+	}
+}
+
 func TestFormatSmartTime(t *testing.T) {
 	now := time.Now()
 	tests := []struct {

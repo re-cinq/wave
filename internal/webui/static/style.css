@@ -3125,6 +3125,22 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 /* Empty state */
 .wr-empty { text-align: center; padding: 2rem; color: var(--color-text-muted); font-size: 0.85rem; }
 
+/* ── Running Pipelines Section ── */
+.rp-section { margin-bottom: 0.6rem; }
+.rp-header { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; padding: 0.25rem 0.4rem; border-radius: 4px; user-select: none; }
+.rp-header:hover { background: var(--color-bg-tertiary); }
+.rp-label { font-size: 0.78rem; font-weight: 700; color: var(--color-text-secondary); }
+.rp-badge { display: inline-block; padding: 0.1em 0.5em; font-size: 0.7rem; font-weight: 600; border-radius: 2em; line-height: 1.4; background: var(--color-running-bg); color: var(--color-running); }
+.rp-chevron { font-size: 0.75rem; color: var(--color-text-muted); transition: transform 0.2s ease; margin-left: auto; }
+.rp-body { display: block; }
+.rp-runs { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.3rem; }
+.rp-empty { display: flex; flex-direction: column; align-items: center; padding: 1rem; color: var(--color-text-muted); font-size: 0.82rem; gap: 0.4rem; }
+.rp-empty p { margin: 0; }
+.rp-cta { padding: 0.25rem 0.8rem; border-radius: 4px; font-size: 0.75rem; color: var(--color-link); border: 1px solid rgba(99,102,241,0.3); background: rgba(99,102,241,0.06); cursor: pointer; text-decoration: none; transition: background 0.15s; }
+.rp-cta:hover { background: rgba(99,102,241,0.12); }
+.rp-section.collapsed .rp-body { display: none; }
+.rp-section.collapsed .rp-chevron { transform: rotate(-90deg); }
+
 /* ── Load More Button ── */
 .wr-load-more { text-align: center; padding: 0.6rem; }
 .wr-load-more button {

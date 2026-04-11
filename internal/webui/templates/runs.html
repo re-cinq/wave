@@ -27,6 +27,52 @@
     </div>
 </div>
 
+<!-- Running pipelines section -->
+<div class="rp-section">
+  <div class="rp-header" role="button" tabindex="0"
+       aria-expanded="true" aria-controls="rp-section-body"
+       onclick="toggleRunningSection()"
+       onkeydown="if(event.key==='Enter'||event.key===' '){toggleRunningSection();event.preventDefault()}">
+    <span class="rp-label">Running</span>
+    <span class="rp-badge">{{.RunningCount}}</span>
+    <span class="rp-chevron">▾</span>
+  </div>
+  <div id="rp-section-body" class="rp-body">
+    {{if eq .RunningCount 0}}
+    <div class="rp-empty">
+      <p>No pipelines running</p>
+      <a href="/pipelines" class="rp-cta">Start a pipeline →</a>
+    </div>
+    {{else}}
+    <div class="rp-runs">
+    {{range .RunningRuns}}
+      <a href="/runs/{{.RunID}}" class="wr-run">
+        <div class="wr-accent st-{{.Status}}"></div>
+        <div class="wr-body">
+          <div class="wr-row1">
+            <span class="wr-name">{{.PipelineName}}</span>
+            {{if .InputPreview}}<span class="wr-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
+            <span class="wr-right">
+              <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
+              {{if .Duration}}<span class="wr-dur">{{.Duration}}</span>{{end}}
+            </span>
+          </div>
+          <div class="wr-row2">
+            {{if gt .StepsTotal 0}}<span>{{.StepsCompleted}}/{{.StepsTotal}}</span>{{end}}
+            {{range .Models}}<span class="badge badge-model {{modelTierClass .}}">{{friendlyModel .}}</span>{{end}}
+            {{if .TotalTokens}}<span>{{formatTokens .TotalTokens}}</span>{{end}}
+            <span class="wr-right">
+              <span class="wr-date">{{.FormattedStartedAt}}</span>
+            </span>
+          </div>
+        </div>
+      </a>
+    {{end}}
+    </div>
+    {{end}}
+  </div>
+</div>
+
 <!-- Run list -->
 <div class="wr-list" id="run-list">
 {{if .Runs}}
@@ -95,6 +141,14 @@
 {{end}}
 {{define "scripts"}}
 <script>
+function toggleRunningSection() {
+    var section = document.querySelector('.rp-section');
+    var header = section.querySelector('.rp-header');
+    var body = document.getElementById('rp-section-body');
+    var expanded = header.getAttribute('aria-expanded') === 'true';
+    header.setAttribute('aria-expanded', String(!expanded));
+    section.classList.toggle('collapsed', expanded);
+}
 // Client-side search filter for run cards
 function filterRuns(query) {
     var q = query.toLowerCase().trim();
