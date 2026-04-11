@@ -22,14 +22,14 @@ defineProps({
 
 <style scoped>
 .terminal-output {
-  background: #1a1a2e;
+  background: #0F1F49;
   border-radius: 8px;
   overflow: hidden;
   margin: 1rem 0;
   font-family: var(--wave-font-mono, 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace);
 }
 .terminal-header {
-  background: #2d2d44;
+  background: #162050;
   padding: 8px 12px;
   display: flex;
   gap: 6px;
@@ -45,7 +45,7 @@ defineProps({
 .terminal-content {
   padding: 12px 16px;
   margin: 0;
-  color: #a9b1d6;
+  color: #C0C8E8;
   font-size: 13px;
   line-height: 1.6;
 }
