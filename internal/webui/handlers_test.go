@@ -225,7 +225,7 @@ func TestHandleAPIRuns_StatusFilter(t *testing.T) {
 func TestHandleAPIRuns_Pagination(t *testing.T) {
 	srv, rwStore := testServer(t)
 
-	// Create 30 runs (more than default page size of 25)
+	// Create 30 runs (more than default page size of 20)
 	for i := 0; i < 30; i++ {
 		if _, err := rwStore.CreateRun("test-pipeline", "input"); err != nil {
 			t.Fatalf("failed to create run: %v", err)
@@ -252,8 +252,8 @@ func TestHandleAPIRuns_Pagination(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	if len(resp.Runs) != 25 {
-		t.Errorf("expected 25 runs (page size), got %d", len(resp.Runs))
+	if len(resp.Runs) != 20 {
+		t.Errorf("expected 20 runs (page size), got %d", len(resp.Runs))
 	}
 	if !resp.HasMore {
 		t.Error("expected HasMore to be true")
