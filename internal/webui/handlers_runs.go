@@ -208,6 +208,33 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		pipelines = append(pipelines, name)
 	}
 
+	// Query running runs for the running-pipelines section (FR-008: filter applied)
+	runningRecs, err := s.store.ListRuns(state.ListRunsOptions{
+		Status:       "running",
+		PipelineName: pipelineFilter,
+		Limit:        0,
+	})
+	if err != nil {
+		log.Printf("[webui] failed to list running runs: %v", err)
+		runningRecs = nil
+	}
+	runningRuns := make([]RunSummary, 0)
+	for _, rec := range runningRecs {
+		if rec.ParentRunID != "" {
+			continue // exclude child runs
+		}
+		runningRuns = append(runningRuns, runToSummary(rec))
+	}
+	s.enrichRunSummaries(runningRuns, func() []state.RunRecord {
+		var top []state.RunRecord
+		for _, rec := range runningRecs {
+			if rec.ParentRunID == "" {
+				top = append(top, rec)
+			}
+		}
+		return top
+	}())
+
 	data := struct {
 		ActivePage     string
 		Runs           []RunSummary
@@ -216,6 +243,8 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		Pipelines      []string
 		FilterStatus   string
 		FilterPipeline string
+		RunningRuns    []RunSummary
+		RunningCount   int
 	}{
 		ActivePage:     "runs",
 		Runs:           summaries,
@@ -224,6 +253,8 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		Pipelines:      pipelines,
 		FilterStatus:   status,
 		FilterPipeline: pipelineFilter,
+		RunningRuns:    runningRuns,
+		RunningCount:   len(runningRuns),
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
