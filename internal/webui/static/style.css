@@ -105,9 +105,7 @@
     --color-shadow: rgba(0, 0, 0, 0.08);
 }
 
-/* System preference: disabled — always default to dark mode.
-   Light mode is only activated via explicit [data-theme="light"]. */
-/*
+/* System preference: apply light vars when no explicit theme set */
 @media (prefers-color-scheme: light) {
     :root:not([data-theme]) {
         --wave-primary: #4f46e5;
@@ -151,7 +149,6 @@
         --color-shadow: rgba(0, 0, 0, 0.08);
     }
 }
-*/
 
 /* Reset */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
