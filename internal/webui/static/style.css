@@ -79,8 +79,8 @@
     --color-link-hover: #4338ca;
     --color-completed: #16a34a;
     --color-completed-bg: rgba(22, 163, 74, 0.1);
-    --color-running: #4f46e5;
-    --color-running-bg: rgba(79, 70, 229, 0.1);
+    --color-running: #6366f1;
+    --color-running-bg: rgba(99, 102, 241, 0.12);
     --color-failed: #dc2626;
     --color-failed-bg: rgba(220, 38, 38, 0.1);
     --color-cancelled: #64748b;
@@ -123,8 +123,8 @@
         --color-link-hover: #4338ca;
         --color-completed: #16a34a;
         --color-completed-bg: rgba(22, 163, 74, 0.1);
-        --color-running: #4f46e5;
-        --color-running-bg: rgba(79, 70, 229, 0.1);
+        --color-running: #6366f1;
+        --color-running-bg: rgba(99, 102, 241, 0.12);
         --color-failed: #dc2626;
         --color-failed-bg: rgba(220, 38, 38, 0.1);
         --color-cancelled: #64748b;
