@@ -63,14 +63,27 @@ func (s *Server) handlePipelinesPage(w http.ResponseWriter, r *http.Request) {
 		return pipelines[i].Name < pipelines[j].Name
 	})
 
+	// Top frequent pipelines (run count > 0, capped at 8)
+	var frequent []PipelineSummary
+	for _, p := range pipelines {
+		if p.RunCount > 0 {
+			frequent = append(frequent, p)
+			if len(frequent) >= 8 {
+				break
+			}
+		}
+	}
+
 	data := struct {
-		ActivePage string
-		Pipelines  []PipelineSummary
-		Categories []string
+		ActivePage         string
+		Pipelines          []PipelineSummary
+		Categories         []string
+		FrequentPipelines  []PipelineSummary
 	}{
-		ActivePage: "pipelines",
-		Pipelines:  pipelines,
-		Categories: catList,
+		ActivePage:        "pipelines",
+		Pipelines:         pipelines,
+		Categories:        catList,
+		FrequentPipelines: frequent,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

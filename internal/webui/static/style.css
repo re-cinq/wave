@@ -56,7 +56,7 @@
     /* Step shape layout tokens */
     --ws-pad-x: 0.55rem;       /* horizontal content padding inside step shapes */
     --ws-pad-y-top: 0.25rem;   /* top padding for step row1 */
-    --ws-pad-y-bot: 0.2rem;    /* bottom padding for step I/O row */
+    --ws-pad-y-bot: 0.25rem;   /* bottom padding for step I/O row */
     --ws-gap: 0.3rem;          /* gap between items in step rows */
     --ws-tab-pad-y: 0.4rem;    /* vertical padding for tab buttons */
     --ws-tab-pad-right: 0.75rem; /* right padding for tab buttons */
@@ -3064,9 +3064,9 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 /* Filter bar */
 .wr-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; gap: 0.5rem; flex-wrap: wrap; }
 .wr-filters { display: flex; gap: 0.3rem; align-items: center; flex-wrap: wrap; }
-.wr-filter { padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.72rem; color: var(--color-text-muted); border: 1px solid var(--color-border); background: none; cursor: pointer; text-decoration: none; }
-.wr-filter:hover { background: var(--color-bg-tertiary); color: var(--color-text-secondary); }
-.wr-filter.active { background: var(--color-running-bg); border-color: rgba(99,102,241,0.3); color: var(--color-link-hover); }
+.wr-filter { padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.72rem; font-weight: 500; color: var(--color-text-muted); border: none; background: none; cursor: pointer; text-decoration: none; transition: color 0.15s; }
+.wr-filter:hover { color: var(--color-text-secondary); }
+.wr-filter.active { background: var(--color-bg-tertiary); color: var(--color-text-primary); font-weight: 600; }
 .wr-controls { display: flex; gap: 0.3rem; align-items: center; }
 .wr-select { padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.72rem; color: var(--color-text-secondary); border: 1px solid var(--color-border); background: var(--color-bg-tertiary); cursor: pointer; font-family: var(--font-sans); max-width: 220px; }
 .wr-select:focus { border-color: var(--wave-primary); outline: none; }
@@ -3095,6 +3095,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 .wr-accent.st-running { background: var(--color-running); }
 .wr-accent.st-pending { background: var(--color-border); }
 .wr-accent.st-cancelled { background: var(--color-border); }
+.wr-accent.st-defined { background: var(--wave-primary); opacity: 0.4; }
 
 /* Main content area */
 .wr-body { padding: 0.4rem 0.6rem; min-width: 0; }
@@ -3124,6 +3125,42 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 
 /* Empty state */
 .wr-empty { text-align: center; padding: 2rem; color: var(--color-text-muted); font-size: 0.85rem; }
+
+/* ── Running Pipelines Section ── */
+.rp-section { margin-bottom: 0.75rem; background: var(--color-bg-primary); border-radius: 5px; border: 1px solid var(--color-border); overflow: hidden; }
+.rp-header { display: flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.5rem; user-select: none; border-bottom: 1px solid transparent; }
+.rp-section:not(.collapsed) .rp-header { border-bottom-color: var(--color-border); }
+.rp-header-clickable { cursor: pointer; }
+.rp-header-clickable:hover { background: var(--color-bg-tertiary); }
+.rp-label { font-size: 0.78rem; font-weight: 700; color: var(--color-text-secondary); }
+.rp-badge { display: inline-block; padding: 0.1em 0.5em; font-size: 0.7rem; font-weight: 600; border-radius: 2em; line-height: 1.4; background: var(--color-running-bg); color: var(--color-running); }
+.rp-chevron { font-size: 0.75rem; color: var(--color-text-muted); transition: transform 0.2s ease; margin-left: auto; }
+.rp-body { display: block; padding: 0.35rem 0.5rem 0.5rem; }
+.rp-runs { display: flex; flex-direction: column; gap: 0.35rem; }
+.rp-empty { display: flex; flex-direction: column; align-items: center; padding: 0.75rem; color: var(--color-text-muted); font-size: 0.82rem; gap: 0.4rem; }
+.rp-empty p { margin: 0; }
+.rp-cta { padding: 0.25rem 0.8rem; border-radius: 4px; font-size: 0.75rem; color: var(--color-link); border: 1px solid rgba(99,102,241,0.3); background: rgba(99,102,241,0.06); cursor: pointer; text-decoration: none; transition: background 0.15s; }
+.rp-cta:hover { background: rgba(99,102,241,0.12); }
+.rp-section.collapsed .rp-body { display: none; }
+.rp-section.collapsed .rp-chevron { transform: rotate(-90deg); }
+
+/* ── Pipelines page ── */
+.wr-search { padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.72rem; color: var(--color-text-secondary); border: 1px solid var(--color-border); background: var(--color-bg-tertiary); font-family: var(--font-sans); width: 180px; }
+.wr-count { font-size: 0.72rem; color: var(--color-text-muted); }
+.pl-desc { color: var(--color-text-secondary); font-size: 0.78rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 48rem; }
+.pl-meta { color: var(--color-text-muted); font-size: 0.72rem; }
+.pl-run-btn { font-size: 0.65rem; padding: 0.1rem 0.35rem; opacity: 0.7; }
+.badge-composition { font-size: 0.65rem; background: rgba(139,92,246,0.12); color: #c4b5fd; }
+.badge-category { font-size: 0.65rem; background: rgba(99,102,241,0.12); color: #a5b4fc; }
+.badge-disabled { font-size: 0.65rem; background: rgba(239,68,68,0.1); color: #fca5a5; }
+.badge-skill { font-size: 0.65rem; background: rgba(34,211,238,0.1); color: #67e8f9; }
+
+/* Compact frequent pipeline list */
+.fp-list { display: flex; flex-direction: column; }
+.fp-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.5rem; text-decoration: none; color: inherit; border-bottom: 1px solid var(--color-border); transition: background 0.1s; }
+.fp-row:last-child { border-bottom: none; }
+.fp-row:hover { background: var(--color-bg-tertiary); text-decoration: none; color: inherit; }
+.fp-stat { font-size: 0.68rem; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
 
 /* ── Load More Button ── */
 .wr-load-more { text-align: center; padding: 0.6rem; }
