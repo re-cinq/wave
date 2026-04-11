@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/state"
@@ -470,4 +471,69 @@ func (s *Server) handlePRReview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "event": req.Event})
+}
+
+// handleAPIStartFromPR handles POST /api/prs/start - launches a pipeline from a PR.
+func (s *Server) handleAPIStartFromPR(w http.ResponseWriter, r *http.Request) {
+	var req StartPRRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.PRURL == "" || req.PipelineName == "" {
+		writeJSONError(w, http.StatusBadRequest, "pr_url and pipeline_name are required")
+		return
+	}
+
+	// Validate mutual exclusions
+	if req.Continuous && req.FromStep != "" {
+		writeJSONError(w, http.StatusBadRequest, "--continuous and --from-step are mutually exclusive")
+		return
+	}
+	if req.OnFailure != "" && req.OnFailure != "halt" && req.OnFailure != "skip" {
+		writeJSONError(w, http.StatusBadRequest, "on_failure must be 'halt' or 'skip'")
+		return
+	}
+
+	pl, err := loadPipelineYAML(req.PipelineName)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, "pipeline not found: "+req.PipelineName)
+		return
+	}
+
+	runID, err := s.rwStore.CreateRun(req.PipelineName, req.PRURL)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to create run: "+err.Error())
+		return
+	}
+
+	opts := RunOptions{
+		Model:         req.Model,
+		Adapter:       req.Adapter,
+		DryRun:        req.DryRun,
+		FromStep:      req.FromStep,
+		Force:         req.Force,
+		Detach:        req.Detach,
+		Timeout:       req.Timeout,
+		Steps:         req.Steps,
+		Exclude:       req.Exclude,
+		OnFailure:     req.OnFailure,
+		Continuous:    req.Continuous,
+		Source:        req.Source,
+		MaxIterations: req.MaxIterations,
+		Delay:         req.Delay,
+	}
+
+	if req.FromStep != "" {
+		s.launchPipelineExecution(runID, req.PipelineName, req.PRURL, pl, opts, req.FromStep)
+	} else {
+		s.launchPipelineExecution(runID, req.PipelineName, req.PRURL, pl, opts)
+	}
+
+	writeJSON(w, http.StatusCreated, StartPipelineResponse{
+		RunID:        runID,
+		PipelineName: req.PipelineName,
+		Status:       "running",
+		StartedAt:    time.Now().UTC(),
+	})
 }
