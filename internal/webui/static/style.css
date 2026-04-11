@@ -352,7 +352,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 /* Status Badges */
 .badge { display: inline-block; padding: 0.15em 0.55em; font-size: 0.75rem; font-weight: 600; border-radius: 2em; text-transform: capitalize; line-height: 1.4; }
 .status-completed { background: var(--color-completed-bg); color: var(--color-completed); }
-.status-running { background: var(--color-running-bg); color: var(--color-running); }
+.status-running { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; }
 .status-failed { background: var(--color-failed-bg); color: var(--color-failed); }
 .status-cancelled { background: var(--color-cancelled-bg); color: var(--color-cancelled); }
 .status-pending { background: var(--color-pending-bg); color: var(--color-pending); }
