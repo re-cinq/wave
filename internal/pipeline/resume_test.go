@@ -1575,3 +1575,69 @@ func TestFailureClassRecordedOnStepAttempt(t *testing.T) {
 		t.Errorf("expected state 'failed', got %q", lastAttempt.State)
 	}
 }
+
+// TestResumeFromStep_ReusesExecutorRunID verifies that ResumeFromStep does not call
+// store.CreateRun when executor.runID is already set via WithRunID.
+//
+// This is the unit-level guard for the second fix in issue #700: before the fix,
+// ResumeFromStep always called createRunID() which called store.CreateRun(), creating
+// a third phantom run record even though the executor already had a pre-assigned run ID.
+func TestResumeFromStep_ReusesExecutorRunID(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	var mu sync.Mutex
+	createCount := 0
+
+	store := testutil.NewMockStateStore(
+		testutil.WithCreateRun(func(pipelineName, input string) (string, error) {
+			mu.Lock()
+			createCount++
+			mu.Unlock()
+			return "should-not-be-called", nil
+		}),
+	)
+
+	executor := NewDefaultPipelineExecutor(
+		adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		),
+		WithRunID("preset-run-id"),
+		WithStateStore(store),
+	)
+	manager := NewResumeManager(executor)
+
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "phantom-run-test"},
+		Steps: []Step{
+			{ID: "step1", Persona: "navigator", Exec: ExecConfig{Source: "step 1 work"}},
+			{ID: "step2", Persona: "navigator", Dependencies: []string{"step1"}, Exec: ExecConfig{Source: "step 2 work"}},
+		},
+	}
+
+	// Create workspace for step1 to simulate prior completion
+	step1Ws := filepath.Join(tmpDir, ".wave/workspaces/phantom-run-test/step1")
+	if err := os.MkdirAll(step1Ws, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// force=true skips phase validation; we only care that CreateRun is not called.
+	// The execution may fail (mock adapter / missing files) but that is expected.
+	_ = manager.ResumeFromStep(ctx, p, m, "test input", "step2", true)
+
+	mu.Lock()
+	count := createCount
+	mu.Unlock()
+
+	if count != 0 {
+		t.Errorf("expected 0 CreateRun calls when executor.runID is pre-set via WithRunID, got %d", count)
+	}
+}
