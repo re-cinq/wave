@@ -5086,6 +5086,9 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 	if e.modelOverride != "" {
 		childOpts = append(childOpts, WithModelOverride(e.modelOverride))
 	}
+	if e.adapterOverride != "" {
+		childOpts = append(childOpts, WithAdapterOverride(e.adapterOverride))
+	}
 	if e.stepTimeoutOverride > 0 {
 		childOpts = append(childOpts, WithStepTimeout(e.stepTimeoutOverride))
 	}
