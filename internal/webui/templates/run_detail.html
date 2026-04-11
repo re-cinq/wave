@@ -36,7 +36,7 @@
         {{if .Events}}<button class="w-sec-tab" onclick="switchTab('events',this)">Events ({{len .Events}})</button>{{end}}
         <button class="w-sec-tab" onclick="switchTab('retro',this)">Retro</button>
         {{if .Run.BranchName}}<button class="w-sec-tab" onclick="switchTab('diff',this)">Changed Files</button>{{end}}
-        <button class="w-sec-tab" onclick="switchTab('metrics',this)">Metrics</button>
+        {{if featureEnabled "metrics"}}<button class="w-sec-tab" onclick="switchTab('metrics',this)">Metrics</button>{{end}}
     </span>
 </div>
 
@@ -69,6 +69,7 @@
     </div>
 </div>
 {{end}}
+{{if featureEnabled "metrics"}}
 <div id="w-panel-metrics" class="w-panel" hidden>
     <div class="w-panel-head">Step Metrics</div>
     <table class="w-metrics-table">
@@ -88,6 +89,7 @@
         </tbody>
     </table>
 </div>
+{{end}}
 
 <!-- INPUT -->
 <div class="w-io w-io-in">
