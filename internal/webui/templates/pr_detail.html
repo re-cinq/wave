@@ -72,12 +72,6 @@
 <p style="color:var(--color-text-muted);font-size:0.75rem;margin-bottom:0.5rem;">No pipeline runs for this PR</p>
 {{end}}
 
-<!-- Description -->
-{{if .PR.Body}}
-<div class="markdown-body" id="pr-body" style="font-size:0.82rem;margin-bottom:0.75rem;border:1px solid var(--color-border);border-radius:var(--radius-md);padding:0.6rem 0.8rem;"></div>
-<script type="text/plain" id="pr-body-raw">{{.PR.Body}}</script>
-{{end}}
-
 <!-- Checks -->
 {{if .PR.Checks}}
 <div class="w-section-card" style="margin-bottom:0.75rem;">
@@ -96,6 +90,12 @@
     {{end}}
     </div>
 </div>
+{{end}}
+
+<!-- Description -->
+{{if .PR.Body}}
+<div class="markdown-body" id="pr-body" style="font-size:0.82rem;margin-bottom:0.75rem;border:1px solid var(--color-border);border-radius:var(--radius-md);padding:0.6rem 0.8rem;"></div>
+<script type="text/plain" id="pr-body-raw">{{.PR.Body}}</script>
 {{end}}
 
 <!-- Commits -->
