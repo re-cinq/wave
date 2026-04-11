@@ -2836,6 +2836,11 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-io-in, .ws-io-out { display: flex; gap: 0.3rem; align-items: baseline; }
 .ws-io-out { padding-left: 0.6rem; border-left: 1px solid rgba(100,116,139,0.25); }
 .ws-io-lbl { color: var(--color-text-muted); font-weight: 700; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.03em; font-family: var(--font-mono); flex-shrink: 0; }
+.ws-io-in, .ws-io-out { cursor: pointer; border-radius: 3px; transition: background 0.1s; }
+.ws-io-in:hover, .ws-io-out:hover { background: rgba(99,102,241,0.06); }
+.ws-io-in.active, .ws-io-out.active { background: rgba(99,102,241,0.1); }
+.ws-io-in.active .ws-io-lbl, .ws-io-out.active .ws-io-lbl { color: var(--color-text); }
+.ws-io-in.active .ws-io-val, .ws-io-out.active .ws-io-val { color: var(--color-text-secondary); }
 .ws-io-val { color: var(--color-text-secondary); font-size: 0.75rem; }
 
 /* ── Step tab bar (artifacts + logs, unified) ── */

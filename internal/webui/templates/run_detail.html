@@ -142,12 +142,12 @@
 
             <!-- Row 2: I/O -->
             <div class="ws-io">
-                <div class="ws-io-in">
-                    <span class="ws-io-lbl">in</span>
+                <div class="ws-io-in" onclick="v2ToggleIn(this)" title="Show prompt">
+                    <span class="ws-io-lbl">IN</span>
                     <span class="ws-io-val">{{if and $step.Action (not (hasPrefix $step.Action "{{"))}}{{if gt (len $step.Action) 80}}{{slice $step.Action 0 80}}…{{else}}{{$step.Action}}{{end}}{{else if eq $i 0}}pipeline input{{else if $step.Dependencies}}{{joinStrings $step.Dependencies " + "}}{{else}}prev step{{end}}</span>
                 </div>
                 {{if $step.ReviewVerdict}}<span class="w-ctr {{if eq $step.ReviewVerdict "pass"}}w-ctr-pass{{else}}w-ctr-fail{{end}}">{{$step.ReviewVerdict}}</span>{{end}}
-                {{if $step.Output}}<div class="ws-io-out"><span class="ws-io-lbl">out</span><span class="ws-io-val">{{$step.Output}}</span></div>{{end}}
+                {{if $step.Output}}<div class="ws-io-out" onclick="v2ToggleOut(this)" title="Show logs"><span class="ws-io-lbl">OUT</span><span class="ws-io-val">{{$step.Output}}</span></div>{{end}}
             </div>
 
             <!-- Error -->
@@ -187,10 +187,9 @@
             {{end}}
             {{end}}
 
-            <!-- Tab bar: artifacts + logs -->
+            <!-- Tab bar: artifacts -->
             <div class="ws-tabs">
                 {{if $step.Artifacts}}{{range $a := $step.Artifacts}}<a href="#" class="w-tab" data-run-id="{{$step.RunID}}" data-step-id="{{$step.StepID}}" data-artifact-name="{{$a.Name}}" onclick="v2ToggleArt(this);return false;">{{$a.Name}} <span class="art-size">{{formatBytes $a.SizeBytes}}</span></a>{{end}}{{end}}
-                <a href="#" class="w-tab" onclick="v2ToggleLogs(this);return false;" data-step-id="{{$step.StepID}}">logs</a>
                 {{if $step.Duration}}<span class="ws-dur">{{$step.Duration}}</span>{{end}}
                 {{if eq $step.State "running"}}<button class="w-tab-action" onclick="cancelRun('{{$step.RunID}}',this)" title="Stop this pipeline">&#9632; stop</button>{{end}}
             </div>
@@ -269,7 +268,7 @@ function v2ToggleLogs(tab){
     var tc=shape.querySelector('.ws-tabcontent');
     if(!tc)return;
     var wasActive=tab.classList.contains('active');
-    shape.querySelectorAll('.w-tab').forEach(function(t){t.classList.remove('active')});
+    shape.querySelectorAll('.w-tab, .ws-io-in, .ws-io-out').forEach(function(t){t.classList.remove('active')});
     if(wasActive){tc.hidden=true;return;}
     tab.classList.add('active');
     tc.hidden=false;
@@ -294,6 +293,91 @@ function v2ToggleLogs(tab){
         if(logBody){trackUserScroll(logBody);snapToBottom(logBody);}
     }).catch(function(){tc.innerHTML='<pre class="ws-log-body" style="color:var(--color-failed);">(load failed)</pre>';});
 }
+// Toggle IN tab — show step prompt
+function v2ToggleIn(el){
+    var shape=el.closest('.ws');
+    var tc=shape.querySelector('.ws-tabcontent');
+    if(!tc)return;
+    var wasActive=el.classList.contains('active');
+    shape.querySelectorAll('.w-tab, .ws-io-in, .ws-io-out').forEach(function(t){t.classList.remove('active')});
+    if(wasActive){tc.hidden=true;return;}
+    el.classList.add('active');
+    tc.hidden=false;
+    var stepId=shape.id?shape.id.replace(/^w-/,''):'';
+    if(tc.dataset.inLoaded&&tc.dataset.inStep===stepId){tc.innerHTML=tc.dataset.inHtml||'';return;}
+    tc.innerHTML='<div style="padding:0.5rem 0.6rem;color:var(--color-text-muted);font-size:0.75rem;">Loading prompt…</div>';
+    fetch('/api/pipelines/'+encodeURIComponent('{{.Run.PipelineName}}')).then(function(r){return r.json()}).then(function(d){
+        var step=null;
+        for(var i=0;i<(d.steps||[]).length;i++){if(d.steps[i].id===stepId){step=d.steps[i];break;}}
+        if(!step){tc.innerHTML='<div style="padding:0.5rem;color:var(--color-text-muted);">Step not found</div>';return;}
+        function resolveVars(s){
+            try{var vars=JSON.parse(document.getElementById('wave-vars').textContent||'{}');
+            for(var vk in vars){if(vars[vk]){var re=new RegExp('\\{\\{\\s*'+vk.replace(/\./g,'\\.')+'\\s*\\}\\}','g');s=s.replace(re,vars[vk]);}}}
+            catch(e){}return s;
+        }
+        var h='<div style="padding:0.5rem 0.6rem;color:var(--color-text-secondary);">';
+        if(step.dependencies&&step.dependencies.length){
+            h+='<div style="margin-bottom:0.3rem;font-size:0.72rem;"><span style="color:var(--color-text-muted);">from:</span> '+step.dependencies.map(function(dep){return '<code style="background:rgba(99,102,241,0.1);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;">'+escapeHTML(dep)+'</code>';}).join(' ')+'</div>';
+        }
+        if(step.input_artifacts&&step.input_artifacts.length){
+            h+='<div style="margin-bottom:0.3rem;font-size:0.72rem;"><span style="color:var(--color-text-muted);">artifacts:</span> '+step.input_artifacts.map(function(a){return '<code style="background:rgba(34,197,94,0.1);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;">'+escapeHTML(a)+'</code>';}).join(' ')+'</div>';
+        }
+        if(step.script){
+            var cmd=resolveVars(step.script);
+            h+='<div style="margin-bottom:0.2rem;font-size:0.68rem;color:var(--color-text-muted);">command</div>';
+            h+='<pre style="margin:0 0 0.3rem;padding:0.3rem 0.5rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.72rem;overflow-x:auto;"><code>'+escapeHTML(cmd)+'</code></pre>';
+        }
+        if(step.prompt){
+            var prompt=resolveVars(step.prompt);
+            prompt=prompt.replace(/\{\{([^}]+)\}\}/g,function(m){return '`'+m+'`';});
+            h+='<div style="margin-bottom:0.2rem;font-size:0.68rem;color:var(--color-text-muted);">prompt</div>';
+            if(typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
+                h+='<div class="markdown-body" style="padding:0.4rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.78rem;line-height:1.5;">'+DOMPurify.sanitize(marked.parse(prompt))+'</div>';
+            }else{
+                h+='<pre style="margin:0;padding:0.5rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.75rem;white-space:pre-wrap;line-height:1.5;">'+escapeHTML(prompt)+'</pre>';
+            }
+        }
+        if(!step.prompt&&!step.script) h+='<div style="color:var(--color-text-muted);font-size:0.75rem;">(no prompt)</div>';
+        h+='</div>';
+        tc.dataset.inLoaded='1';
+        tc.dataset.inStep=stepId;
+        tc.dataset.inHtml=h;
+        tc.innerHTML=h;
+    }).catch(function(e){tc.innerHTML='<div style="padding:0.5rem;color:var(--color-failed);">Error: '+escapeHTML(String(e))+'</div>';});
+}
+
+// Toggle OUT tab — show logs
+function v2ToggleOut(el){
+    var shape=el.closest('.ws');
+    var tc=shape.querySelector('.ws-tabcontent');
+    if(!tc)return;
+    var wasActive=el.classList.contains('active');
+    shape.querySelectorAll('.w-tab, .ws-io-in, .ws-io-out').forEach(function(t){t.classList.remove('active')});
+    if(wasActive){tc.hidden=true;return;}
+    el.classList.add('active');
+    tc.hidden=false;
+    var sid=tc.dataset.stepId;
+    if(tc.dataset.logLoaded){
+        tc.innerHTML=tc.dataset.logHtml||'<pre class="ws-log-body">(no output)</pre>';
+        var logBody=tc.querySelector('.ws-log-body');
+        if(logBody){trackUserScroll(logBody);snapToBottom(logBody);}
+        return;
+    }
+    tc.innerHTML='<pre class="ws-log-body">loading…</pre>';
+    var rid='{{.Run.RunID}}';
+    fetch('/api/runs/'+encodeURIComponent(rid)+'/step-events?step='+encodeURIComponent(sid)+'&limit=500')
+    .then(function(r){return r.json()})
+    .then(function(d){
+        var lines=(d.events||[]).map(function(e){return e.message||''}).filter(Boolean);
+        var html='<pre class="ws-log-body"><code>'+(lines.length?escapeHTML(lines.join('\n')):'(no output)')+'</code></pre>';
+        tc.dataset.logLoaded='1';
+        tc.dataset.logHtml=html;
+        tc.innerHTML=html;
+        var logBody=tc.querySelector('.ws-log-body');
+        if(logBody){trackUserScroll(logBody);snapToBottom(logBody);}
+    }).catch(function(){tc.innerHTML='<pre class="ws-log-body" style="color:var(--color-failed);">(load failed)</pre>';});
+}
+
 // V2 live updates — SSE with polling fallback (DOM updates, no reload)
 if('{{.Run.Status}}'==='running'){
     (function(){
@@ -931,7 +1015,7 @@ function v2ToggleArt(chip){
     var tc=shape.querySelector('.ws-tabcontent');
     if(!tc)return;
     var wasActive=chip.classList.contains('active');
-    shape.querySelectorAll('.w-tab').forEach(function(t){t.classList.remove('active')});
+    shape.querySelectorAll('.w-tab, .ws-io-in, .ws-io-out').forEach(function(t){t.classList.remove('active')});
     if(wasActive){tc.hidden=true;return;}
     chip.classList.add('active');
     tc.hidden=false;
