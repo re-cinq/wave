@@ -66,10 +66,10 @@
                     <svg class="nav-group-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="4 6 8 10 12 6"/></svg>
                 </button>
                 <ul class="nav-group-items">
-                    <li><a href="/analytics" class="nav-item{{if eq .ActivePage "analytics"}} active{{end}}">
+                    {{if featureEnabled "analytics"}}<li><a href="/analytics" class="nav-item{{if eq .ActivePage "analytics"}} active{{end}}">
                         <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="3" height="5" rx="0.5" fill="currentColor" stroke="none"/><rect x="8.5" y="7" width="3" height="10" rx="0.5" fill="currentColor" stroke="none"/><rect x="14" y="3" width="3" height="14" rx="0.5" fill="currentColor" stroke="none"/></svg>
                         <span>Analytics</span>
-                    </a></li>
+                    </a></li>{{end}}
                     <li><a href="/retros" class="nav-item{{if eq .ActivePage "retros"}} active{{end}}">
                         <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="8"/><polyline points="10 5 10 10 14 12"/></svg>
                         <span>Retros</span>
@@ -96,10 +96,10 @@
                         <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="10 2 12.5 7.5 18 8 14 12 15 18 10 15 5 18 6 12 2 8 7.5 7.5" fill="currentColor" stroke="none"/></svg>
                         <span>Skills</span>
                     </a></li>
-                    <li><a href="/webhooks" class="nav-item{{if eq .ActivePage "webhooks"}} active{{end}}">
+                    {{if featureEnabled "webhooks"}}<li><a href="/webhooks" class="nav-item{{if eq .ActivePage "webhooks"}} active{{end}}">
                         <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor" stroke="none"><path d="M13 2L7 11h4L7 18l9-9h-4z"/></svg>
                         <span>Webhooks</span>
-                    </a></li>
+                    </a></li>{{end}}
                 </ul>
             </div>
 
@@ -114,10 +114,10 @@
                         <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h3l2-6 4 12 2-6h3"/></svg>
                         <span>Health</span>
                     </a></li>
-                    <li><a href="/ontology" class="nav-item{{if eq .ActivePage "ontology"}} active{{end}}">
+                    {{if featureEnabled "ontology"}}<li><a href="/ontology" class="nav-item{{if eq .ActivePage "ontology"}} active{{end}}">
                         <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2" fill="currentColor" stroke="none"/><circle cx="16" cy="4" r="2" fill="currentColor" stroke="none"/><circle cx="10" cy="16" r="2" fill="currentColor" stroke="none"/><line x1="6" y1="5" x2="14" y2="5"/><line x1="5" y1="6" x2="9" y2="14"/><line x1="15" y1="6" x2="11" y2="14"/></svg>
                         <span>Ontology</span>
-                    </a></li>
+                    </a></li>{{end}}
                     <li><a href="/admin" class="nav-item{{if eq .ActivePage "admin"}} active{{end}}">
                         <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2l7 3.5v5c0 4-3 7-7 8-4-1-7-4-7-8v-5z"/></svg>
                         <span>Admin</span>
