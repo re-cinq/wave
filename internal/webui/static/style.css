@@ -2861,12 +2861,12 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
     color: var(--color-failed); font-family: var(--font-mono); font-size: 0.72rem; border: none; background: none; cursor: pointer; padding: var(--ws-tab-pad-y) var(--ws-pad-x); line-height: 1;
 }
 .w-tab-action:hover { color: var(--color-failed); opacity: 0.8; }
-/* Content area directly under tabs — dark terminal bg for all tab content */
+/* Content area directly under tabs — always dark terminal, regardless of theme */
 .ws-tabcontent { margin: 0; padding: 0; overflow: hidden; background: #0d1117; color: #c9d1d9; }
 .ws-tabcontent[hidden] { display: none !important; }
 .ws-tabcontent .av-smart { padding: 0.5rem var(--ws-pad-x); color: #c9d1d9; }
 .ws-tabcontent .markdown-body { font-size: 0.82rem; line-height: 1.6; color: #c9d1d9; background: transparent; border: none; }
-.ws-tabcontent .markdown-body h1 { font-size: 1.2rem; margin: 0.5rem 0 0.3rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.2rem; }
+.ws-tabcontent .markdown-body h1 { font-size: 1.2rem; margin: 0.5rem 0 0.3rem; border-bottom: 1px solid #30363d; padding-bottom: 0.2rem; }
 .ws-tabcontent .markdown-body h2 { font-size: 1rem; margin: 0.4rem 0 0.2rem; }
 .ws-tabcontent .markdown-body h3 { font-size: 0.9rem; margin: 0.3rem 0 0.15rem; }
 .ws-tabcontent .markdown-body p { margin: 0.3rem 0; }
@@ -3016,7 +3016,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 .av-smart { }
 /* Smart view for JSON artifacts */
 .av-smart { padding: 0.4rem 0.5rem; font-size: 0.75rem; }
-/* Smart artifact viewer inside dark terminal tab content */
+/* Smart artifact viewer — always dark terminal */
 .av-kv { display: flex; gap: 0.4rem; padding: 0.12rem 0; border-bottom: 1px solid #21262d; align-items: baseline; }
 .av-kv:last-child { border-bottom: none; }
 .av-key { color: #8b949e; min-width: 90px; flex-shrink: 0; font-size: 0.68rem; font-weight: 500; }

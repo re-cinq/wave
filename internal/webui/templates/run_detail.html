@@ -287,45 +287,45 @@ function toggleIn(el){
     tc.hidden=false;
     var stepId=shape.id?shape.id.replace(/^w-/,''):'';
     if(tc.dataset.inLoaded&&tc.dataset.inStep===stepId){tc.innerHTML=tc.dataset.inHtml||'';return;}
-    tc.innerHTML='<div style="padding:0.5rem 0.6rem;color:var(--color-text-muted);font-size:0.75rem;">Loading prompt…</div>';
+    tc.innerHTML='<div style="padding:0.5rem 0.6rem;color:#8b949e;font-size:0.75rem;">Loading prompt…</div>';
     fetch('/api/pipelines/'+encodeURIComponent('{{.Run.PipelineName}}')).then(function(r){return r.json()}).then(function(d){
         var step=null;
         for(var i=0;i<(d.steps||[]).length;i++){if(d.steps[i].id===stepId){step=d.steps[i];break;}}
-        if(!step){tc.innerHTML='<div style="padding:0.5rem;color:var(--color-text-muted);">Step not found</div>';return;}
+        if(!step){tc.innerHTML='<div style="padding:0.5rem;color:#8b949e;">Step not found</div>';return;}
         function resolveVars(s){
             try{var vars=JSON.parse(document.getElementById('wave-vars').textContent||'{}');
             for(var vk in vars){if(vars[vk]){var re=new RegExp('\\{\\{\\s*'+vk.replace(/\./g,'\\.')+'\\s*\\}\\}','g');s=s.replace(re,vars[vk]);}}}
             catch(e){}return s;
         }
-        var h='<div style="padding:0.5rem 0.6rem;color:var(--color-text-secondary);">';
+        var h='<div style="padding:0.5rem 0.6rem;color:#8b949e;">';
         if(step.dependencies&&step.dependencies.length){
-            h+='<div style="margin-bottom:0.3rem;font-size:0.72rem;"><span style="color:var(--color-text-muted);">from:</span> '+step.dependencies.map(function(dep){return '<code style="background:rgba(99,102,241,0.1);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;">'+escapeHTML(dep)+'</code>';}).join(' ')+'</div>';
+            h+='<div style="margin-bottom:0.3rem;font-size:0.72rem;"><span style="color:#8b949e;">from:</span> '+step.dependencies.map(function(dep){return '<code style="background:rgba(99,102,241,0.15);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;color:#c9d1d9;">'+escapeHTML(dep)+'</code>';}).join(' ')+'</div>';
         }
         if(step.input_artifacts&&step.input_artifacts.length){
-            h+='<div style="margin-bottom:0.3rem;font-size:0.72rem;"><span style="color:var(--color-text-muted);">artifacts:</span> '+step.input_artifacts.map(function(a){return '<code style="background:rgba(34,197,94,0.1);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;">'+escapeHTML(a)+'</code>';}).join(' ')+'</div>';
+            h+='<div style="margin-bottom:0.3rem;font-size:0.72rem;"><span style="color:#8b949e;">artifacts:</span> '+step.input_artifacts.map(function(a){return '<code style="background:rgba(34,197,94,0.15);padding:0.1rem 0.3rem;border-radius:3px;font-size:0.7rem;color:#c9d1d9;">'+escapeHTML(a)+'</code>';}).join(' ')+'</div>';
         }
         if(step.script){
             var cmd=resolveVars(step.script);
-            h+='<div style="margin-bottom:0.2rem;font-size:0.68rem;color:var(--color-text-muted);">command</div>';
-            h+='<pre style="margin:0 0 0.3rem;padding:0.3rem 0.5rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.72rem;overflow-x:auto;"><code>'+escapeHTML(cmd)+'</code></pre>';
+            h+='<div style="margin-bottom:0.2rem;font-size:0.68rem;color:#8b949e;">command</div>';
+            h+='<pre style="margin:0 0 0.3rem;padding:0.3rem 0.5rem;background:#161b22;border-radius:4px;font-size:0.72rem;overflow-x:auto;color:#c9d1d9;"><code>'+escapeHTML(cmd)+'</code></pre>';
         }
         if(step.prompt){
             var prompt=resolveVars(step.prompt);
             prompt=prompt.replace(/\{\{([^}]+)\}\}/g,function(m){return '`'+m+'`';});
-            h+='<div style="margin-bottom:0.2rem;font-size:0.68rem;color:var(--color-text-muted);">prompt</div>';
+            h+='<div style="margin-bottom:0.2rem;font-size:0.68rem;color:#8b949e;">prompt</div>';
             if(typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
-                h+='<div class="markdown-body" style="padding:0.4rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.78rem;line-height:1.5;">'+DOMPurify.sanitize(marked.parse(prompt))+'</div>';
+                h+='<div class="markdown-body" style="padding:0.4rem;background:#161b22;border-radius:4px;font-size:0.78rem;line-height:1.5;">'+DOMPurify.sanitize(marked.parse(prompt),{FORBID_TAGS:['input','textarea','select','button','form']})+'</div>';
             }else{
-                h+='<pre style="margin:0;padding:0.5rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.75rem;white-space:pre-wrap;line-height:1.5;">'+escapeHTML(prompt)+'</pre>';
+                h+='<pre style="margin:0;padding:0.5rem;background:#161b22;border-radius:4px;font-size:0.75rem;white-space:pre-wrap;line-height:1.5;color:#c9d1d9;">'+escapeHTML(prompt)+'</pre>';
             }
         }
-        if(!step.prompt&&!step.script) h+='<div style="color:var(--color-text-muted);font-size:0.75rem;">(no prompt)</div>';
+        if(!step.prompt&&!step.script) h+='<div style="color:#8b949e;font-size:0.75rem;">(no prompt)</div>';
         h+='</div>';
         tc.dataset.inLoaded='1';
         tc.dataset.inStep=stepId;
         tc.dataset.inHtml=h;
         tc.innerHTML=h;
-    }).catch(function(e){tc.innerHTML='<div style="padding:0.5rem;color:var(--color-failed);">Error: '+escapeHTML(String(e))+'</div>';});
+    }).catch(function(e){tc.innerHTML='<div style="padding:0.5rem;color:#f85149;">Error: '+escapeHTML(String(e))+'</div>';});
 }
 
 // Toggle OUT tab — show logs
@@ -667,7 +667,7 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
                 h+='<div style="border-top:1px solid var(--color-border);padding-top:0.4rem;margin-top:0.2rem;">';
                 h+='<div style="color:var(--color-text-muted);font-size:0.68rem;margin-bottom:0.2rem;">Prompt template</div>';
                 if(typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
-                    h+='<div class="markdown-body" style="padding:0.4rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.78rem;line-height:1.5;">'+DOMPurify.sanitize(marked.parse(prompt))+'</div>';
+                    h+='<div class="markdown-body" style="padding:0.4rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.78rem;line-height:1.5;">'+DOMPurify.sanitize(marked.parse(prompt),{FORBID_TAGS:['input','textarea','select','button','form']})+'</div>';
                 } else {
                     h+='<pre style="margin:0;padding:0.5rem;background:var(--color-bg-tertiary);border-radius:4px;font-size:0.75rem;white-space:pre-wrap;color:var(--color-text-secondary);line-height:1.5;">'+escapeHTML(prompt)+'</pre>';
                 }
@@ -675,7 +675,7 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
             }
             h+='</div>';
             tc.innerHTML=h;
-        }).catch(function(e){tc.innerHTML='<div style="padding:0.5rem;color:var(--color-failed);">Error: '+escapeHTML(String(e))+'</div>';});
+        }).catch(function(e){tc.innerHTML='<div style="padding:0.5rem;color:#f85149;">Error: '+escapeHTML(String(e))+'</div>';});
     });
 });
 
@@ -941,7 +941,7 @@ function showArt(viewer, url, name){
             var isMarkdown=name&&/\.md$/i.test(name);
             if(isMarkdown&&typeof marked!=='undefined'&&typeof DOMPurify!=='undefined'){
                 // Markdown: render by default, Raw toggle
-                var rendered='<div class="av-smart markdown-body" style="padding:0.5rem;font-size:0.8rem;">'+DOMPurify.sanitize(marked.parse(raw))+'</div>';
+                var rendered='<div class="av-smart markdown-body" style="padding:0.5rem;font-size:0.8rem;">'+DOMPurify.sanitize(marked.parse(raw),{FORBID_TAGS:['input','textarea','select','button','form']})+'</div>';
                 body.innerHTML=rendered;
                 var rawPre=document.createElement('pre');
                 rawPre.style.cssText='margin:0;padding:0.3rem;font-size:0.65rem;display:none;';
@@ -1030,7 +1030,7 @@ function showArtInline(container,url,name){
                 var sz2=d.metadata&&d.metadata.size_bytes?d.metadata.size_bytes:0;
                 var szLabel2=sz2<1024?(sz2+' B'):sz2<1048576?((sz2/1024).toFixed(1)+' KB'):((sz2/1048576).toFixed(1)+' MB');
                 var h='<div class="av-toggle"><button class="active" onclick="artView(this,\'rendered\')">Rendered</button><button onclick="artView(this,\'raw\')">Raw</button><a class="av-dl-btn" href="'+url+'?raw=true" download>&#8681; '+szLabel2+'</a></div>';
-                h+='<div class="av-smart markdown-body" data-view="rendered" style="padding:0.5rem;font-size:0.8rem;">'+DOMPurify.sanitize(marked.parse(raw))+'</div>';
+                h+='<div class="av-smart markdown-body" data-view="rendered" style="padding:0.5rem;font-size:0.8rem;">'+DOMPurify.sanitize(marked.parse(raw),{FORBID_TAGS:['input','textarea','select','button','form']})+'</div>';
                 h+='<pre data-view="raw" style="display:none;margin:0;padding:0.3rem;font-size:0.65rem;"><code>'+escapeHTML(raw)+'</code></pre>';
                 container.innerHTML=h;
             } else {
