@@ -37,3 +37,11 @@ steps:
         You are a smoke test verifier. Read the current directory listing,
         confirm you can see the project files, then respond with exactly:
         "Ontology empty-contexts smoke test passed."
+    handover:
+      contract:
+        type: event_contains
+        must_pass: true
+        on_failure: fail
+        events:
+          - state: ontology_inject
+            contains: "invariants="
