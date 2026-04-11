@@ -1896,6 +1896,12 @@ func (e *DefaultPipelineExecutor) recordOntologyUsage(execution *PipelineExecuti
 		contractPassed = &passed
 	}
 
+	// Build set of defined context names for lineage status
+	definedCtx := make(map[string]bool, len(execution.Manifest.Ontology.Contexts))
+	for _, ctx := range execution.Manifest.Ontology.Contexts {
+		definedCtx[ctx.Name] = true
+	}
+
 	for _, ctxName := range injectedContexts {
 		invariantCount := 0
 		for _, ctx := range execution.Manifest.Ontology.Contexts {
@@ -1904,9 +1910,14 @@ func (e *DefaultPipelineExecutor) recordOntologyUsage(execution *PipelineExecuti
 				break
 			}
 		}
+		// Undefined contexts get status "undefined" regardless of step outcome
+		lineageStatus := stepStatus
+		if !definedCtx[ctxName] {
+			lineageStatus = "undefined"
+		}
 		if err := e.store.RecordOntologyUsage(
 			execution.Status.ID, step.ID, ctxName,
-			invariantCount, stepStatus, contractPassed,
+			invariantCount, lineageStatus, contractPassed,
 		); err != nil {
 			if e.logger != nil {
 				_ = e.logger.LogToolCall(execution.Status.ID, step.ID, "recordOntologyUsage",
@@ -1914,13 +1925,13 @@ func (e *DefaultPipelineExecutor) recordOntologyUsage(execution *PipelineExecuti
 			}
 		} else {
 			if e.logger != nil {
-				_ = e.logger.LogOntologyLineage(execution.Status.ID, step.ID, ctxName, stepStatus, invariantCount)
+				_ = e.logger.LogOntologyLineage(execution.Status.ID, step.ID, ctxName, lineageStatus, invariantCount)
 			}
 			e.emit(event.Event{
 				PipelineID: execution.Status.ID,
 				StepID:     step.ID,
 				State:      event.StateOntologyLineage,
-				Message:    fmt.Sprintf("context=%s status=%s invariants=%d", ctxName, stepStatus, invariantCount),
+				Message:    fmt.Sprintf("context=%s status=%s invariants=%d", ctxName, lineageStatus, invariantCount),
 				Timestamp:  time.Now(),
 			})
 		}
