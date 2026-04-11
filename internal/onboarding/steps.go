@@ -27,13 +27,10 @@ var knownAdapters = []struct {
 	{Name: "ollama", Binary: "ollama", InstallURL: "https://ollama.com"},
 }
 
-// probeAdapter checks if an adapter binary exists and returns found status + path.
-func probeAdapter(binary string) (bool, string) {
-	path, err := exec.LookPath(binary)
-	if err != nil {
-		return false, ""
-	}
-	return true, path
+// probeAdapter checks if an adapter binary exists on PATH.
+func probeAdapter(binary string) bool {
+	_, err := exec.LookPath(binary)
+	return err == nil
 }
 
 // probeOllamaModels queries a running Ollama server for available models.
@@ -101,20 +98,18 @@ func (s *DependencyStep) Run(cfg *WizardConfig) (*StepResult, error) {
 
 	// Check known dependencies
 	for _, dep := range knownDependencies {
-		found, _ := probeAdapter(dep.Binary)
 		deps = append(deps, DependencyStatus{
 			Name:       dep.Name,
-			Found:      found,
+			Found:      probeAdapter(dep.Binary),
 			InstallURL: dep.InstallURL,
 		})
 	}
 
 	// Check adapter binaries
 	for _, adapter := range knownAdapters {
-		found, _ := probeAdapter(adapter.Binary)
 		deps = append(deps, DependencyStatus{
 			Name:       adapter.Name + " adapter",
-			Found:      found,
+			Found:      probeAdapter(adapter.Binary),
 			InstallURL: adapter.InstallURL,
 		})
 	}
