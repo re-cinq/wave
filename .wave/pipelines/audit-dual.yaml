@@ -64,7 +64,7 @@ steps:
   # ── Track A: Code Quality ──────────────────────────────────────────
   - id: quality-scan
     persona: navigator
-    thread: audit
+    thread: quality
     model: cheapest
     workspace:
       mount:
@@ -129,7 +129,7 @@ steps:
 
   - id: quality-detail
     persona: navigator
-    thread: audit
+    thread: quality
     model: cheapest
     dependencies: [quality-scan]
     memory:
@@ -167,7 +167,7 @@ steps:
   # ── Track B: Security ──────────────────────────────────────────────
   - id: security-scan
     persona: navigator
-    thread: audit
+    thread: security
     model: cheapest
     workspace:
       mount:
@@ -194,7 +194,7 @@ steps:
 
   - id: security-detail
     persona: navigator
-    thread: audit
+    thread: security
     model: cheapest
     dependencies: [security-scan]
     memory:

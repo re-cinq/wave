@@ -579,20 +579,20 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 
 	// Build step state from events: track latest state, timestamps, tokens per step
 	type stepInfo struct {
-		state         string
-		persona       string
-		startedAt     *time.Time
-		completedAt   *time.Time
-		tokens        int
-		durationMs    int64
-		errMsg        string
+		state           string
+		persona         string
+		startedAt       *time.Time
+		completedAt     *time.Time
+		tokens          int
+		durationMs      int64
+		errMsg          string
 		model           string
 		configuredModel string
 		adapter         string
-		reviewVerdict string
-		reviewIssues  int
-		reviewPersona string
-		reviewTokens  int
+		reviewVerdict   string
+		reviewIssues    int
+		reviewPersona   string
+		reviewTokens    int
 	}
 	stepMap := make(map[string]*stepInfo)
 
@@ -720,6 +720,16 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 			MaxVisits:          step.MaxVisits,
 			Contract:           contractType,
 			ContractSchemaName: contractSchemaName,
+			Dependencies:       step.Dependencies,
+		}
+
+		// Populate output artifact names for OUT display
+		if len(step.OutputArtifacts) > 0 {
+			var names []string
+			for _, a := range step.OutputArtifacts {
+				names = append(names, a.Name)
+			}
+			sd.Output = strings.Join(names, ", ")
 		}
 
 		// Populate structured gate data for interactive UI

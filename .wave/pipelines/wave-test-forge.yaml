@@ -135,8 +135,10 @@ steps:
         type: non_empty_file
         source: .wave/output/forge-detect.json
         on_failure: retry
+    edges:
+      - target: verify-cli
 
-  # Step 2: Verify CLI tool is available (parallel with step 3)
+  # Step 2: Verify CLI tool is available
   - id: verify-cli
     type: command
     script: |
@@ -162,8 +164,10 @@ steps:
         type: non_empty_file
         source: .wave/output/cli-check.json
         on_failure: skip
+    edges:
+      - target: verify-auth
 
-  # Step 3: Verify API authentication (parallel with step 2)
+  # Step 3: Verify API authentication
   - id: verify-auth
     type: command
     script: |
@@ -211,7 +215,7 @@ steps:
           echo "{\"forge\":\"$FORGE\",\"auth\":\"unknown\"}" > .wave/output/auth-check.json
           ;;
       esac
-    dependencies: [detect-forge]
+    dependencies: [verify-cli]
     output_artifacts:
       - name: auth-check
         path: .wave/output/auth-check.json
@@ -221,14 +225,15 @@ steps:
         type: non_empty_file
         source: .wave/output/auth-check.json
         on_failure: skip
+    edges:
+      - target: test-api
 
-  # Step 4: Test API access — list issues/PRs (depends on both CLI + auth)
+  # Step 4: Test API access — list issues/PRs (depends on auth check)
   - id: test-api
     type: conditional
-    dependencies: [verify-cli, verify-auth]
+    dependencies: [verify-auth]
     edges:
       - target: synthesize
-        condition: "{{ forge.type }} == local"
     script: |
       CLI="{{ forge.cli_tool }}"
       FORGE="{{ forge.type }}"

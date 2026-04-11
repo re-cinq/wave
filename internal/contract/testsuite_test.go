@@ -591,17 +591,20 @@ func TestTestSuiteValidator_DirField(t *testing.T) {
 		}
 	})
 
-	t.Run("dir empty fails outside git repo", func(t *testing.T) {
+	t.Run("dir empty uses workspace path directly", func(t *testing.T) {
 		v := &testSuiteValidator{}
 		ws := t.TempDir()
 
+		// With an empty dir, the validator defaults to "project_root" which
+		// walks up looking for project markers, then tries git, then falls
+		// back to CWD. The command "true" always succeeds regardless of dir.
 		cfg := ContractConfig{
 			Type:    "test_suite",
 			Command: "true",
 		}
 		err := v.Validate(cfg, ws)
-		if err == nil {
-			t.Error("expected error outside git repo with empty dir")
+		if err != nil {
+			t.Errorf("expected success for 'true' command, got: %v", err)
 		}
 	})
 

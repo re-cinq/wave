@@ -745,7 +745,7 @@ func (v *DryRunValidator) validateEdges(step *Step, p *Pipeline, report *DryRunR
 			})
 			continue
 		}
-		if !stepMap[edge.Target] {
+		if !stepMap[edge.Target] && edge.Target != EdgeTargetComplete && edge.Target != "_fail" {
 			report.Findings = append(report.Findings, ValidationFinding{
 				Severity: SeverityError,
 				StepID:   step.ID,

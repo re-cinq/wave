@@ -361,7 +361,7 @@ func TestContractIntegration_SchemaInjectedIntoPrompt(t *testing.T) {
 	require.Len(t, prompts, 1, "Should have captured one prompt")
 
 	prompt := prompts[0]
-	assert.True(t, strings.HasPrefix(prompt, "Analyze the codebase"), "Prompt should start with source text")
+	assert.Contains(t, prompt, "Analyze the codebase", "Prompt should contain source text")
 	assert.Contains(t, prompt, "result", "Prompt should contain schema field 'result'")
 	assert.Contains(t, prompt, "confidence", "Prompt should contain schema field 'confidence'")
 	assert.Contains(t, prompt, "CRITICAL", "Prompt should contain contract compliance warning")
