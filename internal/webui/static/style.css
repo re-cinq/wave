@@ -1049,8 +1049,8 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 }
 .form-group-checkbox {
     display: flex;
-    align-items: flex-end;
-    padding-bottom: 0.3rem;
+    align-items: center;
+    min-height: 2.2rem;
 }
 .form-group-checkbox label {
     display: flex !important;
