@@ -140,23 +140,23 @@
                 </span>
             </div>
 
+            <!-- Step config (click header to toggle — independent of tab content) -->
+            <div class="ws-config" hidden data-step-id="{{$step.StepID}}"></div>
+
             <!-- Row 2: I/O -->
             <div class="ws-io">
-                <div class="ws-io-in" onclick="v2ToggleIn(this)" title="Show prompt">
-                    <span class="ws-io-lbl">IN</span>
+                <div class="ws-io-in">
+                    <span class="ws-io-lbl" onclick="v2ToggleIn(this)" title="Show prompt">IN</span>
                     <span class="ws-io-val">{{if and $step.Action (not (hasPrefix $step.Action "{{"))}}{{if gt (len $step.Action) 80}}{{slice $step.Action 0 80}}…{{else}}{{$step.Action}}{{end}}{{else if eq $i 0}}pipeline input{{else if $step.Dependencies}}{{joinStrings $step.Dependencies " + "}}{{else}}prev step{{end}}</span>
                 </div>
                 {{if $step.ReviewVerdict}}<span class="w-ctr {{if eq $step.ReviewVerdict "pass"}}w-ctr-pass{{else}}w-ctr-fail{{end}}">{{$step.ReviewVerdict}}</span>{{end}}
-                {{if $step.Output}}<div class="ws-io-out" onclick="v2ToggleOut(this)" title="Show logs"><span class="ws-io-lbl">OUT</span><span class="ws-io-val">{{$step.Output}}</span></div>{{end}}
+                {{if $step.Output}}<div class="ws-io-out"><span class="ws-io-lbl" onclick="v2ToggleOut(this)" title="Show logs">OUT</span><span class="ws-io-val">{{$step.Output}}</span></div>{{end}}
             </div>
 
             <!-- Error -->
             {{if $step.Error}}
             <div class="ws-err">{{if $step.FailureClass}}<span class="badge badge-failure-{{$step.FailureClass}}" style="font-size:0.65rem;">{{titleCase $step.FailureClass}}</span> {{end}}{{if gt (len $step.Error) 200}}{{slice $step.Error 0 200}}…{{else}}{{$step.Error}}{{end}}</div>
             {{end}}
-
-            <!-- Step config (click header to toggle — independent of tab content) -->
-            <div class="ws-config" hidden data-step-id="{{$step.StepID}}"></div>
 
             <!-- Gate / Conditional / Command -->
             {{if eq $step.StepType "gate"}}
@@ -268,7 +268,7 @@ function v2ToggleLogs(tab){
     var tc=shape.querySelector('.ws-tabcontent');
     if(!tc)return;
     var wasActive=tab.classList.contains('active');
-    shape.querySelectorAll('.w-tab, .ws-io-in, .ws-io-out').forEach(function(t){t.classList.remove('active')});
+    shape.querySelectorAll('.w-tab, .ws-io-lbl[onclick]').forEach(function(t){t.classList.remove('active')});
     if(wasActive){tc.hidden=true;return;}
     tab.classList.add('active');
     tc.hidden=false;
@@ -299,7 +299,7 @@ function v2ToggleIn(el){
     var tc=shape.querySelector('.ws-tabcontent');
     if(!tc)return;
     var wasActive=el.classList.contains('active');
-    shape.querySelectorAll('.w-tab, .ws-io-in, .ws-io-out').forEach(function(t){t.classList.remove('active')});
+    shape.querySelectorAll('.w-tab, .ws-io-lbl[onclick]').forEach(function(t){t.classList.remove('active')});
     if(wasActive){tc.hidden=true;return;}
     el.classList.add('active');
     tc.hidden=false;
@@ -352,7 +352,7 @@ function v2ToggleOut(el){
     var tc=shape.querySelector('.ws-tabcontent');
     if(!tc)return;
     var wasActive=el.classList.contains('active');
-    shape.querySelectorAll('.w-tab, .ws-io-in, .ws-io-out').forEach(function(t){t.classList.remove('active')});
+    shape.querySelectorAll('.w-tab, .ws-io-lbl[onclick]').forEach(function(t){t.classList.remove('active')});
     if(wasActive){tc.hidden=true;return;}
     el.classList.add('active');
     tc.hidden=false;
@@ -1015,7 +1015,7 @@ function v2ToggleArt(chip){
     var tc=shape.querySelector('.ws-tabcontent');
     if(!tc)return;
     var wasActive=chip.classList.contains('active');
-    shape.querySelectorAll('.w-tab, .ws-io-in, .ws-io-out').forEach(function(t){t.classList.remove('active')});
+    shape.querySelectorAll('.w-tab, .ws-io-lbl[onclick]').forEach(function(t){t.classList.remove('active')});
     if(wasActive){tc.hidden=true;return;}
     chip.classList.add('active');
     tc.hidden=false;
