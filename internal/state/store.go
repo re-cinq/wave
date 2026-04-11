@@ -564,7 +564,7 @@ func (s *stateStore) CreateRunWithLimit(pipelineName string, input string, maxCo
 		if err != nil {
 			return "", fmt.Errorf("failed to begin transaction: %w", err)
 		}
-		defer tx.Rollback()
+		defer func() { _ = tx.Rollback() }()
 
 		var count int
 		err = tx.QueryRow(`SELECT COUNT(*) FROM pipeline_run WHERE status IN ('running', 'pending') AND started_at > unixepoch() - 300`).Scan(&count)
