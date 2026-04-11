@@ -108,6 +108,20 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 
 	tmpl, err := parseTemplates(template.FuncMap{
 		"csrfToken": func() string { return csrfToken },
+		"featureEnabled": func(name string) bool {
+			switch name {
+			case "metrics":
+				return EnabledFeatures.Metrics
+			case "analytics":
+				return EnabledFeatures.Analytics
+			case "webhooks":
+				return EnabledFeatures.Webhooks
+			case "ontology":
+				return EnabledFeatures.Ontology
+			default:
+				return false
+			}
+		},
 	})
 	if err != nil {
 		roStore.Close()
