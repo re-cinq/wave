@@ -21,9 +21,9 @@ type featureRouteFunc func(s *Server, mux *http.ServeMux)
 
 var featureRoutes []featureRouteFunc
 
-// registerFeatureRoutes adds a route registration function that will be
+// RegisterFeatureRoutes adds a route registration function that will be
 // called during server startup. Each build-tagged feature file calls this
 // in its init() to wire its routes into the mux.
-func registerFeatureRoutes(fn featureRouteFunc) {
+func RegisterFeatureRoutes(fn featureRouteFunc) {
 	featureRoutes = append(featureRoutes, fn)
 }

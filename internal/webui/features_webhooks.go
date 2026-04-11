@@ -6,7 +6,7 @@ import "net/http"
 
 func init() {
 	EnabledFeatures.Webhooks = true
-	registerFeatureRoutes(func(s *Server, mux *http.ServeMux) {
+	RegisterFeatureRoutes(func(s *Server, mux *http.ServeMux) {
 		// Pages
 		mux.HandleFunc("GET /webhooks", s.handleWebhooksPage)
 		mux.HandleFunc("GET /webhooks/{id}", s.handleWebhookDetailPage)
