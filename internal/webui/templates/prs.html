@@ -11,8 +11,8 @@
         <a href="/prs?state=all" class="wr-filter{{if eq .FilterState "all"}} active{{end}}">All</a>
     </div>
     <div class="wr-controls">
-        <input type="text" id="pr-search" placeholder="Search PRs..." style="padding:0.2rem 0.4rem;border-radius:4px;font-size:0.72rem;color:var(--color-text-secondary);border:1px solid var(--color-border);background:var(--color-bg-tertiary);font-family:var(--font-sans);width:180px;" oninput="filterItems(this.value)">
-        <span style="font-size:0.72rem;color:var(--color-text-muted);">
+        <input type="text" id="pr-search" class="wr-search" placeholder="Search PRs..." oninput="filterItems(this.value)">
+        <span class="wr-count">
             {{if .TotalOpen}}<b>{{.TotalOpen}}</b> open{{end}}
             {{if .TotalClosed}} · <b>{{.TotalClosed}}</b> closed{{end}}
         </span>
@@ -20,43 +20,43 @@
 </div>
 
 {{if .Message}}
-<div style="padding:1rem;color:#fca5a5;font-size:0.82rem;">{{.Message}}</div>
+<div class="pr-message">{{.Message}}</div>
 {{else if .PullRequests}}
 <div class="wr-list">
 {{range .PullRequests}}
-    <a href="/prs/{{.Number}}" class="wr-run">
+    <a href="/prs/{{.Number}}" class="wr-run{{if .Draft}} wr-run-draft{{end}}">
         <div class="wr-accent {{if .Merged}}st-completed{{else if eq .State "open"}}st-running{{else}}st-pending{{end}}"></div>
         <div class="wr-body">
             <div class="wr-row1">
                 <span class="wr-name">#{{.Number}} {{.Title}}</span>
-                {{if .Merged}}<span class="badge status-completed" style="font-size:0.6rem;">merged</span>
-                {{else if .Draft}}<span class="badge" style="font-size:0.6rem;background:rgba(100,116,139,0.15);color:#94a3b8;">draft</span>
-                {{else if eq .State "open"}}<span class="badge status-running" style="font-size:0.6rem;">open</span>
-                {{else}}<span class="badge status-cancelled" style="font-size:0.6rem;">closed</span>{{end}}
+                {{if .Merged}}<span class="badge badge-merged">merged</span>
+                {{else if .Draft}}<span class="badge badge-draft">draft</span>
+                {{else if eq .State "open"}}<span class="badge badge-open">open</span>
+                {{else}}<span class="badge badge-closed">closed</span>{{end}}
             </div>
             <div class="wr-row2">
                 <span>{{.Author}}</span>
                 {{if .RunCount}}<span><b>{{.RunCount}}</b> runs</span>{{end}}
                 {{if .TotalTokens}}<span><b>{{formatTokensShort .TotalTokens}}</b> tok</span>{{end}}
-                <span><span class="w-diff-add">+{{.Additions}}</span> <span class="w-diff-del">-{{.Deletions}}</span></span>
+                <span><span class="pr-additions">+{{.Additions}}</span> <span class="pr-deletions">-{{.Deletions}}</span></span>
                 <span>{{.ChangedFiles}} files</span>
-                {{range .Labels}}<span class="badge" style="font-size:0.65rem;{{if .Color}}background:#{{.Color}}22;color:#{{.Color}};{{end}}">{{.Name}}</span>{{end}}
+                {{range .Labels}}<span class="badge badge-label"{{if .Color}} style="background:#{{.Color}}22;color:#{{.Color}};"{{end}}>{{.Name}}</span>{{end}}
             </div>
         </div>
         <div class="wr-meta">
             <span class="wr-date">{{.CreatedAt}}</span>
-            <span class="wr-progress" style="font-family:var(--font-mono);font-size:0.68rem;">{{.HeadBranch}}</span>
+            <span class="wr-progress pr-branch">{{.HeadBranch}}</span>
         </div>
     </a>
 {{end}}
 </div>
 {{if .HasMore}}
-<div class="wr-loading" id="wr-loader" data-next="/prs?state={{.FilterState}}&page={{add .Page 1}}" style="padding:3rem 1rem;">
+<div class="wr-loading" id="wr-loader" data-next="/prs?state={{.FilterState}}&page={{add .Page 1}}">
     <span class="wr-loading-spinner"></span><span class="wr-loading-text">Loading more...</span>
 </div>
 {{end}}
 {{else}}
-<div style="padding:2rem;text-align:center;color:var(--color-text-muted);font-size:0.85rem;">No pull requests found</div>
+<div class="wr-empty">No pull requests found</div>
 {{end}}
 {{end}}
 {{define "scripts"}}

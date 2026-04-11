@@ -5,8 +5,8 @@
 {{if .Contracts}}
 <div class="wr-toolbar">
     <div class="wr-controls">
-        <input type="text" id="contract-search" placeholder="Search contracts..." style="padding:0.2rem 0.4rem;border-radius:4px;font-size:0.72rem;color:var(--color-text-secondary);border:1px solid var(--color-border);background:var(--color-bg-tertiary);font-family:var(--font-sans);width:180px;" oninput="filterItems(this.value)">
-        <span style="font-size:0.72rem;color:var(--color-text-muted);">{{len .Contracts}} contracts</span>
+        <input type="text" id="contract-search" class="wr-search" placeholder="Search contracts..." oninput="filterItems(this.value)">
+        <span class="wr-count">{{len .Contracts}} contracts</span>
     </div>
 </div>
 <div class="wr-list">
@@ -16,18 +16,18 @@
         <div class="wr-body">
             <div class="wr-row1">
                 <span class="wr-name">{{.Name}}</span>
-                {{if .Title}}<span style="color:var(--color-text-secondary);font-size:0.75rem;">{{.Title}}</span>{{end}}
+                {{if .Title}}<span class="ct-title">{{.Title}}</span>{{end}}
             </div>
-            {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-muted);">{{.Description}}</span></div>{{end}}
+            {{if .Description}}<div class="wr-row2"><span class="ct-desc">{{.Description}}</span></div>{{end}}
         </div>
         <div class="wr-meta">
-            <span class="wr-date" style="font-family:var(--font-mono);font-size:0.68rem;">{{.Filename}}</span>
+            <span class="wr-date ct-file">{{.Filename}}</span>
         </div>
     </a>
 {{end}}
 </div>
 {{else}}
-<div style="padding:2rem;text-align:center;color:var(--color-text-muted);">No contracts found. Add schemas to <code>.wave/contracts/</code></div>
+<div class="wr-empty">No contracts found. Add schemas to <code>.wave/contracts/</code></div>
 {{end}}
 {{end}}
 {{define "scripts"}}
