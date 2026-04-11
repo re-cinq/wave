@@ -3162,6 +3162,33 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 .fp-row:hover { background: var(--color-bg-tertiary); text-decoration: none; color: inherit; }
 .fp-stat { font-size: 0.68rem; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
 
+/* ── Issues page ── */
+.badge-issue-open   { font-size: 0.6rem; background: var(--color-completed-bg); color: var(--color-completed); }
+.badge-issue-closed { font-size: 0.6rem; background: rgba(139,92,246,0.12); color: #c4b5fd; }
+.badge-label        { font-size: 0.65rem; }
+.issue-message      { padding: 1rem; color: #fca5a5; font-size: 0.82rem; }
+.issue-empty        { padding: 2rem; text-align: center; color: var(--color-text-muted); font-size: 0.85rem; }
+
+/* ── PR page ── */
+.wr-run.wr-run-draft { opacity: 0.6; }
+.badge-open { font-size: 0.6rem; background: var(--color-running-bg); color: var(--color-running); }
+.badge-closed { font-size: 0.6rem; background: var(--color-cancelled-bg); color: var(--color-cancelled); }
+.badge-merged { font-size: 0.6rem; background: var(--color-completed-bg); color: var(--color-completed); }
+.badge-draft { font-size: 0.6rem; background: rgba(100,116,139,0.15); color: #94a3b8; }
+.pr-additions { color: var(--color-completed); }
+.pr-deletions { color: var(--color-failed); }
+.badge-label { font-size: 0.65rem; }
+.pr-branch { font-family: var(--font-mono); font-size: 0.68rem; }
+.pr-message { padding: 1rem; color: #fca5a5; font-size: 0.82rem; }
+
+/* ── Contracts page ── */
+.ct-title { color: var(--color-text-secondary); font-size: 0.75rem; }
+.ct-desc  { color: var(--color-text-muted); }
+.ct-file  { font-family: var(--font-mono); font-size: 0.68rem; }
+
+/* ── Personas page ── */
+.ps-desc { color: var(--color-text-secondary); }
+
 /* ── Load More Button ── */
 .wr-load-more { text-align: center; padding: 0.6rem; }
 .wr-load-more button {
