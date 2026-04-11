@@ -4748,6 +4748,9 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 				label = outcome.Type
 			}
 			e.registerOutcomeDeliverable(step.ID, outcome.Type, label, artifactPath, fmt.Sprintf("Produced by step %s", step.ID))
+			if e.store != nil {
+				_ = e.store.RecordOutcome(pipelineID, step.ID, outcome.Type, label, artifactPath)
+			}
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
@@ -4793,6 +4796,16 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 		desc := fmt.Sprintf("Extracted from %s at %s", outcome.ExtractFrom, outcome.JSONPath)
 
 		e.registerOutcomeDeliverable(step.ID, outcome.Type, label, value, desc)
+
+		// Persist outcome in state DB so it survives worktree cleanup
+		if e.store != nil {
+			if err := e.store.RecordOutcome(pipelineID, step.ID, outcome.Type, label, value); err != nil {
+				if e.logger != nil {
+					_ = e.logger.LogToolCall(pipelineID, step.ID, "recordOutcome",
+						fmt.Sprintf("type=%s label=%s err=%v", outcome.Type, label, err))
+				}
+			}
+		}
 
 		e.emit(event.Event{
 			Timestamp:  time.Now(),

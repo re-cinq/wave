@@ -275,3 +275,15 @@ type WebhookDelivery struct {
 	Error          string
 	DeliveredAt    time.Time
 }
+
+// OutcomeRecord stores a pipeline outcome that survives worktree cleanup.
+// Examples: PR URL, issue URL, artifact path, branch name.
+type OutcomeRecord struct {
+	ID        int64
+	RunID     string
+	StepID    string
+	Type      string // "pr", "issue", "branch", "file", "artifact"
+	Label     string // human-readable label
+	Value     string // the actual URL, path, or identifier
+	CreatedAt time.Time
+}

@@ -379,7 +379,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 	if s.store != nil {
 		allRuns, err := s.store.ListRuns(state.ListRunsOptions{Limit: 10000})
 		if err == nil {
-			enrichPRSummariesWithRuns(summaries, allRuns)
+			enrichPRSummariesWithRuns(summaries, allRuns, s.store)
 		}
 	}
 
