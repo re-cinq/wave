@@ -175,5 +175,5 @@ steps:
         ls .wave/pipelines/*.yaml | sed 's|.wave/pipelines/||;s|\.yaml||' | head -20
         exit 1
       fi
-      echo "Orchestrating: pipeline=$PIPELINE model=$MODEL_TIER"
-      wave run "$PIPELINE" --adapter opencode --model "${MODEL_TIER:-balanced}" -- "{{ input }}"
+      echo "Orchestrating: pipeline=$PIPELINE"
+      wave run "$PIPELINE" --adapter opencode -- "{{ input }}"
