@@ -130,9 +130,9 @@ func (s *Server) spawnDetachedRun(runID, pipelineName, input string, opts RunOpt
 	if opts.Force {
 		args = append(args, "--force")
 	}
-	if opts.Detach {
-		args = append(args, "--detach")
-	}
+	// Never pass --detach to the subprocess — spawnDetachedRun already
+	// launches it detached. Passing --detach would cause the subprocess
+	// to re-detach, creating a ghost pending run in the DB.
 	if opts.OnFailure != "" && opts.OnFailure != "halt" {
 		args = append(args, "--on-failure", opts.OnFailure)
 	}
