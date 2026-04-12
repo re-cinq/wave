@@ -10,6 +10,10 @@ Evaluate the analysis output for completeness and actionability.
 4. **Severity accuracy** — Severity ratings (CRITICAL/HIGH/MEDIUM/LOW) are proportional to actual impact
 5. **No hallucination** — Findings reference code that actually exists in the diff
 
+## Output Format
+
+**CRITICAL: Your output must be ONLY the review JSON object. No preamble, no markdown fences, no wrapper text, no other output before or after the JSON.**
+
 ## Verdict
 
 - **pass**: All criteria met, findings are substantive and actionable

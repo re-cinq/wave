@@ -10,6 +10,10 @@ Evaluate whether the verification step produced a sound go/no-go recommendation.
 4. **Regression check** — Existing functionality was verified to still work
 5. **Clear verdict** — The recommendation is unambiguous (PASS/FAIL with justification)
 
+## Output Format
+
+**CRITICAL: Your output must be ONLY the review JSON object. No preamble, no markdown fences, no wrapper text, no other output before or after the JSON.**
+
 ## Verdict
 
 - **pass**: Verdict is well-justified with evidence covering all changed paths

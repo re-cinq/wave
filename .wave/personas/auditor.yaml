@@ -9,6 +9,6 @@ permissions:
     - Bash
   deny:
     - "Edit(*)"
-    - "Bash(rm -rf /*)"
+    - "Bash(rm*)"
     - "Bash(git push*)"
     - "Bash(git commit*)"

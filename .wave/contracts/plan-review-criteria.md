@@ -10,6 +10,10 @@ Evaluate whether the plan or research output is actionable and complete.
 4. **Specificity** — Steps are concrete (file paths, function names, patterns), not abstract
 5. **Risk awareness** — Potential issues, edge cases, or breaking changes are identified
 
+## Output Format
+
+**CRITICAL: Your output must be ONLY the review JSON object. No preamble, no markdown fences, no wrapper text, no other output before or after the JSON.**
+
 ## Verdict
 
 - **pass**: Plan is clear, complete, feasible, and specific enough to implement
