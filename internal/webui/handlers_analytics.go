@@ -1,3 +1,5 @@
+//go:build analytics
+
 package webui
 
 import (

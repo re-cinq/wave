@@ -1,3 +1,5 @@
+//go:build webhooks
+
 package webui
 
 import (

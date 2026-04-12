@@ -1,3 +1,5 @@
+//go:build retros
+
 package webui
 
 import (

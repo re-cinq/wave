@@ -1,3 +1,5 @@
+//go:build ontology
+
 package webui
 
 import (

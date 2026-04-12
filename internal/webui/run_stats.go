@@ -9,7 +9,7 @@ import (
 )
 
 // enrichSummariesWithRuns adds Wave pipeline run stats to issue summaries.
-func enrichSummariesWithRuns(summaries []IssueSummary, runs []state.RunRecord, matchType string) {
+func enrichSummariesWithRuns(summaries []IssueSummary, runs []state.RunRecord, _ string) {
 	// Build a map of issue/PR number -> runs
 	// Matches both URL patterns (/issues/700, /pull/700) and
 	// short-form input ("owner/repo 700")

@@ -80,8 +80,32 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		"add":             func(a, b int) int { return a + b },
 		"subtract":        func(a, b int) int { return a - b },
 		"multiply":        func(a int, b float64) float64 { return float64(a) * b },
-		"smoothnessLabel": smoothnessLabel,
-		"frictionLabel":   frictionLabel,
+		"smoothnessLabel": func(s string) string {
+			switch s {
+			case "smooth":
+				return "Smooth"
+			case "bumpy":
+				return "Bumpy"
+			case "rough":
+				return "Rough"
+			default:
+				return s
+			}
+		},
+		"frictionLabel": func(s string) string {
+			switch s {
+			case "stall":
+				return "Stall"
+			case "retry":
+				return "Retry"
+			case "rework":
+				return "Rework"
+			case "timeout":
+				return "Timeout"
+			default:
+				return s
+			}
+		},
 		"adapterIcon":     adapterIcon,
 		"forgeIcon":       forgeIcon,
 		"modelTierClass":  modelTierClass,
