@@ -8,4 +8,11 @@ permissions:
     - Bash
     - Glob
     - Grep
-  deny: []
+  deny:
+    - "Edit(*.go)"
+    - "Edit(*.ts)"
+    - "Edit(*.py)"
+    - "Edit(*.rs)"
+    - "Bash(rm*)"
+    - "Bash(git push*)"
+    - "Bash(git commit*)"

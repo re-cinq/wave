@@ -359,6 +359,29 @@ steps:
         The report should cover all 8 categories with specific observations. A bad
         report rubber-stamps everything as VERIFIED without checking evidence, or misses
         feature categories.
+
+        EXAMPLE OUTPUT:
+        ```markdown
+        # Wave Feature Validation Report
+
+        ## Summary
+        **7 of 8 features VERIFIED**, 1 UNTESTED. Core validation path exercised successfully.
+
+        ## Feature Assessment
+        | Feature | Status | Evidence | Notes |
+        |---------|--------|----------|-------|
+        | Model routing | VERIFIED | This step executing proves cheapest model routing works | — |
+        | Sub-pipeline composition | VERIFIED | ops-hello-world artifacts present in .wave/output/ | — |
+        | Command steps | VERIFIED | run-tests step completed, pipeline reached this step | — |
+        | Conditional edges | VERIFIED | test-gate routed to approval-gate (success path) | — |
+        | Thread continuity | UNTESTED | Failure path not taken, diagnose-failure did not execute | Expected when tests pass |
+        | Retry policies | VERIFIED | check-config used patient policy, completed without retry | — |
+        | Lifecycle hooks | VERIFIED | .wave/output/hook-log.txt exists with entries | — |
+        | LLM-as-judge | VERIFIED | This report is being evaluated by llm_judge contract | — |
+
+        ## Recommendations
+        None — all core features verified.
+        ```
     output_artifacts:
       - name: report
         path: .wave/output/validation-report.md

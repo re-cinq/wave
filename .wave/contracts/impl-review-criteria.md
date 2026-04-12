@@ -30,6 +30,8 @@ You are reviewing an implementation step's output. Evaluate whether the implemen
 
 ## Output Format
 
+**CRITICAL: Your output must be ONLY the review JSON object. No preamble, no markdown fences, no wrapper text, no other output before or after the JSON.**
+
 Return a structured verdict. Be specific in issues — mention file names and line numbers where relevant.
 
 - Use verdict **pass** if all critical criteria pass (items 1-3) and most important criteria pass (4-6).

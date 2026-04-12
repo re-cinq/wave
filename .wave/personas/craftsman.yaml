@@ -7,4 +7,6 @@ permissions:
     - Edit
     - Bash
   deny:
-    - "Bash(rm -rf /*)"
+    - "Bash(rm*)"
+    - "Bash(git push*)"
+    - "Bash(git commit*)"

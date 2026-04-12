@@ -114,6 +114,9 @@ steps:
       - name: report
         path: .wave/output/correctness-report.md
         type: markdown
+    retry:
+      policy: standard
+      max_attempts: 2
     handover:
       contract:
         type: agent_review

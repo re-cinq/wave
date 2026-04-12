@@ -9,5 +9,5 @@ permissions:
     - Glob
     - Grep
   deny:
-    - "Bash(rm -rf /*)"
+    - "Bash(rm*)"
     - "Bash(sudo *)"

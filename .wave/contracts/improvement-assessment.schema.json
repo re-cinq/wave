@@ -40,5 +40,6 @@
       }
     },
     "timestamp": { "type": "string", "format": "date-time" }
-  }
+  },
+  "additionalProperties": false
 }
