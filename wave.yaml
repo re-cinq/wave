@@ -74,6 +74,7 @@ adapters:
         mode: headless
         output_format: json
         project_files:
+            - CLAUDE.md
             - AGENTS.md
             - .claude/settings.json
     gemini:
