@@ -10,6 +10,7 @@ type Features struct {
 	Analytics bool
 	Webhooks  bool
 	Ontology  bool
+	Retros    bool
 }
 
 // EnabledFeatures is the global feature flag state, populated by init()
