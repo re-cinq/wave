@@ -211,27 +211,23 @@
     (function() {
         var brand = document.getElementById('wave-brand');
         if (!brand) return;
-        var lastState = '';
-        var completedTimer = null;
+        var winddownTimer = null;
+        var wasRunning = false;
         var es = new EventSource('/api/attention/events');
         es.addEventListener('attention', function(e) {
             try {
                 var s = JSON.parse(e.data);
-                if (completedTimer) { clearTimeout(completedTimer); completedTimer = null; }
-
+                if (winddownTimer) { clearTimeout(winddownTimer); winddownTimer = null; }
                 if (s.total_runs > 0) {
-                    lastState = s.worst_state;
+                    wasRunning = true;
                     brand.className = 'wave-brand-link attention-' + s.worst_state;
-                } else if (lastState === 'autonomous') {
-                    // All runs finished successfully — play success animation
-                    lastState = '';
-                    brand.className = 'wave-brand-link attention-completed';
-                    completedTimer = setTimeout(function() {
+                } else if (wasRunning) {
+                    wasRunning = false;
+                    brand.className = 'wave-brand-link attention-winddown';
+                    winddownTimer = setTimeout(function() {
                         brand.className = 'wave-brand-link';
-                    }, 4500);
+                    }, 3000);
                 } else {
-                    // Cancelled, failed, or no prior runs — snap to idle
-                    lastState = '';
                     brand.className = 'wave-brand-link';
                 }
 
