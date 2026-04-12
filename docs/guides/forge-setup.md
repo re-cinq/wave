@@ -118,7 +118,7 @@ metadata:
 Local mode:
 - Only forge-independent pipelines are available (no `gh-`, `gl-`, `gt-`, `bb-` prefixed pipelines)
 - Forge-dependent steps are skipped at preflight with a clear message
-- Template variables `{{ forge.cli_tool }}` resolve to empty string
+- Template variables <code v-pre>{{ forge.cli_tool }}</code> resolve to empty string
 - No PR creation, issue management, or forge API calls
 
 ## How Detection Works
