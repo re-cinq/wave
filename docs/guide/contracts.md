@@ -28,7 +28,7 @@ steps:
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `type` | - | `json_schema`, `typescript_interface`, `test_suite`, `markdown_spec`, or `format` |
+| `type` | - | `json_schema`, `typescript_interface`, `test_suite`, `markdown_spec`, `format`, `non_empty_file`, `llm_judge`, `source_diff`, `agent_review`, or `event_contains` |
 | `schema_path` | - | Schema file path (for json_schema) |
 | `source` | - | File to validate |
 | `command` | - | Test command (for test_suite) |
@@ -103,6 +103,85 @@ handover:
 ```
 
 Use `dir: project_root` when the command needs project files (like `go.mod`). Without it, the command runs in the ephemeral workspace directory.
+
+### Non-Empty File
+
+Validates that the artifact file exists and is not empty. Useful as a lightweight check that a step produced output.
+
+```yaml
+handover:
+  contract:
+    type: non_empty_file
+    source: .wave/output/result.md
+```
+
+No additional configuration fields are required beyond `type` and `source`.
+
+### LLM Judge
+
+Uses an LLM to evaluate the artifact against criteria specified in a prompt. The LLM reads the artifact content and returns a pass/fail judgment.
+
+```yaml
+handover:
+  contract:
+    type: llm_judge
+    source: .wave/output/plan.md
+    prompt: "Does this plan address all acceptance criteria from the issue?"
+    model: balanced
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `prompt` | - | Evaluation criteria for the LLM judge |
+| `model` | `cheapest` | Model tier (`cheapest`, `balanced`, `strongest`) or a specific model identifier |
+
+### Source Diff
+
+Validates that the step produced meaningful source code changes by checking the git diff. Catches the failure mode where a step claims success but made no actual changes.
+
+```yaml
+handover:
+  contract:
+    type: source_diff
+    glob: "*.go"
+    min_files: 1
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `glob` | (all files) | Glob pattern to filter which changed files count |
+| `min_files` | `1` | Minimum number of qualifying changed files |
+
+### Agent Review
+
+Delegates validation to another agent session using an adapter runner. Unlike other contract types, `agent_review` does not use `NewValidator` — the executor calls `ValidateWithRunner()` instead.
+
+```yaml
+handover:
+  contract:
+    type: agent_review
+    source: .wave/output/implementation.md
+    prompt: "Review this implementation for security issues"
+```
+
+### Event Contains
+
+Validates that specific pipeline events occurred during step execution. Matches events by state and optional message substrings. Used in Wave's own default ontology pipelines.
+
+```yaml
+handover:
+  contract:
+    type: event_contains
+    events:
+      - state: ontology_warn
+        contains: "delivery"
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `events` | - | List of event patterns to match |
+| `events[].state` | - | Required event state to match (e.g., `ontology_warn`) |
+| `events[].contains` | (any) | Optional substring the event message must include |
 
 ## Failure Handling
 
@@ -202,3 +281,8 @@ cat .wave/traces/<pipeline-id>.jsonl | jq 'select(.type == "contract_failure")'
 
 - [Pipeline Schema Reference](/reference/pipeline-schema) - Contract field reference
 - [Pipelines Guide](/guide/pipelines) - Using contracts in pipelines
+
+## See Also
+
+- [Validation Philosophy](validation.md) — Why contracts exist and how they fit the V&V model
+- [V&V Paradigm Guide](vv-paradigm.md) — Unified three-layer verification and validation model
