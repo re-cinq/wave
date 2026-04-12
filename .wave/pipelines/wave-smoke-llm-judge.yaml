@@ -1,0 +1,72 @@
+kind: WavePipeline
+metadata:
+  name: wave-smoke-llm-judge
+  description: >-
+    Smoke test for LLM-as-Judge contract validation. Creates a sample
+    artifact and validates it with an llm_judge contract using criteria.
+  release: false
+  category: wave
+
+input:
+  source: cli
+  example: "verify llm judge contract works"
+
+chat_context:
+  suggested_questions:
+    - "Did the LLM judge contract pass?"
+
+steps:
+  - id: setup
+    type: command
+    script: |
+      mkdir -p .wave/output
+      cat > .wave/output/judge-input.md << 'CONTENT'
+      # Code Review: Authentication Module
+
+      ## Summary
+      The authentication module implements JWT-based token validation with
+      refresh token rotation. Key findings:
+
+      ## Findings
+      1. **Token expiry**: Tokens expire after 15 minutes (industry standard)
+      2. **Refresh rotation**: Each refresh generates a new token pair
+      3. **Error handling**: All auth errors return 401 with consistent format
+      4. **Missing**: No rate limiting on token refresh endpoint
+
+      ## Recommendation
+      Add rate limiting to the refresh endpoint to prevent token abuse.
+      CONTENT
+    output_artifacts:
+      - name: judge-input
+        path: .wave/output/judge-input.md
+        type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/judge-input.md
+        on_failure: fail
+
+  - id: judge
+    persona: navigator
+    model: cheapest
+    dependencies: [setup]
+    exec:
+      type: prompt
+      source: |
+        Read `.wave/output/judge-input.md` and confirm it contains a
+        structured code review. Write the file back unchanged to
+        `.wave/output/judge-output.md`.
+    output_artifacts:
+      - name: judge-output
+        path: .wave/output/judge-output.md
+        type: markdown
+    handover:
+      contract:
+        type: llm_judge
+        source: .wave/output/judge-output.md
+        model: cheapest
+        criteria:
+          - "Output contains a structured review with findings"
+          - "Output includes at least one actionable recommendation"
+        threshold: 0.5
+        on_failure: fail
