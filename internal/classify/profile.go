@@ -45,6 +45,7 @@ type TaskProfile struct {
 
 // PipelineConfig is the result of pipeline selection.
 type PipelineConfig struct {
-	Name   string // pipeline name, e.g. "impl-issue"
-	Reason string // human-readable routing explanation
+	Name              string            // pipeline name, e.g. "impl-issue"
+	Reason            string            // human-readable routing explanation
+	VerificationDepth VerificationDepth // depth of verification to apply (advisory until wired into executor)
 }
