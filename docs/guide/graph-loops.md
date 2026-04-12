@@ -54,6 +54,28 @@ Supported conditions:
 - `outcome=failure` — previous step failed
 - `context.key=value` — check a context variable
 
+### Context Conditions
+
+Context conditions check a variable set by the previous step. Use `context.key=value` to route based on values your steps produce:
+
+```yaml
+- id: run-tests
+  type: command
+  script: "go test ./..."
+  output:
+    context:
+      tests_passed: "{{ .ExitCode == 0 }}"
+
+- id: gate
+  type: conditional
+  dependencies: [run-tests]
+  edges:
+    - target: deploy
+      condition: "context.tests_passed=true"
+    - target: fix
+      condition: "context.tests_passed=false"
+```
+
 ## Safety: max_visits
 
 Every step has a `max_visits` limit (default: 10). When reached, the pipeline fails:

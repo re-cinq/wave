@@ -46,7 +46,7 @@ The retry system classifies failures into 6 categories:
 
 ## Circuit Breaker
 
-Same failure fingerprint repeating 3 times terminates the step:
+Repeated identical failures terminate the step, preventing infinite retry loops on persistent issues:
 
 ```yaml
 runtime:
@@ -54,6 +54,17 @@ runtime:
     limit: 3
     tracked_classes: [deterministic, contract_failure, test_failure]
 ```
+
+**Failure fingerprinting**: The circuit breaker tracks identical errors by creating a fingerprint from step ID, failure class, and error message. Only the same error repeated counts—not different errors.
+
+**tracked_classes**: Configure which failure types count toward the limit:
+- `deterministic` — Invalid API keys, missing binaries (won't succeed on retry)
+- `contract_failure` — Schema mismatches, output validation failures
+- `test_failure` — Test suite failures
+- `transient` — Network timeouts, rate limits
+- `budget_exhausted` — Context window exceeded
+
+**vs max_visits**: max_visits counts any step visit (same or different errors), useful for limiting total attempts. Circuit breaker only trips on repeated identical errors, useful for detecting persistent failures.
 
 ## Stall Watchdog
 
