@@ -39,15 +39,7 @@ const specDerivedTestResultSchema = `{
 }`
 
 // specDerivedValidator implements ContractValidator for the spec_derived_test type.
-type specDerivedValidator struct {
-	runner   adapter.AdapterRunner
-	manifest interface{} // *manifest.Manifest — stored as interface{} to avoid circular imports
-}
-
-// newSpecDerivedValidator creates a new spec-derived test validator.
-func newSpecDerivedValidator(runner adapter.AdapterRunner, manifest interface{}) *specDerivedValidator {
-	return &specDerivedValidator{runner: runner, manifest: manifest}
-}
+type specDerivedValidator struct{}
 
 // Validate implements ContractValidator. For spec_derived_test, this is a no-op —
 // callers must use ValidateSpecDerived instead, which provides the runner context.
