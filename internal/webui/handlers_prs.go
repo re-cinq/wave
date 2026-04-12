@@ -366,6 +366,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 			Additions:    pr.Additions,
 			Deletions:    pr.Deletions,
 			ChangedFiles: pr.ChangedFiles,
+			Comments:     pr.Comments,
 			CreatedAt:    pr.CreatedAt.Format("2006-01-02"),
 			URL:          pr.HTMLURL,
 			CheckStatus:  checkStatuses[pr.Number],
