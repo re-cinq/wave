@@ -260,24 +260,14 @@ func (s *Server) syncAttentionFromDB() {
 	if s.attention == nil {
 		return
 	}
-	// Get active runs from the DB. Running runs are all current.
-	// Failed runs are limited to the last 10 minutes to avoid showing
-	// hundreds of historical failures in the attention badge.
+	// Only track running runs. Completed and failed runs are done —
+	// they don't need live attention, the run detail page shows their status.
 	running, err := s.store.ListRuns(state.ListRunsOptions{Status: "running"})
 	if err != nil {
 		log.Printf("[attention] failed to list running runs: %v", err)
 		return
 	}
-	recentCutoff := time.Now().Add(-10 * time.Minute).Unix()
-	failed, err2 := s.store.ListRuns(state.ListRunsOptions{
-		Status:   "failed",
-		SinceUnix: recentCutoff,
-	})
-	if err2 != nil {
-		log.Printf("[attention] failed to list failed runs: %v", err2)
-	}
 
-	// Build a synthetic event for each active/failed run.
 	now := time.Now()
 	seen := make(map[string]bool)
 
@@ -287,15 +277,6 @@ func (s *Server) syncAttentionFromDB() {
 			PipelineID: r.RunID,
 			State:      "running",
 			StepID:     r.CurrentStep,
-			Timestamp:  now,
-		})
-	}
-	for _, r := range failed {
-		seen[r.RunID] = true
-		s.attention.UpdateWithName(r.RunID, r.PipelineName, event.Event{
-			PipelineID: r.RunID,
-			State:      "failed",
-			Message:    r.ErrorMessage,
 			Timestamp:  now,
 		})
 	}
