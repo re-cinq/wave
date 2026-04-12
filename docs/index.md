@@ -150,11 +150,12 @@ const heroProps = computed(() => ({
     ...terminals[pipelineIndex.value]
   },
   valuePills: [
-    { label: 'Trustworthy AI', link: '/concepts/contracts', tooltip: 'Validated outputs, no garbage in or out' },
-    { label: 'Reproducible', link: '/concepts/pipelines', tooltip: 'Same input, same result — every time' },
+    { label: 'Ontology-Driven', link: '/guide/vv-paradigm', tooltip: 'Cognitive invariants injected into every agent session' },
+    { label: 'Contract-Validated', link: '/guide/contracts', tooltip: '10 contract types validate every step boundary' },
+    { label: 'Gate-Controlled', link: '/guide/human-gates', tooltip: '4 gate types: approval, timer, PR merge, CI pass' },
+    { label: 'Composable', link: '/guide/composition', tooltip: 'Sub-pipelines, iterate, branch, loop, aggregate' },
     { label: 'Any Agent', link: '/reference/adapters', tooltip: 'Claude, Gemini, OpenCode, Codex — or mix them' },
-    { label: 'Git-Native', link: '/concepts/workspaces', tooltip: 'Real worktrees, real branches, real isolation' },
-    { label: 'Observable', link: '/trust-center/', tooltip: 'Full traces, credential-scrubbed logs' }
+    { label: 'Git-Native', link: '/concepts/workspaces', tooltip: 'Real worktrees, real branches, real isolation' }
   ],
   showBackground: true
 }))
