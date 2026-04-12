@@ -111,3 +111,25 @@ Run shell commands without an LLM adapter:
 ```
 
 Command steps are fast (milliseconds), deterministic, and don't consume tokens.
+
+## Safety Mechanisms
+
+Beyond per-step `max_visits` (documented above), Wave provides two additional safeguards for loops:
+
+### Circuit Breaker
+
+If a step fails with the same error 3 consecutive times, the loop is automatically terminated. This prevents infinite retries of unfixable errors (e.g., a missing dependency that no amount of code changes will resolve).
+
+Error messages are normalized before comparison — variable parts like timestamps and line numbers are stripped so that semantically identical errors are recognized as repeats.
+
+### Graph-Level `max_step_visits`
+
+In addition to per-step `max_visits`, the pipeline enforces a graph-level `max_step_visits` aggregate limit across all steps. This prevents pathological cases where many steps each stay under their individual limits but the total execution count grows unboundedly.
+
+Configure it at the pipeline level:
+
+```yaml
+max_step_visits: 50   # total visits across all steps
+```
+
+The effective limit is resolved via `EffectiveMaxStepVisits()`, which applies a default if not explicitly set.
