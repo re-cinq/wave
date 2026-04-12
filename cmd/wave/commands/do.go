@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/classify"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/workspace"
@@ -17,12 +18,13 @@ import (
 )
 
 type DoOptions struct {
-	Persona  string
-	Manifest string
-	Mock     bool
-	DryRun   bool
-	Output   OutputConfig
-	Model    string
+	Persona    string
+	Manifest   string
+	Mock       bool
+	DryRun     bool
+	NoClassify bool
+	Output     OutputConfig
+	Model      string
 }
 
 func NewDoCmd() *cobra.Command {
@@ -56,6 +58,7 @@ Examples:
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Show what would be executed without running")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for this run (e.g. haiku, opus)")
+	cmd.Flags().BoolVar(&opts.NoClassify, "no-classify", false, "Bypass task classification and use ad-hoc pipeline")
 
 	return cmd
 }
@@ -79,30 +82,74 @@ func runDo(input string, opts DoOptions) error {
 		return NewCLIError(CodeManifestInvalid, fmt.Sprintf("failed to parse manifest %s: %s", opts.Manifest, err), "Ensure the file is valid YAML with correct indentation").WithCause(err)
 	}
 
-	executePersona := opts.Persona
-	if executePersona == "" {
-		executePersona = "craftsman"
+	// Classification: when not bypassed and no explicit persona, classify input
+	// to select the best pipeline from the manifest.
+	useClassification := !opts.NoClassify && opts.Persona == ""
+
+	var profile classify.TaskProfile
+	var pipelineCfg classify.PipelineConfig
+	var classifiedPipeline *pipeline.Pipeline
+
+	if useClassification {
+		profile = classify.Classify(input, "")
+		pipelineCfg = classify.SelectPipeline(profile)
+
+		// Try to load the classified pipeline from disk
+		if p, err := loadPipeline(pipelineCfg.Name, &m); err == nil {
+			classifiedPipeline = p
+		} else {
+			fmt.Fprintf(os.Stderr, "classified pipeline %q not found, falling back to ad-hoc\n", pipelineCfg.Name)
+		}
 	}
 
-	adHocOpts := pipeline.AdHocOptions{
-		Input:          input,
-		ExecutePersona: executePersona,
-		Manifest:       &m,
-	}
+	// Determine which pipeline to execute
+	var p *pipeline.Pipeline
+	var pipelineLabel string
 
-	p, err := pipeline.GenerateAdHocPipeline(adHocOpts)
-	if err != nil {
-		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to generate pipeline: %s", err), "Check manifest personas and adapter configuration").WithCause(err)
+	if classifiedPipeline != nil {
+		p = classifiedPipeline
+		pipelineLabel = pipelineCfg.Name
+	} else {
+		// Fallback: generate the ad-hoc navigate→execute pipeline
+		executePersona := opts.Persona
+		if executePersona == "" {
+			executePersona = "craftsman"
+		}
+
+		adHocOpts := pipeline.AdHocOptions{
+			Input:          input,
+			ExecutePersona: executePersona,
+			Manifest:       &m,
+		}
+
+		generated, err := pipeline.GenerateAdHocPipeline(adHocOpts)
+		if err != nil {
+			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to generate pipeline: %s", err), "Check manifest personas and adapter configuration").WithCause(err)
+		}
+		p = generated
+		pipelineLabel = "adhoc"
 	}
 
 	if opts.DryRun {
+		if useClassification {
+			fmt.Printf("Classification:\n")
+			fmt.Printf("  Domain:       %s\n", profile.Domain)
+			fmt.Printf("  Complexity:   %s\n", profile.Complexity)
+			fmt.Printf("  Blast radius: %.1f\n", profile.BlastRadius)
+			fmt.Printf("  Pipeline:     %s\n", pipelineCfg.Name)
+			fmt.Printf("  Reason:       %s\n", pipelineCfg.Reason)
+			if classifiedPipeline == nil {
+				fmt.Printf("  Fallback:     ad-hoc (classified pipeline not found)\n")
+			}
+			fmt.Printf("\n")
+		}
 		fmt.Printf("Ad-hoc pipeline: navigate → execute\n")
 		fmt.Printf("  Input: %s\n", input)
 		fmt.Printf("  Steps:\n")
 		for i, step := range p.Steps {
 			fmt.Printf("    %d. %s (persona: %s)\n", i+1, step.ID, step.Persona)
 		}
-		fmt.Printf("  Workspace: .wave/workspaces/adhoc/\n")
+		fmt.Printf("  Workspace: .wave/workspaces/%s/\n", pipelineLabel)
 		return nil
 	}
 
@@ -129,7 +176,7 @@ func runDo(input string, opts DoOptions) error {
 		runner = adapter.ResolveAdapter(adapterName)
 	}
 
-	result := CreateEmitter(opts.Output, "adhoc", "adhoc", p.Steps, &m)
+	result := CreateEmitter(opts.Output, pipelineLabel, pipelineLabel, p.Steps, &m)
 	defer result.Cleanup()
 
 	wsRoot := m.Runtime.WorkspaceRoot
@@ -157,12 +204,12 @@ func runDo(input string, opts DoOptions) error {
 	pipelineStart := time.Now()
 
 	if err := executor.Execute(execCtx, p, &m, input); err != nil {
-		return NewCLIError(CodeInternalError, fmt.Sprintf("ad-hoc execution failed: %s", err), "Run 'wave logs' to inspect execution details").WithCause(err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("execution failed: %s", err), "Run 'wave logs' to inspect execution details").WithCause(err)
 	}
 
 	elapsed := time.Since(pipelineStart)
 	if opts.Output.Format == OutputFormatAuto || opts.Output.Format == OutputFormatText {
-		fmt.Fprintf(os.Stderr, "\nAd-hoc task completed (%.1fs)\n", elapsed.Seconds())
+		fmt.Fprintf(os.Stderr, "\nTask completed (%.1fs)\n", elapsed.Seconds())
 	}
 	return nil
 }
