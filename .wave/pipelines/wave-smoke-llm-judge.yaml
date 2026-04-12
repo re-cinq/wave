@@ -2,10 +2,10 @@ kind: WavePipeline
 metadata:
   name: wave-smoke-llm-judge
   description: >-
-    Smoke test for LLM-as-Judge contract validation. A command step
-    creates a sample code review artifact, then the llm_judge contract
-    evaluates it against criteria. Validates the full judge pipeline:
-    artifact creation, criteria evaluation, threshold scoring.
+    Smoke test for LLM-as-Judge contract validation. Creates a sample
+    artifact, a navigator evaluates it, and the llm_judge contract
+    scores the evaluation against criteria. Validates the full judge
+    pipeline: artifact creation, LLM evaluation, criteria scoring.
   release: false
   category: wave
 
@@ -19,29 +19,75 @@ chat_context:
     - "What score did the judge give?"
 
 steps:
-  - id: create-review
+  - id: create-artifact
     type: command
     script: |
       mkdir -p .wave/output
-      cat > .wave/output/judge-output.md << 'CONTENT'
-      # Code Review: Authentication Module
+      cat > .wave/output/sample-code.md << 'CONTENT'
+      # Authentication Module — auth.go
 
-      ## Summary
-      The authentication module implements JWT-based token validation with
-      refresh token rotation. The implementation follows industry standards
-      for session management but has a gap in rate limiting.
+      ```go
+      func ValidateToken(token string) (*Claims, error) {
+          claims := &Claims{}
+          parsed, err := jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (interface{}, error) {
+              return jwtSecret, nil
+          })
+          if err != nil || !parsed.Valid {
+              return nil, ErrInvalidToken
+          }
+          if time.Now().After(claims.ExpiresAt.Time) {
+              return nil, ErrTokenExpired
+          }
+          return claims, nil
+      }
 
-      ## Findings
-      1. **Token expiry**: Tokens expire after 15 minutes (industry standard)
-      2. **Refresh rotation**: Each refresh generates a new token pair, preventing replay attacks
-      3. **Error handling**: All auth errors return 401 with consistent JSON format
-      4. **Missing**: No rate limiting on token refresh endpoint — potential abuse vector
+      func RefreshToken(refreshToken string) (*TokenPair, error) {
+          claims, err := ValidateToken(refreshToken)
+          if err != nil {
+              return nil, err
+          }
+          // Issue new pair, rotate refresh token
+          access := generateAccessToken(claims.UserID, 15*time.Minute)
+          refresh := generateRefreshToken(claims.UserID, 7*24*time.Hour)
+          return &TokenPair{Access: access, Refresh: refresh}, nil
+      }
+      ```
 
-      ## Recommendation
-      Add rate limiting to the `/auth/refresh` endpoint. Suggested limit:
-      10 requests per minute per user. Use a sliding window counter backed
-      by Redis or an in-memory store with TTL eviction.
+      ## Known Issues
+      - No rate limiting on RefreshToken endpoint
+      - Token validation does not check revocation list
+      - JWT secret loaded from env without rotation strategy
       CONTENT
+    output_artifacts:
+      - name: sample-code
+        path: .wave/output/sample-code.md
+        type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/sample-code.md
+        on_failure: fail
+
+  - id: review
+    persona: navigator
+    model: cheapest
+    dependencies: [create-artifact]
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Read the code sample at `project/.wave/output/sample-code.md`.
+
+        Write a structured security review to `.wave/output/judge-output.md` with:
+        1. A **Summary** section (2-3 sentences)
+        2. A **Findings** section with numbered items, each having severity (Critical/High/Medium/Low/Info)
+        3. A **Recommendations** section with actionable fixes
+
+        Focus on: authentication flaws, token handling, rate limiting gaps.
     output_artifacts:
       - name: judge-output
         path: .wave/output/judge-output.md
@@ -52,8 +98,9 @@ steps:
         source: .wave/output/judge-output.md
         model: cheapest
         criteria:
-          - "Output contains a structured review with clearly labeled findings"
-          - "Output includes at least one actionable recommendation with specific details"
-          - "Output has a summary section explaining the overall assessment"
+          - "Output contains a structured security review with clearly labeled findings"
+          - "Each finding has a severity level assigned"
+          - "Output includes actionable recommendations with specific fixes"
+          - "Review covers authentication, token handling, and rate limiting"
         threshold: 0.6
         on_failure: fail
