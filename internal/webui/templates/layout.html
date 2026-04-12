@@ -39,7 +39,7 @@
                         <span>Runs</span>
                     </a></li>
                     <li><a href="/pipelines" class="nav-item{{if eq .ActivePage "pipelines"}} active{{end}}">
-                        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="7" width="4" height="6" rx="1" fill="currentColor" stroke="none"/><rect x="8" y="7" width="4" height="6" rx="1" fill="currentColor" stroke="none"/><rect x="15" y="7" width="4" height="6" rx="1" fill="currentColor" stroke="none"/><path d="M5 10h3M12 10h3"/></svg>
+                        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="10" r="2.5"/><circle cx="16" cy="5" r="2.5"/><circle cx="16" cy="15" r="2.5"/><path d="M6.5 9l7-3.5M6.5 11l7 3.5"/></svg>
                         <span>Pipelines</span>
                     </a></li>
                 </ul>
@@ -53,7 +53,7 @@
                 </button>
                 <ul class="nav-group-items">
                     <li><a href="/issues" class="nav-item{{if eq .ActivePage "issues"}} active{{end}}">
-                        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><circle cx="10" cy="10" r="2" fill="currentColor" stroke="none"/></svg>
+                        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h14M3 8h10M3 12h12M3 16h8"/></svg>
                         <span>Issues</span>
                     </a></li>
                     <li><a href="/prs" class="nav-item{{if eq .ActivePage "prs"}} active{{end}}">
@@ -99,7 +99,7 @@
                         <span>Contracts</span>
                     </a></li>
                     <li><a href="/skills" class="nav-item{{if eq .ActivePage "skills"}} active{{end}}">
-                        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="10 2 12.5 7.5 18 8 14 12 15 18 10 15 5 18 6 12 2 8 7.5 7.5" fill="currentColor" stroke="none"/></svg>
+                        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l6 3l6-3v10l-6 3l-6-3z"/><path d="M10 7v10"/></svg>
                         <span>Skills</span>
                     </a></li>
                     {{if featureEnabled "webhooks"}}<li><a href="/webhooks" class="nav-item{{if eq .ActivePage "webhooks"}} active{{end}}">
