@@ -120,16 +120,75 @@ export default withMermaid(
             items: [
               { text: 'CI/CD Integration', link: '/guides/ci-cd' },
               { text: 'GitHub Integration', link: '/guides/github-integration' },
-              { text: 'Enterprise Patterns', link: '/guides/enterprise' }
+              { text: 'Enterprise Patterns', link: '/guides/enterprise' },
+              { text: 'Web Dashboard', link: '/guides/web-dashboard' },
+              { text: 'Secure CLI Patterns', link: '/guides/secure-cli-patterns' }
             ]
           },
           {
             text: 'Advanced',
             items: [
               { text: 'Audit Logging', link: '/guides/audit-logging' },
-                { text: 'State & Resumption', link: '/guides/state-resumption' },
+              { text: 'State & Resumption', link: '/guides/state-resumption' },
               { text: 'Context Relay', link: '/guides/relay-compaction' },
-              { text: 'Meta-Pipelines', link: '/guides/meta-pipelines' }
+              { text: 'Meta-Pipelines', link: '/guides/meta-pipelines' },
+              { text: 'Contract Chaining', link: '/guides/contract-chaining' },
+              { text: 'Adapter Development', link: '/guides/adapter-development' }
+            ]
+          },
+          {
+            text: 'Platform Setup',
+            items: [
+              { text: 'Forge Setup', link: '/guides/forge-setup' }
+            ]
+          },
+          {
+            text: 'Maintenance',
+            items: [
+              { text: 'Upgrade Guide', link: '/guides/upgrade-guide' }
+            ]
+          }
+        ],
+        '/guide/': [
+          {
+            text: 'Core Concepts',
+            items: [
+              { text: 'Pipelines', link: '/guide/pipelines' },
+              { text: 'Contracts', link: '/guide/contracts' },
+              { text: 'Personas', link: '/guide/personas' },
+              { text: 'Outcomes', link: '/guide/outcomes' },
+              { text: 'Validation', link: '/guide/validation' }
+            ]
+          },
+          {
+            text: 'Configuration',
+            items: [
+              { text: 'Configuration', link: '/guide/configuration' },
+              { text: 'Installation', link: '/guide/installation' },
+              { text: 'Quick Start', link: '/guide/quick-start' },
+              { text: 'Relay', link: '/guide/relay' }
+            ]
+          },
+          {
+            text: 'Advanced Patterns',
+            items: [
+              { text: 'Composition', link: '/guide/composition' },
+              { text: 'Graph Loops', link: '/guide/graph-loops' },
+              { text: 'Human Gates', link: '/guide/human-gates' },
+              { text: 'Threads', link: '/guide/threads' },
+              { text: 'Retry Policies', link: '/guide/retry-policies' },
+              { text: 'Model Routing', link: '/guide/model-routing' }
+            ]
+          },
+          {
+            text: 'Skills',
+            items: [
+              { text: 'Skills', link: '/guide/skills' },
+              { text: 'Skill Configuration', link: '/guide/skill-configuration' },
+              { text: 'Skill Ecosystems', link: '/guide/skill-ecosystems' },
+              { text: 'TUI', link: '/guide/tui' },
+              { text: 'Chat Context', link: '/guide/chat-context' },
+              { text: 'Pipeline Outputs', link: '/guide/pipeline-outputs' }
             ]
           }
         ],
