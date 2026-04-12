@@ -619,7 +619,8 @@ runtime:
         log_all_file_operations: false
         log_all_tool_calls: true
         log_dir: .wave/traces/
-    default_timeout_minutes: 90
+    default_timeout_minutes: 30
+    stall_timeout: 10m
     max_concurrent_workers: 5
     meta_pipeline:
         max_depth: 2
