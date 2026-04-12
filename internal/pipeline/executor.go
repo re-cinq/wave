@@ -5620,9 +5620,18 @@ func (e *DefaultPipelineExecutor) executeAggregateInDAG(_ context.Context, execu
 		return fmt.Errorf("failed to write aggregate output: %w", err)
 	}
 
-	// Register artifact in execution context
+	// Derive the artifact name from the output filename (without extension)
+	// so inject_artifacts can find it via the "stepID:artifactName" key.
+	artifactName := strings.TrimSuffix(filepath.Base(outputPath), filepath.Ext(outputPath))
+
+	// Register in execution.ArtifactPaths (used by injectArtifacts lookup)
+	execution.mu.Lock()
+	execution.ArtifactPaths[step.ID+":"+artifactName] = outputPath
+	execution.mu.Unlock()
+
+	// Also register in context for template resolution
 	if execution.Context != nil {
-		execution.Context.SetArtifactPath("merged-findings", outputPath)
+		execution.Context.SetArtifactPath(artifactName, outputPath)
 	}
 
 	execution.mu.Lock()
