@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Nav Icon Proposals</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0d1117; color: #e6edf3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 2rem; }
+  h1 { margin-bottom: 0.5rem; font-size: 1.5rem; color: #8b949e; }
+  h1 + p { color: #6e7681; font-size: 0.85rem; margin-bottom: 2rem; }
+  h2 { font-size: 1rem; color: #e6edf3; margin: 2rem 0 1rem; border-bottom: 1px solid #30363d; padding-bottom: 0.5rem; }
+  .row { display: flex; gap: 2rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .option {
+    background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+    padding: 1rem 1.5rem; display: flex; align-items: center; gap: 0.75rem;
+    min-width: 200px;
+  }
+  .option.current { border-color: #f85149; opacity: 0.5; }
+  .option.current::after { content: ' (current)'; color: #f85149; font-size: 0.7rem; }
+  .option svg { width: 20px; height: 20px; flex-shrink: 0; color: #8b949e; }
+  .option span { font-size: 0.9rem; color: #e6edf3; }
+  .option:hover { border-color: #818cf8; }
+  .label { font-size: 0.65rem; color: #6e7681; display: block; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<h1>Nav Icon Proposals</h1>
+<p>Hover to highlight. Current icons shown dimmed in red.</p>
+
+<!-- SKILLS -->
+<h2>Skills</h2>
+<div class="row">
+  <div class="option current">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="10 2 12.5 7.5 18 8 14 12 15 18 10 15 5 18 6 12 2 8 7.5 7.5" fill="currentColor" stroke="none"/></svg>
+    <span>Skills<span class="label">Filled star</span></span>
+  </div>
+  <div class="option">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M13 2L7 11h4L7 18l9-9h-4z"/>
+    </svg>
+    <span>Skills<span class="label">A — Lightning bolt</span></span>
+  </div>
+  <div class="option">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="14" height="14" rx="2"/>
+      <path d="M7 10h6M10 7v6"/>
+    </svg>
+    <span>Skills<span class="label">B — Puzzle piece (box+cross)</span></span>
+  </div>
+  <div class="option">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="10" cy="10" r="7"/>
+      <path d="M10 6v4l3 2"/>
+      <path d="M15 15l2 2"/>
+    </svg>
+    <span>Skills<span class="label">C — Gear/cog with wrench</span></span>
+  </div>
+  <div class="option">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 4l6 3l6-3v10l-6 3l-6-3z"/>
+      <path d="M10 7v10"/>
+    </svg>
+    <span>Skills<span class="label">D — Open book / manual</span></span>
+  </div>
+  <div class="option">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 3L4 7v6l5 4l5-4V7z"/>
+      <circle cx="9" cy="10" r="2" fill="currentColor" stroke="none"/>
+      <path d="M14 5l3-2M14 10h3M14 15l3 2"/>
+    </svg>
+    <span>Skills<span class="label">E — Hexagon + connectors (plugin)</span></span>
+  </div>
+</div>
+
+<!-- ISSUES -->
+<h2>Issues</h2>
+<div class="row">
+  <div class="option current">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><circle cx="10" cy="10" r="2" fill="currentColor" stroke="none"/></svg>
+    <span>Issues<span class="label">Circle + dot (current)</span></span>
+  </div>
+  <div class="option">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="10" cy="10" r="8"/>
+      <line x1="10" y1="6" x2="10" y2="11"/>
+      <circle cx="10" cy="14" r="0.5" fill="currentColor"/>
+    </svg>
+    <span>Issues<span class="label">A — Circle + exclamation</span></span>
+  </div>
+  <div class="option">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 2a8 8 0 110 16 8 8 0 010-16z"/>
+      <path d="M10 2v8l5.5 3"/>
+    </svg>
+    <span>Issues<span class="label">B — Clock (time-sensitive)</span></span>
+  </div>
+  <div class="option">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="14" height="14" rx="3"/>
+      <circle cx="10" cy="10" r="2.5" fill="currentColor" stroke="none"/>
+    </svg>
+    <span>Issues<span class="label">C — Rounded square + dot (GitHub-style)</span></span>
+  </div>
+  <div class="option">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 4h14M3 8h10M3 12h12M3 16h8"/>
+    </svg>
+    <span>Issues<span class="label">D — Stacked lines (list)</span></span>
+  </div>
+  <div class="option">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="10" cy="10" r="8"/>
+      <path d="M7 10h6" stroke-width="2"/>
+    </svg>
+    <span>Issues<span class="label">E — Circle + dash (open issue)</span></span>
+  </div>
+</div>
+
+<!-- PIPELINES -->
+<h2>Pipelines</h2>
+<div class="row">
+  <div class="option current">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="7" width="4" height="6" rx="1" fill="currentColor" stroke="none"/><rect x="8" y="7" width="4" height="6" rx="1" fill="currentColor" stroke="none"/><rect x="15" y="7" width="4" height="6" rx="1" fill="currentColor" stroke="none"/><path d="M5 10h3M12 10h3"/></svg>
+    <span>Pipelines<span class="label">Three boxes (current)</span></span>
+  </div>
+  <div class="option">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="4" cy="10" r="2.5"/>
+      <circle cx="16" cy="5" r="2.5"/>
+      <circle cx="16" cy="15" r="2.5"/>
+      <path d="M6.5 9l7-3.5M6.5 11l7 3.5"/>
+    </svg>
+    <span>Pipelines<span class="label">A — DAG/flow graph</span></span>
+  </div>
+  <div class="option">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2 10h4l2-5l3 10l2-5h5"/>
+    </svg>
+    <span>Pipelines<span class="label">B — Signal/waveform (matches logo)</span></span>
+  </div>
+  <div class="option">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2" y="4" width="5" height="5" rx="1"/>
+      <rect x="13" y="4" width="5" height="5" rx="1"/>
+      <rect x="7.5" y="11" width="5" height="5" rx="1"/>
+      <path d="M7 6.5h6M12.5 9.5l-2.5 2M7.5 9.5l2.5 2"/>
+    </svg>
+    <span>Pipelines<span class="label">C — Boxes with arrows (workflow)</span></span>
+  </div>
+  <div class="option">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="4" cy="10" r="2" fill="currentColor" stroke="none"/>
+      <circle cx="10" cy="10" r="2" fill="currentColor" stroke="none"/>
+      <circle cx="16" cy="10" r="2" fill="currentColor" stroke="none"/>
+      <path d="M6 10h2M12 10h2"/>
+    </svg>
+    <span>Pipelines<span class="label">D — Connected dots (minimal)</span></span>
+  </div>
+  <div class="option">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 5h14M3 10h14M3 15h14"/>
+      <circle cx="6" cy="5" r="1.5" fill="currentColor" stroke="none"/>
+      <circle cx="10" cy="10" r="1.5" fill="currentColor" stroke="none"/>
+      <circle cx="14" cy="15" r="1.5" fill="currentColor" stroke="none"/>
+    </svg>
+    <span>Pipelines<span class="label">E — Gantt bars (progress)</span></span>
+  </div>
+</div>
+
+</body>
+</html>

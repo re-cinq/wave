@@ -213,10 +213,10 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     transition: color 0.5s, text-shadow 0.5s;
 }
 
-/* Idle state (default) — neutral/muted, no runs active */
-.wave-brand-link .wf-main { stroke: var(--color-text-secondary); }
-.wave-brand-link .wf-ghost { stroke: var(--color-text-secondary); opacity: 0.3; }
-.wave-brand-text { color: var(--color-text-secondary); }
+/* Idle state (default) — matches nav group title weight and color */
+.wave-brand-link .wf-main { stroke: var(--color-text); }
+.wave-brand-link .wf-ghost { stroke: var(--color-text); opacity: 0.3; }
+.wave-brand-text { color: var(--color-text); }
 
 /* Running (autonomous) — matches --color-running used by step borders/spinners */
 .wave-brand-link.attention-autonomous .wf-main { stroke: var(--color-running); stroke-dasharray: 4 3; animation: wf-travel 1.2s linear infinite; }
@@ -252,7 +252,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     30%  { stroke: #3fb950; }
     45%  { stroke: var(--color-running); }
     60%  { stroke: #3fb950; }
-    100% { stroke: var(--color-text-secondary); }
+    100% { stroke: var(--color-text); }
 }
 @keyframes wf-success-text {
     0%   { color: #3fb950; text-shadow: 0 0 8px rgba(63,185,80,0.3); }
@@ -260,7 +260,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     30%  { color: #3fb950; text-shadow: 0 0 8px rgba(63,185,80,0.3); }
     45%  { color: var(--color-running); text-shadow: none; }
     60%  { color: #3fb950; text-shadow: 0 0 6px rgba(63,185,80,0.2); }
-    100% { color: var(--color-text-secondary); text-shadow: none; }
+    100% { color: var(--color-text); text-shadow: none; }
 }
 
 /* Nav groups */
