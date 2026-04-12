@@ -20,7 +20,7 @@ steps:
     type: command
     script: |
       mkdir -p .wave/output
-      cat > .wave/output/judge-input.md << 'CONTENT'
+      cat > .wave/output/judge-output.md << 'CONTENT'
       # Code Review: Authentication Module
 
       ## Summary
@@ -36,26 +36,6 @@ steps:
       ## Recommendation
       Add rate limiting to the refresh endpoint to prevent token abuse.
       CONTENT
-    output_artifacts:
-      - name: judge-input
-        path: .wave/output/judge-input.md
-        type: markdown
-    handover:
-      contract:
-        type: non_empty_file
-        source: .wave/output/judge-input.md
-        on_failure: fail
-
-  - id: judge
-    persona: navigator
-    model: cheapest
-    dependencies: [setup]
-    exec:
-      type: prompt
-      source: |
-        Read `.wave/output/judge-input.md` and confirm it contains a
-        structured code review. Write the file back unchanged to
-        `.wave/output/judge-output.md`.
     output_artifacts:
       - name: judge-output
         path: .wave/output/judge-output.md
