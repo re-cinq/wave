@@ -3047,12 +3047,15 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		MaxConcurrentAgents: step.MaxConcurrentAgents,
 		OnStreamEvent: func(evt adapter.StreamEvent) {
 			if evt.Type == "tool_use" && evt.ToolName != "" {
-				// Notify watchdog of activity to prevent stall timeout
+				// Notify watchdog of activity (any tool) and progress (write tools only)
 				execution.mu.Lock()
 				wd := execution.Watchdog
 				execution.mu.Unlock()
 				if wd != nil {
 					wd.NotifyActivity()
+					if IsProgressTool(evt.ToolName) {
+						wd.NotifyProgress()
+					}
 				}
 
 				e.emit(event.Event{
