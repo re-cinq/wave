@@ -52,6 +52,11 @@ type ContractConfig struct {
 
 	// event_contains contract fields — validated by executor (needs event store access)
 	Events []EventPattern `json:"events,omitempty"` // Expected event patterns to match against the step's event log
+
+	// spec_derived_test contract fields
+	SpecArtifact       string `json:"spec_artifact,omitempty"`       // Path to the specification artifact file
+	TestPersona        string `json:"test_persona,omitempty"`        // Persona that generates tests (must differ from implementer)
+	ImplementationStep string `json:"implementation_step,omitempty"` // Step ID of the implementation to validate
 }
 
 // ValidationError provides detailed information about contract validation failures.
@@ -113,6 +118,10 @@ func NewValidator(cfg ContractConfig) ContractValidator {
 	case "agent_review":
 		// agent_review requires an adapter runner — NewValidator returns nil.
 		// The executor uses ValidateWithRunner() instead for this type.
+		return nil
+	case "spec_derived_test":
+		// spec_derived_test requires an adapter runner — NewValidator returns nil.
+		// The executor uses ValidateSpecDerived() instead for this type.
 		return nil
 	default:
 		return nil
