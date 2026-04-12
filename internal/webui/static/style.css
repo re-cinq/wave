@@ -209,6 +209,23 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     white-space: nowrap;
 }
 
+/* Attention badge (Clippy widget) */
+.attention-badge {
+    display: inline-flex; align-items: center; margin-left: 0.25rem;
+}
+.attention-dot {
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+    transition: background-color 0.3s ease;
+}
+.attention-dot.autonomous { background-color: var(--color-success, #22c55e); }
+.attention-dot.needs_review { background-color: var(--color-warning, #eab308); animation: attention-pulse 2s infinite; }
+.attention-dot.blocked { background-color: var(--color-error, #ef4444); animation: attention-pulse 1.5s infinite; }
+.attention-dot.failed { background-color: var(--color-error, #ef4444); animation: attention-pulse 1s infinite; }
+@keyframes attention-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
 /* Nav groups */
 .sidebar-nav { flex: 1; padding: 0.5rem 0; }
 .nav-group { margin-bottom: 0.125rem; }

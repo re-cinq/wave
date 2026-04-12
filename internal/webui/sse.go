@@ -2,16 +2,19 @@ package webui
 
 import (
 	"sync"
+
+	"github.com/recinq/wave/internal/attention"
 )
 
 // SSEBroker manages Server-Sent Events connections for real-time dashboard updates.
 type SSEBroker struct {
-	clients    map[chan SSEEvent]struct{}
-	register   chan chan SSEEvent
-	unregister chan chan SSEEvent
-	broadcast  chan SSEEvent
-	stop       chan struct{}
-	mu         sync.RWMutex
+	clients       map[chan SSEEvent]struct{}
+	register      chan chan SSEEvent
+	unregister    chan chan SSEEvent
+	broadcast     chan SSEEvent
+	stop          chan struct{}
+	mu            sync.RWMutex
+	attentionSink *attention.Broker // optional — forwards events to attention classifier
 }
 
 // SSEEvent represents a server-sent event.

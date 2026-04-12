@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/recinq/wave/internal/attention"
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
@@ -63,6 +64,7 @@ type Server struct {
 	tlsCA             string
 	csrfToken         string
 	cache             *apiCache
+	attention         *attention.Broker
 }
 
 // ServerConfig holds configuration for the dashboard server.
@@ -186,7 +188,12 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		tlsCA:             cfg.TLSCA,
 		csrfToken:         csrfToken,
 		cache:             newAPICache(5 * time.Minute),
+		attention:         attention.NewBroker(),
 	}
+
+	// Wire attention broker into the SSE broker so pipeline events
+	// are automatically forwarded to the attention classifier.
+	s.broker.attentionSink = s.attention
 
 	mux := http.NewServeMux()
 	s.registerRoutes(mux)
