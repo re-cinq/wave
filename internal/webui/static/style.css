@@ -2763,8 +2763,8 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-bg { position: absolute; top: 0; left: 0; bottom: 0; border-radius: 3px; opacity: 0.06; pointer-events: none; z-index: 0; }
 .ws-bg.st-completed { background: var(--color-completed); }
 .ws-bg.st-failed    { background: var(--color-failed); }
-.ws-bg.st-running   { background: var(--color-running); animation: pulse 2s ease-in-out infinite; }
-@keyframes pulse { 0%,100%{opacity:0.03} 50%{opacity:0.1} }
+.ws-bg.st-running   { background: var(--color-running); animation: ws-bg-pulse 2s ease-in-out infinite; }
+@keyframes ws-bg-pulse { 0%,100%{opacity:0.03} 50%{opacity:0.1} }
 
 /* ── Status left accent (5px for strong signal) ── */
 .ws.st-completed { border-left: 4px solid var(--color-completed); }
