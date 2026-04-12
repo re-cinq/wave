@@ -1,0 +1,67 @@
+kind: WavePipeline
+metadata:
+  name: wave-smoke-git-forensics
+  description: >-
+    Smoke test for git forensics commands. Runs the 5 key forensics
+    techniques and verifies they produce output.
+  release: false
+  category: wave
+
+input:
+  source: cli
+  example: "verify git forensics commands work"
+
+chat_context:
+  suggested_questions:
+    - "Did all forensics commands produce output?"
+
+steps:
+  - id: forensics
+    type: command
+    script: |
+      mkdir -p .wave/output
+      echo "=== CHURN ===" > .wave/output/forensics.txt
+      git log --format=format: --name-only --since="1 year ago" | sort | uniq -c | sort -nr | head -10 >> .wave/output/forensics.txt 2>&1
+      echo "" >> .wave/output/forensics.txt
+      echo "=== BUG HOTSPOTS ===" >> .wave/output/forensics.txt
+      git log -i -E --grep="fix|bug|broken" --name-only --format='' | sort | uniq -c | sort -nr | head -10 >> .wave/output/forensics.txt 2>&1
+      echo "" >> .wave/output/forensics.txt
+      echo "=== BUS FACTOR ===" >> .wave/output/forensics.txt
+      git shortlog -sn --no-merges | head -10 >> .wave/output/forensics.txt 2>&1
+      echo "" >> .wave/output/forensics.txt
+      echo "=== MOMENTUM ===" >> .wave/output/forensics.txt
+      git log --format='%ad' --date=format:'%Y-%m' | sort | uniq -c | tail -6 >> .wave/output/forensics.txt 2>&1
+      echo "" >> .wave/output/forensics.txt
+      echo "=== FIREFIGHTING ===" >> .wave/output/forensics.txt
+      git log --oneline --since="1 year ago" | grep -iE 'revert|hotfix|emergency|rollback' | head -10 >> .wave/output/forensics.txt 2>&1 || echo "none found" >> .wave/output/forensics.txt
+    output_artifacts:
+      - name: forensics
+        path: .wave/output/forensics.txt
+        type: text
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/forensics.txt
+        on_failure: fail
+
+  - id: verify
+    type: command
+    dependencies: [forensics]
+    script: |
+      mkdir -p .wave/output
+      SECTIONS=$(grep -c "^===" .wave/output/forensics.txt)
+      LINES=$(wc -l < .wave/output/forensics.txt)
+      if [ "$SECTIONS" -ge 5 ] && [ "$LINES" -gt 10 ]; then
+        echo "{\"status\":\"pass\",\"sections\":$SECTIONS,\"lines\":$LINES}" > .wave/output/forensics-verify.json
+      else
+        echo "{\"status\":\"fail\",\"sections\":$SECTIONS,\"lines\":$LINES}" > .wave/output/forensics-verify.json
+      fi
+    output_artifacts:
+      - name: verify
+        path: .wave/output/forensics-verify.json
+        type: json
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/forensics-verify.json
+        on_failure: fail
