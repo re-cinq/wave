@@ -807,9 +807,8 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 		var contractType, contractSchemaName string
 		if contracts := step.Handover.EffectiveContracts(); len(contracts) > 0 {
 			contractType = contracts[0].Type
-			if contracts[0].Schema != "" {
-				contractSchemaName = contracts[0].Schema
-			} else if contracts[0].SchemaPath != "" {
+			// Only use schema_path (filename) as display name, not inline schema JSON
+			if contracts[0].SchemaPath != "" {
 				contractSchemaName = contracts[0].SchemaPath
 			}
 		}
