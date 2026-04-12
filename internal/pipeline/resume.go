@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 )
 
@@ -167,6 +168,12 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 		attemptContexts[k] = v
 	}
 
+	// Build pipeline context and inject forge variables so that {{ forge.* }}
+	// templates resolve correctly (matching the normal Execute() path).
+	pipelineContext := newContextWithProject(pipelineID, pipelineName, fromStep, m)
+	forgeInfo := forge.DetectFromGitRemotesWithOverride(m.Metadata.Forge)
+	InjectForgeVariables(pipelineContext, forgeInfo)
+
 	execution := &PipelineExecution{
 		Pipeline:        resumePipeline,
 		Manifest:        m,
@@ -177,7 +184,7 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 		WorktreePaths:   make(map[string]*WorktreeInfo),
 		AttemptContexts: attemptContexts,
 		Input:           input,
-		Context:         newContextWithProject(pipelineID, pipelineName, fromStep, m),
+		Context:         pipelineContext,
 		Status: &PipelineStatus{
 			ID:             pipelineID,
 			PipelineName:   pipelineName,

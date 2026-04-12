@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -1639,5 +1640,94 @@ func TestResumeFromStep_ReusesExecutorRunID(t *testing.T) {
 
 	if count != 0 {
 		t.Errorf("expected 0 CreateRun calls when executor.runID is pre-set via WithRunID, got %d", count)
+	}
+}
+
+func TestResumeFromStep_InjectsForgeVariables(t *testing.T) {
+	// The resume path must inject forge variables so that template
+	// placeholders like {{ forge.type }} resolve correctly.
+	// Without this, steps with personas like "{{ forge.type }}-commenter"
+	// fail with "persona not found" because the raw template string is used.
+
+	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	manager := NewResumeManager(executor)
+
+	// Use a temp dir so workspace discovery doesn't interfere
+	tempDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	_ = os.Chdir(tempDir)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	// Initialize git repo so forge detection has something to work with
+	initGitRepo(t, tempDir)
+
+	p := &Pipeline{
+		Kind: "WavePipeline",
+		Metadata: PipelineMetadata{Name: "test-forge-resume"},
+		Steps: []Step{
+			{ID: "implement"},
+			{
+				ID:           "create-pr",
+				Persona:      "{{ forge.type }}-commenter",
+				Dependencies: []string{"implement"},
+			},
+		},
+	}
+
+	m := &manifest.Manifest{}
+
+	// Create workspace directories so loadResumeState finds completed steps
+	wsDir := filepath.Join(tempDir, ".wave", "workspaces", "test-forge-resume", "implement")
+	_ = os.MkdirAll(wsDir, 0755)
+	_ = os.WriteFile(filepath.Join(wsDir, "artifact.json"), []byte("{}"), 0644)
+
+	// Call ResumeFromStep — it will fail during execution (mock adapter),
+	// but we can check the context was built correctly by inspecting the
+	// execution stored in executor.pipelines.
+	ctx := context.Background()
+	_ = manager.ResumeFromStep(ctx, p, m, "test-input", "create-pr", true)
+
+	// Find the execution that was created
+	executor.mu.RLock()
+	defer executor.mu.RUnlock()
+
+	var execution *PipelineExecution
+	for _, exec := range executor.pipelines {
+		if exec.Pipeline.Metadata.Name == "test-forge-resume" {
+			execution = exec
+			break
+		}
+	}
+
+	if execution == nil {
+		t.Fatal("expected execution to be stored in executor.pipelines")
+	}
+
+	// Verify forge variables were injected into the context
+	forgeType := execution.Context.CustomVariables["forge.type"]
+	if forgeType == "" {
+		t.Error("forge.type not injected into resume context; {{ forge.type }} templates will not resolve")
+	}
+
+	// Verify the persona would resolve correctly (not contain raw template syntax)
+	resolved := execution.Context.ResolvePlaceholders("{{ forge.type }}-commenter")
+	if strings.Contains(resolved, "{{") {
+		t.Errorf("persona template not resolved: got %q, expected forge type prefix", resolved)
+	}
+}
+
+// initGitRepo initializes a minimal git repo with a GitHub remote for forge detection.
+func initGitRepo(t *testing.T, dir string) {
+	t.Helper()
+	cmds := [][]string{
+		{"git", "init"},
+		{"git", "remote", "add", "origin", "https://github.com/test-owner/test-repo.git"},
+	}
+	for _, args := range cmds {
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git init failed: %s: %v", out, err)
+		}
 	}
 }
