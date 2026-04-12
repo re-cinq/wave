@@ -118,6 +118,8 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 				return EnabledFeatures.Webhooks
 			case "ontology":
 				return EnabledFeatures.Ontology
+			case "retros":
+				return EnabledFeatures.Retros
 			default:
 				return false
 			}
