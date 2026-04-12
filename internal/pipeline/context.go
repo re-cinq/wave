@@ -34,6 +34,7 @@ type PipelineContext struct {
 	PipelineID      string                   `json:"pipeline_id"`   // Runtime ID with hash suffix
 	PipelineName    string                   `json:"pipeline_name"` // Logical pipeline name
 	StepID          string                   `json:"step_id"`
+	Input           string                   `json:"input,omitempty"` // Pipeline input for {{ input }} resolution
 	CustomVariables map[string]string        `json:"custom_variables,omitempty"`
 	ArtifactPaths   map[string]string        `json:"artifact_paths,omitempty"` // Artifact name -> path for template resolution
 	GateDecisions   map[string]*GateDecision `json:"gate_decisions,omitempty"` // stepID -> gate decision
@@ -104,6 +105,9 @@ func (ctx *PipelineContext) ResolvePlaceholders(template string) string {
 	result = replaceBoth(result, "step_id", ctx.StepID)
 	result = replaceBoth(result, "branch_name", ctx.BranchName)
 	result = replaceBoth(result, "feature_num", ctx.FeatureNum)
+	if ctx.Input != "" {
+		result = replaceBoth(result, "input", ctx.Input)
+	}
 
 	// Traceability aliases: {{ run.id }} resolves to pipeline_id for artifact correlation
 	result = replaceBoth(result, "run.id", ctx.PipelineID)

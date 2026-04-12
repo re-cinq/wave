@@ -394,6 +394,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		pipelineID = GenerateRunID(pipelineName, m.Runtime.PipelineIDHashLength)
 	}
 	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
+	pipelineContext.Input = input
 
 	// Inject forge variables for unified pipeline template resolution
 	forgeInfo := forge.DetectFromGitRemotesWithOverride(m.Metadata.Forge)
@@ -889,6 +890,7 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		pipelineID = GenerateRunID(pipelineName, m.Runtime.PipelineIDHashLength)
 	}
 	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
+	pipelineContext.Input = input
 
 	// Inject forge variables
 	forgeInfo := forge.DetectFromGitRemotesWithOverride(m.Metadata.Forge)

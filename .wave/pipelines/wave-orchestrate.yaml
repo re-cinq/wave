@@ -141,73 +141,30 @@ steps:
         on_failure: retry
 
   - id: execute
+    type: command
     dependencies: [classify]
-    branch:
-      on: "{{ classify.output.pipeline }}"
-      cases:
-        # Implementation
-        impl-hotfix: impl-hotfix
-        impl-issue: impl-issue
-        impl-issue-core: impl-issue-core
-        impl-speckit: impl-speckit
-        impl-feature: impl-feature
-        impl-prototype: impl-prototype
-        impl-refactor: impl-refactor
-        impl-improve: impl-improve
-        impl-research: impl-research
-        impl-recinq: impl-recinq
-        impl-review-loop: impl-review-loop
-        impl-smart-route: impl-smart-route
-        full-impl-cycle: full-impl-cycle
-        # Review & Audit
-        ops-pr-review: ops-pr-review
-        ops-pr-fix-review: ops-pr-fix-review
-        audit-security: audit-security
-        audit-quality-loop: audit-quality-loop
-        ops-parallel-audit: ops-parallel-audit
-        audit-dead-code: audit-dead-code
-        audit-dead-code-scan: audit-dead-code-scan
-        audit-architecture: audit-architecture
-        audit-tests: audit-tests
-        audit-correctness: audit-correctness
-        audit-coverage: audit-coverage
-        audit-consolidate: audit-consolidate
-        audit-duplicates: audit-duplicates
-        audit-dx: audit-dx
-        audit-ux: audit-ux
-        audit-unwired: audit-unwired
-        audit-junk-code: audit-junk-code
-        audit-doc: audit-doc
-        audit-dual: audit-dual
-        audit-closed: audit-closed
-        test-gen: test-gen
-        bench-solve: bench-solve
-        # Planning
-        plan-task: plan-task
-        plan-scope: plan-scope
-        plan-adr: plan-adr
-        plan-research: plan-research
-        plan-approve-implement: plan-approve-implement
-        # Operations
-        ops-debug: ops-debug
-        ops-bootstrap: ops-bootstrap
-        ops-epic-runner: ops-epic-runner
-        ops-implement-epic: ops-implement-epic
-        ops-release-harden: ops-release-harden
-        ops-supervise: ops-supervise
-        ops-refresh: ops-refresh
-        ops-rewrite: ops-rewrite
-        ops-issue-quality: ops-issue-quality
-        # Documentation
-        doc-fix: doc-fix
-        doc-explain: doc-explain
-        doc-onboard: doc-onboard
-        doc-changelog: doc-changelog
-        # Wave self-management
-        wave-audit: wave-audit
-        wave-bugfix: wave-bugfix
-        wave-evolve: wave-evolve
-        wave-review: wave-review
-        wave-scope-audit: wave-scope-audit
-        wave-security-audit: wave-security-audit
-      default: impl-issue
+    script: |
+      # Find the classification artifact — check workspace artifact path, then project root
+      CLASS_FILE=""
+      for candidate in \
+        .wave/workspaces/{{ pipeline_id }}/classify/.wave/output/classification.json \
+        .wave/workspaces/{{ pipeline_id }}/classify/.wave/artifacts/classify/classification.json \
+        .wave/output/classification.json; do
+        if [ -f "$candidate" ]; then
+          CLASS_FILE="$candidate"
+          break
+        fi
+      done
+      if [ -z "$CLASS_FILE" ]; then
+        echo "ERROR: classification.json not found"
+        exit 1
+      fi
+      PIPELINE=$(grep -o '"pipeline"[[:space:]]*:[[:space:]]*"[^"]*"' "$CLASS_FILE" | head -1 | sed 's/.*"pipeline"[[:space:]]*:[[:space:]]*"//' | sed 's/"//')
+      MODEL_TIER=$(grep -o '"model_tier"[[:space:]]*:[[:space:]]*"[^"]*"' "$CLASS_FILE" | head -1 | sed 's/.*"model_tier"[[:space:]]*:[[:space:]]*"//' | sed 's/"//')
+      if [ -z "$PIPELINE" ]; then
+        echo "ERROR: no pipeline in classification output"
+        cat "$CLASS_FILE"
+        exit 1
+      fi
+      echo "Orchestrating: pipeline=$PIPELINE model=$MODEL_TIER"
+      wave run "$PIPELINE" --adapter claude --model "${MODEL_TIER:-balanced}" -- "{{ input }}"
