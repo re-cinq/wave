@@ -113,3 +113,18 @@ Validation is not a phase. It is not a step at the end. It is the definition of 
 The only question that matters: **did the user's experience change?**
 
 If yes, you shipped. If no, you didn't. Everything else is commentary.
+
+## See Also
+
+- [Contracts Guide](contracts.md) — Practical configuration for validation contracts (Layer 2)
+- [Gates Guide](human-gates.md) — Human approval and automated gates for outcome validation (Layer 3)
+- [Graph Loops](graph-loops.md) — Fix-loop configuration including safety mechanisms
+- [V&V Paradigm Guide](vv-paradigm.md) — Unified three-layer verification and validation model
+
+### Implementation Pointers
+
+The three components described in this document map to these code locations:
+
+- **Delivery ontology with invariants** — `internal/manifest/types.go` (`Ontology` struct, `RenderMarkdown()`)
+- **Validation contracts** — `internal/contract/contract.go` (`NewValidator`)
+- **Outcome gates** — `internal/pipeline/gate.go` (`Execute`)
