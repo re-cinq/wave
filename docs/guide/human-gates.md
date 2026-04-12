@@ -104,15 +104,17 @@ Uses the `default` choice for each gate.
 ## Gate Context
 
 After a decision, downstream steps can access:
-- `{{ gate.<step>.choice }}` — selected choice label
-- `{{ gate.<step>.text }}` — freeform text (if provided)
+
+<!-- prettier-ignore -->
+- <code v-pre>{{ gate.&lt;step&gt;.choice }}</code> — selected choice label
+- <code v-pre>{{ gate.&lt;step&gt;.text }}</code> — freeform text (if provided)
 
 ```yaml
 - id: implement
   exec:
     source: |
       Implement based on the plan.
-      Reviewer feedback: {{ gate.approve.text }}
+      Reviewer feedback: {{ "{{ gate.approve.text }}" }}
 ```
 
 ## Example Pipeline
