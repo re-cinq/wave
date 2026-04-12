@@ -3176,6 +3176,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 .fp-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.5rem; text-decoration: none; color: inherit; border-bottom: 1px solid var(--color-border); transition: background 0.1s; }
 .fp-row:last-child { border-bottom: none; }
 .fp-row:hover { background: var(--color-bg-tertiary); text-decoration: none; color: inherit; }
+.fp-name { font-size: 0.8rem; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
 .fp-stat { font-size: 0.68rem; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
 
 /* ── Issues page ── */
