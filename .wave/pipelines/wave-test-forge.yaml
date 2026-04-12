@@ -230,7 +230,7 @@ steps:
 
   # Step 4: Test API access — list issues/PRs (depends on auth check)
   - id: test-api
-    type: conditional
+    type: command
     dependencies: [verify-auth]
     edges:
       - target: synthesize

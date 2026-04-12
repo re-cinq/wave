@@ -72,6 +72,8 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/prs/start", s.handleAPIStartFromPR)
 	mux.HandleFunc("POST /api/cache/refresh", s.handleAPICacheRefresh)
 	mux.HandleFunc("GET /api/health", s.handleAPIHealth)
+	mux.HandleFunc("GET /api/attention", s.handleAttentionSummary)
+	mux.HandleFunc("GET /api/attention/events", s.handleAttentionSSE)
 	// api/ontology — see features_ontology.go
 	mux.HandleFunc("GET /api/compare", s.handleAPICompare)
 	// Retrospective API — see features_retros.go

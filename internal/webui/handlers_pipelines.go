@@ -187,7 +187,7 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 		// Extract prompt
 		var prompt string
 		if step.Exec.Source != "" {
-			prompt = step.Exec.Source
+			prompt = resolveForgeVars(step.Exec.Source)
 		}
 
 		// On-failure strategy
@@ -230,7 +230,7 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 			}
 			edgeConditions = strings.Join(edges, ", ")
 		}
-		script = step.Script
+		script = strings.TrimSpace(resolveForgeVars(step.Script))
 
 		// Iterate/aggregate config
 		var iterateOver []string

@@ -820,7 +820,7 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 			Persona:            resolveForgeVars(step.Persona),
 			State:              "pending",
 			StepType:           stepType,
-			Script:             step.Script,
+			Script:             strings.TrimSpace(resolveForgeVars(step.Script)),
 			SubPipeline:        stripUnresolvedVars(resolveForgeVars(step.SubPipeline)),
 			GatePrompt:         gatePrompt,
 			GateChoices:        gateChoices,

@@ -430,10 +430,35 @@ function updateStepCardTokens(stepID, tokensUsed) {
 }
 
 function updateStepCardState(stepID, newState) {
+    // V2 layout: step wrapper is .ws with id="w-{stepID}"
+    var wsEl = document.getElementById('w-' + stepID);
+    if (wsEl) {
+        // Update state class (st-running -> st-completed etc.)
+        wsEl.className = wsEl.className.replace(/\bst-\w+/g, '') + ' st-' + newState;
+        // Remove spinner on non-running states
+        if (newState !== 'running') {
+            var spinner = wsEl.querySelector('.spinner');
+            if (spinner) spinner.remove();
+        }
+        // Add spinner if transitioning to running
+        if (newState === 'running' && !wsEl.querySelector('.spinner')) {
+            var nameEl = wsEl.querySelector('.ws-name');
+            if (nameEl) {
+                var sp = document.createElement('span');
+                sp.className = 'spinner spinner-sm';
+                sp.style.verticalAlign = 'middle';
+                sp.style.marginLeft = '0.35rem';
+                nameEl.appendChild(sp);
+            }
+        }
+        return;
+    }
+
+    // V1 fallback: step wrapper is .step-card with .step-id text match
     var cards = document.querySelectorAll('.step-card');
     cards.forEach(function(card) {
         var idEl = card.querySelector('.step-id');
-        if (idEl && idEl.textContent === stepID) {
+        if (idEl && idEl.textContent.trim() === stepID) {
             card.classList.remove('status-pending','status-running','status-completed','status-failed','status-cancelled');
             card.classList.add('status-' + newState);
             var badge = card.querySelector('.badge');
@@ -445,13 +470,9 @@ function updateStepCardState(stepID, newState) {
             var icon = card.querySelector('.step-status-icon');
             if (icon) {
                 icon.className = 'step-status-icon step-status-' + newState;
-                if (newState === 'completed') {
-                    icon.innerHTML = '&#10003;';
-                } else if (newState === 'failed') {
-                    icon.innerHTML = '&#10007;';
-                } else if (newState === 'running') {
-                    icon.innerHTML = '';
-                }
+                if (newState === 'completed') icon.innerHTML = '&#10003;';
+                else if (newState === 'failed') icon.innerHTML = '&#10007;';
+                else if (newState === 'running') icon.innerHTML = '';
             }
         }
     });

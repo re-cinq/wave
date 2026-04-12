@@ -1,0 +1,55 @@
+kind: WavePipeline
+metadata:
+  name: wave-smoke-contracts
+  description: >-
+    Smoke test for contract validation. Creates test JSON data and schema,
+    then validates them via a navigator step.
+  release: false
+  category: wave
+
+input:
+  source: cli
+  example: "verify contract validation works"
+
+chat_context:
+  suggested_questions:
+    - "Did contract validation pass?"
+    - "Were the test files created and validated?"
+
+steps:
+  - id: setup
+    type: command
+    script: |
+      mkdir -p .wave/output
+      echo '{"valid": true}' > .wave/output/test-data.json
+      echo '{"type":"object","properties":{"valid":{"type":"boolean"}},"required":["valid"]}' > .wave/output/test-schema.json
+    output_artifacts:
+      - name: test-data
+        path: .wave/output/test-data.json
+        type: json
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/test-data.json
+        on_failure: fail
+
+  - id: validate
+    persona: navigator
+    model: cheapest
+    dependencies: [setup]
+    exec:
+      type: prompt
+      source: |
+        Read `.wave/output/test-data.json` and `.wave/output/test-schema.json`.
+        Verify both exist and contain valid JSON. Write confirmation to
+        `.wave/output/contract-check.json`:
+        {"data_valid": true, "schema_valid": true, "checked_at": "<timestamp>"}
+    output_artifacts:
+      - name: contract-check
+        path: .wave/output/contract-check.json
+        type: json
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/contract-check.json
+        on_failure: fail

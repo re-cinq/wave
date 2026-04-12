@@ -1035,7 +1035,19 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 	stepExecutor := func(ctx context.Context, step *Step) (*StepResult, error) {
 		// Handle command steps
 		if step.Type == StepTypeCommand || step.Script != "" {
-			return e.executeCommandStep(ctx, execution, step)
+			result, err := e.executeCommandStep(ctx, execution, step)
+			if err != nil {
+				return result, err
+			}
+			// Run handover contract validation for command steps.
+			// Command steps run in the project root (or mount target), so resolve
+			// contract sources against the command's actual working directory.
+			contractDir := resolveCommandWorkDir(execution.WorkspacePaths[step.ID], step)
+			adapterResult := &adapter.AdapterResult{}
+			if cErr := e.validateStepContracts(ctx, execution, step, contractDir, nil, execution.Status.ID, "", time.Now(), adapterResult); cErr != nil {
+				return result, cErr
+			}
+			return result, nil
 		}
 
 		// Execute regular steps via the existing step execution path
@@ -1484,6 +1496,13 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		}
 		if result != nil && result.Outcome == "failure" {
 			return result.Error
+		}
+		// Run handover contract validation (same as persona steps).
+		// Resolve against the command's actual working directory, not the workspace root.
+		contractDir := resolveCommandWorkDir(execution.WorkspacePaths[step.ID], step)
+		adapterResult := &adapter.AdapterResult{}
+		if cErr := e.validateStepContracts(ctx, execution, step, contractDir, nil, pipelineID, "", time.Now(), adapterResult); cErr != nil {
+			return cErr
 		}
 		return nil
 	}

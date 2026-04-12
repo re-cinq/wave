@@ -1,0 +1,56 @@
+kind: WavePipeline
+metadata:
+  name: wave-smoke-classify
+  description: >-
+    Smoke test for the classify package. Runs unit tests and verifies
+    all pass with no failures.
+  release: false
+  category: wave
+
+input:
+  source: cli
+  example: "verify classify package tests pass"
+
+chat_context:
+  suggested_questions:
+    - "Did all classify tests pass?"
+    - "Were there any test failures?"
+
+steps:
+  - id: classify
+    type: command
+    script: |
+      mkdir -p .wave/output
+      go test ./internal/classify/... -v -run TestClassify > .wave/output/classify-results.txt 2>&1
+      echo "exit_code=$?" >> .wave/output/classify-results.txt
+    output_artifacts:
+      - name: classify-results
+        path: .wave/output/classify-results.txt
+        type: text
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/classify-results.txt
+        on_failure: fail
+
+  - id: verify
+    type: command
+    dependencies: [classify]
+    script: |
+      mkdir -p .wave/output
+      if grep -q "FAIL" .wave/output/classify-results.txt; then
+        echo '{"status":"fail","reason":"FAIL found in test output"}' > .wave/output/verify.json
+      elif grep -q "PASS" .wave/output/classify-results.txt; then
+        echo '{"status":"pass","reason":"All tests passed"}' > .wave/output/verify.json
+      else
+        echo '{"status":"fail","reason":"No PASS found in test output"}' > .wave/output/verify.json
+      fi
+    output_artifacts:
+      - name: verify
+        path: .wave/output/verify.json
+        type: json
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/verify.json
+        on_failure: fail
