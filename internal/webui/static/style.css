@@ -1253,7 +1253,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 
 /* spinner @keyframes defined above with .spinner */
 
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.85; } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
 .badge.status-running { animation: pulse 2s ease-in-out infinite; }
 
 /* Log Viewer — collapsible step log sections */
