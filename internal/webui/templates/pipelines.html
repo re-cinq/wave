@@ -26,15 +26,15 @@
   <div class="rp-header rp-header-clickable" role="button" tabindex="0" aria-expanded="true"
        onclick="toggleFrequentSection()"
        onkeydown="if(event.key==='Enter'||event.key===' '){toggleFrequentSection();event.preventDefault()}">
-    <span class="rp-label">Frequent</span>
+    <span class="rp-label">Most Frequent</span>
     <span class="rp-badge" style="background:rgba(99,102,241,0.15);color:#a5b4fc;">{{len .FrequentPipelines}}</span>
     <span class="rp-chevron">▾</span>
   </div>
   <div class="rp-body" style="padding:0;">
     <div class="fp-list">
     {{range .FrequentPipelines}}
-      <a href="/pipelines/{{.Name}}" class="fp-row">
-        <span class="wr-name" style="font-size:0.8rem;">{{.Name}}</span>
+      <a href="/pipelines/{{.Name}}" class="fp-row" data-category="{{.Category}}" data-name="{{.Name}}">
+        <span class="fp-name">{{.Name}}</span>
         {{if .Description}}<span class="wr-input">{{.Description}}</span>{{end}}
         <span class="wr-right">
           <span class="fp-stat">{{.RunCount}}</span>
@@ -190,6 +190,22 @@ function applyFilters() {
     });
     var countEl = document.getElementById('pipeline-count');
     if (countEl) countEl.textContent = visible + ' pipeline' + (visible !== 1 ? 's' : '');
+    // Filter frequent section to match active category
+    var fpRows = document.querySelectorAll('.fp-row');
+    var fpVisible = 0;
+    fpRows.forEach(function(row) {
+        var name = row.dataset.name || '';
+        var rowCat = row.dataset.category || '';
+        var catMatch = !activeCat || rowCat === activeCat || name.startsWith(activeCat);
+        var textMatch = !q || row.textContent.toLowerCase().indexOf(q) !== -1;
+        var show = catMatch && textMatch && fpVisible < 5;
+        row.style.display = show ? '' : 'none';
+        if (catMatch && textMatch) fpVisible++;
+    });
+    var fpBadge = document.querySelector('#fp-section .rp-badge');
+    if (fpBadge) fpBadge.textContent = Math.min(fpVisible, 5);
+    var fpSection = document.getElementById('fp-section');
+    if (fpSection) fpSection.style.display = fpVisible > 0 ? '' : 'none';
 }
 document.addEventListener('DOMContentLoaded', function() { applyFilters(); });
 
