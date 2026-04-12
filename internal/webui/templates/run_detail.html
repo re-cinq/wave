@@ -34,7 +34,8 @@
     {{range .Models}}<span class="badge badge-model {{modelTierClass .}}">{{friendlyModel .}}</span>{{end}}
     <span style="margin-left:auto;display:flex;gap:0.15rem;">
         {{if .Events}}<button class="w-sec-tab" onclick="switchTab('events',this)">Events ({{len .Events}})</button>{{end}}
-        <button class="w-sec-tab" onclick="switchTab('retro',this)">Retro</button>
+        <button class="w-sec-tab" onclick="switchTab('config',this)">Config</button>
+        {{if featureEnabled "retros"}}<button class="w-sec-tab" onclick="switchTab('retro',this)">Retro</button>{{end}}
         {{if .Run.BranchName}}<button class="w-sec-tab" onclick="switchTab('diff',this)">Changed Files</button>{{end}}
         {{if featureEnabled "metrics"}}<button class="w-sec-tab" onclick="switchTab('metrics',this)">Metrics</button>{{end}}
     </span>
@@ -57,10 +58,50 @@
     </div>
     {{else}}<div style="padding:0.5rem;color:var(--color-text-muted);font-size:0.78rem;">No events</div>{{end}}
 </div>
+<div id="w-panel-config" class="w-panel" hidden>
+    <div class="w-panel-head">Run Configuration</div>
+    <div style="padding:0.5rem;font-size:0.78rem;display:flex;flex-direction:column;gap:0.6rem;">
+        {{if .RunConfigItems}}
+        <div>
+            <div style="font-size:0.68rem;color:var(--color-text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;">Runtime</div>
+            <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">
+                {{range .RunConfigItems}}<span class="badge" style="font-size:0.68rem;background:var(--color-bg-secondary);border:1px solid var(--color-border);color:var(--color-text-secondary);">{{.Label}} <b>{{.Value}}</b></span>{{end}}
+            </div>
+        </div>
+        {{end}}
+        <div>
+            <div style="font-size:0.68rem;color:var(--color-text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;">Adapters &amp; Models</div>
+            <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">
+                {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{.}}</span>{{end}}
+                {{range .Models}}<span class="badge badge-model {{modelTierClass .}}">{{friendlyModel .}}</span>{{end}}
+            </div>
+        </div>
+        {{if .RerunCommand}}
+        <div>
+            <div style="font-size:0.68rem;color:var(--color-text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;">Rerun</div>
+            <div style="display:flex;align-items:center;gap:0.4rem;background:var(--color-bg-tertiary);border:1px solid var(--color-border);border-radius:4px;padding:0.3rem 0.5rem;">
+                <code style="flex:1;font-size:0.68rem;color:var(--color-text-secondary);user-select:all;">{{.RerunCommand}}</code>
+                <button class="btn btn-sm" style="font-size:0.62rem;padding:0.1rem 0.4rem;" onclick="navigator.clipboard.writeText('{{.RerunCommand}}')">Copy</button>
+            </div>
+        </div>
+        {{end}}
+        {{if and (ne .Run.Status "completed") (ne .Run.Status "running")}}
+        <div>
+            <div style="font-size:0.68rem;color:var(--color-text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;">Resume from failed step</div>
+            <div style="display:flex;align-items:center;gap:0.4rem;background:var(--color-bg-tertiary);border:1px solid var(--color-border);border-radius:4px;padding:0.3rem 0.5rem;">
+                <code style="flex:1;font-size:0.68rem;color:var(--color-text-secondary);user-select:all;">wave run {{.Run.PipelineName}} --from-step {{.Run.CurrentStep}} --run {{.Run.RunID}}</code>
+                <button class="btn btn-sm" style="font-size:0.62rem;padding:0.1rem 0.4rem;" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent)">Copy</button>
+            </div>
+        </div>
+        {{end}}
+    </div>
+</div>
+{{if featureEnabled "retros"}}
 <div id="w-panel-retro" class="w-panel" hidden>
     <div class="w-panel-head">Retrospective</div>
     <div id="w-retro-content" style="padding:0.5rem;font-size:0.78rem;color:var(--color-text-muted);">Loading…</div>
 </div>
+{{end}}
 {{if .Run.BranchName}}
 <div id="w-panel-diff" class="w-panel" hidden>
     <div class="w-panel-head">Changed Files</div>

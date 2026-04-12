@@ -480,6 +480,22 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Build run config from manifest runtime settings
+	var runConfigItems []struct{ Label, Value string }
+	if s.manifest != nil {
+		if timeout := s.manifest.Runtime.GetDefaultTimeout(); timeout > 0 {
+			runConfigItems = append(runConfigItems, struct{ Label, Value string }{"timeout", timeout.String()})
+		}
+		if s.manifest.Runtime.StallTimeout != "" {
+			runConfigItems = append(runConfigItems, struct{ Label, Value string }{"stall_timeout", s.manifest.Runtime.StallTimeout})
+		}
+	}
+	// Reconstruct the wave run command
+	rerunCmd := "wave run " + run.PipelineName
+	if run.Input != "" {
+		rerunCmd += " -- " + strconv.Quote(run.Input)
+	}
+
 	data := struct {
 		ActivePage          string
 		Run                 RunSummary
@@ -499,6 +515,8 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		LinkedType          string
 		ChildRuns           map[string][]RunSummary
 		TemplateVars        map[string]string
+		RunConfigItems      []struct{ Label, Value string }
+		RerunCommand        string
 	}{
 		ActivePage:          "runs",
 		Run:                 runSummary,
@@ -518,6 +536,8 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		LinkedType:          linkedType,
 		ChildRuns:           childRuns,
 		TemplateVars:        templateVars,
+		RunConfigItems:      runConfigItems,
+		RerunCommand:        rerunCmd,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
