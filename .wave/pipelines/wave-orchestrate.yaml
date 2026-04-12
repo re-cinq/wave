@@ -96,7 +96,9 @@ steps:
         3. Classify the complexity: simple, medium, complex, or architectural.
 
         4. Select the pipeline name that best matches domain + complexity.
-           The name MUST be an exact match from the catalog.
+           CRITICAL: The pipeline field MUST be an exact filename from the catalog
+           (e.g. "audit-dead-code-scan", NOT "Code Audit Pipeline"). Copy the bold
+           name from the catalog exactly as written. Any other value will fail.
 
         5. Write ONLY valid JSON to `.wave/output/classification.json`:
            ```json
@@ -164,6 +166,13 @@ steps:
       if [ -z "$PIPELINE" ]; then
         echo "ERROR: no pipeline in classification output"
         cat "$CLASS_FILE"
+        exit 1
+      fi
+      # Validate pipeline exists on disk
+      if [ ! -f ".wave/pipelines/${PIPELINE}.yaml" ]; then
+        echo "ERROR: classified pipeline '$PIPELINE' not found"
+        echo "Available pipelines:"
+        ls .wave/pipelines/*.yaml | sed 's|.wave/pipelines/||;s|\.yaml||' | head -20
         exit 1
       fi
       echo "Orchestrating: pipeline=$PIPELINE model=$MODEL_TIER"
