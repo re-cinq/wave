@@ -340,6 +340,10 @@ func TestNewDoCmd(t *testing.T) {
 	require.NotNil(t, modelFlag)
 	assert.Equal(t, "", modelFlag.DefValue)
 
+	noClassifyFlag := flags.Lookup("no-classify")
+	require.NotNil(t, noClassifyFlag)
+	assert.Equal(t, "false", noClassifyFlag.DefValue)
+
 	// Verify --save and --meta flags no longer exist (moved to wave meta command)
 	assert.Nil(t, flags.Lookup("save"), "save flag should not exist on do command")
 	assert.Nil(t, flags.Lookup("meta"), "meta flag should not exist on do command")
@@ -381,4 +385,133 @@ func TestDoCommand_EmptyInput(t *testing.T) {
 	err := cmd.Execute()
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "at least") || strings.Contains(err.Error(), "requires"))
+}
+
+// TestDoCommand_DryRunWithClassification verifies that --dry-run without
+// --no-classify shows classification details
+func TestDoCommand_DryRunWithClassification(t *testing.T) {
+	tmpDir := t.TempDir()
+	setupTestManifest(t, tmpDir, []string{"navigator", "craftsman"})
+
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(oldWd) }()
+	require.NoError(t, os.Chdir(tmpDir))
+
+	opts := DoOptions{
+		Manifest: "wave.yaml",
+		DryRun:   true,
+		Mock:     true,
+	}
+
+	output := captureOutput(t, func() {
+		err := runDo("fix the login bug", opts)
+		require.NoError(t, err)
+	})
+
+	// Classification details should appear
+	assert.Contains(t, output, "Classification:")
+	assert.Contains(t, output, "Domain:")
+	assert.Contains(t, output, "Complexity:")
+	assert.Contains(t, output, "Blast radius:")
+	assert.Contains(t, output, "Pipeline:")
+	assert.Contains(t, output, "Reason:")
+	// "bug" domain should be detected from "fix the login bug"
+	assert.Contains(t, output, "bug")
+	// Ad-hoc fallback section should still appear (pipeline not on disk)
+	assert.Contains(t, output, "Ad-hoc pipeline")
+	assert.Contains(t, output, "Fallback:")
+}
+
+// TestDoCommand_NoClassifyProducesOriginalOutput verifies that --no-classify
+// bypasses classification and produces original ad-hoc output
+func TestDoCommand_NoClassifyProducesOriginalOutput(t *testing.T) {
+	tmpDir := t.TempDir()
+	setupTestManifest(t, tmpDir, []string{"navigator", "craftsman"})
+
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(oldWd) }()
+	require.NoError(t, os.Chdir(tmpDir))
+
+	opts := DoOptions{
+		Manifest:   "wave.yaml",
+		DryRun:     true,
+		Mock:       true,
+		NoClassify: true,
+	}
+
+	output := captureOutput(t, func() {
+		err := runDo("fix the login bug", opts)
+		require.NoError(t, err)
+	})
+
+	// No classification details
+	assert.NotContains(t, output, "Classification:")
+	assert.NotContains(t, output, "Domain:")
+	assert.NotContains(t, output, "Blast radius:")
+	// Original ad-hoc output
+	assert.Contains(t, output, "Ad-hoc pipeline")
+	assert.Contains(t, output, "navigate")
+	assert.Contains(t, output, "execute")
+}
+
+// TestDoCommand_PersonaSkipsClassification verifies that --persona explicitly
+// set bypasses classification (user choosing ad-hoc mode)
+func TestDoCommand_PersonaSkipsClassification(t *testing.T) {
+	tmpDir := t.TempDir()
+	setupTestManifest(t, tmpDir, []string{"navigator", "craftsman", "architect"})
+
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(oldWd) }()
+	require.NoError(t, os.Chdir(tmpDir))
+
+	opts := DoOptions{
+		Manifest: "wave.yaml",
+		DryRun:   true,
+		Mock:     true,
+		Persona:  "architect",
+	}
+
+	output := captureOutput(t, func() {
+		err := runDo("fix the login bug", opts)
+		require.NoError(t, err)
+	})
+
+	// No classification when persona is set
+	assert.NotContains(t, output, "Classification:")
+	// Architect persona should be used
+	assert.Contains(t, output, "architect")
+}
+
+// TestDoCommand_FallbackWhenPipelineNotFound verifies fallback to ad-hoc
+// when the classified pipeline is not available on disk
+func TestDoCommand_FallbackWhenPipelineNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	setupTestManifest(t, tmpDir, []string{"navigator", "craftsman"})
+
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(oldWd) }()
+	require.NoError(t, os.Chdir(tmpDir))
+
+	opts := DoOptions{
+		Manifest: "wave.yaml",
+		DryRun:   true,
+		Mock:     true,
+	}
+
+	output := captureOutput(t, func() {
+		err := runDo("research the performance issue", opts)
+		require.NoError(t, err)
+	})
+
+	// Classification runs and shows output
+	assert.Contains(t, output, "Classification:")
+	assert.Contains(t, output, "Pipeline:")
+	// Falls back to ad-hoc since pipeline YAML doesn't exist
+	assert.Contains(t, output, "Fallback:")
+	assert.Contains(t, output, "Ad-hoc pipeline")
+	assert.Contains(t, output, "navigate")
 }
