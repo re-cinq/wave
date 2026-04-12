@@ -1,0 +1,179 @@
+kind: WavePipeline
+metadata:
+  name: wave-orchestrate
+  description: >-
+    Master orchestration pipeline — Wave uses Wave to manage work. Takes any
+    input (issue URL, PR URL, plain text task), discovers available pipelines,
+    classifies the input, selects the best pipeline, and launches it as a
+    sub-pipeline. This is the core of self-adaptive orchestration.
+  category: composition
+  release: true
+
+input:
+  source: cli
+  example: "https://github.com/re-cinq/wave/issues/123"
+
+chat_context:
+  artifact_summaries:
+    - classification
+  suggested_questions:
+    - "What domain and complexity was the task classified as?"
+    - "Which pipeline was selected?"
+    - "Why was this pipeline chosen over alternatives?"
+
+pipeline_outputs:
+  classification:
+    step: classify
+    artifact: classification
+
+hooks:
+  - name: log-orchestration
+    event: run_start
+    type: command
+    command: "echo '[wave-orchestrate] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    blocking: false
+
+steps:
+  - id: discover
+    type: command
+    script: |
+      mkdir -p .wave/output
+      echo "# Available Pipelines" > .wave/output/pipeline-catalog.md
+      echo "" >> .wave/output/pipeline-catalog.md
+      for f in .wave/pipelines/*.yaml; do
+        name=$(basename "$f" .yaml)
+        # Skip smoke tests, validation, and stress test pipelines
+        case "$name" in wave-smoke-*|wave-test-*|wave-validate*|wave-stress*|wave-ontology*) continue;; esac
+        desc=$(grep -A3 'description:' "$f" 2>/dev/null | head -4 | sed 's/.*description: *>-\?//' | sed 's/^ *//' | tr '\n' ' ' | head -c 120)
+        echo "- **$name**: $desc" >> .wave/output/pipeline-catalog.md
+      done
+    output_artifacts:
+      - name: catalog
+        path: .wave/output/pipeline-catalog.md
+        type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/pipeline-catalog.md
+        on_failure: fail
+
+  - id: classify
+    persona: navigator
+    model: balanced
+    dependencies: [discover]
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        TASK CLASSIFICATION — determine the right pipeline for this work item.
+
+        ## Objective
+
+        Classify the given input and select the best pipeline from the discovered catalog.
+
+        Input: {{ input }}
+
+        ## Available Pipelines
+
+        Read the pipeline catalog at `project/.wave/output/pipeline-catalog.md` to see
+        all available pipelines with their descriptions. Pick the one that best matches
+        the input task.
+
+        ## Instructions
+
+        1. If the input is a GitHub issue/PR URL, fetch full details:
+           ```
+           {{ forge.cli_tool }} issue view <number> --json title,body,labels
+           ```
+
+        2. Classify the domain: security, debug, performance, bug, review, testing,
+           audit, planning, ops, refactor, research, docs, or feature.
+
+        3. Classify the complexity: simple, medium, complex, or architectural.
+
+        4. Select the pipeline name that best matches domain + complexity.
+           CRITICAL: The pipeline field MUST be an exact filename from the catalog
+           (e.g. "audit-dead-code-scan", NOT "Code Audit Pipeline"). Copy the bold
+           name from the catalog exactly as written. Any other value will fail.
+
+        5. Write ONLY valid JSON to `.wave/output/classification.json`:
+           ```json
+           {
+             "domain": "<domain>",
+             "complexity": "<simple|medium|complex|architectural>",
+             "pipeline": "<exact-pipeline-name>",
+             "reason": "<1-2 sentences>",
+             "model_tier": "<cheapest|balanced|strongest>"
+           }
+           ```
+
+        ## Constraints
+
+        - Do NOT implement anything. Classification only.
+        - Do NOT explore the codebase beyond reading the catalog.
+        - Write ONLY valid JSON to the output file. No prose, no markdown.
+        - The pipeline field MUST exactly match a name from the catalog.
+    output_artifacts:
+      - name: classification
+        path: .wave/output/classification.json
+        type: json
+    retry:
+      policy: patient
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .wave/output/classification.json
+        schema: |
+          {
+            "type": "object",
+            "required": ["domain", "complexity", "pipeline", "reason"],
+            "properties": {
+              "domain": { "type": "string" },
+              "complexity": { "type": "string", "enum": ["simple", "medium", "complex", "architectural"] },
+              "pipeline": { "type": "string" },
+              "reason": { "type": "string" },
+              "model_tier": { "type": "string", "enum": ["cheapest", "balanced", "strongest"] }
+            }
+          }
+        on_failure: retry
+
+  - id: execute
+    type: command
+    dependencies: [classify]
+    script: |
+      # Find the classification artifact — check workspace artifact path, then project root
+      CLASS_FILE=""
+      for candidate in \
+        .wave/workspaces/{{ pipeline_id }}/classify/.wave/output/classification.json \
+        .wave/workspaces/{{ pipeline_id }}/classify/.wave/artifacts/classify/classification.json \
+        .wave/output/classification.json; do
+        if [ -f "$candidate" ]; then
+          CLASS_FILE="$candidate"
+          break
+        fi
+      done
+      if [ -z "$CLASS_FILE" ]; then
+        echo "ERROR: classification.json not found"
+        exit 1
+      fi
+      PIPELINE=$(grep -o '"pipeline"[[:space:]]*:[[:space:]]*"[^"]*"' "$CLASS_FILE" | head -1 | sed 's/.*"pipeline"[[:space:]]*:[[:space:]]*"//' | sed 's/"//')
+      MODEL_TIER=$(grep -o '"model_tier"[[:space:]]*:[[:space:]]*"[^"]*"' "$CLASS_FILE" | head -1 | sed 's/.*"model_tier"[[:space:]]*:[[:space:]]*"//' | sed 's/"//')
+      if [ -z "$PIPELINE" ]; then
+        echo "ERROR: no pipeline in classification output"
+        cat "$CLASS_FILE"
+        exit 1
+      fi
+      # Validate pipeline exists on disk
+      if [ ! -f ".wave/pipelines/${PIPELINE}.yaml" ]; then
+        echo "ERROR: classified pipeline '$PIPELINE' not found"
+        echo "Available pipelines:"
+        ls .wave/pipelines/*.yaml | sed 's|.wave/pipelines/||;s|\.yaml||' | head -20
+        exit 1
+      fi
+      echo "Orchestrating: pipeline=$PIPELINE"
+      wave run "$PIPELINE" --adapter opencode -- "{{ input }}"

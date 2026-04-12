@@ -394,6 +394,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		pipelineID = GenerateRunID(pipelineName, m.Runtime.PipelineIDHashLength)
 	}
 	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
+	pipelineContext.Input = input
 
 	// Inject forge variables for unified pipeline template resolution
 	forgeInfo := forge.DetectFromGitRemotesWithOverride(m.Metadata.Forge)
@@ -889,6 +890,7 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		pipelineID = GenerateRunID(pipelineName, m.Runtime.PipelineIDHashLength)
 	}
 	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
+	pipelineContext.Input = input
 
 	// Inject forge variables
 	forgeInfo := forge.DetectFromGitRemotesWithOverride(m.Metadata.Forge)
@@ -3179,11 +3181,11 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		artifactContent := []byte(result.ResultContent)
 		e.writeOutputArtifacts(execution, step, workspacePath, artifactContent)
 	} else if !hasStdoutArtifacts {
-		// Skip writing artifacts when ResultContent is empty to avoid overwriting
-		// existing artifacts with empty content during relay compaction or parsing failures
-		e.trace(audit.TraceArtifactSkipEmpty, step.ID, 0, map[string]string{
-			"reason": "ResultContent is empty, preserving existing content",
-		})
+		// ResultContent is empty — still check whether the persona wrote
+		// artifact files to disk via tool calls (e.g. Write/Bash).
+		// Without this, persona-written files are never registered in
+		// ArtifactPaths and contract validation fails on missing files.
+		e.writeOutputArtifacts(execution, step, workspacePath, nil)
 	}
 
 	// Check relay/compaction threshold (FR-009)
@@ -4088,8 +4090,9 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 					"artifact": art.Name,
 					"path":     artPath,
 				})
-			} else {
-				// Fall back to writing ResultContent
+			} else if len(stdout) > 0 {
+				// Fall back to writing ResultContent (skip when nil/empty
+				// to avoid creating zero-byte files from empty adapter output)
 				_ = os.MkdirAll(filepath.Dir(artPath), 0755)
 				_ = os.WriteFile(artPath, stdout, 0644)
 				execution.mu.Lock()

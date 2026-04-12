@@ -168,6 +168,13 @@ func (b baseStateStore) GetOutcomes(string) ([]state.OutcomeRecord, error) { ret
 func (b baseStateStore) GetOutcomesByValue(string, string) ([]state.OutcomeRecord, error) {
 	return nil, nil
 }
+func (b baseStateStore) RecordOrchestrationDecision(*state.OrchestrationDecision) error {
+	return nil
+}
+func (b baseStateStore) UpdateOrchestrationOutcome(string, string, int, int64) error { return nil }
+func (b baseStateStore) GetOrchestrationStats(string) (*state.OrchestrationStats, error) {
+	return nil, nil
+}
 
 // Compile-time check: baseStateStore must satisfy state.StateStore.
 var _ state.StateStore = baseStateStore{}

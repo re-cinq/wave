@@ -214,7 +214,7 @@
             </div>
             {{end}}
             {{if and (eq $step.StepType "conditional") $step.EdgeInfo}}<div class="ws-edges">{{$step.EdgeInfo}}</div>{{end}}
-            {{if and (eq $step.StepType "command") $step.Script}}<div style="padding:0.5rem var(--ws-pad-x) 0.5rem;"><pre style="margin:0;font-size:0.68rem;color:var(--color-text-muted);background:var(--color-bg-tertiary);padding:0.3rem 0.5rem;border-radius:3px;overflow:hidden;max-height:3.6em;"><code class="ws-resolve-vars" style="padding:0;">{{$step.Script}}</code></pre></div>{{end}}
+            {{if and (eq $step.StepType "command") $step.Script}}<div style="padding:0.5rem var(--ws-pad-x) 0.5rem;"><pre style="margin:0;font-size:0.68rem;color:var(--color-text-muted);background:var(--color-bg-tertiary);padding:0.3rem 0.5rem 0;border-radius:3px;overflow:hidden;max-height:6.5em;-webkit-mask-image:linear-gradient(to bottom,#000 60%,transparent 100%);mask-image:linear-gradient(to bottom,#000 60%,transparent 100%);"><code class="ws-resolve-vars" style="padding:0;">{{$step.Script}}</code></pre></div>{{end}}
 
             <!-- Child runs for sub-pipeline steps -->
             {{if eq $step.StepType "pipeline"}}

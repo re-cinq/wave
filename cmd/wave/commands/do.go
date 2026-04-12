@@ -25,6 +25,8 @@ type DoOptions struct {
 	NoClassify bool
 	Output     OutputConfig
 	Model      string
+	Adapter    string
+	Detach     bool
 }
 
 func NewDoCmd() *cobra.Command {
@@ -59,6 +61,8 @@ Examples:
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Show what would be executed without running")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for this run (e.g. haiku, opus)")
 	cmd.Flags().BoolVar(&opts.NoClassify, "no-classify", false, "Bypass task classification and use ad-hoc pipeline")
+	cmd.Flags().StringVar(&opts.Adapter, "adapter", "", "Override adapter (claude, opencode, gemini, codex)")
+	cmd.Flags().BoolVar(&opts.Detach, "detach", false, "Run in background as detached process")
 
 	return cmd
 }
@@ -168,10 +172,12 @@ func runDo(input string, opts DoOptions) error {
 	if opts.Mock {
 		runner = adapter.NewMockAdapter()
 	} else {
-		var adapterName string
-		for name := range m.Adapters {
-			adapterName = name
-			break
+		adapterName := opts.Adapter
+		if adapterName == "" {
+			for name := range m.Adapters {
+				adapterName = name
+				break
+			}
 		}
 		runner = adapter.ResolveAdapter(adapterName)
 	}

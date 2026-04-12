@@ -167,6 +167,11 @@ type StateStore interface {
 	RecordOutcome(runID, stepID, outcomeType, label, value string) error
 	GetOutcomes(runID string) ([]OutcomeRecord, error)
 	GetOutcomesByValue(outcomeType, value string) ([]OutcomeRecord, error)
+
+	// Orchestration decision tracking (task classification feedback loop)
+	RecordOrchestrationDecision(record *OrchestrationDecision) error
+	UpdateOrchestrationOutcome(runID string, outcome string, tokensUsed int, durationMs int64) error
+	GetOrchestrationStats(pipelineName string) (*OrchestrationStats, error)
 }
 
 // ListRetrosOptions specifies filters for listing retrospectives.
@@ -2893,4 +2898,49 @@ func scanWebhookRows(rows *sql.Rows) ([]*Webhook, error) {
 		return nil, fmt.Errorf("error iterating webhook rows: %w", err)
 	}
 	return webhooks, nil
+}
+
+// RecordOrchestrationDecision inserts a new orchestration decision record.
+func (s *stateStore) RecordOrchestrationDecision(record *OrchestrationDecision) error {
+	_, err := s.db.Exec(
+		`INSERT INTO orchestration_decision (run_id, input_text, domain, complexity, pipeline_name, model_tier, reason, outcome, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		record.RunID, record.InputText, record.Domain, record.Complexity,
+		record.PipelineName, record.ModelTier, record.Reason, "pending",
+		time.Now().Unix(),
+	)
+	return err
+}
+
+// UpdateOrchestrationOutcome updates the outcome of an orchestration decision after pipeline completion.
+func (s *stateStore) UpdateOrchestrationOutcome(runID string, outcome string, tokensUsed int, durationMs int64) error {
+	_, err := s.db.Exec(
+		`UPDATE orchestration_decision SET outcome = ?, tokens_used = ?, duration_ms = ?, completed_at = ? WHERE run_id = ?`,
+		outcome, tokensUsed, durationMs, time.Now().Unix(), runID,
+	)
+	return err
+}
+
+// GetOrchestrationStats returns aggregate stats for a pipeline name.
+func (s *stateStore) GetOrchestrationStats(pipelineName string) (*OrchestrationStats, error) {
+	row := s.db.QueryRow(
+		`SELECT pipeline_name,
+		        COUNT(*) as total,
+		        SUM(CASE WHEN outcome = 'completed' THEN 1 ELSE 0 END) as completed,
+		        SUM(CASE WHEN outcome = 'failed' THEN 1 ELSE 0 END) as failed,
+		        SUM(CASE WHEN outcome = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
+		        COALESCE(AVG(CASE WHEN tokens_used > 0 THEN tokens_used END), 0) as avg_tokens,
+		        COALESCE(AVG(CASE WHEN duration_ms > 0 THEN duration_ms END), 0) as avg_duration
+		 FROM orchestration_decision
+		 WHERE pipeline_name = ?
+		 GROUP BY pipeline_name`,
+		pipelineName,
+	)
+
+	var stats OrchestrationStats
+	err := row.Scan(&stats.PipelineName, &stats.TotalRuns, &stats.Completed, &stats.Failed, &stats.Cancelled, &stats.AvgTokens, &stats.AvgDurationMs)
+	if err != nil {
+		return nil, err
+	}
+	return &stats, nil
 }
