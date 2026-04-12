@@ -43,8 +43,15 @@ type TaskProfile struct {
 	InputType         suggest.InputType // reused from internal/suggest
 }
 
+// ModelTierMap specifies the model tier for implementation and navigation steps.
+type ModelTierMap struct {
+	Impl string // tier for implementation steps (e.g. "cheapest", "balanced", "strongest")
+	Nav  string // tier for navigation steps
+}
+
 // PipelineConfig is the result of pipeline selection.
 type PipelineConfig struct {
-	Name   string // pipeline name, e.g. "impl-issue"
-	Reason string // human-readable routing explanation
+	Name      string      // pipeline name, e.g. "impl-issue"
+	Reason    string      // human-readable routing explanation
+	ModelTier ModelTierMap // model tier mapping derived from task complexity
 }
