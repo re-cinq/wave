@@ -1873,7 +1873,7 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
     opacity: 0.6;
     pointer-events: none;
 }
-.step-script { background: var(--color-bg-tertiary); padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.75rem; margin: 0; }
+.step-script { background: var(--color-bg-tertiary); padding: 0.4rem 0; border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.75rem; margin: 0; }
 .step-script code { background: none; padding: 0; font-size: inherit; }
 .step-edge-info { color: #a78bfa; font-family: var(--font-mono); font-size: 0.75rem; }
 .step-sub-pipeline { color: var(--color-text-secondary); }
