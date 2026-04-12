@@ -26,4 +26,8 @@ func (b *SSEBroker) EmitProgress(ev event.Event) error {
 // executor's event sink, bridging pipeline progress into SSE streams.
 func (b *SSEBroker) Emit(ev event.Event) {
 	_ = b.EmitProgress(ev)
+	// Forward to attention broker if wired.
+	if b.attentionSink != nil {
+		b.attentionSink.Update(ev)
+	}
 }

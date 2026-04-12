@@ -19,6 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/recinq/wave/internal/attention"
+	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
@@ -63,6 +65,7 @@ type Server struct {
 	tlsCA             string
 	csrfToken         string
 	cache             *apiCache
+	attention         *attention.Broker
 }
 
 // ServerConfig holds configuration for the dashboard server.
@@ -186,7 +189,12 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		tlsCA:             cfg.TLSCA,
 		csrfToken:         csrfToken,
 		cache:             newAPICache(5 * time.Minute),
+		attention:         attention.NewBroker(),
 	}
+
+	// Wire attention broker into the SSE broker so pipeline events
+	// are automatically forwarded to the attention classifier.
+	s.broker.attentionSink = s.attention
 
 	mux := http.NewServeMux()
 	s.registerRoutes(mux)
@@ -232,9 +240,66 @@ func backfillRunTokens(dbPath string) {
 	}
 }
 
+// pollAttention periodically queries the DB for active runs and updates the
+// attention broker. This is needed because detached subprocess runs don't emit
+// events through the in-memory SSE broker — they write directly to the DB.
+func (s *Server) pollAttention(ctx context.Context) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			s.syncAttentionFromDB()
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (s *Server) syncAttentionFromDB() {
+	if s.attention == nil {
+		return
+	}
+	// Only track running runs. Completed and failed runs are done —
+	// they don't need live attention, the run detail page shows their status.
+	running, err := s.store.ListRuns(state.ListRunsOptions{Status: "running"})
+	if err != nil {
+		log.Printf("[attention] failed to list running runs: %v", err)
+		return
+	}
+
+	now := time.Now()
+	seen := make(map[string]bool)
+
+	for _, r := range running {
+		seen[r.RunID] = true
+		s.attention.UpdateWithName(r.RunID, r.PipelineName, event.Event{
+			PipelineID: r.RunID,
+			State:      "running",
+			StepID:     r.CurrentStep,
+			Timestamp:  now,
+		})
+	}
+
+	// Clear completed runs that the attention broker still tracks.
+	summary := s.attention.Summary()
+	for _, ra := range summary.Runs {
+		if !seen[ra.RunID] {
+			s.attention.Update(event.Event{
+				PipelineID: ra.RunID,
+				State:      "completed",
+				Timestamp:  now,
+			})
+		}
+	}
+}
+
 // Start starts the HTTP server and blocks until shutdown.
 func (s *Server) Start() error {
 	go s.broker.Start()
+	attentionCtx, attentionCancel := context.WithCancel(context.Background())
+	defer attentionCancel()
+	go s.pollAttention(attentionCtx)
 
 	addr := fmt.Sprintf("%s:%d", s.bind, s.port)
 	listener, err := net.Listen("tcp", addr)

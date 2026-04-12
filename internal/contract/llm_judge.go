@@ -40,8 +40,15 @@ func resolveLLMJudgeModel(model string) string {
 		model = "cheapest"
 	}
 	complexityMap := manifest.DefaultComplexityMap()
-	if resolved, ok := complexityMap[model]; ok && resolved != "" {
-		return resolved
+	if resolved, ok := complexityMap[model]; ok {
+		if resolved != "" {
+			return resolved
+		}
+		// "balanced" tier maps to empty (adapter default) — fall back to cheapest
+		// since the LLM judge needs an explicit model for the Claude CLI.
+		if cheapest := complexityMap["cheapest"]; cheapest != "" {
+			return cheapest
+		}
 	}
 	return model
 }
@@ -287,8 +294,9 @@ func (v *llmJudgeValidator) callViaCLI(model, systemPrompt, userPrompt string) (
 
 	prompt := systemPrompt + "\n\n" + userPrompt
 
-	args := []string{"--print", "--output-format", "text", "--model", model, "--prompt", prompt}
+	args := []string{"--print", "--output-format", "text", "--model", model}
 	cmd := exec.CommandContext(ctx, "claude", args...)
+	cmd.Stdin = bytes.NewReader([]byte(prompt))
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

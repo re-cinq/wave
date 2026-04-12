@@ -195,18 +195,73 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     border-bottom: 1px solid var(--color-border);
     flex-shrink: 0;
 }
-.sidebar-brand a {
-    display: flex; align-items: center; gap: 0.5rem;
+/* Wave brand logo — F5b: double-wave icon + mono WAVE text */
+.wave-brand-link {
+    display: flex; align-items: center; gap: 0.6rem;
     text-decoration: none;
 }
-.sidebar-brand a:hover { opacity: 0.8; text-decoration: none; }
-.nav-logo { width: 28px; height: 28px; flex-shrink: 0; }
-.sidebar-brand-text {
-    font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em;
-    background: linear-gradient(135deg, var(--wave-primary) 0%, var(--wave-accent) 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    background-clip: text;
+.wave-brand-link:hover { opacity: 0.8; text-decoration: none; }
+.wave-brand-icon { flex-shrink: 0; }
+.wave-brand-icon .wf-main, .wave-brand-icon .wf-ghost {
+    fill: none; stroke-width: 2; stroke-linecap: round;
+    transition: stroke 0.5s, opacity 0.5s;
+}
+.wave-brand-text {
+    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Courier New', monospace;
+    font-size: 1.3rem; font-weight: 800; letter-spacing: 0.08em;
     white-space: nowrap;
+    transition: color 0.5s, text-shadow 0.5s;
+}
+
+/* Idle state (default) — matches nav group title weight and color */
+.wave-brand-link .wf-main { stroke: var(--color-text); }
+.wave-brand-link .wf-ghost { stroke: var(--color-text); opacity: 0.3; }
+.wave-brand-text { color: var(--color-text); }
+
+/* Running (autonomous) — matches --color-running used by step borders/spinners */
+.wave-brand-link.attention-autonomous .wf-main { stroke: var(--color-running); stroke-dasharray: 4 3; animation: wf-travel 1.2s linear infinite; }
+.wave-brand-link.attention-autonomous .wf-ghost { stroke: var(--color-running); opacity: 0.25; stroke-dasharray: 4 3; animation: wf-travel 1.8s linear infinite; }
+.wave-brand-link.attention-autonomous .wave-brand-text { color: var(--color-running); }
+
+/* Needs review — amber traveling dash, faster */
+.wave-brand-link.attention-needs_review .wf-main { stroke: #f59e0b; stroke-dasharray: 4 3; animation: wf-travel 0.8s linear infinite; }
+.wave-brand-link.attention-needs_review .wf-ghost { stroke: #f59e0b; opacity: 0.25; stroke-dasharray: 4 3; animation: wf-travel 1.2s linear infinite; }
+.wave-brand-link.attention-needs_review .wave-brand-text { color: #f59e0b; text-shadow: 0 0 8px rgba(245,158,11,0.25); }
+
+/* Failed — red alarm pulse */
+.wave-brand-link.attention-failed .wf-main { stroke: #f85149; animation: wf-alarm 1.2s ease-in-out infinite; }
+.wave-brand-link.attention-failed .wf-ghost { stroke: #f85149; opacity: 0.25; animation: wf-alarm 1.2s ease-in-out infinite 0.2s; }
+.wave-brand-link.attention-failed .wave-brand-text { color: #f85149; text-shadow: 0 0 10px rgba(248,81,73,0.3); }
+
+
+@keyframes wf-travel {
+    0% { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: -14; }
+}
+@keyframes wf-alarm {
+    0%, 100% { opacity: 1; stroke-width: 2; }
+    50% { opacity: 0.3; stroke-width: 2.5; }
+}
+
+/* Winding down — traveling signal decelerates and fades to idle */
+.wave-brand-link.attention-winddown .wf-main {
+    stroke: var(--color-running); stroke-dasharray: 4 3;
+    animation: wf-travel 3s linear infinite, wf-winddown-stroke 2.5s ease-out forwards;
+}
+.wave-brand-link.attention-winddown .wf-ghost {
+    stroke: var(--color-running); opacity: 0.25; stroke-dasharray: 4 3;
+    animation: wf-travel 4s linear infinite, wf-winddown-stroke 2.5s ease-out forwards;
+}
+.wave-brand-link.attention-winddown .wave-brand-text {
+    animation: wf-winddown-text 2.5s ease-out forwards;
+}
+@keyframes wf-winddown-stroke {
+    0%   { stroke: var(--color-running); }
+    100% { stroke: var(--color-text); stroke-dasharray: none; }
+}
+@keyframes wf-winddown-text {
+    0%   { color: var(--color-running); }
+    100% { color: var(--color-text); }
 }
 
 /* Nav groups */
@@ -352,7 +407,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 /* Status Badges */
 .badge { display: inline-block; padding: 0.15em 0.55em; font-size: 0.75rem; font-weight: 600; border-radius: 2em; text-transform: capitalize; line-height: 1.4; }
 .status-completed { background: var(--color-completed-bg); color: var(--color-completed); }
-.badge.status-running, .status-running { background: rgba(99, 102, 241, 0.35); color: #e0e7ff !important; }
+.badge.status-running, .status-running { background: var(--color-running-bg); color: var(--color-running) !important; }
 .status-failed { background: var(--color-failed-bg); color: var(--color-failed); }
 .status-cancelled { background: var(--color-cancelled-bg); color: var(--color-cancelled); }
 .status-pending { background: var(--color-pending-bg); color: var(--color-pending); }
@@ -1628,7 +1683,7 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 /* Responsive: Sidebar — Tablet (collapsed to icons) */
 @media (max-width: 1024px) {
     .sidebar { width: var(--sidebar-collapsed-width); }
-    .sidebar-brand-text, .nav-group-label, .nav-item span, .nav-group-chevron { display: none; }
+    .wave-brand-text, .nav-group-label, .nav-item span, .nav-group-chevron { display: none; }
     .sidebar-brand { padding: 0.75rem 0; display: flex; justify-content: center; }
     .nav-group-toggle { justify-content: center; padding: 0.5rem 0; }
     .nav-item { justify-content: center; padding: 0.5rem 0; margin: 1px 0.25rem; }
@@ -1648,7 +1703,7 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
     }
     .sidebar.open { transform: translateX(0); }
     .sidebar.open ~ .sidebar-overlay { display: block; }
-    .sidebar-brand-text, .nav-group-label, .nav-item span, .nav-group-chevron { display: initial; }
+    .wave-brand-text, .nav-group-label, .nav-item span, .nav-group-chevron { display: initial; }
     .sidebar-brand { padding: 1rem 0.75rem; display: block; }
     .nav-group-toggle { justify-content: space-between; padding: 0.5rem 0.75rem; }
     .nav-item { justify-content: flex-start; padding: 0.45rem 0.75rem; margin: 1px 0.5rem; }
@@ -1873,7 +1928,7 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
     opacity: 0.6;
     pointer-events: none;
 }
-.step-script { background: var(--color-bg-tertiary); padding: 0.4rem 0; border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.75rem; margin: 0; }
+.step-script { background: var(--color-bg-tertiary); padding: 0.4rem 0; border-radius: var(--radius-sm); overflow: hidden; max-height: 6.5em; -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent 100%); mask-image: linear-gradient(to bottom, #000 60%, transparent 100%); font-size: 0.75rem; margin: 0; }
 .step-script code { background: none; padding: 0; font-size: inherit; }
 .step-edge-info { color: #a78bfa; font-family: var(--font-mono); font-size: 0.75rem; }
 .step-sub-pipeline { color: var(--color-text-secondary); }
