@@ -17,9 +17,9 @@ A Wave user provides a free-text task description (e.g., "fix the login bug in a
 
 **Acceptance Scenarios**:
 
-1. **Given** a free-text input "fix typo in README", **When** ClassifyInput is called, **Then** the returned TaskProfile has complexity=simple, domain=docs, blast_radius<0.2, verification_depth=structural_only
-2. **Given** a free-text input "redesign the pipeline routing architecture to support plugin-based step execution", **When** ClassifyInput is called, **Then** the returned TaskProfile has complexity=architectural, domain=feature, blast_radius>0.7, verification_depth=full_semantic
-3. **Given** a free-text input "fix SQL injection vulnerability in user endpoint", **When** ClassifyInput is called, **Then** the returned TaskProfile has domain=security, blast_radius>0.5
+1. **Given** a free-text input "fix typo in README", **When** Classify is called, **Then** the returned TaskProfile has complexity=simple, domain=docs, blast_radius<0.2, verification_depth=structural_only
+2. **Given** a free-text input "redesign the pipeline routing architecture to support plugin-based step execution", **When** Classify is called, **Then** the returned TaskProfile has complexity=architectural, domain=feature, blast_radius>0.7, verification_depth=full_semantic
+3. **Given** a free-text input "fix SQL injection vulnerability in user endpoint", **When** Classify is called, **Then** the returned TaskProfile has domain=security, blast_radius>0.5
 
 ---
 
@@ -33,9 +33,9 @@ A Wave user provides a GitHub issue URL or PR URL, along with the fetched issue 
 
 **Acceptance Scenarios**:
 
-1. **Given** input "https://github.com/org/repo/issues/42" with issue body "login button doesn't work on mobile", **When** ClassifyInput is called, **Then** the returned TaskProfile has domain=bug, complexity=simple
-2. **Given** input "https://github.com/org/repo/pull/99" with empty issue body, **When** ClassifyInput is called, **Then** the returned TaskProfile has domain=feature (default for PRs) and complexity=medium
-3. **Given** input "https://github.com/org/repo/issues/100" with body containing "refactor the entire persistence layer to use repository pattern across 12 packages", **When** ClassifyInput is called, **Then** the returned TaskProfile has complexity=architectural, domain=refactor
+1. **Given** input "https://github.com/org/repo/issues/42" with issue body "login button doesn't work on mobile", **When** Classify is called, **Then** the returned TaskProfile has domain=bug, complexity=simple
+2. **Given** input "https://github.com/org/repo/pull/99" with empty issue body, **When** Classify is called, **Then** the returned TaskProfile has domain=feature (default for PRs) and complexity=medium
+3. **Given** input "https://github.com/org/repo/issues/100" with body containing "refactor the entire persistence layer to use repository pattern across 12 packages", **When** Classify is called, **Then** the returned TaskProfile has complexity=architectural, domain=refactor
 
 ---
 
@@ -83,12 +83,12 @@ A Wave user provides raw input (text or URL) and the system performs classificat
 
 ### Functional Requirements
 
-- **FR-001**: System MUST define a TaskProfile type with fields: blast_radius (float64, range 0.0-1.0), complexity (string enum: simple/medium/complex/architectural), domain (string enum: security/performance/docs/feature/bug/refactor), verification_depth (string enum: structural_only/behavioral/full_semantic)
-- **FR-002**: System MUST implement ClassifyInput(input string, issueBody string) TaskProfile that analyzes both the direct input string and optional issue body text
-- **FR-003**: System MUST reuse URL and repository reference detection patterns from internal/suggest/input.go (InputType classification) to identify input types before keyword analysis
+- **FR-001**: System MUST define a TaskProfile type with fields: blast_radius (float64, range 0.0-1.0), complexity (string enum: simple/medium/complex/architectural), domain (string enum: security/performance/docs/feature/bug/refactor/research), verification_depth (string enum: structural_only/behavioral/full_semantic), input_type (reused InputType from internal/suggest: issue_url/pr_url/repo_ref/free_text)
+- **FR-002**: System MUST implement Classify(input string, issueBody string) TaskProfile that analyzes both the direct input string and optional issue body text
+- **FR-003**: System MUST reuse URL and repository reference detection by calling suggest.ClassifyInput(input) from internal/suggest/input.go to identify input types before keyword analysis. The new package's analyzer function MUST be named Classify (not ClassifyInput) to avoid confusion with the existing suggest.ClassifyInput
 - **FR-004**: System MUST perform keyword-based analysis on input text to determine complexity, domain, blast_radius, and verification_depth
 - **FR-005**: System MUST implement SelectPipeline(profile TaskProfile) PipelineConfig that maps task profiles to pipeline names
-- **FR-006**: System MUST map profiles to pipelines according to the AGENTS.md routing table: simple bugs→impl-issue, complex features→impl-speckit, PRs→ops-pr-review, research→impl-research, docs→doc-fix, security→audit-security, dead code→audit-dead-code
+- **FR-006**: System MUST map profiles to pipelines according to the AGENTS.md routing table. Selection uses input_type first, then domain, then complexity: (a) PR URLs always→ops-pr-review regardless of domain/complexity, (b) domain=security (any complexity)→audit-security, (c) domain=research→impl-research, (d) domain=docs→doc-fix, (e) domain=refactor with complexity=architectural→impl-speckit, (f) complexity=simple or medium→impl-issue, (g) complexity=complex or architectural→impl-speckit. This covers: simple/medium bugs→impl-issue, complex features→impl-speckit, medium features→impl-issue
 - **FR-007**: System MUST provide table-driven unit tests for all three components (profile type validation, input analysis, pipeline selection)
 - **FR-008**: System MUST export all public types and functions from the internal/classify package for use by other internal packages
 - **FR-009**: blast_radius MUST be derived from complexity and domain signals: security and architectural changes score higher (>0.6), docs and simple fixes score lower (<0.3)
@@ -99,16 +99,43 @@ A Wave user provides raw input (text or URL) and the system performs classificat
 ### Key Entities
 
 - **TaskProfile**: The central classification output. Represents a structured assessment of a task's characteristics along four dimensions. Consumed by pipeline selection and potentially by step-level complexity routing.
-- **PipelineConfig**: The output of pipeline selection. Contains at minimum the pipeline name (string) that should be used to execute the classified task. May include additional metadata for the orchestrator.
+- **PipelineConfig**: The output of pipeline selection. A struct with two fields: Name (string, the pipeline name e.g. "impl-issue") and Reason (string, a short human-readable explanation of why this pipeline was selected, e.g. "simple bug fix routed to impl-issue").
 - **InputType**: Reused from internal/suggest/input.go. Represents the detected format of user input (issue URL, PR URL, repo reference, or free text).
 
 ## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 
-- **SC-001**: ClassifyInput correctly classifies at least 90% of test cases across all domain categories (security, performance, docs, feature, bug, refactor) as validated by table-driven unit tests
+- **SC-001**: Classify correctly classifies at least 90% of test cases across all domain categories (security, performance, docs, feature, bug, refactor) as validated by table-driven unit tests
 - **SC-002**: SelectPipeline returns the correct pipeline for 100% of the defined routing table mappings in AGENTS.md
 - **SC-003**: All three package files (profile.go, analyzer.go, selector.go) have corresponding _test.go files with at least 10 table-driven test cases each
 - **SC-004**: Empty, whitespace, and ambiguous inputs produce valid TaskProfile values (no panics, no zero-value structs) with sensible defaults
 - **SC-005**: The classify package introduces no new external dependencies beyond the Go standard library and existing internal packages
 - **SC-006**: Classification of a single input completes in under 1 millisecond (no network calls, no disk I/O during classification)
+
+## Clarifications
+
+### CLR-001: Function name collision with suggest.ClassifyInput
+**Question**: The spec originally named the analyzer function `ClassifyInput`, which collides with `suggest.ClassifyInput` in `internal/suggest/input.go`. Should the new function have a different name?
+**Resolution**: Renamed to `Classify(input string, issueBody string) TaskProfile`. The `classify` package name provides sufficient context (`classify.Classify`). This avoids confusion with `suggest.ClassifyInput` which returns `InputType`, not `TaskProfile`.
+**Rationale**: Go convention — the package name qualifies the function. `classify.Classify` is idiomatic; `classify.ClassifyInput` would stutter.
+
+### CLR-002: "research" domain missing from FR-001 enum
+**Question**: FR-012 references a "research" domain for routing to impl-research, but FR-001's domain enum only listed 6 values (security/performance/docs/feature/bug/refactor). Should research be a domain?
+**Resolution**: Added `research` to the domain enum in FR-001. Research is a distinct routing target (impl-research pipeline) and needs its own domain value.
+**Rationale**: AGENTS.md explicitly lists "Research then implement → impl-research" as a routing path. Without the domain value, FR-012 would be unimplementable.
+
+### CLR-003: Incomplete routing matrix in FR-006
+**Question**: FR-006 only specified a few example mappings (simple bugs→impl-issue, complex features→impl-speckit). What about medium bugs, medium features, architectural refactors, etc.?
+**Resolution**: Expanded FR-006 with a complete priority-ordered selection algorithm: input_type first (PR URLs always→ops-pr-review), then domain overrides (security, research, docs), then complexity-based routing (simple/medium→impl-issue, complex/architectural→impl-speckit).
+**Rationale**: Matches AGENTS.md routing table where simple+medium both route to impl-issue and complex routes to impl-speckit, as confirmed by the impl-smart-route.yaml branch step.
+
+### CLR-004: PipelineConfig structure underspecified
+**Question**: PipelineConfig was described as "at minimum the pipeline name... May include additional metadata." What concrete fields?
+**Resolution**: Defined PipelineConfig as a struct with Name (string) and Reason (string). Name is the pipeline identifier, Reason explains the routing decision.
+**Rationale**: Keeping it minimal (two fields) matches the current codebase pattern where pipeline selection only needs a name. The Reason field aids debugging and is consistent with the impl-smart-route.yaml assessment step which produces a reason field.
+
+### CLR-005: InputType-based vs domain-based routing interaction
+**Question**: FR-006 says "PRs→ops-pr-review" but PR isn't a domain — it's an InputType. How do InputType and domain interact in routing?
+**Resolution**: Added `input_type` field to TaskProfile (FR-001). SelectPipeline checks input_type first: PR URLs short-circuit to ops-pr-review regardless of domain/complexity. For all other input types, domain and complexity drive selection.
+**Rationale**: PR review is fundamentally about the input format (a PR URL), not the content domain. This matches `suggest.SuggestPipelineForInput` which routes PR URLs directly to ops-pr-review without content analysis.
