@@ -207,6 +207,7 @@ function filterRuns(query) {
                 nextUrl=newLoader.dataset.next;
                 loading=false;
                 loader.classList.remove('active');
+                if(nextUrl&&list.scrollHeight<=list.clientHeight)loadMore();
             } else {
                 loader.remove();
             }
