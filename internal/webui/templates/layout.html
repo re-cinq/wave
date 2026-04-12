@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{block "title" .}}Dashboard · Wave{{end}}</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     {{if csrfToken}}<meta name="csrf-token" content="{{csrfToken}}">{{end}}
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/marked@15.0.7/marked.min.js"></script>
@@ -16,12 +17,12 @@
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
-            <a href="/runs" aria-label="Wave Dashboard home">
-                <svg class="nav-logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true"><rect width="200" height="200" rx="24" fill="#4f46e5"/><g stroke="white" stroke-width="10" stroke-linecap="round" fill="none"><path d="M 20 130 C 50 130, 130 50, 130 20"/><line x1="20" y1="80" x2="80" y2="20"/><line x1="20" y1="30" x2="30" y2="20"/></g><g stroke="white" stroke-width="10" stroke-linecap="round" opacity="0.2" fill="none"><path d="M 70 180 C 70 150, 150 70, 180 70"/><line x1="120" y1="180" x2="180" y2="120"/><line x1="170" y1="180" x2="180" y2="170"/></g></svg>
-                <span class="sidebar-brand-text">Wave</span>
-                <span id="attention-badge" class="attention-badge" title="All systems autonomous" style="display:none;">
-                    <span class="attention-dot autonomous"></span>
-                </span>
+            <a href="/runs" aria-label="Wave Dashboard home" id="wave-brand" class="wave-brand-link">
+                <svg class="wave-brand-icon" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
+                    <path class="wf-main" d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/>
+                    <path class="wf-ghost" d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14"/>
+                </svg>
+                <span class="wave-brand-text">WAVE</span>
             </a>
         </div>
 
@@ -206,31 +207,28 @@
     </script>
     <script src="/static/app.js"></script>
     <script>
-    // Attention classifier — global SSE listener for attention badge
+    // Attention classifier — SSE listener updates brand logo state
     (function() {
-        var badge = document.getElementById('attention-badge');
-        if (!badge) return;
-        var dot = badge.querySelector('.attention-dot');
+        var brand = document.getElementById('wave-brand');
+        if (!brand) return;
         var es = new EventSource('/api/attention/events');
         es.addEventListener('attention', function(e) {
             try {
                 var s = JSON.parse(e.data);
-                if (s.total_runs === 0) {
-                    badge.style.display = 'none';
-                    return;
+                brand.className = 'wave-brand-link';
+                if (s.total_runs > 0) {
+                    brand.className += ' attention-' + s.worst_state;
                 }
-                badge.style.display = 'inline-flex';
-                dot.className = 'attention-dot ' + s.worst_state;
                 var parts = [];
                 if (s.autonomous > 0) parts.push(s.autonomous + ' running');
                 if (s.needs_review > 0) parts.push(s.needs_review + ' needs review');
                 if (s.blocked > 0) parts.push(s.blocked + ' blocked');
                 if (s.failed > 0) parts.push(s.failed + ' failed');
-                badge.title = parts.join(', ') || 'All systems autonomous';
+                brand.title = parts.join(', ') || 'All systems idle';
             } catch (err) {}
         });
         es.onerror = function() {
-            badge.style.display = 'none';
+            brand.className = 'wave-brand-link';
         };
     })();
     </script>
