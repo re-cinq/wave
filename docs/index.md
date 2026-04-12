@@ -136,7 +136,7 @@ onUnmounted(() => {
 
 const heroProps = computed(() => ({
   title: 'Wave · AI-as-Code for Agent Factories',
-  tagline: 'Declarative AI pipelines. Validated outputs. Scoped permissions. Git-native isolation.',
+  tagline: 'V&V orchestration for AI agent factories. Ontology-driven. Contract-validated. Gate-controlled.',
   primaryAction: {
     text: 'Get Started',
     link: '/quickstart'
@@ -193,8 +193,50 @@ const features = [
   {
     icon: 'ready',
     title: 'Ready-to-Run Pipelines',
-    description: '51 built-in pipelines for code review, security scanning, documentation, and issue implementation — ready to plug into your agent factory.',
+    description: '53 built-in pipelines for code review, security scanning, documentation, and issue implementation — ready to plug into your agent factory.',
     link: '/use-cases/'
+  },
+  {
+    icon: 'gate',
+    title: 'Human & Automated Gates',
+    description: 'Four gate types — approval, timer, pr_merge, ci_pass — let you pause pipelines for human review, wait on timers, or poll for PR merges and CI checks before proceeding.',
+    link: '/guide/human-gates'
+  },
+  {
+    icon: 'thread',
+    title: 'Thread Fidelity Control',
+    description: 'Four fidelity levels — full, compact, summary, fresh — control how conversation context flows between steps. Fresh memory per step is the default; thread continuity is opt-in.',
+    link: '/guide/vv-paradigm'
+  },
+  {
+    icon: 'ontology',
+    title: 'Project Ontologies',
+    description: 'Define your project\'s telos, bounded contexts, invariants, and conventions in wave.yaml. Steps filter which contexts are injected, reducing noise for focused work.',
+    link: '/guide/vv-paradigm'
+  },
+  {
+    icon: 'composition',
+    title: 'Pipeline Composition',
+    description: 'Five composition primitives — sub-pipelines, iterate, branch, loop, and aggregate — let pipelines compose other pipelines for complex multi-stage workflows.',
+    link: '/guide/composition'
+  },
+  {
+    icon: 'routing',
+    title: 'Automatic Model Routing',
+    description: 'A 3-tier routing system — cheapest, balanced, strongest — classifies step complexity by persona and composition usage, routing each step to the right model tier automatically.',
+    link: '/guide/model-routing'
+  },
+  {
+    icon: 'meta',
+    title: 'Meta-Pipelines',
+    description: 'A philosopher persona dynamically generates and executes child pipelines at runtime, with configurable depth (3), step (20), and token (500K) limits.',
+    link: '/concepts/pipelines'
+  },
+  {
+    icon: 'dashboard',
+    title: 'Web Dashboard',
+    description: 'Monitor pipeline runs, visualize step DAGs, browse artifacts, and control execution — with real-time SSE updates and token-based remote auth.',
+    link: '/guides/web-dashboard'
   }
 ]
 </script>
@@ -221,6 +263,28 @@ const features = [
 </div>
 
 <FeatureCards :features="features" />
+
+<div class="vv-section">
+  <h2 class="vv-heading">How Wave Verifies Agent Work</h2>
+  <p class="vv-lead">A three-layer verification & validation model ensures every pipeline output meets quality, structural, and behavioral requirements.</p>
+  <div class="vv-grid">
+    <div class="vv-card">
+      <div class="vv-layer">Layer 1</div>
+      <div class="vv-name">Ontology</div>
+      <p>Domain knowledge and cognitive invariants injected from wave.yaml bounded contexts before each step executes.</p>
+    </div>
+    <div class="vv-card">
+      <div class="vv-layer">Layer 2</div>
+      <div class="vv-name">Contracts</div>
+      <p>10 structural validation types (JSON schema, test suite, LLM judge, and more) with hard and soft enforcement modes.</p>
+    </div>
+    <div class="vv-card">
+      <div class="vv-layer">Layer 3</div>
+      <div class="vv-name">Gates</div>
+      <p>Four outcome validation checkpoints — human approval, timed waits, PR merge polling, and CI pass polling.</p>
+    </div>
+  </div>
+</div>
 
 <div class="compat-section">
   <h2 class="compat-heading">Any agent. Any forge. One orchestrator.</h2>
@@ -353,6 +417,71 @@ const features = [
 }
 
 .spectrum-card p {
+  color: var(--vp-c-text-2);
+  font-size: 0.9rem;
+  line-height: 1.65;
+  margin: 0;
+}
+
+/* V&V section */
+.vv-section {
+  max-width: 1152px;
+  margin: 0 auto 72px;
+  padding: 0 24px;
+}
+
+.vv-heading {
+  font-size: 2rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+
+.vv-lead {
+  text-align: center;
+  color: var(--vp-c-text-2);
+  margin: 0 auto 40px;
+  max-width: 720px;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.vv-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.vv-card {
+  padding: 32px;
+  background: var(--vp-c-bg-soft);
+  border-right: 1px solid var(--vp-c-divider);
+}
+
+.vv-card:last-child {
+  border-right: none;
+}
+
+.vv-layer {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  color: var(--vp-c-text-3);
+}
+
+.vv-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--vp-c-brand-1);
+  margin-bottom: 12px;
+}
+
+.vv-card p {
   color: var(--vp-c-text-2);
   font-size: 0.9rem;
   line-height: 1.65;
@@ -529,6 +658,19 @@ const features = [
   }
 
   .spectrum-card:last-child {
+    border-bottom: none;
+  }
+
+  .vv-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .vv-card {
+    border-right: none;
+    border-bottom: 1px solid var(--vp-c-divider);
+  }
+
+  .vv-card:last-child {
     border-bottom: none;
   }
 
