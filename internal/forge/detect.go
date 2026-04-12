@@ -199,8 +199,8 @@ func parseRemoteURL(url string) (host, owner, repo string) {
 		return parseHTTPSPath(url)
 	}
 
-	if strings.Contains(url, "@") && strings.Contains(url, ":") {
-		// git@host:owner/repo.git
+	if strings.Contains(url, "@") && !strings.HasPrefix(url, "https://") && !strings.HasPrefix(url, "http://") {
+		// git@host:owner/repo.git — only match when NOT an HTTPS URL with credentials
 		atIdx := strings.Index(url, "@")
 		colonIdx := strings.Index(url[atIdx:], ":")
 		if colonIdx < 0 {
