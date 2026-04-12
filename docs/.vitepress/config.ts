@@ -26,6 +26,18 @@ export default withMermaid(
 
     srcExclude: ['future/**', '.archive/**'],
 
+    // Wave pipeline YAML uses {{ }} for template variables (e.g. {{ input }},
+    // {{ forge.type }}). VitePress/Vue interprets these as Vue interpolation
+    // and crashes during SSR. Wrapping every occurrence in v-pre is fragile.
+    // Instead, configure Vue to use delimiters that won't appear in docs.
+    vue: {
+      template: {
+        compilerOptions: {
+          delimiters: ['${', '}$'],
+        },
+      },
+    },
+
     themeConfig: {
       logo: '/logo.svg',
       nav: [
