@@ -136,7 +136,7 @@ onUnmounted(() => {
 
 const heroProps = computed(() => ({
   title: 'Wave · AI-as-Code for Agent Factories',
-  tagline: 'V&V orchestration for AI agent factories. Ontology-driven. Contract-validated. Gate-controlled.',
+  tagline: 'V&V orchestration for AI agent factories. Contract-validated. Gate-controlled. Composable.',
   primaryAction: {
     text: 'Get Started',
     link: '/quickstart'
@@ -209,9 +209,9 @@ const features = [
     link: '/guide/vv-paradigm'
   },
   {
-    icon: 'ontology',
-    title: 'Project Ontologies',
-    description: 'Define your project\'s telos, bounded contexts, invariants, and conventions in wave.yaml. Steps filter which contexts are injected, reducing noise for focused work.',
+    icon: 'compose',
+    title: 'Composition Pipelines',
+    description: 'Chain pipelines into multi-stage workflows. Parent pipelines dispatch child runs, inject artifacts, and extract results — enabling issue-to-merge automation.',
     link: '/guide/vv-paradigm'
   },
   {
@@ -270,8 +270,8 @@ const features = [
   <div class="vv-grid">
     <div class="vv-card">
       <div class="vv-layer">Layer 1</div>
-      <div class="vv-name">Ontology</div>
-      <p>Domain knowledge and cognitive invariants injected from wave.yaml bounded contexts before each step executes.</p>
+      <div class="vv-name">Personas</div>
+      <p>Role-scoped agents with controlled tool access, temperature, and git forensics capabilities for each pipeline step.</p>
     </div>
     <div class="vv-card">
       <div class="vv-layer">Layer 2</div>

@@ -21,17 +21,10 @@ validating correctness, and producing structured review reports.
 - [ ] Severity levels are accurate — not everything is CRITICAL
 
 ## Git Forensics
-Use git history to contextualize review findings:
-
-| Technique | Command | Reveals |
-|-----------|---------|---------|
-| Bug hotspots | `git log -i -E --grep="fix\|bug\|broken" --name-only --format='' \| sort \| uniq -c \| sort -nr \| head -20` | Files that keep breaking — review more carefully |
-| Most-changed files | `git log --format=format: --name-only --since="1 year ago" \| sort \| uniq -c \| sort -nr \| head -20` | High-churn areas deserve extra scrutiny |
-| Contributor activity | `git shortlog -sn --no-merges -- <path>` | Who owns this code — tag them for review |
-| Firefighting frequency | `git log --oneline --since="1 year ago" \| grep -iE 'revert\|hotfix\|emergency\|rollback'` | Areas with deploy risk |
-| Blame context | `git blame -L <start>,<end> <file>` | Why was this code written this way |
-
-Flag findings in high-churn or bug-hotspot files at higher severity.
+Contextualize findings — flag high-churn/hotspot files at higher severity:
+- **Bug hotspots**: `git log -i -E --grep="fix|bug|broken" --name-only --format='' | sort | uniq -c | sort -nr | head -20`
+- **Churn**: `git log --format=format: --name-only --since="1 year ago" | sort | uniq -c | sort -nr | head -20`
+- **Blame**: `git blame -L <start>,<end> <file>`
 
 ## Constraints
 - NEVER modify source code files directly

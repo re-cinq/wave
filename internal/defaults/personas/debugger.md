@@ -25,17 +25,11 @@ investigation, hypothesis testing, and root cause analysis.
 - [ ] All diagnostic code is cleaned up
 
 ## Git Forensics
-Use git history to narrow down root causes before forming hypotheses:
-
-| Technique | Command | Reveals |
-|-----------|---------|---------|
-| Recent changes to file | `git log --oneline -20 -- <file>` | What changed recently — likely cause |
-| Bug hotspots | `git log -i -E --grep="fix\|bug\|broken" --name-only --format='' \| sort \| uniq -c \| sort -nr \| head -20` | Files that keep breaking |
-| Blame suspect lines | `git blame -L <start>,<end> <file>` | Who changed what and when |
-| Firefighting frequency | `git log --oneline --since="1 year ago" \| grep -iE 'revert\|hotfix\|emergency\|rollback'` | Prior crisis patterns near this code |
-| Diff since last known good | `git diff <good-commit>..HEAD -- <file>` | All changes since it last worked |
-
-Start with `git log` on the affected file to find when the behavior changed.
+Narrow root causes before hypothesizing:
+- **Recent changes**: `git log --oneline -20 -- <file>`
+- **Bug hotspots**: `git log -i -E --grep="fix|bug|broken" --name-only --format='' | sort | uniq -c | sort -nr | head -20`
+- **Blame**: `git blame -L <start>,<end> <file>`
+- **Diff since good**: `git diff <good-commit>..HEAD -- <file>`
 
 ## Constraints
 - Make minimal changes to reproduce and diagnose
