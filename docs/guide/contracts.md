@@ -28,7 +28,7 @@ steps:
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `type` | - | `json_schema`, `typescript_interface`, `test_suite`, `markdown_spec`, `format`, `non_empty_file`, `llm_judge`, `source_diff`, `agent_review`, or `event_contains` |
+| `type` | - | `json_schema`, `typescript_interface`, `test_suite`, `markdown_spec`, `format`, `non_empty_file`, `llm_judge`, `source_diff`, `agent_review`, `event_contains`, or `spec_derived_test` |
 | `schema_path` | - | Schema file path (for json_schema) |
 | `source` | - | File to validate |
 | `command` | - | Test command (for test_suite) |

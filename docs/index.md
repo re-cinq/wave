@@ -150,7 +150,7 @@ const heroProps = computed(() => ({
     ...terminals[pipelineIndex.value]
   },
   valuePills: [
-    { label: 'Contract-Validated', link: '/guide/contracts', tooltip: '10 contract types validate every step boundary' },
+    { label: 'Contract-Validated', link: '/guide/contracts', tooltip: '11 contract types validate every step boundary' },
     { label: 'Gate-Controlled', link: '/guide/human-gates', tooltip: '4 gate types: approval, timer, PR merge, CI pass' },
     { label: 'Composable', link: '/guide/composition', tooltip: 'Sub-pipelines, iterate, branch, loop, aggregate' },
     { label: 'Any Agent', link: '/reference/adapters', tooltip: 'Claude, Gemini, OpenCode, Codex — or mix them' },
