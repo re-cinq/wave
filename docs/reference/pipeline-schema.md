@@ -294,15 +294,15 @@ Slash command execution invokes a Claude Code slash command (e.g., `/review-pr`)
 
 | Variable | Scope | Description |
 |----------|-------|-------------|
-| `{{ input }}` | All steps | Pipeline input from `--input` |
-| `{{ task }}` | Matrix steps | Current matrix item |
-| `{{ pipeline_id }}` | All steps | Unique pipeline run ID |
-| `{{ project.test_command }}` | All steps | Test command from wave.yaml |
-| `{{ project.contract_test_command }}` | All steps | Contract test command from wave.yaml |
-| `{{ forge.cli_tool }}` | All steps | Detected forge CLI (`gh`, `glab`) |
-| `{{ forge.type }}` | All steps | Forge type (`github`, `gitlab`) |
-| `{{ forge.pr_term }}` | All steps | PR terminology (`pull request`, `merge request`) |
-| `{{ forge.pr_command }}` | All steps | PR command (`pr`, `mr`) |
+| <code v-pre>{{ input }}</code> | All steps | Pipeline input from `--input` |
+| <code v-pre>{{ task }}</code> | Matrix steps | Current matrix item |
+| <code v-pre>{{ pipeline_id }}</code> | All steps | Unique pipeline run ID |
+| <code v-pre>{{ project.test_command }}</code> | All steps | Test command from wave.yaml |
+| <code v-pre>{{ project.contract_test_command }}</code> | All steps | Contract test command from wave.yaml |
+| <code v-pre>{{ forge.cli_tool }}</code> | All steps | Detected forge CLI (`gh`, `glab`) |
+| <code v-pre>{{ forge.type }}</code> | All steps | Forge type (`github`, `gitlab`) |
+| <code v-pre>{{ forge.pr_term }}</code> | All steps | PR terminology (`pull request`, `merge request`) |
+| <code v-pre>{{ forge.pr_command }}</code> | All steps | PR command (`pr`, `mr`) |
 
 ---
 

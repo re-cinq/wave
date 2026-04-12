@@ -223,8 +223,8 @@ Contract types:
 
 | Variable | Description |
 |----------|-------------|
-| `{{ input }}` | Pipeline input from `--input` flag |
-| `{{ task }}` | Current task in matrix strategy |
+| <code v-pre>{{ input }}</code> | Pipeline input from `--input` flag |
+| <code v-pre>{{ task }}</code> | Current task in matrix strategy |
 
 ## Workspace Configuration
 

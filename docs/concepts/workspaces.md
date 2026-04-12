@@ -72,7 +72,7 @@ graph TD
     W --> X[git worktree remove]
 ```
 
-1. **Resolve** — The branch name is resolved from template variables (typically `{{ pipeline_id }}`).
+1. **Resolve** — The branch name is resolved from template variables (typically <code v-pre>{{ pipeline_id }}</code>).
 2. **Create or Reuse** — If no worktree exists for this branch, `git worktree add` creates one. Otherwise, the existing worktree is reused.
 3. **Inject** — Artifacts from completed dependency steps are copied in.
 4. **Execute** — The adapter subprocess runs with the worktree as its working directory.

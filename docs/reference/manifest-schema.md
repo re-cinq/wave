@@ -459,7 +459,7 @@ Steps can use different workspace isolation strategies via the `workspace.type` 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `workspace.type` | `string` | no | `""` | Set to `"worktree"` for git worktree isolation. |
-| `workspace.branch` | `string` | no | `wave/<pipelineID>/<stepID>` | Branch name for the worktree. Supports `{{ }}` placeholder resolution. |
+| `workspace.branch` | `string` | no | `wave/<pipelineID>/<stepID>` | Branch name for the worktree. Supports template placeholder resolution. |
 
 ### Worktree Example
 
@@ -515,7 +515,7 @@ Steps can invoke skill slash commands instead of inline prompts via `exec.type: 
 |-------|------|----------|-------------|
 | `exec.type` | `string` | **yes** | Set to `"slash_command"` to invoke a skill command. |
 | `exec.command` | `string` | **yes** | Slash command name (e.g., `speckit.specify`). Automatically prefixed with `/` if missing. |
-| `exec.args` | `string` | no | Arguments passed to the slash command. Supports `{{ input }}` placeholder. |
+| `exec.args` | `string` | no | Arguments passed to the slash command. Supports <code v-pre>{{ input }}</code> placeholder. |
 
 ### Slash Command Example
 
