@@ -218,10 +218,10 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .wave-brand-link .wf-ghost { stroke: var(--color-text-secondary); opacity: 0.3; }
 .wave-brand-text { color: var(--color-text-secondary); }
 
-/* Running (autonomous) — purple traveling dash */
-.wave-brand-link.attention-autonomous .wf-main { stroke: var(--wave-primary-dark); stroke-dasharray: 4 3; animation: wf-travel 1.2s linear infinite; }
-.wave-brand-link.attention-autonomous .wf-ghost { stroke: var(--wave-primary-dark); opacity: 0.25; stroke-dasharray: 4 3; animation: wf-travel 1.8s linear infinite; }
-.wave-brand-link.attention-autonomous .wave-brand-text { color: var(--wave-primary-dark); text-shadow: 0 0 8px rgba(99,102,241,0.25); }
+/* Running (autonomous) — matches --color-running used by step borders/spinners */
+.wave-brand-link.attention-autonomous .wf-main { stroke: var(--color-running); stroke-dasharray: 4 3; animation: wf-travel 1.2s linear infinite; }
+.wave-brand-link.attention-autonomous .wf-ghost { stroke: var(--color-running); opacity: 0.25; stroke-dasharray: 4 3; animation: wf-travel 1.8s linear infinite; }
+.wave-brand-link.attention-autonomous .wave-brand-text { color: var(--color-running); }
 
 /* Needs review — amber traveling dash, faster */
 .wave-brand-link.attention-needs_review .wf-main { stroke: #f59e0b; stroke-dasharray: 4 3; animation: wf-travel 0.8s linear infinite; }
@@ -248,18 +248,18 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 }
 @keyframes wf-success-stroke {
     0%   { stroke: #3fb950; }
-    12%  { stroke: var(--wave-primary-dark); }
-    25%  { stroke: #3fb950; }
-    37%  { stroke: var(--wave-primary-dark); }
-    50%  { stroke: #3fb950; }
+    15%  { stroke: var(--color-running); }
+    30%  { stroke: #3fb950; }
+    45%  { stroke: var(--color-running); }
+    60%  { stroke: #3fb950; }
     100% { stroke: var(--color-text-secondary); }
 }
 @keyframes wf-success-text {
     0%   { color: #3fb950; text-shadow: 0 0 8px rgba(63,185,80,0.3); }
-    12%  { color: var(--wave-primary-dark); text-shadow: none; }
-    25%  { color: #3fb950; text-shadow: 0 0 8px rgba(63,185,80,0.3); }
-    37%  { color: var(--wave-primary-dark); text-shadow: none; }
-    50%  { color: #3fb950; text-shadow: 0 0 6px rgba(63,185,80,0.2); }
+    15%  { color: var(--color-running); text-shadow: none; }
+    30%  { color: #3fb950; text-shadow: 0 0 8px rgba(63,185,80,0.3); }
+    45%  { color: var(--color-running); text-shadow: none; }
+    60%  { color: #3fb950; text-shadow: 0 0 6px rgba(63,185,80,0.2); }
     100% { color: var(--color-text-secondary); text-shadow: none; }
 }
 

@@ -211,7 +211,7 @@
     (function() {
         var brand = document.getElementById('wave-brand');
         if (!brand) return;
-        var hadRuns = false;
+        var lastState = '';
         var completedTimer = null;
         var es = new EventSource('/api/attention/events');
         es.addEventListener('attention', function(e) {
@@ -220,16 +220,18 @@
                 if (completedTimer) { clearTimeout(completedTimer); completedTimer = null; }
 
                 if (s.total_runs > 0) {
-                    hadRuns = true;
+                    lastState = s.worst_state;
                     brand.className = 'wave-brand-link attention-' + s.worst_state;
-                } else if (hadRuns) {
-                    // Runs just finished — flash green then fade to idle
-                    hadRuns = false;
+                } else if (lastState === 'autonomous') {
+                    // All runs finished successfully — play success animation
+                    lastState = '';
                     brand.className = 'wave-brand-link attention-completed';
                     completedTimer = setTimeout(function() {
                         brand.className = 'wave-brand-link';
                     }, 4500);
                 } else {
+                    // Cancelled, failed, or no prior runs — snap to idle
+                    lastState = '';
                     brand.className = 'wave-brand-link';
                 }
 
