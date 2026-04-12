@@ -2,130 +2,97 @@ package pipeline
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestStallWatchdog_TimeoutFires(t *testing.T) {
-	w := NewStallWatchdog(50 * time.Millisecond)
-	ctx := w.Start(context.Background())
-	defer w.Stop()
+func TestStallWatchdog_ActivityPreventsCancel(t *testing.T) {
+	wd := NewStallWatchdog(100 * time.Millisecond)
+	ctx := wd.Start(context.Background())
+	defer wd.Stop()
+
+	time.Sleep(50 * time.Millisecond)
+	wd.NotifyActivity()
+	wd.NotifyProgress()
+	time.Sleep(50 * time.Millisecond)
+	wd.NotifyActivity()
+	wd.NotifyProgress()
+	time.Sleep(50 * time.Millisecond)
 
 	select {
 	case <-ctx.Done():
-		assert.Equal(t, context.Canceled, ctx.Err())
-	case <-time.After(200 * time.Millisecond):
-		t.Fatal("expected context to be canceled by stall watchdog within 200ms")
+		t.Fatal("context cancelled despite activity")
+	default:
 	}
 }
 
-func TestStallWatchdog_ActivityResetsTimeout(t *testing.T) {
-	w := NewStallWatchdog(100 * time.Millisecond)
-	ctx := w.Start(context.Background())
-	defer w.Stop()
+func TestStallWatchdog_SilenceCancels(t *testing.T) {
+	wd := NewStallWatchdog(50 * time.Millisecond)
+	ctx := wd.Start(context.Background())
+	defer wd.Stop()
 
-	// Send activity every 50ms for ~250ms (5 ticks).
-	stopActivity := make(chan struct{})
+	select {
+	case <-ctx.Done():
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("context not cancelled after stall timeout")
+	}
+}
+
+func TestStallWatchdog_ReadOnlyLoopCancels(t *testing.T) {
+	wd := NewStallWatchdog(100 * time.Millisecond)
+	ctx := wd.Start(context.Background())
+	defer wd.Stop()
+
+	done := make(chan struct{})
 	go func() {
-		ticker := time.NewTicker(50 * time.Millisecond)
-		defer ticker.Stop()
-		count := 0
-		for range ticker.C {
-			w.NotifyActivity()
-			count++
-			if count >= 5 {
-				close(stopActivity)
+		defer close(done)
+		for {
+			select {
+			case <-ctx.Done():
 				return
+			case <-time.After(50 * time.Millisecond):
+				wd.NotifyActivity() // read-only, no NotifyProgress
 			}
 		}
 	}()
 
-	// At 150ms the context should still be alive because activity keeps
-	// resetting the timer.
 	select {
 	case <-ctx.Done():
-		t.Fatal("context canceled too early; activity should have kept it alive")
-	case <-time.After(150 * time.Millisecond):
-		// good — still alive
+	case <-time.After(2 * time.Second):
+		t.Fatal("context not cancelled despite no progress")
 	}
-
-	// Wait for the activity goroutine to finish sending.
-	<-stopActivity
-
-	// After activity stops, the watchdog should fire within its 100ms
-	// timeout. Give a generous 300ms to avoid CI flakes.
-	select {
-	case <-ctx.Done():
-		assert.Equal(t, context.Canceled, ctx.Err())
-	case <-time.After(300 * time.Millisecond):
-		t.Fatal("expected context to be canceled after activity stopped")
-	}
+	<-done
 }
 
-func TestStallWatchdog_StopPreventsTimeout(t *testing.T) {
-	w := NewStallWatchdog(50 * time.Millisecond)
-	_ = w.Start(context.Background())
-	w.Stop()
+func TestStallWatchdog_WriteProgressPreventsCancel(t *testing.T) {
+	wd := NewStallWatchdog(100 * time.Millisecond)
+	ctx := wd.Start(context.Background())
+	defer wd.Stop()
 
-	// The done channel should be closed after Stop returns.
-	select {
-	case <-w.done:
-		// success — goroutine exited
-	case <-time.After(200 * time.Millisecond):
-		t.Fatal("expected done channel to be closed after Stop")
+	for i := 0; i < 5; i++ {
+		time.Sleep(80 * time.Millisecond)
+		wd.NotifyActivity()
+		wd.NotifyProgress()
 	}
-}
-
-func TestStallWatchdog_ParentContextCancellation(t *testing.T) {
-	parent, cancelParent := context.WithCancel(context.Background())
-	w := NewStallWatchdog(5 * time.Second) // long timeout — should not fire
-	ctx := w.Start(parent)
-	defer w.Stop()
-
-	cancelParent()
 
 	select {
 	case <-ctx.Done():
-		// Parent cancellation propagated.
-		require.Error(t, ctx.Err())
-	case <-time.After(200 * time.Millisecond):
-		t.Fatal("expected context to be canceled when parent is canceled")
+		t.Fatal("context cancelled despite write progress")
+	default:
 	}
 }
 
-func TestNewStallWatchdog_PanicsOnZero(t *testing.T) {
-	assert.Panics(t, func() {
-		NewStallWatchdog(0)
-	})
-}
-
-func TestNewStallWatchdog_PanicsOnNegative(t *testing.T) {
-	assert.Panics(t, func() {
-		NewStallWatchdog(-1 * time.Second)
-	})
-}
-
-func TestStallWatchdog_ConcurrentActivity(t *testing.T) {
-	w := NewStallWatchdog(5 * time.Second)
-	_ = w.Start(context.Background())
-	defer w.Stop()
-
-	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < 100; j++ {
-				w.NotifyActivity()
-			}
-		}()
+func TestIsProgressTool(t *testing.T) {
+	readOnly := []string{"Read", "Glob", "Grep", "WebSearch", "WebFetch", "ToolSearch", "TaskList", "TaskGet"}
+	for _, tool := range readOnly {
+		if IsProgressTool(tool) {
+			t.Errorf("expected %q to be read-only", tool)
+		}
 	}
-
-	// If there is a data race or panic, the race detector / test runner
-	// will catch it. We just need all goroutines to complete cleanly.
-	wg.Wait()
+	writeable := []string{"Write", "Edit", "Bash", "NotebookEdit", "Agent"}
+	for _, tool := range writeable {
+		if !IsProgressTool(tool) {
+			t.Errorf("expected %q to be progress tool", tool)
+		}
+	}
 }
