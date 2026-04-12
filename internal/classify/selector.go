@@ -4,13 +4,32 @@ import "github.com/recinq/wave/internal/suggest"
 
 // SelectPipeline maps a TaskProfile to a PipelineConfig using priority-ordered
 // routing rules derived from the AGENTS.md pipeline selection table.
+// modelTierForComplexity maps task complexity to recommended model tier.
+func modelTierForComplexity(c Complexity) ModelTier {
+	switch c {
+	case ComplexitySimple:
+		return ModelTierCheapest
+	case ComplexityMedium:
+		return ModelTierBalanced
+	case ComplexityComplex, ComplexityArchitectural:
+		return ModelTierStrongest
+	default:
+		return ModelTierBalanced
+	}
+}
+
+// SelectPipeline maps a TaskProfile to a PipelineConfig using priority-ordered
+// routing rules derived from the AGENTS.md pipeline selection table.
 func SelectPipeline(profile TaskProfile) PipelineConfig {
+	tier := modelTierForComplexity(profile.Complexity)
+
 	// Rule 1: PR URLs always route to ops-pr-review regardless of content.
 	if profile.InputType == suggest.InputTypePRURL {
 		return PipelineConfig{
 			Name:              "ops-pr-review",
 			Reason:            "pull request URL routed to PR review pipeline",
 			VerificationDepth: profile.VerificationDepth,
+			ModelTier:         ModelTierCheapest,
 		}
 	}
 
@@ -20,6 +39,7 @@ func SelectPipeline(profile TaskProfile) PipelineConfig {
 			Name:              "audit-security",
 			Reason:            "security domain routed to security audit pipeline",
 			VerificationDepth: profile.VerificationDepth,
+			ModelTier:         tier,
 		}
 	}
 
@@ -29,6 +49,7 @@ func SelectPipeline(profile TaskProfile) PipelineConfig {
 			Name:              "impl-research",
 			Reason:            "research domain routed to research pipeline",
 			VerificationDepth: profile.VerificationDepth,
+			ModelTier:         tier,
 		}
 	}
 
@@ -38,6 +59,7 @@ func SelectPipeline(profile TaskProfile) PipelineConfig {
 			Name:              "doc-fix",
 			Reason:            "documentation domain routed to doc-fix pipeline",
 			VerificationDepth: profile.VerificationDepth,
+			ModelTier:         ModelTierCheapest,
 		}
 	}
 
@@ -48,6 +70,7 @@ func SelectPipeline(profile TaskProfile) PipelineConfig {
 			Name:              "impl-speckit",
 			Reason:            "complex refactor routed to spec-driven implementation pipeline",
 			VerificationDepth: profile.VerificationDepth,
+			ModelTier:         tier,
 		}
 	}
 
@@ -57,6 +80,7 @@ func SelectPipeline(profile TaskProfile) PipelineConfig {
 			Name:              "impl-issue",
 			Reason:            "simple/medium task routed to direct implementation pipeline",
 			VerificationDepth: profile.VerificationDepth,
+			ModelTier:         tier,
 		}
 	}
 
@@ -65,5 +89,6 @@ func SelectPipeline(profile TaskProfile) PipelineConfig {
 		Name:              "impl-speckit",
 		Reason:            "complex/architectural task routed to spec-driven implementation pipeline",
 		VerificationDepth: profile.VerificationDepth,
+		ModelTier:         tier,
 	}
 }

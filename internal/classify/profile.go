@@ -43,9 +43,19 @@ type TaskProfile struct {
 	InputType         suggest.InputType // reused from internal/suggest
 }
 
+// ModelTier enumerates model selection tiers.
+type ModelTier string
+
+const (
+	ModelTierCheapest  ModelTier = "cheapest"
+	ModelTierBalanced  ModelTier = "balanced"
+	ModelTierStrongest ModelTier = "strongest"
+)
+
 // PipelineConfig is the result of pipeline selection.
 type PipelineConfig struct {
 	Name              string            // pipeline name, e.g. "impl-issue"
 	Reason            string            // human-readable routing explanation
 	VerificationDepth VerificationDepth // depth of verification to apply (advisory until wired into executor)
+	ModelTier         ModelTier         // recommended model tier based on task complexity
 }
