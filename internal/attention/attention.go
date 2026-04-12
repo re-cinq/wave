@@ -1,6 +1,6 @@
 // Package attention provides an attention classifier that monitors pipeline
 // events and determines whether operator attention is needed. It powers the
-// "Clippy" notification widget in the Wave dashboard.
+// attention notification badge in the Wave dashboard.
 package attention
 
 import (

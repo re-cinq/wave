@@ -209,7 +209,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     white-space: nowrap;
 }
 
-/* Attention badge (Clippy widget) */
+/* Attention badge */
 .attention-badge {
     display: inline-flex; align-items: center; margin-left: 0.25rem;
 }
