@@ -167,4 +167,4 @@ steps:
         exit 1
       fi
       echo "Orchestrating: pipeline=$PIPELINE model=$MODEL_TIER"
-      wave run "$PIPELINE" --adapter claude --model "${MODEL_TIER:-balanced}" -- "{{ input }}"
+      wave run "$PIPELINE" --adapter opencode --model "${MODEL_TIER:-balanced}" -- "{{ input }}"
