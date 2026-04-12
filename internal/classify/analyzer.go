@@ -6,19 +6,25 @@ import (
 	"github.com/recinq/wave/internal/suggest"
 )
 
-// domainKeywords maps domains to their detection keywords, ordered by priority
-// (security > performance > bug > refactor > research > docs > feature).
+// domainKeywords maps domains to their detection keywords, ordered by priority.
+// More specific domains first to avoid false matches on generic terms.
 var domainKeywords = []struct {
 	domain   Domain
 	keywords []string
 }{
-	{DomainSecurity, []string{"vulnerability", "cve", "injection", "xss", "csrf", "auth bypass", "security"}},
-	{DomainPerformance, []string{"slow", "latency", "performance", "optimize", "benchmark", "memory leak"}},
-	{DomainBug, []string{"bug", "broken", "crash", "error", "null pointer", "panic", "doesn't work"}},
-	{DomainRefactor, []string{"refactor", "restructure", "reorganize", "redesign", "clean up", "technical debt"}},
+	{DomainSecurity, []string{"vulnerability", "cve", "injection", "xss", "csrf", "auth bypass", "security", "owasp", "threat model"}},
+	{DomainDebug, []string{"debug", "diagnose", "root cause", "stack trace", "reproduce", "bisect"}},
+	{DomainPerformance, []string{"slow", "latency", "performance", "optimize", "benchmark", "memory leak", "profil"}},
+	{DomainBug, []string{"bug", "broken", "crash", "error", "null pointer", "panic", "doesn't work", "hotfix", "bugfix"}},
+	{DomainReview, []string{"review", "code review", "pr review", "pull request review", "feedback"}},
+	{DomainTesting, []string{"test coverage", "test gap", "missing test", "generate test", "test quality", "unit test", "integration test"}},
+	{DomainAudit, []string{"audit", "dead code", "unused", "duplicate", "junk", "unwired", "coverage gap", "quality scan", "scan for"}},
+	{DomainPlanning, []string{"plan", "scope", "break down", "decompose", "adr", "decision record", "epic", "roadmap", "task breakdown"}},
+	{DomainOps, []string{"release", "deploy", "bootstrap", "scaffold", "changelog", "ci/cd", "pipeline run", "batch", "supervise"}},
+	{DomainRefactor, []string{"refactor", "restructure", "reorganize", "redesign", "clean up", "technical debt", "simplify"}},
 	{DomainResearch, []string{"research", "investigate", "analyze", "compare", "evaluate", "explore"}},
-	{DomainDocs, []string{"documentation", "readme", "typo", "comment", "docs", "docstring"}},
-	{DomainFeature, []string{"add", "implement", "create", "new", "feature", "support"}},
+	{DomainDocs, []string{"documentation", "readme", "typo", "comment", "docs", "docstring", "onboard", "explain", "changelog"}},
+	{DomainFeature, []string{"add", "implement", "create", "new", "feature", "support", "prototype"}},
 }
 
 // complexityKeywords maps complexity levels to their detection keywords.

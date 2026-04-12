@@ -76,7 +76,7 @@ func TestSelectPipeline(t *testing.T) {
 		{
 			name:         "simple_bug",
 			profile:      TaskProfile{Domain: DomainBug, Complexity: ComplexitySimple, VerificationDepth: VerificationStructuralOnly},
-			wantPipeline: "impl-issue",
+			wantPipeline: "impl-hotfix",
 			wantDepth:    VerificationStructuralOnly,
 		},
 		{
@@ -108,6 +108,79 @@ func TestSelectPipeline(t *testing.T) {
 			profile:      TaskProfile{Domain: DomainBug, Complexity: ComplexityComplex, VerificationDepth: VerificationFullSemantic},
 			wantPipeline: "impl-speckit",
 			wantDepth:    VerificationFullSemantic,
+		},
+		// New domain routing tests
+		{
+			name:         "simple_bug_hotfix",
+			profile:      TaskProfile{Domain: DomainBug, Complexity: ComplexitySimple, VerificationDepth: VerificationStructuralOnly},
+			wantPipeline: "impl-hotfix",
+			wantDepth:    VerificationStructuralOnly,
+		},
+		{
+			name:         "debug_simple",
+			profile:      TaskProfile{Domain: DomainDebug, Complexity: ComplexitySimple, VerificationDepth: VerificationStructuralOnly},
+			wantPipeline: "impl-hotfix",
+			wantDepth:    VerificationStructuralOnly,
+		},
+		{
+			name:         "debug_complex",
+			profile:      TaskProfile{Domain: DomainDebug, Complexity: ComplexityComplex, VerificationDepth: VerificationFullSemantic},
+			wantPipeline: "ops-debug",
+			wantDepth:    VerificationFullSemantic,
+		},
+		{
+			name:         "review",
+			profile:      TaskProfile{Domain: DomainReview, Complexity: ComplexityMedium, VerificationDepth: VerificationBehavioral},
+			wantPipeline: "ops-pr-review",
+			wantDepth:    VerificationBehavioral,
+		},
+		{
+			name:         "testing",
+			profile:      TaskProfile{Domain: DomainTesting, Complexity: ComplexityMedium, VerificationDepth: VerificationBehavioral},
+			wantPipeline: "test-gen",
+			wantDepth:    VerificationBehavioral,
+		},
+		{
+			name:         "audit_simple",
+			profile:      TaskProfile{Domain: DomainAudit, Complexity: ComplexitySimple, VerificationDepth: VerificationStructuralOnly},
+			wantPipeline: "audit-quality-loop",
+			wantDepth:    VerificationStructuralOnly,
+		},
+		{
+			name:         "audit_complex",
+			profile:      TaskProfile{Domain: DomainAudit, Complexity: ComplexityComplex, VerificationDepth: VerificationFullSemantic},
+			wantPipeline: "ops-parallel-audit",
+			wantDepth:    VerificationFullSemantic,
+		},
+		{
+			name:         "planning_simple",
+			profile:      TaskProfile{Domain: DomainPlanning, Complexity: ComplexitySimple, VerificationDepth: VerificationStructuralOnly},
+			wantPipeline: "plan-task",
+			wantDepth:    VerificationStructuralOnly,
+		},
+		{
+			name:         "planning_complex",
+			profile:      TaskProfile{Domain: DomainPlanning, Complexity: ComplexityComplex, VerificationDepth: VerificationFullSemantic},
+			wantPipeline: "plan-scope",
+			wantDepth:    VerificationFullSemantic,
+		},
+		{
+			name:         "ops_simple",
+			profile:      TaskProfile{Domain: DomainOps, Complexity: ComplexitySimple, VerificationDepth: VerificationStructuralOnly},
+			wantPipeline: "ops-bootstrap",
+			wantDepth:    VerificationStructuralOnly,
+		},
+		{
+			name:         "ops_complex",
+			profile:      TaskProfile{Domain: DomainOps, Complexity: ComplexityComplex, VerificationDepth: VerificationFullSemantic},
+			wantPipeline: "ops-epic-runner",
+			wantDepth:    VerificationFullSemantic,
+		},
+		{
+			name:         "performance",
+			profile:      TaskProfile{Domain: DomainPerformance, Complexity: ComplexityMedium, VerificationDepth: VerificationBehavioral},
+			wantPipeline: "impl-improve",
+			wantDepth:    VerificationBehavioral,
 		},
 	}
 

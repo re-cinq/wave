@@ -23,6 +23,12 @@ const (
 	DomainFeature     Domain = "feature"
 	DomainDocs        Domain = "docs"
 	DomainResearch    Domain = "research"
+	DomainAudit       Domain = "audit"
+	DomainOps         Domain = "ops"
+	DomainPlanning    Domain = "planning"
+	DomainTesting     Domain = "testing"
+	DomainDebug       Domain = "debug"
+	DomainReview      Domain = "review"
 )
 
 // VerificationDepth enumerates verification levels.
