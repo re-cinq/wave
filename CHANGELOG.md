@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Run options parity across CLI, TUI, WebUI, and API — all surfaces now expose the full set of pipeline run options organized into four tiers: Essential, Execution, Continuous, and Dev/Debug (#717)
+- Inline tiered run form on WebUI pipeline detail page replacing the modal dialog
+- Adapter, timeout, from-step, steps, exclude, detach, and on-failure options in TUI pipeline launcher
+- POST /api/prs/start endpoint for starting pipelines from PR pages
+- CLI `wave run --help` groups flags by tier for improved discoverability
 - `wave run --detach` flag for background pipeline execution that survives shell exit (#467)
 - Remove ASCII logo banner from `wave list` output (clig.dev compliance)
 - SWE-bench benchmarking with `wave bench run`, `wave bench compare`, repo checkout, baseline mode, and `bench-solve` pipeline (#288)

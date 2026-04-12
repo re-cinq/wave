@@ -46,10 +46,7 @@ func (s *Server) handleAPIIssues(w http.ResponseWriter, r *http.Request) {
 
 // handleAPIStartFromIssue handles POST /api/issues/start - launches a pipeline from an issue.
 func (s *Server) handleAPIStartFromIssue(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		IssueURL     string `json:"issue_url"`
-		PipelineName string `json:"pipeline_name"`
-	}
+	var req StartIssueRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -59,7 +56,16 @@ func (s *Server) handleAPIStartFromIssue(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Delegate to the existing pipeline start logic
+	// Validate mutual exclusions
+	if req.Continuous && req.FromStep != "" {
+		writeJSONError(w, http.StatusBadRequest, "--continuous and --from-step are mutually exclusive")
+		return
+	}
+	if req.OnFailure != "" && req.OnFailure != "halt" && req.OnFailure != "skip" {
+		writeJSONError(w, http.StatusBadRequest, "on_failure must be 'halt' or 'skip'")
+		return
+	}
+
 	pl, err := loadPipelineYAML(req.PipelineName)
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, "pipeline not found: "+req.PipelineName)
@@ -72,7 +78,28 @@ func (s *Server) handleAPIStartFromIssue(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	s.launchPipelineExecution(runID, req.PipelineName, req.IssueURL, pl, RunOptions{})
+	opts := RunOptions{
+		Model:         req.Model,
+		Adapter:       req.Adapter,
+		DryRun:        req.DryRun,
+		FromStep:      req.FromStep,
+		Force:         req.Force,
+		Detach:        req.Detach,
+		Timeout:       req.Timeout,
+		Steps:         req.Steps,
+		Exclude:       req.Exclude,
+		OnFailure:     req.OnFailure,
+		Continuous:    req.Continuous,
+		Source:        req.Source,
+		MaxIterations: req.MaxIterations,
+		Delay:         req.Delay,
+	}
+
+	if req.FromStep != "" {
+		s.launchPipelineExecution(runID, req.PipelineName, req.IssueURL, pl, opts, req.FromStep)
+	} else {
+		s.launchPipelineExecution(runID, req.PipelineName, req.IssueURL, pl, opts)
+	}
 
 	writeJSON(w, http.StatusCreated, StartPipelineResponse{
 		RunID:        runID,

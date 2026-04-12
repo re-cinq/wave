@@ -26,21 +26,68 @@
     </div>
     <div class="w-dialog-body">
         <div class="form-group" style="margin-bottom:0.5rem;">
-            <label for="rp-pipeline" style="font-size:0.78rem;color:var(--color-text-secondary);display:block;margin-bottom:0.2rem;">Pipeline</label>
-            <select id="rp-pipeline" style="width:100%;padding:0.3rem 0.4rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.82rem;">
+            <label for="rp-pipeline">Pipeline</label>
+            <select id="rp-pipeline">
                 <option value="">Loading pipelines...</option>
             </select>
         </div>
-        <div class="form-group" style="margin-bottom:0.5rem;">
-            <label for="rp-input" style="font-size:0.78rem;color:var(--color-text-secondary);display:block;margin-bottom:0.2rem;">Input</label>
-            <textarea id="rp-input" rows="2" style="width:100%;padding:0.4rem 0.5rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-family:var(--font-sans);font-size:0.82rem;resize:vertical;">{{.Issue.URL}}</textarea>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="rp-adapter">Adapter</label>
+                <select id="rp-adapter"><option value="">Default</option></select>
+            </div>
+            <div class="form-group">
+                <label for="rp-model">Model</label>
+                <input type="text" id="rp-model" placeholder="e.g. sonnet, haiku, cheapest">
+            </div>
         </div>
-        <div class="form-group">
-            <label for="rp-adapter" style="font-size:0.78rem;color:var(--color-text-secondary);display:block;margin-bottom:0.2rem;">Adapter</label>
-            <select id="rp-adapter" style="width:100%;padding:0.3rem 0.4rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.82rem;">
-                <option value="">Default</option>
-            </select>
-        </div>
+
+        <details class="run-form-tier-details">
+            <summary class="run-form-tier-summary">Advanced</summary>
+            <div class="run-form-tier">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="rp-from-step">Resume from step</label>
+                        <input type="text" id="rp-from-step" placeholder="e.g. implement">
+                    </div>
+                    <div class="form-group-checkbox">
+                        <label><input type="checkbox" id="rp-force"> Force</label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group-checkbox">
+                        <label><input type="checkbox" id="rp-dry-run"> Dry run</label>
+                    </div>
+                    <div class="form-group-checkbox">
+                        <label><input type="checkbox" id="rp-detach" checked> Detach</label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="rp-steps">Steps</label>
+                        <input type="text" id="rp-steps" placeholder="e.g. plan,implement">
+                    </div>
+                    <div class="form-group">
+                        <label for="rp-exclude">Exclude</label>
+                        <input type="text" id="rp-exclude" placeholder="e.g. retro,review">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="rp-timeout">Timeout (min)</label>
+                        <input type="number" id="rp-timeout" min="0" placeholder="0 = no limit">
+                    </div>
+                    <div class="form-group">
+                        <label for="rp-on-failure">On failure</label>
+                        <select id="rp-on-failure">
+                            <option value="">Default</option>
+                            <option value="halt">Halt</option>
+                            <option value="skip">Skip</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </details>
     </div>
     <div class="w-dialog-actions">
         <button class="btn btn-sm" onclick="hideRunPipeline()">Cancel</button>
@@ -123,7 +170,6 @@
 function showRunPipeline() {
     var dlg = document.getElementById('run-pipeline-dialog');
     var sel = document.getElementById('rp-pipeline');
-    // Populate pipelines
     sel.innerHTML = '<option value="">Loading...</option>';
     fetch('/api/pipelines').then(function(r){return r.json()}).then(function(d){
         var pipelines = d.pipelines || [];
@@ -151,19 +197,40 @@ function hideRunPipeline() { document.getElementById('run-pipeline-dialog').clos
 function submitRunPipeline() {
     var pipeline = document.getElementById('rp-pipeline').value;
     if (!pipeline) { return; }
-    var input = document.getElementById('rp-input').value;
     var adapter = document.getElementById('rp-adapter').value;
+    var model = document.getElementById('rp-model').value.trim();
     var btn = document.getElementById('rp-submit');
-    var body = {input: input || ''};
-    if (adapter) { body.adapter = adapter; }
+    var body = {issue_url: '{{.Issue.URL}}', pipeline_name: pipeline};
+    if (adapter) body.adapter = adapter;
+    if (model) body.model = model;
+    // Advanced options
+    var fromStep = document.getElementById('rp-from-step').value.trim();
+    if (fromStep) body.from_step = fromStep;
+    if (document.getElementById('rp-force').checked) body.force = true;
+    if (document.getElementById('rp-dry-run').checked) body.dry_run = true;
+    if (document.getElementById('rp-detach').checked) body.detach = true;
+    var steps = document.getElementById('rp-steps').value.trim();
+    if (steps) body.steps = steps;
+    var exclude = document.getElementById('rp-exclude').value.trim();
+    if (exclude) body.exclude = exclude;
+    var timeout = parseInt(document.getElementById('rp-timeout').value, 10);
+    if (timeout > 0) body.timeout = timeout;
+    var onFailure = document.getElementById('rp-on-failure').value;
+    if (onFailure) body.on_failure = onFailure;
     setButtonLoading(btn, true);
-    fetchJSON('/api/pipelines/' + encodeURIComponent(pipeline) + '/start', {
+    fetchJSON('/api/issues/start', {
         method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
     }).then(function(data) {
         showToast('Started: ' + data.run_id, 'success', 3000);
         setTimeout(function() { window.location.href = '/runs/' + data.run_id; }, 500);
     }).catch(function() { setButtonLoading(btn, false); });
 }
+// Show/hide force checkbox when from-step is set
+document.getElementById('rp-from-step').addEventListener('input', function() {
+    var forceGroup = document.getElementById('rp-force-group');
+    forceGroup.hidden = !this.value.trim();
+    if (!this.value.trim()) document.getElementById('rp-force').checked = false;
+});
 document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { var dlg = document.getElementById('run-pipeline-dialog'); if (dlg && dlg.open) dlg.close(); } });
 
 document.addEventListener('DOMContentLoaded', function() {

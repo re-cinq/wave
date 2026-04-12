@@ -184,6 +184,50 @@ Model formats vary by adapter: claude uses "haiku"/"opus", opencode uses
 	cmd.Flags().BoolVar(&opts.AutoApprove, "auto-approve", false, "Auto-approve all approval gates using default choices (required for --detach with gates)")
 	cmd.Flags().BoolVar(&opts.NoRetro, "no-retro", false, "Skip retrospective generation for this run")
 
+	// Group flags by tier for organized --help output
+	essentialFlags := []string{"pipeline", "input", "model", "adapter"}
+	executionFlags := []string{"from-step", "force", "dry-run", "timeout", "steps", "exclude", "on-failure", "detach"}
+	continuousFlags := []string{"continuous", "source", "max-iterations", "delay"}
+	devDebugFlags := []string{"mock", "preserve-workspace", "auto-approve", "no-retro", "force-model", "run", "manifest"}
+
+	cmd.SetUsageFunc(func(c *cobra.Command) error {
+		fmt.Fprintf(c.OutOrStderr(), "Usage:\n  %s\n\n", c.UseLine())
+
+		printFlagGroup := func(title string, names []string) {
+			fmt.Fprintf(c.OutOrStderr(), "%s:\n", title)
+			for _, name := range names {
+				f := c.Flags().Lookup(name)
+				if f == nil {
+					continue
+				}
+				shorthand := ""
+				if f.Shorthand != "" {
+					shorthand = fmt.Sprintf("-%s, ", f.Shorthand)
+				}
+				defVal := ""
+				if f.DefValue != "" && f.DefValue != "false" && f.DefValue != "0" {
+					defVal = fmt.Sprintf(" (default %s)", f.DefValue)
+				}
+				fmt.Fprintf(c.OutOrStderr(), "      %s--%s %s%s\n", shorthand, f.Name, f.Usage, defVal)
+			}
+			fmt.Fprintln(c.OutOrStderr())
+		}
+
+		printFlagGroup("Essential", essentialFlags)
+		printFlagGroup("Execution", executionFlags)
+		printFlagGroup("Continuous", continuousFlags)
+		printFlagGroup("Dev/Debug", devDebugFlags)
+
+		// Print inherited persistent flags so parent flags (--verbose, --debug, etc.) appear
+		parentFlags := c.InheritedFlags()
+		if parentFlags.HasFlags() {
+			fmt.Fprintf(c.OutOrStderr(), "Global Flags:\n")
+			fmt.Fprintln(c.OutOrStderr(), parentFlags.FlagUsages())
+		}
+
+		return nil
+	})
+
 	return cmd
 }
 
