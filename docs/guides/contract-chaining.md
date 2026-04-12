@@ -33,7 +33,7 @@ impl-issue-core  -->  wave-land  -->  ops-pr-review-core
                                           fix loop
 ```
 
-The `ops-pr-review-core` summary step produces `.wave/output/review-verdict.json` validated against `shared-review-verdict.schema.json`. The loop condition reads `{{ review-fix.output.verdict == 'APPROVE' }}` from this structured output.
+The `ops-pr-review-core` summary step produces `.wave/output/review-verdict.json` validated against `shared-review-verdict.schema.json`. The loop condition reads <code v-pre>{{ review-fix.output.verdict == 'APPROVE' }}</code> from this structured output.
 
 ## Naming Conventions
 
