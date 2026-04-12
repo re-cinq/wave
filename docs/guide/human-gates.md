@@ -1,6 +1,13 @@
-# Human Approval Gates
+# Gates
 
-Gate steps pause pipeline execution for human decisions. Reviewers can approve, revise, or abort — with optional freeform text feedback.
+Gate steps pause pipeline execution. Wave supports four gate types:
+
+- **approval** — Wait for human decision with choices (approve, revise, abort)
+- **timer** — Pause for a fixed duration
+- **pr_merge** — Poll until a GitHub PR is merged
+- **ci_pass** — Wait for CI checks to pass on a branch
+
+For approval gates, reviewers can approve, revise, or abort — with optional freeform text feedback.
 
 ## Basic Gate
 
@@ -31,6 +38,50 @@ steps:
     persona: craftsman
     dependencies: [approve]
 ```
+
+## Timer Gate
+
+Pause pipeline execution for a fixed duration:
+
+```yaml
+- id: cooldown
+  gate:
+    type: timer
+    timeout: 5m
+    message: "Cooling down before next phase"
+```
+
+## PR Merge Gate
+
+Poll GitHub PR status until merged or closed:
+
+```yaml
+- id: wait-merge
+  gate:
+    type: pr_merge
+    pr_number: 123
+    # repo: owner/repo  # optional, auto-detected from git
+    interval: 30s      # optional, default 30s
+    timeout: 10m        # optional, default 10m
+```
+
+The gate resolves when the PR is merged. If the PR is closed without merging, the step fails.
+
+## CI Pass Gate
+
+Wait for CI checks to pass on a branch:
+
+```yaml
+- id: wait-ci
+  gate:
+    type: ci_pass
+    branch: main        # optional, auto-detected from git
+    # repo: owner/repo  # optional, auto-detected
+    interval: 30s       # optional, default 30s
+    timeout: 15m        # optional, default 10m
+```
+
+Polls the most recent CI run for the branch. Resolves when all checks pass or are skipped. Fails if any check fails or is cancelled.
 
 ## Interaction Channels
 
