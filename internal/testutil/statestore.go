@@ -638,3 +638,14 @@ func WithUpdateRunStatus(fn func(runID, status, currentStep string, tokens int) 
 func WithLogEvent(fn func(runID, stepID, st, persona, message string, tokens int, durationMs int64) error) MockStateStoreOption {
 	return func(m *MockStateStore) { m.logEvent = fn }
 }
+
+// Orchestration decision stubs
+func (m *MockStateStore) RecordOrchestrationDecision(_ *state.OrchestrationDecision) error {
+	return nil
+}
+func (m *MockStateStore) UpdateOrchestrationOutcome(_, _ string, _ int, _ int64) error {
+	return nil
+}
+func (m *MockStateStore) GetOrchestrationStats(_ string) (*state.OrchestrationStats, error) {
+	return nil, nil
+}

@@ -39,7 +39,7 @@ hooks:
 steps:
   - id: classify
     persona: navigator
-    model: cheapest
+    model: balanced
     exec:
       type: prompt
       source: |
@@ -149,8 +149,10 @@ steps:
 
         - Do NOT implement anything. Classification only.
         - Do NOT modify any files except the output JSON.
+        - Do NOT explore the codebase. Classify based on the input text alone.
         - ALWAYS fetch issue/PR details if the input is a URL.
         - The `pipeline` field MUST be an exact pipeline name from the catalog.
+        - Write ONLY valid JSON to the output file. No prose, no explanation, no markdown.
     output_artifacts:
       - name: classification
         path: .wave/output/classification.json
