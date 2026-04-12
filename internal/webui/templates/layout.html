@@ -211,14 +211,28 @@
     (function() {
         var brand = document.getElementById('wave-brand');
         if (!brand) return;
+        var hadRuns = false;
+        var completedTimer = null;
         var es = new EventSource('/api/attention/events');
         es.addEventListener('attention', function(e) {
             try {
                 var s = JSON.parse(e.data);
-                brand.className = 'wave-brand-link';
+                if (completedTimer) { clearTimeout(completedTimer); completedTimer = null; }
+
                 if (s.total_runs > 0) {
-                    brand.className += ' attention-' + s.worst_state;
+                    hadRuns = true;
+                    brand.className = 'wave-brand-link attention-' + s.worst_state;
+                } else if (hadRuns) {
+                    // Runs just finished — flash green then fade to idle
+                    hadRuns = false;
+                    brand.className = 'wave-brand-link attention-completed';
+                    completedTimer = setTimeout(function() {
+                        brand.className = 'wave-brand-link';
+                    }, 3000);
+                } else {
+                    brand.className = 'wave-brand-link';
                 }
+
                 var parts = [];
                 if (s.autonomous > 0) parts.push(s.autonomous + ' running');
                 if (s.needs_review > 0) parts.push(s.needs_review + ' needs review');

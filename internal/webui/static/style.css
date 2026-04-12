@@ -218,20 +218,25 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .wave-brand-link .wf-ghost { stroke: var(--wave-primary); opacity: 0.3; }
 .wave-brand-text { color: var(--wave-primary); }
 
-/* Autonomous (running) */
-.wave-brand-link.attention-autonomous .wf-main { stroke: #3fb950; stroke-dasharray: 4 3; animation: wf-travel 1.2s linear infinite; }
-.wave-brand-link.attention-autonomous .wf-ghost { stroke: #3fb950; opacity: 0.25; stroke-dasharray: 4 3; animation: wf-travel 1.8s linear infinite; }
-.wave-brand-link.attention-autonomous .wave-brand-text { color: #3fb950; text-shadow: 0 0 8px rgba(63,185,80,0.25); }
+/* Running (autonomous) — purple traveling dash */
+.wave-brand-link.attention-autonomous .wf-main { stroke: var(--wave-primary-dark); stroke-dasharray: 4 3; animation: wf-travel 1.2s linear infinite; }
+.wave-brand-link.attention-autonomous .wf-ghost { stroke: var(--wave-primary-dark); opacity: 0.25; stroke-dasharray: 4 3; animation: wf-travel 1.8s linear infinite; }
+.wave-brand-link.attention-autonomous .wave-brand-text { color: var(--wave-primary-dark); text-shadow: 0 0 8px rgba(99,102,241,0.25); }
 
-/* Needs review */
+/* Needs review — amber traveling dash, faster */
 .wave-brand-link.attention-needs_review .wf-main { stroke: #f59e0b; stroke-dasharray: 4 3; animation: wf-travel 0.8s linear infinite; }
 .wave-brand-link.attention-needs_review .wf-ghost { stroke: #f59e0b; opacity: 0.25; stroke-dasharray: 4 3; animation: wf-travel 1.2s linear infinite; }
 .wave-brand-link.attention-needs_review .wave-brand-text { color: #f59e0b; text-shadow: 0 0 8px rgba(245,158,11,0.25); }
 
-/* Failed (alarm pulse) */
+/* Failed — red alarm pulse */
 .wave-brand-link.attention-failed .wf-main { stroke: #f85149; animation: wf-alarm 1.2s ease-in-out infinite; }
 .wave-brand-link.attention-failed .wf-ghost { stroke: #f85149; opacity: 0.25; animation: wf-alarm 1.2s ease-in-out infinite 0.2s; }
 .wave-brand-link.attention-failed .wave-brand-text { color: #f85149; text-shadow: 0 0 10px rgba(248,81,73,0.3); }
+
+/* Just completed — green flash that fades back to idle */
+.wave-brand-link.attention-completed .wf-main { stroke: #3fb950; animation: wf-success 3s ease-out forwards; }
+.wave-brand-link.attention-completed .wf-ghost { stroke: #3fb950; opacity: 0.3; animation: wf-success 3s ease-out forwards; }
+.wave-brand-link.attention-completed .wave-brand-text { color: #3fb950; animation: wf-success-text 3s ease-out forwards; }
 
 @keyframes wf-travel {
     0% { stroke-dashoffset: 0; }
@@ -240,6 +245,14 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 @keyframes wf-alarm {
     0%, 100% { opacity: 1; stroke-width: 2; }
     50% { opacity: 0.3; stroke-width: 2.5; }
+}
+@keyframes wf-success {
+    0% { stroke: #3fb950; }
+    100% { stroke: var(--wave-primary); }
+}
+@keyframes wf-success-text {
+    0% { color: #3fb950; text-shadow: 0 0 8px rgba(63,185,80,0.3); }
+    100% { color: var(--wave-primary); text-shadow: none; }
 }
 
 /* Nav groups */
