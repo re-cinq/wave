@@ -203,13 +203,26 @@ type PersonaListResponse struct {
 
 // StartPipelineRequest is the request body for starting a pipeline.
 type StartPipelineRequest struct {
-	Input   string `json:"input"`
-	Model   string `json:"model,omitempty"`
-	Adapter string `json:"adapter,omitempty"`
-	DryRun  bool   `json:"dry_run,omitempty"`
-	Timeout int    `json:"timeout,omitempty"`
-	Steps   string `json:"steps,omitempty"`
-	Exclude string `json:"exclude,omitempty"`
+	Input             string `json:"input"`
+	Model             string `json:"model,omitempty"`
+	Adapter           string `json:"adapter,omitempty"`
+	DryRun            bool   `json:"dry_run,omitempty"`
+	FromStep          string `json:"from_step,omitempty"`
+	Force             bool   `json:"force,omitempty"`
+	Detach            bool   `json:"detach,omitempty"`
+	Timeout           int    `json:"timeout,omitempty"`
+	Steps             string `json:"steps,omitempty"`
+	Exclude           string `json:"exclude,omitempty"`
+	OnFailure         string `json:"on_failure,omitempty"`
+	Continuous        bool   `json:"continuous,omitempty"`
+	Source            string `json:"source,omitempty"`
+	MaxIterations     int    `json:"max_iterations,omitempty"`
+	Delay             string `json:"delay,omitempty"`
+	Mock              bool   `json:"mock,omitempty"`
+	PreserveWorkspace bool   `json:"preserve_workspace,omitempty"`
+	AutoApprove       bool   `json:"auto_approve,omitempty"`
+	NoRetro           bool   `json:"no_retro,omitempty"`
+	ForceModel        bool   `json:"force_model,omitempty"`
 }
 
 // StartPipelineResponse is the JSON response after starting a pipeline.
@@ -540,14 +553,27 @@ type RunLogsResponse struct {
 }
 
 type SubmitRunRequest struct {
-	Pipeline string `json:"pipeline"`
-	Input    string `json:"input"`
-	Model    string `json:"model,omitempty"`
-	Adapter  string `json:"adapter,omitempty"`
-	DryRun   bool   `json:"dry_run,omitempty"`
-	Timeout  int    `json:"timeout,omitempty"`
-	Steps    string `json:"steps,omitempty"`
-	Exclude  string `json:"exclude,omitempty"`
+	Pipeline          string `json:"pipeline"`
+	Input             string `json:"input"`
+	Model             string `json:"model,omitempty"`
+	Adapter           string `json:"adapter,omitempty"`
+	DryRun            bool   `json:"dry_run,omitempty"`
+	FromStep          string `json:"from_step,omitempty"`
+	Force             bool   `json:"force,omitempty"`
+	Detach            bool   `json:"detach,omitempty"`
+	Timeout           int    `json:"timeout,omitempty"`
+	Steps             string `json:"steps,omitempty"`
+	Exclude           string `json:"exclude,omitempty"`
+	OnFailure         string `json:"on_failure,omitempty"`
+	Continuous        bool   `json:"continuous,omitempty"`
+	Source            string `json:"source,omitempty"`
+	MaxIterations     int    `json:"max_iterations,omitempty"`
+	Delay             string `json:"delay,omitempty"`
+	Mock              bool   `json:"mock,omitempty"`
+	PreserveWorkspace bool   `json:"preserve_workspace,omitempty"`
+	AutoApprove       bool   `json:"auto_approve,omitempty"`
+	NoRetro           bool   `json:"no_retro,omitempty"`
+	ForceModel        bool   `json:"force_model,omitempty"`
 }
 
 type SubmitRunResponse struct {
@@ -555,6 +581,46 @@ type SubmitRunResponse struct {
 	PipelineName string    `json:"pipeline_name"`
 	Status       string    `json:"status"`
 	StartedAt    time.Time `json:"started_at"`
+}
+
+// StartIssueRequest is the request body for starting a pipeline from an issue.
+type StartIssueRequest struct {
+	IssueURL      string `json:"issue_url"`
+	PipelineName  string `json:"pipeline_name"`
+	Model         string `json:"model,omitempty"`
+	Adapter       string `json:"adapter,omitempty"`
+	DryRun        bool   `json:"dry_run,omitempty"`
+	FromStep      string `json:"from_step,omitempty"`
+	Force         bool   `json:"force,omitempty"`
+	Detach        bool   `json:"detach,omitempty"`
+	Timeout       int    `json:"timeout,omitempty"`
+	Steps         string `json:"steps,omitempty"`
+	Exclude       string `json:"exclude,omitempty"`
+	OnFailure     string `json:"on_failure,omitempty"`
+	Continuous    bool   `json:"continuous,omitempty"`
+	Source        string `json:"source,omitempty"`
+	MaxIterations int    `json:"max_iterations,omitempty"`
+	Delay         string `json:"delay,omitempty"`
+}
+
+// StartPRRequest is the request body for starting a pipeline from a PR.
+type StartPRRequest struct {
+	PRURL         string `json:"pr_url"`
+	PipelineName  string `json:"pipeline_name"`
+	Model         string `json:"model,omitempty"`
+	Adapter       string `json:"adapter,omitempty"`
+	DryRun        bool   `json:"dry_run,omitempty"`
+	FromStep      string `json:"from_step,omitempty"`
+	Force         bool   `json:"force,omitempty"`
+	Detach        bool   `json:"detach,omitempty"`
+	Timeout       int    `json:"timeout,omitempty"`
+	Steps         string `json:"steps,omitempty"`
+	Exclude       string `json:"exclude,omitempty"`
+	OnFailure     string `json:"on_failure,omitempty"`
+	Continuous    bool   `json:"continuous,omitempty"`
+	Source        string `json:"source,omitempty"`
+	MaxIterations int    `json:"max_iterations,omitempty"`
+	Delay         string `json:"delay,omitempty"`
 }
 
 // ForkRunRequest is the request body for forking a run from a specific step.

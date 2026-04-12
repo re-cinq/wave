@@ -28,12 +28,29 @@ var validPipelineName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 // RunOptions holds CLI-parity options passed from the webui start form.
 type RunOptions struct {
+	// Tier 1
 	Model   string
 	Adapter string
-	DryRun  bool
-	Timeout int
-	Steps   string
-	Exclude string
+	// Tier 2
+	DryRun    bool
+	FromStep  string
+	Force     bool
+	Detach    bool
+	Timeout   int
+	Steps     string
+	Exclude   string
+	OnFailure string
+	// Tier 3
+	Continuous    bool
+	Source        string
+	MaxIterations int
+	Delay         string
+	// Tier 4
+	Mock              bool
+	PreserveWorkspace bool
+	AutoApprove       bool
+	NoRetro           bool
+	ForceModel        bool
 }
 
 // loggingEmitter wraps an event emitter and also logs events to the state store.
@@ -109,6 +126,42 @@ func (s *Server) spawnDetachedRun(runID, pipelineName, input string, opts RunOpt
 	}
 	if opts.Exclude != "" {
 		args = append(args, "--exclude", opts.Exclude)
+	}
+	if opts.Force {
+		args = append(args, "--force")
+	}
+	if opts.Detach {
+		args = append(args, "--detach")
+	}
+	if opts.OnFailure != "" && opts.OnFailure != "halt" {
+		args = append(args, "--on-failure", opts.OnFailure)
+	}
+	if opts.Continuous {
+		args = append(args, "--continuous")
+	}
+	if opts.Source != "" {
+		args = append(args, "--source", opts.Source)
+	}
+	if opts.MaxIterations > 0 {
+		args = append(args, "--max-iterations", fmt.Sprintf("%d", opts.MaxIterations))
+	}
+	if opts.Delay != "" && opts.Delay != "0s" {
+		args = append(args, "--delay", opts.Delay)
+	}
+	if opts.Mock {
+		args = append(args, "--mock")
+	}
+	if opts.PreserveWorkspace {
+		args = append(args, "--preserve-workspace")
+	}
+	if opts.AutoApprove {
+		args = append(args, "--auto-approve")
+	}
+	if opts.NoRetro {
+		args = append(args, "--no-retro")
+	}
+	if opts.ForceModel {
+		args = append(args, "--force-model")
 	}
 	args = append(args, "--debug")
 
@@ -303,6 +356,16 @@ func (s *Server) handleStartPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate mutual exclusions
+	if req.Continuous && req.FromStep != "" {
+		writeJSONError(w, http.StatusBadRequest, "--continuous and --from-step are mutually exclusive")
+		return
+	}
+	if req.OnFailure != "" && req.OnFailure != "halt" && req.OnFailure != "skip" {
+		writeJSONError(w, http.StatusBadRequest, "on_failure must be 'halt' or 'skip'")
+		return
+	}
+
 	// Load pipeline definition from .wave/pipelines/
 	p, err := loadPipelineYAML(name)
 	if err != nil {
@@ -317,14 +380,38 @@ func (s *Server) handleStartPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.launchPipelineExecution(runID, name, req.Input, p, RunOptions{
-		Model:   req.Model,
-		Adapter: req.Adapter,
-		DryRun:  req.DryRun,
-		Timeout: req.Timeout,
-		Steps:   req.Steps,
-		Exclude: req.Exclude,
-	})
+	opts := RunOptions{
+		Model:             req.Model,
+		Adapter:           req.Adapter,
+		DryRun:            req.DryRun,
+		FromStep:          req.FromStep,
+		Force:             req.Force,
+		Detach:            req.Detach,
+		Timeout:           req.Timeout,
+		Steps:             req.Steps,
+		Exclude:           req.Exclude,
+		OnFailure:         req.OnFailure,
+		Continuous:        req.Continuous,
+		Source:            req.Source,
+		MaxIterations:     req.MaxIterations,
+		Delay:             req.Delay,
+		Mock:              req.Mock,
+		PreserveWorkspace: req.PreserveWorkspace,
+		AutoApprove:       req.AutoApprove,
+		NoRetro:           req.NoRetro,
+		ForceModel:        req.ForceModel,
+	}
+
+	var fromStep string
+	if req.FromStep != "" {
+		fromStep = req.FromStep
+	}
+
+	if fromStep != "" {
+		s.launchPipelineExecution(runID, name, req.Input, p, opts, fromStep)
+	} else {
+		s.launchPipelineExecution(runID, name, req.Input, p, opts)
+	}
 
 	resp := StartPipelineResponse{
 		RunID:        runID,
@@ -519,6 +606,16 @@ func (s *Server) handleSubmitRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate mutual exclusions
+	if req.Continuous && req.FromStep != "" {
+		writeJSONError(w, http.StatusBadRequest, "--continuous and --from-step are mutually exclusive")
+		return
+	}
+	if req.OnFailure != "" && req.OnFailure != "halt" && req.OnFailure != "skip" {
+		writeJSONError(w, http.StatusBadRequest, "on_failure must be 'halt' or 'skip'")
+		return
+	}
+
 	// Load pipeline definition
 	p, err := loadPipelineYAML(req.Pipeline)
 	if err != nil {
@@ -533,14 +630,38 @@ func (s *Server) handleSubmitRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.launchPipelineExecution(runID, req.Pipeline, req.Input, p, RunOptions{
-		Model:   req.Model,
-		Adapter: req.Adapter,
-		DryRun:  req.DryRun,
-		Timeout: req.Timeout,
-		Steps:   req.Steps,
-		Exclude: req.Exclude,
-	})
+	opts := RunOptions{
+		Model:             req.Model,
+		Adapter:           req.Adapter,
+		DryRun:            req.DryRun,
+		FromStep:          req.FromStep,
+		Force:             req.Force,
+		Detach:            req.Detach,
+		Timeout:           req.Timeout,
+		Steps:             req.Steps,
+		Exclude:           req.Exclude,
+		OnFailure:         req.OnFailure,
+		Continuous:        req.Continuous,
+		Source:            req.Source,
+		MaxIterations:     req.MaxIterations,
+		Delay:             req.Delay,
+		Mock:              req.Mock,
+		PreserveWorkspace: req.PreserveWorkspace,
+		AutoApprove:       req.AutoApprove,
+		NoRetro:           req.NoRetro,
+		ForceModel:        req.ForceModel,
+	}
+
+	var fromStep string
+	if req.FromStep != "" {
+		fromStep = req.FromStep
+	}
+
+	if fromStep != "" {
+		s.launchPipelineExecution(runID, req.Pipeline, req.Input, p, opts, fromStep)
+	} else {
+		s.launchPipelineExecution(runID, req.Pipeline, req.Input, p, opts)
+	}
 
 	resp := SubmitRunResponse{
 		RunID:        runID,
