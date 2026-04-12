@@ -72,8 +72,8 @@
         <div>
             <div style="font-size:0.68rem;color:var(--color-text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;">Adapters &amp; Models</div>
             <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">
-                {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{.}}</span>{{end}}
-                {{range .Models}}<span class="badge badge-model {{modelTierClass .}}">{{friendlyModel .}}</span>{{end}}
+                {{if .RunAdapter}}<span class="badge badge-adapter">{{adapterIcon .RunAdapter}}{{.RunAdapter}}</span>{{end}}
+                {{if .RunModelTier}}<span class="badge badge-model {{modelTierClass .RunModelTier}}">{{.RunModelTier}}</span>{{end}}
             </div>
         </div>
         {{if .RerunCommand}}
@@ -89,7 +89,7 @@
         <div>
             <div style="font-size:0.68rem;color:var(--color-text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;">Resume from failed step</div>
             <div style="display:flex;align-items:center;gap:0.4rem;background:var(--color-bg-tertiary);border:1px solid var(--color-border);border-radius:4px;padding:0.3rem 0.5rem;">
-                <code style="flex:1;font-size:0.68rem;color:var(--color-text-secondary);user-select:all;">wave run {{.Run.PipelineName}} --from-step {{.Run.CurrentStep}} --run {{.Run.RunID}}</code>
+                <code style="flex:1;font-size:0.68rem;color:var(--color-text-secondary);user-select:all;">wave run {{.Run.PipelineName}}{{if .RunAdapter}} --adapter {{.RunAdapter}}{{end}}{{if .RunModelTier}} --model {{.RunModelTier}}{{end}} --from-step {{.FailedStepID}} --run {{.Run.RunID}}</code>
                 <button class="btn btn-sm" style="font-size:0.62rem;padding:0.1rem 0.4rem;" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent)">Copy</button>
             </div>
         </div>

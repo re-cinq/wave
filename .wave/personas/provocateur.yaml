@@ -9,8 +9,12 @@ permissions:
     - "Bash(wc *)"
     - "Bash(git log*)"
     - "Bash(git diff*)"
+    - "Bash(git shortlog*)"
+    - "Bash(git blame*)"
     - "Bash(find*)"
     - "Bash(ls*)"
+    - "Bash(sort*)"
+    - "Bash(grep*)"
   deny:
     - "Edit(*)"
     - "Bash(git commit*)"

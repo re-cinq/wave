@@ -183,6 +183,18 @@ handover:
 | `events[].state` | - | Required event state to match (e.g., `ontology_warn`) |
 | `events[].contains` | (any) | Optional substring the event message must include |
 
+### Spec-Derived Test
+
+Generates and runs tests derived from a specification document. Like `agent_review`, this type requires an adapter runner — `NewValidator` returns `nil` and the executor calls `ValidateSpecDerived()` instead.
+
+```yaml
+handover:
+  contract:
+    type: spec_derived_test
+    source: .wave/output/spec.md
+    test_dir: .wave/output/tests/
+```
+
 ## Failure Handling
 
 ### Retry Behavior

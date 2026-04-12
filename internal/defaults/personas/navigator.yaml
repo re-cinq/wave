@@ -8,6 +8,11 @@ permissions:
     - Grep
     - "Bash(git log*)"
     - "Bash(git status*)"
+    - "Bash(git diff*)"
+    - "Bash(git blame*)"
+    - "Bash(git shortlog*)"
+    - "Bash(sort*)"
+    - "Bash(grep*)"
   deny:
     - "Edit(*)"
     - "Bash(git commit*)"

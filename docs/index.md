@@ -276,7 +276,7 @@ const features = [
     <div class="vv-card">
       <div class="vv-layer">Layer 2</div>
       <div class="vv-name">Contracts</div>
-      <p>10 structural validation types (JSON schema, test suite, LLM judge, and more) with hard and soft enforcement modes.</p>
+      <p>11 structural validation types (JSON schema, test suite, LLM judge, spec-derived test, and more) with hard and soft enforcement modes.</p>
     </div>
     <div class="vv-card">
       <div class="vv-layer">Layer 3</div>

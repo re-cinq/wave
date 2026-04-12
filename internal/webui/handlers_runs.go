@@ -484,14 +484,34 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	var runConfigItems []struct{ Label, Value string }
 	if s.manifest != nil {
 		if timeout := s.manifest.Runtime.GetDefaultTimeout(); timeout > 0 {
-			runConfigItems = append(runConfigItems, struct{ Label, Value string }{"timeout", timeout.String()})
+			runConfigItems = append(runConfigItems, struct{ Label, Value string }{"Timeout", timeout.String()})
 		}
 		if s.manifest.Runtime.StallTimeout != "" {
-			runConfigItems = append(runConfigItems, struct{ Label, Value string }{"stall_timeout", s.manifest.Runtime.StallTimeout})
+			runConfigItems = append(runConfigItems, struct{ Label, Value string }{"Stall timeout", s.manifest.Runtime.StallTimeout})
 		}
 	}
+
+	// Extract adapter and model override from the pipeline "started" event.
+	// The started event carries the launch-level --adapter and --model flags,
+	// not per-step resolved values. For resumed runs, use the last started event.
+	var runAdapter, runModelTier string
+	for i := len(events) - 1; i >= 0; i-- {
+		ev := events[i]
+		if ev.State == "started" && ev.StepID == "" {
+			runAdapter = ev.Adapter
+			runModelTier = ev.ConfiguredModel
+			break
+		}
+	}
+
 	// Reconstruct the wave run command
 	rerunCmd := "wave run " + run.PipelineName
+	if runAdapter != "" {
+		rerunCmd += " --adapter " + runAdapter
+	}
+	if runModelTier != "" {
+		rerunCmd += " --model " + runModelTier
+	}
 	if run.Input != "" {
 		rerunCmd += " -- " + strconv.Quote(run.Input)
 	}
@@ -517,6 +537,9 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		TemplateVars        map[string]string
 		RunConfigItems      []struct{ Label, Value string }
 		RerunCommand        string
+		RunAdapter          string
+		RunModelTier        string
+		FailedStepID        string
 	}{
 		ActivePage:          "runs",
 		Run:                 runSummary,
@@ -538,6 +561,9 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		TemplateVars:        templateVars,
 		RunConfigItems:      runConfigItems,
 		RerunCommand:        rerunCmd,
+		RunAdapter:          runAdapter,
+		RunModelTier:        runModelTier,
+		FailedStepID:        extractStepID(run.CurrentStep),
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -980,6 +1006,17 @@ func eventToSummary(e state.LogRecord) EventSummary {
 		Model:      e.Model,
 		Adapter:    e.Adapter,
 	}
+}
+
+// extractStepID parses the step ID from a CurrentStep error string.
+// Format: `step "analyze-coverage" failed: ...` → `analyze-coverage`
+func extractStepID(currentStep string) string {
+	if strings.HasPrefix(currentStep, "step \"") {
+		if end := strings.Index(currentStep[6:], "\""); end > 0 {
+			return currentStep[6 : 6+end]
+		}
+	}
+	return currentStep
 }
 
 // deduplicateArtifacts keeps only the last artifact per name.

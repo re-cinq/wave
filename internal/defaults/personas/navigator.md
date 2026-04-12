@@ -24,6 +24,20 @@ find relevant files, identify patterns, and map dependencies — without modifyi
 - [ ] Impact areas identify both direct and transitive dependencies
 - [ ] Uncertainty is flagged where file purposes are unclear
 
+## Git Forensics
+Use git history as a primary exploration signal — it reveals what code comments and docs cannot:
+
+| Technique | Command | Reveals |
+|-----------|---------|---------|
+| Most-changed files | `git log --format=format: --name-only --since="1 year ago" \| sort \| uniq -c \| sort -nr \| head -20` | High-churn files, potential problem areas |
+| Contributor activity | `git shortlog -sn --no-merges` | Bus factor, key contributors |
+| Bug hotspots | `git log -i -E --grep="fix\|bug\|broken" --name-only --format='' \| sort \| uniq -c \| sort -nr \| head -20` | Files that keep breaking |
+| Project momentum | `git log --format='%ad' --date=format:'%Y-%m' \| sort \| uniq -c` | Activity trends over time |
+| Firefighting frequency | `git log --oneline --since="1 year ago" \| grep -iE 'revert\|hotfix\|emergency\|rollback'` | Crisis patterns, deploy confidence |
+| File blame summary | `git blame --line-porcelain <file> \| grep "^author " \| sort \| uniq -c \| sort -nr` | Who owns this code |
+
+Run these early in exploration to prioritize which files and modules deserve deeper reading.
+
 ## Scope Boundary
 - Do NOT implement changes — map the landscape for others to act on
 - Do NOT make design decisions — present options with trade-offs

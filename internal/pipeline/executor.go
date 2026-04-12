@@ -604,12 +604,14 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	execution.Status.State = stateRunning
 
 	e.emit(event.Event{
-		Timestamp:      time.Now(),
-		PipelineID:     pipelineID,
-		State:          "started",
-		Message:        fmt.Sprintf("input=%q steps=%d", input, len(p.Steps)),
-		TotalSteps:     len(p.Steps),
-		CompletedSteps: 0,
+		Timestamp:       time.Now(),
+		PipelineID:      pipelineID,
+		State:           "started",
+		Message:         fmt.Sprintf("input=%q steps=%d", input, len(p.Steps)),
+		TotalSteps:      len(p.Steps),
+		CompletedSteps:  0,
+		Adapter:         e.adapterOverride,
+		ConfiguredModel: e.modelOverride,
 	})
 
 	// Ensure workspace root exists and is clean for this pipeline run
@@ -978,12 +980,14 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 	execution.Status.State = stateRunning
 
 	e.emit(event.Event{
-		Timestamp:      time.Now(),
-		PipelineID:     pipelineID,
-		State:          "started",
-		Message:        fmt.Sprintf("graph-mode pipeline input=%q steps=%d", input, len(p.Steps)),
-		TotalSteps:     len(p.Steps),
-		CompletedSteps: 0,
+		Timestamp:       time.Now(),
+		PipelineID:      pipelineID,
+		State:           "started",
+		Message:         fmt.Sprintf("graph-mode pipeline input=%q steps=%d", input, len(p.Steps)),
+		TotalSteps:      len(p.Steps),
+		CompletedSteps:  0,
+		Adapter:         e.adapterOverride,
+		ConfiguredModel: e.modelOverride,
 	})
 
 	// Initialize hook runner from manifest + pipeline hooks if not already set.
@@ -1871,72 +1875,9 @@ func (e *DefaultPipelineExecutor) checkOntologyStaleness() string {
 	return ""
 }
 
-// recordOntologyUsage records ontology context usage for a step after its final status is determined.
-// This enables decision lineage tracking across pipeline runs.
-func (e *DefaultPipelineExecutor) recordOntologyUsage(execution *PipelineExecution, step *Step, stepStatus string) {
-	if e.store == nil || execution.Manifest.Ontology == nil || len(execution.Manifest.Ontology.Contexts) == 0 {
-		return
-	}
-
-	// Determine which contexts were injected: if step declares contexts, only those;
-	// otherwise all contexts are injected (RenderMarkdown with empty filter passes all).
-	// Only record targeted (explicitly declared) contexts — bulk injection inflates stats.
-	injectedContexts := step.Contexts
-	if len(injectedContexts) == 0 {
-		// Step didn't declare specific contexts — skip ontology tracking.
-		// All contexts are injected by default, but recording all of them
-		// makes every context show identical stats, which is meaningless.
-		return
-	}
-
-	// Determine contract pass/fail: nil if no contract, true/false based on step outcome
-	var contractPassed *bool
-	if step.Handover.Contract.Type != "" {
-		passed := stepStatus == "success"
-		contractPassed = &passed
-	}
-
-	// Build set of defined context names for lineage status
-	definedCtx := make(map[string]bool, len(execution.Manifest.Ontology.Contexts))
-	for _, ctx := range execution.Manifest.Ontology.Contexts {
-		definedCtx[ctx.Name] = true
-	}
-
-	for _, ctxName := range injectedContexts {
-		invariantCount := 0
-		for _, ctx := range execution.Manifest.Ontology.Contexts {
-			if ctx.Name == ctxName {
-				invariantCount = len(ctx.Invariants)
-				break
-			}
-		}
-		// Undefined contexts get status "undefined" regardless of step outcome
-		lineageStatus := stepStatus
-		if !definedCtx[ctxName] {
-			lineageStatus = "undefined"
-		}
-		if err := e.store.RecordOntologyUsage(
-			execution.Status.ID, step.ID, ctxName,
-			invariantCount, lineageStatus, contractPassed,
-		); err != nil {
-			if e.logger != nil {
-				_ = e.logger.LogToolCall(execution.Status.ID, step.ID, "recordOntologyUsage",
-					fmt.Sprintf("context=%s err=%v", ctxName, err))
-			}
-		} else {
-			if e.logger != nil {
-				_ = e.logger.LogOntologyLineage(execution.Status.ID, step.ID, ctxName, lineageStatus, invariantCount)
-			}
-			e.emit(event.Event{
-				PipelineID: execution.Status.ID,
-				StepID:     step.ID,
-				State:      event.StateOntologyLineage,
-				Message:    fmt.Sprintf("context=%s status=%s invariants=%d", ctxName, lineageStatus, invariantCount),
-				Timestamp:  time.Now(),
-			})
-		}
-	}
-}
+// recordOntologyUsage and buildOntologySection are defined in
+// ontology_enabled.go (with "ontology" build tag) and
+// ontology_disabled.go (without it).
 
 // executeReworkStep handles on_failure=rework: marks the failed step, builds failure context,
 // executes the rework target step, and re-registers its artifacts under the original step's ID.
@@ -2961,66 +2902,8 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		prompt = prompt + "\n\n" + contractPrompt
 	}
 
-	// Build ontology section from manifest for CLAUDE.md injection
-	ontologySection := ""
-	if execution.Manifest.Ontology != nil {
-		// Build set of defined context names for undefined-reference detection
-		definedContexts := make(map[string]bool, len(execution.Manifest.Ontology.Contexts))
-		for _, ctx := range execution.Manifest.Ontology.Contexts {
-			definedContexts[ctx.Name] = true
-		}
-
-		// Warn on any step.Contexts entries that don't exist in the manifest
-		if len(step.Contexts) > 0 {
-			var undefinedContexts []string
-			for _, name := range step.Contexts {
-				if !definedContexts[name] {
-					undefinedContexts = append(undefinedContexts, name)
-				}
-			}
-			if len(undefinedContexts) > 0 {
-				if e.logger != nil {
-					_ = e.logger.LogOntologyWarn(pipelineID, step.ID, undefinedContexts)
-				}
-				e.emit(event.Event{
-					PipelineID: pipelineID,
-					StepID:     step.ID,
-					State:      event.StateOntologyWarn,
-					Message:    fmt.Sprintf("undefined_contexts=[%s]", strings.Join(undefinedContexts, ",")),
-					Timestamp:  time.Now(),
-				})
-			}
-		}
-
-		ontologySection = execution.Manifest.Ontology.RenderMarkdown(step.Contexts)
-		if ontologySection != "" {
-			injected := step.Contexts
-			if len(injected) == 0 {
-				for _, ctx := range execution.Manifest.Ontology.Contexts {
-					injected = append(injected, ctx.Name)
-				}
-			}
-			totalInvariants := 0
-			for _, ctx := range execution.Manifest.Ontology.Contexts {
-				for _, name := range injected {
-					if ctx.Name == name {
-						totalInvariants += len(ctx.Invariants)
-						break
-					}
-				}
-			}
-			if e.logger != nil {
-				_ = e.logger.LogOntologyInject(pipelineID, step.ID, injected, totalInvariants)
-			}
-			e.emit(event.Event{
-				PipelineID: pipelineID,
-				StepID:     step.ID,
-				State:      event.StateOntologyInject,
-				Message:    fmt.Sprintf("contexts=[%s] invariants=%d", strings.Join(injected, ","), totalInvariants),
-				Timestamp:  time.Now(),
-			})
-		}
-	}
+	// Build ontology section from manifest for AGENTS.md injection (requires ontology build tag)
+	ontologySection := e.buildOntologySection(execution, step, pipelineID)
 
 	cfg := adapter.AdapterRunConfig{
 		Adapter:             adapterDef.Binary,
@@ -5188,6 +5071,15 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 	}
 	if e.logger != nil {
 		childOpts = append(childOpts, WithAuditLogger(e.logger))
+	}
+	if e.wsManager != nil {
+		childOpts = append(childOpts, WithWorkspaceManager(e.wsManager))
+	}
+	if e.relayMonitor != nil {
+		childOpts = append(childOpts, WithRelayMonitor(e.relayMonitor))
+	}
+	if e.skillStore != nil {
+		childOpts = append(childOpts, withSkillStore(e.skillStore))
 	}
 
 	// Inject parent artifacts into child executor when config specifies injection

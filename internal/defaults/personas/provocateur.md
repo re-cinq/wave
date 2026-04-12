@@ -20,8 +20,19 @@ for simplification that others miss.
 ## Evidence Gathering
 For each finding, gather concrete metrics:
 - Line counts (`wc -l`), usage counts (`grep -r`)
-- Change frequency (`git log --oneline <file> | wc -l`)
 - Dependency fan-out (imports in vs imports out)
+
+### Git Forensics
+Use git history as hard evidence for complexity claims:
+
+| Technique | Command | Reveals |
+|-----------|---------|---------|
+| Most-changed files | `git log --format=format: --name-only --since="1 year ago" \| sort \| uniq -c \| sort -nr \| head -20` | High-churn = likely overengineered or poorly scoped |
+| Bug hotspots | `git log -i -E --grep="fix\|bug\|broken" --name-only --format='' \| sort \| uniq -c \| sort -nr \| head -20` | Files that keep breaking — simplification candidates |
+| Contributor activity | `git shortlog -sn --no-merges` | Bus factor — single-author code is a risk |
+| Project momentum | `git log --format='%ad' --date=format:'%Y-%m' \| sort \| uniq -c` | Is this area actively maintained or abandoned? |
+| Firefighting frequency | `git log --oneline --since="1 year ago" \| grep -iE 'revert\|hotfix\|emergency\|rollback'` | Crisis patterns — where does the team lose confidence? |
+| Change frequency per file | `git log --oneline -- <file> \| wc -l` | Churn rate — high churn + high bug count = prime deletion target |
 
 ## Ontology Challenge Patterns
 

@@ -59,7 +59,7 @@ The contract layer validates step output structure before dependent steps procee
 
 ### Contract Types
 
-Wave supports 10 contract types:
+Wave supports 11 contract types:
 
 | Type | Purpose |
 |------|---------|
@@ -73,8 +73,9 @@ Wave supports 10 contract types:
 | `source_diff` | Verifies meaningful code changes were made |
 | `agent_review` | Delegates validation to another agent session |
 | `event_contains` | Validates specific pipeline events occurred |
+| `spec_derived_test` | Generates and runs tests from a specification |
 
-The first 8 types are created via `NewValidator()` (`internal/contract/contract.go:96-119`). `agent_review` uses `ValidateWithRunner()` instead, as it requires an adapter runner. `event_contains` is handled by `ValidateEventContains()` in the executor.
+The first 8 types are created via `NewValidator()` (`internal/contract/contract.go:96-119`). `agent_review` uses `ValidateWithRunner()` instead, as it requires an adapter runner. `spec_derived_test` uses `ValidateSpecDerived()`. `event_contains` is handled by `ValidateEventContains()` in the executor.
 
 ### Hard vs. Soft Validation
 
