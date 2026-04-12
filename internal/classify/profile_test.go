@@ -88,12 +88,19 @@ func TestTaskProfileZeroValue(t *testing.T) {
 }
 
 func TestPipelineConfigFields(t *testing.T) {
-	cfg := PipelineConfig{Name: "impl-issue", Reason: "simple bug fix"}
+	cfg := PipelineConfig{
+		Name:              "impl-issue",
+		Reason:            "simple bug fix",
+		VerificationDepth: VerificationBehavioral,
+	}
 	if cfg.Name != "impl-issue" {
 		t.Errorf("Name: got %q, want %q", cfg.Name, "impl-issue")
 	}
 	if cfg.Reason != "simple bug fix" {
 		t.Errorf("Reason: got %q, want %q", cfg.Reason, "simple bug fix")
+	}
+	if cfg.VerificationDepth != VerificationBehavioral {
+		t.Errorf("VerificationDepth: got %q, want %q", cfg.VerificationDepth, VerificationBehavioral)
 	}
 }
 
