@@ -24,7 +24,7 @@ export default withMermaid(
       ['link', { href: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap', rel: 'stylesheet' }]
     ],
 
-    srcExclude: ['future/**'],
+    srcExclude: ['future/**', 'use-cases/**'],
 
     themeConfig: {
       logo: '/logo.svg',
