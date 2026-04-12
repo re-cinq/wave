@@ -3,9 +3,9 @@ metadata:
   name: wave-orchestrate
   description: >-
     Master orchestration pipeline — Wave uses Wave to manage work. Takes any
-    input (issue URL, PR URL, plain text task), classifies it into a domain
-    and complexity, selects the best pipeline from the catalog, and launches
-    it as a sub-pipeline. This is the core of self-adaptive orchestration.
+    input (issue URL, PR URL, plain text task), discovers available pipelines,
+    classifies the input, selects the best pipeline, and launches it as a
+    sub-pipeline. This is the core of self-adaptive orchestration.
   category: composition
   release: true
 
@@ -20,9 +20,6 @@ chat_context:
     - "What domain and complexity was the task classified as?"
     - "Which pipeline was selected?"
     - "Why was this pipeline chosen over alternatives?"
-  focus_areas:
-    - "Task classification accuracy"
-    - "Pipeline routing rationale"
 
 pipeline_outputs:
   classification:
@@ -37,9 +34,38 @@ hooks:
     blocking: false
 
 steps:
+  - id: discover
+    type: command
+    script: |
+      mkdir -p .wave/output
+      echo "# Available Pipelines" > .wave/output/pipeline-catalog.md
+      echo "" >> .wave/output/pipeline-catalog.md
+      for f in .wave/pipelines/*.yaml; do
+        name=$(basename "$f" .yaml)
+        # Skip smoke tests, validation, and stress test pipelines
+        case "$name" in wave-smoke-*|wave-test-*|wave-validate*|wave-stress*|wave-ontology*) continue;; esac
+        desc=$(grep -A3 'description:' "$f" 2>/dev/null | head -4 | sed 's/.*description: *>-\?//' | sed 's/^ *//' | tr '\n' ' ' | head -c 120)
+        echo "- **$name**: $desc" >> .wave/output/pipeline-catalog.md
+      done
+    output_artifacts:
+      - name: catalog
+        path: .wave/output/pipeline-catalog.md
+        type: markdown
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/pipeline-catalog.md
+        on_failure: fail
+
   - id: classify
     persona: navigator
     model: balanced
+    dependencies: [discover]
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
     exec:
       type: prompt
       source: |
@@ -47,112 +73,48 @@ steps:
 
         ## Objective
 
-        Classify the given input into a domain and complexity level, then select
-        the best pipeline from the Wave catalog. Your classification drives which
-        pipeline will be launched as a sub-pipeline.
+        Classify the given input and select the best pipeline from the discovered catalog.
 
         Input: {{ input }}
 
-        ## Context
+        ## Available Pipelines
 
-        You are the first step in the orchestration pipeline. The input may be:
-        - A GitHub issue URL → fetch full issue details with `{{ forge.cli_tool }} issue view`
-        - A GitHub PR URL → route directly to ops-pr-review
-        - A plain text task description → classify based on content
+        Read the pipeline catalog at `project/.wave/output/pipeline-catalog.md` to see
+        all available pipelines with their descriptions. Pick the one that best matches
+        the input task.
 
-        If the input is a GitHub URL, ALWAYS fetch the full issue/PR details before
-        classifying. The title alone is insufficient.
+        ## Instructions
 
-        ## Pipeline Catalog
+        1. If the input is a GitHub issue/PR URL, fetch full details:
+           ```
+           {{ forge.cli_tool }} issue view <number> --json title,body,labels
+           ```
 
-        Available pipelines and when to use each:
+        2. Classify the domain: security, debug, performance, bug, review, testing,
+           audit, planning, ops, refactor, research, docs, or feature.
 
-        **Implementation:**
-        - `impl-hotfix` — urgent bug fixes, single-file changes, production issues
-        - `impl-issue` — well-scoped features and fixes (1-5 files, clear criteria)
-        - `impl-speckit` — complex features needing specification (5+ files, new patterns)
-        - `impl-feature` — well-understood feature requests with clear specs
-        - `impl-prototype` — greenfield features following spec→dummy→implement cycle
-        - `impl-refactor` — behavior-preserving refactoring with test coverage
-        - `impl-improve` — quality improvements to working code
-        - `impl-research` — research-backed implementation with web search
+        3. Classify the complexity: simple, medium, complex, or architectural.
 
-        **Review & Audit:**
-        - `ops-pr-review` — PR review (code quality, security, slop detection)
-        - `audit-security` — security vulnerability audit (OWASP, attack surface)
-        - `audit-quality-loop` — iterative quality improvement
-        - `ops-parallel-audit` — fan-out parallel audit (security + dead code + DX)
-        - `audit-dead-code` — dead code detection and removal
-        - `audit-architecture` — architecture analysis (coupling, patterns, structure)
-        - `audit-tests` — test quality and coverage gaps
-        - `test-gen` — generate tests for coverage gaps
+        4. Select the pipeline name that best matches domain + complexity.
+           The name MUST be an exact match from the catalog.
 
-        **Planning & Scoping:**
-        - `plan-task` — break down a feature into ordered tasks
-        - `plan-scope` — decompose an epic into child issues
-        - `plan-adr` — create an Architecture Decision Record
-        - `plan-research` — research an issue and post findings
-
-        **Operations:**
-        - `ops-debug` — systematic debugging (reproduce, hypothesize, test)
-        - `ops-bootstrap` — scaffold a new project
-        - `ops-epic-runner` — execute all child issues of an epic
-        - `ops-release-harden` — pre-release hardening
-
-        **Documentation:**
-        - `doc-fix` — fix documentation inconsistencies
-        - `doc-explain` — deep-dive explanation of code
-        - `doc-onboard` — generate onboarding guide
-        - `doc-changelog` — generate changelog from git history
-
-        ## Classification Rules
-
-        1. **Determine the domain** (pick the most specific match):
-           - `security` — vulnerabilities, auth issues, OWASP, threat modeling
-           - `debug` — reproduce bugs, root cause analysis, stack traces
-           - `performance` — latency, optimization, benchmarks
-           - `bug` — broken functionality, crashes, errors
-           - `review` — code review, PR review, feedback
-           - `testing` — test gaps, coverage, test generation
-           - `audit` — code quality scans, dead code, architecture review
-           - `planning` — task breakdown, scoping, ADRs, epics
-           - `ops` — releases, deployment, scaffolding, batch operations
-           - `refactor` — restructuring, simplification, tech debt
-           - `research` — investigation, comparison, exploration
-           - `docs` — documentation, README, onboarding, changelogs
-           - `feature` — new functionality, implementation
-
-        2. **Determine the complexity**:
-           - `simple` — single file, obvious fix, <50 LOC
-           - `medium` — 2-5 files, clear criteria, established patterns
-           - `complex` — 5+ files, cross-cutting, needs specification
-           - `architectural` — new subsystems, breaking changes, major refactors
-
-        3. **Select the pipeline** using domain + complexity:
-           - Map to the most appropriate pipeline from the catalog above
-           - When in doubt between two pipelines, prefer the more thorough one
-
-        ## Output Format
-
-        Write a JSON file to `.wave/output/classification.json`:
-        ```json
-        {
-          "domain": "<domain>",
-          "complexity": "<simple|medium|complex|architectural>",
-          "pipeline": "<pipeline-name>",
-          "reason": "<1-2 sentence explanation of why this pipeline>",
-          "model_tier": "<cheapest|balanced|strongest>"
-        }
-        ```
+        5. Write ONLY valid JSON to `.wave/output/classification.json`:
+           ```json
+           {
+             "domain": "<domain>",
+             "complexity": "<simple|medium|complex|architectural>",
+             "pipeline": "<exact-pipeline-name>",
+             "reason": "<1-2 sentences>",
+             "model_tier": "<cheapest|balanced|strongest>"
+           }
+           ```
 
         ## Constraints
 
         - Do NOT implement anything. Classification only.
-        - Do NOT modify any files except the output JSON.
-        - Do NOT explore the codebase. Classify based on the input text alone.
-        - ALWAYS fetch issue/PR details if the input is a URL.
-        - The `pipeline` field MUST be an exact pipeline name from the catalog.
-        - Write ONLY valid JSON to the output file. No prose, no explanation, no markdown.
+        - Do NOT explore the codebase beyond reading the catalog.
+        - Write ONLY valid JSON to the output file. No prose, no markdown.
+        - The pipeline field MUST exactly match a name from the catalog.
     output_artifacts:
       - name: classification
         path: .wave/output/classification.json
@@ -186,34 +148,66 @@ steps:
         # Implementation
         impl-hotfix: impl-hotfix
         impl-issue: impl-issue
+        impl-issue-core: impl-issue-core
         impl-speckit: impl-speckit
         impl-feature: impl-feature
         impl-prototype: impl-prototype
         impl-refactor: impl-refactor
         impl-improve: impl-improve
         impl-research: impl-research
+        impl-recinq: impl-recinq
+        impl-review-loop: impl-review-loop
+        impl-smart-route: impl-smart-route
+        full-impl-cycle: full-impl-cycle
         # Review & Audit
         ops-pr-review: ops-pr-review
+        ops-pr-fix-review: ops-pr-fix-review
         audit-security: audit-security
         audit-quality-loop: audit-quality-loop
         ops-parallel-audit: ops-parallel-audit
         audit-dead-code: audit-dead-code
+        audit-dead-code-scan: audit-dead-code-scan
         audit-architecture: audit-architecture
         audit-tests: audit-tests
+        audit-correctness: audit-correctness
+        audit-coverage: audit-coverage
+        audit-consolidate: audit-consolidate
+        audit-duplicates: audit-duplicates
+        audit-dx: audit-dx
+        audit-ux: audit-ux
+        audit-unwired: audit-unwired
+        audit-junk-code: audit-junk-code
+        audit-doc: audit-doc
+        audit-dual: audit-dual
+        audit-closed: audit-closed
         test-gen: test-gen
+        bench-solve: bench-solve
         # Planning
         plan-task: plan-task
         plan-scope: plan-scope
         plan-adr: plan-adr
         plan-research: plan-research
+        plan-approve-implement: plan-approve-implement
         # Operations
         ops-debug: ops-debug
         ops-bootstrap: ops-bootstrap
         ops-epic-runner: ops-epic-runner
+        ops-implement-epic: ops-implement-epic
         ops-release-harden: ops-release-harden
+        ops-supervise: ops-supervise
+        ops-refresh: ops-refresh
+        ops-rewrite: ops-rewrite
+        ops-issue-quality: ops-issue-quality
         # Documentation
         doc-fix: doc-fix
         doc-explain: doc-explain
         doc-onboard: doc-onboard
         doc-changelog: doc-changelog
+        # Wave self-management
+        wave-audit: wave-audit
+        wave-bugfix: wave-bugfix
+        wave-evolve: wave-evolve
+        wave-review: wave-review
+        wave-scope-audit: wave-scope-audit
+        wave-security-audit: wave-security-audit
       default: impl-issue
