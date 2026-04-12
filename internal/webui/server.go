@@ -283,7 +283,7 @@ func (s *Server) syncAttentionFromDB() {
 
 	for _, r := range running {
 		seen[r.RunID] = true
-		s.attention.Update(event.Event{
+		s.attention.UpdateWithName(r.RunID, r.PipelineName, event.Event{
 			PipelineID: r.RunID,
 			State:      "running",
 			StepID:     r.CurrentStep,
@@ -292,7 +292,7 @@ func (s *Server) syncAttentionFromDB() {
 	}
 	for _, r := range failed {
 		seen[r.RunID] = true
-		s.attention.Update(event.Event{
+		s.attention.UpdateWithName(r.RunID, r.PipelineName, event.Event{
 			PipelineID: r.RunID,
 			State:      "failed",
 			Message:    r.ErrorMessage,

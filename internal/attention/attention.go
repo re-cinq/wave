@@ -104,9 +104,20 @@ func NewBroker() *Broker {
 	}
 }
 
+// UpdateWithName processes a pipeline event with an explicit pipeline name.
+// Used by DB polling where the pipeline name is known from the run record.
+func (b *Broker) UpdateWithName(runID, pipelineName string, ev event.Event) {
+	ev.PipelineID = runID
+	b.updateInternal(runID, pipelineName, ev)
+}
+
 // Update processes a pipeline event and updates the attention state.
 // If the state changes, all subscribers are notified.
 func (b *Broker) Update(ev event.Event) {
+	b.updateInternal(ev.PipelineID, "", ev)
+}
+
+func (b *Broker) updateInternal(runID, pipelineName string, ev event.Event) {
 	state, relevant := Classify(ev)
 	if !relevant {
 		return
@@ -114,7 +125,6 @@ func (b *Broker) Update(ev event.Event) {
 
 	b.mu.Lock()
 
-	runID := ev.PipelineID
 	ra, exists := b.runs[runID]
 	if !exists {
 		ra = &RunAttention{RunID: runID}
@@ -133,7 +143,9 @@ func (b *Broker) Update(ev event.Event) {
 	ra.StepID = ev.StepID
 	ra.Message = ev.Message
 	ra.UpdatedAt = ev.Timestamp
-	if ra.PipelineName == "" {
+	if pipelineName != "" {
+		ra.PipelineName = pipelineName
+	} else if ra.PipelineName == "" {
 		ra.PipelineName = runID
 	}
 
