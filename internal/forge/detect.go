@@ -229,7 +229,15 @@ func parseRemoteURL(url string) (host, owner, repo string) {
 }
 
 // parseHTTPSPath extracts host, owner, repo from "host/owner/repo" format.
+// Strips any userinfo@ prefix (e.g. "gho_TOKEN@github.com/...") before parsing.
 func parseHTTPSPath(path string) (host, owner, repo string) {
+	// Strip userinfo (token or username) from HTTPS URLs: "user@host/..." → "host/..."
+	if slashIdx := strings.Index(path, "/"); slashIdx > 0 {
+		hostPart := path[:slashIdx]
+		if atIdx := strings.LastIndex(hostPart, "@"); atIdx >= 0 {
+			path = path[atIdx+1:]
+		}
+	}
 	path = strings.TrimSuffix(path, ".git")
 	parts := strings.SplitN(path, "/", 3)
 	if len(parts) < 3 {

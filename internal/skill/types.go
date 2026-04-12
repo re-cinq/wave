@@ -6,4 +6,5 @@ type SkillConfig struct {
 	Init         string `yaml:"init,omitempty"`          // Command to initialize the skill after install
 	Check        string `yaml:"check,omitempty"`         // Command to verify the skill is installed
 	CommandsGlob string `yaml:"commands_glob,omitempty"` // Glob pattern for skill command files (default: .claude/commands/<name>.*.md)
+	Optional     bool   `yaml:"optional,omitempty"`      // If true, skip this skill when install/check fails instead of aborting
 }

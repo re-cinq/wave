@@ -252,6 +252,15 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 
 		// Attempt auto-install if install command is configured
 		if cfg.Install == "" {
+			if cfg.Optional {
+				results = append(results, Result{
+					Name:    name,
+					Kind:    "skill",
+					OK:      true,
+					Message: fmt.Sprintf("optional skill %q not installed (skipped)", name),
+				})
+				continue
+			}
 			results = append(results, Result{
 				Name:    name,
 				Kind:    "skill",
@@ -264,6 +273,15 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 
 		// Run install command
 		if err := c.runShellCommand(cfg.Install); err != nil {
+			if cfg.Optional {
+				results = append(results, Result{
+					Name:    name,
+					Kind:    "skill",
+					OK:      true,
+					Message: fmt.Sprintf("optional skill %q install failed (skipped): %v", name, err),
+				})
+				continue
+			}
 			// Capture output for diagnostics on failure
 			installOutput, _ := runCmdWithOutput("sh", "-c", cfg.Install)
 			msg := fmt.Sprintf("skill %q install failed: %v", name, err)
@@ -292,6 +310,15 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 				Message: fmt.Sprintf("skill %q installed successfully", name),
 			})
 		} else {
+			if cfg.Optional {
+				results = append(results, Result{
+					Name:    name,
+					Kind:    "skill",
+					OK:      true,
+					Message: fmt.Sprintf("optional skill %q not detected after install (skipped)", name),
+				})
+				continue
+			}
 			// Capture check output for diagnostics
 			checkOutput, checkErr := runCmdWithOutput("sh", "-c", cfg.Check)
 			msg := fmt.Sprintf("skill %q still not detected after install", name)

@@ -396,7 +396,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
 
 	// Inject forge variables for unified pipeline template resolution
-	forgeInfo, _ := forge.DetectFromGitRemotes()
+	forgeInfo := forge.DetectFromGitRemotesWithOverride(m.Metadata.Forge)
 	InjectForgeVariables(pipelineContext, forgeInfo)
 
 	// Resolve template placeholders in pipeline skills before validation.
@@ -889,7 +889,7 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 	pipelineContext := newContextWithProject(pipelineID, pipelineName, "", m)
 
 	// Inject forge variables
-	forgeInfo, _ := forge.DetectFromGitRemotes()
+	forgeInfo := forge.DetectFromGitRemotesWithOverride(m.Metadata.Forge)
 	InjectForgeVariables(pipelineContext, forgeInfo)
 
 	// Forge preflight: block forge-dependent steps when no forge is configured
