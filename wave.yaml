@@ -3,6 +3,7 @@ kind: WaveManifest
 metadata:
     description: A Wave multi-agent project
     name: wave-project
+    forge: github
 project:
     language: go
     test_command: "go test ./..."

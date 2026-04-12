@@ -59,7 +59,8 @@
                 </ul>
             </div>
 
-            <!-- Insights -->
+            <!-- Insights (hidden when both analytics and retros are disabled) -->
+            {{if or (featureEnabled "analytics") (featureEnabled "retros")}}
             <div class="nav-group" data-group="insights">
                 <button class="nav-group-toggle" onclick="toggleNavGroup('insights')" aria-expanded="true">
                     <span class="nav-group-label">Insights</span>
@@ -76,6 +77,7 @@
                     </a></li>{{end}}
                 </ul>
             </div>
+            {{end}}
 
             <!-- Configure -->
             <div class="nav-group" data-group="configure">
