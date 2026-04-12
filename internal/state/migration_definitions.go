@@ -460,5 +460,29 @@ CREATE INDEX IF NOT EXISTS idx_outcome_run ON pipeline_outcome(run_id);
 CREATE INDEX IF NOT EXISTS idx_outcome_type_value ON pipeline_outcome(type, value);`,
 			Down: `DROP TABLE IF EXISTS pipeline_outcome;`,
 		},
+		{
+			Version:     22,
+			Description: "Add orchestration_decisions table for task classification feedback loop",
+			Up: `CREATE TABLE IF NOT EXISTS orchestration_decision (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    input_text TEXT NOT NULL,
+    domain TEXT NOT NULL,
+    complexity TEXT NOT NULL,
+    pipeline_name TEXT NOT NULL,
+    model_tier TEXT NOT NULL DEFAULT 'balanced',
+    reason TEXT NOT NULL DEFAULT '',
+    outcome TEXT NOT NULL DEFAULT 'pending',
+    tokens_used INTEGER NOT NULL DEFAULT 0,
+    duration_ms INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    completed_at INTEGER,
+    FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_orchestration_pipeline ON orchestration_decision(pipeline_name);
+CREATE INDEX IF NOT EXISTS idx_orchestration_domain ON orchestration_decision(domain, complexity);
+CREATE INDEX IF NOT EXISTS idx_orchestration_outcome ON orchestration_decision(outcome);`,
+			Down: `DROP TABLE IF EXISTS orchestration_decision;`,
+		},
 	}
 }

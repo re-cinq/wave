@@ -287,3 +287,31 @@ type OutcomeRecord struct {
 	Value     string // the actual URL, path, or identifier
 	CreatedAt time.Time
 }
+
+// OrchestrationDecision records a task classification → pipeline routing decision.
+type OrchestrationDecision struct {
+	ID           int64
+	RunID        string
+	InputText    string
+	Domain       string
+	Complexity   string
+	PipelineName string
+	ModelTier    string
+	Reason       string
+	Outcome      string // "pending", "completed", "failed", "cancelled"
+	TokensUsed   int
+	DurationMs   int64
+	CreatedAt    time.Time
+	CompletedAt  *time.Time
+}
+
+// OrchestrationStats aggregates success/failure rates for a pipeline.
+type OrchestrationStats struct {
+	PipelineName string
+	TotalRuns    int
+	Completed    int
+	Failed       int
+	Cancelled    int
+	AvgTokens    int
+	AvgDurationMs int64
+}
