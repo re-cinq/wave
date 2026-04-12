@@ -287,7 +287,7 @@ func (v *llmJudgeValidator) callViaCLI(model, systemPrompt, userPrompt string) (
 
 	prompt := systemPrompt + "\n\n" + userPrompt
 
-	args := []string{"--print", "--output-format", "text", "--model", model, "--prompt", prompt}
+	args := []string{"--print", "--output-format", "text", "--model", model, prompt}
 	cmd := exec.CommandContext(ctx, "claude", args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

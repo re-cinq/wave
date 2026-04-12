@@ -71,5 +71,7 @@ func (s *Server) handleAttentionSummary(w http.ResponseWriter, r *http.Request) 
 
 	summary := s.attention.Summary()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(summary)
+	if err := json.NewEncoder(w).Encode(summary); err != nil {
+		http.Error(w, "failed to encode attention summary", http.StatusInternalServerError)
+	}
 }
