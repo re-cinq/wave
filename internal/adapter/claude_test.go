@@ -38,40 +38,6 @@ func setupBaseProtocol(t *testing.T) {
 	})
 }
 
-func TestContractPromptInAgentFile(t *testing.T) {
-	setupBaseProtocol(t)
-	adapter := NewClaudeAdapter()
-	tmpDir := t.TempDir()
-
-	cfg := AdapterRunConfig{
-		Persona:        "test",
-		WorkspacePath:  tmpDir,
-		Model:          "sonnet",
-		AllowedTools:   []string{"Read", "Bash"},
-		ContractPrompt: "## Contract Compliance\n\n- **Output file**: `artifact.json`\n- **Format**: Valid JSON only.\n",
-	}
-
-	if err := adapter.prepareWorkspace(tmpDir, cfg); err != nil {
-		t.Fatalf("prepareWorkspace failed: %v", err)
-	}
-
-	agentPath := filepath.Join(tmpDir, agentFilePath)
-	data, err := os.ReadFile(agentPath)
-	if err != nil {
-		t.Fatalf("failed to read agent file: %v", err)
-	}
-
-	content := string(data)
-	if !strings.Contains(content, "Contract Compliance") {
-		t.Error("agent file should contain 'Contract Compliance' section")
-	}
-	if !strings.Contains(content, "artifact.json") {
-		t.Error("agent file should contain the output file path")
-	}
-	if !strings.Contains(content, "Valid JSON only") {
-		t.Error("agent file should contain format instruction")
-	}
-}
 
 func TestNoSettingsJSONWhenSandboxDisabled(t *testing.T) {
 	setupBaseProtocol(t)
@@ -512,17 +478,15 @@ func TestConcurrencyHintInAgentFile(t *testing.T) {
 			},
 		},
 		{
-			name: "hint appears between contract and restrictions",
+			name: "hint appears before restrictions",
 			cfg: AdapterRunConfig{
 				Persona:             "test",
 				Model:               "sonnet",
 				SystemPrompt:        "# Test",
 				MaxConcurrentAgents: 4,
-				ContractPrompt:      "## Contract Compliance\n\nOutput JSON.",
 				AllowedTools:        []string{"Read", "Bash"},
 			},
 			wantContains: []string{
-				"Contract Compliance",
 				"Agent Concurrency",
 				"## Restrictions",
 			},
@@ -567,7 +531,6 @@ func TestConcurrencyHintOrdering(t *testing.T) {
 		Persona:             "test",
 		Model:               "sonnet",
 		SystemPrompt:        "# Test Persona",
-		ContractPrompt:      "## Contract\n\nProduce JSON output.",
 		MaxConcurrentAgents: 6,
 		AllowedTools:        []string{"Read", "Write"},
 		DenyTools:           []string{"Bash(rm *)"},
@@ -583,13 +546,9 @@ func TestConcurrencyHintOrdering(t *testing.T) {
 	}
 	content := string(data)
 
-	contractIdx := strings.Index(content, "## Contract")
 	concurrencyIdx := strings.Index(content, "## Agent Concurrency")
 	restrictionIdx := strings.Index(content, "## Restrictions")
 
-	if contractIdx == -1 {
-		t.Fatal("missing Contract section")
-	}
 	if concurrencyIdx == -1 {
 		t.Fatal("missing Agent Concurrency section")
 	}
@@ -597,9 +556,6 @@ func TestConcurrencyHintOrdering(t *testing.T) {
 		t.Fatal("missing Restrictions section")
 	}
 
-	if concurrencyIdx < contractIdx {
-		t.Errorf("Agent Concurrency (pos %d) should appear after Contract (pos %d)", concurrencyIdx, contractIdx)
-	}
 	if concurrencyIdx > restrictionIdx {
 		t.Errorf("Agent Concurrency (pos %d) should appear before Restrictions (pos %d)", concurrencyIdx, restrictionIdx)
 	}
@@ -1864,11 +1820,10 @@ func TestSkillSectionInAgentFile(t *testing.T) {
 		}
 	})
 
-	t.Run("skill section appears between persona and contract", func(t *testing.T) {
+	t.Run("skill section appears after persona", func(t *testing.T) {
 		cfg := AdapterRunConfig{
-			Persona:        "craftsman",
-			SystemPrompt:   "# Craftsman\n\nYou are a craftsman.",
-			ContractPrompt: "## Contract\n\nYour output must be valid JSON.",
+			Persona:      "craftsman",
+			SystemPrompt: "# Craftsman\n\nYou are a craftsman.",
 			ResolvedSkills: []SkillRef{
 				{Name: "golang", Description: "Go development"},
 			},
@@ -1886,15 +1841,14 @@ func TestSkillSectionInAgentFile(t *testing.T) {
 		content := string(data)
 
 		skillIdx := strings.Index(content, "## Available Skills")
-		contractIdx := strings.Index(content, "## Contract")
 		personaIdx := strings.Index(content, "# Craftsman")
 
-		if skillIdx == -1 || contractIdx == -1 || personaIdx == -1 {
-			t.Fatalf("missing sections: skill=%d contract=%d persona=%d", skillIdx, contractIdx, personaIdx)
+		if skillIdx == -1 || personaIdx == -1 {
+			t.Fatalf("missing sections: skill=%d persona=%d", skillIdx, personaIdx)
 		}
 
-		if personaIdx >= skillIdx || skillIdx >= contractIdx {
-			t.Errorf("wrong ordering: persona=%d < skill=%d < contract=%d", personaIdx, skillIdx, contractIdx)
+		if personaIdx >= skillIdx {
+			t.Errorf("wrong ordering: persona=%d should appear before skill=%d", personaIdx, skillIdx)
 		}
 	})
 }
@@ -2054,12 +2008,11 @@ func TestPrepareWorkspaceAgentMode(t *testing.T) {
 	t.Cleanup(func() { os.RemoveAll(".wave") })
 
 	cfg := AdapterRunConfig{
-		Persona:        "navigator",
-		SystemPrompt:   "# Navigator\n\nYou explore codebases.",
-		ContractPrompt: "## Contract\n\nOutput JSON.",
-		AllowedTools:   []string{"Read", "Glob"},
-		DenyTools:      []string{"Edit(*)"},
-		Model:          "sonnet",
+		Persona:      "navigator",
+		SystemPrompt: "# Navigator\n\nYou explore codebases.",
+		AllowedTools: []string{"Read", "Glob"},
+		DenyTools:    []string{"Edit(*)"},
+		Model:        "sonnet",
 	}
 
 	if err := adapter.prepareWorkspace(tmpDir, cfg); err != nil {

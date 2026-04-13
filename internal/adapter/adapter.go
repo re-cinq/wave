@@ -73,11 +73,6 @@ type AdapterRunConfig struct {
 	// Built from manifest.Ontology.RenderMarkdown() by the executor.
 	OntologySection string
 
-	// ContractPrompt is deprecated — contract schemas are now appended directly to the
-	// user prompt by the executor. This field is retained for interface compatibility
-	// but is always empty at runtime. See executor.go buildContractPrompt().
-	ContractPrompt string
-
 	// OnStreamEvent is called for each real-time event during Claude Code execution.
 	// If nil, streaming events are silently ignored.
 	OnStreamEvent func(StreamEvent)
