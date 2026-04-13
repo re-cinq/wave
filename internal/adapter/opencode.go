@@ -284,16 +284,17 @@ func (a *OpenCodeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 }
 
 func ResolveAdapter(adapterName string) AdapterRunner {
-	switch strings.ToLower(adapterName) {
-	case "claude":
+	name := strings.ToLower(adapterName)
+	switch {
+	case name == "claude":
 		return NewClaudeAdapter()
-	case "opencode":
+	case name == "opencode" || strings.HasPrefix(name, "opencode-"):
 		return NewOpenCodeAdapter()
-	case "codex":
+	case name == "codex":
 		return NewCodexAdapter()
-	case "gemini":
+	case name == "gemini":
 		return NewGeminiAdapter()
-	case "browser":
+	case name == "browser":
 		return NewBrowserAdapter()
 	default:
 		return NewProcessGroupRunner()

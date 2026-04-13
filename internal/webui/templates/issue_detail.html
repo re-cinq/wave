@@ -38,7 +38,8 @@
             </div>
             <div class="form-group">
                 <label for="rp-model">Model</label>
-                <input type="text" id="rp-model" placeholder="e.g. sonnet, haiku, cheapest">
+                <input type="text" id="rp-model" list="rp-model-list" placeholder="e.g. sonnet, haiku, cheapest">
+                <datalist id="rp-model-list"></datalist>
             </div>
         </div>
 
@@ -191,6 +192,13 @@ function showRunPipeline() {
         var adapters = d.adapters || [];
         adapters.forEach(function(a){ var o = document.createElement('option'); o.value = a; o.textContent = a; adapterSel.appendChild(o); });
     }).catch(function(){});
+    // Populate models datalist
+    var mdl = document.getElementById('rp-model-list');
+    if (mdl && mdl.children.length === 0) {
+        fetch('/api/models').then(function(r){return r.json()}).then(function(d){
+            (d.models || []).forEach(function(m){ var o = document.createElement('option'); o.value = m; mdl.appendChild(o); });
+        }).catch(function(){});
+    }
     dlg.showModal();
 }
 function hideRunPipeline() { document.getElementById('run-pipeline-dialog').close(); }

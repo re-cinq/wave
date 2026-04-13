@@ -46,7 +46,8 @@
                 </div>
                 <div class="form-group">
                     <label for="rf-model">Model</label>
-                    <input type="text" id="rf-model" placeholder="e.g. sonnet, haiku, cheapest">
+                    <input type="text" id="rf-model" list="rf-model-list" placeholder="e.g. sonnet, haiku, cheapest">
+                    <datalist id="rf-model-list"></datalist>
                 </div>
             </div>
         </div>
@@ -246,11 +247,19 @@ function populateAdapters(selectId) {
         adaptersLoaded = true;
     }).catch(function(){});
 }
+function populateModels(datalistId) {
+    var dl = document.getElementById(datalistId);
+    if (!dl || dl.children.length > 0) return;
+    fetch('/api/models').then(function(r){return r.json()}).then(function(d){
+        (d.models || []).forEach(function(m){ var o = document.createElement('option'); o.value = m; dl.appendChild(o); });
+    }).catch(function(){});
+}
 function toggleRunForm() {
     var panel = document.getElementById('run-form-panel');
     if (panel.hidden) {
         panel.hidden = false;
         populateAdapters('rf-adapter');
+        populateModels('rf-model-list');
         document.getElementById('rf-input').focus();
     } else {
         panel.hidden = true;

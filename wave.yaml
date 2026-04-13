@@ -89,9 +89,13 @@ adapters:
         output_format: json
         project_files:
             - AGENTS.md
-    codex:
-        binary: codex
-        default_model: o3
+    opencode:
+        binary: opencode
+        default_model: opencode/big-pickle
+        tier_models:
+            cheapest: default
+            balanced: default
+            strongest: default
         default_permissions:
             allowed_tools:
                 - Read
@@ -101,13 +105,13 @@ adapters:
         output_format: json
         project_files:
             - AGENTS.md
-    opencode:
+    opencode-local:
         binary: opencode
-        default_model: opencode/big-pickle
+        default_model: ollama/glm-4.7-flash
         tier_models:
-            cheapest: default
-            balanced: default
-            strongest: default
+            cheapest: ollama/glm-4.7-flash
+            balanced: ollama/glm-4.7-flash
+            strongest: ollama/glm-4.7-flash
         default_permissions:
             allowed_tools:
                 - Read
