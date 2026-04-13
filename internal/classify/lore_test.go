@@ -4,40 +4,45 @@ import "testing"
 
 func TestNoOpLoreProvider(t *testing.T) {
 	p := NoOpLoreProvider{}
-	hints := p.Hints("fix a bug")
-	if hints != nil {
-		t.Errorf("NoOpLoreProvider.Hints() = %v, want nil", hints)
+	ctx := p.GetTaskContext("fix a bug")
+	if len(ctx.Hints) != 0 {
+		t.Errorf("NoOpLoreProvider.GetTaskContext() hints = %v, want empty", ctx.Hints)
+	}
+	if len(ctx.Conventions) != 0 {
+		t.Errorf("NoOpLoreProvider.GetTaskContext() conventions = %v, want empty", ctx.Conventions)
+	}
+	if len(ctx.Memories) != 0 {
+		t.Errorf("NoOpLoreProvider.GetTaskContext() memories = %v, want empty", ctx.Memories)
 	}
 }
 
 func TestRegisterLoreProvider(t *testing.T) {
-	// Save and restore original provider.
 	orig := activeLoreProvider
 	defer func() { activeLoreProvider = orig }()
 
-	// Register a custom provider that always returns a security hint.
+	// Register a custom provider that returns a security hint.
 	RegisterLoreProvider(&stubLoreProvider{
 		domain:     DomainSecurity,
 		complexity: ComplexityComplex,
 		confidence: 0.8,
 	})
 
-	hints := loreProvider().Hints("anything")
-	if len(hints) != 1 {
-		t.Fatalf("expected 1 hint, got %d", len(hints))
+	ctx := loreProvider().GetTaskContext("anything")
+	if len(ctx.Hints) != 1 {
+		t.Fatalf("expected 1 hint, got %d", len(ctx.Hints))
 	}
-	if hints[0].Domain != DomainSecurity {
-		t.Errorf("hint domain = %q, want %q", hints[0].Domain, DomainSecurity)
+	if ctx.Hints[0].Domain != DomainSecurity {
+		t.Errorf("hint domain = %q, want %q", ctx.Hints[0].Domain, DomainSecurity)
 	}
-	if hints[0].Confidence != 0.8 {
-		t.Errorf("hint confidence = %f, want 0.8", hints[0].Confidence)
+	if ctx.Hints[0].Confidence != 0.8 {
+		t.Errorf("hint confidence = %f, want 0.8", ctx.Hints[0].Confidence)
 	}
 
 	// Register nil reverts to no-op.
 	RegisterLoreProvider(nil)
-	hints = loreProvider().Hints("anything")
-	if hints != nil {
-		t.Errorf("after nil register, Hints() = %v, want nil", hints)
+	ctx = loreProvider().GetTaskContext("anything")
+	if len(ctx.Hints) != 0 {
+		t.Errorf("after nil register, Hints = %v, want empty", ctx.Hints)
 	}
 }
 
@@ -81,6 +86,27 @@ func TestLoreDoesNotOverrideKeywords(t *testing.T) {
 	}
 }
 
+func TestTaskContextStructure(t *testing.T) {
+	p := &fullLoreProvider{}
+	ctx := p.GetTaskContext("implement auth")
+
+	if len(ctx.Hints) != 1 {
+		t.Fatalf("expected 1 hint, got %d", len(ctx.Hints))
+	}
+	if len(ctx.Conventions) != 1 {
+		t.Fatalf("expected 1 convention, got %d", len(ctx.Conventions))
+	}
+	if ctx.Conventions[0] != "all auth changes require security review" {
+		t.Errorf("convention = %q", ctx.Conventions[0])
+	}
+	if len(ctx.Memories) != 1 {
+		t.Fatalf("expected 1 memory, got %d", len(ctx.Memories))
+	}
+	if ctx.Memories[0].Source != "memory" {
+		t.Errorf("memory source = %q, want %q", ctx.Memories[0].Source, "memory")
+	}
+}
+
 // stubLoreProvider returns a single hint with fixed values.
 type stubLoreProvider struct {
 	domain     Domain
@@ -88,11 +114,34 @@ type stubLoreProvider struct {
 	confidence float64
 }
 
-func (s *stubLoreProvider) Hints(string) []LoreHint {
-	return []LoreHint{{
-		Domain:     s.domain,
-		Complexity: s.complexity,
-		Confidence: s.confidence,
-		Source:     "test_stub",
-	}}
+func (s *stubLoreProvider) GetTaskContext(string) TaskContext {
+	return TaskContext{
+		Hints: []LoreHint{{
+			Domain:     s.domain,
+			Complexity: s.complexity,
+			Confidence: s.confidence,
+			Source:     "test_stub",
+		}},
+	}
+}
+
+// fullLoreProvider returns context with hints, conventions, and memories.
+type fullLoreProvider struct{}
+
+func (f *fullLoreProvider) GetTaskContext(string) TaskContext {
+	return TaskContext{
+		Hints: []LoreHint{{
+			Domain:     DomainSecurity,
+			Complexity: ComplexityComplex,
+			Confidence: 0.85,
+			Source:     "memory",
+		}},
+		Conventions: []string{"all auth changes require security review"},
+		Memories: []MemoryResult{{
+			Key:    "auth-pattern",
+			Value:  "Last auth implementation used JWT with refresh tokens",
+			Score:  0.92,
+			Source: "memory",
+		}},
+	}
 }

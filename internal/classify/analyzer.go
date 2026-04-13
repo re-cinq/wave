@@ -129,16 +129,16 @@ func deriveBlastRadius(c Complexity, d Domain) float64 {
 	return r
 }
 
-// applyLoreHints enriches domain/complexity with lore provider hints when
+// applyLoreHints enriches domain/complexity with lore context when
 // keyword matching fell through to defaults (DomainFeature / ComplexityMedium).
 // Lore hints only fill gaps — they never override a positive keyword match.
 func applyLoreHints(domain Domain, complexity Complexity, input string) (Domain, Complexity) {
-	hints := loreProvider().Hints(input)
-	if len(hints) == 0 {
+	ctx := loreProvider().GetTaskContext(input)
+	if len(ctx.Hints) == 0 {
 		return domain, complexity
 	}
 	const minConfidence = 0.5
-	for _, h := range hints {
+	for _, h := range ctx.Hints {
 		if h.Confidence < minConfidence {
 			continue
 		}
