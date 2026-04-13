@@ -205,6 +205,16 @@ func shouldLaunchTUI(cmd *cobra.Command) bool {
 }
 
 func main() {
+	// Wrap cobra flag parse errors as CLIError so JSON mode renders them
+	// with code "invalid_args" instead of "internal_error", and suppresses
+	// the usage dump that cobra would otherwise print before returning.
+	rootCmd.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
+		cmd.SilenceUsage = true
+		cmd.SilenceErrors = true
+		return commands.NewCLIError(commands.CodeInvalidArgs, err.Error(),
+			fmt.Sprintf("Run 'wave %s --help' for usage.", cmd.Name()))
+	})
+
 	if err := rootCmd.Execute(); err != nil {
 		// Determine output mode from root flags for error rendering
 		debug, _ := rootCmd.PersistentFlags().GetBool("debug")

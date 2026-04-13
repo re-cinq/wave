@@ -400,7 +400,7 @@ personas:
       deny: ["Write(*)", "Edit(*)", "Bash(git commit*)", "Bash(git push*)"]
 ```
 
-**30 built-in personas** (plus `base-protocol.md` shared preamble) including `navigator`, `craftsman`, `auditor`, `philosopher`, `debugger`, and more.
+**31 built-in personas** (plus `base-protocol.md` shared preamble) including `navigator`, `craftsman`, `auditor`, `philosopher`, `debugger`, and more.
 
 > Explore all personas in [`.wave/personas/`](.wave/personas/)
 

@@ -17,8 +17,17 @@ Wave CLI commands for pipeline orchestration.
 | `wave list` | List adapters, runs, pipelines, personas, contracts |
 | `wave validate` | Validate configuration |
 | `wave clean` | Clean up workspaces |
+| `wave cleanup` | Remove orphaned worktrees from .wave/workspaces/ |
 | `wave compose` | Validate and execute pipeline sequences |
+| `wave decisions` | Show decision log for a pipeline run |
 | `wave doctor` | Diagnose project configuration and health |
+| `wave fork` | Fork a run from a checkpoint |
+| `wave merge` | Merge a pull request using forge CLI |
+| `wave persona` | Persona management (create, list) |
+| `wave pipeline` | Pipeline management (create, list) |
+| `wave retro` | View and manage run retrospectives |
+| `wave rewind` | Rewind a run to an earlier checkpoint |
+| `wave skill` | Manage skill templates and install from remote sources |
 | `wave suggest` | Suggest impactful pipeline runs |
 | `wave serve` | Start the web dashboard server |
 | `wave migrate` | Database migrations |
@@ -991,6 +1000,8 @@ wave bench run --dataset tasks.jsonl --pipeline bench-solve --results-path resul
 | `--label` | | Human-readable label for this run |
 | `--limit` | `0` | Maximum number of tasks to run (0 = all) |
 | `--timeout` | `0` | Per-task timeout in seconds (0 = no limit) |
+| `--concurrency` | `1` | Number of tasks to run in parallel |
+| `--offset` | `0` | Skip the first N tasks in the dataset |
 | `--results-path` | | Path to write JSON results file |
 | `--datasets-dir` | `.wave/bench/datasets` | Directory to search for dataset files |
 | `--keep-workspaces` | `false` | Preserve task worktrees after completion |
@@ -1026,6 +1037,242 @@ List available benchmark datasets in the datasets directory.
 wave bench list
 wave bench list --datasets-dir ./my-datasets
 ```
+
+---
+
+## wave cleanup
+
+Remove orphaned worktrees from `.wave/workspaces/` that have no corresponding running pipeline.
+
+```bash
+wave cleanup              # Remove orphaned worktrees (with confirmation)
+wave cleanup --dry-run    # Show what would be removed without deleting
+wave cleanup --force      # Skip confirmation prompt
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--dry-run` | `false` | Show what would be removed without deleting anything |
+| `--force` | `false` | Skip confirmation prompt |
+
+---
+
+## wave decisions
+
+Show the structured decision log from pipeline runs. Decisions record model routing choices, retry attempts, contract validations, budget allocations, and composition selections.
+
+```bash
+wave decisions                          # Decisions from most recent run
+wave decisions impl-issue-20240315-abc  # Decisions for a specific run
+wave decisions --step plan              # Filter to a specific step
+wave decisions --category model_routing # Filter by category
+wave decisions --format json            # JSON output
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--step` | | Filter by step ID |
+| `--category` | | Filter by category: `model_routing`, `retry`, `contract`, `budget`, `composition` |
+| `--format` | `text` | Output format: `text`, `json` |
+| `--manifest` | `wave.yaml` | Path to manifest file |
+
+---
+
+## wave fork
+
+Create a new independent run branching from a specific step of an existing run. The forked run starts from the selected checkpoint with a fresh execution context.
+
+```bash
+wave fork impl-issue-20240315-abc123 --from-step plan
+wave fork impl-issue-20240315-abc123 --list       # List available fork points
+wave fork impl-issue-20240315-abc123 --from-step plan --input "updated input"
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--from-step` | | Fork from after this step (required unless `--list`) |
+| `--list` | `false` | List available fork points |
+| `--allow-failed` | `false` | Allow forking non-completed (failed/cancelled) runs |
+| `--input` | | Override input for the forked run |
+| `--model` | | Override adapter model for the forked run |
+| `--manifest` | `wave.yaml` | Path to manifest file |
+
+---
+
+## wave merge
+
+Merge a pull request by number or URL. Detects the forge type (GitHub, GitLab, Gitea, Bitbucket) and uses the appropriate forge CLI with API fallback.
+
+```bash
+wave merge 123
+wave merge https://github.com/owner/repo/pull/123
+wave merge --all              # Merge all approved open PRs (oldest first)
+wave merge --all --yes        # Skip confirmation
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--all` | `false` | Merge all approved open PRs (oldest first) |
+| `--yes` | `false` | Skip confirmation prompt (use with `--all`) |
+
+---
+
+## wave persona
+
+Create and manage Wave personas.
+
+### persona create
+
+Scaffold a new persona from a built-in template.
+
+```bash
+wave persona create --name my-reviewer --template reviewer
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--name` | | Name for the new persona (required) |
+| `--template` | | Built-in persona template to use (required) |
+
+### persona list
+
+List available persona templates.
+
+```bash
+wave persona list
+```
+
+---
+
+## wave pipeline
+
+Create and manage Wave pipelines.
+
+### pipeline create
+
+Scaffold a new pipeline YAML from a built-in template.
+
+```bash
+wave pipeline create --name my-pipeline --template impl-issue
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--name` | | Name for the new pipeline (required) |
+| `--template` | | Built-in pipeline template to use (required) |
+
+### pipeline list
+
+List available pipelines (alias for `wave list pipelines`).
+
+```bash
+wave pipeline list
+```
+
+---
+
+## wave retro
+
+View, list, and generate retrospectives for pipeline runs.
+
+```bash
+wave retro                          # Retrospective for most recent run
+wave retro impl-issue-20240315-abc  # Retrospective for a specific run
+wave retro --narrate                # Generate LLM narrative
+wave retro --json                   # JSON output
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--narrate` | `false` | Generate or regenerate LLM narrative |
+| `--json` | `false` | Output in JSON format |
+
+### retro list
+
+List retrospectives across runs.
+
+```bash
+wave retro list
+wave retro list --pipeline impl-issue
+wave retro list --since 7d
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--pipeline` | | Filter by pipeline name |
+| `--since` | | Show retros since duration (e.g. `7d`, `24h`) |
+
+### retro stats
+
+Show aggregate retrospective statistics.
+
+```bash
+wave retro stats
+```
+
+---
+
+## wave rewind
+
+Reset a run's state to an earlier checkpoint (destructive). The run can be resumed from the rewound point.
+
+```bash
+wave rewind impl-issue-20240315-abc123 --to-step plan
+wave rewind impl-issue-20240315-abc123 --to-step plan --confirm
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--to-step` | | Rewind to after this step (required) |
+| `--confirm` | `false` | Skip confirmation prompt |
+| `--manifest` | `wave.yaml` | Path to manifest file |
+
+---
+
+## wave skill
+
+Manage skill templates shipped with Wave and install skills from remote sources. Skills are SKILL.md files that extend persona capabilities.
+
+### skill list
+
+List available and installed skill templates.
+
+```bash
+wave skill list
+wave skill list --format json
+wave skill list --remote          # Show available remote sources
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `table` | Output format: `table`, `json` |
+| `--remote` | `false` | Show available remote sources |
+
+### skill install
+
+Install a skill from bundled templates, GitHub, Tessl, or URL.
+
+```bash
+wave skill install reviewer          # Bundled template
+wave skill install github:owner/repo # From GitHub
+wave skill install tessl:my-skill    # From Tessl registry
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `table` | Output format: `table`, `json` |
+
+### skill check
+
+Run check commands for installed skills in `.wave/skills/`.
+
+```bash
+wave skill check
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `table` | Output format: `table`, `json` |
 
 ---
 
