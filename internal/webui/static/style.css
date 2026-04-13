@@ -1271,6 +1271,8 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .toast.toast-dismiss { animation: toast-out 0.3s ease forwards; }
 .toast-error { background: var(--color-failed-bg); color: var(--color-failed); border: 1px solid var(--color-failed); }
 .toast-success { background: var(--color-completed-bg); color: var(--color-completed); border: 1px solid var(--color-completed); }
+.toast-info { background: var(--color-running-bg); color: var(--color-running); border: 1px solid var(--color-running); }
+.toast-warning { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
 
 /* Connection Status Banner */
 .connection-banner {

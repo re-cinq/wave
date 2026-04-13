@@ -1,0 +1,58 @@
+kind: WavePipeline
+metadata:
+  name: wave-smoke-gates
+  description: >-
+    Smoke test for gate steps. Creates a marker file, waits at a timer gate,
+    then verifies the gate resolved before writing the result.
+  release: false
+  category: wave
+
+input:
+  source: cli
+  example: "verify gate steps work"
+
+steps:
+  - id: prepare
+    type: command
+    script: |
+      mkdir -p .wave/output
+      echo '{"gate_test": "pending", "created_at": "'$(date -Iseconds)'"}' \
+        > .wave/output/gate-marker.json
+      echo "Gate marker written"
+    output_artifacts:
+      - name: gate-marker
+        path: .wave/output/gate-marker.json
+        type: json
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/gate-marker.json
+        on_failure: fail
+
+  - id: approval-gate
+    dependencies: [prepare]
+    gate:
+      type: timer
+      timeout: "5s"
+      message: "Smoke-test timer gate — auto-resolves in 5 seconds"
+
+  - id: verify
+    type: command
+    dependencies: [approval-gate]
+    script: |
+      if [ ! -f .wave/output/gate-marker.json ]; then
+        echo "FAIL: gate-marker.json missing"
+        exit 1
+      fi
+      echo '{"gate_test": "passed", "verified_at": "'$(date -Iseconds)'"}' \
+        > .wave/output/gate-result.json
+      echo "Gate smoke test passed"
+    output_artifacts:
+      - name: gate-result
+        path: .wave/output/gate-result.json
+        type: json
+    handover:
+      contract:
+        type: non_empty_file
+        source: .wave/output/gate-result.json
+        on_failure: fail
