@@ -155,10 +155,8 @@ steps:
           artifact: findings
           as: investigation
     workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "hotfix/{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
@@ -270,10 +268,8 @@ steps:
     model: balanced
     rework_only: true
     workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "hotfix/{{ pipeline_id }}"
     exec:
       type: prompt
       source: |

@@ -178,10 +178,8 @@ steps:
           artifact: assessment
           as: findings
     workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "improve/{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
