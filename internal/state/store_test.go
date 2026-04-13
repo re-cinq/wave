@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -49,6 +50,31 @@ func setupTestStoreWithFile(t *testing.T) (StateStore, func()) {
 	}
 
 	return store, cleanup
+}
+
+// setupTestStoreWithClock creates an in-memory StateStore with an injectable clock for
+// deterministic timestamp-ordering tests. The returned clock function increments by 1
+// second on every call, so operations that need distinct timestamps don't require sleep.
+func setupTestStoreWithClock(t *testing.T) (*stateStore, func()) {
+	t.Helper()
+
+	s, err := NewStateStore(":memory:")
+	require.NoError(t, err, "failed to create test store")
+
+	ss := s.(*stateStore)
+
+	var counter int64
+	ss.clock = func() time.Time {
+		n := atomic.AddInt64(&counter, 1)
+		return time.Unix(n, 0)
+	}
+
+	cleanup := func() {
+		if err := ss.Close(); err != nil {
+			t.Errorf("failed to close test store: %v", err)
+		}
+	}
+	return ss, cleanup
 }
 
 // TestNewStateStore verifies that creating a new store works correctly.
@@ -794,10 +820,10 @@ func TestListRecentPipelines(t *testing.T) {
 	})
 
 	t.Run("returns pipelines in order by updated_at DESC", func(t *testing.T) {
-		store, cleanup := setupTestStoreWithFile(t)
+		store, cleanup := setupTestStoreWithClock(t)
 		defer cleanup()
 
-		// Create pipelines
+		// Create pipelines — each call advances the clock by 1 second
 		err := store.SavePipelineState("oldest", "completed", "")
 		require.NoError(t, err)
 		err = store.SavePipelineState("middle", "running", "")
@@ -805,8 +831,7 @@ func TestListRecentPipelines(t *testing.T) {
 		err = store.SavePipelineState("newest", "pending", "")
 		require.NoError(t, err)
 
-		// Update the oldest to make it the most recent
-		time.Sleep(1100 * time.Millisecond) // Ensure different second
+		// Update the oldest — gets a later clock tick, making it most recent
 		err = store.SavePipelineState("oldest", "updated", "")
 		require.NoError(t, err)
 
@@ -1192,13 +1217,11 @@ func TestListRuns(t *testing.T) {
 	})
 
 	t.Run("results ordered by started_at DESC", func(t *testing.T) {
-		store, cleanup := setupTestStoreWithFile(t)
+		store, cleanup := setupTestStoreWithClock(t)
 		defer cleanup()
 
 		_, err := store.CreateRun("first", "")
 		require.NoError(t, err)
-
-		time.Sleep(1100 * time.Millisecond)
 
 		_, err = store.CreateRun("second", "")
 		require.NoError(t, err)
@@ -1433,7 +1456,7 @@ func TestGetEvents(t *testing.T) {
 	})
 
 	t.Run("events ordered by timestamp ASC", func(t *testing.T) {
-		store, cleanup := setupTestStoreWithFile(t)
+		store, cleanup := setupTestStoreWithClock(t)
 		defer cleanup()
 
 		runID, err := store.CreateRun("test", "")
@@ -1441,8 +1464,6 @@ func TestGetEvents(t *testing.T) {
 
 		err = store.LogEvent(runID, "step-1", "running", "dev", "first", 10, 100, "", "", "")
 		require.NoError(t, err)
-
-		time.Sleep(1100 * time.Millisecond)
 
 		err = store.LogEvent(runID, "step-2", "running", "dev", "second", 20, 200, "", "", "")
 		require.NoError(t, err)
@@ -1770,21 +1791,19 @@ func TestConcurrentOpsAccess(t *testing.T) {
 // TestOldRunsCleanup tests filtering runs older than a duration.
 func TestOldRunsCleanup(t *testing.T) {
 	t.Run("filter runs older than duration", func(t *testing.T) {
-		store, cleanup := setupTestStoreWithFile(t)
+		store, cleanup := setupTestStoreWithClock(t)
 		defer cleanup()
 
-		// Create an old run
+		// Create an old run — clock tick 1 → started_at = 1
 		oldRunID, err := store.CreateRun("old-pipeline", "")
 		require.NoError(t, err)
 
-		// Wait to create time gap
-		time.Sleep(2 * time.Second)
-
-		// Create a new run
+		// Create a new run — clock tick 2 → started_at = 2
 		_, err = store.CreateRun("new-pipeline", "")
 		require.NoError(t, err)
 
-		// List runs older than 1 second (should include old run)
+		// ListRuns(OlderThan=1s) uses clock → tick 3 → cutoff = 3-1 = 2
+		// old run (1) < 2 → included; new run (2) not < 2 → excluded
 		runs, err := store.ListRuns(ListRunsOptions{OlderThan: 1 * time.Second})
 		require.NoError(t, err)
 		assert.Len(t, runs, 1)

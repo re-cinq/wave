@@ -207,7 +207,15 @@ func WaitForConcurrencySlot(ctx context.Context, store StateStore, maxWorkers in
 }
 
 type stateStore struct {
-	db *sql.DB
+	db    *sql.DB
+	clock func() time.Time
+}
+
+func (s *stateStore) now() time.Time {
+	if s.clock != nil {
+		return s.clock()
+	}
+	return time.Now()
 }
 
 func NewStateStore(dbPath string) (StateStore, error) {
@@ -337,7 +345,7 @@ func initializeWithMigrations(db *sql.DB, config *MigrationConfig) error {
 }
 
 func (s *stateStore) SavePipelineState(id string, status string, input string) error {
-	now := time.Now().Unix()
+	now := s.now().Unix()
 
 	query := `INSERT INTO pipeline_state (pipeline_id, pipeline_name, status, input, created_at, updated_at)
 	          VALUES (?, ?, ?, ?, ?, ?)
@@ -561,7 +569,7 @@ func (s *stateStore) CreateRun(pipelineName string, input string) (string, error
 // If maxConcurrent > 0, the INSERT is rejected when the limit is reached.
 // Returns ErrConcurrencyLimit when the limit is hit.
 func (s *stateStore) CreateRunWithLimit(pipelineName string, input string, maxConcurrent int) (string, error) {
-	now := time.Now()
+	now := s.now()
 	randBytes := make([]byte, 2)
 	if _, err := rand.Read(randBytes); err != nil {
 		randBytes = []byte{byte(now.Nanosecond() >> 8), byte(now.Nanosecond())}
@@ -784,7 +792,7 @@ func (s *stateStore) ListRuns(opts ListRunsOptions) ([]RunRecord, error) {
 		args = append(args, opts.Status)
 	}
 	if opts.OlderThan > 0 {
-		cutoff := time.Now().Add(-opts.OlderThan).Unix()
+		cutoff := s.now().Add(-opts.OlderThan).Unix()
 		query += " AND started_at < ?"
 		args = append(args, cutoff)
 	}
@@ -852,7 +860,7 @@ func (s *stateStore) DeleteRun(runID string) error {
 
 // LogEvent records an event in the event_log table.
 func (s *stateStore) LogEvent(runID string, stepID string, state string, persona string, message string, tokens int, durationMs int64, model string, configuredModel string, adapter string) error {
-	now := time.Now().Unix()
+	now := s.now().Unix()
 
 	query := `INSERT INTO event_log (run_id, timestamp, step_id, state, persona, message, tokens_used, duration_ms, model, configured_model, adapter)
 	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
