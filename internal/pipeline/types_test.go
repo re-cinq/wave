@@ -608,8 +608,8 @@ func TestStep_Optional_YAMLParsing(t *testing.T) {
 				t.Errorf("Optional = %v, want %v", step.Optional, tt.wantOptional)
 			}
 
-			if step.IsOptional() != tt.wantOptional {
-				t.Errorf("IsOptional() = %v, want %v", step.IsOptional(), tt.wantOptional)
+			if step.Optional != tt.wantOptional {
+				t.Errorf("step.Optional = %v, want %v", step.Optional, tt.wantOptional)
 			}
 
 			// Round-trip: marshal and unmarshal

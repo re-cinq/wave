@@ -23,43 +23,49 @@ type httpResponse struct {
 	Action string `json:"action,omitempty"`
 }
 
+// blockResult builds a blocking HookResult with a formatted reason and cause.
+func blockResult(hookName, reason string, err error) HookResult {
+	return HookResult{HookName: hookName, Decision: DecisionBlock, Reason: reason, Err: err}
+}
+
 func executeHTTP(ctx context.Context, hook *LifecycleHookDef, evt HookEvent) HookResult {
 	timeout := hook.GetTimeout()
 	body, err := json.Marshal(evt)
 	if err != nil {
-		return HookResult{HookName: hook.Name, Decision: DecisionBlock, Reason: fmt.Sprintf("failed to marshal event: %v", err), Err: err}
+		return blockResult(hook.Name, fmt.Sprintf("failed to marshal event: %v", err), err)
 	}
 	hookURL := os.ExpandEnv(hook.URL)
 	if err := urlValidator(hookURL); err != nil {
-		return HookResult{HookName: hook.Name, Decision: DecisionBlock, Reason: fmt.Sprintf("blocked URL: %v", err), Err: err}
+		return blockResult(hook.Name, fmt.Sprintf("blocked URL: %v", err), err)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, hookURL, bytes.NewReader(body))
 	if err != nil {
-		return HookResult{HookName: hook.Name, Decision: DecisionBlock, Reason: fmt.Sprintf("failed to create request: %v", err), Err: err}
+		return blockResult(hook.Name, fmt.Sprintf("failed to create request: %v", err), err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{Timeout: timeout}
 	resp, err := client.Do(req)
 	if err != nil {
-		return HookResult{HookName: hook.Name, Decision: DecisionBlock, Reason: fmt.Sprintf("HTTP request failed: %v", err), Err: err}
+		return blockResult(hook.Name, fmt.Sprintf("HTTP request failed: %v", err), err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return HookResult{HookName: hook.Name, Decision: DecisionBlock, Reason: fmt.Sprintf("HTTP hook returned status %d", resp.StatusCode), Err: fmt.Errorf("non-2xx status: %d", resp.StatusCode)}
+		statusErr := fmt.Errorf("non-2xx status: %d", resp.StatusCode)
+		return blockResult(hook.Name, fmt.Sprintf("HTTP hook returned status %d", resp.StatusCode), statusErr)
 	}
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodySize))
 	if err != nil {
-		return HookResult{HookName: hook.Name, Decision: DecisionBlock, Reason: fmt.Sprintf("failed to read response: %v", err), Err: err}
+		return blockResult(hook.Name, fmt.Sprintf("failed to read response: %v", err), err)
 	}
 	var hookResp httpResponse
 	if err := json.Unmarshal(respBody, &hookResp); err != nil {
-		return HookResult{HookName: hook.Name, Decision: DecisionBlock, Reason: fmt.Sprintf("failed to parse response: %v", err), Err: err}
+		return blockResult(hook.Name, fmt.Sprintf("failed to parse response: %v", err), err)
 	}
 	if hookResp.Action == "skip" {
 		return HookResult{HookName: hook.Name, Decision: DecisionSkip, Reason: hookResp.Reason}
 	}
 	if !hookResp.OK {
-		return HookResult{HookName: hook.Name, Decision: DecisionBlock, Reason: hookResp.Reason}
+		return blockResult(hook.Name, hookResp.Reason, nil)
 	}
 	return HookResult{HookName: hook.Name, Decision: DecisionProceed}
 }

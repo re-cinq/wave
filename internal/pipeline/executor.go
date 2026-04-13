@@ -1437,7 +1437,7 @@ func (e *DefaultPipelineExecutor) hasRequiredFailures(execution *PipelineExecuti
 	// Build a lookup of step optional status
 	stepOptional := make(map[string]bool, len(execution.Pipeline.Steps))
 	for i := range execution.Pipeline.Steps {
-		stepOptional[execution.Pipeline.Steps[i].ID] = execution.Pipeline.Steps[i].IsOptional()
+		stepOptional[execution.Pipeline.Steps[i].ID] = execution.Pipeline.Steps[i].Optional
 	}
 
 	execution.mu.Lock()
@@ -1738,7 +1738,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 			)
 			onFailure := step.Retry.OnFailure
 			if onFailure == "" {
-				if step.IsOptional() {
+				if step.Optional {
 					onFailure = OnFailureContinue
 				} else {
 					onFailure = OnFailureFail

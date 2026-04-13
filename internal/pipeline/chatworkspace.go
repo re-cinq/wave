@@ -511,7 +511,7 @@ func generatePostMortemQuestions(ctx *ChatContext) []string {
 	// Determine pipeline category from name
 	pipelineName := ""
 	if ctx.Pipeline != nil {
-		pipelineName = ctx.Pipeline.PipelineName()
+		pipelineName = ctx.Pipeline.Metadata.Name
 	}
 
 	switch {
