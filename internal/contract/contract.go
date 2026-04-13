@@ -7,60 +7,63 @@ import (
 )
 
 // ContractConfig defines the configuration for contract validation.
+// It is the canonical type for contract configuration used by both the
+// pipeline (via YAML parsing) and the contract validation engine (via JSON/runtime).
 type ContractConfig struct {
-	Type        string   `json:"type"`
-	Source      string   `json:"source,omitempty"`
-	Schema      string   `json:"schema,omitempty"`
-	SchemaPath  string   `json:"schemaPath,omitempty"`
-	Command     string   `json:"command,omitempty"`
-	CommandArgs []string `json:"commandArgs,omitempty"`
-	Dir         string   `json:"dir,omitempty"`       // Working directory: "project_root", absolute path, or empty for workspace
-	MustPass    bool     `json:"must_pass,omitempty"` // Determines if validation failure blocks pipeline
-	MaxRetries  int      `json:"maxRetries,omitempty"`
+	Type        string   `json:"type"                    yaml:"type"`
+	Source      string   `json:"source,omitempty"        yaml:"source,omitempty"`
+	Schema      string   `json:"schema,omitempty"        yaml:"schema,omitempty"`
+	SchemaPath  string   `json:"schemaPath,omitempty"    yaml:"schema_path,omitempty"`
+	Validate    bool     `json:"validate,omitempty"      yaml:"validate,omitempty"`
+	Command     string   `json:"command,omitempty"       yaml:"command,omitempty"`
+	CommandArgs []string `json:"commandArgs,omitempty"   yaml:"command_args,omitempty"`
+	Dir         string   `json:"dir,omitempty"           yaml:"dir,omitempty"`        // Working directory: "project_root", absolute path, or empty for workspace
+	MustPass    bool     `json:"must_pass,omitempty"     yaml:"must_pass,omitempty"`  // Determines if validation failure blocks pipeline
+	MaxRetries  int      `json:"maxRetries,omitempty"    yaml:"max_retries,omitempty"`
 
 	// Progressive validation settings
-	ProgressiveValidation bool   `json:"progressive_validation,omitempty"` // Enable progressive validation with warnings
-	RecoveryLevel         string `json:"recovery_level,omitempty"`         // "conservative", "progressive", or "aggressive"
-	AllowRecovery         bool   `json:"allow_recovery,omitempty"`         // Enable automatic JSON recovery
-	WarnOnRecovery        bool   `json:"warn_on_recovery,omitempty"`       // Generate warnings instead of errors for recoverable issues
+	ProgressiveValidation bool   `json:"progressive_validation,omitempty" yaml:"progressive_validation,omitempty"` // Enable progressive validation with warnings
+	RecoveryLevel         string `json:"recovery_level,omitempty"         yaml:"recovery_level,omitempty"`         // "conservative", "progressive", or "aggressive"
+	AllowRecovery         bool   `json:"allow_recovery,omitempty"         yaml:"allow_recovery,omitempty"`         // Enable automatic JSON recovery
+	WarnOnRecovery        bool   `json:"warn_on_recovery,omitempty"       yaml:"warn_on_recovery,omitempty"`       // Generate warnings instead of errors for recoverable issues
 
 	// Wrapper detection settings
-	DisableWrapperDetection bool `json:"disable_wrapper_detection,omitempty"` // Disable error wrapper detection (default: false, detection enabled)
-	DebugMode               bool `json:"debug_mode,omitempty"`                // Enable debug logging for wrapper detection
+	DisableWrapperDetection bool `json:"disable_wrapper_detection,omitempty" yaml:"disable_wrapper_detection,omitempty"` // Disable error wrapper detection (default: false, detection enabled)
+	DebugMode               bool `json:"debug_mode,omitempty"                yaml:"debug_mode,omitempty"`                // Enable debug logging for wrapper detection
 
 	// LLM judge settings
-	Model     string   `json:"model,omitempty"`     // LLM model for judge evaluation; accepts tier names (cheapest, balanced, strongest) or literal model IDs
-	Criteria  []string `json:"criteria,omitempty"`  // Evaluation criteria for LLM judge
-	Threshold float64  `json:"threshold,omitempty"` // Pass threshold (0.0-1.0), default 1.0
+	Model     string   `json:"model,omitempty"     yaml:"model,omitempty"`     // LLM model for judge evaluation; accepts tier names (cheapest, balanced, strongest) or literal model IDs
+	Criteria  []string `json:"criteria,omitempty"  yaml:"criteria,omitempty"`  // Evaluation criteria for LLM judge
+	Threshold float64  `json:"threshold,omitempty" yaml:"threshold,omitempty"` // Pass threshold (0.0-1.0), default 1.0
 
 	// Convergence tracking for rework loops
-	ConvergenceWindow         int     `json:"convergence_window,omitempty"`          // Number of rounds to compare for stall detection (default 3)
-	ConvergenceMinImprovement float64 `json:"convergence_min_improvement,omitempty"` // Minimum score improvement to consider progress (default 0.05 = 5%)
+	ConvergenceWindow         int     `json:"convergence_window,omitempty"          yaml:"convergence_window,omitempty"`          // Number of rounds to compare for stall detection (default 3)
+	ConvergenceMinImprovement float64 `json:"convergence_min_improvement,omitempty" yaml:"convergence_min_improvement,omitempty"` // Minimum score improvement to consider progress (default 0.05 = 5%)
 
 	// Agent review settings
-	Persona      string                `json:"persona,omitempty"`      // Reviewer persona name
-	CriteriaPath string                `json:"criteriaPath,omitempty"` // Path to review criteria markdown
-	Context      []ReviewContextSource `json:"context,omitempty"`      // Context sources for the reviewer
-	TokenBudget  int                   `json:"tokenBudget,omitempty"`  // Max tokens for review agent
-	Timeout      string                `json:"timeout,omitempty"`      // Duration string for review timeout
-	ReworkStep   string                `json:"reworkStep,omitempty"`   // Step ID for on_failure: rework
-	OnFailure    string                `json:"onFailure,omitempty"`    // "fail", "skip", "continue", "rework"
+	Persona      string                `json:"persona,omitempty"      yaml:"persona,omitempty"`       // Reviewer persona name
+	CriteriaPath string                `json:"criteriaPath,omitempty" yaml:"criteria_path,omitempty"` // Path to review criteria markdown
+	Context      []ReviewContextSource `json:"context,omitempty"      yaml:"context,omitempty"`       // Context sources for the reviewer
+	TokenBudget  int                   `json:"tokenBudget,omitempty"  yaml:"token_budget,omitempty"`  // Max tokens for review agent
+	Timeout      string                `json:"timeout,omitempty"      yaml:"timeout,omitempty"`       // Duration string for review timeout
+	ReworkStep   string                `json:"reworkStep,omitempty"   yaml:"rework_step,omitempty"`   // Step ID for on_failure: rework
+	OnFailure    string                `json:"onFailure,omitempty"    yaml:"on_failure,omitempty"`    // "fail", "skip", "continue", "rework"
 	// ArtifactPaths provides artifact name→path mappings for artifact context sources.
 	// This is populated by the executor at validation time, not from YAML.
-	ArtifactPaths map[string]string `json:"artifactPaths,omitempty"`
+	ArtifactPaths map[string]string `json:"artifactPaths,omitempty" yaml:"-"`
 
 	// source_diff contract fields
-	Glob     string   `json:"glob,omitempty"`      // Glob pattern for qualifying source files
-	Exclude  []string `json:"exclude,omitempty"`   // Glob patterns for files to exclude
-	MinFiles int      `json:"min_files,omitempty"` // Minimum number of qualifying changed files required (default 1)
+	Glob     string   `json:"glob,omitempty"       yaml:"glob,omitempty"`      // Glob pattern for qualifying source files
+	Exclude  []string `json:"exclude,omitempty"    yaml:"exclude,omitempty"`   // Glob patterns for files to exclude
+	MinFiles int      `json:"min_files,omitempty"  yaml:"min_files,omitempty"` // Minimum number of qualifying changed files required (default 1)
 
 	// event_contains contract fields — validated by executor (needs event store access)
-	Events []EventPattern `json:"events,omitempty"` // Expected event patterns to match against the step's event log
+	Events []EventPattern `json:"events,omitempty" yaml:"events,omitempty"` // Expected event patterns to match against the step's event log
 
 	// spec_derived_test contract fields
-	SpecArtifact       string `json:"spec_artifact,omitempty"`       // Path to the specification artifact file
-	TestPersona        string `json:"test_persona,omitempty"`        // Persona that generates tests (must differ from implementer)
-	ImplementationStep string `json:"implementation_step,omitempty"` // Step ID of the implementation to validate
+	SpecArtifact       string `json:"spec_artifact,omitempty"        yaml:"spec_artifact,omitempty"`        // Path to the specification artifact file
+	TestPersona        string `json:"test_persona,omitempty"         yaml:"test_persona,omitempty"`         // Persona that generates tests (must differ from implementer)
+	ImplementationStep string `json:"implementation_step,omitempty"  yaml:"implementation_step,omitempty"` // Step ID of the implementation to validate
 }
 
 // ValidationError provides detailed information about contract validation failures.
