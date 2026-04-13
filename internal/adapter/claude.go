@@ -265,12 +265,9 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		systemPrompt += skillSection
 	}
 
-	// 2. Contract compliance section (auto-generated from step contract)
+	// 2. Concurrency hint (when MaxConcurrentAgents > 1); contract schema is
+	// appended to the user prompt by the executor, not the agent file.
 	contractSection := ""
-	if cfg.ContractPrompt != "" {
-		contractSection = cfg.ContractPrompt
-	}
-
 	// 2.5. Concurrency hint (when MaxConcurrentAgents > 1)
 	if hint := buildConcurrencyHint(cfg.MaxConcurrentAgents); hint != "" {
 		contractSection += hint

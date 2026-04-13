@@ -366,10 +366,6 @@ func TestContractIntegration_SchemaInjectedIntoPrompt(t *testing.T) {
 	assert.Contains(t, prompt, "confidence", "Prompt should contain schema field 'confidence'")
 	assert.Contains(t, prompt, "CRITICAL", "Prompt should contain contract compliance warning")
 
-	// ContractPrompt on the adapter config should be empty (no longer injected into agent .md)
-	configs := capturingAdapter.GetCapturedConfigs()
-	require.Len(t, configs, 1)
-	assert.Empty(t, configs[0].ContractPrompt, "ContractPrompt should be empty — schema now in user prompt")
 }
 
 func TestContractIntegration_InlineSchemaInjectedIntoPrompt(t *testing.T) {
@@ -423,10 +419,6 @@ func TestContractIntegration_InlineSchemaInjectedIntoPrompt(t *testing.T) {
 	assert.Contains(t, prompt, "status", "Prompt should contain inline schema field")
 	assert.Contains(t, prompt, "CRITICAL", "Prompt should contain contract compliance warning")
 
-	// ContractPrompt on the adapter config should be empty
-	configs := capturingAdapter.GetCapturedConfigs()
-	require.Len(t, configs, 1)
-	assert.Empty(t, configs[0].ContractPrompt, "ContractPrompt should be empty — schema now in user prompt")
 }
 
 // ============================================================================

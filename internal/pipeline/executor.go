@@ -2991,7 +2991,6 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		SkillCommandsDir:    skillCommandsDir,
 		ResolvedSkills:      resolvedSkillRefs,
 		OntologySection:     ontologySection,
-		ContractPrompt:      "", // Contract now in user prompt, not system prompt
 		MaxConcurrentAgents: step.MaxConcurrentAgents,
 		OnStreamEvent: func(evt adapter.StreamEvent) {
 			if evt.Type == "tool_use" && evt.ToolName != "" {
@@ -3031,7 +3030,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	})
 
 	// Iron Rule: estimate prompt size and check against context window
-	promptBytes := len(cfg.Prompt) + len(cfg.OntologySection) + len(cfg.ContractPrompt)
+	promptBytes := len(cfg.Prompt) + len(cfg.OntologySection)
 	if promptBytes > 0 && resolvedModel != "" {
 		ironStatus, ironMsg := cost.CheckIronRule(resolvedModel, promptBytes)
 		switch ironStatus {

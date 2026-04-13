@@ -466,14 +466,14 @@ func TestContractPrompt_EndToEndExecution(t *testing.T) {
 	err := executor.Execute(ctx, p, m, "test")
 	require.NoError(t, err)
 
-	// Schema injection is now in ContractPrompt (CLAUDE.md), NOT in the main prompt
+	// Schema injection is in the user prompt via buildContractPrompt(), NOT in the agent file.
 	prompts := mockAdapter.GetCapturedPrompts()
 	require.Len(t, prompts, 1)
 	capturedPrompt := prompts[0]
 
 	// Main prompt should NOT contain OUTPUT REQUIREMENTS (removed)
 	assert.NotContains(t, capturedPrompt, "OUTPUT REQUIREMENTS:",
-		"Main prompt should not contain schema injection — it's in ContractPrompt/CLAUDE.md")
+		"Main prompt should not contain schema injection")
 }
 
 // TestContractPrompt_RelativeSchemaPath tests handling of relative schema paths.
@@ -797,7 +797,7 @@ func TestContractPrompt_InjectArtifactsOnly(t *testing.T) {
 }
 
 // TestBuildStepPrompt_NoSchemaInjection verifies that buildStepPrompt no longer
-// injects schema content into the main prompt (schema is only in ContractPrompt).
+// injects schema content into the main prompt (schema is appended via buildContractPrompt).
 func TestBuildStepPrompt_NoSchemaInjection(t *testing.T) {
 	tmpDir := t.TempDir()
 
