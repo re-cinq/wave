@@ -271,7 +271,7 @@ func runResume(opts ResumeOptions, debug bool) error {
 
 	if execErr != nil {
 		var (
-			stepErr *pipeline.StepError
+			stepErr *pipeline.StepExecutionError
 			stepID  string
 			cause   = execErr
 		)

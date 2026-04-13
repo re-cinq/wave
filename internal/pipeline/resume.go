@@ -235,12 +235,12 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 
 // ResumeState holds state information needed for resumption
 type ResumeState struct {
-	States            map[string]string
-	Results           map[string]map[string]interface{}
-	ArtifactPaths     map[string]string
-	WorkspacePaths    map[string]string
-	CompletedSteps    []string
-	FailureContexts   map[string]*AttemptContext // stepID -> failure context from prior run
+	States              map[string]string
+	Results             map[string]map[string]interface{}
+	ArtifactPaths       map[string]string
+	WorkspacePaths      map[string]string
+	CompletedSteps      []string
+	FailureContexts     map[string]*AttemptContext // stepID -> failure context from prior run
 	ReworkTransitions   map[string]string          // failedStepID -> reworkStepID
 	DiscoveredWorktrees []string                   // absolute paths of worktrees found from prior run
 }
@@ -518,7 +518,7 @@ func (r *ResumeManager) executeResumedPipeline(ctx context.Context, execution *P
 					_ = r.executor.store.SavePipelineState(pipelineID, stateFailed, execution.Input)
 				}
 
-				return &StepError{StepID: step.ID, Err: err}
+				return &StepExecutionError{StepID: step.ID, Err: err}
 			}
 
 			execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)

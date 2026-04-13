@@ -252,7 +252,7 @@ func TestConcurrentStepFailure(t *testing.T) {
 	err := executor.Execute(ctx, p, m, "test")
 	assert.Error(t, err, "pipeline should fail when a concurrent step fails")
 
-	var stepErr *StepError
+	var stepErr *StepExecutionError
 	if errors.As(err, &stepErr) {
 		assert.Equal(t, "step-b", stepErr.StepID, "failed step should be step-b")
 	}
@@ -306,7 +306,7 @@ func TestSingleStepBatchNoOverhead(t *testing.T) {
 	assert.True(t, posB < posC, "step-b should execute before step-c")
 }
 
-// TestFailedStepAlwaysHasID ensures that StepError always carries the step ID,
+// TestFailedStepAlwaysHasID ensures that StepExecutionError always carries the step ID,
 // even when the step fails on a single-step batch (no concurrency).
 func TestFailedStepAlwaysHasID(t *testing.T) {
 	collector := testutil.NewEventCollector()
@@ -348,10 +348,10 @@ func TestFailedStepAlwaysHasID(t *testing.T) {
 	err := executor.Execute(ctx, p, m, "test")
 	require.Error(t, err)
 
-	var stepErr *StepError
-	require.True(t, errors.As(err, &stepErr), "error should be a StepError")
-	assert.Equal(t, "step-b", stepErr.StepID, "StepError must carry the failed step ID")
-	assert.NotEmpty(t, stepErr.StepID, "StepError.StepID must never be empty")
+	var stepErr *StepExecutionError
+	require.True(t, errors.As(err, &stepErr), "error should be a StepExecutionError")
+	assert.Equal(t, "step-b", stepErr.StepID, "StepExecutionError must carry the failed step ID")
+	assert.NotEmpty(t, stepErr.StepID, "StepExecutionError.StepID must never be empty")
 }
 
 // TestConcurrentStepWideFanOut tests a wide fan-out pattern with many parallel steps.
@@ -3917,8 +3917,8 @@ func TestOptionalStep_DefaultBehaviorPreserved(t *testing.T) {
 	err := executor.Execute(ctx, p, m, "test")
 	assert.Error(t, err, "pipeline should fail when required step fails")
 
-	var stepErr *StepError
-	assert.True(t, errors.As(err, &stepErr), "error should be a StepError")
+	var stepErr *StepExecutionError
+	assert.True(t, errors.As(err, &stepErr), "error should be a StepExecutionError")
 	assert.Equal(t, "step-1", stepErr.StepID)
 }
 
@@ -4112,8 +4112,8 @@ func TestOptionalStep_ExplicitOnFailurePrecedence(t *testing.T) {
 	err := executor.Execute(ctx, p, m, "test")
 	assert.Error(t, err, "pipeline should fail because explicit on_failure: fail takes precedence")
 
-	var stepErr *StepError
-	assert.True(t, errors.As(err, &stepErr), "error should be a StepError")
+	var stepErr *StepExecutionError
+	assert.True(t, errors.As(err, &stepErr), "error should be a StepExecutionError")
 }
 
 // TestOptionalStep_PipelineStatusCompleted verifies that pipeline status is completed
@@ -5166,7 +5166,7 @@ func (a *slowAdapter) Run(ctx context.Context, _ adapter.AdapterRunConfig) (*ada
 
 // TestConcurrentBatchCancellation verifies that when one step in a concurrent
 // batch fails (non-optional, default on_failure: fail), the errgroup cancels
-// remaining sibling steps and the pipeline returns a StepError.
+// remaining sibling steps and the pipeline returns a StepExecutionError.
 //
 // Steps A, B, C have no dependencies so they all land in the same ready batch.
 // B fails immediately; A and C are slow and should be cancelled.
@@ -5214,11 +5214,11 @@ func TestConcurrentBatchCancellation(t *testing.T) {
 	// Pipeline should fail
 	require.Error(t, err, "pipeline should fail when a non-optional step fails")
 
-	// The error should be a StepError (could be step-b's failure or a
+	// The error should be a StepExecutionError (could be step-b's failure or a
 	// sibling's context-cancelled error — errgroup returns whichever
 	// goroutine finishes first).
-	var stepErr *StepError
-	require.True(t, errors.As(err, &stepErr), "error should be a StepError, got: %T", err)
+	var stepErr *StepExecutionError
+	require.True(t, errors.As(err, &stepErr), "error should be a StepExecutionError, got: %T", err)
 
 	// Pipeline should complete quickly (not wait for slow steps to finish)
 	assert.Less(t, elapsed, 4*time.Second, "pipeline should not wait for slow steps after cancellation")
@@ -5538,9 +5538,9 @@ func TestExecutor_GateStep_Abort(t *testing.T) {
 	err := executor.Execute(ctx, p, m, "test abort gate")
 	require.Error(t, err, "pipeline should fail when gate aborts")
 
-	// The executor wraps gateAbortError inside a StepError
-	var stepErr *StepError
-	require.True(t, errors.As(err, &stepErr), "error should be a StepError")
+	// The executor wraps gateAbortError inside a StepExecutionError
+	var stepErr *StepExecutionError
+	require.True(t, errors.As(err, &stepErr), "error should be a StepExecutionError")
 	assert.Equal(t, "approve-plan", stepErr.StepID, "failed step should be approve-plan")
 
 	// Unwrap to find the gateAbortError

@@ -609,7 +609,7 @@ func TestPreflightRecovery_EndToEndFlow(t *testing.T) {
 	}
 
 	// Step 5: Extract error details (as run.go does)
-	var stepErr *pipeline.StepError
+	var stepErr *pipeline.StepExecutionError
 	var stepID string
 	cause := execErr
 	if errors.As(execErr, &stepErr) {
