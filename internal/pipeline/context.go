@@ -18,7 +18,7 @@ import (
 // missing project config fields resolve to empty strings instead of leaking
 // literal mustache syntax into prompts and contract commands.
 var (
-	unresolvedProjectVarRe = regexp.MustCompile(`\{\{\s*(?:project|ontology)\.\w+(?:\.\w+)?\s*\}\}`)
+	unresolvedProjectVarRe = regexp.MustCompile(`\{\{\s*(?:project|ontology)\.\w+(?:\.\w+)*\s*\}\}`)
 	threeDigitPrefixRe     = regexp.MustCompile(`^(\d{3})-`)
 	numericPrefixRe        = regexp.MustCompile(`(\d+)[-_]`)
 	invalidPathCharRe      = regexp.MustCompile(`[^a-zA-Z0-9\-_]`)

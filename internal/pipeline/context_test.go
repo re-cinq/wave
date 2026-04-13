@@ -92,6 +92,27 @@ func TestPipelineContext_ResolvePlaceholders(t *testing.T) {
 			template: "path/{{ custom_var }}/file.txt",
 			expected: "path/custom_value/file.txt",
 		},
+		// Unresolved {{ project.* }} placeholders are stripped — not leaked into prompts.
+		{
+			name:     "unresolved_project_var_1_segment",
+			template: "run {{ project.name }} now",
+			expected: "run  now",
+		},
+		{
+			name:     "unresolved_project_var_2_segments",
+			template: "cmd {{ project.build.tool }}",
+			expected: "cmd ",
+		},
+		{
+			name:     "unresolved_project_var_3_segments",
+			template: "path {{ project.services.api.path }}",
+			expected: "path ",
+		},
+		{
+			name:     "unresolved_ontology_var",
+			template: "ctx {{ ontology.bounded_context.name }}",
+			expected: "ctx ",
+		},
 	}
 
 	for _, tt := range tests {
