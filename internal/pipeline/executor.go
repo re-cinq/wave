@@ -4852,6 +4852,11 @@ func (e *DefaultPipelineExecutor) GetDeliverableTracker() *deliverable.Tracker {
 	return e.deliverableTracker
 }
 
+// GetRunID returns the run ID assigned to this executor (empty if not yet started).
+func (e *DefaultPipelineExecutor) GetRunID() string {
+	return e.runID
+}
+
 // GetTotalTokens returns the sum of tokens used across all completed steps.
 func (e *DefaultPipelineExecutor) GetTotalTokens() int {
 	e.mu.RLock()
