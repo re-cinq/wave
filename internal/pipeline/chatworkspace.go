@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/recinq/wave/internal/adapter"
-	"github.com/recinq/wave/internal/display"
+	"github.com/recinq/wave/internal/humanize"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -165,9 +165,9 @@ func buildChatClaudeMd(ctx *ChatContext, mode ChatMode, stepFilter, artifactName
 
 	if ctx.Run.CompletedAt != nil {
 		elapsed := ctx.Run.CompletedAt.Sub(ctx.Run.StartedAt)
-		fmt.Fprintf(&b, "| Duration | %s |\n", display.FormatDuration(elapsed.Milliseconds()))
+		fmt.Fprintf(&b, "| Duration | %s |\n", humanize.Duration(elapsed))
 	}
-	fmt.Fprintf(&b, "| Tokens | %s |\n", display.FormatTokenCount(ctx.Run.TotalTokens))
+	fmt.Fprintf(&b, "| Tokens | %s |\n", humanize.TokenCount(ctx.Run.TotalTokens))
 
 	if ctx.Run.Input != "" {
 		input := ctx.Run.Input
@@ -204,7 +204,7 @@ func buildChatClaudeMd(ctx *ChatContext, mode ChatMode, stepFilter, artifactName
 		}
 		fmt.Fprintf(&b, "| %d | %s | %s | %s | %s | %s |\n",
 			i+1, step.StepID, step.Persona, state,
-			display.FormatDuration(step.Duration.Milliseconds()), display.FormatTokenCount(step.TokensUsed))
+			humanize.Duration(step.Duration), humanize.TokenCount(step.TokensUsed))
 	}
 
 	// Filter artifacts based on stepFilter or artifactName
@@ -239,7 +239,7 @@ func buildChatClaudeMd(ctx *ChatContext, mode ChatMode, stepFilter, artifactName
 				artType = "-"
 			}
 			fmt.Fprintf(&b, "| %s | %s | %s | `%s` | %s |\n",
-				art.StepID, art.Name, artType, art.Path, display.FormatFileSize(art.SizeBytes))
+				art.StepID, art.Name, artType, art.Path, humanize.FileSize(art.SizeBytes))
 		}
 	}
 

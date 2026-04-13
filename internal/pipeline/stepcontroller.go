@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/recinq/wave/internal/adapter"
-	"github.com/recinq/wave/internal/display"
+	"github.com/recinq/wave/internal/humanize"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -440,10 +440,10 @@ func writeStepContext(b *strings.Builder, chatCtx *ChatContext, step *ChatStepCo
 	fmt.Fprintf(b, "| Run ID | `%s` |\n", chatCtx.Run.RunID)
 
 	if step.Duration > 0 {
-		fmt.Fprintf(b, "| Duration | %s |\n", display.FormatDuration(step.Duration.Milliseconds()))
+		fmt.Fprintf(b, "| Duration | %s |\n", humanize.Duration(step.Duration))
 	}
 	if step.TokensUsed > 0 {
-		fmt.Fprintf(b, "| Tokens | %s |\n", display.FormatTokenCount(step.TokensUsed))
+		fmt.Fprintf(b, "| Tokens | %s |\n", humanize.TokenCount(step.TokensUsed))
 	}
 	if step.WorkspacePath != "" {
 		fmt.Fprintf(b, "| Workspace | `%s` |\n", step.WorkspacePath)
