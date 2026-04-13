@@ -8,9 +8,8 @@
         <a href="/runs" class="back-link">&larr; Runs</a>
         <h1>
             <a href="/pipelines/{{.Run.PipelineName}}">{{.Run.PipelineName}}</a>
-            <span class="badge {{statusClass .Run.Status}}">{{.Run.Status}}</span>
+            <span class="badge {{statusClass .Run.Status}}">{{statusLabel .Run.Status}}</span>
             <code style="font-size:0.62rem;color:var(--color-text-muted);font-weight:400;background:var(--color-bg-tertiary);padding:0.1rem 0.4rem;border-radius:3px;">{{.Run.RunID}}</code>
-            {{if .Run.BranchName}}<span style="font-size:0.65rem;font-weight:400;color:var(--color-text-secondary);background:rgba(34,197,94,0.1);padding:0.1rem 0.4rem;border-radius:3px;">&#9741; {{.Run.BranchName}}</span>{{end}}
         </h1>
         {{if .PipelineDescription}}<p style="margin:0.1rem 0 0.3rem;font-size:0.8rem;color:var(--color-text-secondary);max-width:48rem;">{{.PipelineDescription}}</p>{{end}}
     </div>
@@ -33,6 +32,7 @@
     <span><b>{{formatTokens .Run.TotalTokens}}</b> tok</span>
     {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{friendlyModel .}}</span>{{end}}
     {{range .Models}}<span class="badge badge-model {{modelTierClass .}}">{{friendlyModel .}}</span>{{end}}
+    {{if .Run.BranchName}}<span style="font-size:0.72rem;color:var(--color-text-secondary);background:rgba(34,197,94,0.1);padding:0.1rem 0.4rem;border-radius:3px;">&#9741; {{.Run.BranchName}}</span>{{end}}
     <span style="margin-left:auto;display:flex;gap:0.15rem;">
         {{if .Events}}<button class="w-sec-tab" onclick="switchTab('events',this)">Events ({{len .Events}})</button>{{end}}
         <button class="w-sec-tab" onclick="switchTab('config',this)">Config</button>
