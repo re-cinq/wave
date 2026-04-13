@@ -17,13 +17,14 @@ import (
 type StepState string
 
 const (
-	StatePending   StepState = "pending"
-	StateRunning   StepState = "running"
-	StateCompleted StepState = "completed"
-	StateFailed    StepState = "failed"
-	StateRetrying  StepState = "retrying"
-	StateSkipped   StepState = "skipped"
-	StateReworking StepState = "reworking"
+	StatePending        StepState = "pending"
+	StateRunning        StepState = "running"
+	StateCompleted      StepState = "completed"
+	StateCompletedEmpty StepState = "completed_empty" // Step completed but produced no meaningful changes (zero diff in worktree)
+	StateFailed         StepState = "failed"
+	StateRetrying       StepState = "retrying"
+	StateSkipped        StepState = "skipped"
+	StateReworking      StepState = "reworking"
 )
 
 // PipelineStateRecord holds persisted pipeline state.
@@ -378,7 +379,7 @@ func (s *stateStore) SaveStepState(pipelineID string, stepID string, state StepS
 	if state == StateRunning || state == StateRetrying {
 		startedAt = &now
 	}
-	if state == StateCompleted || state == StateFailed {
+	if state == StateCompleted || state == StateCompletedEmpty || state == StateFailed {
 		completedAt = &now
 	}
 

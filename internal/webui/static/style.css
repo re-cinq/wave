@@ -31,6 +31,8 @@
     --color-cancelled-bg: rgba(139, 148, 158, 0.15);
     --color-pending: #d29922;
     --color-pending-bg: rgba(210, 153, 34, 0.15);
+    --color-completed-empty: #d29922;
+    --color-completed-empty-bg: rgba(210, 153, 34, 0.12);
     /* Model tier colors */
     --color-tier-strongest: #a78bfa;
     --color-tier-strongest-bg: rgba(139, 92, 246, 0.15);
@@ -85,6 +87,8 @@
     --color-failed-bg: rgba(220, 38, 38, 0.1);
     --color-cancelled: #64748b;
     --color-cancelled-bg: rgba(100, 116, 139, 0.1);
+    --color-completed-empty: #ca8a04;
+    --color-completed-empty-bg: rgba(202, 138, 4, 0.1);
     --color-pending: #ca8a04;
     --color-pending-bg: rgba(202, 138, 4, 0.1);
     /* Model tier colors (light) */
@@ -407,6 +411,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 /* Status Badges */
 .badge { display: inline-block; padding: 0.15em 0.55em; font-size: 0.75rem; font-weight: 600; border-radius: 2em; text-transform: capitalize; line-height: 1.4; }
 .status-completed { background: var(--color-completed-bg); color: var(--color-completed); }
+.status-completed-empty { background: var(--color-completed-empty-bg); color: var(--color-completed-empty); }
 .badge.status-running, .status-running { background: var(--color-running-bg); color: var(--color-running) !important; }
 .status-failed { background: var(--color-failed-bg); color: var(--color-failed); }
 .status-cancelled { background: var(--color-cancelled-bg); color: var(--color-cancelled); }
@@ -658,6 +663,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
     font-size: 0.85rem; margin-right: 0.25rem; vertical-align: middle;
 }
 .status-icon-completed { color: var(--color-completed); }
+.status-icon-completed-empty { color: var(--color-completed-empty); }
 .status-icon-running { color: var(--color-running); animation: pulse 2s ease-in-out infinite; }
 .status-icon-failed { color: var(--color-failed); }
 .status-icon-cancelled { color: var(--color-cancelled); }
@@ -713,6 +719,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 }
 .step-card.status-running { border-left-color: var(--color-running); }
 .step-card.status-completed { border-left-color: var(--color-completed); }
+.step-card.status-completed-empty { border-left-color: var(--color-completed-empty); }
 .step-card.status-failed { border-left-color: var(--color-failed); }
 .step-card.status-pending { border-left-color: var(--color-pending); }
 .step-card.status-cancelled { border-left-color: var(--color-cancelled); }

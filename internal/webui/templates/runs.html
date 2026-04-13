@@ -10,6 +10,7 @@
     <div class="wr-filters">
         <a href="/runs?status=all" class="wr-filter{{if eq .FilterStatus "all"}} active{{end}}">All</a>
         <a href="/runs?status=completed" class="wr-filter{{if eq .FilterStatus "completed"}} active{{end}}">Completed</a>
+        <a href="/runs?status=completed_empty" class="wr-filter{{if eq .FilterStatus "completed_empty"}} active{{end}}">No Changes</a>
         <a href="/runs?status=failed" class="wr-filter{{if eq .FilterStatus "failed"}} active{{end}}">Failed</a>
         <a href="/runs?status=cancelled" class="wr-filter{{if eq .FilterStatus "cancelled"}} active{{end}}">Cancelled</a>
     </div>
