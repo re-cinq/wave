@@ -139,7 +139,7 @@ func TestCopyRecursive_BrokenSymlinkSkipped(t *testing.T) {
 	}
 }
 
-func TestCopyFile_SingleFile(t *testing.T) {
+func TestCopyPath_SingleFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	srcFile := filepath.Join(tmpDir, "source.txt")
@@ -149,7 +149,7 @@ func TestCopyFile_SingleFile(t *testing.T) {
 	}
 
 	dstFile := filepath.Join(tmpDir, "dest.txt")
-	if err := fileutil.CopyFile(srcFile, dstFile); err != nil {
+	if err := fileutil.CopyPath(srcFile, dstFile); err != nil {
 		t.Fatalf("copyFile failed: %v", err)
 	}
 
@@ -162,9 +162,9 @@ func TestCopyFile_SingleFile(t *testing.T) {
 	}
 }
 
-func TestCopyFile_SourceNotFound(t *testing.T) {
+func TestCopyPath_SourceNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	err := fileutil.CopyFile(filepath.Join(tmpDir, "nonexistent"), filepath.Join(tmpDir, "dest"))
+	err := fileutil.CopyPath(filepath.Join(tmpDir, "nonexistent"), filepath.Join(tmpDir, "dest"))
 	if err == nil {
 		t.Error("expected error for non-existent source file")
 	}
