@@ -145,6 +145,7 @@ type PipelineDetailStep struct {
 	WorkspaceBase      string   `json:"workspace_base,omitempty"`
 	WorkspaceRef       string   `json:"workspace_ref,omitempty"`
 	MountMode          string   `json:"mount_mode,omitempty"`
+	MaxConcurrentAgents int    `json:"max_concurrent_agents,omitempty"`
 }
 
 // PipelineDetail holds full pipeline info for the detail dialog.
@@ -321,7 +322,8 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 			WorkspaceBranch:    wsBranch,
 			WorkspaceBase:      wsBase,
 			WorkspaceRef:       wsRef,
-			MountMode:          mountMode,
+			MountMode:           mountMode,
+		MaxConcurrentAgents: step.MaxConcurrentAgents,
 		})
 	}
 	// Compute DAG depth for indentation

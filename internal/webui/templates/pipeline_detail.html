@@ -378,6 +378,7 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
             if(step.contract) h+=kv('Contract',step.contract_schema_name?'<a href="/contracts/'+escapeHTML(step.contract_schema_name)+'" class="ws-code-link" title="'+escapeHTML(step.contract)+'">'+escapeHTML(step.contract_schema_name)+'</a>':'<code>'+escapeHTML(step.contract)+'</code>');
             if(step.on_failure) h+=kv('On failure','<code>'+escapeHTML(step.on_failure)+'</code>');
             if(step.retry_policy) h+=kv('Retry','<code>'+escapeHTML(step.retry_policy)+'</code>'+(step.max_attempts?' (max '+step.max_attempts+')':''));
+            if(step.max_concurrent_agents) h+=kv('Concurrency','<code>'+step.max_concurrent_agents+'</code> agents');
             if(step.input_artifacts&&step.input_artifacts.length) h+=kv('Receives',step.input_artifacts.map(function(a){return '<code>'+escapeHTML(a)+'</code>';}).join(' '));
             if(step.artifacts&&step.artifacts.length) h+=kv('Produces',step.artifacts.map(function(a){return '<code>'+escapeHTML(a)+'</code>';}).join(' '));
             if(step.type==='gate'||step.type==='conditional'){
