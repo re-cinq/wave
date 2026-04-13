@@ -61,7 +61,7 @@ When a CI environment is detected, Wave adjusts display behavior (disables inter
 
 ## Hook Environment Variables
 
-When a [lifecycle hook](/reference/hooks) executes, Wave injects these variables into the hook subprocess environment:
+When a lifecycle hook executes, Wave injects these variables into the hook subprocess environment:
 
 | Variable | Description |
 |----------|-------------|
