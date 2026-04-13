@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/recinq/wave/internal/doctor"
-	"github.com/recinq/wave/internal/forge"
 )
 
 // Proposal contains a prioritized list of pipeline proposals.
@@ -255,21 +254,6 @@ func inCatalog(catalog []string, name string) bool {
 	return false
 }
 
-// FilterByForge filters proposals to those matching the forge's pipeline prefix.
-func FilterByForge(proposals []ProposedPipeline, fi *forge.ForgeInfo) []ProposedPipeline {
-	if fi == nil || fi.PipelinePrefix == "" {
-		return proposals
-	}
-	prefix := fi.PipelinePrefix + "-"
-	var filtered []ProposedPipeline
-	for _, p := range proposals {
-		if strings.HasPrefix(p.Name, prefix) || !hasAnyForgePrefix(p.Name) {
-			filtered = append(filtered, p)
-		}
-	}
-	return filtered
-}
-
 // detectSequences checks if complementary pipelines are both proposed (e.g.
 // research + implement) and adds a sequence proposal that chains them.
 func detectSequences(proposals []ProposedPipeline, _ []string, _ string) []ProposedPipeline {
@@ -352,11 +336,3 @@ func stripForgePrefix(name string) string {
 	return name
 }
 
-func hasAnyForgePrefix(name string) bool {
-	for _, p := range forgePrefixes {
-		if strings.HasPrefix(name, p) {
-			return true
-		}
-	}
-	return false
-}

@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Semantic convergence tracking for rework loops — aborts early when LLM judge scores plateau (#772)
+- `wave analyze --decisions` provenance CLI showing orchestration decision table (#772)
+- Toast notifications in WebUI via attention SSE state transitions (#772)
+- Gate smoke test pipeline (`wave-smoke-gates`) for validating gate step execution (#772)
+- LoreProvider interface for historical classification enrichment (#772)
+- V&V Patterns documentation guide with contract types reference (#772)
+- Sub-pipeline diff fix: child worktree branch propagated to parent for diff endpoint (#772)
+- Attention classifier with brand logo state transitions (#772)
+- Wave orchestrator pipeline for task classification and pipeline routing (#772)
 - Run options parity across CLI, TUI, WebUI, and API — all surfaces now expose the full set of pipeline run options organized into four tiers: Essential, Execution, Continuous, and Dev/Debug (#717)
 - Inline tiered run form on WebUI pipeline detail page replacing the modal dialog
 - Adapter, timeout, from-step, steps, exclude, detach, and on-failure options in TUI pipeline launcher
