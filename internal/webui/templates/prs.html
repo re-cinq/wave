@@ -84,7 +84,9 @@ function filterItems(query) {
             var doc=new DOMParser().parseFromString(html,'text/html');
             doc.querySelectorAll('.wr-list > *').forEach(function(el){list.appendChild(el.cloneNode(true));});
             var nl=doc.getElementById('wr-loader');
-            if(nl){nextUrl=nl.dataset.next;loading=false;loader.classList.remove('active');}
+            if(nl){nextUrl=nl.dataset.next;loading=false;loader.classList.remove('active');
+                if(loader.getBoundingClientRect().top<window.innerHeight+300)loadMore();
+            }
             else{loader.remove();}
         }).catch(function(){loader.classList.remove('active');loading=false;});
     }

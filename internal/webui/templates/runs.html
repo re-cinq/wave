@@ -207,6 +207,8 @@ function filterRuns(query) {
                 nextUrl=newLoader.dataset.next;
                 loading=false;
                 loader.classList.remove('active');
+                // Re-check: if viewport still not overflowing, load next batch
+                if(loader.getBoundingClientRect().top<window.innerHeight+300) loadMore();
             } else {
                 loader.remove();
             }
