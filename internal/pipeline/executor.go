@@ -116,6 +116,8 @@ type DefaultPipelineExecutor struct {
 	costLedger *cost.Ledger
 	// Webhook runner for dynamic webhook delivery (non-blocking)
 	webhookRunner *hooks.WebhookRunner
+	// Task-level complexity from classifier (empty = no task-aware routing)
+	taskComplexity string
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -158,6 +160,13 @@ func WithStepTimeout(d time.Duration) ExecutorOption {
 
 func WithModelOverride(model string) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.modelOverride = model }
+}
+
+// WithTaskComplexity sets the task-level complexity from the classifier.
+// When set, it adjusts model routing: simple tasks cap at balanced,
+// complex/architectural tasks floor at balanced.
+func WithTaskComplexity(complexity string) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.taskComplexity = complexity }
 }
 
 func WithForceModel(force bool) ExecutorOption {
@@ -3377,6 +3386,9 @@ func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Per
 	}
 	if routing != nil && routing.AutoRoute {
 		tier := ClassifyStepComplexity(step, persona, personaName)
+		if e.taskComplexity != "" {
+			tier = AdjustTierForTaskComplexity(tier, e.taskComplexity)
+		}
 		if resolved, isTier := resolveTierModel(tier, routing, adapterTierModels); isTier {
 			return resolved
 		}
