@@ -135,8 +135,8 @@ onUnmounted(() => {
 })
 
 const heroProps = computed(() => ({
-  title: 'Wave · AI-as-Code for Agent Factories',
-  tagline: 'V&V orchestration for AI agent factories. Contract-validated. Gate-controlled. Composable.',
+  title: 'Wave · Self-Adaptive V&V Orchestration',
+  tagline: 'Wave classifies tasks, selects pipelines, validates outputs, and learns from results. Contract-validated. Gate-controlled. Self-correcting.',
   primaryAction: {
     text: 'Get Started',
     link: '/quickstart'
@@ -150,9 +150,10 @@ const heroProps = computed(() => ({
     ...terminals[pipelineIndex.value]
   },
   valuePills: [
+    { label: 'Self-Adaptive', link: '/guide/vv-paradigm', tooltip: 'Task classification → pipeline selection → execution → feedback loop' },
     { label: 'Contract-Validated', link: '/guide/contracts', tooltip: '11 contract types validate every step boundary' },
     { label: 'Gate-Controlled', link: '/guide/human-gates', tooltip: '4 gate types: approval, timer, PR merge, CI pass' },
-    { label: 'Composable', link: '/guide/composition', tooltip: 'Sub-pipelines, iterate, branch, loop, aggregate' },
+    { label: 'Self-Correcting', link: '/guides/vv-patterns', tooltip: 'Rework loops with convergence tracking abort stalled retries' },
     { label: 'Any Agent', link: '/reference/adapters', tooltip: 'Claude, Gemini, OpenCode, Codex — or mix them' },
     { label: 'Git-Native', link: '/concepts/workspaces', tooltip: 'Real worktrees, real branches, real isolation' }
   ],
@@ -162,9 +163,9 @@ const heroProps = computed(() => ({
 const features = [
   {
     icon: 'evolution',
-    title: 'Factory-Grade Guardrails',
-    description: 'Too loose and agents go rogue. Too tight and they accomplish nothing. Per-persona scoping gives each agent exactly the access it needs — no more, no less.',
-    link: '/concepts/ai-as-code'
+    title: 'Self-Adaptive Orchestration',
+    description: 'Describe a task and Wave classifies it, selects the right pipeline, executes it, and records the outcome. The feedback loop improves routing over time.',
+    link: '/guide/vv-paradigm'
   },
   {
     icon: 'pipeline',
@@ -193,7 +194,7 @@ const features = [
   {
     icon: 'ready',
     title: 'Ready-to-Run Pipelines',
-    description: '53 built-in pipelines for code review, security scanning, documentation, and issue implementation — ready to plug into your agent factory.',
+    description: '82 built-in pipelines for code review, security scanning, documentation, issue implementation, and orchestration — ready to plug into your agent factory.',
     link: '/use-cases/'
   },
   {
@@ -204,14 +205,15 @@ const features = [
   },
   {
     icon: 'thread',
-    title: 'Thread Fidelity Control',
-    description: 'Four fidelity levels — full, compact, summary, fresh — control how conversation context flows between steps. Fresh memory per step is the default; thread continuity is opt-in.',
-    link: '/guide/vv-paradigm'
+    title: 'Rework Loops & Convergence',
+    description: 'When a contract fails, Wave feeds the error back and retries. Convergence tracking detects score plateaus and aborts stalled loops to save tokens.',
+    link: '/guides/vv-patterns'
   },
   {
     icon: 'compose',
-    title: 'Composition Pipelines',
-    description: 'Chain pipelines into multi-stage workflows. Parent pipelines dispatch child runs, inject artifacts, and extract results — enabling issue-to-merge automation.',
+    title: 'Project Ontology',
+    badge: 'preview',
+    description: 'Declare bounded contexts, invariants, and conventions in wave.yaml. When enabled, Wave injects domain knowledge into steps and tracks context success rates.',
     link: '/guide/vv-paradigm'
   },
   {
@@ -266,22 +268,27 @@ const features = [
 
 <div class="vv-section">
   <h2 class="vv-heading">How Wave Verifies Agent Work</h2>
-  <p class="vv-lead">A three-layer verification & validation model ensures every pipeline output meets quality, structural, and behavioral requirements.</p>
+  <p class="vv-lead">A four-layer verification & validation model ensures every pipeline output meets quality, structural, and behavioral requirements.</p>
   <div class="vv-grid">
     <div class="vv-card">
       <div class="vv-layer">Layer 1</div>
+      <div class="vv-name">Ontology <span style="font-size:0.7em;opacity:0.6">preview</span></div>
+      <p>Bounded contexts inject domain invariants and conventions into agent sessions. Lineage tracking measures which contexts produce the best outcomes.</p>
+    </div>
+    <div class="vv-card">
+      <div class="vv-layer">Layer 2</div>
       <div class="vv-name">Personas</div>
       <p>Role-scoped agents with controlled tool access, temperature, and git forensics capabilities for each pipeline step.</p>
     </div>
     <div class="vv-card">
-      <div class="vv-layer">Layer 2</div>
+      <div class="vv-layer">Layer 3</div>
       <div class="vv-name">Contracts</div>
-      <p>11 structural validation types (JSON schema, test suite, LLM judge, spec-derived test, and more) with hard and soft enforcement modes.</p>
+      <p>11 contract types with rework loops and convergence tracking. Self-correcting steps retry with feedback until quality thresholds are met.</p>
     </div>
     <div class="vv-card">
-      <div class="vv-layer">Layer 3</div>
+      <div class="vv-layer">Layer 4</div>
       <div class="vv-name">Gates</div>
-      <p>Four outcome validation checkpoints — human approval, timed waits, PR merge polling, and CI pass polling.</p>
+      <p>Four checkpoint types — human approval, timed waits, PR merge polling, and CI pass polling — with toast notifications for attention states.</p>
     </div>
   </div>
 </div>
