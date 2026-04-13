@@ -1295,9 +1295,9 @@ func TestResumeWithExcludeFilter(t *testing.T) {
 }
 
 // TestExecuteResumedPipeline_ReturnsStepError verifies that errors from
-// executeResumedPipeline are wrapped as *StepError so the CLI can extract
+// executeResumedPipeline are wrapped as *StepExecutionError so the CLI can extract
 // the step ID via errors.As() for recovery hints.
-func TestExecuteResumedPipeline_ReturnsStepError(t *testing.T) {
+func TestExecuteResumedPipeline_ReturnsStepExecutionError(t *testing.T) {
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
 	_ = os.Chdir(tmpDir)
@@ -1338,14 +1338,14 @@ func TestExecuteResumedPipeline_ReturnsStepError(t *testing.T) {
 		t.Fatal("expected error from resumed pipeline, got nil")
 	}
 
-	// Verify the error is a *StepError
-	var stepErr *StepError
+	// Verify the error is a *StepExecutionError
+	var stepErr *StepExecutionError
 	if !errors.As(err, &stepErr) {
-		t.Fatalf("expected error to be *StepError, got %T: %v", err, err)
+		t.Fatalf("expected error to be *StepExecutionError, got %T: %v", err, err)
 	}
 
 	if stepErr.StepID != "step-b" {
-		t.Errorf("expected StepError.StepID = %q, got %q", "step-b", stepErr.StepID)
+		t.Errorf("expected StepExecutionError.StepID = %q, got %q", "step-b", stepErr.StepID)
 	}
 
 	// Verify the original error is preserved

@@ -97,6 +97,37 @@ func parseAndWriteSkills(_ context.Context, paths []string, store Store) (*Insta
 	return result, nil
 }
 
+// installViaCLI runs a CLI command in a fresh temp directory, discovers SKILL.md
+// files in the result, and writes them to the store. It is the shared body for
+// adapters whose Install methods differ only in dependency, temp-dir prefix, and
+// command arguments (BMAD, OpenSpec, SpecKit). TesslAdapter stays inline because
+// it needs to pass a ref argument and format a different error message.
+func installViaCLI(ctx context.Context, dep CLIDependency, lookPath lookPathFunc, tmpPrefix string, args []string, errPrefix string, store Store) (*InstallResult, error) {
+	if err := checkDependency(dep, lookPath); err != nil {
+		return nil, err
+	}
+	tmpDir, err := os.MkdirTemp("", tmpPrefix)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+	ctx, cancel := context.WithTimeout(ctx, CLITimeout)
+	defer cancel()
+	//nolint:gosec // args are hardcoded by each adapter, not user-controlled
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	cmd.Dir = tmpDir
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("%s failed: %v\nstderr: %s", errPrefix, err, stderr.String())
+	}
+	paths, err := discoverSkillFiles(tmpDir)
+	if err != nil {
+		return nil, err
+	}
+	return parseAndWriteSkills(ctx, paths, store)
+}
+
 // TesslAdapter installs skills from the Tessl registry via the tessl CLI.
 type TesslAdapter struct {
 	dep      CLIDependency
@@ -173,35 +204,9 @@ func (a *BMADAdapter) Prefix() string { return "bmad" }
 
 // Install runs `npx bmad-method install --tools claude-code --yes` and discovers skills.
 func (a *BMADAdapter) Install(ctx context.Context, _ string, store Store) (*InstallResult, error) {
-	if err := checkDependency(a.dep, a.lookPath); err != nil {
-		return nil, err
-	}
-
-	tmpDir, err := os.MkdirTemp("", "wave-skill-bmad-*")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create temp directory: %w", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	ctx, cancel := context.WithTimeout(ctx, CLITimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "npx", "bmad-method", "install", "--tools", "claude-code", "--yes")
-	cmd.Dir = tmpDir
-
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("npx bmad-method install failed: %v\nstderr: %s", err, stderr.String())
-	}
-
-	paths, err := discoverSkillFiles(tmpDir)
-	if err != nil {
-		return nil, err
-	}
-
-	return parseAndWriteSkills(ctx, paths, store)
+	return installViaCLI(ctx, a.dep, a.lookPath, "wave-skill-bmad-*",
+		[]string{"npx", "bmad-method", "install", "--tools", "claude-code", "--yes"},
+		"npx bmad-method install", store)
 }
 
 // OpenSpecAdapter installs skills from the OpenSpec ecosystem.
@@ -226,35 +231,8 @@ func (a *OpenSpecAdapter) Prefix() string { return "openspec" }
 
 // Install runs `openspec init` and discovers resulting skill files.
 func (a *OpenSpecAdapter) Install(ctx context.Context, _ string, store Store) (*InstallResult, error) {
-	if err := checkDependency(a.dep, a.lookPath); err != nil {
-		return nil, err
-	}
-
-	tmpDir, err := os.MkdirTemp("", "wave-skill-openspec-*")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create temp directory: %w", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	ctx, cancel := context.WithTimeout(ctx, CLITimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "openspec", "init")
-	cmd.Dir = tmpDir
-
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("openspec init failed: %v\nstderr: %s", err, stderr.String())
-	}
-
-	paths, err := discoverSkillFiles(tmpDir)
-	if err != nil {
-		return nil, err
-	}
-
-	return parseAndWriteSkills(ctx, paths, store)
+	return installViaCLI(ctx, a.dep, a.lookPath, "wave-skill-openspec-*",
+		[]string{"openspec", "init"}, "openspec init", store)
 }
 
 // SpecKitAdapter installs skills from the SpecKit ecosystem.
@@ -279,33 +257,6 @@ func (a *SpecKitAdapter) Prefix() string { return "speckit" }
 
 // Install runs `specify init` and discovers resulting skill files.
 func (a *SpecKitAdapter) Install(ctx context.Context, _ string, store Store) (*InstallResult, error) {
-	if err := checkDependency(a.dep, a.lookPath); err != nil {
-		return nil, err
-	}
-
-	tmpDir, err := os.MkdirTemp("", "wave-skill-speckit-*")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create temp directory: %w", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	ctx, cancel := context.WithTimeout(ctx, CLITimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "specify", "init")
-	cmd.Dir = tmpDir
-
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("specify init failed: %v\nstderr: %s", err, stderr.String())
-	}
-
-	paths, err := discoverSkillFiles(tmpDir)
-	if err != nil {
-		return nil, err
-	}
-
-	return parseAndWriteSkills(ctx, paths, store)
+	return installViaCLI(ctx, a.dep, a.lookPath, "wave-skill-speckit-*",
+		[]string{"specify", "init"}, "specify init", store)
 }

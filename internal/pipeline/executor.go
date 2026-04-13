@@ -790,7 +790,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 				e.retroGenerator.Generate(pipelineID, execution.Pipeline.Metadata.Name)
 			}
 			e.cleanupCompletedPipeline(pipelineID)
-			return &StepError{StepID: failedStepID, Err: err}
+			return &StepExecutionError{StepID: failedStepID, Err: err}
 		}
 
 		// Process batch results: steps may have completed, failed (optional), or been skipped
@@ -4929,7 +4929,7 @@ func (e *DefaultPipelineExecutor) Resume(ctx context.Context, pipelineID string,
 				execution.Status.FailedSteps = append(execution.Status.FailedSteps, step.ID)
 				// Clean up failed pipeline from in-memory storage to prevent memory leak
 				e.cleanupCompletedPipeline(execution.Status.ID)
-				return &StepError{StepID: step.ID, Err: err}
+				return &StepExecutionError{StepID: step.ID, Err: err}
 			}
 			execution.Status.CompletedSteps = append(execution.Status.CompletedSteps, step.ID)
 		}

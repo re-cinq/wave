@@ -34,7 +34,7 @@ func IsRetryable(class string) bool {
 
 // ClassifyStepFailure determines the failure class for a step based on the
 // execution error, contract validation error, and context error. It inspects
-// typed errors first (StepError, ValidationError), then falls back to
+// typed errors first (StepExecutionError, ValidationError), then falls back to
 // pattern matching on the error message.
 func ClassifyStepFailure(err error, contractErr error, ctxErr error) string {
 	// Context errors take highest priority.

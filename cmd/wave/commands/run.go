@@ -633,10 +633,10 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 
 	if execErr != nil {
-		// Extract step ID from StepError when available; fall back gracefully
+		// Extract step ID from StepExecutionError when available; fall back gracefully
 		// so recovery hints are shown for all failure paths (including resume).
 		var (
-			stepErr *pipeline.StepError
+			stepErr *pipeline.StepExecutionError
 			stepID  string
 			cause   = execErr
 		)
