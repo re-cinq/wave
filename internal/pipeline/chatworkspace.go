@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -165,9 +165,9 @@ func buildChatClaudeMd(ctx *ChatContext, mode ChatMode, stepFilter, artifactName
 
 	if ctx.Run.CompletedAt != nil {
 		elapsed := ctx.Run.CompletedAt.Sub(ctx.Run.StartedAt)
-		fmt.Fprintf(&b, "| Duration | %s |\n", chatFormatDuration(elapsed))
+		fmt.Fprintf(&b, "| Duration | %s |\n", display.FormatDuration(elapsed.Milliseconds()))
 	}
-	fmt.Fprintf(&b, "| Tokens | %s |\n", chatFormatTokens(ctx.Run.TotalTokens))
+	fmt.Fprintf(&b, "| Tokens | %s |\n", display.FormatTokenCount(ctx.Run.TotalTokens))
 
 	if ctx.Run.Input != "" {
 		input := ctx.Run.Input
@@ -204,7 +204,7 @@ func buildChatClaudeMd(ctx *ChatContext, mode ChatMode, stepFilter, artifactName
 		}
 		fmt.Fprintf(&b, "| %d | %s | %s | %s | %s | %s |\n",
 			i+1, step.StepID, step.Persona, state,
-			chatFormatDuration(step.Duration), chatFormatTokens(step.TokensUsed))
+			display.FormatDuration(step.Duration.Milliseconds()), display.FormatTokenCount(step.TokensUsed))
 	}
 
 	// Filter artifacts based on stepFilter or artifactName
@@ -239,7 +239,7 @@ func buildChatClaudeMd(ctx *ChatContext, mode ChatMode, stepFilter, artifactName
 				artType = "-"
 			}
 			fmt.Fprintf(&b, "| %s | %s | %s | `%s` | %s |\n",
-				art.StepID, art.Name, artType, art.Path, chatFormatSize(art.SizeBytes))
+				art.StepID, art.Name, artType, art.Path, display.FormatFileSize(art.SizeBytes))
 		}
 	}
 
@@ -395,52 +395,6 @@ func buildChatClaudeMd(ctx *ChatContext, mode ChatMode, stepFilter, artifactName
 	}
 
 	return b.String()
-}
-
-// chatFormatDuration formats a duration for display.
-func chatFormatDuration(d time.Duration) string {
-	if d == 0 {
-		return "-"
-	}
-	if d < time.Minute {
-		return fmt.Sprintf("%ds", int(d.Seconds()))
-	}
-	minutes := int(d.Minutes())
-	seconds := int(d.Seconds()) % 60
-	if minutes >= 60 {
-		hours := minutes / 60
-		minutes %= 60
-		return fmt.Sprintf("%dh%dm", hours, minutes)
-	}
-	return fmt.Sprintf("%dm%ds", minutes, seconds)
-}
-
-// chatFormatTokens formats a token count.
-func chatFormatTokens(tokens int) string {
-	if tokens == 0 {
-		return "-"
-	}
-	if tokens < 1000 {
-		return fmt.Sprintf("%d", tokens)
-	}
-	if tokens < 1000000 {
-		return fmt.Sprintf("%dk", tokens/1000)
-	}
-	return fmt.Sprintf("%.1fM", float64(tokens)/1000000.0)
-}
-
-// chatFormatSize formats byte count.
-func chatFormatSize(bytes int64) string {
-	if bytes == 0 {
-		return "-"
-	}
-	if bytes < 1024 {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	if bytes < 1024*1024 {
-		return fmt.Sprintf("%.1f KB", float64(bytes)/1024.0)
-	}
-	return fmt.Sprintf("%.1f MB", float64(bytes)/(1024.0*1024.0))
 }
 
 // provisionSlashCommands creates .claude/commands/ with Wave-specific slash commands.

@@ -223,66 +223,6 @@ func TestPrepareChatWorkspace_WithFailures(t *testing.T) {
 	}
 }
 
-func TestChatFormatDuration(t *testing.T) {
-	tests := []struct {
-		d    time.Duration
-		want string
-	}{
-		{0, "-"},
-		{30 * time.Second, "30s"},
-		{90 * time.Second, "1m30s"},
-		{5 * time.Minute, "5m0s"},
-		{65 * time.Minute, "1h5m"},
-		{2*time.Hour + 30*time.Minute, "2h30m"},
-	}
-
-	for _, tt := range tests {
-		got := chatFormatDuration(tt.d)
-		if got != tt.want {
-			t.Errorf("chatFormatDuration(%v) = %q, want %q", tt.d, got, tt.want)
-		}
-	}
-}
-
-func TestChatFormatTokens(t *testing.T) {
-	tests := []struct {
-		tokens int
-		want   string
-	}{
-		{0, "-"},
-		{500, "500"},
-		{1500, "1k"},
-		{45000, "45k"},
-		{1500000, "1.5M"},
-	}
-
-	for _, tt := range tests {
-		got := chatFormatTokens(tt.tokens)
-		if got != tt.want {
-			t.Errorf("chatFormatTokens(%d) = %q, want %q", tt.tokens, got, tt.want)
-		}
-	}
-}
-
-func TestChatFormatSize(t *testing.T) {
-	tests := []struct {
-		bytes int64
-		want  string
-	}{
-		{0, "-"},
-		{512, "512 B"},
-		{2048, "2.0 KB"},
-		{1572864, "1.5 MB"},
-	}
-
-	for _, tt := range tests {
-		got := chatFormatSize(tt.bytes)
-		if got != tt.want {
-			t.Errorf("chatFormatSize(%d) = %q, want %q", tt.bytes, got, tt.want)
-		}
-	}
-}
-
 func containsStr(ss []string, target string) bool {
 	for _, s := range ss {
 		if s == target {
