@@ -8,48 +8,7 @@
     "findings": {
       "type": "array",
       "items": {
-        "type": "object",
-        "required": ["type", "severity"],
-        "properties": {
-          "type": {
-            "type": "string",
-            "description": "Finding category",
-            "enum": ["dead-code", "unwired", "duplicate", "doc-drift", "junk-code", "security", "dx", "performance", "style", "correctness", "architecture", "test", "coverage", "other"]
-          },
-          "severity": {
-            "type": "string",
-            "enum": ["critical", "high", "medium", "low", "info"]
-          },
-          "package": {
-            "type": "string",
-            "description": "Go package path (e.g., internal/bench)"
-          },
-          "file": {
-            "type": "string",
-            "description": "File path relative to project root"
-          },
-          "line": {
-            "type": "integer",
-            "description": "Line number if applicable"
-          },
-          "item": {
-            "type": "string",
-            "description": "Function, type, or item name"
-          },
-          "description": {
-            "type": "string",
-            "description": "Human-readable finding description"
-          },
-          "evidence": {
-            "type": "string",
-            "description": "Evidence supporting the finding"
-          },
-          "recommendation": {
-            "type": "string",
-            "description": "Suggested action",
-            "enum": ["remove", "merge", "keep", "wire", "document", "investigate", "fix", "refactor"]
-          }
-        }
+        "$ref": "_defs/finding.schema.json#/definitions/finding_item"
       }
     },
     "summary": {

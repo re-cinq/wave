@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Shared Finding Item Definition",
+  "description": "Base finding item schema extracted from shared-findings.schema.json.",
+  "definitions": {
+    "finding_item": {
+      "type": "object",
+      "required": ["type", "severity"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Finding category",
+          "enum": ["dead-code", "unwired", "duplicate", "doc-drift", "junk-code", "security", "dx", "performance", "style", "correctness", "architecture", "test", "coverage", "other"]
+        },
+        "severity": {
+          "$ref": "severity.schema.json#/definitions/findings_severity"
+        },
+        "package": {
+          "type": "string",
+          "description": "Go package path (e.g., internal/bench)"
+        },
+        "file": {
+          "type": "string",
+          "description": "File path relative to project root"
+        },
+        "line": {
+          "type": "integer",
+          "description": "Line number if applicable"
+        },
+        "item": {
+          "type": "string",
+          "description": "Function, type, or item name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable finding description"
+        },
+        "evidence": {
+          "type": "string",
+          "description": "Evidence supporting the finding"
+        },
+        "recommendation": {
+          "type": "string",
+          "description": "Suggested action",
+          "enum": ["remove", "merge", "keep", "wire", "document", "investigate", "fix", "refactor"]
+        }
+      }
+    }
+  }
+}

@@ -167,6 +167,7 @@ steps:
         - step: diff-analysis
           artifact: diff
           as: changes
+          schema_path: .wave/contracts/diff-analysis.schema.json
     exec:
       type: prompt
       source: |
@@ -287,6 +288,7 @@ steps:
         - step: diff-analysis
           artifact: diff
           as: changes
+          schema_path: .wave/contracts/diff-analysis.schema.json
     exec:
       type: prompt
       source: |
@@ -404,6 +406,7 @@ steps:
         - step: diff-analysis
           artifact: diff
           as: changes
+          schema_path: .wave/contracts/diff-analysis.schema.json
     exec:
       type: prompt
       source: |

@@ -6,18 +6,7 @@
   "required": ["issue_reference", "findings_by_topic", "research_metadata"],
   "properties": {
     "issue_reference": {
-      "type": "object",
-      "required": ["issue_number", "repository"],
-      "properties": {
-        "issue_number": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "repository": {
-          "type": "string",
-          "pattern": "^[^/]+/[^/]+$"
-        }
-      }
+      "$ref": "_defs/issue-reference.schema.json#/definitions/issue_reference"
     },
     "findings_by_topic": {
       "type": "array",

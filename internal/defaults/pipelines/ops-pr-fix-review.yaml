@@ -212,6 +212,7 @@ steps:
         - step: fetch-review
           artifact: review-findings
           as: raw_findings
+          schema_path: .wave/contracts/review-findings.schema.json
     workspace:
       mount:
         - source: ./

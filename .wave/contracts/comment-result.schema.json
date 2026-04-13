@@ -10,25 +10,7 @@
       "description": "Whether the comment was successfully posted"
     },
     "issue_reference": {
-      "type": "object",
-      "required": ["issue_number", "repository"],
-      "properties": {
-        "issue_number": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Issue number that was commented on"
-        },
-        "repository": {
-          "type": "string",
-          "pattern": "^[^/]+/[^/]+$",
-          "description": "Repository full name"
-        },
-        "issue_url": {
-          "type": "string",
-          "format": "uri",
-          "description": "URL to the issue"
-        }
-      }
+      "$ref": "_defs/issue-reference.schema.json#/definitions/issue_reference"
     },
     "comment": {
       "type": "object",

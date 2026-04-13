@@ -20,7 +20,7 @@
       "items": {
         "type": "object",
         "properties": {
-          "severity": { "type": "string", "enum": ["critical", "major", "minor", "suggestion"] },
+          "severity": { "$ref": "_defs/severity.schema.json#/definitions/review_severity" },
           "file": { "type": "string" },
           "line": { "type": "integer" },
           "description": { "type": "string" },

@@ -6,14 +6,10 @@
   "required": ["pr_url", "pr_number", "branch", "summary"],
   "properties": {
     "pr_url": {
-      "type": "string",
-      "format": "uri",
-      "description": "URL to the created pull request"
+      "$ref": "_defs/pr-reference.schema.json#/definitions/pr_reference/properties/pr_url"
     },
     "pr_number": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "Pull request number"
+      "$ref": "_defs/pr-reference.schema.json#/definitions/pr_reference/properties/pr_number"
     },
     "branch": {
       "type": "string",

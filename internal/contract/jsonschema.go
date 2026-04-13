@@ -11,6 +11,50 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
+// preloadSharedDefs scans .wave/contracts/_defs/*.schema.json and registers
+// each file as a compiler resource so that $ref across schema files resolves.
+// schemaURI is the URI used to register the main schema (for computing the
+// relative _defs URI prefix). fsSchemaDir is the filesystem directory containing
+// the main schema (for reading _defs files from disk).
+// If the _defs directory does not exist, this is a no-op (backwards compatible).
+func preloadSharedDefs(compiler *jsonschema.Compiler, schemaURI string, fsSchemaDir string) error {
+	uriDir := filepath.Dir(schemaURI)
+	defsFSDir := filepath.Join(fsSchemaDir, "_defs")
+
+	entries, err := os.ReadDir(defsFSDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // _defs/ doesn't exist — skip silently
+		}
+		return fmt.Errorf("reading _defs directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".schema.json") {
+			continue
+		}
+
+		filePath := filepath.Join(defsFSDir, entry.Name())
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("reading shared def %s: %w", entry.Name(), err)
+		}
+
+		var doc interface{}
+		if err := json.Unmarshal(data, &doc); err != nil {
+			return fmt.Errorf("parsing shared def %s: %w", entry.Name(), err)
+		}
+
+		// URI matches what $ref resolves to from the parent schema's URI
+		uri := filepath.Join(uriDir, "_defs", entry.Name())
+		if err := compiler.AddResource(uri, doc); err != nil {
+			return fmt.Errorf("registering shared def %s: %w", entry.Name(), err)
+		}
+	}
+
+	return nil
+}
+
 type jsonSchemaValidator struct{}
 
 func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string) error {
@@ -70,6 +114,18 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 			Message:      "no schema or schemaPath provided",
 			Details:      []string{"specify either 'schema' (inline JSON) or 'schemaPath' (file path)"},
 			Retryable:    false,
+		}
+	}
+
+	// Pre-load shared definition schemas from _defs/ so $ref across files resolves.
+	if cfg.SchemaPath != "" {
+		if err := preloadSharedDefs(compiler, cfg.SchemaPath, filepath.Dir(cfg.SchemaPath)); err != nil {
+			return &ValidationError{
+				ContractType: "json_schema",
+				Message:      "failed to preload shared definitions",
+				Details:      []string{err.Error()},
+				Retryable:    false,
+			}
 		}
 	}
 

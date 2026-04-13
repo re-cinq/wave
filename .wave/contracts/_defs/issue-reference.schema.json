@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Shared Issue Reference Definition",
+  "description": "Common issue reference fields used across contract schemas.",
+  "definitions": {
+    "issue_reference": {
+      "type": "object",
+      "required": ["issue_number", "repository"],
+      "properties": {
+        "issue_number": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "GitHub issue number"
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[^/]+/[^/]+$",
+          "description": "Repository full name (owner/repo)"
+        },
+        "issue_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the issue"
+        }
+      }
+    }
+  }
+}

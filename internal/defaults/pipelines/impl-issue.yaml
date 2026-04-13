@@ -94,6 +94,7 @@ steps:
         - step: fetch-assess
           artifact: assessment
           as: issue_assessment
+          schema_path: .wave/contracts/issue-assessment.schema.json
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -127,9 +128,11 @@ steps:
         - step: fetch-assess
           artifact: assessment
           as: issue_assessment
+          schema_path: .wave/contracts/issue-assessment.schema.json
         - step: plan
           artifact: impl-plan
           as: impl_plan
+          schema_path: .wave/contracts/issue-impl-plan.schema.json
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"

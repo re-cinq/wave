@@ -6,25 +6,21 @@
   "required": ["issue_reference", "executive_summary", "detailed_findings", "recommendations", "sources", "markdown_content"],
   "properties": {
     "issue_reference": {
-      "type": "object",
-      "required": ["issue_number", "repository", "title"],
-      "properties": {
-        "issue_number": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "repository": {
-          "type": "string",
-          "pattern": "^[^/]+/[^/]+$"
-        },
-        "title": {
-          "type": "string"
-        },
-        "url": {
-          "type": "string",
-          "format": "uri"
+      "allOf": [
+        { "$ref": "_defs/issue-reference.schema.json#/definitions/issue_reference" },
+        {
+          "required": ["title"],
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
         }
-      }
+      ]
     },
     "executive_summary": {
       "type": "object",

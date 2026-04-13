@@ -103,6 +103,13 @@ func validateSingleInputArtifact(cfg InputArtifactConfig, workspacePath string) 
 		return result
 	}
 
+	// Pre-load shared definition schemas from _defs/ so $ref across files resolves.
+	if err := preloadSharedDefs(compiler, cfg.SchemaPath, filepath.Dir(schemaPath)); err != nil {
+		result.Passed = false
+		result.Error = fmt.Errorf("failed to preload shared definitions for '%s': %w", cfg.SchemaPath, err)
+		return result
+	}
+
 	schema, err := compiler.Compile(cfg.SchemaPath)
 	if err != nil {
 		result.Passed = false

@@ -11,9 +11,7 @@
       "description": "URL to the posted review comment"
     },
     "pr_number": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "PR number that was reviewed"
+      "$ref": "_defs/pr-reference.schema.json#/definitions/pr_reference/properties/pr_number"
     },
     "repository": {
       "type": "string",

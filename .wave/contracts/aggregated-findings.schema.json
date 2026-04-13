@@ -16,8 +16,7 @@
             "description": "Finding category from the source audit"
           },
           "severity": {
-            "type": "string",
-            "enum": ["critical", "high", "medium", "low", "info"]
+            "$ref": "_defs/severity.schema.json#/definitions/findings_severity"
           },
           "source_audit": {
             "type": "string",
