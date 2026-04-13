@@ -21,8 +21,8 @@ const (
 	defaultMaxTotalSteps  = 20
 	defaultMaxTotalTokens = 500000
 
-	philosopherPersona = "philosopher"
-	metaNavigatorPersona   = "navigator"
+	philosopherPersona   = "philosopher"
+	metaNavigatorPersona = "navigator"
 )
 
 // MetaPipelineExecutor executes meta-pipelines that can generate and execute
@@ -1012,7 +1012,6 @@ func (e *MetaPipelineExecutor) getPipelineID() string {
 	}
 	return fmt.Sprintf("meta:%d", e.currentDepth)
 }
-
 
 // truncate shortens a string to the specified length.
 func truncate(s string, maxLen int) string {

@@ -50,15 +50,15 @@ type ListRunsOptions struct {
 
 // LogRecord holds an event log entry.
 type LogRecord struct {
-	ID         int64
-	RunID      string
-	Timestamp  time.Time
-	StepID     string
-	State      string
-	Persona    string
-	Message    string
-	TokensUsed int
-	DurationMs int64
+	ID              int64
+	RunID           string
+	Timestamp       time.Time
+	StepID          string
+	State           string
+	Persona         string
+	Message         string
+	TokensUsed      int
+	DurationMs      int64
 	Model           string
 	ConfiguredModel string // Tier name from pipeline config (e.g. "cheapest")
 	Adapter         string
@@ -307,12 +307,12 @@ type OrchestrationDecision struct {
 
 // OrchestrationStats aggregates success/failure rates for a pipeline.
 type OrchestrationStats struct {
-	PipelineName string
-	TotalRuns    int
-	Completed    int
-	Failed       int
-	Cancelled    int
-	AvgTokens    int
+	PipelineName  string
+	TotalRuns     int
+	Completed     int
+	Failed        int
+	Cancelled     int
+	AvgTokens     int
 	AvgDurationMs int64
 }
 

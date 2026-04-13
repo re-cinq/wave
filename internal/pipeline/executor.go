@@ -58,9 +58,9 @@ type PipelineStatus struct {
 
 type DefaultPipelineExecutor struct {
 	emitterMixin
-	runner   adapter.AdapterRunner // Deprecated: use registry for per-step resolution
-	registry *adapter.AdapterRegistry
-	store    state.StateStore
+	runner       adapter.AdapterRunner // Deprecated: use registry for per-step resolution
+	registry     *adapter.AdapterRegistry
+	store        state.StateStore
 	logger       audit.AuditLogger
 	wsManager    workspace.WorkspaceManager
 	relayMonitor *relay.RelayMonitor
@@ -3882,7 +3882,6 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 	return prompt
 }
 
-
 func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, step *Step, workspacePath string) error {
 	if len(step.Memory.InjectArtifacts) == 0 {
 		return nil
@@ -4219,7 +4218,6 @@ func (e *DefaultPipelineExecutor) parseStallTimeout(m *manifest.Manifest) time.D
 	}
 	return d
 }
-
 
 // terminalHookTimeout is the maximum time terminal hooks (run_completed, run_failed)
 // are allowed to run with a detached context.

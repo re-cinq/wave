@@ -75,10 +75,10 @@ func (s *Server) handlePipelinesPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		ActivePage         string
-		Pipelines          []PipelineSummary
-		Categories         []string
-		FrequentPipelines  []PipelineSummary
+		ActivePage        string
+		Pipelines         []PipelineSummary
+		Categories        []string
+		FrequentPipelines []PipelineSummary
 	}{
 		ActivePage:        "pipelines",
 		Pipelines:         pipelines,

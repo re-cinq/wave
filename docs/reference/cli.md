@@ -21,7 +21,6 @@ Wave CLI commands for pipeline orchestration.
 | `wave doctor` | Diagnose project configuration and health |
 | `wave suggest` | Suggest impactful pipeline runs |
 | `wave serve` | Start the web dashboard server |
-| `wave webui` | Open the web dashboard in a browser |
 | `wave migrate` | Database migrations |
 | `wave bench` | Run and analyze SWE-bench benchmarks |
 
@@ -634,25 +633,6 @@ wave clean --quiet                   # Suppress output for scripting
 
 ---
 
-## wave webui
-
-Open the embedded web operations dashboard in a browser. This is a convenience alias that starts the dashboard server and opens it in the default browser.
-
-```bash
-wave webui
-```
-
-This is equivalent to running `wave serve` and manually opening the URL.
-
-### Options
-
-```bash
-wave webui --port 9090             # Custom port
-wave webui --no-open               # Start server without opening browser
-```
-
----
-
 ## wave serve
 
 Start the web dashboard server. Provides real-time pipeline monitoring, execution control, DAG visualization, and artifact browsing through a web interface.
@@ -1000,7 +980,7 @@ Execute a pipeline against each task in a JSONL benchmark dataset.
 wave bench run --dataset swe-bench-lite.jsonl --pipeline bench-solve
 wave bench run --dataset tasks.jsonl --pipeline bench-solve --limit 10
 wave bench run --dataset tasks.jsonl --mode claude --label baseline-v1
-wave bench run --dataset tasks.jsonl --pipeline bench-solve --output results.json
+wave bench run --dataset tasks.jsonl --pipeline bench-solve --results-path results.json
 ```
 
 | Flag | Default | Description |
@@ -1011,7 +991,7 @@ wave bench run --dataset tasks.jsonl --pipeline bench-solve --output results.jso
 | `--label` | | Human-readable label for this run |
 | `--limit` | `0` | Maximum number of tasks to run (0 = all) |
 | `--timeout` | `0` | Per-task timeout in seconds (0 = no limit) |
-| `--output` | | Path to write JSON results file |
+| `--results-path` | | Path to write JSON results file |
 | `--datasets-dir` | `.wave/bench/datasets` | Directory to search for dataset files |
 | `--keep-workspaces` | `false` | Preserve task worktrees after completion |
 

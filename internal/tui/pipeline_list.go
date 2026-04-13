@@ -37,14 +37,6 @@ type navigableItem struct {
 	label        string // display text
 }
 
-// RunningSequence represents a group of pipelines executing as a composed sequence.
-// TODO(#249): Render grouped sequence items in Running section.
-type RunningSequence struct {
-	Label       string // e.g. "speckit-flow → wave-evolve"
-	Entries     []RunningPipeline
-	ActiveIndex int
-}
-
 // PipelineListModel is the Bubble Tea model for the pipeline list left pane.
 type PipelineListModel struct {
 	width    int

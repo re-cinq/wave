@@ -165,7 +165,6 @@ func runDo(input string, opts DoOptions) error {
 		defer store.Close()
 	}
 
-
 	// Execute the pipeline
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

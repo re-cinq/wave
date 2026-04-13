@@ -121,7 +121,7 @@ func TestSourceDiffValidator(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "min_files=0 treated as 1, fails on no diff",
+			name:  "min_files=0 treated as 1, fails on no diff",
 			setup: func(t *testing.T, dir string) {}, // nothing changed
 			cfg: ContractConfig{
 				Type:     "source_diff",

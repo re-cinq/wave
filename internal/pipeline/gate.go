@@ -473,4 +473,3 @@ func (g *GateExecutor) executeCIPass(ctx context.Context, gate *GateConfig) erro
 		}
 	}
 }
-
