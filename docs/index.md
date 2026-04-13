@@ -212,8 +212,8 @@ const features = [
   {
     icon: 'compose',
     title: 'Project Ontology',
-    badge: 'preview',
-    description: 'Declare bounded contexts, invariants, and conventions in wave.yaml. When enabled, Wave injects domain knowledge into steps and tracks context success rates.',
+    badge: 'upcoming',
+    description: 'Declare bounded contexts, invariants, and conventions in wave.yaml. Wave injects domain knowledge into steps and tracks context success rates. Behind feature flag.',
     link: '/guide/vv-paradigm'
   },
   {
@@ -272,8 +272,8 @@ const features = [
   <div class="vv-grid">
     <div class="vv-card">
       <div class="vv-layer">Layer 1</div>
-      <div class="vv-name">Ontology <span style="font-size:0.7em;opacity:0.6">preview</span></div>
-      <p>Bounded contexts inject domain invariants and conventions into agent sessions. Lineage tracking measures which contexts produce the best outcomes.</p>
+      <div class="vv-name">Ontology <span style="font-size:0.7em;opacity:0.6">upcoming</span></div>
+      <p>Bounded contexts inject domain invariants and conventions into agent sessions. Lineage tracking measures which contexts produce the best outcomes. Behind feature flag — not shipped by default.</p>
     </div>
     <div class="vv-card">
       <div class="vv-layer">Layer 2</div>
