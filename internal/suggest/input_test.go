@@ -257,10 +257,10 @@ func TestCheckInputPipelineMismatch(t *testing.T) {
 			wantNil:  true,
 		},
 		{
-			name:     "issue URL with ops-pr-review is mismatch",
+			name:     "issue URL with ops-pr-review returns nil (issue URLs never warn)",
 			input:    "https://github.com/owner/repo/issues/1",
 			pipeline: "ops-pr-review",
-			wantNil:  false,
+			wantNil:  true,
 		},
 		{
 			name:     "PR URL with ops-pr-review is fine",
@@ -281,16 +281,16 @@ func TestCheckInputPipelineMismatch(t *testing.T) {
 			wantNil:  true,
 		},
 		{
-			name:     "free text with impl-issue is mismatch",
+			name:     "free text with impl-issue returns nil (free text never warns)",
 			input:    "add auth support",
 			pipeline: "impl-issue",
-			wantNil:  false,
+			wantNil:  true,
 		},
 		{
-			name:     "empty input is always fine",
+			name:     "empty input returns nil (no warning)",
 			input:    "",
 			pipeline: "anything",
-			wantNil:  false, // empty classifies as free_text, "anything" not in suggestions
+			wantNil:  true,
 		},
 	}
 
