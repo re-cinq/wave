@@ -1643,22 +1643,31 @@ func TestResumeFromStep_ReusesExecutorRunID(t *testing.T) {
 	}
 }
 
-func TestResumeFromStep_InjectsForgeVariables(t *testing.T) {
-	// The resume path must inject forge variables so that template
-	// placeholders like {{ forge.type }} resolve correctly.
-	// Without this, steps with personas like "{{ forge.type }}-commenter"
-	// fail with "persona not found" because the raw template string is used.
 
+// initGitRepo initializes a minimal git repo with a GitHub remote for forge detection.
+func initGitRepo(t *testing.T, dir string) {
+	t.Helper()
+	for _, args := range [][]string{
+		{"git", "init"},
+		{"git", "remote", "add", "origin", "https://github.com/test-owner/test-repo.git"},
+	} {
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git init failed: %s: %v", out, err)
+		}
+	}
+}
+
+func TestResumeFromStep_InjectsForgeVariables(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
-	// Use a temp dir so workspace discovery doesn't interfere
 	tempDir := t.TempDir()
 	origDir, _ := os.Getwd()
 	_ = os.Chdir(tempDir)
 	defer func() { _ = os.Chdir(origDir) }()
 
-	// Initialize git repo so forge detection has something to work with
 	initGitRepo(t, tempDir)
 
 	p := &Pipeline{
@@ -1675,19 +1684,13 @@ func TestResumeFromStep_InjectsForgeVariables(t *testing.T) {
 	}
 
 	m := &manifest.Manifest{}
-
-	// Create workspace directories so loadResumeState finds completed steps
 	wsDir := filepath.Join(tempDir, ".wave", "workspaces", "test-forge-resume", "implement")
 	_ = os.MkdirAll(wsDir, 0755)
 	_ = os.WriteFile(filepath.Join(wsDir, "artifact.json"), []byte("{}"), 0644)
 
-	// Call ResumeFromStep — it will fail during execution (mock adapter),
-	// but we can check the context was built correctly by inspecting the
-	// execution stored in executor.pipelines.
 	ctx := context.Background()
 	_ = manager.ResumeFromStep(ctx, p, m, "test-input", "create-pr", true)
 
-	// Find the execution that was created
 	executor.mu.RLock()
 	defer executor.mu.RUnlock()
 
@@ -1698,36 +1701,91 @@ func TestResumeFromStep_InjectsForgeVariables(t *testing.T) {
 			break
 		}
 	}
-
 	if execution == nil {
 		t.Fatal("expected execution to be stored in executor.pipelines")
 	}
 
-	// Verify forge variables were injected into the context
 	forgeType := execution.Context.CustomVariables["forge.type"]
 	if forgeType == "" {
-		t.Error("forge.type not injected into resume context; {{ forge.type }} templates will not resolve")
+		t.Error("forge.type not injected into resume context")
 	}
 
-	// Verify the persona would resolve correctly (not contain raw template syntax)
 	resolved := execution.Context.ResolvePlaceholders("{{ forge.type }}-commenter")
 	if strings.Contains(resolved, "{{") {
-		t.Errorf("persona template not resolved: got %q, expected forge type prefix", resolved)
+		t.Errorf("persona template not resolved: got %q", resolved)
 	}
 }
 
-// initGitRepo initializes a minimal git repo with a GitHub remote for forge detection.
-func initGitRepo(t *testing.T, dir string) {
-	t.Helper()
-	cmds := [][]string{
-		{"git", "init"},
-		{"git", "remote", "add", "origin", "https://github.com/test-owner/test-repo.git"},
+func TestResumeFromStep_ReusesWorktree(t *testing.T) {
+	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	manager := NewResumeManager(executor)
+
+	tempDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	_ = os.Chdir(tempDir)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	initGitRepo(t, tempDir)
+
+	p := &Pipeline{
+		Kind:     "WavePipeline",
+		Metadata: PipelineMetadata{Name: "test-wt-resume"},
+		Steps: []Step{
+			{
+				ID:        "implement",
+				Workspace: WorkspaceConfig{Type: "worktree", Branch: "{{ pipeline_id }}"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "result", Path: ".wave/output/result.json"},
+				},
+			},
+			{
+				ID:           "create-pr",
+				Workspace:    WorkspaceConfig{Type: "worktree", Branch: "{{ pipeline_id }}"},
+				Dependencies: []string{"implement"},
+			},
+		},
 	}
-	for _, args := range cmds {
-		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Dir = dir
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("git init failed: %s: %v", out, err)
+
+	m := &manifest.Manifest{}
+
+	priorRunID := "test-wt-resume-20260412-195527-41ee"
+	wtDir := filepath.Join(tempDir, ".wave", "workspaces", priorRunID, "__wt_"+priorRunID)
+	_ = os.MkdirAll(filepath.Join(wtDir, ".wave", "output"), 0755)
+	_ = os.WriteFile(filepath.Join(wtDir, ".wave", "output", "result.json"), []byte(`{"ok":true}`), 0644)
+
+	ctx := context.Background()
+	executor.runID = "test-wt-resume-20260413-new-run"
+	_ = manager.ResumeFromStep(ctx, p, m, "test-input", "create-pr", true, priorRunID)
+
+	executor.mu.RLock()
+	defer executor.mu.RUnlock()
+
+	var execution *PipelineExecution
+	for _, exec := range executor.pipelines {
+		if exec.Pipeline.Metadata.Name == "test-wt-resume" {
+			execution = exec
+			break
 		}
+	}
+	if execution == nil {
+		t.Fatal("expected execution to be stored in executor.pipelines")
+	}
+
+	expectedBranch := "test-wt-resume-20260413-new-run"
+	wtInfo, exists := execution.WorktreePaths[expectedBranch]
+	if !exists {
+		t.Fatalf("WorktreePaths[%q] not seeded from prior run; keys: %v",
+			expectedBranch, func() []string {
+				keys := make([]string, 0, len(execution.WorktreePaths))
+				for k := range execution.WorktreePaths {
+					keys = append(keys, k)
+				}
+				return keys
+			}())
+	}
+
+	absWt, _ := filepath.Abs(wtDir)
+	if wtInfo.AbsPath != absWt {
+		t.Errorf("WorktreePaths AbsPath = %q, want %q", wtInfo.AbsPath, absWt)
 	}
 }

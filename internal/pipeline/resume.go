@@ -195,6 +195,35 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 		},
 	}
 
+	// Seed WorktreePaths from prior run so the executor reuses existing
+	// worktrees instead of creating fresh ones from current main.
+	if len(resumeState.DiscoveredWorktrees) > 0 {
+		for _, step := range resumePipeline.Steps {
+			if step.Workspace.Type != "worktree" {
+				continue
+			}
+			branch := step.Workspace.Branch
+			if branch != "" {
+				branch = pipelineContext.ResolvePlaceholders(branch)
+			}
+			if branch == "" {
+				branch = pipelineContext.BranchName
+			}
+			if branch == "" {
+				continue
+			}
+			// Register the first discovered worktree under this branch key.
+			// All worktree steps on the same branch share one worktree.
+			if _, exists := execution.WorktreePaths[branch]; !exists {
+				wtPath := resumeState.DiscoveredWorktrees[0]
+				execution.WorktreePaths[branch] = &WorktreeInfo{
+					AbsPath:  wtPath,
+					RepoRoot: filepath.Dir(filepath.Dir(wtPath)),
+				}
+			}
+		}
+	}
+
 	// Store execution state
 	r.executor.mu.Lock()
 	r.executor.pipelines[pipelineID] = execution
@@ -212,7 +241,8 @@ type ResumeState struct {
 	WorkspacePaths    map[string]string
 	CompletedSteps    []string
 	FailureContexts   map[string]*AttemptContext // stepID -> failure context from prior run
-	ReworkTransitions map[string]string          // failedStepID -> reworkStepID
+	ReworkTransitions   map[string]string          // failedStepID -> reworkStepID
+	DiscoveredWorktrees []string                   // absolute paths of worktrees found from prior run
 }
 
 // lookupStepPersona finds the persona for a step by ID in the full pipeline.
@@ -324,6 +354,14 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID
 				state.States[step.ID] = stateCompleted
 				state.CompletedSteps = append(state.CompletedSteps, step.ID)
 				state.WorkspacePaths[step.ID] = stepWorkspace
+
+				// Track discovered worktrees so resume can reuse them
+				if step.Workspace.Type == "worktree" {
+					absWt, _ := filepath.Abs(stepWorkspace)
+					if absWt != "" {
+						state.DiscoveredWorktrees = append(state.DiscoveredWorktrees, absWt)
+					}
+				}
 
 				// Load artifact paths for this step
 				for _, artifact := range step.OutputArtifacts {
