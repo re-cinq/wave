@@ -2116,9 +2116,22 @@ func (e *DefaultPipelineExecutor) validateStepContracts(
 	// maxRounds limits how many full contract-list re-runs can happen due to rework.
 	// We use the max max_retries across all contracts that have on_failure: rework.
 	maxRounds := 1
+	var convergenceTracker *ConvergenceTracker
 	for _, c := range contracts {
 		if c.OnFailure == OnFailureRework && c.MaxRetries > maxRounds {
 			maxRounds = c.MaxRetries
+		}
+		// Initialize convergence tracker from first rework contract with settings
+		if c.OnFailure == OnFailureRework && convergenceTracker == nil {
+			window := c.ConvergenceWindow
+			if window == 0 {
+				window = 3
+			}
+			minImprove := c.ConvergenceMinImprovement
+			if minImprove == 0 {
+				minImprove = 0.05
+			}
+			convergenceTracker = NewConvergenceTracker(window, minImprove)
 		}
 	}
 
@@ -2217,6 +2230,28 @@ func (e *DefaultPipelineExecutor) validateStepContracts(
 				)
 
 			case OnFailureRework:
+				// Track convergence: extract score from error and check for stall
+				if convergenceTracker != nil {
+					if score, ok := ExtractScoreFromError(cErr.Error()); ok {
+						convergenceTracker.RecordScore(score)
+						if convergenceTracker.IsStalled() {
+							e.emit(event.Event{
+								Timestamp:  time.Now(),
+								PipelineID: pipelineID,
+								StepID:     step.ID,
+								State:      "convergence_stalled",
+								Message:    fmt.Sprintf("rework loop stalled at %s — aborting to save tokens", convergenceTracker.Summary()),
+							})
+							e.recordDecision(pipelineID, step.ID, "contract",
+								fmt.Sprintf("convergence stalled for step %s", step.ID),
+								fmt.Sprintf("score plateaued at %s, no improvement over %d rounds", convergenceTracker.Summary(), convergenceTracker.Rounds()),
+								map[string]interface{}{"contract_type": c.Type, "scores": convergenceTracker.scores},
+							)
+							return fmt.Errorf("contract rework stalled (no convergence): %w", cErr)
+						}
+					}
+				}
+
 				if round >= maxRounds {
 					// Retries exhausted — fall back to fail
 					e.emit(event.Event{

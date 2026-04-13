@@ -459,6 +459,10 @@ type ContractConfig struct {
 	Criteria  []string `yaml:"criteria,omitempty"`  // Evaluation criteria for LLM judge
 	Threshold float64  `yaml:"threshold,omitempty"` // Pass threshold (0.0-1.0), default 1.0
 
+	// Convergence tracking for rework loops
+	ConvergenceWindow         int     `yaml:"convergence_window,omitempty"`          // Sliding window size for stall detection (default 3)
+	ConvergenceMinImprovement float64 `yaml:"convergence_min_improvement,omitempty"` // Min score improvement to continue rework (default 0.05)
+
 	// Agent review settings
 	Persona      string                `yaml:"persona,omitempty"`       // Reviewer persona name (must differ from step persona)
 	CriteriaPath string                `yaml:"criteria_path,omitempty"` // Path to review criteria markdown file

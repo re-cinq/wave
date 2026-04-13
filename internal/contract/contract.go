@@ -33,6 +33,10 @@ type ContractConfig struct {
 	Criteria  []string `json:"criteria,omitempty"`  // Evaluation criteria for LLM judge
 	Threshold float64  `json:"threshold,omitempty"` // Pass threshold (0.0-1.0), default 1.0
 
+	// Convergence tracking for rework loops
+	ConvergenceWindow         int     `json:"convergence_window,omitempty"`          // Number of rounds to compare for stall detection (default 3)
+	ConvergenceMinImprovement float64 `json:"convergence_min_improvement,omitempty"` // Minimum score improvement to consider progress (default 0.05 = 5%)
+
 	// Agent review settings
 	Persona      string                `json:"persona,omitempty"`      // Reviewer persona name
 	CriteriaPath string                `json:"criteriaPath,omitempty"` // Path to review criteria markdown
