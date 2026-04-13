@@ -276,6 +276,32 @@ type PipelineExecution struct {
 	Watchdog          *StallWatchdog             // Current step's stall watchdog (set during step execution)
 }
 
+// stepRunResources holds resolved values needed to dispatch a single step to an adapter.
+// Produced by resolveStepResources; consumed by buildStepAdapterConfig and the adapter dispatch.
+type stepRunResources struct {
+	pipelineID          string
+	resolvedPersona     string
+	persona             *manifest.Persona
+	adapterDef          *manifest.Adapter
+	resolvedAdapterName string
+	stepRunner          adapter.AdapterRunner
+	workspacePath       string
+	resolvedModel       string
+	configuredModel     string
+	prompt              string
+}
+
+// pipelineSetup holds the results of pipeline preflight validation.
+// Produced by validatePipelineAndCreateContext; consumed by subsequent setup phases.
+type pipelineSetup struct {
+	pipelineID             string
+	pipelineName           string
+	sortedSteps            []*Step
+	pipelineContext        *PipelineContext
+	forgeInfo              forge.ForgeInfo
+	resolvedPipelineSkills []string
+}
+
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
 	ex := &DefaultPipelineExecutor{
 		runner:             runner,
@@ -354,9 +380,44 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		return e.executeGraphPipeline(ctx, p, m, input)
 	}
 
+	// Phase 1: Validate pipeline structure and create execution context
+	setup, err := e.validatePipelineAndCreateContext(p, m, input)
+	if err != nil {
+		return err
+	}
+
+	// Phase 2: Preflight checks (skills, tools, forge, token scopes)
+	if err := e.checkPipelinePreflights(ctx, setup, p, m); err != nil {
+		return err
+	}
+
+	// Phase 3: Initialize execution state (context, deliverables, execution struct)
+	execution, runCtx, cancel := e.initPipelineExecution(ctx, setup, p, m, input)
+	defer cancel()
+
+	// Phase 4: Prepare workspace, hooks, and fire run_start
+	if err := e.setupPipelineRun(runCtx, execution, p, m); err != nil {
+		return err
+	}
+
+	// Phase 5: Schedule and execute steps
+	schedulableSteps, err := e.runSchedulingLoop(runCtx, execution, setup.sortedSteps)
+	if err != nil {
+		return err
+	}
+
+	// Phase 6: Finalize (status, terminal hooks, retro, cleanup)
+	e.finalizePipelineExecution(runCtx, execution, schedulableSteps)
+	return nil
+}
+
+// validatePipelineAndCreateContext validates the pipeline structure (DAG, threads, sort,
+// retry policies, step filter, ETA) and creates the pipeline context and forge info.
+// It is the first phase of Execute — run before any state is allocated.
+func (e *DefaultPipelineExecutor) validatePipelineAndCreateContext(p *Pipeline, m *manifest.Manifest, input string) (*pipelineSetup, error) {
 	validator := &DAGValidator{}
 	if err := validator.ValidateDAG(p); err != nil {
-		return fmt.Errorf("invalid pipeline DAG: %w", err)
+		return nil, fmt.Errorf("invalid pipeline DAG: %w", err)
 	}
 
 	// Validate thread/fidelity fields
@@ -365,27 +426,27 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		for i, err := range errs {
 			msgs[i] = err.Error()
 		}
-		return fmt.Errorf("thread validation failed:\n  %s", strings.Join(msgs, "\n  "))
+		return nil, fmt.Errorf("thread validation failed:\n  %s", strings.Join(msgs, "\n  "))
 	}
 
 	sortedSteps, err := validator.TopologicalSort(p)
 	if err != nil {
-		return fmt.Errorf("failed to topologically sort steps: %w", err)
+		return nil, fmt.Errorf("failed to topologically sort steps: %w", err)
 	}
 
 	// Resolve named retry policies into concrete values before execution
 	if err := ResolvePipelineRetryPolicies(p); err != nil {
-		return fmt.Errorf("retry policy resolution: %w", err)
+		return nil, fmt.Errorf("retry policy resolution: %w", err)
 	}
 
 	// Apply step filter (--steps / --exclude) to the sorted step list
 	if e.stepFilter != nil && e.stepFilter.IsActive() {
 		if err := e.stepFilter.Validate(p); err != nil {
-			return err
+			return nil, err
 		}
 		sortedSteps = e.stepFilter.Apply(sortedSteps)
 		if len(sortedSteps) == 0 {
-			return fmt.Errorf("step filter produced no runnable steps")
+			return nil, fmt.Errorf("step filter produced no runnable steps")
 		}
 	}
 
@@ -411,7 +472,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 
 	// Resolve template placeholders in pipeline skills before validation.
 	// Skills like "{{ project.skill }}" must be resolved to their actual values
-	// (or empty string) before ValidateSkillRefs checks them against the store.
+	// (or empty string) before validateSkillRefs checks them against the store.
 	// Build a new slice (do NOT mutate p.Skills — the Pipeline may be shared
 	// across concurrent matrix child executors).
 	resolvedPipelineSkills := make([]string, 0, len(p.Skills))
@@ -422,8 +483,21 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		}
 	}
 
+	return &pipelineSetup{
+		pipelineID:             pipelineID,
+		pipelineName:           pipelineName,
+		sortedSteps:            sortedSteps,
+		pipelineContext:        pipelineContext,
+		forgeInfo:              forgeInfo,
+		resolvedPipelineSkills: resolvedPipelineSkills,
+	}, nil
+}
+
+// checkPipelinePreflights runs skill validation, tool/skill preflight checks, forge preflight
+// checks, and token scope validation. It is the second phase of Execute.
+func (e *DefaultPipelineExecutor) checkPipelinePreflights(_ context.Context, setup *pipelineSetup, p *Pipeline, m *manifest.Manifest) error {
 	// Validate skill references at manifest and pipeline scopes (after template resolution)
-	if errs := e.validateSkillRefs(resolvedPipelineSkills, p.Metadata.Name, m); len(errs) > 0 {
+	if errs := e.validateSkillRefs(setup.resolvedPipelineSkills, p.Metadata.Name, m); len(errs) > 0 {
 		msgs := make([]string, len(errs))
 		for i, err := range errs {
 			msgs[i] = err.Error()
@@ -437,7 +511,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		var tools []string
 		if len(p.Requires.Tools) > 0 {
 			for _, tool := range p.Requires.Tools {
-				resolved := pipelineContext.ResolvePlaceholders(tool)
+				resolved := setup.pipelineContext.ResolvePlaceholders(tool)
 				if resolved != "" {
 					tools = append(tools, resolved)
 				}
@@ -460,9 +534,9 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 
 	// Forge preflight: block forge-dependent steps when no forge is configured
-	if forgeInfo.Type == forge.ForgeLocal {
+	if setup.forgeInfo.Type == forge.ForgeLocal {
 		// Check pipeline name for forge prefix
-		if ferr := preflight.CheckForgePipelineName(forgeInfo, p.Metadata.Name); ferr != nil {
+		if ferr := preflight.CheckForgePipelineName(setup.forgeInfo, p.Metadata.Name); ferr != nil {
 			e.emit(event.Event{
 				Timestamp: time.Now(),
 				State:     "preflight",
@@ -472,10 +546,10 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		}
 
 		// Build step inputs for forge dependency scanning
-		forgeStepInputs := make([]preflight.ForgeStepInput, 0, len(sortedSteps))
-		for _, step := range sortedSteps {
+		forgeStepInputs := make([]preflight.ForgeStepInput, 0, len(setup.sortedSteps))
+		for _, step := range setup.sortedSteps {
 			var personaTools []string
-			resolvedPersona := pipelineContext.ResolvePlaceholders(step.Persona)
+			resolvedPersona := setup.pipelineContext.ResolvePlaceholders(step.Persona)
 			if persona := m.GetPersona(resolvedPersona); persona != nil {
 				personaTools = persona.Permissions.AllowedTools
 			}
@@ -485,7 +559,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 				PromptSource: step.Exec.Source,
 			})
 		}
-		if ferr := preflight.CheckForgeSteps(forgeInfo, forgeStepInputs); ferr != nil {
+		if ferr := preflight.CheckForgeSteps(setup.forgeInfo, forgeStepInputs); ferr != nil {
 			for _, s := range ferr.Steps {
 				e.emit(event.Event{
 					Timestamp: time.Now(),
@@ -498,15 +572,15 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 
 	// Token scope validation: check persona token requirements before execution
-	if forgeInfo.Type != forge.ForgeUnknown {
-		resolver := scope.NewResolver(forgeInfo.Type)
-		introspector := scope.NewIntrospector(forgeInfo.Type)
-		scopeValidator := scope.NewValidator(resolver, introspector, forgeInfo, m.Runtime.Sandbox.EnvPassthrough)
+	if setup.forgeInfo.Type != forge.ForgeUnknown {
+		resolver := scope.NewResolver(setup.forgeInfo.Type)
+		introspector := scope.NewIntrospector(setup.forgeInfo.Type)
+		scopeValidator := scope.NewValidator(resolver, introspector, setup.forgeInfo, m.Runtime.Sandbox.EnvPassthrough)
 
 		// Build persona scope map from manifest personas used in this pipeline
 		personaScopes := make(map[string][]string)
-		for _, step := range sortedSteps {
-			resolvedName := pipelineContext.ResolvePlaceholders(step.Persona)
+		for _, step := range setup.sortedSteps {
+			resolvedName := setup.pipelineContext.ResolvePlaceholders(step.Persona)
 			if persona := m.GetPersona(resolvedName); persona != nil && len(persona.TokenScopes) > 0 {
 				personaScopes[resolvedName] = persona.TokenScopes
 			}
@@ -530,6 +604,22 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		}
 	}
 
+	return nil
+}
+
+// initPipelineExecution creates the PipelineExecution object, starts the cancellation
+// poller, initialises the deliverable tracker and compaction adapter, and registers
+// the execution in the executor's pipeline map. It is the third phase of Execute.
+// The returned context and cancel func must be used for all subsequent execution phases.
+func (e *DefaultPipelineExecutor) initPipelineExecution(
+	ctx context.Context,
+	setup *pipelineSetup,
+	p *Pipeline,
+	m *manifest.Manifest,
+	input string,
+) (*PipelineExecution, context.Context, context.CancelFunc) {
+	pipelineID := setup.pipelineID
+
 	// Ontology staleness check: warn if ontology is older than latest commit
 	if m.Ontology != nil && len(m.Ontology.Contexts) > 0 {
 		if msg := e.checkOntologyStaleness(); msg != "" {
@@ -545,11 +635,11 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	// Start cancellation poller for cross-process cancel support.
 	// When another process (TUI, webui) writes a cancellation record to the DB,
 	// this goroutine detects it and cancels the executor's context.
+	runCtx := ctx
+	cancel := context.CancelFunc(func() {})
 	if e.store != nil && pipelineID != "" {
-		var pollCancel context.CancelFunc
-		ctx, pollCancel = context.WithCancel(ctx)
-		defer pollCancel()
-		go e.pollCancellation(ctx, pipelineID, pollCancel)
+		runCtx, cancel = context.WithCancel(ctx)
+		go e.pollCancellation(runCtx, pipelineID, cancel)
 	}
 
 	// Initialize deliverable tracker for this pipeline (only if not already set)
@@ -559,6 +649,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		// Update pipeline ID if tracker already exists
 		e.deliverableTracker.SetPipelineID(pipelineID)
 	}
+
 	// Build compaction adapter for thread summary fidelity (reuse relay monitor's adapter if available)
 	var threadCompactionAdapter relay.CompactionAdapter
 	if e.relayMonitor != nil {
@@ -578,10 +669,10 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		ThreadManager:     NewThreadManager(threadCompactionAdapter),
 		CircuitBreaker:    NewCircuitBreaker(m.Runtime.CircuitBreaker.Limit, m.Runtime.CircuitBreaker.TrackedClasses),
 		Input:             input,
-		Context:           pipelineContext,
+		Context:           setup.pipelineContext,
 		Status: &PipelineStatus{
 			ID:             pipelineID,
-			PipelineName:   pipelineName,
+			PipelineName:   setup.pipelineName,
 			State:          statePending,
 			CompletedSteps: []string{},
 			FailedSteps:    []string{},
@@ -597,6 +688,16 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	e.pipelines[pipelineID] = execution
 	e.lastExecution = execution
 	e.mu.Unlock()
+
+	return execution, runCtx, cancel
+}
+
+// setupPipelineRun seeds parent artifacts, saves initial DB state, sets up workspace,
+// initialises hook/webhook runners, and fires run_start hooks.
+// It is the fourth phase of Execute.
+func (e *DefaultPipelineExecutor) setupPipelineRun(ctx context.Context, execution *PipelineExecution, p *Pipeline, m *manifest.Manifest) error {
+	pipelineID := execution.Status.ID
+	input := execution.Input
 
 	// Seed parent artifact paths into child execution context.
 	// When this executor is a child of a sub-pipeline step, the parent passes
@@ -708,6 +809,15 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 	}
 	e.fireWebhooks(ctx, startEvt)
 
+	return nil
+}
+
+// runSchedulingLoop iterates the topologically-sorted step list, finding and executing
+// ready batches until all schedulable steps complete or an unrecoverable error occurs.
+// Returns (schedulableSteps, error) — schedulableSteps is needed by finalizePipelineExecution.
+func (e *DefaultPipelineExecutor) runSchedulingLoop(ctx context.Context, execution *PipelineExecution, sortedSteps []*Step) (int, error) {
+	pipelineID := execution.Status.ID
+
 	completed := make(map[string]bool, len(sortedSteps))
 	completedCount := 0
 
@@ -729,7 +839,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 					pending = append(pending, step.ID)
 				}
 			}
-			return fmt.Errorf("deadlock: %d step(s) stuck waiting for dependencies — pending: %v", len(pending), pending)
+			return 0, fmt.Errorf("deadlock: %d step(s) stuck waiting for dependencies — pending: %v", len(pending), pending)
 		}
 
 		if err := e.executeStepBatch(ctx, execution, ready); err != nil {
@@ -776,7 +886,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 				execution.Status.FailedSteps = append(execution.Status.FailedSteps, failedStepID)
 			}
 			if e.store != nil {
-				_ = e.store.SavePipelineState(pipelineID, stateFailed, input)
+				_ = e.store.SavePipelineState(pipelineID, stateFailed, execution.Input)
 			}
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
@@ -790,7 +900,7 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 				e.retroGenerator.Generate(pipelineID, execution.Pipeline.Metadata.Name)
 			}
 			e.cleanupCompletedPipeline(pipelineID)
-			return &StepExecutionError{StepID: failedStepID, Err: err}
+			return 0, &StepExecutionError{StepID: failedStepID, Err: err}
 		}
 
 		// Process batch results: steps may have completed, failed (optional), or been skipped
@@ -836,6 +946,15 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 		})
 	}
 
+	return schedulableSteps, nil
+}
+
+// finalizePipelineExecution records completion status, fires terminal hooks, generates
+// a retrospective, and cleans up in-memory state. It is the final phase of Execute.
+func (e *DefaultPipelineExecutor) finalizePipelineExecution(_ context.Context, execution *PipelineExecution, schedulableSteps int) {
+	pipelineID := execution.Status.ID
+	input := execution.Input
+
 	now := time.Now()
 	execution.Status.CompletedAt = &now
 
@@ -880,8 +999,6 @@ func (e *DefaultPipelineExecutor) Execute(ctx context.Context, p *Pipeline, m *m
 
 	// Clean up completed pipeline from in-memory storage to prevent memory leak
 	e.cleanupCompletedPipeline(pipelineID)
-
-	return nil
 }
 
 // executeGraphPipeline runs a graph-mode pipeline using edge-following execution
@@ -2153,138 +2270,17 @@ func (e *DefaultPipelineExecutor) validateStepContracts(
 				continue
 			}
 
-			// Determine on_failure policy (contract-level takes precedence, then legacy must_pass)
-			onFailure := c.OnFailure
-			if onFailure == "" {
-				if c.MustPass {
-					onFailure = OnFailureFail
-				} else {
-					onFailure = OnFailureContinue // soft failure = continue
-				}
-			}
-
-			switch onFailure {
-			case OnFailureFail:
-				if e.logger != nil {
-					e.logger.LogContractResult(pipelineID, step.ID, c.Type, "fail")
-					_ = e.logger.LogStepEnd(pipelineID, step.ID, stateFailed, time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, cErr.Error())
-				}
-				if e.store != nil {
-					completedAt := time.Now()
-					e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
-						RunID:        pipelineID,
-						StepID:       step.ID,
-						PipelineName: execution.Status.PipelineName,
-						Persona:      resolvedPersona,
-						StartedAt:    stepStart,
-						CompletedAt:  &completedAt,
-						DurationMs:   time.Since(stepStart).Milliseconds(),
-						TokensUsed:   result.TokensUsed,
-						Success:      false,
-						ErrorMessage: "contract validation failed: " + cErr.Error(),
-					})
-				}
-				e.recordDecision(pipelineID, step.ID, "contract",
-					fmt.Sprintf("contract validation failed (hard) for step %s", step.ID),
-					fmt.Sprintf("on_failure is 'fail', failing the step: %s", cErr.Error()),
-					map[string]interface{}{"contract_type": c.Type, "error": cErr.Error()},
-				)
-				return fmt.Errorf("contract validation failed: %w", cErr)
-
-			case OnFailureSkip:
-				// Stop processing remaining contracts for this round
-				e.emit(event.Event{
-					Timestamp:  time.Now(),
-					PipelineID: pipelineID,
-					StepID:     step.ID,
-					State:      "contract_skip",
-					Message:    fmt.Sprintf("%s contract failed, skipping remaining contracts: %s", c.Type, cErr.Error()),
-				})
+			reworkTriggered, policyErr := e.applyContractOnFailure(
+				ctx, execution, step, c, cErr,
+				round, maxRounds, convergenceTracker,
+				pipelineID, resolvedPersona, stepStart, result, workspacePath,
+			)
+			if errors.Is(policyErr, errContractSkip) {
 				return nil
-
-			case OnFailureContinue:
-				// Log soft failure, continue to next contract
-				e.emit(event.Event{
-					Timestamp:  time.Now(),
-					PipelineID: pipelineID,
-					StepID:     step.ID,
-					State:      "contract_soft_failure",
-					Message:    fmt.Sprintf("contract validation failed but continuing (on_failure: continue): %s", cErr.Error()),
-				})
-				if e.logger != nil {
-					e.logger.LogContractResult(pipelineID, step.ID, c.Type, "soft_fail")
-				}
-				e.recordDecision(pipelineID, step.ID, "contract",
-					fmt.Sprintf("contract soft-failed for step %s", step.ID),
-					"on_failure is 'continue', proceeding",
-					map[string]interface{}{"contract_type": c.Type, "error": cErr.Error()},
-				)
-
-			case OnFailureWarn:
-				// Log warning, continue to next contract (same as continue but with explicit warning)
-				e.emit(event.Event{
-					Timestamp:  time.Now(),
-					PipelineID: pipelineID,
-					StepID:     step.ID,
-					State:      "contract_warning",
-					Message:    fmt.Sprintf("contract validation warning (on_failure: warn): %s", cErr.Error()),
-				})
-				if e.logger != nil {
-					e.logger.LogContractResult(pipelineID, step.ID, c.Type, "warn")
-				}
-				e.recordDecision(pipelineID, step.ID, "contract",
-					fmt.Sprintf("contract warning for step %s", step.ID),
-					fmt.Sprintf("on_failure is 'warn', proceeding: %s", cErr.Error()),
-					map[string]interface{}{"contract_type": c.Type, "error": cErr.Error()},
-				)
-
-			case OnFailureRework:
-				// Track convergence: extract score from error and check for stall
-				if convergenceTracker != nil {
-					if score, ok := ExtractScoreFromError(cErr.Error()); ok {
-						convergenceTracker.RecordScore(score)
-						if convergenceTracker.IsStalled() {
-							e.emit(event.Event{
-								Timestamp:  time.Now(),
-								PipelineID: pipelineID,
-								StepID:     step.ID,
-								State:      "convergence_stalled",
-								Message:    fmt.Sprintf("rework loop stalled at %s — aborting to save tokens", convergenceTracker.Summary()),
-							})
-							e.recordDecision(pipelineID, step.ID, "contract",
-								fmt.Sprintf("convergence stalled for step %s", step.ID),
-								fmt.Sprintf("score plateaued at %s, no improvement over %d rounds", convergenceTracker.Summary(), convergenceTracker.Rounds()),
-								map[string]interface{}{"contract_type": c.Type, "scores": convergenceTracker.scores},
-							)
-							return fmt.Errorf("contract rework stalled (no convergence): %w", cErr)
-						}
-					}
-				}
-
-				if round >= maxRounds {
-					// Retries exhausted — fall back to fail
-					e.emit(event.Event{
-						Timestamp:  time.Now(),
-						PipelineID: pipelineID,
-						StepID:     step.ID,
-						State:      "contract_failed",
-						Message:    fmt.Sprintf("%s contract: max rework retries (%d) exhausted: %s", c.Type, maxRounds, cErr.Error()),
-					})
-					return fmt.Errorf("contract validation failed after %d rework attempt(s): %w", maxRounds, cErr)
-				}
-				// Write feedback artifact and trigger rework
-				feedbackPath, reworkErr := e.triggerContractRework(ctx, execution, step, c, cErr, workspacePath, pipelineID)
-				if reworkErr != nil {
-					return reworkErr
-				}
-				_ = feedbackPath
-				reworkTriggered = true
-
-			default:
-				// Unknown on_failure — treat as fail
-				return fmt.Errorf("contract validation failed: %w", cErr)
 			}
-
+			if policyErr != nil {
+				return policyErr
+			}
 			if reworkTriggered {
 				break
 			}
@@ -2327,6 +2323,165 @@ func (e *DefaultPipelineExecutor) validateStepContracts(
 	}
 	e.fireWebhooks(ctx, contractEvt)
 	return nil
+}
+
+// errContractSkip is returned by applyContractOnFailure when the on_failure: skip
+// policy is applied. validateStepContracts interprets this as "halt contract
+// processing and return nil" — the step is treated as passing.
+var errContractSkip = errors.New("contract: skip policy applied")
+
+// applyContractOnFailure applies the configured on_failure policy for a failed contract.
+// Returns (reworkTriggered, err):
+//   - reworkTriggered=true: a rework step was triggered; caller should break the inner contract loop
+//   - err == errContractSkip: skip policy applied; caller should return nil
+//   - err != nil: hard failure; caller should return the error
+//   - (false, nil): soft policy (continue/warn); caller resumes the next contract
+func (e *DefaultPipelineExecutor) applyContractOnFailure(
+	ctx context.Context,
+	execution *PipelineExecution,
+	step *Step,
+	c ContractConfig,
+	cErr error,
+	round, maxRounds int,
+	convergenceTracker *ConvergenceTracker,
+	pipelineID, resolvedPersona string,
+	stepStart time.Time,
+	result *adapter.AdapterResult,
+	workspacePath string,
+) (reworkTriggered bool, err error) {
+	// Determine on_failure policy (contract-level takes precedence, then legacy must_pass)
+	onFailure := c.OnFailure
+	if onFailure == "" {
+		if c.MustPass {
+			onFailure = OnFailureFail
+		} else {
+			onFailure = OnFailureContinue // soft failure = continue
+		}
+	}
+
+	switch onFailure {
+	case OnFailureFail:
+		if e.logger != nil {
+			e.logger.LogContractResult(pipelineID, step.ID, c.Type, "fail")
+			_ = e.logger.LogStepEnd(pipelineID, step.ID, stateFailed, time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, cErr.Error())
+		}
+		if e.store != nil {
+			completedAt := time.Now()
+			e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+				RunID:        pipelineID,
+				StepID:       step.ID,
+				PipelineName: execution.Status.PipelineName,
+				Persona:      resolvedPersona,
+				StartedAt:    stepStart,
+				CompletedAt:  &completedAt,
+				DurationMs:   time.Since(stepStart).Milliseconds(),
+				TokensUsed:   result.TokensUsed,
+				Success:      false,
+				ErrorMessage: "contract validation failed: " + cErr.Error(),
+			})
+		}
+		e.recordDecision(pipelineID, step.ID, "contract",
+			fmt.Sprintf("contract validation failed (hard) for step %s", step.ID),
+			fmt.Sprintf("on_failure is 'fail', failing the step: %s", cErr.Error()),
+			map[string]interface{}{"contract_type": c.Type, "error": cErr.Error()},
+		)
+		return false, fmt.Errorf("contract validation failed: %w", cErr)
+
+	case OnFailureSkip:
+		// Halt contract processing; the step is treated as passing (return nil upstream)
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "contract_skip",
+			Message:    fmt.Sprintf("%s contract failed, skipping remaining contracts: %s", c.Type, cErr.Error()),
+		})
+		return false, errContractSkip
+
+	case OnFailureContinue:
+		// Log soft failure, continue to next contract
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "contract_soft_failure",
+			Message:    fmt.Sprintf("contract validation failed but continuing (on_failure: continue): %s", cErr.Error()),
+		})
+		if e.logger != nil {
+			e.logger.LogContractResult(pipelineID, step.ID, c.Type, "soft_fail")
+		}
+		e.recordDecision(pipelineID, step.ID, "contract",
+			fmt.Sprintf("contract soft-failed for step %s", step.ID),
+			"on_failure is 'continue', proceeding",
+			map[string]interface{}{"contract_type": c.Type, "error": cErr.Error()},
+		)
+		return false, nil
+
+	case OnFailureWarn:
+		// Log warning, continue to next contract (same as continue but with explicit warning)
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "contract_warning",
+			Message:    fmt.Sprintf("contract validation warning (on_failure: warn): %s", cErr.Error()),
+		})
+		if e.logger != nil {
+			e.logger.LogContractResult(pipelineID, step.ID, c.Type, "warn")
+		}
+		e.recordDecision(pipelineID, step.ID, "contract",
+			fmt.Sprintf("contract warning for step %s", step.ID),
+			fmt.Sprintf("on_failure is 'warn', proceeding: %s", cErr.Error()),
+			map[string]interface{}{"contract_type": c.Type, "error": cErr.Error()},
+		)
+		return false, nil
+
+	case OnFailureRework:
+		// Track convergence: extract score from error and check for stall
+		if convergenceTracker != nil {
+			if score, ok := ExtractScoreFromError(cErr.Error()); ok {
+				convergenceTracker.RecordScore(score)
+				if convergenceTracker.IsStalled() {
+					e.emit(event.Event{
+						Timestamp:  time.Now(),
+						PipelineID: pipelineID,
+						StepID:     step.ID,
+						State:      "convergence_stalled",
+						Message:    fmt.Sprintf("rework loop stalled at %s — aborting to save tokens", convergenceTracker.Summary()),
+					})
+					e.recordDecision(pipelineID, step.ID, "contract",
+						fmt.Sprintf("convergence stalled for step %s", step.ID),
+						fmt.Sprintf("score plateaued at %s, no improvement over %d rounds", convergenceTracker.Summary(), convergenceTracker.Rounds()),
+						map[string]interface{}{"contract_type": c.Type, "scores": convergenceTracker.scores},
+					)
+					return false, fmt.Errorf("contract rework stalled (no convergence): %w", cErr)
+				}
+			}
+		}
+
+		if round >= maxRounds {
+			// Retries exhausted — fall back to fail
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: pipelineID,
+				StepID:     step.ID,
+				State:      "contract_failed",
+				Message:    fmt.Sprintf("%s contract: max rework retries (%d) exhausted: %s", c.Type, maxRounds, cErr.Error()),
+			})
+			return false, fmt.Errorf("contract validation failed after %d rework attempt(s): %w", maxRounds, cErr)
+		}
+		// Write feedback artifact and trigger rework
+		feedbackPath, reworkErr := e.triggerContractRework(ctx, execution, step, c, cErr, workspacePath, pipelineID)
+		if reworkErr != nil {
+			return false, reworkErr
+		}
+		_ = feedbackPath
+		return true, nil
+
+	default:
+		// Unknown on_failure — treat as fail
+		return false, fmt.Errorf("contract validation failed: %w", cErr)
+	}
 }
 
 // runSingleContract validates one contract and emits lifecycle events.
@@ -2687,7 +2842,140 @@ func (e *DefaultPipelineExecutor) executeConcurrentStep(ctx context.Context, exe
 	return nil
 }
 
+// runStepExecution orchestrates the four phases of a single step run:
+// resource resolution → config assembly → adapter dispatch → result processing.
 func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, execution *PipelineExecution, step *Step) error {
+	// Phase A: Resolve persona, adapter, workspace, model, artifacts, and build base prompt
+	res, err := e.resolveStepResources(ctx, execution, step)
+	if err != nil {
+		return err
+	}
+
+	// Phase B: Build AdapterRunConfig (timeout, system prompt, sandbox, skills, contract prompt)
+	cfg, err := e.buildStepAdapterConfig(ctx, execution, step, res)
+	if err != nil {
+		return err
+	}
+
+	// Emit step progress: executing
+	e.emit(event.Event{
+		Timestamp:     time.Now(),
+		PipelineID:    res.pipelineID,
+		StepID:        step.ID,
+		State:         "step_progress",
+		Persona:       res.resolvedPersona,
+		Progress:      25,
+		CurrentAction: "Executing agent",
+	})
+
+	// Iron Rule: estimate prompt size and check against context window
+	promptBytes := len(cfg.Prompt) + len(cfg.OntologySection)
+	if promptBytes > 0 && res.resolvedModel != "" {
+		ironStatus, ironMsg := cost.CheckIronRule(res.resolvedModel, promptBytes)
+		switch ironStatus {
+		case cost.IronRuleWarning:
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: res.pipelineID,
+				StepID:     step.ID,
+				State:      "iron_rule_warning",
+				Message:    ironMsg,
+			})
+		case cost.IronRuleFail:
+			return fmt.Errorf("iron rule: %s", ironMsg)
+		}
+	}
+
+	// Phase C: Dispatch to adapter
+	stepStart := time.Now()
+	e.trace("adapter_start", step.ID, 0, map[string]string{
+		"persona": res.resolvedPersona,
+		"adapter": res.adapterDef.Binary,
+		"model":   res.resolvedModel,
+	})
+	result, adapterErr := res.stepRunner.Run(ctx, cfg)
+	adapterDurationMs := time.Since(stepStart).Milliseconds()
+
+	if adapterErr != nil {
+		e.trace("adapter_end", step.ID, adapterDurationMs, map[string]string{
+			"status": stateFailed,
+			"error":  adapterErr.Error(),
+		})
+		if e.logger != nil {
+			_ = e.logger.LogStepEnd(res.pipelineID, step.ID, stateFailed, time.Since(stepStart), 0, 0, 0, adapterErr.Error())
+		}
+		if e.store != nil {
+			completedAt := time.Now()
+			e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+				RunID:        res.pipelineID,
+				StepID:       step.ID,
+				PipelineName: execution.Status.PipelineName,
+				Persona:      res.resolvedPersona,
+				StartedAt:    stepStart,
+				CompletedAt:  &completedAt,
+				DurationMs:   time.Since(stepStart).Milliseconds(),
+				Success:      false,
+				ErrorMessage: adapterErr.Error(),
+			})
+		}
+		return fmt.Errorf("adapter execution failed: %w", adapterErr)
+	}
+
+	// Warn on non-zero exit code — adapter process may have crashed, but
+	// work may still have been completed (e.g. Claude Code JS error after
+	// tool calls finished). Let contract validation decide the outcome.
+	if result.ExitCode != 0 {
+		msg := fmt.Sprintf("adapter exited with code %d", result.ExitCode)
+		if result.FailureReason != "" {
+			msg += ": " + result.FailureReason
+		}
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: res.pipelineID,
+			StepID:     step.ID,
+			State:      "warning",
+			Message:    msg,
+		})
+	}
+
+	// Fail immediately on rate limit — the result content is an error message,
+	// not useful work product. Proceeding would write the error as an artifact.
+	if result.FailureReason == adapter.FailureReasonRateLimit {
+		if e.logger != nil {
+			_ = e.logger.LogStepEnd(res.pipelineID, step.ID, stateFailed, time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, "rate limited: "+result.ResultContent)
+		}
+		if e.store != nil {
+			completedAt := time.Now()
+			e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+				RunID:        res.pipelineID,
+				StepID:       step.ID,
+				PipelineName: execution.Status.PipelineName,
+				Persona:      res.resolvedPersona,
+				StartedAt:    stepStart,
+				CompletedAt:  &completedAt,
+				DurationMs:   time.Since(stepStart).Milliseconds(),
+				TokensUsed:   result.TokensUsed,
+				Success:      false,
+				ErrorMessage: "rate limited: " + result.ResultContent,
+			})
+		}
+		return fmt.Errorf("adapter rate limited: %s", result.ResultContent)
+	}
+
+	e.trace("adapter_end", step.ID, adapterDurationMs, map[string]string{
+		"status":      "success",
+		"exit_code":   fmt.Sprintf("%d", result.ExitCode),
+		"tokens_used": fmt.Sprintf("%d", result.TokensUsed),
+	})
+
+	// Phase D: Process adapter result (stdout, tokens, cost, artifacts, contracts, hooks)
+	return e.processAdapterResult(ctx, execution, step, res, result, stepStart)
+}
+
+// resolveStepResources resolves the persona, adapter, workspace, and model for a step,
+// injects dependent artifacts, and builds the base step prompt.
+// It is Phase A of runStepExecution.
+func (e *DefaultPipelineExecutor) resolveStepResources(ctx context.Context, execution *PipelineExecution, step *Step) (*stepRunResources, error) {
 	pipelineID := execution.Status.ID
 
 	resolvedPersona := step.Persona
@@ -2696,14 +2984,11 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 	persona := execution.Manifest.GetPersona(resolvedPersona)
 	if persona == nil {
-		return fmt.Errorf("persona %q not found in manifest", resolvedPersona)
+		return nil, fmt.Errorf("persona %q not found in manifest", resolvedPersona)
 	}
 
 	// Resolve adapter name (strongest to weakest):
-	// 1. CLI --adapter flag
-	// 2. Step-level adapter in pipeline YAML
-	// 3. Persona-level adapter in wave.yaml
-	// 4. Adapter defaults (empty — adapter decides)
+	// 1. CLI --adapter flag  2. Step-level adapter  3. Persona-level adapter  4. Adapter defaults
 	resolvedAdapterName := persona.Adapter
 	if step.Adapter != "" {
 		resolvedAdapterName = step.Adapter
@@ -2718,7 +3003,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		for name := range execution.Manifest.Adapters {
 			available = append(available, name)
 		}
-		return fmt.Errorf("adapter %q not found in manifest for step %q (available: %v)", resolvedAdapterName, step.ID, available)
+		return nil, fmt.Errorf("adapter %q not found in manifest for step %q (available: %v)", resolvedAdapterName, step.ID, available)
 	}
 
 	// Resolve adapter runner from registry for per-step dispatch
@@ -2727,7 +3012,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	// Create workspace under .wave/workspaces/<pipeline>/<step>/
 	workspacePath, err := e.createStepWorkspace(execution, step)
 	if err != nil {
-		return fmt.Errorf("failed to create workspace: %w", err)
+		return nil, fmt.Errorf("failed to create workspace: %w", err)
 	}
 	execution.mu.Lock()
 	execution.WorkspacePaths[step.ID] = workspacePath
@@ -2747,7 +3032,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	if len(step.OutputArtifacts) > 0 {
 		outputDir := filepath.Join(workspacePath, ".wave", "output")
 		if err := os.MkdirAll(outputDir, 0755); err != nil {
-			return fmt.Errorf("failed to create output dir: %w", err)
+			return nil, fmt.Errorf("failed to create output dir: %w", err)
 		}
 	}
 
@@ -2757,17 +3042,13 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 	resolvedModel := e.resolveModel(step, persona, &execution.Manifest.Runtime.Routing, resolvedPersona, adapterTierModels)
 
-	// When no model was resolved from any tier (CLI, step, persona, auto-route),
-	// fall back to the target adapter's default_model from the manifest.
+	// When no model was resolved, fall back to adapter's default_model
 	if resolvedModel == "" && adapterDef != nil && adapterDef.DefaultModel != "" {
 		resolvedModel = adapterDef.DefaultModel
 	}
 
-	// When the resolved adapter differs from the persona's adapter but the
-	// model was not explicitly set at the same or higher tier, the resolved
-	// model may belong to a different adapter ecosystem (e.g., a Claude-specific
-	// literal model ID is meaningless to Gemini). Fall back to the target
-	// adapter's default_model from the manifest.
+	// When resolved adapter differs from persona's adapter and no explicit model was set,
+	// fall back to the target adapter's default model (avoids cross-ecosystem model IDs)
 	if resolvedAdapterName != persona.Adapter && e.modelOverride == "" && step.Model == "" {
 		if adapterDef != nil && adapterDef.DefaultModel != "" {
 			resolvedModel = adapterDef.DefaultModel
@@ -2776,7 +3057,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 	}
 
-	// Determine the configured (pre-resolution) model for provenance tracking.
+	// Determine the configured (pre-resolution) model for provenance tracking
 	configuredModel := step.Model
 	if configuredModel == "" {
 		configuredModel = persona.Model
@@ -2829,7 +3110,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	// Inject artifacts from dependencies
 	artifactInjectStart := time.Now()
 	if err := e.injectArtifacts(execution, step, workspacePath); err != nil {
-		return fmt.Errorf("failed to inject artifacts: %w", err)
+		return nil, fmt.Errorf("failed to inject artifacts: %w", err)
 	}
 	e.trace("artifact_injection", step.ID, time.Since(artifactInjectStart).Milliseconds(), map[string]string{
 		"workspace": workspacePath,
@@ -2850,10 +3131,30 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 
 	prompt := e.buildStepPrompt(execution, step)
-
 	if e.logger != nil {
 		_ = e.logger.LogToolCall(pipelineID, step.ID, "adapter.Run", fmt.Sprintf("persona=%s prompt_len=%d", resolvedPersona, len(prompt)))
 	}
+
+	return &stepRunResources{
+		pipelineID:          pipelineID,
+		resolvedPersona:     resolvedPersona,
+		persona:             persona,
+		adapterDef:          adapterDef,
+		resolvedAdapterName: resolvedAdapterName,
+		stepRunner:          stepRunner,
+		workspacePath:       workspacePath,
+		resolvedModel:       resolvedModel,
+		configuredModel:     configuredModel,
+		prompt:              prompt,
+	}, nil
+}
+
+// buildStepAdapterConfig assembles the adapter.AdapterRunConfig for a step.
+// It resolves timeout, system prompt, sandbox settings, skills, contract prompt,
+// and ontology section. It is Phase B of runStepExecution.
+func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, execution *PipelineExecution, step *Step, res *stepRunResources) (adapter.AdapterRunConfig, error) {
+	pipelineID := res.pipelineID
+	prompt := res.prompt
 
 	// Resolve timeout with four-tier precedence:
 	// 1. Step-level timeout_minutes (pipeline YAML) — most specific
@@ -2870,8 +3171,8 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 	// Load system prompt from persona file
 	systemPrompt := ""
-	if persona.SystemPromptFile != "" {
-		if data, err := os.ReadFile(persona.SystemPromptFile); err == nil {
+	if res.persona.SystemPromptFile != "" {
+		if data, err := os.ReadFile(res.persona.SystemPromptFile); err == nil {
 			systemPrompt = string(data)
 		}
 	}
@@ -2882,8 +3183,8 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	var sandboxDomains []string
 	var envPassthrough []string
 	if sandboxEnabled {
-		if persona.Sandbox != nil && len(persona.Sandbox.AllowedDomains) > 0 {
-			sandboxDomains = persona.Sandbox.AllowedDomains
+		if res.persona.Sandbox != nil && len(res.persona.Sandbox.AllowedDomains) > 0 {
+			sandboxDomains = res.persona.Sandbox.AllowedDomains
 		} else if len(execution.Manifest.Runtime.Sandbox.DefaultAllowedDomains) > 0 {
 			sandboxDomains = execution.Manifest.Runtime.Sandbox.DefaultAllowedDomains
 		}
@@ -2892,7 +3193,6 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 	// Resolve skills from all three scopes: global, persona, pipeline
 	// Pipeline scope includes both pipeline.Skills and requires.skills keys.
-	// Template-resolve pipeline skills (e.g. "{{ project.skill }}") before merging.
 	var pipelineSkills []string
 	for _, s := range execution.Pipeline.Skills {
 		r := execution.Context.ResolvePlaceholders(s)
@@ -2903,7 +3203,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	if execution.Pipeline.Requires != nil {
 		pipelineSkills = append(pipelineSkills, execution.Pipeline.Requires.SkillNames()...)
 	}
-	resolvedSkills := skill.ResolveSkills(execution.Manifest.Skills, persona.Skills, pipelineSkills)
+	resolvedSkills := skill.ResolveSkills(execution.Manifest.Skills, res.persona.Skills, pipelineSkills)
 
 	// Provision skill commands from requires.skills (SkillConfig-backed skills)
 	var skillCommandsDir string
@@ -2912,7 +3212,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		provisioner := skill.NewProvisioner(execution.Pipeline.Requires.Skills, "")
 		commands, _ := provisioner.DiscoverCommands(skillNames)
 		if len(commands) > 0 {
-			tmpDir := filepath.Join(workspacePath, ".wave-skill-commands")
+			tmpDir := filepath.Join(res.workspacePath, ".wave-skill-commands")
 			if err := provisioner.Provision(tmpDir, skillNames); err != nil {
 				e.emit(event.Event{
 					Timestamp:  time.Now(),
@@ -2936,7 +3236,6 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 				requiresSkills[name] = true
 			}
 		}
-		// Filter out skills already handled by requires.skills
 		var storeSkills []string
 		for _, name := range resolvedSkills {
 			if !requiresSkills[name] {
@@ -2944,9 +3243,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			}
 		}
 		if len(storeSkills) > 0 {
-			infos, err := skill.ProvisionFromStore(e.skillStore, workspacePath, storeSkills)
+			infos, err := skill.ProvisionFromStore(e.skillStore, res.workspacePath, storeSkills)
 			if err != nil {
-				return fmt.Errorf("skill provisioning failed: %w", err)
+				return adapter.AdapterRunConfig{}, fmt.Errorf("skill provisioning failed: %w", err)
 			}
 			for _, info := range infos {
 				resolvedSkillRefs = append(resolvedSkillRefs, adapter.SkillRef{
@@ -2957,11 +3256,8 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		}
 	}
 
-	// Auto-generate contract compliance section. This is appended directly
-	// to the user prompt (not the system prompt / agent .md) so the model
-	// sees it alongside the task instructions where it has the strongest
-	// signal. System prompt injection was unreliable — models would ignore
-	// the schema buried in the agent .md body among other context.
+	// Auto-generate contract compliance section. Appended directly to the user prompt
+	// so the model sees it alongside the task instructions (system prompt injection was unreliable).
 	contractPrompt := e.buildContractPrompt(step, execution.Context)
 	if contractPrompt != "" {
 		prompt = prompt + "\n\n" + contractPrompt
@@ -2971,17 +3267,17 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	ontologySection := e.buildOntologySection(execution, step, pipelineID)
 
 	cfg := adapter.AdapterRunConfig{
-		Adapter:             adapterDef.Binary,
-		Persona:             resolvedPersona,
-		WorkspacePath:       workspacePath,
+		Adapter:             res.adapterDef.Binary,
+		Persona:             res.resolvedPersona,
+		WorkspacePath:       res.workspacePath,
 		Prompt:              prompt,
 		SystemPrompt:        systemPrompt,
 		Timeout:             timeout,
-		Temperature:         persona.Temperature,
-		Model:               resolvedModel,
-		AllowedTools:        persona.Permissions.AllowedTools,
-		DenyTools:           persona.Permissions.Deny,
-		OutputFormat:        adapterDef.OutputFormat,
+		Temperature:         res.persona.Temperature,
+		Model:               res.resolvedModel,
+		AllowedTools:        res.persona.Permissions.AllowedTools,
+		DenyTools:           res.persona.Permissions.Deny,
+		OutputFormat:        res.adapterDef.OutputFormat,
 		Debug:               e.debug,
 		SandboxEnabled:      sandboxEnabled,
 		AllowedDomains:      sandboxDomains,
@@ -2994,7 +3290,6 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		MaxConcurrentAgents: step.MaxConcurrentAgents,
 		OnStreamEvent: func(evt adapter.StreamEvent) {
 			if evt.Type == "tool_use" && evt.ToolName != "" {
-				// Notify watchdog of activity (any tool) and progress (write tools only)
 				execution.mu.Lock()
 				wd := execution.Watchdog
 				execution.mu.Unlock()
@@ -3004,13 +3299,12 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 						wd.NotifyProgress()
 					}
 				}
-
 				e.emit(event.Event{
 					Timestamp:  time.Now(),
 					PipelineID: pipelineID,
 					StepID:     step.ID,
 					State:      event.StateStreamActivity,
-					Persona:    resolvedPersona,
+					Persona:    res.resolvedPersona,
 					ToolName:   evt.ToolName,
 					ToolTarget: evt.ToolInput,
 				})
@@ -3018,118 +3312,22 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		},
 	}
 
-	// Emit step progress: executing
-	e.emit(event.Event{
-		Timestamp:     time.Now(),
-		PipelineID:    pipelineID,
-		StepID:        step.ID,
-		State:         "step_progress",
-		Persona:       resolvedPersona,
-		Progress:      25,
-		CurrentAction: "Executing agent",
-	})
+	return cfg, nil
+}
 
-	// Iron Rule: estimate prompt size and check against context window
-	promptBytes := len(cfg.Prompt) + len(cfg.OntologySection)
-	if promptBytes > 0 && resolvedModel != "" {
-		ironStatus, ironMsg := cost.CheckIronRule(resolvedModel, promptBytes)
-		switch ironStatus {
-		case cost.IronRuleWarning:
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     step.ID,
-				State:      "iron_rule_warning",
-				Message:    ironMsg,
-			})
-		case cost.IronRuleFail:
-			return fmt.Errorf("iron rule: %s", ironMsg)
-		}
-	}
-
-	stepStart := time.Now()
-	e.trace("adapter_start", step.ID, 0, map[string]string{
-		"persona": resolvedPersona,
-		"adapter": adapterDef.Binary,
-		"model":   resolvedModel,
-	})
-	result, err := stepRunner.Run(ctx, cfg)
-	adapterDurationMs := time.Since(stepStart).Milliseconds()
-	if err != nil {
-		e.trace("adapter_end", step.ID, adapterDurationMs, map[string]string{
-			"status": stateFailed,
-			"error":  err.Error(),
-		})
-		// Let the higher-level executor emit a single failure event; just
-		// propagate the error with context so enriched details (e.g. from
-		// *adapter.StepError) remain available to callers.
-		if e.logger != nil {
-			_ = e.logger.LogStepEnd(pipelineID, step.ID, stateFailed, time.Since(stepStart), 0, 0, 0, err.Error())
-		}
-		if e.store != nil {
-			completedAt := time.Now()
-			e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
-				RunID:        pipelineID,
-				StepID:       step.ID,
-				PipelineName: execution.Status.PipelineName,
-				Persona:      resolvedPersona,
-				StartedAt:    stepStart,
-				CompletedAt:  &completedAt,
-				DurationMs:   time.Since(stepStart).Milliseconds(),
-				Success:      false,
-				ErrorMessage: err.Error(),
-			})
-		}
-		return fmt.Errorf("adapter execution failed: %w", err)
-	}
-
-	// Warn on non-zero exit code — adapter process may have crashed, but
-	// work may still have been completed (e.g. Claude Code JS error after
-	// tool calls finished). Let contract validation decide the outcome.
-	if result.ExitCode != 0 {
-		msg := fmt.Sprintf("adapter exited with code %d", result.ExitCode)
-		if result.FailureReason != "" {
-			msg += ": " + result.FailureReason
-		}
-		e.emit(event.Event{
-			Timestamp:  time.Now(),
-			PipelineID: pipelineID,
-			StepID:     step.ID,
-			State:      "warning",
-			Message:    msg,
-		})
-	}
-
-	// Fail immediately on rate limit — the result content is an error message,
-	// not useful work product. Proceeding would write the error as an artifact.
-	if result.FailureReason == adapter.FailureReasonRateLimit {
-		if e.logger != nil {
-			_ = e.logger.LogStepEnd(pipelineID, step.ID, stateFailed, time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, "rate limited: "+result.ResultContent)
-		}
-		if e.store != nil {
-			completedAt := time.Now()
-			e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
-				RunID:        pipelineID,
-				StepID:       step.ID,
-				PipelineName: execution.Status.PipelineName,
-				Persona:      resolvedPersona,
-				StartedAt:    stepStart,
-				CompletedAt:  &completedAt,
-				DurationMs:   time.Since(stepStart).Milliseconds(),
-				TokensUsed:   result.TokensUsed,
-				Success:      false,
-				ErrorMessage: "rate limited: " + result.ResultContent,
-			})
-		}
-		return fmt.Errorf("adapter rate limited: %s", result.ResultContent)
-	}
-
-	e.trace("adapter_end", step.ID, adapterDurationMs, map[string]string{
-		"status":      "success",
-		"exit_code":   fmt.Sprintf("%d", result.ExitCode),
-		"tokens_used": fmt.Sprintf("%d", result.TokensUsed),
-	})
-
+// processAdapterResult handles the result from a successful adapter run:
+// reads stdout, accumulates tokens and cost, writes artifacts, runs relay compaction,
+// validates contracts, fires completion hooks, and records performance metrics.
+// It is Phase D of runStepExecution.
+func (e *DefaultPipelineExecutor) processAdapterResult(
+	ctx context.Context,
+	execution *PipelineExecution,
+	step *Step,
+	res *stepRunResources,
+	result *adapter.AdapterResult,
+	stepStart time.Time,
+) error {
+	pipelineID := res.pipelineID
 	stepDuration := time.Since(stepStart).Milliseconds()
 
 	// Emit step progress: processing results
@@ -3138,7 +3336,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		PipelineID:    pipelineID,
 		StepID:        step.ID,
 		State:         "step_progress",
-		Persona:       resolvedPersona,
+		Persona:       res.resolvedPersona,
 		Progress:      75,
 		CurrentAction: "Processing results",
 		TokensUsed:    result.TokensUsed,
@@ -3151,7 +3349,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 	output["exit_code"] = result.ExitCode
 	output["tokens_used"] = result.TokensUsed
-	output["workspace"] = workspacePath
+	output["workspace"] = res.workspacePath
 
 	execution.mu.Lock()
 	execution.Results[step.ID] = output
@@ -3181,7 +3379,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 
 	// Record cost and enforce budget
 	if e.costLedger != nil && (result.TokensIn > 0 || result.TokensOut > 0) {
-		_, budgetStatus := e.costLedger.Record(pipelineID, step.ID, resolvedModel, result.TokensIn, result.TokensOut, result.TokensUsed)
+		_, budgetStatus := e.costLedger.Record(pipelineID, step.ID, res.resolvedModel, result.TokensIn, result.TokensOut, result.TokensUsed)
 		switch budgetStatus {
 		case cost.BudgetWarning:
 			e.emit(event.Event{
@@ -3206,48 +3404,39 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	}
 
 	if hasStdoutArtifacts {
-		// Validate stdout size limit
 		maxSize := execution.Manifest.Runtime.Artifacts.GetMaxStdoutSize()
 		if int64(len(stdoutData)) > maxSize {
 			return fmt.Errorf("stdout artifact size (%d bytes) exceeds limit (%d bytes); consider reducing output or increasing runtime.artifacts.max_stdout_size",
 				len(stdoutData), maxSize)
 		}
-
-		// Write stdout artifacts using raw stdout data
-		e.writeOutputArtifacts(execution, step, workspacePath, stdoutData)
+		e.writeOutputArtifacts(execution, step, res.workspacePath, stdoutData)
 	}
 
-	// Write file-based output artifacts to workspace
-	// Use ResultContent if available (extracted from adapter response)
-	// Don't fall back to raw stdout as it contains JSON wrapper, not actual content
+	// Write file-based output artifacts
+	// Use ResultContent if available; don't fall back to raw stdout (contains JSON wrapper)
 	if result.ResultContent != "" && !hasStdoutArtifacts {
-		artifactContent := []byte(result.ResultContent)
-		e.writeOutputArtifacts(execution, step, workspacePath, artifactContent)
+		e.writeOutputArtifacts(execution, step, res.workspacePath, []byte(result.ResultContent))
 	} else if !hasStdoutArtifacts {
-		// ResultContent is empty — still check whether the persona wrote
-		// artifact files to disk via tool calls (e.g. Write/Bash).
-		// Without this, persona-written files are never registered in
-		// ArtifactPaths and contract validation fails on missing files.
-		e.writeOutputArtifacts(execution, step, workspacePath, nil)
+		// ResultContent is empty — check whether the persona wrote artifact files to disk
+		// (e.g. via Write/Bash). Without this, persona-written files are never registered
+		// in ArtifactPaths and contract validation fails on missing files.
+		e.writeOutputArtifacts(execution, step, res.workspacePath, nil)
 	}
 
 	// Check relay/compaction threshold (FR-009)
-	if err := e.checkRelayCompaction(ctx, execution, step, result.TokensUsed, workspacePath, string(stdoutData)); err != nil {
-		// Log the error but don't fail the step - compaction is best-effort
+	if cErr := e.checkRelayCompaction(ctx, execution, step, result.TokensUsed, res.workspacePath, string(stdoutData)); cErr != nil {
 		e.emit(event.Event{
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
 			StepID:     step.ID,
 			State:      "warning",
-			Message:    fmt.Sprintf("relay compaction failed: %v", err),
+			Message:    fmt.Sprintf("relay compaction failed: %v", cErr),
 		})
 	}
 
 	// Validate handover contracts — iterate over EffectiveContracts() which returns
 	// the plural 'contracts' list if set, otherwise wraps the singular 'contract' field.
-	// This maintains full backward compatibility: singular contract behaves identically
-	// to a single-element list.
-	if err := e.validateStepContracts(ctx, execution, step, workspacePath, stepRunner, pipelineID, resolvedPersona, stepStart, result); err != nil {
+	if err := e.validateStepContracts(ctx, execution, step, res.workspacePath, res.stepRunner, pipelineID, res.resolvedPersona, stepStart, result); err != nil {
 		return err
 	}
 
@@ -3266,7 +3455,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			Type:       hooks.EventArtifactCreated,
 			PipelineID: pipelineID,
 			StepID:     step.ID,
-			Workspace:  workspacePath,
+			Workspace:  res.workspacePath,
 			Artifacts:  stepArtifacts,
 		})
 	}
@@ -3277,7 +3466,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		PipelineID: pipelineID,
 		StepID:     step.ID,
 		Input:      execution.Input,
-		Workspace:  workspacePath,
+		Workspace:  res.workspacePath,
 	}
 	if e.hookRunner != nil {
 		if _, err := e.hookRunner.RunHooks(ctx, stepCompletedEvt); err != nil {
@@ -3291,7 +3480,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		PipelineID: pipelineID,
 		StepID:     step.ID,
 		State:      stateCompleted,
-		Persona:    resolvedPersona,
+		Persona:    res.resolvedPersona,
 		DurationMs: stepDuration,
 		TokensUsed: result.TokensUsed,
 		Artifacts:  stepArtifacts,
@@ -3310,7 +3499,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 			RunID:              pipelineID,
 			StepID:             step.ID,
 			PipelineName:       execution.Status.PipelineName,
-			Persona:            resolvedPersona,
+			Persona:            res.resolvedPersona,
 			StartedAt:          stepStart,
 			CompletedAt:        &completedAt,
 			DurationMs:         stepDuration,
