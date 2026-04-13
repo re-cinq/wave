@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Semantic convergence tracking for rework loops — aborts early when LLM judge scores plateau (#772)
+- `wave analyze --decisions` provenance CLI showing orchestration decision table (#772)
+- Toast notifications in WebUI via attention SSE (needs_review, failed, completed transitions) (#772)
+- Gate smoke test pipeline (`wave-smoke-gates`) for validating gate step execution (#772)
+- LoreProvider interface for historical classification enrichment (`internal/classify/lore.go`) (#772)
+- V&V Patterns documentation guide (`docs/guides/vv-patterns.md`) with contract types reference (#772)
+- Sub-pipeline diff fix: child worktree branch propagated to parent for diff endpoint (#772)
+- Attention classifier with brand logo state transitions (running, needs_review, failed, winddown) (#772)
+- Wave orchestrator pipeline (`wave-orchestrate`) for task classification and pipeline routing (#772)
+- Orchestration decision tracking in `orchestration_decision` SQLite table (#772)
 - TUI live output dashboard view with structured per-step progress display
 - Dashboard shows completed/running/failed steps with spinners, durations, and token counts
 - `l` key toggle between dashboard and event log in live output
