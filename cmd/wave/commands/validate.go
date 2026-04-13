@@ -11,7 +11,6 @@ import (
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 type ValidateOptions struct {
@@ -47,18 +46,11 @@ func runValidate(opts ValidateOptions) error {
 		fmt.Printf("Validating manifest: %s\n", opts.ManifestPath)
 	}
 
-	manifestData, err := os.ReadFile(opts.ManifestPath)
+	mp, err := loadManifestStrict(opts.ManifestPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return NewCLIError(CodeManifestMissing, fmt.Sprintf("failed to read manifest: %s", err), "Run 'wave init' to create a new Wave project").WithCause(err)
-		}
-		return NewCLIError(CodeManifestMissing, fmt.Sprintf("failed to read manifest: %s", err), "Check file permissions and path").WithCause(err)
+		return err
 	}
-
-	var m manifest.Manifest
-	if err := yaml.Unmarshal(manifestData, &m); err != nil {
-		return NewCLIError(CodeManifestInvalid, fmt.Sprintf("failed to parse manifest YAML: %s", err), "Check for syntax errors like incorrect indentation or invalid characters").WithCause(err)
-	}
+	m := *mp
 
 	if opts.Verbose {
 		fmt.Printf("✓ Manifest syntax is valid\n")

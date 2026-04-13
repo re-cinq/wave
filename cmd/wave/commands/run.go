@@ -30,7 +30,6 @@ import (
 	"github.com/recinq/wave/internal/workspace"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
-	"gopkg.in/yaml.v3"
 )
 
 type RunOptions struct {
@@ -265,19 +264,11 @@ func runRun(opts RunOptions, debug bool) error {
 		cancel()
 	}()
 
-	manifestData, err := os.ReadFile(opts.Manifest)
+	mp, err := loadManifestStrict(opts.Manifest)
 	if err != nil {
-		return NewCLIError(CodeManifestMissing,
-			fmt.Sprintf("manifest file not found: %s", opts.Manifest),
-			"Run 'wave init' to create a manifest")
+		return err
 	}
-
-	var m manifest.Manifest
-	if err := yaml.Unmarshal(manifestData, &m); err != nil {
-		return NewCLIError(CodeManifestInvalid,
-			fmt.Sprintf("failed to parse manifest: %s", err),
-			"Check wave.yaml syntax — run 'wave validate' to diagnose")
-	}
+	m := *mp
 
 	p, err := loadPipeline(opts.Pipeline, &m)
 	if err != nil {

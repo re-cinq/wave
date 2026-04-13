@@ -57,6 +57,9 @@ type Manifest struct {
 	Skills     []string                 `yaml:"skills,omitempty"`
 	Hooks      []hooks.LifecycleHookDef `yaml:"hooks,omitempty"`
 	Runtime    Runtime                  `yaml:"runtime"`
+
+	// RootDir is the directory containing wave.yaml. Set by the loader.
+	RootDir string `yaml:"-"`
 }
 
 type Metadata struct {

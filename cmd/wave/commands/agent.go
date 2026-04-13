@@ -13,7 +13,6 @@ import (
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 // AgentListItem represents one persona in the agent list output.
@@ -247,21 +246,7 @@ func runAgentExport(cmd *cobra.Command, name, outputPath string) error {
 // loadManifestForAgent loads the manifest and returns a CLIError if it is
 // missing or invalid.
 func loadManifestForAgent(manifestPath string) (*manifest.Manifest, error) {
-	data, err := os.ReadFile(manifestPath)
-	if err != nil {
-		return nil, NewCLIError(CodeManifestMissing,
-			fmt.Sprintf("manifest file not found: %s", manifestPath),
-			"Run 'wave init' to create a manifest")
-	}
-
-	var m manifest.Manifest
-	if err := yaml.Unmarshal(data, &m); err != nil {
-		return nil, NewCLIError(CodeManifestInvalid,
-			fmt.Sprintf("failed to parse manifest: %s", err),
-			"Check wave.yaml for syntax errors")
-	}
-
-	return &m, nil
+	return loadManifestStrict(manifestPath)
 }
 
 // compilePersonaToAgentMd resolves a persona by name and compiles it to agent

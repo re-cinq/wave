@@ -8,11 +8,9 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
-	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 // ChatOptions holds options for the chat command.
@@ -122,14 +120,11 @@ func runChat(opts ChatOptions) error {
 	}
 
 	// Load manifest
-	manifestData, err := os.ReadFile(opts.Manifest)
+	mp, err := loadManifestStrict(opts.Manifest)
 	if err != nil {
-		return NewCLIError(CodeManifestMissing, fmt.Sprintf("failed to read manifest: %s", err), "Check that wave.yaml exists and is readable").WithCause(err)
+		return err
 	}
-	var m manifest.Manifest
-	if err := yaml.Unmarshal(manifestData, &m); err != nil {
-		return NewCLIError(CodeManifestInvalid, fmt.Sprintf("failed to parse manifest: %s", err), "Check wave.yaml syntax -- run 'wave validate' to diagnose").WithCause(err)
-	}
+	m := *mp
 
 	// Load pipeline definition
 	p, err := loadPipeline(run.PipelineName, &m)

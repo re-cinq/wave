@@ -35,7 +35,7 @@ func newComposeTestHelper(t *testing.T) *composeTestHelper {
 	}
 
 	// Create wave.yaml so checkOnboarding() grandfathers the project in.
-	h.writeFile("wave.yaml", "version: 1\n")
+	h.writeFile("wave.yaml", "apiVersion: v1\nkind: WaveManifest\nmetadata:\n  name: test\nruntime:\n  workspace_root: .wave/workspaces\n")
 
 	// Create the pipelines directory.
 	err = os.MkdirAll(filepath.Join(tmpDir, ".wave", "pipelines"), 0755)

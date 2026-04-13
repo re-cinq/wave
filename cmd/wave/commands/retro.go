@@ -13,7 +13,6 @@ import (
 	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/state"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 // NewRetroCmd creates the wave retro command with subcommands.
@@ -326,14 +325,11 @@ func parseSinceDuration(s string) (time.Duration, error) {
 }
 
 func loadManifestAndRunner() (*manifest.Manifest, adapter.AdapterRunner, error) {
-	data, err := os.ReadFile("wave.yaml")
+	mp, err := loadManifestStrict("wave.yaml")
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read wave.yaml: %w", err)
+		return nil, nil, err
 	}
-	var m manifest.Manifest
-	if err := yaml.Unmarshal(data, &m); err != nil {
-		return nil, nil, fmt.Errorf("failed to parse wave.yaml: %w", err)
-	}
+	m := *mp
 
 	var adapterName string
 	for name := range m.Adapters {

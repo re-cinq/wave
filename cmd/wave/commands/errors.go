@@ -4,6 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
+
+	"github.com/recinq/wave/internal/manifest"
 )
 
 // Error code constants for machine-parseable error classification.
@@ -117,4 +121,29 @@ func RenderTextError(w io.Writer, err error, debug bool) {
 	default:
 		fmt.Fprintf(w, "Error: %s\n", err.Error())
 	}
+}
+
+// loadManifestStrict loads a manifest using strict YAML parsing with
+// KnownFields(true) and sets RootDir for env file resolution.
+// Returns CLIError on failure for consistent error reporting across commands.
+func loadManifestStrict(path string) (*manifest.Manifest, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, NewCLIError(CodeManifestMissing,
+				fmt.Sprintf("manifest file not found: %s", path),
+				"Run 'wave init' to create a manifest").WithCause(err)
+		}
+		return nil, NewCLIError(CodeManifestMissing,
+			fmt.Sprintf("failed to read manifest: %s", err),
+			"Check file permissions and path").WithCause(err)
+	}
+	m, err := manifest.UnmarshalStrict(data)
+	if err != nil {
+		return nil, NewCLIError(CodeManifestInvalid,
+			fmt.Sprintf("failed to parse manifest: %s", err),
+			"Check wave.yaml syntax — run 'wave validate' to diagnose").WithCause(err)
+	}
+	m.RootDir = filepath.Dir(path)
+	return m, nil
 }
