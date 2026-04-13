@@ -555,7 +555,7 @@ func TestAdapterOverride_NotPropagatedWhenEmpty(t *testing.T) {
 	}
 }
 
-func TestCopyFile(t *testing.T) {
+func TestCopyPath(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	src := filepath.Join(tmpDir, "source.txt")
@@ -564,8 +564,8 @@ func TestCopyFile(t *testing.T) {
 	}
 
 	dest := filepath.Join(tmpDir, "subdir", "dest.txt")
-	if err := fileutil.CopyFile(src, dest); err != nil {
-		t.Fatalf("CopyFile() error: %v", err)
+	if err := fileutil.CopyPath(src, dest); err != nil {
+		t.Fatalf("CopyPath() error: %v", err)
 	}
 
 	got, err := os.ReadFile(dest)
@@ -573,7 +573,7 @@ func TestCopyFile(t *testing.T) {
 		t.Fatalf("failed to read dest: %v", err)
 	}
 	if string(got) != "hello" {
-		t.Errorf("CopyFile content = %q, want %q", string(got), "hello")
+		t.Errorf("CopyPath content = %q, want %q", string(got), "hello")
 	}
 }
 

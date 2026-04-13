@@ -98,11 +98,6 @@ func (r *Requires) SkillNames() []string {
 	return names
 }
 
-// PipelineName returns the logical pipeline name from metadata.
-func (p *Pipeline) PipelineName() string {
-	return p.Metadata.Name
-}
-
 // EffectiveMaxStepVisits returns the pipeline's max total visits, defaulting to 50.
 func (p *Pipeline) EffectiveMaxStepVisits() int {
 	if p.MaxStepVisits > 0 {
@@ -323,10 +318,6 @@ type Step struct {
 	Aggregate   *AggregateConfig   `yaml:"aggregate,omitempty"` // Output aggregation
 }
 
-// IsOptional returns whether this step is marked as optional.
-func (s *Step) IsOptional() bool {
-	return s.Optional
-}
 
 // EffectiveFidelity returns the fidelity level for this step.
 // Defaults to "full" when thread is set, "fresh" when no thread.

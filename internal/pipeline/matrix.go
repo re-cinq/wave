@@ -149,7 +149,7 @@ func (m *MatrixExecutor) Execute(ctx context.Context, execution *PipelineExecuti
 			PipelineID: pipelineID,
 			StepID:     step.ID,
 			State:      "matrix_child_pipeline_loaded",
-			Message:    fmt.Sprintf("Loaded child pipeline %q with %d steps", childPipeline.PipelineName(), len(childPipeline.Steps)),
+			Message:    fmt.Sprintf("Loaded child pipeline %q with %d steps", childPipeline.Metadata.Name, len(childPipeline.Steps)),
 		})
 		worker = m.childPipelineWorker(childPipeline)
 	}
@@ -1110,7 +1110,7 @@ func (m *MatrixExecutor) childPipelineWorker(childPipeline *Pipeline) matrixWork
 			PipelineID: pipelineID,
 			StepID:     step.ID,
 			State:      "matrix_child_pipeline_start",
-			Message:    fmt.Sprintf("Starting child pipeline %q for item %d", childPipeline.PipelineName(), itemIndex),
+			Message:    fmt.Sprintf("Starting child pipeline %q for item %d", childPipeline.Metadata.Name, itemIndex),
 		})
 
 		// Create child executor with independent state

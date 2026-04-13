@@ -259,11 +259,11 @@ func copyRecursive(src, dst string) error {
 			if info.Size() > 10*1024*1024 {
 				return nil
 			}
-			return fileutil.CopyFile(path, targetPath)
+			return fileutil.CopyPath(path, targetPath)
 		})
 	}
 
-	return fileutil.CopyFile(src, dst)
+	return fileutil.CopyPath(src, dst)
 }
 
 func (wm *workspaceManager) CleanAll(root string) error {

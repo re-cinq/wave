@@ -60,7 +60,7 @@ func (p *Provisioner) Provision(workspacePath string, skillNames []string) error
 			fileName := filepath.Base(src)
 			dst := filepath.Join(targetDir, fileName)
 
-			if err := fileutil.CopyFile(src, dst); err != nil {
+			if err := fileutil.CopyPath(src, dst); err != nil {
 				return fmt.Errorf("failed to copy skill command %q: %w", fileName, err)
 			}
 		}

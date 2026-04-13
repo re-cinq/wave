@@ -140,7 +140,8 @@ func CheckInputPipelineMismatch(input, pipelineName string) *InputMismatch {
 	// Only warn once per run for free text (not per step)
 	switch inputType {
 	case InputTypeIssueURL:
-		reason = "input looks like an issue URL — consider using: " + strings.Join(suggested, ", ")
+		// Suppress: issue URLs are commonly passed as context to any pipeline.
+		reason = ""
 	case InputTypePRURL:
 		reason = "input looks like a PR URL — consider using: " + strings.Join(suggested, ", ")
 	case InputTypeRepoRef:

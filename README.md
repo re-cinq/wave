@@ -188,6 +188,8 @@ Use "wave [command] --help" for more information about a command.
 | `wave init` | Initialize project with personas and pipelines |
 | `wave run <pipeline>` | Execute a pipeline |
 | `wave resume <run-id>` | Resume a failed pipeline run |
+| `wave fork <run-id>` | Fork a run from a checkpoint |
+| `wave rewind <run-id>` | Rewind a run to an earlier checkpoint |
 | `wave do "<task>"` | Quick ad-hoc task (auto-generates 2-step pipeline) |
 | `wave meta "<task>"` | Generate and run a custom pipeline dynamically |
 | `wave compose <file>` | Validate and execute a pipeline sequence |
@@ -201,8 +203,17 @@ Use "wave [command] --help" for more information about a command.
 | `wave logs [run-id]` | View event logs (`--follow`, `--tail`, `--errors`) |
 | `wave artifacts [run-id]` | List and export pipeline artifacts |
 | `wave list [resource]` | List Wave configuration and resources |
+| `wave decisions [run-id]` | Show structured decision log for a run |
+| `wave retro [run-id]` | View and manage run retrospectives |
 | `wave chat [run-id]` | Open interactive analysis of a pipeline run |
 | `wave postmortem [run-id]` | Analyse a failed pipeline run and suggest recovery steps |
+| `wave analyze [run-id]` | Deep analysis of pipeline execution |
+
+### Forge & Collaboration
+
+| Command | Description |
+|---------|-------------|
+| `wave merge <PR>` | Merge a pull request using forge CLI with API fallback |
 
 ### Benchmarking
 
@@ -219,12 +230,21 @@ Use "wave [command] --help" for more information about a command.
 |---------|-------------|
 | `wave validate` | Validate Wave configuration |
 | `wave clean` | Clean up project artifacts (`--older-than`, `--status`) |
+| `wave cleanup` | Remove orphaned worktrees from `.wave/workspaces/` |
 | `wave doctor` | Check project health and environment setup |
 | `wave suggest` | Propose pipeline runs based on codebase state |
 | `wave serve` | Start the web dashboard server |
 | `wave migrate` | Database migration management |
-| `wave skills` | Skill lifecycle management |
+| `wave skills` | Skill lifecycle management (legacy) |
+| `wave skill` | Manage skill templates and install from remote sources |
 | `wave agent` | Persona-to-agent compiler utilities |
+
+### Configuration Management
+
+| Command | Description |
+|---------|-------------|
+| `wave persona` | Create and manage personas (`create`, `list`) |
+| `wave pipeline` | Create and manage pipelines (`create`, `list`) |
 
 ---
 

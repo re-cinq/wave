@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 )
 
-// CopyFile copies a file or directory from src to dest.
+// CopyPath copies a file or directory from src to dest.
 // Parent directories of dest are created automatically.
 // If src is a directory, it is copied recursively.
-func CopyFile(src, dest string) error {
+func CopyPath(src, dest string) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func copyDir(src, dest string) error {
 				return err
 			}
 		} else {
-			if err := CopyFile(srcPath, destPath); err != nil {
+			if err := CopyPath(srcPath, destPath); err != nil {
 				return err
 			}
 		}

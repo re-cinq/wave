@@ -114,7 +114,7 @@ func (fm *ForkManager) copyArtifacts(checkpoint *state.CheckpointRecord, sourceR
 			dstPath = filepath.Join(".wave", "artifacts", newRunID, filepath.Base(srcPath))
 		}
 
-		if err := fileutil.CopyFile(srcPath, dstPath); err != nil {
+		if err := fileutil.CopyPath(srcPath, dstPath); err != nil {
 			return fmt.Errorf("failed to copy artifact %s: %w", srcPath, err)
 		}
 	}

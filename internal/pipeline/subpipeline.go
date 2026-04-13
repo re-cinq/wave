@@ -30,7 +30,7 @@ func injectSubPipelineArtifacts(cfg *SubPipelineConfig, parentCtx *PipelineConte
 		}
 
 		destPath := filepath.Join(destDir, name)
-		if err := fileutil.CopyFile(srcPath, destPath); err != nil {
+		if err := fileutil.CopyPath(srcPath, destPath); err != nil {
 			return fmt.Errorf("failed to inject artifact %q: %w", name, err)
 		}
 	}
@@ -65,7 +65,7 @@ func extractSubPipelineArtifacts(cfg *SubPipelineConfig, childCtx *PipelineConte
 		namespacedName := childPipelineName + "." + name
 		destPath := filepath.Join(destDir, namespacedName)
 
-		if err := fileutil.CopyFile(srcPath, destPath); err != nil {
+		if err := fileutil.CopyPath(srcPath, destPath); err != nil {
 			return fmt.Errorf("failed to extract artifact %q: %w", name, err)
 		}
 
