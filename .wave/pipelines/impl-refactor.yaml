@@ -169,10 +169,8 @@ steps:
           artifact: analysis
           as: scope
     workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "refactor/{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
@@ -291,10 +289,8 @@ steps:
           artifact: baseline
           as: tests
     workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "refactor/{{ pipeline_id }}"
     exec:
       type: prompt
       source: |

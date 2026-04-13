@@ -131,10 +131,8 @@ steps:
         with implementation details.
 
     workspace:
-      mount:
-        - source: .
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "proto/{{ pipeline_id }}"
 
     output_artifacts:
       - name: spec
@@ -253,10 +251,8 @@ steps:
         to stakeholders).
 
     workspace:
-      mount:
-        - source: .
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "proto/{{ pipeline_id }}"
 
     output_artifacts:
       - name: feature-docs
@@ -386,10 +382,8 @@ steps:
         specification — forcing rework in the implementation phase.
 
     workspace:
-      mount:
-        - source: .
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "proto/{{ pipeline_id }}"
 
     output_artifacts:
       - name: prototype
@@ -525,10 +519,8 @@ steps:
         interfaces, skips tests, or implements behavior not described in the specification.
 
     workspace:
-      mount:
-        - source: .
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "proto/{{ pipeline_id }}"
 
     output_artifacts:
       - name: implementation-plan
@@ -634,10 +626,8 @@ steps:
         body, or no testing instructions.
 
     workspace:
-      mount:
-        - source: .
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "proto/{{ pipeline_id }}"
 
     output_artifacts:
       - name: pr-info
@@ -735,10 +725,8 @@ steps:
         categorizes blocking issues as suggestions, or provides no context for responses.
 
     workspace:
-      mount:
-        - source: .
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "proto/{{ pipeline_id }}"
 
   - id: pr-respond
     persona: philosopher
@@ -820,10 +808,8 @@ steps:
         it"), or agree to every suggestion without evaluating impact.
 
     workspace:
-      mount:
-        - source: .
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "proto/{{ pipeline_id }}"
 
   - id: pr-fix
     persona: craftsman
@@ -902,10 +888,8 @@ steps:
         PR scope beyond what was originally intended.
 
     workspace:
-      mount:
-        - source: .
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "proto/{{ pipeline_id }}"
 
   - id: pr-merge
     persona: navigator
@@ -983,7 +967,5 @@ steps:
         or fails to handle merge conflicts gracefully.
 
     workspace:
-      mount:
-        - source: .
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "proto/{{ pipeline_id }}"
