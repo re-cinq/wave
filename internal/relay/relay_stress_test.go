@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/recinq/wave/internal/adapter"
 	"time"
 )
 
@@ -208,10 +210,10 @@ func TestAdapterRunnerWrapper_LargePayloads(t *testing.T) {
 	largeOutput := strings.Repeat("This is a large compaction result with many details. ", 10000)
 
 	mockRunner := &mockAdapterRunner{
-		runFunc: func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {
+		runFunc: func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
 			// Simulate processing time proportional to input size
 			time.Sleep(time.Duration(len(cfg.Prompt)/1000) * time.Microsecond)
-			return &AdapterResult{
+			return &adapter.AdapterResult{
 				ExitCode:   0,
 				Stdout:     &mockReader{data: []byte(largeOutput)},
 				TokensUsed: len(cfg.Prompt) / 4, // Approximate token estimation
@@ -275,8 +277,8 @@ func TestAdapterRunnerWrapper_OutputSizeLimit(t *testing.T) {
 	}
 
 	mockRunner := &mockAdapterRunner{
-		runFunc: func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {
-			return &AdapterResult{
+		runFunc: func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+			return &adapter.AdapterResult{
 				ExitCode:   0,
 				Stdout:     &mockReader{data: hugeMockOutput},
 				TokensUsed: 100000,

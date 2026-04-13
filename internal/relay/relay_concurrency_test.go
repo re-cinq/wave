@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/recinq/wave/internal/adapter"
 	"time"
 )
 
@@ -126,10 +128,10 @@ func TestRelayMonitor_ConcurrentCompaction(t *testing.T) {
 
 func TestAdapterRunnerWrapper_ConcurrentRunCompaction(t *testing.T) {
 	mockRunner := &mockAdapterRunner{
-		runFunc: func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {
+		runFunc: func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
 			// Simulate some processing time
 			time.Sleep(5 * time.Millisecond)
-			return &AdapterResult{
+			return &adapter.AdapterResult{
 				ExitCode:   0,
 				Stdout:     &mockReader{data: []byte("concurrent result")},
 				TokensUsed: 100,

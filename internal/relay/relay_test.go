@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/recinq/wave/internal/adapter"
 	"time"
 )
 
@@ -201,7 +203,7 @@ Decision 1
 func TestAdapterRunnerWrapper_RunCompaction(t *testing.T) {
 	// Create a mock adapter runner
 	mockRunner := &mockAdapterRunner{
-		runFunc: func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {
+		runFunc: func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
 			// Verify the config was set correctly
 			if cfg.Temperature != 0.3 {
 				t.Errorf("expected temperature 0.3, got %f", cfg.Temperature)
@@ -209,7 +211,7 @@ func TestAdapterRunnerWrapper_RunCompaction(t *testing.T) {
 			if len(cfg.AllowedTools) != 3 {
 				t.Errorf("expected 3 allowed tools, got %d", len(cfg.AllowedTools))
 			}
-			return &AdapterResult{
+			return &adapter.AdapterResult{
 				ExitCode:   0,
 				Stdout:     &mockReader{data: []byte("summarized content")},
 				TokensUsed: 100,
@@ -241,14 +243,14 @@ func TestAdapterRunnerWrapper_RunCompaction(t *testing.T) {
 
 // mockAdapterRunner implements AdapterRunner for testing.
 type mockAdapterRunner struct {
-	runFunc func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error)
+	runFunc func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error)
 }
 
-func (m *mockAdapterRunner) Run(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {
+func (m *mockAdapterRunner) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
 	if m.runFunc != nil {
 		return m.runFunc(ctx, cfg)
 	}
-	return &AdapterResult{
+	return &adapter.AdapterResult{
 		ExitCode:   0,
 		Stdout:     &mockReader{data: []byte("default output")},
 		TokensUsed: 100,
@@ -670,7 +672,7 @@ func TestAdapterRunnerWrapper_RunCompaction_ErrorHandling(t *testing.T) {
 	t.Run("returns error from adapter", func(t *testing.T) {
 		expectedErr := errors.New("adapter failed")
 		mockRunner := &mockAdapterRunner{
-			runFunc: func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {
+			runFunc: func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
 				return nil, expectedErr
 			},
 		}
@@ -697,8 +699,8 @@ func TestAdapterRunnerWrapper_RunCompaction_ErrorHandling(t *testing.T) {
 
 	t.Run("handles empty stdout", func(t *testing.T) {
 		mockRunner := &mockAdapterRunner{
-			runFunc: func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {
-				return &AdapterResult{
+			runFunc: func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+				return &adapter.AdapterResult{
 					ExitCode: 0,
 					Stdout:   &mockReader{data: []byte{}},
 				}, nil
@@ -726,8 +728,8 @@ func TestAdapterRunnerWrapper_RunCompaction_ErrorHandling(t *testing.T) {
 
 	t.Run("handles nil stdout", func(t *testing.T) {
 		mockRunner := &mockAdapterRunner{
-			runFunc: func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {
-				return &AdapterResult{
+			runFunc: func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+				return &adapter.AdapterResult{
 					ExitCode: 0,
 					Stdout:   nil,
 				}, nil
@@ -755,7 +757,7 @@ func TestAdapterRunnerWrapper_RunCompaction_ErrorHandling(t *testing.T) {
 
 	t.Run("handles nil result", func(t *testing.T) {
 		mockRunner := &mockAdapterRunner{
-			runFunc: func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {
+			runFunc: func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
 				return nil, nil
 			},
 		}

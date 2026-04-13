@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/recinq/wave/internal/adapter"
 	"time"
 )
 
@@ -258,11 +260,11 @@ func TestAdapterRunnerWrapper_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("empty adapter/persona names", func(t *testing.T) {
-		var receivedConfig AdapterRunnerConfig
+		var receivedConfig adapter.AdapterRunConfig
 		mockRunner := &mockAdapterRunner{
-			runFunc: func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {
+			runFunc: func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
 				receivedConfig = cfg
-				return &AdapterResult{
+				return &adapter.AdapterResult{
 					ExitCode: 0,
 					Stdout:   &mockReader{data: []byte("result")},
 				}, nil
@@ -293,11 +295,11 @@ func TestAdapterRunnerWrapper_EdgeCases(t *testing.T) {
 		longHistory := strings.Repeat("This is a very long conversation history. ", 10000)
 
 		mockRunner := &mockAdapterRunner{
-			runFunc: func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {
+			runFunc: func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
 				if len(cfg.Prompt) < len(longHistory) {
 					t.Error("prompt should include the full chat history")
 				}
-				return &AdapterResult{
+				return &adapter.AdapterResult{
 					ExitCode: 0,
 					Stdout:   &mockReader{data: []byte("summary of long history")},
 				}, nil
@@ -326,8 +328,8 @@ func TestAdapterRunnerWrapper_EdgeCases(t *testing.T) {
 
 	t.Run("adapter returns zero exit code but error", func(t *testing.T) {
 		mockRunner := &mockAdapterRunner{
-			runFunc: func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {
-				return &AdapterResult{ExitCode: 0}, errors.New("runtime error")
+			runFunc: func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+				return &adapter.AdapterResult{ExitCode: 0}, errors.New("runtime error")
 			},
 		}
 
