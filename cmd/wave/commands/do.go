@@ -212,6 +212,9 @@ func runDo(input string, opts DoOptions) error {
 	if store != nil {
 		execOpts = append(execOpts, pipeline.WithStateStore(store))
 	}
+	if useClassification {
+		execOpts = append(execOpts, pipeline.WithTaskComplexity(string(profile.Complexity)))
+	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 

@@ -500,3 +500,31 @@ func TestDefaultComplexityMap(t *testing.T) {
 	assert.Equal(t, "claude-opus-4", m["strongest"])
 	assert.Len(t, m, 3)
 }
+
+func TestAdjustTierForTaskComplexity(t *testing.T) {
+	tests := []struct {
+		name           string
+		stepTier       string
+		taskComplexity string
+		want           string
+	}{
+		{"simple task caps strongest to balanced", TierStrongest, "simple", TierBalanced},
+		{"simple task keeps cheapest", TierCheapest, "simple", TierCheapest},
+		{"simple task keeps balanced", TierBalanced, "simple", TierBalanced},
+		{"complex task floors cheapest to balanced", TierCheapest, "complex", TierBalanced},
+		{"complex task keeps strongest", TierStrongest, "complex", TierStrongest},
+		{"complex task keeps balanced", TierBalanced, "complex", TierBalanced},
+		{"architectural task floors cheapest to balanced", TierCheapest, "architectural", TierBalanced},
+		{"architectural task keeps strongest", TierStrongest, "architectural", TierStrongest},
+		{"medium task no adjustment", TierStrongest, "medium", TierStrongest},
+		{"medium task cheapest unchanged", TierCheapest, "medium", TierCheapest},
+		{"empty complexity no adjustment", TierStrongest, "", TierStrongest},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := AdjustTierForTaskComplexity(tt.stepTier, tt.taskComplexity)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

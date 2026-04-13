@@ -84,6 +84,24 @@ func TierRank(tier string) int {
 	}
 }
 
+// AdjustTierForTaskComplexity adjusts a step-level tier based on task-level complexity.
+// Simple tasks cap at balanced (even for strongest personas) to save tokens.
+// Complex/architectural tasks floor at balanced (even for cheapest personas).
+// Empty taskComplexity means no adjustment.
+func AdjustTierForTaskComplexity(stepTier, taskComplexity string) string {
+	switch taskComplexity {
+	case "simple":
+		if stepTier == TierStrongest {
+			return TierBalanced
+		}
+	case "complex", "architectural":
+		if stepTier == TierCheapest {
+			return TierBalanced
+		}
+	}
+	return stepTier
+}
+
 // CheaperTier returns the cheaper of two tier names.
 // If either is not a recognized tier, it returns the other.
 func CheaperTier(a, b string) string {
