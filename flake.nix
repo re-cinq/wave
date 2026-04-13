@@ -156,6 +156,7 @@
 
             # Read-only: gh CLI auth config
             --ro-bind-try "$HOME/.config/gh" "$HOME/.config/gh"
+            --ro-bind-try "$HOME/.config/opencode" "$HOME/.config/opencode"
 
             # Read-only: NPM/Node config (Claude Code may need it)
             --ro-bind-try "$HOME/.npmrc" "$HOME/.npmrc"
@@ -256,7 +257,7 @@
                 echo ""
                 echo "  Read-only:  / (entire root)"
                 echo "              ~/.ssh, ~/.gitconfig, ~/.config/git"
-                echo "              ~/.config/gh, ~/.npmrc, ~/.config/nvm"
+                echo "              ~/.config/gh, ~/.config/opencode, ~/.npmrc, ~/.config/nvm"
                 echo "              ~/.local/bin/{notesium,claudit,opencode-patched}"
                 echo ""
                 exec wave-sandbox ${pkgs.bash}/bin/bash --rcfile <(cat << 'WAVE_BASHRC'

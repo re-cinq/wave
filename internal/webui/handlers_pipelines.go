@@ -116,9 +116,12 @@ type PipelineDetailStep struct {
 	ID                 string   `json:"id"`
 	Type               string   `json:"type,omitempty"`
 	Persona            string   `json:"persona"`
+	Model              string   `json:"model,omitempty"`
+	Adapter            string   `json:"adapter,omitempty"`
 	Dependencies       []string `json:"dependencies,omitempty"`
 	Timeout            int      `json:"timeout,omitempty"`
 	Optional           bool     `json:"optional,omitempty"`
+	ReworkOnly         bool     `json:"rework_only,omitempty"`
 	Artifacts          []string `json:"artifacts,omitempty"`
 	InputArtifacts     []string `json:"input_artifacts,omitempty"`
 	Contract           string   `json:"contract,omitempty"`
@@ -137,6 +140,12 @@ type PipelineDetailStep struct {
 	IterateOver        []string `json:"iterate_over,omitempty"`
 	IterateMode        string   `json:"iterate_mode,omitempty"`
 	AggregateStrategy  string   `json:"aggregate_strategy,omitempty"`
+	WorkspaceType      string   `json:"workspace_type,omitempty"`
+	WorkspaceBranch    string   `json:"workspace_branch,omitempty"`
+	WorkspaceBase      string   `json:"workspace_base,omitempty"`
+	WorkspaceRef       string   `json:"workspace_ref,omitempty"`
+	MountMode          string   `json:"mount_mode,omitempty"`
+	MaxConcurrentAgents int    `json:"max_concurrent_agents,omitempty"`
 }
 
 // PipelineDetail holds full pipeline info for the detail dialog.
@@ -252,13 +261,46 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 			aggregateStrategy = step.Aggregate.Strategy
 		}
 
+		// Workspace config
+		var wsType, wsBranch, wsBase, wsRef, mountMode string
+		if step.Workspace.Type != "" {
+			wsType = step.Workspace.Type
+		}
+		if step.Workspace.Branch != "" {
+			wsBranch = step.Workspace.Branch
+		}
+		if step.Workspace.Base != "" {
+			wsBase = step.Workspace.Base
+		}
+		if step.Workspace.Ref != "" {
+			wsRef = step.Workspace.Ref
+		}
+		if len(step.Workspace.Mount) > 0 {
+			modes := make(map[string]bool)
+			for _, m := range step.Workspace.Mount {
+				if m.Mode != "" {
+					modes[m.Mode] = true
+				} else {
+					modes["readwrite"] = true
+				}
+			}
+			var modeList []string
+			for m := range modes {
+				modeList = append(modeList, m)
+			}
+			mountMode = strings.Join(modeList, "+")
+		}
+
 		steps = append(steps, PipelineDetailStep{
 			ID:                 step.ID,
 			Type:               step.Type,
 			Persona:            resolveForgeVars(step.Persona),
+			Model:              step.Model,
+			Adapter:            step.Adapter,
 			Dependencies:       step.Dependencies,
 			Timeout:            step.TimeoutMinutes,
 			Optional:           step.Optional,
+			ReworkOnly:         step.ReworkOnly,
 			Artifacts:          artifactNames,
 			InputArtifacts:     inputArtifacts,
 			Contract:           contract,
@@ -276,6 +318,12 @@ func buildPipelineDetail(name string, p *pipeline.Pipeline) PipelineDetail {
 			IterateOver:        iterateOver,
 			IterateMode:        iterateMode,
 			AggregateStrategy:  aggregateStrategy,
+			WorkspaceType:      wsType,
+			WorkspaceBranch:    wsBranch,
+			WorkspaceBase:      wsBase,
+			WorkspaceRef:       wsRef,
+			MountMode:           mountMode,
+		MaxConcurrentAgents: step.MaxConcurrentAgents,
 		})
 	}
 	// Compute DAG depth for indentation

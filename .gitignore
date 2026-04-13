@@ -21,6 +21,9 @@
 # Claude Code local config (persona-generated, not committed)
 .claude/
 
+# OpenCode local config
+.opencode/
+
 # Wave config (committed)
 # .wave/personas/    — committed
 # .wave/pipelines/   — committed
