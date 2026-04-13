@@ -39,6 +39,7 @@
             </div>
             <div class="wr-row2">
                 <span>{{.Author}}</span>
+                {{if .HeadBranch}}<span style="font-size:0.68rem;color:var(--color-text-secondary);">&#9741; {{.HeadBranch}}</span>{{end}}
                 {{if .RunCount}}<span><b>{{.RunCount}}</b> runs</span>{{end}}
                 {{if .TotalTokens}}<span><b>{{formatTokensShort .TotalTokens}}</b> tok</span>{{end}}
                 {{if .Comments}}<span><b>{{.Comments}}</b> {{if eq .Comments 1}}comment{{else}}comments{{end}}</span>{{end}}

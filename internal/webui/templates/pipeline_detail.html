@@ -153,9 +153,15 @@
                     {{end}}{{$step.ID}}</span>
                 <span class="ws-meta">
                     {{if $step.Persona}}<a href="/personas/{{$step.Persona}}" class="ws-code-link">{{$step.Persona}}</a>{{end}}
+                    {{if $step.Model}}<span class="badge badge-model {{modelTierClass $step.Model}}">{{$step.Model}}</span>{{end}}
+                    {{if $step.Adapter}}<span class="badge badge-adapter">{{$step.Adapter}}</span>{{end}}
                     {{if $step.Contract}}{{if $step.ContractSchemaName}}<a href="/contracts/{{$step.ContractSchemaName}}" class="ws-code-link" title="{{$step.Contract}}">{{$step.ContractSchemaName}}</a>{{else}}<span class="ws-code-link" title="{{$step.Contract}}">contract</span>{{end}}{{end}}
                     {{if $step.SubPipeline}}<a href="/pipelines/{{$step.SubPipeline}}" class="ws-code-link" style="background:rgba(139,92,246,0.1);color:var(--wave-accent);">{{$step.SubPipeline}}</a>{{end}}
                     {{if $step.Optional}}<span class="badge" style="font-size:0.65rem;background:rgba(245,158,11,0.12);color:#fbbf24;">optional</span>{{end}}
+                    {{if $step.ReworkOnly}}<span class="badge" style="font-size:0.65rem;background:rgba(239,68,68,0.12);color:#f87171;">rework-only</span>{{end}}
+                    {{if eq $step.WorkspaceType "worktree"}}<span class="badge" style="font-size:0.65rem;background:rgba(34,197,94,0.12);color:#4ade80;" title="branch: {{$step.WorkspaceBranch}}{{if $step.WorkspaceBase}} from {{$step.WorkspaceBase}}{{end}}">worktree</span>
+                    {{else if $step.MountMode}}<span class="badge" style="font-size:0.65rem;background:rgba(59,130,246,0.12);color:#60a5fa;">{{$step.MountMode}}</span>
+                    {{else if $step.WorkspaceRef}}<span class="badge" style="font-size:0.65rem;background:rgba(168,85,247,0.12);color:#c084fc;">ref:{{$step.WorkspaceRef}}</span>{{end}}
                 </span>
             </div>
             <div class="ws-io">
@@ -357,6 +363,18 @@ document.querySelectorAll('.ws-row1').forEach(function(row){
             // KV rows using av-kv pattern (same as run detail smart viewer)
             function kv(k,v){return '<div class="av-kv"><span class="av-key">'+k+'</span><span class="av-val">'+v+'</span></div>';}
             if(step.persona) h+=kv('Persona','<a href="/personas/'+escapeHTML(step.persona)+'" class="ws-code-link">'+escapeHTML(step.persona)+'</a>');
+            if(step.model) h+=kv('Model','<span class="badge badge-model">'+escapeHTML(step.model)+'</span>');
+            if(step.adapter) h+=kv('Adapter','<span class="badge badge-adapter">'+escapeHTML(step.adapter)+'</span>');
+            if(step.workspace_type==='worktree'){
+                var ws='<code>worktree</code>';
+                if(step.workspace_branch) ws+=' branch: <code>'+escapeHTML(step.workspace_branch)+'</code>';
+                if(step.workspace_base) ws+=' from <code>'+escapeHTML(step.workspace_base)+'</code>';
+                h+=kv('Workspace',ws);
+            } else if(step.mount_mode) {
+                h+=kv('Workspace','mount <code>'+escapeHTML(step.mount_mode)+'</code>');
+            } else if(step.workspace_ref) {
+                h+=kv('Workspace','ref: <code>'+escapeHTML(step.workspace_ref)+'</code>');
+            }
             if(step.contract) h+=kv('Contract',step.contract_schema_name?'<a href="/contracts/'+escapeHTML(step.contract_schema_name)+'" class="ws-code-link" title="'+escapeHTML(step.contract)+'">'+escapeHTML(step.contract_schema_name)+'</a>':'<code>'+escapeHTML(step.contract)+'</code>');
             if(step.on_failure) h+=kv('On failure','<code>'+escapeHTML(step.on_failure)+'</code>');
             if(step.retry_policy) h+=kv('Retry','<code>'+escapeHTML(step.retry_policy)+'</code>'+(step.max_attempts?' (max '+step.max_attempts+')':''));

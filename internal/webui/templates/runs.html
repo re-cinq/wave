@@ -111,6 +111,7 @@
                 {{if .TotalTokens}}<span>{{formatTokens .TotalTokens}} tok</span>{{end}}
                 {{range .Models}}<span class="badge badge-model {{modelTierClass .}}">{{friendlyModel .}}</span>{{end}}
                 {{range .Adapters}}<span class="badge badge-adapter">{{.}}</span>{{end}}
+                {{if .BranchName}}<span style="font-size:0.68rem;color:var(--color-text-secondary);">&#9741; {{.BranchName}}</span>{{end}}
                 <span class="wr-right">
                     <span class="wr-date">{{.FormattedStartedAt}}</span>
                 </span>
