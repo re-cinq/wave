@@ -21,7 +21,7 @@ steps:
     type: command
     script: |
       mkdir -p .wave/output
-      go test ./internal/classify/... -v -run TestClassify > .wave/output/classify-results.txt 2>&1
+      go test ./internal/classify/... -v -count=1 > .wave/output/classify-results.txt 2>&1
       echo "exit_code=$?" >> .wave/output/classify-results.txt
     output_artifacts:
       - name: classify-results
