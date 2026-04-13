@@ -1,6 +1,7 @@
 package manifest
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -110,7 +111,9 @@ func (l *yamlLoader) Load(path string) (*Manifest, error) {
 	}
 
 	var manifest Manifest
-	if err := yaml.Unmarshal(data, &manifest); err != nil {
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&manifest); err != nil {
 		// Try to extract line number from YAML error
 		return nil, parseYAMLError(path, err)
 	}
