@@ -3,6 +3,7 @@ package commands
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -140,12 +141,21 @@ For 'list runs', additional flags are available:
   wave list skills`,
 		ValidArgs: []string{"adapters", "runs", "pipelines", "personas", "contracts", "skills", "compositions"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
+			cmd.SilenceErrors = true
 			filter := ""
 			if len(args) > 0 {
 				filter = args[0]
 			}
 			opts.Format = ResolveFormat(cmd, opts.Format)
-			return runList(opts, filter)
+			if err := runList(opts, filter); err != nil {
+				var cliErr *CLIError
+				if !errors.As(err, &cliErr) {
+					return NewCLIError(CodeInternalError, err.Error(), "").WithCause(err)
+				}
+				return err
+			}
+			return nil
 		},
 	}
 

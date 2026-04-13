@@ -26,6 +26,8 @@ Retrospectives combine quantitative metrics with optional LLM-powered
 narrative analysis to identify friction points and learnings.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
+			cmd.SilenceErrors = true
 			if len(args) == 0 {
 				return cmd.Help()
 			}
@@ -47,7 +49,8 @@ narrative analysis to identify friction points and learnings.`,
 func runRetroView(runID string, narrate bool, jsonOutput bool) error {
 	store, err := state.NewStateStore(".wave/state.db")
 	if err != nil {
-		return fmt.Errorf("failed to open state store: %w", err)
+		return NewCLIError(CodeStateDBError, "failed to open state store: "+err.Error(),
+			"Check that .wave/state.db exists and is not corrupted.").WithCause(err)
 	}
 	defer store.Close()
 
@@ -62,14 +65,16 @@ func runRetroView(runID string, narrate bool, jsonOutput bool) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		defer cancel()
 		if err := gen.GenerateNarrativeSync(ctx, runID); err != nil {
-			return fmt.Errorf("narrative generation failed: %w", err)
+			return NewCLIError(CodeInternalError, "narrative generation failed: "+err.Error(),
+				"Check adapter configuration and try again.").WithCause(err)
 		}
 		fmt.Fprintf(os.Stderr, "Narrative generated for run %s\n", runID)
 	}
 
 	r, err := storage.Load(runID)
 	if err != nil {
-		return fmt.Errorf("retrospective not found for run %s: %w", runID, err)
+		return NewCLIError(CodeRunNotFound, fmt.Sprintf("retrospective not found for run %s", runID),
+			"Run 'wave retro list' to see available retrospectives.").WithCause(err)
 	}
 
 	if jsonOutput {
@@ -155,6 +160,8 @@ func newRetroListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List retrospectives",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
+			cmd.SilenceErrors = true
 			return runRetroList(pipelineFilter, since)
 		},
 	}
@@ -168,7 +175,8 @@ func newRetroListCmd() *cobra.Command {
 func runRetroList(pipelineFilter, since string) error {
 	store, err := state.NewStateStore(".wave/state.db")
 	if err != nil {
-		return fmt.Errorf("failed to open state store: %w", err)
+		return NewCLIError(CodeStateDBError, "failed to open state store: "+err.Error(),
+			"Check that .wave/state.db exists and is not corrupted.").WithCause(err)
 	}
 	defer store.Close()
 
@@ -178,14 +186,16 @@ func runRetroList(pipelineFilter, since string) error {
 	if since != "" {
 		d, err := parseSinceDuration(since)
 		if err != nil {
-			return fmt.Errorf("invalid --since value: %w", err)
+			return NewCLIError(CodeInvalidArgs, "invalid --since value: "+err.Error(),
+				"Use a duration like '7d', '24h', or '30m'.").WithCause(err)
 		}
 		sinceTime = time.Now().Add(-d)
 	}
 
 	records, err := storage.List(pipelineFilter, sinceTime, 50)
 	if err != nil {
-		return fmt.Errorf("failed to list retrospectives: %w", err)
+		return NewCLIError(CodeStateDBError, "failed to list retrospectives: "+err.Error(),
+			"Check that .wave/state.db is accessible.").WithCause(err)
 	}
 
 	if len(records) == 0 {
@@ -217,6 +227,8 @@ func newRetroStatsCmd() *cobra.Command {
 		Use:   "stats",
 		Short: "Show aggregate retrospective statistics",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
+			cmd.SilenceErrors = true
 			return runRetroStats()
 		},
 	}
@@ -225,7 +237,8 @@ func newRetroStatsCmd() *cobra.Command {
 func runRetroStats() error {
 	store, err := state.NewStateStore(".wave/state.db")
 	if err != nil {
-		return fmt.Errorf("failed to open state store: %w", err)
+		return NewCLIError(CodeStateDBError, "failed to open state store: "+err.Error(),
+			"Check that .wave/state.db exists and is not corrupted.").WithCause(err)
 	}
 	defer store.Close()
 
@@ -233,7 +246,8 @@ func runRetroStats() error {
 
 	records, err := storage.List("", time.Time{}, 1000)
 	if err != nil {
-		return fmt.Errorf("failed to list retrospectives: %w", err)
+		return NewCLIError(CodeStateDBError, "failed to list retrospectives: "+err.Error(),
+			"Check that .wave/state.db is accessible.").WithCause(err)
 	}
 
 	if len(records) == 0 {

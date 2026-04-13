@@ -59,6 +59,19 @@ Wave automatically detects CI/CD environments by checking for these variables (r
 
 When a CI environment is detected, Wave adjusts display behavior (disables interactive TUI, uses plain text output).
 
+## Hook Environment Variables
+
+When a [lifecycle hook](/reference/hooks) executes, Wave injects these variables into the hook subprocess environment:
+
+| Variable | Description |
+|----------|-------------|
+| `WAVE_HOOK_EVENT` | The lifecycle event type (e.g., `pipeline.start`, `step.complete`, `pipeline.success`). |
+| `WAVE_HOOK_PIPELINE` | The pipeline ID for the current run. |
+| `WAVE_HOOK_STEP_ID` | The step ID that triggered the hook (empty for pipeline-level events). |
+| `WAVE_HOOK_WORKSPACE` | Absolute path to the workspace directory for the current run. |
+
+These variables are available inside hook scripts and HTTP hook payloads. Only these WAVE_HOOK_* variables and base system variables (HOME, PATH, TERM, TMPDIR) are injected — the full host environment is not passed.
+
 ## Credential Handling
 
 Wave enforces a strict credential model: **credentials never touch disk**.
@@ -155,6 +168,10 @@ Adapters may use additional environment variables for configuration:
 | `ANTHROPIC_API_KEY` | API key for Claude. |
 | `CLAUDE_CODE_MAX_TURNS` | Maximum agentic turns per invocation. |
 | `CLAUDE_CODE_MODEL` | Model override (e.g., `claude-sonnet-4-20250514`). Must be listed in `runtime.sandbox.env_passthrough` to reach adapter subprocesses. Wave's `--model` flag is the preferred mechanism for model selection. |
+| `DISABLE_TELEMETRY` | Set to `1` to disable Claude Code telemetry. Wave sets this automatically in adapter subprocesses. |
+| `DISABLE_ERROR_REPORTING` | Set to `1` to disable Claude Code error reporting. Wave sets this automatically. |
+| `CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY` | Set to `1` to suppress the feedback survey prompt. Wave sets this automatically. |
+| `DISABLE_BUG_COMMAND` | Set to `1` to disable the `/bug` command in Claude Code. Wave sets this automatically. |
 
 ### Custom Adapters
 
