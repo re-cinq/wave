@@ -6,6 +6,7 @@
 <div class="w-head">
     <div>
         <a href="/runs" class="back-link">&larr; Runs</a>
+        {{if .Run.ParentRunID}}<a href="/runs/{{.Run.ParentRunID}}" class="back-link" style="font-size:0.72rem;">&larr; parent: {{.Run.ParentRunID}}</a>{{end}}
         <h1>
             <a href="/pipelines/{{.Run.PipelineName}}">{{.Run.PipelineName}}</a>
             <span class="badge {{statusClass .Run.Status}}">{{statusLabel .Run.Status}}</span>
