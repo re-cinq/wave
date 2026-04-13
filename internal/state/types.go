@@ -315,3 +315,16 @@ type OrchestrationStats struct {
 	AvgTokens    int
 	AvgDurationMs int64
 }
+
+// OrchestrationDecisionSummary aggregates decisions grouped by domain+complexity+pipeline.
+type OrchestrationDecisionSummary struct {
+	Domain        string
+	Complexity    string
+	PipelineName  string
+	Total         int
+	Completed     int
+	Failed        int
+	SuccessRate   float64
+	AvgTokens     int
+	AvgDurationMs int64
+}

@@ -175,6 +175,9 @@ func (b baseStateStore) UpdateOrchestrationOutcome(string, string, int, int64) e
 func (b baseStateStore) GetOrchestrationStats(string) (*state.OrchestrationStats, error) {
 	return nil, nil
 }
+func (b baseStateStore) ListOrchestrationDecisionSummary(int) ([]state.OrchestrationDecisionSummary, error) {
+	return nil, nil
+}
 
 // Compile-time check: baseStateStore must satisfy state.StateStore.
 var _ state.StateStore = baseStateStore{}
