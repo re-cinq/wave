@@ -71,9 +71,9 @@ func TestValidateSpecDerivedConfig(t *testing.T) {
 		{
 			name: "missing implementation_step",
 			cfg: ContractConfig{
-				Type:               "spec_derived_test",
-				SpecArtifact:       "spec.md",
-				TestPersona:        "test-author",
+				Type:         "spec_derived_test",
+				SpecArtifact: "spec.md",
+				TestPersona:  "test-author",
 			},
 			wantErr:     true,
 			errContains: "implementation_step",

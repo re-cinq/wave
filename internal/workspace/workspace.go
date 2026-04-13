@@ -266,7 +266,6 @@ func copyRecursive(src, dst string) error {
 	return fileutil.CopyFile(src, dst)
 }
 
-
 func (wm *workspaceManager) CleanAll(root string) error {
 	if root == "" {
 		return errors.New("root cannot be empty")

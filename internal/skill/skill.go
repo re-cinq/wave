@@ -109,7 +109,6 @@ func (p *Provisioner) ProvisionAll(workspacePath string) error {
 	return p.Provision(workspacePath, names)
 }
 
-
 // FormatSkillCommandPrompt generates a prompt fragment that tells the agent
 // to use a slash command with the given arguments.
 func FormatSkillCommandPrompt(command, args string) string {

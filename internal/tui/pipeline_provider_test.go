@@ -30,13 +30,13 @@ func (b baseStateStore) GetStepStates(string) ([]state.StepStateRecord, error) {
 func (b baseStateStore) ListRecentPipelines(int) ([]state.PipelineStateRecord, error) {
 	return nil, nil
 }
-func (b baseStateStore) Close() error                                      { return nil }
-func (b baseStateStore) CreateRun(string, string) (string, error)              { return "", nil }
+func (b baseStateStore) Close() error                                           { return nil }
+func (b baseStateStore) CreateRun(string, string) (string, error)               { return "", nil }
 func (b baseStateStore) CreateRunWithLimit(string, string, int) (string, error) { return "", nil }
-func (b baseStateStore) UpdateRunStatus(string, string, string, int) error     { return nil }
-func (b baseStateStore) UpdateRunBranch(string, string) error              { return nil }
-func (b baseStateStore) GetRun(string) (*state.RunRecord, error)           { return nil, nil }
-func (b baseStateStore) GetRunningRuns() ([]state.RunRecord, error)        { return nil, nil }
+func (b baseStateStore) UpdateRunStatus(string, string, string, int) error      { return nil }
+func (b baseStateStore) UpdateRunBranch(string, string) error                   { return nil }
+func (b baseStateStore) GetRun(string) (*state.RunRecord, error)                { return nil, nil }
+func (b baseStateStore) GetRunningRuns() ([]state.RunRecord, error)             { return nil, nil }
 func (b baseStateStore) ListRuns(state.ListRunsOptions) ([]state.RunRecord, error) {
 	return nil, nil
 }

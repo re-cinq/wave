@@ -335,4 +335,3 @@ func stripForgePrefix(name string) string {
 	}
 	return name
 }
-

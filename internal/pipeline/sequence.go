@@ -462,4 +462,3 @@ func (s *SequenceExecutor) GetPipelineOutputs() map[string]map[string][]byte {
 	defer s.mu.Unlock()
 	return s.pipelineOutputs
 }
-

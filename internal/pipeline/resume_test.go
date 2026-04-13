@@ -1662,7 +1662,7 @@ func TestResumeFromStep_InjectsForgeVariables(t *testing.T) {
 	initGitRepo(t, tempDir)
 
 	p := &Pipeline{
-		Kind: "WavePipeline",
+		Kind:     "WavePipeline",
 		Metadata: PipelineMetadata{Name: "test-forge-resume"},
 		Steps: []Step{
 			{ID: "implement"},

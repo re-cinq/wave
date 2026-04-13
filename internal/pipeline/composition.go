@@ -550,7 +550,6 @@ func (c *CompositionExecutor) resolveStepInput(step *Step) (string, error) {
 	return c.tmplCtx.Input, nil
 }
 
-
 // mergeJSONArrays takes a JSON string containing multiple arrays and merges them.
 // If the input is an array of arrays, the inner arrays are flattened into one.
 // If the input is already a flat array (no inner arrays), it is returned as-is.

@@ -71,15 +71,15 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 			}
 			return id
 		},
-		"titleCase":       titleCaseFunc,
-		"contains":        strings.Contains,
-		"hasPrefix":       strings.HasPrefix,
-		"checkClass":      checkClass,
-		"checkIcon":       checkIcon,
-		"checkLabel":      checkLabel,
-		"add":             func(a, b int) int { return a + b },
-		"subtract":        func(a, b int) int { return a - b },
-		"multiply":        func(a int, b float64) float64 { return float64(a) * b },
+		"titleCase":  titleCaseFunc,
+		"contains":   strings.Contains,
+		"hasPrefix":  strings.HasPrefix,
+		"checkClass": checkClass,
+		"checkIcon":  checkIcon,
+		"checkLabel": checkLabel,
+		"add":        func(a, b int) int { return a + b },
+		"subtract":   func(a, b int) int { return a - b },
+		"multiply":   func(a int, b float64) float64 { return float64(a) * b },
 		"smoothnessLabel": func(s string) string {
 			switch s {
 			case "smooth":
@@ -106,9 +106,9 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 				return s
 			}
 		},
-		"adapterIcon":     adapterIcon,
-		"forgeIcon":       forgeIcon,
-		"modelTierClass":  modelTierClass,
+		"adapterIcon":    adapterIcon,
+		"forgeIcon":      forgeIcon,
+		"modelTierClass": modelTierClass,
 		"pluralize": func(n int, singular, plural string) string {
 			if n == 1 {
 				return singular

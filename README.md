@@ -435,7 +435,7 @@ steps:
     dependencies: [security, quality]  # runs after both complete
 ```
 
-**51 built-in pipelines** for development, debugging, documentation, and GitHub automation.
+**82 built-in pipelines** for development, debugging, documentation, and GitHub automation.
 
 > Explore all pipelines in [`.wave/pipelines/`](.wave/pipelines/)
 
@@ -449,7 +449,7 @@ Alongside the existing Nix + bubblewrap sandbox, Wave supports a Docker-based sa
 
 ### Web UI Dashboard
 
-`wave serve` (or `wave webui`) launches an embedded web operations dashboard for real-time pipeline monitoring, execution control, DAG visualization, and artifact browsing.
+`wave serve` launches an embedded web operations dashboard for real-time pipeline monitoring, execution control, DAG visualization, and artifact browsing.
 
 ### Guided TUI Orchestrator
 
@@ -463,7 +463,7 @@ Every step boundary validates output against JSON Schema, TypeScript interfaces,
 
 ## Pipelines
 
-A selection of the 51 built-in pipelines:
+A selection of the 82 built-in pipelines:
 
 ### Development
 
@@ -623,7 +623,7 @@ See [Sandbox Setup Guide](docs/guides/sandbox-setup.md) for details.
 | Go 1.25+ | Building from source | Optional | [go.dev](https://go.dev/dl/) |
 | [Nix](https://nixos.org/download.html) | Sandboxed development shell | Optional | [nixos.org](https://nixos.org/download.html) |
 
-\* At least one LLM CLI adapter is required. `claude` (Claude Code) is the default. Other adapters (`opencode`, custom) can be configured in `wave.yaml`.
+\* At least one LLM CLI adapter is required. `claude` (Claude Code) is the default. Other adapters (`opencode`, `gemini`, `codex`) can be configured in `wave.yaml`.
 
 Run `wave doctor` after installation to verify your environment is correctly configured. See the [Installation Guide](docs/guide/installation.md) for detailed setup instructions.
 

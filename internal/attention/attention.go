@@ -50,13 +50,13 @@ type RunAttention struct {
 
 // Summary is the aggregate attention state across all active runs.
 type Summary struct {
-	WorstState    State          `json:"worst_state"`
-	TotalRuns     int            `json:"total_runs"`
-	Autonomous    int            `json:"autonomous"`
-	NeedsReview   int            `json:"needs_review"`
-	Blocked       int            `json:"blocked"`
-	Failed        int            `json:"failed"`
-	Runs          []RunAttention `json:"runs,omitempty"`
+	WorstState  State          `json:"worst_state"`
+	TotalRuns   int            `json:"total_runs"`
+	Autonomous  int            `json:"autonomous"`
+	NeedsReview int            `json:"needs_review"`
+	Blocked     int            `json:"blocked"`
+	Failed      int            `json:"failed"`
+	Runs        []RunAttention `json:"runs,omitempty"`
 }
 
 // Classify maps a pipeline event to an attention state.
