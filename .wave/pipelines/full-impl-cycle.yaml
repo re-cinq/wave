@@ -169,7 +169,6 @@ steps:
   # ─── Phase 6: Rework Loop (conditional on gate fail) ───────────────────
   - id: rework-loop
     dependencies: [rework-gate]
-    condition: "{{ rework-gate.output.decision == 'fail' }}"
     loop:
       max_iterations: 3
       until: "{{ rework-loop.output.decision == 'pass' }}"
@@ -330,7 +329,6 @@ steps:
 
   - id: review-loop
     dependencies: [review]
-    condition: "{{ review.output.verdict != 'APPROVE' }}"
     loop:
       max_iterations: 3
       until: "{{ review-loop.output.verdict == 'APPROVE' }}"

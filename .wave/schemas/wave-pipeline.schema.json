@@ -362,7 +362,7 @@
         "adapt_prompt": {
           "type": "boolean",
           "default": false,
-          "description": "Inject prior failure context into retry prompt"
+          "description": "Deprecated: failure context is now always injected on retry. Kept for YAML backwards compatibility."
         },
         "on_failure": {
           "type": "string",
@@ -620,11 +620,12 @@
             "test_suite",
             "typescript_interface",
             "markdown_spec",
-            "template",
             "format",
             "non_empty_file",
             "llm_judge",
-            "agent_review"
+            "source_diff",
+            "agent_review",
+            "spec_derived_test"
           ],
           "description": "Contract validation type"
         },
@@ -737,6 +738,10 @@
           "type": "integer",
           "minimum": 0,
           "description": "Maximum bytes for this context source (0 = use default)"
+        },
+        "diff_base": {
+          "type": "string",
+          "description": "Git ref to diff against (e.g. 'main'); auto-detected if empty. Only used when source is 'git_diff'."
         }
       }
     },

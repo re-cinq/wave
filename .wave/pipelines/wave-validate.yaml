@@ -145,7 +145,6 @@ steps:
     retry:
       policy: patient
       max_attempts: 3
-      timeout: 300s
     handover:
       contract:
         type: json_schema

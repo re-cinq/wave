@@ -7,7 +7,7 @@ import (
 	"sort"
 
 	"github.com/recinq/wave/internal/pipeline"
-	"gopkg.in/yaml.v3"
+
 )
 
 // PipelineInfo holds discoverable metadata about a pipeline.
@@ -59,8 +59,9 @@ func parsePipelineFile(path string) (PipelineInfo, error) {
 		return PipelineInfo{}, err
 	}
 
-	var p pipeline.Pipeline
-	if err := yaml.Unmarshal(data, &p); err != nil {
+	loader := &pipeline.YAMLPipelineLoader{}
+	p, err := loader.Unmarshal(data)
+	if err != nil {
 		return PipelineInfo{}, err
 	}
 
@@ -96,13 +97,14 @@ func LoadPipelineByName(dir, name string) (*pipeline.Pipeline, error) {
 			continue
 		}
 
-		var p pipeline.Pipeline
-		if err := yaml.Unmarshal(data, &p); err != nil {
+		loader := &pipeline.YAMLPipelineLoader{}
+		pParsed, err := loader.Unmarshal(data)
+		if err != nil {
 			continue
 		}
 
-		if p.Metadata.Name == name {
-			return &p, nil
+		if pParsed.Metadata.Name == name {
+			return pParsed, nil
 		}
 	}
 

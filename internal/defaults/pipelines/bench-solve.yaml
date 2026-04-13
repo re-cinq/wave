@@ -46,9 +46,10 @@ steps:
     persona: craftsman
     model: strongest
     workspace:
-      type: mount
-      source: ./
-      readonly: false
+      mount:
+        - source: ./
+          target: /project
+          mode: readwrite
     exec:
       type: prompt
       source_path: .wave/prompts/bench/solve.md

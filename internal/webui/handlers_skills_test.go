@@ -70,7 +70,8 @@ steps:
   - id: step1
     persona: navigator
     exec:
-      prompt: "work"
+      type: prompt
+      source: "work"
 `
 	if err := os.WriteFile(filepath.Join(pipelineDir, "skill-page-test-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
 		t.Fatalf("failed to write pipeline yaml: %v", err)
@@ -160,7 +161,8 @@ steps:
   - id: step1
     persona: navigator
     exec:
-      prompt: "work"
+      type: prompt
+      source: "work"
 `
 	if err := os.WriteFile(filepath.Join(pipelineDir, "skill-cmds-test.yaml"), []byte(pipelineYAML), 0o644); err != nil {
 		t.Fatalf("failed to write pipeline yaml: %v", err)
@@ -235,7 +237,8 @@ steps:
   - id: step1
     persona: navigator
     exec:
-      prompt: "work"
+      type: prompt
+      source: "work"
 `
 	pipeline2 := `kind: Pipeline
 metadata:
@@ -248,7 +251,8 @@ steps:
   - id: step1
     persona: craftsman
     exec:
-      prompt: "build"
+      type: prompt
+      source: "build"
 `
 	if err := os.WriteFile(filepath.Join(pipelineDir, "dedup-pipeline-a.yaml"), []byte(pipeline1), 0o644); err != nil {
 		t.Fatalf("failed to write pipeline yaml: %v", err)
@@ -311,7 +315,8 @@ steps:
   - id: step1
     persona: navigator
     exec:
-      prompt: "work"
+      type: prompt
+      source: "work"
 `
 	if err := os.WriteFile(filepath.Join(pipelineDir, "no-skills-exclude-pipeline.yaml"), []byte(noSkillsYAML), 0o644); err != nil {
 		t.Fatalf("failed to write pipeline yaml: %v", err)

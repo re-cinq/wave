@@ -65,12 +65,14 @@ steps:
   - id: step1
     persona: navigator
     exec:
-      prompt: "plan"
+      type: prompt
+      source: "plan"
   - id: step2
     persona: craftsman
-    depends_on: [step1]
+    dependencies: [step1]
     exec:
-      prompt: "implement"
+      type: prompt
+      source: "implement"
 `
 	if err := os.WriteFile(filepath.Join(pipelineDir, "page-render-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
 		t.Fatalf("failed to write pipeline yaml: %v", err)
@@ -161,12 +163,14 @@ steps:
   - id: analyze
     persona: navigator
     exec:
-      prompt: "analyze"
+      type: prompt
+      source: "analyze"
   - id: build
     persona: craftsman
-    depends_on: [analyze]
+    dependencies: [analyze]
     exec:
-      prompt: "build"
+      type: prompt
+      source: "build"
 `
 	if err := os.WriteFile(filepath.Join(pipelineDir, "summary-fields-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
 		t.Fatalf("failed to write pipeline yaml: %v", err)
@@ -249,7 +253,8 @@ steps:
   - id: step1
     persona: navigator
     exec:
-      prompt: "work"
+      type: prompt
+      source: "work"
 `
 	if err := os.WriteFile(filepath.Join(pipelineDir, "info-metadata-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
 		t.Fatalf("failed to write pipeline yaml: %v", err)
