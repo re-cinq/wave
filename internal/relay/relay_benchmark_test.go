@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/recinq/wave/internal/adapter"
 )
 
 // =============================================================================
@@ -161,8 +163,8 @@ func Benchmark_validateConfig(b *testing.B) {
 
 func BenchmarkAdapterRunnerWrapper_RunCompaction(b *testing.B) {
 	mockRunner := &mockAdapterRunner{
-		runFunc: func(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error) {
-			return &AdapterResult{
+		runFunc: func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+			return &adapter.AdapterResult{
 				ExitCode:   0,
 				Stdout:     &mockReader{data: []byte("benchmark compaction result")},
 				TokensUsed: 100,

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/timeouts"
 )
 
@@ -199,44 +200,12 @@ func (m *RelayMonitor) getTokenCount(chatHistory string) int {
 	return len(strings.Split(chatHistory, " "))
 }
 
-// AdapterRunnerWrapper wraps an adapter runner to implement CompactionAdapter.
+// AdapterRunnerWrapper wraps an adapter.AdapterRunner to implement CompactionAdapter.
 // This allows reusing the existing adapter infrastructure for compaction.
 type AdapterRunnerWrapper struct {
-	Runner      AdapterRunner
+	Runner      adapter.AdapterRunner
 	AdapterName string
 	PersonaName string
-}
-
-// AdapterRunner is a subset of adapter.AdapterRunner for compaction purposes.
-type AdapterRunner interface {
-	Run(ctx context.Context, cfg AdapterRunnerConfig) (*AdapterResult, error)
-}
-
-// AdapterRunnerConfig mirrors the config needed for adapter runs.
-type AdapterRunnerConfig struct {
-	Adapter       string
-	Persona       string
-	WorkspacePath string
-	Prompt        string
-	SystemPrompt  string
-	Timeout       time.Duration
-	Temperature   float64
-	AllowedTools  []string
-	DenyTools     []string
-	OutputFormat  string
-}
-
-// AdapterResult mirrors the adapter result structure.
-type AdapterResult struct {
-	ExitCode   int
-	Stdout     StringReader
-	TokensUsed int
-	Artifacts  []string
-}
-
-// StringReader is a minimal interface for reading stdout.
-type StringReader interface {
-	Read(p []byte) (n int, err error)
 }
 
 // RunCompaction implements CompactionAdapter by running the adapter with a compaction prompt.
@@ -266,7 +235,7 @@ func (w *AdapterRunnerWrapper) RunCompaction(ctx context.Context, cfg Compaction
 	// Build the compaction prompt combining the chat history and compact instruction
 	prompt := fmt.Sprintf("%s\n\n---\n\nConversation history to summarize:\n%s", cfg.CompactPrompt, cfg.ChatHistory)
 
-	runCfg := AdapterRunnerConfig{
+	runCfg := adapter.AdapterRunConfig{
 		Adapter:       w.AdapterName,
 		Persona:       w.PersonaName,
 		WorkspacePath: cfg.WorkspacePath,
