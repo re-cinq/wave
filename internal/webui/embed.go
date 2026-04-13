@@ -201,6 +201,8 @@ func statusClass(status string) string {
 	switch status {
 	case "completed":
 		return "status-completed"
+	case "completed_empty":
+		return "status-completed-empty"
 	case "running":
 		return "status-running"
 	case "failed":

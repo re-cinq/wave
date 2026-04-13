@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -858,7 +859,7 @@ func (e *DefaultPipelineExecutor) runSchedulingLoop(ctx context.Context, executi
 					execution.mu.Lock()
 					stepState := execution.States[step.ID]
 					execution.mu.Unlock()
-					if stepState == stateCompleted && !completed[step.ID] {
+					if (stepState == stateCompleted || stepState == stateCompletedEmpty) && !completed[step.ID] {
 						completed[step.ID] = true
 						completedCount++
 					}
@@ -927,7 +928,7 @@ func (e *DefaultPipelineExecutor) runSchedulingLoop(ctx context.Context, executi
 			execution.mu.Lock()
 			stepState := execution.States[step.ID]
 			execution.mu.Unlock()
-			if stepState == stateCompleted || stepState == stateFailed {
+			if stepState == stateCompleted || stepState == stateCompletedEmpty || stepState == stateFailed {
 				completed[step.ID] = true
 			}
 		}
@@ -971,9 +972,28 @@ func (e *DefaultPipelineExecutor) finalizePipelineExecution(_ context.Context, e
 			Input:      input,
 		})
 	} else {
-		execution.Status.State = stateCompleted
+		// If every step is either completed_empty or non-worktree, the pipeline
+		// itself is completed_empty — the run produced no code changes.
+		pipelineState := stateCompleted
+		execution.mu.Lock()
+		allEmpty := true
+		hasWorktreeStep := false
+		for _, st := range execution.States {
+			switch st {
+			case stateCompletedEmpty:
+				hasWorktreeStep = true
+			case stateCompleted:
+				allEmpty = false
+			}
+		}
+		execution.mu.Unlock()
+		if hasWorktreeStep && allEmpty {
+			pipelineState = stateCompletedEmpty
+		}
+
+		execution.Status.State = pipelineState
 		if e.store != nil {
-			_ = e.store.SavePipelineState(pipelineID, stateCompleted, input)
+			_ = e.store.SavePipelineState(pipelineID, pipelineState, input)
 		}
 		// Run run_completed hooks with detached context (non-blocking by default).
 		e.runTerminalHooks(hooks.HookEvent{
@@ -987,7 +1007,7 @@ func (e *DefaultPipelineExecutor) finalizePipelineExecution(_ context.Context, e
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
 		PipelineID: pipelineID,
-		State:      stateCompleted,
+		State:      execution.Status.State,
 		DurationMs: elapsed,
 		Message:    fmt.Sprintf("%d steps completed", schedulableSteps),
 	})
@@ -3443,11 +3463,19 @@ func (e *DefaultPipelineExecutor) processAdapterResult(
 	}
 	e.fireWebhooks(ctx, stepCompletedEvt)
 
+	// Detect zero-diff worktree steps: step completed but produced no code changes.
+	// This gives the UI an honest signal — "completed_empty" with warning colors
+	// instead of a misleading green "completed" checkmark.
+	finalState := stateCompleted
+	if step.Workspace.Type == "worktree" && isWorktreeClean(res.workspacePath) {
+		finalState = stateCompletedEmpty
+	}
+
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
 		PipelineID: pipelineID,
 		StepID:     step.ID,
-		State:      stateCompleted,
+		State:      finalState,
 		Persona:    res.resolvedPersona,
 		DurationMs: stepDuration,
 		TokensUsed: result.TokensUsed,
@@ -3457,7 +3485,7 @@ func (e *DefaultPipelineExecutor) processAdapterResult(
 	})
 
 	if e.logger != nil {
-		_ = e.logger.LogStepEnd(pipelineID, step.ID, "success", time.Since(stepStart), result.ExitCode, len(stdoutData), result.TokensUsed, "")
+		_ = e.logger.LogStepEnd(pipelineID, step.ID, finalState, time.Since(stepStart), result.ExitCode, len(stdoutData), result.TokensUsed, "")
 	}
 
 	// Record performance metric for TUI step breakdown
@@ -3478,6 +3506,35 @@ func (e *DefaultPipelineExecutor) processAdapterResult(
 	}
 
 	return nil
+}
+
+// isWorktreeClean checks whether a worktree workspace has uncommitted or
+// unstaged changes. Returns true when the worktree is identical to its HEAD
+// (zero diff) — meaning the agent produced no code changes.
+func isWorktreeClean(workspacePath string) bool {
+	// Find the worktree directory: it's typically a __wt_* subdirectory
+	entries, err := os.ReadDir(workspacePath)
+	if err != nil {
+		return false
+	}
+	wtDir := ""
+	for _, e := range entries {
+		if e.IsDir() && len(e.Name()) > 5 && e.Name()[:5] == "__wt_" {
+			wtDir = filepath.Join(workspacePath, e.Name())
+			break
+		}
+	}
+	if wtDir == "" {
+		return false // not a worktree workspace or can't find it
+	}
+
+	cmd := exec.Command("git", "status", "--porcelain")
+	cmd.Dir = wtDir
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return len(bytes.TrimSpace(out)) == 0
 }
 
 // resolveModel applies model precedence:
