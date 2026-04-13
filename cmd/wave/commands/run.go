@@ -940,12 +940,8 @@ func loadPipeline(name string, _ *manifest.Manifest) (*pipeline.Pipeline, error)
 		return nil, fmt.Errorf("failed to read pipeline file: %w", err)
 	}
 
-	var p pipeline.Pipeline
-	if err := yaml.Unmarshal(pipelineData, &p); err != nil {
-		return nil, fmt.Errorf("failed to parse pipeline: %w", err)
-	}
-
-	return &p, nil
+	loader := &pipeline.YAMLPipelineLoader{}
+	return loader.Unmarshal(pipelineData)
 }
 
 // isInteractive returns true when stdin is a TTY and interactive selection is possible.

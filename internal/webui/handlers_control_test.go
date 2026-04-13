@@ -294,7 +294,9 @@ metadata:
 steps:
   - id: step1
     persona: navigator
-    prompt: "do something"
+    exec:
+      type: prompt
+      source: "do something"
 `
 	if err := os.WriteFile(".wave/pipelines/test-pipeline.yaml", []byte(pipelineYAML), 0o644); err != nil {
 		t.Fatal(err)
@@ -501,7 +503,7 @@ func setupPipelineDir(t *testing.T, pipelineName string, steps []string) { //nol
 
 	var stepYAML string
 	for _, s := range steps {
-		stepYAML += "  - id: " + s + "\n    persona: navigator\n    prompt: \"do\"\n"
+		stepYAML += "  - id: " + s + "\n    persona: navigator\n    exec:\n      type: prompt\n      source: \"do\"\n"
 	}
 
 	yaml := "kind: pipeline\nmetadata:\n  name: " + pipelineName + "\nsteps:\n" + stepYAML

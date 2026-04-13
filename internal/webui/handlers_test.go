@@ -330,7 +330,8 @@ steps:
   - id: step1
     persona: navigator
     exec:
-      prompt: "test"
+      type: prompt
+      source: "test"
 `
 	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
@@ -429,7 +430,8 @@ steps:
   - id: step1
     persona: navigator
     exec:
-      prompt: "test"
+      type: prompt
+      source: "test"
 `
 	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
@@ -509,12 +511,14 @@ steps:
   - id: step1
     persona: navigator
     exec:
-      prompt: "test"
+      type: prompt
+      source: "test"
   - id: step2
     persona: navigator
-    depends_on: [step1]
+    dependencies: [step1]
     exec:
-      prompt: "test2"
+      type: prompt
+      source: "test2"
 `
 	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
@@ -577,7 +581,8 @@ steps:
   - id: step1
     persona: navigator
     exec:
-      prompt: "test"
+      type: prompt
+      source: "test"
 `
 	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
@@ -982,7 +987,8 @@ steps:
   - id: step1
     persona: navigator
     exec:
-      prompt: "test"
+      type: prompt
+      source: "test"
 `
 	if err := os.WriteFile(filepath.Join(pipelineDir, "test-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
 		t.Fatalf("failed to write pipeline yaml: %v", err)
@@ -1087,7 +1093,8 @@ steps:
   - id: step1
     persona: navigator
     exec:
-      prompt: "test"
+      type: prompt
+      source: "test"
 `
 	if err := os.WriteFile(filepath.Join(pipelineDir, "simple-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
 		t.Fatalf("failed to write pipeline yaml: %v", err)
@@ -1140,7 +1147,8 @@ steps:
   - id: plan
     persona: navigator
     exec:
-      prompt: "plan"
+      type: prompt
+      source: "plan"
   - id: iterate-tasks
     pipeline: impl-issue
     iterate:
@@ -1264,11 +1272,13 @@ steps:
   - id: step1
     persona: navigator
     exec:
-      prompt: "test"
+      type: prompt
+      source: "test"
   - id: step2
     persona: craftsman
     exec:
-      prompt: "build"
+      type: prompt
+      source: "build"
 `
 	if err := os.WriteFile(filepath.Join(pipelineDir, "test-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
 		t.Fatalf("failed to write pipeline yaml: %v", err)
@@ -1439,11 +1449,13 @@ steps:
   - id: fetch
     persona: navigator
     exec:
-      prompt: "fetch"
+      type: prompt
+      source: "fetch"
   - id: implement
     persona: craftsman
     exec:
-      prompt: "implement"
+      type: prompt
+      source: "implement"
 `
 	if err := os.WriteFile(filepath.Join(pipelineDir, "impl-issue.yaml"), []byte(pipelineYAML), 0o644); err != nil {
 		t.Fatalf("failed to write pipeline yaml: %v", err)
@@ -1581,7 +1593,8 @@ steps:
   - id: step1
     persona: navigator
     exec:
-      prompt: "test"
+      type: prompt
+      source: "test"
 `
 	if err := os.WriteFile(filepath.Join(pipelineDir, "my-pipeline.yaml"), []byte(pipelineYAML), 0o644); err != nil {
 		t.Fatalf("failed to write pipeline yaml: %v", err)
@@ -1682,7 +1695,8 @@ steps:
   - id: step1
     persona: navigator
     exec:
-      prompt: "test"
+      type: prompt
+      source: "test"
 `
 	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {

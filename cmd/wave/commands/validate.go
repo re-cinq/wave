@@ -277,10 +277,12 @@ func validatePipelineFull(pipelineName string, m *manifest.Manifest, fi forge.Fo
 		return []string{fmt.Sprintf("cannot read pipeline file: %s", err)}
 	}
 
-	var p pipeline.Pipeline
-	if err := yaml.Unmarshal(pipelineData, &p); err != nil {
+	loader := &pipeline.YAMLPipelineLoader{}
+	pParsed, err := loader.Unmarshal(pipelineData)
+	if err != nil {
 		return []string{fmt.Sprintf("invalid YAML: %s", err)}
 	}
+	p := *pParsed
 
 	var errs []string
 

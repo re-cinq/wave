@@ -66,7 +66,7 @@ steps:
     iterate:
       over: items
       mode: parallel
-    sub_pipeline: sub-task
+    pipeline: sub-task
 `
 	if err := os.WriteFile(filepath.Join(pipelineDir, "compose-render-test.yaml"), []byte(pipelineYAML), 0o644); err != nil {
 		t.Fatalf("failed to write pipeline yaml: %v", err)
@@ -152,12 +152,13 @@ steps:
       over: items
       mode: parallel
       max_concurrent: 3
-    sub_pipeline: worker
+    pipeline: worker
   - id: merge
     persona: navigator
-    depends_on: [fan-out]
+    dependencies: [fan-out]
     exec:
-      prompt: "merge results"
+      type: prompt
+      source: "merge results"
 `
 	if err := os.WriteFile(filepath.Join(pipelineDir, "compose-detail-test.yaml"), []byte(pipelineYAML), 0o644); err != nil {
 		t.Fatalf("failed to write pipeline yaml: %v", err)
@@ -235,7 +236,8 @@ steps:
   - id: step1
     persona: navigator
     exec:
-      prompt: "do something"
+      type: prompt
+      source: "do something"
 `
 	if err := os.WriteFile(filepath.Join(pipelineDir, "plain-only-pipeline.yaml"), []byte(plainYAML), 0o644); err != nil {
 		t.Fatalf("failed to write pipeline yaml: %v", err)

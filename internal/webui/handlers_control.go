@@ -20,7 +20,7 @@ import (
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
-	"gopkg.in/yaml.v3"
+
 )
 
 // validPipelineName matches safe pipeline names: alphanumeric, hyphens, underscores, dots.
@@ -741,12 +741,8 @@ func loadPipelineYAML(name string) (*pipeline.Pipeline, error) {
 		return nil, fmt.Errorf("pipeline not found")
 	}
 
-	var p pipeline.Pipeline
-	if err := yaml.Unmarshal(data, &p); err != nil {
-		return nil, fmt.Errorf("invalid pipeline definition")
-	}
-
-	return &p, nil
+	loader := &pipeline.YAMLPipelineLoader{}
+	return loader.Unmarshal(data)
 }
 
 // handleGateApprove handles POST /api/runs/{id}/gates/{step}/approve
