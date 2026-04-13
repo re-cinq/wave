@@ -2842,15 +2842,11 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws.st-completed-empty { border-left: 4px solid var(--color-completed-empty); }
 .ws.st-failed    { border-left: 4px solid var(--color-failed); }
 .ws.st-running   { border-left: 4px solid var(--color-running); box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2); }
-/* Pending/skipped: compact — hide I/O and logs, expand on hover */
+/* Pending/skipped: dimmed but fully interactive */
 .ws.st-pending   { border-left: 4px solid var(--color-border); opacity: 0.5; }
-.ws.st-pending .ws-io, .ws.st-pending .ws-log, .ws.st-pending .ws-config { display: none; }
+.ws.st-pending:hover, .ws.st-pending:focus-within { opacity: 0.9; }
 .ws.st-skipped   { border-left: 4px solid var(--color-border); opacity: 0.5; }
-.ws.st-skipped .ws-io, .ws.st-skipped .ws-log { display: none; }
-.ws.st-skipped:hover, .ws.st-skipped:focus-within { opacity: 0.9; background: var(--color-bg-secondary); }
-.ws.st-skipped:hover .ws-io, .ws.st-skipped:focus-within .ws-io { display: flex; }
-.ws.st-pending:hover, .ws.st-pending:focus-within { opacity: 0.9; background: var(--color-bg-secondary); }
-.ws.st-pending:hover .ws-io, .ws.st-pending:focus-within .ws-io { display: flex; }
+.ws.st-skipped:hover, .ws.st-skipped:focus-within { opacity: 0.9; }
 
 /* ── Step type differentiation (geometric identity) ── */
 /* Sub-pipeline: purple accent + inset glow */
