@@ -326,6 +326,85 @@ func TestChain_ReviewVerdictWithRef(t *testing.T) {
 	assert.NoError(t, err, "review verdict should validate with $ref review_severity")
 }
 
+// TestChain_PRResultWithRef validates the pr-result schema with $ref to pr-reference.
+func TestChain_PRResultWithRef(t *testing.T) {
+	contractsDir := findContractsDir(t)
+	schemaPath := filepath.Join(contractsDir, "pr-result.schema.json")
+
+	artifact := []byte(`{
+		"pr_url": "https://github.com/owner/repo/pull/99",
+		"pr_number": 99,
+		"branch": "feature-branch",
+		"summary": "Add new feature"
+	}`)
+
+	err := validateArtifactAgainstSchema(t, artifact, schemaPath, contractsDir)
+	assert.NoError(t, err, "pr-result artifact should validate with $ref pr-reference")
+}
+
+// TestChain_GHPRCommentResultWithRef validates the gh-pr-comment-result schema with $ref.
+func TestChain_GHPRCommentResultWithRef(t *testing.T) {
+	contractsDir := findContractsDir(t)
+	schemaPath := filepath.Join(contractsDir, "gh-pr-comment-result.schema.json")
+
+	artifact := []byte(`{
+		"comment_url": "https://github.com/owner/repo/pull/99#issuecomment-123",
+		"pr_number": 99,
+		"repository": "owner/repo",
+		"summary": "Posted review comment"
+	}`)
+
+	err := validateArtifactAgainstSchema(t, artifact, schemaPath, contractsDir)
+	assert.NoError(t, err, "gh-pr-comment-result should validate with $ref pr-reference")
+}
+
+// TestChain_ResearchReportWithAllOfRef validates the research-report schema
+// which uses allOf to combine $ref with additional required fields.
+func TestChain_ResearchReportWithAllOfRef(t *testing.T) {
+	contractsDir := findContractsDir(t)
+	schemaPath := filepath.Join(contractsDir, "research-report.schema.json")
+
+	artifact := []byte(`{
+		"issue_reference": {
+			"issue_number": 42,
+			"repository": "owner/repo",
+			"title": "Research topic",
+			"url": "https://github.com/owner/repo/issues/42"
+		},
+		"executive_summary": {
+			"overview": "This research investigates the performance characteristics of the Go runtime garbage collector and its impact on latency-sensitive applications.",
+			"key_findings": ["GC pause times can be reduced with GOGC tuning"],
+			"primary_recommendation": "Set GOGC=50 for latency-sensitive services to reduce pause times"
+		},
+		"detailed_findings": [
+			{
+				"section_title": "GC Tuning",
+				"content": "The Go garbage collector can be tuned using the GOGC environment variable. Setting it to a lower value increases collection frequency but reduces peak memory usage and pause times.",
+				"relevance": "critical"
+			}
+		],
+		"recommendations": [
+			{
+				"id": "REC-0001",
+				"title": "Tune GOGC for latency",
+				"description": "Set GOGC=50 in production to reduce GC pause times for latency-sensitive services",
+				"priority": "high"
+			}
+		],
+		"sources": [
+			{
+				"id": "SRC-0001",
+				"url": "https://tip.golang.org/doc/gc-guide",
+				"title": "A Guide to the Go Garbage Collector"
+			}
+		],
+		"markdown_content": "# Research Report\n\nThis is a comprehensive research report about Go GC tuning. It covers the main findings and recommendations for latency-sensitive applications."
+	}`)
+
+	err := validateArtifactAgainstSchema(t, artifact, schemaPath, contractsDir)
+	assert.NoError(t, err, "research-report should validate with allOf + $ref issue-reference")
+}
+
 // findContractsDir locates the .wave/contracts directory relative to the project root.
 func findContractsDir(t *testing.T) string {
 	t.Helper()
