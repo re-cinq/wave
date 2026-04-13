@@ -142,6 +142,7 @@ steps:
         - step: scan
           artifact: findings
           as: findings
+          schema_path: .wave/contracts/shared-findings.schema.json
     exec:
       type: prompt
       source: |
@@ -226,6 +227,7 @@ steps:
         - step: scan
           artifact: findings
           as: findings
+          schema_path: .wave/contracts/shared-findings.schema.json
         - step: compose-report
           artifact: report
           as: report

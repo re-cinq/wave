@@ -14,7 +14,7 @@
         "properties": {
           "id": { "type": "string", "pattern": "^DOC-[0-9]{1,4}$" },
           "type": { "type": "string", "enum": ["MISSING_DOCS", "STALE_DOCS", "INACCURATE", "INCOMPLETE"] },
-          "severity": { "type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
+          "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
           "title": { "type": "string", "minLength": 3 },
           "doc_location": { "type": "string" },
           "code_location": { "type": "string" },

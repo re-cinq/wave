@@ -81,6 +81,7 @@ steps:
         - step: scan
           artifact: findings
           as: scan_findings
+          schema_path: .wave/contracts/shared-findings.schema.json
     exec:
       type: prompt
       source: |

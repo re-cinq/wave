@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Rework Gate Verdict Schema",
+  "description": "Decision output from the rework gate step. Determines whether implementation passes quality bar or requires rework.",
+  "type": "object",
+  "required": ["decision", "reason", "iteration", "findings_summary"],
+  "properties": {
+    "decision": {
+      "type": "string",
+      "enum": ["pass", "fail"],
+      "description": "Gate verdict: pass allows PR creation, fail triggers rework loop"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Human-readable explanation of the verdict"
+    },
+    "iteration": {
+      "type": "integer",
+      "description": "Current rework iteration number (1-based)"
+    },
+    "findings_summary": {
+      "type": "object",
+      "required": ["critical", "major", "minor", "suggestion"],
+      "properties": {
+        "critical": {
+          "type": "integer",
+          "description": "Count of critical-severity findings (maps from critical)"
+        },
+        "major": {
+          "type": "integer",
+          "description": "Count of major-severity findings (maps from high)"
+        },
+        "minor": {
+          "type": "integer",
+          "description": "Count of minor-severity findings (maps from medium)"
+        },
+        "suggestion": {
+          "type": "integer",
+          "description": "Count of suggestion-level findings (maps from low + info)"
+        }
+      }
+    },
+    "aggregated_feedback": {
+      "type": "string",
+      "description": "On fail: consolidated feedback for the rework step describing what needs to be fixed"
+    },
+    "blocking_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source_audit": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "List of findings that caused the gate to fail"
+    }
+  }
+}

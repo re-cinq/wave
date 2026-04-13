@@ -294,6 +294,47 @@ See:
 - `format_validator_test.go` - Format validation examples
 - `rollback_test.go` - Rollback mechanism examples
 
+## Input Artifact Validation
+
+The contract system validates injected artifacts against schemas before step execution:
+
+```go
+// Validate a single input artifact
+err := contract.ValidateInputArtifact("findings", ".wave/contracts/shared-findings.schema.json", workspacePath)
+
+// Validate multiple input artifacts
+configs := []contract.InputArtifactConfig{
+    {Name: "scan_findings", SchemaPath: ".wave/contracts/shared-findings.schema.json"},
+    {Name: "raw_findings", SchemaPath: ".wave/contracts/review-findings.schema.json"},
+}
+results, err := contract.ValidateInputArtifacts(configs, workspacePath)
+```
+
+### Pipeline YAML Configuration
+
+Add `schema_path` to `inject_artifacts` entries to enable input validation:
+
+```yaml
+memory:
+  inject_artifacts:
+    - step: scan
+      artifact: findings
+      as: scan_findings
+      schema_path: .wave/contracts/shared-findings.schema.json
+```
+
+### Shared Schemas
+
+| Schema | Purpose |
+|--------|---------|
+| `shared-findings.schema.json` | Standardized audit/scan findings |
+| `shared-review-verdict.schema.json` | Review verdict with findings |
+| `shared-pr-result.schema.json` | PR URL/number/branch output |
+
+### Schema Sync
+
+`.wave/contracts/` is authoritative. Shared schemas are synced to `internal/defaults/contracts/` for embedding. The `sync_test.go` test prevents drift.
+
 ## Integration Points
 
 ### Pipeline Executor

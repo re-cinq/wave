@@ -146,6 +146,7 @@ steps:
         - step: scan-changes
           artifact: scan-results
           as: scan
+          schema_path: .wave/contracts/doc-scan-results.schema.json
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"

@@ -1,14 +1,14 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Pull Request Result",
-  "description": "Result of creating a pull request. Used by pipeline steps that produce a PR as their final output.",
+  "title": "Shared PR Result Schema",
+  "description": "Standard output format for pipeline steps that produce a pull request. Enables cross-pipeline composition for PR-producing workflows.",
   "type": "object",
   "required": ["pr_url", "pr_number", "branch", "summary"],
   "properties": {
     "pr_url": {
       "type": "string",
       "format": "uri",
-      "description": "URL to the created pull request"
+      "description": "URL to the created or updated pull request"
     },
     "pr_number": {
       "type": "integer",
@@ -28,20 +28,7 @@
     "title": {
       "type": "string",
       "description": "Pull request title"
-    },
-    "copilot_review_requested": {
-      "type": "boolean",
-      "description": "Whether a Copilot review was requested for the PR"
-    },
-    "closes_issue": {
-      "type": "boolean",
-      "description": "Whether the PR closes a linked issue"
-    },
-    "issue_number": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "Issue number that this PR addresses"
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }

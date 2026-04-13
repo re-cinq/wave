@@ -1,24 +1,27 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Shared Findings Schema",
-  "description": "Standard output format for all audit/scan pipelines. Enables cross-pipeline composition via aggregate.",
+  "title": "Aggregated Findings Schema",
+  "description": "Merged findings from multiple audit pipelines. Used as input to the rework gate for verdict synthesis.",
   "type": "object",
-  "required": ["findings"],
+  "required": ["findings", "source_audits", "total_findings", "summary"],
   "properties": {
     "findings": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["type", "severity"],
+        "required": ["type", "severity", "source_audit"],
         "properties": {
           "type": {
             "type": "string",
-            "description": "Finding category",
-            "enum": ["dead-code", "unwired", "duplicate", "doc-drift", "junk-code", "security", "dx", "performance", "style", "correctness", "architecture", "test", "coverage", "other"]
+            "description": "Finding category from the source audit"
           },
           "severity": {
             "type": "string",
             "enum": ["critical", "high", "medium", "low", "info"]
+          },
+          "source_audit": {
+            "type": "string",
+            "description": "Name of the audit pipeline that produced this finding"
           },
           "package": {
             "type": "string",
@@ -52,18 +55,40 @@
         }
       }
     },
+    "source_audits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "finding_count"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Audit pipeline name"
+          },
+          "finding_count": {
+            "type": "integer",
+            "description": "Number of findings from this audit"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["completed", "failed", "skipped"],
+            "description": "Whether the audit completed successfully"
+          }
+        }
+      }
+    },
+    "total_findings": {
+      "type": "integer",
+      "description": "Total number of findings across all audits"
+    },
     "summary": {
       "type": "string",
-      "description": "One-line summary of scan results"
+      "description": "One-line summary of aggregated results"
     },
-    "scan_type": {
-      "type": "string",
-      "description": "Type of scan that produced these findings"
-    },
-    "scanned_at": {
+    "aggregated_at": {
       "type": "string",
       "format": "date-time",
-      "description": "ISO 8601 timestamp of when scan completed"
+      "description": "ISO 8601 timestamp of when aggregation completed"
     }
   },
   "additionalProperties": false

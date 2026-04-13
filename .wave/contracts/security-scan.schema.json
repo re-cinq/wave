@@ -34,7 +34,7 @@
         "properties": {
           "id": { "type": "string", "pattern": "^SEC-[0-9]{1,4}$" },
           "title": { "type": "string", "minLength": 5 },
-          "severity": { "type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
+          "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
           "category": { "type": "string", "minLength": 1 },
           "location": { "type": "string", "minLength": 1 },
           "description": { "type": "string", "minLength": 10 },
@@ -57,12 +57,12 @@
         "total_findings": { "type": "integer", "minimum": 0 },
         "by_severity": {
           "type": "object",
-          "required": ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+          "required": ["critical", "high", "medium", "low"],
           "properties": {
-            "CRITICAL": { "type": "integer", "minimum": 0 },
-            "HIGH": { "type": "integer", "minimum": 0 },
-            "MEDIUM": { "type": "integer", "minimum": 0 },
-            "LOW": { "type": "integer", "minimum": 0 }
+            "critical": { "type": "integer", "minimum": 0 },
+            "high": { "type": "integer", "minimum": 0 },
+            "medium": { "type": "integer", "minimum": 0 },
+            "low": { "type": "integer", "minimum": 0 }
           }
         },
         "risk_assessment": { "type": "string", "minLength": 10 }

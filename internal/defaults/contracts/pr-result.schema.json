@@ -25,6 +25,10 @@
       "minLength": 1,
       "description": "Brief description of what the pull request does"
     },
+    "title": {
+      "type": "string",
+      "description": "Pull request title"
+    },
     "copilot_review_requested": {
       "type": "boolean",
       "description": "Whether a Copilot review was requested for the PR"
