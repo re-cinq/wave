@@ -207,12 +207,13 @@
     </script>
     <script src="/static/app.js"></script>
     <script>
-    // Attention classifier — SSE listener updates brand logo state
+    // Attention classifier — SSE listener updates brand logo state + toast notifications
     (function() {
         var brand = document.getElementById('wave-brand');
         if (!brand) return;
         var winddownTimer = null;
         var wasRunning = false;
+        var lastWorst = '';
         var es = new EventSource('/api/attention/events');
         es.addEventListener('attention', function(e) {
             try {
@@ -221,14 +222,29 @@
                 if (s.total_runs > 0) {
                     wasRunning = true;
                     brand.className = 'wave-brand-link attention-' + s.worst_state;
+
+                    // Toast on state transitions
+                    if (s.worst_state !== lastWorst) {
+                        if (s.worst_state === 'needs_review') {
+                            showToast(s.needs_review + ' run(s) need review', 'info');
+                        } else if (s.worst_state === 'failed') {
+                            showToast(s.failed + ' run(s) failed', 'error');
+                        }
+                    }
+                    lastWorst = s.worst_state;
                 } else if (wasRunning) {
                     wasRunning = false;
+                    if (lastWorst !== 'failed') {
+                        showToast('All runs completed', 'success');
+                    }
+                    lastWorst = '';
                     brand.className = 'wave-brand-link attention-winddown';
                     winddownTimer = setTimeout(function() {
                         brand.className = 'wave-brand-link';
                     }, 3000);
                 } else {
                     brand.className = 'wave-brand-link';
+                    lastWorst = '';
                 }
 
                 var parts = [];

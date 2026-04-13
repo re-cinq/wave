@@ -135,6 +135,7 @@ export default withMermaid(
               { text: 'Context Relay', link: '/guides/relay-compaction' },
               { text: 'Meta-Pipelines', link: '/guides/meta-pipelines' },
               { text: 'Contract Chaining', link: '/guides/contract-chaining' },
+              { text: 'V&V Patterns', link: '/guides/vv-patterns' },
               { text: 'Adapter Development', link: '/guides/adapter-development' }
             ]
           },
