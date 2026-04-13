@@ -432,13 +432,12 @@ func modelTierClass(model string) string {
 }
 
 func modelTierTooltip(model string) string {
-	m := strings.ToLower(model)
-	switch {
-	case m == "strongest":
+	switch strings.ToLower(model) {
+	case "strongest":
 		return "Strongest tier: uses the most capable model for complex tasks"
-	case m == "balanced":
+	case "balanced":
 		return "Balanced tier: good quality-to-cost ratio for typical tasks"
-	case m == "cheapest", m == "fastest":
+	case "cheapest", "fastest":
 		return "Cheapest tier: fast and low-cost for simple tasks"
 	default:
 		return ""
