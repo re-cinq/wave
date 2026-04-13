@@ -11,13 +11,11 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
-	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/tui"
 	"github.com/recinq/wave/internal/workspace"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 // NewComposeCmd creates the compose command for validating and executing
@@ -269,19 +267,11 @@ func runComposePlan(_ tui.Sequence, plan pipeline.ExecutionPlan, input string, m
 		cancel()
 	}()
 
-	manifestData, err := os.ReadFile(manifestPath)
+	mp, err := loadManifestStrict(manifestPath)
 	if err != nil {
-		return NewCLIError(CodeManifestMissing,
-			fmt.Sprintf("manifest file not found: %s", manifestPath),
-			"Run 'wave init' to create a manifest")
+		return err
 	}
-
-	var m manifest.Manifest
-	if err := yaml.Unmarshal(manifestData, &m); err != nil {
-		return NewCLIError(CodeManifestInvalid,
-			fmt.Sprintf("failed to parse manifest: %s", err),
-			"Check wave.yaml syntax — run 'wave validate' to diagnose")
-	}
+	m := *mp
 
 	var runner adapter.AdapterRunner
 	if mock {
@@ -393,19 +383,11 @@ func runCompose(seq tui.Sequence, input string, manifestPath string, mock bool, 
 		cancel()
 	}()
 
-	manifestData, err := os.ReadFile(manifestPath)
+	mp, err := loadManifestStrict(manifestPath)
 	if err != nil {
-		return NewCLIError(CodeManifestMissing,
-			fmt.Sprintf("manifest file not found: %s", manifestPath),
-			"Run 'wave init' to create a manifest")
+		return err
 	}
-
-	var m manifest.Manifest
-	if err := yaml.Unmarshal(manifestData, &m); err != nil {
-		return NewCLIError(CodeManifestInvalid,
-			fmt.Sprintf("failed to parse manifest: %s", err),
-			"Check wave.yaml syntax — run 'wave validate' to diagnose")
-	}
+	m := *mp
 
 	// Resolve adapter
 	var runner adapter.AdapterRunner

@@ -517,7 +517,7 @@ func TestValidateCmd_NonExistentManifest(t *testing.T) {
 
 	err := cmd.Execute()
 	assert.Error(t, err, "validate should fail when manifest file doesn't exist")
-	assert.Contains(t, err.Error(), "failed to read manifest", "error should mention reading failure")
+	assert.Contains(t, err.Error(), "manifest file not found", "error should mention reading failure")
 }
 
 // Test validate with missing apiVersion

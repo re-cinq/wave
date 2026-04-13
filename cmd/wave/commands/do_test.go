@@ -229,7 +229,7 @@ metadata:
 	var cliErr *CLIError
 	require.ErrorAs(t, err, &cliErr)
 	assert.Equal(t, CodeManifestInvalid, cliErr.Code)
-	assert.Contains(t, cliErr.Suggestion, "valid YAML")
+	assert.Contains(t, cliErr.Suggestion, "wave validate")
 }
 
 // TestDoCommand_MissingPersonaError verifies that referencing a missing

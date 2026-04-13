@@ -102,7 +102,7 @@ metadata:
 	var cliErr2 *CLIError
 	require.ErrorAs(t, err, &cliErr2)
 	assert.Equal(t, CodeManifestInvalid, cliErr2.Code)
-	assert.Contains(t, cliErr2.Suggestion, "valid YAML")
+	assert.Contains(t, cliErr2.Suggestion, "wave validate")
 }
 
 // TestMetaCommand_MissingPhilosopher verifies that missing philosopher

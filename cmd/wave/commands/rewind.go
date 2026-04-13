@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 // RewindOptions holds options for the rewind command.
@@ -91,19 +89,11 @@ func runRewind(opts RewindOptions) error {
 	}
 
 	// Load manifest to get pipeline topology
-	manifestData, err := os.ReadFile(opts.Manifest)
+	mp, err := loadManifestStrict(opts.Manifest)
 	if err != nil {
-		return NewCLIError(CodeManifestMissing,
-			fmt.Sprintf("manifest file not found: %s", opts.Manifest),
-			"Run 'wave init' to create a manifest")
+		return err
 	}
-
-	var m manifest.Manifest
-	if err := yaml.Unmarshal(manifestData, &m); err != nil {
-		return NewCLIError(CodeManifestInvalid,
-			fmt.Sprintf("failed to parse manifest: %s", err),
-			"Check wave.yaml syntax")
-	}
+	m := *mp
 
 	p, err := loadPipeline(run.PipelineName, &m)
 	if err != nil {

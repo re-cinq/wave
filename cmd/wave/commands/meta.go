@@ -10,11 +10,10 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
-	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/workspace"
-	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
+	"github.com/spf13/cobra"
 )
 
 type MetaOptions struct {
@@ -67,18 +66,11 @@ Examples:
 }
 
 func runMeta(input string, opts MetaOptions) error {
-	manifestData, err := os.ReadFile(opts.Manifest)
+	mp, err := loadManifestStrict(opts.Manifest)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return NewCLIError(CodeManifestMissing, fmt.Sprintf("manifest file not found: %s", opts.Manifest), "Run 'wave init' to create a new Wave project or specify --manifest path")
-		}
-		return NewCLIError(CodeManifestMissing, fmt.Sprintf("failed to read manifest: %s", err), "Check file permissions and path").WithCause(err)
+		return err
 	}
-
-	var m manifest.Manifest
-	if err := yaml.Unmarshal(manifestData, &m); err != nil {
-		return NewCLIError(CodeManifestInvalid, fmt.Sprintf("failed to parse manifest %s: %s", opts.Manifest, err), "Ensure the file is valid YAML with correct indentation").WithCause(err)
-	}
+	m := *mp
 
 	// Set up context with signal handling
 	ctx, cancel := context.WithCancel(context.Background())

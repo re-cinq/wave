@@ -119,6 +119,7 @@ func (l *yamlLoader) Load(path string) (*Manifest, error) {
 	}
 
 	manifestPath := filepath.Dir(path)
+	manifest.RootDir = manifestPath
 	if errs := ValidateWithFile(&manifest, manifestPath, path); len(errs) > 0 {
 		return nil, errs[0]
 	}
@@ -436,6 +437,19 @@ func validateOntology(o *Ontology, filePath string) []error {
 
 func Load(path string) (*Manifest, error) {
 	return NewLoader().Load(path)
+}
+
+// UnmarshalStrict parses manifest YAML with KnownFields(true) to reject unknown
+// fields, but skips structural validation (workspace_root, adapter refs, etc.).
+// Use this when you need strict parsing + RootDir without full manifest validation.
+func UnmarshalStrict(data []byte) (*Manifest, error) {
+	var m Manifest
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&m); err != nil {
+		return nil, err
+	}
+	return &m, nil
 }
 
 // SkillStore is a minimal interface for skill existence checks during manifest validation.
