@@ -5,6 +5,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/recinq/wave/internal/contract"
 	"github.com/recinq/wave/internal/hooks"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
@@ -412,64 +413,33 @@ func (a *ArtifactDef) GetEffectiveSource() string {
 }
 
 type HandoverConfig struct {
-	Contract     ContractConfig   `yaml:"contract,omitempty"`
-	Contracts    []ContractConfig `yaml:"contracts,omitempty"`
-	Compaction   CompactionConfig `yaml:"compaction,omitempty"`
-	OnReviewFail string           `yaml:"on_review_fail,omitempty"`
-	TargetStep   string           `yaml:"target_step,omitempty"`
+	Contract     contract.ContractConfig   `yaml:"contract,omitempty"`
+	Contracts    []contract.ContractConfig `yaml:"contracts,omitempty"`
+	Compaction   CompactionConfig          `yaml:"compaction,omitempty"`
+	OnReviewFail string                    `yaml:"on_review_fail,omitempty"`
+	TargetStep   string                    `yaml:"target_step,omitempty"`
 }
 
 // EffectiveContracts returns the ordered list of contracts to validate.
 // If Contracts (plural) is non-empty, it takes precedence.
 // If only the singular Contract is set, it is wrapped in a slice.
 // If neither is set, nil is returned.
-func (h *HandoverConfig) EffectiveContracts() []ContractConfig {
+func (h *HandoverConfig) EffectiveContracts() []contract.ContractConfig {
 	if len(h.Contracts) > 0 {
 		return h.Contracts
 	}
 	if h.Contract.Type != "" {
-		return []ContractConfig{h.Contract}
+		return []contract.ContractConfig{h.Contract}
 	}
 	return nil
 }
 
-type ContractConfig struct {
-	Type       string `yaml:"type,omitempty"`
-	Schema     string `yaml:"schema,omitempty"`
-	Source     string `yaml:"source,omitempty"`
-	SchemaPath string `yaml:"schema_path,omitempty"`
-	Validate   bool   `yaml:"validate,omitempty"`
-	Command    string `yaml:"command,omitempty"`
-	Dir        string `yaml:"dir,omitempty"` // Working directory: "project_root", absolute path, or empty for workspace
-	MustPass   bool   `yaml:"must_pass,omitempty"`
-	OnFailure  string `yaml:"on_failure,omitempty"`
-	MaxRetries int    `yaml:"max_retries,omitempty"`
+// ContractConfig is an alias for contract.ContractConfig for use in pipeline YAML files.
+// Pipelines should use this type directly; contract validation uses contract.ContractConfig.
+type ContractConfig = contract.ContractConfig
 
-	// LLM judge settings
-	Model     string   `yaml:"model,omitempty"`     // LLM model for judge evaluation
-	Criteria  []string `yaml:"criteria,omitempty"`  // Evaluation criteria for LLM judge
-	Threshold float64  `yaml:"threshold,omitempty"` // Pass threshold (0.0-1.0), default 1.0
-
-	// Convergence tracking for rework loops
-	ConvergenceWindow         int     `yaml:"convergence_window,omitempty"`          // Sliding window size for stall detection (default 3)
-	ConvergenceMinImprovement float64 `yaml:"convergence_min_improvement,omitempty"` // Min score improvement to continue rework (default 0.05)
-
-	// Agent review settings
-	Persona      string                `yaml:"persona,omitempty"`       // Reviewer persona name (must differ from step persona)
-	CriteriaPath string                `yaml:"criteria_path,omitempty"` // Path to review criteria markdown file
-	Context      []ReviewContextSource `yaml:"context,omitempty"`       // Context sources for the reviewer
-	TokenBudget  int                   `yaml:"token_budget,omitempty"`  // Max tokens for review agent (0 = unlimited)
-	Timeout      string                `yaml:"timeout,omitempty"`       // Duration string for review timeout (e.g. "60s")
-	ReworkStep   string                `yaml:"rework_step,omitempty"`   // Step ID to execute on review failure with on_failure: rework
-}
-
-// ReviewContextSource defines a single context item provided to the reviewing agent.
-type ReviewContextSource struct {
-	Source   string `yaml:"source,omitempty"`    // "git_diff" or "artifact"
-	Artifact string `yaml:"artifact,omitempty"`  // Artifact name when source is "artifact"
-	MaxSize  int    `yaml:"max_size,omitempty"`  // Max bytes for this source (0 = use default)
-	DiffBase string `yaml:"diff_base,omitempty"` // Git ref to diff against (e.g. "main"); auto-detected if empty
-}
+// ReviewContextSource is an alias for contract.ReviewContextSource.
+type ReviewContextSource = contract.ReviewContextSource
 
 type CompactionConfig struct {
 	Trigger string `yaml:"trigger,omitempty"`

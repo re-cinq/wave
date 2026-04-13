@@ -16,10 +16,10 @@ import (
 
 // ReviewContextSource defines a context item provided to the reviewing agent.
 type ReviewContextSource struct {
-	Source   string `json:"source,omitempty"`   // "git_diff" or "artifact"
-	Artifact string `json:"artifact,omitempty"` // Artifact name when source is "artifact"
-	MaxSize  int    `json:"maxSize,omitempty"`  // Max bytes; 0 = default (50KB)
-	DiffBase string `json:"diffBase,omitempty"` // Git ref to diff against (e.g. "main"); auto-detected if empty
+	Source   string `json:"source,omitempty"   yaml:"source,omitempty"`    // "git_diff" or "artifact"
+	Artifact string `json:"artifact,omitempty" yaml:"artifact,omitempty"`  // Artifact name when source is "artifact"
+	MaxSize  int    `json:"maxSize,omitempty"  yaml:"max_size,omitempty"`   // Max bytes; 0 = default (50KB)
+	DiffBase string `json:"diffBase,omitempty" yaml:"diff_base,omitempty"` // Git ref to diff against (e.g. "main"); auto-detected if empty
 }
 
 // ReviewIssue is a single issue found during an agent review.

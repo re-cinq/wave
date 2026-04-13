@@ -2392,25 +2392,10 @@ func (e *DefaultPipelineExecutor) runSingleContract(
 	})
 	contractStart := time.Now()
 
-	contractCfg := contract.ContractConfig{
-		Type:          c.Type,
-		Source:        resolvedSource,
-		Schema:        c.Schema,
-		SchemaPath:    c.SchemaPath,
-		Command:       resolvedCommand,
-		Dir:           c.Dir,
-		MustPass:      c.MustPass,
-		MaxRetries:    c.MaxRetries,
-		Model:         c.Model,
-		Criteria:      c.Criteria,
-		Threshold:     c.Threshold,
-		Persona:       c.Persona,
-		CriteriaPath:  c.CriteriaPath,
-		Context:       convertReviewContextSources(c.Context),
-		TokenBudget:   c.TokenBudget,
-		Timeout:       c.Timeout,
-		ArtifactPaths: artifactPaths,
-	}
+	contractCfg := c
+	contractCfg.Source = resolvedSource
+	contractCfg.Command = resolvedCommand
+	contractCfg.ArtifactPaths = artifactPaths
 
 	var valErr error
 	switch c.Type {
@@ -2602,23 +2587,6 @@ func (e *DefaultPipelineExecutor) triggerContractRework(
 	execution.mu.Unlock()
 
 	return feedbackPath, nil
-}
-
-// convertReviewContextSources converts pipeline.ReviewContextSource to contract.ReviewContextSource.
-func convertReviewContextSources(sources []ReviewContextSource) []contract.ReviewContextSource {
-	if len(sources) == 0 {
-		return nil
-	}
-	out := make([]contract.ReviewContextSource, len(sources))
-	for i, s := range sources {
-		out[i] = contract.ReviewContextSource{
-			Source:   s.Source,
-			Artifact: s.Artifact,
-			MaxSize:  s.MaxSize,
-			DiffBase: s.DiffBase,
-		}
-	}
-	return out
 }
 
 // executeMatrixStep handles steps with matrix strategy using fan-out execution.
