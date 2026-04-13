@@ -1,1 +1,1 @@
-See AGENTS.md for project guidelines.
+AGENTS.md
