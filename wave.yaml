@@ -655,13 +655,3 @@ runtime:
         warn_at: 25.0
     routing:
         auto_route: true
-params:
-    full_impl_cycle:
-        max_rework_iterations: 3
-        max_review_iterations: 3
-        audit_severity_threshold: "major"
-        enable_audit_security: true
-        enable_audit_correctness: true
-        enable_audit_architecture: true
-        enable_audit_tests: true
-        enable_audit_coverage: true
