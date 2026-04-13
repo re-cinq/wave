@@ -607,36 +607,8 @@ func WithSavePipelineState(fn func(id, status, input string) error) MockStateSto
 	return func(m *MockStateStore) { m.savePipelineState = fn }
 }
 
-func WithGetPipelineState(fn func(id string) (*state.PipelineStateRecord, error)) MockStateStoreOption {
-	return func(m *MockStateStore) { m.getPipelineState = fn }
-}
-
-func WithSaveStepState(fn func(pipelineID, stepID string, st state.StepState, errMsg string) error) MockStateStoreOption {
-	return func(m *MockStateStore) { m.saveStepState = fn }
-}
-
-func WithGetStepStates(fn func(pipelineID string) ([]state.StepStateRecord, error)) MockStateStoreOption {
-	return func(m *MockStateStore) { m.getStepStates = fn }
-}
-
-func WithRecordStepAttempt(fn func(record *state.StepAttemptRecord) error) MockStateStoreOption {
-	return func(m *MockStateStore) { m.recordStepAttempt = fn }
-}
-
-func WithGetStepAttempts(fn func(runID, stepID string) ([]state.StepAttemptRecord, error)) MockStateStoreOption {
-	return func(m *MockStateStore) { m.getStepAttempts = fn }
-}
-
 func WithCreateRun(fn func(pipelineName, input string) (string, error)) MockStateStoreOption {
 	return func(m *MockStateStore) { m.createRun = fn }
-}
-
-func WithUpdateRunStatus(fn func(runID, status, currentStep string, tokens int) error) MockStateStoreOption {
-	return func(m *MockStateStore) { m.updateRunStatus = fn }
-}
-
-func WithLogEvent(fn func(runID, stepID, st, persona, message string, tokens int, durationMs int64) error) MockStateStoreOption {
-	return func(m *MockStateStore) { m.logEvent = fn }
 }
 
 // Orchestration decision stubs
