@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/recinq/wave/internal/skill"
+	"github.com/recinq/wave/internal/tools"
 )
 
 // SkillError represents a preflight failure due to missing skills.
@@ -98,37 +99,32 @@ func runCmdWithEnv(env []string, name string, args ...string) error {
 }
 
 // CheckTools verifies that all required CLI tools are available on PATH.
-func (c *Checker) CheckTools(tools []string) ([]Result, error) {
-	var results []Result
+func (c *Checker) CheckTools(toolNames []string) ([]Result, error) {
+	checks := tools.CheckOnPath(nil, toolNames)
+	results := make([]Result, 0, len(checks))
 	var missing []string
 
-	for _, tool := range tools {
-		if tool == "" {
-			continue // Skip empty strings from unresolved template variables
-		}
-		_, err := exec.LookPath(tool)
-		if err != nil {
+	for _, ch := range checks {
+		if ch.Found {
 			results = append(results, Result{
-				Name:    tool,
-				Kind:    "tool",
-				OK:      false,
-				Message: fmt.Sprintf("tool %q not found on PATH", tool),
-			})
-			missing = append(missing, tool)
-		} else {
-			results = append(results, Result{
-				Name:    tool,
+				Name:    ch.Name,
 				Kind:    "tool",
 				OK:      true,
-				Message: fmt.Sprintf("tool %q found", tool),
+				Message: fmt.Sprintf("tool %q found", ch.Name),
 			})
+		} else {
+			results = append(results, Result{
+				Name:    ch.Name,
+				Kind:    "tool",
+				OK:      false,
+				Message: fmt.Sprintf("tool %q not found on PATH", ch.Name),
+			})
+			missing = append(missing, ch.Name)
 		}
 	}
 
 	if len(missing) > 0 {
-		return results, &ToolError{
-			MissingTools: missing,
-		}
+		return results, &ToolError{MissingTools: missing}
 	}
 	return results, nil
 }
