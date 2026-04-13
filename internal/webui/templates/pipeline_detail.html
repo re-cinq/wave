@@ -153,16 +153,16 @@
                     {{else if eq $step.Type "command"}}<span class="tp-ico">&gt;_</span>
                     {{end}}{{$step.ID}}</span>
                 <span class="ws-meta">
-                    {{if $step.Persona}}<a href="/personas/{{$step.Persona}}" class="ws-code-link">{{$step.Persona}}</a>{{end}}
-                    {{if $step.Model}}<span class="badge badge-model {{modelTierClass $step.Model}}">{{$step.Model}}</span>{{end}}
+                    {{if $step.Persona}}<a href="/personas/{{$step.Persona}}" class="ws-code-link" onclick="event.stopPropagation()">{{$step.Persona}}</a>{{end}}
                     {{if $step.Adapter}}<span class="badge badge-adapter">{{$step.Adapter}}</span>{{end}}
-                    {{if $step.Contract}}{{if $step.ContractSchemaName}}<a href="/contracts/{{$step.ContractSchemaName}}" class="ws-code-link" title="{{$step.Contract}}">{{$step.ContractSchemaName}}</a>{{else}}<span class="ws-code-link" title="{{$step.Contract}}">contract</span>{{end}}{{end}}
-                    {{if $step.SubPipeline}}<a href="/pipelines/{{$step.SubPipeline}}" class="ws-code-link" style="background:rgba(139,92,246,0.1);color:var(--wave-accent);">{{$step.SubPipeline}}</a>{{end}}
-                    {{if $step.Optional}}<span class="badge" style="font-size:0.65rem;background:rgba(245,158,11,0.12);color:#fbbf24;">optional</span>{{end}}
-                    {{if $step.ReworkOnly}}<span class="badge" style="font-size:0.65rem;background:rgba(239,68,68,0.12);color:#f87171;">rework-only</span>{{end}}
-                    {{if eq $step.WorkspaceType "worktree"}}<span class="badge" style="font-size:0.65rem;background:rgba(34,197,94,0.12);color:#4ade80;" title="branch: {{$step.WorkspaceBranch}}{{if $step.WorkspaceBase}} from {{$step.WorkspaceBase}}{{end}}">worktree</span>
-                    {{else if $step.MountMode}}<span class="badge" style="font-size:0.65rem;background:rgba(59,130,246,0.12);color:#60a5fa;">{{$step.MountMode}}</span>
-                    {{else if $step.WorkspaceRef}}<span class="badge" style="font-size:0.65rem;background:rgba(168,85,247,0.12);color:#c084fc;">ref:{{$step.WorkspaceRef}}</span>{{end}}
+                    {{if $step.Model}}<span class="badge badge-model {{modelTierClass $step.Model}}"{{if modelTierTooltip $step.Model}} title="{{modelTierTooltip $step.Model}}" style="cursor:help"{{end}}>{{$step.Model}}</span>{{end}}
+                    {{if $step.Contract}}{{if $step.ContractSchemaName}}<a href="/contracts/{{$step.ContractSchemaName}}" class="ws-code-link" onclick="event.stopPropagation()" title="{{$step.Contract}}">{{$step.ContractSchemaName}}</a>{{else}}<span class="ws-code-link" title="{{$step.Contract}}">contract</span>{{end}}{{end}}
+                    {{if $step.SubPipeline}}<a href="/pipelines/{{$step.SubPipeline}}" class="ws-code-link" onclick="event.stopPropagation()" style="background:rgba(139,92,246,0.1);color:var(--wave-accent);">{{$step.SubPipeline}}</a>{{end}}
+                    {{if eq $step.WorkspaceType "worktree"}}<span class="badge badge-workspace" title="branch: {{$step.WorkspaceBranch}}{{if $step.WorkspaceBase}} from {{$step.WorkspaceBase}}{{end}}">worktree</span>
+                    {{else if $step.MountMode}}<span class="badge badge-workspace">{{$step.MountMode}}</span>
+                    {{else if $step.WorkspaceRef}}<span class="badge badge-workspace">ref:{{$step.WorkspaceRef}}</span>{{end}}
+                    {{if $step.Optional}}<span class="badge badge-optional">optional</span>{{end}}
+                    {{if $step.ReworkOnly}}<span class="badge badge-rework">rework-only</span>{{end}}
                 </span>
             </div>
             <div class="ws-io">

@@ -32,8 +32,8 @@
     <span style="color:var(--color-text-muted);">·</span>
     <span><b>{{formatTokens .Run.TotalTokens}}</b> tok</span>
     {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{friendlyModel .}}</span>{{end}}
-    {{range .Models}}<span class="badge badge-model {{modelTierClass .}}">{{friendlyModel .}}</span>{{end}}
-    {{if .Run.BranchName}}<span style="font-size:0.72rem;color:var(--color-text-secondary);background:rgba(34,197,94,0.1);padding:0.1rem 0.4rem;border-radius:3px;">&#9741; {{.Run.BranchName}}</span>{{end}}
+    {{range .Models}}<span class="badge badge-model {{modelTierClass .}}"{{if modelTierTooltip .}} title="{{modelTierTooltip .}}" style="cursor:help"{{end}}>{{friendlyModel .}}</span>{{end}}
+    {{if .Run.BranchName}}<span class="badge badge-branch">&#9741; {{.Run.BranchName}}</span>{{end}}
     <span style="margin-left:auto;display:flex;gap:0.15rem;">
         {{if .Events}}<button class="w-sec-tab" onclick="switchTab('events',this)">Events ({{len .Events}})</button>{{end}}
         <button class="w-sec-tab" onclick="switchTab('config',this)">Config</button>
@@ -67,7 +67,7 @@
         <div>
             <div style="font-size:0.68rem;color:var(--color-text-muted);margin-bottom:0.25rem;text-transform:uppercase;letter-spacing:0.05em;">Runtime</div>
             <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">
-                {{range .RunConfigItems}}<span class="badge" style="font-size:0.68rem;background:var(--color-bg-secondary);border:1px solid var(--color-border);color:var(--color-text-secondary);">{{.Label}} <b>{{.Value}}</b></span>{{end}}
+                {{range .RunConfigItems}}<span class="badge" style="font-size:0.68rem;background:var(--color-bg-secondary);border:1px solid var(--color-border);color:var(--color-text-secondary);{{if .Tooltip}}cursor:help{{end}}"{{if .Tooltip}} title="{{.Tooltip}}"{{end}}>{{.Label}} <b>{{.Value}}</b></span>{{end}}
             </div>
         </div>
         {{end}}
@@ -157,7 +157,7 @@
 {{range $i, $step := .Steps}}
     {{if $i}}<div class="w-conn"><span class="w-conn-dot"></span></div>{{end}}
 
-    <div class="ws st-{{$step.State}}{{if eq $step.StepType "pipeline"}} tp-pipeline{{else if eq $step.StepType "gate"}} tp-gate{{else if eq $step.StepType "conditional"}} tp-conditional{{else if eq $step.StepType "command"}} tp-command{{end}}" id="w-{{$step.StepID}}"{{if $step.StartedAt}} data-started-at="{{formatTimeISO $step.StartedAt}}"{{end}}>
+    <div class="ws st-{{$step.State}}{{if eq $step.StepType "pipeline"}} tp-pipeline{{else if eq $step.StepType "gate"}} tp-gate{{else if eq $step.StepType "conditional"}} tp-conditional{{else if eq $step.StepType "command"}} tp-command{{end}}" id="w-{{$step.StepID}}"{{if $step.StartedAt}} data-started-at="{{formatTimeISO $step.StartedAt}}"{{end}}{{if $step.CompletedAt}} data-completed-at="{{formatTimeISO $step.CompletedAt}}"{{end}}>
 
         <!-- Gantt fill as background -->
         <!-- Top gantt bar -->
@@ -174,13 +174,13 @@
                     {{else if eq $step.StepType "conditional"}}<span class="tp-ico">&#x25C6;</span>
                     {{else if eq $step.StepType "command"}}<span class="tp-ico">&gt;_</span>
                     {{end}}{{$step.StepID}}{{if $step.SubPipeline}} <span style="font-weight:400;color:var(--color-text-muted);font-size:0.65rem;">({{$step.SubPipeline}})</span>{{end}}{{if eq $step.State "running"}} <span class="spinner spinner-sm" style="vertical-align:middle;margin-left:0.35rem;"></span>{{end}}</span>
-                {{if $step.MaxVisits}}<span class="badge" style="font-size:0.65rem;background:rgba(168,85,247,0.15);color:#a855f7;">{{$step.VisitCount}}/{{$step.MaxVisits}}</span>{{end}}
+                {{if $step.MaxVisits}}<span class="badge" style="font-size:0.65rem;background:rgba(168,85,247,0.15);color:#a855f7;cursor:help" title="Loop iteration {{$step.VisitCount}} of {{$step.MaxVisits}} max">{{$step.VisitCount}}/{{$step.MaxVisits}}</span>{{end}}
                 {{if $step.TokensUsed}}<span class="ws-tok">{{formatTokens $step.TokensUsed}}</span>{{end}}
                 <span class="ws-meta">
-                    {{if $step.Persona}}<a href="/personas/{{$step.Persona}}" class="ws-code-link">{{$step.Persona}}</a>{{end}}
-                    {{if $step.Contract}}{{if $step.ContractSchemaName}}<a href="/contracts/{{$step.ContractSchemaName}}" class="ws-code-link" title="{{$step.Contract}}">{{$step.ContractSchemaName}}</a>{{else}}<span class="ws-code-link" title="{{$step.Contract}}">contract</span>{{end}}{{end}}
+                    {{if $step.Persona}}<a href="/personas/{{$step.Persona}}" class="ws-code-link" onclick="event.stopPropagation()">{{$step.Persona}}</a>{{end}}
                     {{if $step.Adapter}}<span class="badge badge-adapter">{{adapterIcon $step.Adapter}}{{$step.Adapter}}</span>{{end}}
                     {{if $step.Model}}<span class="badge badge-model {{modelTierClass $step.Model}}" title="{{$step.ConfiguredModel}}">{{friendlyModel $step.Model}}</span>{{else if $step.ConfiguredModel}}<span class="badge badge-model {{modelTierClass $step.ConfiguredModel}}">{{friendlyModel $step.ConfiguredModel}}</span>{{end}}
+                    {{if $step.Contract}}{{if $step.ContractSchemaName}}<a href="/contracts/{{$step.ContractSchemaName}}" class="ws-code-link" onclick="event.stopPropagation()" title="{{$step.Contract}}">{{$step.ContractSchemaName}}</a>{{else}}<span class="ws-code-link" title="{{$step.Contract}}">contract</span>{{end}}{{end}}
                     {{if eq $step.StepType "command"}}<span style="color:var(--color-text-muted)">cmd</span>{{end}}
                 </span>
             </div>
@@ -644,22 +644,25 @@ if('{{.Run.Status}}'==='running'){
             var elapsed=now-new Date(started).getTime();
             if(elapsed>=0) el.textContent=fmt(elapsed);
         });
-        // Expand running step gantt bars
+        // Rescale ALL step gantt bars (completed shrink, running grows)
         if(totalElapsed>0){
-            document.querySelectorAll('.ws.st-running').forEach(function(shape){
+            document.querySelectorAll('.ws[data-started-at]').forEach(function(shape){
                 var bar=shape.querySelector('.ws-bar-fill');
                 var bg=shape.querySelector('.ws-bg');
-                var stepStarted=shape.querySelector('[data-started-at]');
-                if(!stepStarted) stepStarted=shape.querySelector('.ws-dur');
-                // Calculate: this step started at some offset, its width grows
-                var stepStartAttr=null;
-                shape.querySelectorAll('[data-started-at]').forEach(function(e){stepStartAttr=e.getAttribute('data-started-at');});
-                if(!stepStartAttr) return;
-                var stepStartMs=new Date(stepStartAttr).getTime();
+                var stepStartMs=new Date(shape.getAttribute('data-started-at')).getTime();
                 var leftPct=((stepStartMs-pipelineStartMs)/totalElapsed)*100;
-                var widthPct=((now-stepStartMs)/totalElapsed)*100;
                 if(leftPct<0)leftPct=0;
+                var widthPct;
+                if(shape.classList.contains('st-running')){
+                    widthPct=((now-stepStartMs)/totalElapsed)*100;
+                } else {
+                    var completedAt=shape.getAttribute('data-completed-at');
+                    if(completedAt){
+                        widthPct=((new Date(completedAt).getTime()-stepStartMs)/totalElapsed)*100;
+                    } else { return; }
+                }
                 if(widthPct>100-leftPct)widthPct=100-leftPct;
+                if(widthPct<0.5)widthPct=0.5;
                 if(bar){bar.style.marginLeft=leftPct+'%';bar.style.width=widthPct+'%';}
                 if(bg){bg.style.left=leftPct+'%';bg.style.width=widthPct+'%';}
             });

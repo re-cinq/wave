@@ -33,16 +33,16 @@
     --color-pending-bg: rgba(210, 153, 34, 0.15);
     --color-completed-empty: #d29922;
     --color-completed-empty-bg: rgba(210, 153, 34, 0.12);
-    /* Model tier colors */
-    --color-tier-strongest: #a78bfa;
-    --color-tier-strongest-bg: rgba(139, 92, 246, 0.15);
-    --color-tier-strongest-border: rgba(139, 92, 246, 0.3);
-    --color-tier-balanced: #60a5fa;
-    --color-tier-balanced-bg: rgba(59, 130, 246, 0.15);
-    --color-tier-balanced-border: rgba(59, 130, 246, 0.3);
-    --color-tier-cheapest: #9ca3af;
-    --color-tier-cheapest-bg: rgba(156, 163, 175, 0.15);
-    --color-tier-cheapest-border: rgba(156, 163, 175, 0.3);
+    /* Model tier colors — indigo family, opacity differentiates tiers */
+    --color-tier-strongest: #a5b4fc;
+    --color-tier-strongest-bg: rgba(99, 102, 241, 0.20);
+    --color-tier-strongest-border: rgba(99, 102, 241, 0.35);
+    --color-tier-balanced: #a5b4fc;
+    --color-tier-balanced-bg: rgba(99, 102, 241, 0.15);
+    --color-tier-balanced-border: rgba(99, 102, 241, 0.30);
+    --color-tier-cheapest: #a5b4fc;
+    --color-tier-cheapest-bg: rgba(99, 102, 241, 0.10);
+    --color-tier-cheapest-border: rgba(99, 102, 241, 0.25);
 
     --color-btn-primary: #4f46e5;
     --color-btn-primary-hover: #4338ca;
@@ -91,16 +91,16 @@
     --color-completed-empty-bg: rgba(202, 138, 4, 0.1);
     --color-pending: #ca8a04;
     --color-pending-bg: rgba(202, 138, 4, 0.1);
-    /* Model tier colors (light) */
-    --color-tier-strongest: #7c3aed;
-    --color-tier-strongest-bg: rgba(124, 58, 237, 0.1);
-    --color-tier-strongest-border: rgba(124, 58, 237, 0.25);
-    --color-tier-balanced: #2563eb;
-    --color-tier-balanced-bg: rgba(37, 99, 235, 0.1);
-    --color-tier-balanced-border: rgba(37, 99, 235, 0.25);
-    --color-tier-cheapest: #6b7280;
-    --color-tier-cheapest-bg: rgba(107, 114, 128, 0.1);
-    --color-tier-cheapest-border: rgba(107, 114, 128, 0.25);
+    /* Model tier colors (light) — indigo family, opacity differentiates tiers */
+    --color-tier-strongest: #4f46e5;
+    --color-tier-strongest-bg: rgba(79, 70, 229, 0.12);
+    --color-tier-strongest-border: rgba(79, 70, 229, 0.30);
+    --color-tier-balanced: #4f46e5;
+    --color-tier-balanced-bg: rgba(79, 70, 229, 0.08);
+    --color-tier-balanced-border: rgba(79, 70, 229, 0.25);
+    --color-tier-cheapest: #4f46e5;
+    --color-tier-cheapest-bg: rgba(79, 70, 229, 0.05);
+    --color-tier-cheapest-border: rgba(79, 70, 229, 0.20);
 
     --color-btn-primary: #4f46e5;
     --color-btn-primary-hover: #4338ca;
@@ -137,16 +137,16 @@
         --color-pending-bg: rgba(202, 138, 4, 0.1);
         --color-btn-primary: #4f46e5;
         --color-btn-primary-hover: #4338ca;
-        /* Model tier colors (light, system pref) */
-        --color-tier-strongest: #7c3aed;
-        --color-tier-strongest-bg: rgba(124, 58, 237, 0.1);
-        --color-tier-strongest-border: rgba(124, 58, 237, 0.25);
-        --color-tier-balanced: #2563eb;
-        --color-tier-balanced-bg: rgba(37, 99, 235, 0.1);
-        --color-tier-balanced-border: rgba(37, 99, 235, 0.25);
-        --color-tier-cheapest: #6b7280;
-        --color-tier-cheapest-bg: rgba(107, 114, 128, 0.1);
-        --color-tier-cheapest-border: rgba(107, 114, 128, 0.25);
+        /* Model tier colors (light, system pref) — indigo family */
+        --color-tier-strongest: #4f46e5;
+        --color-tier-strongest-bg: rgba(79, 70, 229, 0.12);
+        --color-tier-strongest-border: rgba(79, 70, 229, 0.30);
+        --color-tier-balanced: #4f46e5;
+        --color-tier-balanced-bg: rgba(79, 70, 229, 0.08);
+        --color-tier-balanced-border: rgba(79, 70, 229, 0.25);
+        --color-tier-cheapest: #4f46e5;
+        --color-tier-cheapest-bg: rgba(79, 70, 229, 0.05);
+        --color-tier-cheapest-border: rgba(79, 70, 229, 0.20);
 
         --color-btn-danger: #dc2626;
         --color-btn-danger-hover: #b91c1c;
@@ -1807,13 +1807,18 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .badge-conditional { background: rgba(167, 139, 250, 0.15); color: #a78bfa; border: 1px solid rgba(167, 139, 250, 0.3); }
 .badge-pipeline { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
 
-/* Model and adapter badges */
-.badge-model, .badge-adapter { display: inline-block; white-space: nowrap; }
-.badge-model { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 2em; font-weight: 600; letter-spacing: 0.02em; background: var(--color-bg-tertiary); color: var(--color-text-secondary); border: 1px solid var(--color-border); }
+/* Model and adapter badges — unified indigo family */
+.badge-model, .badge-adapter { display: inline-block; white-space: nowrap; font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 2em; font-weight: 600; letter-spacing: 0.02em; background: rgba(99, 102, 241, 0.15); color: var(--wave-primary); border: 1px solid rgba(99, 102, 241, 0.3); }
 .badge-model.tier-strongest { background: var(--color-tier-strongest-bg); color: var(--color-tier-strongest); border-color: var(--color-tier-strongest-border); }
 .badge-model.tier-balanced  { background: var(--color-tier-balanced-bg); color: var(--color-tier-balanced); border-color: var(--color-tier-balanced-border); }
 .badge-model.tier-cheapest  { background: var(--color-tier-cheapest-bg); color: var(--color-tier-cheapest); border-color: var(--color-tier-cheapest-border); }
-.badge-adapter { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 2em; font-weight: 600; letter-spacing: 0.02em; background: rgba(99, 102, 241, 0.15); color: var(--wave-primary); border: 1px solid rgba(99, 102, 241, 0.3); text-transform: uppercase; font-size: 0.6rem; }
+.badge-adapter { text-transform: uppercase; font-size: 0.6rem; }
+/* Workspace badges — neutral gray, same family */
+.badge-workspace { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 2em; font-weight: 600; letter-spacing: 0.02em; background: var(--color-cancelled-bg); color: var(--color-cancelled); border: 1px solid rgba(100, 116, 139, 0.3); }
+.badge-branch { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 2em; font-weight: 500; background: var(--color-cancelled-bg); color: var(--color-text-secondary); border: 1px solid rgba(100, 116, 139, 0.3); }
+/* Flags — amber/red accents */
+.badge-optional { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 2em; font-weight: 600; background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.25); }
+.badge-rework { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 2em; font-weight: 600; background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.25); }
 
 /* Inline SVG icons */
 .icon-inline { width: 1em; height: 1em; vertical-align: -0.125em; display: inline-block; }
@@ -2832,15 +2837,20 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-bg.st-running   { background: var(--color-running); animation: ws-bg-pulse 2s ease-in-out infinite; }
 @keyframes ws-bg-pulse { 0%,100%{opacity:0.03} 50%{opacity:0.1} }
 
-/* ── Status left accent (5px for strong signal) ── */
+/* ── Status accent: left border, top gantt bar handles top accent ── */
 .ws.st-completed { border-left: 4px solid var(--color-completed); }
 .ws.st-completed-empty { border-left: 4px solid var(--color-completed-empty); }
 .ws.st-failed    { border-left: 4px solid var(--color-failed); }
-.ws.st-running   { border-left: 4px solid var(--color-running); }
+.ws.st-running   { border-left: 4px solid var(--color-running); box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2); }
+/* Pending/skipped: compact — hide I/O and logs, expand on hover */
 .ws.st-pending   { border-left: 4px solid var(--color-border); opacity: 0.5; }
+.ws.st-pending .ws-io, .ws.st-pending .ws-log, .ws.st-pending .ws-config { display: none; }
 .ws.st-skipped   { border-left: 4px solid var(--color-border); opacity: 0.5; }
+.ws.st-skipped .ws-io, .ws.st-skipped .ws-log { display: none; }
 .ws.st-skipped:hover, .ws.st-skipped:focus-within { opacity: 0.9; background: var(--color-bg-secondary); }
+.ws.st-skipped:hover .ws-io, .ws.st-skipped:focus-within .ws-io { display: flex; }
 .ws.st-pending:hover, .ws.st-pending:focus-within { opacity: 0.9; background: var(--color-bg-secondary); }
+.ws.st-pending:hover .ws-io, .ws.st-pending:focus-within .ws-io { display: flex; }
 
 /* ── Step type differentiation (geometric identity) ── */
 /* Sub-pipeline: purple accent + inset glow */

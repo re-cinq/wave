@@ -481,13 +481,13 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build run config from manifest runtime settings
-	var runConfigItems []struct{ Label, Value string }
+	var runConfigItems []struct{ Label, Value, Tooltip string }
 	if s.manifest != nil {
 		if timeout := s.manifest.Runtime.GetDefaultTimeout(); timeout > 0 {
-			runConfigItems = append(runConfigItems, struct{ Label, Value string }{"Timeout", timeout.String()})
+			runConfigItems = append(runConfigItems, struct{ Label, Value, Tooltip string }{"Timeout", timeout.String(), "Maximum duration per step before it is cancelled"})
 		}
 		if s.manifest.Runtime.StallTimeout != "" {
-			runConfigItems = append(runConfigItems, struct{ Label, Value string }{"Stall timeout", s.manifest.Runtime.StallTimeout})
+			runConfigItems = append(runConfigItems, struct{ Label, Value, Tooltip string }{"Stall timeout", s.manifest.Runtime.StallTimeout, "Step is cancelled if no tool activity for this duration"})
 		}
 	}
 
@@ -535,7 +535,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		LinkedType          string
 		ChildRuns           map[string][]RunSummary
 		TemplateVars        map[string]string
-		RunConfigItems      []struct{ Label, Value string }
+		RunConfigItems      []struct{ Label, Value, Tooltip string }
 		RerunCommand        string
 		RunAdapter          string
 		RunModelTier        string

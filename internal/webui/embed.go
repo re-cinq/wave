@@ -109,7 +109,8 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		},
 		"adapterIcon":    adapterIcon,
 		"forgeIcon":      forgeIcon,
-		"modelTierClass": modelTierClass,
+		"modelTierClass":   modelTierClass,
+		"modelTierTooltip": modelTierTooltip,
 		"pluralize": func(n int, singular, plural string) string {
 			if n == 1 {
 				return singular
@@ -425,6 +426,20 @@ func modelTierClass(model string) string {
 		return "tier-balanced"
 	case strings.Contains(m, "haiku"), m == "cheapest", m == "fastest":
 		return "tier-cheapest"
+	default:
+		return ""
+	}
+}
+
+func modelTierTooltip(model string) string {
+	m := strings.ToLower(model)
+	switch {
+	case m == "strongest":
+		return "Strongest tier: uses the most capable model for complex tasks"
+	case m == "balanced":
+		return "Balanced tier: good quality-to-cost ratio for typical tasks"
+	case m == "cheapest", m == "fastest":
+		return "Cheapest tier: fast and low-cost for simple tasks"
 	default:
 		return ""
 	}
