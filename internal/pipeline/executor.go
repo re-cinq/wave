@@ -5177,6 +5177,11 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 	if e.store != nil && childRunID != "" {
 		_ = e.store.SetParentRun(childRunID, pipelineID, step.ID)
 		_ = e.store.UpdateRunStatus(childRunID, "completed", "", childExecutor.GetTotalTokens())
+
+		// Propagate child's worktree branch to parent so the diff endpoint works
+		if childRun, err := e.store.GetRun(childRunID); err == nil && childRun.BranchName != "" {
+			_ = e.store.UpdateRunBranch(pipelineID, childRun.BranchName)
+		}
 	}
 
 	// Extract child artifacts and merge context variables

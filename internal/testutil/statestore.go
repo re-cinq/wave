@@ -649,3 +649,6 @@ func (m *MockStateStore) UpdateOrchestrationOutcome(_, _ string, _ int, _ int64)
 func (m *MockStateStore) GetOrchestrationStats(_ string) (*state.OrchestrationStats, error) {
 	return nil, nil
 }
+func (m *MockStateStore) ListOrchestrationDecisionSummary(_ int) ([]state.OrchestrationDecisionSummary, error) {
+	return nil, nil
+}

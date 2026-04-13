@@ -13,6 +13,7 @@ import (
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/doctor"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/state"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -40,6 +41,7 @@ func NewAnalyzeCmd() *cobra.Command {
 	var deepFlag bool
 	var evolveFlag bool
 	var applyFlag bool
+	var decisionsFlag bool
 
 	cmd := &cobra.Command{
 		Use:   "analyze",
@@ -52,16 +54,21 @@ By default, performs a deterministic scan using directory structure and
 package detection. Use --deep for AI-assisted analysis that extracts
 invariants, domain vocabulary, and key decisions from code and tests.
 Use --evolve to propose ontology updates based on pipeline run history.
-Use --apply to auto-write proposed contexts to wave.yaml.`,
+Use --apply to auto-write proposed contexts to wave.yaml.
+Use --decisions to show orchestration decision provenance table.`,
 		Example: `  wave analyze
   wave analyze --json
   wave analyze --deep
   wave analyze --evolve
-  wave analyze --apply`,
+  wave analyze --apply
+  wave analyze --decisions`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			cmd.SilenceErrors = true
+			if decisionsFlag {
+				return runAnalyzeDecisions(cmd)
+			}
 			if deepFlag {
 				return runAnalyzeDeep(cmd)
 			}
@@ -72,6 +79,7 @@ Use --apply to auto-write proposed contexts to wave.yaml.`,
 	cmd.Flags().BoolVar(&deepFlag, "deep", false, "Use AI-assisted analysis (requires adapter)")
 	cmd.Flags().BoolVar(&evolveFlag, "evolve", false, "Propose updates based on pipeline run history")
 	cmd.Flags().BoolVar(&applyFlag, "apply", false, "Auto-write proposed contexts to wave.yaml")
+	cmd.Flags().BoolVar(&decisionsFlag, "decisions", false, "Show orchestration decision provenance")
 
 	return cmd
 }
@@ -800,4 +808,48 @@ func generateDeepSkillContent(ctx deepContextResult, _ string) string {
 	}
 
 	return b.String()
+}
+
+// runAnalyzeDecisions shows orchestration decision provenance as a table.
+func runAnalyzeDecisions(cmd *cobra.Command) error {
+	store, err := state.NewStateStore(".wave/state.db")
+	if err != nil {
+		return NewCLIError(CodeInternalError,
+			fmt.Sprintf("failed to open state database: %s", err),
+			"Check that .wave/state.db exists")
+	}
+	defer store.Close()
+
+	summaries, err := store.ListOrchestrationDecisionSummary(50)
+	if err != nil {
+		return NewCLIError(CodeInternalError,
+			fmt.Sprintf("failed to query decisions: %s", err),
+			"Check state database integrity")
+	}
+
+	f := display.NewFormatter()
+
+	if len(summaries) == 0 {
+		fmt.Fprintf(cmd.OutOrStdout(), "\n  No orchestration decisions recorded yet.\n")
+		fmt.Fprintf(cmd.OutOrStdout(), "  %s Run 'wave do <task>' to create orchestrated pipeline runs.\n\n", f.Muted("Hint:"))
+		return nil
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "\n  %s\n\n", f.Colorize("Orchestration Decisions:", "\033[1;37m"))
+
+	// Header
+	fmt.Fprintf(cmd.OutOrStdout(), "  %-14s %-16s %-24s %6s %8s %10s %12s\n",
+		f.Muted("DOMAIN"), f.Muted("COMPLEXITY"), f.Muted("PIPELINE"),
+		f.Muted("TOTAL"), f.Muted("SUCCESS"), f.Muted("AVG TOKENS"), f.Muted("AVG DURATION"))
+	fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", f.Muted(strings.Repeat("─", 96)))
+
+	for _, s := range summaries {
+		successStr := fmt.Sprintf("%.0f%%", s.SuccessRate)
+		durationStr := formatDurationMs(s.AvgDurationMs)
+		fmt.Fprintf(cmd.OutOrStdout(), "  %-14s %-16s %-24s %6d %8s %10d %12s\n",
+			s.Domain, s.Complexity, s.PipelineName,
+			s.Total, successStr, s.AvgTokens, durationStr)
+	}
+	fmt.Fprintln(cmd.OutOrStdout())
+	return nil
 }
