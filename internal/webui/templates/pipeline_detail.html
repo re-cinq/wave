@@ -200,7 +200,7 @@
             <div class="wr-accent st-{{.Status}}"></div>
             <div class="wr-body">
                 <div class="wr-row1">
-                    <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
+                    <span class="badge wr-status {{statusClass .Status}}">{{statusLabel .Status}}</span>
                     {{if .InputPreview}}<span class="wr-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
                 </div>
                 <div class="wr-row2">

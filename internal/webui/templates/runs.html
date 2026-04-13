@@ -53,7 +53,7 @@
             <span class="wr-name">{{.PipelineName}}</span>
             {{if .InputPreview}}<span class="wr-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
             <span class="wr-right">
-              <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
+              <span class="badge wr-status {{statusClass .Status}}">{{statusLabel .Status}}</span>
               {{if .Duration}}<span class="wr-dur">{{.Duration}}</span>{{end}}
             </span>
           </div>
@@ -76,7 +76,7 @@
             <div class="wr-row1">
               <span class="wr-name">{{.PipelineName}}</span>
               <span class="wr-right">
-                <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
+                <span class="badge wr-status {{statusClass .Status}}">{{statusLabel .Status}}</span>
                 {{if .Duration}}<span class="wr-dur">{{.Duration}}</span>{{end}}
               </span>
             </div>
@@ -102,7 +102,7 @@
                 <span class="wr-name">{{.PipelineName}}</span>
                 {{if .InputPreview}}<span class="wr-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
                 <span class="wr-right">
-                    <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
+                    <span class="badge wr-status {{statusClass .Status}}">{{statusLabel .Status}}</span>
                     {{if .Duration}}<span class="wr-dur">{{.Duration}}</span>{{end}}
                 </span>
             </div>
@@ -128,7 +128,7 @@
                     <span class="wr-name">{{.PipelineName}}</span>
                     {{if .InputPreview}}<span class="wr-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
                     <span class="wr-right">
-                        <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
+                        <span class="badge wr-status {{statusClass .Status}}">{{statusLabel .Status}}</span>
                         {{if .Duration}}<span class="wr-dur">{{.Duration}}</span>{{end}}
                     </span>
                 </div>

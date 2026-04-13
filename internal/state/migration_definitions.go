@@ -484,5 +484,40 @@ CREATE INDEX IF NOT EXISTS idx_orchestration_domain ON orchestration_decision(do
 CREATE INDEX IF NOT EXISTS idx_orchestration_outcome ON orchestration_decision(outcome);`,
 			Down: `DROP TABLE IF EXISTS orchestration_decision;`,
 		},
+		{
+			Version:     23,
+			Description: "Add completed_empty to pipeline_run status CHECK constraint",
+			Up: `
+-- SQLite cannot ALTER CHECK constraints directly, so drop and recreate.
+-- The CHECK constraint on status prevented inserting 'completed_empty'.
+CREATE TABLE pipeline_run_new (
+    run_id TEXT PRIMARY KEY,
+    pipeline_name TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'completed', 'completed_empty', 'failed', 'cancelled')),
+    input TEXT,
+    current_step TEXT,
+    total_tokens INTEGER DEFAULT 0,
+    started_at INTEGER NOT NULL,
+    completed_at INTEGER,
+    cancelled_at INTEGER,
+    error_message TEXT,
+    tags_json TEXT DEFAULT '[]',
+    branch_name TEXT DEFAULT '',
+    pid INTEGER DEFAULT 0,
+    parent_run_id TEXT,
+    parent_step_id TEXT,
+    forked_from_run_id TEXT DEFAULT ''
+);
+INSERT INTO pipeline_run_new SELECT * FROM pipeline_run;
+DROP TABLE pipeline_run;
+ALTER TABLE pipeline_run_new RENAME TO pipeline_run;
+CREATE INDEX IF NOT EXISTS idx_run_pipeline ON pipeline_run(pipeline_name);
+CREATE INDEX IF NOT EXISTS idx_run_status ON pipeline_run(status);
+CREATE INDEX IF NOT EXISTS idx_run_started ON pipeline_run(started_at);
+CREATE INDEX IF NOT EXISTS idx_run_tags ON pipeline_run(tags_json);
+CREATE INDEX IF NOT EXISTS idx_run_parent ON pipeline_run(parent_run_id);`,
+			Down: `
+UPDATE pipeline_run SET status = 'completed' WHERE status = 'completed_empty';`,
+		},
 	}
 }

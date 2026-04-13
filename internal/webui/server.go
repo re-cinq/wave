@@ -100,6 +100,7 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	// Backfill pipeline_run.total_tokens from event_log for runs that have 0
 	backfillRunTokens(cfg.DBPath)
 
+
 	// Generate a per-session CSRF token
 	csrfBytes := make([]byte, 32)
 	if _, err := rand.Read(csrfBytes); err != nil {

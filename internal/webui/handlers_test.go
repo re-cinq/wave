@@ -24,6 +24,7 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 	t.Helper()
 	funcMap := template.FuncMap{
 		"statusClass":    statusClass,
+		"statusLabel":    statusLabel,
 		"formatDuration": formatDuration,
 		"formatTime":     formatTime,
 		"formatTokens":   formatTokensFunc,

@@ -55,6 +55,7 @@ var pageTemplates = []string{
 func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Template, error) {
 	funcMap := template.FuncMap{
 		"statusClass":       statusClass,
+		"statusLabel":       statusLabel,
 		"statusIcon":        statusIcon,
 		"formatDuration":    formatDuration,
 		"formatTime":        formatTime,
@@ -221,6 +222,16 @@ func statusClass(status string) string {
 		return "status-hook-failed"
 	default:
 		return "status-unknown"
+	}
+}
+
+// statusLabel returns a human-readable label for a pipeline status.
+func statusLabel(status string) string {
+	switch status {
+	case "completed_empty":
+		return "No Changes"
+	default:
+		return status
 	}
 }
 
