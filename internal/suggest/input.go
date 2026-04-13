@@ -151,6 +151,11 @@ func CheckInputPipelineMismatch(input, pipelineName string) *InputMismatch {
 		reason = ""
 	}
 
+	// No message to show — caller suppressed this input type.
+	if reason == "" {
+		return nil
+	}
+
 	return &InputMismatch{
 		InputType:       inputType,
 		Pipeline:        pipelineName,
