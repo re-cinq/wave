@@ -683,6 +683,8 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .run-row[data-href][data-status="failed"]:hover { border-left-color: var(--color-failed); }
 .run-row[data-href][data-status="cancelled"]:hover { border-left-color: var(--color-cancelled); }
 .run-row[data-href][data-status="pending"]:hover { border-left-color: var(--color-pending); }
+.run-row[data-href][data-status="completed_empty"] { border-left-color: var(--color-completed-empty); }
+.run-row[data-href][data-status="completed_empty"]:hover { border-left-color: var(--color-completed-empty); }
 
 /* Child Run Rows */
 .child-run { background: var(--color-bg-secondary); }
@@ -2832,6 +2834,7 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 
 /* ── Status left accent (5px for strong signal) ── */
 .ws.st-completed { border-left: 4px solid var(--color-completed); }
+.ws.st-completed-empty { border-left: 4px solid var(--color-completed-empty); }
 .ws.st-failed    { border-left: 4px solid var(--color-failed); }
 .ws.st-running   { border-left: 4px solid var(--color-running); }
 .ws.st-pending   { border-left: 4px solid var(--color-border); opacity: 0.5; }
@@ -3171,6 +3174,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 /* Status accent bar (left edge) */
 .wr-accent { border-radius: 4px 0 0 4px; }
 .wr-accent.st-completed { background: var(--color-completed); }
+.wr-accent.st-completed_empty { background: var(--color-completed-empty); }
 .wr-accent.st-failed { background: var(--color-failed); }
 .wr-accent.st-running { background: var(--color-running); }
 .wr-accent.st-pending { background: var(--color-border); }

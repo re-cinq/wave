@@ -118,7 +118,7 @@
             <div class="wr-body">
                 <div class="wr-row1">
                     <span class="wr-name">{{.PipelineName}}</span>
-                    <span class="badge wr-status {{statusClass .Status}}">{{.Status}}</span>
+                    <span class="badge wr-status {{statusClass .Status}}">{{statusLabel .Status}}</span>
                 </div>
                 <div class="wr-row2">
                     {{if .Duration}}<span><b>{{.Duration}}</b></span>{{end}}
