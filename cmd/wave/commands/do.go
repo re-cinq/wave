@@ -12,6 +12,7 @@ import (
 	"github.com/recinq/wave/internal/classify"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/workspace"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -157,6 +158,14 @@ func runDo(input string, opts DoOptions) error {
 		return nil
 	}
 
+	// Open state store for decision tracking and executor wiring
+	var store state.StateStore
+	if s, err := state.NewStateStore(".wave/state.db"); err == nil {
+		store = s
+		defer store.Close()
+	}
+
+
 	// Execute the pipeline
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -200,6 +209,9 @@ func runDo(input string, opts DoOptions) error {
 	if opts.Model != "" {
 		execOpts = append(execOpts, pipeline.WithModelOverride(opts.Model))
 	}
+	if store != nil {
+		execOpts = append(execOpts, pipeline.WithStateStore(store))
+	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 
@@ -210,12 +222,40 @@ func runDo(input string, opts DoOptions) error {
 	pipelineStart := time.Now()
 
 	if err := executor.Execute(execCtx, p, &m, input); err != nil {
+		if store != nil && useClassification {
+			elapsed := time.Since(pipelineStart)
+			recordOrchestrationDecision(store, executor.GetRunID(), input, profile, pipelineCfg, "failed", executor.GetTotalTokens(), elapsed.Milliseconds())
+		}
 		return NewCLIError(CodeInternalError, fmt.Sprintf("execution failed: %s", err), "Run 'wave logs' to inspect execution details").WithCause(err)
 	}
 
 	elapsed := time.Since(pipelineStart)
+	if store != nil && useClassification {
+		recordOrchestrationDecision(store, executor.GetRunID(), input, profile, pipelineCfg, "completed", executor.GetTotalTokens(), elapsed.Milliseconds())
+	}
 	if opts.Output.Format == OutputFormatAuto || opts.Output.Format == OutputFormatText {
 		fmt.Fprintf(os.Stderr, "\nTask completed (%.1fs)\n", elapsed.Seconds())
 	}
 	return nil
+}
+
+// recordOrchestrationDecision persists the classification → pipeline routing decision
+// so it appears in `wave analyze --decisions`.
+func recordOrchestrationDecision(store state.StateStore, runID, input string, profile classify.TaskProfile, cfg classify.PipelineConfig, outcome string, tokensUsed int, durationMs int64) {
+	if runID == "" {
+		return
+	}
+	_ = store.RecordOrchestrationDecision(&state.OrchestrationDecision{
+		RunID:        runID,
+		InputText:    input,
+		Domain:       string(profile.Domain),
+		Complexity:   string(profile.Complexity),
+		PipelineName: cfg.Name,
+		ModelTier:    string(cfg.ModelTier),
+		Reason:       cfg.Reason,
+		Outcome:      outcome,
+		TokensUsed:   tokensUsed,
+		DurationMs:   durationMs,
+		CreatedAt:    time.Now(),
+	})
 }
