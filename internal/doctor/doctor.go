@@ -11,6 +11,7 @@ import (
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/onboarding"
+	"github.com/recinq/wave/internal/tools"
 )
 
 // Status represents the severity of a check result.
@@ -347,8 +348,8 @@ func checkForge(opts *Options) (forge.ForgeInfo, []CheckResult) {
 }
 
 func checkRequiredTools(opts *Options) []CheckResult {
-	tools := collectRequiredTools(opts.PipelinesDir)
-	if len(tools) == 0 {
+	required := collectRequiredTools(opts.PipelinesDir)
+	if len(required) == 0 {
 		return []CheckResult{{
 			Name:     "Required Tools",
 			Category: "system",
@@ -357,23 +358,23 @@ func checkRequiredTools(opts *Options) []CheckResult {
 		}}
 	}
 
-	var results []CheckResult
-	for _, tool := range tools {
-		_, err := opts.lookPath(tool)
-		if err != nil {
+	checks := tools.CheckOnPath(opts.lookPath, required)
+	results := make([]CheckResult, 0, len(checks))
+	for _, c := range checks {
+		if c.Found {
 			results = append(results, CheckResult{
-				Name:     fmt.Sprintf("Tool: %s", tool),
+				Name:     fmt.Sprintf("Tool: %s", c.Name),
 				Category: "system",
-				Status:   StatusErr,
-				Message:  fmt.Sprintf("Required tool %q not found on PATH", tool),
-				Fix:      fmt.Sprintf("Install %s", tool),
+				Status:   StatusOK,
+				Message:  fmt.Sprintf("Tool %q available", c.Name),
 			})
 		} else {
 			results = append(results, CheckResult{
-				Name:     fmt.Sprintf("Tool: %s", tool),
+				Name:     fmt.Sprintf("Tool: %s", c.Name),
 				Category: "system",
-				Status:   StatusOK,
-				Message:  fmt.Sprintf("Tool %q available", tool),
+				Status:   StatusErr,
+				Message:  fmt.Sprintf("Required tool %q not found on PATH", c.Name),
+				Fix:      fmt.Sprintf("Install %s", c.Name),
 			})
 		}
 	}
