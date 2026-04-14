@@ -31,6 +31,7 @@ steps:
       contract:
         type: non_empty_file
         source: greeting.txt
+        on_failure: fail
 
   - id: verify
     persona: navigator
