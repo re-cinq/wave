@@ -26,11 +26,7 @@ func NewOpenCodeAdapter() *OpenCodeAdapter {
 func (a *OpenCodeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterResult, error) {
 	workspacePath := cfg.WorkspacePath
 	if workspacePath == "" {
-		wd, err := os.Getwd()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get working directory: %w", err)
-		}
-		workspacePath = wd
+		return nil, fmt.Errorf("WorkspacePath is required — refusing to use project root as workspace")
 	}
 
 	// Warn about uninjected skills — non-claude adapters do not yet support
