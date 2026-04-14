@@ -89,11 +89,14 @@ func (s *Server) handleAPISkillInstall(w http.ResponseWriter, r *http.Request) {
 }
 
 // getSkillTemplateSummaries returns installed and available skill templates.
+// Installed includes both bundled templates and non-template skills found in .wave/skills/.
 func getSkillTemplateSummaries() (installed []SkillTemplateSummary, available []SkillTemplateSummary) {
 	templates := defaults.GetSkillTemplates()
 	installedSet := installedSkillSet()
+	seen := make(map[string]bool)
 
 	for _, name := range defaults.SkillTemplateNames() {
+		seen[name] = true
 		data := templates[name]
 		desc := ""
 		if s, err := skill.ParseMetadata(data); err == nil {
@@ -112,6 +115,29 @@ func getSkillTemplateSummaries() (installed []SkillTemplateSummary, available []
 			available = append(available, summary)
 		}
 	}
+
+	// Include non-template skills installed in .wave/skills/
+	for name := range installedSet {
+		if seen[name] {
+			continue
+		}
+		desc := ""
+		skillFile := filepath.Join(".wave", "skills", name, "SKILL.md")
+		if data, err := os.ReadFile(skillFile); err == nil {
+			if s, err := skill.ParseMetadata(data); err == nil {
+				desc = s.Description
+			}
+		}
+		installed = append(installed, SkillTemplateSummary{
+			Name:        name,
+			Description: desc,
+			Installed:   true,
+		})
+	}
+
+	sort.Slice(installed, func(i, j int) bool {
+		return installed[i].Name < installed[j].Name
+	})
 
 	return installed, available
 }
