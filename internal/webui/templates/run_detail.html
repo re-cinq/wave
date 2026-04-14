@@ -440,6 +440,16 @@ if('{{.Run.Status}}'==='running'){
             if(fill){var fc=fill.className.match(/st-\w+/);if(fc)fill.classList.remove(fc[0]);fill.classList.add('st-'+newState);}
             var bg=shape.querySelector('.ws-bg');
             if(bg){var bc=bg.className.match(/st-\w+/);if(bc)bg.classList.remove(bc[0]);bg.classList.add('st-'+newState);}
+            // Set timestamps for Gantt bar scaling
+            var now=new Date().toISOString();
+            if(newState==='running'&&!shape.getAttribute('data-started-at')){
+                shape.setAttribute('data-started-at',now);
+            }
+            if(newState==='completed'||newState==='failed'||newState==='completed_empty'){
+                if(!shape.getAttribute('data-completed-at')){
+                    shape.setAttribute('data-completed-at',now);
+                }
+            }
             // Spinner: add for running, remove for terminal
             var nameEl=shape.querySelector('.ws-name');
             if(nameEl){
