@@ -170,12 +170,15 @@ type PaginationCursor struct {
 
 // SkillSummary is a summary of a skill for the API.
 type SkillSummary struct {
-	Name          string   `json:"name"`
-	CommandsGlob  string   `json:"commands_glob,omitempty"`
-	CommandFiles  []string `json:"command_files,omitempty"`
-	InstallCmd    string   `json:"install_cmd,omitempty"`
-	CheckCmd      string   `json:"check_cmd,omitempty"`
-	PipelineUsage []string `json:"pipeline_usage,omitempty"`
+	Name           string   `json:"name"`
+	CommandsGlob   string   `json:"commands_glob,omitempty"`
+	CommandFiles   []string `json:"command_files,omitempty"`
+	InstallCmd     string   `json:"install_cmd,omitempty"`
+	InstallPkg     string   `json:"install_pkg,omitempty"`    // parsed: package name
+	InstallSource  string   `json:"install_source,omitempty"` // parsed: source repo (cleaned)
+	InstallMethod  string   `json:"install_method,omitempty"` // parsed: uv/pip/npm/brew etc.
+	CheckCmd       string   `json:"check_cmd,omitempty"`
+	PipelineUsage  []string `json:"pipeline_usage,omitempty"`
 }
 
 // SkillListResponse is the JSON response for the skill list API.

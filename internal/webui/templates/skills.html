@@ -10,7 +10,7 @@
 </div>
 <div class="wr-list">
 {{range .Installed}}
-    <a class="wr-run">
+    <a href="/skills/{{.Name}}" class="wr-run">
         <div class="wr-accent st-completed"></div>
         <div class="wr-body">
             <div class="wr-row1">
@@ -32,7 +32,7 @@
 </div>
 <div class="wr-list">
 {{range .Available}}
-    <div class="wr-run" id="skill-card-{{.Name}}">
+    <div class="wr-run" id="skill-card-{{.Name}}" style="cursor:default;">
         <div class="wr-accent st-defined"></div>
         <div class="wr-body">
             <div class="wr-row1">
@@ -56,24 +56,31 @@
 </div>
 <div class="wr-list">
 {{range .Skills}}
-    <div class="wr-run">
+    <a href="/skills/{{.Name}}" class="wr-run" id="req-card-{{.Name}}" onclick="event.stopPropagation();">
         <div class="wr-accent st-defined"></div>
         <div class="wr-body">
             <div class="wr-row1">
                 <span class="wr-name">{{.Name}}</span>
-                {{if .CommandsGlob}}<span class="badge" style="font-size:0.6rem;">glob: {{.CommandsGlob}}</span>{{end}}
+                {{if .InstallPkg}}<span class="badge badge-workspace" style="font-size:0.6rem;">{{.InstallPkg}}</span>{{end}}
+                {{if .InstallMethod}}<span class="badge" style="font-size:0.6rem;">via {{.InstallMethod}}</span>{{end}}
             </div>
+            {{if .InstallSource}}
             <div class="wr-row2">
-                {{if .InstallCmd}}<span style="color:var(--color-text-secondary);font-size:0.72rem;">install: <code>{{.InstallCmd}}</code></span>{{end}}
-                {{if .CheckCmd}}<span style="color:var(--color-text-secondary);font-size:0.72rem;{{if .InstallCmd}}margin-left:0.75rem;{{end}}">check: <code>{{.CheckCmd}}</code></span>{{end}}
+                <span style="color:var(--color-text-muted);font-size:0.72rem;">{{.InstallSource}}</span>
             </div>
+            {{end}}
             {{if .PipelineUsage}}
-            <div class="wr-row2">
-                {{range .PipelineUsage}}<a href="/runs?pipeline={{.}}" class="badge" style="font-size:0.6rem;">{{.}}</a> {{end}}
+            <div class="wr-row2" style="flex-wrap:wrap;gap:0.25rem;">
+                {{range .PipelineUsage}}<span class="badge badge-workspace" style="font-size:0.6rem;">{{.}}</span>{{end}}
             </div>
             {{end}}
         </div>
-    </div>
+        {{if .InstallCmd}}
+        <div class="wr-meta">
+            <button class="btn btn-primary btn-sm" onclick="event.preventDefault(); event.stopPropagation(); runInstallTool('{{.Name}}')">Install</button>
+        </div>
+        {{end}}
+    </a>
 {{end}}
 </div>
 {{end}}
@@ -84,6 +91,37 @@
 {{end}}
 {{define "scripts"}}
 <script>
+function runInstallTool(name) {
+    var card = document.getElementById('req-card-' + name);
+    if (!card) return;
+    var btn = card.querySelector('button');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = 'Installing...';
+
+    fetch('/api/skills/' + encodeURIComponent(name) + '/run-install', {
+        method: 'POST',
+        headers: {'X-CSRF-Token': getCSRFToken()}
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+        if (data.success) {
+            btn.textContent = 'Installed';
+            btn.classList.remove('btn-primary');
+            btn.style.background = 'var(--color-completed)';
+            btn.style.color = '#fff';
+        } else {
+            btn.textContent = 'Failed';
+            btn.disabled = false;
+            btn.title = data.error || 'unknown error';
+        }
+    })
+    .catch(function() {
+        btn.textContent = 'Error';
+        btn.disabled = false;
+    });
+}
+
 function installSkill(name) {
     var card = document.getElementById('skill-card-' + name);
     if (!card) return;

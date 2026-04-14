@@ -1,0 +1,80 @@
+{{define "title"}}{{.Name}} · Skill · Wave{{end}}
+{{define "content"}}
+<div class="w-head">
+    <div>
+        <a href="/skills" class="back-link">&larr; Skills</a>
+        <h1>{{.Name}}</h1>
+        {{if .Description}}<p style="margin:0.1rem 0 0.3rem;font-size:0.82rem;color:var(--color-text-secondary);">{{.Description}}</p>{{end}}
+    </div>
+    <div class="w-head-actions">
+        {{if .IsInstalled}}<span class="badge" style="background:var(--color-completed);color:#fff;font-size:0.68rem;">installed</span>{{end}}
+    </div>
+</div>
+
+{{if .Requirement}}
+<div style="display:grid;grid-template-columns:100px 1fr;gap:0.15rem 0.6rem;font-size:0.78rem;margin-bottom:0.8rem;padding:0.4rem var(--ws-pad-x);background:var(--color-bg-secondary);border-radius:4px;">
+    {{if .Requirement.InstallPkg}}
+    <span style="color:var(--color-text-muted);">Package</span>
+    <span><code style="font-size:0.72rem;">{{.Requirement.InstallPkg}}</code>
+        {{if .Requirement.InstallMethod}}<span class="badge" style="font-size:0.6rem;margin-left:0.3rem;">via {{.Requirement.InstallMethod}}</span>{{end}}
+    </span>
+    {{end}}
+    {{if .Requirement.InstallSource}}
+    <span style="color:var(--color-text-muted);">Source</span>
+    <span style="color:var(--color-text-secondary);font-size:0.75rem;">{{.Requirement.InstallSource}}</span>
+    {{end}}
+    {{if .Requirement.CheckCmd}}
+    <span style="color:var(--color-text-muted);">Check</span>
+    <code style="font-size:0.72rem;">{{.Requirement.CheckCmd}}</code>
+    {{end}}
+    {{if .Requirement.InstallCmd}}
+    <span style="color:var(--color-text-muted);">Install</span>
+    <code style="font-size:0.72rem;word-break:break-all;">{{.Requirement.InstallCmd}}</code>
+    {{end}}
+    {{if .Requirement.CommandsGlob}}
+    <span style="color:var(--color-text-muted);">Commands</span>
+    <code style="font-size:0.72rem;">{{.Requirement.CommandsGlob}}</code>
+    {{end}}
+</div>
+
+{{if .Requirement.PipelineUsage}}
+<div style="margin-bottom:0.8rem;">
+    <h2 style="font-size:0.9rem;margin-bottom:0.4rem;">Required by</h2>
+    <div class="wr-list">
+    {{range .Requirement.PipelineUsage}}
+        <a href="/pipelines/{{.}}" class="wr-run">
+            <div class="wr-accent st-completed"></div>
+            <div class="wr-body">
+                <div class="wr-row1"><span class="wr-name">{{.}}</span></div>
+            </div>
+        </a>
+    {{end}}
+    </div>
+</div>
+{{end}}
+{{end}}
+
+{{if .Body}}
+<div>
+    <h2 style="font-size:0.9rem;margin-bottom:0.3rem;">Content</h2>
+    <div class="markdown-body" id="skill-body" style="font-size:0.8rem;"></div>
+    <script type="text/plain" id="skill-body-raw">{{.Body}}</script>
+</div>
+{{end}}
+
+{{if and (not .Body) (not .Requirement)}}
+<div style="padding:2rem;text-align:center;color:var(--color-text-muted);">No details available for this skill.</div>
+{{end}}
+{{end}}
+{{define "scripts"}}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var raw = document.getElementById('skill-body-raw');
+    var el = document.getElementById('skill-body');
+    if (!raw || !el) return;
+    if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+        el.innerHTML = DOMPurify.sanitize(marked.parse(raw.textContent));
+    } else { el.textContent = raw.textContent; }
+});
+</script>
+{{end}}

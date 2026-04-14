@@ -32,6 +32,7 @@ var pageTemplates = []string{
 	"templates/contracts.html",
 	"templates/contract_detail.html",
 	"templates/skills.html",
+	"templates/skill_detail.html",
 	"templates/compose.html",
 	"templates/issues.html",
 	"templates/issue_detail.html",
