@@ -382,6 +382,54 @@ func TestBuildUserPrompt_UTF8SafeTruncation(t *testing.T) {
 	}
 }
 
+func TestResolveLLMJudgeModel(t *testing.T) {
+	tests := []struct {
+		name  string
+		model string
+		want  string
+	}{
+		{
+			name:  "empty defaults to cheapest model",
+			model: "",
+			want:  "claude-haiku-4-5",
+		},
+		{
+			name:  "cheapest tier resolves to haiku",
+			model: "cheapest",
+			want:  "claude-haiku-4-5",
+		},
+		{
+			name:  "strongest tier resolves to opus",
+			model: "strongest",
+			want:  "claude-opus-4",
+		},
+		{
+			name:  "balanced tier falls back to cheapest",
+			model: "balanced",
+			want:  "claude-haiku-4-5",
+		},
+		{
+			name:  "literal model name returned unchanged",
+			model: "claude-sonnet-4",
+			want:  "claude-sonnet-4",
+		},
+		{
+			name:  "unknown tier name returned as-is",
+			model: "extreme",
+			want:  "extreme",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveLLMJudgeModel(tt.model)
+			if got != tt.want {
+				t.Errorf("resolveLLMJudgeModel(%q) = %q, want %q", tt.model, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestExtractJSON(t *testing.T) {
 	tests := []struct {
 		name  string

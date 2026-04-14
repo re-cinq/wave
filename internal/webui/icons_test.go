@@ -60,3 +60,43 @@ func TestForgeIconUnknown(t *testing.T) {
 		t.Errorf("forgeIcon(%q) = %q, want empty string", "nonexistent-forge", got)
 	}
 }
+
+func TestAdapterIcon_EmptyString(t *testing.T) {
+	got := adapterIcon("")
+	if got != "" {
+		t.Errorf("adapterIcon(%q) = %q, want empty string", "", got)
+	}
+}
+
+func TestAdapterIcon_CaseVariations(t *testing.T) {
+	// Map keys are case-sensitive; wrong case should return empty string.
+	cases := []string{"Claude-Code", "CLAUDE-CODE", "Claude-code", "Gemini", "GEMINI", "CODEX"}
+	for _, name := range cases {
+		t.Run(name, func(t *testing.T) {
+			got := adapterIcon(name)
+			if got != "" {
+				t.Errorf("adapterIcon(%q) = %q, want empty string (case-sensitive lookup)", name, got)
+			}
+		})
+	}
+}
+
+func TestForgeIcon_EmptyString(t *testing.T) {
+	got := forgeIcon("")
+	if got != "" {
+		t.Errorf("forgeIcon(%q) = %q, want empty string", "", got)
+	}
+}
+
+func TestForgeIcon_CaseVariations(t *testing.T) {
+	// Map keys are case-sensitive; wrong case should return empty string.
+	cases := []string{"GitHub", "GITHUB", "GitLab", "GITLAB", "Bitbucket", "BITBUCKET"}
+	for _, name := range cases {
+		t.Run(name, func(t *testing.T) {
+			got := forgeIcon(name)
+			if got != "" {
+				t.Errorf("forgeIcon(%q) = %q, want empty string (case-sensitive lookup)", name, got)
+			}
+		})
+	}
+}

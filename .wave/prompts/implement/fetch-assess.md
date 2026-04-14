@@ -97,3 +97,35 @@ If the issue IS implementable:
 
 - Do NOT spawn Task subagents — work directly in the main context
 - Do NOT modify the issue — this is read-only assessment
+
+## OUTPUT
+
+Write your assessment to `.wave/output/issue-assessment.json` in this format:
+
+```json
+{
+  "implementable": true/false,
+  "issue": {
+    "number": 0,
+    "title": "",
+    "body": "",
+    "repository": "",
+    "url": "",
+    "labels": [],
+    "state": ""
+  },
+  "assessment": {
+    "score": 0,
+    "clarity": 0,
+    "context": 0,
+    "testability": 0,
+    "missing_info": [],
+    "summary": ""
+  },
+  "complexity": "trivial/simple/medium/complex",
+  "skip_steps": [],
+  "branch_name": ""
+}
+```
+
+Create the `.wave/output/` directory if it doesn't exist.

@@ -394,6 +394,275 @@ func TestRuntimeSandboxResolveBackend(t *testing.T) {
 	}
 }
 
+func TestDefaultComplexityMap(t *testing.T) {
+	m := DefaultComplexityMap()
+
+	if len(m) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(m))
+	}
+
+	tests := []struct {
+		tier string
+		want string
+	}{
+		{"cheapest", "claude-haiku-4-5"},
+		{"balanced", ""},
+		{"strongest", "claude-opus-4"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.tier, func(t *testing.T) {
+			got, ok := m[tt.tier]
+			if !ok {
+				t.Fatalf("missing key %q", tt.tier)
+			}
+			if got != tt.want {
+				t.Errorf("DefaultComplexityMap()[%q] = %q, want %q", tt.tier, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveComplexityModel(t *testing.T) {
+	tests := []struct {
+		name    string
+		routing *RoutingConfig
+		tier    string
+		want    string
+	}{
+		{
+			name:    "nil receiver falls back to default cheapest",
+			routing: nil,
+			tier:    "cheapest",
+			want:    "claude-haiku-4-5",
+		},
+		{
+			name:    "nil receiver balanced returns empty",
+			routing: nil,
+			tier:    "balanced",
+			want:    "",
+		},
+		{
+			name:    "nil receiver strongest",
+			routing: nil,
+			tier:    "strongest",
+			want:    "claude-opus-4",
+		},
+		{
+			name:    "nil receiver unknown tier returns empty",
+			routing: nil,
+			tier:    "extreme",
+			want:    "",
+		},
+		{
+			name:    "empty ComplexityMap falls back to defaults",
+			routing: &RoutingConfig{},
+			tier:    "cheapest",
+			want:    "claude-haiku-4-5",
+		},
+		{
+			name: "custom ComplexityMap overrides tier",
+			routing: &RoutingConfig{
+				ComplexityMap: map[string]string{
+					"cheapest": "my-custom-haiku",
+				},
+			},
+			tier: "cheapest",
+			want: "my-custom-haiku",
+		},
+		{
+			name: "partial override falls through to default for missing tier",
+			routing: &RoutingConfig{
+				ComplexityMap: map[string]string{
+					"cheapest": "my-haiku",
+				},
+			},
+			tier: "balanced",
+			want: "",
+		},
+		{
+			name: "custom map overrides balanced to non-empty",
+			routing: &RoutingConfig{
+				ComplexityMap: map[string]string{
+					"balanced": "claude-sonnet-4",
+				},
+			},
+			tier: "balanced",
+			want: "claude-sonnet-4",
+		},
+		{
+			name: "unknown tier not in any map returns empty",
+			routing: &RoutingConfig{
+				ComplexityMap: map[string]string{
+					"cheapest": "haiku",
+				},
+			},
+			tier: "extreme",
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.routing.ResolveComplexityModel(tt.tier)
+			if got != tt.want {
+				t.Errorf("ResolveComplexityModel(%q) = %q, want %q", tt.tier, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEffectiveDefaultTier(t *testing.T) {
+	tests := []struct {
+		name    string
+		routing *RoutingConfig
+		want    string
+	}{
+		{
+			name:    "nil receiver returns balanced",
+			routing: nil,
+			want:    "balanced",
+		},
+		{
+			name:    "empty DefaultTier returns balanced",
+			routing: &RoutingConfig{},
+			want:    "balanced",
+		},
+		{
+			name:    "explicit DefaultTier returned as-is",
+			routing: &RoutingConfig{DefaultTier: "cheapest"},
+			want:    "cheapest",
+		},
+		{
+			name:    "non-standard value returned as-is",
+			routing: &RoutingConfig{DefaultTier: "custom-tier"},
+			want:    "custom-tier",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.routing.EffectiveDefaultTier()
+			if got != tt.want {
+				t.Errorf("EffectiveDefaultTier() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRetrosConfig_IsEnabled(t *testing.T) {
+	boolPtr := func(v bool) *bool { return &v }
+
+	tests := []struct {
+		name   string
+		config *RetrosConfig
+		want   bool
+	}{
+		{
+			name:   "nil receiver defaults to true",
+			config: nil,
+			want:   true,
+		},
+		{
+			name:   "nil Enabled field defaults to true",
+			config: &RetrosConfig{},
+			want:   true,
+		},
+		{
+			name:   "explicit true",
+			config: &RetrosConfig{Enabled: boolPtr(true)},
+			want:   true,
+		},
+		{
+			name:   "explicit false",
+			config: &RetrosConfig{Enabled: boolPtr(false)},
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.config.IsEnabled()
+			if got != tt.want {
+				t.Errorf("IsEnabled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRetrosConfig_IsNarrateEnabled(t *testing.T) {
+	boolPtr := func(v bool) *bool { return &v }
+
+	tests := []struct {
+		name   string
+		config *RetrosConfig
+		want   bool
+	}{
+		{
+			name:   "nil receiver defaults to true",
+			config: nil,
+			want:   true,
+		},
+		{
+			name:   "nil Narrate field defaults to true",
+			config: &RetrosConfig{},
+			want:   true,
+		},
+		{
+			name:   "explicit true",
+			config: &RetrosConfig{Narrate: boolPtr(true)},
+			want:   true,
+		},
+		{
+			name:   "explicit false",
+			config: &RetrosConfig{Narrate: boolPtr(false)},
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.config.IsNarrateEnabled()
+			if got != tt.want {
+				t.Errorf("IsNarrateEnabled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRetrosConfig_GetNarrateModel(t *testing.T) {
+	tests := []struct {
+		name   string
+		config *RetrosConfig
+		want   string
+	}{
+		{
+			name:   "nil receiver returns cheapest default",
+			config: nil,
+			want:   "claude-haiku-4-5",
+		},
+		{
+			name:   "empty NarrateModel returns cheapest default",
+			config: &RetrosConfig{},
+			want:   "claude-haiku-4-5",
+		},
+		{
+			name:   "explicit NarrateModel override",
+			config: &RetrosConfig{NarrateModel: "claude-sonnet-4"},
+			want:   "claude-sonnet-4",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.config.GetNarrateModel()
+			if got != tt.want {
+				t.Errorf("GetNarrateModel() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRuntimeSandboxGetDockerImage(t *testing.T) {
 	tests := []struct {
 		name    string

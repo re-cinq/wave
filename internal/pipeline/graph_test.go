@@ -1082,6 +1082,129 @@ func TestResolveCommandWorkDir(t *testing.T) {
 	})
 }
 
+// --- Unit test: resolveCommandWorkDir (extended coverage) ---
+
+func TestResolveCommandWorkDir_WorktreeDetection(t *testing.T) {
+	t.Run("worktree __wt_ directory is returned", func(t *testing.T) {
+		wsRoot := t.TempDir()
+		wtDir := filepath.Join(wsRoot, "__wt_mybranch")
+		if err := os.MkdirAll(wtDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		step := &Step{ID: "test-step"}
+		got := resolveCommandWorkDir(wsRoot, step)
+		if got != wtDir {
+			t.Errorf("expected worktree dir %q, got %q", wtDir, got)
+		}
+	})
+
+	t.Run("multiple __wt_ directories returns first found", func(t *testing.T) {
+		wsRoot := t.TempDir()
+		// Create multiple __wt_ dirs
+		if err := os.MkdirAll(filepath.Join(wsRoot, "__wt_alpha"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(filepath.Join(wsRoot, "__wt_beta"), 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		step := &Step{ID: "test-step"}
+		got := resolveCommandWorkDir(wsRoot, step)
+		// Should return one of the __wt_ dirs (os.ReadDir returns alphabetically)
+		if !strings.HasPrefix(filepath.Base(got), "__wt_") {
+			t.Errorf("expected a __wt_ directory, got %q", got)
+		}
+	})
+
+	t.Run("mount with target / becomes empty and is skipped", func(t *testing.T) {
+		wsRoot := t.TempDir()
+		step := &Step{
+			ID: "test-step",
+			Workspace: WorkspaceConfig{
+				Mount: []Mount{
+					{Source: "./", Target: "/", Mode: "readonly"},
+				},
+			},
+		}
+		got := resolveCommandWorkDir(wsRoot, step)
+		// Target "/" trims to "", should be skipped, fallback to workspace root
+		if got != wsRoot {
+			t.Errorf("expected workspace root %q, got %q", wsRoot, got)
+		}
+	})
+}
+
+func TestResolveCommandWorkDir_BareWorkspaceFallback(t *testing.T) {
+	t.Run("bare workspace with Makefile has marker and does not fall back to CWD", func(t *testing.T) {
+		wsRoot := t.TempDir()
+		// Place a Makefile in the workspace — counts as a project marker
+		if err := os.WriteFile(filepath.Join(wsRoot, "Makefile"), []byte("all:\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		step := &Step{ID: "test-step"}
+		got := resolveCommandWorkDir(wsRoot, step)
+		if got != wsRoot {
+			t.Errorf("expected workspace root %q (has Makefile), got %q", wsRoot, got)
+		}
+	})
+
+	t.Run("bare workspace without markers falls back to CWD with project marker", func(t *testing.T) {
+		wsRoot := t.TempDir()
+		// No project markers in wsRoot — should fall back to CWD if CWD has a marker.
+		// We run this from the Wave project dir which has go.mod, so CWD should be returned.
+		step := &Step{ID: "test-step"}
+		got := resolveCommandWorkDir(wsRoot, step)
+
+		cwd, err := os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Check if CWD has a project marker
+		cwdHasMarker := false
+		for _, marker := range []string{"go.mod", "package.json", "Cargo.toml", "pyproject.toml", "Makefile"} {
+			if _, err := os.Stat(filepath.Join(cwd, marker)); err == nil {
+				cwdHasMarker = true
+				break
+			}
+		}
+
+		if cwdHasMarker {
+			if got != cwd {
+				t.Errorf("expected CWD %q (has project marker), got %q", cwd, got)
+			}
+		} else {
+			// If CWD doesn't have a marker either, we get wsRoot back
+			if got != wsRoot {
+				t.Errorf("expected workspace root %q (no markers anywhere), got %q", wsRoot, got)
+			}
+		}
+	})
+
+	t.Run("bare workspace with no marker and CWD without marker returns workspace", func(t *testing.T) {
+		wsRoot := t.TempDir()
+		emptyDir := t.TempDir()
+
+		// Change to an empty dir with no markers for this test
+		origDir, err := os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chdir(emptyDir); err != nil {
+			t.Fatal(err)
+		}
+		defer os.Chdir(origDir)
+
+		step := &Step{ID: "test-step"}
+		got := resolveCommandWorkDir(wsRoot, step)
+		if got != wsRoot {
+			t.Errorf("expected workspace root %q, got %q", wsRoot, got)
+		}
+	})
+}
+
 // --- Unit test: filterEnvPassthrough ---
 
 func TestFilterEnvPassthrough(t *testing.T) {
@@ -1117,5 +1240,191 @@ func TestFilterEnvPassthrough(t *testing.T) {
 	}
 	if foundBlocked {
 		t.Error("expected WAVE_TEST_BLOCKED to NOT be in filtered env")
+	}
+}
+
+// --- Coverage gap: filterEnvPassthrough essentials and edge cases ---
+
+func TestFilterEnvPassthrough_AllEssentialsIncluded(t *testing.T) {
+	// Set all essential vars so we can verify they appear in output.
+	essentials := []string{
+		"PATH", "HOME", "USER", "TMPDIR",
+		"GOPATH", "GOMODCACHE", "GOCACHE", "GOROOT",
+		"XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME",
+	}
+	for _, name := range essentials {
+		t.Setenv(name, "test_value_"+name)
+	}
+
+	// Empty passthrough list — essentials should still be present.
+	filtered := filterEnvPassthrough(nil)
+
+	found := make(map[string]bool)
+	for _, entry := range filtered {
+		name, _, _ := strings.Cut(entry, "=")
+		found[name] = true
+	}
+
+	for _, name := range essentials {
+		if !found[name] {
+			t.Errorf("essential variable %q missing from filtered env", name)
+		}
+	}
+}
+
+func TestFilterEnvPassthrough_EdgeCases(t *testing.T) {
+	t.Run("empty passthrough still includes essentials", func(t *testing.T) {
+		t.Setenv("PATH", "/usr/bin")
+		filtered := filterEnvPassthrough([]string{})
+		foundPath := false
+		for _, entry := range filtered {
+			name, _, _ := strings.Cut(entry, "=")
+			if name == "PATH" {
+				foundPath = true
+			}
+		}
+		if !foundPath {
+			t.Error("PATH should be present even with empty passthrough")
+		}
+	})
+
+	t.Run("duplicate in passthrough does not cause double entries", func(t *testing.T) {
+		t.Setenv("PATH", "/usr/bin")
+		filtered := filterEnvPassthrough([]string{"PATH", "PATH"})
+		count := 0
+		for _, entry := range filtered {
+			name, _, _ := strings.Cut(entry, "=")
+			if name == "PATH" {
+				count++
+			}
+		}
+		if count != 1 {
+			t.Errorf("expected PATH to appear once, got %d", count)
+		}
+	})
+
+	t.Run("passthrough var not set in environment is absent", func(t *testing.T) {
+		os.Unsetenv("WAVE_NONEXISTENT_VAR_12345")
+		filtered := filterEnvPassthrough([]string{"WAVE_NONEXISTENT_VAR_12345"})
+		for _, entry := range filtered {
+			name, _, _ := strings.Cut(entry, "=")
+			if name == "WAVE_NONEXISTENT_VAR_12345" {
+				t.Error("unset variable should not appear in filtered env")
+			}
+		}
+	})
+
+	t.Run("variable with equals sign in value is preserved correctly", func(t *testing.T) {
+		t.Setenv("WAVE_EQ_TEST", "bar=baz=qux")
+		defer os.Unsetenv("WAVE_EQ_TEST")
+		filtered := filterEnvPassthrough([]string{"WAVE_EQ_TEST"})
+		found := false
+		for _, entry := range filtered {
+			name, val, ok := strings.Cut(entry, "=")
+			if name == "WAVE_EQ_TEST" {
+				found = true
+				if !ok || val != "bar=baz=qux" {
+					t.Errorf("expected value 'bar=baz=qux', got %q", val)
+				}
+			}
+		}
+		if !found {
+			t.Error("WAVE_EQ_TEST should appear in filtered env")
+		}
+	})
+
+	t.Run("non-essential non-passthrough vars are excluded", func(t *testing.T) {
+		t.Setenv("WAVE_SECRET_KEY", "super_secret")
+		defer os.Unsetenv("WAVE_SECRET_KEY")
+		filtered := filterEnvPassthrough([]string{"HOME"})
+		for _, entry := range filtered {
+			name, _, _ := strings.Cut(entry, "=")
+			if name == "WAVE_SECRET_KEY" {
+				t.Error("WAVE_SECRET_KEY should not leak into filtered env")
+			}
+		}
+	})
+}
+
+// --- Coverage gap: resolveCommandWorkDir edge cases ---
+
+func TestResolveCommandWorkDir_MountPriorityOverWorktree(t *testing.T) {
+	// When both a mount target and a __wt_ directory exist, mount should win.
+	wsRoot := t.TempDir()
+	projectDir := filepath.Join(wsRoot, "project")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	wtDir := filepath.Join(wsRoot, "__wt_mybranch")
+	if err := os.MkdirAll(wtDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	step := &Step{
+		ID: "test-step",
+		Workspace: WorkspaceConfig{
+			Mount: []Mount{
+				{Source: "./", Target: "/project", Mode: "readonly"},
+			},
+		},
+	}
+	got := resolveCommandWorkDir(wsRoot, step)
+	if got != projectDir {
+		t.Errorf("mount should take priority over __wt_ dir: expected %q, got %q", projectDir, got)
+	}
+}
+
+func TestResolveCommandWorkDir_WtFileNotDirectory(t *testing.T) {
+	// A __wt_ entry that is a file (not directory) should not be returned.
+	wsRoot := t.TempDir()
+	wtFile := filepath.Join(wsRoot, "__wt_notadir")
+	if err := os.WriteFile(wtFile, []byte("not a directory"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	step := &Step{ID: "test-step"}
+	got := resolveCommandWorkDir(wsRoot, step)
+	// Should not return the file; should fall through to workspace root or CWD.
+	if got == wtFile {
+		t.Errorf("__wt_ file (not directory) should not be returned as workdir")
+	}
+}
+
+func TestResolveCommandWorkDir_MountTargetIsFile(t *testing.T) {
+	// When mount target exists as a file (not directory), os.Stat().IsDir() is false.
+	wsRoot := t.TempDir()
+	targetFile := filepath.Join(wsRoot, "project")
+	if err := os.WriteFile(targetFile, []byte("I am a file"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	step := &Step{
+		ID: "test-step",
+		Workspace: WorkspaceConfig{
+			Mount: []Mount{
+				{Source: "./", Target: "/project", Mode: "readonly"},
+			},
+		},
+	}
+	got := resolveCommandWorkDir(wsRoot, step)
+	// target exists as file, not dir — mount should be skipped
+	if got == targetFile {
+		t.Errorf("mount target that is a file should be skipped, got %q", got)
+	}
+}
+
+func TestResolveCommandWorkDir_NonexistentWorkspacePath(t *testing.T) {
+	// When workspacePath does not exist, os.ReadDir fails — function should
+	// return workspacePath unchanged (after all branches fail).
+	wsRoot := filepath.Join(t.TempDir(), "does-not-exist")
+	step := &Step{ID: "test-step"}
+	got := resolveCommandWorkDir(wsRoot, step)
+	// All branches should fail gracefully; the function returns wsRoot.
+	// (CWD fallback only activates when wsRoot has no markers, and wsRoot doesn't exist.)
+	if got != wsRoot {
+		cwd, _ := os.Getwd()
+		if got != cwd {
+			t.Errorf("expected workspace root %q or CWD %q, got %q", wsRoot, cwd, got)
+		}
 	}
 }
