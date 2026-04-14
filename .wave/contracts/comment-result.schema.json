@@ -57,7 +57,7 @@
       "description": "Details of the posted comment (only present if success=true)"
     },
     "error": {
-      "type": "object",
+      "type": ["object", "null"],
       "properties": {
         "code": {
           "type": "string",
