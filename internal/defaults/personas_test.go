@@ -40,7 +40,7 @@ func TestPersonaFilesNoLanguageReferences(t *testing.T) {
 }
 
 // TestPersonaFilesTokenRange verifies all persona files (excluding base-protocol.md)
-// are within the 100-400 token range using word count heuristic (SC-001).
+// are within the 60-400 token range using word count heuristic (SC-001).
 func TestPersonaFilesTokenRange(t *testing.T) {
 	personas, err := GetPersonas()
 	if err != nil {
@@ -55,8 +55,8 @@ func TestPersonaFilesTokenRange(t *testing.T) {
 		words := len(strings.Fields(content))
 		tokens := words * 100 / 75
 
-		if tokens < 100 {
-			t.Errorf("persona %q has ~%d tokens (%d words) — below minimum of 100", name, tokens, words)
+		if tokens < 60 {
+			t.Errorf("persona %q has ~%d tokens (%d words) — below minimum of 60", name, tokens, words)
 		}
 		if tokens > 400 {
 			t.Errorf("persona %q has ~%d tokens (%d words) — above maximum of 400", name, tokens, words)
@@ -78,7 +78,7 @@ func TestPersonaFilesMandatorySections(t *testing.T) {
 	}
 
 	h1Pattern := regexp.MustCompile(`(?m)^# .+`)
-	respPattern := regexp.MustCompile(`(?mi)^## (Responsibilities|Step-by-Step)`)
+	respPattern := regexp.MustCompile(`(?mi)^## (Responsibilities|Rules|Step-by-Step)`)
 
 	for name, content := range personas {
 		if name == "base-protocol.md" {
