@@ -313,9 +313,17 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 	// For worktree workspaces this removes all skills inherited from the git checkout,
 	// guaranteeing zero-skill pipelines get no context pollution and skill pipelines
 	// get exactly the skills they declared.
+	//
+	// Safety: only clear .claude/skills/ when running inside a pipeline workspace
+	// (workspacePath is under .wave/workspaces/). If workspacePath falls back to
+	// os.Getwd() (project root), we must NOT delete the project's .claude/skills/.
 	skillsDir := filepath.Join(settingsDir, "skills")
-	if err := os.RemoveAll(skillsDir); err != nil {
-		return fmt.Errorf("failed to clear .claude/skills: %w", err)
+	isWorkspace := strings.Contains(workspacePath, ".wave/workspaces") ||
+		strings.Contains(workspacePath, "__wt_")
+	if isWorkspace {
+		if err := os.RemoveAll(skillsDir); err != nil {
+			return fmt.Errorf("failed to clear .claude/skills: %w", err)
+		}
 	}
 	for _, ref := range cfg.ResolvedSkills {
 		if ref.SourcePath == "" {

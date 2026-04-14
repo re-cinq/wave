@@ -44,6 +44,17 @@ func (a *GeminiAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 		workspacePath = wd
 	}
 
+	// Warn about uninjected skills — non-claude adapters do not yet support
+	// native skill provisioning. Skills declared in the pipeline manifest will
+	// not reach the agent. See: https://github.com/re-cinq/wave/issues/1120
+	if len(cfg.ResolvedSkills) > 0 {
+		skillNames := make([]string, len(cfg.ResolvedSkills))
+		for i, s := range cfg.ResolvedSkills {
+			skillNames[i] = s.Name
+		}
+		fmt.Fprintf(os.Stderr, "[WARN] %s adapter: %d skill(s) declared but not injected (not yet supported): %v\n", cfg.Adapter, len(cfg.ResolvedSkills), skillNames)
+	}
+
 	if err := a.prepareWorkspace(workspacePath, cfg); err != nil {
 		return nil, fmt.Errorf("failed to prepare gemini workspace: %w", err)
 	}

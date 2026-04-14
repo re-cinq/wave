@@ -14,6 +14,7 @@ import (
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/recovery"
+	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/workspace"
 	"github.com/spf13/cobra"
@@ -232,6 +233,11 @@ func runResume(opts ResumeOptions, debug bool) error {
 	if opts.Model != "" {
 		execOpts = append(execOpts, pipeline.WithModelOverride(opts.Model))
 	}
+
+	execOpts = append(execOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
+		skill.SkillSource{Root: "skills", Precedence: 2},
+		skill.SkillSource{Root: ".wave/skills", Precedence: 1},
+	)))
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 

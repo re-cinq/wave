@@ -3218,7 +3218,10 @@ func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, exec
 		}
 	}
 
-	// Provision DirectoryStore skills (name-only references not in requires.skills)
+	// Resolve DirectoryStore skills (name-only references not in requires.skills).
+	// Read metadata from the store but do NOT write files here — each adapter's
+	// prepareWorkspace handles file provisioning to the correct location
+	// (e.g. .claude/skills/ for claude, text injection for others).
 	var resolvedSkillRefs []adapter.SkillRef
 	if e.skillStore != nil && len(resolvedSkills) > 0 {
 		requiresSkills := make(map[string]bool)
@@ -3227,24 +3230,23 @@ func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, exec
 				requiresSkills[name] = true
 			}
 		}
-		var storeSkills []string
 		for _, name := range resolvedSkills {
-			if !requiresSkills[name] {
-				storeSkills = append(storeSkills, name)
+			if requiresSkills[name] {
+				continue
 			}
-		}
-		if len(storeSkills) > 0 {
-			infos, err := skill.ProvisionFromStore(e.skillStore, res.workspacePath, storeSkills)
-			if err != nil {
-				return adapter.AdapterRunConfig{}, fmt.Errorf("skill provisioning failed: %w", err)
+			s, readErr := e.skillStore.Read(name)
+			if readErr != nil {
+				if errors.Is(readErr, skill.ErrNotFound) {
+					// skill not found in store, skip silently
+					continue
+				}
+				return adapter.AdapterRunConfig{}, fmt.Errorf("skill %q: %w", name, readErr)
 			}
-			for _, info := range infos {
-				resolvedSkillRefs = append(resolvedSkillRefs, adapter.SkillRef{
-					Name:        info.Name,
-					Description: info.Description,
-					SourcePath:  info.SourcePath,
-				})
-			}
+			resolvedSkillRefs = append(resolvedSkillRefs, adapter.SkillRef{
+				Name:        s.Name,
+				Description: s.Description,
+				SourcePath:  s.SourcePath,
+			})
 		}
 	}
 
