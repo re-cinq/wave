@@ -870,6 +870,75 @@ function decodeContent(s){return s;}
 
 // Humanize JSON keys: snake_case → Title Case
 function humanKey(k){return k.replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();});}
+// Generic object renderer — works with any schema
+function renderObj(obj,depth){
+    if(!obj||typeof obj!=='object')return '<span class="av-val">'+escapeHTML(String(obj))+'</span>';
+    var h='<div class="av-item"'+(depth>0?' style="border-left:2px solid var(--color-border);padding-left:0.5rem;margin:0.2rem 0;"':'')+'>';
+    // Classify fields by type
+    var strings=[],shorts=[],longs=[],arrays=[],objects=[],nums=[];
+    var idField='';
+    for(var k in obj){
+        if(!obj.hasOwnProperty(k))continue;
+        var v=obj[k];
+        if(v===null||v===undefined)continue;
+        if(typeof v==='string'){
+            if(/^(id|topic_id|source_id)$/i.test(k)){idField=v;continue;}
+            if(v.length>120)longs.push({k:k,v:v});
+            else strings.push({k:k,v:v});
+        } else if(typeof v==='number'||typeof v==='boolean'){
+            nums.push({k:k,v:String(v)});
+        } else if(Array.isArray(v)){
+            arrays.push({k:k,v:v});
+        } else if(typeof v==='object'){
+            objects.push({k:k,v:v});
+        }
+    }
+    // Head row: first short string as title, rest as inline metadata
+    h+='<div class="av-item-head">';
+    if(obj.severity) h+='<span class="av-sev av-sev-'+escapeHTML(obj.severity)+'">'+escapeHTML(obj.severity)+'</span>';
+    if(obj.verdict) h+='<span class="av-sev av-sev-'+escapeHTML(obj.verdict==='rejected'?'minor':obj.verdict==='accepted'?'info':'suggestion')+'">'+escapeHTML(obj.verdict)+'</span>';
+    if(obj.status) h+='<span class="av-status av-status-'+escapeHTML(obj.status)+'">'+escapeHTML(obj.status)+'</span>';
+    var titleField=strings.shift();
+    if(titleField) h+='<span class="av-summary">'+escapeHTML(titleField.v)+'</span>';
+    // Inline short metadata
+    for(var si=0;si<strings.length&&si<3;si++){
+        h+='<span style="margin-left:0.5rem;font-size:0.62rem;color:var(--color-text-secondary);">'+escapeHTML(strings[si].v)+'</span>';
+    }
+    for(var ni=0;ni<nums.length;ni++){
+        h+='<span style="margin-left:0.5rem;font-size:0.62rem;color:var(--color-text-secondary);">'+humanKey(nums[ni].k)+': '+escapeHTML(nums[ni].v)+'</span>';
+    }
+    h+='</div>';
+    // Remaining short strings (beyond first 3) as key-value
+    for(var ri=3;ri<strings.length;ri++){
+        h+='<div class="av-kv"><span class="av-key">'+humanKey(strings[ri].k)+'</span><span class="av-val">'+escapeHTML(strings[ri].v)+'</span></div>';
+    }
+    // Long text as detail blocks
+    for(var li=0;li<longs.length;li++){
+        h+='<div class="av-detail">'+escapeHTML(longs[li].v)+'</div>';
+    }
+    // Arrays
+    for(var ai=0;ai<arrays.length;ai++){
+        var ak=arrays[ai].k,arr=arrays[ai].v;
+        if(arr.length===0)continue;
+        if(typeof arr[0]==='string'){
+            h+='<div class="av-kv"><span class="av-key">'+humanKey(ak)+'</span><span class="av-val">'+arr.map(function(s){return escapeHTML(String(s))}).join(', ')+'</span></div>';
+        } else if(depth<2){
+            h+='<details style="margin:0.15rem 0;"><summary style="cursor:pointer;font-size:0.7rem;color:var(--color-text-secondary);">'+humanKey(ak)+' ('+arr.length+')</summary>';
+            for(var ari=0;ari<arr.length&&ari<10;ari++) h+=renderObj(arr[ari],depth+1);
+            if(arr.length>10) h+='<div style="color:var(--color-text-muted);font-size:0.62rem;">...+'+(arr.length-10)+' more</div>';
+            h+='</details>';
+        }
+    }
+    // Nested objects
+    for(var oi=0;oi<objects.length;oi++){
+        if(depth<2){
+            h+='<div class="av-kv"><span class="av-key">'+humanKey(objects[oi].k)+'</span></div>';
+            h+=renderObj(objects[oi].v,depth+1);
+        }
+    }
+    h+='</div>';
+    return h;
+}
 
 // Smart render: parse JSON and produce human-readable HTML
 function smartRender(raw, name){
@@ -935,22 +1004,7 @@ function renderObj(obj, name){
         for(var j=0;j<av.length&&j<20;j++){
             var item=av[j];
             if(typeof item==='object'&&item!==null){
-                h+='<div class="av-item">';
-                h+='<div class="av-item-head">';
-                if(item.severity) h+='<span class="av-sev av-sev-'+escapeHTML(item.severity)+'">'+escapeHTML(item.severity)+'</span>';
-                if(item.verdict) h+='<span class="av-sev av-sev-'+escapeHTML(item.verdict==='rejected'?'minor':item.verdict==='accepted'?'info':'suggestion')+'">'+escapeHTML(item.verdict)+'</span>';
-                if(item.status) h+='<span class="av-status av-status-'+escapeHTML(item.status)+'">'+escapeHTML(item.status)+'</span>';
-                // Try multiple field names for the main text
-                var mainText=item.summary||item.finding||item.title||item.name||item.description||item.message||'';
-                if(mainText) h+='<span class="av-summary">'+escapeHTML(mainText)+'</span>';
-                h+='</div>';
-                if(item.detail) h+='<div class="av-detail">'+escapeHTML(item.detail)+'</div>';
-                if(item.rationale) h+='<div class="av-detail" style="color:var(--color-text-muted);font-style:italic;">'+escapeHTML(item.rationale)+'</div>';
-                if(item.planned_fix) h+='<div class="av-detail" style="color:var(--color-completed);">→ '+escapeHTML(item.planned_fix)+'</div>';
-                if(item.action) h+='<div class="av-detail" style="color:var(--color-link);">→ '+escapeHTML(item.action)+'</div>';
-                if(item.file) h+='<div class="av-file">'+escapeHTML(item.file)+(item.line?':'+item.line:'')+'</div>';
-                if(item.skip_reason) h+='<div class="av-detail" style="color:var(--color-text-muted);">'+escapeHTML(item.skip_reason)+'</div>';
-                h+='</div>';
+                h+=renderObj(item,0);
             } else {
                 h+='<div class="av-item"><span class="av-summary">'+escapeHTML(String(item))+'</span></div>';
             }

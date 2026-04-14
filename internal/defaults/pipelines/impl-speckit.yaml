@@ -14,7 +14,7 @@ requires:
     speckit:
       check: specify check
       install: uv tool install --force specify-cli --from git+https://github.com/github/spec-kit.git
-      init: specify init
+      init: specify init --here --force --ai generic --ai-commands-dir .wave/commands --no-git
   tools:
     - git
     - gh

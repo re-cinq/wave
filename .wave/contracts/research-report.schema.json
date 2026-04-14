@@ -110,7 +110,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^SRC-[0-9]{1,4}$"
+              "pattern": "^SRC-[0-9]{1,4}[A-Z]?$"
             },
             "description": "References to sources list"
           }
@@ -165,7 +165,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^SRC-[0-9]{1,4}$",
+            "pattern": "^SRC-[0-9]{1,4}[A-Z]?$",
             "description": "Source identifier for cross-referencing"
           },
           "url": {
