@@ -2024,14 +2024,15 @@ func (e *DefaultPipelineExecutor) checkOntologyStaleness() string {
 		return "ontology may be stale (post-merge changes detected) — run 'wave analyze' to refresh"
 	}
 
-	// Compare wave.yaml mtime against latest commit time
+	// Compare wave.yaml mtime against last commit that touched ontology-relevant files.
+	// Using ANY commit causes false positives when unrelated files are committed.
 	manifestStat, err := os.Stat("wave.yaml")
 	if err != nil {
 		return ""
 	}
 
-	out, err := exec.Command("git", "log", "-1", "--format=%cI").Output()
-	if err != nil {
+	out, err := exec.Command("git", "log", "-1", "--format=%cI", "--", "wave.yaml", "internal/defaults/pipelines/", "internal/defaults/personas/").Output()
+	if err != nil || len(strings.TrimSpace(string(out))) == 0 {
 		return ""
 	}
 	lastCommit, err := time.Parse(time.RFC3339, strings.TrimSpace(string(out)))
