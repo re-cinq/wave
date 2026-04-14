@@ -3188,7 +3188,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 .wr-accent.st-defined { background: var(--wave-primary); opacity: 0.4; }
 
 /* Main content area */
-.wr-body { padding: 0.4rem 0.6rem; min-width: 0; }
+.wr-body { padding: 0.4rem 0.6rem 0.4rem 0.85rem; min-width: 0; }
 .wr-row1 { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.1rem; }
 .wr-name { font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .wr-status { font-size: 0.62rem; }
