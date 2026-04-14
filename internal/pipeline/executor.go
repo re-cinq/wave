@@ -3239,6 +3239,7 @@ func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, exec
 				resolvedSkillRefs = append(resolvedSkillRefs, adapter.SkillRef{
 					Name:        info.Name,
 					Description: info.Description,
+					Level:       int(info.Level),
 				})
 			}
 		}

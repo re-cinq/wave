@@ -35,6 +35,7 @@ type StreamEvent struct {
 type SkillRef struct {
 	Name        string
 	Description string
+	Level       int // 1 = metadata-only (stub), 2 = full instructions (default)
 }
 
 type AdapterRunConfig struct {

@@ -57,6 +57,7 @@ var ErrNotFound = errors.New("skill not found")
 // Store defines CRUD operations for skill management.
 type Store interface {
 	Read(name string) (Skill, error)
+	ReadMetadata(name string) (Skill, error)
 	Write(skill Skill) error
 	List() ([]Skill, error)
 	Delete(name string) error
@@ -143,6 +144,53 @@ func (ds *DirectoryStore) Read(name string) (Skill, error) {
 		}
 
 		// FR-004: validate name matches directory name
+		if skill.Name != name {
+			return Skill{}, &ParseError{
+				Field:      "name",
+				Constraint: "must match directory name",
+				Value:      fmt.Sprintf("frontmatter %q != directory %q", skill.Name, name),
+			}
+		}
+
+		skill.SourcePath = skillDir
+		skill.ResourcePaths = discoverResources(skillDir)
+		return skill, nil
+	}
+
+	return Skill{}, fmt.Errorf("%w: %s", ErrNotFound, name)
+}
+
+// ReadMetadata returns a skill with only frontmatter populated (Body is empty).
+// Resource paths are still discovered. Use this for lightweight metadata access.
+func (ds *DirectoryStore) ReadMetadata(name string) (Skill, error) {
+	if err := ValidateName(name); err != nil {
+		return Skill{}, err
+	}
+
+	for _, source := range ds.sources {
+		skillDir, err := containedPath(source.Root, name)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return Skill{}, &SkillError{SkillName: name, Path: skillDir, Err: err}
+		}
+
+		skillFile := filepath.Join(skillDir, "SKILL.md")
+		data, err := os.ReadFile(skillFile)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return Skill{}, &SkillError{SkillName: name, Path: skillFile, Err: err}
+		}
+
+		skill, err := ParseMetadata(data)
+		if err != nil {
+			return Skill{}, &SkillError{SkillName: name, Path: skillFile, Err: err}
+		}
+
+		// Validate name matches directory name
 		if skill.Name != name {
 			return Skill{}, &ParseError{
 				Field:      "name",

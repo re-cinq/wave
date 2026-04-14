@@ -766,6 +766,8 @@ func buildConcurrencyHint(n int) string {
 
 // buildSkillSection generates a CLAUDE.md section listing available skills.
 // Returns "" when no skills are provided.
+// Level 1 skills show metadata only with an on-demand note.
+// Level 2 (or 0/default) skills show the full path to SKILL.md.
 func buildSkillSection(skills []SkillRef) string {
 	if len(skills) == 0 {
 		return ""
@@ -775,7 +777,11 @@ func buildSkillSection(skills []SkillRef) string {
 	b.WriteString("\n\n---\n\n## Available Skills\n\n")
 	b.WriteString("The following skills are available in this workspace:\n\n")
 	for _, s := range skills {
-		fmt.Fprintf(&b, "- **%s**: %s (see `.wave/skills/%s/SKILL.md`)\n", s.Name, s.Description, s.Name)
+		if s.Level == 1 {
+			fmt.Fprintf(&b, "- **%s**: %s _(metadata-only — use Skill tool or Read `.wave/skills/%s/` for full content)_\n", s.Name, s.Description, s.Name)
+		} else {
+			fmt.Fprintf(&b, "- **%s**: %s (see `.wave/skills/%s/SKILL.md`)\n", s.Name, s.Description, s.Name)
+		}
 	}
 	return b.String()
 }

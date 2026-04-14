@@ -594,6 +594,14 @@ func (m *mockSkillStore) Read(name string) (skill.Skill, error) {
 	return skill.Skill{}, fmt.Errorf("%w: %s", skill.ErrNotFound, name)
 }
 
+func (m *mockSkillStore) ReadMetadata(name string) (skill.Skill, error) {
+	if s, ok := m.skills[name]; ok {
+		s.Body = ""
+		return s, nil
+	}
+	return skill.Skill{}, fmt.Errorf("%w: %s", skill.ErrNotFound, name)
+}
+
 func (m *mockSkillStore) Write(_ skill.Skill) error    { return nil }
 func (m *mockSkillStore) List() ([]skill.Skill, error) { return nil, nil }
 func (m *mockSkillStore) Delete(_ string) error        { return nil }

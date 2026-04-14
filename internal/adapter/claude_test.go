@@ -1759,6 +1759,34 @@ func TestBuildSkillSection(t *testing.T) {
 			t.Error("missing second skill")
 		}
 	})
+
+	t.Run("level 1 skill renders metadata-only hint", func(t *testing.T) {
+		result := buildSkillSection([]SkillRef{
+			{Name: "gh-cli", Description: "GitHub CLI reference", Level: 1},
+		})
+		if !strings.Contains(result, "metadata-only") {
+			t.Error("Level 1 skill should indicate metadata-only")
+		}
+		if !strings.Contains(result, "Skill tool") {
+			t.Error("Level 1 skill should mention Skill tool")
+		}
+		if !strings.Contains(result, "gh-cli") {
+			t.Error("missing skill name")
+		}
+	})
+
+	t.Run("mixed levels", func(t *testing.T) {
+		result := buildSkillSection([]SkillRef{
+			{Name: "gh-cli", Description: "GitHub CLI", Level: 1},
+			{Name: "golang", Description: "Go development", Level: 2},
+		})
+		if !strings.Contains(result, "metadata-only") {
+			t.Error("Level 1 skill should have metadata-only hint")
+		}
+		if !strings.Contains(result, "see `.wave/skills/golang/SKILL.md`") {
+			t.Error("Level 2 skill should have full path")
+		}
+	})
 }
 
 func TestSkillSectionInAgentFile(t *testing.T) {

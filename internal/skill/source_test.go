@@ -28,6 +28,15 @@ func (m *memoryStore) Read(name string) (Skill, error) {
 	return s, nil
 }
 
+func (m *memoryStore) ReadMetadata(name string) (Skill, error) {
+	s, ok := m.skills[name]
+	if !ok {
+		return Skill{}, fmt.Errorf("%w: %s", ErrNotFound, name)
+	}
+	s.Body = ""
+	return s, nil
+}
+
 func (m *memoryStore) Write(skill Skill) error {
 	m.skills[skill.Name] = skill
 	m.writes++

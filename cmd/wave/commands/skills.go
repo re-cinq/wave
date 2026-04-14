@@ -105,10 +105,11 @@ type SkillPublishOutput struct {
 
 // SkillVerifyItem represents one verify result.
 type SkillVerifyItem struct {
-	Name           string `json:"name"`
-	Status         string `json:"status"`
-	ExpectedDigest string `json:"expected_digest,omitempty"`
-	ActualDigest   string `json:"actual_digest,omitempty"`
+	Name           string   `json:"name"`
+	Status         string   `json:"status"`
+	ExpectedDigest string   `json:"expected_digest,omitempty"`
+	ActualDigest   string   `json:"actual_digest,omitempty"`
+	Warnings       []string `json:"warnings,omitempty"`
 }
 
 // SkillVerifyOutput is the top-level output for wave skills verify.
@@ -830,6 +831,15 @@ func runSkillsPublish(cmd *cobra.Command, name, format string, all, force, dryRu
 			item.Status = "failed"
 			item.Reason = r.Error
 		}
+
+		// Check body size against agentskills.io recommendation
+		if s, readErr := store.Read(r.Name); readErr == nil {
+			bodyLines := strings.Count(s.Body, "\n")
+			if bodyLines > 500 {
+				item.Warnings = append(item.Warnings, fmt.Sprintf("SKILL.md body exceeds 500 lines (%d lines) — consider splitting into core + references/", bodyLines))
+			}
+		}
+
 		output.Results = append(output.Results, item)
 	}
 
@@ -942,6 +952,12 @@ func runSkillsVerify(cmd *cobra.Command, format string) error {
 					output.Summary.Modified++
 				}
 			}
+
+			// Check body size against agentskills.io recommendation
+			bodyLines := strings.Count(s.Body, "\n")
+			if bodyLines > 500 {
+				item.Warnings = append(item.Warnings, fmt.Sprintf("SKILL.md body exceeds 500 lines (%d lines) — consider splitting into core + references/", bodyLines))
+			}
 		}
 
 		output.Results = append(output.Results, item)
@@ -991,6 +1007,10 @@ func renderSkillsVerifyTable(w io.Writer, output SkillVerifyOutput) error {
 			status,
 			expected,
 			actual)
+
+		for _, warn := range r.Warnings {
+			fmt.Fprintf(w, "    %s %s\n", f.Warning("warning:"), warn)
+		}
 	}
 
 	fmt.Fprintf(w, "\n%d ok, %d modified, %d missing\n",

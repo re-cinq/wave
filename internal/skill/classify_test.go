@@ -100,6 +100,15 @@ func (m *classifyMockStore) Read(name string) (Skill, error) {
 	return s, nil
 }
 
+func (m *classifyMockStore) ReadMetadata(name string) (Skill, error) {
+	s, ok := m.skills[name]
+	if !ok {
+		return Skill{}, fmt.Errorf("%w: %s", ErrNotFound, name)
+	}
+	s.Body = ""
+	return s, nil
+}
+
 func (m *classifyMockStore) Write(_ Skill) error { return nil }
 func (m *classifyMockStore) List() ([]Skill, error) {
 	var result []Skill

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -186,6 +187,15 @@ func (m *mockStoreForTraversal) Read(name string) (Skill, error) {
 	return Skill{}, fmt.Errorf("skill %q not found", name)
 }
 
+func (m *mockStoreForTraversal) ReadMetadata(name string) (Skill, error) {
+	if name == m.skill.Name {
+		s := m.skill
+		s.Body = ""
+		return s, nil
+	}
+	return Skill{}, fmt.Errorf("skill %q not found", name)
+}
+
 func (m *mockStoreForTraversal) Write(skill Skill) error  { return nil }
 func (m *mockStoreForTraversal) List() ([]Skill, error)   { return nil, nil }
 func (m *mockStoreForTraversal) Delete(name string) error { return nil }
@@ -327,5 +337,78 @@ func TestProvisionFromStore_IsolatedDirs(t *testing.T) {
 			}
 			t.Errorf("skill %q dir has %d entries (expected 1): %v", name, len(entries), names)
 		}
+	}
+}
+
+// --- Phase 4: TestProvisionFromStoreWithLevel_Level1 ---
+
+func TestProvisionFromStoreWithLevel_Level1(t *testing.T) {
+	storeDir := t.TempDir()
+	skillSrc := filepath.Join(storeDir, "stub-skill")
+	os.MkdirAll(filepath.Join(skillSrc, "references"), 0o755)
+
+	skillMD := "---\nname: stub-skill\ndescription: A stub test skill\n---\n# Full Body\n\nThis should NOT appear in Level 1.\n"
+	os.WriteFile(filepath.Join(skillSrc, "SKILL.md"), []byte(skillMD), 0o644)
+	os.WriteFile(filepath.Join(skillSrc, "references", "ref.md"), []byte("# Reference"), 0o644)
+
+	store := NewDirectoryStore(SkillSource{Root: storeDir, Precedence: 0})
+	workspace := t.TempDir()
+
+	infos, err := ProvisionFromStoreWithLevel(store, workspace, []string{"stub-skill"}, Level1Metadata)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(infos) != 1 {
+		t.Fatalf("expected 1 info, got %d", len(infos))
+	}
+	if infos[0].Level != Level1Metadata {
+		t.Errorf("expected Level %d, got %d", Level1Metadata, infos[0].Level)
+	}
+
+	// Verify SKILL.md is a stub (no original body)
+	data, _ := os.ReadFile(filepath.Join(workspace, ".wave", "skills", "stub-skill", "SKILL.md"))
+	content := string(data)
+	if strings.Contains(content, "This should NOT appear") {
+		t.Error("Level 1 stub should not contain original body")
+	}
+	if !strings.Contains(content, "stub-skill") {
+		t.Error("Level 1 stub should contain skill name")
+	}
+	if !strings.Contains(content, "on-demand") {
+		t.Error("Level 1 stub should contain on-demand instruction")
+	}
+
+	// Verify references still copied
+	refPath := filepath.Join(workspace, ".wave", "skills", "stub-skill", "references", "ref.md")
+	if _, err := os.Stat(refPath); err != nil {
+		t.Errorf("reference file not copied: %v", err)
+	}
+}
+
+// --- Phase 4: TestProvisionFromStoreWithLevel_Level2 ---
+
+func TestProvisionFromStoreWithLevel_Level2(t *testing.T) {
+	storeDir := t.TempDir()
+	skillSrc := filepath.Join(storeDir, "full-skill")
+	os.MkdirAll(skillSrc, 0o755)
+
+	bodyContent := "# Full Skill\n\nComplete body content.\n"
+	skillMD := "---\nname: full-skill\ndescription: Full body skill\n---\n" + bodyContent
+	os.WriteFile(filepath.Join(skillSrc, "SKILL.md"), []byte(skillMD), 0o644)
+
+	store := NewDirectoryStore(SkillSource{Root: storeDir, Precedence: 0})
+	workspace := t.TempDir()
+
+	infos, err := ProvisionFromStoreWithLevel(store, workspace, []string{"full-skill"}, Level2Instructions)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if infos[0].Level != Level2Instructions {
+		t.Errorf("expected Level %d, got %d", Level2Instructions, infos[0].Level)
+	}
+
+	data, _ := os.ReadFile(filepath.Join(workspace, ".wave", "skills", "full-skill", "SKILL.md"))
+	if string(data) != bodyContent {
+		t.Errorf("Level 2 content mismatch: got %q, want %q", string(data), bodyContent)
 	}
 }

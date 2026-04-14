@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -164,5 +165,58 @@ func TestSkillLifecycle_MultiSource(t *testing.T) {
 	}
 	if !nameSet["skill-two"] {
 		t.Error("skill-two not found in list")
+	}
+}
+
+// T019: TestSkillLifecycle_Level1Provisioning — Phase 4: progressive skill disclosure
+// End-to-end test: install a skill via FileAdapter, provision at Level 1,
+// verify the stub does not contain the original body but references are copied.
+func TestSkillLifecycle_Level1Provisioning(t *testing.T) {
+	srcDir := t.TempDir()
+	skillDir := filepath.Join(srcDir, "level1-skill")
+	os.MkdirAll(filepath.Join(skillDir, "references"), 0o755)
+
+	bodyContent := "# Level1 Skill\n\nFull body that should be omitted.\n"
+	skillMD := "---\nname: level1-skill\ndescription: Level 1 lifecycle test\n---\n" + bodyContent
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skillMD), 0o644)
+	os.WriteFile(filepath.Join(skillDir, "references", "guide.md"), []byte("# Guide"), 0o644)
+
+	storeDir := t.TempDir()
+	store := NewDirectoryStore(SkillSource{Root: storeDir, Precedence: 1})
+
+	adapter := NewFileAdapter(srcDir)
+	_, err := adapter.Install(context.TODO(), skillDir, store)
+	if err != nil {
+		t.Fatalf("Install error: %v", err)
+	}
+
+	// FileAdapter.Install only writes SKILL.md; copy resources into the store manually
+	// to simulate a full install that includes reference files.
+	storeSkillRefs := filepath.Join(storeDir, "level1-skill", "references")
+	if err := os.MkdirAll(storeSkillRefs, 0o755); err != nil {
+		t.Fatalf("failed to create references in store: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(storeSkillRefs, "guide.md"), []byte("# Guide"), 0o644); err != nil {
+		t.Fatalf("failed to write reference into store: %v", err)
+	}
+
+	workspace := t.TempDir()
+	infos, err := ProvisionFromStoreWithLevel(store, workspace, []string{"level1-skill"}, Level1Metadata)
+	if err != nil {
+		t.Fatalf("ProvisionFromStoreWithLevel error: %v", err)
+	}
+	if len(infos) != 1 || infos[0].Level != Level1Metadata {
+		t.Fatalf("expected 1 info at Level1, got %v", infos)
+	}
+
+	// Stub should not contain original body
+	data, _ := os.ReadFile(filepath.Join(workspace, ".wave", "skills", "level1-skill", "SKILL.md"))
+	if strings.Contains(string(data), "Full body that should be omitted") {
+		t.Error("Level 1 provisioned SKILL.md should not contain original body")
+	}
+
+	// References should still be copied
+	if _, err := os.Stat(filepath.Join(workspace, ".wave", "skills", "level1-skill", "references", "guide.md")); err != nil {
+		t.Errorf("reference not copied: %v", err)
 	}
 }

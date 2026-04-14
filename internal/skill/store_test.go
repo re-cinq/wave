@@ -1245,6 +1245,59 @@ func TestDirectoryStoreDeleteFromMultiSource(t *testing.T) {
 	}
 }
 
+// --- TestDirectoryStoreReadMetadata — Phase 4: progressive skill disclosure ---
+
+func TestDirectoryStoreReadMetadata(t *testing.T) {
+	t.Run("returns metadata with empty body", func(t *testing.T) {
+		root := t.TempDir()
+		createSkillDir(t, root, "meta-skill", "Metadata test skill")
+		store := NewDirectoryStore(SkillSource{Root: root, Precedence: 1})
+
+		skill, err := store.ReadMetadata("meta-skill")
+		if err != nil {
+			t.Fatalf("ReadMetadata() error = %v", err)
+		}
+		if skill.Name != "meta-skill" {
+			t.Errorf("Name = %q, want %q", skill.Name, "meta-skill")
+		}
+		if skill.Description != "Metadata test skill" {
+			t.Errorf("Description = %q, want %q", skill.Description, "Metadata test skill")
+		}
+		if skill.Body != "" {
+			t.Errorf("Body should be empty for metadata-only, got %q", skill.Body)
+		}
+		if skill.SourcePath == "" {
+			t.Error("SourcePath should be set")
+		}
+	})
+
+	t.Run("discovers resources", func(t *testing.T) {
+		root := t.TempDir()
+		createSkillDir(t, root, "resourced-meta", "Has resources")
+		skillDir := filepath.Join(root, "resourced-meta")
+		os.MkdirAll(filepath.Join(skillDir, "references"), 0755)
+		os.WriteFile(filepath.Join(skillDir, "references", "api.json"), []byte("{}"), 0644)
+
+		store := NewDirectoryStore(SkillSource{Root: root, Precedence: 1})
+		skill, err := store.ReadMetadata("resourced-meta")
+		if err != nil {
+			t.Fatalf("ReadMetadata() error = %v", err)
+		}
+		if len(skill.ResourcePaths) == 0 {
+			t.Error("expected resource paths to be discovered")
+		}
+	})
+
+	t.Run("not found returns error", func(t *testing.T) {
+		root := t.TempDir()
+		store := NewDirectoryStore(SkillSource{Root: root, Precedence: 1})
+		_, err := store.ReadMetadata("nonexistent")
+		if !errors.Is(err, ErrNotFound) {
+			t.Errorf("expected ErrNotFound, got %v", err)
+		}
+	})
+}
+
 // --- T002: TestDirectoryStoreConcurrency — US1-5: concurrent access race-free ---
 
 func TestDirectoryStoreConcurrency(t *testing.T) {

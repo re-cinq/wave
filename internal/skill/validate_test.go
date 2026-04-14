@@ -19,6 +19,15 @@ func (m *mockStore) Read(name string) (Skill, error) {
 	return s, nil
 }
 
+func (m *mockStore) ReadMetadata(name string) (Skill, error) {
+	s, ok := m.skills[name]
+	if !ok {
+		return Skill{}, fmt.Errorf("%w: %s", ErrNotFound, name)
+	}
+	s.Body = ""
+	return s, nil
+}
+
 func (m *mockStore) Write(_ Skill) error    { return nil }
 func (m *mockStore) List() ([]Skill, error) { return nil, nil }
 func (m *mockStore) Delete(_ string) error  { return nil }
