@@ -35,6 +35,7 @@ type StreamEvent struct {
 type SkillRef struct {
 	Name        string
 	Description string
+	SourcePath  string // absolute path to skill source directory; used by claude adapter to provision .claude/skills/
 }
 
 type AdapterRunConfig struct {

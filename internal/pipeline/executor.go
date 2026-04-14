@@ -195,10 +195,13 @@ func WithStepFilter(f *StepFilter) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.stepFilter = f }
 }
 
-// withSkillStore sets the skill store for DirectoryStore-based skill provisioning.
-func withSkillStore(s skill.Store) ExecutorOption {
+// WithSkillStore sets the skill store for DirectoryStore-based skill provisioning.
+func WithSkillStore(s skill.Store) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.skillStore = s }
 }
+
+// withSkillStore is an internal alias kept for child executor propagation.
+func withSkillStore(s skill.Store) ExecutorOption { return WithSkillStore(s) }
 
 // withHookRunner sets the lifecycle hook runner for pipeline events.
 func withHookRunner(r hooks.HookRunner) ExecutorOption {
@@ -2021,14 +2024,15 @@ func (e *DefaultPipelineExecutor) checkOntologyStaleness() string {
 		return "ontology may be stale (post-merge changes detected) — run 'wave analyze' to refresh"
 	}
 
-	// Compare wave.yaml mtime against latest commit time
+	// Compare wave.yaml mtime against last commit that touched ontology-relevant files.
+	// Using ANY commit causes false positives when unrelated files are committed.
 	manifestStat, err := os.Stat("wave.yaml")
 	if err != nil {
 		return ""
 	}
 
-	out, err := exec.Command("git", "log", "-1", "--format=%cI").Output()
-	if err != nil {
+	out, err := exec.Command("git", "log", "-1", "--format=%cI", "--", "wave.yaml", "internal/defaults/pipelines/", "internal/defaults/personas/").Output()
+	if err != nil || len(strings.TrimSpace(string(out))) == 0 {
 		return ""
 	}
 	lastCommit, err := time.Parse(time.RFC3339, strings.TrimSpace(string(out)))
@@ -2369,14 +2373,11 @@ func (e *DefaultPipelineExecutor) applyContractOnFailure(
 	result *adapter.AdapterResult,
 	workspacePath string,
 ) (reworkTriggered bool, err error) {
-	// Determine on_failure policy (contract-level takes precedence, then legacy must_pass)
+	// Determine on_failure policy (contract-level takes precedence, then legacy must_pass).
+	// Default is fail — a contract that doesn't specify on_failure should not silently pass.
 	onFailure := c.OnFailure
 	if onFailure == "" {
-		if c.MustPass {
-			onFailure = OnFailureFail
-		} else {
-			onFailure = OnFailureContinue // soft failure = continue
-		}
+		onFailure = OnFailureFail
 	}
 
 	switch onFailure {
@@ -3215,7 +3216,10 @@ func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, exec
 		}
 	}
 
-	// Provision DirectoryStore skills (name-only references not in requires.skills)
+	// Resolve DirectoryStore skills (name-only references not in requires.skills).
+	// Read metadata from the store but do NOT write files here — each adapter's
+	// prepareWorkspace handles file provisioning to the correct location
+	// (e.g. .claude/skills/ for claude, text injection for others).
 	var resolvedSkillRefs []adapter.SkillRef
 	if e.skillStore != nil && len(resolvedSkills) > 0 {
 		requiresSkills := make(map[string]bool)
@@ -3224,23 +3228,23 @@ func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, exec
 				requiresSkills[name] = true
 			}
 		}
-		var storeSkills []string
 		for _, name := range resolvedSkills {
-			if !requiresSkills[name] {
-				storeSkills = append(storeSkills, name)
+			if requiresSkills[name] {
+				continue
 			}
-		}
-		if len(storeSkills) > 0 {
-			infos, err := skill.ProvisionFromStore(e.skillStore, res.workspacePath, storeSkills)
-			if err != nil {
-				return adapter.AdapterRunConfig{}, fmt.Errorf("skill provisioning failed: %w", err)
+			s, readErr := e.skillStore.Read(name)
+			if readErr != nil {
+				if errors.Is(readErr, skill.ErrNotFound) {
+					// skill not found in store, skip silently
+					continue
+				}
+				return adapter.AdapterRunConfig{}, fmt.Errorf("skill %q: %w", name, readErr)
 			}
-			for _, info := range infos {
-				resolvedSkillRefs = append(resolvedSkillRefs, adapter.SkillRef{
-					Name:        info.Name,
-					Description: info.Description,
-				})
-			}
+			resolvedSkillRefs = append(resolvedSkillRefs, adapter.SkillRef{
+				Name:        s.Name,
+				Description: s.Description,
+				SourcePath:  s.SourcePath,
+			})
 		}
 	}
 

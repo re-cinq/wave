@@ -15,6 +15,7 @@ import (
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/tui"
 	"github.com/recinq/wave/internal/workspace"
+	"github.com/recinq/wave/internal/skill"
 	"github.com/spf13/cobra"
 )
 
@@ -319,6 +320,10 @@ func runComposePlan(_ tui.Sequence, plan pipeline.ExecutionPlan, input string, m
 	if wsManager != nil {
 		baseOpts = append(baseOpts, pipeline.WithWorkspaceManager(wsManager))
 	}
+	baseOpts = append(baseOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
+		skill.SkillSource{Root: "skills", Precedence: 2},
+		skill.SkillSource{Root: ".wave/skills", Precedence: 1},
+	)))
 
 	newExecutor := func(opts ...pipeline.ExecutorOption) *pipeline.DefaultPipelineExecutor {
 		return pipeline.NewDefaultPipelineExecutor(runner, opts...)
@@ -440,6 +445,10 @@ func runCompose(seq tui.Sequence, input string, manifestPath string, mock bool, 
 	if wsManager != nil {
 		baseOpts = append(baseOpts, pipeline.WithWorkspaceManager(wsManager))
 	}
+	baseOpts = append(baseOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
+		skill.SkillSource{Root: "skills", Precedence: 2},
+		skill.SkillSource{Root: ".wave/skills", Precedence: 1},
+	)))
 
 	// Factory function creates a fresh executor per pipeline
 	newExecutor := func(opts ...pipeline.ExecutorOption) *pipeline.DefaultPipelineExecutor {

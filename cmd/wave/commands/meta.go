@@ -12,6 +12,7 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/workspace"
+	"github.com/recinq/wave/internal/skill"
 	"gopkg.in/yaml.v3"
 	"github.com/spf13/cobra"
 )
@@ -117,6 +118,10 @@ func runMeta(input string, opts MetaOptions) error {
 	if opts.Model != "" {
 		execOpts = append(execOpts, pipeline.WithModelOverride(opts.Model))
 	}
+	execOpts = append(execOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
+		skill.SkillSource{Root: "skills", Precedence: 2},
+		skill.SkillSource{Root: ".wave/skills", Precedence: 1},
+	)))
 	childExecutor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 
 	// Create meta-pipeline executor

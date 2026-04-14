@@ -12,6 +12,7 @@ import (
 	"github.com/recinq/wave/internal/classify"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/workspace"
 	"github.com/spf13/cobra"
 )
@@ -205,6 +206,10 @@ func runDo(input string, opts DoOptions) error {
 	if useClassification {
 		execOpts = append(execOpts, pipeline.WithTaskComplexity(string(profile.Complexity)))
 	}
+	execOpts = append(execOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
+		skill.SkillSource{Root: "skills", Precedence: 2},
+		skill.SkillSource{Root: ".wave/skills", Precedence: 1},
+	)))
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 
