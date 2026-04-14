@@ -309,6 +309,23 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		return fmt.Errorf("failed to write agent .md: %w", err)
 	}
 
+	// Provision .claude/skills/ — always clear first, then populate only declared skills.
+	// For worktree workspaces this removes all skills inherited from the git checkout,
+	// guaranteeing zero-skill pipelines get no context pollution and skill pipelines
+	// get exactly the skills they declared.
+	skillsDir := filepath.Join(settingsDir, "skills")
+	if err := os.RemoveAll(skillsDir); err != nil {
+		return fmt.Errorf("failed to clear .claude/skills: %w", err)
+	}
+	for _, ref := range cfg.ResolvedSkills {
+		if ref.SourcePath == "" {
+			continue
+		}
+		if err := copySkillDir(ref.SourcePath, filepath.Join(skillsDir, ref.Name)); err != nil {
+			return fmt.Errorf("skill %q: failed to provision to .claude/skills: %w", ref.Name, err)
+		}
+	}
+
 	// Copy skill command files into workspace .claude/commands/
 	if cfg.SkillCommandsDir != "" {
 		if err := a.copySkillCommands(settingsDir, cfg.SkillCommandsDir); err != nil {
@@ -317,6 +334,32 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 	}
 
 	return nil
+}
+
+// copySkillDir copies a skill source directory into the destination path,
+// preserving all subdirectories (references/, scripts/, assets/).
+func copySkillDir(src, dst string) error {
+	return filepath.WalkDir(src, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dst, rel)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(target, data, 0o644)
+	})
 }
 
 // copySkillCommands copies skill command files from the source directory

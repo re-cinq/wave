@@ -195,10 +195,13 @@ func WithStepFilter(f *StepFilter) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.stepFilter = f }
 }
 
-// withSkillStore sets the skill store for DirectoryStore-based skill provisioning.
-func withSkillStore(s skill.Store) ExecutorOption {
+// WithSkillStore sets the skill store for DirectoryStore-based skill provisioning.
+func WithSkillStore(s skill.Store) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.skillStore = s }
 }
+
+// withSkillStore is an internal alias kept for child executor propagation.
+func withSkillStore(s skill.Store) ExecutorOption { return WithSkillStore(s) }
 
 // withHookRunner sets the lifecycle hook runner for pipeline events.
 func withHookRunner(r hooks.HookRunner) ExecutorOption {
@@ -3239,6 +3242,7 @@ func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, exec
 				resolvedSkillRefs = append(resolvedSkillRefs, adapter.SkillRef{
 					Name:        info.Name,
 					Description: info.Description,
+					SourcePath:  info.SourcePath,
 				})
 			}
 		}

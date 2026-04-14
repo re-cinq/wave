@@ -25,6 +25,7 @@ import (
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/suggest"
 	"github.com/recinq/wave/internal/tui"
 	"github.com/recinq/wave/internal/workspace"
@@ -471,6 +472,15 @@ func runRun(opts RunOptions, debug bool) error {
 		registry.RegisterOverride("codex", runner)
 	}
 	execOpts = append(execOpts, pipeline.WithRegistry(registry))
+
+	// Wire skill store so declared skills are provisioned into adapter workspaces.
+	// Pipeline skills are resolved from skills/ (project) and .wave/skills/ (installed),
+	// with project skills taking precedence.
+	skillStore := skill.NewDirectoryStore(
+		skill.SkillSource{Root: "skills", Precedence: 2},
+		skill.SkillSource{Root: ".wave/skills", Precedence: 1},
+	)
+	execOpts = append(execOpts, pipeline.WithSkillStore(skillStore))
 	if opts.Adapter != "" {
 		execOpts = append(execOpts, pipeline.WithAdapterOverride(opts.Adapter))
 	}
