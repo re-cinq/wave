@@ -16,6 +16,50 @@ The text the user typed after `/speckit.specify` in the triggering message **is*
 
 Given that feature description, do this:
 
+
+## Issue / PR Resolution
+
+**Before doing anything else**, check whether `$ARGUMENTS` is a forge issue or PR URL:
+
+```
+https://<host>/<owner>/<repo>/issues/<N>       (GitHub, Gitea)
+https://<host>/<owner>/<repo>/-/issues/<N>     (GitLab)
+https://<host>/<owner>/<repo>/pull/<N>         (GitHub PR)
+https://<host>/<owner>/<repo>/pulls/<N>        (Gitea PR)
+https://<host>/<owner>/<repo>/-/merge_requests/<N> (GitLab MR)
+```
+
+If matched, detect the forge from the host and fetch the full issue/PR **including all comments**:
+
+**For github.com** (`gh`):
+```bash
+gh issue view <N> --repo <owner>/<repo> --json number,title,body,url,state,author,comments
+```
+
+**For gitlab.com or self-hosted GitLab** (`glab`):
+```bash
+glab issue view <N> --repo <owner>/<repo>
+glab issue note list <N> --repo <owner>/<repo>
+```
+
+**For Gitea / Forgejo** (`tea`):
+```bash
+tea issues view <N> --repo <owner>/<repo>
+tea issues comments <N> --repo <owner>/<repo>
+```
+
+Then scan the body and all comments for referenced issues/PRs:
+- Inline: `#123`, `owner/repo#123`
+- Full URLs matching the same host
+- Closing keywords: `closes #N`, `fixes #N`, `resolves #N`
+
+Fetch each unique referenced issue/PR (1 level deep, max 5) with the same tool.
+
+Treat the **combined content** — issue body + all comments + all referenced issue bodies — as
+the feature description for all subsequent steps.
+
+If the input is **not** a forge URL, proceed with the raw input text as the feature description.
+
 1. **Generate a concise short name** (2-4 words) for the branch:
    - Analyze the feature description and extract the most meaningful keywords
    - Create a 2-4 word short name that captures the essence of the feature

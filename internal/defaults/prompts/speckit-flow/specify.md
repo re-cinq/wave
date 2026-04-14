@@ -10,6 +10,52 @@ from the main working tree and will not affect it.
 
 Use `create-new-feature.sh` to create the feature branch from this clean starting point.
 
+## Issue / PR Resolution
+
+**Before doing anything else**, check whether the input is a forge issue or PR URL:
+
+```
+https://<host>/<owner>/<repo>/issues/<N>       (GitHub, Gitea)
+https://<host>/<owner>/<repo>/-/issues/<N>     (GitLab)
+https://<host>/<owner>/<repo>/pull/<N>         (GitHub PR)
+https://<host>/<owner>/<repo>/pulls/<N>        (Gitea PR)
+https://<host>/<owner>/<repo>/-/merge_requests/<N> (GitLab MR)
+```
+
+If matched, fetch the full issue/PR **including all comments** using `{{ forge.cli_tool }}`
+(current forge: `{{ forge.type }}`):
+
+**For GitHub** (`gh`):
+```bash
+gh issue view <N> --repo <owner>/<repo> --json number,title,body,url,state,author,comments
+# for PRs:
+gh pr view <N> --repo <owner>/<repo> --json number,title,body,url,state,author,comments
+```
+
+**For GitLab** (`glab`):
+```bash
+glab issue view <N> --repo <owner>/<repo>
+glab issue note list <N> --repo <owner>/<repo>
+```
+
+**For Gitea** (`tea`):
+```bash
+tea issues view <N> --repo <owner>/<repo>
+tea issues comments <N> --repo <owner>/<repo>
+```
+
+Then scan the body and all comments for referenced issues/PRs:
+- Inline: `#123`, `owner/repo#123`
+- Full URLs matching the same forge host
+- Closing keywords: `closes #N`, `fixes #N`, `resolves #N`
+
+Fetch each unique referenced issue/PR (1 level deep, max 5) with the same tool.
+
+Treat the **combined content** — issue body + all comments + all referenced issue bodies — as
+the feature description for all subsequent steps.
+
+If the input is **not** a forge URL, proceed with the raw input text as the feature description.
+
 ## Instructions
 
 Follow the `/speckit.specify` workflow to generate a complete feature specification:

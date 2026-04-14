@@ -409,7 +409,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.75rem; }
 
 /* Status Badges */
-.badge { display: inline-block; padding: 0.15em 0.55em; font-size: 0.75rem; font-weight: 600; border-radius: 2em; text-transform: capitalize; line-height: 1.4; }
+.badge { display: inline-block; padding: 0.15em 0.55em; font-size: 0.75rem; font-weight: 600; border-radius: 2em; line-height: 1.4; }
 .status-completed { background: var(--color-completed-bg); color: var(--color-completed); }
 .status-completed-empty { background: var(--color-completed-empty-bg); color: var(--color-completed-empty); }
 .badge.status-running, .status-running { background: var(--color-running-bg); color: var(--color-running) !important; }
@@ -717,14 +717,14 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .step-card {
     background: var(--color-bg); border: 1px solid var(--color-border);
     border-radius: var(--radius-lg); overflow: hidden;
-    border-left: 3px solid transparent;
+    box-shadow: inset 3px 0 0 0 transparent;
 }
-.step-card.status-running { border-left-color: var(--color-running); }
-.step-card.status-completed { border-left-color: var(--color-completed); }
-.step-card.status-completed-empty { border-left-color: var(--color-completed-empty); }
-.step-card.status-failed { border-left-color: var(--color-failed); }
-.step-card.status-pending { border-left-color: var(--color-pending); }
-.step-card.status-cancelled { border-left-color: var(--color-cancelled); }
+.step-card.status-running { box-shadow: inset 3px 0 0 0 var(--color-running); }
+.step-card.status-completed { box-shadow: inset 3px 0 0 0 var(--color-completed); }
+.step-card.status-completed-empty { box-shadow: inset 3px 0 0 0 var(--color-completed-empty); }
+.step-card.status-failed { box-shadow: inset 3px 0 0 0 var(--color-failed); }
+.step-card.status-pending { box-shadow: inset 3px 0 0 0 var(--color-pending); }
+.step-card.status-cancelled { box-shadow: inset 3px 0 0 0 var(--color-cancelled); }
 .step-header {
     display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
     padding: 0.7rem 1rem; background: var(--color-bg-secondary);
@@ -1795,10 +1795,10 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 }
 
 /* Step type visual distinctions */
-.step-card.step-type-gate { border-left-color: #f59e0b !important; }
-.step-card.step-type-command { border-left-color: #6b7280 !important; border-left-style: dashed; }
-.step-card.step-type-conditional { border-left-color: #a78bfa !important; }
-.step-card.step-type-pipeline { border-left-color: #3b82f6 !important; }
+.step-card.step-type-gate { box-shadow: inset 3px 0 0 0 #f59e0b !important; }
+.step-card.step-type-command { box-shadow: inset 3px 0 0 0 #6b7280 !important; }
+.step-card.step-type-conditional { box-shadow: inset 3px 0 0 0 #a78bfa !important; }
+.step-card.step-type-pipeline { box-shadow: inset 3px 0 0 0 #3b82f6 !important; }
 
 /* Step type badges */
 .badge-step-type { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 2em; font-weight: 600; letter-spacing: 0.02em; }
@@ -3191,7 +3191,7 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 .wr-body { padding: 0.4rem 0.6rem; min-width: 0; }
 .wr-row1 { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.1rem; }
 .wr-name { font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.wr-status { font-size: 0.62rem; text-transform: capitalize; }
+.wr-status { font-size: 0.62rem; }
 .wr-input { font-size: 0.8rem; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .wr-right { margin-left: auto; display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
 .wr-row2 { display: flex; gap: 0.5rem; align-items: center; font-size: 0.68rem; color: var(--color-text-muted); }

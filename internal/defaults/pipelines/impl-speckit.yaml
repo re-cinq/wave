@@ -15,6 +15,7 @@ requires:
       check: specify check
       install: uv tool install --force specify-cli --from git+https://github.com/github/spec-kit.git
       init: specify init --here --force --ai generic --ai-commands-dir .wave/commands --no-git
+      optional: true
   tools:
     - git
     - gh
@@ -113,7 +114,7 @@ steps:
     persona: implementer
     thread: speckit
     model: strongest
-    dependencies: [clarify]
+    dependencies: [clarify, specify]
     memory:
       inject_artifacts:
         - step: specify
@@ -144,7 +145,7 @@ steps:
     persona: implementer
     thread: speckit
     model: strongest
-    dependencies: [plan]
+    dependencies: [plan, specify]
     memory:
       inject_artifacts:
         - step: specify
@@ -175,7 +176,7 @@ steps:
     persona: implementer
     thread: speckit
     model: cheapest
-    dependencies: [tasks]
+    dependencies: [tasks, specify]
     memory:
       inject_artifacts:
         - step: specify
@@ -206,7 +207,7 @@ steps:
     persona: implementer
     thread: speckit
     model: cheapest
-    dependencies: [checklist]
+    dependencies: [checklist, specify]
     memory:
       inject_artifacts:
         - step: specify
@@ -236,7 +237,7 @@ steps:
   - id: implement
     persona: craftsman
     model: strongest
-    dependencies: [analyze]
+    dependencies: [analyze, specify]
     max_concurrent_agents: 3
     memory:
       inject_artifacts:
@@ -263,9 +264,10 @@ steps:
           criteria_path: .wave/contracts/impl-review-criteria.md
           model: cheapest
           token_budget: 8000
-          timeout: 90s
+          timeout: 5m
           context:
             - source: git_diff
+              diff_base: main
           on_failure: warn
       compaction:
         trigger: "token_limit_80%"
@@ -274,7 +276,7 @@ steps:
   - id: create-pr
     persona: craftsman
     model: cheapest
-    dependencies: [implement]
+    dependencies: [implement, specify]
     memory:
       inject_artifacts:
         - step: specify
