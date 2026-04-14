@@ -19,6 +19,7 @@ import (
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
 
 )
@@ -283,6 +284,11 @@ func (s *Server) launchInProcess(runID, pipelineName, input string, opts RunOpti
 	if opts.Steps != "" || opts.Exclude != "" {
 		execOpts = append(execOpts, pipeline.WithStepFilter(pipeline.ParseStepFilter(opts.Steps, opts.Exclude)))
 	}
+
+	execOpts = append(execOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
+		skill.SkillSource{Root: "skills", Precedence: 2},
+		skill.SkillSource{Root: ".wave/skills", Precedence: 1},
+	)))
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 
