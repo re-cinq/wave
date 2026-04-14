@@ -891,9 +891,9 @@ func TestContractIntegration_SoftFailureContinues(t *testing.T) {
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{
-						Type:       "json_schema",
+						Type:      "json_schema",
 						SchemaPath: schemaPath,
-						MustPass:   false, // Soft failure - should continue
+						OnFailure: OnFailureContinue, // Explicit soft failure
 					},
 				},
 			},

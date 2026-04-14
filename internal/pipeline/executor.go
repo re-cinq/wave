@@ -2373,14 +2373,11 @@ func (e *DefaultPipelineExecutor) applyContractOnFailure(
 	result *adapter.AdapterResult,
 	workspacePath string,
 ) (reworkTriggered bool, err error) {
-	// Determine on_failure policy (contract-level takes precedence, then legacy must_pass)
+	// Determine on_failure policy (contract-level takes precedence, then legacy must_pass).
+	// Default is fail — a contract that doesn't specify on_failure should not silently pass.
 	onFailure := c.OnFailure
 	if onFailure == "" {
-		if c.MustPass {
-			onFailure = OnFailureFail
-		} else {
-			onFailure = OnFailureContinue // soft failure = continue
-		}
+		onFailure = OnFailureFail
 	}
 
 	switch onFailure {
