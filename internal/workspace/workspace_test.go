@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -1009,6 +1010,62 @@ func TestCopyRecursive_SymlinkToDirectory(t *testing.T) {
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
 		t.Error("Expected real directory, got symlink")
+	}
+}
+
+// TestNewWorkspaceManager_GitRootResolution verifies that NewWorkspaceManager
+// resolves a relative baseDir against the git repository root rather than the
+// process CWD. This prevents stray .wave/workspaces/ directories from being
+// created inside source subdirectories when tests are run from a subpackage.
+func TestNewWorkspaceManager_GitRootResolution(t *testing.T) {
+	// Create a temporary directory to act as the git repository root.
+	gitRoot := t.TempDir()
+
+	// Initialise a git repository so that "git rev-parse --show-toplevel"
+	// returns the temp directory.
+	if out, err := exec.Command("git", "init", "-q", gitRoot).CombinedOutput(); err != nil {
+		t.Skipf("git init failed (git unavailable?): %v — %s", err, out)
+	}
+
+	// Create a subdirectory inside the repo to simulate running from a
+	// subpackage (e.g. internal/pipeline/).
+	subDir := filepath.Join(gitRoot, "internal", "pipeline")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatalf("Failed to create subdir: %v", err)
+	}
+
+	// Change CWD to the subdirectory. t.Chdir restores the original CWD at
+	// the end of the test.
+	t.Chdir(subDir)
+
+	// Call NewWorkspaceManager with a relative path — the canonical default.
+	wm, err := NewWorkspaceManager(".wave/workspaces")
+	if err != nil {
+		t.Fatalf("NewWorkspaceManager() error = %v", err)
+	}
+
+	// The internal baseDir must be anchored to the git root, not subDir.
+	mgr := wm.(*workspaceManager)
+	if strings.HasPrefix(mgr.baseDir, subDir) {
+		t.Errorf("baseDir %q is rooted at subDir %q — expected git root %q", mgr.baseDir, subDir, gitRoot)
+	}
+	if !strings.HasPrefix(mgr.baseDir, gitRoot) {
+		t.Errorf("baseDir %q is not rooted at git root %q", mgr.baseDir, gitRoot)
+	}
+}
+
+// TestNewWorkspaceManager_AbsolutePathPassthrough verifies that an absolute
+// baseDir (e.g. t.TempDir()) is left unchanged by NewWorkspaceManager and is
+// NOT re-joined with the git root.
+func TestNewWorkspaceManager_AbsolutePathPassthrough(t *testing.T) {
+	absDir := t.TempDir()
+	wm, err := NewWorkspaceManager(absDir)
+	if err != nil {
+		t.Fatalf("NewWorkspaceManager() error = %v", err)
+	}
+	mgr := wm.(*workspaceManager)
+	if mgr.baseDir != absDir {
+		t.Errorf("absolute baseDir was modified: got %q, want %q", mgr.baseDir, absDir)
 	}
 }
 
