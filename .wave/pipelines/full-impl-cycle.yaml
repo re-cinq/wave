@@ -70,45 +70,38 @@ steps:
 
   # ─── Phase 2: Test Generation ──────────────────────────────────────────
   - id: test-gen
-    adapter: opencode
     pipeline: test-gen
     input: "Generate tests for the changes made by the implementation step"
     dependencies: [impl]
 
   # ─── Phase 3: Five-Dimension Audit (parallel) ─────────────────────────
   - id: audit-security
-    adapter: opencode
     pipeline: audit-security
     input: "Audit security of the implementation for {{ input }}"
     dependencies: [test-gen]
 
   - id: audit-correctness
-    adapter: opencode
     pipeline: audit-correctness
     input: "Audit correctness of the implementation for {{ input }}"
     dependencies: [test-gen]
 
   - id: audit-architecture
-    adapter: opencode
     pipeline: audit-architecture
     input: "Audit architecture of the implementation for {{ input }}"
     dependencies: [test-gen]
 
   - id: audit-tests
-    adapter: opencode
     pipeline: audit-tests
     input: "Audit test quality of the implementation for {{ input }}"
     dependencies: [test-gen]
 
   - id: audit-coverage
-    adapter: opencode
     pipeline: audit-coverage
     input: "Audit requirements coverage of the implementation for {{ input }}"
     dependencies: [test-gen]
 
   # ─── Phase 4: Findings Aggregation ─────────────────────────────────────
   - id: merge-findings
-    adapter: opencode
     persona: navigator
     model: cheapest
     dependencies: [audit-security, audit-correctness, audit-architecture, audit-tests, audit-coverage]
@@ -148,7 +141,6 @@ steps:
 
   # ─── Phase 5: Rework Gate ──────────────────────────────────────────────
   - id: rework-gate
-    adapter: opencode
     persona: navigator
     model: cheapest
     dependencies: [merge-findings]
@@ -182,7 +174,6 @@ steps:
       until: "{{ rework-loop.output.decision == 'pass' }}"
       steps:
         - id: rework
-          adapter: opencode
           persona: craftsman
           model: balanced
           rework_only: true
@@ -237,43 +228,36 @@ steps:
               on_failure: fail
 
         - id: re-test-gen
-          adapter: opencode
           pipeline: test-gen
           input: "Generate additional tests for rework fixes"
           dependencies: [rework]
 
         - id: re-audit-security
-          adapter: opencode
           pipeline: audit-security
           input: "Re-audit security after rework for {{ input }}"
           dependencies: [re-test-gen]
 
         - id: re-audit-correctness
-          adapter: opencode
           pipeline: audit-correctness
           input: "Re-audit correctness after rework for {{ input }}"
           dependencies: [re-test-gen]
 
         - id: re-audit-architecture
-          adapter: opencode
           pipeline: audit-architecture
           input: "Re-audit architecture after rework for {{ input }}"
           dependencies: [re-test-gen]
 
         - id: re-audit-tests
-          adapter: opencode
           pipeline: audit-tests
           input: "Re-audit test quality after rework for {{ input }}"
           dependencies: [re-test-gen]
 
         - id: re-audit-coverage
-          adapter: opencode
           pipeline: audit-coverage
           input: "Re-audit requirements coverage after rework for {{ input }}"
           dependencies: [re-test-gen]
 
         - id: re-aggregate
-          adapter: opencode
           persona: navigator
           model: cheapest
           dependencies: [re-audit-security, re-audit-correctness, re-audit-architecture, re-audit-tests, re-audit-coverage]
@@ -309,7 +293,6 @@ steps:
               on_failure: skip
 
         - id: re-gate
-          adapter: opencode
           persona: navigator
           model: cheapest
           dependencies: [re-aggregate]
@@ -334,14 +317,12 @@ steps:
 
   # ─── Phase 7: PR Creation ──────────────────────────────────────────────
   - id: create-pr
-    adapter: opencode
     pipeline: wave-land
     input: "{{ input }}"
     dependencies: [rework-gate, rework-loop]
 
   # ─── Phase 8: Review + Fix Loop ────────────────────────────────────────
   - id: review
-    adapter: opencode
     pipeline: ops-pr-review-core
     input: "{{ create-pr.output.pr_url }}"
     dependencies: [create-pr]
@@ -353,11 +334,9 @@ steps:
       until: "{{ review-loop.output.verdict == 'APPROVE' }}"
       steps:
         - id: fix
-          adapter: opencode
           pipeline: ops-pr-fix-review
           input: "{{ create-pr.output.pr_url }}"
         - id: re-review
-          adapter: opencode
           pipeline: ops-pr-review-core
           input: "{{ create-pr.output.pr_url }}"
           dependencies: [fix]
