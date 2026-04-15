@@ -98,6 +98,7 @@ func TestCreateStepWorkspace_TemplateResolution(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {
 				// A panic beyond template resolution is expected — no worktree manager
+				t.Logf("expected panic in createStepWorkspace: %v", r)
 			}
 		}()
 		_, err := ex.createStepWorkspace(exec, step)

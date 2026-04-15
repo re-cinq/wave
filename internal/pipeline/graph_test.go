@@ -1195,7 +1195,7 @@ func TestResolveCommandWorkDir_BareWorkspaceFallback(t *testing.T) {
 		if err := os.Chdir(emptyDir); err != nil {
 			t.Fatal(err)
 		}
-		defer os.Chdir(origDir)
+		defer func() { _ = os.Chdir(origDir) }()
 
 		step := &Step{ID: "test-step"}
 		got := resolveCommandWorkDir(wsRoot, step)
