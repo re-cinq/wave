@@ -29,5 +29,6 @@
     "branch_name_suggestion": { "type": "string" },
     "commit_message_suggestion": { "type": "string" },
     "timestamp": { "type": "string", "format": "date-time" }
-  }
+  },
+  "additionalProperties": false
 }

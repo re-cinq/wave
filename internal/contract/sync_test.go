@@ -24,41 +24,41 @@ func projectRoot(t *testing.T) string {
 	return absRoot
 }
 
-func TestSharedSchemaSync(t *testing.T) {
+func TestSchemaSync(t *testing.T) {
 	root := projectRoot(t)
 	waveDir := filepath.Join(root, ".wave", "contracts")
 	defaultsDir := filepath.Join(root, "internal", "defaults", "contracts")
 
-	// Find all shared-*.schema.json files in .wave/contracts/
+	// All *.schema.json files in .wave/contracts/ must exist and match in
+	// internal/defaults/contracts/. .wave/contracts/ is the authoritative source.
 	entries, err := os.ReadDir(waveDir)
 	require.NoError(t, err, "failed to read .wave/contracts/ directory")
 
-	sharedSchemas := []string{}
+	schemas := []string{}
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
-		name := entry.Name()
-		if len(name) > 7 && name[:7] == "shared-" && filepath.Ext(name) == ".json" {
-			sharedSchemas = append(sharedSchemas, name)
+		if filepath.Ext(entry.Name()) == ".json" {
+			schemas = append(schemas, entry.Name())
 		}
 	}
 
-	require.NotEmpty(t, sharedSchemas, "expected at least one shared-*.schema.json in .wave/contracts/")
+	require.NotEmpty(t, schemas, "expected at least one *.schema.json in .wave/contracts/")
 
-	for _, schemaName := range sharedSchemas {
+	for _, schemaName := range schemas {
 		t.Run(schemaName, func(t *testing.T) {
-			wavePath := filepath.Join(waveDir, schemaName)
-			defaultsPath := filepath.Join(defaultsDir, schemaName)
-
-			waveContent, err := os.ReadFile(wavePath)
+			waveContent, err := os.ReadFile(filepath.Join(waveDir, schemaName))
 			require.NoError(t, err, "failed to read .wave/contracts/%s", schemaName)
 
-			defaultsContent, err := os.ReadFile(defaultsPath)
-			require.NoError(t, err, "shared schema %s exists in .wave/contracts/ but not in internal/defaults/contracts/ — run: cp .wave/contracts/%s internal/defaults/contracts/", schemaName, schemaName)
+			defaultsContent, err := os.ReadFile(filepath.Join(defaultsDir, schemaName))
+			require.NoError(t, err,
+				"schema %s exists in .wave/contracts/ but not in internal/defaults/contracts/ — sync with: cp .wave/contracts/%s internal/defaults/contracts/",
+				schemaName, schemaName)
 
 			assert.Equal(t, string(waveContent), string(defaultsContent),
-				"schema %s has diverged between .wave/contracts/ and internal/defaults/contracts/ — .wave/contracts/ is authoritative, sync with: cp .wave/contracts/%s internal/defaults/contracts/", schemaName, schemaName)
+				"schema %s diverged between .wave/contracts/ and internal/defaults/contracts/ — .wave/contracts/ is authoritative, sync with: cp .wave/contracts/%s internal/defaults/contracts/",
+				schemaName, schemaName)
 		})
 	}
 }
