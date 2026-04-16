@@ -126,8 +126,10 @@ func resolveContractDir(dir, workspacePath string) (string, error) {
 		// Walk up from workspacePath to find the real project root.
 		// Workspace dirs often have their own git init (for Claude Code path anchoring),
 		// so git rev-parse may return the workspace dir instead of the actual project root.
-		// Look for project markers (go.mod, package.json, etc.) to find the real root.
-		projectMarkers := []string{"go.mod", "package.json", "Cargo.toml", "pyproject.toml", ".git"}
+		// Use language markers only (go.mod, package.json, etc.) -- NOT .git,
+		// which is unreliable in mount-based workspaces where Wave creates a
+		// git init for Claude Code path anchoring.
+		projectMarkers := []string{"go.mod", "package.json", "Cargo.toml", "pyproject.toml"}
 		candidate := workspacePath
 		for {
 			for _, marker := range projectMarkers {
