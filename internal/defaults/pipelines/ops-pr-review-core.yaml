@@ -158,7 +158,7 @@ steps:
 
   - id: security-review
     persona: reviewer
-    thread: review
+    thread: review-security
     model: strongest
     contexts: [security]
     dependencies: [diff-analysis]
@@ -212,10 +212,9 @@ steps:
         7. **Cryptographic issues**: Deprecated algorithms (MD5, SHA1 for security), weak
            key lengths, hardcoded IVs/salts, missing TLS verification.
 
-        For each finding, produce a structured entry with: severity
-        (CRITICAL/HIGH/MEDIUM/LOW), file path, line number (or line range), a clear
-        description of the vulnerability and its exploitation scenario, and a concrete
-        remediation recommendation. Be specific — "sanitize input" is not sufficient;
+        For each finding, produce a structured entry with: severity, file path,
+        line number (or line range), a clear description of the vulnerability and
+        its exploitation scenario, and a concrete remediation recommendation. Be specific — "sanitize input" is not sufficient;
         "use parameterized queries via sql.DB.Query instead of string concatenation in
         handler.go:45" is.
 
@@ -278,7 +277,7 @@ steps:
 
   - id: quality-review
     persona: reviewer
-    thread: review
+    thread: review-quality
     model: strongest
     contexts: [validation]
     dependencies: [diff-analysis]
@@ -395,7 +394,7 @@ steps:
 
   - id: slop-review
     persona: reviewer
-    thread: review
+    thread: review-slop
     model: strongest
     contexts: [validation]
     dependencies: [diff-analysis]

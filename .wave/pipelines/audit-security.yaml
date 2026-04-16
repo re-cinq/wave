@@ -131,9 +131,9 @@ steps:
         ## Output Format
 
         Write your findings to the output artifact path defined above matching the contract
-        schema. Each finding must include: severity (CRITICAL/HIGH/MEDIUM/LOW), the
-          affected file path and line range, a description of the vulnerability, the
-          OWASP category (if applicable), and a suggested remediation direction.
+        schema. Each finding must include: severity, affected file path and line range,
+          a description of the vulnerability, the OWASP category (if applicable),
+          and a suggested remediation direction.
 
         ## Quality Bar
 

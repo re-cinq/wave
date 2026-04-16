@@ -157,6 +157,128 @@ func TestValidateInputArtifacts_Multiple(t *testing.T) {
 	assert.True(t, results[1].Passed)
 }
 
+func TestValidateInputArtifact_SharedFindingsSchema(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create artifact matching shared-findings schema
+	artifactsDir := filepath.Join(tmpDir, ".wave", "artifacts")
+	require.NoError(t, os.MkdirAll(artifactsDir, 0755))
+
+	validFindings := `{
+		"findings": [
+			{
+				"type": "dead-code",
+				"severity": "high",
+				"file": "internal/foo/bar.go",
+				"description": "Unused function"
+			}
+		],
+		"summary": "Found 1 dead code item",
+		"scan_type": "dead-code",
+		"scanned_at": "2026-01-15T10:30:00Z"
+	}`
+	err := os.WriteFile(filepath.Join(artifactsDir, "findings"), []byte(validFindings), 0644)
+	require.NoError(t, err)
+
+	// Write an inline fixture schema that covers the fields used above (not the real shared-findings schema)
+	schemaDir := filepath.Join(tmpDir, ".wave", "contracts")
+	require.NoError(t, os.MkdirAll(schemaDir, 0755))
+
+	schemaContent := `{
+		"$schema": "http://json-schema.org/draft-07/schema#",
+		"type": "object",
+		"required": ["findings"],
+		"properties": {
+			"findings": {
+				"type": "array",
+				"items": {
+					"type": "object",
+					"required": ["type", "severity"],
+					"properties": {
+						"type": { "type": "string" },
+						"severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+						"file": { "type": "string" },
+						"description": { "type": "string" }
+					}
+				}
+			},
+			"summary": { "type": "string" },
+			"scan_type": { "type": "string" },
+			"scanned_at": { "type": "string", "format": "date-time" }
+		},
+		"additionalProperties": false
+	}`
+	err = os.WriteFile(filepath.Join(schemaDir, "shared-findings.schema.json"), []byte(schemaContent), 0644)
+	require.NoError(t, err)
+
+	// Valid findings should pass
+	err = ValidateInputArtifact("findings", ".wave/contracts/shared-findings.schema.json", tmpDir)
+	assert.NoError(t, err)
+
+	// Invalid severity should fail
+	invalidFindings := `{
+		"findings": [
+			{
+				"type": "dead-code",
+				"severity": "CRITICAL",
+				"file": "internal/foo/bar.go"
+			}
+		]
+	}`
+	err = os.WriteFile(filepath.Join(artifactsDir, "findings"), []byte(invalidFindings), 0644)
+	require.NoError(t, err)
+
+	err = ValidateInputArtifact("findings", ".wave/contracts/shared-findings.schema.json", tmpDir)
+	assert.Error(t, err, "uppercase severity should fail validation against canonical enum")
+}
+
+func TestValidateInputArtifact_SharedReviewVerdictSchema(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	artifactsDir := filepath.Join(tmpDir, ".wave", "artifacts")
+	require.NoError(t, os.MkdirAll(artifactsDir, 0755))
+
+	validVerdict := `{
+		"verdict": "APPROVE",
+		"summary": "Code looks good, all tests pass",
+		"findings": [],
+		"pr_url": "https://github.com/org/repo/pull/42",
+		"reviewed_at": "2026-01-15T10:30:00Z"
+	}`
+	err := os.WriteFile(filepath.Join(artifactsDir, "verdict"), []byte(validVerdict), 0644)
+	require.NoError(t, err)
+
+	schemaDir := filepath.Join(tmpDir, ".wave", "contracts")
+	require.NoError(t, os.MkdirAll(schemaDir, 0755))
+
+	schemaContent := `{
+		"$schema": "http://json-schema.org/draft-07/schema#",
+		"type": "object",
+		"required": ["verdict"],
+		"properties": {
+			"verdict": { "type": "string", "enum": ["APPROVE", "REQUEST_CHANGES", "COMMENT", "REJECT"] },
+			"summary": { "type": "string" },
+			"findings": { "type": "array" },
+			"pr_url": { "type": "string" },
+			"reviewed_at": { "type": "string" }
+		},
+		"additionalProperties": false
+	}`
+	err = os.WriteFile(filepath.Join(schemaDir, "shared-review-verdict.schema.json"), []byte(schemaContent), 0644)
+	require.NoError(t, err)
+
+	err = ValidateInputArtifact("verdict", ".wave/contracts/shared-review-verdict.schema.json", tmpDir)
+	assert.NoError(t, err)
+
+	// Invalid verdict value should fail
+	invalidVerdict := `{"verdict": "LGTM"}`
+	err = os.WriteFile(filepath.Join(artifactsDir, "verdict"), []byte(invalidVerdict), 0644)
+	require.NoError(t, err)
+
+	err = ValidateInputArtifact("verdict", ".wave/contracts/shared-review-verdict.schema.json", tmpDir)
+	assert.Error(t, err, "invalid verdict enum value should fail validation")
+}
+
 func TestValidateInputArtifacts_FailsOnFirstError(t *testing.T) {
 	tmpDir := t.TempDir()
 

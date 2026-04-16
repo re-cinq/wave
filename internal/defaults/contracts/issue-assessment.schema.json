@@ -87,33 +87,5 @@
         }
       }
     }
-  },
-  "if": {
-    "properties": {
-      "assessment": {
-        "properties": {
-          "missing_info": {
-            "type": "array",
-            "minItems": 1
-          }
-        },
-        "required": ["missing_info"]
-      }
-    },
-    "required": ["assessment"]
-  },
-  "then": {
-    "properties": {
-      "assessment": {
-        "properties": {
-          "skip_steps": {
-            "type": "array",
-            "not": {
-              "contains": { "const": "clarify" }
-            }
-          }
-        }
-      }
-    }
   }
 }

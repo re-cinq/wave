@@ -21,14 +21,13 @@
     },
     "findings": {
       "type": "array",
-      "minItems": 1,
       "items": {
         "type": "object",
         "required": ["severity", "summary", "file"],
         "properties": {
           "severity": {
             "type": "string",
-            "enum": ["critical", "major", "minor", "suggestion"]
+            "enum": ["critical", "high", "medium", "low", "info"]
           },
           "summary": {
             "type": "string",
@@ -62,11 +61,17 @@
       "type": "string",
       "description": "Human-readable summary of what will be fixed"
     },
+    "verdict": {
+      "type": "string",
+      "enum": ["approved", "changes_requested"],
+      "description": "Overall review verdict — allows clean reviews with no findings"
+    },
     "critical_count": {
       "type": "integer"
     },
-    "major_count": {
+    "high_count": {
       "type": "integer"
     }
-  }
+  },
+  "additionalProperties": false
 }
