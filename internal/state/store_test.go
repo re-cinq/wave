@@ -984,8 +984,8 @@ func TestCreateRun(t *testing.T) {
 		runID, err := store.CreateRun("debug", "")
 		require.NoError(t, err)
 
-		// Should match pattern: {pipeline}-{YYYYMMDD}-{HHMMSS}-{hex suffix}
-		assert.Regexp(t, `^debug-\d{8}-\d{6}-[a-f0-9]{4}$`, runID)
+		// Should match pattern: {pipeline}-{YYYYMMDD}-{HHMMSS.ffffff}-{hex suffix}
+		assert.Regexp(t, `^debug-\d{8}-\d{6}\.\d{6}-[a-f0-9]{4}$`, runID)
 	})
 }
 

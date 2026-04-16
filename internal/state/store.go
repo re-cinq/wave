@@ -576,7 +576,7 @@ func (s *stateStore) CreateRunWithLimit(pipelineName string, input string, maxCo
 		randBytes = []byte{byte(now.Nanosecond() >> 8), byte(now.Nanosecond())}
 	}
 	suffix := hex.EncodeToString(randBytes)
-	runID := fmt.Sprintf("%s-%s-%s", pipelineName, now.Format("20060102-150405"), suffix)
+	runID := fmt.Sprintf("%s-%s-%s", pipelineName, now.Format("20060102-150405.000000"), suffix)
 
 	if maxConcurrent > 0 {
 		// Atomic check-and-insert within a transaction
