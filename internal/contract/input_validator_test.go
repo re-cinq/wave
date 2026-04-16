@@ -180,7 +180,7 @@ func TestValidateInputArtifact_SharedFindingsSchema(t *testing.T) {
 	err := os.WriteFile(filepath.Join(artifactsDir, "findings"), []byte(validFindings), 0644)
 	require.NoError(t, err)
 
-	// Copy the real shared-findings schema
+	// Write an inline fixture schema that covers the fields used above (not the real shared-findings schema)
 	schemaDir := filepath.Join(tmpDir, ".wave", "contracts")
 	require.NoError(t, os.MkdirAll(schemaDir, 0755))
 

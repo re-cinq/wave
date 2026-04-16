@@ -61,4 +61,23 @@ func TestSchemaSync(t *testing.T) {
 				schemaName, schemaName)
 		})
 	}
+
+	// Reverse check: every schema in internal/defaults/contracts/ must also
+	// exist in .wave/contracts/. Prevents schemas added directly to defaults
+	// without an authoritative copy in .wave/contracts/.
+	defaultsEntries, err := os.ReadDir(defaultsDir)
+	require.NoError(t, err, "failed to read internal/defaults/contracts/ directory")
+
+	for _, entry := range defaultsEntries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		name := entry.Name()
+		t.Run("defaults_has_wave_copy/"+name, func(t *testing.T) {
+			_, err := os.Stat(filepath.Join(waveDir, name))
+			assert.NoError(t, err,
+				"schema %s exists in internal/defaults/contracts/ but not in .wave/contracts/ — add the authoritative copy: cp internal/defaults/contracts/%s .wave/contracts/",
+				name, name)
+		})
+	}
 }

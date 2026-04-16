@@ -53,7 +53,8 @@
             "type": "string"
           },
           "severity": {
-            "type": "string"
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low", "info"]
           },
           "file": {
             "type": "string"
@@ -65,5 +66,6 @@
       },
       "description": "List of findings that caused the gate to fail"
     }
-  }
+  },
+  "additionalProperties": false
 }

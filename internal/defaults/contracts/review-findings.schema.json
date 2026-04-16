@@ -69,7 +69,7 @@
     "critical_count": {
       "type": "integer"
     },
-    "major_count": {
+    "high_count": {
       "type": "integer"
     }
   },

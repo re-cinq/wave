@@ -158,7 +158,7 @@ steps:
 
   - id: security-review
     persona: reviewer
-    thread: review
+    thread: review-security
     model: strongest
     contexts: [security]
     dependencies: [diff-analysis]
@@ -277,7 +277,7 @@ steps:
 
   - id: quality-review
     persona: reviewer
-    thread: review
+    thread: review-quality
     model: strongest
     contexts: [validation]
     dependencies: [diff-analysis]
@@ -394,7 +394,7 @@ steps:
 
   - id: slop-review
     persona: reviewer
-    thread: review
+    thread: review-slop
     model: strongest
     contexts: [validation]
     dependencies: [diff-analysis]
