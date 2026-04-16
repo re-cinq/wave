@@ -21,10 +21,10 @@ type InputValidationResult struct {
 
 // InputArtifactConfig holds configuration for validating an input artifact.
 type InputArtifactConfig struct {
-	Name       string // The artifact name (as mounted)
-	SchemaPath string // Path to JSON schema file for validation
-	Type       string // Expected artifact type
-	Path       string // Path to the artifact file
+	Name          string // The artifact name (as mounted)
+	SchemaContent string // Pre-loaded JSON schema content (empty = skip validation)
+	Type          string // Expected artifact type
+	Path          string // Path to the artifact file
 }
 
 // ValidateInputArtifacts validates all input artifacts against their schemas.
@@ -55,8 +55,8 @@ func validateSingleInputArtifact(cfg InputArtifactConfig, workspacePath string) 
 		SchemaValid: true,
 	}
 
-	// If no schema path is specified, skip validation
-	if cfg.SchemaPath == "" {
+	// If no schema content is specified, skip validation
+	if cfg.SchemaContent == "" {
 		return result
 	}
 
@@ -74,39 +74,27 @@ func validateSingleInputArtifact(cfg InputArtifactConfig, workspacePath string) 
 		return result
 	}
 
-	// Read schema
-	schemaPath := cfg.SchemaPath
-	if !filepath.IsAbs(schemaPath) {
-		schemaPath = filepath.Join(workspacePath, schemaPath)
-	}
-
-	schemaData, err := os.ReadFile(schemaPath)
-	if err != nil {
-		result.Passed = false
-		result.Error = fmt.Errorf("failed to read schema file '%s' for artifact '%s': %w", cfg.SchemaPath, cfg.Name, err)
-		return result
-	}
-
 	// Parse schema
 	var schemaDoc interface{}
-	if err := json.Unmarshal(schemaData, &schemaDoc); err != nil {
+	if err := json.Unmarshal([]byte(cfg.SchemaContent), &schemaDoc); err != nil {
 		result.Passed = false
-		result.Error = fmt.Errorf("failed to parse schema file '%s': %w", cfg.SchemaPath, err)
+		result.Error = fmt.Errorf("failed to parse schema content: %w", err)
 		return result
 	}
 
 	// Compile schema
 	compiler := jsonschema.NewCompiler()
-	if err := compiler.AddResource(cfg.SchemaPath, schemaDoc); err != nil {
+	schemaURI := "input-schema://" + cfg.Name
+	if err := compiler.AddResource(schemaURI, schemaDoc); err != nil {
 		result.Passed = false
-		result.Error = fmt.Errorf("failed to add schema resource '%s': %w", cfg.SchemaPath, err)
+		result.Error = fmt.Errorf("failed to compile schema for artifact '%s': %w", cfg.Name, err)
 		return result
 	}
 
-	schema, err := compiler.Compile(cfg.SchemaPath)
+	schema, err := compiler.Compile(schemaURI)
 	if err != nil {
 		result.Passed = false
-		result.Error = fmt.Errorf("failed to compile schema '%s': %w", cfg.SchemaPath, err)
+		result.Error = fmt.Errorf("failed to compile schema for artifact '%s': %w", cfg.Name, err)
 		return result
 	}
 
@@ -140,15 +128,17 @@ func validateSingleInputArtifact(cfg InputArtifactConfig, workspacePath string) 
 	return result
 }
 
-// ValidateInputArtifact validates a single input artifact against its schema.
-// This is a convenience function for validating one artifact at a time.
-func ValidateInputArtifact(name string, schemaPath string, workspacePath string) error {
+// ValidateInputArtifactContent validates a single input artifact against
+// pre-loaded schema content. The caller is responsible for loading the schema
+// (with path traversal protection and sanitization) before calling this.
+func ValidateInputArtifactContent(name string, schemaContent string, artifactPath string) error {
 	cfg := InputArtifactConfig{
-		Name:       name,
-		SchemaPath: schemaPath,
+		Name:          name,
+		SchemaContent: schemaContent,
+		Path:          artifactPath,
 	}
 
-	result := validateSingleInputArtifact(cfg, workspacePath)
+	result := validateSingleInputArtifact(cfg, filepath.Dir(artifactPath))
 	if !result.Passed {
 		return result.Error
 	}

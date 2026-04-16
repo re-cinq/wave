@@ -4198,7 +4198,11 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 
 			// Schema validation for input artifacts (if schema_path is specified)
 			if ref.SchemaPath != "" {
-				if err := contract.ValidateInputArtifact(artName, ref.SchemaPath, workspacePath); err != nil {
+				schemaContent := e.loadSchemaContent(ref.SchemaPath)
+				if schemaContent == "" {
+					return fmt.Errorf("input artifact '%s': failed to load schema %s", artName, ref.SchemaPath)
+				}
+				if err := contract.ValidateInputArtifactContent(artName, schemaContent, destPath); err != nil {
 					return fmt.Errorf("input artifact '%s' schema validation failed: %w", artName, err)
 				}
 				e.emit(event.Event{
@@ -4301,7 +4305,11 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 
 		// Schema validation for input artifacts (if schema_path is specified)
 		if ref.SchemaPath != "" {
-			if err := contract.ValidateInputArtifact(artName, ref.SchemaPath, workspacePath); err != nil {
+			schemaContent := e.loadSchemaContent(ref.SchemaPath)
+			if schemaContent == "" {
+				return fmt.Errorf("input artifact '%s': failed to load schema %s", artName, ref.SchemaPath)
+			}
+			if err := contract.ValidateInputArtifactContent(artName, schemaContent, destPath); err != nil {
 				return fmt.Errorf("input artifact '%s' schema validation failed: %w", artName, err)
 			}
 			e.emit(event.Event{
@@ -4792,36 +4800,46 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 // loadSecureSchemaContent loads schema content with security validation
 // (path traversal prevention, content sanitization). Returns empty string
 // if the schema is unavailable, invalid, or fails security checks.
-func (e *DefaultPipelineExecutor) loadSecureSchemaContent(step *Step) string {
-	if step.Handover.Contract.SchemaPath != "" {
-		// Validate path for traversal attacks
-		if e.pathValidator != nil {
-			validationResult, pathErr := e.pathValidator.ValidatePath(step.Handover.Contract.SchemaPath)
-			if pathErr != nil {
-				e.securityLogger.LogViolation(
-					string(security.ViolationPathTraversal),
-					string(security.SourceSchemaPath),
-					fmt.Sprintf("Schema path validation failed for step %s", step.ID),
-					security.SeverityCritical,
-					true,
-				)
-				return ""
-			}
-			if !validationResult.IsValid {
-				return ""
-			}
-			data, readErr := os.ReadFile(validationResult.ValidatedPath)
-			if readErr != nil {
-				return ""
-			}
-			return e.sanitizeSchemaContent(step, string(data))
-		}
-		// No path validator (e.g. in tests) — read directly
-		data, err := os.ReadFile(step.Handover.Contract.SchemaPath)
-		if err != nil {
+// loadSchemaContent securely loads schema content from a path, applying
+// path traversal validation and content sanitization. This is the single
+// point for all schema loading — both output contracts and input artifact
+// validation should use this instead of raw os.ReadFile.
+func (e *DefaultPipelineExecutor) loadSchemaContent(schemaPath string) string {
+	if schemaPath == "" {
+		return ""
+	}
+	if e.pathValidator != nil {
+		validationResult, pathErr := e.pathValidator.ValidatePath(schemaPath)
+		if pathErr != nil {
+			e.securityLogger.LogViolation(
+				string(security.ViolationPathTraversal),
+				string(security.SourceSchemaPath),
+				fmt.Sprintf("Schema path validation failed: %s", schemaPath),
+				security.SeverityCritical,
+				true,
+			)
 			return ""
 		}
-		return string(data)
+		if !validationResult.IsValid {
+			return ""
+		}
+		data, readErr := os.ReadFile(validationResult.ValidatedPath)
+		if readErr != nil {
+			return ""
+		}
+		return e.sanitizeSchemaContent(nil, string(data))
+	}
+	// No path validator (e.g. in tests) — read directly
+	data, err := os.ReadFile(schemaPath)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func (e *DefaultPipelineExecutor) loadSecureSchemaContent(step *Step) string {
+	if step.Handover.Contract.SchemaPath != "" {
+		return e.loadSchemaContent(step.Handover.Contract.SchemaPath)
 	}
 
 	if step.Handover.Contract.Schema != "" {
@@ -4839,20 +4857,28 @@ func (e *DefaultPipelineExecutor) sanitizeSchemaContent(step *Step, content stri
 	}
 	sanitized, sanitizationActions, err := e.inputSanitizer.SanitizeSchemaContent(content)
 	if err != nil {
+		stepLabel := "unknown"
+		if step != nil {
+			stepLabel = step.ID
+		}
 		e.securityLogger.LogViolation(
 			string(security.ViolationInputValidation),
 			string(security.SourceSchemaPath),
-			fmt.Sprintf("Schema content sanitization failed for step %s", step.ID),
+			fmt.Sprintf("Schema content sanitization failed for step %s", stepLabel),
 			security.SeverityHigh,
 			true,
 		)
 		return ""
 	}
 	if len(sanitizationActions) > 0 {
+		stepLabel := "unknown"
+		if step != nil {
+			stepLabel = step.ID
+		}
 		e.securityLogger.LogViolation(
 			string(security.ViolationPromptInjection),
 			string(security.SourceSchemaPath),
-			fmt.Sprintf("Schema content sanitized for step %s: %v", step.ID, sanitizationActions),
+			fmt.Sprintf("Schema content sanitized for step %s: %v", stepLabel, sanitizationActions),
 			security.SeverityMedium,
 			false,
 		)
