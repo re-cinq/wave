@@ -2879,7 +2879,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	stepStart := time.Now()
 	e.trace("adapter_start", step.ID, 0, map[string]string{
 		"persona": res.resolvedPersona,
-		"adapter": res.adapterDef.Binary,
+		"adapter": res.resolvedAdapterName,
 		"model":   res.resolvedModel,
 	})
 	result, adapterErr := res.stepRunner.Run(ctx, cfg)
@@ -3062,7 +3062,7 @@ func (e *DefaultPipelineExecutor) resolveStepResources(ctx context.Context, exec
 		CurrentAction:   "Initializing",
 		Model:           resolvedModel,
 		ConfiguredModel: configuredModel,
-		Adapter:         adapterDef.Binary,
+		Adapter:         resolvedAdapterName,
 		Temperature:     persona.Temperature,
 	})
 
@@ -3091,7 +3091,7 @@ func (e *DefaultPipelineExecutor) resolveStepResources(ctx context.Context, exec
 			map[string]interface{}{
 				"model":   resolvedModel,
 				"persona": resolvedPersona,
-				"adapter": adapterDef.Binary,
+				"adapter": resolvedAdapterName,
 			},
 		)
 	}
@@ -3116,7 +3116,7 @@ func (e *DefaultPipelineExecutor) resolveStepResources(ctx context.Context, exec
 			}
 			artifactNames = append(artifactNames, name)
 		}
-		_ = e.logger.LogStepStartWithAdapter(pipelineID, step.ID, resolvedPersona, adapterDef.Binary, resolvedModel, artifactNames)
+		_ = e.logger.LogStepStartWithAdapter(pipelineID, step.ID, resolvedPersona, resolvedAdapterName, resolvedModel, artifactNames)
 	}
 
 	prompt := e.buildStepPrompt(execution, step)
@@ -3259,7 +3259,7 @@ func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, exec
 	ontologySection := e.buildOntologySection(execution, step, pipelineID)
 
 	cfg := adapter.AdapterRunConfig{
-		Adapter:             res.adapterDef.Binary,
+		Adapter:             res.resolvedAdapterName,
 		Persona:             res.resolvedPersona,
 		WorkspacePath:       res.workspacePath,
 		Prompt:              prompt,

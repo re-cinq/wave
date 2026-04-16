@@ -298,7 +298,7 @@ func (e *MetaPipelineExecutor) invokePhilosopherWithSchemas(ctx context.Context,
 	}
 
 	cfg := adapter.AdapterRunConfig{
-		Adapter:       adapterDef.Binary,
+		Adapter:       persona.Adapter,
 		Persona:       philosopherPersona,
 		WorkspacePath: metaWorkspace,
 		Prompt:        prompt,
