@@ -182,6 +182,118 @@ func TestPrepareChatWorkspace_DefaultModel(t *testing.T) {
 	}
 }
 
+func TestPrepareChatWorkspace_EmptyModel_OmittedFromJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	now := time.Now()
+
+	ctx := &ChatContext{
+		Run: &state.RunRecord{
+			RunID:        "empty-model-test",
+			PipelineName: "test",
+			Status:       "completed",
+			StartedAt:    now,
+		},
+		ProjectRoot: tmpDir,
+	}
+
+	// Pass empty model — should be omitted from settings.json via omitempty tag
+	wsPath, err := PrepareChatWorkspace(ctx, ChatWorkspaceOptions{Model: ""})
+	if err != nil {
+		t.Fatalf("PrepareChatWorkspace failed: %v", err)
+	}
+
+	settingsData, err := os.ReadFile(filepath.Join(wsPath, ".claude", "settings.json"))
+	if err != nil {
+		t.Fatalf("failed to read settings.json: %v", err)
+	}
+
+	// Verify the raw JSON does NOT contain a "model" key at all (omitempty)
+	if strings.Contains(string(settingsData), `"model"`) {
+		t.Errorf("settings.json should omit model field when empty, got: %s", string(settingsData))
+	}
+
+	// Also verify it's still valid JSON with permissions
+	var settings map[string]interface{}
+	if err := json.Unmarshal(settingsData, &settings); err != nil {
+		t.Fatalf("settings.json is not valid JSON: %v", err)
+	}
+
+	if _, hasModel := settings["model"]; hasModel {
+		t.Error("parsed settings should not contain model key when empty")
+	}
+
+	// Permissions should still be present
+	if _, hasPerms := settings["permissions"]; !hasPerms {
+		t.Error("settings.json missing permissions")
+	}
+}
+
+func TestPrepareChatWorkspace_ManipulateMode(t *testing.T) {
+	tmpDir := t.TempDir()
+	now := time.Now()
+
+	ctx := &ChatContext{
+		Run: &state.RunRecord{
+			RunID:        "manipulate-test",
+			PipelineName: "test",
+			Status:       "completed",
+			StartedAt:    now,
+		},
+		ProjectRoot: tmpDir,
+	}
+
+	wsPath, err := PrepareChatWorkspace(ctx, ChatWorkspaceOptions{
+		Model: "sonnet",
+		Mode:  ChatModeManipulate,
+	})
+	if err != nil {
+		t.Fatalf("PrepareChatWorkspace failed: %v", err)
+	}
+
+	// Verify CLAUDE.md has write access section
+	claudeMd, err := os.ReadFile(filepath.Join(wsPath, adapter.InstructionFilename("claude")))
+	if err != nil {
+		t.Fatalf("failed to read CLAUDE.md: %v", err)
+	}
+	if !strings.Contains(string(claudeMd), "## Write Access") {
+		t.Error("CLAUDE.md missing Write Access section for manipulate mode")
+	}
+
+	// Verify settings.json has write permissions
+	settingsData, err := os.ReadFile(filepath.Join(wsPath, ".claude", "settings.json"))
+	if err != nil {
+		t.Fatalf("failed to read settings.json: %v", err)
+	}
+
+	var settings map[string]interface{}
+	if err := json.Unmarshal(settingsData, &settings); err != nil {
+		t.Fatalf("settings.json is not valid JSON: %v", err)
+	}
+
+	perms := settings["permissions"].(map[string]interface{})
+	allow := perms["allow"].([]interface{})
+	allowStrs := make([]string, len(allow))
+	for i, a := range allow {
+		allowStrs[i] = a.(string)
+	}
+
+	if !containsStr(allowStrs, "Write") {
+		t.Error("manipulate mode allow list missing Write")
+	}
+	if !containsStr(allowStrs, "Edit") {
+		t.Error("manipulate mode allow list missing Edit")
+	}
+
+	// Verify slash commands were provisioned
+	commandsDir := filepath.Join(wsPath, ".claude", "commands")
+	if _, err := os.Stat(filepath.Join(commandsDir, "wave-status.md")); os.IsNotExist(err) {
+		t.Error("missing wave-status.md slash command")
+	}
+	if _, err := os.Stat(filepath.Join(commandsDir, "wave-diff.md")); os.IsNotExist(err) {
+		t.Error("missing wave-diff.md slash command")
+	}
+}
+
 func TestPrepareChatWorkspace_WithFailures(t *testing.T) {
 	tmpDir := t.TempDir()
 	now := time.Now()

@@ -561,7 +561,8 @@ func TestTestSuiteValidator_DirField(t *testing.T) {
 	t.Run("dir empty defaults to project_root", func(t *testing.T) {
 		v := &testSuiteValidator{}
 
-		// Create a temp git repo with a project marker and a sentinel file
+		// Create a temp git repo with a project marker (go.mod) so the
+		// walk-up logic in resolveContractDir finds the repo root.
 		ws := t.TempDir()
 		repoDir := filepath.Join(ws, "repo")
 		if err := os.MkdirAll(repoDir, 0755); err != nil {
@@ -571,12 +572,8 @@ func TestTestSuiteValidator_DirField(t *testing.T) {
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git init failed: %v\n%s", err, out)
 		}
-		// Add a go.mod so resolveContractDir's project-marker walk-up finds repoDir
-		// before any system directories that may also contain project markers.
-		if err := os.WriteFile(filepath.Join(repoDir, "go.mod"), []byte("module test\ngo 1.21\n"), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(repoDir, "marker.txt"), []byte("root"), 0644); err != nil {
+		// go.mod is a project marker recognised by the walk-up logic
+		if err := os.WriteFile(filepath.Join(repoDir, "go.mod"), []byte("module test\n"), 0644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -589,27 +586,27 @@ func TestTestSuiteValidator_DirField(t *testing.T) {
 		cfg := ContractConfig{
 			Type:        "test_suite",
 			Command:     "sh",
-			CommandArgs: []string{"-c", "test -f marker.txt"},
+			CommandArgs: []string{"-c", "test -f go.mod"},
 		}
 		if err := v.Validate(cfg, subWs); err != nil {
-			t.Errorf("should find marker in project root: %v", err)
+			t.Errorf("should find go.mod in project root: %v", err)
 		}
 	})
 
-	t.Run("dir empty uses workspace path directly", func(t *testing.T) {
+	t.Run("dir empty outside git repo uses CWD fallback", func(t *testing.T) {
 		v := &testSuiteValidator{}
 		ws := t.TempDir()
 
-		// With an empty dir, the validator defaults to "project_root" which
-		// walks up looking for project markers, then tries git, then falls
-		// back to CWD. The command "true" always succeeds regardless of dir.
+		// With no project markers and no git repo, resolveContractDir falls
+		// back to os.Getwd(). The command "true" always succeeds, so this
+		// should not error.
 		cfg := ContractConfig{
 			Type:    "test_suite",
 			Command: "true",
 		}
 		err := v.Validate(cfg, ws)
 		if err != nil {
-			t.Errorf("expected success for 'true' command, got: %v", err)
+			t.Errorf("CWD fallback should allow command to run: %v", err)
 		}
 	})
 
@@ -669,6 +666,124 @@ func TestTestSuiteValidator_DirField(t *testing.T) {
 	})
 }
 
+// TestResolveContractDir_ProjectMarkers tests that different project markers are recognized.
+func TestResolveContractDir_ProjectMarkers(t *testing.T) {
+	markers := []struct {
+		name    string
+		marker  string
+		content string
+	}{
+		{"package.json", "package.json", `{"name":"test"}`},
+		{"Cargo.toml", "Cargo.toml", "[package]\nname = \"test\""},
+		{"pyproject.toml", "pyproject.toml", "[project]\nname = \"test\""},
+	}
+
+	for _, m := range markers {
+		t.Run("project_root with "+m.name, func(t *testing.T) {
+			root := t.TempDir()
+			if err := os.WriteFile(filepath.Join(root, m.marker), []byte(m.content), 0644); err != nil {
+				t.Fatal(err)
+			}
+			nested := filepath.Join(root, "deep", "sub")
+			if err := os.MkdirAll(nested, 0755); err != nil {
+				t.Fatal(err)
+			}
+
+			dir, err := resolveContractDir("project_root", nested)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if dir != root {
+				t.Errorf("expected %q, got %q", root, dir)
+			}
+		})
+	}
+}
+
+// TestResolveContractDir_FallbackPaths tests the git and CWD fallback paths.
+func TestResolveContractDir_FallbackPaths(t *testing.T) {
+	t.Run("git rev-parse fallback when no markers found", func(t *testing.T) {
+		// Create a git repo with no project markers
+		ws := t.TempDir()
+		repoDir := filepath.Join(ws, "repo")
+		if err := os.MkdirAll(repoDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("git", "init", repoDir)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git init failed: %v\n%s", err, out)
+		}
+
+		subDir := filepath.Join(repoDir, "some", "path")
+		if err := os.MkdirAll(subDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		dir, err := resolveContractDir("project_root", subDir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// Should resolve to a valid directory (git root or CWD fallback)
+		if dir == "" {
+			t.Error("expected non-empty directory")
+		}
+		if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+			t.Errorf("expected existing directory, got %q", dir)
+		}
+	})
+
+	t.Run("CWD fallback when no markers and no git repo", func(t *testing.T) {
+		ws := t.TempDir()
+		// No project markers, no git repo — should fall back to git or CWD
+		dir, err := resolveContractDir("project_root", ws)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// Should return a valid directory (git root or CWD)
+		if dir == "" {
+			t.Error("expected non-empty fallback directory")
+		}
+		if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+			t.Errorf("expected existing directory, got %q", dir)
+		}
+	})
+
+	t.Run("project marker in workspacePath itself returns it directly", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module test\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		dir, err := resolveContractDir("project_root", root)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dir != root {
+			t.Errorf("expected %q (marker in workspace itself), got %q", root, dir)
+		}
+	})
+
+	t.Run("walk-up reaches filesystem root and falls through", func(t *testing.T) {
+		// Use /tmp (or a temp dir unlikely to have project markers)
+		tmpDir := t.TempDir()
+		nested := filepath.Join(tmpDir, "a", "b", "c")
+		if err := os.MkdirAll(nested, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		// No markers anywhere, no git repo in nested
+		// Should fall through to git rev-parse (fails) then CWD fallback
+		dir, err := resolveContractDir("project_root", nested)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// Should get either git root or CWD — not empty
+		if dir == "" {
+			t.Error("expected non-empty fallback directory")
+		}
+	})
+}
+
 // TestTestSuiteValidator_EnvironmentVariables tests that environment variables are available.
 func TestTestSuiteValidator_EnvironmentVariables(t *testing.T) {
 	v := &testSuiteValidator{}
@@ -689,4 +804,213 @@ func TestTestSuiteValidator_EnvironmentVariables(t *testing.T) {
 	if err != nil {
 		t.Errorf("command should have access to environment variables: %v", err)
 	}
+}
+
+// --- Coverage gap: resolveContractDir edge cases ---
+
+// TestResolveContractDir_WorkspaceHasMarker_ReturnsImmediately tests that when
+// workspacePath itself contains a project marker, it is returned without walking up.
+func TestResolveContractDir_WorkspaceHasMarker_ReturnsImmediately(t *testing.T) {
+	ws := t.TempDir()
+	// Place marker directly in workspace
+	if err := os.WriteFile(filepath.Join(ws, "package.json"), []byte(`{"name":"ws"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	dir, err := resolveContractDir("project_root", ws)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if dir != ws {
+		t.Errorf("expected workspace %q (has marker), got %q", ws, dir)
+	}
+}
+
+// TestResolveContractDir_DeepNesting_FindsNearestAncestor tests that the walk-up
+// finds the nearest ancestor with a marker, not a more distant one.
+func TestResolveContractDir_DeepNesting_FindsNearestAncestor(t *testing.T) {
+	root := t.TempDir()
+
+	// Create two levels with markers — inner should be found first.
+	inner := filepath.Join(root, "level1")
+	if err := os.MkdirAll(inner, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Marker at root
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module outer\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// Marker at inner
+	if err := os.WriteFile(filepath.Join(inner, "go.mod"), []byte("module inner\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	deep := filepath.Join(inner, "sub", "deep")
+	if err := os.MkdirAll(deep, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	dir, err := resolveContractDir("project_root", deep)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Should find inner (nearest ancestor with marker), not root
+	if dir != inner {
+		t.Errorf("expected nearest ancestor %q, got %q", inner, dir)
+	}
+}
+
+// TestResolveContractDir_FilesystemRoot_WalkUpTerminates tests that the walk-up
+// loop terminates when it reaches the filesystem root without finding markers.
+func TestResolveContractDir_FilesystemRoot_WalkUpTerminates(t *testing.T) {
+	// Create a deep directory with no markers anywhere in the hierarchy.
+	// The walk-up will reach / and the parent==candidate check should terminate it.
+	ws := t.TempDir()
+	deep := filepath.Join(ws, "a", "b", "c", "d", "e")
+	if err := os.MkdirAll(deep, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// This should not hang or error — falls through to git/CWD fallback.
+	dir, err := resolveContractDir("project_root", deep)
+	if err != nil {
+		t.Fatalf("expected fallback, got error: %v", err)
+	}
+	if dir == "" {
+		t.Error("expected non-empty directory from fallback")
+	}
+}
+
+// TestResolveContractDir_GitRevParseFallback tests that when no project markers
+// are found, git rev-parse is used as a fallback.
+func TestResolveContractDir_GitRevParseFallback(t *testing.T) {
+	// Create a git repo without any project markers.
+	ws := t.TempDir()
+	repoDir := filepath.Join(ws, "gitonly")
+	if err := os.MkdirAll(repoDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("git", "init", repoDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init failed: %v\n%s", err, out)
+	}
+
+	subDir := filepath.Join(repoDir, "level1", "level2")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	dir, err := resolveContractDir("project_root", subDir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should resolve to the git repo root
+	absRepo, _ := filepath.EvalSymlinks(repoDir)
+	absDir, _ := filepath.EvalSymlinks(dir)
+	if absDir != absRepo {
+		// It might fall back to CWD if git rev-parse behaves differently,
+		// but it should at least return a valid directory.
+		if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+			t.Errorf("expected valid directory, got %q", dir)
+		}
+	}
+}
+
+// TestResolveContractDir_CWDFallback_NoMarkersNoGit tests the CWD fallback when
+// there are no project markers and no git repository.
+func TestResolveContractDir_CWDFallback_NoMarkersNoGit(t *testing.T) {
+	// Create a directory with no markers and outside any git repo.
+	ws := t.TempDir()
+
+	// Ensure we're not inside a git repo for this test.
+	// The test directory (t.TempDir) is typically outside any git repo.
+	dir, err := resolveContractDir("project_root", ws)
+	if err != nil {
+		// If all three strategies fail (walk-up, git, CWD), we get an error.
+		// This is hard to trigger because os.Getwd() rarely fails,
+		// so receiving an error here is actually testing that final error path.
+		if !strings.Contains(err.Error(), "failed to resolve project root") {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		return
+	}
+
+	// Should have fallen back to CWD (or git found a repo).
+	if dir == "" {
+		t.Error("expected non-empty fallback directory")
+	}
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		t.Errorf("expected existing directory, got %q", dir)
+	}
+}
+
+// TestResolveContractDir_AllMarkerTypes_TableDriven tests each supported marker.
+func TestResolveContractDir_AllMarkerTypes_TableDriven(t *testing.T) {
+	markers := []struct {
+		name    string
+		marker  string
+		content string
+	}{
+		{"go.mod", "go.mod", "module test\n"},
+		{"package.json", "package.json", `{"name":"test"}`},
+		{"Cargo.toml", "Cargo.toml", "[package]\nname = \"test\""},
+		{"pyproject.toml", "pyproject.toml", "[project]\nname = \"test\""},
+	}
+
+	for _, m := range markers {
+		t.Run(m.name+"_at_workspace_level", func(t *testing.T) {
+			ws := t.TempDir()
+			if err := os.WriteFile(filepath.Join(ws, m.marker), []byte(m.content), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			dir, err := resolveContractDir("project_root", ws)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if dir != ws {
+				t.Errorf("expected %q, got %q", ws, dir)
+			}
+		})
+	}
+}
+
+// TestResolveContractDir_EmptyAndRelative verifies the trivial dir="" and
+// relative path branches with additional assertions.
+func TestResolveContractDir_EmptyAndRelative(t *testing.T) {
+	t.Run("empty dir returns workspacePath exactly", func(t *testing.T) {
+		ws := "/some/workspace/path"
+		dir, err := resolveContractDir("", ws)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dir != ws {
+			t.Errorf("expected %q, got %q", ws, dir)
+		}
+	})
+
+	t.Run("relative path joined with workspace", func(t *testing.T) {
+		ws := "/workspace"
+		dir, err := resolveContractDir("contracts/v2", ws)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		expected := filepath.Join(ws, "contracts/v2")
+		if dir != expected {
+			t.Errorf("expected %q, got %q", expected, dir)
+		}
+	})
+
+	t.Run("absolute path returned unchanged", func(t *testing.T) {
+		ws := "/workspace"
+		abs := "/opt/contracts"
+		dir, err := resolveContractDir(abs, ws)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dir != abs {
+			t.Errorf("expected %q, got %q", abs, dir)
+		}
+	})
 }

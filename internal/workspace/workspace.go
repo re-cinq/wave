@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -38,9 +39,27 @@ type workspaceManager struct {
 	baseDir string
 }
 
+// resolveGitRoot returns the absolute path of the git repository root by
+// running "git rev-parse --show-toplevel". Falls back to os.Getwd() on error
+// so callers always receive a usable base path.
+func resolveGitRoot() (string, error) {
+	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return os.Getwd()
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 func NewWorkspaceManager(baseDir string) (WorkspaceManager, error) {
 	if baseDir == "" {
 		baseDir = ".wave/workspaces"
+	}
+	if !filepath.IsAbs(baseDir) {
+		root, err := resolveGitRoot()
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve git root: %w", err)
+		}
+		baseDir = filepath.Join(root, baseDir)
 	}
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create base workspace directory: %w", err)

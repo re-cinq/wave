@@ -6,6 +6,7 @@
 
 # Wave runtime artifacts (ephemeral, not committed)
 .wave/workspaces/
+**/.wave/workspaces/
 .wave/state.db*
 .wave/traces/
 .wave/artifacts/
