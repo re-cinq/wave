@@ -30,7 +30,7 @@ Follow the `/speckit.analyze` workflow:
    - **Coverage gaps**: Requirements with no tasks, tasks with no requirements
    - **Inconsistency**: Terminology drift, data entity mismatches, ordering contradictions
 
-5. Assign severity using the levels defined in the contract schema
+5. Assign severity to each finding
 6. Produce a compact analysis report (do NOT modify files — read-only analysis)
 
 ## CONSTRAINTS

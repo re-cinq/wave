@@ -22,7 +22,7 @@
         "properties": {
           "severity": {
             "type": "string",
-            "enum": ["critical", "major", "minor", "high", "low", "info"]
+            "enum": ["critical", "major", "minor", "suggestion"]
           },
           "summary": {
             "type": "string"
