@@ -314,22 +314,26 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	// Enrich step I/O descriptions from pipeline definition
 	if p, loadErr := loadPipelineYAML(run.PipelineName); loadErr == nil {
 		type stepRef struct {
-			deps    []string
-			injects []string
+			deps       []string
+			injects    []string
+			injectRefs []InputArtifactRef
 		}
 		stepRefs := make(map[string]stepRef)
 		for _, ps := range p.Steps {
 			var injects []string
+			var injectRefs []InputArtifactRef
 			for _, ia := range ps.Memory.InjectArtifacts {
 				injects = append(injects, ia.Step+"/"+ia.Artifact)
+				injectRefs = append(injectRefs, InputArtifactRef{Step: ia.Step, Name: ia.Artifact})
 			}
-			stepRefs[ps.ID] = stepRef{deps: ps.Dependencies, injects: injects}
+			stepRefs[ps.ID] = stepRef{deps: ps.Dependencies, injects: injects, injectRefs: injectRefs}
 		}
 		for i, sd := range stepDetails {
 			if ref, ok := stepRefs[sd.StepID]; ok {
 				if len(ref.injects) > 0 {
 					// Show artifact names: "spec/analysis, docs/feature-docs"
 					stepDetails[i].Action = strings.Join(ref.injects, ", ")
+					stepDetails[i].InputArtifacts = ref.injectRefs
 				} else if len(ref.deps) > 0 {
 					stepDetails[i].Action = strings.Join(ref.deps, " + ")
 				}

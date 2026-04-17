@@ -80,6 +80,7 @@ type StepDetail struct {
 	ConfiguredModel    string                `json:"configured_model,omitempty"`     // Tier from pipeline config (e.g., "cheapest")
 	Adapter            string                `json:"adapter,omitempty"`              // Adapter used for this step
 	Dependencies       []string              `json:"dependencies,omitempty"`         // Step dependencies (step IDs)
+	InputArtifacts     []InputArtifactRef    `json:"input_artifacts,omitempty"`      // Injected artifacts from upstream steps (source-step/name)
 	VisitCount         int                   `json:"visit_count,omitempty"`          // Current visit count for graph loop steps
 	MaxVisits          int                   `json:"max_visits,omitempty"`           // Max visit limit for graph loop steps
 	GanttLeft          float64               `json:"gantt_left,omitempty"`           // Gantt bar left offset (percentage)
@@ -90,6 +91,14 @@ type StepDetail struct {
 	ReviewerPersona    string                `json:"reviewer_persona,omitempty"`     // Persona used for review step
 	ReviewTokens       int                   `json:"review_tokens,omitempty"`        // Tokens used in review step
 	ReviewIssueCount   int                   `json:"review_issue_count,omitempty"`   // Number of review issues found
+}
+
+// InputArtifactRef identifies an artifact injected from an upstream step.
+// Used to render each IN artifact as an individually clickable chip on the
+// run detail page (same URL shape as OUT: source step + artifact name).
+type InputArtifactRef struct {
+	Step string `json:"step"` // Source step ID (where the artifact was produced)
+	Name string `json:"name"` // Artifact name
 }
 
 // EventSummary holds summary information about a pipeline event.
