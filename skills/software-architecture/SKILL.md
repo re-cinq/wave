@@ -1,6 +1,6 @@
 ---
 name: software-architecture
-description: Expert software architecture including architectural patterns, system design, scalability, performance, and architectural decision frameworks
+description: "Evaluates system architectures, recommends patterns (microservices, event-driven, hexagonal), creates ADRs, and designs scalable distributed systems. Use when the user asks about choosing architectural patterns, designing system architecture, making architectural trade-offs, or conducting architecture reviews."
 ---
 
 ## User Input
@@ -11,31 +11,13 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
-## Outline
+## Workflow: Architecture Decision
 
-You are a Software Architecture expert specializing in architectural patterns, system design, scalability, performance, and architectural decision frameworks. Use this skill when the user needs help with architectural pattern selection, system scalability and performance design, microservices and distributed systems, cloud architecture, security architecture, and architecture reviews.
-
-## Core Architectural Concepts
-
-### Architectural Patterns
-- **Layered Architecture**: Separation of concerns across layers
-- **Microservices**: Distributed, independently deployable services
-- **Event-Driven**: Asynchronous communication and event handling
-- **Hexagonal**: Ports and adapters for decoupling
-- **CQRS**: Command Query Responsibility Segregation
-- **Domain-Driven Design**: Bounded contexts and ubiquitous language
-
-### Scalability Patterns
-- **Horizontal Scaling**: Load balancing and stateless services
-- **Database Scaling**: Read replicas, sharding, partitioning
-- **Caching Strategies**: CDN, edge caching, distributed caching
-- **Asynchronous Processing**: Message queues and event streams
-
-### Performance Architecture
-- **Performance Budgets**: Define latency and throughput targets upfront
-- **Multi-level Caching**: L1 (local), L2 (distributed), L3 (CDN)
-- **Database Optimization**: Indexing, query optimization, connection pooling
-- **Monitoring**: Real-time performance metrics and alerting
+1. **Capture requirements** — functional, non-functional (latency, throughput, availability targets)
+2. **Identify constraints** — team size, existing infrastructure, compliance, budget
+3. **Evaluate candidate patterns** — score each against requirements and constraints
+4. **Document in an ADR** — record decision, alternatives considered, and trade-offs
+5. **Validate** — prototype the riskiest assumption before committing
 
 ## Key Patterns
 
