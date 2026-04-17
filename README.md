@@ -235,8 +235,8 @@ Use "wave [command] --help" for more information about a command.
 | `wave suggest` | Propose pipeline runs based on codebase state |
 | `wave serve` | Start the web dashboard server |
 | `wave migrate` | Database migration management |
-| `wave skills` | Skill lifecycle management (legacy) |
-| `wave skill` | Manage skill templates and install from remote sources |
+| `wave skills` | Project skill lifecycle (install, remove, search, sync, audit, publish, verify) |
+| `wave skill` | Manage bundled skill templates (list, install, check) |
 | `wave agent` | Persona-to-agent compiler utilities |
 
 ### Configuration Management

@@ -27,7 +27,8 @@ Wave CLI commands for pipeline orchestration.
 | `wave pipeline` | Pipeline management (create, list) |
 | `wave retro` | View and manage run retrospectives |
 | `wave rewind` | Rewind a run to an earlier checkpoint |
-| `wave skill` | Manage skill templates and install from remote sources |
+| `wave skill` | Manage bundled skill templates (list, install, check) |
+| `wave skills` | Project skill lifecycle (install, remove, search, sync, audit, publish, verify) |
 | `wave suggest` | Suggest impactful pipeline runs |
 | `wave serve` | Start the web dashboard server |
 | `wave migrate` | Database migrations |
@@ -1250,12 +1251,17 @@ wave skill list --remote          # Show available remote sources
 
 ### skill install
 
-Install a skill from bundled templates, GitHub, Tessl, or URL.
+Install a skill from bundled templates or any supported remote source. The installer inspects the argument for a recognized prefix; bare names resolve against bundled templates.
 
 ```bash
-wave skill install reviewer          # Bundled template
-wave skill install github:owner/repo # From GitHub
-wave skill install tessl:my-skill    # From Tessl registry
+wave skill install docker                                # Bundled template (bare name)
+wave skill install github:owner/repo                     # From a GitHub repository
+wave skill install tessl:spec-kit                        # From the Tessl registry
+wave skill install bmad:install                          # Run the BMAD installer
+wave skill install openspec:init                         # Run the OpenSpec installer
+wave skill install speckit:init                          # Run the SpecKit installer
+wave skill install file:./path/to/skill                  # From a local filesystem path
+wave skill install https://example.com/skills.tar.gz     # From a direct URL (archive)
 ```
 
 | Flag | Default | Description |
@@ -1268,6 +1274,145 @@ Run check commands for installed skills in `.wave/skills/`.
 
 ```bash
 wave skill check
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `table` | Output format: `table`, `json` |
+
+---
+
+## wave skills
+
+Project skill lifecycle management. Unlike `wave skill` (which manages Wave's bundled templates), `wave skills` operates on the skills actually installed in your project (`.wave/skills/`) and user (`~/.claude/skills/`) directories. Use it to install from any supported source, remove installed skills, and interact with the Tessl registry.
+
+### skills list
+
+List installed skills discovered in project and user directories.
+
+```bash
+wave skills list
+wave skills list --format json
+wave skills list --ontology            # Filter to ontology context skills (wave-ctx-*)
+```
+
+The `--format json` output has the shape:
+
+```json
+{
+  "skills": [
+    { "name": "docker", "description": "…", "source": ".wave/skills/docker" }
+  ],
+  "warnings": []
+}
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `table` | Output format: `table`, `json` |
+| `--ontology` | `false` | Show only ontology context skills (`wave-ctx-*`) |
+
+### skills install
+
+Install a skill from any supported source. Accepts the same prefixes as `wave skill install`.
+
+```bash
+wave skills install tessl:github/golang
+wave skills install bmad:install
+wave skills install openspec:init
+wave skills install speckit:init
+wave skills install github:<owner>/<repo>[/<path>]
+wave skills install file:./path/to/skill
+wave skills install https://example.com/skills/skill.tar.gz
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `table` | Output format: `table`, `json` |
+
+### skills remove
+
+Remove an installed skill from the project skill store.
+
+```bash
+wave skills remove docker
+wave skills remove docker --yes        # Skip confirmation prompt
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `table` | Output format: `table`, `json` |
+| `--yes` | `false` | Skip confirmation prompt |
+
+### skills search
+
+Search the Tessl registry for publicly available skills. Requires `@tessl/cli` to be installed (`npm i -g @tessl/cli`).
+
+```bash
+wave skills search golang
+wave skills search --format json spec-kit
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `table` | Output format: `table`, `json` |
+
+### skills sync
+
+Sync project skill dependencies declared in `wave.yaml` against the Tessl registry.
+
+```bash
+wave skills sync
+wave skills sync --format json
+```
+
+The `--format json` output has the shape:
+
+```json
+{
+  "synced_skills": ["golang", "spec-kit"],
+  "warnings": [],
+  "status": "ok"
+}
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `table` | Output format: `table`, `json` |
+
+### skills audit
+
+Audit installed skills and classify each as standalone, Wave-specific, or both (based on `wave/`-namespaced references in its content).
+
+```bash
+wave skills audit
+wave skills audit --format json
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `table` | Output format: `table`, `json` |
+
+### skills publish
+
+Publish skills to a registry (requires publishing credentials and a configured registry).
+
+```bash
+wave skills publish
+wave skills publish --format json
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `table` | Output format: `table`, `json` |
+
+### skills verify
+
+Verify that installed skills match their published digest (detects local modification or drift).
+
+```bash
+wave skills verify
+wave skills verify --format json
 ```
 
 | Flag | Default | Description |

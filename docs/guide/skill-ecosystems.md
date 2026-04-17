@@ -102,7 +102,7 @@ github:<owner>/<repo>[/<path>]
 ### Install
 
 ```bash
-wave skills install github:re-cinq/wave-skills/golang
+wave skills install github:your-org/your-skills-repo/golang
 wave skills install github:user/repo
 ```
 

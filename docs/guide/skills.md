@@ -38,7 +38,7 @@ description: Expert Go language development including idiomatic patterns and con
 license: MIT
 compatibility: Claude 4.x
 metadata:
-  author: re-cinq
+  author: your-org
   version: "1.0"
 allowed-tools: "Read Write Edit Bash Grep Glob"
 ---
