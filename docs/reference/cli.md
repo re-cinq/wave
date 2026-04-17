@@ -1301,7 +1301,7 @@ The `--format json` output has the shape:
 ```json
 {
   "skills": [
-    { "name": "docker", "description": "…", "source": ".wave/skills/docker" }
+    { "name": "docker", "description": "...", "source": ".wave/skills/docker" }
   ],
   "warnings": []
 }
@@ -1399,11 +1399,18 @@ Publish skills to a registry (requires publishing credentials and a configured r
 
 ```bash
 wave skills publish
-wave skills publish --format json
+wave skills publish --all
+wave skills publish --dry-run
+wave skills publish --force
+wave skills publish --registry tessl --format json
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
+| `--all` | `false` | Publish all standalone-eligible skills |
+| `--dry-run` | `false` | Validate and compute digest without publishing |
+| `--force` | `false` | Force publish wave-specific skills |
+| `--registry` | `tessl` | Target registry name |
 | `--format` | `table` | Output format: `table`, `json` |
 
 ### skills verify
