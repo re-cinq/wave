@@ -2955,6 +2955,12 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
 .ws-tabcontent[hidden] { display: none !important; }
 .ws-tabcontent .av-smart { padding: 0.5rem var(--ws-pad-x); color: #c9d1d9; }
 .ws-tabcontent .markdown-body { font-size: 0.82rem; line-height: 1.6; color: #c9d1d9; background: transparent; border: none; }
+.ws-tabcontent .markdown-body h1,
+.ws-tabcontent .markdown-body h2,
+.ws-tabcontent .markdown-body h3,
+.ws-tabcontent .markdown-body h4,
+.ws-tabcontent .markdown-body h5,
+.ws-tabcontent .markdown-body h6 { color: #e6edf3; }
 .ws-tabcontent .markdown-body h1 { font-size: 1.2rem; margin: 0.5rem 0 0.3rem; border-bottom: 1px solid #30363d; padding-bottom: 0.2rem; }
 .ws-tabcontent .markdown-body h2 { font-size: 1rem; margin: 0.4rem 0 0.2rem; }
 .ws-tabcontent .markdown-body h3 { font-size: 0.9rem; margin: 0.3rem 0 0.15rem; }
