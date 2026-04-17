@@ -311,36 +311,6 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 
 	stepDetails := s.buildStepDetails(runID, run.PipelineName, run.Status)
 
-	// Enrich step I/O descriptions from pipeline definition
-	if p, loadErr := loadPipelineYAML(run.PipelineName); loadErr == nil {
-		type stepRef struct {
-			deps       []string
-			injects    []string
-			injectRefs []InputArtifactRef
-		}
-		stepRefs := make(map[string]stepRef)
-		for _, ps := range p.Steps {
-			var injects []string
-			var injectRefs []InputArtifactRef
-			for _, ia := range ps.Memory.InjectArtifacts {
-				injects = append(injects, ia.Step+"/"+ia.Artifact)
-				injectRefs = append(injectRefs, InputArtifactRef{Step: ia.Step, Name: ia.Artifact})
-			}
-			stepRefs[ps.ID] = stepRef{deps: ps.Dependencies, injects: injects, injectRefs: injectRefs}
-		}
-		for i, sd := range stepDetails {
-			if ref, ok := stepRefs[sd.StepID]; ok {
-				if len(ref.injects) > 0 {
-					// Show artifact names: "spec/analysis, docs/feature-docs"
-					stepDetails[i].Action = strings.Join(ref.injects, ", ")
-					stepDetails[i].InputArtifacts = ref.injectRefs
-				} else if len(ref.deps) > 0 {
-					stepDetails[i].Action = strings.Join(ref.deps, " + ")
-				}
-			}
-		}
-	}
-
 	stepStatusMap := make(map[string]string)
 	stepDetailMap := make(map[string]StepDetail)
 	for _, sd := range stepDetails {
@@ -842,6 +812,20 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 				names = append(names, a.Name)
 			}
 			sd.Output = strings.Join(names, ", ")
+		}
+
+		// Populate injected input artifacts for IN display (clickable chips)
+		if len(step.Memory.InjectArtifacts) > 0 {
+			injectRefs := make([]InputArtifactRef, 0, len(step.Memory.InjectArtifacts))
+			pairs := make([]string, 0, len(step.Memory.InjectArtifacts))
+			for _, ia := range step.Memory.InjectArtifacts {
+				injectRefs = append(injectRefs, InputArtifactRef{Step: ia.Step, Name: ia.Artifact})
+				pairs = append(pairs, ia.Step+"/"+ia.Artifact)
+			}
+			sd.InputArtifacts = injectRefs
+			sd.Action = strings.Join(pairs, ", ")
+		} else if len(step.Dependencies) > 0 {
+			sd.Action = strings.Join(step.Dependencies, " + ")
 		}
 
 		// Populate structured gate data for interactive UI
