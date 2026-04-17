@@ -25,18 +25,6 @@ chat_context:
     - "Is the fix minimal and safe for production?"
     - "Are there similar patterns elsewhere that need the same fix?"
 
-hooks:
-  - name: log-start
-    event: run_start
-    type: command
-    command: "echo '[impl-hotfix] started run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
-    blocking: false
-  - name: log-complete
-    event: run_completed
-    type: command
-    command: "echo '[impl-hotfix] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
-    blocking: false
-
 pipeline_outputs:
   verdict:
     step: verify

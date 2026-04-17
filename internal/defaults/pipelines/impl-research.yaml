@@ -35,18 +35,6 @@ pipeline_outputs:
     step: review
     artifact: verdict
 
-hooks:
-  - name: log-start
-    event: run_start
-    type: command
-    command: "echo '[impl-research] started run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
-    blocking: false
-  - name: log-complete
-    event: run_completed
-    type: command
-    command: "echo '[impl-research] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
-    blocking: false
-
 steps:
   - id: research
     pipeline: plan-research

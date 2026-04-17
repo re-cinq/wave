@@ -28,13 +28,6 @@ chat_context:
     - "Is the fix minimal and safe for production?"
     - "Are there similar patterns elsewhere that need the same fix?"
 
-hooks:
-  - name: log-start
-    event: run_start
-    type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
-    blocking: false
-
 steps:
   - id: investigate
     persona: navigator

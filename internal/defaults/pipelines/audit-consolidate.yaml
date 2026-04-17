@@ -30,18 +30,6 @@ chat_context:
     - "Duplicate logic and parallel abstractions"
     - "Consolidation strategies and effort estimates"
 
-hooks:
-  - name: log-start
-    event: run_start
-    type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
-    blocking: false
-  - name: log-complete
-    event: run_completed
-    type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
-    blocking: false
-
 pipeline_outputs:
   findings:
     step: scan

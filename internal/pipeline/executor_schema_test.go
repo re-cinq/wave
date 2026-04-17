@@ -850,3 +850,112 @@ func createSchemaTestExecutor(tmpDir string) *DefaultPipelineExecutor {
 		securityLogger: securityLogger,
 	}
 }
+
+// TestLoadSchemaContent_PathTraversalRejected verifies that a schema path
+// containing ../ traversal sequences is rejected by the path validator and
+// that the caller gets a wrapped error (not silent empty).
+func TestLoadSchemaContent_PathTraversalRejected(t *testing.T) {
+	tmpDir := t.TempDir()
+	executor := createSchemaTestExecutor(tmpDir)
+
+	step := &Step{ID: "traversal-step"}
+
+	content, err := executor.loadSchemaContent(step, "../../../etc/passwd")
+	assert.Empty(t, content, "path-traversal schema must not return content")
+	require.Error(t, err, "path-traversal schema must return a non-nil error")
+	// Error should be wrapped, identifying the failure mode (either rejection
+	// by validator or a traversal error). We do not pin the exact wording.
+	assert.Contains(t, strings.ToLower(err.Error()), "schema")
+}
+
+// TestLoadSchemaContent_OutsideApprovedDirs verifies that a schema file living
+// on disk but outside the configured approved directories is rejected.
+func TestLoadSchemaContent_OutsideApprovedDirs(t *testing.T) {
+	approvedDir := t.TempDir()
+	outsideDir := t.TempDir() // distinct TempDir, not listed as approved
+
+	outsidePath := filepath.Join(outsideDir, "schema.json")
+	require.NoError(t, os.WriteFile(outsidePath, []byte(`{"type":"object"}`), 0644))
+
+	// Executor only approves `approvedDir`; `outsideDir` is not approved.
+	securityConfig := security.DefaultSecurityConfig()
+	securityConfig.PathValidation.ApprovedDirectories = []string{approvedDir}
+	securityLogger := security.NewSecurityLogger(false)
+	executor := &DefaultPipelineExecutor{
+		securityConfig: securityConfig,
+		pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
+		inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
+		securityLogger: securityLogger,
+	}
+
+	step := &Step{ID: "outside-step"}
+
+	content, err := executor.loadSchemaContent(step, outsidePath)
+	assert.Empty(t, content, "unapproved-dir schema must not return content")
+	require.Error(t, err, "unapproved-dir schema must return a non-nil error")
+}
+
+// TestLoadSchemaContent_EmptyPathReturnsEmpty verifies the documented opt-out
+// path — an empty schemaPath is NOT an error, it just means "no schema".
+func TestLoadSchemaContent_EmptyPathReturnsEmpty(t *testing.T) {
+	tmpDir := t.TempDir()
+	executor := createSchemaTestExecutor(tmpDir)
+
+	step := &Step{ID: "empty-path-step"}
+
+	content, err := executor.loadSchemaContent(step, "")
+	assert.Empty(t, content, "empty path must return empty content")
+	require.NoError(t, err, "empty path must not be treated as an error")
+}
+
+// TestLoadSchemaContent_ValidPathSucceeds verifies that a well-formed schema
+// in an approved directory is read and returned (after sanitization).
+func TestLoadSchemaContent_ValidPathSucceeds(t *testing.T) {
+	tmpDir := t.TempDir()
+	executor := createSchemaTestExecutor(tmpDir)
+
+	schemaBody := `{"type":"object","properties":{"ok":{"type":"boolean"}}}`
+	schemaPath := filepath.Join(tmpDir, "valid.schema.json")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(schemaBody), 0644))
+
+	step := &Step{ID: "valid-step"}
+
+	content, err := executor.loadSchemaContent(step, schemaPath)
+	require.NoError(t, err, "valid schema must not produce error")
+	assert.Contains(t, content, `"type":"object"`, "valid schema content must be returned")
+	assert.Contains(t, content, `"ok"`, "sanitizer must preserve benign schema fields")
+}
+
+// TestLoadSchemaContent_NilLoggerDoesNotPanic verifies that an executor with
+// a path validator but nil securityLogger does not panic when loadSchemaContent
+// encounters a path-traversal input. This validates the nil-guard added to
+// loadSchemaContent/sanitizeSchemaContent at the call sites inside the executor
+// itself. (PathValidator/InputSanitizer retain their own loggers — they are
+// constructed separately from the executor's securityLogger.)
+func TestLoadSchemaContent_NilLoggerDoesNotPanic(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	securityConfig := security.DefaultSecurityConfig()
+	securityConfig.PathValidation.ApprovedDirectories = []string{tmpDir}
+	// PathValidator/InputSanitizer get a real logger (so their internal
+	// LogViolation calls don't panic — that's their contract, not ours).
+	// The executor's OWN securityLogger is intentionally nil — that's the
+	// field our nil-guards must protect.
+	internalLogger := security.NewSecurityLogger(false)
+	executor := &DefaultPipelineExecutor{
+		securityConfig: securityConfig,
+		pathValidator:  security.NewPathValidator(*securityConfig, internalLogger),
+		inputSanitizer: security.NewInputSanitizer(*securityConfig, internalLogger),
+		securityLogger: nil, // the critical nil — would panic without the guard
+	}
+
+	step := &Step{ID: "nil-logger-step"}
+
+	// An invalid path triggers the executor's LogViolation call site; with a
+	// nil securityLogger this used to panic before the guard was added.
+	require.NotPanics(t, func() {
+		content, err := executor.loadSchemaContent(step, "../../../etc/passwd")
+		assert.Empty(t, content)
+		assert.Error(t, err)
+	}, "loadSchemaContent must not panic when securityLogger is nil")
+}

@@ -30,18 +30,6 @@ chat_context:
     - "Simplification proposals and tier ranking"
     - "Applied changes and net complexity reduction"
 
-hooks:
-  - name: log-start
-    event: run_start
-    type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
-    blocking: false
-  - name: log-complete
-    event: run_completed
-    type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
-    blocking: false
-
 # Pipeline structure implements the Double Diamond:
 #
 #   gather → diverge → converge → probe → distill → simplify → report
@@ -50,7 +38,6 @@ hooks:
 #
 # Each step gets its own context window and cognitive mode.
 # Fresh memory at every boundary — no mode-switching within a step.
-
 pipeline_outputs:
   pr:
     step: publish
