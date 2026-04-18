@@ -79,7 +79,7 @@ Every step validates its output against a schema before the next step begins. Ma
 ```yaml
 output_artifacts:
   - name: analysis
-    path: .wave/output/analysis.json
+    path: .agents/output/analysis.json
     type: json
     contract: contracts/analysis-schema.json
 ```
@@ -95,7 +95,7 @@ Each step runs with completely fresh context in an ephemeral workspace. No conte
 
 Wave integrates with your existing git workflow:
 - Initialize with `wave init` in any repo
-- Pipelines are just YAML files in `.wave/`
+- Pipelines are just YAML files in `.agents/`
 - Artifacts are git-friendly
 
 ### 6. Observable Execution

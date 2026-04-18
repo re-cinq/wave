@@ -1,6 +1,6 @@
 # Pipeline Schema Reference
 
-Pipeline YAML files define multi-step AI workflows. Store pipelines in `.wave/pipelines/`.
+Pipeline YAML files define multi-step AI workflows. Store pipelines in `.agents/pipelines/`.
 
 ## Minimal Pipeline
 
@@ -20,7 +20,7 @@ steps:
 
 </div>
 
-Copy this to `.wave/pipelines/simple-task.yaml` and run with `wave run simple-task "your task"`.
+Copy this to `.agents/pipelines/simple-task.yaml` and run with `wave run simple-task "your task"`.
 
 ---
 
@@ -70,13 +70,13 @@ steps:
       source: "Analyze the codebase for: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
         type: json
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/analysis.schema.json
-        source: .wave/output/analysis.json
+        schema_path: .agents/contracts/analysis.schema.json
+        source: .agents/output/analysis.json
 
   - id: review
     persona: auditor
@@ -95,7 +95,7 @@ steps:
       source: "Review the code for security issues."
     output_artifacts:
       - name: findings
-        path: .wave/output/findings.md
+        path: .agents/output/findings.md
         type: markdown
     outcomes:
       - type: pr
@@ -259,7 +259,7 @@ exec:
 ```yaml
 exec:
   type: prompt
-  source_path: .wave/prompts/analyze.md
+  source_path: .agents/prompts/analyze.md
 ```
 
 </div>
@@ -338,10 +338,10 @@ Declare files produced by a step:
 ```yaml
 output_artifacts:
   - name: analysis
-    path: .wave/output/analysis.json
+    path: .agents/output/analysis.json
     type: json
   - name: report
-    path: .wave/output/report.md
+    path: .agents/output/report.md
     type: markdown
   - name: stdout-capture
     source: stdout
@@ -431,7 +431,7 @@ memory:
 | `schema_path` | no | - | JSON schema path for input validation |
 | `optional` | no | `false` | If true, missing artifact does not fail the step |
 
-Artifacts are copied to `.wave/artifacts/<as>/` in the step workspace.
+Artifacts are copied to `.agents/artifacts/<as>/` in the step workspace.
 
 ---
 
@@ -508,8 +508,8 @@ handover:
 handover:
   contract:
     type: json_schema
-    schema_path: .wave/contracts/analysis.schema.json
-    source: .wave/output/analysis.json
+    schema_path: .agents/contracts/analysis.schema.json
+    source: .agents/output/analysis.json
     on_failure: retry
     max_retries: 2
 ```
@@ -520,7 +520,7 @@ handover:
 handover:
   contract:
     type: typescript_interface
-    source: .wave/output/types.ts
+    source: .agents/output/types.ts
     validate: true
 ```
 
@@ -532,8 +532,8 @@ When a step requires multiple validations, use the plural `contracts` field. It 
 handover:
   contracts:
     - type: json_schema
-      schema_path: .wave/contracts/output.schema.json
-      source: .wave/output/result.json
+      schema_path: .agents/contracts/output.schema.json
+      source: .agents/output/result.json
     - type: test_suite
       command: "go test ./..."
       dir: project_root
@@ -550,7 +550,7 @@ handover:
       - "Output is well-structured JSON"
       - "All required fields are present"
     threshold: 0.8
-    source: .wave/output/result.json
+    source: .agents/output/result.json
 ```
 
 ### Agent Review Contract
@@ -560,7 +560,7 @@ handover:
   contract:
     type: agent_review
     persona: auditor
-    criteria_path: .wave/contracts/review-criteria.md
+    criteria_path: .agents/contracts/review-criteria.md
     context:
       - source: git_diff
       - source: artifact
@@ -626,7 +626,7 @@ steps:
       source: "Break down into tasks. Output: {\"tasks\": [...]}"
     output_artifacts:
       - name: tasks
-        path: .wave/output/tasks.json
+        path: .agents/output/tasks.json
 
   - id: execute
     persona: craftsman
@@ -959,7 +959,7 @@ steps:
       source: "Classify the issue as: bug, feature, or docs"
     output_artifacts:
       - name: classification
-        path: .wave/output/classification.json
+        path: .agents/output/classification.json
         type: json
 
   - id: route
@@ -1024,7 +1024,7 @@ steps:
   - id: collect
     aggregate:
       from: "{{ steps.process-items.results }}"
-      into: .wave/output/combined.json
+      into: .agents/output/combined.json
       strategy: merge_arrays
       key: findings          # extract .findings from each JSON object before merging
     dependencies: [process-items]

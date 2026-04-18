@@ -32,12 +32,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[impl-improve] started run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[impl-improve] started run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[impl-improve] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[impl-improve] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -155,7 +155,7 @@ steps:
         needed for the implementer to act on the findings.
     output_artifacts:
       - name: assessment
-        path: .wave/output/assessment.json
+        path: .agents/output/assessment.json
         type: json
     retry:
       policy: patient
@@ -163,8 +163,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/assessment.json
-        schema_path: .wave/contracts/improvement-assessment.schema.json
+        source: .agents/output/assessment.json
+        schema_path: .agents/contracts/improvement-assessment.schema.json
         on_failure: retry
 
   - id: implement
@@ -380,14 +380,14 @@ steps:
         checking or rejects valid improvements based on subjective style preferences.
     output_artifacts:
       - name: verification
-        path: .wave/output/verification.md
+        path: .agents/output/verification.md
         type: markdown
     handover:
       contract:
         type: agent_review
         persona: navigator
-        criteria_path: .wave/contracts/verification-criteria.md
-        source: .wave/output/verification.md
+        criteria_path: .agents/contracts/verification-criteria.md
+        source: .agents/output/verification.md
         model: cheapest
         token_budget: 8000
         timeout: 90s

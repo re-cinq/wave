@@ -84,7 +84,7 @@ func (v *jsonSchemaValidator) Validate(cfg ContractConfig, workspacePath string)
 	}
 
 	// Use source path if provided, otherwise default to artifact.json
-	artifactFile := ".wave/artifact.json"
+	artifactFile := ".agents/artifact.json"
 	if cfg.Source != "" {
 		artifactFile = cfg.Source
 	}

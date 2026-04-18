@@ -158,7 +158,7 @@ Subcommands:
 // newSkillStore creates a DirectoryStore with project and user skill sources.
 func newSkillStore() *skill.DirectoryStore {
 	sources := []skill.SkillSource{
-		{Root: ".wave/skills", Precedence: 2},
+		{Root: ".agents/skills", Precedence: 2},
 	}
 	home, err := os.UserHomeDir()
 	if err == nil {
@@ -780,7 +780,7 @@ func runSkillsPublish(cmd *cobra.Command, name, format string, all, force, dryRu
 	format = ResolveFormat(cmd, format)
 
 	store := newSkillStore()
-	lockfilePath := ".wave/skills.lock"
+	lockfilePath := ".agents/skills.lock"
 	publisher := skill.NewPublisher(store, lockfilePath, registry, exec.LookPath)
 
 	ctx := cmd.Context()
@@ -901,7 +901,7 @@ func newSkillsVerifyCmd() *cobra.Command {
 func runSkillsVerify(cmd *cobra.Command, format string) error {
 	format = ResolveFormat(cmd, format)
 
-	lockfilePath := ".wave/skills.lock"
+	lockfilePath := ".agents/skills.lock"
 	lf, err := skill.LoadLockfile(lockfilePath)
 	if err != nil {
 		return err

@@ -53,7 +53,7 @@ func (s *Server) handleAPIAdminConfig(w http.ResponseWriter, _ *http.Request) {
 		}
 	}
 
-	wsRoot := ".wave/workspaces"
+	wsRoot := ".agents/workspaces"
 	if s.manifest != nil && s.manifest.Runtime.WorkspaceRoot != "" {
 		wsRoot = s.manifest.Runtime.WorkspaceRoot
 	}

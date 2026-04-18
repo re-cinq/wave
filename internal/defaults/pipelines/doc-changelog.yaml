@@ -31,12 +31,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -141,7 +141,7 @@ steps:
         A good commit analysis correctly parses every conventional commit prefix and scope, identifies all breaking changes (including those marked only in the body), and captures the full commit body for context. A bad analysis misparses scopes, misses breaking changes that use the body marker instead of the `!` suffix, or truncates commit bodies.
     output_artifacts:
       - name: commits
-        path: .wave/output/commit-analysis.json
+        path: .agents/output/commit-analysis.json
         type: json
     retry:
       policy: patient
@@ -149,8 +149,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/commit-analysis.json
-        schema_path: .wave/contracts/commit-analysis.schema.json
+        source: .agents/output/commit-analysis.json
+        schema_path: .agents/contracts/commit-analysis.schema.json
         on_failure: retry
 
   - id: categorize
@@ -244,7 +244,7 @@ steps:
         A good categorization transforms "fix(webui): nil pointer in handler" into "Fix crash when loading pipeline detail pages with missing step data" -- user-visible impact, not implementation detail. Breaking changes include specific migration instructions. A bad categorization copies commit messages verbatim, fails to deduplicate a commit and its follow-up lint fix, or describes breaking changes without migration guidance.
     output_artifacts:
       - name: categorized
-        path: .wave/output/categorized-changes.json
+        path: .agents/output/categorized-changes.json
         type: json
     retry:
       policy: standard
@@ -252,8 +252,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/categorized-changes.json
-        schema_path: .wave/contracts/categorized-changes.schema.json
+        source: .agents/output/categorized-changes.json
+        schema_path: .agents/contracts/categorized-changes.schema.json
         on_failure: retry
 
   - id: format
@@ -373,9 +373,9 @@ steps:
         A good changelog is scannable in 30 seconds, communicates the most important changes in the first 3 entries, includes migration instructions for every breaking change, and reads naturally to someone who uses the product but does not contribute to it. A bad changelog is a reformatted git log, includes internal implementation details, omits migration guidance for breaking changes, or includes empty sections.
     output_artifacts:
       - name: changelog
-        path: .wave/output/CHANGELOG.md
+        path: .agents/output/CHANGELOG.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/CHANGELOG.md
+        source: .agents/output/CHANGELOG.md

@@ -578,7 +578,7 @@ func TestTestSuiteValidator_DirField(t *testing.T) {
 		}
 
 		// Workspace is a subdirectory of the repo
-		subWs := filepath.Join(repoDir, ".wave", "workspaces", "test")
+		subWs := filepath.Join(repoDir, ".agents", "workspaces", "test")
 		if err := os.MkdirAll(subWs, 0755); err != nil {
 			t.Fatal(err)
 		}
@@ -649,7 +649,7 @@ func TestTestSuiteValidator_DirField(t *testing.T) {
 		}
 
 		// Workspace is a subdirectory of the repo
-		subWs := filepath.Join(repoDir, ".wave", "workspaces", "test")
+		subWs := filepath.Join(repoDir, ".agents", "workspaces", "test")
 		if err := os.MkdirAll(subWs, 0755); err != nil {
 			t.Fatal(err)
 		}

@@ -334,7 +334,7 @@ steps:
       type: prompt
       source: "test"
 `
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
@@ -434,7 +434,7 @@ steps:
       type: prompt
       source: "test"
 `
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
@@ -521,7 +521,7 @@ steps:
       type: prompt
       source: "test2"
 `
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
@@ -585,7 +585,7 @@ steps:
       type: prompt
       source: "test"
 `
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
@@ -781,7 +781,7 @@ func TestHandleAPIContracts_WithFiles(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	contractDir := filepath.Join(tmpDir, ".wave", "contracts")
+	contractDir := filepath.Join(tmpDir, ".agents", "contracts")
 	if err := os.MkdirAll(contractDir, 0o755); err != nil {
 		t.Fatalf("failed to create contracts dir: %v", err)
 	}
@@ -825,7 +825,7 @@ func TestHandleAPIContractDetail(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	contractDir := filepath.Join(tmpDir, ".wave", "contracts")
+	contractDir := filepath.Join(tmpDir, ".agents", "contracts")
 	if err := os.MkdirAll(contractDir, 0o755); err != nil {
 		t.Fatalf("failed to create contracts dir: %v", err)
 	}
@@ -969,7 +969,7 @@ func TestHandleAPISkills_WithPipelines(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
@@ -1080,7 +1080,7 @@ func TestHandleAPICompose_NoComposition(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
@@ -1133,7 +1133,7 @@ func TestHandleAPICompose_WithComposition(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
@@ -1159,7 +1159,7 @@ steps:
   - id: aggregate
     aggregate:
       from: "{{ iterate-tasks.output }}"
-      into: .wave/artifacts/results.json
+      into: .agents/artifacts/results.json
       strategy: merge_arrays
 `
 	if err := os.WriteFile(filepath.Join(pipelineDir, "batch-impl.yaml"), []byte(pipelineYAML), 0o644); err != nil {
@@ -1259,7 +1259,7 @@ func TestHandleAPIPipelineInfo(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
@@ -1396,7 +1396,7 @@ steps:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
-			pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+			pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 			if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 				t.Fatalf("failed to create pipeline dir: %v", err)
 			}
@@ -1436,7 +1436,7 @@ func TestHandleAPIPipelines_WithCategory(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
@@ -1582,7 +1582,7 @@ func TestHandlePipelinesPage_WithPipelines(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
@@ -1699,7 +1699,7 @@ steps:
       type: prompt
       source: "test"
 `
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}

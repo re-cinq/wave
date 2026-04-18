@@ -43,8 +43,8 @@ steps:
 `
 
 	// Create the .wave directory and test pipeline
-	require.NoError(t, os.MkdirAll(".wave/pipelines", 0755))
-	require.NoError(t, os.WriteFile(".wave/pipelines/test-pipeline.yaml", []byte(testPipeline), 0644))
+	require.NoError(t, os.MkdirAll(".agents/pipelines", 0755))
+	require.NoError(t, os.WriteFile(".agents/pipelines/test-pipeline.yaml", []byte(testPipeline), 0644))
 
 	// Create wave manifest
 	manifest := `
@@ -65,13 +65,13 @@ personas:
         - Grep
       deny: []
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
   pipeline_id_hash_length: 4
 `
 	require.NoError(t, os.WriteFile("wave.yaml", []byte(manifest), 0644))
 
 	// Initialize state database
-	stateDB := ".wave/state.db"
+	stateDB := ".agents/state.db"
 	store, err := state.NewStateStore(stateDB)
 	require.NoError(t, err, "Failed to create state store")
 	defer store.Close()
@@ -130,7 +130,7 @@ func cleanupTestState(t *testing.T) {
 
 	// Remove test files and directories
 	paths := []string{
-		".wave",
+		".agents",
 		"wave.yaml",
 		"test-pipeline.yaml",
 	}

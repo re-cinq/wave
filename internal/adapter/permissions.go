@@ -86,7 +86,7 @@ func (pc *PermissionChecker) CheckPermission(tool string, argument string) error
 // matchToolPattern checks if a tool invocation matches a permission pattern.
 // Patterns can be:
 // - Simple tool name: "Read", "Write"
-// - Tool with glob argument: "Write(.wave/specs/*)", "Bash(git log*)"
+// - Tool with glob argument: "Write(.agents/specs/*)", "Bash(git log*)"
 // - Wildcard: "*" (matches any tool)
 //
 // The pattern format is: ToolName or ToolName(argumentPattern)
@@ -125,7 +125,7 @@ func matchToolPattern(pattern, tool, argument string) bool {
 //	"Read" -> ("Read", "")
 //	"Write(*)" -> ("Write", "*")
 //	"Bash(git log*)" -> ("Bash", "git log*")
-//	"Write(.wave/specs/*)" -> ("Write", ".wave/specs/*")
+//	"Write(.agents/specs/*)" -> ("Write", ".agents/specs/*")
 func parseToolPattern(pattern string) (tool string, arg string) {
 	openParen := strings.Index(pattern, "(")
 	if openParen == -1 {

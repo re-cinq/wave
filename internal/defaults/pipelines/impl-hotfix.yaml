@@ -29,12 +29,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[impl-hotfix] started run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[impl-hotfix] started run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[impl-hotfix] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[impl-hotfix] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -131,7 +131,7 @@ steps:
         that forces the fixer to re-investigate from scratch.
     output_artifacts:
       - name: findings
-        path: .wave/output/findings.json
+        path: .agents/output/findings.json
         type: json
     retry:
       policy: patient
@@ -139,8 +139,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/findings.json
-        schema_path: .wave/contracts/bug-investigation.schema.json
+        source: .agents/output/findings.json
+        schema_path: .agents/contracts/bug-investigation.schema.json
         on_failure: retry
 
   - id: fix
@@ -457,14 +457,14 @@ steps:
         that do not affect correctness or safety.
     output_artifacts:
       - name: verdict
-        path: .wave/output/verdict.md
+        path: .agents/output/verdict.md
         type: markdown
     handover:
       contract:
         type: agent_review
         persona: navigator
-        criteria_path: .wave/contracts/verification-criteria.md
-        source: .wave/output/verdict.md
+        criteria_path: .agents/contracts/verification-criteria.md
+        source: .agents/output/verdict.md
         model: cheapest
         token_budget: 8000
         timeout: 90s

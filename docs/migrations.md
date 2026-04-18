@@ -134,9 +134,9 @@ Error: migration validation failed: migration 3 checksum mismatch: expected abc1
 
 The migration system uses the following database files:
 
-- **`.wave/state.db`** - Main SQLite database
-- **`.wave/state.db-wal`** - Write-ahead log (WAL mode)
-- **`.wave/state.db-shm`** - Shared memory file (WAL mode)
+- **`.agents/state.db`** - Main SQLite database
+- **`.agents/state.db-wal`** - Write-ahead log (WAL mode)
+- **`.agents/state.db-shm`** - Shared memory file (WAL mode)
 
 The migration tracking table `schema_migrations` is created automatically:
 
@@ -153,7 +153,7 @@ CREATE TABLE schema_migrations (
 
 ### Fresh Database
 When Wave starts with no existing database:
-1. Creates `.wave/state.db`
+1. Creates `.agents/state.db`
 2. Initializes migration tracking table
 3. Applies all migrations up to `WAVE_MAX_MIGRATION_VERSION` (if configured)
 
@@ -241,7 +241,7 @@ unset WAVE_MAX_MIGRATION_VERSION
 **Check migration syntax:**
 ```bash
 # Validate SQL manually
-sqlite3 .wave/state.db < migration_sql_file.sql
+sqlite3 .agents/state.db < migration_sql_file.sql
 ```
 
 **Check migration integrity:**
@@ -257,7 +257,7 @@ wave migrate validate
 
 **Manual recovery:**
 1. Stop the application
-2. Backup the database: `cp .wave/state.db .wave/state.db.backup`
+2. Backup the database: `cp .agents/state.db .agents/state.db.backup`
 3. Manually fix database schema
 4. Update migration tracking: `DELETE FROM schema_migrations WHERE version > X`
 

@@ -40,12 +40,12 @@ Expected output:
 [10:02:42] completed postmortem        (summarizer)  26s   3.1k Report complete
 
 Pipeline incident-response completed in 161s
-Artifacts: .wave/output/incident-report.md
+Artifacts: .agents/output/incident-report.md
 ```
 
 ## Complete Pipeline
 
-Save the following YAML to `.wave/pipelines/incident-response.yaml`:
+Save the following YAML to `.agents/pipelines/incident-response.yaml`:
 
 <div v-pre>
 
@@ -91,7 +91,7 @@ steps:
         }
     output_artifacts:
       - name: triage
-        path: .wave/output/triage.json
+        path: .agents/output/triage.json
         type: json
 
   - id: investigate
@@ -128,7 +128,7 @@ steps:
         - Tests to confirm or rule out
     output_artifacts:
       - name: investigation
-        path: .wave/output/investigation.md
+        path: .agents/output/investigation.md
         type: markdown
 
   - id: root-cause
@@ -162,7 +162,7 @@ steps:
         - Systemic issues (patterns to address)
     output_artifacts:
       - name: root-cause
-        path: .wave/output/root-cause.md
+        path: .agents/output/root-cause.md
         type: markdown
 
   - id: remediate
@@ -200,7 +200,7 @@ steps:
         - Risk assessment
     output_artifacts:
       - name: fix
-        path: .wave/output/remediation.md
+        path: .agents/output/remediation.md
         type: markdown
 
   - id: postmortem
@@ -236,7 +236,7 @@ steps:
         Focus on systemic improvements, not individual blame.
     output_artifacts:
       - name: report
-        path: .wave/output/incident-report.md
+        path: .agents/output/incident-report.md
         type: markdown
 ```
 
@@ -248,15 +248,15 @@ The pipeline produces five artifacts:
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| `triage` | `.wave/output/triage.json` | Initial triage and severity assessment |
-| `investigation` | `.wave/output/investigation.md` | Detailed investigation findings |
-| `root-cause` | `.wave/output/root-cause.md` | Root cause analysis |
-| `fix` | `.wave/output/remediation.md` | Remediation plan and fixes |
-| `report` | `.wave/output/incident-report.md` | Complete post-incident report |
+| `triage` | `.agents/output/triage.json` | Initial triage and severity assessment |
+| `investigation` | `.agents/output/investigation.md` | Detailed investigation findings |
+| `root-cause` | `.agents/output/root-cause.md` | Root cause analysis |
+| `fix` | `.agents/output/remediation.md` | Remediation plan and fixes |
+| `report` | `.agents/output/incident-report.md` | Complete post-incident report |
 
 ### Example Output
 
-The pipeline produces `.wave/output/incident-report.md`:
+The pipeline produces `.agents/output/incident-report.md`:
 
 ```markdown
 # Incident Report: Order API 500 Errors

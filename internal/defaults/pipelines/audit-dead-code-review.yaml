@@ -35,12 +35,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -131,7 +131,7 @@ steps:
         A good PR-scoped scan focuses tightly on the PR's changes, catches dead code the PR introduces (not pre-existing issues), and produces findings that the PR author can address with a follow-up commit. A bad scan reports pre-existing dead code in untouched files, flags symbols that are used in files not modified by the PR, or produces so many findings that the PR review comment becomes noise.
     output_artifacts:
       - name: findings
-        path: .wave/output/findings.json
+        path: .agents/output/findings.json
         type: json
     retry:
       policy: patient
@@ -139,8 +139,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/findings.json
-        schema_path: .wave/contracts/shared-findings.schema.json
+        source: .agents/output/findings.json
+        schema_path: .agents/contracts/shared-findings.schema.json
         on_failure: skip
 
   - id: compose
@@ -218,12 +218,12 @@ steps:
         A good review comment is scannable in under 30 seconds, gives the PR author clear action items for each finding, and includes file:line references for direct navigation. A bad review comment is longer than the PR diff itself, buries findings in prose, or omits locations that would help the author find the code.
     output_artifacts:
       - name: review_comment
-        path: .wave/output/review-comment.md
+        path: .agents/output/review-comment.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/review-comment.md
+        source: .agents/output/review-comment.md
 
   - id: publish
     persona: "{{ forge.type }}-commenter"
@@ -306,7 +306,7 @@ steps:
 
     output_artifacts:
       - name: publish-result
-        path: .wave/output/publish-result.json
+        path: .agents/output/publish-result.json
         type: json
     retry:
       policy: aggressive
@@ -314,12 +314,12 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/publish-result.json
-        schema_path: .wave/contracts/gh-pr-comment-result.schema.json
+        source: .agents/output/publish-result.json
+        schema_path: .agents/contracts/gh-pr-comment-result.schema.json
         must_pass: true
         on_failure: retry
     outcomes:
       - type: url
-        extract_from: .wave/output/publish-result.json
+        extract_from: .agents/output/publish-result.json
         json_path: .comment_url
         label: "Dead Code Review Comment"

@@ -59,7 +59,7 @@ Use --quiet to suppress output for scripting (clean exit when nothing to clean).
 // getWorkspacesWithStatus returns workspace names that match the given status from the database
 func getWorkspacesWithStatus(status string) (map[string]bool, error) {
 	result := make(map[string]bool)
-	dbPath := ".wave/state.db"
+	dbPath := ".agents/state.db"
 
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		return result, nil
@@ -142,7 +142,7 @@ func runClean(opts CleanOptions) error {
 	}
 
 	targets := []string{}
-	wsDir := ".wave/workspaces"
+	wsDir := ".agents/workspaces"
 
 	// Get workspaces with matching status (if status filter is provided)
 	var statusWorkspaces map[string]bool
@@ -150,7 +150,7 @@ func runClean(opts CleanOptions) error {
 		var err error
 		statusWorkspaces, err = getWorkspacesWithStatus(opts.Status)
 		if err != nil {
-			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to get workspaces by status: %s", err), "Check .wave/state.db is readable").WithCause(err)
+			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to get workspaces by status: %s", err), "Check .agents/state.db is readable").WithCause(err)
 		}
 	}
 
@@ -160,7 +160,7 @@ func runClean(opts CleanOptions) error {
 			// Get workspaces sorted by modification time using workspace package
 			workspaces, err := workspace.ListWorkspacesSortedByTime(wsDir)
 			if err != nil {
-				return NewCLIError(CodeInternalError, fmt.Sprintf("failed to list workspaces: %s", err), "Check .wave/workspaces directory permissions").WithCause(err)
+				return NewCLIError(CodeInternalError, fmt.Sprintf("failed to list workspaces: %s", err), "Check .agents/workspaces directory permissions").WithCause(err)
 			}
 
 			cutoffTime := time.Now().Add(-olderThanDuration)
@@ -220,10 +220,10 @@ func runClean(opts CleanOptions) error {
 		} else if opts.All {
 			// Default behavior: remove everything
 			targets = append(targets,
-				".wave/state.db",
-				".wave/traces",
-				".wave/workspaces",
-				".wave/retros",
+				".agents/state.db",
+				".agents/traces",
+				".agents/workspaces",
+				".agents/retros",
 			)
 		}
 	} else if opts.Pipeline != "" {
@@ -232,7 +232,7 @@ func runClean(opts CleanOptions) error {
 			return NewCLIError(CodeSecurityViolation, fmt.Sprintf("invalid pipeline name: %s", opts.Pipeline), "Pipeline names must not contain path separators or '..' sequences")
 		}
 		targets = append(targets,
-			filepath.Join(".wave", "workspaces", opts.Pipeline),
+			filepath.Join(".agents", "workspaces", opts.Pipeline),
 		)
 	}
 

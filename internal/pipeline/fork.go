@@ -110,8 +110,8 @@ func (fm *ForkManager) copyArtifacts(checkpoint *state.CheckpointRecord, sourceR
 		// Build destination path by replacing source run ID with new run ID in path
 		dstPath := replaceRunIDInPath(srcPath, sourceRunID, newRunID)
 		if dstPath == srcPath {
-			// If path doesn't contain run ID, create in .wave/artifacts/<newRunID>/
-			dstPath = filepath.Join(".wave", "artifacts", newRunID, filepath.Base(srcPath))
+			// If path doesn't contain run ID, create in .agents/artifacts/<newRunID>/
+			dstPath = filepath.Join(".agents", "artifacts", newRunID, filepath.Base(srcPath))
 		}
 
 		if err := fileutil.CopyPath(srcPath, dstPath); err != nil {

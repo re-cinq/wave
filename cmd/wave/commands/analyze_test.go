@@ -81,7 +81,7 @@ func TestWriteContextSkills(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 	defer func() { _ = os.Chdir(origDir) }()
 
-	require.NoError(t, os.MkdirAll(".wave/skills", 0755))
+	require.NoError(t, os.MkdirAll(".agents/skills", 0755))
 
 	result := &AnalyzeResult{
 		Telos: "Test project",
@@ -102,7 +102,7 @@ func TestWriteContextSkills(t *testing.T) {
 	}
 
 	// Verify content
-	data, err := os.ReadFile(filepath.Join(".wave", "skills", "wave-ctx-auth", "SKILL.md"))
+	data, err := os.ReadFile(filepath.Join(".agents", "skills", "wave-ctx-auth", "SKILL.md"))
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "# auth Context")
 	assert.Contains(t, string(data), "Test project")

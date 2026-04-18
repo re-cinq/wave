@@ -46,12 +46,12 @@ Expected output:
 [10:01:40] completed report             (summarizer)  21s   2.1k Report complete
 
 Pipeline security-audit completed in 99s
-Artifacts: .wave/output/security-report.md
+Artifacts: .agents/output/security-report.md
 ```
 
 ## Complete Pipeline
 
-Save the following YAML to `.wave/pipelines/security-audit.yaml`:
+Save the following YAML to `.agents/pipelines/security-audit.yaml`:
 
 <div v-pre>
 
@@ -98,7 +98,7 @@ steps:
         }
     output_artifacts:
       - name: inventory
-        path: .wave/output/security-inventory.json
+        path: .agents/output/security-inventory.json
         type: json
 
   - id: vulnerability-scan
@@ -135,7 +135,7 @@ steps:
         - Remediation recommendation
     output_artifacts:
       - name: vulnerabilities
-        path: .wave/output/vulnerabilities.md
+        path: .agents/output/vulnerabilities.md
         type: markdown
 
   - id: compliance-check
@@ -163,7 +163,7 @@ steps:
         - Recommendation if not passing
     output_artifacts:
       - name: compliance
-        path: .wave/output/compliance-report.md
+        path: .agents/output/compliance-report.md
         type: markdown
 
   - id: report
@@ -191,7 +191,7 @@ steps:
         5. Recommended remediation timeline
     output_artifacts:
       - name: report
-        path: .wave/output/security-report.md
+        path: .agents/output/security-report.md
         type: markdown
 ```
 
@@ -203,14 +203,14 @@ The pipeline produces four artifacts:
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| `inventory` | `.wave/output/security-inventory.json` | Security-relevant codebase inventory |
-| `vulnerabilities` | `.wave/output/vulnerabilities.md` | Detailed vulnerability findings |
-| `compliance` | `.wave/output/compliance-report.md` | Standards compliance status |
-| `report` | `.wave/output/security-report.md` | Executive summary report |
+| `inventory` | `.agents/output/security-inventory.json` | Security-relevant codebase inventory |
+| `vulnerabilities` | `.agents/output/vulnerabilities.md` | Detailed vulnerability findings |
+| `compliance` | `.agents/output/compliance-report.md` | Standards compliance status |
+| `report` | `.agents/output/security-report.md` | Executive summary report |
 
 ### Example Output
 
-The pipeline produces `.wave/output/security-report.md`:
+The pipeline produces `.agents/output/security-report.md`:
 
 ```markdown
 # Security Audit Report
@@ -298,8 +298,8 @@ Ensure compliance report follows expected format:
   handover:
     contract:
       type: json_schema
-      schema_path: .wave/contracts/compliance.schema.json
-      source: .wave/output/compliance-report.json
+      schema_path: .agents/contracts/compliance.schema.json
+      source: .agents/output/compliance-report.json
       on_failure: retry
       max_retries: 2
 ```

@@ -31,12 +31,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -73,7 +73,7 @@ steps:
         1. **Find all relevant files**: Use Glob to find files by name pattern and Grep to find files by content. Cast a wide net:
            - Search for the topic's key terms in file names and file contents
            - Include implementation files, test files, configuration files, and documentation
-           - Check multiple directories: internal/, cmd/, docs/, configs/, .wave/
+           - Check multiple directories: internal/, cmd/, docs/, configs/, .agents/
            - Look for related files that might not use the exact term (e.g., if exploring "pipeline execution," also search for "step," "executor," "scheduler")
            Record every relevant file path with a brief note on what it contains.
 
@@ -130,7 +130,7 @@ steps:
 
     output_artifacts:
       - name: exploration
-        path: .wave/output/exploration.json
+        path: .agents/output/exploration.json
         type: json
     retry:
       policy: patient
@@ -138,8 +138,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/exploration.json
-        schema_path: .wave/contracts/explain-exploration.schema.json
+        source: .agents/output/exploration.json
+        schema_path: .agents/contracts/explain-exploration.schema.json
         on_failure: retry
 
   - id: analyze
@@ -229,7 +229,7 @@ steps:
         A good analysis reveals the "why" behind the "what" -- explaining not just that a factory pattern is used, but why it is necessary for this specific component (e.g., "because sandbox backends need runtime selection based on configuration"). Each design decision includes the trade-off. A bad analysis describes code structure without explaining architectural intent, or lists patterns without connecting them to the problems they solve.
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
         type: json
     retry:
       policy: patient
@@ -237,8 +237,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/analysis.json
-        schema_path: .wave/contracts/explain-analysis.schema.json
+        source: .agents/output/analysis.json
+        schema_path: .agents/contracts/explain-analysis.schema.json
         on_failure: retry
 
   - id: document
@@ -333,9 +333,9 @@ steps:
         A good explanation document enables a new team member to become productive in this area of the codebase within one day of reading it. The architecture diagram is accurate enough to navigate the code. The execution flow walkthrough matches what actually happens when you trace through the code. File:line references are correct. A bad explanation is a surface-level overview that could describe any project, uses generic descriptions instead of real code references, or skips the "why" in favor of only the "what."
     output_artifacts:
       - name: explanation
-        path: .wave/output/explanation.md
+        path: .agents/output/explanation.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/explanation.md
+        source: .agents/output/explanation.md

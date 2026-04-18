@@ -238,7 +238,7 @@ steps:
         }
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
         type: json
 ```
 
@@ -260,11 +260,11 @@ steps:
     exec:
       type: prompt
       source: |
-        The analysis is available at: .wave/artifacts/context
+        The analysis is available at: .agents/artifacts/context
         Implement based on these findings.
 ```
 
-The artifact is copied to the step's workspace at `.wave/artifacts/<as-name>`.
+The artifact is copied to the step's workspace at `.agents/artifacts/<as-name>`.
 
 ### Artifact Types
 
@@ -302,7 +302,7 @@ steps:
         }
     output_artifacts:
       - name: diff
-        path: .wave/output/diff.json
+        path: .agents/output/diff.json
         type: json
 
   - id: security-review
@@ -317,13 +317,13 @@ steps:
     exec:
       type: prompt
       source: |
-        Review the changes at .wave/artifacts/changes for:
+        Review the changes at .agents/artifacts/changes for:
         - SQL injection
         - XSS vulnerabilities
         - Hardcoded secrets
     output_artifacts:
       - name: security
-        path: .wave/output/security.md
+        path: .agents/output/security.md
         type: markdown
 
   - id: final-report
@@ -345,7 +345,7 @@ steps:
         a final review report.
     output_artifacts:
       - name: report
-        path: .wave/output/final-report.md
+        path: .agents/output/final-report.md
         type: markdown
 ```
 
@@ -364,13 +364,13 @@ steps:
       source: "Output analysis as JSON"
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
         type: json
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/analysis.schema.json
-        source: .wave/output/analysis.json
+        schema_path: .agents/contracts/analysis.schema.json
+        source: .agents/output/analysis.json
         on_failure: retry
         max_retries: 2
 ```
@@ -493,7 +493,7 @@ flowchart TD
   style merge fill:#9a4ad9,color:#fff
 ```
 
-> See `.wave/pipelines/dual-analysis.yaml` for a complete working example.
+> See `.agents/pipelines/dual-analysis.yaml` for a complete working example.
 
 ### Pipeline-of-Pipelines
 
@@ -550,7 +550,7 @@ Name artifacts descriptively and specify types:
 ```yaml
 output_artifacts:
   - name: security-findings  # Clear purpose
-    path: .wave/output/security.json
+    path: .agents/output/security.json
     type: json  # Explicit type
 ```
 
@@ -562,7 +562,7 @@ Validate important outputs:
 handover:
   contract:
     type: json_schema
-    schema_path: .wave/contracts/analysis.schema.json
+    schema_path: .agents/contracts/analysis.schema.json
 ```
 
 ### 5. Use Readonly Mounts

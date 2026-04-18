@@ -40,7 +40,7 @@ func NewInitCmd() *cobra.Command {
 		Use:   "init",
 		Short: "Initialize a new Wave project",
 		Long: `Create a new Wave project structure with default configuration.
-Creates a wave.yaml manifest and .wave/personas/ directory with example prompts.
+Creates a wave.yaml manifest and .agents/personas/ directory with example prompts.
 
 By default, only release-ready pipelines are included. Use --all to include
 all embedded pipelines (useful for Wave contributors and developers).
@@ -56,7 +56,7 @@ preserving your custom settings.`,
 	cmd.Flags().BoolVar(&opts.Merge, "merge", false, "Merge defaults into existing configuration")
 	cmd.Flags().BoolVar(&opts.All, "all", false, "Include all pipelines regardless of release status")
 	cmd.Flags().StringVar(&opts.Adapter, "adapter", "claude", "Default adapter to use")
-	cmd.Flags().StringVar(&opts.Workspace, "workspace", ".wave/workspaces", "Workspace directory path")
+	cmd.Flags().StringVar(&opts.Workspace, "workspace", ".agents/workspaces", "Workspace directory path")
 	cmd.Flags().StringVar(&opts.OutputPath, "manifest-path", "wave.yaml", "Output path for wave.yaml")
 	cmd.Flags().BoolVarP(&opts.Yes, "yes", "y", false, "Answer yes to all confirmation prompts")
 	cmd.Flags().BoolVar(&opts.Reconfigure, "reconfigure", false, "Re-run onboarding wizard with current settings as defaults")
@@ -212,14 +212,14 @@ func filterTransitiveDeps(cmd *cobra.Command, pipelines, allContracts, allPrompt
 
 			// Extract contract references from schema_path
 			if sp := step.Handover.Contract.SchemaPath; sp != "" {
-				normalized := strings.TrimPrefix(sp, ".wave/contracts/")
+				normalized := strings.TrimPrefix(sp, ".agents/contracts/")
 				contractRefs[normalized] = true
 			}
 
 			// Extract prompt references from source_path
 			if sp := step.Exec.SourcePath; sp != "" {
-				if strings.HasPrefix(sp, ".wave/prompts/") {
-					normalized := strings.TrimPrefix(sp, ".wave/prompts/")
+				if strings.HasPrefix(sp, ".agents/prompts/") {
+					normalized := strings.TrimPrefix(sp, ".agents/prompts/")
 					promptRefs[normalized] = true
 				}
 			}
@@ -335,12 +335,12 @@ func runInit(cmd *cobra.Command, opts InitOptions) error {
 
 	// Create .wave directory structure
 	waveDirs := []string{
-		".wave/personas",
-		".wave/pipelines",
-		".wave/contracts",
-		".wave/prompts",
-		".wave/traces",
-		".wave/workspaces",
+		".agents/personas",
+		".agents/pipelines",
+		".agents/contracts",
+		".agents/prompts",
+		".agents/traces",
+		".agents/workspaces",
 	}
 	for _, dir := range waveDirs {
 		absDir, _ := filepath.Abs(dir)
@@ -398,19 +398,19 @@ func runInit(cmd *cobra.Command, opts InitOptions) error {
 	}
 
 	if err := createExamplePersonas(assets.personas); err != nil {
-		return fmt.Errorf("failed to create example personas in .wave/personas/: %w", err)
+		return fmt.Errorf("failed to create example personas in .agents/personas/: %w", err)
 	}
 
 	if err := createExamplePipelines(assets.pipelines); err != nil {
-		return fmt.Errorf("failed to create example pipelines in .wave/pipelines/: %w", err)
+		return fmt.Errorf("failed to create example pipelines in .agents/pipelines/: %w", err)
 	}
 
 	if err := createExampleContracts(assets.contracts); err != nil {
-		return fmt.Errorf("failed to create example contracts in .wave/contracts/: %w", err)
+		return fmt.Errorf("failed to create example contracts in .agents/contracts/: %w", err)
 	}
 
 	if err := createExamplePrompts(assets.prompts); err != nil {
-		return fmt.Errorf("failed to create example prompts in .wave/prompts/: %w", err)
+		return fmt.Errorf("failed to create example prompts in .agents/prompts/: %w", err)
 	}
 
 	if err := createProjectInstructionFiles(); err != nil {
@@ -701,25 +701,25 @@ func computeChangeSummary(assets *initAssets, existingManifest, defaultManifest 
 
 	// Check personas
 	for filename, content := range assets.personas {
-		path := filepath.Join(".wave", "personas", filename)
+		path := filepath.Join(".agents", "personas", filename)
 		files = append(files, classifyFile(path, "persona", content))
 	}
 
 	// Check pipelines
 	for filename, content := range assets.pipelines {
-		path := filepath.Join(".wave", "pipelines", filename)
+		path := filepath.Join(".agents", "pipelines", filename)
 		files = append(files, classifyFile(path, "pipeline", content))
 	}
 
 	// Check contracts
 	for filename, content := range assets.contracts {
-		path := filepath.Join(".wave", "contracts", filename)
+		path := filepath.Join(".agents", "contracts", filename)
 		files = append(files, classifyFile(path, "contract", content))
 	}
 
 	// Check prompts
 	for relPath, content := range assets.prompts {
-		path := filepath.Join(".wave", "prompts", relPath)
+		path := filepath.Join(".agents", "prompts", relPath)
 		files = append(files, classifyFile(path, "prompt", content))
 	}
 
@@ -916,12 +916,12 @@ func confirmMerge(cmd *cobra.Command, opts InitOptions) (bool, error) {
 func applyChanges(summary *ChangeSummary, outputPath string) error {
 	// Ensure directories exist
 	waveDirs := []string{
-		".wave/personas",
-		".wave/pipelines",
-		".wave/contracts",
-		".wave/prompts",
-		".wave/traces",
-		".wave/workspaces",
+		".agents/personas",
+		".agents/pipelines",
+		".agents/contracts",
+		".agents/prompts",
+		".agents/traces",
+		".agents/workspaces",
 	}
 	for _, dir := range waveDirs {
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -945,7 +945,7 @@ func applyChanges(summary *ChangeSummary, outputPath string) error {
 		case "contract":
 			content = summary.Assets.contracts[filepath.Base(f.RelPath)]
 		case "prompt":
-			promptPrefix := filepath.Join(".wave", "prompts") + string(filepath.Separator)
+			promptPrefix := filepath.Join(".agents", "prompts") + string(filepath.Separator)
 			relPath := strings.TrimPrefix(f.RelPath, promptPrefix)
 			content = summary.Assets.prompts[relPath]
 		}
@@ -996,12 +996,12 @@ func printInitSuccess(cmd *cobra.Command, outputPath string, assets *initAssets)
 	fmt.Fprintf(out, "\n")
 	fmt.Fprintf(out, "  Created:\n")
 	fmt.Fprintf(out, "    %-24s Main manifest\n", outputPath)
-	fmt.Fprintf(out, "    .wave/personas/          %d persona archetypes\n", len(assets.personas))
-	fmt.Fprintf(out, "    .wave/pipelines/         %d pipelines\n", len(assets.pipelines))
-	fmt.Fprintf(out, "    .wave/contracts/         %d JSON schema validators\n", len(assets.contracts))
-	fmt.Fprintf(out, "    .wave/prompts/           %d prompt templates\n", len(assets.prompts))
-	fmt.Fprintf(out, "    .wave/workspaces/        Ephemeral workspace root\n")
-	fmt.Fprintf(out, "    .wave/traces/            Audit log directory\n")
+	fmt.Fprintf(out, "    .agents/personas/          %d persona archetypes\n", len(assets.personas))
+	fmt.Fprintf(out, "    .agents/pipelines/         %d pipelines\n", len(assets.pipelines))
+	fmt.Fprintf(out, "    .agents/contracts/         %d JSON schema validators\n", len(assets.contracts))
+	fmt.Fprintf(out, "    .agents/prompts/           %d prompt templates\n", len(assets.prompts))
+	fmt.Fprintf(out, "    .agents/workspaces/        Ephemeral workspace root\n")
+	fmt.Fprintf(out, "    .agents/traces/            Audit log directory\n")
 	fmt.Fprintf(out, "\n")
 	fmt.Fprintf(out, "  Pipelines: %s\n", strings.Join(pipelineNames, ", "))
 	fmt.Fprintf(out, "\n")
@@ -1025,7 +1025,7 @@ func printMergeSuccess(cmd *cobra.Command, outputPath string) {
 	fmt.Fprintf(out, "  Updated:\n")
 	fmt.Fprintf(out, "    %s       Preserved your settings\n", outputPath)
 	fmt.Fprintf(out, "    Added missing default adapters and personas\n")
-	fmt.Fprintf(out, "    Created missing .wave/ directories and files\n")
+	fmt.Fprintf(out, "    Created missing .agents/ directories and files\n")
 	fmt.Fprintf(out, "\n")
 	fmt.Fprintf(out, "  Next steps:\n")
 	fmt.Fprintf(out, "    1. Run 'wave migrate up' to apply pending migrations\n")
@@ -1039,7 +1039,7 @@ func buildPersonaManifest(configs map[string]manifest.Persona, adapter string) m
 		entry := map[string]interface{}{
 			"adapter":            adapter,
 			"description":        cfg.Description,
-			"system_prompt_file": fmt.Sprintf(".wave/personas/%s.md", name),
+			"system_prompt_file": fmt.Sprintf(".agents/personas/%s.md", name),
 			"temperature":        cfg.Temperature,
 			"permissions": map[string]interface{}{
 				"allowed_tools": cfg.Permissions.AllowedTools,
@@ -1103,7 +1103,7 @@ func createDefaultManifest(adapter string, workspace string, project map[string]
 				"strategy":                "summarize_to_checkpoint",
 			},
 			"audit": map[string]interface{}{
-				"log_dir":                 ".wave/traces/",
+				"log_dir":                 ".agents/traces/",
 				"log_all_tool_calls":      true,
 				"log_all_file_operations": false,
 			},
@@ -1141,7 +1141,7 @@ func createDefaultManifest(adapter string, workspace string, project map[string]
 
 func createExamplePersonas(personas map[string]string) error {
 	for filename, content := range personas {
-		path := filepath.Join(".wave", "personas", filename)
+		path := filepath.Join(".agents", "personas", filename)
 		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 			absPath, _ := filepath.Abs(path)
 			return fmt.Errorf("failed to write %s: %w", absPath, err)
@@ -1153,7 +1153,7 @@ func createExamplePersonas(personas map[string]string) error {
 
 func createExamplePipelines(pipelines map[string]string) error {
 	for filename, content := range pipelines {
-		path := filepath.Join(".wave", "pipelines", filename)
+		path := filepath.Join(".agents", "pipelines", filename)
 		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 			absPath, _ := filepath.Abs(path)
 			return fmt.Errorf("failed to write %s: %w", absPath, err)
@@ -1165,7 +1165,7 @@ func createExamplePipelines(pipelines map[string]string) error {
 
 func createExampleContracts(contracts map[string]string) error {
 	for filename, content := range contracts {
-		path := filepath.Join(".wave", "contracts", filename)
+		path := filepath.Join(".agents", "contracts", filename)
 		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 			absPath, _ := filepath.Abs(path)
 			return fmt.Errorf("failed to write %s: %w", absPath, err)
@@ -1177,7 +1177,7 @@ func createExampleContracts(contracts map[string]string) error {
 
 func createExamplePrompts(prompts map[string]string) error {
 	for relPath, content := range prompts {
-		path := filepath.Join(".wave", "prompts", relPath)
+		path := filepath.Join(".agents", "prompts", relPath)
 		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 			return fmt.Errorf("failed to create directory for %s: %w", path, err)
 		}
@@ -1265,7 +1265,7 @@ func createInitialCommit(w io.Writer, outputPath string) error {
 	}
 
 	// Stage wave files specifically (not git add -A)
-	add := exec.Command("git", "add", outputPath, ".wave/")
+	add := exec.Command("git", "add", outputPath, ".agents/")
 	add.Stdout = io.Discard
 	add.Stderr = io.Discard
 	if err := add.Run(); err != nil {
@@ -1399,12 +1399,12 @@ func runWizardInit(cmd *cobra.Command, opts InitOptions) error {
 
 	// Create .wave directory structure
 	waveDirs := []string{
-		".wave/personas",
-		".wave/pipelines",
-		".wave/contracts",
-		".wave/prompts",
-		".wave/traces",
-		".wave/workspaces",
+		".agents/personas",
+		".agents/pipelines",
+		".agents/contracts",
+		".agents/prompts",
+		".agents/traces",
+		".agents/workspaces",
 		".claude/commands",
 	}
 	for _, dir := range waveDirs {
@@ -1434,7 +1434,7 @@ func runWizardInit(cmd *cobra.Command, opts InitOptions) error {
 	}
 
 	cfg := onboarding.WizardConfig{
-		WaveDir:        ".wave",
+		WaveDir:        ".agents",
 		Interactive:    true,
 		Reconfigure:    false,
 		Existing:       existing,
@@ -1452,7 +1452,7 @@ func runWizardInit(cmd *cobra.Command, opts InitOptions) error {
 
 	// Remove deselected pipelines
 	if len(result.Pipelines) > 0 {
-		if err := removeDeselectedPipelines(".wave/pipelines", result.Pipelines); err != nil {
+		if err := removeDeselectedPipelines(".agents/pipelines", result.Pipelines); err != nil {
 			return fmt.Errorf("failed to remove deselected pipelines: %w", err)
 		}
 	}
@@ -1480,7 +1480,7 @@ func runReconfigure(cmd *cobra.Command, opts InitOptions) error {
 	}
 
 	// Clear onboarding state so the wizard runs fresh
-	_ = onboarding.ClearOnboarding(".wave")
+	_ = onboarding.ClearOnboarding(".agents")
 
 	interactive := !opts.Yes && isInitInteractive()
 
@@ -1494,7 +1494,7 @@ func runReconfigure(cmd *cobra.Command, opts InitOptions) error {
 	}
 
 	cfg := onboarding.WizardConfig{
-		WaveDir:        ".wave",
+		WaveDir:        ".agents",
 		Interactive:    interactive,
 		Reconfigure:    true,
 		Existing:       &existing,
@@ -1511,7 +1511,7 @@ func runReconfigure(cmd *cobra.Command, opts InitOptions) error {
 	}
 	// Remove deselected pipelines
 	if len(result.Pipelines) > 0 {
-		if err := removeDeselectedPipelines(".wave/pipelines", result.Pipelines); err != nil {
+		if err := removeDeselectedPipelines(".agents/pipelines", result.Pipelines); err != nil {
 			return fmt.Errorf("failed to remove deselected pipelines: %w", err)
 		}
 	}

@@ -169,7 +169,7 @@ func runOptimize(cmd *cobra.Command, opts optimizeOpts) error {
 	}
 
 	// 4. Discover available pipeline names
-	pipelineNames := discoverPipelineNames(".wave/pipelines")
+	pipelineNames := discoverPipelineNames(".agents/pipelines")
 
 	// 5. Run optimization
 	result := doctor.Optimize(profile, m.Project, fiPtr, pipelineNames)
@@ -314,9 +314,9 @@ func applyOptimizeChanges(manifestPath string, m *manifest.Manifest, result *doc
 	}
 
 	// Write project profile
-	profilePath := filepath.Join(".wave", "project-profile.json")
+	profilePath := filepath.Join(".agents", "project-profile.json")
 	if err := os.MkdirAll(filepath.Dir(profilePath), 0o755); err != nil {
-		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to create directory for %s: %s", profilePath, err), "Check write permissions for .wave/ directory").WithCause(err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to create directory for %s: %s", profilePath, err), "Check write permissions for .agents/ directory").WithCause(err)
 	}
 
 	profileData, err := json.MarshalIndent(profile, "", "  ")
@@ -325,7 +325,7 @@ func applyOptimizeChanges(manifestPath string, m *manifest.Manifest, result *doc
 	}
 
 	if err := os.WriteFile(profilePath, profileData, 0o644); err != nil {
-		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to write %s: %s", profilePath, err), "Check write permissions for .wave/ directory").WithCause(err)
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to write %s: %s", profilePath, err), "Check write permissions for .agents/ directory").WithCause(err)
 	}
 
 	return nil

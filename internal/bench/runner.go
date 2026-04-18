@@ -31,7 +31,7 @@ type RunConfig struct {
 	// DatasetPath is the path to the JSONL dataset file.
 	DatasetPath string
 	// WorkDir is the root directory for benchmark workspaces.
-	// Defaults to ".wave/bench".
+	// Defaults to ".agents/bench".
 	WorkDir string
 	// Timeout per task. Zero means no timeout.
 	TaskTimeout time.Duration
@@ -68,7 +68,7 @@ func NewSubprocessRunner(cacheDir string) *SubprocessRunner {
 func (s *SubprocessRunner) RunTask(ctx context.Context, task BenchTask, cfg RunConfig) (*BenchResult, error) {
 	workDir := cfg.WorkDir
 	if workDir == "" {
-		workDir = ".wave/bench"
+		workDir = ".agents/bench"
 	}
 
 	taskDir := filepath.Join(workDir, "workspaces", task.ID)

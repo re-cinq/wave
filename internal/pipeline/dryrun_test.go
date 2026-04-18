@@ -42,7 +42,7 @@ func buildSimplePipeline() *Pipeline {
 				Memory:  MemoryConfig{Strategy: "fresh"},
 				Exec:    ExecConfig{Type: "prompt", Source: "Analyze {{ input }}"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "analysis", Path: ".wave/artifacts/analysis.json", Type: "json"},
+					{Name: "analysis", Path: ".agents/artifacts/analysis.json", Type: "json"},
 				},
 			},
 			{
@@ -62,7 +62,7 @@ func buildSimplePipeline() *Pipeline {
 }
 
 func TestDryRunValidator_ValidPipeline(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	m := buildManifestWithPersonas()
 	p := buildSimplePipeline()
 
@@ -73,7 +73,7 @@ func TestDryRunValidator_ValidPipeline(t *testing.T) {
 }
 
 func TestDryRunValidator_MissingPersona(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	m := buildManifestWithPersonas()
 	p := buildSimplePipeline()
 	p.Steps[0].Persona = "unknown-persona"
@@ -94,7 +94,7 @@ func TestDryRunValidator_MissingPersona(t *testing.T) {
 }
 
 func TestDryRunValidator_MissingPersonaWhenNoManifest(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	p := buildSimplePipeline()
 
 	// No manifest: persona check is skipped, no error expected for unknown persona.
@@ -107,7 +107,7 @@ func TestDryRunValidator_MissingPersonaWhenNoManifest(t *testing.T) {
 }
 
 func TestDryRunValidator_UnknownExecType(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	m := buildManifestWithPersonas()
 	p := buildSimplePipeline()
 	p.Steps[0].Exec.Type = "magic"
@@ -119,7 +119,7 @@ func TestDryRunValidator_UnknownExecType(t *testing.T) {
 }
 
 func TestDryRunValidator_MissingExecSource(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	m := buildManifestWithPersonas()
 	p := buildSimplePipeline()
 	p.Steps[0].Exec.Source = ""
@@ -132,7 +132,7 @@ func TestDryRunValidator_MissingExecSource(t *testing.T) {
 }
 
 func TestDryRunValidator_InjectArtifactFromUnknownStep(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	m := buildManifestWithPersonas()
 	p := buildSimplePipeline()
 	p.Steps[1].Memory.InjectArtifacts = []ArtifactRef{
@@ -146,7 +146,7 @@ func TestDryRunValidator_InjectArtifactFromUnknownStep(t *testing.T) {
 }
 
 func TestDryRunValidator_InjectArtifactMissingDependency(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	m := buildManifestWithPersonas()
 	p := buildSimplePipeline()
 	// Remove the dependency listing.
@@ -166,7 +166,7 @@ func TestDryRunValidator_InjectArtifactMissingDependency(t *testing.T) {
 }
 
 func TestDryRunValidator_UnknownArtifactName_Warning(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	m := buildManifestWithPersonas()
 	p := buildSimplePipeline()
 	p.Steps[1].Memory.InjectArtifacts = []ArtifactRef{
@@ -186,7 +186,7 @@ func TestDryRunValidator_UnknownArtifactName_Warning(t *testing.T) {
 }
 
 func TestDryRunValidator_ContractSchemaPathMissing(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	m := buildManifestWithPersonas()
 	p := buildSimplePipeline()
 	p.Steps[0].Handover = HandoverConfig{
@@ -223,7 +223,7 @@ func TestDryRunValidator_ContractSchemaPathExists(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	m := buildManifestWithPersonas()
 	p := buildSimplePipeline()
 	p.Steps[0].Handover = HandoverConfig{
@@ -242,7 +242,7 @@ func TestDryRunValidator_ContractSchemaPathExists(t *testing.T) {
 }
 
 func TestDryRunValidator_UnknownContractType(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	m := buildManifestWithPersonas()
 	p := buildSimplePipeline()
 	p.Steps[0].Handover = HandoverConfig{
@@ -256,7 +256,7 @@ func TestDryRunValidator_UnknownContractType(t *testing.T) {
 }
 
 func TestDryRunValidator_JSONSchemaContractMissingSchema(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	m := buildManifestWithPersonas()
 	p := buildSimplePipeline()
 	p.Steps[0].Handover = HandoverConfig{
@@ -270,7 +270,7 @@ func TestDryRunValidator_JSONSchemaContractMissingSchema(t *testing.T) {
 }
 
 func TestDryRunValidator_InvalidContractOnFailure(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	m := buildManifestWithPersonas()
 	p := buildSimplePipeline()
 	p.Steps[0].Handover = HandoverConfig{
@@ -284,7 +284,7 @@ func TestDryRunValidator_InvalidContractOnFailure(t *testing.T) {
 }
 
 func TestDryRunValidator_TestSuiteMissingCommand(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	m := buildManifestWithPersonas()
 	p := buildSimplePipeline()
 	p.Steps[0].Handover = HandoverConfig{
@@ -300,7 +300,7 @@ func TestDryRunValidator_TestSuiteMissingCommand(t *testing.T) {
 // --- Gate validation ---
 
 func TestDryRunValidator_GateMissingType(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	p := &Pipeline{
 		Kind:     "WavePipeline",
 		Metadata: PipelineMetadata{Name: "test"},
@@ -316,7 +316,7 @@ func TestDryRunValidator_GateMissingType(t *testing.T) {
 }
 
 func TestDryRunValidator_GateUnknownType(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	p := &Pipeline{
 		Kind:     "WavePipeline",
 		Metadata: PipelineMetadata{Name: "test"},
@@ -332,7 +332,7 @@ func TestDryRunValidator_GateUnknownType(t *testing.T) {
 }
 
 func TestDryRunValidator_GateTimerMissingTimeout(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	p := &Pipeline{
 		Kind:     "WavePipeline",
 		Metadata: PipelineMetadata{Name: "test"},
@@ -348,7 +348,7 @@ func TestDryRunValidator_GateTimerMissingTimeout(t *testing.T) {
 }
 
 func TestDryRunValidator_GateApprovalValid(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	p := &Pipeline{
 		Kind:     "WavePipeline",
 		Metadata: PipelineMetadata{Name: "test"},
@@ -366,7 +366,7 @@ func TestDryRunValidator_GateApprovalValid(t *testing.T) {
 // --- Iterate validation ---
 
 func TestDryRunValidator_IterateMissingOver(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	p := &Pipeline{
 		Kind:     "WavePipeline",
 		Metadata: PipelineMetadata{Name: "test"},
@@ -392,7 +392,7 @@ func TestDryRunValidator_IterateMissingOver(t *testing.T) {
 }
 
 func TestDryRunValidator_IterateMissingPipeline(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	p := &Pipeline{
 		Kind:     "WavePipeline",
 		Metadata: PipelineMetadata{Name: "test"},
@@ -417,7 +417,7 @@ func TestDryRunValidator_IterateMissingPipeline(t *testing.T) {
 }
 
 func TestDryRunValidator_IterateUnknownMode(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	p := &Pipeline{
 		Kind:     "WavePipeline",
 		Metadata: PipelineMetadata{Name: "test"},
@@ -445,7 +445,7 @@ func TestDryRunValidator_IterateUnknownMode(t *testing.T) {
 // --- Branch validation ---
 
 func TestDryRunValidator_BranchMissingOn(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	p := &Pipeline{
 		Kind:     "WavePipeline",
 		Metadata: PipelineMetadata{Name: "test"},
@@ -470,7 +470,7 @@ func TestDryRunValidator_BranchMissingOn(t *testing.T) {
 }
 
 func TestDryRunValidator_BranchNoCases(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	p := &Pipeline{
 		Kind:     "WavePipeline",
 		Metadata: PipelineMetadata{Name: "test"},
@@ -497,7 +497,7 @@ func TestDryRunValidator_BranchNoCases(t *testing.T) {
 // --- Loop validation ---
 
 func TestDryRunValidator_LoopMaxIterationsZero(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	p := &Pipeline{
 		Kind:     "WavePipeline",
 		Metadata: PipelineMetadata{Name: "test"},
@@ -521,7 +521,7 @@ func TestDryRunValidator_LoopMaxIterationsZero(t *testing.T) {
 // --- Aggregate validation ---
 
 func TestDryRunValidator_AggregateUnknownStrategy(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	p := &Pipeline{
 		Kind:     "WavePipeline",
 		Metadata: PipelineMetadata{Name: "test"},
@@ -550,7 +550,7 @@ func TestDryRunValidator_AggregateUnknownStrategy(t *testing.T) {
 }
 
 func TestDryRunValidator_AggregateMissingFrom(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	p := &Pipeline{
 		Kind:     "WavePipeline",
 		Metadata: PipelineMetadata{Name: "test"},
@@ -580,7 +580,7 @@ func TestDryRunValidator_AggregateMissingFrom(t *testing.T) {
 // --- DAG error ---
 
 func TestDryRunValidator_DAGCycle(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	p := &Pipeline{
 		Kind:     "WavePipeline",
 		Metadata: PipelineMetadata{Name: "test"},
@@ -669,7 +669,7 @@ func TestValidationFinding_String(t *testing.T) {
 }
 
 func TestDryRunValidator_UnbalancedTemplate(t *testing.T) {
-	v := NewDryRunValidator(".wave/pipelines")
+	v := NewDryRunValidator(".agents/pipelines")
 	p := &Pipeline{
 		Kind:     "WavePipeline",
 		Metadata: PipelineMetadata{Name: "test"},

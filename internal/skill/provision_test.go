@@ -49,7 +49,7 @@ Body content here.
 	}
 
 	// Verify SKILL.md was written
-	skillMDPath := filepath.Join(workspace, ".wave", "skills", "test-skill", "SKILL.md")
+	skillMDPath := filepath.Join(workspace, ".agents", "skills", "test-skill", "SKILL.md")
 	data, err := os.ReadFile(skillMDPath)
 	if err != nil {
 		t.Fatalf("SKILL.md not found: %v", err)
@@ -59,7 +59,7 @@ Body content here.
 	}
 
 	// Verify resource was copied
-	scriptPath := filepath.Join(workspace, ".wave", "skills", "test-skill", "scripts", "helper.sh")
+	scriptPath := filepath.Join(workspace, ".agents", "skills", "test-skill", "scripts", "helper.sh")
 	if _, err := os.Stat(scriptPath); err != nil {
 		t.Errorf("resource file not copied: %v", err)
 	}
@@ -166,7 +166,7 @@ func TestProvisionFromStore_MultipleSkills(t *testing.T) {
 
 	// Verify both SKILL.md files were written
 	for _, name := range []string{"alpha", "beta"} {
-		skillMDPath := filepath.Join(workspace, ".wave", "skills", name, "SKILL.md")
+		skillMDPath := filepath.Join(workspace, ".agents", "skills", name, "SKILL.md")
 		if _, err := os.Stat(skillMDPath); err != nil {
 			t.Errorf("SKILL.md for %q not found: %v", name, err)
 		}
@@ -228,16 +228,16 @@ func TestProvisionFromStore_AllResources(t *testing.T) {
 	}
 
 	// Verify SKILL.md exists
-	skillMDPath := filepath.Join(workspace, ".wave", "skills", "full-skill", "SKILL.md")
+	skillMDPath := filepath.Join(workspace, ".agents", "skills", "full-skill", "SKILL.md")
 	if _, err := os.Stat(skillMDPath); err != nil {
 		t.Errorf("SKILL.md not found: %v", err)
 	}
 
-	// Verify all resource files exist at correct paths under .wave/skills/<name>/
+	// Verify all resource files exist at correct paths under .agents/skills/<name>/
 	for _, path := range []string{
-		filepath.Join(workspace, ".wave", "skills", "full-skill", "scripts", "setup.sh"),
-		filepath.Join(workspace, ".wave", "skills", "full-skill", "references", "api.json"),
-		filepath.Join(workspace, ".wave", "skills", "full-skill", "assets", "logo.txt"),
+		filepath.Join(workspace, ".agents", "skills", "full-skill", "scripts", "setup.sh"),
+		filepath.Join(workspace, ".agents", "skills", "full-skill", "references", "api.json"),
+		filepath.Join(workspace, ".agents", "skills", "full-skill", "assets", "logo.txt"),
 	} {
 		if _, err := os.Stat(path); err != nil {
 			t.Errorf("resource file not found: %s: %v", path, err)
@@ -269,7 +269,7 @@ func TestProvisionFromStore_ContentMatch(t *testing.T) {
 	}
 
 	// ProvisionFromStore writes only the Body (not full SKILL.md with frontmatter) to workspace
-	data, err := os.ReadFile(filepath.Join(workspace, ".wave", "skills", "content-skill", "SKILL.md"))
+	data, err := os.ReadFile(filepath.Join(workspace, ".agents", "skills", "content-skill", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("failed to read provisioned SKILL.md: %v", err)
 	}
@@ -307,7 +307,7 @@ func TestProvisionFromStore_IsolatedDirs(t *testing.T) {
 
 	// Verify each skill has its own isolated directory
 	for _, name := range []string{"alpha", "beta", "gamma"} {
-		skillMDPath := filepath.Join(workspace, ".wave", "skills", name, "SKILL.md")
+		skillMDPath := filepath.Join(workspace, ".agents", "skills", name, "SKILL.md")
 		if _, err := os.Stat(skillMDPath); err != nil {
 			t.Errorf("SKILL.md for %q not found: %v", name, err)
 		}
@@ -315,7 +315,7 @@ func TestProvisionFromStore_IsolatedDirs(t *testing.T) {
 
 	// Verify no cross-contamination: each dir should only have SKILL.md
 	for _, name := range []string{"alpha", "beta", "gamma"} {
-		skillDir := filepath.Join(workspace, ".wave", "skills", name)
+		skillDir := filepath.Join(workspace, ".agents", "skills", name)
 		entries, err := os.ReadDir(skillDir)
 		if err != nil {
 			t.Fatalf("failed to read dir for %q: %v", name, err)

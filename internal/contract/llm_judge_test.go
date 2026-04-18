@@ -46,7 +46,7 @@ func newMockAnthropicServer(t *testing.T, judgeResp JudgeResponse) *httptest.Ser
 func setupLLMJudgeTest(t *testing.T, content string) string {
 	t.Helper()
 	workspacePath := t.TempDir()
-	waveDir := filepath.Join(workspacePath, ".wave")
+	waveDir := filepath.Join(workspacePath, ".agents")
 	_ = os.MkdirAll(waveDir, 0755)
 	_ = os.WriteFile(filepath.Join(waveDir, "artifact.json"), []byte(content), 0644)
 	return workspacePath
@@ -252,13 +252,13 @@ func TestLLMJudge_NoAPIKey_FallsThroughToCLI(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "")
 
 	tmpDir := t.TempDir()
-	_ = os.MkdirAll(filepath.Join(tmpDir, ".wave"), 0o755)
-	_ = os.WriteFile(filepath.Join(tmpDir, ".wave", "artifact.json"), []byte(`{"test": true}`), 0o644)
+	_ = os.MkdirAll(filepath.Join(tmpDir, ".agents"), 0o755)
+	_ = os.WriteFile(filepath.Join(tmpDir, ".agents", "artifact.json"), []byte(`{"test": true}`), 0o644)
 
 	cfg := ContractConfig{
 		Type:     "llm_judge",
 		Criteria: []string{"Test criterion"},
-		Source:   ".wave/artifact.json",
+		Source:   ".agents/artifact.json",
 	}
 
 	v := &llmJudgeValidator{}

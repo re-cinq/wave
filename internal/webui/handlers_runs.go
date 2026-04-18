@@ -1089,8 +1089,8 @@ func uniqueStrings(ss []string) []string {
 }
 
 func listPipelineNames() []string {
-	// List pipeline YAML files from .wave/pipelines/
-	entries, err := os.ReadDir(".wave/pipelines")
+	// List pipeline YAML files from .agents/pipelines/
+	entries, err := os.ReadDir(".agents/pipelines")
 	if err != nil {
 		return nil
 	}

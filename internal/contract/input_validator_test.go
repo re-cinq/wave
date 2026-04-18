@@ -13,7 +13,7 @@ func TestValidateInputArtifact_ValidJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create artifact
-	artifactsDir := filepath.Join(tmpDir, ".wave", "artifacts")
+	artifactsDir := filepath.Join(tmpDir, ".agents", "artifacts")
 	require.NoError(t, os.MkdirAll(artifactsDir, 0755))
 
 	artifactPath := filepath.Join(artifactsDir, "test-artifact")
@@ -43,7 +43,7 @@ func TestValidateInputArtifact_InvalidJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create artifact with invalid JSON
-	artifactsDir := filepath.Join(tmpDir, ".wave", "artifacts")
+	artifactsDir := filepath.Join(tmpDir, ".agents", "artifacts")
 	require.NoError(t, os.MkdirAll(artifactsDir, 0755))
 
 	artifactPath := filepath.Join(artifactsDir, "test-artifact")
@@ -74,7 +74,7 @@ func TestValidateInputArtifact_NoSchemaSkipsValidation(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create artifact (no schema will be provided)
-	artifactsDir := filepath.Join(tmpDir, ".wave", "artifacts")
+	artifactsDir := filepath.Join(tmpDir, ".agents", "artifacts")
 	require.NoError(t, os.MkdirAll(artifactsDir, 0755))
 
 	artifactPath := filepath.Join(artifactsDir, "test-artifact")
@@ -105,7 +105,7 @@ func TestValidateInputArtifact_MissingSchema(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create artifact but no schema
-	artifactsDir := filepath.Join(tmpDir, ".wave", "artifacts")
+	artifactsDir := filepath.Join(tmpDir, ".agents", "artifacts")
 	require.NoError(t, os.MkdirAll(artifactsDir, 0755))
 
 	artifactPath := filepath.Join(artifactsDir, "test-artifact")
@@ -122,7 +122,7 @@ func TestValidateInputArtifacts_Multiple(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create artifacts directory
-	artifactsDir := filepath.Join(tmpDir, ".wave", "artifacts")
+	artifactsDir := filepath.Join(tmpDir, ".agents", "artifacts")
 	require.NoError(t, os.MkdirAll(artifactsDir, 0755))
 
 	// Create two artifacts
@@ -161,7 +161,7 @@ func TestValidateInputArtifact_SharedFindingsSchema(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create artifact matching shared-findings schema
-	artifactsDir := filepath.Join(tmpDir, ".wave", "artifacts")
+	artifactsDir := filepath.Join(tmpDir, ".agents", "artifacts")
 	require.NoError(t, os.MkdirAll(artifactsDir, 0755))
 
 	validFindings := `{
@@ -181,7 +181,7 @@ func TestValidateInputArtifact_SharedFindingsSchema(t *testing.T) {
 	require.NoError(t, err)
 
 	// Write an inline fixture schema that covers the fields used above (not the real shared-findings schema)
-	schemaDir := filepath.Join(tmpDir, ".wave", "contracts")
+	schemaDir := filepath.Join(tmpDir, ".agents", "contracts")
 	require.NoError(t, os.MkdirAll(schemaDir, 0755))
 
 	schemaContent := `{
@@ -212,7 +212,7 @@ func TestValidateInputArtifact_SharedFindingsSchema(t *testing.T) {
 	require.NoError(t, err)
 
 	// Valid findings should pass
-	err = ValidateInputArtifact("findings", ".wave/contracts/shared-findings.schema.json", tmpDir)
+	err = ValidateInputArtifact("findings", ".agents/contracts/shared-findings.schema.json", tmpDir)
 	assert.NoError(t, err)
 
 	// Invalid severity should fail
@@ -228,14 +228,14 @@ func TestValidateInputArtifact_SharedFindingsSchema(t *testing.T) {
 	err = os.WriteFile(filepath.Join(artifactsDir, "findings"), []byte(invalidFindings), 0644)
 	require.NoError(t, err)
 
-	err = ValidateInputArtifact("findings", ".wave/contracts/shared-findings.schema.json", tmpDir)
+	err = ValidateInputArtifact("findings", ".agents/contracts/shared-findings.schema.json", tmpDir)
 	assert.Error(t, err, "uppercase severity should fail validation against canonical enum")
 }
 
 func TestValidateInputArtifact_SharedReviewVerdictSchema(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	artifactsDir := filepath.Join(tmpDir, ".wave", "artifacts")
+	artifactsDir := filepath.Join(tmpDir, ".agents", "artifacts")
 	require.NoError(t, os.MkdirAll(artifactsDir, 0755))
 
 	validVerdict := `{
@@ -248,7 +248,7 @@ func TestValidateInputArtifact_SharedReviewVerdictSchema(t *testing.T) {
 	err := os.WriteFile(filepath.Join(artifactsDir, "verdict"), []byte(validVerdict), 0644)
 	require.NoError(t, err)
 
-	schemaDir := filepath.Join(tmpDir, ".wave", "contracts")
+	schemaDir := filepath.Join(tmpDir, ".agents", "contracts")
 	require.NoError(t, os.MkdirAll(schemaDir, 0755))
 
 	schemaContent := `{
@@ -267,7 +267,7 @@ func TestValidateInputArtifact_SharedReviewVerdictSchema(t *testing.T) {
 	err = os.WriteFile(filepath.Join(schemaDir, "shared-review-verdict.schema.json"), []byte(schemaContent), 0644)
 	require.NoError(t, err)
 
-	err = ValidateInputArtifact("verdict", ".wave/contracts/shared-review-verdict.schema.json", tmpDir)
+	err = ValidateInputArtifact("verdict", ".agents/contracts/shared-review-verdict.schema.json", tmpDir)
 	assert.NoError(t, err)
 
 	// Invalid verdict value should fail
@@ -275,7 +275,7 @@ func TestValidateInputArtifact_SharedReviewVerdictSchema(t *testing.T) {
 	err = os.WriteFile(filepath.Join(artifactsDir, "verdict"), []byte(invalidVerdict), 0644)
 	require.NoError(t, err)
 
-	err = ValidateInputArtifact("verdict", ".wave/contracts/shared-review-verdict.schema.json", tmpDir)
+	err = ValidateInputArtifact("verdict", ".agents/contracts/shared-review-verdict.schema.json", tmpDir)
 	assert.Error(t, err, "invalid verdict enum value should fail validation")
 }
 
@@ -283,7 +283,7 @@ func TestValidateInputArtifacts_FailsOnFirstError(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create artifacts directory
-	artifactsDir := filepath.Join(tmpDir, ".wave", "artifacts")
+	artifactsDir := filepath.Join(tmpDir, ".agents", "artifacts")
 	require.NoError(t, os.MkdirAll(artifactsDir, 0755))
 
 	// Create one valid, one invalid artifact

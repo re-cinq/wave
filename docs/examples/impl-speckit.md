@@ -52,13 +52,13 @@ steps:
         files, patterns, dependencies, impact_areas
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
         type: json
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/navigation.schema.json
-        source: .wave/output/analysis.json
+        schema_path: .agents/contracts/navigation.schema.json
+        source: .agents/output/analysis.json
         on_failure: retry
         max_retries: 2
 
@@ -84,13 +84,13 @@ steps:
         5. Testing strategy
     output_artifacts:
       - name: spec
-        path: .wave/output/spec.md
+        path: .agents/output/spec.md
         type: markdown
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/specification.schema.json
-        source: .wave/output/spec.json
+        schema_path: .agents/contracts/specification.schema.json
+        source: .agents/output/spec.json
         on_failure: retry
         max_retries: 2
 
@@ -118,7 +118,7 @@ steps:
         4. Risk assessment
     output_artifacts:
       - name: plan
-        path: .wave/output/plan.md
+        path: .agents/output/plan.md
         type: markdown
 
   - id: implement
@@ -183,7 +183,7 @@ steps:
         Output a structured review report with severity ratings.
     output_artifacts:
       - name: review
-        path: .wave/output/review.md
+        path: .agents/output/review.md
         type: markdown
 ```
 
@@ -194,7 +194,7 @@ steps:
 ### Navigation Contract
 
 ```json
-// .wave/contracts/navigation.schema.json
+// .agents/contracts/navigation.schema.json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
@@ -274,9 +274,9 @@ With `-o text`:
 
 ```
 /tmp/wave/<pipeline-id>/
-├── navigate/.wave/output/analysis.json     # Codebase analysis
-├── specify/.wave/output/spec.md            # Feature specification
-├── plan/.wave/output/plan.md               # Implementation plan
+├── navigate/.agents/output/analysis.json     # Codebase analysis
+├── specify/.agents/output/spec.md            # Feature specification
+├── plan/.agents/output/plan.md               # Implementation plan
 ├── implement/                              # Source code changes
-└── review/.wave/output/review.md           # Security & quality review
+└── review/.agents/output/review.md           # Security & quality review
 ```

@@ -59,11 +59,11 @@ steps:
       source: "Analyze the codebase"
     output_artifacts:        # Produces artifacts
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
     handover:
       contract:              # Validates output
         type: json_schema
-        schema_path: .wave/contracts/analysis.schema.json
+        schema_path: .agents/contracts/analysis.schema.json
 ```
 
 ## Architecture Overview

@@ -141,7 +141,7 @@ Permission granularity ranges from read-only (planner, summarizer) to near-full 
 | Aspect | Planner | Philosopher |
 |--------|---------|-------------|
 | **Core role** | Task breakdown and planning | Architecture design and specification |
-| **Permissions** | Read, Glob, Grep (read-only) | Read, Write(.wave/specs/*) |
+| **Permissions** | Read, Glob, Grep (read-only) | Read, Write(.agents/specs/*) |
 | **Pipeline usage** | 9 pipelines | 9 pipelines |
 | **Differentiation** | Atomic tasks, dependencies, parallelization | User stories, data models, API design |
 

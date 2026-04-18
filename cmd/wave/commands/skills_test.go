@@ -39,10 +39,10 @@ func (e *skillTestEnv) cleanup() {
 	}
 }
 
-// createSkill creates a SKILL.md in the .wave/skills directory.
+// createSkill creates a SKILL.md in the .agents/skills directory.
 func (e *skillTestEnv) createSkill(name, description string) {
 	e.t.Helper()
-	dir := filepath.Join(".wave/skills", name)
+	dir := filepath.Join(".agents/skills", name)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		e.t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestSkillsListEmpty(t *testing.T) {
 	defer env.cleanup()
 
 	// Create empty skill directories
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -148,7 +148,7 @@ func TestSkillsListDiscoveryWarnings(t *testing.T) {
 	env.createSkill("golang", "Go development skill")
 
 	// Create a malformed SKILL.md (name mismatch triggers a DiscoveryError)
-	dir := filepath.Join(".wave/skills", "badskill")
+	dir := filepath.Join(".agents/skills", "badskill")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +181,7 @@ func TestSkillsInstallUnknownPrefix(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -225,7 +225,7 @@ func TestSkillsInstallFileSource(t *testing.T) {
 	}
 
 	// Create target store directory
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -252,7 +252,7 @@ func TestSkillsInstallJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -286,7 +286,7 @@ func TestSkillsRemoveExisting(t *testing.T) {
 	}
 
 	// Verify skill is gone
-	if _, statErr := os.Stat(filepath.Join(".wave/skills", "golang")); !os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(filepath.Join(".agents/skills", "golang")); !os.IsNotExist(statErr) {
 		t.Error("expected skill directory to be deleted")
 	}
 }
@@ -296,7 +296,7 @@ func TestSkillsRemoveNonexistent(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -344,7 +344,7 @@ func TestSkillsRemoveConfirmation(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if _, statErr := os.Stat(filepath.Join(".wave/skills", "golang")); !os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(filepath.Join(".agents/skills", "golang")); !os.IsNotExist(statErr) {
 		t.Error("expected skill to be deleted after 'y' confirmation")
 	}
 
@@ -371,7 +371,7 @@ func TestSkillsRemoveConfirmation(t *testing.T) {
 	}
 
 	// Skill should still exist
-	if _, statErr := os.Stat(filepath.Join(".wave/skills", "golang")); os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(filepath.Join(".agents/skills", "golang")); os.IsNotExist(statErr) {
 		t.Error("expected skill to still exist after 'n' confirmation")
 	}
 }
@@ -695,7 +695,7 @@ func TestSkillsAuditEmpty(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -721,7 +721,7 @@ func TestSkillsPublishNonexistent(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -799,7 +799,7 @@ func TestSkillsVerifyNoLockfile(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave", 0755); err != nil {
+	if err := os.MkdirAll(".agents", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -819,7 +819,7 @@ func TestSkillsVerifyWithMatchingDigests(t *testing.T) {
 	env.createSkill("golang", "Go development skill")
 
 	// Compute actual digest
-	store := skill.NewDirectoryStore(skill.SkillSource{Root: ".wave/skills", Precedence: 1})
+	store := skill.NewDirectoryStore(skill.SkillSource{Root: ".agents/skills", Precedence: 1})
 	s, err := store.Read("golang")
 	if err != nil {
 		t.Fatal(err)
@@ -831,7 +831,7 @@ func TestSkillsVerifyWithMatchingDigests(t *testing.T) {
 
 	// Write lockfile with matching digest
 	lockfile := fmt.Sprintf(`{"version":1,"published":[{"name":"golang","digest":%q,"registry":"tessl","url":"https://tessl.io","published_at":"2026-03-24T12:00:00Z"}]}`, digest)
-	if err := os.WriteFile(".wave/skills.lock", []byte(lockfile), 0644); err != nil {
+	if err := os.WriteFile(".agents/skills.lock", []byte(lockfile), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -863,7 +863,7 @@ func TestSkillsVerifyModified(t *testing.T) {
 
 	// Write lockfile with wrong digest
 	lockfile := `{"version":1,"published":[{"name":"golang","digest":"sha256:wrong","registry":"tessl","url":"https://tessl.io","published_at":"2026-03-24T12:00:00Z"}]}`
-	if err := os.WriteFile(".wave/skills.lock", []byte(lockfile), 0644); err != nil {
+	if err := os.WriteFile(".agents/skills.lock", []byte(lockfile), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -885,13 +885,13 @@ func TestSkillsVerifyMissing(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
 	// Write lockfile for a skill that doesn't exist locally
 	lockfile := `{"version":1,"published":[{"name":"deleted-skill","digest":"sha256:abc","registry":"tessl","url":"https://tessl.io","published_at":"2026-03-24T12:00:00Z"}]}`
-	if err := os.WriteFile(".wave/skills.lock", []byte(lockfile), 0644); err != nil {
+	if err := os.WriteFile(".agents/skills.lock", []byte(lockfile), 0644); err != nil {
 		t.Fatal(err)
 	}
 

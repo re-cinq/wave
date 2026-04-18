@@ -562,7 +562,7 @@ func (pd *ProgressDisplay) toPipelineContext() *PipelineContext {
 		EstimatedTimeMs:   pd.estimatedTimeMs,
 		AverageStepTimeMs: pd.averageStepTimeMs(),
 		ManifestPath:      "wave.yaml",
-		WorkspacePath:     ".wave/workspaces",
+		WorkspacePath:     ".agents/workspaces",
 		CurrentAction:     "", // Not tracked in ProgressDisplay
 		CurrentStepName:   currentStepID,
 		PipelineStartTime: pd.startTime.UnixNano(),

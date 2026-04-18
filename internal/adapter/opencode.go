@@ -264,7 +264,7 @@ func (a *OpenCodeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunC
 			return fmt.Errorf("failed to write AGENTS.md: %w", err)
 		}
 	} else {
-		personaPath := filepath.Join(".wave", "personas", cfg.Persona+".md")
+		personaPath := filepath.Join(".agents", "personas", cfg.Persona+".md")
 		if data, err := os.ReadFile(personaPath); err == nil {
 			promptPath := filepath.Join(workspacePath, "AGENTS.md")
 			_ = os.WriteFile(promptPath, data, 0644)

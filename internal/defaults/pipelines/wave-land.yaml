@@ -38,12 +38,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 steps:
@@ -118,8 +118,8 @@ steps:
         - NEVER use `git add -A` or `git add .`. Stage specific files only.
         - NEVER include Co-Authored-By lines in commit messages.
         - NEVER include AI attribution in commit messages.
-        - NEVER stage .wave/ or .claude/ directories.
-          Run `git reset HEAD -- .wave/ .claude/` if any
+        - NEVER stage .agents/ or .claude/ directories.
+          Run `git reset HEAD -- .agents/ .claude/` if any
           are accidentally staged.
         - Do NOT create more than 5 commits for a single feature. If changes are
           numerous, group more aggressively rather than creating a long commit chain.
@@ -144,7 +144,7 @@ steps:
       ref: commit
     output_artifacts:
       - name: ship-result
-        path: .wave/output/ship-result.json
+        path: .agents/output/ship-result.json
         type: json
     exec:
       type: prompt
@@ -218,7 +218,7 @@ steps:
           needed for diagnosing the failure.
 
         OUTPUT FORMAT:
-        After creating the PR, write a JSON file to .wave/output/ship-result.json with
+        After creating the PR, write a JSON file to .agents/output/ship-result.json with
         the PR URL and number:
         ```json
         { "pr_url": "<full PR URL>", "pr_number": <number>, "merged": true }

@@ -54,7 +54,7 @@ func (s *Server) handleAPIRetroDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	storage := retro.NewStorage(".wave/retros", s.store)
+	storage := retro.NewStorage(".agents/retros", s.store)
 	retro, err := storage.Load(id)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})

@@ -137,7 +137,7 @@ The `contract` package validates step outputs against declarative schemas before
 The `workspace` package creates ephemeral directories for step execution. The `worktree` package manages git worktrees for full repository isolation.
 
 - **Mount modes**: `readonly`, `readwrite` for shared workspace access
-- **Artifact injection**: Outputs from prior steps are injected into `.wave/artifacts/`
+- **Artifact injection**: Outputs from prior steps are injected into `.agents/artifacts/`
 - **Cleanup**: Workspaces are cleaned up after pipeline completion (configurable retention)
 
 ### 5. State Persistence
@@ -151,7 +151,7 @@ The `state` package provides SQLite-backed persistence for pipeline runs, step s
 ### 6. CLAUDE.md Assembly
 
 At each step boundary, a per-step CLAUDE.md is generated from four layers:
-1. Base protocol preamble (`.wave/personas/base-protocol.md`)
+1. Base protocol preamble (`.agents/personas/base-protocol.md`)
 2. Persona system prompt (role, responsibilities, constraints)
 3. Contract compliance section (auto-generated from step contract schema)
 4. Restriction section (denied/allowed tools, network domains)

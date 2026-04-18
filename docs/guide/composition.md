@@ -46,7 +46,7 @@ steps:
       source: "List files to review"
     output_artifacts:
       - name: file-list
-        path: .wave/output/files.json
+        path: .agents/output/files.json
         type: json
 
   - id: review-each
@@ -95,7 +95,7 @@ steps:
       source: "Classify as: bug, feature, or docs"
     output_artifacts:
       - name: classification
-        path: .wave/output/classification.json
+        path: .agents/output/classification.json
         type: json
 
   - id: route
@@ -170,7 +170,7 @@ steps:
   - id: collect
     aggregate:
       from: "{{ steps.review-all.results }}"
-      into: .wave/output/all-findings.json
+      into: .agents/output/all-findings.json
       strategy: merge_arrays
     dependencies: [review-all]
 ```
@@ -191,7 +191,7 @@ When sub-pipelines produce JSON objects that wrap an array (e.g., `{"findings": 
   - id: collect
     aggregate:
       from: "{{ steps.run-audits.results }}"
-      into: .wave/output/merged-findings.json
+      into: .agents/output/merged-findings.json
       strategy: merge_arrays
       key: findings
     dependencies: [run-audits]
@@ -230,7 +230,7 @@ steps:
   - id: collect
     aggregate:
       from: "{{ steps.classify.results }}"
-      into: .wave/output/report.json
+      into: .agents/output/report.json
       strategy: merge_arrays
     dependencies: [classify]
 ```

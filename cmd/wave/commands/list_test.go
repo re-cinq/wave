@@ -144,7 +144,7 @@ personas:
         - Write(*)
         - Edit(*)
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
   default_timeout_minutes: 30
 `
 }
@@ -182,8 +182,8 @@ func TestListCmd_Pipelines_TableFormat(t *testing.T) {
 	h.writeFile("personas/auditor.md", "# Auditor")
 
 	// Create some pipelines
-	h.writeFile(".wave/pipelines/feature.yaml", samplePipeline("feature", "Feature development pipeline", 3))
-	h.writeFile(".wave/pipelines/hotfix.yaml", samplePipeline("hotfix", "Quick fix pipeline", 2))
+	h.writeFile(".agents/pipelines/feature.yaml", samplePipeline("feature", "Feature development pipeline", 3))
+	h.writeFile(".agents/pipelines/hotfix.yaml", samplePipeline("hotfix", "Quick fix pipeline", 2))
 
 	stdout, _, err := executeListCmd("pipelines")
 
@@ -206,7 +206,7 @@ func TestListCmd_Pipelines_ShowsStepCount(t *testing.T) {
 	h.writeFile("personas/auditor.md", "# Auditor")
 
 	// Create pipeline with 3 steps
-	h.writeFile(".wave/pipelines/test.yaml", samplePipeline("test", "Test pipeline", 3))
+	h.writeFile(".agents/pipelines/test.yaml", samplePipeline("test", "Test pipeline", 3))
 
 	stdout, _, err := executeListCmd("pipelines")
 
@@ -224,7 +224,7 @@ func TestListCmd_Pipelines_ShowsStepIDs(t *testing.T) {
 	h.writeFile("personas/craftsman.md", "# Craftsman")
 	h.writeFile("personas/auditor.md", "# Auditor")
 
-	h.writeFile(".wave/pipelines/test.yaml", `kind: WavePipeline
+	h.writeFile(".agents/pipelines/test.yaml", `kind: WavePipeline
 metadata:
   name: test
   description: Test pipeline
@@ -265,7 +265,7 @@ func TestListCmd_Pipelines_NoPipelinesDirectory(t *testing.T) {
 	h.writeFile("personas/craftsman.md", "# Craftsman")
 	h.writeFile("personas/auditor.md", "# Auditor")
 
-	// Don't create .wave/pipelines directory
+	// Don't create .agents/pipelines directory
 	stdout, _, err := executeListCmd("pipelines")
 
 	require.NoError(t, err)
@@ -284,7 +284,7 @@ func TestListCmd_Pipelines_InvalidYAML(t *testing.T) {
 	h.writeFile("personas/auditor.md", "# Auditor")
 
 	// Create invalid pipeline file
-	h.writeFile(".wave/pipelines/broken.yaml", "{ invalid: yaml: content")
+	h.writeFile(".agents/pipelines/broken.yaml", "{ invalid: yaml: content")
 
 	stdout, _, err := executeListCmd("pipelines")
 
@@ -304,9 +304,9 @@ func TestListCmd_Pipelines_SortedAlphabetically(t *testing.T) {
 	h.writeFile("personas/auditor.md", "# Auditor")
 
 	// Create pipelines in non-alphabetical order
-	h.writeFile(".wave/pipelines/zebra.yaml", samplePipeline("zebra", "Z pipeline", 1))
-	h.writeFile(".wave/pipelines/alpha.yaml", samplePipeline("alpha", "A pipeline", 1))
-	h.writeFile(".wave/pipelines/middle.yaml", samplePipeline("middle", "M pipeline", 1))
+	h.writeFile(".agents/pipelines/zebra.yaml", samplePipeline("zebra", "Z pipeline", 1))
+	h.writeFile(".agents/pipelines/alpha.yaml", samplePipeline("alpha", "A pipeline", 1))
+	h.writeFile(".agents/pipelines/middle.yaml", samplePipeline("middle", "M pipeline", 1))
 
 	stdout, _, err := executeListCmd("pipelines")
 
@@ -427,7 +427,7 @@ adapters:
     mode: headless
 personas: {}
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 
 	stdout, _, err := executeListCmd("personas")
@@ -545,7 +545,7 @@ adapters:
     output_format: json
 personas: {}
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 
 	stdout, _, err := executeListCmd("adapters")
@@ -582,7 +582,7 @@ adapters:
     output_format: json
 personas: {}
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 
 	stdout, _, err := executeListCmd("adapters")
@@ -604,7 +604,7 @@ metadata:
 adapters: {}
 personas: {}
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 
 	stdout, _, err := executeListCmd("adapters")
@@ -622,8 +622,8 @@ func TestListCmd_Contracts_TableFormat(t *testing.T) {
 	defer h.restore()
 
 	h.writeFile("wave.yaml", sampleManifest())
-	h.writeFile(".wave/contracts/navigation.json", `{"type": "object", "properties": {"files": {"type": "array"}}}`)
-	h.writeFile(".wave/contracts/output.json", `{"type": "object", "properties": {"result": {"type": "string"}}}`)
+	h.writeFile(".agents/contracts/navigation.json", `{"type": "object", "properties": {"files": {"type": "array"}}}`)
+	h.writeFile(".agents/contracts/output.json", `{"type": "object", "properties": {"result": {"type": "string"}}}`)
 
 	stdout, _, err := executeListCmd("contracts")
 
@@ -640,7 +640,7 @@ func TestListCmd_Contracts_ShowsUsage(t *testing.T) {
 	defer h.restore()
 
 	h.writeFile("wave.yaml", sampleManifest())
-	h.writeFile(".wave/contracts/navigation.json", `{"type": "object"}`)
+	h.writeFile(".agents/contracts/navigation.json", `{"type": "object"}`)
 
 	// Create pipeline that uses the contract
 	pipelineWithContract := `apiVersion: v1
@@ -652,9 +652,9 @@ steps:
   - id: navigate
     persona: navigator
     contract:
-      schema_path: .wave/contracts/navigation.json
+      schema_path: .agents/contracts/navigation.json
 `
-	h.writeFile(".wave/pipelines/test-pipeline.yaml", pipelineWithContract)
+	h.writeFile(".agents/pipelines/test-pipeline.yaml", pipelineWithContract)
 
 	stdout, _, err := executeListCmd("contracts")
 
@@ -672,7 +672,7 @@ func TestListCmd_Contracts_ShowsUnused(t *testing.T) {
 	defer h.restore()
 
 	h.writeFile("wave.yaml", sampleManifest())
-	h.writeFile(".wave/contracts/unused.json", `{"type": "object"}`)
+	h.writeFile(".agents/contracts/unused.json", `{"type": "object"}`)
 
 	stdout, _, err := executeListCmd("contracts")
 
@@ -706,8 +706,8 @@ func TestListCmd_All_ShowsEverything(t *testing.T) {
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
 	h.writeFile("personas/auditor.md", "# Auditor")
-	h.writeFile(".wave/pipelines/test.yaml", samplePipeline("test", "Test pipeline", 2))
-	h.writeFile(".wave/contracts/test.json", `{"type": "object"}`)
+	h.writeFile(".agents/pipelines/test.yaml", samplePipeline("test", "Test pipeline", 2))
+	h.writeFile(".agents/contracts/test.json", `{"type": "object"}`)
 
 	stdout, _, err := executeListCmd()
 
@@ -764,7 +764,7 @@ func TestListCmd_Pipelines_WithTestdataFixtures(t *testing.T) {
 	h.chdir()
 	defer h.restore()
 
-	// Copy testdata pipelines to .wave/pipelines
+	// Copy testdata pipelines to .agents/pipelines
 	h.writeFile("wave.yaml", sampleManifest())
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
@@ -773,7 +773,7 @@ func TestListCmd_Pipelines_WithTestdataFixtures(t *testing.T) {
 	// Read and copy simple.yaml
 	simpleContent, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "pipelines", "simple.yaml"))
 	if err == nil {
-		h.writeFile(".wave/pipelines/simple.yaml", string(simpleContent))
+		h.writeFile(".agents/pipelines/simple.yaml", string(simpleContent))
 	}
 
 	stdout, _, err := executeListCmd("pipelines")
@@ -843,8 +843,8 @@ func TestListCmd_FilterOptions(t *testing.T) {
 			h.writeFile("personas/navigator.md", "# Navigator")
 			h.writeFile("personas/craftsman.md", "# Craftsman")
 			h.writeFile("personas/auditor.md", "# Auditor")
-			h.writeFile(".wave/pipelines/test.yaml", samplePipeline("test", "Test", 1))
-			h.writeFile(".wave/contracts/test.json", `{"type": "object"}`)
+			h.writeFile(".agents/pipelines/test.yaml", samplePipeline("test", "Test", 1))
+			h.writeFile(".agents/contracts/test.json", `{"type": "object"}`)
 
 			stdout, _, err := executeListCmd(tc.filter)
 
@@ -931,7 +931,7 @@ adapters:
     mode: headless
 personas:` + tc.personaConfig + `
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `
 			h.writeFile("wave.yaml", manifest)
 			h.writeFile("personas/readonly.md", "# Read-only")
@@ -1005,8 +1005,8 @@ func TestListRunsCmd_WorkspaceFallback(t *testing.T) {
 	defer h.restore()
 
 	// Create some workspaces (but no state database)
-	h.writeFile(".wave/workspaces/pipeline-1/marker.txt", "test")
-	h.writeFile(".wave/workspaces/pipeline-2/marker.txt", "test")
+	h.writeFile(".agents/workspaces/pipeline-1/marker.txt", "test")
+	h.writeFile(".agents/workspaces/pipeline-2/marker.txt", "test")
 
 	stdout, _, err := executeListRunsCmd()
 
@@ -1025,7 +1025,7 @@ func TestListRunsCmd_JSONFormat(t *testing.T) {
 	defer h.restore()
 
 	// Create a workspace for the fallback
-	h.writeFile(".wave/workspaces/test-pipeline/marker.txt", "test")
+	h.writeFile(".agents/workspaces/test-pipeline/marker.txt", "test")
 
 	stdout, _, err := executeListRunsCmd("--format", "json")
 
@@ -1046,7 +1046,7 @@ func TestListRunsCmd_Limit(t *testing.T) {
 
 	// Create several workspaces
 	for i := 1; i <= 5; i++ {
-		h.writeFile(fmt.Sprintf(".wave/workspaces/pipeline-%d/marker.txt", i), "test")
+		h.writeFile(fmt.Sprintf(".agents/workspaces/pipeline-%d/marker.txt", i), "test")
 	}
 
 	stdout, _, err := executeListRunsCmd("--limit", "2")
@@ -1071,8 +1071,8 @@ func TestListRunsCmd_PipelineFilter(t *testing.T) {
 	defer h.restore()
 
 	// Create workspaces
-	h.writeFile(".wave/workspaces/target-pipeline/marker.txt", "test")
-	h.writeFile(".wave/workspaces/other-pipeline/marker.txt", "test")
+	h.writeFile(".agents/workspaces/target-pipeline/marker.txt", "test")
+	h.writeFile(".agents/workspaces/other-pipeline/marker.txt", "test")
 
 	stdout, _, err := executeListRunsCmd("--run-pipeline", "target-pipeline")
 
@@ -1088,7 +1088,7 @@ func TestListRunsCmd_TableHeader(t *testing.T) {
 	defer h.restore()
 
 	// Create a workspace
-	h.writeFile(".wave/workspaces/test-run/marker.txt", "test")
+	h.writeFile(".agents/workspaces/test-run/marker.txt", "test")
 
 	stdout, _, err := executeListRunsCmd()
 
@@ -1143,7 +1143,7 @@ func TestListRunsCmd_WithDatabase(t *testing.T) {
 	t.Setenv("COLUMNS", "120")
 
 	// Create a minimal state database with pipeline_run table
-	dbDir := ".wave"
+	dbDir := ".agents"
 	err := os.MkdirAll(dbDir, 0755)
 	require.NoError(t, err)
 
@@ -1190,7 +1190,7 @@ func TestListRunsCmd_StatusFilter(t *testing.T) {
 	t.Setenv("COLUMNS", "120")
 
 	// Create database with multiple runs
-	dbDir := ".wave"
+	dbDir := ".agents"
 	err := os.MkdirAll(dbDir, 0755)
 	require.NoError(t, err)
 
@@ -1233,7 +1233,7 @@ func TestListRunsCmd_JSONStructure(t *testing.T) {
 	defer h.restore()
 
 	// Create database with a run
-	dbDir := ".wave"
+	dbDir := ".agents"
 	err := os.MkdirAll(dbDir, 0755)
 	require.NoError(t, err)
 
@@ -1296,7 +1296,7 @@ personas:
     system_prompt_file: personas/navigator.md
     temperature: 0.1
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `
 }
 
@@ -1330,7 +1330,7 @@ func TestListCmd_Skills_TableFormat(t *testing.T) {
 
 	h.writeFile("wave.yaml", sampleManifestWithSkills())
 	h.writeFile("personas/navigator.md", "# Navigator")
-	h.writeFile(".wave/pipelines/skill-test.yaml", samplePipelineWithSkills())
+	h.writeFile(".agents/pipelines/skill-test.yaml", samplePipelineWithSkills())
 
 	stdout, _, err := executeListCmd("skills")
 
@@ -1347,7 +1347,7 @@ func TestListCmd_Skills_ShowsStatus(t *testing.T) {
 
 	h.writeFile("wave.yaml", sampleManifestWithSkills())
 	h.writeFile("personas/navigator.md", "# Navigator")
-	h.writeFile(".wave/pipelines/skill-test.yaml", samplePipelineWithSkills())
+	h.writeFile(".agents/pipelines/skill-test.yaml", samplePipelineWithSkills())
 
 	stdout, _, err := executeListCmd("skills")
 
@@ -1368,7 +1368,7 @@ func TestListCmd_Skills_ShowsPipelineUsage(t *testing.T) {
 	h.writeFile("personas/navigator.md", "# Navigator")
 
 	// Create a pipeline that declares speckit inline
-	h.writeFile(".wave/pipelines/feature.yaml", `kind: WavePipeline
+	h.writeFile(".agents/pipelines/feature.yaml", `kind: WavePipeline
 metadata:
   name: feature
   description: Feature pipeline
@@ -1407,7 +1407,7 @@ adapters:
     mode: headless
 personas: {}
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 
 	// No pipeline files with skills
@@ -1425,7 +1425,7 @@ func TestListCmd_Skills_JSONFormat(t *testing.T) {
 
 	h.writeFile("wave.yaml", sampleManifestWithSkills())
 	h.writeFile("personas/navigator.md", "# Navigator")
-	h.writeFile(".wave/pipelines/skill-test.yaml", samplePipelineWithSkills())
+	h.writeFile(".agents/pipelines/skill-test.yaml", samplePipelineWithSkills())
 
 	stdout, _, err := executeListCmd("skills", "--format", "json")
 
@@ -1470,10 +1470,10 @@ adapters:
     mode: headless
 personas: {}
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 
-	h.writeFile(".wave/pipelines/sorted-test.yaml", `kind: WavePipeline
+	h.writeFile(".agents/pipelines/sorted-test.yaml", `kind: WavePipeline
 metadata:
   name: sorted-test
 requires:
@@ -1520,7 +1520,7 @@ func TestListRunsCmd_DynamicSeparatorWidth(t *testing.T) {
 	t.Setenv("COLUMNS", "120")
 
 	// Create a workspace for the fallback
-	h.writeFile(".wave/workspaces/test-run/marker.txt", "test")
+	h.writeFile(".agents/workspaces/test-run/marker.txt", "test")
 
 	stdout, _, err := executeListRunsCmd()
 
@@ -1552,7 +1552,7 @@ func TestListRunsCmd_NoTruncationAtWideTerminal(t *testing.T) {
 	t.Setenv("COLUMNS", "160")
 
 	// Create database with a long run ID
-	dbDir := ".wave"
+	dbDir := ".agents"
 	err := os.MkdirAll(filepath.Join(h.tmpDir, dbDir), 0755)
 	require.NoError(t, err)
 
@@ -1598,7 +1598,7 @@ func TestListRunsCmd_NarrowTerminalGraceful(t *testing.T) {
 	// Set narrow terminal
 	t.Setenv("COLUMNS", "60")
 
-	h.writeFile(".wave/workspaces/test-run/marker.txt", "test")
+	h.writeFile(".agents/workspaces/test-run/marker.txt", "test")
 
 	stdout, _, err := executeListRunsCmd()
 
@@ -1620,8 +1620,8 @@ func TestListCmd_SeparatorsAdaptToWidth(t *testing.T) {
 	h.writeFile("personas/navigator.md", "# Navigator")
 	h.writeFile("personas/craftsman.md", "# Craftsman")
 	h.writeFile("personas/auditor.md", "# Auditor")
-	h.writeFile(".wave/pipelines/test.yaml", samplePipeline("test", "Test pipeline", 2))
-	h.writeFile(".wave/contracts/test.json", `{"type": "object"}`)
+	h.writeFile(".agents/pipelines/test.yaml", samplePipeline("test", "Test pipeline", 2))
+	h.writeFile(".agents/contracts/test.json", `{"type": "object"}`)
 
 	stdout, _, err := executeListCmd()
 

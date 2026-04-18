@@ -15,8 +15,8 @@ func TestFileURI(t *testing.T) {
 		},
 		{
 			name: "relative path unchanged",
-			path: ".wave/workspaces/run-123/step/artifact.json",
-			want: ".wave/workspaces/run-123/step/artifact.json",
+			path: ".agents/workspaces/run-123/step/artifact.json",
+			want: ".agents/workspaces/run-123/step/artifact.json",
 		},
 		{
 			name: "already file:// prefixed",
@@ -45,8 +45,8 @@ func TestFileURI(t *testing.T) {
 		},
 		{
 			name: "deeply nested absolute path",
-			path: "/home/mwc/Coding/recinq/wave/.wave/workspaces/gh-implement-20260228-050356-9682/__wt_gh-implement-20260228-050356-9682/.wave/output/issue-assessment.json",
-			want: "file:///home/mwc/Coding/recinq/wave/.wave/workspaces/gh-implement-20260228-050356-9682/__wt_gh-implement-20260228-050356-9682/.wave/output/issue-assessment.json",
+			path: "/home/mwc/Coding/recinq/wave/.agents/workspaces/gh-implement-20260228-050356-9682/__wt_gh-implement-20260228-050356-9682/.agents/output/issue-assessment.json",
+			want: "file:///home/mwc/Coding/recinq/wave/.agents/workspaces/gh-implement-20260228-050356-9682/__wt_gh-implement-20260228-050356-9682/.agents/output/issue-assessment.json",
 		},
 		{
 			name: "path with special characters",

@@ -51,7 +51,7 @@ func withStderrWriter(w io.Writer) DebugTracerOption {
 	}
 }
 
-// DebugTracer writes structured NDJSON trace events to .wave/traces/<run-id>.json.
+// DebugTracer writes structured NDJSON trace events to .agents/traces/<run-id>.json.
 // It is enabled by the --debug flag and provides fine-grained timing for
 // adapter execution, contract validation, and artifact injection.
 type DebugTracer struct {
@@ -65,7 +65,7 @@ type DebugTracer struct {
 }
 
 // NewDebugTracer creates a new debug tracer that writes NDJSON events to
-// .wave/traces/<runID>.json. The caller must call Close() when done.
+// .agents/traces/<runID>.json. The caller must call Close() when done.
 func NewDebugTracer(traceDir, runID string, opts ...DebugTracerOption) (*DebugTracer, error) {
 	if err := os.MkdirAll(traceDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create trace dir: %w", err)

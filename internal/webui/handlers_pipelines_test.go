@@ -51,7 +51,7 @@ func TestPipelinesPageRendersNames(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestPipelinesAPIReturnsSummaryFields(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
@@ -239,7 +239,7 @@ func TestPipelineInfoAPIReturnsMetadata(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}

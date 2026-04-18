@@ -55,7 +55,7 @@ metadata:
   repo: owner/test-repo
 adapters: {}
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `
 	require.NoError(t, os.WriteFile(manifestPath, []byte(content), 0644))
 
@@ -87,7 +87,7 @@ metadata:
   description: "no name set"
 adapters: {}
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `
 	require.NoError(t, os.WriteFile(manifestPath, []byte(content), 0644))
 

@@ -36,12 +36,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -120,7 +120,7 @@ steps:
         A good scan produces a task list where a developer can confidently act on HIGH-confidence, safe_to_remove=true items without further research, and knows exactly what additional investigation is needed for MEDIUM-confidence items. Each finding includes the specific Grep pattern used and its output (or absence thereof). A bad scan reports items without verification, mixes low-confidence guesses with confirmed findings, or provides descriptions too vague to act on.
     output_artifacts:
       - name: findings
-        path: .wave/output/findings.json
+        path: .agents/output/findings.json
         type: json
     retry:
       policy: patient
@@ -128,8 +128,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/findings.json
-        schema_path: .wave/contracts/shared-findings.schema.json
+        source: .agents/output/findings.json
+        schema_path: .agents/contracts/shared-findings.schema.json
         on_failure: skip
 
   - id: compose-report
@@ -209,12 +209,12 @@ steps:
         A good report allows a developer to open the GitHub issue, scan the summary tables to understand the scope, then work through the task list top-to-bottom, checking off items as they are addressed. Each item has enough context (file:line, action, safety assessment) to act immediately. A bad report buries findings in prose paragraphs, omits file locations, or uses a format that does not render as interactive checkboxes in GitHub.
     output_artifacts:
       - name: report
-        path: .wave/output/report.md
+        path: .agents/output/report.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/report.md
+        source: .agents/output/report.md
 
   - id: create-issue
     persona: craftsman
@@ -263,7 +263,7 @@ steps:
         ```bash
         {{ forge.cli_tool }} issue create \
           --title "chore: dead code report (N findings)" \
-          --body-file .wave/artifacts/report \
+          --body-file .agents/artifacts/report \
           --label "code-quality"
         ```
 
@@ -273,7 +273,7 @@ steps:
         ```bash
         {{ forge.cli_tool }} issue create \
           --title "chore: dead code report (N findings)" \
-          --body-file .wave/artifacts/report
+          --body-file .agents/artifacts/report
         ```
 
         If the forge CLI command fails for any other reason (network error, authentication issue), log the error and report it in the result JSON. Do not retry indefinitely.
@@ -306,7 +306,7 @@ steps:
         A good issue creation step produces an issue with a clear, count-inclusive title that communicates the scope at a glance, the full report as the body with interactive checkboxes, and a result JSON that downstream steps or outcomes can extract the issue URL from. A bad issue creation step creates an issue with a generic title, loses the report formatting, or fails silently without recording the failure in the result JSON.
     output_artifacts:
       - name: issue-result
-        path: .wave/output/issue-result.json
+        path: .agents/output/issue-result.json
         type: json
     retry:
       policy: aggressive
@@ -314,12 +314,12 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/issue-result.json
-        schema_path: .wave/contracts/dead-code-issue-result.schema.json
+        source: .agents/output/issue-result.json
+        schema_path: .agents/contracts/dead-code-issue-result.schema.json
         must_pass: true
         on_failure: retry
     outcomes:
       - type: issue
-        extract_from: .wave/output/issue-result.json
+        extract_from: .agents/output/issue-result.json
         json_path: .issue.url
         label: "Dead Code Issue"

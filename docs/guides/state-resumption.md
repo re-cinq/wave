@@ -7,7 +7,7 @@ Wave persists pipeline execution state in SQLite, enabling interrupted pipelines
 Every step state transition is written to a local SQLite database:
 
 ```
-.wave/state.db
+.agents/state.db
 ├── pipeline_state    # Pipeline-level status
 └── step_state        # Per-step status, timing, errors
 ```
@@ -115,7 +115,7 @@ Recovery hints:
   Resume and skip validation checks:
     wave run impl-issue --input 'https://github.com/org/repo/issues/42' --from-step implement --force
   Inspect workspace artifacts:
-    ls .wave/workspaces/impl-issue-20260315-142150-deb8/implement/
+    ls .agents/workspaces/impl-issue-20260315-142150-deb8/implement/
 ```
 
 ### Failure Modes
@@ -142,7 +142,7 @@ When Wave receives SIGINT (Ctrl+C):
 
 | Data | Preserved | Location |
 |------|-----------|----------|
-| Step states | Yes | SQLite `.wave/state.db` |
+| Step states | Yes | SQLite `.agents/state.db` |
 | Completed artifacts | Yes | Workspace directories |
 | In-progress work | Partial | Current step's workspace (may be incomplete) |
 | Relay checkpoints | Yes | Checkpoint files in workspace |

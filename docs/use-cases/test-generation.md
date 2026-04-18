@@ -41,7 +41,7 @@ With `-o text`:
 
 ## Complete Pipeline
 
-This is the full `test-gen` pipeline from `.wave/pipelines/test-gen.yaml`:
+This is the full `test-gen` pipeline from `.agents/pipelines/test-gen.yaml`:
 
 <div v-pre>
 
@@ -84,7 +84,7 @@ steps:
         }
     output_artifacts:
       - name: coverage
-        path: .wave/output/coverage-analysis.json
+        path: .agents/output/coverage-analysis.json
         type: json
 
   - id: generate-tests
@@ -123,7 +123,7 @@ steps:
         max_retries: 3
     output_artifacts:
       - name: tests
-        path: .wave/output/generated-tests.md
+        path: .agents/output/generated-tests.md
         type: markdown
 
   - id: verify-coverage
@@ -145,7 +145,7 @@ steps:
         Output: coverage delta and quality assessment
     output_artifacts:
       - name: verification
-        path: .wave/output/coverage-verification.md
+        path: .agents/output/coverage-verification.md
         type: markdown
 ```
 
@@ -157,13 +157,13 @@ The pipeline produces three artifacts:
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| `coverage` | `.wave/output/coverage-analysis.json` | Coverage analysis with gaps identified |
-| `tests` | `.wave/output/generated-tests.md` | Generated test code and explanations |
-| `verification` | `.wave/output/coverage-verification.md` | Coverage improvement verification |
+| `coverage` | `.agents/output/coverage-analysis.json` | Coverage analysis with gaps identified |
+| `tests` | `.agents/output/generated-tests.md` | Generated test code and explanations |
+| `verification` | `.agents/output/coverage-verification.md` | Coverage improvement verification |
 
 ### Example Output
 
-The pipeline produces `.wave/output/generated-tests.md`:
+The pipeline produces `.agents/output/generated-tests.md`:
 
 ```markdown
 # Generated Tests for pipeline Package
@@ -319,7 +319,7 @@ steps:
         Output test scenarios for each integration.
     output_artifacts:
       - name: integrations
-        path: .wave/output/integrations.json
+        path: .agents/output/integrations.json
         type: json
 
   - id: generate
@@ -344,7 +344,7 @@ steps:
         max_retries: 2
     output_artifacts:
       - name: tests
-        path: .wave/output/integration-tests.md
+        path: .agents/output/integration-tests.md
         type: markdown
 ```
 

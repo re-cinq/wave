@@ -1306,7 +1306,7 @@ func TestWriteOutputArtifactsPreservesExistingFiles(t *testing.T) {
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "generate output"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "issue-content", Path: ".wave/output/issue-content.json"},
+					{Name: "issue-content", Path: ".agents/output/issue-content.json"},
 				},
 			},
 		},
@@ -1804,9 +1804,9 @@ func TestStdoutArtifactCapture(t *testing.T) {
 
 	// Verify artifact was written to correct location
 	// Workspace path is: wsRoot/pipelineID/stepID
-	// Artifact path is: workspace/.wave/artifacts/stepID/artifactName
+	// Artifact path is: workspace/.agents/artifacts/stepID/artifactName
 	pipelineID := collector.GetPipelineID()
-	artifactPath := filepath.Join(tmpDir, pipelineID, "analyze", ".wave", "artifacts", "analyze", "analysis-report")
+	artifactPath := filepath.Join(tmpDir, pipelineID, "analyze", ".agents", "artifacts", "analyze", "analysis-report")
 
 	// Check artifact exists
 	_, err = os.Stat(artifactPath)
@@ -1898,9 +1898,9 @@ func TestStdoutArtifactWrittenToCorrectLocation(t *testing.T) {
 
 	// Verify artifact exists at the correct path
 	// Workspace path is: wsRoot/pipelineID/stepID
-	// Artifact path is: workspace/.wave/artifacts/stepID/artifactName
+	// Artifact path is: workspace/.agents/artifacts/stepID/artifactName
 	pipelineID := collector.GetPipelineID()
-	artifactPath := filepath.Join(tmpDir, pipelineID, "produce", ".wave", "artifacts", "produce", "my-artifact")
+	artifactPath := filepath.Join(tmpDir, pipelineID, "produce", ".agents", "artifacts", "produce", "my-artifact")
 
 	info, err := os.Stat(artifactPath)
 	require.NoError(t, err, "stdout artifact should exist at expected path")
@@ -2036,7 +2036,7 @@ func TestTypeMismatchFailsWithClearError(t *testing.T) {
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "produce markdown"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "output", Path: ".wave/output.md", Type: "markdown"},
+					{Name: "output", Path: ".agents/output.md", Type: "markdown"},
 				},
 			},
 			{
@@ -2087,7 +2087,7 @@ func TestTypeNotDeclaredSkipsValidation(t *testing.T) {
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "produce output"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "output", Path: ".wave/output.txt"}, // No type
+					{Name: "output", Path: ".agents/output.txt"}, // No type
 				},
 			},
 			{
@@ -2265,12 +2265,12 @@ func TestOutcomeExtractionPRType(t *testing.T) {
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "create pr"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "pr-result", Path: ".wave/output/pr-result.json", Type: "json"},
+					{Name: "pr-result", Path: ".agents/output/pr-result.json", Type: "json"},
 				},
 				Outcomes: []OutcomeDef{
 					{
 						Type:        "pr",
-						ExtractFrom: ".wave/output/pr-result.json",
+						ExtractFrom: ".agents/output/pr-result.json",
 						JSONPath:    ".pr_url",
 						Label:       "Pull Request",
 					},
@@ -2549,7 +2549,7 @@ func (a *outcomeTestAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConf
 	// We need to find and write all output artifact paths
 	if a.artifactJSON != "" && cfg.WorkspacePath != "" {
 		// Write to common output locations
-		for _, dir := range []string{"output", ".wave/output"} {
+		for _, dir := range []string{"output", ".agents/output"} {
 			outDir := filepath.Join(cfg.WorkspacePath, dir)
 			_ = os.MkdirAll(outDir, 0755)
 			// Write all JSON files in this directory
@@ -6026,7 +6026,7 @@ func TestIterateInDAG_Sequential(t *testing.T) {
 	m := testutil.CreateTestManifest(tmpDir)
 
 	// Create two child pipeline files on disk
-	pipelinesDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelinesDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	require.NoError(t, os.MkdirAll(pipelinesDir, 0755))
 
 	childYAML := `kind: WavePipeline
@@ -6044,7 +6044,7 @@ steps:
 		require.NoError(t, os.WriteFile(path, []byte(fmt.Sprintf(childYAML, name, name)), 0644))
 	}
 
-	// Override CWD so the executor finds .wave/pipelines/ relative to tmpDir
+	// Override CWD so the executor finds .agents/pipelines/ relative to tmpDir
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmpDir))
 	defer func() { _ = os.Chdir(origDir) }()
@@ -6091,7 +6091,7 @@ func TestIterateInDAG_Parallel(t *testing.T) {
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
 
-	pipelinesDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelinesDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	require.NoError(t, os.MkdirAll(pipelinesDir, 0755))
 
 	childYAML := `kind: WavePipeline
@@ -6156,7 +6156,7 @@ func TestIterateInDAG_CollectsOutputs(t *testing.T) {
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
 
-	pipelinesDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelinesDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	require.NoError(t, os.MkdirAll(pipelinesDir, 0755))
 
 	// Child pipelines that produce a stdout artifact so it gets stored
@@ -6242,7 +6242,7 @@ func TestIterateInDAG_Parallel_CollectsOutputs(t *testing.T) {
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
 
-	pipelinesDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelinesDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	require.NoError(t, os.MkdirAll(pipelinesDir, 0755))
 
 	childYAML := `kind: WavePipeline
@@ -6318,7 +6318,7 @@ func TestIterateInDAG_OutputResolvesInAggregate(t *testing.T) {
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
 
-	pipelinesDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelinesDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	require.NoError(t, os.MkdirAll(pipelinesDir, 0755))
 
 	childYAML := `kind: WavePipeline
@@ -6343,7 +6343,7 @@ steps:
 	require.NoError(t, os.Chdir(tmpDir))
 	defer func() { _ = os.Chdir(origDir) }()
 
-	outputPath := filepath.Join(tmpDir, ".wave", "output", "merged.json")
+	outputPath := filepath.Join(tmpDir, ".agents", "output", "merged.json")
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "iterate-aggregate-test"},
@@ -6401,7 +6401,7 @@ func TestAggregateInDAG(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 	defer func() { _ = os.Chdir(origDir) }()
 
-	outputPath := filepath.Join(tmpDir, ".wave", "output", "merged.json")
+	outputPath := filepath.Join(tmpDir, ".agents", "output", "merged.json")
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "aggregate-test"},
@@ -6443,7 +6443,7 @@ func TestBranchInDAG(t *testing.T) {
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
 
-	pipelinesDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelinesDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	require.NoError(t, os.MkdirAll(pipelinesDir, 0755))
 
 	childYAML := `kind: WavePipeline

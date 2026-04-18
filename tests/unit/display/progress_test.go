@@ -281,7 +281,7 @@ func TestPipelineContext(t *testing.T) {
 	ctx := display.PipelineContext{
 		ManifestPath:      "wave.yaml",
 		PipelineName:      "test-pipeline",
-		WorkspacePath:     ".wave/workspaces/test",
+		WorkspacePath:     ".agents/workspaces/test",
 		TotalSteps:        10,
 		CurrentStepNum:    3,
 		CompletedSteps:    2,

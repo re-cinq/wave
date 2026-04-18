@@ -85,7 +85,7 @@ func (s *OntologyStep) Run(cfg *WizardConfig) (*StepResult, error) {
 }
 
 // installOntologyStalenessHook installs a git post-merge hook that touches
-// .wave/.ontology-stale so the executor can warn about stale ontology.
+// .agents/.ontology-stale so the executor can warn about stale ontology.
 func installOntologyStalenessHook() error {
 	hookDir := ".git/hooks"
 	if _, err := os.Stat(hookDir); err != nil {
@@ -102,12 +102,12 @@ func installOntologyStalenessHook() error {
 			return nil // already installed
 		}
 		// Append to existing hook
-		snippet := "\n" + marker + "\ntouch .wave/.ontology-stale 2>/dev/null\n"
+		snippet := "\n" + marker + "\ntouch .agents/.ontology-stale 2>/dev/null\n"
 		return os.WriteFile(hookPath, []byte(content+snippet), 0o755)
 	}
 
 	// Create new hook
-	hook := "#!/bin/sh\n" + marker + "\ntouch .wave/.ontology-stale 2>/dev/null\n"
+	hook := "#!/bin/sh\n" + marker + "\ntouch .agents/.ontology-stale 2>/dev/null\n"
 	return os.WriteFile(hookPath, []byte(hook), 0o755)
 }
 

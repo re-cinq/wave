@@ -34,11 +34,11 @@ func newCancelTestEnv(t *testing.T) *cancelTestEnv {
 	require.NoError(t, err, "failed to change to temp directory")
 
 	// Create .wave directory structure
-	err = os.MkdirAll(".wave/pids", 0755)
-	require.NoError(t, err, "failed to create .wave/pids directory")
+	err = os.MkdirAll(".agents/pids", 0755)
+	require.NoError(t, err, "failed to create .agents/pids directory")
 
 	// Create state store
-	store, err := state.NewStateStore(".wave/state.db")
+	store, err := state.NewStateStore(".agents/state.db")
 	require.NoError(t, err, "failed to create state store")
 
 	return &cancelTestEnv{
@@ -416,8 +416,8 @@ func TestForceKillRunNoPidFile(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.Chdir(origDir) }()
 
-	// Create .wave/pids but no pidfile
-	err = os.MkdirAll(".wave/pids", 0755)
+	// Create .agents/pids but no pidfile
+	err = os.MkdirAll(".agents/pids", 0755)
 	require.NoError(t, err)
 
 	// Should return nil (no error) when pidfile doesn't exist
@@ -435,10 +435,10 @@ func TestForceKillRunInvalidPid(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.Chdir(origDir) }()
 
-	// Create .wave/pids with invalid pidfile
-	err = os.MkdirAll(".wave/pids", 0755)
+	// Create .agents/pids with invalid pidfile
+	err = os.MkdirAll(".agents/pids", 0755)
 	require.NoError(t, err)
-	err = os.WriteFile(".wave/pids/test-run.pid", []byte("not-a-number"), 0644)
+	err = os.WriteFile(".agents/pids/test-run.pid", []byte("not-a-number"), 0644)
 	require.NoError(t, err)
 
 	// Should return error for invalid PID
@@ -457,11 +457,11 @@ func TestForceKillRunNonExistentProcess(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.Chdir(origDir) }()
 
-	// Create .wave/pids with a PID that (almost certainly) doesn't exist
-	err = os.MkdirAll(".wave/pids", 0755)
+	// Create .agents/pids with a PID that (almost certainly) doesn't exist
+	err = os.MkdirAll(".agents/pids", 0755)
 	require.NoError(t, err)
 	// Use a very high PID that's unlikely to exist
-	err = os.WriteFile(".wave/pids/test-run.pid", []byte("999999"), 0644)
+	err = os.WriteFile(".agents/pids/test-run.pid", []byte("999999"), 0644)
 	require.NoError(t, err)
 
 	// Should not return error - process doesn't exist is fine
@@ -469,6 +469,6 @@ func TestForceKillRunNonExistentProcess(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Pidfile should be removed
-	_, err = os.Stat(".wave/pids/test-run.pid")
+	_, err = os.Stat(".agents/pids/test-run.pid")
 	assert.True(t, os.IsNotExist(err))
 }

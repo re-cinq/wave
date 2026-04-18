@@ -21,9 +21,9 @@ func TestArtifactDef_YAMLParsing(t *testing.T) {
 	}{
 		{
 			name:       "basic artifact with path",
-			yaml:       "name: report\npath: .wave/output/report.json\ntype: json\n",
+			yaml:       "name: report\npath: .agents/output/report.json\ntype: json\n",
 			wantName:   "report",
-			wantPath:   ".wave/output/report.json",
+			wantPath:   ".agents/output/report.json",
 			wantType:   "json",
 			wantSource: "",
 		},
@@ -196,9 +196,9 @@ func TestOutcomeDef_YAMLParsing(t *testing.T) {
 	}{
 		{
 			name:            "PR outcome",
-			yaml:            "type: pr\nextract_from: .wave/output/pr-result.json\njson_path: .pr_url\nlabel: Pull Request\n",
+			yaml:            "type: pr\nextract_from: .agents/output/pr-result.json\njson_path: .pr_url\nlabel: Pull Request\n",
 			wantType:        "pr",
-			wantExtractFrom: ".wave/output/pr-result.json",
+			wantExtractFrom: ".agents/output/pr-result.json",
 			wantJSONPath:    ".pr_url",
 			wantLabel:       "Pull Request",
 		},
@@ -685,7 +685,7 @@ requires:
   skills:
     speckit:
       install: "wave skill install speckit"
-      check: "test -d .wave/skills/speckit"
+      check: "test -d .agents/skills/speckit"
 input:
   source: cli
 steps:

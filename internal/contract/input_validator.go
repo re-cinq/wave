@@ -63,7 +63,7 @@ func validateSingleInputArtifact(cfg InputArtifactConfig, workspacePath string) 
 	// Resolve artifact path
 	artifactPath := cfg.Path
 	if artifactPath == "" {
-		artifactPath = filepath.Join(workspacePath, ".wave", "artifacts", cfg.Name)
+		artifactPath = filepath.Join(workspacePath, ".agents", "artifacts", cfg.Name)
 	}
 
 	// Read artifact content

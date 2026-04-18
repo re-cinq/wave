@@ -38,12 +38,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -151,7 +151,7 @@ steps:
 
     output_artifacts:
       - name: inventory
-        path: .wave/artifacts/inventory.json
+        path: .agents/artifacts/inventory.json
         type: json
     retry:
       policy: patient
@@ -159,8 +159,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/artifacts/inventory.json
-        schema_path: .wave/contracts/audit-inventory.schema.json
+        source: .agents/artifacts/inventory.json
+        schema_path: .agents/contracts/audit-inventory.schema.json
         on_failure: retry
 
   - id: audit
@@ -252,7 +252,7 @@ steps:
 
     output_artifacts:
       - name: findings
-        path: .wave/output/findings.json
+        path: .agents/output/findings.json
         type: json
     retry:
       policy: patient
@@ -260,8 +260,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/findings.json
-        schema_path: .wave/contracts/shared-findings.schema.json
+        source: .agents/output/findings.json
+        schema_path: .agents/contracts/shared-findings.schema.json
         on_failure: skip
 
   - id: triage
@@ -360,9 +360,9 @@ steps:
 
     output_artifacts:
       - name: triage-report
-        path: .wave/artifacts/triage-report.md
+        path: .agents/artifacts/triage-report.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/artifacts/triage-report.md
+        source: .agents/artifacts/triage-report.md

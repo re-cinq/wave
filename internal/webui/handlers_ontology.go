@@ -95,7 +95,7 @@ func (s *Server) buildOntologyData() OntologyPageData {
 	}
 
 	// Check for staleness sentinel
-	if _, err := os.Stat(filepath.Join(".wave", ".ontology-stale")); err == nil {
+	if _, err := os.Stat(filepath.Join(".agents", ".ontology-stale")); err == nil {
 		data.Stale = true
 	}
 
@@ -108,7 +108,7 @@ func (s *Server) buildOntologyData() OntologyPageData {
 		}
 
 		// Check for a provisioned skill file for this context.
-		skillPath := filepath.Join(".wave", "skills", "wave-ctx-"+ctx.Name, "SKILL.md")
+		skillPath := filepath.Join(".agents", "skills", "wave-ctx-"+ctx.Name, "SKILL.md")
 		if stat, err := os.Stat(skillPath); err == nil {
 			view.HasSkill = true
 			view.SkillPath = skillPath
@@ -148,10 +148,10 @@ func (s *Server) buildOntologyData() OntologyPageData {
 	return data
 }
 
-// buildContextStepRefs scans .wave/pipelines/ for steps that declare contexts.
+// buildContextStepRefs scans .agents/pipelines/ for steps that declare contexts.
 func buildContextStepRefs() map[string][]ContextStepRef {
 	refs := make(map[string][]ContextStepRef)
-	pipelines, err := filepath.Glob(".wave/pipelines/*.yaml")
+	pipelines, err := filepath.Glob(".agents/pipelines/*.yaml")
 	if err != nil {
 		return refs
 	}

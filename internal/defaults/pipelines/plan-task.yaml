@@ -32,12 +32,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -139,7 +139,7 @@ steps:
         fabricates file paths the planner will reference in tasks that turn out to be wrong.
     output_artifacts:
       - name: exploration
-        path: .wave/output/exploration.json
+        path: .agents/output/exploration.json
         type: json
     retry:
       policy: patient
@@ -147,8 +147,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/exploration.json
-        schema_path: .wave/contracts/plan-exploration.schema.json
+        source: .agents/output/exploration.json
+        schema_path: .agents/contracts/plan-exploration.schema.json
         on_failure: retry
 
   - id: breakdown
@@ -249,7 +249,7 @@ steps:
         parallel execution was possible.
     output_artifacts:
       - name: tasks
-        path: .wave/output/tasks.json
+        path: .agents/output/tasks.json
         type: json
     retry:
       policy: standard
@@ -257,8 +257,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/tasks.json
-        schema_path: .wave/contracts/plan-tasks.schema.json
+        source: .agents/output/tasks.json
+        schema_path: .agents/contracts/plan-tasks.schema.json
         on_failure: retry
 
   - id: review
@@ -378,7 +378,7 @@ steps:
         everything or nitpicks trivially while missing structural problems.
     output_artifacts:
       - name: review
-        path: .wave/output/plan-review.json
+        path: .agents/output/plan-review.json
         type: json
     retry:
       policy: standard
@@ -386,6 +386,6 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/plan-review.json
-        schema_path: .wave/contracts/plan-review.schema.json
+        source: .agents/output/plan-review.json
+        schema_path: .agents/contracts/plan-review.schema.json
         on_failure: retry

@@ -13,7 +13,7 @@ wave init
 
 This creates:
 ```
-.wave/
+.agents/
 ├── wave.yaml          # Manifest with adapters and personas
 ├── pipelines/         # Pipeline definitions
 ├── personas/          # System prompts
@@ -40,7 +40,7 @@ personas:
   navigator:
     adapter: claude
     description: "Read-only analysis"
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
     permissions:
       allowed_tools: [Read, Glob, Grep]
       deny: [Write, Edit, Bash]
@@ -48,7 +48,7 @@ personas:
   auditor:
     adapter: claude
     description: "Security review"
-    system_prompt_file: .wave/personas/auditor.md
+    system_prompt_file: .agents/personas/auditor.md
     permissions:
       allowed_tools: [Read, Grep]
       deny: [Write, Edit]
@@ -56,15 +56,15 @@ personas:
   craftsman:
     adapter: claude
     description: "Code implementation"
-    system_prompt_file: .wave/personas/craftsman.md
+    system_prompt_file: .agents/personas/craftsman.md
     permissions:
       allowed_tools: [Read, Write, Edit, Bash]
 
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
   audit:
     log_all_tool_calls: true
-    log_dir: .wave/traces/
+    log_dir: .agents/traces/
 ```
 
 ### 3. Create Standard Pipelines
@@ -72,7 +72,7 @@ runtime:
 Start with pipelines that solve real team problems:
 
 ```yaml
-# .wave/pipelines/ops-pr-review.yaml
+# .agents/pipelines/ops-pr-review.yaml
 kind: WavePipeline
 metadata:
   name: ops-pr-review
@@ -97,14 +97,14 @@ steps:
         Check against team standards.
     output_artifacts:
       - name: review
-        path: .wave/output/review.md
+        path: .agents/output/review.md
         type: markdown
 ```
 
 ### 4. Commit and Share
 
 ```bash
-git add .wave/
+git add .agents/
 git commit -m "Add Wave configuration"
 git push
 ```
@@ -150,7 +150,7 @@ steps:
       source: "Review: {{ input }}"
     output_artifacts:
       - name: review
-        path: .wave/output/review.md
+        path: .agents/output/review.md
 ```
 
 ### Documentation
@@ -173,7 +173,7 @@ steps:
       source: "Document: {{ input }}"
     output_artifacts:
       - name: docs
-        path: .wave/output/docs.md
+        path: .agents/output/docs.md
 ```
 
 ## Tips
@@ -190,7 +190,7 @@ Add contracts for structured outputs:
 handover:
   contract:
     type: jsonschema
-    schema_path: .wave/contracts/output.schema.json
+    schema_path: .agents/contracts/output.schema.json
 ```
 
 ### Document Your Pipelines
@@ -202,12 +202,12 @@ metadata:
   name: ops-pr-review
   description: |
     Usage: wave run ops-pr-review "description of changes"
-    Output: .wave/output/review.md
+    Output: .agents/output/review.md
 ```
 
 ### Version Control Everything
 
-The `.wave/` directory is code. Review changes in PRs.
+The `.agents/` directory is code. Review changes in PRs.
 
 ## Troubleshooting
 
@@ -216,8 +216,8 @@ The `.wave/` directory is code. Review changes in PRs.
 Check that the file exists and `metadata.name` matches:
 
 ```bash
-ls .wave/pipelines/
-grep "name:" .wave/pipelines/ops-pr-review.yaml
+ls .agents/pipelines/
+grep "name:" .agents/pipelines/ops-pr-review.yaml
 ```
 
 ### "Persona not defined"
@@ -228,7 +228,7 @@ Ensure the persona is in `wave.yaml`:
 personas:
   navigator:  # This must exist
     adapter: claude
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
 ```
 
 ### API Key Issues

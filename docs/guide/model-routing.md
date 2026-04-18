@@ -138,7 +138,7 @@ Fallback only triggers on transient failures (rate limits, timeouts). Permanent 
 Personas can declare a preferred model, overridable at step level:
 
 ```yaml
-# .wave/personas/analyst.yaml
+# .agents/personas/analyst.yaml
 name: analyst
 model: haiku
 adapter: claude

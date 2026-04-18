@@ -410,12 +410,12 @@ stateDiagram-v2
     Preserved --> [*]: Pipeline complete
 
     note right of Created
-        .wave/workspaces/
+        .agents/workspaces/
         {pipeline}/{step}/
     end note
 
     note right of Injected
-        .wave/artifacts/
+        .agents/artifacts/
         {step}_{artifact}
     end note
 ```
@@ -437,9 +437,9 @@ flowchart LR
         S3IN[inject_artifacts:<br/>- step: spec<br/>- step: docs]
     end
 
-    S1OUT -->|".wave/artifacts/spec_spec.md"| S2IN
-    S1OUT -->|".wave/artifacts/spec_spec.md"| S3IN
-    S2OUT -->|".wave/artifacts/docs_docs.md"| S3IN
+    S1OUT -->|".agents/artifacts/spec_spec.md"| S2IN
+    S1OUT -->|".agents/artifacts/spec_spec.md"| S3IN
+    S2OUT -->|".agents/artifacts/docs_docs.md"| S3IN
 ```
 
 ## Matrix Strategy Execution
@@ -495,7 +495,7 @@ flowchart TD
     PERMS --> SCRUB[Credential Scrubbing]
     SCRUB --> LOG[Audit Log]
 
-    LOG --> TRACE[".wave/traces/<br/>trace-TIMESTAMP.log"]
+    LOG --> TRACE[".agents/traces/<br/>trace-TIMESTAMP.log"]
 ```
 
 ## Resume Flow
@@ -513,7 +513,7 @@ sequenceDiagram
     CLI->>ResumeManager: ResumeFromStep(pipeline, step3)
 
     ResumeManager->>ResumeManager: ValidateResumePoint()
-    ResumeManager->>Filesystem: Scan .wave/workspaces/{pipeline}/
+    ResumeManager->>Filesystem: Scan .agents/workspaces/{pipeline}/
     Filesystem-->>ResumeManager: completed step workspaces
 
     ResumeManager->>StateStore: GetStepStates(pipeline)
@@ -561,8 +561,8 @@ flowchart TB
     subgraph Input
         YAML[wave.yaml<br/>Manifest]
         PIPELINE[pipeline.yaml<br/>Pipeline Definition]
-        PERSONA[.wave/personas/<br/>System Prompts]
-        CONTRACT[.wave/contracts/<br/>Schemas]
+        PERSONA[.agents/personas/<br/>System Prompts]
+        CONTRACT[.agents/contracts/<br/>Schemas]
     end
 
     subgraph Processing

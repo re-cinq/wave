@@ -11,11 +11,11 @@ steps:
       source: "Create a pull request"
     output_artifacts:
       - name: result
-        path: .wave/output/result.json
+        path: .agents/output/result.json
         type: json
     outcomes:
       - type: pr
-        extract_from: .wave/output/result.json
+        extract_from: .agents/output/result.json
         json_path: ".pr_url"
         label: "Pull Request"
 ```
@@ -48,7 +48,7 @@ Extract multiple values from a JSON array using `[*]` in the `json_path`:
 ```yaml
 outcomes:
   - type: url
-    extract_from: .wave/output/deploy-result.json
+    extract_from: .agents/output/deploy-result.json
     json_path: ".environments[*].url"
     json_path_label: ".name"
     label: "Deployments"
@@ -74,15 +74,15 @@ A single step can declare multiple outcomes to extract different result types:
 ```yaml
 outcomes:
   - type: pr
-    extract_from: .wave/output/result.json
+    extract_from: .agents/output/result.json
     json_path: ".pr_url"
     label: "Pull Request"
   - type: issue
-    extract_from: .wave/output/result.json
+    extract_from: .agents/output/result.json
     json_path: ".issue_url"
     label: "Tracking Issue"
   - type: deployment
-    extract_from: .wave/output/deploy.json
+    extract_from: .agents/output/deploy.json
     json_path: ".deploy_url"
     label: "Preview"
 ```

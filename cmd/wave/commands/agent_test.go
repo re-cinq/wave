@@ -150,8 +150,8 @@ personas:
 	require.NoError(t, os.MkdirAll(personaDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(personaDir, "navigator.md"), []byte("# Navigator\nYou navigate."), 0644))
 
-	// Create .wave/personas/base-protocol.md
-	wavePersonaDir := filepath.Join(tmpDir, ".wave", "personas")
+	// Create .agents/personas/base-protocol.md
+	wavePersonaDir := filepath.Join(tmpDir, ".agents", "personas")
 	require.NoError(t, os.MkdirAll(wavePersonaDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(wavePersonaDir, "base-protocol.md"), []byte("# Base Protocol"), 0644))
 

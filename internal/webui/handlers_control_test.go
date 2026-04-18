@@ -285,7 +285,7 @@ func TestLoadPipelineYAML_ValidName(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chdir(origDir) })
 
-	if err := os.MkdirAll(".wave/pipelines", 0o755); err != nil {
+	if err := os.MkdirAll(".agents/pipelines", 0o755); err != nil {
 		t.Fatal(err)
 	}
 	pipelineYAML := `kind: pipeline
@@ -298,7 +298,7 @@ steps:
       type: prompt
       source: "do something"
 `
-	if err := os.WriteFile(".wave/pipelines/test-pipeline.yaml", []byte(pipelineYAML), 0o644); err != nil {
+	if err := os.WriteFile(".agents/pipelines/test-pipeline.yaml", []byte(pipelineYAML), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -483,7 +483,7 @@ func TestHandleRewindRun_InvalidBody(t *testing.T) {
 	}
 }
 
-// setupPipelineDir creates a temporary .wave/pipelines/ directory with a test pipeline
+// setupPipelineDir creates a temporary .agents/pipelines/ directory with a test pipeline
 // and changes the working directory there. Returns a cleanup function.
 func setupPipelineDir(t *testing.T, pipelineName string, steps []string) { //nolint:unparam // test helper
 	t.Helper()
@@ -497,7 +497,7 @@ func setupPipelineDir(t *testing.T, pipelineName string, steps []string) { //nol
 	}
 	t.Cleanup(func() { _ = os.Chdir(origDir) })
 
-	if err := os.MkdirAll(".wave/pipelines", 0o755); err != nil {
+	if err := os.MkdirAll(".agents/pipelines", 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -507,7 +507,7 @@ func setupPipelineDir(t *testing.T, pipelineName string, steps []string) { //nol
 	}
 
 	yaml := "kind: pipeline\nmetadata:\n  name: " + pipelineName + "\nsteps:\n" + stepYAML
-	if err := os.WriteFile(filepath.Join(".wave/pipelines", pipelineName+".yaml"), []byte(yaml), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(".agents/pipelines", pipelineName+".yaml"), []byte(yaml), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }

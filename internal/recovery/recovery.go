@@ -57,7 +57,7 @@ type RecoveryBlockOpts struct {
 	Input         string
 	StepID        string
 	RunID         string
-	WorkspaceRoot string // defaults to ".wave/workspaces" if empty
+	WorkspaceRoot string // defaults to ".agents/workspaces" if empty
 	ErrClass      ErrorClass
 	PreflightMeta *PreflightMetadata // nil when not a preflight error
 }
@@ -66,7 +66,7 @@ type RecoveryBlockOpts struct {
 func BuildRecoveryBlock(opts RecoveryBlockOpts) *RecoveryBlock {
 	workspaceRoot := opts.WorkspaceRoot
 	if workspaceRoot == "" {
-		workspaceRoot = ".wave/workspaces"
+		workspaceRoot = ".agents/workspaces"
 	}
 
 	// Construct workspace path using filepath.Join (handles empty segments cleanly)

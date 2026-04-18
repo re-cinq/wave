@@ -22,7 +22,7 @@ adapters:
     binary: echo
     mode: headless
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 ontology:
   telos: "Test project purpose"
   contexts:
@@ -136,7 +136,7 @@ kind: Manifest
 metadata:
   name: test-project
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `), 0644)
 
 	report, err := RunChecks(context.Background(), Options{
@@ -186,7 +186,7 @@ adapters:
     binary: nonexistent-binary
     mode: headless
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `), 0644)
 
 	report, err := RunChecks(context.Background(), Options{
@@ -232,7 +232,7 @@ kind: Manifest
 metadata:
   name: test-project
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `), 0644)
 
 	report, err := RunChecks(context.Background(), Options{
@@ -285,7 +285,7 @@ kind: Manifest
 metadata:
   name: test-project
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `), 0644)
 
 	pipelinesDir := filepath.Join(tmp, "pipelines")
@@ -361,7 +361,7 @@ adapters:
     binary: gemini
     mode: headless
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `), 0644)
 
 	report, err := RunChecks(context.Background(), Options{
@@ -416,7 +416,7 @@ kind: Manifest
 metadata:
   name: test-project
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `), 0644)
 
 	report, err := RunChecks(context.Background(), Options{
@@ -462,7 +462,7 @@ kind: Manifest
 metadata:
   name: test-project
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `), 0644)
 
 	pipelinesDir := filepath.Join(tmp, "pipelines")
@@ -521,7 +521,7 @@ kind: Manifest
 metadata:
   name: test-project
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `), 0644)
 
 	pipelinesDir := filepath.Join(tmp, "pipelines")
@@ -584,7 +584,7 @@ kind: Manifest
 metadata:
   name: test-project
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `), 0644)
 
 	report, err := RunChecks(context.Background(), Options{

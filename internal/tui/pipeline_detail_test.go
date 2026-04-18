@@ -107,7 +107,7 @@ func fullFinishedDetail(status string) *FinishedDetail {
 			{ID: "plan", Status: status, Duration: 2*time.Minute + 30*time.Second, Persona: "craftsman"},
 		},
 		Artifacts: []ArtifactInfo{
-			{Name: "spec_info", Path: ".wave/artifacts/spec_info", Type: "json"},
+			{Name: "spec_info", Path: ".agents/artifacts/spec_info", Type: "json"},
 		},
 	}
 }

@@ -94,8 +94,8 @@ func TestBuildChatContext(t *testing.T) {
 			{StepID: "step-2", State: "completed", Persona: "craftsman", TokensUsed: 3000, DurationMs: 60000},
 		},
 		artifacts: []state.ArtifactRecord{
-			{StepID: "step-1", Name: "plan.json", Path: ".wave/output/plan.json", Type: "json", SizeBytes: 1024},
-			{StepID: "step-2", Name: "result.md", Path: ".wave/output/result.md", Type: "markdown", SizeBytes: 2048},
+			{StepID: "step-1", Name: "plan.json", Path: ".agents/output/plan.json", Type: "json", SizeBytes: 1024},
+			{StepID: "step-2", Name: "result.md", Path: ".agents/output/result.md", Type: "markdown", SizeBytes: 2048},
 		},
 	}
 
@@ -161,7 +161,7 @@ func TestBuildChatContext_WithWorkspace(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a fake workspace directory
-	wsDir := filepath.Join(tmpDir, ".wave", "workspaces", "my-pipeline", "analyze")
+	wsDir := filepath.Join(tmpDir, ".agents", "workspaces", "my-pipeline", "analyze")
 	if err := os.MkdirAll(wsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -305,7 +305,7 @@ func TestBuildChatContext_WithChatContextConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create artifact files on disk
-	artDir := filepath.Join(tmpDir, ".wave", "output")
+	artDir := filepath.Join(tmpDir, ".agents", "output")
 	if err := os.MkdirAll(artDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -328,8 +328,8 @@ func TestBuildChatContext_WithChatContextConfig(t *testing.T) {
 			{StepID: "step-1", State: "completed", Persona: "navigator"},
 		},
 		artifacts: []state.ArtifactRecord{
-			{StepID: "step-1", Name: "result.json", Path: ".wave/output/result.json", Type: "json"},
-			{StepID: "step-1", Name: "notes.md", Path: ".wave/output/notes.md", Type: "markdown"},
+			{StepID: "step-1", Name: "result.json", Path: ".agents/output/result.json", Type: "json"},
+			{StepID: "step-1", Name: "notes.md", Path: ".agents/output/notes.md", Type: "markdown"},
 		},
 	}
 
@@ -408,7 +408,7 @@ func TestBuildChatContext_TokenBudget(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a large artifact
-	artDir := filepath.Join(tmpDir, ".wave", "output")
+	artDir := filepath.Join(tmpDir, ".agents", "output")
 	if err := os.MkdirAll(artDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -432,8 +432,8 @@ func TestBuildChatContext_TokenBudget(t *testing.T) {
 			CompletedAt:  &completed,
 		},
 		artifacts: []state.ArtifactRecord{
-			{StepID: "s1", Name: "large.txt", Path: ".wave/output/large.txt", Type: "text"},
-			{StepID: "s1", Name: "small.txt", Path: ".wave/output/small.txt", Type: "text"},
+			{StepID: "s1", Name: "large.txt", Path: ".agents/output/large.txt", Type: "text"},
+			{StepID: "s1", Name: "small.txt", Path: ".agents/output/small.txt", Type: "text"},
 		},
 	}
 
@@ -475,13 +475,13 @@ func TestBuildChatContext_MissingArtifactFile(t *testing.T) {
 			CompletedAt:  &completed,
 		},
 		artifacts: []state.ArtifactRecord{
-			{StepID: "s1", Name: "exists.txt", Path: ".wave/output/exists.txt"},
-			{StepID: "s1", Name: "missing.txt", Path: ".wave/output/missing.txt"},
+			{StepID: "s1", Name: "exists.txt", Path: ".agents/output/exists.txt"},
+			{StepID: "s1", Name: "missing.txt", Path: ".agents/output/missing.txt"},
 		},
 	}
 
 	tmpDir := t.TempDir()
-	artDir := filepath.Join(tmpDir, ".wave", "output")
+	artDir := filepath.Join(tmpDir, ".agents", "output")
 	if err := os.MkdirAll(artDir, 0755); err != nil {
 		t.Fatal(err)
 	}

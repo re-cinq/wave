@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Project ontology system with telos, bounded contexts, invariants, and conventions (#590)
 - `wave analyze` CLI for deterministic ontology generation and `--deep` AI-assisted enrichment (#595)
 - `wave analyze --evolve` self-evolution feedback loop using decision lineage (#599)
-- Ontology context skills (`.wave/skills/wave-ctx-*/SKILL.md`) with domain vocabulary, invariants, and key decisions
+- Ontology context skills (`.agents/skills/wave-ctx-*/SKILL.md`) with domain vocabulary, invariants, and key decisions
 - Decision lineage tracking in `ontology_usage` SQLite table — per-step context injection with success/failure rates (#598)
 - Ontology lineage badges in WebUI and TUI (total runs, success rate, last used) (#601)
 - Staleness detection via git post-merge hook sentinel and wave.yaml mtime comparison
@@ -166,7 +166,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Auto-generate output guidance from output_artifacts metadata
 
 ### Changed
-- Ignore `.wave/chat/` and `.wave/wave.db` in gitignore
+- Ignore `.agents/chat/` and `.agents/wave.db` in gitignore
 
 ## [0.26.0] - 2026-02-21
 
@@ -178,7 +178,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Remove conflicting schema injection from buildStepPrompt
 - Archive artifacts per-step to prevent shared-path collision
-- Normalize artifact paths to `.wave/` directory structure
+- Normalize artifact paths to `.agents/` directory structure
 - Contract compliance auto-injection into CLAUDE.md
 
 ### Changed
@@ -220,7 +220,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Base protocol preamble and persona quality guardrails
 
 ### Fixed
-- Move runtime artifacts under `.wave/` to prevent worktree pollution
+- Move runtime artifacts under `.agents/` to prevent worktree pollution
 
 ## [0.22.0] - 2026-02-17
 
@@ -247,7 +247,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Issue-update JSON schema contracts
 
 ### Changed
-- Eliminate duplicate default content from `.wave/`
+- Eliminate duplicate default content from `.agents/`
 - Unify template variable replacement
 - Delete unused executor methods (Resume, GetStatus, injectCheckpointIfExists)
 - Complete StrictMode deprecation

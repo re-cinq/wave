@@ -102,7 +102,7 @@ my-skill/
     └── sample-data.csv
 ```
 
-When a skill is provisioned into a workspace, all resource files are copied to `.wave/skills/<name>/` preserving the directory structure.
+When a skill is provisioned into a workspace, all resource files are copied to `.agents/skills/<name>/` preserving the directory structure.
 
 ## Naming Conventions
 

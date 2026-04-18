@@ -65,7 +65,7 @@ func TestSkillLifecycle_FileAdapter(t *testing.T) {
 	}
 
 	// Verify SKILL.md body content matches original (ProvisionFromStore writes Body only)
-	data, err := os.ReadFile(filepath.Join(workspace, ".wave", "skills", "lifecycle-skill", "SKILL.md"))
+	data, err := os.ReadFile(filepath.Join(workspace, ".agents", "skills", "lifecycle-skill", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("failed to read provisioned SKILL.md: %v", err)
 	}

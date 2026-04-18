@@ -13,7 +13,7 @@ steps:
       source: "Create a pull request"
     output_artifacts:
       - name: result
-        path: .wave/output/pr-result.json
+        path: .agents/output/pr-result.json
         type: json
     outcomes:
       - type: pr
@@ -97,7 +97,7 @@ steps:
       source: "Create PR and deployment"
     output_artifacts:
       - name: result
-        path: .wave/output/publish.json
+        path: .agents/output/publish.json
         type: json
     outcomes:
       - type: pr

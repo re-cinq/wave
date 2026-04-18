@@ -31,7 +31,7 @@ func (s *Server) handleAPIHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getHealthListData() HealthListResponse {
-	provider := tui.NewDefaultHealthDataProvider(s.manifest, s.store, ".wave/pipelines")
+	provider := tui.NewDefaultHealthDataProvider(s.manifest, s.store, ".agents/pipelines")
 
 	var checks []HealthCheckResult
 	for _, name := range provider.CheckNames() {

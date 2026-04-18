@@ -31,7 +31,7 @@ func newDecisionsTestHelper(t *testing.T) *decisionsTestHelper {
 	require.NoError(t, err, "failed to get current directory")
 
 	// Create .wave directory
-	waveDir := filepath.Join(tmpDir, ".wave")
+	waveDir := filepath.Join(tmpDir, ".agents")
 	err = os.MkdirAll(waveDir, 0755)
 	require.NoError(t, err, "failed to create .wave directory")
 
@@ -147,7 +147,7 @@ func TestDecisionsCmd_NoDatabase(t *testing.T) {
 	defer h.restore()
 
 	// Remove the database
-	_ = os.RemoveAll(filepath.Join(h.tmpDir, ".wave"))
+	_ = os.RemoveAll(filepath.Join(h.tmpDir, ".agents"))
 
 	stdout, _, err := executeDecisionsCmd()
 	require.NoError(t, err)
@@ -410,7 +410,7 @@ func TestDecisionsCmd_NoDatabaseJSON(t *testing.T) {
 	h.chdir()
 	defer h.restore()
 
-	_ = os.RemoveAll(filepath.Join(h.tmpDir, ".wave"))
+	_ = os.RemoveAll(filepath.Join(h.tmpDir, ".agents"))
 
 	stdout, _, err := executeDecisionsCmd("--format", "json")
 	require.NoError(t, err)

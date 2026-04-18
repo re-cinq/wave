@@ -42,7 +42,7 @@ With `-o text`:
 
 ## Complete Pipeline
 
-This is the full `ops-pr-review` pipeline from `.wave/pipelines/ops-pr-review.yaml`:
+This is the full `ops-pr-review` pipeline from `.agents/pipelines/ops-pr-review.yaml`:
 
 <div v-pre>
 
@@ -84,7 +84,7 @@ steps:
         }
     output_artifacts:
       - name: diff
-        path: .wave/output/diff-analysis.json
+        path: .agents/output/diff-analysis.json
         type: json
 
   - id: security-review
@@ -112,7 +112,7 @@ steps:
         Output findings with severity (CRITICAL/HIGH/MEDIUM/LOW).
     output_artifacts:
       - name: security
-        path: .wave/output/security-review.md
+        path: .agents/output/security-review.md
         type: markdown
 
   - id: quality-review
@@ -141,7 +141,7 @@ steps:
         Output findings with severity and suggestions.
     output_artifacts:
       - name: quality
-        path: .wave/output/quality-review.md
+        path: .agents/output/quality-review.md
         type: markdown
 
   - id: summary
@@ -169,7 +169,7 @@ steps:
         Format as a PR review comment.
     output_artifacts:
       - name: verdict
-        path: .wave/output/review-verdict.json
+        path: .agents/output/review-verdict.json
         type: json
 ```
 
@@ -181,13 +181,13 @@ The pipeline produces three artifacts:
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| `diff` | `.wave/output/diff-analysis.json` | JSON analysis of changed files and scope |
-| `security` | `.wave/output/security-review.md` | Security findings with severity levels |
-| `verdict` | `.wave/output/review-verdict.json` | Structured review verdict (JSON, uses `shared-review-verdict` schema) |
+| `diff` | `.agents/output/diff-analysis.json` | JSON analysis of changed files and scope |
+| `security` | `.agents/output/security-review.md` | Security findings with severity levels |
+| `verdict` | `.agents/output/review-verdict.json` | Structured review verdict (JSON, uses `shared-review-verdict` schema) |
 
 ### Example Output
 
-The pipeline produces `.wave/output/review-verdict.json`:
+The pipeline produces `.agents/output/review-verdict.json`:
 
 ```json
 {
@@ -270,8 +270,8 @@ Add a JSON schema to ensure structured output:
   handover:
     contract:
       type: json_schema
-      schema_path: .wave/contracts/diff-analysis.schema.json
-      source: .wave/output/diff-analysis.json
+      schema_path: .agents/contracts/diff-analysis.schema.json
+      source: .agents/output/diff-analysis.json
       on_failure: retry
       max_retries: 2
 ```

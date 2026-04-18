@@ -304,7 +304,7 @@ func TestStressTest_PipelineYAML_Parseable(t *testing.T) {
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "Say hello"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "hello", Path: ".wave/output/hello.txt", Type: "text"},
+					{Name: "hello", Path: ".agents/output/hello.txt", Type: "text"},
 				},
 			},
 			{

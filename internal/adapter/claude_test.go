@@ -21,20 +21,20 @@ You are operating within a Wave pipeline step.
 - **Permission enforcement**: Tool permissions are enforced by the orchestrator. Do not attempt to bypass restrictions listed below.
 `
 
-// setupBaseProtocol creates .wave/personas/base-protocol.md relative to the
+// setupBaseProtocol creates .agents/personas/base-protocol.md relative to the
 // current working directory so that prepareWorkspace can find it. Returns a
 // cleanup function that removes the created directory structure.
 func setupBaseProtocol(t *testing.T) {
 	t.Helper()
-	dir := filepath.Join(".wave", "personas")
+	dir := filepath.Join(".agents", "personas")
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		t.Fatalf("failed to create .wave/personas: %v", err)
+		t.Fatalf("failed to create .agents/personas: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "base-protocol.md"), []byte(testBaseProtocol), 0644); err != nil {
 		t.Fatalf("failed to write base-protocol.md: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = os.RemoveAll(".wave")
+		_ = os.RemoveAll(".agents")
 	})
 }
 
@@ -48,7 +48,7 @@ func TestNoSettingsJSONWhenSandboxDisabled(t *testing.T) {
 		Persona:       "test",
 		WorkspacePath: tmpDir,
 		Model:         "sonnet",
-		AllowedTools:  []string{"Read", "Write(.wave/output/*)", "Glob"},
+		AllowedTools:  []string{"Read", "Write(.agents/output/*)", "Glob"},
 	}
 
 	if err := adapter.prepareWorkspace(tmpDir, cfg); err != nil {
@@ -1742,7 +1742,7 @@ func TestBuildSkillSection(t *testing.T) {
 		if !strings.Contains(result, "Expert Go development") {
 			t.Error("missing skill description")
 		}
-		if !strings.Contains(result, ".wave/skills/golang/SKILL.md") {
+		if !strings.Contains(result, ".agents/skills/golang/SKILL.md") {
 			t.Error("missing SKILL.md path")
 		}
 	})
@@ -1970,14 +1970,14 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 	})
 
 	t.Run("tools are passed through without normalization", func(t *testing.T) {
-		p := PersonaSpec{AllowedTools: []string{"Write", "Write(.wave/output/*)"}}
+		p := PersonaSpec{AllowedTools: []string{"Write", "Write(.agents/output/*)"}}
 		out := PersonaToAgentMarkdown(p, "", "", "", "", "")
 		// Both bare Write and scoped Write should appear (no subsumption)
 		if !strings.Contains(out, "  - Write\n") {
 			t.Error("expected bare Write in tools")
 		}
-		if !strings.Contains(out, "  - Write(.wave/output/*)\n") {
-			t.Error("expected scoped Write(.wave/output/*) in tools — no normalization")
+		if !strings.Contains(out, "  - Write(.agents/output/*)\n") {
+			t.Error("expected scoped Write(.agents/output/*) in tools — no normalization")
 		}
 	})
 
@@ -1997,15 +1997,15 @@ func TestPrepareWorkspaceAgentMode(t *testing.T) {
 	adapter := NewClaudeAdapter()
 	tmpDir := t.TempDir()
 
-	// Setup base protocol in a real .wave/personas directory
-	wavePersonasDir := filepath.Join(".wave", "personas")
+	// Setup base protocol in a real .agents/personas directory
+	wavePersonasDir := filepath.Join(".agents", "personas")
 	if err := os.MkdirAll(wavePersonasDir, 0755); err != nil {
-		t.Fatalf("failed to create .wave/personas: %v", err)
+		t.Fatalf("failed to create .agents/personas: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(wavePersonasDir, "base-protocol.md"), []byte(testBaseProtocol), 0644); err != nil {
 		t.Fatalf("failed to write base-protocol.md: %v", err)
 	}
-	t.Cleanup(func() { os.RemoveAll(".wave") })
+	t.Cleanup(func() { os.RemoveAll(".agents") })
 
 	cfg := AdapterRunConfig{
 		Persona:      "navigator",

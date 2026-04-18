@@ -11,14 +11,14 @@ import (
 )
 
 // injectSubPipelineArtifacts copies named artifacts from the parent execution's
-// ArtifactPaths into the child workspace's .wave/artifacts/ directory.
+// ArtifactPaths into the child workspace's .agents/artifacts/ directory.
 // Only artifacts listed in cfg.Inject are copied.
 func injectSubPipelineArtifacts(cfg *SubPipelineConfig, parentCtx *PipelineContext, childWorkspaceDir string) error {
 	if cfg == nil || len(cfg.Inject) == 0 || parentCtx == nil {
 		return nil
 	}
 
-	destDir := filepath.Join(childWorkspaceDir, ".wave", "artifacts")
+	destDir := filepath.Join(childWorkspaceDir, ".agents", "artifacts")
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return fmt.Errorf("failed to create child artifacts dir: %w", err)
 	}
@@ -46,7 +46,7 @@ func extractSubPipelineArtifacts(cfg *SubPipelineConfig, childCtx *PipelineConte
 		return nil
 	}
 
-	destDir := filepath.Join(parentWorkspaceDir, ".wave", "artifacts")
+	destDir := filepath.Join(parentWorkspaceDir, ".agents", "artifacts")
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return fmt.Errorf("failed to create parent artifacts dir: %w", err)
 	}
@@ -55,7 +55,7 @@ func extractSubPipelineArtifacts(cfg *SubPipelineConfig, childCtx *PipelineConte
 		srcPath := childCtx.GetArtifactPath(name)
 		if srcPath == "" {
 			// Try looking in the child workspace artifacts dir
-			srcPath = filepath.Join(parentWorkspaceDir, ".wave", "artifacts", name)
+			srcPath = filepath.Join(parentWorkspaceDir, ".agents", "artifacts", name)
 			if _, err := os.Stat(srcPath); os.IsNotExist(err) {
 				return fmt.Errorf("artifact %q not found in child context for extraction", name)
 			}

@@ -19,7 +19,7 @@ Here's a minimal custom persona definition:
 personas:
   docs-writer:
     adapter: claude
-    system_prompt_file: .wave/personas/docs-writer.md
+    system_prompt_file: .agents/personas/docs-writer.md
     temperature: 0.5
     permissions:
       allowed_tools: ["Read", "Glob", "Write(docs/*)"]
@@ -29,7 +29,7 @@ personas:
 Create the system prompt file:
 
 ```markdown
-<!-- .wave/personas/docs-writer.md -->
+<!-- .agents/personas/docs-writer.md -->
 # Documentation Writer
 
 You are a technical documentation expert. Your role is to:
@@ -70,7 +70,7 @@ Before writing configuration, clearly define:
 System prompts define how the persona thinks and responds. Write them in markdown format:
 
 ```markdown
-<!-- .wave/personas/db-migrator.md -->
+<!-- .agents/personas/db-migrator.md -->
 # Database Migration Specialist
 
 You are an expert database migration engineer. Your primary responsibilities:
@@ -110,7 +110,7 @@ Permissions use the deny-first evaluation model. Design permissions based on the
 personas:
   db-migrator:
     adapter: claude
-    system_prompt_file: .wave/personas/db-migrator.md
+    system_prompt_file: .agents/personas/db-migrator.md
     temperature: 0.2  # Lower for precise output
     permissions:
       allowed_tools:
@@ -149,7 +149,7 @@ personas:
   db-migrator:
     adapter: claude               # LLM adapter to use
     model: claude-sonnet-4-20250514     # Specific model (optional)
-    system_prompt_file: .wave/personas/db-migrator.md
+    system_prompt_file: .agents/personas/db-migrator.md
     temperature: 0.2              # 0.0-1.0, lower = more deterministic
     permissions:
       allowed_tools: [...]
@@ -175,7 +175,7 @@ For personas that analyze but never modify:
 personas:
   security-scanner:
     adapter: claude
-    system_prompt_file: .wave/personas/security-scanner.md
+    system_prompt_file: .agents/personas/security-scanner.md
     temperature: 0.1
     permissions:
       allowed_tools:
@@ -196,7 +196,7 @@ For personas that write to specific directories:
 personas:
   api-generator:
     adapter: claude
-    system_prompt_file: .wave/personas/api-generator.md
+    system_prompt_file: .agents/personas/api-generator.md
     temperature: 0.3
     permissions:
       allowed_tools:
@@ -220,7 +220,7 @@ For personas focused on testing:
 personas:
   test-writer:
     adapter: claude
-    system_prompt_file: .wave/personas/test-writer.md
+    system_prompt_file: .agents/personas/test-writer.md
     temperature: 0.3
     permissions:
       allowed_tools:
@@ -246,7 +246,7 @@ For personas managing deployment workflows:
 personas:
   deploy-operator:
     adapter: claude
-    system_prompt_file: .wave/personas/deploy-operator.md
+    system_prompt_file: .agents/personas/deploy-operator.md
     temperature: 0.1
     permissions:
       allowed_tools:
@@ -393,7 +393,7 @@ Write system prompts that are:
 Keep persona definitions in version control:
 
 ```
-.wave/
+.agents/
   personas/
     navigator.md
     implementer.md

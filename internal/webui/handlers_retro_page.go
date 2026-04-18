@@ -23,7 +23,7 @@ func (s *Server) handleRetrosPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	storage := retro.NewStorage(".wave/retros", s.store)
+	storage := retro.NewStorage(".agents/retros", s.store)
 
 	// Build smoothness trend entries (last 20, reversed to chronological order for chart)
 	chartLimit := 20

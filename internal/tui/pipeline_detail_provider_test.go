@@ -155,7 +155,7 @@ func TestDefaultDetailDataProvider_FetchFinishedDetail_Completed(t *testing.T) {
 		artifacts: []state.ArtifactRecord{
 			{
 				Name: "spec_info",
-				Path: ".wave/artifacts/spec_info",
+				Path: ".agents/artifacts/spec_info",
 				Type: "json",
 			},
 		},
@@ -185,7 +185,7 @@ func TestDefaultDetailDataProvider_FetchFinishedDetail_Completed(t *testing.T) {
 
 	require.Len(t, got.Artifacts, 1)
 	assert.Equal(t, "spec_info", got.Artifacts[0].Name)
-	assert.Equal(t, ".wave/artifacts/spec_info", got.Artifacts[0].Path)
+	assert.Equal(t, ".agents/artifacts/spec_info", got.Artifacts[0].Path)
 	assert.Equal(t, "json", got.Artifacts[0].Type)
 
 	// No failed step for a completed run.
@@ -286,7 +286,7 @@ func TestDefaultDetailDataProvider_FetchFinishedDetail_WorkspacePath(t *testing.
 	}
 
 	// Create the expected workspace directory.
-	wsDir := filepath.Join(".wave", "workspaces", "run-ws-test", "__wt_feat-my-feature")
+	wsDir := filepath.Join(".agents", "workspaces", "run-ws-test", "__wt_feat-my-feature")
 	require.NoError(t, os.MkdirAll(wsDir, 0755))
 
 	provider := NewDefaultDetailDataProvider(store, "")
@@ -334,7 +334,7 @@ func TestDefaultDetailDataProvider_FetchFinishedDetail_EmptyBranchGlob(t *testin
 	}
 
 	// Create a worktree directory with any name.
-	wsDir := filepath.Join(".wave", "workspaces", "run-glob-test", "__wt_some-branch")
+	wsDir := filepath.Join(".agents", "workspaces", "run-glob-test", "__wt_some-branch")
 	require.NoError(t, os.MkdirAll(wsDir, 0755))
 
 	provider := NewDefaultDetailDataProvider(store, "")

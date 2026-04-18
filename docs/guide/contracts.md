@@ -20,8 +20,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/navigation.schema.json
-        source: .wave/output/analysis.json
+        schema_path: .agents/contracts/navigation.schema.json
+        source: .agents/output/analysis.json
         on_failure: retry
         max_retries: 2
 ```
@@ -47,8 +47,8 @@ Validates output structure:
 handover:
   contract:
     type: json_schema
-    schema_path: .wave/contracts/navigation.schema.json
-    source: .wave/output/analysis.json
+    schema_path: .agents/contracts/navigation.schema.json
+    source: .agents/output/analysis.json
 ```
 
 Example schema:
@@ -82,7 +82,7 @@ Validates generated TypeScript compiles:
 handover:
   contract:
     type: typescript_interface
-    source: .wave/output/types.ts
+    source: .agents/output/types.ts
     validate: true
 ```
 
@@ -112,7 +112,7 @@ Validates that the artifact file exists and is not empty. Useful as a lightweigh
 handover:
   contract:
     type: non_empty_file
-    source: .wave/output/result.md
+    source: .agents/output/result.md
 ```
 
 No additional configuration fields are required beyond `type` and `source`.
@@ -125,7 +125,7 @@ Uses an LLM to evaluate the artifact against criteria specified in a prompt. The
 handover:
   contract:
     type: llm_judge
-    source: .wave/output/plan.md
+    source: .agents/output/plan.md
     prompt: "Does this plan address all acceptance criteria from the issue?"
     model: balanced
 ```
@@ -160,7 +160,7 @@ Delegates validation to another agent session using an adapter runner. Unlike ot
 handover:
   contract:
     type: agent_review
-    source: .wave/output/implementation.md
+    source: .agents/output/implementation.md
     prompt: "Review this implementation for security issues"
 ```
 
@@ -191,8 +191,8 @@ Generates and runs tests derived from a specification document. Like `agent_revi
 handover:
   contract:
     type: spec_derived_test
-    source: .wave/output/spec.md
-    test_dir: .wave/output/tests/
+    source: .agents/output/spec.md
+    test_dir: .agents/output/tests/
 ```
 
 ## Failure Handling
@@ -232,12 +232,12 @@ handover:
 - id: navigate
   output_artifacts:
     - name: analysis
-      path: .wave/output/analysis.json
+      path: .agents/output/analysis.json
   handover:
     contract:
       type: json_schema
-      schema_path: .wave/contracts/navigation.schema.json
-      source: .wave/output/analysis.json
+      schema_path: .agents/contracts/navigation.schema.json
+      source: .agents/output/analysis.json
 ```
 
 ### Implementation Contract
@@ -260,7 +260,7 @@ Use a script for multiple checks:
 handover:
   contract:
     type: test_suite
-    command: ".wave/scripts/validate.sh"
+    command: ".agents/scripts/validate.sh"
 ```
 
 ```bash
@@ -273,7 +273,7 @@ npm test
 ## Schema Organization
 
 ```
-.wave/
+.agents/
 ├── contracts/
 │   ├── navigation.schema.json
 │   ├── specification.schema.json
@@ -286,7 +286,7 @@ npm test
 
 Check audit logs:
 ```bash
-cat .wave/traces/<pipeline-id>.jsonl | jq 'select(.type == "contract_failure")'
+cat .agents/traces/<pipeline-id>.jsonl | jq 'select(.type == "contract_failure")'
 ```
 
 ## Related Topics

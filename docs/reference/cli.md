@@ -17,7 +17,7 @@ Wave CLI commands for pipeline orchestration.
 | `wave list` | List adapters, runs, pipelines, personas, contracts |
 | `wave validate` | Validate configuration |
 | `wave clean` | Clean up workspaces |
-| `wave cleanup` | Remove orphaned worktrees from .wave/workspaces/ |
+| `wave cleanup` | Remove orphaned worktrees from .agents/workspaces/ |
 | `wave compose` | Validate and execute pipeline sequences |
 | `wave decisions` | Show decision log for a pipeline run |
 | `wave doctor` | Diagnose project configuration and health |
@@ -46,10 +46,10 @@ wave init
 **Output:**
 ```
 Created wave.yaml
-Created .wave/personas/navigator.md
-Created .wave/personas/craftsman.md
-Created .wave/personas/summarizer.md
-Created .wave/pipelines/default.yaml
+Created .agents/personas/navigator.md
+Created .agents/personas/craftsman.md
+Created .agents/personas/summarizer.md
+Created .agents/pipelines/default.yaml
 
 Project initialized. Run 'wave validate' to check configuration.
 ```
@@ -248,7 +248,7 @@ The `--save` flag is particularly useful for turning dynamically generated pipel
 
 ```bash
 # Generate, save, and later re-run the same pipeline
-wave meta "implement OAuth2 flow" --save .wave/pipelines/oauth2.yaml
+wave meta "implement OAuth2 flow" --save .agents/pipelines/oauth2.yaml
 wave run oauth2 "add Google provider"
 ```
 
@@ -341,7 +341,7 @@ Wave has two distinct observability mechanisms that serve different purposes:
 | | `wave logs` | `--output` modes |
 |---|---|---|
 | **Mechanism** | Reads recorded events from SQLite state DB | Renders progress events to terminal in real-time |
-| **Data source** | `.wave/state.db` (persisted) | Live event stream (ephemeral) |
+| **Data source** | `.agents/state.db` (persisted) | Live event stream (ephemeral) |
 | **Timing** | During or after execution | Only during execution |
 | **Typical use** | Post-hoc debugging, audit trail, scripting | Watching progress, CI output formatting |
 
@@ -431,8 +431,8 @@ wave artifacts run-abc123
 **Output:**
 ```
 STEP      ARTIFACT        TYPE    SIZE      PATH
-analyze   analysis.json   json    2.1 KB    .wave/workspaces/.../analysis.json
-review    findings.md     md      4.5 KB    .wave/workspaces/.../findings.md
+analyze   analysis.json   json    2.1 KB    .agents/workspaces/.../analysis.json
+review    findings.md     md      4.5 KB    .agents/workspaces/.../findings.md
 ```
 
 ### Export Artifacts
@@ -596,7 +596,7 @@ All validation checks passed.
 ```
 Validating wave.yaml...
 ERROR: Persona 'craftsman' references undefined adapter 'opencode'
-ERROR: System prompt file not found: .wave/personas/missing.md
+ERROR: System prompt file not found: .agents/personas/missing.md
 
 Validation failed with 2 errors.
 ```
@@ -621,8 +621,8 @@ wave clean --dry-run
 **Output:**
 ```
 Would delete:
-  .wave/workspaces/run-abc123/  (ops-pr-review, 145 MB)
-  .wave/workspaces/run-xyz789/  (impl-hotfix, 23 MB)
+  .agents/workspaces/run-abc123/  (ops-pr-review, 145 MB)
+  .agents/workspaces/run-xyz789/  (impl-hotfix, 23 MB)
 Total: 168 MB across 2 runs
 
 Run without --dry-run to delete.
@@ -664,7 +664,7 @@ Starting Wave dashboard on http://127.0.0.1:8080
 | `--port` | `8080` | Port to listen on |
 | `--bind` | `127.0.0.1` | Address to bind to |
 | `--token` | `""` | Authentication token (required for non-localhost binding) |
-| `--db` | `.wave/state.db` | Path to state database |
+| `--db` | `.agents/state.db` | Path to state database |
 | `--manifest` | `wave.yaml` | Path to manifest file |
 
 ### Authentication
@@ -686,7 +686,7 @@ wave serve --port 9090
 wave serve --bind 0.0.0.0 --token mysecret
 
 # Use custom database path
-wave serve --db .wave/state.db
+wave serve --db .agents/state.db
 ```
 
 ---
@@ -1003,7 +1003,7 @@ wave bench run --dataset tasks.jsonl --pipeline bench-solve --results-path resul
 | `--concurrency` | `1` | Number of tasks to run in parallel |
 | `--offset` | `0` | Skip the first N tasks in the dataset |
 | `--results-path` | | Path to write JSON results file |
-| `--datasets-dir` | `.wave/bench/datasets` | Directory to search for dataset files |
+| `--datasets-dir` | `.agents/bench/datasets` | Directory to search for dataset files |
 | `--keep-workspaces` | `false` | Preserve task worktrees after completion |
 
 ### bench report
@@ -1042,7 +1042,7 @@ wave bench list --datasets-dir ./my-datasets
 
 ## wave cleanup
 
-Remove orphaned worktrees from `.wave/workspaces/` that have no corresponding running pipeline.
+Remove orphaned worktrees from `.agents/workspaces/` that have no corresponding running pipeline.
 
 ```bash
 wave cleanup              # Remove orphaned worktrees (with confirmation)
@@ -1264,7 +1264,7 @@ wave skill install tessl:my-skill    # From Tessl registry
 
 ### skill check
 
-Run check commands for installed skills in `.wave/skills/`.
+Run check commands for installed skills in `.agents/skills/`.
 
 ```bash
 wave skill check

@@ -62,7 +62,7 @@ The `supervisor` persona parses input heuristically to determine what to inspect
 
 | Input | Detection Strategy |
 |-------|-------------------|
-| *(empty)* | Most recent pipeline run from `.wave/workspaces/` |
+| *(empty)* | Most recent pipeline run from `.agents/workspaces/` |
 | `"last pipeline run"` | Same as empty |
 | `"current pr"` or `"PR #42"` | Current or specified pull request |
 | `"feature/auth"` | All commits on that branch vs main |
@@ -97,13 +97,13 @@ The `reviewer` independently verifies claims, runs the test suite, and issues a 
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| `evidence` | `.wave/output/supervision-evidence.json` | Raw evidence bundle with commits, artifacts, transcripts |
-| `evaluation` | `.wave/output/supervision-evaluation.json` | Scored evaluation across all quality dimensions |
-| `verdict` | `.wave/output/supervision-verdict.md` | Final verdict with action items and lessons learned |
+| `evidence` | `.agents/output/supervision-evidence.json` | Raw evidence bundle with commits, artifacts, transcripts |
+| `evaluation` | `.agents/output/supervision-evaluation.json` | Scored evaluation across all quality dimensions |
+| `verdict` | `.agents/output/supervision-verdict.md` | Final verdict with action items and lessons learned |
 
 ### Example Output
 
-The pipeline produces `.wave/output/supervision-verdict.md`:
+The pipeline produces `.agents/output/supervision-verdict.md`:
 
 ```markdown
 ## Verdict: PARTIAL_APPROVE

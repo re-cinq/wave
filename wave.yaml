@@ -48,7 +48,7 @@ ontology:
           invariants:
             - "wave.yaml is the single source of truth for project configuration"
             - "Single static binary — no runtime dependencies except adapter binaries"
-            - "Parity enforcement between .wave/ files and internal/defaults/"
+            - "Parity enforcement between .agents/ files and internal/defaults/"
             - "Pipeline YAML defaults memory.strategy to fresh"
         - name: quality
           description: "Validation and quality gates — first-pass failure is expected, rework is the norm"
@@ -133,7 +133,7 @@ personas:
                 - Bash(go vet*)
                 - Bash(npm audit*)
             deny: []
-        system_prompt_file: .wave/personas/auditor.md
+        system_prompt_file: .agents/personas/auditor.md
     craftsman:
         adapter: claude
         description: Code implementation and testing
@@ -145,7 +145,7 @@ personas:
                 - Edit
                 - Bash
             deny: []
-        system_prompt_file: .wave/personas/craftsman.md
+        system_prompt_file: .agents/personas/craftsman.md
     debugger:
         adapter: claude
         description: Systematic issue diagnosis and root cause analysis
@@ -160,7 +160,7 @@ personas:
                 - Bash(git diff*)
                 - Bash(git bisect*)
             deny: []
-        system_prompt_file: .wave/personas/debugger.md
+        system_prompt_file: .agents/personas/debugger.md
     navigator:
         adapter: claude
         description: Read-only codebase exploration and analysis
@@ -173,7 +173,7 @@ personas:
                 - Bash(git log*)
                 - Bash(git status*)
             deny: []
-        system_prompt_file: .wave/personas/navigator.md
+        system_prompt_file: .agents/personas/navigator.md
     philosopher:
         adapter: claude
         description: Architecture design and specification
@@ -187,7 +187,7 @@ personas:
                 - Glob
                 - Grep
             deny: []
-        system_prompt_file: .wave/personas/philosopher.md
+        system_prompt_file: .agents/personas/philosopher.md
     planner:
         adapter: claude
         description: Task breakdown and project planning
@@ -201,7 +201,7 @@ personas:
                 - Glob
                 - Grep
             deny: []
-        system_prompt_file: .wave/personas/planner.md
+        system_prompt_file: .agents/personas/planner.md
     summarizer:
         adapter: claude
         description: Context compaction for relay handoffs
@@ -215,7 +215,7 @@ personas:
                 - Glob
                 - Grep
             deny: []
-        system_prompt_file: .wave/personas/summarizer.md
+        system_prompt_file: .agents/personas/summarizer.md
     github-analyst:
         adapter: claude
         description: GitHub issue analysis and quality assessment
@@ -236,9 +236,9 @@ personas:
                 - Bash(git log*)
                 - Bash(git status*)
                 - Bash(ls *)
-                - Write(.wave/artifact.json)
+                - Write(.agents/artifact.json)
             deny: []
-        system_prompt_file: .wave/personas/github-analyst.md
+        system_prompt_file: .agents/personas/github-analyst.md
     github-enhancer:
         adapter: claude
         description: GitHub issue enhancement and improvement
@@ -251,10 +251,10 @@ personas:
                 - Bash(gh issue edit*)
                 - Bash(gh issue view*)
                 - Bash(gh --version)
-                - Write(.wave/artifact.json)
+                - Write(.agents/artifact.json)
                 - Write(/tmp/*)
             deny: []
-        system_prompt_file: .wave/personas/github-enhancer.md
+        system_prompt_file: .agents/personas/github-enhancer.md
     github-scoper:
         adapter: claude
         description: GitHub epic decomposition into child issues
@@ -268,9 +268,9 @@ personas:
                 - Bash(gh issue view*)
                 - Bash(gh issue list*)
                 - Bash(gh --version)
-                - Write(.wave/artifact.json)
+                - Write(.agents/artifact.json)
             deny: []
-        system_prompt_file: .wave/personas/github-scoper.md
+        system_prompt_file: .agents/personas/github-scoper.md
     implementer:
         adapter: claude
         description: Code execution and artifact generation for pipeline steps
@@ -284,7 +284,7 @@ personas:
                 - Glob
                 - Grep
             deny: []
-        system_prompt_file: .wave/personas/implementer.md
+        system_prompt_file: .agents/personas/implementer.md
     reviewer:
         adapter: claude
         description: Quality review, validation, and assessment
@@ -294,12 +294,12 @@ personas:
                 - Read
                 - Glob
                 - Grep
-                - Write(.wave/artifact.json)
-                - Write(.wave/artifacts/*)
+                - Write(.agents/artifact.json)
+                - Write(.agents/artifacts/*)
                 - Bash(go test*)
                 - Bash(npm test*)
             deny: []
-        system_prompt_file: .wave/personas/reviewer.md
+        system_prompt_file: .agents/personas/reviewer.md
     researcher:
         adapter: claude
         description: Web research and information synthesis
@@ -315,7 +315,7 @@ personas:
                 - WebSearch
                 - WebFetch
             deny: []
-        system_prompt_file: .wave/personas/researcher.md
+        system_prompt_file: .agents/personas/researcher.md
     github-commenter:
         adapter: claude
         description: Post comments on GitHub issues and pull requests, create PRs
@@ -326,8 +326,8 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Write(.wave/artifact.json)
-                - Write(.wave/output/*)
+                - Write(.agents/artifact.json)
+                - Write(.agents/output/*)
                 - Bash(gh issue comment*)
                 - Bash(gh pr comment*)
                 - Bash(gh pr review*)
@@ -338,7 +338,7 @@ personas:
                 - Bash(git push*)
                 - Bash(git status*)
             deny: []
-        system_prompt_file: .wave/personas/github-commenter.md
+        system_prompt_file: .agents/personas/github-commenter.md
     gitlab-analyst:
         adapter: claude
         description: GitLab issue analysis and quality assessment
@@ -359,9 +359,9 @@ personas:
                 - Bash(git log*)
                 - Bash(git status*)
                 - Bash(ls *)
-                - Write(.wave/artifact.json)
+                - Write(.agents/artifact.json)
             deny: []
-        system_prompt_file: .wave/personas/gitlab-analyst.md
+        system_prompt_file: .agents/personas/gitlab-analyst.md
     gitlab-enhancer:
         adapter: claude
         description: GitLab issue enhancement and improvement
@@ -374,10 +374,10 @@ personas:
                 - Bash(glab issue edit*)
                 - Bash(glab issue view*)
                 - Bash(glab --version)
-                - Write(.wave/artifact.json)
+                - Write(.agents/artifact.json)
                 - Write(/tmp/*)
             deny: []
-        system_prompt_file: .wave/personas/gitlab-enhancer.md
+        system_prompt_file: .agents/personas/gitlab-enhancer.md
     gitlab-scoper:
         adapter: claude
         description: GitLab epic decomposition into child issues
@@ -391,9 +391,9 @@ personas:
                 - Bash(glab issue view*)
                 - Bash(glab issue list*)
                 - Bash(glab --version)
-                - Write(.wave/artifact.json)
+                - Write(.agents/artifact.json)
             deny: []
-        system_prompt_file: .wave/personas/gitlab-scoper.md
+        system_prompt_file: .agents/personas/gitlab-scoper.md
     gitlab-commenter:
         adapter: claude
         description: Post comments on GitLab issues and merge requests
@@ -404,8 +404,8 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Write(.wave/artifact.json)
-                - Write(.wave/output/*)
+                - Write(.agents/artifact.json)
+                - Write(.agents/output/*)
                 - Bash(glab issue note*)
                 - Bash(glab mr note*)
                 - Bash(glab mr create*)
@@ -414,7 +414,7 @@ personas:
                 - Bash(git push*)
                 - Bash(git status*)
             deny: []
-        system_prompt_file: .wave/personas/gitlab-commenter.md
+        system_prompt_file: .agents/personas/gitlab-commenter.md
     gitea-analyst:
         adapter: claude
         description: Gitea issue analysis and quality assessment
@@ -435,9 +435,9 @@ personas:
                 - Bash(git log*)
                 - Bash(git status*)
                 - Bash(ls *)
-                - Write(.wave/artifact.json)
+                - Write(.agents/artifact.json)
             deny: []
-        system_prompt_file: .wave/personas/gitea-analyst.md
+        system_prompt_file: .agents/personas/gitea-analyst.md
     gitea-enhancer:
         adapter: claude
         description: Gitea issue enhancement and improvement
@@ -450,10 +450,10 @@ personas:
                 - Bash(tea issues edit*)
                 - Bash(tea issues view*)
                 - Bash(tea --version)
-                - Write(.wave/artifact.json)
+                - Write(.agents/artifact.json)
                 - Write(/tmp/*)
             deny: []
-        system_prompt_file: .wave/personas/gitea-enhancer.md
+        system_prompt_file: .agents/personas/gitea-enhancer.md
     gitea-scoper:
         adapter: claude
         description: Gitea epic decomposition into child issues
@@ -467,9 +467,9 @@ personas:
                 - Bash(tea issues view*)
                 - Bash(tea issues list*)
                 - Bash(tea --version)
-                - Write(.wave/artifact.json)
+                - Write(.agents/artifact.json)
             deny: []
-        system_prompt_file: .wave/personas/gitea-scoper.md
+        system_prompt_file: .agents/personas/gitea-scoper.md
     gitea-commenter:
         adapter: claude
         description: Post comments on Gitea issues and pull requests
@@ -480,15 +480,15 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Write(.wave/artifact.json)
-                - Write(.wave/output/*)
+                - Write(.agents/artifact.json)
+                - Write(.agents/output/*)
                 - Bash(tea issues comment*)
                 - Bash(tea pulls create*)
                 - Bash(tea --version)
                 - Bash(git push*)
                 - Bash(git status*)
             deny: []
-        system_prompt_file: .wave/personas/gitea-commenter.md
+        system_prompt_file: .agents/personas/gitea-commenter.md
 
     bitbucket-analyst:
         adapter: claude
@@ -506,9 +506,9 @@ personas:
                 - Bash(git log*)
                 - Bash(git status*)
                 - Bash(ls *)
-                - Write(.wave/artifact.json)
+                - Write(.agents/artifact.json)
             deny: []
-        system_prompt_file: .wave/personas/bitbucket-analyst.md
+        system_prompt_file: .agents/personas/bitbucket-analyst.md
     bitbucket-enhancer:
         adapter: claude
         description: Bitbucket issue enhancement and improvement
@@ -520,10 +520,10 @@ personas:
                 - Read
                 - Bash(curl *)
                 - Bash(jq *)
-                - Write(.wave/artifact.json)
+                - Write(.agents/artifact.json)
                 - Write(/tmp/*)
             deny: []
-        system_prompt_file: .wave/personas/bitbucket-enhancer.md
+        system_prompt_file: .agents/personas/bitbucket-enhancer.md
     bitbucket-scoper:
         adapter: claude
         description: Bitbucket epic decomposition into child issues
@@ -535,10 +535,10 @@ personas:
                 - Read
                 - Bash(curl *)
                 - Bash(jq *)
-                - Write(.wave/artifact.json)
+                - Write(.agents/artifact.json)
                 - Write(/tmp/*)
             deny: []
-        system_prompt_file: .wave/personas/bitbucket-scoper.md
+        system_prompt_file: .agents/personas/bitbucket-scoper.md
     bitbucket-commenter:
         adapter: claude
         description: Post comments on Bitbucket issues and pull requests, create PRs
@@ -549,15 +549,15 @@ personas:
         permissions:
             allowed_tools:
                 - Read
-                - Write(.wave/artifact.json)
-                - Write(.wave/output/*)
+                - Write(.agents/artifact.json)
+                - Write(.agents/output/*)
                 - Write(/tmp/*)
                 - Bash(curl *)
                 - Bash(jq *)
                 - Bash(git push*)
                 - Bash(git status*)
             deny: []
-        system_prompt_file: .wave/personas/bitbucket-commenter.md
+        system_prompt_file: .agents/personas/bitbucket-commenter.md
     supervisor:
         adapter: claude
         description: Work quality and process quality evaluation
@@ -574,7 +574,7 @@ personas:
                 - Bash(cat *)
                 - Bash(wc *)
             deny: []
-        system_prompt_file: .wave/personas/supervisor.md
+        system_prompt_file: .agents/personas/supervisor.md
     validator:
         adapter: claude
         description: Skeptical analysis and verification of findings against source code
@@ -588,7 +588,7 @@ personas:
                 - Bash(git log*)
                 - Bash(git diff*)
             deny: []
-        system_prompt_file: .wave/personas/validator.md
+        system_prompt_file: .agents/personas/validator.md
     synthesizer:
         adapter: claude
         description: Structured synthesis of analysis findings into actionable JSON proposals
@@ -602,7 +602,7 @@ personas:
                 - Glob
                 - Grep
             deny: []
-        system_prompt_file: .wave/personas/synthesizer.md
+        system_prompt_file: .agents/personas/synthesizer.md
     provocateur:
         adapter: claude
         description: Creative challenger for divergent thinking and complexity hunting
@@ -618,12 +618,12 @@ personas:
                 - Bash(find*)
                 - Bash(ls*)
             deny: []
-        system_prompt_file: .wave/personas/provocateur.md
+        system_prompt_file: .agents/personas/provocateur.md
 runtime:
     audit:
         log_all_file_operations: false
         log_all_tool_calls: true
-        log_dir: .wave/traces/
+        log_dir: .agents/traces/
     default_timeout_minutes: 30
     stall_timeout: 30m
     max_concurrent_workers: 5
@@ -652,7 +652,7 @@ runtime:
         git_command_seconds: 30
         forge_api_seconds: 15
         retry_max_delay_seconds: 60
-    workspace_root: .wave/workspaces
+    workspace_root: .agents/workspaces
     cost:
         enabled: true
         budget_ceiling: 50.0

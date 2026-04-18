@@ -55,7 +55,7 @@ func TestResumeFromStep_SyntheticCompletionEvents(t *testing.T) {
 			fromStep: "step-3",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				for _, sid := range []string{"step-1", "step-2"} {
-					dir := filepath.Join(tempDir, ".wave/workspaces/test-pipeline", sid)
+					dir := filepath.Join(tempDir, ".agents/workspaces/test-pipeline", sid)
 					if err := os.MkdirAll(dir, 0755); err != nil {
 						t.Fatal(err)
 					}
@@ -91,7 +91,7 @@ func TestResumeFromStep_SyntheticCompletionEvents(t *testing.T) {
 			},
 			fromStep: "process",
 			setupWorkspace: func(t *testing.T, tempDir string) {
-				dir := filepath.Join(tempDir, ".wave/workspaces/test-pipeline/gather")
+				dir := filepath.Join(tempDir, ".agents/workspaces/test-pipeline/gather")
 				if err := os.MkdirAll(dir, 0755); err != nil {
 					t.Fatal(err)
 				}

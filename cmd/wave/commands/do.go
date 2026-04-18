@@ -146,13 +146,13 @@ func runDo(input string, opts DoOptions) error {
 		for i, step := range p.Steps {
 			fmt.Printf("    %d. %s (persona: %s)\n", i+1, step.ID, step.Persona)
 		}
-		fmt.Printf("  Workspace: .wave/workspaces/%s/\n", pipelineLabel)
+		fmt.Printf("  Workspace: .agents/workspaces/%s/\n", pipelineLabel)
 		return nil
 	}
 
 	// Open state store for decision tracking and executor wiring
 	var store state.StateStore
-	if s, err := state.NewStateStore(".wave/state.db"); err == nil {
+	if s, err := state.NewStateStore(".agents/state.db"); err == nil {
 		store = s
 		defer store.Close()
 	}
@@ -187,7 +187,7 @@ func runDo(input string, opts DoOptions) error {
 
 	wsRoot := m.Runtime.WorkspaceRoot
 	if wsRoot == "" {
-		wsRoot = ".wave/workspaces"
+		wsRoot = ".agents/workspaces"
 	}
 	wsManager, _ := workspace.NewWorkspaceManager(wsRoot)
 
@@ -208,7 +208,7 @@ func runDo(input string, opts DoOptions) error {
 	}
 	execOpts = append(execOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
 		skill.SkillSource{Root: "skills", Precedence: 2},
-		skill.SkillSource{Root: ".wave/skills", Precedence: 1},
+		skill.SkillSource{Root: ".agents/skills", Precedence: 1},
 	)))
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)

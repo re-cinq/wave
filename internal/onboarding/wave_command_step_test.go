@@ -23,27 +23,27 @@ func TestWaveCommandStep_Run(t *testing.T) {
 		{
 			name: "generates command file with default WaveDir",
 			cfg: WizardConfig{
-				WaveDir: filepath.Join(t.TempDir(), ".wave"),
+				WaveDir: filepath.Join(t.TempDir(), ".agents"),
 			},
 		},
 		{
 			name: "generates command file non-interactive",
 			cfg: WizardConfig{
-				WaveDir:     filepath.Join(t.TempDir(), ".wave"),
+				WaveDir:     filepath.Join(t.TempDir(), ".agents"),
 				Interactive: false,
 			},
 		},
 		{
 			name: "generates command file interactive",
 			cfg: WizardConfig{
-				WaveDir:     filepath.Join(t.TempDir(), ".wave"),
+				WaveDir:     filepath.Join(t.TempDir(), ".agents"),
 				Interactive: true,
 			},
 		},
 		{
 			name: "generates command file on reconfigure",
 			cfg: WizardConfig{
-				WaveDir:     filepath.Join(t.TempDir(), ".wave"),
+				WaveDir:     filepath.Join(t.TempDir(), ".agents"),
 				Reconfigure: true,
 			},
 		},
@@ -109,7 +109,7 @@ func TestWaveCommandStep_Run(t *testing.T) {
 func TestWaveCommandStep_Idempotent(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfg := WizardConfig{
-		WaveDir: filepath.Join(tmpDir, ".wave"),
+		WaveDir: filepath.Join(tmpDir, ".agents"),
 	}
 
 	step := &WaveCommandStep{}
@@ -144,7 +144,7 @@ func TestWaveCommandStep_Idempotent(t *testing.T) {
 
 func TestWaveCommandStep_CustomWaveDir(t *testing.T) {
 	tmpDir := t.TempDir()
-	customWaveDir := filepath.Join(tmpDir, "custom", "path", ".wave")
+	customWaveDir := filepath.Join(tmpDir, "custom", "path", ".agents")
 
 	cfg := WizardConfig{
 		WaveDir: customWaveDir,

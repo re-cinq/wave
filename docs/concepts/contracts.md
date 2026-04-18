@@ -41,15 +41,15 @@ steps:
       source: "Analyze: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/analysis.schema.json
-        source: .wave/output/analysis.json
+        schema_path: .agents/contracts/analysis.schema.json
+        source: .agents/output/analysis.json
 ```
 
-Example schema file (`.wave/contracts/analysis.schema.json`):
+Example schema file (`.agents/contracts/analysis.schema.json`):
 
 ```json
 {
@@ -71,8 +71,8 @@ Configure automatic retry when validation fails:
 handover:
   contract:
     type: json_schema
-    schema_path: .wave/contracts/spec.schema.json
-    source: .wave/output/spec.json
+    schema_path: .agents/contracts/spec.schema.json
+    source: .agents/output/spec.json
     on_failure: retry
     max_retries: 3
 ```

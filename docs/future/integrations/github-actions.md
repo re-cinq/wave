@@ -63,7 +63,7 @@ jobs:
         if: always()
         with:
           name: wave-review-${{ github.run_id }}
-          path: .wave/workspaces/
+          path: .agents/workspaces/
           retention-days: 7
 ```
 
@@ -98,8 +98,8 @@ jobs:
         with:
           name: security-audit-${{ github.run_id }}
           path: |
-            .wave/workspaces/**/output/*.json
-            .wave/workspaces/**/output/*.md
+            .agents/workspaces/**/output/*.json
+            .agents/workspaces/**/output/*.md
           retention-days: 30
 ```
 
@@ -233,7 +233,7 @@ permissions:
 - name: Cache Wave Workspaces
   uses: actions/cache@v4
   with:
-    path: .wave/workspaces
+    path: .agents/workspaces
     key: wave-workspaces-${{ github.sha }}
     restore-keys: |
       wave-workspaces-
@@ -337,14 +337,14 @@ permissions:
      if: always()
      with:
        name: wave-output
-       path: .wave/workspaces/
+       path: .agents/workspaces/
    ```
 
 2. Check path pattern matches output location:
    ```yaml
    path: |
-     .wave/workspaces/**/output/*.json
-     .wave/workspaces/**/output/*.md
+     .agents/workspaces/**/output/*.json
+     .agents/workspaces/**/output/*.md
    ```
 
 ### Binary Not Found
@@ -395,7 +395,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: analysis
-          path: .wave/workspaces/**/output/
+          path: .agents/workspaces/**/output/
 
   implement:
     needs: analyze

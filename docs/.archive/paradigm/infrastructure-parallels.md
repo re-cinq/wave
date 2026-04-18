@@ -41,7 +41,7 @@ steps:
       source: "Analyze the codebase structure for {{ input }}"
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
         type: json
 
   - id: review
@@ -56,7 +56,7 @@ steps:
     handover:
       contract:
         type: jsonschema
-        schema_path: .wave/contracts/review.schema.json
+        schema_path: .agents/contracts/review.schema.json
 ```
 
 ### Concept Mapping
@@ -134,7 +134,7 @@ steps:
       source: "Implement the feature: {{ input }}"
     output_artifacts:
       - name: implementation
-        path: .wave/output/code.patch
+        path: .agents/output/code.patch
         type: patch
     handover:
       contract:
@@ -201,7 +201,7 @@ steps:
     persona: navigator
     output_artifacts:
       - name: api-spec
-        path: .wave/output/api.json
+        path: .agents/output/api.json
         type: json
 
   - id: generate-docs
@@ -214,7 +214,7 @@ steps:
           as: spec
     output_artifacts:
       - name: documentation
-        path: .wave/output/docs.md
+        path: .agents/output/docs.md
         type: markdown
 
 # Wave tracks:
@@ -307,7 +307,7 @@ Infrastructure-as-Code succeeded because it solved fundamental problems:
 |---------|-------------|---------------------|
 | Manual, error-prone processes | Declarative configuration | YAML pipeline definitions |
 | Inconsistent environments | Reproducible execution | Fresh memory, isolated workspaces |
-| Undocumented changes | Version-controlled configs | Git-tracked `.wave/` directory |
+| Undocumented changes | Version-controlled configs | Git-tracked `.agents/` directory |
 | No quality gates | Automated validation | Contract validation at handovers |
 | Difficult collaboration | Shared configuration | Teams share pipeline definitions |
 

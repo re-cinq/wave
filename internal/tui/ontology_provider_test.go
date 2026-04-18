@@ -47,7 +47,7 @@ func chdirTempOntology(t *testing.T) string {
 func TestNewDefaultOntologyDataProvider_ReturnsProvider(t *testing.T) {
 	m := &manifest.Manifest{}
 	store := &ontologyMockStore{}
-	p := NewDefaultOntologyDataProvider(m, ".wave/skills", store)
+	p := NewDefaultOntologyDataProvider(m, ".agents/skills", store)
 	require.NotNil(t, p)
 }
 
@@ -58,7 +58,7 @@ func TestNewDefaultOntologyDataProvider_ReturnsProvider(t *testing.T) {
 // TestFetchOntology_NilManifest_ReturnsEmptyOverview verifies that when the
 // manifest is nil FetchOntology returns an empty overview without error.
 func TestFetchOntology_NilManifest_ReturnsEmptyOverview(t *testing.T) {
-	p := NewDefaultOntologyDataProvider(nil, ".wave/skills", nil)
+	p := NewDefaultOntologyDataProvider(nil, ".agents/skills", nil)
 
 	overview, err := p.FetchOntology()
 	require.NoError(t, err)
@@ -71,7 +71,7 @@ func TestFetchOntology_NilManifest_ReturnsEmptyOverview(t *testing.T) {
 // TestFetchOntology_NilOntology_ReturnsEmptyOverview verifies that when
 // manifest.Ontology is nil the result is an empty overview.
 func TestFetchOntology_NilOntology_ReturnsEmptyOverview(t *testing.T) {
-	p := NewDefaultOntologyDataProvider(&manifest.Manifest{Ontology: nil}, ".wave/skills", nil)
+	p := NewDefaultOntologyDataProvider(&manifest.Manifest{Ontology: nil}, ".agents/skills", nil)
 
 	overview, err := p.FetchOntology()
 	require.NoError(t, err)
@@ -85,17 +85,17 @@ func TestFetchOntology_NilOntology_ReturnsEmptyOverview(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestFetchOntology_StaleFile_SetsStale verifies that when
-// .wave/.ontology-stale exists the overview has Stale=true.
+// .agents/.ontology-stale exists the overview has Stale=true.
 func TestFetchOntology_StaleFile_SetsStale(t *testing.T) {
 	tmpDir := chdirTempOntology(t)
 
-	waveDir := filepath.Join(tmpDir, ".wave")
+	waveDir := filepath.Join(tmpDir, ".agents")
 	require.NoError(t, os.MkdirAll(waveDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(waveDir, ".ontology-stale"), []byte(""), 0o644))
 
 	p := NewDefaultOntologyDataProvider(
 		&manifest.Manifest{Ontology: &manifest.Ontology{Telos: "test"}},
-		filepath.Join(tmpDir, ".wave", "skills"),
+		filepath.Join(tmpDir, ".agents", "skills"),
 		nil,
 	)
 

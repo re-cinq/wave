@@ -52,13 +52,13 @@ steps:
         Produce output matching the contract schema.
     output_artifacts:
       - name: result
-        path: .wave/output/result.json
+        path: .agents/output/result.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: .wave/output/result.json
-        schema_path: .wave/contracts/hello-world-result.schema.json
+        source: .agents/output/result.json
+        schema_path: .agents/contracts/hello-world-result.schema.json
         must_pass: true
         on_failure: retry
     retry:

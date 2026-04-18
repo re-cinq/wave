@@ -164,7 +164,7 @@ func TestRunDryRunOutput(t *testing.T) {
 					Source: "Implement the feature",
 				},
 				OutputArtifacts: []pipeline.ArtifactDef{
-					{Name: "code", Path: ".wave/output/code.go", Type: "file"},
+					{Name: "code", Path: ".agents/output/code.go", Type: "file"},
 				},
 			},
 		},
@@ -196,7 +196,7 @@ func TestRunDryRunOutput(t *testing.T) {
 			},
 		},
 		Runtime: manifest.Runtime{
-			WorkspaceRoot: ".wave/workspaces",
+			WorkspaceRoot: ".agents/workspaces",
 		},
 	}
 
@@ -222,7 +222,7 @@ func TestRunDryRunOutput(t *testing.T) {
 	assert.Contains(t, output, "Memory: fresh")
 	assert.Contains(t, output, "Inject: step1:analysis as analysis.md")
 	assert.Contains(t, output, "Output: code")
-	assert.Contains(t, output, "Workspace: .wave/workspaces/")
+	assert.Contains(t, output, "Workspace: .agents/workspaces/")
 }
 
 // TestRunWithNonExistentPipeline tests error handling for non-existent pipelines (T045)
@@ -417,7 +417,7 @@ func TestDryRunShowsAllStepDetails(t *testing.T) {
 			},
 		},
 		Runtime: manifest.Runtime{
-			WorkspaceRoot: ".wave/workspaces",
+			WorkspaceRoot: ".agents/workspaces",
 		},
 	}
 
@@ -437,7 +437,7 @@ func TestDryRunShowsAllStepDetails(t *testing.T) {
 func TestLoadPipelineCandidates(t *testing.T) {
 	// Create a temporary directory structure
 	tmpDir := t.TempDir()
-	pipelinesDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelinesDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	err := os.MkdirAll(pipelinesDir, 0755)
 	require.NoError(t, err)
 
@@ -462,7 +462,7 @@ steps:
 
 	m := &manifest.Manifest{}
 
-	// Test loading by name (should find in .wave/pipelines/)
+	// Test loading by name (should find in .agents/pipelines/)
 	p, err := loadPipeline("my-pipeline", m)
 	require.NoError(t, err)
 	assert.Equal(t, "test-candidate", p.Metadata.Name)

@@ -43,7 +43,7 @@ func parseDuration(s string) (time.Duration, error) {
 // It returns an error if onboarding is incomplete, directing the user to run 'wave init'.
 // Existing projects that have a wave.yaml but no .onboarded marker are grandfathered in.
 func checkOnboarding() error {
-	if onboarding.IsOnboarded(".wave") {
+	if onboarding.IsOnboarded(".agents") {
 		return nil
 	}
 

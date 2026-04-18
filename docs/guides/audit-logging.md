@@ -8,7 +8,7 @@ Wave can log all tool calls and file operations during pipeline execution, produ
 # In wave.yaml
 runtime:
   audit:
-    log_dir: .wave/traces/           # Output directory
+    log_dir: .agents/traces/           # Output directory
     log_all_tool_calls: true           # Log every tool invocation
     log_all_file_operations: true      # Log every file read/write/delete
 ```
@@ -18,7 +18,7 @@ runtime:
 Audit logs are written as NDJSON files, one per pipeline execution:
 
 ```
-.wave/traces/
+.agents/traces/
 ├── a1b2c3d4-impl-speckit-2026-02-01T10:00:00.ndjson
 ├── e5f6a7b8-bug-fix-2026-01-30T14:30:00.ndjson
 └── ...
@@ -80,21 +80,21 @@ Example:
 ### Find All Writes by a Persona
 
 ```bash
-cat .wave/traces/a1b2c3d4-*.ndjson \
+cat .agents/traces/a1b2c3d4-*.ndjson \
   | jq 'select(.persona == "craftsman" and .type == "file_write")'
 ```
 
 ### Find Permission Denials
 
 ```bash
-cat .wave/traces/a1b2c3d4-*.ndjson \
+cat .agents/traces/a1b2c3d4-*.ndjson \
   | jq 'select(.type == "permission_denied")'
 ```
 
 ### Summarize Tool Usage
 
 ```bash
-cat .wave/traces/a1b2c3d4-*.ndjson \
+cat .agents/traces/a1b2c3d4-*.ndjson \
   | jq -r 'select(.type == "tool_call") | .tool' \
   | sort | uniq -c | sort -rn
 ```
@@ -102,7 +102,7 @@ cat .wave/traces/a1b2c3d4-*.ndjson \
 ### Get Timeline of a Step
 
 ```bash
-cat .wave/traces/a1b2c3d4-*.ndjson \
+cat .agents/traces/a1b2c3d4-*.ndjson \
   | jq 'select(.step_id == "implement") | {time: .timestamp, type: .type, tool: .tool}'
 ```
 
@@ -122,7 +122,7 @@ Audit logging adds minimal overhead:
 - NDJSON format is append-only (no parsing or rewriting).
 - File I/O is buffered.
 
-For long-running pipelines, audit log files can grow large. Monitor disk usage in `.wave/traces/`.
+For long-running pipelines, audit log files can grow large. Monitor disk usage in `.agents/traces/`.
 
 ## CI/CD Integration
 
@@ -138,7 +138,7 @@ For long-running pipelines, audit log files can grow large. Monitor disk usage i
   if: always()
   with:
     name: wave-audit-logs
-    path: .wave/traces/
+    path: .agents/traces/
 ```
 
 ## Further Reading

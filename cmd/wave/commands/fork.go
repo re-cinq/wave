@@ -69,11 +69,11 @@ Use --list to see available fork points (completed steps with checkpoints).`,
 
 func runFork(opts ForkOptions) error {
 	// Open state store
-	store, err := state.NewStateStore(".wave/state.db")
+	store, err := state.NewStateStore(".agents/state.db")
 	if err != nil {
 		return NewCLIError(CodeStateDBError,
 			fmt.Sprintf("failed to open state database: %v", err),
-			"Run 'wave init' to set up the project, or check that .wave/state.db exists")
+			"Run 'wave init' to set up the project, or check that .agents/state.db exists")
 	}
 	defer store.Close()
 

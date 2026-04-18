@@ -44,7 +44,7 @@ func TestResumeManager_ValidateResumePoint(t *testing.T) {
 			fromStep: "docs",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Create completed spec phase
-				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+				specWorkspace := filepath.Join(tempDir, ".agents/workspaces/prototype/spec")
 				err := os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -72,7 +72,7 @@ func TestResumeManager_ValidateResumePoint(t *testing.T) {
 			fromStep: "dummy",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Create spec but not docs
-				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+				specWorkspace := filepath.Join(tempDir, ".agents/workspaces/prototype/spec")
 				err := os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -170,7 +170,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 			fromStep: "docs",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Create completed spec workspace
-				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+				specWorkspace := filepath.Join(tempDir, ".agents/workspaces/prototype/spec")
 				err := os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -201,7 +201,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 				}
 
 				for _, phase := range phases {
-					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype", phase.phase)
+					phaseWorkspace := filepath.Join(tempDir, ".agents/workspaces/prototype", phase.phase)
 					err := os.MkdirAll(phaseWorkspace, 0755)
 					if err != nil {
 						t.Fatal(err)
@@ -317,7 +317,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 			fromStep: "draft-update",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Simulate a previous run with hash-suffixed dir and __wt_ worktree
-				wtDir := filepath.Join(tempDir, ".wave/workspaces/gh-refresh-20260219-142150-deb8/__wt_gh-refresh-20260219-142150-deb8")
+				wtDir := filepath.Join(tempDir, ".agents/workspaces/gh-refresh-20260219-142150-deb8/__wt_gh-refresh-20260219-142150-deb8")
 				if err := os.MkdirAll(wtDir, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -334,7 +334,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 			fromStep: "apply-update",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Old run with gather-context
-				oldWt := filepath.Join(tempDir, ".wave/workspaces/gh-refresh-20260219-100000-aaaa/__wt_some-branch")
+				oldWt := filepath.Join(tempDir, ".agents/workspaces/gh-refresh-20260219-100000-aaaa/__wt_some-branch")
 				if err := os.MkdirAll(oldWt, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -343,7 +343,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 				}
 
 				// Newer run with both gather-context and draft-update artifacts
-				newWt := filepath.Join(tempDir, ".wave/workspaces/gh-refresh-20260219-200000-bbbb/__wt_other-branch")
+				newWt := filepath.Join(tempDir, ".agents/workspaces/gh-refresh-20260219-200000-bbbb/__wt_other-branch")
 				if err := os.MkdirAll(newWt, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -360,7 +360,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 			fromStep: "draft-update",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Old-style: step ID as directory name
-				stepDir := filepath.Join(tempDir, ".wave/workspaces/gh-refresh-20260219-142150-deb8/gather-context")
+				stepDir := filepath.Join(tempDir, ".agents/workspaces/gh-refresh-20260219-142150-deb8/gather-context")
 				if err := os.MkdirAll(stepDir, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -377,7 +377,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 			fromStep: "apply-update",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// gather-context in a __wt_ dir
-				wtDir := filepath.Join(tempDir, ".wave/workspaces/gh-refresh-20260219-142150-deb8/__wt_some-branch")
+				wtDir := filepath.Join(tempDir, ".agents/workspaces/gh-refresh-20260219-142150-deb8/__wt_some-branch")
 				if err := os.MkdirAll(wtDir, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -385,7 +385,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 					t.Fatal(err)
 				}
 				// draft-update in an old-style step dir from a different run
-				stepDir := filepath.Join(tempDir, ".wave/workspaces/gh-refresh-20260219-144614-3336/draft-update")
+				stepDir := filepath.Join(tempDir, ".agents/workspaces/gh-refresh-20260219-144614-3336/draft-update")
 				if err := os.MkdirAll(stepDir, 0755); err != nil {
 					t.Fatal(err)
 				}
@@ -546,7 +546,7 @@ func TestResumeManager_GetRecommendedResumePoint(t *testing.T) {
 			name: "spec completed, docs incomplete",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Create completed spec workspace
-				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+				specWorkspace := filepath.Join(tempDir, ".agents/workspaces/prototype/spec")
 				err := os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -575,7 +575,7 @@ func TestResumeManager_GetRecommendedResumePoint(t *testing.T) {
 				}
 
 				for _, phase := range phases {
-					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype", phase.phase)
+					phaseWorkspace := filepath.Join(tempDir, ".agents/workspaces/prototype", phase.phase)
 					err := os.MkdirAll(phaseWorkspace, 0755)
 					if err != nil {
 						t.Fatal(err)
@@ -607,7 +607,7 @@ func TestResumeManager_GetRecommendedResumePoint(t *testing.T) {
 				}
 
 				for _, phase := range phases {
-					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype", phase.phase)
+					phaseWorkspace := filepath.Join(tempDir, ".agents/workspaces/prototype", phase.phase)
 					err := os.MkdirAll(phaseWorkspace, 0755)
 					if err != nil {
 						t.Fatal(err)
@@ -706,7 +706,7 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 	baseTime := time.Now().Add(-1 * time.Hour)
 
 	// Create docs workspace (older)
-	docsWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/docs")
+	docsWorkspace := filepath.Join(tempDir, ".agents/workspaces/prototype/docs")
 	err = os.MkdirAll(docsWorkspace, 0755)
 	if err != nil {
 		t.Fatal(err)
@@ -728,7 +728,7 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 	}
 
 	// Create spec workspace (newer - simulating re-run after docs)
-	specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+	specWorkspace := filepath.Join(tempDir, ".agents/workspaces/prototype/spec")
 	err = os.MkdirAll(specWorkspace, 0755)
 	if err != nil {
 		t.Fatal(err)
@@ -751,7 +751,7 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 	}
 
 	// Create dummy workspace (older than docs re-run scenario)
-	dummyWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/dummy")
+	dummyWorkspace := filepath.Join(tempDir, ".agents/workspaces/prototype/dummy")
 	err = os.MkdirAll(dummyWorkspace, 0755)
 	if err != nil {
 		t.Fatal(err)
@@ -846,7 +846,7 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 				ID:        "specify",
 				Workspace: WorkspaceConfig{Type: "worktree"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "spec-status", Path: ".wave/output/specify-status.json"},
+					{Name: "spec-status", Path: ".agents/output/specify-status.json"},
 				},
 			},
 			{
@@ -854,7 +854,7 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 				Dependencies: []string{"specify"},
 				Workspace:    WorkspaceConfig{Type: "worktree"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "clarify-status", Path: ".wave/output/clarify-status.json"},
+					{Name: "clarify-status", Path: ".agents/output/clarify-status.json"},
 				},
 			},
 			{
@@ -880,14 +880,14 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 			fromStep:   "checklist",
 			setupWorkspace: func(t *testing.T, tmpDir string) {
 				// Create the specific run's worktree workspace with artifacts
-				wtDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-084028-bd46/__wt_speckit-flow-20260306-084028-bd46")
-				if err := os.MkdirAll(filepath.Join(wtDir, ".wave/output"), 0755); err != nil {
+				wtDir := filepath.Join(tmpDir, ".agents/workspaces/speckit-flow-20260306-084028-bd46/__wt_speckit-flow-20260306-084028-bd46")
+				if err := os.MkdirAll(filepath.Join(wtDir, ".agents/output"), 0755); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.WriteFile(filepath.Join(wtDir, ".wave/output/specify-status.json"), []byte(`{"status":"done"}`), 0644); err != nil {
+				if err := os.WriteFile(filepath.Join(wtDir, ".agents/output/specify-status.json"), []byte(`{"status":"done"}`), 0644); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.WriteFile(filepath.Join(wtDir, ".wave/output/clarify-status.json"), []byte(`{"status":"done"}`), 0644); err != nil {
+				if err := os.WriteFile(filepath.Join(wtDir, ".agents/output/clarify-status.json"), []byte(`{"status":"done"}`), 0644); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -901,20 +901,20 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 			fromStep:   "clarify",
 			setupWorkspace: func(t *testing.T, tmpDir string) {
 				// Create the specified (older) run's workspace
-				oldDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-084028-old1/__wt_branch-old")
-				if err := os.MkdirAll(filepath.Join(oldDir, ".wave/output"), 0755); err != nil {
+				oldDir := filepath.Join(tmpDir, ".agents/workspaces/speckit-flow-20260306-084028-old1/__wt_branch-old")
+				if err := os.MkdirAll(filepath.Join(oldDir, ".agents/output"), 0755); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.WriteFile(filepath.Join(oldDir, ".wave/output/specify-status.json"), []byte(`{"status":"old"}`), 0644); err != nil {
+				if err := os.WriteFile(filepath.Join(oldDir, ".agents/output/specify-status.json"), []byte(`{"status":"old"}`), 0644); err != nil {
 					t.Fatal(err)
 				}
 
 				// Create a newer run's workspace that should NOT be used
-				newDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-200000-new2/__wt_branch-new")
-				if err := os.MkdirAll(filepath.Join(newDir, ".wave/output"), 0755); err != nil {
+				newDir := filepath.Join(tmpDir, ".agents/workspaces/speckit-flow-20260306-200000-new2/__wt_branch-new")
+				if err := os.MkdirAll(filepath.Join(newDir, ".agents/output"), 0755); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.WriteFile(filepath.Join(newDir, ".wave/output/specify-status.json"), []byte(`{"status":"new"}`), 0644); err != nil {
+				if err := os.WriteFile(filepath.Join(newDir, ".agents/output/specify-status.json"), []byte(`{"status":"new"}`), 0644); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -928,11 +928,11 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 			fromStep:   "clarify",
 			setupWorkspace: func(t *testing.T, tmpDir string) {
 				// Only the glob-matched run exists
-				wtDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-100000-abcd/__wt_some-branch")
-				if err := os.MkdirAll(filepath.Join(wtDir, ".wave/output"), 0755); err != nil {
+				wtDir := filepath.Join(tmpDir, ".agents/workspaces/speckit-flow-20260306-100000-abcd/__wt_some-branch")
+				if err := os.MkdirAll(filepath.Join(wtDir, ".agents/output"), 0755); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.WriteFile(filepath.Join(wtDir, ".wave/output/specify-status.json"), []byte(`{"status":"fallback"}`), 0644); err != nil {
+				if err := os.WriteFile(filepath.Join(wtDir, ".agents/output/specify-status.json"), []byte(`{"status":"fallback"}`), 0644); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -945,11 +945,11 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 			priorRunID: "",
 			fromStep:   "clarify",
 			setupWorkspace: func(t *testing.T, tmpDir string) {
-				wtDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-100000-abcd/__wt_some-branch")
-				if err := os.MkdirAll(filepath.Join(wtDir, ".wave/output"), 0755); err != nil {
+				wtDir := filepath.Join(tmpDir, ".agents/workspaces/speckit-flow-20260306-100000-abcd/__wt_some-branch")
+				if err := os.MkdirAll(filepath.Join(wtDir, ".agents/output"), 0755); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.WriteFile(filepath.Join(wtDir, ".wave/output/specify-status.json"), []byte(`{"status":"glob"}`), 0644); err != nil {
+				if err := os.WriteFile(filepath.Join(wtDir, ".agents/output/specify-status.json"), []byte(`{"status":"glob"}`), 0644); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -963,11 +963,11 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 			fromStep:   "clarify",
 			setupWorkspace: func(t *testing.T, tmpDir string) {
 				// Create a basic (non-worktree) step workspace under the specified run
-				stepDir := filepath.Join(tmpDir, ".wave/workspaces/speckit-flow-20260306-084028-bd46/specify")
-				if err := os.MkdirAll(filepath.Join(stepDir, ".wave/output"), 0755); err != nil {
+				stepDir := filepath.Join(tmpDir, ".agents/workspaces/speckit-flow-20260306-084028-bd46/specify")
+				if err := os.MkdirAll(filepath.Join(stepDir, ".agents/output"), 0755); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.WriteFile(filepath.Join(stepDir, ".wave/output/specify-status.json"), []byte(`{"status":"basic"}`), 0644); err != nil {
+				if err := os.WriteFile(filepath.Join(stepDir, ".agents/output/specify-status.json"), []byte(`{"status":"basic"}`), 0644); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -1070,7 +1070,7 @@ func TestLoadResumeState_LoadsFailureContext(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Create workspace for specify step
-	specDir := filepath.Join(tmpDir, ".wave/workspaces/prior-run/specify")
+	specDir := filepath.Join(tmpDir, ".agents/workspaces/prior-run/specify")
 	_ = os.MkdirAll(specDir, 0755)
 
 	rs, err := manager.loadResumeState(p, "implement", "prior-run")
@@ -1274,7 +1274,7 @@ func TestResumeWithExcludeFilter(t *testing.T) {
 	}
 
 	// Create workspace for step-a to simulate prior completion
-	stepAWs := filepath.Join(tmpDir, ".wave/workspaces/resume-exclude-test/step-a")
+	stepAWs := filepath.Join(tmpDir, ".agents/workspaces/resume-exclude-test/step-a")
 	if err := os.MkdirAll(stepAWs, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -1325,7 +1325,7 @@ func TestExecuteResumedPipeline_ReturnsStepExecutionError(t *testing.T) {
 	}
 
 	// Create workspace for step-a to simulate prior completion
-	stepAWs := filepath.Join(tmpDir, ".wave/workspaces/test-resume-steperr/step-a")
+	stepAWs := filepath.Join(tmpDir, ".agents/workspaces/test-resume-steperr/step-a")
 	if err := os.MkdirAll(stepAWs, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -1395,7 +1395,7 @@ func TestResumeNonPrototypePipeline(t *testing.T) {
 
 	// Create workspace for fetch-assess and plan to simulate prior completion
 	for _, stepID := range []string{"fetch-assess", "plan"} {
-		wsDir := filepath.Join(tmpDir, ".wave/workspaces/impl-issue-20260316-000000-abcd", stepID)
+		wsDir := filepath.Join(tmpDir, ".agents/workspaces/impl-issue-20260316-000000-abcd", stepID)
 		if err := os.MkdirAll(wsDir, 0755); err != nil {
 			t.Fatal(err)
 		}
@@ -1488,7 +1488,7 @@ func TestGetRecommendedResumePoint_NonPrototype(t *testing.T) {
 	}
 
 	// Create workspace for fetch-assess only
-	runDir := filepath.Join(tmpDir, ".wave/workspaces/impl-issue-20260316-000000-abcd")
+	runDir := filepath.Join(tmpDir, ".agents/workspaces/impl-issue-20260316-000000-abcd")
 	if err := os.MkdirAll(filepath.Join(runDir, "fetch-assess"), 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -1622,7 +1622,7 @@ func TestResumeFromStep_ReusesExecutorRunID(t *testing.T) {
 	}
 
 	// Create workspace for step1 to simulate prior completion
-	step1Ws := filepath.Join(tmpDir, ".wave/workspaces/phantom-run-test/step1")
+	step1Ws := filepath.Join(tmpDir, ".agents/workspaces/phantom-run-test/step1")
 	if err := os.MkdirAll(step1Ws, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -1684,7 +1684,7 @@ func TestResumeFromStep_InjectsForgeVariables(t *testing.T) {
 	}
 
 	m := &manifest.Manifest{}
-	wsDir := filepath.Join(tempDir, ".wave", "workspaces", "test-forge-resume", "implement")
+	wsDir := filepath.Join(tempDir, ".agents", "workspaces", "test-forge-resume", "implement")
 	_ = os.MkdirAll(wsDir, 0755)
 	_ = os.WriteFile(filepath.Join(wsDir, "artifact.json"), []byte("{}"), 0644)
 
@@ -1735,7 +1735,7 @@ func TestResumeFromStep_ReusesWorktree(t *testing.T) {
 				ID:        "implement",
 				Workspace: WorkspaceConfig{Type: "worktree", Branch: "{{ pipeline_id }}"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "result", Path: ".wave/output/result.json"},
+					{Name: "result", Path: ".agents/output/result.json"},
 				},
 			},
 			{
@@ -1749,9 +1749,9 @@ func TestResumeFromStep_ReusesWorktree(t *testing.T) {
 	m := &manifest.Manifest{}
 
 	priorRunID := "test-wt-resume-20260412-195527-41ee"
-	wtDir := filepath.Join(tempDir, ".wave", "workspaces", priorRunID, "__wt_"+priorRunID)
-	_ = os.MkdirAll(filepath.Join(wtDir, ".wave", "output"), 0755)
-	_ = os.WriteFile(filepath.Join(wtDir, ".wave", "output", "result.json"), []byte(`{"ok":true}`), 0644)
+	wtDir := filepath.Join(tempDir, ".agents", "workspaces", priorRunID, "__wt_"+priorRunID)
+	_ = os.MkdirAll(filepath.Join(wtDir, ".agents", "output"), 0755)
+	_ = os.WriteFile(filepath.Join(wtDir, ".agents", "output", "result.json"), []byte(`{"ok":true}`), 0644)
 
 	ctx := context.Background()
 	executor.runID = "test-wt-resume-20260413-new-run"

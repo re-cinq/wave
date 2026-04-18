@@ -104,7 +104,7 @@ func runMeta(input string, opts MetaOptions) error {
 	// Set up workspace manager
 	wsRoot := m.Runtime.WorkspaceRoot
 	if wsRoot == "" {
-		wsRoot = ".wave/workspaces"
+		wsRoot = ".agents/workspaces"
 	}
 	wsManager, _ := workspace.NewWorkspaceManager(wsRoot)
 
@@ -120,7 +120,7 @@ func runMeta(input string, opts MetaOptions) error {
 	}
 	execOpts = append(execOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
 		skill.SkillSource{Root: "skills", Precedence: 2},
-		skill.SkillSource{Root: ".wave/skills", Precedence: 1},
+		skill.SkillSource{Root: ".agents/skills", Precedence: 1},
 	)))
 	childExecutor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 
@@ -160,7 +160,7 @@ func runMeta(input string, opts MetaOptions) error {
 			}
 			fmt.Printf("  %d. %s [%s]%s\n", i+1, step.ID, step.Persona, deps)
 		}
-		fmt.Printf("\nWorkspace: .wave/workspaces/meta/\n")
+		fmt.Printf("\nWorkspace: .agents/workspaces/meta/\n")
 		return nil
 	}
 
@@ -197,7 +197,7 @@ func runMeta(input string, opts MetaOptions) error {
 
 func saveMetaPipeline(p *pipeline.Pipeline, savePath string) error {
 	if !strings.Contains(savePath, "/") {
-		savePath = ".wave/pipelines/" + savePath
+		savePath = ".agents/pipelines/" + savePath
 		if !strings.HasSuffix(savePath, ".yaml") {
 			savePath += ".yaml"
 		}

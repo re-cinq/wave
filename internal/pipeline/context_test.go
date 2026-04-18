@@ -222,10 +222,10 @@ func TestPipelineContext_ResolveArtifactPath(t *testing.T) {
 			name: "json_file_no_speckit_transformation",
 			artifact: ArtifactDef{
 				Name: "analysis",
-				Path: ".wave/output/analysis.json",
+				Path: ".agents/output/analysis.json",
 				Type: "json",
 			},
-			expected: ".wave/output/analysis.json",
+			expected: ".agents/output/analysis.json",
 		},
 		{
 			name: "absolute_path_unchanged",
@@ -451,8 +451,8 @@ func TestPipelineContext_ArtifactPathResolution(t *testing.T) {
 	}
 
 	// Set artifact paths
-	ctx.SetArtifactPath("spec", "/workspace/.wave/artifacts/spec")
-	ctx.SetArtifactPath("plan", "/workspace/.wave/artifacts/plan")
+	ctx.SetArtifactPath("spec", "/workspace/.agents/artifacts/spec")
+	ctx.SetArtifactPath("plan", "/workspace/.agents/artifacts/plan")
 
 	tests := []struct {
 		name     string
@@ -462,22 +462,22 @@ func TestPipelineContext_ArtifactPathResolution(t *testing.T) {
 		{
 			name:     "single artifact reference",
 			template: "Read the spec at {{ artifacts.spec }}",
-			expected: "Read the spec at /workspace/.wave/artifacts/spec",
+			expected: "Read the spec at /workspace/.agents/artifacts/spec",
 		},
 		{
 			name:     "multiple artifact references",
 			template: "{{ artifacts.spec }} and {{ artifacts.plan }}",
-			expected: "/workspace/.wave/artifacts/spec and /workspace/.wave/artifacts/plan",
+			expected: "/workspace/.agents/artifacts/spec and /workspace/.agents/artifacts/plan",
 		},
 		{
 			name:     "artifact reference with unspaced syntax",
 			template: "Path: {{artifacts.spec}}",
-			expected: "Path: /workspace/.wave/artifacts/spec",
+			expected: "Path: /workspace/.agents/artifacts/spec",
 		},
 		{
 			name:     "mixed variables and artifacts",
 			template: "{{ pipeline_id }}: {{ artifacts.spec }}",
-			expected: "test-pipeline: /workspace/.wave/artifacts/spec",
+			expected: "test-pipeline: /workspace/.agents/artifacts/spec",
 		},
 		{
 			name:     "unregistered artifact stays as-is",

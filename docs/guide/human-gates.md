@@ -119,7 +119,7 @@ After a decision, downstream steps can access:
 
 ## Example Pipeline
 
-See `.wave/pipelines/plan-approve-implement.yaml` for a complete working example.
+See `.agents/pipelines/plan-approve-implement.yaml` for a complete working example.
 
 ## Automated Gates
 

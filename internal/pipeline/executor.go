@@ -732,7 +732,7 @@ func (e *DefaultPipelineExecutor) setupPipelineRun(ctx context.Context, executio
 	// Ensure workspace root exists and is clean for this pipeline run
 	wsRoot := m.Runtime.WorkspaceRoot
 	if wsRoot == "" {
-		wsRoot = ".wave/workspaces"
+		wsRoot = ".agents/workspaces"
 	}
 	pipelineWsPath := filepath.Join(wsRoot, pipelineID)
 	// Clean previous run artifacts to ensure fresh state (unless --preserve-workspace is set)
@@ -1157,7 +1157,7 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 	// Ensure workspace root exists
 	wsRoot := m.Runtime.WorkspaceRoot
 	if wsRoot == "" {
-		wsRoot = ".wave/workspaces"
+		wsRoot = ".agents/workspaces"
 	}
 	pipelineWsPath := filepath.Join(wsRoot, pipelineID)
 	if !e.preserveWorkspace {
@@ -2014,13 +2014,13 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 }
 
 // checkOntologyStaleness returns a warning message if the ontology may be out of date.
-// Two signals: (1) .wave/.ontology-stale sentinel exists (set by git post-merge hook),
+// Two signals: (1) .agents/.ontology-stale sentinel exists (set by git post-merge hook),
 // (2) wave.yaml is older than the most recent git commit.
 func (e *DefaultPipelineExecutor) checkOntologyStaleness() string {
 	// Check sentinel file first (cheapest — single stat call)
-	if _, err := os.Stat(".wave/.ontology-stale"); err == nil {
+	if _, err := os.Stat(".agents/.ontology-stale"); err == nil {
 		// Remove sentinel so warning fires once per merge, not every run
-		_ = os.Remove(".wave/.ontology-stale")
+		_ = os.Remove(".agents/.ontology-stale")
 		return "ontology may be stale (post-merge changes detected) — run 'wave analyze' to refresh"
 	}
 
@@ -2683,7 +2683,7 @@ func (e *DefaultPipelineExecutor) runSingleContract(
 	return nil
 }
 
-// triggerContractRework writes review feedback to .wave/artifacts/review_feedback.json,
+// triggerContractRework writes review feedback to .agents/artifacts/review_feedback.json,
 // injects the feedback path into the rework step's context, and executes the rework step.
 func (e *DefaultPipelineExecutor) triggerContractRework(
 	ctx context.Context,
@@ -2703,7 +2703,7 @@ func (e *DefaultPipelineExecutor) triggerContractRework(
 	}
 
 	// Write review feedback as artifact
-	feedbackPath := filepath.Join(workspacePath, ".wave", "artifacts", fmt.Sprintf("review_feedback_%s.json", step.ID))
+	feedbackPath := filepath.Join(workspacePath, ".agents", "artifacts", fmt.Sprintf("review_feedback_%s.json", step.ID))
 	if err := os.MkdirAll(filepath.Dir(feedbackPath), 0o750); err != nil {
 		return "", fmt.Errorf("failed to create artifacts dir for review feedback: %w", err)
 	}
@@ -2998,7 +2998,7 @@ func (e *DefaultPipelineExecutor) resolveStepResources(ctx context.Context, exec
 	// Resolve adapter runner from registry for per-step dispatch
 	stepRunner := e.registry.ResolveWithFallback(resolvedAdapterName)
 
-	// Create workspace under .wave/workspaces/<pipeline>/<step>/
+	// Create workspace under .agents/workspaces/<pipeline>/<step>/
 	workspacePath, err := e.createStepWorkspace(execution, step)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workspace: %w", err)
@@ -3017,9 +3017,9 @@ func (e *DefaultPipelineExecutor) resolveStepResources(ctx context.Context, exec
 		})
 	}
 
-	// Pre-create .wave/output/ so personas without Bash can write artifacts
+	// Pre-create .agents/output/ so personas without Bash can write artifacts
 	if len(step.OutputArtifacts) > 0 {
-		outputDir := filepath.Join(workspacePath, ".wave", "output")
+		outputDir := filepath.Join(workspacePath, ".agents", "output")
 		if err := os.MkdirAll(outputDir, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create output dir: %w", err)
 		}
@@ -3662,7 +3662,7 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 	pipelineID := execution.Status.ID
 	wsRoot := execution.Manifest.Runtime.WorkspaceRoot
 	if wsRoot == "" {
-		wsRoot = ".wave/workspaces"
+		wsRoot = ".agents/workspaces"
 	}
 
 	// Handle workspace ref — share another step's workspace
@@ -3826,7 +3826,7 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		return wsPath, nil
 	}
 
-	// Create directory under .wave/workspaces/<pipeline>/<step>/
+	// Create directory under .agents/workspaces/<pipeline>/<step>/
 	wsPath := filepath.Join(wsRoot, pipelineID, step.ID)
 	if err := os.MkdirAll(wsPath, 0755); err != nil {
 		return "", err
@@ -4105,9 +4105,9 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 	}
 
 	// Always inject into the workspace (agent's working directory) so the
-	// agent can find artifacts at relative paths like ".wave/artifacts/<name>".
+	// agent can find artifacts at relative paths like ".agents/artifacts/<name>".
 	// Do NOT redirect to the sidecar — the agent runs in workspacePath.
-	artifactsDir := filepath.Join(workspacePath, ".wave", "artifacts")
+	artifactsDir := filepath.Join(workspacePath, ".agents", "artifacts")
 	if err := os.MkdirAll(artifactsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create artifacts dir: %w", err)
 	}
@@ -4318,7 +4318,7 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 
 		// Handle stdout artifacts differently
 		if art.IsStdoutArtifact() {
-			// Stdout artifacts go to .wave/artifacts/<step-id>/<name>
+			// Stdout artifacts go to .agents/artifacts/<step-id>/<name>
 			artPath = filepath.Join(workspacePath, artifactDir, step.ID, art.Name)
 			_ = os.MkdirAll(filepath.Dir(artPath), 0755)
 
@@ -4371,7 +4371,7 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 		// the same relative path.
 		registeredPath := artPath
 		if !art.IsStdoutArtifact() {
-			archiveDir := filepath.Join(workspacePath, ".wave", "artifacts", step.ID)
+			archiveDir := filepath.Join(workspacePath, ".agents", "artifacts", step.ID)
 			archiveName := art.Name
 			if art.Type == "json" && !strings.HasSuffix(archiveName, ".json") {
 				archiveName += ".json"
@@ -4756,7 +4756,7 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 			if name == "" {
 				name = ref.Artifact
 			}
-			b.WriteString(fmt.Sprintf("- `%s` → `.wave/artifacts/%s`\n", name, name))
+			b.WriteString(fmt.Sprintf("- `%s` → `.agents/artifacts/%s`\n", name, name))
 		}
 		b.WriteString("\nThese artifacts contain ALL data you need from prior pipeline steps. ")
 		b.WriteString("Read these files instead of fetching equivalent data from external sources.\n")
@@ -5323,7 +5323,7 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 
 	// Load the sub-pipeline from disk
 	loader := &YAMLPipelineLoader{}
-	subPipelinePath := filepath.Join(".wave", "pipelines", pipelineName+".yaml")
+	subPipelinePath := filepath.Join(".agents", "pipelines", pipelineName+".yaml")
 	subPipeline, err := loader.Load(subPipelinePath)
 	if err != nil {
 		execution.mu.Lock()
@@ -5704,7 +5704,7 @@ func (e *DefaultPipelineExecutor) executeIterateParallelInDAG(ctx context.Contex
 
 // collectIterateOutputs scans the parent execution's context for artifacts
 // merged from child sub-pipelines (via MergeFrom) and assembles them into a
-// JSON array. The collected output is written to .wave/output/<stepID>-collected.json
+// JSON array. The collected output is written to .agents/output/<stepID>-collected.json
 // and registered in execution.ArtifactPaths so {{ stepID.output }} resolves to
 // the combined result for downstream aggregate steps.
 func (e *DefaultPipelineExecutor) collectIterateOutputs(execution *PipelineExecution, step *Step, resolvedNames []string) error {
@@ -5760,8 +5760,8 @@ func (e *DefaultPipelineExecutor) collectIterateOutputs(execution *PipelineExecu
 		return fmt.Errorf("failed to marshal collected outputs: %w", err)
 	}
 
-	// Write to .wave/output/<stepID>-collected.json
-	outputDir := filepath.Join(".wave", "output")
+	// Write to .agents/output/<stepID>-collected.json
+	outputDir := filepath.Join(".agents", "output")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
@@ -6028,9 +6028,9 @@ func (e *DefaultPipelineExecutor) executeGateInDAG(ctx context.Context, executio
 		if decision.Text != "" {
 			wsRoot := execution.Manifest.Runtime.WorkspaceRoot
 			if wsRoot == "" {
-				wsRoot = ".wave/workspaces"
+				wsRoot = ".agents/workspaces"
 			}
-			artifactPath := filepath.Join(wsRoot, pipelineID, ".wave", "artifacts", fmt.Sprintf("gate-%s-text", step.ID))
+			artifactPath := filepath.Join(wsRoot, pipelineID, ".agents", "artifacts", fmt.Sprintf("gate-%s-text", step.ID))
 			if mkErr := os.MkdirAll(filepath.Dir(artifactPath), 0755); mkErr != nil {
 				e.emit(event.Event{
 					Timestamp:  time.Now(),

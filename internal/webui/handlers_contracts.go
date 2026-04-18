@@ -23,12 +23,12 @@ type ContractDetailResponse struct {
 	Schema string `json:"schema"`
 }
 
-// contractsDir returns the path to the .wave/contracts directory.
+// contractsDir returns the path to the .agents/contracts directory.
 func contractsDir() string {
-	return filepath.Join(".wave", "contracts")
+	return filepath.Join(".agents", "contracts")
 }
 
-// listContractSummaries reads all JSON schema files from .wave/contracts/ and
+// listContractSummaries reads all JSON schema files from .agents/contracts/ and
 // returns a sorted slice of ContractSummary values.
 func listContractSummaries() []ContractSummary {
 	dir := contractsDir()
@@ -201,7 +201,7 @@ func (s *Server) handleContractDetailPage(w http.ResponseWriter, r *http.Request
 			if step.Handover.Contract.SchemaPath == "" {
 				continue
 			}
-			// Extract schema base name from path like ".wave/contracts/foo.schema.json"
+			// Extract schema base name from path like ".agents/contracts/foo.schema.json"
 			schemaBase := filepath.Base(step.Handover.Contract.SchemaPath)
 			schemaName := strings.TrimSuffix(schemaBase, ".schema.json")
 			if !strings.HasSuffix(schemaBase, ".schema.json") {

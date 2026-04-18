@@ -41,7 +41,7 @@ steps:
       source: "Analyze: {​{ input }}"
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
         type: json
 ```
 
@@ -97,10 +97,10 @@ Wave determines:
 Each step executes in an isolated workspace:
 
 ```
-.wave/workspaces/<run-id>/<step-id>/
+.agents/workspaces/<run-id>/<step-id>/
 ├── input/          # Injected artifacts from dependencies
 ├── workspace/      # Working directory for the persona
-└── .wave/output/   # Step outputs for contract validation
+└── .agents/output/   # Step outputs for contract validation
 ```
 
 **Workspace guarantees:**
@@ -189,7 +189,7 @@ After step completion, Wave validates outputs:
 handover:
   contract:
     type: json_schema
-    schema_path: .wave/contracts/review.schema.json
+    schema_path: .agents/contracts/review.schema.json
     on_failure: retry
     max_retries: 2
 ```
@@ -253,11 +253,11 @@ A complete code review execution:
 3. Create run: run-abc123
 
 4. Execute step: analyze
-   → Workspace: .wave/workspaces/run-abc123/analyze/
+   → Workspace: .agents/workspaces/run-abc123/analyze/
    → Persona: navigator
    → Mount: ./src → /code (readonly)
    → Execute prompt
-   → Output: .wave/output/analysis.json
+   → Output: .agents/output/analysis.json
    → Contract: jsonschema validation ✓
    → Artifacts available: [analysis]
 
@@ -348,7 +348,7 @@ Wave provides visibility into execution through:
 **Audit trails:**
 ```bash
 # Logs stored in configured audit directory
-.wave/traces/<run-id>/
+.agents/traces/<run-id>/
 ├── step-analyze.log
 ├── step-security.log
 └── step-summary.log

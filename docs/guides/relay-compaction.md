@@ -68,7 +68,7 @@ The summarizer needs minimal permissions — it only reads the session and write
 personas:
   summarizer:
     adapter: claude
-    system_prompt_file: .wave/personas/summarizer.md
+    system_prompt_file: .agents/personas/summarizer.md
     temperature: 0.0    # Deterministic — no creativity needed
     permissions:
       allowed_tools: ["Read"]

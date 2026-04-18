@@ -14,7 +14,7 @@ requires:
     speckit:
       check: specify check
       install: uv tool install --force specify-cli --from git+https://github.com/github/spec-kit.git
-      init: specify init --here --force --ai generic --ai-commands-dir .wave/commands --no-git
+      init: specify init --here --force --ai generic --ai-commands-dir .agents/commands --no-git
       optional: true
   tools:
     - git
@@ -44,7 +44,7 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -63,10 +63,10 @@ steps:
       base: main
     exec:
       type: prompt
-      source_path: .wave/prompts/speckit-flow/specify.md
+      source_path: .agents/prompts/speckit-flow/specify.md
     output_artifacts:
       - name: spec-status
-        path: .wave/output/specify-status.json
+        path: .agents/output/specify-status.json
         type: json
     retry:
       policy: standard
@@ -74,8 +74,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/specify-status.json
-        schema_path: .wave/contracts/specify-status.schema.json
+        source: .agents/output/specify-status.json
+        schema_path: .agents/contracts/specify-status.schema.json
         must_pass: true
         on_failure: retry
 
@@ -94,10 +94,10 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/speckit-flow/clarify.md
+      source_path: .agents/prompts/speckit-flow/clarify.md
     output_artifacts:
       - name: clarify-status
-        path: .wave/output/clarify-status.json
+        path: .agents/output/clarify-status.json
         type: json
     retry:
       policy: standard
@@ -105,8 +105,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/clarify-status.json
-        schema_path: .wave/contracts/clarify-status.schema.json
+        source: .agents/output/clarify-status.json
+        schema_path: .agents/contracts/clarify-status.schema.json
         must_pass: true
         on_failure: retry
 
@@ -125,10 +125,10 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/speckit-flow/plan.md
+      source_path: .agents/prompts/speckit-flow/plan.md
     output_artifacts:
       - name: plan-status
-        path: .wave/output/plan-status.json
+        path: .agents/output/plan-status.json
         type: json
     retry:
       policy: standard
@@ -136,8 +136,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/plan-status.json
-        schema_path: .wave/contracts/plan-status.schema.json
+        source: .agents/output/plan-status.json
+        schema_path: .agents/contracts/plan-status.schema.json
         must_pass: true
         on_failure: retry
 
@@ -156,10 +156,10 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/speckit-flow/tasks.md
+      source_path: .agents/prompts/speckit-flow/tasks.md
     output_artifacts:
       - name: tasks-status
-        path: .wave/output/tasks-status.json
+        path: .agents/output/tasks-status.json
         type: json
     retry:
       policy: standard
@@ -167,8 +167,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/tasks-status.json
-        schema_path: .wave/contracts/tasks-status.schema.json
+        source: .agents/output/tasks-status.json
+        schema_path: .agents/contracts/tasks-status.schema.json
         must_pass: true
         on_failure: retry
 
@@ -187,10 +187,10 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/speckit-flow/checklist.md
+      source_path: .agents/prompts/speckit-flow/checklist.md
     output_artifacts:
       - name: checklist-status
-        path: .wave/output/checklist-status.json
+        path: .agents/output/checklist-status.json
         type: json
     retry:
       policy: standard
@@ -198,8 +198,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/checklist-status.json
-        schema_path: .wave/contracts/checklist-status.schema.json
+        source: .agents/output/checklist-status.json
+        schema_path: .agents/contracts/checklist-status.schema.json
         must_pass: true
         on_failure: retry
 
@@ -218,10 +218,10 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/speckit-flow/analyze.md
+      source_path: .agents/prompts/speckit-flow/analyze.md
     output_artifacts:
       - name: analysis-report
-        path: .wave/output/analysis-report.json
+        path: .agents/output/analysis-report.json
         type: json
     retry:
       policy: patient
@@ -229,8 +229,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/analysis-report.json
-        schema_path: .wave/contracts/analysis-report.schema.json
+        source: .agents/output/analysis-report.json
+        schema_path: .agents/contracts/analysis-report.schema.json
         must_pass: true
         on_failure: retry
 
@@ -249,7 +249,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/speckit-flow/implement.md
+      source_path: .agents/prompts/speckit-flow/implement.md
     retry:
       policy: standard
       max_attempts: 2
@@ -261,7 +261,7 @@ steps:
           on_failure: retry
         - type: agent_review
           persona: navigator
-          criteria_path: .wave/contracts/impl-review-criteria.md
+          criteria_path: .agents/contracts/impl-review-criteria.md
           model: cheapest
           token_budget: 8000
           timeout: 5m
@@ -287,10 +287,10 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/speckit-flow/create-pr.md
+      source_path: .agents/prompts/speckit-flow/create-pr.md
     output_artifacts:
       - name: pr-result
-        path: .wave/output/pr-result.json
+        path: .agents/output/pr-result.json
         type: json
     retry:
       policy: aggressive
@@ -298,12 +298,12 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/pr-result.json
-        schema_path: .wave/contracts/pr-result.schema.json
+        source: .agents/output/pr-result.json
+        schema_path: .agents/contracts/pr-result.schema.json
         must_pass: true
         on_failure: retry
     outcomes:
       - type: pr
-        extract_from: .wave/output/pr-result.json
+        extract_from: .agents/output/pr-result.json
         json_path: .pr_url
         label: "Pull Request"

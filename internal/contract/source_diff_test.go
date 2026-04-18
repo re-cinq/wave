@@ -157,12 +157,12 @@ func TestSourceDiffValidator(t *testing.T) {
 		{
 			name: "exclude .wave files",
 			setup: func(t *testing.T, dir string) {
-				stageFile(t, dir, ".wave/output/foo.json", "{}")
+				stageFile(t, dir, ".agents/output/foo.json", "{}")
 			},
 			cfg: ContractConfig{
 				Type:     "source_diff",
 				MinFiles: 1,
-				Exclude:  []string{".wave/**"},
+				Exclude:  []string{".agents/**"},
 			},
 			wantErr: true,
 		},

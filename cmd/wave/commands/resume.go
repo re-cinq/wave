@@ -98,12 +98,12 @@ func runResume(opts ResumeOptions, debug bool) error {
 	}()
 
 	// Open state store — required so we can look up the prior run.
-	stateDB := ".wave/state.db"
+	stateDB := ".agents/state.db"
 	store, err := state.NewStateStore(stateDB)
 	if err != nil {
 		return NewCLIError(CodeInvalidArgs,
 			fmt.Sprintf("failed to open state database: %v", err),
-			"Run 'wave init' to set up the project, or check that .wave/state.db exists")
+			"Run 'wave init' to set up the project, or check that .agents/state.db exists")
 	}
 	defer store.Close()
 
@@ -197,7 +197,7 @@ func runResume(opts ResumeOptions, debug bool) error {
 	// Initialize workspace manager.
 	wsRoot := m.Runtime.WorkspaceRoot
 	if wsRoot == "" {
-		wsRoot = ".wave/workspaces"
+		wsRoot = ".agents/workspaces"
 	}
 	wsManager, err := workspace.NewWorkspaceManager(wsRoot)
 	if err != nil {
@@ -209,7 +209,7 @@ func runResume(opts ResumeOptions, debug bool) error {
 	if m.Runtime.Audit.LogAllToolCalls {
 		traceDir := m.Runtime.Audit.LogDir
 		if traceDir == "" {
-			traceDir = ".wave/traces"
+			traceDir = ".agents/traces"
 		}
 		if l, err := audit.NewTraceLoggerWithDir(traceDir); err == nil {
 			logger = l
@@ -236,7 +236,7 @@ func runResume(opts ResumeOptions, debug bool) error {
 
 	execOpts = append(execOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
 		skill.SkillSource{Root: "skills", Precedence: 2},
-		skill.SkillSource{Root: ".wave/skills", Precedence: 1},
+		skill.SkillSource{Root: ".agents/skills", Precedence: 1},
 	)))
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)

@@ -38,7 +38,7 @@ ops-pr-review:
     ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
   artifacts:
     paths:
-      - .wave/workspaces/
+      - .agents/workspaces/
     expire_in: 1 week
     when: always
 ```
@@ -64,8 +64,8 @@ security-audit:
     ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
   artifacts:
     paths:
-      - .wave/workspaces/**/output/*.json
-      - .wave/workspaces/**/output/*.md
+      - .agents/workspaces/**/output/*.json
+      - .agents/workspaces/**/output/*.md
     expire_in: 30 days
 ```
 
@@ -111,7 +111,7 @@ stages:
     ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
   artifacts:
     paths:
-      - .wave/workspaces/
+      - .agents/workspaces/
     expire_in: 1 week
 
 ops-pr-review:
@@ -166,7 +166,7 @@ analyze:
     ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
   artifacts:
     paths:
-      - .wave/workspaces/
+      - .agents/workspaces/
     expire_in: 1 day
 
 implement:
@@ -182,7 +182,7 @@ implement:
     ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
   artifacts:
     paths:
-      - .wave/workspaces/
+      - .agents/workspaces/
     expire_in: 1 day
 
 verify:
@@ -277,12 +277,12 @@ variables:
 wave-job:
   artifacts:
     paths:
-      - .wave/workspaces/
+      - .agents/workspaces/
     expire_in: 1 week
   cache:
     key: wave-workspaces-${CI_COMMIT_SHA}
     paths:
-      - .wave/workspaces/
+      - .agents/workspaces/
 ```
 
 ## Troubleshooting
@@ -392,7 +392,7 @@ wave-job:
    ```yaml
    artifacts:
      paths:
-       - .wave/workspaces/
+       - .agents/workspaces/
      when: always
    ```
 
@@ -400,15 +400,15 @@ wave-job:
    ```yaml
    artifacts:
      paths:
-       - .wave/workspaces/**/output/*.json
-       - .wave/workspaces/**/output/*.md
+       - .agents/workspaces/**/output/*.json
+       - .agents/workspaces/**/output/*.md
    ```
 
 3. Verify artifact size is within limits:
    ```yaml
    artifacts:
      paths:
-       - .wave/workspaces/
+       - .agents/workspaces/
      expire_in: 1 week
    ```
 

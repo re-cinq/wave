@@ -1453,7 +1453,7 @@ func TestBuildPhilosopherPrompt_FollowsWorkingPipelinePattern(t *testing.T) {
 	// Working pipelines have these characteristics:
 	// 1. Simple, task-focused prompts
 	// 2. Use inject_artifacts for step communication
-	// 3. Reference artifacts by path (e.g., "Read .wave/artifacts/analysis")
+	// 3. Reference artifacts by path (e.g., "Read .agents/artifacts/analysis")
 	// 4. Don't embed schema details in prompts
 
 	// Check for inject_artifacts pattern
@@ -1462,7 +1462,7 @@ func TestBuildPhilosopherPrompt_FollowsWorkingPipelinePattern(t *testing.T) {
 	}
 
 	// Check for artifact reference pattern (like in hotfix.yaml)
-	if !strings.Contains(prompt, ".wave/artifacts/") {
+	if !strings.Contains(prompt, ".agents/artifacts/") {
 		t.Error("prompt should show how to reference injected artifacts")
 	}
 
@@ -1525,7 +1525,7 @@ func TestBuildPhilosopherPrompt_RequiredInstructionsPresent(t *testing.T) {
 		{"8.", "limited scope", "navigator limited scope"},
 		{"9.", "do NOT embed schema", "don't embed schema in prompts"},
 		{"10.", "inject_artifacts", "use inject_artifacts"},
-		{"11.", ".wave/artifacts/", "mention artifact paths"},
+		{"11.", ".agents/artifacts/", "mention artifact paths"},
 	}
 
 	for _, ri := range requiredInstructions {
@@ -1641,7 +1641,7 @@ func TestNormalizeGeneratedPipeline(t *testing.T) {
 						Persona:  "navigator",
 						Handover: HandoverConfig{Contract: ContractConfig{Type: "json_schema"}},
 						OutputArtifacts: []ArtifactDef{
-							{Name: "existing", Path: ".wave/custom.json", Type: "json"},
+							{Name: "existing", Path: ".agents/custom.json", Type: "json"},
 						},
 					},
 				},
@@ -1684,8 +1684,8 @@ func TestNormalizeGeneratedPipeline(t *testing.T) {
 						if artifact.Name != expectedName {
 							t.Errorf("auto-generated artifact name = %q, want %q", artifact.Name, expectedName)
 						}
-						if artifact.Path != ".wave/artifact.json" {
-							t.Errorf("auto-generated artifact path = %q, want %q", artifact.Path, ".wave/artifact.json")
+						if artifact.Path != ".agents/artifact.json" {
+							t.Errorf("auto-generated artifact path = %q, want %q", artifact.Path, ".agents/artifact.json")
 						}
 						if artifact.Type != "json" {
 							t.Errorf("auto-generated artifact type = %q, want %q", artifact.Type, "json")

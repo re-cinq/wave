@@ -16,7 +16,7 @@ adapters:
 personas:
   navigator:
     adapter: claude
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
 runtime:
   workspace_root: /tmp/wave
 ```
@@ -50,7 +50,7 @@ personas:
   navigator:
     adapter: claude
     description: "Read-only codebase exploration"
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
     temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Glob", "Grep"]
@@ -59,7 +59,7 @@ personas:
   craftsman:
     adapter: claude
     description: "Implementation and testing"
-    system_prompt_file: .wave/personas/craftsman.md
+    system_prompt_file: .agents/personas/craftsman.md
     temperature: 0.7
     permissions:
       allowed_tools: ["Read", "Write", "Edit", "Bash"]
@@ -68,7 +68,7 @@ personas:
   auditor:
     adapter: claude
     description: "Security and quality review"
-    system_prompt_file: .wave/personas/auditor.md
+    system_prompt_file: .agents/personas/auditor.md
     temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Grep", "Bash(npm audit*)"]
@@ -82,7 +82,7 @@ runtime:
     token_threshold_percent: 80
     strategy: summarize_to_checkpoint
   audit:
-    log_dir: .wave/traces/
+    log_dir: .agents/traces/
     log_all_tool_calls: true
 ```
 
@@ -158,7 +158,7 @@ personas:
   navigator:
     adapter: claude
     description: "Read-only codebase exploration"
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
     temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Glob", "Grep"]
@@ -172,7 +172,7 @@ personas:
   craftsman:
     adapter: claude
     description: "Implementation and testing"
-    system_prompt_file: .wave/personas/craftsman.md
+    system_prompt_file: .agents/personas/craftsman.md
     temperature: 0.7
     permissions:
       allowed_tools: ["Read", "Write", "Edit", "Bash"]
@@ -200,7 +200,7 @@ The `token_scopes` field declares what forge token permissions a persona require
 personas:
   implementer:
     adapter: claude
-    system_prompt_file: .wave/personas/implementer.md
+    system_prompt_file: .agents/personas/implementer.md
     token_scopes:
       - "repos:write"
       - "issues:write"
@@ -304,11 +304,11 @@ Execute shell commands at tool call boundaries.
 personas:
   craftsman:
     adapter: claude
-    system_prompt_file: .wave/personas/craftsman.md
+    system_prompt_file: .agents/personas/craftsman.md
     hooks:
       PreToolUse:
         - matcher: "Bash(git commit*)"
-          command: ".wave/hooks/pre-commit-lint.sh"
+          command: ".agents/hooks/pre-commit-lint.sh"
       PostToolUse:
         - matcher: "Write(src/**)"
           command: "npm test --silent"
@@ -333,7 +333,7 @@ runtime:
     token_threshold_percent: 80
     strategy: summarize_to_checkpoint
   audit:
-    log_dir: .wave/traces/
+    log_dir: .agents/traces/
     log_all_tool_calls: true
     log_all_file_operations: false
   meta_pipeline:
@@ -361,7 +361,7 @@ runtime:
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `log_dir` | `.wave/traces/` | Audit log directory |
+| `log_dir` | `.agents/traces/` | Audit log directory |
 | `log_all_tool_calls` | `false` | Log every tool call |
 | `log_all_file_operations` | `false` | Log file operations |
 

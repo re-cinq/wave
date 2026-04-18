@@ -15,7 +15,7 @@ func TestPublishIntegrationRoundtrip(t *testing.T) {
 	// Create 3 test skills: 1 standalone, 1 both, 1 wave-specific
 	createTestSkillDir(t, skillsDir, "standalone-tool", "Standalone tool", "Pure Go patterns and best practices.")
 	createTestSkillDir(t, skillsDir, "mixed-tool", "Mixed tool", "Use wave and pipeline integration for workflow.")
-	createTestSkillDir(t, skillsDir, "wave-tool", "Wave tool", "Use wave run in a pipeline with persona and wave.yaml. Use wave init with .wave/ manifest and worktree and wave again and more pipeline and persona and wave")
+	createTestSkillDir(t, skillsDir, "wave-tool", "Wave tool", "Use wave run in a pipeline with persona and wave.yaml. Use wave init with .agents/ manifest and worktree and wave again and more pipeline and persona and wave")
 
 	store := NewDirectoryStore(SkillSource{Root: skillsDir, Precedence: 1})
 

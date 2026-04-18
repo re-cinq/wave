@@ -211,7 +211,7 @@ func runSkillInstallBundled(cmd *cobra.Command, name, format string) error {
 				strings.Join(available, ", ")))
 	}
 
-	destDir := filepath.Join(".wave", "skills", name)
+	destDir := filepath.Join(".agents", "skills", name)
 	destFile := filepath.Join(destDir, "SKILL.md")
 
 	// Check if already installed
@@ -318,7 +318,7 @@ func newSkillCheckCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "check",
 		Short: "Run check commands for installed skills",
-		Long: `For each installed skill in .wave/skills/, parse its SKILL.md frontmatter
+		Long: `For each installed skill in .agents/skills/, parse its SKILL.md frontmatter
 to find a check_command. If present, run it and report pass/fail.
 
 Returns non-zero exit code if any check fails.`,
@@ -334,7 +334,7 @@ Returns non-zero exit code if any check fails.`,
 func runSkillCheck(cmd *cobra.Command, format string) error {
 	format = ResolveFormat(cmd, format)
 
-	skillsDir := filepath.Join(".wave", "skills")
+	skillsDir := filepath.Join(".agents", "skills")
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -435,10 +435,10 @@ func renderSkillCheckTable(w io.Writer, output SkillCheckOutput) error {
 	return nil
 }
 
-// installedSkillNames returns a set of skill names installed in .wave/skills/.
+// installedSkillNames returns a set of skill names installed in .agents/skills/.
 func installedSkillNames() map[string]bool {
 	result := make(map[string]bool)
-	entries, err := os.ReadDir(filepath.Join(".wave", "skills"))
+	entries, err := os.ReadDir(filepath.Join(".agents", "skills"))
 	if err != nil {
 		return result
 	}
@@ -446,7 +446,7 @@ func installedSkillNames() map[string]bool {
 		if !entry.IsDir() {
 			continue
 		}
-		skillFile := filepath.Join(".wave", "skills", entry.Name(), "SKILL.md")
+		skillFile := filepath.Join(".agents", "skills", entry.Name(), "SKILL.md")
 		if _, err := os.Stat(skillFile); err == nil {
 			result[entry.Name()] = true
 		}

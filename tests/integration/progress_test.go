@@ -203,7 +203,7 @@ func TestPipelineContextTracking(t *testing.T) {
 	ctx := &display.PipelineContext{
 		ManifestPath:      "wave.yaml",
 		PipelineName:      "test-pipeline",
-		WorkspacePath:     ".wave/workspaces/test",
+		WorkspacePath:     ".agents/workspaces/test",
 		TotalSteps:        5,
 		CurrentStepNum:    0,
 		CompletedSteps:    0,

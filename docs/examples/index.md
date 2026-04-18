@@ -12,7 +12,7 @@ Add user profile page with avatar upload.
 ### Pipeline Configuration
 
 ```yaml
-# .wave/pipelines/add-feature.yaml
+# .agents/pipelines/add-feature.yaml
 apiVersion: v1
 kind: WavePipeline
 metadata:
@@ -105,7 +105,7 @@ steps:
 wave run add-feature "Add user profile with avatar"
 ```
 
-> **Tip:** You can also use the shorthand `wave run add-feature "Add user profile with avatar"`. Wave will automatically look for pipelines in the `.wave/pipelines/` directory.
+> **Tip:** You can also use the shorthand `wave run add-feature "Add user profile with avatar"`. Wave will automatically look for pipelines in the `.agents/pipelines/` directory.
 
 ### Expected Output
 
@@ -125,7 +125,7 @@ Fix memory leak in user session handler.
 ### Pipeline Configuration
 
 ```yaml
-# .wave/pipelines/bug-fix.yaml
+# .agents/pipelines/bug-fix.yaml
 apiVersion: v1
 kind: WavePipeline
 metadata:
@@ -248,7 +248,7 @@ Self-designing pipeline for unknown task types.
 ### Meta Pipeline Configuration
 
 ```yaml
-# .wave/pipelines/auto-design.yaml
+# .agents/pipelines/auto-design.yaml
 apiVersion: v1
 kind: WavePipeline
 metadata:

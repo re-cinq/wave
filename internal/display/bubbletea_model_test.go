@@ -155,7 +155,7 @@ func TestProgressModel_View_HandoverMetadata_VerboseMode(t *testing.T) {
 		Verbose: true,
 		HandoversByStep: map[string]*HandoverInfo{
 			"analyst": {
-				ArtifactPaths:  []string{".wave/artifacts/analysis"},
+				ArtifactPaths:  []string{".agents/artifacts/analysis"},
 				ContractStatus: "passed",
 				ContractSchema: "json_schema",
 				TargetStep:     "implementer",
@@ -166,7 +166,7 @@ func TestProgressModel_View_HandoverMetadata_VerboseMode(t *testing.T) {
 	view := model.View()
 
 	// Should contain artifact line
-	if !strings.Contains(view, "artifact: .wave/artifacts/analysis (written)") {
+	if !strings.Contains(view, "artifact: .agents/artifacts/analysis (written)") {
 		t.Errorf("Verbose view should contain artifact path, got:\n%s", view)
 	}
 
@@ -211,7 +211,7 @@ func TestProgressModel_View_HandoverMetadata_NonVerboseMode(t *testing.T) {
 		Verbose: false, // Not verbose
 		HandoversByStep: map[string]*HandoverInfo{
 			"analyst": {
-				ArtifactPaths:  []string{".wave/artifacts/analysis"},
+				ArtifactPaths:  []string{".agents/artifacts/analysis"},
 				ContractStatus: "passed",
 				ContractSchema: "json_schema",
 				TargetStep:     "implementer",
@@ -222,7 +222,7 @@ func TestProgressModel_View_HandoverMetadata_NonVerboseMode(t *testing.T) {
 	view := model.View()
 
 	// Should NOT contain handover metadata when not verbose
-	if strings.Contains(view, "artifact: .wave/artifacts/analysis") {
+	if strings.Contains(view, "artifact: .agents/artifacts/analysis") {
 		t.Errorf("Non-verbose view should NOT contain artifact path, got:\n%s", view)
 	}
 	if strings.Contains(view, "contract: json_schema") {
@@ -263,7 +263,7 @@ func TestProgressModel_View_HandoverMetadata_TreeConnectors(t *testing.T) {
 		Verbose: true,
 		HandoversByStep: map[string]*HandoverInfo{
 			"analyst": {
-				ArtifactPaths:  []string{".wave/artifacts/analysis"},
+				ArtifactPaths:  []string{".agents/artifacts/analysis"},
 				ContractStatus: "passed",
 				ContractSchema: "json_schema",
 				TargetStep:     "implementer",
@@ -279,7 +279,7 @@ func TestProgressModel_View_HandoverMetadata_TreeConnectors(t *testing.T) {
 	}
 
 	// Should contain handover metadata
-	if !strings.Contains(view, "artifact: .wave/artifacts/analysis (written)") {
+	if !strings.Contains(view, "artifact: .agents/artifacts/analysis (written)") {
 		t.Errorf("View should contain artifact path, got:\n%s", view)
 	}
 
@@ -347,7 +347,7 @@ func TestProgressModel_View_HandoverMetadata_NoHandoverForLastStep(t *testing.T)
 		Verbose: true,
 		HandoversByStep: map[string]*HandoverInfo{
 			"reviewer": {
-				ArtifactPaths: []string{".wave/artifacts/review"},
+				ArtifactPaths: []string{".agents/artifacts/review"},
 			},
 		},
 	}
@@ -355,7 +355,7 @@ func TestProgressModel_View_HandoverMetadata_NoHandoverForLastStep(t *testing.T)
 	view := model.View()
 
 	// Should contain artifact but no handover target (last step)
-	if !strings.Contains(view, "artifact: .wave/artifacts/review (written)") {
+	if !strings.Contains(view, "artifact: .agents/artifacts/review (written)") {
 		t.Errorf("View should contain artifact for last step, got:\n%s", view)
 	}
 	if strings.Contains(view, "handover") {

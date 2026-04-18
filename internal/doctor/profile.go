@@ -127,7 +127,7 @@ var skipDirs = map[string]bool{
 	".git":         true,
 	"node_modules": true,
 	"vendor":       true,
-	".wave":        true,
+	".agents":        true,
 	"__pycache__":  true,
 }
 

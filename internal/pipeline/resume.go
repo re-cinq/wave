@@ -270,7 +270,7 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID
 		ReworkTransitions: make(map[string]string),
 	}
 
-	wsRoot := ".wave/workspaces"
+	wsRoot := ".agents/workspaces"
 
 	var runDirs []string
 
@@ -623,7 +623,7 @@ func (r *ResumeManager) GetRecommendedResumePoint(p *Pipeline) (string, error) {
 
 // getPrototypeResumePoint uses prototype-specific phase completion checks.
 func (r *ResumeManager) getPrototypeResumePoint(p *Pipeline) (string, error) {
-	workspaceRoot := fmt.Sprintf(".wave/workspaces/%s", p.Metadata.Name)
+	workspaceRoot := fmt.Sprintf(".agents/workspaces/%s", p.Metadata.Name)
 
 	// Check phases in forward order to find the first incomplete phase
 	prototypePhasesOrder := []string{"spec", "docs", "dummy", "implement"}
@@ -641,7 +641,7 @@ func (r *ResumeManager) getPrototypeResumePoint(p *Pipeline) (string, error) {
 
 // getGenericResumePoint finds the first step without a workspace in any prior run.
 func (r *ResumeManager) getGenericResumePoint(p *Pipeline) (string, error) {
-	wsRoot := ".wave/workspaces"
+	wsRoot := ".agents/workspaces"
 
 	// Collect run directories for this pipeline
 	runDirs, _ := filepath.Glob(filepath.Join(wsRoot, p.Metadata.Name+"-*"))

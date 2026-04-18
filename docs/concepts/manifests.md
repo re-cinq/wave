@@ -60,7 +60,7 @@ The manifest uses **string references** to connect entities:
 personas:
   navigator:
     adapter: claude     # ← References adapters.claude
-    system_prompt_file: .wave/personas/navigator.md  # ← File on disk
+    system_prompt_file: .agents/personas/navigator.md  # ← File on disk
 
 steps:
   - persona: navigator  # ← References personas.navigator
@@ -74,7 +74,7 @@ steps:
 | Concern | Where |
 |---------|-------|
 | Adapters, personas, runtime | `wave.yaml` (project-wide) |
-| Step DAGs, execution logic | `.wave/pipelines/*.yaml` (per-workflow) |
+| Step DAGs, execution logic | `.agents/pipelines/*.yaml` (per-workflow) |
 
 Pipelines are separate files because a project may have many workflows (feature development, hotfix, CI/CD, etc.) sharing the same adapters and personas.
 

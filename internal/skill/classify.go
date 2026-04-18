@@ -17,7 +17,7 @@ var waveKeywords = []string{
 	"wave run",
 	"wave init",
 	"wave.yaml",
-	".wave/",
+	".agents/",
 	"pipeline",
 	"persona",
 	"manifest",

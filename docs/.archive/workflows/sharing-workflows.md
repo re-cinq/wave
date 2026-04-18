@@ -4,13 +4,13 @@ Wave pipelines are plain YAML files in your repository. Share them with your tea
 
 ## Git-Based Sharing
 
-Pipelines live in your project's `.wave/` directory and are version controlled alongside your code.
+Pipelines live in your project's `.agents/` directory and are version controlled alongside your code.
 
 ### Project Structure
 
 ```
 your-project/
-├── .wave/
+├── .agents/
 │   ├── wave.yaml              # Project manifest
 │   ├── pipelines/
 │   │   ├── ops-pr-review.yaml
@@ -32,13 +32,13 @@ your-project/
 **Developer creates a pipeline:**
 ```bash
 # Create new pipeline
-vim .wave/pipelines/feature-development.yaml
+vim .agents/pipelines/feature-development.yaml
 
 # Test it
 wave run feature-development "Add user authentication"
 
 # Commit
-git add .wave/pipelines/feature-development.yaml
+git add .agents/pipelines/feature-development.yaml
 git commit -m "Add feature development pipeline"
 git push
 ```
@@ -58,13 +58,13 @@ Pipeline changes go through normal code review:
 git checkout -b improve-ops-pr-review-pipeline
 
 # Modify pipeline
-vim .wave/pipelines/ops-pr-review.yaml
+vim .agents/pipelines/ops-pr-review.yaml
 
 # Test changes
 wave run ops-pr-review "Test the changes"
 
 # Submit PR
-git add .wave/
+git add .agents/
 git commit -m "Add security scanning step to code review"
 git push origin improve-ops-pr-review-pipeline
 gh pr create
@@ -111,10 +111,10 @@ wave run ops-pr-review "Review auth changes"
 
 ```bash
 # See pipeline evolution
-git log --oneline .wave/pipelines/ops-pr-review.yaml
+git log --oneline .agents/pipelines/ops-pr-review.yaml
 
 # Compare versions
-git diff HEAD~5 .wave/pipelines/ops-pr-review.yaml
+git diff HEAD~5 .agents/pipelines/ops-pr-review.yaml
 
 # Revert problematic changes
 git revert <commit>
@@ -127,7 +127,7 @@ git revert <commit>
 Create team-standard pipelines that encode your practices:
 
 ```yaml
-# .wave/pipelines/ops-pr-review.yaml
+# .agents/pipelines/ops-pr-review.yaml
 kind: WavePipeline
 metadata:
   name: ops-pr-review
@@ -151,7 +151,7 @@ steps:
 Share persona configurations across projects:
 
 ```yaml
-# .wave/personas/team-reviewer.md
+# .agents/personas/team-reviewer.md
 You are a code reviewer following our team's standards:
 
 ## Coding Standards
@@ -171,7 +171,7 @@ You are a code reviewer following our team's standards:
 Define organization-wide output schemas:
 
 ```json
-// .wave/contracts/review-finding.schema.json
+// .agents/contracts/review-finding.schema.json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
@@ -204,7 +204,7 @@ git init
 
 # Add to projects as submodule
 cd your-project
-git submodule add git@github.com:org/wave-pipelines.git .wave/shared
+git submodule add git@github.com:org/wave-pipelines.git .agents/shared
 ```
 
 Reference shared pipelines:
@@ -212,7 +212,7 @@ Reference shared pipelines:
 ```yaml
 # In your project's wave.yaml
 skill_mounts:
-  - path: .wave/shared/pipelines/
+  - path: .agents/shared/pipelines/
 ```
 
 ### Copy and Customize
@@ -221,13 +221,13 @@ For project-specific needs, copy and modify:
 
 ```bash
 # Copy from another project
-cp ../other-project/.wave/pipelines/useful.yaml .wave/pipelines/
+cp ../other-project/.agents/pipelines/useful.yaml .agents/pipelines/
 
 # Customize for this project
-vim .wave/pipelines/useful.yaml
+vim .agents/pipelines/useful.yaml
 
 # Commit as your own
-git add .wave/pipelines/useful.yaml
+git add .agents/pipelines/useful.yaml
 git commit -m "Add customized pipeline from other-project"
 ```
 
@@ -263,7 +263,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ops-pr-review
-          path: .wave/workspaces/*/output/
+          path: .agents/workspaces/*/output/
 ```
 
 ### GitLab CI
@@ -277,7 +277,7 @@ ai-review:
     - wave run ops-pr-review "$CI_MERGE_REQUEST_DIFF_BASE_SHA"
   artifacts:
     paths:
-      - .wave/workspaces/*/output/
+      - .agents/workspaces/*/output/
 ```
 
 ## Best Practices
@@ -310,7 +310,7 @@ Changes to persona prompts affect all pipelines using them. Test thoroughly:
 wave run ops-pr-review "test input" > before.txt
 
 # After changing
-vim .wave/personas/auditor.md
+vim .agents/personas/auditor.md
 wave run ops-pr-review "test input" > after.txt
 
 # Compare
@@ -325,7 +325,7 @@ Contracts catch breaking changes:
 handover:
   contract:
     type: jsonschema
-    schema_path: .wave/contracts/output.schema.json
+    schema_path: .agents/contracts/output.schema.json
 ```
 
 If pipeline output changes, contract validation will catch it.
@@ -341,7 +341,7 @@ When modifying shared pipelines:
 ### 5. Organize by Purpose
 
 ```
-.wave/pipelines/
+.agents/pipelines/
 ├── review/
 │   ├── ops-pr-review.yaml
 │   └── security-review.yaml
@@ -362,8 +362,8 @@ Error: pipeline "ops-pr-review" not found
 ```
 
 Check:
-1. File exists: `ls .wave/pipelines/ops-pr-review.yaml`
-2. Metadata name matches: `grep "name:" .wave/pipelines/ops-pr-review.yaml`
+1. File exists: `ls .agents/pipelines/ops-pr-review.yaml`
+2. Metadata name matches: `grep "name:" .agents/pipelines/ops-pr-review.yaml`
 
 ### Persona Not Found
 
@@ -376,13 +376,13 @@ Check wave.yaml:
 personas:
   navigator:
     adapter: claude
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
 ```
 
 ### Contract Schema Not Found
 
 ```
-Error: schema ".wave/contracts/output.schema.json" not found
+Error: schema ".agents/contracts/output.schema.json" not found
 ```
 
 Ensure the schema file exists and path is correct relative to project root.

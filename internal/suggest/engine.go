@@ -41,7 +41,7 @@ func Suggest(opts EngineOptions) (*Proposal, error) {
 		opts.Limit = 5
 	}
 	if opts.PipelinesDir == "" {
-		opts.PipelinesDir = ".wave/pipelines"
+		opts.PipelinesDir = ".agents/pipelines"
 	}
 
 	catalog := discoverPipelines(opts.PipelinesDir)

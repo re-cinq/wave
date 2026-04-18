@@ -27,7 +27,7 @@ Skills declared within a persona definition are available to all pipeline steps 
 # wave.yaml
 personas:
   craftsman:
-    prompt: ".wave/personas/craftsman.md"
+    prompt: ".agents/personas/craftsman.md"
     skills:
       golang:
         install: "tessl:github/golang"
@@ -73,7 +73,7 @@ skills:
 
 personas:
   craftsman:
-    prompt: ".wave/personas/craftsman.md"
+    prompt: ".agents/personas/craftsman.md"
     skills:
       golang:
         install: "file:./skills/golang-custom"

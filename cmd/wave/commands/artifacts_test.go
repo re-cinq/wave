@@ -44,10 +44,10 @@ func (e *artifactsTestEnv) cleanup() {
 	}
 }
 
-// createWorkspaceStructure creates the base .wave/workspaces directory
+// createWorkspaceStructure creates the base .agents/workspaces directory
 func (e *artifactsTestEnv) createWorkspaceStructure() {
 	e.t.Helper()
-	err := os.MkdirAll(".wave/workspaces", 0755)
+	err := os.MkdirAll(".agents/workspaces", 0755)
 	require.NoError(e.t, err, "failed to create workspaces directory")
 }
 
@@ -55,7 +55,7 @@ func (e *artifactsTestEnv) createWorkspaceStructure() {
 func (e *artifactsTestEnv) createPipelineWorkspace(pipelineName string, steps []string) {
 	e.t.Helper()
 
-	pipelineDir := filepath.Join(".wave", "workspaces", pipelineName)
+	pipelineDir := filepath.Join(".agents", "workspaces", pipelineName)
 	for _, step := range steps {
 		stepDir := filepath.Join(pipelineDir, step)
 		err := os.MkdirAll(stepDir, 0755)
@@ -67,7 +67,7 @@ func (e *artifactsTestEnv) createPipelineWorkspace(pipelineName string, steps []
 func (e *artifactsTestEnv) createArtifact(pipeline, step, name, content string) string { //nolint:unparam // pipeline param used for test clarity
 	e.t.Helper()
 
-	artifactPath := filepath.Join(".wave", "workspaces", pipeline, step, name)
+	artifactPath := filepath.Join(".agents", "workspaces", pipeline, step, name)
 	dir := filepath.Dir(artifactPath)
 	err := os.MkdirAll(dir, 0755)
 	require.NoError(e.t, err, "failed to create artifact directory")
@@ -486,7 +486,7 @@ func TestArtifactsCmd_SubdirectoryArtifacts(t *testing.T) {
 	env.createPipelineWorkspace("debug", []string{"step1"})
 
 	// Create artifact in a subdirectory
-	subDir := filepath.Join(".wave", "workspaces", "debug", "step1", "output")
+	subDir := filepath.Join(".agents", "workspaces", "debug", "step1", "output")
 	err := os.MkdirAll(subDir, 0755)
 	require.NoError(t, err)
 
@@ -508,7 +508,7 @@ func TestArtifactsCmd_NonArtifactFilesIgnored(t *testing.T) {
 	env.createPipelineWorkspace("debug", []string{"step1"})
 
 	// Create non-artifact files
-	stepDir := filepath.Join(".wave", "workspaces", "debug", "step1")
+	stepDir := filepath.Join(".agents", "workspaces", "debug", "step1")
 	_ = os.WriteFile(filepath.Join(stepDir, "binary.exe"), []byte{0x00, 0x01}, 0644)
 	_ = os.WriteFile(filepath.Join(stepDir, "image.png"), []byte{0x89, 0x50}, 0644)
 	_ = os.WriteFile(filepath.Join(stepDir, "source.go"), []byte("package main"), 0644)

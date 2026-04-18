@@ -29,7 +29,7 @@ func TestForkManager_Integration(t *testing.T) {
 	require.NoError(t, store.UpdateRunStatus(sourceRunID, "completed", "", 500))
 
 	// Create artifact files on disk so copyArtifacts has something to copy.
-	artifactDir := filepath.Join(tmpDir, ".wave", "artifacts", sourceRunID)
+	artifactDir := filepath.Join(tmpDir, ".agents", "artifacts", sourceRunID)
 	require.NoError(t, os.MkdirAll(artifactDir, 0o755))
 
 	planPath := filepath.Join(artifactDir, "plan.md")

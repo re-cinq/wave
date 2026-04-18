@@ -237,7 +237,7 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 	}
 
 	// 0. Base protocol preamble (shared across all personas)
-	baseProtocolPath := filepath.Join(".wave", "personas", "base-protocol.md")
+	baseProtocolPath := filepath.Join(".agents", "personas", "base-protocol.md")
 	baseProtocol, err := os.ReadFile(baseProtocolPath)
 	if err != nil {
 		return fmt.Errorf("failed to read base protocol %s: %w", baseProtocolPath, err)
@@ -248,7 +248,7 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 	if cfg.SystemPrompt != "" {
 		systemPrompt = cfg.SystemPrompt
 	} else {
-		personaPath := filepath.Join(".wave", "personas", cfg.Persona+".md")
+		personaPath := filepath.Join(".agents", "personas", cfg.Persona+".md")
 		if data, err := os.ReadFile(personaPath); err == nil {
 			systemPrompt = string(data)
 		} else {
@@ -311,10 +311,10 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 	// get exactly the skills they declared.
 	//
 	// Safety: only clear .claude/skills/ when running inside a pipeline workspace
-	// (workspacePath is under .wave/workspaces/). If workspacePath falls back to
+	// (workspacePath is under .agents/workspaces/). If workspacePath falls back to
 	// os.Getwd() (project root), we must NOT delete the project's .claude/skills/.
 	skillsDir := filepath.Join(settingsDir, "skills")
-	isWorkspace := strings.Contains(workspacePath, ".wave/workspaces") ||
+	isWorkspace := strings.Contains(workspacePath, ".agents/workspaces") ||
 		strings.Contains(workspacePath, "__wt_")
 	if isWorkspace {
 		if err := os.RemoveAll(skillsDir); err != nil {
@@ -822,7 +822,7 @@ func buildSkillSection(skills []SkillRef) string {
 	b.WriteString("\n\n---\n\n## Available Skills\n\n")
 	b.WriteString("The following skills are available in this workspace:\n\n")
 	for _, s := range skills {
-		fmt.Fprintf(&b, "- **%s**: %s (see `.wave/skills/%s/SKILL.md`)\n", s.Name, s.Description, s.Name)
+		fmt.Fprintf(&b, "- **%s**: %s (see `.agents/skills/%s/SKILL.md`)\n", s.Name, s.Description, s.Name)
 	}
 	return b.String()
 }

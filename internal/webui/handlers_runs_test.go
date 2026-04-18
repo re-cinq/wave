@@ -83,7 +83,7 @@ func TestArtifactToSummary(t *testing.T) {
 		RunID:     "run-xyz",
 		StepID:    "step-2",
 		Name:      "impl_plan",
-		Path:      ".wave/artifacts/impl_plan",
+		Path:      ".agents/artifacts/impl_plan",
 		Type:      "markdown",
 		SizeBytes: 4096,
 	}
@@ -96,8 +96,8 @@ func TestArtifactToSummary(t *testing.T) {
 	if got.Name != "impl_plan" {
 		t.Errorf("Name: expected %q, got %q", "impl_plan", got.Name)
 	}
-	if got.Path != ".wave/artifacts/impl_plan" {
-		t.Errorf("Path: expected %q, got %q", ".wave/artifacts/impl_plan", got.Path)
+	if got.Path != ".agents/artifacts/impl_plan" {
+		t.Errorf("Path: expected %q, got %q", ".agents/artifacts/impl_plan", got.Path)
 	}
 	if got.Type != "markdown" {
 		t.Errorf("Type: expected %q, got %q", "markdown", got.Type)
@@ -271,7 +271,7 @@ func TestHandleRunDetailPage_WithPipelineAndEvents(t *testing.T) {
 	srv, rwStore := testServer(t)
 
 	tmpDir := t.TempDir()
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
@@ -462,7 +462,7 @@ func TestBuildStepDetails_WithPipeline(t *testing.T) {
 	srv, rwStore := testServer(t)
 
 	tmpDir := t.TempDir()
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
@@ -785,7 +785,7 @@ func TestBuildStepDetails_GateChoicesData(t *testing.T) {
 	srv, rwStore := testServer(t)
 
 	tmpDir := t.TempDir()
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}

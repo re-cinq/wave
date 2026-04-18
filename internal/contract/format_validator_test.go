@@ -366,7 +366,7 @@ This feature adds OAuth2 authentication to the application with support for mult
 	v := &FormatValidator{}
 	cfg := ContractConfig{
 		Source:     "output.json",
-		SchemaPath: ".wave/contracts/github-issue-analysis.schema.json",
+		SchemaPath: ".agents/contracts/github-issue-analysis.schema.json",
 	}
 
 	err = v.Validate(cfg, tmpDir)
@@ -380,12 +380,12 @@ func TestInferFormatType(t *testing.T) {
 		schemaPath string
 		expected   string
 	}{
-		{".wave/contracts/github-issue-analysis.schema.json", "github_issue"},
-		{".wave/contracts/github-pr-draft.schema.json", "github_pr"},
-		{".wave/contracts/github-pr-info.schema.json", "github_pr"},
-		{".wave/contracts/implementation-results.schema.json", "implementation_results"},
-		{".wave/contracts/analysis.schema.json", "analysis"},
-		{".wave/contracts/unknown.schema.json", "generic"},
+		{".agents/contracts/github-issue-analysis.schema.json", "github_issue"},
+		{".agents/contracts/github-pr-draft.schema.json", "github_pr"},
+		{".agents/contracts/github-pr-info.schema.json", "github_pr"},
+		{".agents/contracts/implementation-results.schema.json", "implementation_results"},
+		{".agents/contracts/analysis.schema.json", "analysis"},
+		{".agents/contracts/unknown.schema.json", "generic"},
 		{"", "generic"},
 	}
 

@@ -13,10 +13,10 @@ import (
 
 func TestRunWizard_NonInteractive(t *testing.T) {
 	dir := t.TempDir()
-	waveDir := filepath.Join(dir, ".wave")
+	waveDir := filepath.Join(dir, ".agents")
 	outputPath := filepath.Join(dir, "wave.yaml")
 
-	// Create .wave/pipelines for pipeline discovery
+	// Create .agents/pipelines for pipeline discovery
 	pipelinesDir := filepath.Join(waveDir, "pipelines")
 	require.NoError(t, os.MkdirAll(pipelinesDir, 0755))
 
@@ -31,7 +31,7 @@ func TestRunWizard_NonInteractive(t *testing.T) {
 		WaveDir:     waveDir,
 		Interactive: false,
 		Adapter:     "claude",
-		Workspace:   ".wave/workspaces",
+		Workspace:   ".agents/workspaces",
 		OutputPath:  outputPath,
 		PersonaConfigs: map[string]manifest.Persona{
 			"navigator": {
@@ -77,7 +77,7 @@ func TestRunWizard_NonInteractive(t *testing.T) {
 	require.True(t, ok, "personas must contain navigator")
 	assert.Equal(t, "opus", nav["model"], "model should be at persona level")
 	assert.Equal(t, "claude", nav["adapter"])
-	assert.Equal(t, ".wave/personas/navigator.md", nav["system_prompt_file"])
+	assert.Equal(t, ".agents/personas/navigator.md", nav["system_prompt_file"])
 
 	// Verify model is NOT at adapter level
 	adapters, ok := m["adapters"].(map[string]interface{})
@@ -93,7 +93,7 @@ func TestRunWizard_NonInteractive(t *testing.T) {
 
 func TestRunWizard_Reconfigure(t *testing.T) {
 	dir := t.TempDir()
-	waveDir := filepath.Join(dir, ".wave")
+	waveDir := filepath.Join(dir, ".agents")
 	outputPath := filepath.Join(dir, "wave.yaml")
 
 	require.NoError(t, os.MkdirAll(filepath.Join(waveDir, "pipelines"), 0755))
@@ -119,7 +119,7 @@ func TestRunWizard_Reconfigure(t *testing.T) {
 		Reconfigure: true,
 		Existing:    existing,
 		Adapter:     "claude",
-		Workspace:   ".wave/workspaces",
+		Workspace:   ".agents/workspaces",
 		OutputPath:  outputPath,
 	}
 
@@ -135,7 +135,7 @@ func TestRunWizard_Reconfigure(t *testing.T) {
 
 func TestRunWizard_MarksOnboarded(t *testing.T) {
 	dir := t.TempDir()
-	waveDir := filepath.Join(dir, ".wave")
+	waveDir := filepath.Join(dir, ".agents")
 	outputPath := filepath.Join(dir, "wave.yaml")
 
 	require.NoError(t, os.MkdirAll(filepath.Join(waveDir, "pipelines"), 0755))
@@ -150,7 +150,7 @@ func TestRunWizard_MarksOnboarded(t *testing.T) {
 		WaveDir:     waveDir,
 		Interactive: false,
 		Adapter:     "claude",
-		Workspace:   ".wave/workspaces",
+		Workspace:   ".agents/workspaces",
 		OutputPath:  outputPath,
 	}
 
@@ -162,7 +162,7 @@ func TestRunWizard_MarksOnboarded(t *testing.T) {
 
 func TestBuildManifest_HasPersonas(t *testing.T) {
 	cfg := WizardConfig{
-		Workspace: ".wave/workspaces",
+		Workspace: ".agents/workspaces",
 		PersonaConfigs: map[string]manifest.Persona{
 			"craftsman": {
 				Description: "Implementation specialist",
@@ -190,7 +190,7 @@ func TestBuildManifest_HasPersonas(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "claude", craftsman["adapter"])
 	assert.Equal(t, "opus", craftsman["model"], "wizard model overrides persona default")
-	assert.Equal(t, ".wave/personas/craftsman.md", craftsman["system_prompt_file"])
+	assert.Equal(t, ".agents/personas/craftsman.md", craftsman["system_prompt_file"])
 	assert.Equal(t, "Implementation specialist", craftsman["description"])
 	assert.Equal(t, 0.2, craftsman["temperature"])
 
@@ -202,7 +202,7 @@ func TestBuildManifest_HasPersonas(t *testing.T) {
 
 func TestBuildManifest_PersonaFallbackModel(t *testing.T) {
 	cfg := WizardConfig{
-		Workspace: ".wave/workspaces",
+		Workspace: ".agents/workspaces",
 		PersonaConfigs: map[string]manifest.Persona{
 			"navigator": {
 				Description: "Planner",
@@ -224,7 +224,7 @@ func TestBuildManifest_PersonaFallbackModel(t *testing.T) {
 
 func TestBuildManifest_WithSkills(t *testing.T) {
 	cfg := WizardConfig{
-		Workspace: ".wave/workspaces",
+		Workspace: ".agents/workspaces",
 	}
 	result := &WizardResult{
 		Adapter: "claude",
@@ -242,7 +242,7 @@ func TestBuildManifest_WithSkills(t *testing.T) {
 
 func TestBuildManifest_NoSkills(t *testing.T) {
 	cfg := WizardConfig{
-		Workspace: ".wave/workspaces",
+		Workspace: ".agents/workspaces",
 	}
 	result := &WizardResult{
 		Adapter: "claude",
@@ -257,7 +257,7 @@ func TestBuildManifest_NoSkills(t *testing.T) {
 
 func TestBuildManifest_NoPersonas(t *testing.T) {
 	cfg := WizardConfig{
-		Workspace: ".wave/workspaces",
+		Workspace: ".agents/workspaces",
 	}
 	result := &WizardResult{
 		Adapter: "claude",
@@ -270,7 +270,7 @@ func TestBuildManifest_NoPersonas(t *testing.T) {
 
 func TestBuildManifest_TokenScopes_WritePersona(t *testing.T) {
 	cfg := WizardConfig{
-		Workspace: ".wave/workspaces",
+		Workspace: ".agents/workspaces",
 		PersonaConfigs: map[string]manifest.Persona{
 			"craftsman": {
 				Description: "Implementation specialist",
@@ -298,7 +298,7 @@ func TestBuildManifest_TokenScopes_WritePersona(t *testing.T) {
 
 func TestBuildManifest_TokenScopes_ReadOnlyPersona(t *testing.T) {
 	cfg := WizardConfig{
-		Workspace: ".wave/workspaces",
+		Workspace: ".agents/workspaces",
 		PersonaConfigs: map[string]manifest.Persona{
 			"navigator": {
 				Description: "Strategic planner",
@@ -326,7 +326,7 @@ func TestBuildManifest_TokenScopes_ReadOnlyPersona(t *testing.T) {
 
 func TestBuildManifest_TokenScopes_NoForgeTools(t *testing.T) {
 	cfg := WizardConfig{
-		Workspace: ".wave/workspaces",
+		Workspace: ".agents/workspaces",
 		PersonaConfigs: map[string]manifest.Persona{
 			"analyst": {
 				Description: "Data analyst with no forge tools",

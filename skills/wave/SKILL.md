@@ -27,14 +27,14 @@ adapters:
 personas:
   navigator:
     adapter: claude
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
     model: sonnet                        # opus | sonnet | haiku
     permissions:
       allowed_tools: [Read, Glob, Grep, "Bash(git log*)", "Bash(git status*)"]
       deny: ["Write(*)", "Edit(*)", "Bash(git commit*)", "Bash(git push*)"]
 
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
   max_concurrent_workers: 5
   default_timeout_minutes: 30
   relay:
@@ -43,10 +43,10 @@ runtime:
     summarizer_persona: summarizer
 
 skill_mounts:
-  - path: .wave/skills/
+  - path: .agents/skills/
 ```
 
-## Pipeline (`.wave/pipelines/<name>.yaml`)
+## Pipeline (`.agents/pipelines/<name>.yaml`)
 
 ```yaml
 kind: WavePipeline
@@ -75,7 +75,7 @@ steps:
     handover:
       contract:
         type: json_schema               # or: command
-        schema_path: .wave/contracts/analysis.schema.json
+        schema_path: .agents/contracts/analysis.schema.json
         source: output/analysis.json
         must_pass: true
         on_failure: retry
@@ -95,7 +95,7 @@ steps:
 | `reviewer` | Quality review & validation |
 | `github-commenter` | Post GitHub issue comments |
 
-Permission syntax: `Read`, `Write(.wave/specs/*)`, `Bash(git log*)`, `Bash(*)` in deny
+Permission syntax: `Read`, `Write(.agents/specs/*)`, `Bash(git log*)`, `Bash(*)` in deny
 
 ## Artifacts
 

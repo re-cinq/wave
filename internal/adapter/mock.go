@@ -111,7 +111,7 @@ func (m *MockAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterRe
 // falls back to persona-based output generation.
 func generateRealisticOutput(cfg AdapterRunConfig) string {
 	// Check for pipeline-specific step generators first
-	// (workspace path contains pipeline name, e.g., ".wave/workspaces/implement/fetch-assess/")
+	// (workspace path contains pipeline name, e.g., ".agents/workspaces/implement/fetch-assess/")
 	// implement-epic must be checked before implement to avoid false match
 	if strings.Contains(cfg.WorkspacePath, "implement-epic") || strings.Contains(cfg.WorkspacePath, "ops-implement-epic") {
 		phase := filepath.Base(cfg.WorkspacePath)
@@ -135,7 +135,7 @@ func generateRealisticOutput(cfg AdapterRunConfig) string {
 		}
 	}
 
-	// Extract step name from workspace path (e.g., ".wave/workspaces/prototype/docs" → "docs")
+	// Extract step name from workspace path (e.g., ".agents/workspaces/prototype/docs" → "docs")
 	phase := filepath.Base(cfg.WorkspacePath)
 	switch phase {
 	case "spec":
@@ -252,7 +252,7 @@ func generateDocsPhaseOutput(_ AdapterRunConfig) string {
 		},
 		"metadata": map[string]interface{}{
 			"timestamp":        time.Now().Format(time.RFC3339),
-			"source_spec_path": ".wave/artifacts/input-spec.md",
+			"source_spec_path": ".agents/artifacts/input-spec.md",
 			"duration_seconds": 3.0,
 		},
 	}
@@ -282,7 +282,7 @@ func generateDummyPhaseOutput(_ AdapterRunConfig) string {
 		},
 		"metadata": map[string]interface{}{
 			"timestamp":        time.Now().Format(time.RFC3339),
-			"source_docs_path": ".wave/artifacts/feature-docs.md",
+			"source_docs_path": ".agents/artifacts/feature-docs.md",
 			"duration_seconds": 4.0,
 		},
 	}
@@ -368,7 +368,7 @@ Executing pipeline step with workspace isolation and artifact flow.
 
 ## Progress
 - Pipeline validated and topologically sorted
-- Workspaces created under .wave/workspaces/
+- Workspaces created under .agents/workspaces/
 - Previous step artifacts injected successfully
 - Adapter execution completed with expected output
 

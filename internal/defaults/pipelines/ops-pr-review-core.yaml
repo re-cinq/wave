@@ -41,12 +41,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -144,7 +144,7 @@ steps:
         flat list without classification or misses test coverage gaps.
     output_artifacts:
       - name: diff
-        path: .wave/output/diff-analysis.json
+        path: .agents/output/diff-analysis.json
         type: json
     retry:
       policy: patient
@@ -152,8 +152,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/diff-analysis.json
-        schema_path: .wave/contracts/diff-analysis.schema.json
+        source: .agents/output/diff-analysis.json
+        schema_path: .agents/contracts/diff-analysis.schema.json
         on_failure: retry
 
   - id: security-review
@@ -260,12 +260,12 @@ steps:
         like hardcoded tokens in test fixtures.
     output_artifacts:
       - name: security
-        path: .wave/output/security-review.md
+        path: .agents/output/security-review.md
         type: markdown
     handover:
       contract:
         type: llm_judge
-        source: .wave/output/security-review.md
+        source: .agents/output/security-review.md
         model: cheapest
         criteria:
           - "Identifies injection vulnerabilities (SQL, command, XSS) if present in the diff"
@@ -379,14 +379,14 @@ steps:
         gap, or misses genuine error handling problems while fixating on variable naming.
     output_artifacts:
       - name: quality
-        path: .wave/output/quality-review.md
+        path: .agents/output/quality-review.md
         type: markdown
     handover:
       contract:
         type: agent_review
         persona: navigator
-        criteria_path: .wave/contracts/quality-review-criteria.md
-        source: .wave/output/quality-review.md
+        criteria_path: .agents/contracts/quality-review-criteria.md
+        source: .agents/output/quality-review.md
         model: cheapest
         token_budget: 8000
         timeout: 90s
@@ -495,12 +495,12 @@ steps:
         understanding the project's development stage and conventions.
     output_artifacts:
       - name: slop
-        path: .wave/output/slop-review.md
+        path: .agents/output/slop-review.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/slop-review.md
+        source: .agents/output/slop-review.md
 
   - id: summary
     persona: summarizer
@@ -609,11 +609,11 @@ steps:
         to any PR.
     output_artifacts:
       - name: verdict
-        path: .wave/output/review-verdict.json
+        path: .agents/output/review-verdict.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: .wave/output/review-verdict.json
-        schema_path: .wave/contracts/shared-review-verdict.schema.json
+        source: .agents/output/review-verdict.json
+        schema_path: .agents/contracts/shared-review-verdict.schema.json
         on_failure: skip

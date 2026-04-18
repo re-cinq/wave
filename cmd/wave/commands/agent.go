@@ -260,7 +260,7 @@ func compilePersonaToAgentMd(name string, m *manifest.Manifest) (string, error) 
 	}
 
 	// Load base protocol
-	baseProtocolPath := filepath.Join(".wave", "personas", "base-protocol.md")
+	baseProtocolPath := filepath.Join(".agents", "personas", "base-protocol.md")
 	baseProtocolData, err := os.ReadFile(baseProtocolPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read base protocol from %s: %w", baseProtocolPath, err)
@@ -276,8 +276,8 @@ func compilePersonaToAgentMd(name string, m *manifest.Manifest) (string, error) 
 		}
 		systemPrompt = string(data)
 	} else {
-		// Fall back to the default .wave/personas/<name>.md location
-		promptPath := filepath.Join(".wave", "personas", name+".md")
+		// Fall back to the default .agents/personas/<name>.md location
+		promptPath := filepath.Join(".agents", "personas", name+".md")
 		if data, err := os.ReadFile(promptPath); err == nil {
 			systemPrompt = string(data)
 		} else {

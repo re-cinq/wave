@@ -37,7 +37,7 @@ personas:
   navigator:
     adapter: claude
     description: "Read-only codebase exploration"
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
     temperature: 0.1
     model: sonnet                        # optional: opus, sonnet, haiku
     permissions:
@@ -51,7 +51,7 @@ personas:
       allowed_domains: [api.github.com]
 
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
   max_concurrent_workers: 5
   default_timeout_minutes: 30
   relay:
@@ -60,7 +60,7 @@ runtime:
     context_window: 200000               # optional
     summarizer_persona: summarizer       # persona for compaction
   audit:
-    log_dir: .wave/traces/
+    log_dir: .agents/traces/
     log_all_tool_calls: true
     log_all_file_operations: false
   meta_pipeline:
@@ -83,10 +83,10 @@ runtime:
     env_passthrough: [ANTHROPIC_API_KEY, GITHUB_TOKEN]
 
 skill_mounts:
-  - path: .wave/skills/
+  - path: .agents/skills/
 ```
 
-### Pipelines (`.wave/pipelines/<name>.yaml`)
+### Pipelines (`.agents/pipelines/<name>.yaml`)
 
 Pipelines define multi-step workflows with dependency resolution, artifact chaining, and contract validation.
 
@@ -123,7 +123,7 @@ steps:
       type: prompt                        # execution type
       source: |                           # inline prompt (supports {{ input }})
         Analyze the code for: {{ input }}
-      source_path: .wave/prompts/analyze.md  # OR external prompt file
+      source_path: .agents/prompts/analyze.md  # OR external prompt file
     output_artifacts:
       - name: analysis
         path: output/analysis.json        # relative to workspace
@@ -132,7 +132,7 @@ steps:
     handover:
       contract:
         type: json_schema                 # json_schema or command
-        schema_path: .wave/contracts/analysis.schema.json
+        schema_path: .agents/contracts/analysis.schema.json
         source: output/analysis.json      # file to validate
         must_pass: true
         on_failure: retry                 # retry | fail | skip
@@ -165,7 +165,7 @@ Personas are named AI agent configurations with specific roles, permissions, and
 | Persona | Role | Key Permissions |
 |---------|------|----------------|
 | `navigator` | Read-only codebase exploration | Read, Glob, Grep, git log/status |
-| `philosopher` | Architecture & specification | Read, Write(.wave/specs/*) |
+| `philosopher` | Architecture & specification | Read, Write(.agents/specs/*) |
 | `craftsman` | Code implementation & testing | Read, Write, Edit, Bash |
 | `auditor` | Security review & QA | Read, Grep, go vet, npm audit |
 | `summarizer` | Context compaction for relay | Read only |
@@ -180,11 +180,11 @@ Personas are named AI agent configurations with specific roles, permissions, and
 
 **Permission syntax:** Tool names with optional glob patterns:
 - `Read` — allow all reads
-- `Write(.wave/specs/*)` — allow writes only under .wave/specs/
+- `Write(.agents/specs/*)` — allow writes only under .agents/specs/
 - `Bash(git log*)` — allow only git log commands
 - `Bash(*)` in deny — deny all bash
 
-### Contracts (`.wave/contracts/<name>.schema.json`)
+### Contracts (`.agents/contracts/<name>.schema.json`)
 
 Contracts validate step output before allowing handover to the next step. They are JSON Schema files that validate `artifact.json` or other output files.
 
@@ -237,14 +237,14 @@ memory:
 
 ### Workspaces
 
-Each step runs in an isolated workspace at `.wave/workspaces/<pipeline>/<step>/`. Workspaces support:
+Each step runs in an isolated workspace at `.agents/workspaces/<pipeline>/<step>/`. Workspaces support:
 - **Mounts** — bind host directories into the workspace (readonly or readwrite)
 - **Root override** — `workspace.root: ./` creates an empty directory (not the project root)
 - **Artifact injection** — prior step outputs are copied into `artifacts/`
 
 ### State Management
 
-Wave uses SQLite (`.wave/state.db`) for persistence:
+Wave uses SQLite (`.agents/state.db`) for persistence:
 - Pipeline runs with status tracking (pending, running, completed, failed, cancelled)
 - Step states with retry counts and error messages
 - Event log for audit trail
@@ -257,7 +257,7 @@ Wave uses SQLite (`.wave/state.db`) for persistence:
 - **Sandbox** — Optional bubblewrap sandboxing with network domain allowlisting
 - **Fresh memory** — No chat history inheritance between steps
 - **Env passthrough** — Only explicitly listed env vars reach subprocesses
-- **Audit logging** — All tool calls and file operations logged to `.wave/traces/`
+- **Audit logging** — All tool calls and file operations logged to `.agents/traces/`
 - **Path sanitization** — Input validated against path traversal attacks
 
 ### Relay / Compaction
@@ -286,12 +286,12 @@ Initialize a new Wave project with default configuration.
 --merge         Merge defaults into existing configuration
 --all           Include all pipelines (not just release-gated ones)
 --adapter       Default adapter name (default "claude")
---workspace     Workspace directory path (default ".wave/workspaces")
+--workspace     Workspace directory path (default ".agents/workspaces")
 --output        Output path for wave.yaml (default "wave.yaml")
 -y, --yes       Skip confirmation prompts
 ```
 
-Creates: `wave.yaml`, `.wave/personas/`, `.wave/pipelines/`, `.wave/contracts/`, `.wave/prompts/`, `.wave/workspaces/`, `.wave/traces/`
+Creates: `wave.yaml`, `.agents/personas/`, `.agents/pipelines/`, `.agents/contracts/`, `.agents/prompts/`, `.agents/workspaces/`, `.agents/traces/`
 
 #### `wave run [pipeline] [input]`
 Execute a pipeline.
@@ -445,7 +445,7 @@ wave migrate validate         # verify migration integrity
 
 ```
 wave.yaml                    # Main manifest
-.wave/
+.agents/
   personas/                  # System prompt markdown files
     navigator.md
     craftsman.md

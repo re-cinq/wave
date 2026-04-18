@@ -199,12 +199,12 @@ func TestFormatEventLine_StreamActivity(t *testing.T) {
 		StepID:     "specify",
 		State:      event.StateStreamActivity,
 		ToolName:   "Read",
-		ToolTarget: ".wave/artifacts/spec.md",
+		ToolTarget: ".agents/artifacts/spec.md",
 	}
 	line := formatEventLine(evt)
 	assert.Contains(t, line, "[specify]")
 	assert.Contains(t, line, "Read")
-	assert.Contains(t, line, ".wave/artifacts/spec.md")
+	assert.Contains(t, line, ".agents/artifacts/spec.md")
 }
 
 func TestFormatEventLine_StreamActivity_TruncatesLongTarget(t *testing.T) {
@@ -759,7 +759,7 @@ func TestLiveOutputModel_HandoverMetadata_OnStepCompletion(t *testing.T) {
 			StepID:     "specify",
 			State:      event.StateCompleted,
 			DurationMs: 42000,
-			Artifacts:  []string{".wave/artifacts/spec.md"},
+			Artifacts:  []string{".agents/artifacts/spec.md"},
 		},
 	})
 
@@ -903,7 +903,7 @@ func TestLiveOutputModel_DashboardState_UpdatesFromEvents(t *testing.T) {
 		Event: event.Event{
 			StepID: "specify", State: event.StateCompleted,
 			DurationMs: 30000, TokensIn: 50000, TokensOut: 3000,
-			Artifacts: []string{".wave/artifacts/spec.md"},
+			Artifacts: []string{".agents/artifacts/spec.md"},
 		},
 	})
 	s = m.dashStepMap["specify"]
@@ -911,7 +911,7 @@ func TestLiveOutputModel_DashboardState_UpdatesFromEvents(t *testing.T) {
 	assert.Equal(t, int64(30000), s.durationMs)
 	assert.Equal(t, 50000, s.tokensIn)
 	assert.Equal(t, 3000, s.tokensOut)
-	assert.Equal(t, []string{".wave/artifacts/spec.md"}, s.artifacts)
+	assert.Equal(t, []string{".agents/artifacts/spec.md"}, s.artifacts)
 
 	// Step 2 starts and fails
 	m, _ = m.Update(PipelineEventMsg{
@@ -1047,7 +1047,7 @@ func TestLiveOutputModel_RenderDashboard_VerboseHandover(t *testing.T) {
 	// Complete with artifacts
 	m, _ = m.Update(PipelineEventMsg{
 		RunID: "run-1",
-		Event: event.Event{StepID: "specify", State: event.StateCompleted, DurationMs: 5000, Artifacts: []string{".wave/artifacts/spec.md"}},
+		Event: event.Event{StepID: "specify", State: event.StateCompleted, DurationMs: 5000, Artifacts: []string{".agents/artifacts/spec.md"}},
 	})
 
 	// Without verbose: no handover metadata

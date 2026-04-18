@@ -27,7 +27,7 @@ func TestClassifySkill(t *testing.T) {
 			skill: Skill{
 				Name:        "wave",
 				Description: "Wave development",
-				Body:        "Use wave run to execute pipelines. The wave.yaml manifest configures personas. Each persona runs in an ephemeral worktree. Use wave init to onboard. The .wave/ directory contains pipelines, personas, and manifests. Wave manages pipeline execution.",
+				Body:        "Use wave run to execute pipelines. The wave.yaml manifest configures personas. Each persona runs in an ephemeral worktree. Use wave init to onboard. The .agents/ directory contains pipelines, personas, and manifests. Wave manages pipeline execution.",
 			},
 			wantTag: TagWaveSpecific,
 		},
@@ -114,7 +114,7 @@ func TestClassifyAll(t *testing.T) {
 	store := &classifyMockStore{
 		skills: map[string]Skill{
 			"golang": {Name: "golang", Description: "Go", Body: "pure go patterns"},
-			"wave":   {Name: "wave", Description: "Wave", Body: "use wave run in a pipeline with persona and wave.yaml. Use wave init with .wave/ manifest and worktree and wave again and more pipeline and persona and wave"},
+			"wave":   {Name: "wave", Description: "Wave", Body: "use wave run in a pipeline with persona and wave.yaml. Use wave init with .agents/ manifest and worktree and wave again and more pipeline and persona and wave"},
 		},
 	}
 

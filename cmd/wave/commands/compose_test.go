@@ -35,10 +35,10 @@ func newComposeTestHelper(t *testing.T) *composeTestHelper {
 	}
 
 	// Create wave.yaml so checkOnboarding() grandfathers the project in.
-	h.writeFile("wave.yaml", "apiVersion: v1\nkind: WaveManifest\nmetadata:\n  name: test\nruntime:\n  workspace_root: .wave/workspaces\n")
+	h.writeFile("wave.yaml", "apiVersion: v1\nkind: WaveManifest\nmetadata:\n  name: test\nruntime:\n  workspace_root: .agents/workspaces\n")
 
 	// Create the pipelines directory.
-	err = os.MkdirAll(filepath.Join(tmpDir, ".wave", "pipelines"), 0755)
+	err = os.MkdirAll(filepath.Join(tmpDir, ".agents", "pipelines"), 0755)
 	require.NoError(t, err, "failed to create pipelines directory")
 
 	return h
@@ -95,10 +95,10 @@ steps:
       source: "Analyze the codebase"
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
         type: json
       - name: summary
-        path: .wave/output/summary.md
+        path: .agents/output/summary.md
         type: markdown
 `
 
@@ -149,8 +149,8 @@ func TestComposeCmd_ValidPipelines(t *testing.T) {
 	h.chdir()
 	defer h.restore()
 
-	h.writeFile(".wave/pipelines/pipeline-a.yaml", pipelineAYAML)
-	h.writeFile(".wave/pipelines/pipeline-b.yaml", pipelineBYAML)
+	h.writeFile(".agents/pipelines/pipeline-a.yaml", pipelineAYAML)
+	h.writeFile(".agents/pipelines/pipeline-b.yaml", pipelineBYAML)
 
 	root := newComposeCmdWithRoot()
 	root.SetArgs([]string{"compose", "pipeline-a", "pipeline-b", "--validate-only"})
@@ -165,8 +165,8 @@ func TestComposeCmd_IncompatibleArtifacts(t *testing.T) {
 	h.chdir()
 	defer h.restore()
 
-	h.writeFile(".wave/pipelines/pipeline-a.yaml", pipelineAYAML)
-	h.writeFile(".wave/pipelines/pipeline-c.yaml", pipelineCYAML)
+	h.writeFile(".agents/pipelines/pipeline-a.yaml", pipelineAYAML)
+	h.writeFile(".agents/pipelines/pipeline-c.yaml", pipelineCYAML)
 
 	root := newComposeCmdWithRoot()
 	root.SetArgs([]string{"compose", "pipeline-a", "pipeline-c", "--validate-only"})
@@ -183,8 +183,8 @@ func TestComposeCmd_ValidateOnlyPrintsReport(t *testing.T) {
 	h.chdir()
 	defer h.restore()
 
-	h.writeFile(".wave/pipelines/pipeline-a.yaml", pipelineAYAML)
-	h.writeFile(".wave/pipelines/pipeline-b.yaml", pipelineBYAML)
+	h.writeFile(".agents/pipelines/pipeline-a.yaml", pipelineAYAML)
+	h.writeFile(".agents/pipelines/pipeline-b.yaml", pipelineBYAML)
 
 	// Capture stdout — renderValidationReport writes to os.Stdout.
 	oldStdout := os.Stdout
@@ -219,7 +219,7 @@ func TestComposeCmd_TooFewArgs(t *testing.T) {
 	h.chdir()
 	defer h.restore()
 
-	h.writeFile(".wave/pipelines/pipeline-a.yaml", pipelineAYAML)
+	h.writeFile(".agents/pipelines/pipeline-a.yaml", pipelineAYAML)
 
 	root := newComposeCmdWithRoot()
 	root.SetArgs([]string{"compose", "pipeline-a"})
@@ -236,7 +236,7 @@ func TestComposeCmd_NonexistentPipeline(t *testing.T) {
 	h.chdir()
 	defer h.restore()
 
-	h.writeFile(".wave/pipelines/pipeline-a.yaml", pipelineAYAML)
+	h.writeFile(".agents/pipelines/pipeline-a.yaml", pipelineAYAML)
 
 	root := newComposeCmdWithRoot()
 	root.SetArgs([]string{"compose", "pipeline-a", "does-not-exist"})
@@ -253,8 +253,8 @@ func TestComposeCmd_ExecutionModeIncompatible(t *testing.T) {
 	h.chdir()
 	defer h.restore()
 
-	h.writeFile(".wave/pipelines/pipeline-a.yaml", pipelineAYAML)
-	h.writeFile(".wave/pipelines/pipeline-c.yaml", pipelineCYAML)
+	h.writeFile(".agents/pipelines/pipeline-a.yaml", pipelineAYAML)
+	h.writeFile(".agents/pipelines/pipeline-c.yaml", pipelineCYAML)
 
 	root := newComposeCmdWithRoot()
 	root.SetArgs([]string{"compose", "pipeline-a", "pipeline-c"})
@@ -275,8 +275,8 @@ func TestComposeCmd_ExecutionModeCompatible(t *testing.T) {
 	h.chdir()
 	defer h.restore()
 
-	h.writeFile(".wave/pipelines/pipeline-a.yaml", pipelineAYAML)
-	h.writeFile(".wave/pipelines/pipeline-b.yaml", pipelineBYAML)
+	h.writeFile(".agents/pipelines/pipeline-a.yaml", pipelineAYAML)
+	h.writeFile(".agents/pipelines/pipeline-b.yaml", pipelineBYAML)
 
 	// Capture stderr since the command writes informational messages there.
 	oldStderr := os.Stderr

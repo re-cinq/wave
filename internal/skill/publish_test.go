@@ -102,7 +102,7 @@ func TestPublishOneValidationFailure(t *testing.T) {
 func TestPublishOneWaveSpecificWarning(t *testing.T) {
 	dir := t.TempDir()
 	skillsDir := filepath.Join(dir, "skills")
-	createTestSkillDir(t, skillsDir, "wave-tool", "Wave tool", "use wave run in a pipeline with persona and wave.yaml. Use wave init with .wave/ manifest and worktree and wave again and more pipeline and persona and wave")
+	createTestSkillDir(t, skillsDir, "wave-tool", "Wave tool", "use wave run in a pipeline with persona and wave.yaml. Use wave init with .agents/ manifest and worktree and wave again and more pipeline and persona and wave")
 
 	store := NewDirectoryStore(SkillSource{Root: skillsDir, Precedence: 1})
 	p := NewPublisher(store, filepath.Join(dir, "skills.lock"), "tessl", nil)
@@ -119,7 +119,7 @@ func TestPublishOneWaveSpecificWarning(t *testing.T) {
 func TestPublishOneWaveSpecificForce(t *testing.T) {
 	dir := t.TempDir()
 	skillsDir := filepath.Join(dir, "skills")
-	createTestSkillDir(t, skillsDir, "wave-tool", "Wave tool", "use wave run in a pipeline with persona and wave.yaml. Use wave init with .wave/ manifest and worktree and wave again and more pipeline and persona and wave")
+	createTestSkillDir(t, skillsDir, "wave-tool", "Wave tool", "use wave run in a pipeline with persona and wave.yaml. Use wave init with .agents/ manifest and worktree and wave again and more pipeline and persona and wave")
 
 	store := NewDirectoryStore(SkillSource{Root: skillsDir, Precedence: 1})
 
@@ -268,7 +268,7 @@ func TestPublishAllMixed(t *testing.T) {
 	dir := t.TempDir()
 	skillsDir := filepath.Join(dir, "skills")
 	createTestSkillDir(t, skillsDir, "golang", "Go development", "pure go patterns")
-	createTestSkillDir(t, skillsDir, "wave-tool", "Wave tool", "use wave run in a pipeline with persona and wave.yaml. Use wave init with .wave/ manifest and worktree and wave again and more pipeline and persona and wave")
+	createTestSkillDir(t, skillsDir, "wave-tool", "Wave tool", "use wave run in a pipeline with persona and wave.yaml. Use wave init with .agents/ manifest and worktree and wave again and more pipeline and persona and wave")
 
 	store := NewDirectoryStore(SkillSource{Root: skillsDir, Precedence: 1})
 

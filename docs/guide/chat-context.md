@@ -30,10 +30,10 @@ steps:
       source: "Scan for security vulnerabilities"
     output_artifacts:
       - name: findings
-        path: .wave/output/findings.json
+        path: .agents/output/findings.json
         type: json
       - name: recommendations
-        path: .wave/output/recommendations.md
+        path: .agents/output/recommendations.md
         type: markdown
 ```
 

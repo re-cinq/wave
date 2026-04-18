@@ -31,7 +31,7 @@ func TestSkillListShowsAllTemplates(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -53,7 +53,7 @@ func TestSkillListJSON(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -117,7 +117,7 @@ func TestSkillInstallCopiesTemplate(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -131,7 +131,7 @@ func TestSkillInstallCopiesTemplate(t *testing.T) {
 	}
 
 	// Verify file was created
-	destFile := filepath.Join(".wave", "skills", "gh-cli", "SKILL.md")
+	destFile := filepath.Join(".agents", "skills", "gh-cli", "SKILL.md")
 	data, err := os.ReadFile(destFile)
 	if err != nil {
 		t.Fatalf("SKILL.md not created: %v", err)
@@ -148,7 +148,7 @@ func TestSkillInstallJSON(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -194,7 +194,7 @@ func TestSkillInstallErrorIfNotFound(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -266,7 +266,7 @@ func TestSkillInstallDispatchesBundledForBareName(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -280,7 +280,7 @@ func TestSkillInstallDispatchesBundledForBareName(t *testing.T) {
 	}
 
 	// Verify the file exists at the bundled template path
-	destFile := filepath.Join(".wave", "skills", "gh-cli", "SKILL.md")
+	destFile := filepath.Join(".agents", "skills", "gh-cli", "SKILL.md")
 	if _, err := os.Stat(destFile); err != nil {
 		t.Fatalf("expected SKILL.md to exist: %v", err)
 	}
@@ -290,7 +290,7 @@ func TestSkillInstallNotFoundSuggestsRemoteSources(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -328,7 +328,7 @@ func TestSkillInstallRemoteFileSource(t *testing.T) {
 	}
 
 	// Create target store directory
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -341,7 +341,7 @@ func TestSkillInstallRemoteFileSource(t *testing.T) {
 	}
 
 	// Verify skill was installed
-	destFile := filepath.Join(".wave", "skills", "my-remote-skill", "SKILL.md")
+	destFile := filepath.Join(".agents", "skills", "my-remote-skill", "SKILL.md")
 	if _, err := os.Stat(destFile); err != nil {
 		t.Fatalf("expected SKILL.md to be installed: %v", err)
 	}
@@ -361,7 +361,7 @@ func TestSkillInstallRemoteFileSourceJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -389,7 +389,7 @@ func TestSkillInstallRemoteGitHubMissingGit(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -413,7 +413,7 @@ func TestSkillInstallRemoteTesslMissingCLI(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -439,7 +439,7 @@ func TestSkillListRemoteFlag(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -464,7 +464,7 @@ func TestSkillListRemoteFlagStillShowsTemplates(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -486,7 +486,7 @@ func TestSkillListWithoutRemoteFlagNoHints(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -514,7 +514,7 @@ func TestSkillInstallHTTPSURLNotFound(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -542,7 +542,7 @@ func TestSkillInstallHTTPSURLInvalidArchiveFormat(t *testing.T) {
 	env := newSkillTestEnv(t)
 	defer env.cleanup()
 
-	if err := os.MkdirAll(".wave/skills", 0755); err != nil {
+	if err := os.MkdirAll(".agents/skills", 0755); err != nil {
 		t.Fatal(err)
 	}
 

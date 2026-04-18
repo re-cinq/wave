@@ -27,7 +27,7 @@ func createAdhocTestManifest(personas []string) *manifest.Manifest {
 		},
 		Personas: make(map[string]manifest.Persona),
 		Runtime: manifest.Runtime{
-			WorkspaceRoot:        ".wave/workspaces",
+			WorkspaceRoot:        ".agents/workspaces",
 			MaxConcurrentWorkers: 5,
 			DefaultTimeoutMin:    30,
 		},

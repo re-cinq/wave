@@ -191,7 +191,7 @@ func runList(opts ListOptions, filter string) error {
 
 	// Handle compositions filter separately
 	if filter == "compositions" {
-		return listCompositions(".wave/pipelines", opts.Format)
+		return listCompositions(".agents/pipelines", opts.Format)
 	}
 
 	// For JSON output, collect all data first
@@ -337,7 +337,7 @@ type manifestData2 struct {
 }
 
 func collectPipelines() ([]PipelineInfo, error) {
-	pipelineDir := ".wave/pipelines"
+	pipelineDir := ".agents/pipelines"
 	entries, err := os.ReadDir(pipelineDir)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to read pipelines directory: %w", err)
@@ -454,7 +454,7 @@ func collectAdapters(adapters map[string]struct {
 }
 
 func listPipelinesTable() error {
-	pipelineDir := ".wave/pipelines"
+	pipelineDir := ".agents/pipelines"
 	entries, err := os.ReadDir(pipelineDir)
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to read pipelines directory: %w", err)
@@ -746,7 +746,7 @@ func collectRuns(opts ListRunsOptions) ([]RunInfo, error) {
 	var runs []RunInfo
 
 	// First try to read from the state database
-	dbPath := ".wave/state.db"
+	dbPath := ".agents/state.db"
 	if _, err := os.Stat(dbPath); err == nil {
 		dbRuns, err := collectRunsFromDB(dbPath, opts)
 		if err == nil && len(dbRuns) > 0 {
@@ -840,7 +840,7 @@ func collectRunsFromDB(dbPath string, opts ListRunsOptions) ([]RunInfo, error) {
 
 // collectRunsFromWorkspaces reads run information from workspace directory metadata
 func collectRunsFromWorkspaces(opts ListRunsOptions) ([]RunInfo, error) {
-	wsDir := ".wave/workspaces"
+	wsDir := ".agents/workspaces"
 	entries, err := os.ReadDir(wsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -938,7 +938,7 @@ func extractPipelineName(wsName string) string {
 	parts := strings.Split(wsName, "-")
 	for i := len(parts) - 1; i >= 1; i-- {
 		candidate := strings.Join(parts[:i], "-")
-		if _, err := os.Stat(".wave/pipelines/" + candidate + ".yaml"); err == nil {
+		if _, err := os.Stat(".agents/pipelines/" + candidate + ".yaml"); err == nil {
 			return candidate
 		}
 	}
@@ -951,7 +951,7 @@ func inferWorkspaceStatus(wsPath string, pipelineName string) (status string, en
 	// Try to find and load the pipeline definition to know expected steps.
 	// Strip run ID suffix from workspace name to find the actual pipeline file.
 	baseName := extractPipelineName(pipelineName)
-	pipelinePath := ".wave/pipelines/" + baseName + ".yaml"
+	pipelinePath := ".agents/pipelines/" + baseName + ".yaml"
 	pipelineData, err := os.ReadFile(pipelinePath)
 	if err != nil {
 		// Can't determine expected steps, check if any step dirs exist
@@ -1021,7 +1021,7 @@ func inferWorkspaceStatus(wsPath string, pipelineName string) (status string, en
 // hasStepOutput checks if a step directory contains output files
 func hasStepOutput(stepPath string) bool {
 	// Check for common output locations
-	outputDirs := []string{"", ".wave/output", ".wave/artifacts"}
+	outputDirs := []string{"", ".agents/output", ".agents/artifacts"}
 	for _, subdir := range outputDirs {
 		checkPath := stepPath
 		if subdir != "" {
@@ -1179,9 +1179,9 @@ func listRunsTable(runs []RunInfo) {
 	fmt.Println()
 }
 
-// collectContracts collects contract information from .wave/contracts/ and finds their usage in pipelines
+// collectContracts collects contract information from .agents/contracts/ and finds their usage in pipelines
 func collectContracts() ([]ContractInfo, error) {
-	contractDir := ".wave/contracts"
+	contractDir := ".agents/contracts"
 	entries, err := os.ReadDir(contractDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -1210,7 +1210,7 @@ func collectContracts() ([]ContractInfo, error) {
 	}
 
 	// Now scan pipelines to find where contracts are used
-	pipelineDir := ".wave/pipelines"
+	pipelineDir := ".agents/pipelines"
 	pipelineEntries, err := os.ReadDir(pipelineDir)
 	if err == nil {
 		for _, entry := range pipelineEntries {
@@ -1254,7 +1254,7 @@ func collectContracts() ([]ContractInfo, error) {
 					continue
 				}
 
-				// Extract contract filename from path (e.g., ".wave/contracts/navigation.schema.json")
+				// Extract contract filename from path (e.g., ".agents/contracts/navigation.schema.json")
 				contractFile := filepath.Base(schemaPath)
 
 				// If this contract exists in our map, add the usage
@@ -1304,7 +1304,7 @@ func listContractsTable(contracts []ContractInfo) {
 	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", sepWidth)))
 
 	if len(contracts) == 0 {
-		fmt.Printf("  %s\n", f.Muted("(none found in .wave/contracts/)"))
+		fmt.Printf("  %s\n", f.Muted("(none found in .agents/contracts/)"))
 		fmt.Println()
 		return
 	}
@@ -1347,7 +1347,7 @@ type pipelineSkillConfig struct {
 func collectSkillsFromPipelines() map[string]pipelineSkillConfig {
 	merged := make(map[string]pipelineSkillConfig)
 
-	pipelineDir := ".wave/pipelines"
+	pipelineDir := ".agents/pipelines"
 	entries, err := os.ReadDir(pipelineDir)
 	if err != nil {
 		return merged
@@ -1390,7 +1390,7 @@ func collectSkillsFromPipelines() map[string]pipelineSkillConfig {
 func collectSkillPipelineUsage() map[string][]string {
 	usage := make(map[string][]string)
 
-	pipelineDir := ".wave/pipelines"
+	pipelineDir := ".agents/pipelines"
 	entries, err := os.ReadDir(pipelineDir)
 	if err != nil {
 		return usage

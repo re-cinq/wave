@@ -2320,7 +2320,7 @@ steps:
       type: prompt
       source: "Do work"
 `
-	childPipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	childPipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	require.NoError(t, os.MkdirAll(childPipelineDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(childPipelineDir, "test-child.yaml"), []byte(childPipelineYAML), 0644))
 

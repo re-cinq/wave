@@ -422,7 +422,7 @@ func TestContractDetailModel_SetContract(t *testing.T) {
 	info := &ContractInfo{
 		Label:      "spec.json",
 		Type:       "json_schema",
-		SchemaPath: ".wave/contracts/spec.json",
+		SchemaPath: ".agents/contracts/spec.json",
 	}
 	m.SetContract(info)
 

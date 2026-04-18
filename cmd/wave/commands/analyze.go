@@ -47,7 +47,7 @@ func NewAnalyzeCmd() *cobra.Command {
 		Use:   "analyze",
 		Short: "Analyze project domain and generate ontology context skills",
 		Long: `Scan the project structure and generate ontology context skills
-(.wave/skills/wave-ctx-*/SKILL.md) from the declared bounded contexts
+(.agents/skills/wave-ctx-*/SKILL.md) from the declared bounded contexts
 in wave.yaml.
 
 By default, performs a deterministic scan using directory structure and
@@ -128,7 +128,7 @@ func runAnalyze(cmd *cobra.Command, evolve bool, apply bool) error {
 	if writeErr != nil {
 		return NewCLIError(CodeInternalError,
 			fmt.Sprintf("failed to write context skills: %s", writeErr),
-			"Check write permissions for .wave/skills/").WithCause(writeErr)
+			"Check write permissions for .agents/skills/").WithCause(writeErr)
 	}
 	result.SkillsWritten = skillsWritten
 
@@ -435,7 +435,7 @@ func writeContextSkills(result *AnalyzeResult) ([]string, error) {
 	var written []string
 
 	for _, ctx := range result.Contexts {
-		skillDir := filepath.Join(".wave", "skills", "wave-ctx-"+ctx.Name)
+		skillDir := filepath.Join(".agents", "skills", "wave-ctx-"+ctx.Name)
 		if err := os.MkdirAll(skillDir, 0755); err != nil {
 			return written, fmt.Errorf("failed to create %s: %w", skillDir, err)
 		}
@@ -642,7 +642,7 @@ Output your findings as a JSON object with this exact structure:
   ]
 }
 `+"```\n"+`
-Write the JSON to .wave/output/deep-analysis.json`, m.Ontology.Telos, contextList.String())
+Write the JSON to .agents/output/deep-analysis.json`, m.Ontology.Telos, contextList.String())
 
 	// Resolve adapter binary
 	adapterName := "claude"
@@ -664,14 +664,14 @@ Write the JSON to .wave/output/deep-analysis.json`, m.Ontology.Telos, contextLis
 	if persona == nil {
 		return NewCLIError(CodeInvalidArgs,
 			"navigator persona not found in manifest",
-			"Add a navigator persona to .wave/personas/")
+			"Add a navigator persona to .agents/personas/")
 	}
 
 	fmt.Fprintf(os.Stderr, "  Launching deep analysis with %s adapter...\n", adapterName)
 	fmt.Fprintf(os.Stderr, "  Analyzing %d bounded contexts...\n\n", len(m.Ontology.Contexts))
 
 	// Create output directory
-	if err := os.MkdirAll(".wave/output", 0o755); err != nil {
+	if err := os.MkdirAll(".agents/output", 0o755); err != nil {
 		return err
 	}
 
@@ -707,11 +707,11 @@ Write the JSON to .wave/output/deep-analysis.json`, m.Ontology.Telos, contextLis
 	}
 
 	// Read the output file the agent wrote
-	outputPath := filepath.Join(cwd, ".wave/output/deep-analysis.json")
+	outputPath := filepath.Join(cwd, ".agents/output/deep-analysis.json")
 	outputData, err := os.ReadFile(outputPath)
 	if err != nil {
 		return NewCLIError(CodeInternalError,
-			"deep analysis completed but output file not found at .wave/output/deep-analysis.json",
+			"deep analysis completed but output file not found at .agents/output/deep-analysis.json",
 			"The agent may not have written the file — check adapter output")
 	}
 
@@ -719,13 +719,13 @@ Write the JSON to .wave/output/deep-analysis.json`, m.Ontology.Telos, contextLis
 	if err := json.Unmarshal(outputData, &deepResult); err != nil {
 		return NewCLIError(CodeInternalError,
 			fmt.Sprintf("failed to parse deep analysis output: %s", err),
-			"The output may not be valid JSON — check .wave/output/deep-analysis.json")
+			"The output may not be valid JSON — check .agents/output/deep-analysis.json")
 	}
 
 	// Write enriched SKILL.md files
 	fmt.Fprintf(os.Stderr, "  Writing enriched context skills...\n")
 	for _, ctx := range deepResult.Contexts {
-		skillDir := filepath.Join(".wave", "skills", "wave-ctx-"+ctx.Name)
+		skillDir := filepath.Join(".agents", "skills", "wave-ctx-"+ctx.Name)
 		if err := os.MkdirAll(skillDir, 0o755); err != nil {
 			fmt.Fprintf(os.Stderr, "  Warning: could not create %s: %v\n", skillDir, err)
 			continue
@@ -742,7 +742,7 @@ Write the JSON to .wave/output/deep-analysis.json`, m.Ontology.Telos, contextLis
 	}
 
 	// Remove staleness sentinel after deep refresh
-	_ = os.Remove(".wave/.ontology-stale")
+	_ = os.Remove(".agents/.ontology-stale")
 
 	fmt.Fprintf(os.Stderr, "\n  Deep analysis complete. Review the generated skills before committing.\n")
 	return nil
@@ -812,11 +812,11 @@ func generateDeepSkillContent(ctx deepContextResult, _ string) string {
 
 // runAnalyzeDecisions shows orchestration decision provenance as a table.
 func runAnalyzeDecisions(cmd *cobra.Command) error {
-	store, err := state.NewStateStore(".wave/state.db")
+	store, err := state.NewStateStore(".agents/state.db")
 	if err != nil {
 		return NewCLIError(CodeInternalError,
 			fmt.Sprintf("failed to open state database: %s", err),
-			"Check that .wave/state.db exists")
+			"Check that .agents/state.db exists")
 	}
 	defer store.Close()
 

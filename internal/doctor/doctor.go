@@ -12,10 +12,10 @@ func RunChecks(ctx context.Context, opts Options) (*Report, error) {
 		opts.ManifestPath = "wave.yaml"
 	}
 	if opts.WaveDir == "" {
-		opts.WaveDir = ".wave"
+		opts.WaveDir = ".agents"
 	}
 	if opts.PipelinesDir == "" {
-		opts.PipelinesDir = ".wave/pipelines"
+		opts.PipelinesDir = ".agents/pipelines"
 	}
 
 	report := &Report{}

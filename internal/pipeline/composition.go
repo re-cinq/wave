@@ -46,7 +46,7 @@ func NewCompositionExecutor(
 ) *CompositionExecutor {
 	wsRoot := m.Runtime.WorkspaceRoot
 	if wsRoot == "" {
-		wsRoot = ".wave/workspaces"
+		wsRoot = ".agents/workspaces"
 	}
 	return &CompositionExecutor{
 		emitterMixin: emitterMixin{emitter: emitter},

@@ -60,7 +60,7 @@ WAVE_E001: manifest not found: no wave.yaml in current directory or parent direc
    personas:
      navigator:
        adapter: claude
-       system_prompt_file: .wave/personas/navigator.md
+       system_prompt_file: .agents/personas/navigator.md
    runtime:
      workspace_root: /tmp/wave
    ```
@@ -148,7 +148,7 @@ WAVE_E003: unknown persona reference: persona 'reviewer' not found in manifest
      reviewer:
        adapter: claude
        description: "Code review specialist"
-       system_prompt_file: .wave/personas/reviewer.md
+       system_prompt_file: .agents/personas/reviewer.md
    ```
 
 4. Verify persona name case matches exactly (YAML is case-sensitive):
@@ -182,12 +182,12 @@ WAVE_E004: contract validation failed: required field 'files' missing in output
 
 1. Review the contract definition:
    ```bash
-   cat .wave/contracts/output.schema.json
+   cat .agents/contracts/output.schema.json
    ```
 
 2. Check the actual step output:
    ```bash
-   cat .wave/workspaces/<pipeline-id>/<step-id>/output/result.json
+   cat .agents/workspaces/<pipeline-id>/<step-id>/output/result.json
    ```
 
 3. Update the persona system prompt to specify the exact output format:
@@ -322,7 +322,7 @@ WAVE_E006: permission denied: Write(src/main.go) blocked by persona 'navigator'
 4. Check hook scripts:
    ```bash
    # Review pre-tool hooks
-   cat .wave/hooks/pre-commit-lint.sh
+   cat .agents/hooks/pre-commit-lint.sh
 
    # Ensure hook exits 0 for allowed operations
    echo $?
@@ -520,7 +520,7 @@ WAVE_E300: workspace creation failed: permission denied creating /tmp/wave
 2. Configure alternative workspace:
    ```yaml
    runtime:
-     workspace_root: ~/.wave/workspaces
+     workspace_root: ~/.agents/workspaces
    ```
 
 ---

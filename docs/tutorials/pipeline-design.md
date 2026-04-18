@@ -12,7 +12,7 @@ A pipeline is a DAG where:
 
 ## Example: Feature Implementation Pipeline
 
-Create `.wave/pipelines/feature-flow.yaml`:
+Create `.agents/pipelines/feature-flow.yaml`:
 
 <div v-pre>
 
@@ -37,12 +37,12 @@ steps:
       source: Analyze the codebase for: {{ input }}
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/navigation.schema.json
-        source: .wave/output/analysis.json
+        schema_path: .agents/contracts/navigation.schema.json
+        source: .agents/output/analysis.json
 
   - id: specify
     persona: philosopher
@@ -58,7 +58,7 @@ steps:
       source: Create a specification for: {{ input }}
     output_artifacts:
       - name: spec
-        path: .wave/output/spec.md
+        path: .agents/output/spec.md
 
   - id: implement
     persona: craftsman

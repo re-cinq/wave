@@ -63,7 +63,7 @@ When the philosopher generates a pipeline, it creates:
 2. **JSON Schemas** for each step's expected output format
 3. **Output artifacts** configuration for proper file handling
 
-**Example generated schema** (`.wave/contracts/navigation-analysis.schema.json`):
+**Example generated schema** (`.agents/contracts/navigation-analysis.schema.json`):
 
 ```json
 {
@@ -136,12 +136,12 @@ steps:
         Output a valid WavePipeline YAML definition.
     output_artifacts:
       - name: pipeline
-        path: .wave/output/pipeline.yaml
+        path: .agents/output/pipeline.yaml
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/pipeline.schema.json
-        source: .wave/output/pipeline.yaml
+        schema_path: .agents/contracts/pipeline.schema.json
+        source: .agents/output/pipeline.yaml
         on_failure: retry
         max_retries: 2
 
@@ -174,7 +174,7 @@ wave meta "refactor database layer" --dry-run
 In dry-run mode, `GenerateOnly()` performs these steps:
 
 1. **Pipeline generation** — The philosopher designs the pipeline YAML as normal.
-2. **Schema generation** — JSON schema files are written to `.wave/contracts/` for each step's contract.
+2. **Schema generation** — JSON schema files are written to `.agents/contracts/` for each step's contract.
 3. **JSON repair** — Malformed JSON from the philosopher is auto-repaired (trailing commas, missing braces) before schema validation.
 4. **Validation** — The generated pipeline is schema-validated and semantically validated.
 5. **No execution** — The pipeline is NOT executed. Output is written to disk for inspection.
@@ -220,13 +220,13 @@ Generated pipeline definitions are preserved for inspection:
 
 ```bash
 # Find the generated pipeline
-ls /tmp/wave/<pipeline-id>/analyze/.wave/output/pipeline.yaml
+ls /tmp/wave/<pipeline-id>/analyze/.agents/output/pipeline.yaml
 
 # Inspect it
-cat /tmp/wave/<pipeline-id>/analyze/.wave/output/pipeline.yaml
+cat /tmp/wave/<pipeline-id>/analyze/.agents/output/pipeline.yaml
 
 # Validate it standalone
-wave validate --pipeline /tmp/wave/<pipeline-id>/analyze/.wave/output/pipeline.yaml
+wave validate --pipeline /tmp/wave/<pipeline-id>/analyze/.agents/output/pipeline.yaml
 ```
 
 ## Best Practices

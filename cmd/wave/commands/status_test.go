@@ -34,7 +34,7 @@ func newStatusTestHelper(t *testing.T) *statusTestHelper {
 	require.NoError(t, err, "failed to get current directory")
 
 	// Create .wave directory
-	waveDir := filepath.Join(tmpDir, ".wave")
+	waveDir := filepath.Join(tmpDir, ".agents")
 	err = os.MkdirAll(waveDir, 0755)
 	require.NoError(t, err, "failed to create .wave directory")
 
@@ -159,7 +159,7 @@ func TestStatusCmd_NoDatabase(t *testing.T) {
 	defer h.restore()
 
 	// Remove the database
-	_ = os.RemoveAll(filepath.Join(h.tmpDir, ".wave"))
+	_ = os.RemoveAll(filepath.Join(h.tmpDir, ".agents"))
 
 	_, stderr, err := executeStatusCmd()
 	require.NoError(t, err)

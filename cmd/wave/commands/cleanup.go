@@ -23,10 +23,10 @@ func NewCleanupCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "cleanup",
-		Short: "Remove orphaned worktrees from .wave/workspaces/",
+		Short: "Remove orphaned worktrees from .agents/workspaces/",
 		Long: `Remove orphaned worktrees that have no corresponding running pipeline.
 
-Uses 'git worktree list' to find all worktrees under .wave/workspaces/,
+Uses 'git worktree list' to find all worktrees under .agents/workspaces/,
 cross-references with the state store to identify active runs, and removes
 worktrees not associated with any running pipeline.
 
@@ -87,7 +87,7 @@ func listGitWorktrees() ([]worktreeEntry, error) {
 }
 
 func runCleanup(opts CleanupOptions) error {
-	wsDir := ".wave/workspaces"
+	wsDir := ".agents/workspaces"
 	if _, err := os.Stat(wsDir); os.IsNotExist(err) {
 		fmt.Fprintf(os.Stderr, "No workspaces directory found\n")
 		return nil
@@ -105,7 +105,7 @@ func runCleanup(opts CleanupOptions) error {
 		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to resolve workspace path: %s", err), "").WithCause(err)
 	}
 
-	// Filter to only worktrees under .wave/workspaces/.
+	// Filter to only worktrees under .agents/workspaces/.
 	var waveWorktrees []worktreeEntry
 	for _, wt := range worktrees {
 		if strings.HasPrefix(wt.Path, absWsDir+string(filepath.Separator)) {
@@ -120,7 +120,7 @@ func runCleanup(opts CleanupOptions) error {
 
 	// Build set of branches associated with active (running/pending) runs.
 	activeBranches := make(map[string]bool)
-	stateDB := ".wave/state.db"
+	stateDB := ".agents/state.db"
 	if _, statErr := os.Stat(stateDB); statErr == nil {
 		store, storeErr := state.NewStateStore(stateDB)
 		if storeErr == nil {

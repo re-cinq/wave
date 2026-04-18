@@ -288,7 +288,7 @@ func runComposePlan(_ tui.Sequence, plan pipeline.ExecutionPlan, input string, m
 		runner = adapter.ResolveAdapter(adapterName)
 	}
 
-	stateDB := ".wave/state.db"
+	stateDB := ".agents/state.db"
 	store, err := state.NewStateStore(stateDB)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: state persistence disabled: %v\n", err)
@@ -307,7 +307,7 @@ func runComposePlan(_ tui.Sequence, plan pipeline.ExecutionPlan, input string, m
 
 	wsRoot := m.Runtime.WorkspaceRoot
 	if wsRoot == "" {
-		wsRoot = ".wave/workspaces"
+		wsRoot = ".agents/workspaces"
 	}
 	wsManager, err := workspace.NewWorkspaceManager(wsRoot)
 	if err != nil {
@@ -322,7 +322,7 @@ func runComposePlan(_ tui.Sequence, plan pipeline.ExecutionPlan, input string, m
 	}
 	baseOpts = append(baseOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
 		skill.SkillSource{Root: "skills", Precedence: 2},
-		skill.SkillSource{Root: ".wave/skills", Precedence: 1},
+		skill.SkillSource{Root: ".agents/skills", Precedence: 1},
 	)))
 
 	newExecutor := func(opts ...pipeline.ExecutorOption) *pipeline.DefaultPipelineExecutor {
@@ -410,7 +410,7 @@ func runCompose(seq tui.Sequence, input string, manifestPath string, mock bool, 
 	}
 
 	// Initialize state store
-	stateDB := ".wave/state.db"
+	stateDB := ".agents/state.db"
 	store, err := state.NewStateStore(stateDB)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: state persistence disabled: %v\n", err)
@@ -431,7 +431,7 @@ func runCompose(seq tui.Sequence, input string, manifestPath string, mock bool, 
 	// Initialize workspace manager
 	wsRoot := m.Runtime.WorkspaceRoot
 	if wsRoot == "" {
-		wsRoot = ".wave/workspaces"
+		wsRoot = ".agents/workspaces"
 	}
 	wsManager, err := workspace.NewWorkspaceManager(wsRoot)
 	if err != nil {
@@ -447,7 +447,7 @@ func runCompose(seq tui.Sequence, input string, manifestPath string, mock bool, 
 	}
 	baseOpts = append(baseOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
 		skill.SkillSource{Root: "skills", Precedence: 2},
-		skill.SkillSource{Root: ".wave/skills", Precedence: 1},
+		skill.SkillSource{Root: ".agents/skills", Precedence: 1},
 	)))
 
 	// Factory function creates a fresh executor per pipeline
