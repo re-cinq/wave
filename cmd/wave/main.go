@@ -164,7 +164,6 @@ func init() {
 	rootCmd.AddCommand(commands.NewDecisionsCmd())
 	rootCmd.AddCommand(commands.NewPipelineCmd())
 	rootCmd.AddCommand(commands.NewPersonaCmd())
-	rootCmd.AddCommand(commands.NewSkillCmd())
 	rootCmd.AddCommand(commands.NewCleanupCmd())
 	rootCmd.AddCommand(commands.NewMergeCmd())
 }
