@@ -4977,6 +4977,82 @@ func TestSkillProvisioningIntegration(t *testing.T) {
 		assert.Equal(t, "A test skill", cfg.ResolvedSkills[0].Description)
 	})
 
+	t.Run("step_level_skills_propagate_to_adapter_config", func(t *testing.T) {
+		storeDir := t.TempDir()
+		skillSrc := filepath.Join(storeDir, "step-only-skill")
+		require.NoError(t, os.MkdirAll(skillSrc, 0o755))
+		skillMD := "---\nname: step-only-skill\ndescription: Step-scoped skill\n---\n# Body\n"
+		require.NoError(t, os.WriteFile(filepath.Join(skillSrc, "SKILL.md"), []byte(skillMD), 0o644))
+
+		store := skill.NewDirectoryStore(skill.SkillSource{Root: storeDir, Precedence: 0})
+
+		capturingAdapter := &configCapturingAdapter{
+			MockAdapter: adapter.NewMockAdapter(
+				adapter.WithStdoutJSON(`{"status": "success"}`),
+				adapter.WithTokensUsed(100),
+			),
+		}
+
+		executor := NewDefaultPipelineExecutor(capturingAdapter, withSkillStore(store))
+
+		tmpDir := t.TempDir()
+		m := testutil.CreateTestManifest(tmpDir)
+		// no global, no persona skills — only the step declares it
+		p := &Pipeline{
+			Metadata: PipelineMetadata{Name: "step-skill-test"},
+			Steps: []Step{
+				{
+					ID:      "implement",
+					Persona: "navigator",
+					Skills:  []string{"step-only-skill"},
+					Exec:    ExecConfig{Source: "do work"},
+				},
+			},
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		err := executor.Execute(ctx, p, m, "test input")
+		require.NoError(t, err)
+
+		cfg := capturingAdapter.getLastConfig()
+		require.Len(t, cfg.ResolvedSkills, 1, "step-level skill should propagate to adapter config")
+		assert.Equal(t, "step-only-skill", cfg.ResolvedSkills[0].Name)
+	})
+
+	t.Run("step_level_skills_fail_preflight_when_missing", func(t *testing.T) {
+		storeDir := t.TempDir()
+		store := skill.NewDirectoryStore(skill.SkillSource{Root: storeDir, Precedence: 0})
+
+		mockAdapter := adapter.NewMockAdapter(
+			adapter.WithStdoutJSON(`{"status": "success"}`),
+			adapter.WithTokensUsed(100),
+		)
+		executor := NewDefaultPipelineExecutor(mockAdapter, withSkillStore(store))
+
+		tmpDir := t.TempDir()
+		m := testutil.CreateTestManifest(tmpDir)
+		p := &Pipeline{
+			Metadata: PipelineMetadata{Name: "missing-step-skill"},
+			Steps: []Step{
+				{
+					ID:      "implement",
+					Persona: "navigator",
+					Skills:  []string{"nonexistent-skill"},
+					Exec:    ExecConfig{Source: "do work"},
+				},
+			},
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		err := executor.Execute(ctx, p, m, "test input")
+		require.Error(t, err, "expected preflight failure for missing step skill")
+		assert.Contains(t, err.Error(), "wave skills add", "error should suggest install command")
+	})
+
 	t.Run("executor_returns_error_for_missing_store_skill", func(t *testing.T) {
 		// Create an empty store — no skills available
 		storeDir := t.TempDir()
