@@ -29,15 +29,9 @@ func (a *OpenCodeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapt
 		return nil, fmt.Errorf("WorkspacePath is required — refusing to use project root as workspace")
 	}
 
-	// Warn about uninjected skills — non-claude adapters do not yet support
-	// native skill provisioning. Skills declared in the pipeline manifest will
-	// not reach the agent. See: https://github.com/re-cinq/wave/issues/1120
-	if len(cfg.ResolvedSkills) > 0 {
-		skillNames := make([]string, len(cfg.ResolvedSkills))
-		for i, s := range cfg.ResolvedSkills {
-			skillNames[i] = s.Name
-		}
-		fmt.Fprintf(os.Stderr, "[WARN] %s adapter: %d skill(s) declared but not injected (not yet supported): %v\n", cfg.Adapter, len(cfg.ResolvedSkills), skillNames)
+	// Provision skills into .agents/skills/ — opencode natively scans this path.
+	if err := ProvisionSkills(workspacePath, ".agents/skills", cfg.ResolvedSkills); err != nil {
+		return nil, fmt.Errorf("provision opencode skills: %w", err)
 	}
 
 	if err := a.prepareWorkspace(workspacePath, cfg); err != nil {

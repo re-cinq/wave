@@ -305,29 +305,11 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		return fmt.Errorf("failed to write agent .md: %w", err)
 	}
 
-	// Provision .claude/skills/ — always clear first, then populate only declared skills.
-	// For worktree workspaces this removes all skills inherited from the git checkout,
-	// guaranteeing zero-skill pipelines get no context pollution and skill pipelines
-	// get exactly the skills they declared.
-	//
-	// Safety: only clear .claude/skills/ when running inside a pipeline workspace
-	// (workspacePath is under .agents/workspaces/). If workspacePath falls back to
-	// os.Getwd() (project root), we must NOT delete the project's .claude/skills/.
-	skillsDir := filepath.Join(settingsDir, "skills")
-	isWorkspace := strings.Contains(workspacePath, ".agents/workspaces") ||
-		strings.Contains(workspacePath, "__wt_")
-	if isWorkspace {
-		if err := os.RemoveAll(skillsDir); err != nil {
-			return fmt.Errorf("failed to clear .claude/skills: %w", err)
-		}
-	}
-	for _, ref := range cfg.ResolvedSkills {
-		if ref.SourcePath == "" {
-			continue
-		}
-		if err := copySkillDir(ref.SourcePath, filepath.Join(skillsDir, ref.Name)); err != nil {
-			return fmt.Errorf("skill %q: failed to provision to .claude/skills: %w", ref.Name, err)
-		}
+	// Provision .claude/skills/ via shared helper. The helper is workspace-scope
+	// safe (panics on traversal) and only removes Wave-managed dirs (sentinel-tagged),
+	// preserving any user-committed skills inherited from a worktree checkout.
+	if err := ProvisionSkills(workspacePath, ".claude/skills", cfg.ResolvedSkills); err != nil {
+		return fmt.Errorf("provision claude skills: %w", err)
 	}
 
 	// Copy skill command files into workspace .claude/commands/
