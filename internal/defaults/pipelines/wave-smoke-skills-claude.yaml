@@ -39,15 +39,16 @@ steps:
       type: prompt
       source: |
         Activate the `wave-smoke-test` skill via your native Skill tool.
-        Read its SKILL.md, then emit the sentinel string defined in the
-        activation contract on a line by itself. Do nothing else.
+        Read its SKILL.md to find the activation sentinel, then write
+        EXACTLY that sentinel string (and nothing else) to a file named
+        `smoke-result` in the current working directory. Then stop.
     output_artifacts:
       - name: smoke-result
-        source: stdout
+        path: smoke-result
         type: text
     handover:
       contract:
-        type: non_empty_file
-        source: smoke-result
+        type: test_suite
+        command: "grep -q SMOKE_TEST_OK_4f7a2b1c smoke-result"
         must_pass: true
         on_failure: fail
