@@ -25,6 +25,8 @@
           bubblewrap
           nodejs_22  # Claude Code requires Node.js
           uv         # Python package manager for skill installation
+          codex      # OpenAI Codex CLI (adapter target)
+          gemini-cli # Google Gemini CLI (adapter target)
         ];
 
         claudeYoloScript = pkgs.writeShellScriptBin "claude-yolo" ''
