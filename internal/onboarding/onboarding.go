@@ -176,7 +176,16 @@ func RunWizard(cfg WizardConfig) (*WizardResult, error) {
 	suggested := suggestSkills(result.Language, meta, cwd)
 	if len(suggested) > 0 {
 		installed := autoInstallSkills(cfg.WaveDir, suggested)
-		result.Skills = mergeSkills(result.Skills, installed)
+		seen := make(map[string]bool, len(result.Skills))
+		for _, s := range result.Skills {
+			seen[s] = true
+		}
+		for _, s := range installed {
+			if !seen[s] {
+				seen[s] = true
+				result.Skills = append(result.Skills, s)
+			}
+		}
 	}
 
 	// Step 3: Pipeline selection
