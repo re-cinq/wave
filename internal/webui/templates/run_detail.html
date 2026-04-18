@@ -190,8 +190,8 @@
 
             <!-- Row 2: I/O + tabs -->
             <div class="ws-io">
-                <span class="ws-io-lbl">IN</span>
-                <span class="ws-io-val ws-io-click" onclick="toggleIn(this)" title="Show prompt">{{if and $step.Action (not (hasPrefix $step.Action "{{"))}}{{if gt (len $step.Action) 80}}{{slice $step.Action 0 80}}…{{else}}{{$step.Action}}{{end}}{{else if eq $i 0}}pipeline input{{else if $step.Dependencies}}{{joinStrings $step.Dependencies " + "}}{{else}}prev step{{end}}</span>
+                <span class="ws-io-lbl ws-io-click" onclick="toggleIn(this)" title="Show prompt">IN</span>
+                {{if $step.InputArtifacts}}{{range $ia := $step.InputArtifacts}}<a href="#" class="w-tab" data-run-id="{{$step.RunID}}" data-step-id="{{$ia.Step}}" data-artifact-name="{{$ia.Name}}" onclick="toggleArt(this);return false;" title="Show injected artifact content">{{$ia.Step}}/{{$ia.Name}}</a>{{end}}{{else}}<span class="ws-io-val ws-io-click" onclick="toggleIn(this)" title="Show prompt">{{if and $step.Action (not (hasPrefix $step.Action "{{"))}}{{if gt (len $step.Action) 80}}{{slice $step.Action 0 80}}…{{else}}{{$step.Action}}{{end}}{{else if eq $i 0}}pipeline input{{else if $step.Dependencies}}{{joinStrings $step.Dependencies " + "}}{{else}}prev step{{end}}</span>{{end}}
                 {{if $step.ReviewVerdict}}<span class="w-ctr {{if eq $step.ReviewVerdict "pass"}}w-ctr-pass{{else}}w-ctr-fail{{end}}">{{$step.ReviewVerdict}}</span>{{end}}
                 <span class="ws-io-sep"></span>
                 <span class="ws-io-lbl">OUT</span>
