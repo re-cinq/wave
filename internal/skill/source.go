@@ -130,15 +130,10 @@ func (r *SourceRouter) Prefixes() []string {
 	return prefixes
 }
 
-// NewDefaultRouter creates a SourceRouter pre-registered with all 7 adapters.
+// NewDefaultRouter creates a SourceRouter with the minimal install path: file: only.
+// Bare local paths (without prefix) are accepted by the file adapter via convention.
 func NewDefaultRouter(projectRoot string) *SourceRouter {
 	return NewSourceRouter(
-		NewTesslAdapter(),
-		NewBMADAdapter(),
-		NewOpenSpecAdapter(),
-		NewSpecKitAdapter(),
-		NewGitHubAdapter(),
 		NewFileAdapter(projectRoot),
-		NewURLAdapter(),
 	)
 }
