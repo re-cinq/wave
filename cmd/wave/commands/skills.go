@@ -295,7 +295,7 @@ Examples:
 func runSkillsAdd(cmd *cobra.Command, source, format string, project bool) error {
 	format = ResolveFormat(cmd, format)
 
-	target := ""
+	var target string
 	if project {
 		target = ".agents/skills"
 	} else {
