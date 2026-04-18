@@ -30,12 +30,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] test audit started run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] test audit started run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-findings
     event: step_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] step completed: $WAVE_HOOK_STEP_ID' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] step completed: $WAVE_HOOK_STEP_ID' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -55,10 +55,10 @@ steps:
           mode: readonly
     exec:
       type: prompt
-      source_path: .wave/prompts/audit/tests-scan.md
+      source_path: .agents/prompts/audit/tests-scan.md
     output_artifacts:
       - name: findings
-        path: .wave/output/findings.json
+        path: .agents/output/findings.json
         type: json
     retry:
       policy: patient
@@ -66,8 +66,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/findings.json
-        schema_path: .wave/contracts/shared-findings.schema.json
+        source: .agents/output/findings.json
+        schema_path: .agents/contracts/shared-findings.schema.json
         on_failure: skip
 
   - id: report
@@ -80,7 +80,7 @@ steps:
         - step: scan
           artifact: findings
           as: scan_findings
-          schema_path: .wave/contracts/shared-findings.schema.json
+          schema_path: .agents/contracts/shared-findings.schema.json
     exec:
       type: prompt
       source: |
@@ -114,7 +114,7 @@ steps:
         bullet lists for scannability.
     output_artifacts:
       - name: report
-        path: .wave/output/tests-report.md
+        path: .agents/output/tests-report.md
         type: markdown
     retry:
       policy: standard
@@ -123,8 +123,8 @@ steps:
       contract:
         type: agent_review
         persona: navigator
-        criteria_path: .wave/contracts/quality-review-criteria.md
-        source: .wave/output/tests-report.md
+        criteria_path: .agents/contracts/quality-review-criteria.md
+        source: .agents/output/tests-report.md
         model: cheapest
         token_budget: 8000
         timeout: 90s

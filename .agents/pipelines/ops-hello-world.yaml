@@ -63,7 +63,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/smoke-review.schema.json
+        schema_path: .agents/contracts/smoke-review.schema.json
         on_failure: fail
     retry:
       policy: standard

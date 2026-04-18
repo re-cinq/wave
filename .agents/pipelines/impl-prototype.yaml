@@ -35,12 +35,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 steps:
@@ -142,7 +142,7 @@ steps:
         path: requirements.md
         type: markdown
       - name: contract_data
-        path: .wave/artifact.json
+        path: .agents/artifact.json
         type: json
 
     retry:
@@ -151,7 +151,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/spec-phase.schema.json
+        schema_path: .agents/contracts/spec-phase.schema.json
         must_pass: true
         on_failure: retry
 
@@ -262,7 +262,7 @@ steps:
         path: stakeholder-summary.md
         type: markdown
       - name: contract_data
-        path: .wave/artifact.json
+        path: .agents/artifact.json
         type: json
 
     retry:
@@ -271,7 +271,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/docs-phase.schema.json
+        schema_path: .agents/contracts/docs-phase.schema.json
         must_pass: true
         on_failure: retry
 
@@ -393,7 +393,7 @@ steps:
         path: interfaces.md
         type: markdown
       - name: contract_data
-        path: .wave/artifact.json
+        path: .agents/artifact.json
         type: json
 
     retry:
@@ -402,7 +402,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/dummy-phase.schema.json
+        schema_path: .agents/contracts/dummy-phase.schema.json
         must_pass: true
         on_failure: retry
 
@@ -530,7 +530,7 @@ steps:
         path: implementation-checklist.md
         type: markdown
       - name: contract_data
-        path: .wave/artifact.json
+        path: .agents/artifact.json
         type: json
 
     retry:
@@ -539,7 +539,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/implement-phase.schema.json
+        schema_path: .agents/contracts/implement-phase.schema.json
         must_pass: true
         on_failure: retry
 
@@ -645,7 +645,7 @@ steps:
       contract:
         type: json_schema
         source: pr-info.json
-        schema_path: .wave/contracts/pr-result.schema.json
+        schema_path: .agents/contracts/pr-result.schema.json
         must_pass: true
         on_failure: retry
 

@@ -39,12 +39,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -116,7 +116,7 @@ steps:
           be split into multiple epics first.
 
         OUTPUT FORMAT:
-        Write the assessment as structured JSON to .wave/artifact.json matching the
+        Write the assessment as structured JSON to .agents/artifact.json matching the
         epic-assessment schema. Include: epic (number, title, url, body_summary),
         is_epic (boolean), themes (array), planned_sub_issues (array with tentative
         titles, complexity, dependencies, overlap), existing_issues (array of potentially
@@ -131,7 +131,7 @@ steps:
         themes, or ignores existing issues that cover the same ground.
     output_artifacts:
       - name: epic_assessment
-        path: .wave/artifact.json
+        path: .agents/artifact.json
         type: json
         required: true
     retry:
@@ -140,7 +140,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/epic-assessment.schema.json
+        schema_path: .agents/contracts/epic-assessment.schema.json
         validate: true
         must_pass: true
         on_failure: retry
@@ -225,7 +225,7 @@ steps:
           continue with remaining issues. Do not abort the entire step.
 
         OUTPUT FORMAT:
-        Write the results as structured JSON to .wave/artifact.json with:
+        Write the results as structured JSON to .agents/artifact.json with:
         - parent_issue: object with number, url, and repository
         - created_issues: array of objects, each with number, title, url, labels (array),
           success (boolean), complexity (S/M/L), dependencies (array of issue numbers)
@@ -244,12 +244,12 @@ steps:
         scope creep.
     output_artifacts:
       - name: scope_plan
-        path: .wave/artifact.json
+        path: .agents/artifact.json
         type: json
         required: true
     outcomes:
       - type: issue
-        extract_from: .wave/artifact.json
+        extract_from: .agents/artifact.json
         json_path: .created_issues[*].url
         label: "First Sub-Issue"
     retry:
@@ -258,7 +258,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/scope-plan.schema.json
+        schema_path: .agents/contracts/scope-plan.schema.json
         validate: true
         must_pass: true
         on_failure: retry
@@ -335,7 +335,7 @@ steps:
         - Do NOT modify the markdown_summary to hide failures. Report accurately.
 
         OUTPUT FORMAT:
-        Write the verification report as structured JSON to .wave/artifact.json with:
+        Write the verification report as structured JSON to .agents/artifact.json with:
         - parent_issue: object with number (integer) and url (string)
         - verified_issues: array of objects, each with:
           - number: integer
@@ -360,7 +360,7 @@ steps:
         summary that does not match the actual verification results.
     output_artifacts:
       - name: scope_report
-        path: .wave/artifact.json
+        path: .agents/artifact.json
         type: json
         required: true
     retry:
@@ -369,7 +369,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/scope-report.schema.json
+        schema_path: .agents/contracts/scope-report.schema.json
         validate: true
         must_pass: true
         on_failure: retry

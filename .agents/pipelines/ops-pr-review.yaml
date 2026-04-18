@@ -43,12 +43,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -87,10 +87,10 @@ steps:
 
         The core-review step (ops-pr-review-core sub-pipeline) has completed and written
         two output files you must read:
-        - `.wave/output/review-verdict.json`: The structured review verdict JSON
+        - `.agents/output/review-verdict.json`: The structured review verdict JSON
           containing the overall verdict (APPROVE/REQUEST_CHANGES/COMMENT/REJECT),
           finding arrays by severity, and positive notes.
-        - `.wave/output/diff-analysis.json`: The diff analysis JSON containing PR
+        - `.agents/output/diff-analysis.json`: The diff analysis JSON containing PR
           metadata — especially the PR number needed for the comment command.
 
         Read BOTH files before composing the comment.
@@ -99,7 +99,7 @@ steps:
 
         ### Step 1: Extract PR Number
 
-        Read `.wave/output/diff-analysis.json` and extract the PR number from
+        Read `.agents/output/diff-analysis.json` and extract the PR number from
         `pr_metadata.number`. Parse the repository owner/name if needed for the
         comment command.
 
@@ -182,7 +182,7 @@ steps:
         includes raw JSON, or uses a hostile tone that discourages the author.
     output_artifacts:
       - name: publish-result
-        path: .wave/output/publish-result.json
+        path: .agents/output/publish-result.json
         type: json
     retry:
       policy: aggressive
@@ -190,12 +190,12 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/publish-result.json
-        schema_path: .wave/contracts/gh-pr-comment-result.schema.json
+        source: .agents/output/publish-result.json
+        schema_path: .agents/contracts/gh-pr-comment-result.schema.json
         must_pass: true
         on_failure: retry
     outcomes:
       - type: url
-        extract_from: .wave/output/publish-result.json
+        extract_from: .agents/output/publish-result.json
         json_path: .comment_url
         label: "Review Comment"

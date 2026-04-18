@@ -31,13 +31,13 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo 'wave-validate started at $(date)' >> .wave/output/hook-log.txt"
+    command: "echo 'wave-validate started at $(date)' >> .agents/output/hook-log.txt"
     blocking: false
 
   - name: log-step
     event: step_completed
     type: command
-    command: "echo 'step completed: $WAVE_HOOK_STEP_ID' >> .wave/output/hook-log.txt"
+    command: "echo 'step completed: $WAVE_HOOK_STEP_ID' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -85,12 +85,12 @@ steps:
            - Verify at least one adapter is configured
            - Record: adapter_count (integer), adapter_names (array of strings)
         3. Check persona definitions:
-           - Look for persona files in .wave/personas/ directory
+           - Look for persona files in .agents/personas/ directory
            - Verify at least one persona is defined
            - For each persona, check that it has required fields (role, description)
            - Record: persona_count (integer), persona_names (array of strings)
         4. Check pipeline files:
-           - List all .yaml files in .wave/pipelines/
+           - List all .yaml files in .agents/pipelines/
            - Verify at least one pipeline file exists
            - For a sample of pipeline files (first 5), verify they parse as valid YAML
              and contain required fields (kind, metadata.name, steps)
@@ -140,7 +140,7 @@ steps:
         parse correctly.
     output_artifacts:
       - name: config-check
-        path: .wave/output/config-check.json
+        path: .agents/output/config-check.json
         type: json
     retry:
       policy: patient
@@ -148,8 +148,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/config-check.json
-        schema_path: .wave/contracts/config-check.schema.json
+        source: .agents/output/config-check.json
+        schema_path: .agents/contracts/config-check.schema.json
         on_failure: retry
     edges:
       - target: sub-pipeline-test
@@ -234,7 +234,7 @@ steps:
         A bad diagnosis says "something went wrong" without specifics.
     output_artifacts:
       - name: diagnosis
-        path: .wave/output/diagnosis.md
+        path: .agents/output/diagnosis.md
         type: markdown
     retry:
       policy: patient
@@ -242,7 +242,7 @@ steps:
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/diagnosis.md
+        source: .agents/output/diagnosis.md
         on_failure: retry
     edges:
       - target: approval-gate
@@ -370,12 +370,12 @@ steps:
         | Feature | Status | Evidence | Notes |
         |---------|--------|----------|-------|
         | Model routing | VERIFIED | This step executing proves cheapest model routing works | — |
-        | Sub-pipeline composition | VERIFIED | ops-hello-world artifacts present in .wave/output/ | — |
+        | Sub-pipeline composition | VERIFIED | ops-hello-world artifacts present in .agents/output/ | — |
         | Command steps | VERIFIED | run-tests step completed, pipeline reached this step | — |
         | Conditional edges | VERIFIED | test-gate routed to approval-gate (success path) | — |
         | Thread continuity | UNTESTED | Failure path not taken, diagnose-failure did not execute | Expected when tests pass |
         | Retry policies | VERIFIED | check-config used patient policy, completed without retry | — |
-        | Lifecycle hooks | VERIFIED | .wave/output/hook-log.txt exists with entries | — |
+        | Lifecycle hooks | VERIFIED | .agents/output/hook-log.txt exists with entries | — |
         | LLM-as-judge | VERIFIED | This report is being evaluated by llm_judge contract | — |
 
         ## Recommendations
@@ -383,7 +383,7 @@ steps:
         ```
     output_artifacts:
       - name: report
-        path: .wave/output/validation-report.md
+        path: .agents/output/validation-report.md
         type: markdown
     retry:
       policy: standard
@@ -391,7 +391,7 @@ steps:
     handover:
       contract:
         type: llm_judge
-        source: .wave/output/validation-report.md
+        source: .agents/output/validation-report.md
         model: cheapest
         criteria:
           - "Report covers all 8 feature categories"

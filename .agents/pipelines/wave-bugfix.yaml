@@ -32,7 +32,7 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 steps:
@@ -113,7 +113,7 @@ steps:
 
         OUTPUT FORMAT:
         Write the findings as structured JSON conforming to
-        .wave/contracts/bug-investigation.schema.json. Required fields: root_cause,
+        .agents/contracts/bug-investigation.schema.json. Required fields: root_cause,
         affected_files, fix_approach. Include these additional fields for richer
         analysis: bug_summary (string), root_cause as object (with file, function,
         line_range, condition, and explanation), execution_path (array of function
@@ -131,7 +131,7 @@ steps:
         similar patterns that need the same fix.
     output_artifacts:
       - name: findings
-        path: .wave/output/findings.json
+        path: .agents/output/findings.json
         type: json
     retry:
       policy: patient
@@ -139,8 +139,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/findings.json
-        schema_path: .wave/contracts/bug-investigation.schema.json
+        source: .agents/output/findings.json
+        schema_path: .agents/contracts/bug-investigation.schema.json
         on_failure: retry
 
   - id: fix

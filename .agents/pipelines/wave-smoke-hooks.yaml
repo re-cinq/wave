@@ -19,46 +19,46 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "mkdir -p .wave/output && echo 'HOOK_START' >> .wave/output/hook-log.txt"
+    command: "mkdir -p .agents/output && echo 'HOOK_START' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo 'HOOK_COMPLETE' >> .wave/output/hook-log.txt"
+    command: "echo 'HOOK_COMPLETE' >> .agents/output/hook-log.txt"
     blocking: false
 
 steps:
   - id: work
     type: command
     script: |
-      mkdir -p .wave/output
-      echo '{"step":"work","status":"done"}' > .wave/output/work.json
+      mkdir -p .agents/output
+      echo '{"step":"work","status":"done"}' > .agents/output/work.json
     output_artifacts:
       - name: work
-        path: .wave/output/work.json
+        path: .agents/output/work.json
         type: json
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/work.json
+        source: .agents/output/work.json
         on_failure: fail
 
   - id: verify-hooks
     type: command
     dependencies: [work]
     script: |
-      mkdir -p .wave/output
-      if grep -q "HOOK_START" .wave/output/hook-log.txt 2>/dev/null; then
-        echo '{"status":"pass","hook_start":true}' > .wave/output/hooks-verify.json
+      mkdir -p .agents/output
+      if grep -q "HOOK_START" .agents/output/hook-log.txt 2>/dev/null; then
+        echo '{"status":"pass","hook_start":true}' > .agents/output/hooks-verify.json
       else
-        echo '{"status":"fail","error":"HOOK_START not found"}' > .wave/output/hooks-verify.json
+        echo '{"status":"fail","error":"HOOK_START not found"}' > .agents/output/hooks-verify.json
       fi
     output_artifacts:
       - name: hooks-verify
-        path: .wave/output/hooks-verify.json
+        path: .agents/output/hooks-verify.json
         type: json
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/hooks-verify.json
+        source: .agents/output/hooks-verify.json
         on_failure: fail

@@ -34,12 +34,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 # Pipeline structure implements the Double Diamond:
@@ -142,7 +142,7 @@ steps:
         produces a vague focus hint that does not help narrow the search.
     output_artifacts:
       - name: context
-        path: .wave/output/context.json
+        path: .agents/output/context.json
         type: json
     retry:
       policy: patient
@@ -150,8 +150,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/context.json
-        schema_path: .wave/contracts/recinq-context.schema.json
+        source: .agents/output/context.json
+        schema_path: .agents/contracts/recinq-context.schema.json
         must_pass: true
         on_failure: retry
 
@@ -242,7 +242,7 @@ steps:
         that appear in multiple findings.
     output_artifacts:
       - name: findings
-        path: .wave/output/divergent-findings.json
+        path: .agents/output/divergent-findings.json
         type: json
     retry:
       policy: patient
@@ -250,8 +250,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/divergent-findings.json
-        schema_path: .wave/contracts/divergent-findings.schema.json
+        source: .agents/output/divergent-findings.json
+        schema_path: .agents/contracts/divergent-findings.schema.json
         must_pass: true
         on_failure: retry
 
@@ -357,7 +357,7 @@ steps:
         investigation.
     output_artifacts:
       - name: validated_findings
-        path: .wave/output/validated-findings.json
+        path: .agents/output/validated-findings.json
         type: json
     retry:
       policy: patient
@@ -365,8 +365,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/validated-findings.json
-        schema_path: .wave/contracts/validated-findings.schema.json
+        source: .agents/output/validated-findings.json
+        schema_path: .agents/contracts/validated-findings.schema.json
         must_pass: true
         on_failure: retry
 
@@ -479,7 +479,7 @@ steps:
         discovering anything new.
     output_artifacts:
       - name: probed_findings
-        path: .wave/output/probed-findings.json
+        path: .agents/output/probed-findings.json
         type: json
     retry:
       policy: patient
@@ -487,8 +487,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/probed-findings.json
-        schema_path: .wave/contracts/probed-findings.schema.json
+        source: .agents/output/probed-findings.json
+        schema_path: .agents/contracts/probed-findings.schema.json
         must_pass: true
         on_failure: retry
 
@@ -613,7 +613,7 @@ steps:
         to redundant or conflicting changes in the simplify step.
     output_artifacts:
       - name: proposals
-        path: .wave/output/convergent-proposals.json
+        path: .agents/output/convergent-proposals.json
         type: json
     retry:
       policy: standard
@@ -621,8 +621,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/convergent-proposals.json
-        schema_path: .wave/contracts/convergent-proposals.schema.json
+        source: .agents/output/convergent-proposals.json
+        schema_path: .agents/contracts/convergent-proposals.schema.json
         must_pass: true
         on_failure: retry
 
@@ -763,7 +763,7 @@ steps:
         persona: summarizer
     output_artifacts:
       - name: result
-        path: .wave/output/result.md
+        path: .agents/output/result.md
         type: markdown
 
   # ── Reporting ────────────────────────────────────────────────────────
@@ -874,12 +874,12 @@ steps:
         of summarizing).
     output_artifacts:
       - name: report
-        path: .wave/output/report.md
+        path: .agents/output/report.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/report.md
+        source: .agents/output/report.md
 
   # ── Publish ─────────────────────────────────────────────────────────
   - id: publish
@@ -943,7 +943,7 @@ steps:
         3. **Create the pull request**: Use the forge CLI to open the PR with the report
            as the body:
            ```bash
-           {{ forge.cli_tool }} {{ forge.pr_command }} create --title "$(cat /tmp/wave-pr-title.txt)" --body-file .wave/artifacts/report
+           {{ forge.cli_tool }} {{ forge.pr_command }} create --title "$(cat /tmp/wave-pr-title.txt)" --body-file .agents/artifacts/report
            ```
            Capture the PR URL from the command output.
 
@@ -990,7 +990,7 @@ steps:
         silently, creates PRs with empty bodies, or does not link back to the source.
     output_artifacts:
       - name: pr-result
-        path: .wave/output/pr-result.json
+        path: .agents/output/pr-result.json
         type: json
     retry:
       policy: aggressive
@@ -998,12 +998,12 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/pr-result.json
-        schema_path: .wave/contracts/pr-result.schema.json
+        source: .agents/output/pr-result.json
+        schema_path: .agents/contracts/pr-result.schema.json
         must_pass: true
         on_failure: retry
     outcomes:
       - type: pr
-        extract_from: .wave/output/pr-result.json
+        extract_from: .agents/output/pr-result.json
         json_path: .pr_url
         label: "Pull Request"

@@ -20,37 +20,37 @@ steps:
   - id: classify
     type: command
     script: |
-      mkdir -p .wave/output
-      go test ./internal/classify/... -v -count=1 > .wave/output/classify-results.txt 2>&1
-      echo "exit_code=$?" >> .wave/output/classify-results.txt
+      mkdir -p .agents/output
+      go test ./internal/classify/... -v -count=1 > .agents/output/classify-results.txt 2>&1
+      echo "exit_code=$?" >> .agents/output/classify-results.txt
     output_artifacts:
       - name: classify-results
-        path: .wave/output/classify-results.txt
+        path: .agents/output/classify-results.txt
         type: text
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/classify-results.txt
+        source: .agents/output/classify-results.txt
         on_failure: fail
 
   - id: verify
     type: command
     dependencies: [classify]
     script: |
-      mkdir -p .wave/output
-      if grep -q "FAIL" .wave/output/classify-results.txt; then
-        echo '{"status":"fail","reason":"FAIL found in test output"}' > .wave/output/verify.json
-      elif grep -q "PASS" .wave/output/classify-results.txt; then
-        echo '{"status":"pass","reason":"All tests passed"}' > .wave/output/verify.json
+      mkdir -p .agents/output
+      if grep -q "FAIL" .agents/output/classify-results.txt; then
+        echo '{"status":"fail","reason":"FAIL found in test output"}' > .agents/output/verify.json
+      elif grep -q "PASS" .agents/output/classify-results.txt; then
+        echo '{"status":"pass","reason":"All tests passed"}' > .agents/output/verify.json
       else
-        echo '{"status":"fail","reason":"No PASS found in test output"}' > .wave/output/verify.json
+        echo '{"status":"fail","reason":"No PASS found in test output"}' > .agents/output/verify.json
       fi
     output_artifacts:
       - name: verify
-        path: .wave/output/verify.json
+        path: .agents/output/verify.json
         type: json
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/verify.json
+        source: .agents/output/verify.json
         on_failure: fail

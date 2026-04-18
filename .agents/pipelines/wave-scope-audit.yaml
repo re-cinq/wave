@@ -55,12 +55,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[wave-scope-audit] started run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[wave-scope-audit] started run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-step
     event: step_completed
     type: command
-    command: "echo '[wave-scope-audit] step=$WAVE_HOOK_STEP_ID completed' >> .wave/output/hook-log.txt"
+    command: "echo '[wave-scope-audit] step=$WAVE_HOOK_STEP_ID completed' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -83,7 +83,7 @@ steps:
     dependencies: [run-audits]
     aggregate:
       from: "{{ run-audits.output }}"
-      into: .wave/output/merged-findings.json
+      into: .agents/output/merged-findings.json
       strategy: merge_arrays
 
   # ── Phase 3: Synthesize unified report + scope document ─────────────────
@@ -136,10 +136,10 @@ steps:
            - Package health matrix: for every package under internal/, classify as:
              active (used, tested, maintained), dead (no references, should be removed),
              or partial (partially used or poorly tested).
-           - Pipeline fleet assessment: for every pipeline in .wave/pipelines/, classify as:
+           - Pipeline fleet assessment: for every pipeline in .agents/pipelines/, classify as:
              core (essential for daily use), useful (valuable but not critical), or
              remove (dead, redundant, or broken).
-           - Persona fleet assessment: for every persona in .wave/personas/, classify as:
+           - Persona fleet assessment: for every persona in .agents/personas/, classify as:
              essential (used by core pipelines), specialized (used by specific workflows),
              or remove (unused or redundant).
            - Recommended consolidation actions: ordered list of specific actions to reduce
@@ -185,10 +185,10 @@ steps:
         Run-ID: {{ run.id }}
     output_artifacts:
       - name: audit-report
-        path: .wave/output/audit-synthesis.md
+        path: .agents/output/audit-synthesis.md
         type: markdown
       - name: wave-scope
-        path: .wave/output/wave-scope.md
+        path: .agents/output/wave-scope.md
         type: markdown
     retry:
       policy: patient
@@ -196,7 +196,7 @@ steps:
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/wave-scope.md
+        source: .agents/output/wave-scope.md
         on_failure: retry
 
   # ── Phase 4: Human gate — approve scope before issue creation ───────────
@@ -316,10 +316,10 @@ steps:
         duplicates existing issues from previous runs.
     output_artifacts:
       - name: created-issues
-        path: .wave/output/created-issues.md
+        path: .agents/output/created-issues.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/created-issues.md
+        source: .agents/output/created-issues.md
         on_failure: skip

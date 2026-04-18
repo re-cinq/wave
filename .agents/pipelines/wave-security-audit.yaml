@@ -37,12 +37,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -153,7 +153,7 @@ steps:
         categories without mapping them to actual code paths in the project.
     output_artifacts:
       - name: threat-model
-        path: .wave/output/threat-model.json
+        path: .agents/output/threat-model.json
         type: json
     retry:
       policy: patient
@@ -161,8 +161,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/threat-model.json
-        schema_path: .wave/contracts/security-scan.schema.json
+        source: .agents/output/threat-model.json
+        schema_path: .agents/contracts/security-scan.schema.json
         on_failure: retry
 
   - id: verify
@@ -269,9 +269,9 @@ steps:
         dismisses threats without reading the actual code paths.
     output_artifacts:
       - name: security-report
-        path: .wave/output/security-report.md
+        path: .agents/output/security-report.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/security-report.md
+        source: .agents/output/security-report.md

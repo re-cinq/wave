@@ -36,12 +36,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 steps:
@@ -128,7 +128,7 @@ steps:
         in a non-buildable state.
     output_artifacts:
       - name: assessment
-        path: .wave/output/bootstrap-assessment.json
+        path: .agents/output/bootstrap-assessment.json
         type: json
     retry:
       policy: patient
@@ -136,8 +136,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/bootstrap-assessment.json
-        schema_path: .wave/contracts/bootstrap-assessment.schema.json
+        source: .agents/output/bootstrap-assessment.json
+        schema_path: .agents/contracts/bootstrap-assessment.schema.json
         must_pass: true
         on_failure: retry
 
@@ -335,7 +335,7 @@ steps:
 
         3. Stage each project file individually by explicit path. For every file shown by
            `git status`, run `git add <filepath>` — but NEVER stage any of these paths:
-           - `.wave/` (pipeline-internal files)
+           - `.agents/` (pipeline-internal files)
            - `.claude/` (Claude Code configuration)
            - `CLAUDE.md` (Claude Code instructions)
            You may stage files using a single `git add` command with multiple paths, but
@@ -368,7 +368,7 @@ steps:
           never be committed.
         - Do NOT include Co-Authored-By, Signed-off-by, or any AI attribution lines in
           the commit message.
-        - Do NOT commit `.wave/`, `.claude/`, or `CLAUDE.md`.
+        - Do NOT commit `.agents/`, `.claude/`, or `CLAUDE.md`.
         - Do NOT amend, rebase, or force-push. Create exactly one new commit.
         - Do NOT create the commit if `git status` shows no changes to stage. Report
           that the scaffold step produced no files and exit cleanly.

@@ -1292,7 +1292,7 @@ wave skills add ./my-skill --project
 
 ### skills doctor
 
-Diagnose discovery issues: duplicate names across roots, malformed frontmatter, deprecated `.wave/skills/` references.
+Diagnose discovery issues: duplicate names across roots, malformed frontmatter, deprecated `.agents/skills/` references.
 
 ```bash
 wave skills doctor

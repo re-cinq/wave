@@ -30,12 +30,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -81,8 +81,8 @@ steps:
         Determine what to inspect based on the input format:
 
         - **Empty or "last pipeline run"**: Find the most recent pipeline run by scanning
-          `.wave/workspaces/` directory timestamps and recent git activity. Use
-          `ls -lt .wave/workspaces/` to find the latest run.
+          `.agents/workspaces/` directory timestamps and recent git activity. Use
+          `ls -lt .agents/workspaces/` to find the latest run.
         - **"current pr" or "PR #N"**: Inspect the current or specified pull request. Use
           `git log` and `{{ forge.cli_tool }} {{ forge.pr_command }} view` to get PR
           details, commits, and review state.
@@ -128,9 +128,9 @@ steps:
 
         ### Step 4: Collect Pipeline Artifacts
 
-        Scan `.wave/workspaces/` for the relevant pipeline run directory:
+        Scan `.agents/workspaces/` for the relevant pipeline run directory:
         ```bash
-        ls -la .wave/workspaces/
+        ls -la .agents/workspaces/
         ```
 
         For the relevant run, list all output artifacts and read their contents:
@@ -188,7 +188,7 @@ steps:
         output, or collects evidence from the wrong scope.
     output_artifacts:
       - name: evidence
-        path: .wave/output/supervision-evidence.json
+        path: .agents/output/supervision-evidence.json
         type: json
     retry:
       policy: patient
@@ -196,8 +196,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/supervision-evidence.json
-        schema_path: .wave/contracts/supervision-evidence.schema.json
+        source: .agents/output/supervision-evidence.json
+        schema_path: .agents/contracts/supervision-evidence.schema.json
         on_failure: retry
 
   - id: evaluate
@@ -352,7 +352,7 @@ steps:
         fine"), or rates process quality without transcript data.
     output_artifacts:
       - name: evaluation
-        path: .wave/output/supervision-evaluation.json
+        path: .agents/output/supervision-evaluation.json
         type: json
     retry:
       policy: patient
@@ -360,8 +360,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/supervision-evaluation.json
-        schema_path: .wave/contracts/supervision-evaluation.schema.json
+        source: .agents/output/supervision-evaluation.json
+        schema_path: .agents/contracts/supervision-evaluation.schema.json
         on_failure: retry
 
   - id: verdict
@@ -544,9 +544,9 @@ steps:
         rubber-stamps the evaluation.
     output_artifacts:
       - name: verdict
-        path: .wave/output/supervision-verdict.md
+        path: .agents/output/supervision-verdict.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/supervision-verdict.md
+        source: .agents/output/supervision-verdict.md

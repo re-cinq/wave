@@ -33,12 +33,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -147,7 +147,7 @@ steps:
         confuses test existence with test adequacy.
     output_artifacts:
       - name: analysis
-        path: .wave/output/refactor-analysis.json
+        path: .agents/output/refactor-analysis.json
         type: json
     retry:
       policy: patient
@@ -155,8 +155,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/refactor-analysis.json
-        schema_path: .wave/contracts/refactor-analysis.schema.json
+        source: .agents/output/refactor-analysis.json
+        schema_path: .agents/contracts/refactor-analysis.schema.json
         on_failure: retry
 
   - id: test-baseline
@@ -273,7 +273,7 @@ steps:
         on_failure: retry
     output_artifacts:
       - name: baseline
-        path: .wave/output/test-baseline.md
+        path: .agents/output/test-baseline.md
         type: markdown
   - id: refactor
     persona: craftsman
@@ -494,14 +494,14 @@ steps:
         objective behavior preservation.
     output_artifacts:
       - name: verification
-        path: .wave/output/verification.md
+        path: .agents/output/verification.md
         type: markdown
     handover:
       contract:
         type: agent_review
         persona: navigator
-        criteria_path: .wave/contracts/verification-criteria.md
-        source: .wave/output/verification.md
+        criteria_path: .agents/contracts/verification-criteria.md
+        source: .agents/output/verification.md
         model: cheapest
         token_budget: 8000
         timeout: 90s

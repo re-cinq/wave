@@ -41,12 +41,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -153,7 +153,7 @@ steps:
         criteria extraction.
     output_artifacts:
       - name: inventory
-        path: .wave/output/inventory.json
+        path: .agents/output/inventory.json
         type: json
     retry:
       policy: patient
@@ -161,8 +161,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/inventory.json
-        schema_path: .wave/contracts/audit-inventory.schema.json
+        source: .agents/output/inventory.json
+        schema_path: .agents/contracts/audit-inventory.schema.json
         on_failure: retry
 
   - id: audit-items
@@ -271,7 +271,7 @@ steps:
         gut feeling without reading code or checking git history.
     output_artifacts:
       - name: findings
-        path: .wave/output/audit-findings.json
+        path: .agents/output/audit-findings.json
         type: json
     retry:
       policy: patient
@@ -279,8 +279,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/audit-findings.json
-        schema_path: .wave/contracts/audit-findings.schema.json
+        source: .agents/output/audit-findings.json
+        schema_path: .agents/contracts/audit-findings.schema.json
         on_failure: retry
 
   - id: compose-triage
@@ -377,7 +377,7 @@ steps:
         grouping, or creates actions for items that need no remediation.
     output_artifacts:
       - name: triage-report
-        path: .wave/output/triage-report.json
+        path: .agents/output/triage-report.json
         type: json
     retry:
       policy: standard
@@ -385,8 +385,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/triage-report.json
-        schema_path: .wave/contracts/audit-triage-report.schema.json
+        source: .agents/output/triage-report.json
+        schema_path: .agents/contracts/audit-triage-report.schema.json
         on_failure: retry
 
   - id: publish
@@ -501,7 +501,7 @@ steps:
         errors.
     output_artifacts:
       - name: publish-result
-        path: .wave/output/publish-result.json
+        path: .agents/output/publish-result.json
         type: json
     retry:
       policy: aggressive
@@ -509,11 +509,11 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/publish-result.json
-        schema_path: .wave/contracts/audit-publish-result.schema.json
+        source: .agents/output/publish-result.json
+        schema_path: .agents/contracts/audit-publish-result.schema.json
         on_failure: retry
     outcomes:
       - type: issue
-        extract_from: .wave/output/publish-result.json
+        extract_from: .agents/output/publish-result.json
         json_path: .issues_created[].url
         label: "Audit Remediation Issue"

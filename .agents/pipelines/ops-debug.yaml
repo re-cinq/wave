@@ -36,12 +36,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 steps:
@@ -131,7 +131,7 @@ steps:
         documenting symptoms.
     output_artifacts:
       - name: reproduction
-        path: .wave/output/reproduction.json
+        path: .agents/output/reproduction.json
         type: json
     retry:
       policy: patient
@@ -139,8 +139,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/reproduction.json
-        schema_path: .wave/contracts/debug-reproduction.schema.json
+        source: .agents/output/reproduction.json
+        schema_path: .agents/contracts/debug-reproduction.schema.json
         on_failure: retry
     edges:
       - target: hypothesize
@@ -239,7 +239,7 @@ steps:
         on the first plausible explanation.
     output_artifacts:
       - name: hypotheses
-        path: .wave/output/hypotheses.json
+        path: .agents/output/hypotheses.json
         type: json
     retry:
       policy: patient
@@ -247,8 +247,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/hypotheses.json
-        schema_path: .wave/contracts/debug-hypotheses.schema.json
+        source: .agents/output/hypotheses.json
+        schema_path: .agents/contracts/debug-hypotheses.schema.json
         on_failure: retry
 
   - id: investigate
@@ -373,12 +373,12 @@ steps:
         could lead the fix step in multiple directions.
     output_artifacts:
       - name: findings
-        path: .wave/output/investigation.md
+        path: .agents/output/investigation.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/investigation.md
+        source: .agents/output/investigation.md
 
   - id: fix
     persona: craftsman
@@ -487,7 +487,7 @@ steps:
       max_attempts: 3
     output_artifacts:
       - name: fix
-        path: .wave/output/fix-summary.md
+        path: .agents/output/fix-summary.md
         type: markdown
 
   - id: run-tests

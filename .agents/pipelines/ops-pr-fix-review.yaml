@@ -27,12 +27,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 skills:
@@ -190,7 +190,7 @@ steps:
         impossible), or silently filters out findings it deems unimportant.
     output_artifacts:
       - name: review-findings
-        path: .wave/output/review-findings.json
+        path: .agents/output/review-findings.json
         type: json
     retry:
       policy: patient
@@ -198,8 +198,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/review-findings.json
-        schema_path: .wave/contracts/review-findings.schema.json
+        source: .agents/output/review-findings.json
+        schema_path: .agents/contracts/review-findings.schema.json
         on_failure: retry
 
   - id: triage
@@ -212,7 +212,7 @@ steps:
         - step: fetch-review
           artifact: review-findings
           as: raw_findings
-          schema_path: .wave/contracts/review-findings.schema.json
+          schema_path: .agents/contracts/review-findings.schema.json
     workspace:
       mount:
         - source: ./
@@ -248,7 +248,7 @@ steps:
         ### Step 1: Checkout the PR Branch
 
         ```bash
-        HEAD_BRANCH=$(cat .wave/artifacts/raw_findings | jq -r '.head_branch')  # reads the injected artifact
+        HEAD_BRANCH=$(cat .agents/artifacts/raw_findings | jq -r '.head_branch')  # reads the injected artifact
         git fetch origin "$HEAD_BRANCH"
         git checkout "$HEAD_BRANCH"
         ```
@@ -341,7 +341,7 @@ steps:
         areas.
     output_artifacts:
       - name: triage-verdict
-        path: .wave/output/triage-verdict.json
+        path: .agents/output/triage-verdict.json
         type: json
     retry:
       policy: patient
@@ -349,8 +349,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/triage-verdict.json
-        schema_path: .wave/contracts/triage-verdict.schema.json
+        source: .agents/output/triage-verdict.json
+        schema_path: .agents/contracts/triage-verdict.schema.json
         on_failure: retry
 
   - id: apply-fixes
@@ -401,7 +401,7 @@ steps:
         ### Step 1: Checkout the PR Branch
 
         ```bash
-        HEAD_BRANCH=$(cat .wave/artifacts/triage | jq -r '.head_branch')  # reads the injected artifact
+        HEAD_BRANCH=$(cat .agents/artifacts/triage | jq -r '.head_branch')  # reads the injected artifact
         git fetch origin "$HEAD_BRANCH"
         git checkout "$HEAD_BRANCH"
         ```
@@ -461,14 +461,14 @@ steps:
         ### Step 6: Commit and Push
 
         ```bash
-        # Stage only files you modified — NEVER .wave/, .claude/, or CLAUDE.md
+        # Stage only files you modified — NEVER .agents/, .claude/, or CLAUDE.md
         git diff --name-only
         git add $(git diff --name-only)
         git diff --cached --stat
 
         git commit -m "fix: address review findings
 
-        $(cat .wave/artifacts/triage | jq -r '.fixes[] | "- [\(.severity)] \(.summary)"' | head -10)"  # reads the injected artifact
+        $(cat .agents/artifacts/triage | jq -r '.fixes[] | "- [\(.severity)] \(.summary)"' | head -10)"  # reads the injected artifact
 
         git push origin "$HEAD_BRANCH"
         ```
@@ -485,7 +485,7 @@ steps:
           other issues, ignore them — they are out of scope.
         - Do NOT `git add -A`, `git add .`, or `git add --all`. Stage files by explicit
           path only.
-        - Do NOT stage Wave-internal directories (`.wave/`, `.claude/`) or `CLAUDE.md`.
+        - Do NOT stage Wave-internal directories (`.agents/`, `.claude/`) or `CLAUDE.md`.
         - Do NOT refactor, rename, or "improve" surrounding code. Minimal fixes only.
         - Do NOT apply rejected, deferred, or skipped findings. Only the `fixes` array.
         - If a fix has `confidence: "low"`, proceed with extra caution — double-check the
@@ -578,7 +578,7 @@ steps:
         - Do NOT use `git add -A`, `git add .`, or `git add --all`. Stage files by
           explicit path to avoid committing Wave-internal files.
         - Do NOT force push or rebase the branch. Add a new commit.
-        - Do NOT stage Wave-internal directories (`.wave/`, `.claude/`) or `CLAUDE.md`.
+        - Do NOT stage Wave-internal directories (`.agents/`, `.claude/`) or `CLAUDE.md`.
         - Do NOT introduce new features, refactors, or improvements. This is a pure
           correction step.
         - If the test failure appears unrelated to the previous fix (a flaky test or
@@ -661,8 +661,8 @@ steps:
         ### Step 1: Extract PR Metadata
 
         ```bash
-        PR_NUMBER=$(cat .wave/artifacts/raw_findings | jq -r '.pr_number')  # reads the injected artifact
-        REPO=$(cat .wave/artifacts/raw_findings | jq -r '.repo')
+        PR_NUMBER=$(cat .agents/artifacts/raw_findings | jq -r '.pr_number')  # reads the injected artifact
+        REPO=$(cat .agents/artifacts/raw_findings | jq -r '.repo')
         echo "PR: $REPO#$PR_NUMBER"
         ```
 
@@ -777,11 +777,11 @@ steps:
         post a wall of text that obscures the actual decisions made.
     output_artifacts:
       - name: resolution-summary
-        path: .wave/output/resolution-summary.json
+        path: .agents/output/resolution-summary.json
         type: json
     outcomes:
       - type: url
-        extract_from: .wave/output/resolution-summary.json
+        extract_from: .agents/output/resolution-summary.json
         json_path: .comment_url
         label: "Review Comment"
     retry:

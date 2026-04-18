@@ -40,12 +40,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -123,7 +123,7 @@ steps:
         or fabricates data that causes the research to address the wrong questions.
     output_artifacts:
       - name: issue-content
-        path: .wave/output/issue-content.json
+        path: .agents/output/issue-content.json
         type: json
     retry:
       policy: aggressive
@@ -131,8 +131,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/issue-content.json
-        schema_path: .wave/contracts/issue-content.schema.json
+        source: .agents/output/issue-content.json
+        schema_path: .agents/contracts/issue-content.schema.json
         on_failure: retry
 
   - id: analyze-topics
@@ -219,7 +219,7 @@ steps:
         redundant, or address questions already answered in the issue body.
     output_artifacts:
       - name: topics
-        path: .wave/output/research-topics.json
+        path: .agents/output/research-topics.json
         type: json
     retry:
       policy: patient
@@ -227,8 +227,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/research-topics.json
-        schema_path: .wave/contracts/research-topics.schema.json
+        source: .agents/output/research-topics.json
+        schema_path: .agents/contracts/research-topics.schema.json
         on_failure: retry
 
   - id: research-topics
@@ -325,7 +325,7 @@ steps:
         "inconclusive" without evidence of genuine search effort.
     output_artifacts:
       - name: findings
-        path: .wave/output/research-findings.json
+        path: .agents/output/research-findings.json
         type: json
     retry:
       policy: patient
@@ -333,8 +333,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/research-findings.json
-        schema_path: .wave/contracts/research-findings.schema.json
+        source: .agents/output/research-findings.json
+        schema_path: .agents/contracts/research-findings.schema.json
         on_failure: retry
 
   - id: synthesize-report
@@ -427,7 +427,7 @@ steps:
         without synthesis, makes unsupported recommendations, or is too long to read.
     output_artifacts:
       - name: report
-        path: .wave/output/research-report.json
+        path: .agents/output/research-report.json
         type: json
     retry:
       policy: standard
@@ -435,8 +435,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/research-report.json
-        schema_path: .wave/contracts/research-report.schema.json
+        source: .agents/output/research-report.json
+        schema_path: .agents/contracts/research-report.schema.json
         on_failure: retry
 
   - id: post-comment
@@ -528,11 +528,11 @@ steps:
         without recording the error.
     output_artifacts:
       - name: comment-result
-        path: .wave/output/comment-result.json
+        path: .agents/output/comment-result.json
         type: json
     outcomes:
       - type: url
-        extract_from: .wave/output/comment-result.json
+        extract_from: .agents/output/comment-result.json
         json_path: .comment.url
         label: "Research Comment"
     retry:
@@ -541,6 +541,6 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/comment-result.json
-        schema_path: .wave/contracts/comment-result.schema.json
+        source: .agents/output/comment-result.json
+        schema_path: .agents/contracts/comment-result.schema.json
         on_failure: retry

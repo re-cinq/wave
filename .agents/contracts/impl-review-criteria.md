@@ -10,8 +10,8 @@ You are reviewing an implementation step's output. Evaluate whether the implemen
 
 3. **No leaked files**: The implementation does not commit Wave-internal files that should not be in PRs:
    - `.claude/settings.json` or other `.claude/` files
-   - `.wave/artifacts/` files
-   - `.wave/output/` files
+   - `.agents/artifacts/` files
+   - `.agents/output/` files
    - `CLAUDE.md` (unless specifically modifying Wave's CLAUDE.md)
 
 ## Code Quality

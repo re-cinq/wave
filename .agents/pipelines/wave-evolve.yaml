@@ -37,12 +37,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -73,11 +73,11 @@ steps:
         CONTEXT:
         You are the first step in a three-step self-evolution pipeline (analyze, evolve,
         verify). Your analysis will be consumed by a craftsman persona who will apply
-        the highest-impact improvements. Only .wave/ files will be modified -- Go source
+        the highest-impact improvements. Only .agents/ files will be modified -- Go source
         code is out of scope. You have read-only access to the full project.
 
         REQUIREMENTS:
-        1. Analyze pipeline YAML files (`.wave/pipelines/`):
+        1. Analyze pipeline YAML files (`.agents/pipelines/`):
            - Read each pipeline file. For each step with a prompt, evaluate:
              - Clarity: Is the prompt unambiguous? Could an LLM misinterpret any instruction?
              - Structure: Does the prompt follow the Objective/Context/Requirements/
@@ -91,24 +91,24 @@ steps:
              for implementation)
            - Check artifact handoffs: does every step that consumes an artifact have it
              properly declared in memory.inject_artifacts?
-        2. Analyze persona definitions (`.wave/personas/`):
+        2. Analyze persona definitions (`.agents/personas/`):
            - Read each persona file. Evaluate:
              - Role clarity: Is the role description specific enough to guide behavior?
              - Permission scope: Do deny/allow rules match the persona's actual needs?
                (e.g., a navigator should not have Bash write permissions)
              - Constraints: Are behavioral constraints specific enough to prevent drift
                into other personas' responsibilities?
-        3. Analyze prompt templates (`.wave/prompts/` if present):
+        3. Analyze prompt templates (`.agents/prompts/` if present):
            - Are instructions structured for LLM comprehension (numbered lists, clear
              sections, explicit constraints)?
            - Do templates include concrete examples where helpful?
            - Are output format requirements explicit (field names, types, structure)?
-        4. Analyze contract schemas (`.wave/contracts/`):
+        4. Analyze contract schemas (`.agents/contracts/`):
            - For each schema, check: do required fields match what the step prompt asks
              the agent to produce? Are there required fields that agents consistently
              struggle to populate? Are there optional fields that should be required?
            - Cross-reference with actual step prompts to find mismatches.
-        5. Analyze execution patterns if traces are available (`.wave/traces/`):
+        5. Analyze execution patterns if traces are available (`.agents/traces/`):
            - Which steps retry most often? What causes the retries (contract failure,
              timeout, error)?
            - Which contracts fail most? Is it a schema mismatch or agent output quality?
@@ -122,7 +122,7 @@ steps:
              improvements first)
 
         CONSTRAINTS AND ANTI-PATTERNS:
-        - Do NOT suggest changes to Go source code. This pipeline modifies only .wave/ files.
+        - Do NOT suggest changes to Go source code. This pipeline modifies only .agents/ files.
         - Do NOT suggest changes you cannot verify. Every finding must reference a specific
           file path and the specific issue observed.
         - Do NOT produce generic improvement advice ("improve prompts"). Every improvement
@@ -146,7 +146,7 @@ steps:
         high-risk changes to working pipelines.
     output_artifacts:
       - name: evolution-analysis
-        path: .wave/output/evolution-analysis.json
+        path: .agents/output/evolution-analysis.json
         type: json
     retry:
       policy: patient
@@ -154,8 +154,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/evolution-analysis.json
-        schema_path: .wave/contracts/improvement-assessment.schema.json
+        source: .agents/output/evolution-analysis.json
+        schema_path: .agents/contracts/improvement-assessment.schema.json
         on_failure: retry
 
   - id: evolve
@@ -178,7 +178,7 @@ steps:
         OBJECTIVE:
         Apply the highest-impact improvements identified in the analysis to Wave's pipeline
         infrastructure files. Each change must be validated before proceeding to the next.
-        Only .wave/ files are in scope.
+        Only .agents/ files are in scope.
 
         CONTEXT:
         You are the second step in the self-evolution pipeline. The analysis artifact
@@ -214,8 +214,8 @@ steps:
            runs.
 
         CONSTRAINTS AND ANTI-PATTERNS:
-        - IMPORTANT: Only modify files under `.wave/` -- pipelines, personas, prompts, and
-          contracts. Do NOT modify Go source code, test files, or any file outside .wave/.
+        - IMPORTANT: Only modify files under `.agents/` -- pipelines, personas, prompts, and
+          contracts. Do NOT modify Go source code, test files, or any file outside .agents/.
         - Do NOT apply high-risk improvements regardless of their impact. The verify step
           cannot catch all regressions from risky changes.
         - Do NOT batch changes. Apply one, validate, then proceed to the next.
@@ -227,7 +227,7 @@ steps:
           revert and skip that improvement.
 
         OUTPUT FORMAT:
-        The output is the modified .wave/ files. The handover contract validates by running
+        The output is the modified .agents/ files. The handover contract validates by running
         `wave validate`. No explicit artifact is produced beyond the file changes and the
         validation passing.
 
@@ -239,7 +239,7 @@ steps:
         Go source code outside the scope.
     output_artifacts:
       - name: evolution-log
-        path: .wave/output/evolution-log.json
+        path: .agents/output/evolution-log.json
         type: json
     retry:
       policy: standard
@@ -275,7 +275,7 @@ steps:
         You are the third and final step in the self-evolution pipeline. The analysis
         artifact (injected as "original_findings") contains the prioritized list of
         improvements that the evolve step was instructed to apply. The evolve step has
-        already modified .wave/ files. Your job is to verify correctness, not to make
+        already modified .agents/ files. Your job is to verify correctness, not to make
         additional changes. You have read-only access to the codebase.
 
         REQUIREMENTS:
@@ -287,7 +287,7 @@ steps:
            c. Record status: applied (change matches), skipped (file unchanged, which
               is expected for high-risk items), or divergent (change was made but does
               not match the described improvement)
-        3. Validate all modified .wave/ files:
+        3. Validate all modified .agents/ files:
            a. YAML files: verify they parse as valid YAML. Check that template variables
               are properly formatted ({{ variable }} with spaces inside braces).
            b. JSON schema files: verify they parse as valid JSON. Check that required
@@ -295,14 +295,14 @@ steps:
            c. Persona files: verify role, description, and permission fields are present.
         4. Check for unintended modifications:
            a. Run `git diff --name-only` to see all changed files
-           b. Confirm ALL changed files are under .wave/. If any Go source files, test
-              files, or files outside .wave/ were modified, flag this as a critical issue.
+           b. Confirm ALL changed files are under .agents/. If any Go source files, test
+              files, or files outside .agents/ were modified, flag this as a critical issue.
         5. Run `wave validate` to verify the overall configuration integrity.
         6. Produce the verification report as markdown with:
            - Summary: how many improvements applied, skipped, divergent
            - Per-improvement details: status, target file, what was verified
            - Validation results: YAML parsing, JSON parsing, wave validate output
-           - Unintended changes: any files modified outside .wave/ (should be none)
+           - Unintended changes: any files modified outside .agents/ (should be none)
            - Overall verdict: PASS (all validations succeed, no unintended changes) or
              FAIL (any validation failure or unintended change)
 
@@ -327,14 +327,14 @@ steps:
         for out-of-scope modifications.
     output_artifacts:
       - name: verification
-        path: .wave/output/verification.md
+        path: .agents/output/verification.md
         type: markdown
     handover:
       contract:
         type: agent_review
         persona: navigator
-        criteria_path: .wave/contracts/verification-criteria.md
-        source: .wave/output/verification.md
+        criteria_path: .agents/contracts/verification-criteria.md
+        source: .agents/output/verification.md
         model: cheapest
         token_budget: 8000
         timeout: 90s
