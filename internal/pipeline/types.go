@@ -309,6 +309,11 @@ type Step struct {
 	// Ontology context filter — when set, only these bounded contexts are injected
 	Contexts []string `yaml:"contexts,omitempty"`
 
+	// Skills declared at step granularity. Provisioned by the executor into the
+	// adapter's native skill discovery path at step start. Merged with persona
+	// and pipeline skills via skill.ResolveSkills.
+	Skills []string `yaml:"skills,omitempty"`
+
 	// Composition primitives
 	SubPipeline string             `yaml:"pipeline,omitempty"`  // Child pipeline to execute
 	SubInput    string             `yaml:"input,omitempty"`     // Input template for child pipeline

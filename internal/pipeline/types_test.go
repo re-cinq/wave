@@ -631,6 +631,33 @@ func TestStep_Optional_YAMLParsing(t *testing.T) {
 	}
 }
 
+func TestStepSkillsYAMLRoundTrip(t *testing.T) {
+	yamlStr := `kind: WavePipeline
+metadata:
+  name: test-pipeline
+input:
+  source: cli
+steps:
+  - id: implement
+    persona: craftsman
+    skills: [golang, gh-cli]
+    exec:
+      type: prompt
+      source: "do work"
+`
+	var p Pipeline
+	if err := yaml.Unmarshal([]byte(yamlStr), &p); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if len(p.Steps) != 1 {
+		t.Fatalf("expected 1 step, got %d", len(p.Steps))
+	}
+	want := []string{"golang", "gh-cli"}
+	if !reflect.DeepEqual(p.Steps[0].Skills, want) {
+		t.Errorf("Step.Skills = %v, want %v", p.Steps[0].Skills, want)
+	}
+}
+
 func TestPipelineSkillsYAMLRoundTrip(t *testing.T) {
 	t.Run("pipeline with skills", func(t *testing.T) {
 		yamlStr := `kind: WavePipeline

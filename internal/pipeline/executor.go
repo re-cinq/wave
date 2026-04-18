@@ -480,10 +480,23 @@ func (e *DefaultPipelineExecutor) validatePipelineAndCreateContext(p *Pipeline, 
 	// Build a new slice (do NOT mutate p.Skills — the Pipeline may be shared
 	// across concurrent matrix child executors).
 	resolvedPipelineSkills := make([]string, 0, len(p.Skills))
+	seenSkill := make(map[string]bool)
+	addSkill := func(name string) {
+		if name == "" || seenSkill[name] {
+			return
+		}
+		seenSkill[name] = true
+		resolvedPipelineSkills = append(resolvedPipelineSkills, name)
+	}
 	for _, s := range p.Skills {
-		r := pipelineContext.ResolvePlaceholders(s)
-		if r != "" {
-			resolvedPipelineSkills = append(resolvedPipelineSkills, r)
+		addSkill(pipelineContext.ResolvePlaceholders(s))
+	}
+	// Per #1113: pipeline-level skill set is the union of step-level
+	// skills declarations. Preflight catches missing skills before any
+	// step starts, with a single resolved name suggesting `wave skills add`.
+	for i := range p.Steps {
+		for _, s := range p.Steps[i].Skills {
+			addSkill(pipelineContext.ResolvePlaceholders(s))
 		}
 	}
 
@@ -3191,6 +3204,14 @@ func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, exec
 	}
 	if execution.Pipeline.Requires != nil {
 		pipelineSkills = append(pipelineSkills, execution.Pipeline.Requires.SkillNames()...)
+	}
+	// Step-level skills take highest precedence in the merge — they declare
+	// the exact skill set this single agent run needs.
+	for _, s := range step.Skills {
+		r := execution.Context.ResolvePlaceholders(s)
+		if r != "" {
+			pipelineSkills = append(pipelineSkills, r)
+		}
 	}
 	resolvedSkills := skill.ResolveSkills(execution.Manifest.Skills, res.persona.Skills, pipelineSkills)
 
