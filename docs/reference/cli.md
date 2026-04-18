@@ -27,7 +27,7 @@ Wave CLI commands for pipeline orchestration.
 | `wave pipeline` | Pipeline management (create, list) |
 | `wave retro` | View and manage run retrospectives |
 | `wave rewind` | Rewind a run to an earlier checkpoint |
-| `wave skill` | Manage skill templates and install from remote sources |
+| `wave skills` | Discover, validate, install, and diagnose SKILL.md files |
 | `wave suggest` | Suggest impactful pipeline runs |
 | `wave serve` | Start the web dashboard server |
 | `wave migrate` | Database migrations |
@@ -1229,50 +1229,75 @@ wave rewind impl-issue-20240315-abc123 --to-step plan --confirm
 
 ---
 
-## wave skill
+## wave skills
 
-Manage skill templates shipped with Wave and install skills from remote sources. Skills are SKILL.md files that extend persona capabilities.
+Discover, validate, install, and diagnose SKILL.md files across project and user-global directories. Skills are lazy-loaded by each adapter via its native skill tool — Wave provisions the source files into the workspace at step start.
 
-### skill list
+### Detection paths
 
-List available and installed skill templates.
+Wave scans, in order (first match wins per skill name):
+
+```
+project:
+  .agents/skills/<name>/SKILL.md      ← primary committed team source
+  .claude/skills/<name>/SKILL.md      ← Claude Code skills
+  .opencode/skills/                   ← opencode-specific
+  .gemini/skills/                     ← gemini-specific
+
+user-global:
+  ~/.agents/skills/
+  ~/.claude/skills/
+  ~/.config/opencode/skills/
+  ~/.gemini/skills/
+```
+
+### skills list
+
+List discovered skills with the pipelines that reference them.
 
 ```bash
-wave skill list
-wave skill list --format json
-wave skill list --remote          # Show available remote sources
+wave skills list
+wave skills list --format json
+wave skills list --ontology          # only wave-ctx-* skills
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--format` | `table` | Output format: `table`, `json` |
-| `--remote` | `false` | Show available remote sources |
+| `--ontology` | `false` | Show only ontology context skills (`wave-ctx-*`) |
 
-### skill install
+### skills check
 
-Install a skill from bundled templates, GitHub, Tessl, or URL.
+Validate a single skill and show which pipelines/steps reference it.
 
 ```bash
-wave skill install reviewer          # Bundled template
-wave skill install github:owner/repo # From GitHub
-wave skill install tessl:my-skill    # From Tessl registry
+wave skills check golang
+wave skills check golang --format json
+```
+
+### skills add
+
+Install a skill from a local path or `file://` URL. Defaults to `~/.agents/skills/<name>/` (user-global). Use `--project` to commit the skill to `.agents/skills/<name>/`.
+
+```bash
+wave skills add ./my-skill
+wave skills add file:///abs/path/to/skill
+wave skills add ./my-skill --project
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--format` | `table` | Output format: `table`, `json` |
+| `--project` | `false` | Install to `.agents/skills/` instead of user-global |
 
-### skill check
+### skills doctor
 
-Run check commands for installed skills in `.agents/skills/`.
+Diagnose discovery issues: duplicate names across roots, malformed frontmatter, deprecated `.wave/skills/` references.
 
 ```bash
-wave skill check
+wave skills doctor
+wave skills doctor --format json
 ```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--format` | `table` | Output format: `table`, `json` |
 
 ---
 

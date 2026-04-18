@@ -982,7 +982,7 @@ requires:
     golang:
       check: "go version"
     speckit:
-      install: "wave skill install speckit"
+      install: "wave skills add speckit"
       commands_glob: ".claude/commands/speckit.*.md"
 steps:
   - id: step1
@@ -1036,7 +1036,7 @@ steps:
 	}
 
 	// Verify speckit details
-	if resp.Skills[1].InstallCmd != "wave skill install speckit" {
+	if resp.Skills[1].InstallCmd != "wave skills add speckit" {
 		t.Errorf("expected speckit install cmd, got %q", resp.Skills[1].InstallCmd)
 	}
 	if resp.Skills[1].CommandsGlob != ".claude/commands/speckit.*.md" {

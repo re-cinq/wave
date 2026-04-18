@@ -379,7 +379,6 @@ Fine-grained timeout configuration. All values fall back to built-in defaults in
 | `skill_cli_seconds` | `int` | `120` | Skill CLI command execution timeout. |
 | `skill_http_seconds` | `int` | `120` | Skill HTTP source fetch timeout. |
 | `skill_http_header_seconds` | `int` | `30` | Skill HTTP header-only probe timeout. |
-| `skill_publish_seconds` | `int` | `30` | `tessl publish` command timeout. |
 | `process_grace_seconds` | `int` | `3` | Grace period between SIGTERM and SIGKILL for adapter subprocesses. |
 | `stdout_drain_seconds` | `int` | `1` | Post-cancel stdout drain wait. |
 | `gate_approval_hours` | `int` | `24` | Maximum wait for manual gate approval. |
