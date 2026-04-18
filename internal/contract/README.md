@@ -296,16 +296,19 @@ See:
 
 ## Input Artifact Validation
 
-The contract system validates injected artifacts against schemas before step execution:
+The contract system validates injected artifacts against schemas before step execution.
+Schema content is pre-loaded by the executor (with path-traversal validation and
+prompt-injection sanitization) and passed in directly — validators never touch the
+filesystem for schema paths:
 
 ```go
-// Validate a single input artifact
-err := contract.ValidateInputArtifact("findings", ".agents/contracts/shared-findings.schema.json", workspacePath)
+// Validate a single input artifact (schemaContent is already loaded + sanitized)
+err := contract.ValidateInputArtifactContent("findings", schemaContent, artifactPath)
 
 // Validate multiple input artifacts
 configs := []contract.InputArtifactConfig{
-    {Name: "scan_findings", SchemaPath: ".agents/contracts/shared-findings.schema.json"},
-    {Name: "raw_findings", SchemaPath: ".agents/contracts/review-findings.schema.json"},
+    {Name: "scan_findings", SchemaContent: findingsSchema, Type: "findings", Path: scanPath},
+    {Name: "raw_findings", SchemaContent: reviewSchema, Type: "findings", Path: reviewPath},
 }
 results, err := contract.ValidateInputArtifacts(configs, workspacePath)
 ```

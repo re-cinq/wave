@@ -4198,7 +4198,14 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 
 			// Schema validation for input artifacts (if schema_path is specified)
 			if ref.SchemaPath != "" {
-				if err := contract.ValidateInputArtifact(artName, ref.SchemaPath, workspacePath); err != nil {
+				schemaContent, err := e.loadSchemaContent(step, ref.SchemaPath)
+				if err != nil {
+					return fmt.Errorf("input artifact '%s': %w", artName, err)
+				}
+				if schemaContent == "" {
+					return fmt.Errorf("input artifact '%s': schema %s produced no content", artName, ref.SchemaPath)
+				}
+				if err := contract.ValidateInputArtifactContent(artName, schemaContent, destPath); err != nil {
 					return fmt.Errorf("input artifact '%s' schema validation failed: %w", artName, err)
 				}
 				e.emit(event.Event{
@@ -4301,7 +4308,14 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 
 		// Schema validation for input artifacts (if schema_path is specified)
 		if ref.SchemaPath != "" {
-			if err := contract.ValidateInputArtifact(artName, ref.SchemaPath, workspacePath); err != nil {
+			schemaContent, err := e.loadSchemaContent(step, ref.SchemaPath)
+			if err != nil {
+				return fmt.Errorf("input artifact '%s': %w", artName, err)
+			}
+			if schemaContent == "" {
+				return fmt.Errorf("input artifact '%s': schema %s produced no content", artName, ref.SchemaPath)
+			}
+			if err := contract.ValidateInputArtifactContent(artName, schemaContent, destPath); err != nil {
 				return fmt.Errorf("input artifact '%s' schema validation failed: %w", artName, err)
 			}
 			e.emit(event.Event{
@@ -4696,8 +4710,11 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 		b.WriteString("### Contract Schema\n\n")
 		b.WriteString("**CRITICAL**: This step will FAIL validation if the output is not valid JSON conforming to the schema below.\n\n")
 
-		// Load and security-validate schema content
-		schemaContent := e.loadSecureSchemaContent(step)
+		// Load and security-validate schema content. Errors are swallowed
+		// here: buildContractPrompt is advisory (it drives persona guidance),
+		// not authoritative — actual schema enforcement happens at validation
+		// time, which surfaces the real error.
+		schemaContent, _ := e.loadSecureSchemaContent(step)
 		if schemaContent != "" {
 			// Include the full schema for the persona to reference
 			b.WriteString("**Schema** (your output must conform to this):\n```json\n")
@@ -4789,75 +4806,112 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 	return b.String()
 }
 
-// loadSecureSchemaContent loads schema content with security validation
-// (path traversal prevention, content sanitization). Returns empty string
-// if the schema is unavailable, invalid, or fails security checks.
-func (e *DefaultPipelineExecutor) loadSecureSchemaContent(step *Step) string {
-	if step.Handover.Contract.SchemaPath != "" {
-		// Validate path for traversal attacks
-		if e.pathValidator != nil {
-			validationResult, pathErr := e.pathValidator.ValidatePath(step.Handover.Contract.SchemaPath)
-			if pathErr != nil {
+// loadSchemaContent securely loads schema content from a path, applying
+// path traversal validation and content sanitization. This is the single
+// point for all schema loading — both output contracts and input artifact
+// validation should use this instead of raw os.ReadFile.
+//
+// The step parameter is used only for preserving the step ID in security
+// sanitization logs; it may be nil in contexts without a step (e.g. tests).
+//
+// Returns an empty string and nil error when schemaPath is empty (caller may
+// opt out of schema loading). Otherwise returns a specific wrapped error for
+// path-traversal, read failures, and sanitization failures so callers can
+// distinguish missing-schema from security-rejected content.
+func (e *DefaultPipelineExecutor) loadSchemaContent(step *Step, schemaPath string) (string, error) {
+	if schemaPath == "" {
+		return "", nil
+	}
+	if e.pathValidator != nil {
+		validationResult, pathErr := e.pathValidator.ValidatePath(schemaPath)
+		if pathErr != nil {
+			if e.securityLogger != nil {
 				e.securityLogger.LogViolation(
 					string(security.ViolationPathTraversal),
 					string(security.SourceSchemaPath),
-					fmt.Sprintf("Schema path validation failed for step %s", step.ID),
+					fmt.Sprintf("Schema path validation failed: %s", schemaPath),
 					security.SeverityCritical,
 					true,
 				)
-				return ""
 			}
-			if !validationResult.IsValid {
-				return ""
-			}
-			data, readErr := os.ReadFile(validationResult.ValidatedPath)
-			if readErr != nil {
-				return ""
-			}
-			return e.sanitizeSchemaContent(step, string(data))
+			return "", fmt.Errorf("schema path validation failed: %w", pathErr)
 		}
-		// No path validator (e.g. in tests) — read directly
-		data, err := os.ReadFile(step.Handover.Contract.SchemaPath)
-		if err != nil {
-			return ""
+		if !validationResult.IsValid {
+			return "", fmt.Errorf("schema path rejected by validator")
 		}
-		return string(data)
+		data, readErr := os.ReadFile(validationResult.ValidatedPath)
+		if readErr != nil {
+			return "", fmt.Errorf("read schema: %w", readErr)
+		}
+		sanitized, sanitizeErr := e.sanitizeSchemaContent(step, string(data))
+		if sanitizeErr != nil {
+			return "", sanitizeErr
+		}
+		return sanitized, nil
+	}
+	// No path validator (e.g. in tests) — read directly
+	data, err := os.ReadFile(schemaPath)
+	if err != nil {
+		return "", fmt.Errorf("read schema: %w", err)
+	}
+	return string(data), nil
+}
+
+// loadSecureSchemaContent loads schema content for a step's handover contract,
+// honoring either SchemaPath (preferred) or inline Schema. Returns an empty
+// string with nil error when neither is specified, a wrapped error when
+// loading/sanitization fails, and the sanitized content otherwise.
+func (e *DefaultPipelineExecutor) loadSecureSchemaContent(step *Step) (string, error) {
+	if step.Handover.Contract.SchemaPath != "" {
+		return e.loadSchemaContent(step, step.Handover.Contract.SchemaPath)
 	}
 
 	if step.Handover.Contract.Schema != "" {
 		return e.sanitizeSchemaContent(step, step.Handover.Contract.Schema)
 	}
 
-	return ""
+	return "", nil
 }
 
 // sanitizeSchemaContent applies prompt injection sanitization to schema content.
-// Returns the sanitized content, or empty string if sanitization fails.
-func (e *DefaultPipelineExecutor) sanitizeSchemaContent(step *Step, content string) string {
+// Returns the sanitized content, or a wrapped error if sanitization fails.
+func (e *DefaultPipelineExecutor) sanitizeSchemaContent(step *Step, content string) (string, error) {
 	if e.inputSanitizer == nil {
-		return content
+		return content, nil
 	}
 	sanitized, sanitizationActions, err := e.inputSanitizer.SanitizeSchemaContent(content)
 	if err != nil {
-		e.securityLogger.LogViolation(
-			string(security.ViolationInputValidation),
-			string(security.SourceSchemaPath),
-			fmt.Sprintf("Schema content sanitization failed for step %s", step.ID),
-			security.SeverityHigh,
-			true,
-		)
-		return ""
+		stepLabel := "unknown"
+		if step != nil {
+			stepLabel = step.ID
+		}
+		if e.securityLogger != nil {
+			e.securityLogger.LogViolation(
+				string(security.ViolationInputValidation),
+				string(security.SourceSchemaPath),
+				fmt.Sprintf("Schema content sanitization failed for step %s", stepLabel),
+				security.SeverityHigh,
+				true,
+			)
+		}
+		return "", fmt.Errorf("schema content sanitization failed")
 	}
 	if len(sanitizationActions) > 0 {
-		e.securityLogger.LogViolation(
-			string(security.ViolationPromptInjection),
-			string(security.SourceSchemaPath),
-			fmt.Sprintf("Schema content sanitized for step %s: %v", step.ID, sanitizationActions),
-			security.SeverityMedium,
-			false,
-		)
+		stepLabel := "unknown"
+		if step != nil {
+			stepLabel = step.ID
+		}
+		if e.securityLogger != nil {
+			e.securityLogger.LogViolation(
+				string(security.ViolationPromptInjection),
+				string(security.SourceSchemaPath),
+				fmt.Sprintf("Schema content sanitized for step %s: %v", stepLabel, sanitizationActions),
+				security.SeverityMedium,
+				false,
+			)
+		}
 	}
-	return sanitized
+	return sanitized, nil
 }
 
 // schemaFieldPlaceholder returns a JSON placeholder value for a schema property,

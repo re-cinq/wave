@@ -26,13 +26,6 @@ pipeline_outputs:
     step: classify
     artifact: classification
 
-hooks:
-  - name: log-orchestration
-    event: run_start
-    type: command
-    command: "echo '[wave-orchestrate] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
-    blocking: false
-
 steps:
   - id: discover
     type: command

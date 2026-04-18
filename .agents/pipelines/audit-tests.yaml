@@ -26,18 +26,6 @@ chat_context:
     - "Test coverage gaps"
     - "Test quality and edge cases"
 
-hooks:
-  - name: log-start
-    event: run_start
-    type: command
-    command: "echo '[{{ pipeline_name }}] test audit started run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
-    blocking: false
-  - name: log-findings
-    event: step_completed
-    type: command
-    command: "echo '[{{ pipeline_name }}] step completed: $WAVE_HOOK_STEP_ID' >> .agents/output/hook-log.txt"
-    blocking: false
-
 pipeline_outputs:
   report:
     step: report
