@@ -73,7 +73,7 @@ Use --json for machine-readable output suitable for scripting.`,
 }
 
 func runPostmortem(opts PostmortemOptions) error {
-	dbPath := ".wave/state.db"
+	dbPath := ".agents/state.db"
 
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		return NewCLIError(CodeStateDBError, "state database not found", "Run 'wave run' to create the state database")
@@ -81,7 +81,7 @@ func runPostmortem(opts PostmortemOptions) error {
 
 	store, err := state.NewStateStore(dbPath)
 	if err != nil {
-		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .wave/state.db file permissions").WithCause(err)
+		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .agents/state.db file permissions").WithCause(err)
 	}
 	defer store.Close()
 
@@ -252,7 +252,7 @@ func classifyFailure(errMsg string, contractErrors []string) failurePattern {
 				"Review the persona's deny/allow tool rules in wave.yaml",
 				"Check that the workspace directory is writable",
 				"Verify the adapter settings.json does not block a required tool",
-				"Inspect the audit log: ls .wave/traces/",
+				"Inspect the audit log: ls .agents/traces/",
 			},
 		}
 	}
@@ -263,7 +263,7 @@ func classifyFailure(errMsg string, contractErrors []string) failurePattern {
 			diagnosis: "Unknown — no error message was recorded",
 			suggestions: []string{
 				"Re-run with debug output: wave run <pipeline> --debug",
-				"Inspect the workspace: ls .wave/workspaces/" + "<run-id>/<step>/",
+				"Inspect the workspace: ls .agents/workspaces/" + "<run-id>/<step>/",
 				"Check the event log: wave logs <run-id>",
 			},
 		}
@@ -274,7 +274,7 @@ func classifyFailure(errMsg string, contractErrors []string) failurePattern {
 		diagnosis: "Runtime error — the step failed with an unrecognised error",
 		suggestions: []string{
 			"Re-run with debug output: wave run <pipeline> --debug",
-			"Inspect the workspace artifacts: ls .wave/workspaces/<run-id>/<step>/",
+			"Inspect the workspace artifacts: ls .agents/workspaces/<run-id>/<step>/",
 			"Check the full event log: wave logs <run-id>",
 		},
 	}

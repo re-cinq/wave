@@ -85,7 +85,7 @@ func ValidateSkillRefs(names []string, scope string, store Store) []error {
 		}
 		if store != nil {
 			if _, err := store.Read(name); err != nil {
-				errs = append(errs, fmt.Errorf("%s: skill %q not found in store", scope, name))
+				errs = append(errs, fmt.Errorf("%s: skill %q not found in store — install with `wave skills add <path-or-url>` or place SKILL.md under .agents/skills/%s/", scope, name, name))
 			}
 		}
 	}

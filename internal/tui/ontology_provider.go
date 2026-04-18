@@ -65,7 +65,7 @@ func (p *DefaultOntologyDataProvider) FetchOntology() (*OntologyOverview, error)
 	overview.Conventions = o.Conventions
 
 	// Check staleness sentinel
-	if _, err := os.Stat(filepath.Join(".wave", ".ontology-stale")); err == nil {
+	if _, err := os.Stat(filepath.Join(".agents", ".ontology-stale")); err == nil {
 		overview.Stale = true
 	}
 

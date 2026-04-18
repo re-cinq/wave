@@ -27,12 +27,12 @@ func TestValidatePath(t *testing.T) {
 	}{
 		{
 			name:    "valid relative path within approved dir",
-			path:    ".wave/contracts/schema.json",
+			path:    ".agents/contracts/schema.json",
 			wantErr: false,
 		},
 		{
 			name:    "valid relative path in schemas dir",
-			path:    ".wave/schemas/output.json",
+			path:    ".agents/schemas/output.json",
 			wantErr: false,
 		},
 		{
@@ -57,7 +57,7 @@ func TestValidatePath(t *testing.T) {
 		},
 		{
 			name:    "path at max length within approved dir",
-			path:    ".wave/contracts/" + strings.Repeat("a", 230),
+			path:    ".agents/contracts/" + strings.Repeat("a", 230),
 			wantErr: false,
 		},
 		{

@@ -92,7 +92,7 @@ Use --mode to select execution mode:
 			if !filepath.IsAbs(datasetPath) {
 				// Check in datasets directory first
 				if datasetsDir == "" {
-					datasetsDir = ".wave/bench/datasets"
+					datasetsDir = ".agents/bench/datasets"
 				}
 				candidate := filepath.Join(datasetsDir, datasetPath)
 				if _, err := os.Stat(candidate); err == nil {
@@ -113,7 +113,7 @@ Use --mode to select execution mode:
 				RunLabel:       label,
 				Limit:          limit,
 				DatasetPath:    datasetPath,
-				WorkDir:        ".wave/bench/workspaces",
+				WorkDir:        ".agents/bench/workspaces",
 				KeepWorkspaces: keepWorkspaces,
 				Concurrency:    concurrency,
 				Offset:         offset,
@@ -125,7 +125,7 @@ Use --mode to select execution mode:
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer stop()
 
-			cacheDir := filepath.Join(".wave/bench/workspaces", "repos")
+			cacheDir := filepath.Join(".agents/bench/workspaces", "repos")
 			runner := bench.NewSubprocessRunner(cacheDir)
 			report, err := bench.RunBenchmark(ctx, tasks, cfg, runner)
 			if err != nil && report == nil {
@@ -171,7 +171,7 @@ Use --mode to select execution mode:
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum number of tasks to run (0 = all)")
 	cmd.Flags().IntVar(&timeout, "timeout", 0, "Per-task timeout in seconds (0 = no limit)")
 	cmd.Flags().StringVar(&outputPath, "results-path", "", "Path to write JSON results file")
-	cmd.Flags().StringVar(&datasetsDir, "datasets-dir", ".wave/bench/datasets", "Directory to search for dataset files")
+	cmd.Flags().StringVar(&datasetsDir, "datasets-dir", ".agents/bench/datasets", "Directory to search for dataset files")
 	cmd.Flags().BoolVar(&keepWorkspaces, "keep-workspaces", false, "Preserve task worktrees after completion")
 	cmd.Flags().IntVar(&concurrency, "concurrency", 1, "Number of tasks to run in parallel")
 	cmd.Flags().IntVar(&offset, "offset", 0, "Skip the first N tasks in the dataset")
@@ -244,21 +244,21 @@ func newBenchListCmd() *cobra.Command {
 			cmd.SilenceErrors = true
 
 			if datasetsDir == "" {
-				datasetsDir = ".wave/bench/datasets"
+				datasetsDir = ".agents/bench/datasets"
 			}
 
 			datasets, err := bench.ListDatasets(datasetsDir)
 			if err != nil {
 				// Directory doesn't exist — not an error, just empty
 				if errors.Is(err, os.ErrNotExist) {
-					fmt.Fprintln(os.Stderr, "No datasets directory found. Create .wave/bench/datasets/ and add .jsonl files.")
+					fmt.Fprintln(os.Stderr, "No datasets directory found. Create .agents/bench/datasets/ and add .jsonl files.")
 					return nil
 				}
 				return NewCLIError(CodeInternalError, fmt.Sprintf("list datasets: %s", err), "Check datasets directory permissions").WithCause(err)
 			}
 
 			if len(datasets) == 0 {
-				fmt.Fprintln(os.Stderr, "No datasets found. Add .jsonl files to .wave/bench/datasets/")
+				fmt.Fprintln(os.Stderr, "No datasets found. Add .jsonl files to .agents/bench/datasets/")
 				return nil
 			}
 
@@ -283,7 +283,7 @@ func newBenchListCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&datasetsDir, "datasets-dir", ".wave/bench/datasets", "Directory to search for dataset files")
+	cmd.Flags().StringVar(&datasetsDir, "datasets-dir", ".agents/bench/datasets", "Directory to search for dataset files")
 
 	return cmd
 }

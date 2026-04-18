@@ -5,7 +5,7 @@
 #
 # Prerequisites:
 #   1. Add ANTHROPIC_API_KEY as a repository secret
-#   2. Commit wave.yaml and .wave/ directory to your repository
+#   2. Commit wave.yaml and .agents/ directory to your repository
 #   3. Ensure wave.yaml has runtime.sandbox.env_passthrough configured
 #
 # See docs/guides/ci-cd.md for full documentation.
@@ -70,8 +70,8 @@ jobs:
         with:
           name: wave-review-${{ github.run_id }}
           path: |
-            .wave/workspaces/*/output/
-            .wave/traces/
+            .agents/workspaces/*/output/
+            .agents/traces/
           retention-days: 14
 
       - name: Upload Audit Logs
@@ -79,5 +79,5 @@ jobs:
         if: always()
         with:
           name: wave-audit-${{ github.run_id }}
-          path: .wave/traces/
+          path: .agents/traces/
           retention-days: 30

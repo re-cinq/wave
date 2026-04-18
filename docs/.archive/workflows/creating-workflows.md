@@ -4,7 +4,7 @@ This guide walks you through creating Wave pipelines from scratch. You'll learn 
 
 ## Quick Start
 
-Create your first pipeline in `.wave/pipelines/hello.yaml`:
+Create your first pipeline in `.agents/pipelines/hello.yaml`:
 
 ```yaml
 kind: WavePipeline
@@ -25,7 +25,7 @@ steps:
       source: "Say hello to: {{ input }}"
     output_artifacts:
       - name: greeting
-        path: .wave/output/greeting.txt
+        path: .agents/output/greeting.txt
         type: text
 ```
 
@@ -96,7 +96,7 @@ steps:
       source: "Analyze the codebase: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
         type: json
 ```
 
@@ -126,7 +126,7 @@ steps:
       source: "Analyze: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
         type: json
 
   - id: implement
@@ -233,11 +233,11 @@ Declare files the step produces:
 ```yaml
 output_artifacts:
   - name: analysis
-    path: .wave/output/analysis.json
+    path: .agents/output/analysis.json
     type: json
     required: true
   - name: report
-    path: .wave/output/report.md
+    path: .agents/output/report.md
     type: markdown
 ```
 
@@ -254,7 +254,7 @@ Contracts ensure outputs meet requirements before continuing:
 handover:
   contract:
     type: jsonschema
-    schema_path: .wave/contracts/analysis.schema.json
+    schema_path: .agents/contracts/analysis.schema.json
     on_failure: retry
     max_retries: 2
 ```
@@ -266,7 +266,7 @@ handover:
 handover:
   contract:
     type: jsonschema
-    schema_path: .wave/contracts/output.schema.json
+    schema_path: .agents/contracts/output.schema.json
 ```
 
 **TypeScript**
@@ -274,7 +274,7 @@ handover:
 handover:
   contract:
     type: typescript
-    source: .wave/output/types.ts
+    source: .agents/output/types.ts
     validate: true
 ```
 
@@ -292,7 +292,7 @@ handover:
 handover:
   contract:
     type: markdownspec
-    source: .wave/output/docs.md
+    source: .agents/output/docs.md
 ```
 
 ### Failure Handling
@@ -301,7 +301,7 @@ handover:
 handover:
   contract:
     type: jsonschema
-    schema_path: .wave/contracts/output.schema.json
+    schema_path: .agents/contracts/output.schema.json
     on_failure: retry
     max_retries: 3
   on_review_fail: retry
@@ -348,12 +348,12 @@ steps:
         }
     output_artifacts:
       - name: diff
-        path: .wave/output/diff-analysis.json
+        path: .agents/output/diff-analysis.json
         type: json
     handover:
       contract:
         type: jsonschema
-        schema_path: .wave/contracts/diff-analysis.schema.json
+        schema_path: .agents/contracts/diff-analysis.schema.json
         on_failure: retry
         max_retries: 2
 
@@ -382,7 +382,7 @@ steps:
         Output findings with severity.
     output_artifacts:
       - name: security
-        path: .wave/output/security-review.md
+        path: .agents/output/security-review.md
         type: markdown
 
   - id: quality-review
@@ -410,7 +410,7 @@ steps:
         Output findings with suggestions.
     output_artifacts:
       - name: quality
-        path: .wave/output/quality-review.md
+        path: .agents/output/quality-review.md
         type: markdown
 
   - id: summary
@@ -442,7 +442,7 @@ steps:
         Format as PR review comment.
     output_artifacts:
       - name: verdict
-        path: .wave/output/review-summary.md
+        path: .agents/output/review-summary.md
         type: markdown
 ```
 
@@ -451,7 +451,7 @@ steps:
 Organize pipelines and related files:
 
 ```
-.wave/
+.agents/
 ├── pipelines/
 │   ├── ops-pr-review.yaml
 │   ├── documentation.yaml
@@ -550,7 +550,7 @@ Add contracts for any structured output:
 handover:
   contract:
     type: jsonschema
-    schema_path: .wave/contracts/output.schema.json
+    schema_path: .agents/contracts/output.schema.json
     on_failure: retry
     max_retries: 2
 ```

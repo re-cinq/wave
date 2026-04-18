@@ -48,11 +48,11 @@ func runEvolve(cmd *cobra.Command, m *manifest.Manifest, _ string) error {
 	f := display.NewFormatter()
 
 	// Open state store in read-only mode
-	store, err := state.NewReadOnlyStateStore(".wave/state.db")
+	store, err := state.NewReadOnlyStateStore(".agents/state.db")
 	if err != nil {
 		return NewCLIError(CodeStateDBError,
 			fmt.Sprintf("failed to open state database: %s", err),
-			"Ensure .wave/state.db exists (run a pipeline first)")
+			"Ensure .agents/state.db exists (run a pipeline first)")
 	}
 	defer store.Close()
 
@@ -61,7 +61,7 @@ func runEvolve(cmd *cobra.Command, m *manifest.Manifest, _ string) error {
 	if err != nil {
 		return NewCLIError(CodeStateDBError,
 			fmt.Sprintf("failed to query ontology stats: %s", err),
-			"Check .wave/state.db integrity")
+			"Check .agents/state.db integrity")
 	}
 
 	result := buildEvolveResult(m, stats)

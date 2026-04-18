@@ -23,14 +23,14 @@ org-wave-config/
 Projects reference via git submodule:
 
 ```bash
-git submodule add git@github.com:org/org-wave-config.git .wave/shared
+git submodule add git@github.com:org/org-wave-config.git .agents/shared
 ```
 
 Then in `wave.yaml`:
 
 ```yaml
 skill_mounts:
-  - path: .wave/shared/
+  - path: .agents/shared/
 ```
 
 ### Project-Specific Overrides
@@ -43,7 +43,7 @@ personas:
   # Use shared navigator
   navigator:
     adapter: claude
-    system_prompt_file: .wave/shared/personas/navigator.md
+    system_prompt_file: .agents/shared/personas/navigator.md
     permissions:
       allowed_tools: [Read, Glob, Grep]
       deny: [Write, Edit, Bash]
@@ -51,7 +51,7 @@ personas:
   # Project-specific persona
   domain-expert:
     adapter: claude
-    system_prompt_file: .wave/personas/domain-expert.md
+    system_prompt_file: .agents/personas/domain-expert.md
     permissions:
       allowed_tools: [Read, Glob]
       deny: [Write, Edit, Bash]
@@ -87,7 +87,7 @@ runtime:
   audit:
     log_all_tool_calls: true
     log_all_file_operations: true
-    log_dir: .wave/traces/
+    log_dir: .agents/traces/
 ```
 
 Logs are stored per-run for review.
@@ -135,7 +135,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: review
-          path: .wave/workspaces/*/output/
+          path: .agents/workspaces/*/output/
 ```
 
 ### GitLab CI
@@ -148,7 +148,7 @@ wave-review:
     - wave run ops-pr-review "$CI_MERGE_REQUEST_TITLE"
   artifacts:
     paths:
-      - .wave/workspaces/*/output/
+      - .agents/workspaces/*/output/
 ```
 
 ## Scaling Patterns
@@ -225,7 +225,7 @@ wave logs <run-id>
 All executions logged to `runtime.audit.log_dir`:
 
 ```
-.wave/traces/
+.agents/traces/
 ├── run-abc123/
 │   ├── step-analyze.log
 │   └── step-review.log

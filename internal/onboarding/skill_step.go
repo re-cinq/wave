@@ -161,8 +161,8 @@ func (s *SkillSelectionStep) Run(cfg *WizardConfig) (*StepResult, error) {
 		}
 	}
 
-	// Ensure .wave/skills/ directory exists
-	skillsDir := ".wave/skills"
+	// Ensure .agents/skills/ directory exists
+	skillsDir := ".agents/skills"
 	if cfg.WaveDir != "" {
 		skillsDir = cfg.WaveDir + "/skills"
 	}

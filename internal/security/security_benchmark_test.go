@@ -76,7 +76,7 @@ func BenchmarkPathValidation(b *testing.B) {
 	logger := NewSecurityLogger(false)
 	pv := NewPathValidator(*config, logger)
 
-	path := ".wave/contracts/output-schema.json"
+	path := ".agents/contracts/output-schema.json"
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -110,7 +110,7 @@ func BenchmarkPathValidation_Unicode(b *testing.B) {
 
 	// Pure ASCII path — no homograph issues, exercises the normalization
 	// fast path.
-	path := ".wave/contracts/output-schema.json"
+	path := ".agents/contracts/output-schema.json"
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -177,7 +177,7 @@ func BenchmarkContainsShellMetachars(b *testing.B) {
 // BenchmarkSchemaCache measures the sync.Map cache hit path for schema
 // content retrieval.
 func BenchmarkSchemaCache(b *testing.B) {
-	key := "/abs/path/to/.wave/contracts/schema.json"
+	key := "/abs/path/to/.agents/contracts/schema.json"
 	content := strings.Repeat(`{"type":"string"}`, 100)
 	SetCachedSchemaContent(key, content)
 

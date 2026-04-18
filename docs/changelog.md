@@ -51,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Pipeline failure context loading on resume from prior run
 - Pipeline relevance scoring and assignee filter in TUI
-- Detached pipeline output redirect to `.wave/logs/`
+- Detached pipeline output redirect to `.agents/logs/`
 
 ## [0.68.1] - 2026-03-10
 
@@ -396,7 +396,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `plan-scope` pipeline for epic decomposition across all 4 forges
-- Scope contracts and pipelines added to `.wave/` runtime directory
+- Scope contracts and pipelines added to `.agents/` runtime directory
 
 ## [0.37.0] - 2026-02-28
 
@@ -520,7 +520,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Auto-generate output guidance from output_artifacts metadata
 
 ### Changed
-- Ignore `.wave/chat/` and `.wave/wave.db` in gitignore
+- Ignore `.agents/chat/` and `.agents/wave.db` in gitignore
 
 ## [0.26.0] - 2026-02-21
 
@@ -532,7 +532,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Remove conflicting schema injection from buildStepPrompt
 - Archive artifacts per-step to prevent shared-path collision
-- Normalize artifact paths to `.wave/` directory structure
+- Normalize artifact paths to `.agents/` directory structure
 - Contract compliance auto-injection into CLAUDE.md
 
 ### Changed
@@ -574,7 +574,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Base protocol preamble and persona quality guardrails
 
 ### Fixed
-- Move runtime artifacts under `.wave/` to prevent worktree pollution
+- Move runtime artifacts under `.agents/` to prevent worktree pollution
 
 ## [0.22.0] - 2026-02-17
 
@@ -601,7 +601,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Issue-update JSON schema contracts
 
 ### Changed
-- Eliminate duplicate default content from `.wave/`
+- Eliminate duplicate default content from `.agents/`
 - Unify template variable replacement
 - Delete unused executor methods (Resume, GetStatus, injectCheckpointIfExists)
 - Complete StrictMode deprecation

@@ -346,7 +346,7 @@ func TestPrepareWorkspace_PersonaFileRead(t *testing.T) {
 	a := NewOpenCodeAdapter()
 
 	// Create persona file
-	personaDir := filepath.Join(".wave", "personas")
+	personaDir := filepath.Join(".agents", "personas")
 	if err := os.MkdirAll(personaDir, 0755); err != nil {
 		t.Fatalf("failed to create persona dir: %v", err)
 	}
@@ -354,7 +354,7 @@ func TestPrepareWorkspace_PersonaFileRead(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(personaDir, "test-persona.md"), []byte(personaContent), 0644); err != nil {
 		t.Fatalf("failed to write persona file: %v", err)
 	}
-	defer os.RemoveAll(".wave/personas")
+	defer os.RemoveAll(".agents/personas")
 
 	cfg := AdapterRunConfig{
 		Persona: "test-persona",

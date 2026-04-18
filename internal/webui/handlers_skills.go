@@ -67,7 +67,7 @@ func (s *Server) handleAPISkillInstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	destDir := filepath.Join(".wave", "skills", name)
+	destDir := filepath.Join(".agents", "skills", name)
 	destFile := filepath.Join(destDir, "SKILL.md")
 
 	// Check if already installed
@@ -93,7 +93,7 @@ func (s *Server) handleAPISkillInstall(w http.ResponseWriter, r *http.Request) {
 }
 
 // getSkillTemplateSummaries returns installed and available skill templates.
-// Installed includes both bundled templates and non-template skills found in .wave/skills/.
+// Installed includes both bundled templates and non-template skills found in .agents/skills/.
 func getSkillTemplateSummaries() (installed []SkillTemplateSummary, available []SkillTemplateSummary) {
 	templates := defaults.GetSkillTemplates()
 	installedSet := installedSkillSet()
@@ -120,13 +120,13 @@ func getSkillTemplateSummaries() (installed []SkillTemplateSummary, available []
 		}
 	}
 
-	// Include non-template skills installed in .wave/skills/
+	// Include non-template skills installed in .agents/skills/
 	for name := range installedSet {
 		if seen[name] {
 			continue
 		}
 		desc := ""
-		skillFile := filepath.Join(".wave", "skills", name, "SKILL.md")
+		skillFile := filepath.Join(".agents", "skills", name, "SKILL.md")
 		if data, err := os.ReadFile(skillFile); err == nil {
 			if s, err := skill.ParseMetadata(data); err == nil {
 				desc = s.Description
@@ -146,10 +146,10 @@ func getSkillTemplateSummaries() (installed []SkillTemplateSummary, available []
 	return installed, available
 }
 
-// installedSkillSet returns a set of skill names installed in .wave/skills/.
+// installedSkillSet returns a set of skill names installed in .agents/skills/.
 func installedSkillSet() map[string]bool {
 	result := make(map[string]bool)
-	entries, err := os.ReadDir(filepath.Join(".wave", "skills"))
+	entries, err := os.ReadDir(filepath.Join(".agents", "skills"))
 	if err != nil {
 		return result
 	}
@@ -157,7 +157,7 @@ func installedSkillSet() map[string]bool {
 		if !entry.IsDir() {
 			continue
 		}
-		skillFile := filepath.Join(".wave", "skills", entry.Name(), "SKILL.md")
+		skillFile := filepath.Join(".agents", "skills", entry.Name(), "SKILL.md")
 		if _, err := os.Stat(skillFile); err == nil {
 			result[entry.Name()] = true
 		}
@@ -168,7 +168,7 @@ func installedSkillSet() map[string]bool {
 // getSkillSummaries scans pipeline YAML files to extract skill declarations,
 // mirroring the TUI's DefaultSkillDataProvider logic.
 func getSkillSummaries() []SkillSummary {
-	pipelinesDir := filepath.Join(".wave", "pipelines")
+	pipelinesDir := filepath.Join(".agents", "pipelines")
 	entries, err := os.ReadDir(pipelinesDir)
 	if err != nil {
 		return nil
@@ -364,7 +364,7 @@ type SkillDetail struct {
 	Name        string
 	Description string
 	Body        string // full SKILL.md body (after frontmatter)
-	IsInstalled bool   // found in .wave/skills/
+	IsInstalled bool   // found in .agents/skills/
 	Requirement *SkillSummary
 }
 
@@ -382,7 +382,7 @@ func (s *Server) handleSkillDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check installed SKILL.md
-	skillFile := filepath.Join(".wave", "skills", name, "SKILL.md")
+	skillFile := filepath.Join(".agents", "skills", name, "SKILL.md")
 	if data, err := os.ReadFile(skillFile); err == nil {
 		detail.IsInstalled = true
 		if meta, err := skill.ParseMetadata(data); err == nil {

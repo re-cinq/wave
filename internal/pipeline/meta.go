@@ -292,7 +292,7 @@ func (e *MetaPipelineExecutor) invokePhilosopherWithSchemas(ctx context.Context,
 	prompt := buildPhilosopherPrompt(task, e.currentDepth)
 
 	// Create isolated workspace for meta pipeline to avoid overwriting project CLAUDE.md
-	metaWorkspace := filepath.Join(".wave", "workspaces", "meta-philosopher")
+	metaWorkspace := filepath.Join(".agents", "workspaces", "meta-philosopher")
 	if err := os.MkdirAll(metaWorkspace, 0755); err != nil {
 		return nil, 0, fmt.Errorf("failed to create meta workspace: %w", err)
 	}
@@ -477,7 +477,7 @@ Generate a valid WavePipeline YAML that follows these STRICT requirements:
 8. Navigator steps should have limited scope and clear deliverables
 9. Keep prompts SIMPLE - do NOT embed schema details or JSON output instructions (the executor injects these automatically from the contract schema)
 10. Steps that depend on previous steps MUST use inject_artifacts in their memory config to receive artifacts
-11. When a step has inject_artifacts, the prompt should mention where to find them (e.g., "Read the analysis from .wave/artifacts/analysis")
+11. When a step has inject_artifacts, the prompt should mention where to find them (e.g., "Read the analysis from .agents/artifacts/analysis")
 
 CRITICAL: Output your response in the following format:
 
@@ -486,7 +486,7 @@ CRITICAL: Output your response in the following format:
 
 --- SCHEMAS ---
 [For each step with json_schema contract, provide the schema definition in this format:]
-SCHEMA: .wave/contracts/[filename].schema.json
+SCHEMA: .agents/contracts/[filename].schema.json
 [JSON schema content]
 
 SCHEMA REQUIREMENTS:
@@ -519,12 +519,12 @@ steps:
       source: "Analyze the codebase for: {{ input }}. Identify key files, patterns, dependencies, and impact areas relevant to the task."
     output_artifacts:
       - name: analysis
-        path: .wave/artifact.json
+        path: .agents/artifact.json
         type: json
     handover:
       contract:
         type: json_schema
-        schema_path: ".wave/contracts/navigation-analysis.schema.json"
+        schema_path: ".agents/contracts/navigation-analysis.schema.json"
 
   - id: implement
     persona: craftsman
@@ -539,18 +539,18 @@ steps:
       root: "./"
     exec:
       type: prompt
-      source: "Read .wave/artifacts/analysis.json to understand the codebase. Implement the feature: {{ input }}"
+      source: "Read .agents/artifacts/analysis.json to understand the codebase. Implement the feature: {{ input }}"
     output_artifacts:
       - name: result
-        path: .wave/artifact.json
+        path: .agents/artifact.json
         type: json
     handover:
       contract:
         type: json_schema
-        schema_path: ".wave/contracts/implementation-result.schema.json"
+        schema_path: ".agents/contracts/implementation-result.schema.json"
 
 --- SCHEMAS ---
-SCHEMA: .wave/contracts/navigation-analysis.schema.json
+SCHEMA: .agents/contracts/navigation-analysis.schema.json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
@@ -621,12 +621,12 @@ steps:
       source: "Analyze the codebase for: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: .wave/artifact.json
+        path: .agents/artifact.json
         type: json
     handover:
       contract:
         type: json_schema
-        schema_path: ".wave/contracts/mock-analysis.schema.json"
+        schema_path: ".agents/contracts/mock-analysis.schema.json"
 
   - id: implement
     persona: craftsman
@@ -641,18 +641,18 @@ steps:
       root: "./"
     exec:
       type: prompt
-      source: "Read .wave/artifacts/analysis. Implement: {{ input }}"
+      source: "Read .agents/artifacts/analysis. Implement: {{ input }}"
     output_artifacts:
       - name: result
-        path: .wave/artifact.json
+        path: .agents/artifact.json
         type: json
     handover:
       contract:
         type: json_schema
-        schema_path: ".wave/contracts/mock-result.schema.json"
+        schema_path: ".agents/contracts/mock-result.schema.json"
 
 --- SCHEMAS ---
-SCHEMA: .wave/contracts/mock-analysis.schema.json
+SCHEMA: .agents/contracts/mock-analysis.schema.json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
@@ -666,7 +666,7 @@ SCHEMA: .wave/contracts/mock-analysis.schema.json
   }
 }
 
-SCHEMA: .wave/contracts/mock-result.schema.json
+SCHEMA: .agents/contracts/mock-result.schema.json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
@@ -831,7 +831,7 @@ func normalizeGeneratedPipeline(p *Pipeline) {
 		if step.Handover.Contract.Type == "json_schema" && len(step.OutputArtifacts) == 0 {
 			step.OutputArtifacts = []ArtifactDef{{
 				Name: step.ID + "-output",
-				Path: ".wave/artifact.json",
+				Path: ".agents/artifact.json",
 				Type: "json",
 			}}
 		}

@@ -173,14 +173,14 @@ func TestSaveMetaPipelinePath(t *testing.T) {
 		expectedFile string
 	}{
 		{
-			name:         "bare name gets .wave/pipelines prefix and .yaml extension",
+			name:         "bare name gets .agents/pipelines prefix and .yaml extension",
 			savePath:     "my-pipeline",
-			expectedFile: ".wave/pipelines/my-pipeline.yaml",
+			expectedFile: ".agents/pipelines/my-pipeline.yaml",
 		},
 		{
 			name:         "name with .yaml does not get double extension",
 			savePath:     "my-pipeline.yaml",
-			expectedFile: ".wave/pipelines/my-pipeline.yaml",
+			expectedFile: ".agents/pipelines/my-pipeline.yaml",
 		},
 		{
 			name:         "path with / is used as-is",

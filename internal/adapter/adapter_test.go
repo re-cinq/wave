@@ -471,7 +471,7 @@ func TestPermissionChecker_DenyPatternBlocksWrite(t *testing.T) {
 func TestPermissionChecker_AllowPatternPermitsOperation(t *testing.T) {
 	checker := NewPermissionChecker(
 		"craftsman",
-		[]string{"Read", "Write(.wave/specs/*)", "Bash(git log*)", "Edit"},
+		[]string{"Read", "Write(.agents/specs/*)", "Bash(git log*)", "Edit"},
 		[]string{},
 	)
 
@@ -481,10 +481,10 @@ func TestPermissionChecker_AllowPatternPermitsOperation(t *testing.T) {
 		t.Fatalf("expected Read to be allowed, got: %v", err)
 	}
 
-	// Write to .wave/specs/ should be allowed
-	err = checker.CheckPermission("Write", ".wave/specs/feature.yaml")
+	// Write to .agents/specs/ should be allowed
+	err = checker.CheckPermission("Write", ".agents/specs/feature.yaml")
 	if err != nil {
-		t.Fatalf("expected Write to .wave/specs/ to be allowed, got: %v", err)
+		t.Fatalf("expected Write to .agents/specs/ to be allowed, got: %v", err)
 	}
 
 	// Bash with git log should be allowed
@@ -752,14 +752,14 @@ func TestPermissionChecker_GlobPatternMatching(t *testing.T) {
 		// Argument patterns with *
 		{
 			name:        "argument wildcard at end",
-			pattern:     "Write(.wave/specs/*)",
+			pattern:     "Write(.agents/specs/*)",
 			tool:        "Write",
-			argument:    ".wave/specs/feature.yaml",
+			argument:    ".agents/specs/feature.yaml",
 			shouldMatch: true,
 		},
 		{
 			name:        "argument wildcard at end - no match",
-			pattern:     "Write(.wave/specs/*)",
+			pattern:     "Write(.agents/specs/*)",
 			tool:        "Write",
 			argument:    "src/main.go",
 			shouldMatch: false,
@@ -917,8 +917,8 @@ func TestMatchToolPattern(t *testing.T) {
 		// Patterns with arguments
 		{"Write(*)", "Write", "file.txt", true},
 		{"Write(*)", "Read", "file.txt", false},
-		{"Write(.wave/*)", "Write", ".wave/specs.yaml", true},
-		{"Write(.wave/*)", "Write", "src/main.go", false},
+		{"Write(.agents/*)", "Write", ".agents/specs.yaml", true},
+		{"Write(.agents/*)", "Write", "src/main.go", false},
 
 		// Patterns without argument (matches any argument)
 		{"Edit", "Edit", "path/to/file.go", true},
@@ -949,7 +949,7 @@ func TestParseToolPattern(t *testing.T) {
 		{"Read", "Read", ""},
 		{"Write(*)", "Write", "*"},
 		{"Bash(git log*)", "Bash", "git log*"},
-		{"Write(.wave/specs/*)", "Write", ".wave/specs/*"},
+		{"Write(.agents/specs/*)", "Write", ".agents/specs/*"},
 		{"Edit", "Edit", ""},
 		{"Glob(**/*.go)", "Glob", "**/*.go"},
 		{"Read([abc].txt)", "Read", "[abc].txt"},
@@ -1011,15 +1011,15 @@ func TestPermissionChecker_OverlappingPatterns(t *testing.T) {
 	// Allow Write to specific paths, deny Write everywhere else
 	checker := NewPermissionChecker(
 		"scoped-writer",
-		[]string{"Read", "Write(.wave/*)"},
+		[]string{"Read", "Write(.agents/*)"},
 		[]string{"Write(*)"},
 	)
 
-	// Write to .wave/ - allowed by allow pattern, but denied by deny pattern
+	// Write to .agents/ - allowed by allow pattern, but denied by deny pattern
 	// Since deny takes precedence, this should be denied
-	err := checker.CheckPermission("Write", ".wave/config.yaml")
+	err := checker.CheckPermission("Write", ".agents/config.yaml")
 	if err == nil {
-		t.Fatal("expected Write to be denied even to .wave/ when deny(*) exists")
+		t.Fatal("expected Write to be denied even to .agents/ when deny(*) exists")
 	}
 
 	// This demonstrates that deny(*) is very broad - to allow specific paths,
@@ -1032,10 +1032,10 @@ func TestPermissionChecker_OverlappingPatterns(t *testing.T) {
 		[]string{"Write(src/*)", "Write(internal/*)"},
 	)
 
-	// Write to .wave/ should be allowed (not in deny)
-	err = checker2.CheckPermission("Write", ".wave/config.yaml")
+	// Write to .agents/ should be allowed (not in deny)
+	err = checker2.CheckPermission("Write", ".agents/config.yaml")
 	if err != nil {
-		t.Fatalf("expected Write to .wave/ to be allowed, got: %v", err)
+		t.Fatalf("expected Write to .agents/ to be allowed, got: %v", err)
 	}
 
 	// Write to src/ should be denied

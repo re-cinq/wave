@@ -340,9 +340,9 @@ func runRun(opts RunOptions, debug bool) error {
 		runner = adapter.ResolveAdapter("claude")
 	}
 
-	// Initialize state store under .wave/ — must happen before run ID generation
+	// Initialize state store under .agents/ — must happen before run ID generation
 	// so we can use CreateRun() to produce IDs visible to the dashboard.
-	stateDB := ".wave/state.db"
+	stateDB := ".agents/state.db"
 	store, err := state.NewStateStore(stateDB)
 	if err != nil {
 		// Non-fatal: continue without state persistence
@@ -394,22 +394,22 @@ func runRun(opts RunOptions, debug bool) error {
 		emitter = &dbLoggingEmitter{inner: result.Emitter, store: store, runID: runID}
 	}
 
-	// Initialize workspace manager under .wave/workspaces
+	// Initialize workspace manager under .agents/workspaces
 	wsRoot := m.Runtime.WorkspaceRoot
 	if wsRoot == "" {
-		wsRoot = ".wave/workspaces"
+		wsRoot = ".agents/workspaces"
 	}
 	wsManager, err := workspace.NewWorkspaceManager(wsRoot)
 	if err != nil {
 		return fmt.Errorf("failed to create workspace manager: %w", err)
 	}
 
-	// Initialize audit logger under .wave/traces/
+	// Initialize audit logger under .agents/traces/
 	var logger audit.AuditLogger
 	if m.Runtime.Audit.LogAllToolCalls {
 		traceDir := m.Runtime.Audit.LogDir
 		if traceDir == "" {
-			traceDir = ".wave/traces"
+			traceDir = ".agents/traces"
 		}
 		if l, err := audit.NewTraceLoggerWithDir(traceDir); err == nil {
 			logger = l
@@ -422,7 +422,7 @@ func runRun(opts RunOptions, debug bool) error {
 	if debug {
 		traceDir := m.Runtime.Audit.LogDir
 		if traceDir == "" {
-			traceDir = ".wave/traces"
+			traceDir = ".agents/traces"
 		}
 		if dt, dtErr := audit.NewDebugTracer(traceDir, runID, audit.WithStderrMirror(true)); dtErr == nil {
 			debugTracer = dt
@@ -474,11 +474,11 @@ func runRun(opts RunOptions, debug bool) error {
 	execOpts = append(execOpts, pipeline.WithRegistry(registry))
 
 	// Wire skill store so declared skills are provisioned into adapter workspaces.
-	// Pipeline skills are resolved from skills/ (project) and .wave/skills/ (installed),
+	// Pipeline skills are resolved from skills/ (project) and .agents/skills/ (installed),
 	// with project skills taking precedence.
 	skillStore := skill.NewDirectoryStore(
 		skill.SkillSource{Root: "skills", Precedence: 2},
-		skill.SkillSource{Root: ".wave/skills", Precedence: 1},
+		skill.SkillSource{Root: ".agents/skills", Precedence: 1},
 	)
 	execOpts = append(execOpts, pipeline.WithSkillStore(skillStore))
 	if opts.Adapter != "" {
@@ -494,7 +494,7 @@ func runRun(opts RunOptions, debug bool) error {
 		execOpts = append(execOpts, pipeline.WithAutoApprove(true))
 	}
 	if store != nil && !opts.NoRetro {
-		retroGen := retro.NewGenerator(store, runner, ".wave/retros", &m.Runtime.Retros)
+		retroGen := retro.NewGenerator(store, runner, ".agents/retros", &m.Runtime.Retros)
 		execOpts = append(execOpts, pipeline.WithRetroGenerator(retroGen))
 	}
 
@@ -753,7 +753,7 @@ func runRun(opts RunOptions, debug bool) error {
 // TUI's pipeline_launcher.go pattern (Setsid + Process.Release).
 func runDetached(opts RunOptions, p *pipeline.Pipeline, m *manifest.Manifest) error {
 	// Initialize state store to create a run ID visible to wave status / wave logs.
-	stateDB := ".wave/state.db"
+	stateDB := ".agents/state.db"
 	store, err := state.NewStateStore(stateDB)
 	if err != nil {
 		return fmt.Errorf("detach requires state store: %w", err)
@@ -835,8 +835,8 @@ func runDetached(opts RunOptions, p *pipeline.Pipeline, m *manifest.Manifest) er
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	cmd.Env = buildDetachEnv()
 
-	// Redirect output to .wave/logs/<runID>.log
-	logsDir := filepath.Join(".wave", "logs")
+	// Redirect output to .agents/logs/<runID>.log
+	logsDir := filepath.Join(".agents", "logs")
 	if mkErr := os.MkdirAll(logsDir, 0o755); mkErr != nil {
 		return fmt.Errorf("failed to create logs directory: %w", mkErr)
 	}
@@ -919,8 +919,8 @@ func resolveRunID(runIDOpt string, store state.StateStore, pipelineName, input s
 
 func loadPipeline(name string, _ *manifest.Manifest) (*pipeline.Pipeline, error) {
 	candidates := []string{
-		".wave/pipelines/" + name + ".yaml",
-		".wave/pipelines/" + name,
+		".agents/pipelines/" + name + ".yaml",
+		".agents/pipelines/" + name,
 		name,
 	}
 
@@ -933,7 +933,7 @@ func loadPipeline(name string, _ *manifest.Manifest) (*pipeline.Pipeline, error)
 	}
 
 	if pipelinePath == "" {
-		return nil, fmt.Errorf("pipeline '%s' not found (searched .wave/pipelines/)", name)
+		return nil, fmt.Errorf("pipeline '%s' not found (searched .agents/pipelines/)", name)
 	}
 
 	pipelineData, err := os.ReadFile(pipelinePath)
@@ -966,7 +966,7 @@ func suggestPipelineFromInput(input string) string {
 
 // pipelinesDir returns the default pipeline directory.
 func pipelinesDir() string {
-	return ".wave/pipelines"
+	return ".agents/pipelines"
 }
 
 // applySelection maps a TUI selection back to RunOptions.
@@ -1037,7 +1037,7 @@ func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.
 			}
 		}
 
-		fmt.Fprintf(os.Stderr, "     Workspace: .wave/workspaces/%s/%s/\n", p.Metadata.Name, step.ID)
+		fmt.Fprintf(os.Stderr, "     Workspace: .agents/workspaces/%s/%s/\n", p.Metadata.Name, step.ID)
 
 		if step.Memory.Strategy != "" {
 			fmt.Fprintf(os.Stderr, "     Memory: %s\n", step.Memory.Strategy)

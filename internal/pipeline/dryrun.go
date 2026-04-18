@@ -102,7 +102,7 @@ type DryRunValidator struct {
 }
 
 // NewDryRunValidator creates a DryRunValidator that looks for sub-pipelines in
-// the given directory (e.g. ".wave/pipelines").
+// the given directory (e.g. ".agents/pipelines").
 func NewDryRunValidator(pipelinesDir string) *DryRunValidator {
 	return &DryRunValidator{pipelinesDir: pipelinesDir}
 }

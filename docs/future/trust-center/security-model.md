@@ -370,7 +370,7 @@ Security events can be forwarded to SIEM systems:
 ```yaml
 runtime:
   audit:
-    log_dir: .wave/traces/
+    log_dir: .agents/traces/
     log_all_tool_calls: true
 ```
 

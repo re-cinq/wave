@@ -28,8 +28,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/result.json
-        schema_path: .wave/contracts/result.schema.json
+        source: .agents/output/result.json
+        schema_path: .agents/contracts/result.schema.json
         on_failure: rework   # or: fail, warn
         max_rework: 3
 ```
@@ -109,7 +109,7 @@ The `llm_judge` contract uses a separate LLM call to evaluate output quality:
 handover:
   contract:
     type: llm_judge
-    source: .wave/output/review.md
+    source: .agents/output/review.md
     criteria: |
       - Contains at least 3 specific findings
       - Each finding references a file path
@@ -135,12 +135,12 @@ The producing pipeline's final step should write a well-defined artifact:
   persona: auditor
   output_artifacts:
     - name: findings
-      path: .wave/output/findings.json
+      path: .agents/output/findings.json
   handover:
     contract:
       type: json_schema
-      source: .wave/output/findings.json
-      schema_path: .wave/contracts/shared-findings.schema.json
+      source: .agents/output/findings.json
+      schema_path: .agents/contracts/shared-findings.schema.json
       on_failure: rework
 ```
 
@@ -153,12 +153,12 @@ The consuming pipeline can then rely on that schema:
   exec:
     type: prompt
     source: |
-      Read .wave/output/findings.json and prioritize the findings...
+      Read .agents/output/findings.json and prioritize the findings...
 ```
 
 ### Shared Schemas
 
-Place reusable schemas in `.wave/contracts/shared-*.schema.json`. See the [Contract Chaining](/guides/contract-chaining) guide for details on shared schema conventions.
+Place reusable schemas in `.agents/contracts/shared-*.schema.json`. See the [Contract Chaining](/guides/contract-chaining) guide for details on shared schema conventions.
 
 ## Combining Multiple Contracts
 

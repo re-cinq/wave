@@ -39,7 +39,7 @@ personas:
   local-navigator:
     adapter: local-llm
     description: "Quick codebase analysis with local model"
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
     temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Glob", "Grep"]
@@ -49,7 +49,7 @@ personas:
   craftsman:
     adapter: claude
     description: "Implementation with Claude"
-    system_prompt_file: .wave/personas/craftsman.md
+    system_prompt_file: .agents/personas/craftsman.md
     temperature: 0.7
 ```
 
@@ -73,7 +73,7 @@ steps:
       source: "Analyze the codebase structure for: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
 
   - id: implement
     persona: craftsman          # Uses Claude — higher quality
@@ -111,7 +111,7 @@ If your LLM CLI doesn't natively support headless JSON output, write a wrapper:
 
 ```bash
 #!/bin/bash
-# .wave/bin/my-llm-wrapper
+# .agents/bin/my-llm-wrapper
 # Wraps a CLI to produce JSON output compatible with Wave
 
 PROMPT="$1"
@@ -129,7 +129,7 @@ Then reference the wrapper:
 ```yaml
 adapters:
   custom:
-    binary: .wave/bin/my-llm-wrapper
+    binary: .agents/bin/my-llm-wrapper
     mode: headless
     output_format: json
 ```

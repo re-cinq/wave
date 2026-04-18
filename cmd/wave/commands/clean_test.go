@@ -54,7 +54,7 @@ func (e *cleanTestEnv) cleanup() {
 func (e *cleanTestEnv) createWorkspace(name string, modTime time.Time) string {
 	e.t.Helper()
 
-	wsPath := filepath.Join(".wave", "workspaces", name)
+	wsPath := filepath.Join(".agents", "workspaces", name)
 	err := os.MkdirAll(wsPath, 0755)
 	require.NoError(e.t, err, "failed to create workspace %s", name)
 
@@ -76,8 +76,8 @@ func (e *cleanTestEnv) createWaveStructure() {
 	e.t.Helper()
 
 	dirs := []string{
-		".wave/workspaces",
-		".wave/traces",
+		".agents/workspaces",
+		".agents/traces",
 	}
 	for _, dir := range dirs {
 		err := os.MkdirAll(dir, 0755)
@@ -85,13 +85,13 @@ func (e *cleanTestEnv) createWaveStructure() {
 	}
 
 	// Create a state.db file
-	err := os.WriteFile(".wave/state.db", []byte("test state"), 0644)
+	err := os.WriteFile(".agents/state.db", []byte("test state"), 0644)
 	require.NoError(e.t, err, "failed to create state.db")
 }
 
 // workspaceExists checks if a workspace directory exists
 func (e *cleanTestEnv) workspaceExists(name string) bool {
-	wsPath := filepath.Join(".wave", "workspaces", name)
+	wsPath := filepath.Join(".agents", "workspaces", name)
 	_, err := os.Stat(wsPath)
 	return err == nil
 }
@@ -99,7 +99,7 @@ func (e *cleanTestEnv) workspaceExists(name string) bool {
 // listWorkspaces returns the list of existing workspace directories
 func (e *cleanTestEnv) listWorkspaces() []string {
 	var workspaces []string
-	wsDir := filepath.Join(".wave", "workspaces")
+	wsDir := filepath.Join(".agents", "workspaces")
 
 	entries, err := os.ReadDir(wsDir)
 	if err != nil {
@@ -162,9 +162,9 @@ func TestCleanTestHelpers(t *testing.T) {
 
 	// Test that we can create workspace structure
 	env.createWaveStructure()
-	assert.DirExists(t, ".wave/workspaces")
-	assert.DirExists(t, ".wave/traces")
-	assert.FileExists(t, ".wave/state.db")
+	assert.DirExists(t, ".agents/workspaces")
+	assert.DirExists(t, ".agents/traces")
+	assert.FileExists(t, ".agents/state.db")
 
 	// Test that we can create workspaces with timestamps
 	t1 := time.Now().Add(-3 * time.Hour)
@@ -481,7 +481,7 @@ func TestWorkspacesSortedByCreationTime(t *testing.T) {
 	env.createWorkspace("ws-b", time.Now().Add(-3*time.Hour)) // middle
 
 	// Get workspaces sorted by modification time
-	wsDir := filepath.Join(".wave", "workspaces")
+	wsDir := filepath.Join(".agents", "workspaces")
 	entries, err := os.ReadDir(wsDir)
 	require.NoError(t, err)
 
@@ -599,7 +599,7 @@ func TestGetWorkspacesSortedByTime(t *testing.T) {
 	env.createWorkspace("new-ws", time.Now().Add(-1*time.Hour))
 	env.createWorkspace("mid-ws", time.Now().Add(-2*time.Hour))
 
-	wsDir := filepath.Join(".wave", "workspaces")
+	wsDir := filepath.Join(".agents", "workspaces")
 	sorted, err := getWorkspacesSortedByTimeHelper(wsDir)
 	require.NoError(t, err)
 
@@ -645,8 +645,8 @@ func TestCleanKeepLastOnlyAffectsWorkspaces(t *testing.T) {
 	env.createWorkspace("ws-2", time.Now().Add(-1*time.Hour))
 
 	// Verify state.db and traces exist
-	assert.FileExists(t, ".wave/state.db")
-	assert.DirExists(t, ".wave/traces")
+	assert.FileExists(t, ".agents/state.db")
+	assert.DirExists(t, ".agents/traces")
 
 	// Run clean --all --keep-last 1 (should only affect workspaces)
 	// --force needed for non-TTY test environment
@@ -654,8 +654,8 @@ func TestCleanKeepLastOnlyAffectsWorkspaces(t *testing.T) {
 	require.NoError(t, err)
 
 	// state.db and traces should still exist (keep-last only affects workspaces)
-	assert.FileExists(t, ".wave/state.db")
-	assert.DirExists(t, ".wave/traces")
+	assert.FileExists(t, ".agents/state.db")
+	assert.DirExists(t, ".agents/traces")
 
 	// Only 1 workspace should remain
 	assert.Len(t, env.listWorkspaces(), 1)

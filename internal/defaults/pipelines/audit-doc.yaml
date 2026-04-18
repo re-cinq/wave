@@ -35,12 +35,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -125,7 +125,7 @@ steps:
         A good scan captures every documentation file in the project with accurate summaries, correctly categorizes all changed files, and handles edge cases (no changes found, full mode, custom ref). A bad scan misses documentation directories, miscategorizes test files as source code, or produces summaries too vague to be useful for cross-referencing.
     output_artifacts:
       - name: scan-results
-        path: .wave/output/scan-results.json
+        path: .agents/output/scan-results.json
         type: json
     retry:
       policy: patient
@@ -133,8 +133,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/scan-results.json
-        schema_path: .wave/contracts/doc-scan-results.schema.json
+        source: .agents/output/scan-results.json
+        schema_path: .agents/contracts/doc-scan-results.schema.json
         on_failure: retry
 
   - id: analyze-consistency
@@ -226,7 +226,7 @@ steps:
         A good consistency analysis finds the non-obvious inconsistencies: a flag renamed in code but not in docs, a new environment variable with no documentation, an ADR decision that was reversed in code. Each finding cites both the documentation passage and the code location. A bad analysis only catches the obvious (deleted files still mentioned in README) while missing subtle drift, or reports style issues as consistency findings.
     output_artifacts:
       - name: findings
-        path: .wave/output/findings.json
+        path: .agents/output/findings.json
         type: json
     retry:
       policy: patient
@@ -234,8 +234,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/findings.json
-        schema_path: .wave/contracts/shared-findings.schema.json
+        source: .agents/output/findings.json
+        schema_path: .agents/contracts/shared-findings.schema.json
         on_failure: skip
 
   - id: compose-report
@@ -323,12 +323,12 @@ steps:
         A good report allows a developer to open the issue and work through findings top-to-bottom, fixing documentation files based on the task descriptions and code references provided. Each item has enough context to make the edit without consulting the original analysis artifacts. A bad report uses vague descriptions ("some docs are outdated"), omits code references, or formats the task list in a way that does not render as interactive checkboxes.
     output_artifacts:
       - name: report
-        path: .wave/output/report.md
+        path: .agents/output/report.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/report.md
+        source: .agents/output/report.md
 
   - id: publish
     persona: craftsman
@@ -377,7 +377,7 @@ steps:
         ```bash
         {{ forge.cli_tool }} issue create \
           --title "docs: documentation consistency report (N inconsistencies)" \
-          --body-file .wave/artifacts/report \
+          --body-file .agents/artifacts/report \
           --label "documentation"
         ```
 
@@ -387,7 +387,7 @@ steps:
         ```bash
         {{ forge.cli_tool }} issue create \
           --title "docs: documentation consistency report (N inconsistencies)" \
-          --body-file .wave/artifacts/report
+          --body-file .agents/artifacts/report
         ```
 
         If the forge CLI command fails for any other reason, log the error and record it in the result JSON.
@@ -420,7 +420,7 @@ steps:
         A good issue creation produces an issue with a count-inclusive title, the full formatted report with interactive checkboxes as the body, and a result JSON capturing the issue URL. A bad issue creation uses a generic title without the count, fails silently without recording the error, or creates an issue even when the report says clean.
     output_artifacts:
       - name: issue-result
-        path: .wave/output/issue-result.json
+        path: .agents/output/issue-result.json
         type: json
     retry:
       policy: aggressive
@@ -428,12 +428,12 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/issue-result.json
-        schema_path: .wave/contracts/doc-issue-result.schema.json
+        source: .agents/output/issue-result.json
+        schema_path: .agents/contracts/doc-issue-result.schema.json
         must_pass: true
         on_failure: retry
     outcomes:
       - type: issue
-        extract_from: .wave/output/issue-result.json
+        extract_from: .agents/output/issue-result.json
         json_path: .issue_url
         label: "Documentation Issue"

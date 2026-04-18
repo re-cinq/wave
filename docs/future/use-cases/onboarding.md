@@ -33,12 +33,12 @@ Expected output:
 [10:01:25] completed document        (philosopher)  46s   6.8k Documentation complete
 
 Pipeline onboarding completed in 83s
-Artifacts: .wave/output/onboarding-guide.md
+Artifacts: .agents/output/onboarding-guide.md
 ```
 
 ## Complete Pipeline
 
-Save the following YAML to `.wave/pipelines/onboarding.yaml`:
+Save the following YAML to `.agents/pipelines/onboarding.yaml`:
 
 <div v-pre>
 
@@ -90,7 +90,7 @@ steps:
         }
     output_artifacts:
       - name: exploration
-        path: .wave/output/codebase-exploration.json
+        path: .agents/output/codebase-exploration.json
         type: json
 
   - id: document
@@ -123,7 +123,7 @@ steps:
         experienced in the technology stack.
     output_artifacts:
       - name: guide
-        path: .wave/output/onboarding-guide.md
+        path: .agents/output/onboarding-guide.md
         type: markdown
 ```
 
@@ -135,12 +135,12 @@ The pipeline produces two artifacts:
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| `exploration` | `.wave/output/codebase-exploration.json` | Structured codebase analysis |
-| `guide` | `.wave/output/onboarding-guide.md` | Complete onboarding guide |
+| `exploration` | `.agents/output/codebase-exploration.json` | Structured codebase analysis |
+| `guide` | `.agents/output/onboarding-guide.md` | Complete onboarding guide |
 
 ### Example Output
 
-The pipeline produces `.wave/output/onboarding-guide.md`:
+The pipeline produces `.agents/output/onboarding-guide.md`:
 
 ```markdown
 # Wave Developer Onboarding Guide
@@ -198,7 +198,7 @@ wave/
 │   ├── persona/        # AI persona management
 │   ├── state/          # SQLite persistence
 │   └── workspace/      # Isolated execution environments
-├── .wave/              # Default configurations
+├── .agents/              # Default configurations
 │   ├── personas/       # Persona definitions
 │   └── pipelines/      # Built-in pipelines
 └── docs/               # Documentation
@@ -234,7 +234,7 @@ wave run ops-pr-review "review the authentication module"
 
 ### Creating a Custom Pipeline
 ` ` `bash
-wave do "refactor the error handling" --save .wave/pipelines/refactor.yaml
+wave do "refactor the error handling" --save .agents/pipelines/refactor.yaml
 ` ` `
 
 ### Checking Pipeline Status
@@ -279,13 +279,13 @@ wave status
 ## FAQ
 
 **Q: How do I debug a failing pipeline?**
-A: Use `wave run --debug` for detailed logging, or check `.wave/traces/`.
+A: Use `wave run --debug` for detailed logging, or check `.agents/traces/`.
 
 **Q: Where are pipeline outputs stored?**
-A: In the `.wave/output/` directory by default.
+A: In the `.agents/output/` directory by default.
 
 **Q: How do I add a new persona?**
-A: Create a YAML file in `.wave/personas/` following the existing format.
+A: Create a YAML file in `.agents/personas/` following the existing format.
 
 ## Getting Help
 
@@ -383,7 +383,7 @@ steps:
         - Data model documentation
     output_artifacts:
       - name: architecture
-        path: .wave/output/architecture.md
+        path: .agents/output/architecture.md
         type: markdown
 
   - id: setup-guide
@@ -397,7 +397,7 @@ steps:
         - IDE configuration tips
     output_artifacts:
       - name: setup
-        path: .wave/output/setup-guide.md
+        path: .agents/output/setup-guide.md
         type: markdown
 
   - id: exercises
@@ -411,7 +411,7 @@ steps:
         - Month 1: Feature development
     output_artifacts:
       - name: exercises
-        path: .wave/output/exercises.md
+        path: .agents/output/exercises.md
         type: markdown
 
   - id: compile
@@ -423,7 +423,7 @@ steps:
         with table of contents and cross-references.
     output_artifacts:
       - name: package
-        path: .wave/output/onboarding-package.md
+        path: .agents/output/onboarding-package.md
         type: markdown
 ```
 

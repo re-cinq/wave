@@ -17,7 +17,7 @@ type SkillInfo struct {
 }
 
 // ProvisionFromStore reads skills from the store and provisions them into the
-// workspace at .wave/skills/<name>/SKILL.md. Resource files (scripts/, references/,
+// workspace at .agents/skills/<name>/SKILL.md. Resource files (scripts/, references/,
 // assets/) are also copied with path containment checks.
 //
 // Returns metadata for each successfully provisioned skill. Returns a hard error
@@ -38,7 +38,7 @@ func ProvisionFromStore(store Store, workspacePath string, skillNames []string) 
 			return nil, fmt.Errorf("skill %q: %w", name, err)
 		}
 
-		skillDir := filepath.Join(workspacePath, ".wave", "skills", name)
+		skillDir := filepath.Join(workspacePath, ".agents", "skills", name)
 		if err := os.MkdirAll(skillDir, 0o755); err != nil {
 			return nil, fmt.Errorf("skill %q: failed to create directory: %w", name, err)
 		}

@@ -103,7 +103,7 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	cmd.Env = buildPassthroughEnv(l.deps)
 
-	// Redirect stdout/stderr to .wave/logs/<runID>.log so detached output is preserved
+	// Redirect stdout/stderr to .agents/logs/<runID>.log so detached output is preserved
 	logFile, logErr := openRunLog(runID)
 	if logErr == nil {
 		cmd.Stdout = logFile
@@ -290,9 +290,9 @@ func buildPassthroughEnv(deps LaunchDependencies) []string {
 	return env
 }
 
-// openRunLog creates the .wave/logs/ directory if needed and opens a log file for the run.
+// openRunLog creates the .agents/logs/ directory if needed and opens a log file for the run.
 func openRunLog(runID string) (*os.File, error) {
-	logsDir := filepath.Join(".wave", "logs")
+	logsDir := filepath.Join(".agents", "logs")
 	if err := os.MkdirAll(logsDir, 0o755); err != nil {
 		return nil, err
 	}

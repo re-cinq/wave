@@ -21,9 +21,9 @@ func TestArtifactDef_YAMLParsing(t *testing.T) {
 	}{
 		{
 			name:       "basic artifact with path",
-			yaml:       "name: report\npath: .wave/output/report.json\ntype: json\n",
+			yaml:       "name: report\npath: .agents/output/report.json\ntype: json\n",
 			wantName:   "report",
-			wantPath:   ".wave/output/report.json",
+			wantPath:   ".agents/output/report.json",
 			wantType:   "json",
 			wantSource: "",
 		},
@@ -196,9 +196,9 @@ func TestOutcomeDef_YAMLParsing(t *testing.T) {
 	}{
 		{
 			name:            "PR outcome",
-			yaml:            "type: pr\nextract_from: .wave/output/pr-result.json\njson_path: .pr_url\nlabel: Pull Request\n",
+			yaml:            "type: pr\nextract_from: .agents/output/pr-result.json\njson_path: .pr_url\nlabel: Pull Request\n",
 			wantType:        "pr",
-			wantExtractFrom: ".wave/output/pr-result.json",
+			wantExtractFrom: ".agents/output/pr-result.json",
 			wantJSONPath:    ".pr_url",
 			wantLabel:       "Pull Request",
 		},
@@ -631,6 +631,33 @@ func TestStep_Optional_YAMLParsing(t *testing.T) {
 	}
 }
 
+func TestStepSkillsYAMLRoundTrip(t *testing.T) {
+	yamlStr := `kind: WavePipeline
+metadata:
+  name: test-pipeline
+input:
+  source: cli
+steps:
+  - id: implement
+    persona: craftsman
+    skills: [golang, gh-cli]
+    exec:
+      type: prompt
+      source: "do work"
+`
+	var p Pipeline
+	if err := yaml.Unmarshal([]byte(yamlStr), &p); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if len(p.Steps) != 1 {
+		t.Fatalf("expected 1 step, got %d", len(p.Steps))
+	}
+	want := []string{"golang", "gh-cli"}
+	if !reflect.DeepEqual(p.Steps[0].Skills, want) {
+		t.Errorf("Step.Skills = %v, want %v", p.Steps[0].Skills, want)
+	}
+}
+
 func TestPipelineSkillsYAMLRoundTrip(t *testing.T) {
 	t.Run("pipeline with skills", func(t *testing.T) {
 		yamlStr := `kind: WavePipeline
@@ -685,7 +712,7 @@ requires:
   skills:
     speckit:
       install: "wave skill install speckit"
-      check: "test -d .wave/skills/speckit"
+      check: "test -d .agents/skills/speckit"
 input:
   source: cli
 steps:

@@ -23,12 +23,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -65,10 +65,10 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/implement/fetch-assess.md
+      source_path: .agents/prompts/implement/fetch-assess.md
     output_artifacts:
       - name: assessment
-        path: .wave/output/issue-assessment.json
+        path: .agents/output/issue-assessment.json
         type: json
     retry:
       policy: patient
@@ -76,8 +76,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/issue-assessment.json
-        schema_path: .wave/contracts/issue-assessment.schema.json
+        source: .agents/output/issue-assessment.json
+        schema_path: .agents/contracts/issue-assessment.schema.json
         must_pass: true
         on_failure: retry
 
@@ -96,10 +96,10 @@ steps:
       base: main
     exec:
       type: prompt
-      source_path: .wave/prompts/implement/plan.md
+      source_path: .agents/prompts/implement/plan.md
     output_artifacts:
       - name: impl-plan
-        path: .wave/output/impl-plan.json
+        path: .agents/output/impl-plan.json
         type: json
     retry:
       policy: standard
@@ -107,8 +107,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/impl-plan.json
-        schema_path: .wave/contracts/issue-impl-plan.schema.json
+        source: .agents/output/impl-plan.json
+        schema_path: .agents/contracts/issue-impl-plan.schema.json
         must_pass: true
         on_failure: retry
 
@@ -131,7 +131,7 @@ steps:
       branch: "{{ pipeline_id }}"
     exec:
       type: prompt
-      source_path: .wave/prompts/implement/implement.md
+      source_path: .agents/prompts/implement/implement.md
     retry:
       policy: aggressive
       max_attempts: 2

@@ -182,8 +182,8 @@ func TestDockerSandbox_Wrap_Mounts(t *testing.T) {
 		HostUID:       1000,
 		HostGID:       1000,
 		WorkspacePath: "/work/step1",
-		ArtifactDir:   "/work/.wave/artifacts",
-		OutputDir:     "/work/.wave/output",
+		ArtifactDir:   "/work/.agents/artifacts",
+		OutputDir:     "/work/.agents/output",
 		AdapterBinary: "/usr/bin/claude",
 	}
 
@@ -199,8 +199,8 @@ func TestDockerSandbox_Wrap_Mounts(t *testing.T) {
 		expected string
 	}{
 		{"workspace rw", "/work/step1:/work/step1:rw"},
-		{"artifacts ro", "/work/.wave/artifacts:/work/.wave/artifacts:ro"},
-		{"output rw", "/work/.wave/output:/work/.wave/output:rw"},
+		{"artifacts ro", "/work/.agents/artifacts:/work/.agents/artifacts:ro"},
+		{"output rw", "/work/.agents/output:/work/.agents/output:rw"},
 		{"adapter ro", "/usr/bin/claude:/usr/bin/claude:ro"},
 	}
 	for _, tt := range tests {

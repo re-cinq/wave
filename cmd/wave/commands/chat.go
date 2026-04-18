@@ -85,7 +85,7 @@ Without arguments, opens the most recent completed run.
 }
 
 func runChat(opts ChatOptions) error {
-	dbPath := ".wave/state.db"
+	dbPath := ".agents/state.db"
 
 	// --list: show recent runs and exit
 	if opts.List {
@@ -95,7 +95,7 @@ func runChat(opts ChatOptions) error {
 	// Open state store
 	store, err := state.NewStateStore(dbPath)
 	if err != nil {
-		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .wave/state.db file permissions or run 'wave run' to create it").WithCause(err)
+		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .agents/state.db file permissions or run 'wave run' to create it").WithCause(err)
 	}
 	defer store.Close()
 
@@ -343,7 +343,7 @@ func listRecentRunsForChat(dbPath string) error {
 
 	store, err := state.NewStateStore(dbPath)
 	if err != nil {
-		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .wave/state.db file permissions").WithCause(err)
+		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .agents/state.db file permissions").WithCause(err)
 	}
 	defer store.Close()
 

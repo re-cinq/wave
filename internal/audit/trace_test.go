@@ -327,9 +327,9 @@ func TestDebugTracer_NewEventTypes(t *testing.T) {
 	newEvents := []TraceEvent{
 		{EventType: TracePromptLoad, StepID: "s1", Metadata: map[string]string{"source_path": "/tmp/prompt.md", "size": "512"}},
 		{EventType: TracePromptLoadError, StepID: "s1", Metadata: map[string]string{"error": "file not found"}},
-		{EventType: TraceArtifactWrite, StepID: "s2", Metadata: map[string]string{"artifact": "plan", "path": ".wave/output/plan.md", "size": "2048"}},
+		{EventType: TraceArtifactWrite, StepID: "s2", Metadata: map[string]string{"artifact": "plan", "path": ".agents/output/plan.md", "size": "2048"}},
 		{EventType: TraceArtifactSkipEmpty, StepID: "s2", Metadata: map[string]string{"reason": "ResultContent is empty"}},
-		{EventType: TraceArtifactPreserved, StepID: "s2", Metadata: map[string]string{"artifact": "spec", "path": ".wave/output/spec.md"}},
+		{EventType: TraceArtifactPreserved, StepID: "s2", Metadata: map[string]string{"artifact": "spec", "path": ".agents/output/spec.md"}},
 	}
 
 	for _, ev := range newEvents {

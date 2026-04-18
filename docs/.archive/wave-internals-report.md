@@ -67,10 +67,10 @@ adapters:
 personas:
   craftsman:
     adapter: claude
-    system_prompt_file: .wave/personas/craftsman.md
+    system_prompt_file: .agents/personas/craftsman.md
     permissions: {allowed_tools, deny}
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
   max_concurrent_workers: 5
   relay: {token_threshold_percent, strategy}
   audit: {log_dir, log_all_tool_calls}
@@ -150,13 +150,13 @@ memory:
 Flow:
 1. Step writes output artifacts to its workspace (e.g., `artifact.json`)
 2. Artifact path registered: `execution.ArtifactPaths["step-id:artifact-name"]` → filesystem path
-3. Dependent step's memory config injects artifacts to `.wave/artifacts/` subdirectory in its workspace
-4. Step reads from `.wave/artifacts/injected-name`
+3. Dependent step's memory config injects artifacts to `.agents/artifacts/` subdirectory in its workspace
+4. Step reads from `.agents/artifacts/injected-name`
 
 ### Step Execution Mechanics
 
 **Workspace Creation**
-- Location: `.wave/workspaces/<pipeline>/<step>/`
+- Location: `.agents/workspaces/<pipeline>/<step>/`
 - Isolation: Each step gets isolated filesystem
 - Mounts: Can mount source directories (readonly/readwrite)
 
@@ -272,7 +272,7 @@ Contracts are configured in the pipeline YAML in the `handover` section of each 
 handover:
   contract:
     type: "json_schema"                    # Contract type
-    schema_path: ".wave/contracts/spec-phase.schema.json"  # Schema file
+    schema_path: ".agents/contracts/spec-phase.schema.json"  # Schema file
     # OR inline schema:
     schema: '{"type": "object", ...}'
 
@@ -388,17 +388,17 @@ Success or All Retries Exhausted
 
 **Workspace Directory Structure**:
 ```
-.wave/workspaces/
+.agents/workspaces/
 ├── <pipeline_id>/
 │   ├── <step_id>/
-│   │   ├── .wave/artifacts/    (injected artifacts)
+│   │   ├── .agents/artifacts/    (injected artifacts)
 │   │   ├── <mount_target>/     (mounted source directories)
 │   │   └── (other step outputs)
 ```
 
 **Creation Process** (`Create()` method):
 1. **Initialization**: Takes a `WorkspaceConfig` with mounts and template variables
-2. **Path Construction**: Builds workspace path as `.wave/workspaces/<pipeline_id>/<step_id>`
+2. **Path Construction**: Builds workspace path as `.agents/workspaces/<pipeline_id>/<step_id>`
 3. **Mount Processing**: For each mount configuration:
    - Validates source exists (prevents non-existent source errors)
    - Performs variable substitution (e.g., `{{ pipeline_id }}`)
@@ -429,7 +429,7 @@ Success or All Retries Exhausted
    │
    ├── Step B (docs phase, depends on A)
    │   └── Injects artifacts from step A
-   │       Result: .wave/artifacts/spec_input-spec.md in workspace B
+   │       Result: .agents/artifacts/spec_input-spec.md in workspace B
    ```
 
 ### File Copying and Optimization
@@ -441,7 +441,7 @@ Success or All Retries Exhausted
 var skipDirs = map[string]bool{
     "node_modules": true,  // Large dependency folders
     ".git":         true,  // Version control
-    ".wave":        true,  // Wave internal state
+    ".agents":        true,  // Wave internal state
     ".claude":      true,  // Claude internal state
     "vendor":       true,  // Go vendor directory
     "__pycache__":  true,  // Python cache
@@ -463,7 +463,7 @@ var skipDirs = map[string]bool{
 | **Isolated** | Independent copies per step, no cross-pollution |
 | **Efficient** | Smart copying with skipDirs, file size limits |
 | **Observable** | Workspace paths tracked in execution, available for inspection |
-| **Persistent** | Workspaces retained in `.wave/workspaces/` for post-mortem analysis |
+| **Persistent** | Workspaces retained in `.agents/workspaces/` for post-mortem analysis |
 | **Async-Safe** | Unique paths per concurrent execution prevent collisions |
 | **Artifact-Driven** | Explicit injection mechanism for inter-step communication |
 | **Resumable** | Workspace paths stored in persistent state for pipeline resumption |
@@ -476,7 +476,7 @@ var skipDirs = map[string]bool{
 
 #### Core Infrastructure
 - **Database Engine**: SQLite (modernc.org/sqlite) with WAL mode enabled for concurrent access
-- **Location**: `.wave/state.db`
+- **Location**: `.agents/state.db`
 - **Concurrency**: Single connection pool (Max 1 open, 1 idle) due to SQLite's locking model
 - **Configuration**: 5-second busy timeout, foreign keys enabled
 
@@ -541,7 +541,7 @@ The **ResumeManager** enables pause/resume at step granularity:
 
 ```
 PERSISTENCE LAYER
-├─ SQLite Database (.wave/state.db)
+├─ SQLite Database (.agents/state.db)
 │  ├─ Pipeline Execution (pipeline_state, pipeline_run, event_log)
 │  ├─ Step Execution (step_state, step_progress, progress_snapshot)
 │  ├─ Artifact Tracking (artifact, artifact_metadata)
@@ -550,9 +550,9 @@ PERSISTENCE LAYER
 │  └─ Schema Tracking (schema_migrations)
 │
 ├─ Filesystem State
-│  └─ .wave/workspaces/{pipeline}/{step}/
+│  └─ .agents/workspaces/{pipeline}/{step}/
 │     ├─ src/ (injected sources)
-│     ├─ .wave/artifacts/ (outputs)
+│     ├─ .agents/artifacts/ (outputs)
 │     └─ workspace files
 │
 └─ In-Memory State (DefaultPipelineExecutor)
@@ -573,7 +573,7 @@ PERSISTENCE LAYER
   - Symbolic link detection (disabled by default)
 
 - **Approved Directories Model**: Allowlist-based path validation
-  - Default approved paths: `.wave/contracts/`, `.wave/schemas/`, `contracts/`, `schemas/`
+  - Default approved paths: `.agents/contracts/`, `.agents/schemas/`, `contracts/`, `schemas/`
   - Absolute path resolution for safety checks
 
 #### Input Sanitization (`internal/security/sanitize.go`)
@@ -633,7 +633,7 @@ personas:
 #### Permission Pattern Format
 - **Simple**: `Read`, `Write`, `Edit`, `Bash` (no argument constraint)
 - **With argument patterns**: `Write(artifact.json)`, `Bash(git log*)`
-- **Glob patterns**: `Write(*.go)`, `Write(.wave/specs/*)`, `Bash(go test*)`
+- **Glob patterns**: `Write(*.go)`, `Write(.agents/specs/*)`, `Bash(go test*)`
 - **Wildcards**: `Write(*)` = all write operations
 
 #### Deny-First Precedence (Fail-Safe)
@@ -654,7 +654,7 @@ personas:
 | **navigator** | No | No | Yes | Git only | Deny: `Write(*)`, `Edit(*)` |
 | **auditor** | No | No | Yes | Audit only | Deny: `Write(*)`, `Edit(*)` |
 | **craftsman** | Yes (all) | Yes | Yes | Yes | Deny: `rm -rf /*` |
-| **philosopher** | `.wave/specs/` only | No | Yes | No | Deny: `Bash(*)` |
+| **philosopher** | `.agents/specs/` only | No | Yes | No | Deny: `Bash(*)` |
 | **planner** | No | No | Yes | No | Deny: `Write(*)`, `Edit(*)`, `Bash(*)` |
 
 ### Constitutional Compliance

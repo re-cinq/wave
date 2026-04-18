@@ -102,7 +102,7 @@ my-skill/
     └── sample-data.csv
 ```
 
-When a skill is provisioned into a workspace, all resource files are copied to `.wave/skills/<name>/` preserving the directory structure.
+When a skill is provisioned into a workspace, all resource files are copied to `.agents/skills/<name>/` preserving the directory structure.
 
 ## Naming Conventions
 
@@ -126,20 +126,59 @@ When a skill is provisioned into a workspace, all resource files are copied to `
 
 4. **Include metadata**: Add `author` and `version` metadata to help users understand provenance and compatibility.
 
-5. **Test your skill**: Install locally with `wave skills install file:./my-skill` and verify it parses correctly.
+5. **Test your skill**: Install locally with `wave skills add file:./my-skill --project` and verify it parses correctly.
 
 6. **Document in the body**: The markdown body is injected into the agent's context. Write clear instructions, examples, and constraints.
 
 ## Installing a Custom Skill
 
-To install a skill from a local directory:
+User-global install (default — available to all your projects):
 
 ```bash
-wave skills install file:./path/to/my-skill
+wave skills add file:./path/to/my-skill
+```
+
+Project-scoped install (committed to the repo as `.agents/skills/<name>/`):
+
+```bash
+wave skills add file:./path/to/my-skill --project
 ```
 
 To verify it installed correctly:
 
 ```bash
 wave skills list
+wave skills check <name>
 ```
+
+To diagnose discovery issues across all roots:
+
+```bash
+wave skills doctor
+```
+
+## How Adapters Load Skills
+
+Wave provisions each declared skill into the path the target adapter natively scans, so the agent lazy-loads only the metadata at session start and pulls the body on demand via its built-in skill tool:
+
+| Adapter | Workspace target path | Native invocation |
+|---------|----------------------|-------------------|
+| claude | `.claude/skills/<name>/` | `Skill` tool |
+| opencode | `.agents/skills/<name>/` | `skill` tool |
+| gemini | `.agents/skills/<name>/` | `activate_skill` tool |
+| codex | `.agents/skills/<name>/` | `/skills` command |
+
+Wave drops a `.wave-managed` sentinel file alongside every provisioned SKILL.md. Subsequent runs only remove sentinel-tagged directories, so any user-committed skills inherited from a worktree checkout are preserved.
+
+## Declaring Skills in Pipelines
+
+Step-level (recommended — scopes skills to one agent run):
+
+```yaml
+steps:
+  - id: implement
+    persona: craftsman
+    skills: [golang, gh-cli]
+```
+
+Pipeline-level and persona-level declarations also work and are merged via `skill.ResolveSkills` (step > pipeline > persona > global). Preflight validates every referenced skill against the discovery store and fails fast with a `wave skills add` hint when one is missing.

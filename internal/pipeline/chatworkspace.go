@@ -40,7 +40,7 @@ func (opts ChatWorkspaceOptions) effectiveMode() ChatMode {
 // for an interactive wave chat session. Returns the workspace path.
 func PrepareChatWorkspace(ctx *ChatContext, opts ChatWorkspaceOptions) (string, error) {
 	// 1. Create chat workspace directory
-	wsDir := filepath.Join(ctx.ProjectRoot, ".wave", "chat", ctx.Run.RunID)
+	wsDir := filepath.Join(ctx.ProjectRoot, ".agents", "chat", ctx.Run.RunID)
 	if err := os.MkdirAll(wsDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create chat workspace: %w", err)
 	}
@@ -362,16 +362,16 @@ func buildChatClaudeMd(ctx *ChatContext, mode ChatMode, stepFilter, artifactName
 	b.WriteString("wave chat --list                    # recent runs\n")
 	b.WriteString("```\n\n")
 	b.WriteString("If you must query state directly:\n")
-	b.WriteString("- Database: `.wave/state.db` (SQLite)\n")
+	b.WriteString("- Database: `.agents/state.db` (SQLite)\n")
 	b.WriteString("- Tables: `pipeline_run`, `event_log`, `artifact`, `step_state`, `pipeline_state`\n")
 	b.WriteString("- Run ID column: `run_id` (not `id`)\n")
 	b.WriteString("- Step column: `step_id` (not `step`)\n")
 	b.WriteString("- There is NO table called `steps` or `runs`\n\n")
 	b.WriteString("Key paths:\n")
-	b.WriteString("- State DB: `.wave/state.db`\n")
-	b.WriteString("- Workspaces: `.wave/workspaces/<pipeline>/<step>/`\n")
-	b.WriteString("- Artifacts: `.wave/artifacts/` and `.wave/output/`\n")
-	b.WriteString("- Traces: `.wave/traces/`\n")
+	b.WriteString("- State DB: `.agents/state.db`\n")
+	b.WriteString("- Workspaces: `.agents/workspaces/<pipeline>/<step>/`\n")
+	b.WriteString("- Artifacts: `.agents/artifacts/` and `.agents/output/`\n")
+	b.WriteString("- Traces: `.agents/traces/`\n")
 
 	// Instructions
 	b.WriteString("\n## Instructions\n\n")

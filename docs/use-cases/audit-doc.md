@@ -57,6 +57,6 @@ With `-o text`:
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| `scan-results` | `.wave/output/scan-results.json` | Changed files by category, doc snapshots |
-| `consistency-report` | `.wave/output/consistency-report.json` | Inconsistencies with severity ratings |
-| `issue-result` | `.wave/output/issue-result.json` | Created issue number, URL, or skip status |
+| `scan-results` | `.agents/output/scan-results.json` | Changed files by category, doc snapshots |
+| `consistency-report` | `.agents/output/consistency-report.json` | Inconsistencies with severity ratings |
+| `issue-result` | `.agents/output/issue-result.json` | Created issue number, URL, or skip status |

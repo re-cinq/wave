@@ -197,7 +197,7 @@ func (r *Runtime) GetMaxConcurrency() int {
 // RuntimeArtifactsConfig holds global configuration for artifact handling.
 type RuntimeArtifactsConfig struct {
 	MaxStdoutSize      int64  `yaml:"max_stdout_size,omitempty"`      // Max bytes to capture from stdout (default: 10MB)
-	DefaultArtifactDir string `yaml:"default_artifact_dir,omitempty"` // Base directory for artifacts (default: ".wave/artifacts")
+	DefaultArtifactDir string `yaml:"default_artifact_dir,omitempty"` // Base directory for artifacts (default: ".agents/artifacts")
 }
 
 // GetMaxStdoutSize returns the configured max stdout size or the default (10MB).
@@ -213,7 +213,7 @@ func (c *RuntimeArtifactsConfig) GetDefaultArtifactDir() string {
 	if c.DefaultArtifactDir != "" {
 		return c.DefaultArtifactDir
 	}
-	return ".wave/artifacts"
+	return ".agents/artifacts"
 }
 
 type RuntimeSandbox struct {

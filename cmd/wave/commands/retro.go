@@ -46,21 +46,21 @@ narrative analysis to identify friction points and learnings.`,
 }
 
 func runRetroView(runID string, narrate bool, jsonOutput bool) error {
-	store, err := state.NewStateStore(".wave/state.db")
+	store, err := state.NewStateStore(".agents/state.db")
 	if err != nil {
 		return NewCLIError(CodeStateDBError, "failed to open state store: "+err.Error(),
-			"Check that .wave/state.db exists and is not corrupted.").WithCause(err)
+			"Check that .agents/state.db exists and is not corrupted.").WithCause(err)
 	}
 	defer store.Close()
 
-	storage := retro.NewStorage(".wave/retros", store)
+	storage := retro.NewStorage(".agents/retros", store)
 
 	if narrate {
 		m, runner, err := loadManifestAndRunner()
 		if err != nil {
 			return err
 		}
-		gen := retro.NewGenerator(store, runner, ".wave/retros", &m.Runtime.Retros)
+		gen := retro.NewGenerator(store, runner, ".agents/retros", &m.Runtime.Retros)
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		defer cancel()
 		if err := gen.GenerateNarrativeSync(ctx, runID); err != nil {
@@ -172,14 +172,14 @@ func newRetroListCmd() *cobra.Command {
 }
 
 func runRetroList(pipelineFilter, since string) error {
-	store, err := state.NewStateStore(".wave/state.db")
+	store, err := state.NewStateStore(".agents/state.db")
 	if err != nil {
 		return NewCLIError(CodeStateDBError, "failed to open state store: "+err.Error(),
-			"Check that .wave/state.db exists and is not corrupted.").WithCause(err)
+			"Check that .agents/state.db exists and is not corrupted.").WithCause(err)
 	}
 	defer store.Close()
 
-	storage := retro.NewStorage(".wave/retros", store)
+	storage := retro.NewStorage(".agents/retros", store)
 
 	var sinceTime time.Time
 	if since != "" {
@@ -194,7 +194,7 @@ func runRetroList(pipelineFilter, since string) error {
 	records, err := storage.List(pipelineFilter, sinceTime, 50)
 	if err != nil {
 		return NewCLIError(CodeStateDBError, "failed to list retrospectives: "+err.Error(),
-			"Check that .wave/state.db is accessible.").WithCause(err)
+			"Check that .agents/state.db is accessible.").WithCause(err)
 	}
 
 	if len(records) == 0 {
@@ -234,19 +234,19 @@ func newRetroStatsCmd() *cobra.Command {
 }
 
 func runRetroStats() error {
-	store, err := state.NewStateStore(".wave/state.db")
+	store, err := state.NewStateStore(".agents/state.db")
 	if err != nil {
 		return NewCLIError(CodeStateDBError, "failed to open state store: "+err.Error(),
-			"Check that .wave/state.db exists and is not corrupted.").WithCause(err)
+			"Check that .agents/state.db exists and is not corrupted.").WithCause(err)
 	}
 	defer store.Close()
 
-	storage := retro.NewStorage(".wave/retros", store)
+	storage := retro.NewStorage(".agents/retros", store)
 
 	records, err := storage.List("", time.Time{}, 1000)
 	if err != nil {
 		return NewCLIError(CodeStateDBError, "failed to list retrospectives: "+err.Error(),
-			"Check that .wave/state.db is accessible.").WithCause(err)
+			"Check that .agents/state.db is accessible.").WithCause(err)
 	}
 
 	if len(records) == 0 {

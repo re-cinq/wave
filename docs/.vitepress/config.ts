@@ -187,8 +187,6 @@ export default withMermaid(
             text: 'Skills',
             items: [
               { text: 'Skills', link: '/guide/skills' },
-              { text: 'Skill Configuration', link: '/guide/skill-configuration' },
-              { text: 'Skill Ecosystems', link: '/guide/skill-ecosystems' },
               { text: 'TUI', link: '/guide/tui' },
               { text: 'Chat Context', link: '/guide/chat-context' },
               { text: 'Pipeline Outputs', link: '/guide/pipeline-outputs' }

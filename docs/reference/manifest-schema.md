@@ -28,9 +28,9 @@ adapters:
 personas:
   navigator:
     adapter: claude
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 ```
 
 ---
@@ -103,7 +103,7 @@ adapters:
     default_permissions:
       allowed_tools: ["Read", "Write", "Bash"]
       deny: []
-    hooks_template: .wave/hooks/claude/
+    hooks_template: .agents/hooks/claude/
 
   opencode:
     binary: opencode
@@ -149,7 +149,7 @@ personas:
   navigator:
     adapter: claude
     description: "Codebase exploration and analysis"
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
     temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Glob", "Grep", "Bash(git log*)", "Bash(git status*)"]
@@ -159,17 +159,17 @@ personas:
   philosopher:
     adapter: claude
     description: "Architecture design and specification"
-    system_prompt_file: .wave/personas/philosopher.md
+    system_prompt_file: .agents/personas/philosopher.md
     temperature: 0.3
     permissions:
-      allowed_tools: ["Read", "Write(.wave/specs/*)"]
+      allowed_tools: ["Read", "Write(.agents/specs/*)"]
       deny: ["Bash(*)"]
 
   # Implementation with full write access
   craftsman:
     adapter: claude
     description: "Code implementation and testing"
-    system_prompt_file: .wave/personas/craftsman.md
+    system_prompt_file: .agents/personas/craftsman.md
     temperature: 0.7
     permissions:
       allowed_tools: ["Read", "Write", "Edit", "Bash"]
@@ -179,7 +179,7 @@ personas:
   auditor:
     adapter: claude
     description: "Security review and quality assurance"
-    system_prompt_file: .wave/personas/auditor.md
+    system_prompt_file: .agents/personas/auditor.md
     temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Grep", "Bash(npm audit*)", "Bash(go vet*)"]
@@ -189,7 +189,7 @@ personas:
   summarizer:
     adapter: claude
     description: "Context compaction for relay handoffs"
-    system_prompt_file: .wave/personas/summarizer.md
+    system_prompt_file: .agents/personas/summarizer.md
     temperature: 0.0
     permissions:
       allowed_tools: ["Read"]
@@ -267,22 +267,22 @@ Pre/post tool execution hooks. Hooks execute shell commands triggered by tool ca
 personas:
   craftsman:
     adapter: claude
-    system_prompt_file: .wave/personas/craftsman.md
+    system_prompt_file: .agents/personas/craftsman.md
     hooks:
       PreToolUse:
         # Block destructive filesystem operations
         - matcher: "Bash(rm -rf *)"
-          command: ".wave/hooks/block-destructive.sh"
+          command: ".agents/hooks/block-destructive.sh"
         # Require linting before any commit
         - matcher: "Bash(git commit*)"
-          command: ".wave/hooks/pre-commit-lint.sh"
+          command: ".agents/hooks/pre-commit-lint.sh"
       PostToolUse:
         # Run tests after file writes
         - matcher: "Write(src/**)"
           command: "npm test --silent"
         # Log all bash invocations
         - matcher: "Bash(*)"
-          command: ".wave/hooks/log-bash.sh"
+          command: ".agents/hooks/log-bash.sh"
 ```
 
 ---
@@ -293,7 +293,7 @@ Global runtime settings governing execution behavior.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `workspace_root` | `string` | no | `".wave/workspaces"` | Root directory for ephemeral workspaces. Each pipeline run creates subdirectories here. |
+| `workspace_root` | `string` | no | `".agents/workspaces"` | Root directory for ephemeral workspaces. Each pipeline run creates subdirectories here. |
 | `max_concurrent_workers` | `int` | no | `5` | Maximum parallel matrix strategy workers. Range: `1`–`10`. |
 | `default_timeout_minutes` | `int` | no | `5` | Default per-step timeout. Steps exceeding this are killed (entire process group). |
 | `relay` | [`RelayConfig`](#relayconfig) | no | see defaults | Context relay/compaction settings. |
@@ -318,7 +318,7 @@ Global runtime settings governing execution behavior.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `log_dir` | `string` | no | `".wave/traces/"` | Directory for audit trail files. Created automatically. |
+| `log_dir` | `string` | no | `".agents/traces/"` | Directory for audit trail files. Created automatically. |
 | `log_all_tool_calls` | `bool` | no | `false` | Log every tool invocation with arguments and results. |
 | `log_all_file_operations` | `bool` | no | `false` | Log every file read, write, and delete with paths. |
 
@@ -364,7 +364,7 @@ Audit logs **never** capture environment variable values or credential content. 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `max_stdout_size` | `int` | no | `10485760` | Maximum bytes to capture from stdout (default: 10MB). |
-| `default_artifact_dir` | `string` | no | `".wave/artifacts"` | Base directory for artifacts. |
+| `default_artifact_dir` | `string` | no | `".agents/artifacts"` | Base directory for artifacts. |
 
 ### Timeouts
 
@@ -379,7 +379,6 @@ Fine-grained timeout configuration. All values fall back to built-in defaults in
 | `skill_cli_seconds` | `int` | `120` | Skill CLI command execution timeout. |
 | `skill_http_seconds` | `int` | `120` | Skill HTTP source fetch timeout. |
 | `skill_http_header_seconds` | `int` | `30` | Skill HTTP header-only probe timeout. |
-| `skill_publish_seconds` | `int` | `30` | `tessl publish` command timeout. |
 | `process_grace_seconds` | `int` | `3` | Grace period between SIGTERM and SIGKILL for adapter subprocesses. |
 | `stdout_drain_seconds` | `int` | `1` | Post-cancel stdout drain wait. |
 | `gate_approval_hours` | `int` | `24` | Maximum wait for manual gate approval. |
@@ -393,7 +392,7 @@ Fine-grained timeout configuration. All values fall back to built-in defaults in
 
 ```yaml
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
   max_concurrent_workers: 5
   default_timeout_minutes: 5
   timeouts:
@@ -408,7 +407,7 @@ runtime:
     token_threshold_percent: 80
     strategy: summarize_to_checkpoint
   audit:
-    log_dir: .wave/traces/
+    log_dir: .agents/traces/
     log_all_tool_calls: true
     log_all_file_operations: true
   meta_pipeline:
@@ -569,13 +568,13 @@ adapters:
     default_permissions:
       allowed_tools: ["Read", "Write", "Edit", "Bash"]
       deny: []
-    hooks_template: .wave/hooks/claude/
+    hooks_template: .agents/hooks/claude/
 
 personas:
   navigator:
     adapter: claude
     description: "Read-only codebase exploration"
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
     temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Glob", "Grep", "Bash(git *)"]
@@ -584,16 +583,16 @@ personas:
   philosopher:
     adapter: claude
     description: "Architecture and specification design"
-    system_prompt_file: .wave/personas/philosopher.md
+    system_prompt_file: .agents/personas/philosopher.md
     temperature: 0.3
     permissions:
-      allowed_tools: ["Read", "Write(.wave/specs/*)"]
+      allowed_tools: ["Read", "Write(.agents/specs/*)"]
       deny: ["Bash(*)"]
 
   craftsman:
     adapter: claude
     description: "Implementation and testing"
-    system_prompt_file: .wave/personas/craftsman.md
+    system_prompt_file: .agents/personas/craftsman.md
     temperature: 0.7
     permissions:
       allowed_tools: ["Read", "Write", "Edit", "Bash"]
@@ -601,7 +600,7 @@ personas:
     hooks:
       PreToolUse:
         - matcher: "Bash(git commit*)"
-          command: ".wave/hooks/pre-commit-lint.sh"
+          command: ".agents/hooks/pre-commit-lint.sh"
       PostToolUse:
         - matcher: "Write(src/**)"
           command: "go test ./..."
@@ -609,7 +608,7 @@ personas:
   auditor:
     adapter: claude
     description: "Security and quality review"
-    system_prompt_file: .wave/personas/auditor.md
+    system_prompt_file: .agents/personas/auditor.md
     temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Grep", "Bash(go vet*)"]
@@ -618,21 +617,21 @@ personas:
   summarizer:
     adapter: claude
     description: "Relay checkpoint summarizer"
-    system_prompt_file: .wave/personas/summarizer.md
+    system_prompt_file: .agents/personas/summarizer.md
     temperature: 0.0
     permissions:
       allowed_tools: ["Read"]
       deny: ["Write(*)", "Bash(*)"]
 
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
   max_concurrent_workers: 5
   default_timeout_minutes: 5
   relay:
     token_threshold_percent: 80
     strategy: summarize_to_checkpoint
   audit:
-    log_dir: .wave/traces/
+    log_dir: .agents/traces/
     log_all_tool_calls: true
     log_all_file_operations: false
   meta_pipeline:

@@ -58,8 +58,8 @@ With `-o text`:
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| `issue-content` | `.wave/output/issue-content.json` | Raw issue data |
-| `topics` | `.wave/output/research-topics.json` | Research topics with search keywords |
-| `findings` | `.wave/output/research-findings.json` | Per-topic research results with sources |
-| `report` | `.wave/output/research-report.json` | Synthesized report with recommendations |
-| `comment-result` | `.wave/output/comment-result.json` | Posted comment URL and status |
+| `issue-content` | `.agents/output/issue-content.json` | Raw issue data |
+| `topics` | `.agents/output/research-topics.json` | Research topics with search keywords |
+| `findings` | `.agents/output/research-findings.json` | Per-topic research results with sources |
+| `report` | `.agents/output/research-report.json` | Synthesized report with recommendations |
+| `comment-result` | `.agents/output/comment-result.json` | Posted comment URL and status |

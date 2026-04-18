@@ -13,7 +13,7 @@ func TestDashboard_Render(t *testing.T) {
 	ctx := &PipelineContext{
 		ManifestPath:      "wave.yaml",
 		PipelineName:      "test-pipeline",
-		WorkspacePath:     ".wave/workspaces/test",
+		WorkspacePath:     ".agents/workspaces/test",
 		TotalSteps:        3,
 		CurrentStepNum:    2,
 		CompletedSteps:    1,
@@ -103,7 +103,7 @@ func TestDashboard_RenderPanels(t *testing.T) {
 	ctx := &PipelineContext{
 		ManifestPath:    "wave.yaml",
 		PipelineName:    "test-pipeline",
-		WorkspacePath:   ".wave/workspaces/test",
+		WorkspacePath:   ".agents/workspaces/test",
 		TotalSteps:      3,
 		CurrentStepNum:  1,
 		CurrentStepID:   "step1",

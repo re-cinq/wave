@@ -49,7 +49,7 @@ Read-only codebase exploration. Finds files, analyzes patterns, maps architectur
 navigator:
   adapter: claude
   description: "Read-only codebase exploration and analysis"
-  system_prompt_file: .wave/personas/navigator.md
+  system_prompt_file: .agents/personas/navigator.md
   #temperature: 0.3
   permissions:
     allowed_tools:
@@ -73,7 +73,7 @@ Design and specification. Creates specs, plans, and contracts.
 philosopher:
   adapter: claude
   description: "Architecture design and specification"
-  system_prompt_file: .wave/personas/philosopher.md
+  system_prompt_file: .agents/personas/philosopher.md
   #temperature: 0.7
   permissions:
     allowed_tools:
@@ -94,7 +94,7 @@ Task breakdown and project planning. Decomposes features into actionable steps.
 planner:
   adapter: claude
   description: "Task breakdown and project planning"
-  system_prompt_file: .wave/personas/planner.md
+  system_prompt_file: .agents/personas/planner.md
   #temperature: 0.3
   permissions:
     allowed_tools:
@@ -115,7 +115,7 @@ Full implementation capability. Reads, writes, edits, and runs commands.
 craftsman:
   adapter: claude
   description: "Code implementation and testing"
-  system_prompt_file: .wave/personas/craftsman.md
+  system_prompt_file: .agents/personas/craftsman.md
   #temperature: 0.3
   permissions:
     allowed_tools:
@@ -135,7 +135,7 @@ Systematic issue diagnosis with hypothesis testing and root cause analysis.
 debugger:
   adapter: claude
   description: "Systematic issue diagnosis and root cause analysis"
-  system_prompt_file: .wave/personas/debugger.md
+  system_prompt_file: .agents/personas/debugger.md
   #temperature: 0.2
   permissions:
     allowed_tools:
@@ -159,7 +159,7 @@ Security review and quality assurance. Read-only with analysis tools.
 auditor:
   adapter: claude
   description: "Security review and quality assurance"
-  system_prompt_file: .wave/personas/auditor.md
+  system_prompt_file: .agents/personas/auditor.md
   #temperature: 0.1
   permissions:
     allowed_tools:
@@ -180,7 +180,7 @@ Context compaction for relay handoffs. Creates structured checkpoints.
 summarizer:
   adapter: claude
   description: "Context compaction for relay handoffs"
-  system_prompt_file: .wave/personas/summarizer.md
+  system_prompt_file: .agents/personas/summarizer.md
   #temperature: 0.2
   permissions:
     allowed_tools:
@@ -230,7 +230,7 @@ personas:
   my-persona:
     adapter: claude
     description: "What this persona does"
-    system_prompt_file: .wave/personas/my-persona.md
+    system_prompt_file: .agents/personas/my-persona.md
     #temperature: 0.5  # Optional — uncomment and adjust if needed
     permissions:
       allowed_tools: [...]
@@ -284,7 +284,7 @@ Hooks execute shell commands at tool call boundaries:
 hooks:
   PreToolUse:    # Non-zero exit blocks the tool call
     - matcher: "Bash(git commit*)"
-      command: ".wave/hooks/pre-commit-lint.sh"
+      command: ".agents/hooks/pre-commit-lint.sh"
   PostToolUse:   # Informational only
     - matcher: "Write(src/**)"
       command: "npm test --silent"
@@ -292,7 +292,7 @@ hooks:
 
 ## System Prompt Files
 
-Store prompts in `.wave/personas/` as markdown:
+Store prompts in `.agents/personas/` as markdown:
 
 ```markdown
 # Navigator

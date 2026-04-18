@@ -237,7 +237,7 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 	}
 
 	// 0. Base protocol preamble (shared across all personas)
-	baseProtocolPath := filepath.Join(".wave", "personas", "base-protocol.md")
+	baseProtocolPath := filepath.Join(".agents", "personas", "base-protocol.md")
 	baseProtocol, err := os.ReadFile(baseProtocolPath)
 	if err != nil {
 		return fmt.Errorf("failed to read base protocol %s: %w", baseProtocolPath, err)
@@ -248,7 +248,7 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 	if cfg.SystemPrompt != "" {
 		systemPrompt = cfg.SystemPrompt
 	} else {
-		personaPath := filepath.Join(".wave", "personas", cfg.Persona+".md")
+		personaPath := filepath.Join(".agents", "personas", cfg.Persona+".md")
 		if data, err := os.ReadFile(personaPath); err == nil {
 			systemPrompt = string(data)
 		} else {
@@ -305,29 +305,11 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		return fmt.Errorf("failed to write agent .md: %w", err)
 	}
 
-	// Provision .claude/skills/ — always clear first, then populate only declared skills.
-	// For worktree workspaces this removes all skills inherited from the git checkout,
-	// guaranteeing zero-skill pipelines get no context pollution and skill pipelines
-	// get exactly the skills they declared.
-	//
-	// Safety: only clear .claude/skills/ when running inside a pipeline workspace
-	// (workspacePath is under .wave/workspaces/). If workspacePath falls back to
-	// os.Getwd() (project root), we must NOT delete the project's .claude/skills/.
-	skillsDir := filepath.Join(settingsDir, "skills")
-	isWorkspace := strings.Contains(workspacePath, ".wave/workspaces") ||
-		strings.Contains(workspacePath, "__wt_")
-	if isWorkspace {
-		if err := os.RemoveAll(skillsDir); err != nil {
-			return fmt.Errorf("failed to clear .claude/skills: %w", err)
-		}
-	}
-	for _, ref := range cfg.ResolvedSkills {
-		if ref.SourcePath == "" {
-			continue
-		}
-		if err := copySkillDir(ref.SourcePath, filepath.Join(skillsDir, ref.Name)); err != nil {
-			return fmt.Errorf("skill %q: failed to provision to .claude/skills: %w", ref.Name, err)
-		}
+	// Provision .claude/skills/ via shared helper. The helper is workspace-scope
+	// safe (panics on traversal) and only removes Wave-managed dirs (sentinel-tagged),
+	// preserving any user-committed skills inherited from a worktree checkout.
+	if err := ProvisionSkills(workspacePath, ".claude/skills", cfg.ResolvedSkills); err != nil {
+		return fmt.Errorf("provision claude skills: %w", err)
 	}
 
 	// Copy skill command files into workspace .claude/commands/
@@ -822,7 +804,7 @@ func buildSkillSection(skills []SkillRef) string {
 	b.WriteString("\n\n---\n\n## Available Skills\n\n")
 	b.WriteString("The following skills are available in this workspace:\n\n")
 	for _, s := range skills {
-		fmt.Fprintf(&b, "- **%s**: %s (see `.wave/skills/%s/SKILL.md`)\n", s.Name, s.Description, s.Name)
+		fmt.Fprintf(&b, "- **%s**: %s (see `.agents/skills/%s/SKILL.md`)\n", s.Name, s.Description, s.Name)
 	}
 	return b.String()
 }

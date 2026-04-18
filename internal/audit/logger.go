@@ -40,7 +40,7 @@ var credentialPatterns = []string{
 }
 
 func NewTraceLogger() (*TraceLogger, error) {
-	return NewTraceLoggerWithDir(".wave/traces")
+	return NewTraceLoggerWithDir(".agents/traces")
 }
 
 func NewTraceLoggerWithDir(traceDir string) (*TraceLogger, error) {

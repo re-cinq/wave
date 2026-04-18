@@ -34,13 +34,13 @@ Benefits:
 ### File Naming Convention
 
 ```
-.wave/traces/<pipeline-id>-<pipeline-name>-<timestamp>.ndjson
+.agents/traces/<pipeline-id>-<pipeline-name>-<timestamp>.ndjson
 ```
 
 Example:
 
 ```
-.wave/traces/a1b2c3d4-impl-speckit-2026-02-01T10:00:00.ndjson
+.agents/traces/a1b2c3d4-impl-speckit-2026-02-01T10:00:00.ndjson
 ```
 
 ## Log Entry Schema
@@ -309,7 +309,7 @@ Logged when `log_all_file_operations: true`:
 # wave.yaml
 runtime:
   audit:
-    log_dir: .wave/traces/
+    log_dir: .agents/traces/
     log_all_tool_calls: true
     log_all_file_operations: true
 ```
@@ -328,7 +328,7 @@ Wave does not automatically rotate logs. Implement rotation using standard tools
 
 ```bash
 # Example: logrotate configuration
-/path/to/.wave/traces/*.ndjson {
+/path/to/.agents/traces/*.ndjson {
     daily
     rotate 30
     compress
@@ -376,7 +376,7 @@ curl -H "Authorization: Bearer sk-ant-api03-xxxx" https://api.example.com
 
 ```bash
 # Forward audit logs to Splunk HTTP Event Collector
-tail -f .wave/traces/*.ndjson | \
+tail -f .agents/traces/*.ndjson | \
   curl -X POST \
     -H "Authorization: Splunk $SPLUNK_TOKEN" \
     -d @- \
@@ -387,7 +387,7 @@ tail -f .wave/traces/*.ndjson | \
 
 ```bash
 # Index audit logs to Elasticsearch
-cat .wave/traces/*.ndjson | \
+cat .agents/traces/*.ndjson | \
   while read line; do
     echo '{"index":{"_index":"wave-audit"}}'
     echo "$line"
@@ -401,27 +401,27 @@ cat .wave/traces/*.ndjson | \
 **Find all permission denials:**
 
 ```bash
-cat .wave/traces/*.ndjson | jq 'select(.type == "permission_denied")'
+cat .agents/traces/*.ndjson | jq 'select(.type == "permission_denied")'
 ```
 
 **List files written by persona:**
 
 ```bash
-cat .wave/traces/*.ndjson | \
+cat .agents/traces/*.ndjson | \
   jq 'select(.type == "file_write" and .persona == "craftsman") | .path'
 ```
 
 **Get security events by severity:**
 
 ```bash
-cat .wave/traces/*.ndjson | \
+cat .agents/traces/*.ndjson | \
   jq 'select(.type == "security_violation" and .severity == "CRITICAL")'
 ```
 
 **Timeline of step execution:**
 
 ```bash
-cat .wave/traces/*.ndjson | \
+cat .agents/traces/*.ndjson | \
   jq 'select(.type | startswith("step_")) | {time: .timestamp, step: .step_id, type: .type}'
 ```
 
@@ -431,14 +431,14 @@ cat .wave/traces/*.ndjson | \
 
 ```yaml
 - name: Run Wave pipeline
-  run: wave run .wave/pipelines/ci-flow.yaml "CI run"
+  run: wave run .agents/pipelines/ci-flow.yaml "CI run"
 
 - name: Upload audit logs
   uses: actions/upload-artifact@v4
   if: always()
   with:
     name: wave-audit-logs
-    path: .wave/traces/
+    path: .agents/traces/
     retention-days: 90
 ```
 
@@ -447,10 +447,10 @@ cat .wave/traces/*.ndjson | \
 ```yaml
 wave-pipeline:
   script:
-    - wave run .wave/pipelines/ci-flow.yaml "CI run"
+    - wave run .agents/pipelines/ci-flow.yaml "CI run"
   artifacts:
     paths:
-      - .wave/traces/
+      - .agents/traces/
     expire_in: 90 days
     when: always
 ```
@@ -489,7 +489,7 @@ Estimate log size:
 Monitor disk usage:
 
 ```bash
-du -sh .wave/traces/
+du -sh .agents/traces/
 ```
 
 ### Best Practices

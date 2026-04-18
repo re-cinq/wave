@@ -86,7 +86,7 @@ Examples:
 }
 
 func runStatus(opts StatusOptions) error {
-	dbPath := ".wave/state.db"
+	dbPath := ".agents/state.db"
 
 	// Check if state database exists
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
@@ -100,7 +100,7 @@ func runStatus(opts StatusOptions) error {
 
 	store, err := state.NewStateStore(dbPath)
 	if err != nil {
-		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .wave/state.db file permissions or run 'wave run' to create it").WithCause(err)
+		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .agents/state.db file permissions or run 'wave run' to create it").WithCause(err)
 	}
 	defer store.Close()
 

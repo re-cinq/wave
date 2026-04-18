@@ -60,7 +60,7 @@ func TestIsOnboarded(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dir := filepath.Join(t.TempDir(), ".wave")
+			dir := filepath.Join(t.TempDir(), ".agents")
 			tt.setup(t, dir)
 			assert.Equal(t, tt.expected, IsOnboarded(dir))
 		})
@@ -68,7 +68,7 @@ func TestIsOnboarded(t *testing.T) {
 }
 
 func TestMarkOnboarded(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), ".wave")
+	dir := filepath.Join(t.TempDir(), ".agents")
 
 	err := MarkOnboarded(dir)
 	require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestMarkOnboarded(t *testing.T) {
 }
 
 func TestMarkOnboardedRoundTrip(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), ".wave")
+	dir := filepath.Join(t.TempDir(), ".agents")
 
 	// Mark as onboarded
 	require.NoError(t, MarkOnboarded(dir))
@@ -100,7 +100,7 @@ func TestMarkOnboardedRoundTrip(t *testing.T) {
 }
 
 func TestClearOnboarding(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), ".wave")
+	dir := filepath.Join(t.TempDir(), ".agents")
 
 	// Mark then clear
 	require.NoError(t, MarkOnboarded(dir))
@@ -111,7 +111,7 @@ func TestClearOnboarding(t *testing.T) {
 }
 
 func TestClearOnboardingMissingFile(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), ".wave")
+	dir := filepath.Join(t.TempDir(), ".agents")
 
 	// Clearing when no file exists should not error
 	err := ClearOnboarding(dir)
@@ -148,7 +148,7 @@ func TestReadState(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dir := filepath.Join(t.TempDir(), ".wave")
+			dir := filepath.Join(t.TempDir(), ".agents")
 			tt.setup(t, dir)
 
 			state, err := ReadState(dir)

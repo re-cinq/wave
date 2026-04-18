@@ -112,7 +112,7 @@ func TestFailureMode_ContractSchemaMismatch(t *testing.T) {
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "produce output"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "result", Path: ".wave/artifact.json", Type: "json", Source: "stdout"},
+					{Name: "result", Path: ".agents/artifact.json", Type: "json", Source: "stdout"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{
@@ -265,7 +265,7 @@ func TestFailureMode_MalformedArtifact(t *testing.T) {
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "produce malformed output"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "result", Path: ".wave/artifact.json", Type: "json", Source: "stdout"},
+					{Name: "result", Path: ".agents/artifact.json", Type: "json", Source: "stdout"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{
@@ -381,7 +381,7 @@ func TestFailureMode_NonZeroExitCode(t *testing.T) {
 					Persona: "navigator",
 					Exec:    ExecConfig{Source: "produce output"},
 					OutputArtifacts: []ArtifactDef{
-						{Name: "result", Path: ".wave/artifact.json", Type: "json", Source: "stdout"},
+						{Name: "result", Path: ".agents/artifact.json", Type: "json", Source: "stdout"},
 					},
 					Handover: HandoverConfig{
 						Contract: ContractConfig{

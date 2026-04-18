@@ -482,10 +482,10 @@ func (m *MatrixExecutor) createWorkerWorkspace(execution *PipelineExecution, ste
 	pipelineID := execution.Status.ID
 	wsRoot := execution.Manifest.Runtime.WorkspaceRoot
 	if wsRoot == "" {
-		wsRoot = ".wave/workspaces"
+		wsRoot = ".agents/workspaces"
 	}
 
-	// Create worker-specific workspace under .wave/workspaces/<pipeline>/<step>/worker_<index>/
+	// Create worker-specific workspace under .agents/workspaces/<pipeline>/<step>/worker_<index>/
 	wsPath := filepath.Join(wsRoot, pipelineID, step.ID, fmt.Sprintf("worker_%d", itemIndex))
 	if err := os.MkdirAll(wsPath, 0755); err != nil {
 		return "", err
@@ -1079,12 +1079,12 @@ func (m *MatrixExecutor) loadChildPipeline(name string) (*Pipeline, error) {
 
 // resolveChildPipelinePath converts a pipeline name to its filesystem path.
 // If the name already ends in .yaml or .yml, it's treated as a direct path.
-// Otherwise it resolves to .wave/pipelines/<name>.yaml.
+// Otherwise it resolves to .agents/pipelines/<name>.yaml.
 func (m *MatrixExecutor) resolveChildPipelinePath(name string) string {
 	if strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml") {
 		return name
 	}
-	return filepath.Join(".wave", "pipelines", name+".yaml")
+	return filepath.Join(".agents", "pipelines", name+".yaml")
 }
 
 // childPipelineWorker returns a matrixWorkerFunc that executes a full child

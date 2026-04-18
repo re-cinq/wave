@@ -47,7 +47,7 @@ steps:
       source: "Analyze the codebase for: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
 
   - id: implement
     persona: craftsman
@@ -80,7 +80,7 @@ steps:
       source: "Analyze: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
         type: json
 
   - id: security
@@ -97,7 +97,7 @@ steps:
       source: "Security review"
     output_artifacts:
       - name: findings
-        path: .wave/output/security.md
+        path: .agents/output/security.md
         type: markdown
 
   - id: quality
@@ -114,7 +114,7 @@ steps:
       source: "Quality review"
     output_artifacts:
       - name: findings
-        path: .wave/output/quality.md
+        path: .agents/output/quality.md
         type: markdown
 ```
 
@@ -163,7 +163,7 @@ steps:
       source: "Scan for code quality issues: {{ input }}"
     output_artifacts:
       - name: quality_scan
-        path: .wave/output/quality-scan.json
+        path: .agents/output/quality-scan.json
         type: json
 
   - id: quality-detail
@@ -180,7 +180,7 @@ steps:
       source: "Deepen the quality analysis"
     output_artifacts:
       - name: quality_report
-        path: .wave/output/quality-detail.md
+        path: .agents/output/quality-detail.md
         type: markdown
 
   # Track B — starts immediately (no dependency on Track A)
@@ -191,7 +191,7 @@ steps:
       source: "Scan for security vulnerabilities: {{ input }}"
     output_artifacts:
       - name: security_scan
-        path: .wave/output/audit-security.json
+        path: .agents/output/audit-security.json
         type: json
 
   - id: security-detail
@@ -208,7 +208,7 @@ steps:
       source: "Deepen the security analysis"
     output_artifacts:
       - name: security_report
-        path: .wave/output/security-detail.md
+        path: .agents/output/security-detail.md
         type: markdown
 
   # Merge — converges both tracks
@@ -233,7 +233,7 @@ steps:
 
 In this example, Track A (`quality-scan` → `quality-detail`) and Track B (`audit-security` → `security-detail`) run simultaneously from the start. The `merge` step waits for both tracks to complete before synthesizing results.
 
-> See `.wave/pipelines/dual-analysis.yaml` for a complete working example of this pattern.
+> See `.agents/pipelines/dual-analysis.yaml` for a complete working example of this pattern.
 
 ### Dependency Visualization
 
@@ -295,7 +295,7 @@ Wave provides several ways to confirm that steps executed concurrently rather th
 
 ### Audit Logs
 
-Each pipeline run produces timestamped events in `.wave/traces/`. Look for `STEP_START` and `STEP_END` entries with RFC 3339 timestamps:
+Each pipeline run produces timestamped events in `.agents/traces/`. Look for `STEP_START` and `STEP_END` entries with RFC 3339 timestamps:
 
 ```
 2026-01-15T10:00:01.123Z  STEP_START  quality-scan
@@ -336,7 +336,7 @@ Declare what a step outputs:
 ```yaml
 output_artifacts:
   - name: analysis        # Artifact identifier
-    path: .wave/output/data.json  # Where the step writes it
+    path: .agents/output/data.json  # Where the step writes it
     type: json             # Type hint for consumers
 ```
 
@@ -353,7 +353,7 @@ memory:
       as: context         # Mount name in workspace
 ```
 
-The artifact appears at `.wave/artifacts/<as-name>` in the step's workspace.
+The artifact appears at `.agents/artifacts/<as-name>` in the step's workspace.
 
 ### Artifact Types
 
@@ -383,10 +383,10 @@ memory:
       as: quality
 ```
 
-All artifacts are available under `.wave/artifacts/`:
-- `.wave/artifacts/code`
-- `.wave/artifacts/security`
-- `.wave/artifacts/quality`
+All artifacts are available under `.agents/artifacts/`:
+- `.agents/artifacts/code`
+- `.agents/artifacts/security`
+- `.agents/artifacts/quality`
 
 ## Memory Strategies
 
@@ -412,11 +412,11 @@ steps:
       source: "Create a pull request"
     output_artifacts:
       - name: result
-        path: .wave/output/result.json
+        path: .agents/output/result.json
         type: json
     outcomes:
       - type: pr
-        extract_from: .wave/output/result.json
+        extract_from: .agents/output/result.json
         json_path: ".pr_url"
         label: "Pull Request"
 ```
@@ -473,7 +473,7 @@ steps:
         Output as JSON with files, modules, and breaking changes.
     output_artifacts:
       - name: diff
-        path: .wave/output/diff.json
+        path: .agents/output/diff.json
         type: json
 
   - id: security-review
@@ -487,10 +487,10 @@ steps:
           as: changes
     exec:
       type: prompt
-      source: "Review .wave/artifacts/changes for security vulnerabilities"
+      source: "Review .agents/artifacts/changes for security vulnerabilities"
     output_artifacts:
       - name: security
-        path: .wave/output/security.md
+        path: .agents/output/security.md
         type: markdown
 
   - id: quality-review
@@ -504,10 +504,10 @@ steps:
           as: changes
     exec:
       type: prompt
-      source: "Review .wave/artifacts/changes for code quality issues"
+      source: "Review .agents/artifacts/changes for code quality issues"
     output_artifacts:
       - name: quality
-        path: .wave/output/quality.md
+        path: .agents/output/quality.md
         type: markdown
 
   - id: final-verdict
@@ -528,7 +528,7 @@ steps:
         Synthesize findings into: APPROVE / REQUEST_CHANGES / NEEDS_DISCUSSION
     output_artifacts:
       - name: verdict
-        path: .wave/output/verdict.md
+        path: .agents/output/verdict.md
         type: markdown
 ```
 

@@ -603,7 +603,7 @@ func TestCompositionExecutor_Execute_Gate_Auto(t *testing.T) {
 	emitter := testutil.NewEventCollector()
 	m := &manifest.Manifest{}
 
-	ce := NewCompositionExecutor(nil, emitter, nil, m, "test", ".wave/pipelines", false)
+	ce := NewCompositionExecutor(nil, emitter, nil, m, "test", ".agents/pipelines", false)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "gate-test"},

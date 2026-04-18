@@ -31,7 +31,7 @@ org-wave-config/
 Projects include shared configuration via git submodule:
 
 ```bash
-git submodule add git@github.com:org/org-wave-config.git .wave/shared
+git submodule add git@github.com:org/org-wave-config.git .agents/shared
 ```
 
 ### 3. Override Per-Project
@@ -44,7 +44,7 @@ personas:
   # Use shared navigator
   navigator:
     adapter: claude
-    system_prompt_file: .wave/shared/personas/navigator.md
+    system_prompt_file: .agents/shared/personas/navigator.md
     permissions:
       allowed_tools: [Read, Glob, Grep]
       deny: [Write, Edit, Bash]
@@ -52,7 +52,7 @@ personas:
   # Project-specific persona
   domain-expert:
     adapter: claude
-    system_prompt_file: .wave/personas/domain-expert.md
+    system_prompt_file: .agents/personas/domain-expert.md
     permissions:
       allowed_tools: [Read, Glob]
       deny: [Write, Edit, Bash]
@@ -88,7 +88,7 @@ runtime:
   audit:
     log_all_tool_calls: true
     log_all_file_operations: true
-    log_dir: .wave/traces/
+    log_dir: .agents/traces/
 ```
 
 Logs capture:
@@ -176,21 +176,21 @@ adapters:
 personas:
   navigator:
     adapter: claude
-    system_prompt_file: .wave/shared/personas/navigator.md
+    system_prompt_file: .agents/shared/personas/navigator.md
     permissions:
       allowed_tools: [Read, Glob, Grep]
       deny: [Write, Edit, Bash]
 
   auditor:
     adapter: claude
-    system_prompt_file: .wave/shared/personas/auditor.md
+    system_prompt_file: .agents/shared/personas/auditor.md
     permissions:
       allowed_tools: [Read, Grep]
       deny: [Write, Edit, Bash]
 
   craftsman:
     adapter: claude
-    system_prompt_file: .wave/personas/craftsman.md
+    system_prompt_file: .agents/personas/craftsman.md
     permissions:
       allowed_tools: [Read, Write, Edit]
       deny:
@@ -198,12 +198,12 @@ personas:
         - Write(/etc/*)
 
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
   default_timeout_minutes: 30
   audit:
     log_all_tool_calls: true
     log_all_file_operations: true
-    log_dir: .wave/traces/
+    log_dir: .agents/traces/
 ```
 
 ## Monitoring
@@ -226,7 +226,7 @@ wave logs <run-id>
 All executions logged to `runtime.audit.log_dir`:
 
 ```
-.wave/traces/
+.agents/traces/
 ├── run-abc123/
 │   ├── step-analyze.log
 │   └── step-review.log

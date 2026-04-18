@@ -37,7 +37,7 @@ func TestContractPrompt_ValidFileSchema(t *testing.T) {
 	step := &Step{
 		ID: "step1",
 		OutputArtifacts: []ArtifactDef{
-			{Name: "output", Path: ".wave/output/result.json"},
+			{Name: "output", Path: ".agents/output/result.json"},
 		},
 		Handover: HandoverConfig{
 			Contract: ContractConfig{
@@ -54,9 +54,9 @@ func TestContractPrompt_ValidFileSchema(t *testing.T) {
 	assert.Contains(t, prompt, "Contract Schema")
 	assert.Contains(t, prompt, "FAIL validation")
 
-	// Verify correct output path (not .wave/artifact.json)
-	assert.Contains(t, prompt, ".wave/output/result.json")
-	assert.NotContains(t, prompt, ".wave/artifact.json")
+	// Verify correct output path (not .agents/artifact.json)
+	assert.Contains(t, prompt, ".agents/output/result.json")
+	assert.NotContains(t, prompt, ".agents/artifact.json")
 
 	// Verify full schema content is included
 	assert.Contains(t, prompt, `"type": "object"`, "Should contain full schema content")
@@ -78,7 +78,7 @@ func TestContractPrompt_InlineSchema(t *testing.T) {
 	step := &Step{
 		ID: "step1",
 		OutputArtifacts: []ArtifactDef{
-			{Name: "output", Path: ".wave/output/status.json"},
+			{Name: "output", Path: ".agents/output/status.json"},
 		},
 		Handover: HandoverConfig{
 			Contract: ContractConfig{
@@ -94,7 +94,7 @@ func TestContractPrompt_InlineSchema(t *testing.T) {
 	assert.Contains(t, prompt, "Contract Schema")
 	assert.Contains(t, prompt, `"type":"object"`, "Should contain inline schema")
 	assert.Contains(t, prompt, `"status"`, "Should contain status property")
-	assert.Contains(t, prompt, ".wave/output/status.json")
+	assert.Contains(t, prompt, ".agents/output/status.json")
 }
 
 // TestContractPrompt_MissingSchemaFile tests that missing schema files produce
@@ -448,7 +448,7 @@ func TestContractPrompt_EndToEndExecution(t *testing.T) {
 				Persona: "navigator",
 				Exec:    ExecConfig{Source: "Generate JSON output"},
 				OutputArtifacts: []ArtifactDef{
-					{Name: "result", Path: ".wave/output/result.json"},
+					{Name: "result", Path: ".agents/output/result.json"},
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{
@@ -480,7 +480,7 @@ func TestContractPrompt_EndToEndExecution(t *testing.T) {
 func TestContractPrompt_RelativeSchemaPath(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	schemaDir := filepath.Join(tmpDir, ".wave", "contracts")
+	schemaDir := filepath.Join(tmpDir, ".agents", "contracts")
 	require.NoError(t, os.MkdirAll(schemaDir, 0755))
 	schemaPath := filepath.Join(schemaDir, "relative.schema.json")
 	require.NoError(t, os.WriteFile(schemaPath, []byte(`{"type":"object"}`), 0644))
@@ -488,8 +488,8 @@ func TestContractPrompt_RelativeSchemaPath(t *testing.T) {
 	securityConfig := security.DefaultSecurityConfig()
 	securityConfig.PathValidation.ApprovedDirectories = []string{
 		tmpDir,
-		filepath.Join(tmpDir, ".wave"),
-		filepath.Join(tmpDir, ".wave", "contracts"),
+		filepath.Join(tmpDir, ".agents"),
+		filepath.Join(tmpDir, ".agents", "contracts"),
 	}
 	securityLogger := security.NewSecurityLogger(false)
 
@@ -631,8 +631,8 @@ func TestContractPrompt_ArtifactGuidance(t *testing.T) {
 	prompt := executor.buildContractPrompt(step, nil)
 
 	assert.Contains(t, prompt, "Available Artifacts")
-	assert.Contains(t, prompt, "`research_data` → `.wave/artifacts/research_data`")
-	assert.Contains(t, prompt, "`findings` → `.wave/artifacts/findings`")
+	assert.Contains(t, prompt, "`research_data` → `.agents/artifacts/research_data`")
+	assert.Contains(t, prompt, "`findings` → `.agents/artifacts/findings`")
 	assert.Contains(t, prompt, "Read these files instead of fetching")
 }
 
@@ -658,7 +658,7 @@ func TestContractPrompt_ArtifactGuidanceUsesArtifactNameWhenNoAs(t *testing.T) {
 
 	prompt := executor.buildContractPrompt(step, nil)
 
-	assert.Contains(t, prompt, "`raw-data` → `.wave/artifacts/raw-data`")
+	assert.Contains(t, prompt, "`raw-data` → `.agents/artifacts/raw-data`")
 }
 
 // TestContractPrompt_NoArtifactGuidanceWhenNoInjections tests that artifact section
@@ -691,7 +691,7 @@ func TestContractPrompt_JsonOutputWithoutContract(t *testing.T) {
 	step := &Step{
 		ID: "create-pr",
 		OutputArtifacts: []ArtifactDef{
-			{Name: "pr-result", Path: ".wave/output/pr-result.json", Type: "json"},
+			{Name: "pr-result", Path: ".agents/output/pr-result.json", Type: "json"},
 		},
 		Memory: MemoryConfig{
 			InjectArtifacts: []ArtifactRef{
@@ -705,7 +705,7 @@ func TestContractPrompt_JsonOutputWithoutContract(t *testing.T) {
 
 	// Should still generate output requirements
 	assert.Contains(t, prompt, "Output Requirements")
-	assert.Contains(t, prompt, ".wave/output/pr-result.json")
+	assert.Contains(t, prompt, ".agents/output/pr-result.json")
 	assert.Contains(t, prompt, "valid JSON")
 	assert.Contains(t, prompt, "no markdown")
 
@@ -714,7 +714,7 @@ func TestContractPrompt_JsonOutputWithoutContract(t *testing.T) {
 
 	// Should include injected artifact guidance
 	assert.Contains(t, prompt, "Available Artifacts")
-	assert.Contains(t, prompt, "`issue_assessment` → `.wave/artifacts/issue_assessment`")
+	assert.Contains(t, prompt, "`issue_assessment` → `.agents/artifacts/issue_assessment`")
 }
 
 // TestContractPrompt_MarkdownOutputWithoutContract tests markdown output guidance.
@@ -725,14 +725,14 @@ func TestContractPrompt_MarkdownOutputWithoutContract(t *testing.T) {
 	step := &Step{
 		ID: "report",
 		OutputArtifacts: []ArtifactDef{
-			{Name: "report", Path: ".wave/output/report.md", Type: "markdown"},
+			{Name: "report", Path: ".agents/output/report.md", Type: "markdown"},
 		},
 	}
 
 	prompt := executor.buildContractPrompt(step, nil)
 
 	assert.Contains(t, prompt, "Output Requirements")
-	assert.Contains(t, prompt, ".wave/output/report.md")
+	assert.Contains(t, prompt, ".agents/output/report.md")
 	assert.Contains(t, prompt, "Markdown")
 	assert.NotContains(t, prompt, "valid JSON")
 }
@@ -745,15 +745,15 @@ func TestContractPrompt_MultipleOutputArtifacts(t *testing.T) {
 	step := &Step{
 		ID: "publish",
 		OutputArtifacts: []ArtifactDef{
-			{Name: "pr-result", Path: ".wave/output/pr-result.json", Type: "json"},
-			{Name: "summary", Path: ".wave/output/summary.md", Type: "markdown"},
+			{Name: "pr-result", Path: ".agents/output/pr-result.json", Type: "json"},
+			{Name: "summary", Path: ".agents/output/summary.md", Type: "markdown"},
 		},
 	}
 
 	prompt := executor.buildContractPrompt(step, nil)
 
-	assert.Contains(t, prompt, ".wave/output/pr-result.json")
-	assert.Contains(t, prompt, ".wave/output/summary.md")
+	assert.Contains(t, prompt, ".agents/output/pr-result.json")
+	assert.Contains(t, prompt, ".agents/output/summary.md")
 	assert.Contains(t, prompt, "valid JSON")
 	assert.Contains(t, prompt, "Markdown")
 }
@@ -791,8 +791,8 @@ func TestContractPrompt_InjectArtifactsOnly(t *testing.T) {
 
 	assert.NotEmpty(t, prompt)
 	assert.Contains(t, prompt, "Available Artifacts")
-	assert.Contains(t, prompt, "`plan` → `.wave/artifacts/plan`")
-	assert.Contains(t, prompt, "`assessment` → `.wave/artifacts/assessment`")
+	assert.Contains(t, prompt, "`plan` → `.agents/artifacts/plan`")
+	assert.Contains(t, prompt, "`assessment` → `.agents/artifacts/assessment`")
 	assert.NotContains(t, prompt, "Output Requirements")
 }
 
@@ -833,7 +833,7 @@ func TestBuildStepPrompt_NoSchemaInjection(t *testing.T) {
 
 	// Schema injection is no longer in buildStepPrompt
 	assert.NotContains(t, prompt, "OUTPUT REQUIREMENTS:")
-	assert.NotContains(t, prompt, ".wave/artifact.json")
+	assert.NotContains(t, prompt, ".agents/artifact.json")
 	assert.Equal(t, "Generate JSON output", prompt)
 }
 

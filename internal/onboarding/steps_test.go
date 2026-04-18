@@ -191,7 +191,7 @@ func TestPipelineSelectionStep_NoPipelinesDir(t *testing.T) {
 
 func TestPipelineSelectionStep_WithPipelines(t *testing.T) {
 	dir := t.TempDir()
-	pipelinesDir := filepath.Join(dir, ".wave", "pipelines")
+	pipelinesDir := filepath.Join(dir, ".agents", "pipelines")
 	require.NoError(t, os.MkdirAll(pipelinesDir, 0755))
 
 	// Create test pipeline files
@@ -237,7 +237,7 @@ steps:
 
 func TestPipelineSelectionStep_AllFlag(t *testing.T) {
 	dir := t.TempDir()
-	pipelinesDir := filepath.Join(dir, ".wave", "pipelines")
+	pipelinesDir := filepath.Join(dir, ".agents", "pipelines")
 	require.NoError(t, os.MkdirAll(pipelinesDir, 0755))
 
 	releasePipeline := `kind: Pipeline

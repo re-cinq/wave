@@ -48,7 +48,7 @@ func getDefaultTierModels(adapter string) map[string]string {
 
 // WizardConfig holds configuration for the onboarding wizard.
 type WizardConfig struct {
-	WaveDir        string                      // Path to .wave directory
+	WaveDir        string                      // Path to .agents directory
 	Interactive    bool                        // false when --yes or no TTY
 	Reconfigure    bool                        // true when --reconfigure flag is set
 	Existing       *manifest.Manifest          // non-nil when reconfiguring
@@ -361,7 +361,7 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 				"strategy":                "summarize_to_checkpoint",
 			},
 			"audit": map[string]interface{}{
-				"log_dir":                 ".wave/traces/",
+				"log_dir":                 ".agents/traces/",
 				"log_all_tool_calls":      true,
 				"log_all_file_operations": false,
 			},
@@ -450,7 +450,7 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 			entry := map[string]interface{}{
 				"adapter":            adapter,
 				"description":        pcfg.Description,
-				"system_prompt_file": fmt.Sprintf(".wave/personas/%s.md", name),
+				"system_prompt_file": fmt.Sprintf(".agents/personas/%s.md", name),
 				"temperature":        pcfg.Temperature,
 				"permissions": map[string]interface{}{
 					"allowed_tools": pcfg.Permissions.AllowedTools,
@@ -559,7 +559,7 @@ func suggestSkills(language string, meta ProjectMetadata, cwd string) []string {
 	return valid
 }
 
-// autoInstallSkills copies bundled skill templates to .wave/skills/ for each name.
+// autoInstallSkills copies bundled skill templates to .agents/skills/ for each name.
 // Returns the list of successfully installed skill names.
 func autoInstallSkills(waveDir string, names []string) []string {
 	templates := defaults.GetSkillTemplates()

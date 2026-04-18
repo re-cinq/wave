@@ -43,7 +43,7 @@ personas:
 	}
 
 	manifestContent += `runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
   default_timeout_minutes: 30
 `
 
@@ -170,7 +170,7 @@ func TestDoCommand_DryRunOutput(t *testing.T) {
 	assert.Contains(t, output, "Workspace:")
 
 	// Verify no workspace was created (dry-run should not create files)
-	_, err = os.Stat(filepath.Join(tmpDir, ".wave/workspaces/adhoc"))
+	_, err = os.Stat(filepath.Join(tmpDir, ".agents/workspaces/adhoc"))
 	assert.True(t, os.IsNotExist(err), "workspace should not be created in dry-run mode")
 }
 

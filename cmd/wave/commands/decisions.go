@@ -78,7 +78,7 @@ With a run-id argument, shows decisions for that specific run.`,
 }
 
 func runDecisions(opts DecisionsOptions) error {
-	dbPath := ".wave/state.db"
+	dbPath := ".agents/state.db"
 
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		if opts.Format == "json" {
@@ -91,7 +91,7 @@ func runDecisions(opts DecisionsOptions) error {
 
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
-		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .wave/state.db file permissions or run 'wave run' to create it").WithCause(err)
+		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .agents/state.db file permissions or run 'wave run' to create it").WithCause(err)
 	}
 	defer db.Close()
 

@@ -100,8 +100,8 @@ wave init
 
 This creates:
 - `wave.yaml` - Project manifest
-- `.wave/personas/` - AI agent definitions
-- `.wave/pipelines/` - Ready-to-run pipelines
+- `.agents/personas/` - AI agent definitions
+- `.agents/pipelines/` - Ready-to-run pipelines
 
 ::: tip Don't have a codebase?
 Wave works great for self-analysis:
@@ -138,19 +138,19 @@ wave run ops-hello-world "testing Wave" -o text
   ✓ Pipeline 'ops-hello-world' completed successfully (10.9s)
 
   Deliverables (4):
-     • .wave/workspaces/ops-hello-world-aca3e016/greet/CLAUDE.md
-     • .wave/workspaces/ops-hello-world-aca3e016/greet/greeting.txt
-     • .wave/workspaces/ops-hello-world-aca3e016/verify/CLAUDE.md
-     • .wave/workspaces/ops-hello-world-aca3e016/verify/output/result.json
+     • .agents/workspaces/ops-hello-world-aca3e016/greet/CLAUDE.md
+     • .agents/workspaces/ops-hello-world-aca3e016/greet/greeting.txt
+     • .agents/workspaces/ops-hello-world-aca3e016/verify/CLAUDE.md
+     • .agents/workspaces/ops-hello-world-aca3e016/verify/output/result.json
 ```
 
 ### What Just Happened?
 
-1. Wave loaded the `ops-hello-world` pipeline from `.wave/pipelines/`
+1. Wave loaded the `ops-hello-world` pipeline from `.agents/pipelines/`
 2. The **greet** step ran with the craftsman persona
 3. The **verify** step received the greeting artifact and confirmed it
 4. Each step ran with fresh memory (no context bleed between steps)
-5. Artifacts were saved to `.wave/workspaces/` for inspection
+5. Artifacts were saved to `.agents/workspaces/` for inspection
 
 ## Troubleshooting
 

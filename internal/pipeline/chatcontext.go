@@ -191,7 +191,7 @@ func buildStepContexts(p *Pipeline, events []state.LogRecord, artifacts []state.
 		}
 
 		// Check for preserved workspace
-		wsPath := filepath.Join(projectRoot, ".wave", "workspaces", pipelineName, step.ID)
+		wsPath := filepath.Join(projectRoot, ".agents", "workspaces", pipelineName, step.ID)
 		if fi, err := os.Stat(wsPath); err == nil && fi.IsDir() {
 			ctx.WorkspacePath = wsPath
 		}

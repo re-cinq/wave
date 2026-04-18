@@ -151,7 +151,7 @@ func (s *SequenceExecutor) Execute(ctx context.Context, pipelines []*Pipeline, m
 		result.PipelineResults = append(result.PipelineResults, pr)
 		result.TotalTokens += pr.TokensUsed
 
-		s.recordPipelineOutputs(p, runID, ".wave/workspaces")
+		s.recordPipelineOutputs(p, runID, ".agents/workspaces")
 	}
 
 	s.emit(event.Event{
@@ -381,7 +381,7 @@ func (s *SequenceExecutor) executeSinglePipeline(ctx context.Context, p *Pipelin
 	}
 
 	pr.Status = stateCompleted
-	s.recordPipelineOutputs(p, runID, ".wave/workspaces")
+	s.recordPipelineOutputs(p, runID, ".agents/workspaces")
 	return pr, nil
 }
 

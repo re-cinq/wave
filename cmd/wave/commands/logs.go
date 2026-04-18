@@ -96,7 +96,7 @@ func runLogs(opts LogsOptions) error {
 		return runLogsTrace(opts)
 	}
 
-	dbPath := ".wave/state.db"
+	dbPath := ".agents/state.db"
 
 	// Check if state database exists
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
@@ -110,7 +110,7 @@ func runLogs(opts LogsOptions) error {
 
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
-		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .wave/state.db file permissions or run 'wave run' to create it").WithCause(err)
+		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .agents/state.db file permissions or run 'wave run' to create it").WithCause(err)
 	}
 	defer db.Close()
 
@@ -553,19 +553,19 @@ func getLogID(db *sql.DB, runID string, log LogsEntry) int64 {
 
 // runLogsTrace reads and displays structured NDJSON trace events from a debug trace file.
 func runLogsTrace(opts LogsOptions) error {
-	traceDir := ".wave/traces"
+	traceDir := ".agents/traces"
 
 	// If no run ID, find the most recent trace file.
 	runID := opts.RunID
 	if runID == "" {
-		dbPath := ".wave/state.db"
+		dbPath := ".agents/state.db"
 		if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 			fmt.Println("No trace files found (no runs recorded)")
 			return nil
 		}
 		db, err := sql.Open("sqlite", dbPath)
 		if err != nil {
-			return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .wave/state.db file permissions").WithCause(err)
+			return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .agents/state.db file permissions").WithCause(err)
 		}
 		defer db.Close()
 		db.SetMaxOpenConns(1)

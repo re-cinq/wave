@@ -57,14 +57,14 @@ jobs:
         if: always()
         with:
           name: review-results
-          path: .wave/workspaces/*/output/
+          path: .agents/workspaces/*/output/
 
       - name: Upload Audit Logs
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: audit-logs
-          path: .wave/traces/
+          path: .agents/traces/
 ```
 
 ### Multiple Pipelines
@@ -108,7 +108,7 @@ wave-review:
     - wave run ops-pr-review "$CI_MERGE_REQUEST_TITLE"
   artifacts:
     paths:
-      - .wave/workspaces/*/output/
+      - .agents/workspaces/*/output/
     when: always
   rules:
     - if: $CI_MERGE_REQUEST_IID
@@ -127,8 +127,8 @@ wave-review:
     - wave run ops-pr-review "$CI_MERGE_REQUEST_TITLE"
   artifacts:
     paths:
-      - .wave/workspaces/*/output/
-      - .wave/traces/
+      - .agents/workspaces/*/output/
+      - .agents/traces/
 ```
 
 ### Parallel Jobs
@@ -202,8 +202,8 @@ jobs:
         with:
           name: wave-results
           path: |
-            .wave/workspaces/*/output/
-            .wave/traces/
+            .agents/workspaces/*/output/
+            .agents/traces/
 ```
 
 ## Best Practices
@@ -227,7 +227,7 @@ ANTHROPIC_API_KEY: sk-ant-... (masked)
 runtime:
   audit:
     log_all_tool_calls: true
-    log_dir: .wave/traces/
+    log_dir: .agents/traces/
 ```
 
 ### Upload Artifacts on Failure
@@ -451,7 +451,7 @@ Verify the pipeline exists and wave.yaml is valid:
 ```yaml
 - name: Debug
   run: |
-    ls -la .wave/pipelines/
+    ls -la .agents/pipelines/
     wave validate
 ```
 

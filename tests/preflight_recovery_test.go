@@ -40,7 +40,7 @@ func TestPreflightRecovery_MissingSkill(t *testing.T) {
 	// Create manifest without the required skill configured
 	m := &manifest.Manifest{
 		Runtime: manifest.Runtime{
-			WorkspaceRoot:        ".wave/workspaces",
+			WorkspaceRoot:        ".agents/workspaces",
 			PipelineIDHashLength: 8,
 		},
 		Adapters: map[string]manifest.Adapter{
@@ -92,7 +92,7 @@ func TestPreflightRecovery_MissingSkill(t *testing.T) {
 		PipelineName:  p.Metadata.Name,
 		Input:         "test input",
 		RunID:         "test-run-12345678",
-		WorkspaceRoot: ".wave/workspaces",
+		WorkspaceRoot: ".agents/workspaces",
 		ErrClass:      errClass,
 		PreflightMeta: meta,
 	})
@@ -155,7 +155,7 @@ func TestPreflightRecovery_MissingTool(t *testing.T) {
 
 	m := &manifest.Manifest{
 		Runtime: manifest.Runtime{
-			WorkspaceRoot:        ".wave/workspaces",
+			WorkspaceRoot:        ".agents/workspaces",
 			PipelineIDHashLength: 8,
 		},
 		Adapters: map[string]manifest.Adapter{
@@ -205,7 +205,7 @@ func TestPreflightRecovery_MissingTool(t *testing.T) {
 		PipelineName:  p.Metadata.Name,
 		Input:         "test input",
 		RunID:         "test-run-87654321",
-		WorkspaceRoot: ".wave/workspaces",
+		WorkspaceRoot: ".agents/workspaces",
 		ErrClass:      errClass,
 		PreflightMeta: meta,
 	})
@@ -272,7 +272,7 @@ func TestPreflightRecovery_MixedFailures(t *testing.T) {
 
 	m := &manifest.Manifest{
 		Runtime: manifest.Runtime{
-			WorkspaceRoot:        ".wave/workspaces",
+			WorkspaceRoot:        ".agents/workspaces",
 			PipelineIDHashLength: 8,
 		},
 		Adapters: map[string]manifest.Adapter{
@@ -335,7 +335,7 @@ func TestPreflightRecovery_MixedFailures(t *testing.T) {
 		PipelineName:  p.Metadata.Name,
 		Input:         "test input",
 		RunID:         "test-run-mixed123",
-		WorkspaceRoot: ".wave/workspaces",
+		WorkspaceRoot: ".agents/workspaces",
 		ErrClass:      errClass,
 		PreflightMeta: meta,
 	})
@@ -450,7 +450,7 @@ func TestPreflightRecovery_NoRedundantErrorMessage(t *testing.T) {
 
 			m := &manifest.Manifest{
 				Runtime: manifest.Runtime{
-					WorkspaceRoot:        ".wave/workspaces",
+					WorkspaceRoot:        ".agents/workspaces",
 					PipelineIDHashLength: 8,
 				},
 				Adapters: map[string]manifest.Adapter{
@@ -498,10 +498,10 @@ func TestPreflightRecovery_CleanWorkspacePaths(t *testing.T) {
 	}{
 		{
 			name:          "preflight failure with empty stepID",
-			workspaceRoot: ".wave/workspaces",
+			workspaceRoot: ".agents/workspaces",
 			runID:         "test-run-12345678",
 			stepID:        "", // preflight failures have empty stepID
-			wantPath:      ".wave/workspaces/test-run-12345678/",
+			wantPath:      ".agents/workspaces/test-run-12345678/",
 		},
 		{
 			name:          "custom workspace root with empty stepID",
@@ -512,10 +512,10 @@ func TestPreflightRecovery_CleanWorkspacePaths(t *testing.T) {
 		},
 		{
 			name:          "normal step failure with stepID",
-			workspaceRoot: ".wave/workspaces",
+			workspaceRoot: ".agents/workspaces",
 			runID:         "test-run-xyz",
 			stepID:        "step-1",
-			wantPath:      ".wave/workspaces/test-run-xyz/step-1/",
+			wantPath:      ".agents/workspaces/test-run-xyz/step-1/",
 		},
 	}
 
@@ -583,7 +583,7 @@ func TestPreflightRecovery_EndToEndFlow(t *testing.T) {
 	// Step 2: Create manifest without the required skill
 	m := &manifest.Manifest{
 		Runtime: manifest.Runtime{
-			WorkspaceRoot:        ".wave/workspaces",
+			WorkspaceRoot:        ".agents/workspaces",
 			PipelineIDHashLength: 8,
 		},
 		Adapters: map[string]manifest.Adapter{

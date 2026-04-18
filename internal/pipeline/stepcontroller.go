@@ -197,7 +197,7 @@ func (c *DefaultStepController) RewriteStep(ctx context.Context, chatCtx *ChatCo
 	// Use the existing workspace path or construct one from conventions
 	wsPath := step.WorkspacePath
 	if wsPath == "" {
-		wsPath = filepath.Join(chatCtx.ProjectRoot, ".wave", "workspaces",
+		wsPath = filepath.Join(chatCtx.ProjectRoot, ".agents", "workspaces",
 			chatCtx.Run.PipelineName, stepID)
 	}
 
@@ -348,8 +348,8 @@ func injectUpstreamArtifacts(chatCtx *ChatContext, stepID string, wsPath string)
 				continue
 			}
 
-			// Write to workspace under .wave/artifacts/<step>/<name>
-			destDir := filepath.Join(wsPath, ".wave", "artifacts", step.StepID)
+			// Write to workspace under .agents/artifacts/<step>/<name>
+			destDir := filepath.Join(wsPath, ".agents", "artifacts", step.StepID)
 			if err := os.MkdirAll(destDir, 0755); err != nil {
 				return fmt.Errorf("failed to create artifact directory: %w", err)
 			}
@@ -421,7 +421,7 @@ func buildRewriteInstructions(chatCtx *ChatContext, step *ChatStepContext, newPr
 	fmt.Fprintf(&b, "%s\n\n", newPrompt)
 
 	b.WriteString("## Upstream Artifacts\n\n")
-	b.WriteString("Artifacts from upstream steps have been injected into `.wave/artifacts/` in this workspace.\n")
+	b.WriteString("Artifacts from upstream steps have been injected into `.agents/artifacts/` in this workspace.\n")
 	b.WriteString("Use them as inputs for your work.\n\n")
 
 	writeProjectReference(&b, chatCtx)

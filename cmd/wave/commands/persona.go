@@ -37,7 +37,7 @@ func newPersonaCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Scaffold a new persona from a template",
-		Long: `Create a new persona in .wave/personas/ based on an existing built-in
+		Long: `Create a new persona in .agents/personas/ based on an existing built-in
 persona template. This creates both the .md system prompt and .yaml config file.
 
 If --template is omitted, lists available persona templates.`,
@@ -117,7 +117,7 @@ func runPersonaCreate(name, template string) error {
 	config, hasConfig := personaConfigs[template]
 
 	// Check output paths don't already exist
-	personaDir := filepath.Join(".wave", "personas")
+	personaDir := filepath.Join(".agents", "personas")
 	mdPath := filepath.Join(personaDir, name+".md")
 	yamlPath := filepath.Join(personaDir, name+".yaml")
 

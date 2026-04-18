@@ -61,13 +61,13 @@ After all tasks are complete:
 3. Stage and commit all changes — YOU MUST run the git reset to exclude Wave internals:
    ```bash
    git add -A
-   git reset HEAD -- .wave/artifacts/ .wave/output/ .claude/ CLAUDE.md 2>/dev/null || true
-   git diff --cached --name-only | head -20  # verify no .wave/artifacts, .wave/output, .claude, or CLAUDE.md
+   git reset HEAD -- .agents/artifacts/ .agents/output/ .claude/ CLAUDE.md 2>/dev/null || true
+   git diff --cached --name-only | head -20  # verify no .agents/artifacts, .agents/output, .claude, or CLAUDE.md
    git commit -m "feat: implement #<ISSUE_NUMBER> — <short description>"
    ```
 
    CRITICAL: Never use `Closes #N`, `Fixes #N`, or `Resolves #N` in commit messages — these auto-close issues on merge. Use the issue number without closing keywords as shown above.
-   CRITICAL: Never commit `.claude/settings.json`, `CLAUDE.md`, `.wave/artifacts/`, or `.wave/output/`.
+   CRITICAL: Never commit `.claude/settings.json`, `CLAUDE.md`, `.agents/artifacts/`, or `.agents/output/`.
    These are Wave-managed files. The `specs/` directory IS allowed.
 
 Commit changes to the worktree branch.

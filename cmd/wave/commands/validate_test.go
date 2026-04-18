@@ -95,7 +95,7 @@ personas:
     adapter: claude
     system_prompt_file: personas/navigator.md
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 	h.writeFile("personas/navigator.md", "You are a navigator.")
 
@@ -143,7 +143,7 @@ personas:
     adapter: nonexistent
     system_prompt_file: personas/navigator.md
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 	h.writeFile("personas/navigator.md", "You are a navigator.")
 
@@ -189,7 +189,7 @@ personas:
     adapter: claude
     system_prompt_file: personas/nonexistent.md
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 
 	cmd := NewValidateCmd()
@@ -234,7 +234,7 @@ personas:
     adapter: claude
     system_prompt_file: personas/navigator.md
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 	h.writeFile("personas/navigator.md", "You are a navigator.")
 
@@ -279,7 +279,7 @@ personas:
     adapter: claude
     system_prompt_file: personas/navigator.md
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 	h.writeFile("personas/navigator.md", "You are a navigator.")
 
@@ -389,7 +389,7 @@ personas:
     adapter: opencode
     system_prompt_file: personas/craftsman.md
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 	h.writeFile("personas/navigator.md", "You are a navigator.")
 	h.writeFile("personas/craftsman.md", "You are a craftsman.")
@@ -434,7 +434,7 @@ adapters:
     binary: claude
     mode: headless
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 
 	cmd := NewValidateCmd()
@@ -481,7 +481,7 @@ personas:
     adapter: custom
     system_prompt_file: personas/navigator.md
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 	h.writeFile("personas/navigator.md", "You are a navigator.")
 
@@ -530,7 +530,7 @@ func TestValidateCmd_MissingAPIVersion(t *testing.T) {
 metadata:
   name: test-project
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 
 	cmd := NewValidateCmd()
@@ -550,7 +550,7 @@ kind: InvalidKind
 metadata:
   name: test-project
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 
 	cmd := NewValidateCmd()
@@ -592,7 +592,7 @@ adapters:
   claude:
     mode: headless
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 
 	cmd := NewValidateCmd()
@@ -615,7 +615,7 @@ adapters:
   claude:
     binary: claude
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 
 	cmd := NewValidateCmd()
@@ -642,7 +642,7 @@ personas:
   navigator:
     system_prompt_file: personas/navigator.md
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 	h.writeFile("personas/navigator.md", "You are a navigator.")
 
@@ -670,7 +670,7 @@ personas:
   navigator:
     adapter: claude
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 
 	cmd := NewValidateCmd()
@@ -698,10 +698,10 @@ personas:
     adapter: claude
     system_prompt_file: personas/navigator.md
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 	h.writeFile("personas/navigator.md", "You are a navigator.")
-	h.writeFile(".wave/pipelines/test.yaml", `kind: WavePipeline
+	h.writeFile(".agents/pipelines/test.yaml", `kind: WavePipeline
 metadata:
   name: test
 steps:
@@ -738,7 +738,7 @@ personas:
     adapter: claude
     system_prompt_file: personas/navigator.md
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 	h.writeFile("personas/navigator.md", "You are a navigator.")
 
@@ -769,10 +769,10 @@ personas:
     adapter: claude
     system_prompt_file: personas/navigator.md
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 	h.writeFile("personas/navigator.md", "You are a navigator.")
-	h.writeFile(".wave/pipelines/test.yaml", `kind: WavePipeline
+	h.writeFile(".agents/pipelines/test.yaml", `kind: WavePipeline
 metadata:
   name: test
 steps:
@@ -810,10 +810,10 @@ personas:
     adapter: claude
     system_prompt_file: personas/navigator.md
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 	h.writeFile("personas/navigator.md", "You are a navigator.")
-	h.writeFile(".wave/pipelines/test.yaml", `kind: WavePipeline
+	h.writeFile(".agents/pipelines/test.yaml", `kind: WavePipeline
 metadata:
   name: test
 steps:
@@ -856,10 +856,10 @@ personas:
     adapter: claude
     system_prompt_file: personas/navigator.md
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `)
 	h.writeFile("personas/navigator.md", "You are a navigator.")
-	h.writeFile(".wave/pipelines/test.yaml", `kind: WavePipeline
+	h.writeFile(".agents/pipelines/test.yaml", `kind: WavePipeline
 metadata:
   name: test
 steps:
@@ -997,7 +997,7 @@ func TestValidatePipelineFull(t *testing.T) {
 				"navigator": {Adapter: "claude"},
 			},
 		}
-		h.writeFile(".wave/pipelines/test.yaml", `kind: WavePipeline
+		h.writeFile(".agents/pipelines/test.yaml", `kind: WavePipeline
 metadata:
   name: test
 steps:
@@ -1025,7 +1025,7 @@ steps:
 		m := &manifest.Manifest{
 			Personas: map[string]manifest.Persona{},
 		}
-		h.writeFile(".wave/pipelines/test.yaml", `kind: WavePipeline
+		h.writeFile(".agents/pipelines/test.yaml", `kind: WavePipeline
 metadata:
   name: test
 steps:
@@ -1049,7 +1049,7 @@ steps:
 				"navigator": {Adapter: "claude"},
 			},
 		}
-		h.writeFile(".wave/pipelines/test.yaml", `kind: WavePipeline
+		h.writeFile(".agents/pipelines/test.yaml", `kind: WavePipeline
 metadata:
   name: test
 steps:
@@ -1083,7 +1083,7 @@ steps:
 		}
 		// step1 depends on step2, but step2 is listed after step1 in YAML.
 		// This should be valid because the executor does topological sorting.
-		h.writeFile(".wave/pipelines/test.yaml", `kind: WavePipeline
+		h.writeFile(".agents/pipelines/test.yaml", `kind: WavePipeline
 metadata:
   name: test
 steps:
@@ -1135,7 +1135,7 @@ func TestShippedPipelines_ValidateAll(t *testing.T) {
 	for _, lang := range languages {
 		t.Run(lang.name, func(t *testing.T) {
 			dir := t.TempDir()
-			waveDir := filepath.Join(dir, ".wave")
+			waveDir := filepath.Join(dir, ".agents")
 
 			// Create language marker
 			if lang.marker != "" {
@@ -1188,7 +1188,7 @@ func TestShippedPipelines_ValidateAll(t *testing.T) {
 				WaveDir:        waveDir,
 				Interactive:    false,
 				Adapter:        "claude",
-				Workspace:      ".wave/workspaces",
+				Workspace:      ".agents/workspaces",
 				OutputPath:     filepath.Join(dir, "wave.yaml"),
 				PersonaConfigs: personaConfigs,
 			}

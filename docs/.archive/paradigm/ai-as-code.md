@@ -50,7 +50,7 @@ steps:
         3. Test coverage gaps
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
         type: json
 
   - id: review
@@ -70,7 +70,7 @@ steps:
         Context: {{ artifacts.context }}
     output_artifacts:
       - name: review
-        path: .wave/output/review.md
+        path: .agents/output/review.md
         type: markdown
 ```
 
@@ -97,7 +97,7 @@ personas:
   navigator:
     adapter: claude
     description: "Read-only codebase analysis"
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
     permissions:
       allowed_tools: [Read, Glob, Grep]
       deny: [Write, Edit, Bash]
@@ -105,7 +105,7 @@ personas:
   auditor:
     adapter: claude
     description: "Security and quality review"
-    system_prompt_file: .wave/personas/auditor.md
+    system_prompt_file: .agents/personas/auditor.md
     permissions:
       allowed_tools: [Read, Grep]
       deny: [Write, Edit]
@@ -119,7 +119,7 @@ personas:
 handover:
   contract:
     type: jsonschema
-    schema_path: .wave/contracts/analysis.schema.json
+    schema_path: .agents/contracts/analysis.schema.json
     on_failure: retry
     max_retries: 2
 ```

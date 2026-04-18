@@ -31,6 +31,6 @@ personas:
         - Bash
       deny: []
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
   default_timeout_minutes: 30
   max_concurrent_workers: 5

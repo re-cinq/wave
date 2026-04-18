@@ -30,18 +30,18 @@ steps:
       source: "Generate OpenAPI schema for the endpoints in {{ input }}"
     output_artifacts:
       - name: schema
-        path: .wave/output/api.json
+        path: .agents/output/api.json
         type: json
     handover:
       contract:
         type: jsonschema
-        schema_path: .wave/contracts/openapi.schema.json
+        schema_path: .agents/contracts/openapi.schema.json
         on_failure: retry
         max_retries: 2
 ```
 
 **Execution flow:**
-1. Step completes, producing `.wave/output/api.json`
+1. Step completes, producing `.agents/output/api.json`
 2. Wave validates output against the JSON Schema
 3. **Pass**: Step marked complete, artifact available to dependent steps
 4. **Fail**: Fresh workspace created, step re-executes (up to `max_retries`)
@@ -58,7 +58,7 @@ Validates JSON output against a JSON Schema specification.
 handover:
   contract:
     type: jsonschema
-    schema_path: .wave/contracts/response.schema.json
+    schema_path: .agents/contracts/response.schema.json
 ```
 
 **Schema example:**
@@ -90,7 +90,7 @@ Validates that generated TypeScript code compiles without errors.
 handover:
   contract:
     type: typescript
-    source: .wave/output/types.ts
+    source: .agents/output/types.ts
     validate: true
 ```
 
@@ -118,7 +118,7 @@ Validates markdown structure and content requirements.
 handover:
   contract:
     type: markdownspec
-    source: .wave/output/documentation.md
+    source: .agents/output/documentation.md
 ```
 
 **Use for:** Documentation outputs, README files, structured reports.
@@ -131,7 +131,7 @@ When contracts fail, Wave provides specific feedback:
 {
   "contract_failure": {
     "type": "jsonschema",
-    "schema_path": ".wave/contracts/api-spec.schema.json",
+    "schema_path": ".agents/contracts/api-spec.schema.json",
     "validation_errors": [
       {
         "path": "$.endpoints[0].responses",
@@ -154,7 +154,7 @@ When contracts fail, Wave provides specific feedback:
 handover:
   contract:
     type: jsonschema
-    schema_path: .wave/contracts/output.schema.json
+    schema_path: .agents/contracts/output.schema.json
     on_failure: retry
     max_retries: 3
 ```
@@ -190,12 +190,12 @@ steps:
         - test_coverage: percentage as number
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
         type: json
     handover:
       contract:
         type: jsonschema
-        schema_path: .wave/contracts/analysis.schema.json
+        schema_path: .agents/contracts/analysis.schema.json
         on_failure: retry
         max_retries: 2
 
@@ -250,12 +250,12 @@ steps:
       source: "Generate TypeScript API client from {{ input }}"
     output_artifacts:
       - name: client
-        path: .wave/output/client.ts
+        path: .agents/output/client.ts
         type: typescript
     handover:
       contract:
         type: typescript
-        source: .wave/output/client.ts
+        source: .agents/output/client.ts
         validate: true
 
   - id: test
@@ -322,7 +322,7 @@ Begin with basic structure validation, add complexity as needed:
 handover:
   contract:
     type: jsonschema
-    schema_path: .wave/contracts/basic.schema.json
+    schema_path: .agents/contracts/basic.schema.json
 
 # Add later if needed
 handover:
@@ -350,7 +350,7 @@ handover:
 Store contracts in a dedicated directory:
 
 ```
-.wave/
+.agents/
 ├── contracts/
 │   ├── analysis.schema.json
 │   ├── review.schema.json

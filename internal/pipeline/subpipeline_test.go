@@ -128,7 +128,7 @@ func TestInjectSubPipelineArtifacts(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a fake parent artifact file
-	parentArtifactsDir := filepath.Join(tmpDir, "parent", ".wave", "artifacts")
+	parentArtifactsDir := filepath.Join(tmpDir, "parent", ".agents", "artifacts")
 	if err := os.MkdirAll(parentArtifactsDir, 0755); err != nil {
 		t.Fatalf("failed to create parent artifacts dir: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestInjectSubPipelineArtifacts(t *testing.T) {
 	}
 
 	// Verify the file was copied to child workspace
-	destPath := filepath.Join(childWorkspaceDir, ".wave", "artifacts", "plan")
+	destPath := filepath.Join(childWorkspaceDir, ".agents", "artifacts", "plan")
 	got, err := os.ReadFile(destPath)
 	if err != nil {
 		t.Fatalf("failed to read injected artifact: %v", err)
@@ -194,7 +194,7 @@ func TestExtractSubPipelineArtifacts(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create child artifact
-	childArtifactsDir := filepath.Join(tmpDir, "child", ".wave", "artifacts")
+	childArtifactsDir := filepath.Join(tmpDir, "child", ".agents", "artifacts")
 	if err := os.MkdirAll(childArtifactsDir, 0755); err != nil {
 		t.Fatalf("failed to create child artifacts dir: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestExtractSubPipelineArtifacts(t *testing.T) {
 
 	// Verify file copied with namespaced name
 	namespacedName := "child-pipeline.output"
-	destPath := filepath.Join(parentWorkspaceDir, ".wave", "artifacts", namespacedName)
+	destPath := filepath.Join(parentWorkspaceDir, ".agents", "artifacts", namespacedName)
 	got, err := os.ReadFile(destPath)
 	if err != nil {
 		t.Fatalf("failed to read extracted artifact: %v", err)
@@ -514,7 +514,7 @@ func TestInjectSubPipelineArtifacts_DirectoryCopy(t *testing.T) {
 	}
 
 	// Verify directory was copied recursively
-	copiedSpec := filepath.Join(childDir, ".wave", "artifacts", "specs", "specs", "spec.md")
+	copiedSpec := filepath.Join(childDir, ".agents", "artifacts", "specs", "specs", "spec.md")
 	if _, err := os.Stat(copiedSpec); os.IsNotExist(err) {
 		t.Errorf("expected directory artifact to be copied recursively, but %s does not exist", copiedSpec)
 	}

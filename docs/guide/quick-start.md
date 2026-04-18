@@ -21,12 +21,12 @@ The interactive wizard guides you through adapter selection and pipeline configu
 
   Created:
     wave.yaml                Main manifest
-    .wave/personas/          5 persona archetypes
-    .wave/pipelines/         12 pipelines
-    .wave/contracts/         4 JSON schema validators
-    .wave/prompts/           8 prompt templates
-    .wave/workspaces/        Ephemeral workspace root
-    .wave/traces/            Audit log directory
+    .agents/personas/          5 persona archetypes
+    .agents/pipelines/         12 pipelines
+    .agents/contracts/         4 JSON schema validators
+    .agents/prompts/           8 prompt templates
+    .agents/workspaces/        Ephemeral workspace root
+    .agents/traces/            Audit log directory
 
   Next steps:
     1. Run 'wave validate' to check configuration
@@ -53,14 +53,14 @@ adapters:
 personas:
   navigator:
     adapter: claude
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
     temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Bash(git *)"]
       deny: ["Write(*)"]
 
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
   max_concurrent_workers: 3
 ```
 
@@ -99,7 +99,7 @@ wave run ops-hello-world "testing Wave" -o text
 
 ## 5. Check Results
 
-Artifacts are saved in `.wave/workspaces/<pipeline-id>/<step-id>/`. Each step produces its own workspace.
+Artifacts are saved in `.agents/workspaces/<pipeline-id>/<step-id>/`. Each step produces its own workspace.
 
 ## Quick Commands
 

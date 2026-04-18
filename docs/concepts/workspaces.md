@@ -26,14 +26,14 @@ That's it. No mount configurations, no path mapping, no `cd` hacks. The step run
 
 ### Workspaces Live Where Your Code Lives
 
-The worktree is created inside your project at `.wave/workspaces/` — not in some detached `/tmp` folder or a central orchestration directory somewhere else on your machine. Your pipeline workspaces are part of your repo's directory tree, right next to the code they operate on. One `ls` and you see everything.
+The worktree is created inside your project at `.agents/workspaces/` — not in some detached `/tmp` folder or a central orchestration directory somewhere else on your machine. Your pipeline workspaces are part of your repo's directory tree, right next to the code they operate on. One `ls` and you see everything.
 
 ### One Branch, One Worktree
 
 When multiple steps specify the same branch, they **share the same worktree**. Changes made by one step are immediately visible to the next.
 
 ```
-.wave/workspaces/my-pipeline/__wt_my-pipeline/
+.agents/workspaces/my-pipeline/__wt_my-pipeline/
 ├── .git              ← pointer to main repo's .git/worktrees/
 ├── src/              ← your full source tree
 ├── go.mod
@@ -88,7 +88,7 @@ While a pipeline is running, you can confirm worktree usage:
 git worktree list
 
 # Check the workspace — .git should be a file, not a directory
-cat .wave/workspaces/<pipeline-id>/__wt_<branch>/.git
+cat .agents/workspaces/<pipeline-id>/__wt_<branch>/.git
 # → gitdir: /your/repo/.git/worktrees/...
 ```
 
@@ -114,7 +114,7 @@ workspace:
 | `readonly` | Step can read but not modify. Default for source code mounts. |
 | `readwrite` | Step can read and modify. Use for output directories. |
 
-Mount workspaces create an isolated directory structure under `.wave/workspaces/<pipeline-id>/<step-id>/` with symlinks or copies of the specified sources.
+Mount workspaces create an isolated directory structure under `.agents/workspaces/<pipeline-id>/<step-id>/` with symlinks or copies of the specified sources.
 
 ## Choosing a Strategy
 
@@ -136,7 +136,7 @@ Mount workspaces create an isolated directory structure under `.wave/workspaces/
 ```yaml
 # In wave.yaml
 runtime:
-  workspace_root: .wave/workspaces    # Default
+  workspace_root: .agents/workspaces    # Default
 ```
 
 </div>
@@ -144,7 +144,7 @@ runtime:
 All workspaces are created under this root. The directory structure is:
 
 ```
-.wave/workspaces/
+.agents/workspaces/
 └── <pipeline-id>/
     ├── __wt_<branch>/       ← worktree workspace (shared across steps)
     ├── <step-id>/           ← mount workspace (per step)
@@ -157,16 +157,16 @@ Worktree workspaces are cleaned up when a pipeline completes. To inspect them, p
 
 ```bash
 # Find the workspace while pipeline is running
-ls .wave/workspaces/<pipeline-id>/
+ls .agents/workspaces/<pipeline-id>/
 
 # Inspect what the agent saw
-cat .wave/workspaces/<pipeline-id>/__wt_*/CLAUDE.md
+cat .agents/workspaces/<pipeline-id>/__wt_*/CLAUDE.md
 
 # Check injected artifacts
-ls .wave/workspaces/<pipeline-id>/__wt_*/artifacts/
+ls .agents/workspaces/<pipeline-id>/__wt_*/artifacts/
 
 # Look at step output
-ls .wave/workspaces/<pipeline-id>/__wt_*/output/
+ls .agents/workspaces/<pipeline-id>/__wt_*/output/
 ```
 
 ## Further Reading

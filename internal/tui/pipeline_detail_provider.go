@@ -279,13 +279,13 @@ func (d *DefaultDetailDataProvider) FetchFinishedDetail(runID string) (*Finished
 	// Derive workspace path from RunID and BranchName.
 	if run.BranchName != "" {
 		sanitized := sanitizeBranch(run.BranchName)
-		wsPath := filepath.Join(".wave", "workspaces", run.RunID, "__wt_"+sanitized)
+		wsPath := filepath.Join(".agents", "workspaces", run.RunID, "__wt_"+sanitized)
 		if _, err := os.Stat(wsPath); err == nil {
 			detail.WorkspacePath = wsPath
 		}
 	} else {
 		// Fallback: try glob for any worktree under this run.
-		matches, _ := filepath.Glob(filepath.Join(".wave", "workspaces", run.RunID, "__wt_*"))
+		matches, _ := filepath.Glob(filepath.Join(".agents", "workspaces", run.RunID, "__wt_*"))
 		if len(matches) > 0 {
 			if info, err := os.Stat(matches[0]); err == nil && info.IsDir() {
 				detail.WorkspacePath = matches[0]

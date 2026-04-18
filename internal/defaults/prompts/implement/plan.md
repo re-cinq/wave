@@ -84,7 +84,7 @@ Mark parallelizable tasks with `[P]`.
 - Do NOT spawn Task subagents — work directly in the main context
 - Do NOT start implementation — only planning in this step
 - Do NOT use WebSearch — all information is in the issue and codebase
-- Do NOT create files or directories under `.wave/artifacts/` — that path is managed by the pipeline orchestrator
+- Do NOT create files or directories under `.agents/artifacts/` — that path is managed by the pipeline orchestrator
 
 ## Output
 

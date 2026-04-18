@@ -29,10 +29,10 @@ Never argue about whether something is your responsibility.
 
 Each pipeline is a **topologically-sorted DAG** of steps. For every step:
 
-1. **Workspace creation** — an ephemeral worktree is created under `.wave/workspaces/<pipeline>/<step>/`. Steps can share workspaces via `workspace.ref`. Mounts support readonly/readwrite modes
-2. **Artifact injection** — outputs from prior steps are injected into `.wave/artifacts/` before execution begins. The system validates existence, enforces optional/required semantics, and checks schemas if `ref.SchemaPath` is specified
+1. **Workspace creation** — an ephemeral worktree is created under `.agents/workspaces/<pipeline>/<step>/`. Steps can share workspaces via `workspace.ref`. Mounts support readonly/readwrite modes
+2. **Artifact injection** — outputs from prior steps are injected into `.agents/artifacts/` before execution begins. The system validates existence, enforces optional/required semantics, and checks schemas if `ref.SchemaPath` is specified
 3. **Runtime CLAUDE.md assembly** — a per-step CLAUDE.md is generated from four layers:
-   - Base protocol preamble (`.wave/personas/base-protocol.md`)
+   - Base protocol preamble (`.agents/personas/base-protocol.md`)
    - Persona system prompt (role, responsibilities, constraints)
    - Contract compliance section (auto-generated from step contract schema)
    - Restriction section (denied/allowed tools, network domains from manifest permissions)
@@ -100,7 +100,7 @@ internal/
 
 cmd/wave/         # CLI command structure
 tests/            # Test coverage
-.wave/            # Default personas, pipelines, contracts
+.agents/            # Default personas, pipelines, contracts
 ```
 
 ## Active Adapters
@@ -171,7 +171,7 @@ Automated semantic versioning from conventional commits. Every merge to `main` p
 
 ## Debugging
 - Use `--debug` flag for detailed execution logging
-- Check `.wave/traces/` for audit logs
+- Check `.agents/traces/` for audit logs
 - Workspace contents preserved for post-mortem analysis
 
 ## Wave Swarm Orchestration
@@ -211,7 +211,7 @@ When acting as the **core orchestrator** (the Claude instance steering Wave pipe
 3. Only launch review if no prior review exists: `wave run -v ops-pr-review -- "<PR-URL>" &`
 4. Wait for review completion and check results
 5. Only merge after review passes
-6. Check for leaked files: `gh pr diff <N> --name-only | grep -E "^\.claude/|^\.wave/artifacts/|^\.wave/output/"`
+6. Check for leaked files: `gh pr diff <N> --name-only | grep -E "^\.claude/|^\.agents/artifacts/|^\.agents/output/"`
 
 ### Concurrency Rules
 
@@ -247,7 +247,7 @@ wave logs <run-id> | grep "stream_activity" | tail -3             # Latest activ
 
 1. **Check if review already exists**: `gh pr view <N> --json reviews,comments` — skip `ops-pr-review` if one already completed
 2. If no review exists, run `ops-pr-review`: `wave run -v ops-pr-review -- "<PR-URL>" &`
-3. Check for leaked files: `gh pr diff <N> --name-only | grep -E "^\.claude/|^\.wave/artifacts/|^\.wave/output/"`
+3. Check for leaked files: `gh pr diff <N> --name-only | grep -E "^\.claude/|^\.agents/artifacts/|^\.agents/output/"`
 4. After review passes: `gh pr merge <N> --merge`
 
 ### Failure Recovery
@@ -309,7 +309,7 @@ This warning means the step received zero invariants from that context. Fix it b
 
 ## Constraints
 
-1. NEVER write contract or artifact schemas in prompts. Wave has to parse, validate and inject them properly into the proper pipeline step. **Exception**: `gh pr create --body-file .wave/artifacts/<name>` and similar CLI commands that require a literal file path are acceptable — the persona needs the path to pass to external tools.
+1. NEVER write contract or artifact schemas in prompts. Wave has to parse, validate and inject them properly into the proper pipeline step. **Exception**: `gh pr create --body-file .agents/artifacts/<name>` and similar CLI commands that require a literal file path are acceptable — the persona needs the path to pass to external tools.
 4. NEVER duplicate information in step prompts that Wave already injects at runtime. `buildContractPrompt()` automatically injects: (a) output artifact file paths and write instructions, (b) full contract schema content for `json_schema` contracts, (c) injected input artifact paths and read instructions (`## Available Artifacts` section). Therefore prompts must NOT specify: where to write output files, where to read injected artifacts, JSON field enumerations, or output structure that matches a contract schema. Reference artifacts by their `as:` alias name only (e.g., "Read the `greeting_file` artifact"), never by path. Prompts should focus on reasoning, constraints, quality bar, and domain-specific guidance. For markdown outputs without a schema contract, describing the expected section structure is acceptable since Wave only injects the file path, not the format.
 2. NEVER pass validations silently. If a validation fails, it must be reported as an error and the step should not complete successfully.
 3. NEVER make bulk-edits to the codebase except it is not functional code; BEWARE personas, pipelines etc. are all functional code and should be edited with the same care as any other code: Individually!

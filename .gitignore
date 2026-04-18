@@ -5,19 +5,19 @@
 *.cast
 
 # Wave runtime artifacts (ephemeral, not committed)
-.wave/workspaces/
-**/.wave/workspaces/
-.wave/state.db*
-.wave/traces/
-.wave/artifacts/
-.wave/output/
-.wave/chat/
-.wave/logs/
-.wave/retros/
-.wave/wave.db*
-.wave/bench/datasets/
-.wave/bench/workspaces/
-# .wave/bench/results/   — committed
+.agents/workspaces/
+**/.agents/workspaces/
+.agents/state.db*
+.agents/traces/
+.agents/artifacts/
+.agents/output/
+.agents/chat/
+.agents/logs/
+.agents/retros/
+.agents/wave.db*
+.agents/bench/datasets/
+.agents/bench/workspaces/
+# .agents/bench/results/   — committed
 
 # Claude Code local config (persona-generated, not committed)
 .claude/
@@ -26,9 +26,9 @@
 .opencode/
 
 # Wave config (committed)
-# .wave/personas/    — committed
-# .wave/pipelines/   — committed
-# .wave/contracts/   — committed
+# .agents/personas/    — committed
+# .agents/pipelines/   — committed
+# .agents/contracts/   — committed
 
 # Go build artifacts
 /wave

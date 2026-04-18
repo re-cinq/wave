@@ -103,11 +103,11 @@ func TestInitEmptyDirectory(t *testing.T) {
 
 	// Verify .wave directories were created
 	expectedDirs := []string{
-		".wave/personas",
-		".wave/pipelines",
-		".wave/contracts",
-		".wave/traces",
-		".wave/workspaces",
+		".agents/personas",
+		".agents/pipelines",
+		".agents/contracts",
+		".agents/traces",
+		".agents/workspaces",
 	}
 	for _, dir := range expectedDirs {
 		assert.True(t, dirExists(dir), "%s directory should be created", dir)
@@ -130,7 +130,7 @@ func TestInitWithExistingWaveYaml(t *testing.T) {
 	defer env.cleanup()
 
 	// Create an existing wave.yaml with a custom name
-	existingContent := []byte("apiVersion: v1\nkind: WaveManifest\nmetadata:\n  name: existing\nruntime:\n  workspace_root: .wave/workspaces\n")
+	existingContent := []byte("apiVersion: v1\nkind: WaveManifest\nmetadata:\n  name: existing\nruntime:\n  workspace_root: .agents/workspaces\n")
 	err := os.WriteFile("wave.yaml", existingContent, 0644)
 	require.NoError(t, err, "failed to create existing wave.yaml")
 
@@ -259,7 +259,7 @@ adapters:
 personas:
   my-agent:
     adapter: custom-llm
-    system_prompt_file: .wave/personas/my-agent.md
+    system_prompt_file: .agents/personas/my-agent.md
     temperature: 0.7
 ontology:
   telos: "Build the best widget system"
@@ -269,7 +269,7 @@ ontology:
       invariants:
         - "Widgets must be immutable after creation"
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `
 	err := os.WriteFile("wave.yaml", []byte(existingContent), 0644)
 	require.NoError(t, err)
@@ -323,18 +323,18 @@ adapters:
 personas:
   custom-persona:
     adapter: custom-adapter
-    system_prompt_file: .wave/personas/custom.md
+    system_prompt_file: .agents/personas/custom.md
     temperature: 0.5
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `
 	err := os.WriteFile("wave.yaml", []byte(existingContent), 0644)
 	require.NoError(t, err)
 
 	// Create .wave directory structure and custom persona file
-	err = os.MkdirAll(".wave/personas", 0755)
+	err = os.MkdirAll(".agents/personas", 0755)
 	require.NoError(t, err)
-	err = os.WriteFile(".wave/personas/custom.md", []byte("# Custom Persona"), 0644)
+	err = os.WriteFile(".agents/personas/custom.md", []byte("# Custom Persona"), 0644)
 	require.NoError(t, err)
 
 	stdout, _, err := executeInitCmd("--merge", "--yes")
@@ -391,7 +391,7 @@ func TestInitCreatesAllPersonaPromptFiles(t *testing.T) {
 	}
 
 	for _, persona := range expectedPersonas {
-		path := filepath.Join(".wave", "personas", persona)
+		path := filepath.Join(".agents", "personas", persona)
 		assert.True(t, fileExists(path), "persona file %s should be created", persona)
 
 		// Verify file has content
@@ -418,7 +418,7 @@ func TestInitCreatesPipelineFiles(t *testing.T) {
 	require.NotEmpty(t, releasePipelines, "there should be at least one release pipeline")
 
 	for _, pipeline := range releasePipelines {
-		path := filepath.Join(".wave", "pipelines", pipeline)
+		path := filepath.Join(".agents", "pipelines", pipeline)
 		assert.True(t, fileExists(path), "release pipeline file %s should be created", pipeline)
 
 		// Verify it's valid YAML
@@ -443,7 +443,7 @@ func TestInitCreatesPipelineFiles(t *testing.T) {
 			}
 		}
 		if !isRelease {
-			path := filepath.Join(".wave", "pipelines", pipeline)
+			path := filepath.Join(".agents", "pipelines", pipeline)
 			assert.False(t, fileExists(path), "non-release pipeline file %s should NOT be created", pipeline)
 		}
 	}
@@ -459,7 +459,7 @@ func TestInitCreatesContractFiles(t *testing.T) {
 
 	// Verify that contracts directory exists and contains only contracts
 	// referenced by release pipelines
-	entries, err := os.ReadDir(".wave/contracts")
+	entries, err := os.ReadDir(".agents/contracts")
 	require.NoError(t, err)
 
 	for _, entry := range entries {
@@ -470,7 +470,7 @@ func TestInitCreatesContractFiles(t *testing.T) {
 		if !strings.HasSuffix(entry.Name(), ".json") {
 			continue
 		}
-		path := filepath.Join(".wave", "contracts", entry.Name())
+		path := filepath.Join(".agents", "contracts", entry.Name())
 		content, err := os.ReadFile(path)
 		require.NoError(t, err)
 		assert.Contains(t, string(content), "$schema", "%s should contain $schema", entry.Name())
@@ -486,7 +486,7 @@ func TestInitCreatesContractFiles(t *testing.T) {
 	allContracts, err := defaults.GetContracts()
 	require.NoError(t, err)
 
-	allEntries, err := os.ReadDir(".wave/contracts")
+	allEntries, err := os.ReadDir(".agents/contracts")
 	require.NoError(t, err)
 	assert.Equal(t, len(allContracts), len(allEntries),
 		"--all should create all contract files")
@@ -554,7 +554,7 @@ func TestInitErrorMessagesIncludeFilePaths(t *testing.T) {
 	defer env.cleanup()
 
 	// Create a read-only directory to trigger an error
-	err := os.MkdirAll(".wave", 0755)
+	err := os.MkdirAll(".agents", 0755)
 	require.NoError(t, err)
 
 	// Create wave.yaml with invalid content to trigger a parse error during merge
@@ -635,7 +635,7 @@ kind: WaveManifest
 metadata:
   name: minimal
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `
 	err := os.WriteFile("wave.yaml", []byte(minimalContent), 0644)
 	require.NoError(t, err)
@@ -673,21 +673,21 @@ adapters:
 personas:
   my-special-persona:
     adapter: claude
-    system_prompt_file: .wave/personas/special.md
+    system_prompt_file: .agents/personas/special.md
     temperature: 0.9
     permissions:
       allowed_tools:
         - SpecialTool
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `
 	err := os.WriteFile("wave.yaml", []byte(existingContent), 0644)
 	require.NoError(t, err)
 
 	// Create the persona file
-	err = os.MkdirAll(".wave/personas", 0755)
+	err = os.MkdirAll(".agents/personas", 0755)
 	require.NoError(t, err)
-	err = os.WriteFile(".wave/personas/special.md", []byte("# Special"), 0644)
+	err = os.WriteFile(".agents/personas/special.md", []byte("# Special"), 0644)
 	require.NoError(t, err)
 
 	_, _, err = executeInitCmd("--merge", "--yes")
@@ -718,7 +718,7 @@ func TestInitDirectoryCreationPermissions(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check directory permissions
-	dirs := []string{".wave", ".wave/personas", ".wave/pipelines", ".wave/contracts"}
+	dirs := []string{".agents", ".agents/personas", ".agents/pipelines", ".agents/contracts"}
 	for _, dir := range dirs {
 		info, err := os.Stat(dir)
 		require.NoError(t, err, "directory %s should exist", dir)
@@ -744,8 +744,8 @@ func TestInitFilePermissions(t *testing.T) {
 
 	files := []string{
 		"wave.yaml",
-		".wave/personas/navigator.md",
-		filepath.Join(".wave", "pipelines", releasePipelines[0]),
+		".agents/personas/navigator.md",
+		filepath.Join(".agents", "pipelines", releasePipelines[0]),
 	}
 
 	for _, file := range files {
@@ -844,7 +844,7 @@ func TestInitPersonaPromptContent(t *testing.T) {
 	}
 
 	for _, tc := range personaTests {
-		content, err := os.ReadFile(filepath.Join(".wave", "personas", tc.file))
+		content, err := os.ReadFile(filepath.Join(".agents", "personas", tc.file))
 		require.NoError(t, err)
 		contentStr := strings.ToLower(string(content))
 
@@ -866,7 +866,7 @@ func TestInitAllFlagExtractsAllPipelines(t *testing.T) {
 	allPipelines, err := defaults.GetPipelines()
 	require.NoError(t, err)
 
-	entries, err := os.ReadDir(".wave/pipelines")
+	entries, err := os.ReadDir(".agents/pipelines")
 	require.NoError(t, err)
 	assert.Equal(t, len(allPipelines), len(entries), "--all should create all pipeline files")
 }
@@ -882,7 +882,7 @@ func TestInitDefaultOnlyReleasePipelines(t *testing.T) {
 	releasePipelines, err := defaults.GetReleasePipelines()
 	require.NoError(t, err)
 
-	entries, err := os.ReadDir(".wave/pipelines")
+	entries, err := os.ReadDir(".agents/pipelines")
 	require.NoError(t, err)
 	assert.Equal(t, len(releasePipelines), len(entries), "default init should create only release pipeline files")
 
@@ -901,7 +901,7 @@ func TestInitTransitiveContractExclusion(t *testing.T) {
 	require.NoError(t, err)
 
 	// Count contracts in filtered init
-	filteredEntries, err := os.ReadDir(".wave/contracts")
+	filteredEntries, err := os.ReadDir(".agents/contracts")
 	require.NoError(t, err)
 
 	// Count contracts with --all
@@ -911,7 +911,7 @@ func TestInitTransitiveContractExclusion(t *testing.T) {
 	_, _, err = executeInitCmd("--all")
 	require.NoError(t, err)
 
-	allEntries, err := os.ReadDir(".wave/contracts")
+	allEntries, err := os.ReadDir(".agents/contracts")
 	require.NoError(t, err)
 
 	// Filtered should have fewer or equal contracts
@@ -929,8 +929,8 @@ func TestInitTransitivePromptExclusion(t *testing.T) {
 
 	// The speckit-flow pipeline is NOT release: true, so its prompts
 	// should not be present (unless referenced by another release pipeline)
-	// speckit-flow references prompts under .wave/prompts/speckit-flow/
-	if !fileExists(".wave/prompts/speckit-flow") {
+	// speckit-flow references prompts under .agents/prompts/speckit-flow/
+	if !fileExists(".agents/prompts/speckit-flow") {
 		// Good - speckit-flow prompts excluded because no release pipeline references them
 		return
 	}
@@ -950,7 +950,7 @@ func TestInitPersonasNeverExcluded(t *testing.T) {
 	allPersonas, err := defaults.GetPersonas()
 	require.NoError(t, err)
 
-	entries, err := os.ReadDir(".wave/personas")
+	entries, err := os.ReadDir(".agents/personas")
 	require.NoError(t, err)
 	assert.Equal(t, len(allPersonas), len(entries),
 		"all personas should be present regardless of release filtering")
@@ -965,7 +965,7 @@ func TestInitAllMergeCompose(t *testing.T) {
 	_, _, err := executeInitCmd()
 	require.NoError(t, err)
 
-	filteredEntries, err := os.ReadDir(".wave/pipelines")
+	filteredEntries, err := os.ReadDir(".agents/pipelines")
 	require.NoError(t, err)
 	filteredCount := len(filteredEntries)
 
@@ -973,7 +973,7 @@ func TestInitAllMergeCompose(t *testing.T) {
 	_, _, err = executeInitCmd("--merge", "--all", "--yes")
 	require.NoError(t, err)
 
-	allEntries, err := os.ReadDir(".wave/pipelines")
+	allEntries, err := os.ReadDir(".agents/pipelines")
 	require.NoError(t, err)
 
 	allPipelines, err := defaults.GetPipelines()
@@ -994,7 +994,7 @@ func TestInitMergePreservesExistingNonReleasePipelines(t *testing.T) {
 	_, _, err := executeInitCmd("--all")
 	require.NoError(t, err)
 
-	allEntries, err := os.ReadDir(".wave/pipelines")
+	allEntries, err := os.ReadDir(".agents/pipelines")
 	require.NoError(t, err)
 	allCount := len(allEntries)
 
@@ -1003,7 +1003,7 @@ func TestInitMergePreservesExistingNonReleasePipelines(t *testing.T) {
 	require.NoError(t, err)
 
 	// Files should still be there - merge doesn't delete
-	afterEntries, err := os.ReadDir(".wave/pipelines")
+	afterEntries, err := os.ReadDir(".agents/pipelines")
 	require.NoError(t, err)
 	assert.Equal(t, allCount, len(afterEntries),
 		"merge should not delete existing pipeline files")
@@ -1297,7 +1297,7 @@ func TestInitPersonaManifestMatchesConfig(t *testing.T) {
 
 		assert.Equal(t, cfg.Description, entry["description"], "%s description mismatch", name)
 		assert.Equal(t, "claude", entry["adapter"], "%s adapter should be 'claude'", name)
-		assert.Equal(t, fmt.Sprintf(".wave/personas/%s.md", name), entry["system_prompt_file"],
+		assert.Equal(t, fmt.Sprintf(".agents/personas/%s.md", name), entry["system_prompt_file"],
 			"%s system_prompt_file should follow convention", name)
 
 		if cfg.Model != "" {
@@ -1323,7 +1323,7 @@ func TestComputeChangeSummary(t *testing.T) {
 			name: "all files new (fresh project)",
 			setup: func(t *testing.T, assets *initAssets) {
 				t.Helper()
-				// Only create wave.yaml — no .wave/ directory at all.
+				// Only create wave.yaml — no .agents/ directory at all.
 				require.NoError(t, os.WriteFile("wave.yaml", []byte("apiVersion: v1\nkind: WaveManifest\n"), 0644))
 			},
 			wantNewCount: -1,
@@ -1348,13 +1348,13 @@ func TestComputeChangeSummary(t *testing.T) {
 				require.NoError(t, err)
 				// Modify one persona file to make it "preserved"
 				require.NoError(t, os.WriteFile(
-					".wave/personas/navigator.md",
+					".agents/personas/navigator.md",
 					[]byte("# My Custom Navigator"),
 					0644,
 				))
 				// Remove one pipeline to make it "new" on next check
 				for name := range assets.pipelines {
-					os.Remove(filepath.Join(".wave", "pipelines", name))
+					os.Remove(filepath.Join(".agents", "pipelines", name))
 					break // only remove one
 				}
 			},
@@ -1371,7 +1371,7 @@ func TestComputeChangeSummary(t *testing.T) {
 				// Overwrite navigator.md with empty content — it differs from the
 				// default so it should be classified as "preserved", not "up_to_date"
 				require.NoError(t, os.WriteFile(
-					".wave/personas/navigator.md",
+					".agents/personas/navigator.md",
 					[]byte{},
 					0644,
 				))
@@ -1400,7 +1400,7 @@ func TestComputeChangeSummary(t *testing.T) {
 				existingManifest = map[string]interface{}{}
 			}
 
-			defaultManifest := createDefaultManifest("claude", ".wave/workspaces", nil, assets.personaConfigs)
+			defaultManifest := createDefaultManifest("claude", ".agents/workspaces", nil, assets.personaConfigs)
 			summary := computeChangeSummary(assets, existingManifest, defaultManifest)
 
 			require.NotNil(t, summary)
@@ -1456,14 +1456,14 @@ func TestComputeManifestDiff(t *testing.T) {
 			name: "nested key additions",
 			defaults: map[string]interface{}{
 				"runtime": map[string]interface{}{
-					"workspace_root":  ".wave/workspaces",
+					"workspace_root":  ".agents/workspaces",
 					"timeout_minutes": 30,
 					"max_workers":     5,
 				},
 			},
 			existing: map[string]interface{}{
 				"runtime": map[string]interface{}{
-					"workspace_root": ".wave/workspaces",
+					"workspace_root": ".agents/workspaces",
 				},
 			},
 			wantAddedKeys: []string{"runtime.timeout_minutes", "runtime.max_workers"},
@@ -1519,7 +1519,7 @@ func TestComputeManifestDiff(t *testing.T) {
 				},
 				"runtime": map[string]interface{}{
 					"audit": map[string]interface{}{
-						"log_dir": ".wave/traces/",
+						"log_dir": ".agents/traces/",
 					},
 				},
 			},
@@ -1586,7 +1586,7 @@ func TestInitMergeUpgradeLifecycle(t *testing.T) {
 
 	// Step 2: Write a custom persona file
 	customPersonaContent := "# Custom Navigator\n\nMy custom navigator persona.\n"
-	require.NoError(t, os.WriteFile(".wave/personas/navigator.md", []byte(customPersonaContent), 0644))
+	require.NoError(t, os.WriteFile(".agents/personas/navigator.md", []byte(customPersonaContent), 0644))
 
 	// Step 3: Modify wave.yaml with custom settings
 	manifestData, err := os.ReadFile("wave.yaml")
@@ -1612,7 +1612,7 @@ func TestInitMergeUpgradeLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	var removedPipeline string
 	for name := range assets.pipelines {
-		removed := filepath.Join(".wave", "pipelines", name)
+		removed := filepath.Join(".agents", "pipelines", name)
 		os.Remove(removed)
 		removedPipeline = name
 		break
@@ -1641,18 +1641,18 @@ func TestInitMergeUpgradeLifecycle(t *testing.T) {
 		"stdout should contain merge success message")
 
 	// Step 5: Verify custom persona is preserved on disk
-	personaData, err := os.ReadFile(".wave/personas/navigator.md")
+	personaData, err := os.ReadFile(".agents/personas/navigator.md")
 	require.NoError(t, err)
 	assert.Equal(t, customPersonaContent, string(personaData),
 		"custom persona file should be preserved")
 
 	// Step 6: Verify the removed pipeline was re-created
-	assert.True(t, fileExists(filepath.Join(".wave", "pipelines", removedPipeline)),
+	assert.True(t, fileExists(filepath.Join(".agents", "pipelines", removedPipeline)),
 		"removed pipeline %s should be re-created by merge", removedPipeline)
 
 	// Step 7: Verify all default persona files exist
 	for _, name := range []string{"philosopher.md", "craftsman.md", "auditor.md", "summarizer.md"} {
-		assert.True(t, fileExists(filepath.Join(".wave", "personas", name)),
+		assert.True(t, fileExists(filepath.Join(".agents", "personas", name)),
 			"default persona file %s should exist", name)
 	}
 
@@ -1733,7 +1733,7 @@ func TestInitMergeFlagCombinations(t *testing.T) {
 
 				// Write a custom persona file that differs from defaults
 				require.NoError(t, os.WriteFile(
-					".wave/personas/navigator.md",
+					".agents/personas/navigator.md",
 					[]byte("# My Custom Navigator"),
 					0644,
 				))
@@ -1764,7 +1764,7 @@ func TestInitMergeFlagCombinations(t *testing.T) {
 
 			if tc.checkOverwrite {
 				// Force should overwrite the custom persona with the default
-				data, err := os.ReadFile(".wave/personas/navigator.md")
+				data, err := os.ReadFile(".agents/personas/navigator.md")
 				require.NoError(t, err)
 				assert.NotEqual(t, "# My Custom Navigator", string(data),
 					"force should overwrite custom persona with default")
@@ -1773,7 +1773,7 @@ func TestInitMergeFlagCombinations(t *testing.T) {
 
 			if tc.checkPreserved {
 				// Merge should preserve the custom persona file
-				data, err := os.ReadFile(".wave/personas/navigator.md")
+				data, err := os.ReadFile(".agents/personas/navigator.md")
 				require.NoError(t, err)
 				assert.Equal(t, "# My Custom Navigator", string(data),
 					"merge should preserve custom persona file")
@@ -1798,7 +1798,7 @@ func TestInitMergeEdgeCases(t *testing.T) {
 
 		// Create a wave.yaml with invalid YAML
 		require.NoError(t, os.WriteFile("wave.yaml", []byte("invalid:\n  yaml: [\n  broken\n"), 0644))
-		require.NoError(t, os.MkdirAll(".wave/personas", 0755))
+		require.NoError(t, os.MkdirAll(".agents/personas", 0755))
 
 		cmd := NewInitCmd()
 		cmd.SetArgs([]string{"--merge", "--yes"})
@@ -1821,19 +1821,19 @@ func TestInitMergeEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create an empty persona file
-		require.NoError(t, os.WriteFile(".wave/personas/navigator.md", []byte{}, 0644))
+		require.NoError(t, os.WriteFile(".agents/personas/navigator.md", []byte{}, 0644))
 
 		// Run merge
 		_, _, err = executeInitCmd("--merge", "--yes")
 		require.NoError(t, err)
 
 		// Verify the file still exists and is still empty
-		data, err := os.ReadFile(".wave/personas/navigator.md")
+		data, err := os.ReadFile(".agents/personas/navigator.md")
 		require.NoError(t, err)
 		assert.Empty(t, data, "empty persona file should be preserved (not overwritten)")
 	})
 
-	t.Run("read-only .wave/personas permission error", func(t *testing.T) {
+	t.Run("read-only .agents/personas permission error", func(t *testing.T) {
 		if os.Getuid() == 0 {
 			t.Skip("skipping permission test when running as root")
 		}
@@ -1842,13 +1842,13 @@ func TestInitMergeEdgeCases(t *testing.T) {
 		defer env.cleanup()
 
 		// Create minimal wave.yaml
-		require.NoError(t, os.WriteFile("wave.yaml", []byte("apiVersion: v1\nkind: WaveManifest\nmetadata:\n  name: test\nruntime:\n  workspace_root: .wave/workspaces\n"), 0644))
+		require.NoError(t, os.WriteFile("wave.yaml", []byte("apiVersion: v1\nkind: WaveManifest\nmetadata:\n  name: test\nruntime:\n  workspace_root: .agents/workspaces\n"), 0644))
 
-		// Create .wave/personas as read-only (this will prevent writing new files)
-		require.NoError(t, os.MkdirAll(".wave/personas", 0755))
+		// Create .agents/personas as read-only (this will prevent writing new files)
+		require.NoError(t, os.MkdirAll(".agents/personas", 0755))
 		// Make personas directory read-only
-		require.NoError(t, os.Chmod(".wave/personas", 0555))
-		defer func() { _ = os.Chmod(".wave/personas", 0755) }() // restore for cleanup
+		require.NoError(t, os.Chmod(".agents/personas", 0555))
+		defer func() { _ = os.Chmod(".agents/personas", 0755) }() // restore for cleanup
 
 		cmd := NewInitCmd()
 		cmd.SetArgs([]string{"--merge", "--yes"})
@@ -1858,7 +1858,7 @@ func TestInitMergeEdgeCases(t *testing.T) {
 
 		err := cmd.Execute()
 		// Should fail because it can't write persona files
-		assert.Error(t, err, "should fail when .wave/personas is read-only")
+		assert.Error(t, err, "should fail when .agents/personas is read-only")
 	})
 
 	t.Run("already up-to-date short circuit", func(t *testing.T) {
@@ -1896,14 +1896,14 @@ func TestInitMergeEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		// Modify a file so it's not up-to-date
-		require.NoError(t, os.WriteFile(".wave/personas/navigator.md", []byte("# Modified"), 0644))
+		require.NoError(t, os.WriteFile(".agents/personas/navigator.md", []byte("# Modified"), 0644))
 
 		// Remove a pipeline to ensure there's a "new" entry
 		cmd0 := NewInitCmd()
 		assets, err := getFilteredAssets(cmd0, InitOptions{})
 		require.NoError(t, err)
 		for name := range assets.pipelines {
-			os.Remove(filepath.Join(".wave", "pipelines", name))
+			os.Remove(filepath.Join(".agents", "pipelines", name))
 			break // only remove one
 		}
 
@@ -1981,12 +1981,12 @@ func TestMergeTypedManifestsPreservesCustomPersonas(t *testing.T) {
 		Personas: map[string]manifest.Persona{
 			"custom-agent": {
 				Adapter:          "claude",
-				SystemPromptFile: ".wave/personas/custom.md",
+				SystemPromptFile: ".agents/personas/custom.md",
 				Temperature:      0.9,
 			},
 			"navigator": {
 				Adapter:          "claude",
-				SystemPromptFile: ".wave/personas/navigator.md",
+				SystemPromptFile: ".agents/personas/navigator.md",
 				Temperature:      0.5,
 				Model:            "custom-model",
 			},
@@ -2000,12 +2000,12 @@ func TestMergeTypedManifestsPreservesCustomPersonas(t *testing.T) {
 		Personas: map[string]manifest.Persona{
 			"navigator": {
 				Adapter:          "claude",
-				SystemPromptFile: ".wave/personas/navigator.md",
+				SystemPromptFile: ".agents/personas/navigator.md",
 				Temperature:      0.3,
 			},
 			"craftsman": {
 				Adapter:          "claude",
-				SystemPromptFile: ".wave/personas/craftsman.md",
+				SystemPromptFile: ".agents/personas/craftsman.md",
 				Temperature:      0.2,
 			},
 		},
@@ -2112,7 +2112,7 @@ func TestMergeTypedManifestsUpdatesInfrastructure(t *testing.T) {
 		Kind:       "OldKind",
 		Metadata:   manifest.Metadata{Name: "test"},
 		Runtime: manifest.Runtime{
-			WorkspaceRoot:        ".wave/workspaces",
+			WorkspaceRoot:        ".agents/workspaces",
 			MaxConcurrentWorkers: 2,
 		},
 	}
@@ -2122,7 +2122,7 @@ func TestMergeTypedManifestsUpdatesInfrastructure(t *testing.T) {
 		Kind:       "WaveManifest",
 		Metadata:   manifest.Metadata{Name: "wave-project"},
 		Runtime: manifest.Runtime{
-			WorkspaceRoot:        ".wave/workspaces",
+			WorkspaceRoot:        ".agents/workspaces",
 			MaxConcurrentWorkers: 5,
 			DefaultTimeoutMin:    30,
 		},
@@ -2189,7 +2189,7 @@ func TestMergeTypedManifestsEmptyExisting(t *testing.T) {
 			"navigator": {Adapter: "claude"},
 		},
 		Runtime: manifest.Runtime{
-			WorkspaceRoot:        ".wave/workspaces",
+			WorkspaceRoot:        ".agents/workspaces",
 			MaxConcurrentWorkers: 5,
 		},
 	}

@@ -141,11 +141,11 @@ func TestOpenRunLog_CreatesDirectoryAndFile(t *testing.T) {
 	defer f.Close()
 
 	// Verify the directory was created
-	_, err = os.Stat(filepath.Join(".wave", "logs"))
+	_, err = os.Stat(filepath.Join(".agents", "logs"))
 	assert.NoError(t, err)
 
 	// Verify the file was created
-	_, err = os.Stat(filepath.Join(".wave", "logs", "test-run-123.log"))
+	_, err = os.Stat(filepath.Join(".agents", "logs", "test-run-123.log"))
 	assert.NoError(t, err)
 
 	// Verify it's writable
@@ -171,7 +171,7 @@ func TestOpenRunLog_AppendsToExisting(t *testing.T) {
 	_, _ = f2.WriteString("second\n")
 	f2.Close()
 
-	content, err := os.ReadFile(filepath.Join(".wave", "logs", "append-run.log"))
+	content, err := os.ReadFile(filepath.Join(".agents", "logs", "append-run.log"))
 	require.NoError(t, err)
 	assert.Equal(t, "first\nsecond\n", string(content))
 }

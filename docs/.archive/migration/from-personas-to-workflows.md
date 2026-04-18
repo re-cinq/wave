@@ -36,7 +36,7 @@ steps:
       source: "Review for security issues: {{ input }}"
     output_artifacts:
       - name: security-report
-        path: .wave/output/security.md
+        path: .agents/output/security.md
         type: markdown
 
   - id: coverage
@@ -98,7 +98,7 @@ personas:
   navigator:
     adapter: claude
     description: "Read-only codebase analysis"
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
     permissions:
       allowed_tools: [Read, Glob, Grep]
       deny: [Write, Edit, Bash]
@@ -106,7 +106,7 @@ personas:
   auditor:
     adapter: claude
     description: "Security review"
-    system_prompt_file: .wave/personas/auditor.md
+    system_prompt_file: .agents/personas/auditor.md
     permissions:
       allowed_tools: [Read, Grep]
       deny: [Write, Edit]
@@ -114,7 +114,7 @@ personas:
   craftsman:
     adapter: claude
     description: "Code implementation"
-    system_prompt_file: .wave/personas/craftsman.md
+    system_prompt_file: .agents/personas/craftsman.md
     permissions:
       allowed_tools: [Read, Write, Edit, Bash]
       deny: []
@@ -145,7 +145,7 @@ steps:
       source: "Analyze: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
         type: json
 
   - id: review
@@ -169,7 +169,7 @@ Ensure output quality:
 handover:
   contract:
     type: jsonschema
-    schema_path: .wave/contracts/analysis.schema.json
+    schema_path: .agents/contracts/analysis.schema.json
     on_failure: retry
     max_retries: 2
 ```
@@ -184,7 +184,7 @@ wave validate
 wave run ops-pr-review "Review auth changes"
 
 # Check output
-cat .wave/workspaces/*/.wave/output/
+cat .agents/workspaces/*/.agents/output/
 ```
 
 ## Common Migrations
@@ -210,7 +210,7 @@ steps:
       source: "Analyze for performance issues: {{ input }}"
     output_artifacts:
       - name: report
-        path: .wave/output/performance.md
+        path: .agents/output/performance.md
         type: markdown
 ```
 
@@ -233,7 +233,7 @@ steps:
       source: "Analyze: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
         type: json
 
   - id: suggest
@@ -249,7 +249,7 @@ steps:
       source: "Suggest improvements for: {{ artifacts.context }}"
     output_artifacts:
       - name: suggestions
-        path: .wave/output/suggestions.json
+        path: .agents/output/suggestions.json
         type: json
 
   - id: plan

@@ -136,7 +136,7 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	}
 
 	// Initialize workspace manager
-	wsRoot := ".wave/workspaces"
+	wsRoot := ".agents/workspaces"
 	if cfg.Manifest != nil && cfg.Manifest.Runtime.WorkspaceRoot != "" {
 		wsRoot = cfg.Manifest.Runtime.WorkspaceRoot
 	}

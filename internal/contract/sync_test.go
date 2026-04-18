@@ -26,13 +26,13 @@ func projectRoot(t *testing.T) string {
 
 func TestSchemaSync(t *testing.T) {
 	root := projectRoot(t)
-	waveDir := filepath.Join(root, ".wave", "contracts")
+	waveDir := filepath.Join(root, ".agents", "contracts")
 	defaultsDir := filepath.Join(root, "internal", "defaults", "contracts")
 
-	// All *.schema.json files in .wave/contracts/ must exist and match in
-	// internal/defaults/contracts/. .wave/contracts/ is the authoritative source.
+	// All *.schema.json files in .agents/contracts/ must exist and match in
+	// internal/defaults/contracts/. .agents/contracts/ is the authoritative source.
 	entries, err := os.ReadDir(waveDir)
-	require.NoError(t, err, "failed to read .wave/contracts/ directory")
+	require.NoError(t, err, "failed to read .agents/contracts/ directory")
 
 	schemas := []string{}
 	for _, entry := range entries {
@@ -44,27 +44,27 @@ func TestSchemaSync(t *testing.T) {
 		}
 	}
 
-	require.NotEmpty(t, schemas, "expected at least one *.schema.json in .wave/contracts/")
+	require.NotEmpty(t, schemas, "expected at least one *.schema.json in .agents/contracts/")
 
 	for _, schemaName := range schemas {
 		t.Run(schemaName, func(t *testing.T) {
 			waveContent, err := os.ReadFile(filepath.Join(waveDir, schemaName))
-			require.NoError(t, err, "failed to read .wave/contracts/%s", schemaName)
+			require.NoError(t, err, "failed to read .agents/contracts/%s", schemaName)
 
 			defaultsContent, err := os.ReadFile(filepath.Join(defaultsDir, schemaName))
 			require.NoError(t, err,
-				"schema %s exists in .wave/contracts/ but not in internal/defaults/contracts/ — sync with: cp .wave/contracts/%s internal/defaults/contracts/",
+				"schema %s exists in .agents/contracts/ but not in internal/defaults/contracts/ — sync with: cp .agents/contracts/%s internal/defaults/contracts/",
 				schemaName, schemaName)
 
 			assert.Equal(t, string(waveContent), string(defaultsContent),
-				"schema %s diverged between .wave/contracts/ and internal/defaults/contracts/ — .wave/contracts/ is authoritative, sync with: cp .wave/contracts/%s internal/defaults/contracts/",
+				"schema %s diverged between .agents/contracts/ and internal/defaults/contracts/ — .agents/contracts/ is authoritative, sync with: cp .agents/contracts/%s internal/defaults/contracts/",
 				schemaName, schemaName)
 		})
 	}
 
 	// Reverse check: every schema in internal/defaults/contracts/ must also
-	// exist in .wave/contracts/. Prevents schemas added directly to defaults
-	// without an authoritative copy in .wave/contracts/.
+	// exist in .agents/contracts/. Prevents schemas added directly to defaults
+	// without an authoritative copy in .agents/contracts/.
 	defaultsEntries, err := os.ReadDir(defaultsDir)
 	require.NoError(t, err, "failed to read internal/defaults/contracts/ directory")
 
@@ -76,7 +76,7 @@ func TestSchemaSync(t *testing.T) {
 		t.Run("defaults_has_wave_copy/"+name, func(t *testing.T) {
 			_, err := os.Stat(filepath.Join(waveDir, name))
 			assert.NoError(t, err,
-				"schema %s exists in internal/defaults/contracts/ but not in .wave/contracts/ — add the authoritative copy: cp internal/defaults/contracts/%s .wave/contracts/",
+				"schema %s exists in internal/defaults/contracts/ but not in .agents/contracts/ — add the authoritative copy: cp internal/defaults/contracts/%s .agents/contracts/",
 				name, name)
 		})
 	}

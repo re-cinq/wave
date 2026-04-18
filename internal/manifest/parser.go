@@ -267,7 +267,7 @@ func validateRuntime(r *Runtime, _ string) *ValidationError {
 		return &ValidationError{
 			Field:      "runtime.workspace_root",
 			Reason:     "is required",
-			Suggestion: "Set 'workspace_root' to a directory path like '.wave/workspaces'",
+			Suggestion: "Set 'workspace_root' to a directory path like '.agents/workspaces'",
 		}
 	}
 	return nil
@@ -372,7 +372,7 @@ func validatePersonasListWithFile(personas map[string]Persona, adapters map[stri
 				File:       filePath,
 				Field:      fmt.Sprintf("personas.%s.system_prompt_file", name),
 				Reason:     "is required",
-				Suggestion: "Set 'system_prompt_file' to a markdown file path (e.g., '.wave/personas/navigator.md')",
+				Suggestion: "Set 'system_prompt_file' to a markdown file path (e.g., '.agents/personas/navigator.md')",
 			})
 		} else {
 			promptPath := persona.SystemPromptFile

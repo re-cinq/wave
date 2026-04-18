@@ -45,7 +45,7 @@ Use this command to manually upgrade your database schema.`,
 
 			migrationRunner, err := state.NewMigrationRunner(dbPath)
 			if err != nil {
-				return NewCLIError(CodeMigrationFailed, fmt.Sprintf("failed to create migration runner: %s", err), "Check .wave/state.db file permissions").WithCause(err)
+				return NewCLIError(CodeMigrationFailed, fmt.Sprintf("failed to create migration runner: %s", err), "Check .agents/state.db file permissions").WithCause(err)
 			}
 			defer migrationRunner.Close()
 
@@ -89,7 +89,7 @@ rolling back migrations.`,
 
 			migrationRunner, err := state.NewMigrationRunner(dbPath)
 			if err != nil {
-				return NewCLIError(CodeMigrationFailed, fmt.Sprintf("failed to create migration runner: %s", err), "Check .wave/state.db file permissions").WithCause(err)
+				return NewCLIError(CodeMigrationFailed, fmt.Sprintf("failed to create migration runner: %s", err), "Check .agents/state.db file permissions").WithCause(err)
 			}
 			defer migrationRunner.Close()
 
@@ -125,7 +125,7 @@ func newMigrateStatusCmd() *cobra.Command {
 
 			migrationRunner, err := state.NewMigrationRunner(dbPath)
 			if err != nil {
-				return NewCLIError(CodeMigrationFailed, fmt.Sprintf("failed to create migration runner: %s", err), "Check .wave/state.db file permissions").WithCause(err)
+				return NewCLIError(CodeMigrationFailed, fmt.Sprintf("failed to create migration runner: %s", err), "Check .agents/state.db file permissions").WithCause(err)
 			}
 			defer migrationRunner.Close()
 
@@ -172,7 +172,7 @@ func newMigrateValidateCmd() *cobra.Command {
 
 			migrationRunner, err := state.NewMigrationRunner(dbPath)
 			if err != nil {
-				return NewCLIError(CodeMigrationFailed, fmt.Sprintf("failed to create migration runner: %s", err), "Check .wave/state.db file permissions").WithCause(err)
+				return NewCLIError(CodeMigrationFailed, fmt.Sprintf("failed to create migration runner: %s", err), "Check .agents/state.db file permissions").WithCause(err)
 			}
 			defer migrationRunner.Close()
 
@@ -188,7 +188,7 @@ func newMigrateValidateCmd() *cobra.Command {
 }
 
 func getDbPath() string {
-	// Default to .wave/state.db relative to current directory
+	// Default to .agents/state.db relative to current directory
 	// In production, this would come from configuration
-	return filepath.Join(".wave", "state.db")
+	return filepath.Join(".agents", "state.db")
 }

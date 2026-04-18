@@ -31,7 +31,7 @@ personas:                  # Required
     hooks: {}               # Optional - Pre/Post hooks
 
 runtime:                    # Required
-  workspace_root: string         # Optional - Default ".wave/workspaces"
+  workspace_root: string         # Optional - Default ".agents/workspaces"
   max_concurrent_workers: int   # Optional - Default 5
   default_timeout_minutes: int   # Optional - Default 5
   relay: {}                   # Optional - Relay config
@@ -71,7 +71,7 @@ Personas define how agents behave.
 personas:
   navigator:
     adapter: claude
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
     temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Bash(git log, git status)"]
@@ -88,7 +88,7 @@ personas:
 personas:
   craftsman:
     adapter: claude
-    system_prompt_file: .wave/personas/craftsman.md
+    system_prompt_file: .agents/personas/craftsman.md
     temperature: 0.7
     permissions:
       allowed_tools: ["Read", "Write", "Bash"]
@@ -104,7 +104,7 @@ personas:
 
 ```yaml
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
   max_concurrent_workers: 3
   default_timeout_minutes: 30
 ```
@@ -123,7 +123,7 @@ runtime:
 ```yaml
 runtime:
   audit:
-    log_dir: .wave/traces/
+    log_dir: .agents/traces/
     log_all_tool_calls: true
     log_all_file_operations: false
 ```
@@ -197,7 +197,7 @@ runtime:
 
 # Production
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
   audit:
     log_all_tool_calls: true
     log_all_file_operations: true

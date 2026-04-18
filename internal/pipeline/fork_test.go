@@ -71,10 +71,10 @@ func TestReplaceRunIDInPath(t *testing.T) {
 	}{
 		{
 			"replaces run ID segment",
-			".wave/artifacts/run-001/plan.md",
+			".agents/artifacts/run-001/plan.md",
 			"run-001",
 			"fork-001",
-			".wave/artifacts/fork-001/plan.md",
+			".agents/artifacts/fork-001/plan.md",
 		},
 		{
 			"no match returns original",

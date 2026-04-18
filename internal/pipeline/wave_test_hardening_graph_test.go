@@ -11,7 +11,7 @@ import (
 )
 
 func TestWaveTestHardeningGraph(t *testing.T) {
-	p := filepath.Join("..", "..", ".wave", "pipelines", "wave-test-hardening.yaml")
+	p := filepath.Join("..", "..", ".agents", "pipelines", "wave-test-hardening.yaml")
 	data, err := os.ReadFile(p)
 	if err != nil {
 		t.Fatalf("read %s: %v", p, err)

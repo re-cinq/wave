@@ -1255,7 +1255,7 @@ metadata:
   name: test
   description: test manifest
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 server:
   bind: "0.0.0.0:9090"
   max_concurrent: 10
@@ -1305,7 +1305,7 @@ metadata:
   name: test
   description: test manifest
 runtime:
-  workspace_root: .wave/workspaces
+  workspace_root: .agents/workspaces
 `
 		var m Manifest
 		if err := yaml.Unmarshal([]byte(yamlStr), &m); err != nil {

@@ -37,7 +37,7 @@ func newPipelineCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Scaffold a new pipeline from a template",
-		Long: `Create a new pipeline YAML in .wave/pipelines/<name>.yaml based on
+		Long: `Create a new pipeline YAML in .agents/pipelines/<name>.yaml based on
 an existing built-in pipeline template.
 
 If --template is omitted, lists available templates grouped by category.`,
@@ -99,7 +99,7 @@ func runPipelineCreate(name, template string) error {
 	}
 
 	// Check output path doesn't already exist
-	outputPath := filepath.Join(".wave", "pipelines", name+".yaml")
+	outputPath := filepath.Join(".agents", "pipelines", name+".yaml")
 	if _, err := os.Stat(outputPath); err == nil {
 		return NewCLIError(CodeInvalidArgs, fmt.Sprintf("pipeline %q already exists at %s", name, outputPath), "Choose a different name or remove the existing file")
 	}

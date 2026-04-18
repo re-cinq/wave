@@ -49,7 +49,7 @@ Authentication modes:
   wave serve --max-concurrent 10
   wave serve --auth-mode jwt
   wave serve --tls-cert cert.pem --tls-key key.pem
-  wave serve --db .wave/state.db`,
+  wave serve --db .agents/state.db`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Load manifest if available
 			var m *manifest.Manifest
@@ -77,7 +77,7 @@ Authentication modes:
 	cmd.Flags().IntVar(&port, "port", 8080, "Port to listen on")
 	cmd.Flags().StringVar(&bind, "bind", "127.0.0.1", "Address to bind to")
 	cmd.Flags().StringVar(&token, "token", "", "Authentication token (required for non-localhost binding)")
-	cmd.Flags().StringVar(&dbPath, "db", "", "Path to state database (default: .wave/state.db)")
+	cmd.Flags().StringVar(&dbPath, "db", "", "Path to state database (default: .agents/state.db)")
 	cmd.Flags().StringVar(&manifestPath, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().IntVar(&maxConcurrent, "max-concurrent", 0, "Maximum concurrent pipeline runs (default: 5)")
 	cmd.Flags().StringVar(&authMode, "auth-mode", "", "Authentication mode: none, bearer, jwt, mtls")
@@ -138,7 +138,7 @@ func buildServerConfig(m *manifest.Manifest, port int, bind, token, dbPath strin
 
 	// Resolve database path
 	if dbPath == "" {
-		dbPath = ".wave/state.db"
+		dbPath = ".agents/state.db"
 	}
 	cfg.DBPath = dbPath
 

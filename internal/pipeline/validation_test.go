@@ -47,7 +47,7 @@ func TestPhaseSkipValidator(t *testing.T) {
 			fromStep: "docs",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Create completed spec phase workspace
-				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+				specWorkspace := filepath.Join(tempDir, ".agents/workspaces/prototype/spec")
 				err := os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -77,7 +77,7 @@ func TestPhaseSkipValidator(t *testing.T) {
 			fromStep: "dummy",
 			setupWorkspace: func(t *testing.T, tempDir string) {
 				// Create spec but not docs
-				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+				specWorkspace := filepath.Join(tempDir, ".agents/workspaces/prototype/spec")
 				err := os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -108,7 +108,7 @@ func TestPhaseSkipValidator(t *testing.T) {
 				}
 
 				for _, phase := range phases {
-					phaseWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype", phase.phase)
+					phaseWorkspace := filepath.Join(tempDir, ".agents/workspaces/prototype", phase.phase)
 					err := os.MkdirAll(phaseWorkspace, 0755)
 					if err != nil {
 						t.Fatal(err)
@@ -199,7 +199,7 @@ func TestStaleArtifactDetector(t *testing.T) {
 				baseTime := time.Now().Add(-1 * time.Hour)
 
 				// Create spec workspace (older)
-				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+				specWorkspace := filepath.Join(tempDir, ".agents/workspaces/prototype/spec")
 				err := os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -215,7 +215,7 @@ func TestStaleArtifactDetector(t *testing.T) {
 				}
 
 				// Create docs workspace (newer)
-				docsWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/docs")
+				docsWorkspace := filepath.Join(tempDir, ".agents/workspaces/prototype/docs")
 				err = os.MkdirAll(docsWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -240,7 +240,7 @@ func TestStaleArtifactDetector(t *testing.T) {
 				baseTime := time.Now().Add(-1 * time.Hour)
 
 				// Create docs workspace (older)
-				docsWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/docs")
+				docsWorkspace := filepath.Join(tempDir, ".agents/workspaces/prototype/docs")
 				err := os.MkdirAll(docsWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -256,7 +256,7 @@ func TestStaleArtifactDetector(t *testing.T) {
 				}
 
 				// Create spec workspace (newer - re-run after docs)
-				specWorkspace := filepath.Join(tempDir, ".wave/workspaces/prototype/spec")
+				specWorkspace := filepath.Join(tempDir, ".agents/workspaces/prototype/spec")
 				err = os.MkdirAll(specWorkspace, 0755)
 				if err != nil {
 					t.Fatal(err)
@@ -327,7 +327,7 @@ func TestErrorMessageProvider(t *testing.T) {
 				"Phase 'spec' failed",
 				"craftsman persona has write permissions",
 				"wave run prototype --from-step spec",
-				"Workspace: .wave/workspaces/prototype/spec",
+				"Workspace: .agents/workspaces/prototype/spec",
 			},
 		},
 		{
@@ -336,7 +336,7 @@ func TestErrorMessageProvider(t *testing.T) {
 			originalError: fmt.Errorf("artifact injection failed"),
 			expectedContains: []string{
 				"Phase 'docs' failed",
-				".wave/artifacts/input-spec.md is accessible",
+				".agents/artifacts/input-spec.md is accessible",
 				"wave run prototype --from-step docs",
 			},
 		},

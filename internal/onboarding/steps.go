@@ -235,7 +235,7 @@ type PipelineSelectionStep struct{}
 func (s *PipelineSelectionStep) Name() string { return "Pipeline Selection" }
 
 func (s *PipelineSelectionStep) Run(cfg *WizardConfig) (*StepResult, error) {
-	pipelinesDir := ".wave/pipelines"
+	pipelinesDir := ".agents/pipelines"
 	pipelines, err := tui.DiscoverPipelines(pipelinesDir)
 	if err != nil {
 		// No pipelines directory yet — not an error during init

@@ -52,7 +52,7 @@ func resolveGitRoot() (string, error) {
 
 func NewWorkspaceManager(baseDir string) (WorkspaceManager, error) {
 	if baseDir == "" {
-		baseDir = ".wave/workspaces"
+		baseDir = ".agents/workspaces"
 	}
 	if !filepath.IsAbs(baseDir) {
 		root, err := resolveGitRoot()
@@ -139,7 +139,7 @@ func (wm *workspaceManager) InjectArtifacts(workspacePath string, refs []Artifac
 		return errors.New("workspacePath cannot be empty")
 	}
 
-	artifactsDir := filepath.Join(workspacePath, ".wave", "artifacts")
+	artifactsDir := filepath.Join(workspacePath, ".agents", "artifacts")
 	if err := os.MkdirAll(artifactsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create artifacts directory: %w", err)
 	}
@@ -182,7 +182,7 @@ func (wm *workspaceManager) InjectArtifacts(workspacePath string, refs []Artifac
 var skipDirs = map[string]bool{
 	"node_modules":  true,
 	".git":          true,
-	".wave":         true,
+	".agents":         true,
 	".claude":       true,
 	"vendor":        true,
 	"__pycache__":   true,

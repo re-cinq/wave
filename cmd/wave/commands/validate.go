@@ -36,7 +36,7 @@ Checks manifest syntax, references, and system dependencies.`,
 
 	cmd.Flags().StringVar(&opts.ManifestPath, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().StringVar(&opts.Pipeline, "pipeline", "", "Specific pipeline to validate")
-	cmd.Flags().BoolVar(&opts.All, "all", false, "Validate all pipelines in .wave/pipelines/")
+	cmd.Flags().BoolVar(&opts.All, "all", false, "Validate all pipelines in .agents/pipelines/")
 
 	return cmd
 }
@@ -115,7 +115,7 @@ func runValidate(opts ValidateOptions) error {
 	forgeInfo, _ := forge.DetectFromGitRemotes()
 
 	if opts.All {
-		pipelineDir := filepath.Join(filepath.Dir(opts.ManifestPath), ".wave", "pipelines")
+		pipelineDir := filepath.Join(filepath.Dir(opts.ManifestPath), ".agents", "pipelines")
 		entries, err := os.ReadDir(pipelineDir)
 		if err != nil {
 			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to read pipeline directory: %s", err), "Run 'wave init' to create pipeline directory").WithCause(err)
@@ -260,7 +260,7 @@ func resolveForgeTemplate(persona string, fi forge.ForgeInfo) []string {
 // validatePipelineFull performs comprehensive validation of a pipeline against the manifest.
 // Returns a list of error strings (empty = valid).
 func validatePipelineFull(pipelineName string, m *manifest.Manifest, fi forge.ForgeInfo) []string {
-	pipelinePath := filepath.Join(".wave", "pipelines", pipelineName+".yaml")
+	pipelinePath := filepath.Join(".agents", "pipelines", pipelineName+".yaml")
 	pipelineData, err := os.ReadFile(pipelinePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -313,7 +313,7 @@ func validatePipelineFull(pipelineName string, m *manifest.Manifest, fi forge.Fo
 
 		// Sub-pipeline existence
 		if step.SubPipeline != "" && !strings.Contains(step.SubPipeline, "{{") {
-			subPath := filepath.Join(".wave", "pipelines", step.SubPipeline+".yaml")
+			subPath := filepath.Join(".agents", "pipelines", step.SubPipeline+".yaml")
 			if _, err := os.Stat(subPath); os.IsNotExist(err) {
 				errs = append(errs, fmt.Sprintf("step '%s' references sub-pipeline '%s' which does not exist", step.ID, step.SubPipeline))
 			}

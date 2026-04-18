@@ -128,7 +128,7 @@ steps:
       source: "Analyze: {{ input }}"
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
         type: json
 
   - id: second-step
@@ -184,7 +184,7 @@ steps:
 ```yaml
 output_artifacts:
   - name: analysis
-    path: .wave/output/analysis.json
+    path: .agents/output/analysis.json
     type: json
 ```
 
@@ -207,8 +207,8 @@ Validate step output before proceeding:
 handover:
   contract:
     type: json_schema
-    schema_path: .wave/contracts/analysis.schema.json
-    source: .wave/output/analysis.json
+    schema_path: .agents/contracts/analysis.schema.json
+    source: .agents/output/analysis.json
     on_failure: retry
     max_retries: 2
 ```
@@ -240,10 +240,10 @@ workspace:
 
 Default structure:
 ```
-.wave/workspaces/<pipeline-id>/<step-id>/
+.agents/workspaces/<pipeline-id>/<step-id>/
 ├── src/               # Mounted source
-├── .wave/artifacts/   # Injected from dependencies
-└── .wave/output/      # Step output
+├── .agents/artifacts/   # Injected from dependencies
+└── .agents/output/      # Step output
 ```
 
 ## Matrix Strategy (Parallel Fan-Out)
@@ -254,7 +254,7 @@ Spawn parallel instances from a task list:
 - id: plan
   output_artifacts:
     - name: tasks
-      path: .wave/output/tasks.json
+      path: .agents/output/tasks.json
 
 - id: execute
   dependencies: [plan]

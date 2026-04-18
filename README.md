@@ -230,13 +230,12 @@ Use "wave [command] --help" for more information about a command.
 |---------|-------------|
 | `wave validate` | Validate Wave configuration |
 | `wave clean` | Clean up project artifacts (`--older-than`, `--status`) |
-| `wave cleanup` | Remove orphaned worktrees from `.wave/workspaces/` |
+| `wave cleanup` | Remove orphaned worktrees from `.agents/workspaces/` |
 | `wave doctor` | Check project health and environment setup |
 | `wave suggest` | Propose pipeline runs based on codebase state |
 | `wave serve` | Start the web dashboard server |
 | `wave migrate` | Database migration management |
-| `wave skills` | Skill lifecycle management (legacy) |
-| `wave skill` | Manage skill templates and install from remote sources |
+| `wave skills` | Discover, validate, install, and diagnose SKILL.md files |
 | `wave agent` | Persona-to-agent compiler utilities |
 
 ### Configuration Management
@@ -422,7 +421,7 @@ personas:
 
 **31 built-in personas** (plus `base-protocol.md` shared preamble) including `navigator`, `craftsman`, `auditor`, `philosopher`, `debugger`, and more.
 
-> Explore all personas in [`.wave/personas/`](.wave/personas/)
+> Explore all personas in [`.agents/personas/`](.agents/personas/)
 
 ### Pipelines — DAG Workflows
 
@@ -457,7 +456,7 @@ steps:
 
 **82 built-in pipelines** for development, debugging, documentation, and GitHub automation.
 
-> Explore all pipelines in [`.wave/pipelines/`](.wave/pipelines/)
+> Explore all pipelines in [`.agents/pipelines/`](.agents/pipelines/)
 
 ### Browser Automation
 
@@ -527,7 +526,7 @@ A selection of the 82 built-in pipelines:
 
 > **More pipelines:** `ops-hello-world`, `test-smoke`, `doc-explain`, `doc-onboard`, `impl-improve`, `audit-dead-code`, `audit-security`, `doc-changelog`, `plan-adr`, `wave-land`, `impl-recinq`, `ops-supervise`, plus Wave self-evolution (wave-\*) pipelines
 >
-> Explore all in [`.wave/pipelines/`](.wave/pipelines/)
+> Explore all in [`.agents/pipelines/`](.agents/pipelines/)
 
 ---
 
@@ -547,7 +546,7 @@ A selection of the 30 built-in personas:
 
 > **More personas:** `implementer`, `researcher`, `reviewer`, `supervisor`, `validator`, `synthesizer`, `provocateur`, plus platform-specific personas for GitHub, GitLab, Gitea, and Bitbucket
 >
-> Explore all in [`.wave/personas/`](.wave/personas/)
+> Explore all in [`.agents/personas/`](.agents/personas/)
 
 ---
 
@@ -555,7 +554,7 @@ A selection of the 30 built-in personas:
 
 ```
 wave.yaml                    # Project manifest
-.wave/
+.agents/
 ├── personas/                # System prompts
 │   ├── navigator.md
 │   ├── craftsman.md

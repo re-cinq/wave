@@ -75,7 +75,7 @@ func (v *sourceDiffValidator) Validate(cfg ContractConfig, workspacePath string)
 
 	if qualifying < minFiles {
 		return fmt.Errorf("source_diff: found %d qualifying changed source file(s), need at least %d — "+
-			"ensure the implementation modifies real source files (not only specs/ or .wave/ files)",
+			"ensure the implementation modifies real source files (not only specs/ or .agents/ files)",
 			qualifying, minFiles)
 	}
 
@@ -83,7 +83,7 @@ func (v *sourceDiffValidator) Validate(cfg ContractConfig, workspacePath string)
 }
 
 // matchExclude checks whether filePath should be excluded by the given pattern.
-// It handles /** suffix patterns (e.g., "specs/**", ".wave/**") by checking if
+// It handles /** suffix patterns (e.g., "specs/**", ".agents/**") by checking if
 // the file lives under the prefix directory. For patterns without **, it falls
 // back to filepath.Match against both the full path and the base name.
 func matchExclude(pattern, filePath string) bool {

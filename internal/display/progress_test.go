@@ -434,7 +434,7 @@ func TestBasicProgressDisplay_HandoverMetadata_VerboseMode(t *testing.T) {
 		State:      "completed",
 		DurationMs: 45200,
 		TokensUsed: 5000,
-		Artifacts:  []string{".wave/artifacts/analysis"},
+		Artifacts:  []string{".agents/artifacts/analysis"},
 	})
 
 	output := buf.String()
@@ -445,7 +445,7 @@ func TestBasicProgressDisplay_HandoverMetadata_VerboseMode(t *testing.T) {
 	}
 
 	// Should contain artifact line
-	if !strings.Contains(output, "artifact: .wave/artifacts/analysis (written)") {
+	if !strings.Contains(output, "artifact: .agents/artifacts/analysis (written)") {
 		t.Errorf("Output should contain artifact path in verbose mode, got:\n%s", output)
 	}
 
@@ -511,7 +511,7 @@ func TestBasicProgressDisplay_HandoverMetadata_NonVerboseMode(t *testing.T) {
 		State:      "completed",
 		DurationMs: 30000,
 		TokensUsed: 3000,
-		Artifacts:  []string{".wave/artifacts/analysis"},
+		Artifacts:  []string{".agents/artifacts/analysis"},
 	})
 
 	output := buf.String()
@@ -602,7 +602,7 @@ func TestBasicProgressDisplay_BuildHandoverLines(t *testing.T) {
 			name:   "all metadata present",
 			stepID: "step1",
 			info: &HandoverInfo{
-				ArtifactPaths:  []string{".wave/artifacts/analysis"},
+				ArtifactPaths:  []string{".agents/artifacts/analysis"},
 				ContractStatus: "passed",
 				ContractSchema: "json_schema",
 				TargetStep:     "",
@@ -614,7 +614,7 @@ func TestBasicProgressDisplay_BuildHandoverLines(t *testing.T) {
 			name:   "only artifacts",
 			stepID: "step3", // last step, no handover target
 			info: &HandoverInfo{
-				ArtifactPaths: []string{".wave/artifacts/review"},
+				ArtifactPaths: []string{".agents/artifacts/review"},
 			},
 			wantLines: 1,
 			wantLast:  "└─",
@@ -623,7 +623,7 @@ func TestBasicProgressDisplay_BuildHandoverLines(t *testing.T) {
 			name:   "multiple artifacts",
 			stepID: "step1",
 			info: &HandoverInfo{
-				ArtifactPaths:  []string{".wave/artifacts/a", ".wave/artifacts/b"},
+				ArtifactPaths:  []string{".agents/artifacts/a", ".agents/artifacts/b"},
 				ContractStatus: "passed",
 				ContractSchema: "json_schema",
 			},

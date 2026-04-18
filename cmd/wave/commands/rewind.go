@@ -66,7 +66,7 @@ func runRewind(opts RewindOptions) error {
 	}
 
 	// Open state store
-	store, err := state.NewStateStore(".wave/state.db")
+	store, err := state.NewStateStore(".agents/state.db")
 	if err != nil {
 		return NewCLIError(CodeStateDBError,
 			fmt.Sprintf("failed to open state database: %v", err),
@@ -145,7 +145,7 @@ func runRewind(opts RewindOptions) error {
 	if err := executeRewind(store, opts.RunID, rewindIndex); err != nil {
 		return NewCLIError(CodeInternalError,
 			fmt.Sprintf("rewind failed: %v", err),
-			"Check .wave/state.db integrity")
+			"Check .agents/state.db integrity")
 	}
 
 	// Update run status to 'failed' so wave resume can pick it up

@@ -176,8 +176,8 @@ func (s *Server) spawnDetachedRun(runID, pipelineName, input string, opts RunOpt
 	cmd.Dir = s.repoDir
 	cmd.Env = buildServerDetachEnv()
 
-	// Redirect output to .wave/logs/<runID>.log
-	logsDir := filepath.Join(s.repoDir, ".wave", "logs")
+	// Redirect output to .agents/logs/<runID>.log
+	logsDir := filepath.Join(s.repoDir, ".agents", "logs")
 	if mkErr := os.MkdirAll(logsDir, 0o755); mkErr != nil {
 		return fmt.Errorf("failed to create logs directory: %w", mkErr)
 	}
@@ -287,7 +287,7 @@ func (s *Server) launchInProcess(runID, pipelineName, input string, opts RunOpti
 
 	execOpts = append(execOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
 		skill.SkillSource{Root: "skills", Precedence: 2},
-		skill.SkillSource{Root: ".wave/skills", Precedence: 1},
+		skill.SkillSource{Root: ".agents/skills", Precedence: 1},
 	)))
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
@@ -372,7 +372,7 @@ func (s *Server) handleStartPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Load pipeline definition from .wave/pipelines/
+	// Load pipeline definition from .agents/pipelines/
 	p, err := loadPipelineYAML(name)
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, "failed to load pipeline: "+err.Error())
@@ -718,7 +718,7 @@ func (s *Server) handleRunLogs(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// loadPipelineYAML loads a pipeline definition from .wave/pipelines/.
+// loadPipelineYAML loads a pipeline definition from .agents/pipelines/.
 // The name must match [a-zA-Z0-9][a-zA-Z0-9._-]* to prevent path traversal.
 func loadPipelineYAML(name string) (*pipeline.Pipeline, error) {
 	if !validPipelineName.MatchString(name) {
@@ -726,8 +726,8 @@ func loadPipelineYAML(name string) (*pipeline.Pipeline, error) {
 	}
 
 	candidates := []string{
-		".wave/pipelines/" + name + ".yaml",
-		".wave/pipelines/" + name,
+		".agents/pipelines/" + name + ".yaml",
+		".agents/pipelines/" + name,
 	}
 
 	var pipelinePath string

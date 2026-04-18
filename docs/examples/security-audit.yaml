@@ -72,7 +72,7 @@ steps:
         }
     output_artifacts:
       - name: attack-surface
-        path: .wave/output/attack-surface.json
+        path: .agents/output/attack-surface.json
         type: json
 
   # Step 2a: Static analysis for code vulnerabilities
@@ -95,7 +95,7 @@ steps:
       source: |
         Static security analysis.
 
-        Attack surface analysis available at: .wave/artifacts/surface
+        Attack surface analysis available at: .agents/artifacts/surface
 
         Analyze code for:
 
@@ -140,7 +140,7 @@ steps:
         }
     output_artifacts:
       - name: static-findings
-        path: .wave/output/static-analysis.json
+        path: .agents/output/static-analysis.json
         type: json
 
   # Step 2b: Configuration and secrets audit
@@ -163,7 +163,7 @@ steps:
       source: |
         Configuration and secrets audit.
 
-        Attack surface analysis available at: .wave/artifacts/surface
+        Attack surface analysis available at: .agents/artifacts/surface
 
         Check for:
 
@@ -202,7 +202,7 @@ steps:
         }
     output_artifacts:
       - name: config-findings
-        path: .wave/output/config-audit.json
+        path: .agents/output/config-audit.json
         type: json
 
   # Step 2c: Dependency vulnerability scan
@@ -225,7 +225,7 @@ steps:
       source: |
         Dependency vulnerability analysis.
 
-        Attack surface analysis available at: .wave/artifacts/surface
+        Attack surface analysis available at: .agents/artifacts/surface
 
         Analyze dependencies for:
 
@@ -258,7 +258,7 @@ steps:
         }
     output_artifacts:
       - name: dependency-findings
-        path: .wave/output/dependency-scan.json
+        path: .agents/output/dependency-scan.json
         type: json
 
   # Step 3: Consolidate findings and create remediation plan
@@ -286,10 +286,10 @@ steps:
         Create a prioritized remediation plan.
 
         Available findings:
-        - .wave/artifacts/surface: Attack surface analysis
-        - .wave/artifacts/static: Static analysis findings
-        - .wave/artifacts/config: Configuration audit findings
-        - .wave/artifacts/deps: Dependency scan results
+        - .agents/artifacts/surface: Attack surface analysis
+        - .agents/artifacts/static: Static analysis findings
+        - .agents/artifacts/config: Configuration audit findings
+        - .agents/artifacts/deps: Dependency scan results
 
         Create a comprehensive security report with:
 
@@ -326,7 +326,7 @@ steps:
         Format as a professional security audit report in markdown.
     output_artifacts:
       - name: report
-        path: .wave/output/security-audit-report.md
+        path: .agents/output/security-audit-report.md
         type: markdown
 
   # Step 4: Generate actionable tickets
@@ -344,7 +344,7 @@ steps:
       source: |
         Generate actionable tickets from the security audit.
 
-        Audit report available at: .wave/artifacts/audit_report
+        Audit report available at: .agents/artifacts/audit_report
 
         For each finding that needs remediation, create a ticket:
 
@@ -377,5 +377,5 @@ steps:
         Group tickets by phase (Critical, High, Medium, Low).
     output_artifacts:
       - name: tickets
-        path: .wave/output/remediation-tickets.md
+        path: .agents/output/remediation-tickets.md
         type: markdown

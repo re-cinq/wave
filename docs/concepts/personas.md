@@ -14,7 +14,7 @@ Personas serve three critical functions in Wave:
 personas:
   navigator:
     adapter: claude
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
     #temperature: 0.3
     permissions:
       allowed_tools: ["Read", "Glob", "Grep", "Bash(git log*)", "Bash(git status*)"]
@@ -60,7 +60,7 @@ The Navigator is a read-only codebase explorer. It produces navigation context w
 personas:
   navigator:
     adapter: claude
-    system_prompt_file: .wave/personas/navigator.md
+    system_prompt_file: .agents/personas/navigator.md
     #temperature: 0.3
     permissions:
       allowed_tools: ["Read", "Glob", "Grep", "Bash(git log*)", "Bash(git status*)"]
@@ -81,7 +81,7 @@ The Auditor performs security and code review analysis. It has read-only access 
 personas:
   auditor:
     adapter: claude
-    system_prompt_file: .wave/personas/auditor.md
+    system_prompt_file: .agents/personas/auditor.md
     #temperature: 0.1
     permissions:
       allowed_tools: ["Read", "Grep", "Bash(go vet*)", "Bash(npm audit*)"]
@@ -102,7 +102,7 @@ The Implementer handles code generation and modification with full tool access.
 personas:
   implementer:
     adapter: claude
-    system_prompt_file: .wave/personas/implementer.md
+    system_prompt_file: .agents/personas/implementer.md
     #temperature: 0.3
     permissions:
       allowed_tools:
@@ -131,7 +131,7 @@ The Craftsman handles implementation, testing, and code changes with full scoped
 personas:
   craftsman:
     adapter: claude
-    system_prompt_file: .wave/personas/craftsman.md
+    system_prompt_file: .agents/personas/craftsman.md
     #temperature: 0.3
     permissions:
       allowed_tools:
@@ -301,7 +301,7 @@ Personas can declare required forge token permissions via the `token_scopes` fie
 personas:
   implementer:
     adapter: claude
-    system_prompt_file: .wave/personas/implementer.md
+    system_prompt_file: .agents/personas/implementer.md
     token_scopes:
       - "repos:write"
       - "issues:write"

@@ -72,7 +72,7 @@ Force cancellation (--force):
 
 func runCancel(opts CancelOptions) error {
 	// Initialize state store
-	stateDB := ".wave/state.db"
+	stateDB := ".agents/state.db"
 	store, err := state.NewStateStore(stateDB)
 	if err != nil {
 		return outputCancelResult(opts.Format, CancelResult{
@@ -194,7 +194,7 @@ func forceKillRun(runID string) error {
 	}
 
 	// Try to read PID from pidfile
-	pidFile := filepath.Join(".wave", "pids", runID+".pid")
+	pidFile := filepath.Join(".agents", "pids", runID+".pid")
 	pidData, err := os.ReadFile(pidFile)
 	if err != nil {
 		// No pidfile - the process may have already exited or we don't track it

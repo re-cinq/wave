@@ -45,7 +45,7 @@ func TestPrepareChatWorkspace(t *testing.T) {
 			},
 		},
 		Artifacts: []state.ArtifactRecord{
-			{StepID: "analyze", Name: "plan.json", Path: ".wave/output/plan.json", Type: "json", SizeBytes: 512},
+			{StepID: "analyze", Name: "plan.json", Path: ".agents/output/plan.json", Type: "json", SizeBytes: 512},
 		},
 		ProjectRoot: tmpDir,
 	}
@@ -56,7 +56,7 @@ func TestPrepareChatWorkspace(t *testing.T) {
 	}
 
 	// Verify workspace directory was created
-	expectedDir := filepath.Join(tmpDir, ".wave", "chat", "test-run-001")
+	expectedDir := filepath.Join(tmpDir, ".agents", "chat", "test-run-001")
 	if wsPath != expectedDir {
 		t.Errorf("expected workspace path %s, got %s", expectedDir, wsPath)
 	}
@@ -360,7 +360,7 @@ func TestBuildChatClaudeMd_WithArtifactContent(t *testing.T) {
 			Metadata: PipelineMetadata{Name: "gh-implement"},
 		},
 		Artifacts: []state.ArtifactRecord{
-			{StepID: "implement", Name: "pr-result.json", Path: ".wave/output/pr-result.json"},
+			{StepID: "implement", Name: "pr-result.json", Path: ".agents/output/pr-result.json"},
 		},
 		ArtifactContents: map[string]string{
 			"pr-result.json": `{"pr_url":"https://github.com/test/repo/pull/1"}`,
@@ -544,8 +544,8 @@ func TestBuildChatClaudeMd_StepFilter(t *testing.T) {
 			{StepID: "implement", Persona: "craftsman", State: "completed", Duration: 3 * time.Minute, TokensUsed: 2000, WorkspacePath: "/tmp/ws-impl"},
 		},
 		Artifacts: []state.ArtifactRecord{
-			{StepID: "analyze", Name: "plan.json", Path: ".wave/output/plan.json", Type: "json"},
-			{StepID: "implement", Name: "pr-result.json", Path: ".wave/output/pr-result.json", Type: "json"},
+			{StepID: "analyze", Name: "plan.json", Path: ".agents/output/plan.json", Type: "json"},
+			{StepID: "implement", Name: "pr-result.json", Path: ".agents/output/pr-result.json", Type: "json"},
 		},
 		ProjectRoot: "/tmp/test",
 	}
@@ -595,7 +595,7 @@ func TestBuildChatClaudeMd_ArtifactFocus(t *testing.T) {
 	now := time.Now()
 
 	// Create a test artifact file
-	artDir := filepath.Join(tmpDir, ".wave", "output")
+	artDir := filepath.Join(tmpDir, ".agents", "output")
 	if err := os.MkdirAll(artDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -616,8 +616,8 @@ func TestBuildChatClaudeMd_ArtifactFocus(t *testing.T) {
 			{StepID: "implement", Persona: "craftsman", State: "completed"},
 		},
 		Artifacts: []state.ArtifactRecord{
-			{StepID: "implement", Name: "pr-result.json", Path: ".wave/output/pr-result.json", Type: "json", SizeBytes: int64(len(artContent))},
-			{StepID: "implement", Name: "log.txt", Path: ".wave/output/log.txt", Type: "text"},
+			{StepID: "implement", Name: "pr-result.json", Path: ".agents/output/pr-result.json", Type: "json", SizeBytes: int64(len(artContent))},
+			{StepID: "implement", Name: "log.txt", Path: ".agents/output/log.txt", Type: "text"},
 		},
 		ProjectRoot: tmpDir,
 	}
@@ -686,7 +686,7 @@ func TestPrepareChatWorkspace_ArtifactFocus(t *testing.T) {
 	now := time.Now()
 
 	// Create artifact file
-	artDir := filepath.Join(tmpDir, ".wave", "output")
+	artDir := filepath.Join(tmpDir, ".agents", "output")
 	if err := os.MkdirAll(artDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -705,7 +705,7 @@ func TestPrepareChatWorkspace_ArtifactFocus(t *testing.T) {
 			{StepID: "plan", Persona: "navigator", State: "completed"},
 		},
 		Artifacts: []state.ArtifactRecord{
-			{StepID: "plan", Name: "plan.md", Path: ".wave/output/plan.md", Type: "markdown"},
+			{StepID: "plan", Name: "plan.md", Path: ".agents/output/plan.md", Type: "markdown"},
 		},
 		ProjectRoot: tmpDir,
 	}

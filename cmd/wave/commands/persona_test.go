@@ -23,13 +23,13 @@ func TestRunPersonaCreate_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check .md file was created
-	mdPath := filepath.Join(".wave", "personas", "my-nav.md")
+	mdPath := filepath.Join(".agents", "personas", "my-nav.md")
 	mdData, err := os.ReadFile(mdPath)
 	require.NoError(t, err)
 	assert.Contains(t, string(mdData), "Navigator", "system prompt should contain persona content")
 
 	// Check .yaml file was created
-	yamlPath := filepath.Join(".wave", "personas", "my-nav.yaml")
+	yamlPath := filepath.Join(".agents", "personas", "my-nav.yaml")
 	yamlData, err := os.ReadFile(yamlPath)
 	require.NoError(t, err)
 

@@ -7,10 +7,10 @@ import (
 	"testing"
 )
 
-// writeTestArtifact creates .wave/artifact.json in the workspace for tests
+// writeTestArtifact creates .agents/artifact.json in the workspace for tests
 func writeTestArtifact(t *testing.T, workspacePath string, data []byte) {
 	t.Helper()
-	waveDir := filepath.Join(workspacePath, ".wave")
+	waveDir := filepath.Join(workspacePath, ".agents")
 	_ = os.MkdirAll(waveDir, 0755)
 	_ = os.WriteFile(filepath.Join(waveDir, "artifact.json"), data, 0644)
 }
@@ -525,7 +525,7 @@ func TestValidate_AllTypes(t *testing.T) {
 				Schema: `{"type": "object", "properties": {"value": {"type": "number"}}}`,
 			},
 			setupArtifact: func(workspacePath string) {
-				waveDir := filepath.Join(workspacePath, ".wave")
+				waveDir := filepath.Join(workspacePath, ".agents")
 				_ = os.MkdirAll(waveDir, 0755)
 				_ = os.WriteFile(filepath.Join(waveDir, "artifact.json"), []byte(`{"value": 42}`), 0644)
 			},
@@ -538,7 +538,7 @@ func TestValidate_AllTypes(t *testing.T) {
 				Schema: `{"type": "object", "properties": {"value": {"type": "number"}}}`,
 			},
 			setupArtifact: func(workspacePath string) {
-				waveDir := filepath.Join(workspacePath, ".wave")
+				waveDir := filepath.Join(workspacePath, ".agents")
 				_ = os.MkdirAll(waveDir, 0755)
 				_ = os.WriteFile(filepath.Join(waveDir, "artifact.json"), []byte(`{"value": "not a number"}`), 0644)
 			},

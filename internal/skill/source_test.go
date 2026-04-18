@@ -252,7 +252,7 @@ func TestNewDefaultRouter(t *testing.T) {
 	router := NewDefaultRouter("/tmp")
 	prefixes := router.Prefixes()
 
-	expected := []string{"bmad", "file", "github", "https://", "openspec", "speckit", "tessl"}
+	expected := []string{"file"}
 	if len(prefixes) != len(expected) {
 		t.Fatalf("expected %d prefixes, got %d: %v", len(expected), len(prefixes), prefixes)
 	}
@@ -263,32 +263,14 @@ func TestNewDefaultRouter(t *testing.T) {
 	}
 }
 
-func TestNewDefaultRouterParsesAllPrefixes(t *testing.T) {
+func TestNewDefaultRouterParsesFilePrefix(t *testing.T) {
 	router := NewDefaultRouter("/tmp")
-
-	tests := []struct {
-		source     string
-		wantPrefix string
-	}{
-		{"tessl:github/spec-kit", "tessl"},
-		{"bmad:install", "bmad"},
-		{"openspec:init", "openspec"},
-		{"speckit:init", "speckit"},
-		{"github:owner/repo", "github"},
-		{"file:./local", "file"},
-		{"https://example.com/skill.tar.gz", "https://"},
+	adapter, _, err := router.Parse("file:./local")
+	if err != nil {
+		t.Fatalf("Parse(file:./local) error = %v", err)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.source, func(t *testing.T) {
-			adapter, _, err := router.Parse(tt.source)
-			if err != nil {
-				t.Fatalf("Parse(%q) error = %v", tt.source, err)
-			}
-			if adapter.Prefix() != tt.wantPrefix {
-				t.Errorf("prefix = %q, want %q", adapter.Prefix(), tt.wantPrefix)
-			}
-		})
+	if adapter.Prefix() != "file" {
+		t.Errorf("prefix = %q, want file", adapter.Prefix())
 	}
 }
 

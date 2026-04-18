@@ -69,7 +69,7 @@ A specialized persona for creating checkpoints:
 personas:
   summarizer:
     adapter: claude
-    system_prompt_file: .wave/personas/summarizer.md
+    system_prompt_file: .agents/personas/summarizer.md
     temperature: 0.0
     permissions:
       allowed_tools: ["Read"]

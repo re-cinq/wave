@@ -197,10 +197,10 @@ func (c *ConcurrencyExecutor) createAgentWorkspace(execution *PipelineExecution,
 	pipelineID := execution.Status.ID
 	wsRoot := execution.Manifest.Runtime.WorkspaceRoot
 	if wsRoot == "" {
-		wsRoot = ".wave/workspaces"
+		wsRoot = ".agents/workspaces"
 	}
 
-	// Create agent-specific workspace under .wave/workspaces/<pipeline>/<step>/agent_<index>/
+	// Create agent-specific workspace under .agents/workspaces/<pipeline>/<step>/agent_<index>/
 	wsPath := filepath.Join(wsRoot, pipelineID, step.ID, fmt.Sprintf("agent_%d", agentIndex))
 	if err := os.MkdirAll(wsPath, 0755); err != nil {
 		return "", err

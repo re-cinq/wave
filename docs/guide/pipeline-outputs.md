@@ -32,7 +32,7 @@ steps:
       source: "Analyze the feature request"
     output_artifacts:
       - name: report
-        path: .wave/output/report.md
+        path: .agents/output/report.md
         type: markdown
 
   - id: implement
@@ -50,7 +50,7 @@ steps:
       source: "Create a pull request"
     output_artifacts:
       - name: result
-        path: .wave/output/pr-result.json
+        path: .agents/output/pr-result.json
         type: json
 ```
 

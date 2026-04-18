@@ -61,8 +61,8 @@ func DefaultSecurityConfig() *SecurityConfig {
 		LoggingEnabled: true,
 		PathValidation: PathValidationConfig{
 			ApprovedDirectories: []string{
-				".wave/contracts/",
-				".wave/schemas/",
+				".agents/contracts/",
+				".agents/schemas/",
 				"contracts/",
 				"schemas/",
 			},

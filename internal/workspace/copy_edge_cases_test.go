@@ -55,7 +55,7 @@ func TestCopyRecursive_SkipDirs(t *testing.T) {
 	skippedDirs := []string{
 		"node_modules",
 		".git",
-		".wave",
+		".agents",
 		".claude",
 		"vendor",
 		"__pycache__",

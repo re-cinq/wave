@@ -73,14 +73,14 @@ var rootCmd = &cobra.Command{
 			}
 
 			// Attempt to open state store
-			store, err := state.NewStateStore(".wave/state.db")
+			store, err := state.NewStateStore(".agents/state.db")
 			if err == nil {
 				deps.Store = store
 				defer store.Close()
 			}
 
-			// Determine pipelines directory (default .wave/pipelines)
-			deps.PipelinesDir = ".wave/pipelines"
+			// Determine pipelines directory (default .agents/pipelines)
+			deps.PipelinesDir = ".agents/pipelines"
 
 			// Wire suggest provider (constructed here to avoid import cycle tui→doctor→onboarding→tui)
 			pipelinesDir := deps.PipelinesDir
@@ -164,7 +164,6 @@ func init() {
 	rootCmd.AddCommand(commands.NewDecisionsCmd())
 	rootCmd.AddCommand(commands.NewPipelineCmd())
 	rootCmd.AddCommand(commands.NewPersonaCmd())
-	rootCmd.AddCommand(commands.NewSkillCmd())
 	rootCmd.AddCommand(commands.NewCleanupCmd())
 	rootCmd.AddCommand(commands.NewMergeCmd())
 }

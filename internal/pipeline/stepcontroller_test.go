@@ -83,7 +83,7 @@ func TestContinueStep_Success(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create workspace directory that BuildChatContext would normally discover
-	wsDir := filepath.Join(tmpDir, ".wave", "workspaces", "test-pipeline", "analyze")
+	wsDir := filepath.Join(tmpDir, ".agents", "workspaces", "test-pipeline", "analyze")
 	if err := os.MkdirAll(wsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +181,7 @@ func TestContinueStep_StepNotFound(t *testing.T) {
 func TestExtendStep_RequiresInstructions(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	wsDir := filepath.Join(tmpDir, ".wave", "workspaces", "test-pipeline", "build")
+	wsDir := filepath.Join(tmpDir, ".agents", "workspaces", "test-pipeline", "build")
 	if err := os.MkdirAll(wsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +210,7 @@ func TestExtendStep_RequiresInstructions(t *testing.T) {
 func TestRevertStep_Preview(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	wsDir := filepath.Join(tmpDir, ".wave", "workspaces", "test-pipeline", "build")
+	wsDir := filepath.Join(tmpDir, ".agents", "workspaces", "test-pipeline", "build")
 	if err := os.MkdirAll(wsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +230,7 @@ func TestRevertStep_Preview(t *testing.T) {
 			State:         "completed",
 			WorkspacePath: wsDir,
 			Artifacts: []state.ArtifactRecord{
-				{Name: "output.json", Path: ".wave/output/output.json", Type: "json"},
+				{Name: "output.json", Path: ".agents/output/output.json", Type: "json"},
 			},
 		},
 	}, &Pipeline{
@@ -290,7 +290,7 @@ func TestRevertStep_NoWorkspace(t *testing.T) {
 func TestConfirmRevert_DirectoryWorkspace(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	wsDir := filepath.Join(tmpDir, ".wave", "workspaces", "test-pipeline", "build")
+	wsDir := filepath.Join(tmpDir, ".agents", "workspaces", "test-pipeline", "build")
 	if err := os.MkdirAll(wsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -354,13 +354,13 @@ func TestRewriteStep_CreatesWorkspace(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create upstream step workspace with an artifact
-	upstreamWsDir := filepath.Join(tmpDir, ".wave", "workspaces", "test-pipeline", "analyze")
+	upstreamWsDir := filepath.Join(tmpDir, ".agents", "workspaces", "test-pipeline", "analyze")
 	if err := os.MkdirAll(upstreamWsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
 	// Create the artifact file at the project root (absolute path resolution)
-	artifactDir := filepath.Join(tmpDir, ".wave", "output")
+	artifactDir := filepath.Join(tmpDir, ".agents", "output")
 	if err := os.MkdirAll(artifactDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -370,7 +370,7 @@ func TestRewriteStep_CreatesWorkspace(t *testing.T) {
 	}
 
 	// The step to rewrite
-	rewriteWsDir := filepath.Join(tmpDir, ".wave", "workspaces", "test-pipeline", "implement")
+	rewriteWsDir := filepath.Join(tmpDir, ".agents", "workspaces", "test-pipeline", "implement")
 
 	chatCtx := newTestChatContext(tmpDir, []ChatStepContext{
 		{
@@ -382,7 +382,7 @@ func TestRewriteStep_CreatesWorkspace(t *testing.T) {
 				{
 					StepID: "analyze",
 					Name:   "plan.json",
-					Path:   ".wave/output/plan.json",
+					Path:   ".agents/output/plan.json",
 					Type:   "json",
 				},
 			},
@@ -430,7 +430,7 @@ func TestRewriteStep_CreatesWorkspace(t *testing.T) {
 	}
 
 	// Verify upstream artifacts were copied into the workspace
-	copiedArtifact := filepath.Join(rewriteWsDir, ".wave", "artifacts", "analyze", "plan.json")
+	copiedArtifact := filepath.Join(rewriteWsDir, ".agents", "artifacts", "analyze", "plan.json")
 	if _, statErr := os.Stat(copiedArtifact); statErr != nil {
 		t.Errorf("expected upstream artifact at %s, got error: %v", copiedArtifact, statErr)
 	}
@@ -559,7 +559,7 @@ func TestFindStep_Found(t *testing.T) {
 func TestRevertStep_WorktreeType(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	wsDir := filepath.Join(tmpDir, ".wave", "workspaces", "test-pipeline", "implement")
+	wsDir := filepath.Join(tmpDir, ".agents", "workspaces", "test-pipeline", "implement")
 	if err := os.MkdirAll(wsDir, 0755); err != nil {
 		t.Fatal(err)
 	}

@@ -31,7 +31,7 @@ func newLogsTestHelper(t *testing.T) *logsTestHelper {
 	require.NoError(t, err, "failed to get current directory")
 
 	// Create .wave directory
-	waveDir := filepath.Join(tmpDir, ".wave")
+	waveDir := filepath.Join(tmpDir, ".agents")
 	err = os.MkdirAll(waveDir, 0755)
 	require.NoError(t, err, "failed to create .wave directory")
 
@@ -147,7 +147,7 @@ func TestLogsCmd_NoDatabase(t *testing.T) {
 	defer h.restore()
 
 	// Remove the database
-	_ = os.RemoveAll(filepath.Join(h.tmpDir, ".wave"))
+	_ = os.RemoveAll(filepath.Join(h.tmpDir, ".agents"))
 
 	stdout, _, err := executeLogsCmd()
 	require.NoError(t, err)

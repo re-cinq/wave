@@ -51,7 +51,7 @@ func TestContractsPageRendersContractNames(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	contractDir := filepath.Join(tmpDir, ".wave", "contracts")
+	contractDir := filepath.Join(tmpDir, ".agents", "contracts")
 	if err := os.MkdirAll(contractDir, 0o755); err != nil {
 		t.Fatalf("failed to create contracts dir: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestContractsAPIExtractsTitleAndDescription(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	contractDir := filepath.Join(tmpDir, ".wave", "contracts")
+	contractDir := filepath.Join(tmpDir, ".agents", "contracts")
 	if err := os.MkdirAll(contractDir, 0o755); err != nil {
 		t.Fatalf("failed to create contracts dir: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestContractDetailReturnsSchemaContent(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	contractDir := filepath.Join(tmpDir, ".wave", "contracts")
+	contractDir := filepath.Join(tmpDir, ".agents", "contracts")
 	if err := os.MkdirAll(contractDir, 0o755); err != nil {
 		t.Fatalf("failed to create contracts dir: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestContractDetailNotFoundReturns404(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	contractDir := filepath.Join(tmpDir, ".wave", "contracts")
+	contractDir := filepath.Join(tmpDir, ".agents", "contracts")
 	if err := os.MkdirAll(contractDir, 0o755); err != nil {
 		t.Fatalf("failed to create contracts dir: %v", err)
 	}
@@ -323,7 +323,7 @@ func TestContractsAPIIgnoresNonJsonFiles(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	contractDir := filepath.Join(tmpDir, ".wave", "contracts")
+	contractDir := filepath.Join(tmpDir, ".agents", "contracts")
 	if err := os.MkdirAll(contractDir, 0o755); err != nil {
 		t.Fatalf("failed to create contracts dir: %v", err)
 	}
@@ -376,7 +376,7 @@ func TestContractDetailLooksUpPlainJsonSuffix(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	contractDir := filepath.Join(tmpDir, ".wave", "contracts")
+	contractDir := filepath.Join(tmpDir, ".agents", "contracts")
 	if err := os.MkdirAll(contractDir, 0o755); err != nil {
 		t.Fatalf("failed to create contracts dir: %v", err)
 	}

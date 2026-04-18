@@ -56,9 +56,9 @@ For each step:
 Each step runs in isolation:
 
 ```
-.wave/workspaces/<pipeline>/<step>/
-├── .wave/artifacts/   # Injected artifacts from dependencies
-├── .wave/output/      # Step output artifacts
+.agents/workspaces/<pipeline>/<step>/
+├── .agents/artifacts/   # Injected artifacts from dependencies
+├── .agents/output/      # Step output artifacts
 ├── .claude/           # Claude Code settings
 └── CLAUDE.md          # Persona system prompt
 ```

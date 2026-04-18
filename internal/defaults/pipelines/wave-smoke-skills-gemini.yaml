@@ -1,0 +1,44 @@
+# Smoke test: gemini adapter native skill provisioning
+#
+# Verifies that Wave provisions wave-smoke-test into
+# <workspace>/.agents/skills/wave-smoke-test/SKILL.md and that gemini's
+# native `activate_skill` tool lazy-loads and activates it.
+
+kind: WavePipeline
+metadata:
+  name: wave-smoke-skills-gemini
+  description: >-
+    Smoke test for gemini adapter native skill provisioning. Activates the
+    wave-smoke-test fixture skill and verifies the sentinel string round-trips.
+  release: false
+  category: wave
+
+input:
+  source: cli
+  example: "verify gemini skills provisioning"
+
+steps:
+  - id: invoke-skill
+    persona: implementer
+    adapter: gemini
+    model: cheapest
+    skills: [wave-smoke-test]
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        Activate the `wave-smoke-test` skill via the `activate_skill` tool.
+        Read its SKILL.md, then emit the sentinel string defined in the
+        activation contract on a line by itself. Do nothing else.
+    output_artifacts:
+      - name: smoke-result
+        source: stdout
+        type: text
+    handover:
+      contract:
+        type: non_empty_file
+        source: smoke-result
+        must_pass: true
+        on_failure: fail

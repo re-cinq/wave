@@ -23,7 +23,7 @@ func TestBuildRecoveryBlock(t *testing.T) {
 			errClass:      ClassRuntimeError,
 			wantHintTypes: []HintType{HintResume, HintWorkspace, HintDebug},
 			wantNoTypes:   []HintType{HintForce},
-			wantWorkspace: ".wave/workspaces/feature-abc123/implement/",
+			wantWorkspace: ".agents/workspaces/feature-abc123/implement/",
 		},
 		{
 			name:          "contract validation produces resume, force, workspace (no debug)",
@@ -34,7 +34,7 @@ func TestBuildRecoveryBlock(t *testing.T) {
 			errClass:      ClassContractValidation,
 			wantHintTypes: []HintType{HintResume, HintForce, HintWorkspace},
 			wantNoTypes:   []HintType{HintDebug},
-			wantWorkspace: ".wave/workspaces/feature-abc123/implement/",
+			wantWorkspace: ".agents/workspaces/feature-abc123/implement/",
 		},
 		{
 			name:          "security error produces resume, workspace only",
@@ -45,7 +45,7 @@ func TestBuildRecoveryBlock(t *testing.T) {
 			errClass:      ClassSecurityViolation,
 			wantHintTypes: []HintType{HintResume, HintWorkspace},
 			wantNoTypes:   []HintType{HintForce, HintDebug},
-			wantWorkspace: ".wave/workspaces/feature-abc123/implement/",
+			wantWorkspace: ".agents/workspaces/feature-abc123/implement/",
 		},
 		{
 			name:          "unknown error produces resume, workspace, debug",
@@ -56,7 +56,7 @@ func TestBuildRecoveryBlock(t *testing.T) {
 			errClass:      ClassUnknown,
 			wantHintTypes: []HintType{HintResume, HintWorkspace, HintDebug},
 			wantNoTypes:   []HintType{HintForce},
-			wantWorkspace: ".wave/workspaces/feature-abc123/implement/",
+			wantWorkspace: ".agents/workspaces/feature-abc123/implement/",
 		},
 		{
 			name:          "empty input omits input from commands",
@@ -67,7 +67,7 @@ func TestBuildRecoveryBlock(t *testing.T) {
 			errClass:      ClassRuntimeError,
 			wantHintTypes: []HintType{HintResume, HintWorkspace, HintDebug},
 			wantNoTypes:   []HintType{HintForce},
-			wantWorkspace: ".wave/workspaces/feature-abc123/implement/",
+			wantWorkspace: ".agents/workspaces/feature-abc123/implement/",
 		},
 		{
 			name:          "special characters in input are shell-escaped",
@@ -78,7 +78,7 @@ func TestBuildRecoveryBlock(t *testing.T) {
 			errClass:      ClassRuntimeError,
 			wantHintTypes: []HintType{HintResume, HintWorkspace, HintDebug},
 			wantNoTypes:   []HintType{HintForce},
-			wantWorkspace: ".wave/workspaces/feature-abc123/implement/",
+			wantWorkspace: ".agents/workspaces/feature-abc123/implement/",
 		},
 	}
 
@@ -202,7 +202,7 @@ func TestBuildRecoveryBlock_EmptyStepID(t *testing.T) {
 	block := BuildRecoveryBlock(RecoveryBlockOpts{PipelineName: "feature", Input: "test", RunID: "run-abc", ErrClass: ClassRuntimeError})
 
 	// Verify workspace path does not contain double trailing slash
-	expectedPath := ".wave/workspaces/run-abc/"
+	expectedPath := ".agents/workspaces/run-abc/"
 	if block.WorkspacePath != expectedPath {
 		t.Errorf("WorkspacePath = %q, want %q", block.WorkspacePath, expectedPath)
 	}
@@ -241,7 +241,7 @@ func TestBuildRecoveryBlock_PreflightNoDoubleSlash(t *testing.T) {
 			runID:         "speckit-flow-20260223-114229-0e8a",
 			stepID:        "",
 			workspaceRoot: "",
-			expectedPath:  ".wave/workspaces/speckit-flow-20260223-114229-0e8a/",
+			expectedPath:  ".agents/workspaces/speckit-flow-20260223-114229-0e8a/",
 		},
 		{
 			name:          "preflight with custom workspace root",
@@ -257,7 +257,7 @@ func TestBuildRecoveryBlock_PreflightNoDoubleSlash(t *testing.T) {
 			runID:         "run-abc",
 			stepID:        "implement",
 			workspaceRoot: "",
-			expectedPath:  ".wave/workspaces/run-abc/implement/",
+			expectedPath:  ".agents/workspaces/run-abc/implement/",
 		},
 	}
 

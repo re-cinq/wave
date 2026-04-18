@@ -118,5 +118,5 @@ func TestNewRunCmd_FullArgsBypassTUI(t *testing.T) {
 }
 
 func TestPipelinesDir(t *testing.T) {
-	assert.Equal(t, ".wave/pipelines", pipelinesDir())
+	assert.Equal(t, ".agents/pipelines", pipelinesDir())
 }

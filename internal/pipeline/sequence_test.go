@@ -686,8 +686,8 @@ func TestSequenceExecutor_RecordPipelineOutputs_ConcurrentRace(t *testing.T) {
 		}
 
 		// Create the artifact file at the location LoadStepArtifact checks:
-		// wsRoot/<runID>/<stepID>/.wave/output/<artifactName>
-		artifactDir := filepath.Join(wsRoot, runID, stepID, ".wave", "output")
+		// wsRoot/<runID>/<stepID>/.agents/output/<artifactName>
+		artifactDir := filepath.Join(wsRoot, runID, stepID, ".agents", "output")
 		require.NoError(t, os.MkdirAll(artifactDir, 0755))
 		content := fmt.Sprintf(`{"pipeline": "%s", "index": %d}`, name, i)
 		require.NoError(t, os.WriteFile(filepath.Join(artifactDir, artifactName), []byte(content), 0644))
@@ -896,7 +896,7 @@ func TestSequenceExecutor_CrossPipelineArtifacts_WrittenToDisk(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			artifactsDir := filepath.Join(wsPath, ".wave", "artifacts")
+			artifactsDir := filepath.Join(wsPath, ".agents", "artifacts")
 			for filename, expectedContent := range tt.wantFiles {
 				filePath := filepath.Join(artifactsDir, filename)
 				data, readErr := os.ReadFile(filePath)

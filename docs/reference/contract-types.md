@@ -96,7 +96,7 @@ handover:
 handover:
   contract:
     type: test_suite
-    command: ".wave/scripts/validate.sh"
+    command: ".agents/scripts/validate.sh"
 ```
 
 ---
@@ -109,8 +109,8 @@ Validate JSON output against a JSON Schema.
 handover:
   contract:
     type: json_schema
-    schema_path: .wave/contracts/analysis.schema.json
-    source: .wave/output/analysis.json
+    schema_path: .agents/contracts/analysis.schema.json
+    source: .agents/output/analysis.json
 ```
 
 **Use when:** Ensuring structured output with specific fields and types.
@@ -121,8 +121,8 @@ handover:
 handover:
   contract:
     type: json_schema
-    schema_path: .wave/contracts/analysis.schema.json
-    source: .wave/output/analysis.json
+    schema_path: .agents/contracts/analysis.schema.json
+    source: .agents/output/analysis.json
     must_pass: true
     on_failure: retry
     max_retries: 2
@@ -140,7 +140,7 @@ handover:
 
 ### Example Schema
 
-`.wave/contracts/analysis.schema.json`:
+`.agents/contracts/analysis.schema.json`:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -212,7 +212,7 @@ Validate that generated TypeScript compiles successfully.
 handover:
   contract:
     type: typescript_interface
-    source: .wave/output/types.ts
+    source: .agents/output/types.ts
 ```
 
 **Use when:** Ensuring generated TypeScript definitions are valid.
@@ -223,7 +223,7 @@ handover:
 handover:
   contract:
     type: typescript_interface
-    source: .wave/output/types.ts
+    source: .agents/output/types.ts
     validate: true
     must_pass: true
     on_failure: retry
@@ -258,11 +258,11 @@ steps:
       source: "Generate TypeScript interfaces for the API"
     output_artifacts:
       - name: types
-        path: .wave/output/api.types.ts
+        path: .agents/output/api.types.ts
     handover:
       contract:
         type: typescript_interface
-        source: .wave/output/api.types.ts
+        source: .agents/output/api.types.ts
 ```
 
 ---
@@ -275,7 +275,7 @@ Validate Markdown document structure.
 handover:
   contract:
     type: markdown_spec
-    source: .wave/output/spec.md
+    source: .agents/output/spec.md
 ```
 
 **Use when:** Ensuring documentation follows required format.
@@ -286,7 +286,7 @@ handover:
 handover:
   contract:
     type: markdown_spec
-    source: .wave/output/spec.md
+    source: .agents/output/spec.md
     must_pass: true
     on_failure: retry
     max_retries: 2
@@ -319,11 +319,11 @@ steps:
       source: "Create a feature specification"
     output_artifacts:
       - name: spec
-        path: .wave/output/spec.md
+        path: .agents/output/spec.md
     handover:
       contract:
         type: markdown_spec
-        source: .wave/output/spec.md
+        source: .agents/output/spec.md
 ```
 
 ---
@@ -336,8 +336,8 @@ Production-ready format validation for domain-specific outputs like GitHub issue
 handover:
   contract:
     type: format
-    source: .wave/output/issue.json
-    schema_path: .wave/contracts/github-issue-analysis.schema.json
+    source: .agents/output/issue.json
+    schema_path: .agents/contracts/github-issue-analysis.schema.json
 ```
 
 **Use when:** Validating that generated JSON content matches expected domain formats (e.g., GitHub issue structure, PR descriptions).
@@ -376,7 +376,7 @@ Validate that a file exists and is non-empty.
 handover:
   contract:
     type: non_empty_file
-    source: .wave/output/report.md
+    source: .agents/output/report.md
 ```
 
 **Use when:** Ensuring a persona wrote output to the expected artifact path.
@@ -387,7 +387,7 @@ handover:
 handover:
   contract:
     type: non_empty_file
-    source: .wave/output/report.md
+    source: .agents/output/report.md
     must_pass: true
     on_failure: retry
     max_retries: 2
@@ -420,11 +420,11 @@ steps:
       source: "Analyze the codebase and write findings"
     output_artifacts:
       - name: findings
-        path: .wave/output/findings.md
+        path: .agents/output/findings.md
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/findings.md
+        source: .agents/output/findings.md
 ```
 
 ---
@@ -445,8 +445,8 @@ When `on_failure: retry`:
 handover:
   contract:
     type: json_schema
-    schema_path: .wave/contracts/output.schema.json
-    source: .wave/output/data.json
+    schema_path: .agents/contracts/output.schema.json
+    source: .agents/output/data.json
     on_failure: retry
     max_retries: 3
 ```
@@ -491,22 +491,22 @@ Use a shell script for multiple validation steps:
 handover:
   contract:
     type: test_suite
-    command: ".wave/scripts/validate-all.sh"
+    command: ".agents/scripts/validate-all.sh"
 ```
 
-`.wave/scripts/validate-all.sh`:
+`.agents/scripts/validate-all.sh`:
 ```bash
 #!/bin/bash
 set -e
 
 echo "Validating JSON schema..."
-npx ajv validate -s .wave/contracts/output.schema.json -d .wave/output/data.json
+npx ajv validate -s .agents/contracts/output.schema.json -d .agents/output/data.json
 
 echo "Running tests..."
 npm test
 
 echo "Checking TypeScript..."
-npx tsc --noEmit .wave/output/types.ts
+npx tsc --noEmit .agents/output/types.ts
 
 echo "All validations passed"
 ```
@@ -518,7 +518,7 @@ echo "All validations passed"
 Recommended directory structure:
 
 ```
-.wave/
+.agents/
 ├── contracts/
 │   ├── navigation.schema.json
 │   ├── specification.schema.json
@@ -544,14 +544,14 @@ wave logs run-abc123 --errors
 ```
 [14:32:15] contract_failure  analyze  json_schema
   Error: Missing required property 'summary'
-  File: .wave/output/analysis.json
-  Schema: .wave/contracts/analysis.schema.json
+  File: .agents/output/analysis.json
+  Schema: .agents/contracts/analysis.schema.json
 ```
 
 Check audit logs for details:
 
 ```bash
-cat .wave/traces/run-abc123.jsonl | grep contract
+cat .agents/traces/run-abc123.jsonl | grep contract
 ```
 
 ---

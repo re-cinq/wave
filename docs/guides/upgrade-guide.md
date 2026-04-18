@@ -6,7 +6,7 @@ This guide walks through the recommended workflow for upgrading Wave to a new ve
 
 - An existing Wave project (previously initialized with `wave init`)
 - Access to the new Wave binary (downloaded or built from source)
-- Familiarity with your project's customizations in `wave.yaml` and `.wave/`
+- Familiarity with your project's customizations in `wave.yaml` and `.agents/`
 
 ## Upgrade Workflow Overview
 
@@ -63,17 +63,17 @@ The command prints a categorized change summary to stderr, then prompts for conf
   Change Summary:
 
   Personas:
-    = up to date   .wave/personas/craftsman.md
-    ~ preserved    .wave/personas/navigator.md
-    + new          .wave/personas/auditor.md
+    = up to date   .agents/personas/craftsman.md
+    ~ preserved    .agents/personas/navigator.md
+    + new          .agents/personas/auditor.md
 
   Pipelines:
-    = up to date   .wave/pipelines/hello-world.yaml
-    ~ preserved    .wave/pipelines/plan.yaml
-    + new          .wave/pipelines/security-audit.yaml
+    = up to date   .agents/pipelines/hello-world.yaml
+    ~ preserved    .agents/pipelines/plan.yaml
+    + new          .agents/pipelines/security-audit.yaml
 
   Contracts:
-    + new          .wave/contracts/audit-report.schema.json
+    + new          .agents/contracts/audit-report.schema.json
 
   Manifest (wave.yaml):
     + added        runtime.relay
@@ -93,7 +93,7 @@ The categories mean:
 
 ### Review what will change
 
-- **New files** (`+`) are defaults introduced in the new version. They will be created in your `.wave/` directory.
+- **New files** (`+`) are defaults introduced in the new version. They will be created in your `.agents/` directory.
 - **Preserved files** (`~`) are files you have customized. They will not be modified.
 - **Up-to-date files** (`=`) already match the latest defaults. No action needed.
 - **Manifest changes** show which `wave.yaml` keys will be added (new defaults) and which will be preserved (your existing values).
@@ -125,7 +125,7 @@ After confirmation, Wave applies the changes and prints a success message:
   Updated:
     wave.yaml       Preserved your settings
     Added missing default adapters and personas
-    Created missing .wave/ directories and files
+    Created missing .agents/ directories and files
 
   Next steps:
     1. Run 'wave migrate up' to apply pending migrations
@@ -311,18 +311,18 @@ Error: failed to parse existing manifest /path/to/wave.yaml: yaml: line 15: did 
 
 **Fix**: Open `wave.yaml` and correct the syntax error at the reported line number. Common causes include incorrect indentation, missing colons after keys, and unquoted special characters. After fixing the syntax, re-run `wave init --merge`.
 
-### Permission errors on .wave/ directory
+### Permission errors on .agents/ directory
 
-If the `.wave/` directory or its contents have restrictive permissions, Wave will report the specific file it cannot write:
+If the `.agents/` directory or its contents have restrictive permissions, Wave will report the specific file it cannot write:
 
 ```
-Error: failed to create directory /path/to/.wave/personas: permission denied
+Error: failed to create directory /path/to/.agents/personas: permission denied
 ```
 
-**Fix**: Ensure the current user has write permissions on the `.wave/` directory and its contents:
+**Fix**: Ensure the current user has write permissions on the `.agents/` directory and its contents:
 
 ```bash
-chmod -R u+w .wave/
+chmod -R u+w .agents/
 ```
 
 Then re-run `wave init --merge`.
@@ -343,16 +343,16 @@ wave init --merge --yes
 
 ### Database file does not exist
 
-If `.wave/state.db` does not exist when running `wave migrate up`, the migration runner creates a fresh database and applies all migrations from scratch. This is normal for projects that have not yet run any pipelines.
+If `.agents/state.db` does not exist when running `wave migrate up`, the migration runner creates a fresh database and applies all migrations from scratch. This is normal for projects that have not yet run any pipelines.
 
 ### Migration integrity check failure
 
 If `wave migrate validate` reports a checksum mismatch, it means an applied migration was modified after it was run. This typically indicates manual database edits or a corrupted state file.
 
-**Fix**: Back up your current `.wave/state.db`, then recreate it:
+**Fix**: Back up your current `.agents/state.db`, then recreate it:
 
 ```bash
-mv .wave/state.db .wave/state.db.bak
+mv .agents/state.db .agents/state.db.bak
 wave migrate up
 ```
 
@@ -362,9 +362,9 @@ This creates a fresh database with all migrations applied cleanly. Note that pip
 
 If `wave validate` fails after a merge, common causes include:
 
-- **Missing persona prompt file**: A persona references a `system_prompt_file` that does not exist. Check that all persona `.md` files are present in `.wave/personas/`.
+- **Missing persona prompt file**: A persona references a `system_prompt_file` that does not exist. Check that all persona `.md` files are present in `.agents/personas/`.
 - **Unknown adapter reference**: A persona references an adapter not defined in `wave.yaml`. Add the missing adapter definition or update the persona.
-- **Missing pipeline file**: A pipeline YAML file referenced in the project is not in `.wave/pipelines/`. Re-run `wave init --merge` to add missing defaults.
+- **Missing pipeline file**: A pipeline YAML file referenced in the project is not in `.agents/pipelines/`. Re-run `wave init --merge` to add missing defaults.
 
 Run `wave validate --verbose` for detailed diagnostics.
 

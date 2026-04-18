@@ -4,7 +4,7 @@ When composing multiple pipelines in sequence, the output contract of one pipeli
 
 ## Shared Schemas
 
-Shared schemas live in `.wave/contracts/shared-*.schema.json` and are designed to be referenced by multiple pipelines:
+Shared schemas live in `.agents/contracts/shared-*.schema.json` and are designed to be referenced by multiple pipelines:
 
 | Schema | Purpose | Used by |
 |--------|---------|---------|
@@ -45,7 +45,7 @@ memory:
     - step: scan
       artifact: findings
       as: scan_findings
-      schema_path: .wave/contracts/shared-findings.schema.json
+      schema_path: .agents/contracts/shared-findings.schema.json
 ```
 
 This validates the injected artifact against the schema before the step executes. If validation fails, the step is skipped with a validation error. Use this to catch schema drift early in cross-step artifact chains.
@@ -61,7 +61,7 @@ All audit pipelines that chain findings between scan and report steps now valida
 
 ## Schema Sync
 
-`.wave/contracts/` is the authoritative source. `internal/defaults/contracts/` contains embedded copies distributed with the binary. Changes flow `.wave/` → `internal/defaults/`. A test in `internal/contract/sync_test.go` verifies that all `shared-*.schema.json` files match between the two directories.
+`.agents/contracts/` is the authoritative source. `internal/defaults/contracts/` contains embedded copies distributed with the binary. Changes flow `.agents/` → `internal/defaults/`. A test in `internal/contract/sync_test.go` verifies that all `shared-*.schema.json` files match between the two directories.
 
 ## Composition Example
 
@@ -77,7 +77,7 @@ impl-issue-core  -->  wave-land  -->  ops-pr-review-core
                                           fix loop
 ```
 
-The `ops-pr-review-core` summary step produces `.wave/output/review-verdict.json` validated against `shared-review-verdict.schema.json`. The loop condition reads <code v-pre>{{ review-fix.output.verdict == 'APPROVE' }}</code> from this structured output.
+The `ops-pr-review-core` summary step produces `.agents/output/review-verdict.json` validated against `shared-review-verdict.schema.json`. The loop condition reads <code v-pre>{{ review-fix.output.verdict == 'APPROVE' }}</code> from this structured output.
 
 ## Naming Conventions
 
@@ -87,7 +87,7 @@ The `ops-pr-review-core` summary step produces `.wave/output/review-verdict.json
 
 ## Creating New Shared Schemas
 
-1. Define the schema in `.wave/contracts/shared-<name>.schema.json`
+1. Define the schema in `.agents/contracts/shared-<name>.schema.json`
 2. Reference it in pipeline steps via `schema_path:`
 3. Ensure both the producing and consuming pipelines agree on the schema
 4. Use `on_failure: skip` during development, graduate to `retry` when stable

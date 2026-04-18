@@ -22,7 +22,7 @@ func TestRunPipelineCreate_Success(t *testing.T) {
 	err = runPipelineCreate("my-custom", "ops-hello-world")
 	require.NoError(t, err)
 
-	outputPath := filepath.Join(".wave", "pipelines", "my-custom.yaml")
+	outputPath := filepath.Join(".agents", "pipelines", "my-custom.yaml")
 	data, err := os.ReadFile(outputPath)
 	require.NoError(t, err)
 

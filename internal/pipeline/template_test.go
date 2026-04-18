@@ -216,7 +216,7 @@ func TestLoadStepArtifact(t *testing.T) {
 	artifactName := "result.json"
 
 	// Create artifact in expected location
-	artifactDir := filepath.Join(tmpDir, pipelineID, stepID, ".wave", "output")
+	artifactDir := filepath.Join(tmpDir, pipelineID, stepID, ".agents", "output")
 	if err := os.MkdirAll(artifactDir, 0755); err != nil {
 		t.Fatal(err)
 	}

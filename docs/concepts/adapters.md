@@ -37,7 +37,7 @@ adapters:
     default_permissions:              # Base permissions for all personas
       allowed_tools: ["Read", "Write", "Edit", "Bash"]
       deny: []
-    hooks_template: .wave/hooks/claude/  # Hook scripts to copy
+    hooks_template: .agents/hooks/claude/  # Hook scripts to copy
 ```
 
 ### Key Fields

@@ -118,7 +118,7 @@ func collectArtifacts(opts ArtifactsOptions) ([]ArtifactOutput, string, error) {
 	var runID string
 
 	// Try to use state store first
-	dbPath := ".wave/state.db"
+	dbPath := ".agents/state.db"
 	if _, err := os.Stat(dbPath); err == nil {
 		store, err := state.NewStateStore(dbPath)
 		if err == nil {
@@ -165,7 +165,7 @@ func collectArtifacts(opts ArtifactsOptions) ([]ArtifactOutput, string, error) {
 // scanWorkspaceArtifacts scans the workspace directories for artifacts
 func scanWorkspaceArtifacts(opts ArtifactsOptions) ([]ArtifactOutput, string, error) {
 	var artifacts []ArtifactOutput
-	wsDir := ".wave/workspaces"
+	wsDir := ".agents/workspaces"
 
 	// If no workspaces directory, return empty
 	if _, err := os.Stat(wsDir); os.IsNotExist(err) {
@@ -411,7 +411,7 @@ func exportArtifacts(artifacts []ArtifactOutput, exportDir string) error {
 			warnings = append(warnings, fmt.Sprintf("invalid artifact path %s: %v", a.Name, err))
 			continue
 		}
-		workspaceAbs, _ := filepath.Abs(".wave/workspaces")
+		workspaceAbs, _ := filepath.Abs(".agents/workspaces")
 		if !strings.HasPrefix(absPath, workspaceAbs+string(filepath.Separator)) && !strings.HasPrefix(absPath, workspaceAbs) {
 			warnings = append(warnings, fmt.Sprintf("artifact path outside workspace: %s", a.Name))
 			continue

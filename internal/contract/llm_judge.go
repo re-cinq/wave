@@ -109,7 +109,7 @@ func (v *llmJudgeValidator) Validate(cfg ContractConfig, workspacePath string) e
 func (v *llmJudgeValidator) readStepOutput(cfg ContractConfig, workspacePath string) (string, error) {
 	sourcePath := cfg.Source
 	if sourcePath == "" {
-		sourcePath = ".wave/artifact.json"
+		sourcePath = ".agents/artifact.json"
 	}
 	fullPath := filepath.Join(workspacePath, sourcePath)
 

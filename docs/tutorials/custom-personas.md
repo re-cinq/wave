@@ -17,7 +17,7 @@ This tutorial walks through creating a custom security scanner persona.
 
 ## Step 2: Create the System Prompt
 
-Create `.wave/personas/security-scanner.md`:
+Create `.agents/personas/security-scanner.md`:
 
 ```markdown
 # Security Scanner
@@ -43,7 +43,7 @@ personas:
   security-scanner:
     adapter: claude
     description: "Security vulnerability scanner"
-    system_prompt_file: .wave/personas/security-scanner.md
+    system_prompt_file: .agents/personas/security-scanner.md
     temperature: 0.1
     permissions:
       allowed_tools:
@@ -51,7 +51,7 @@ personas:
         - Glob
         - Grep
         - Bash(npm audit*)
-        - Write(.wave/reports/*)
+        - Write(.agents/reports/*)
       deny:
         - Edit(*)
         - Bash(rm *)
@@ -67,11 +67,11 @@ personas:
 
 ## Step 4: Add Hooks (Optional)
 
-Create `.wave/hooks/security-pre-scan.sh`:
+Create `.agents/hooks/security-pre-scan.sh`:
 
 ```bash
 #!/bin/bash
-mkdir -p .wave/reports
+mkdir -p .agents/reports
 ```
 
 Add to persona:
@@ -80,12 +80,12 @@ Add to persona:
 hooks:
   PreToolUse:
     - matcher: "Bash(npm audit*)"
-      command: ".wave/hooks/security-pre-scan.sh"
+      command: ".agents/hooks/security-pre-scan.sh"
 ```
 
 ## Step 5: Create a Pipeline
 
-Create `.wave/pipelines/security-audit.yaml`:
+Create `.agents/pipelines/security-audit.yaml`:
 
 ```yaml
 kind: WavePipeline
@@ -106,7 +106,7 @@ steps:
       source: Perform a security audit focusing on: {{ input }}
     output_artifacts:
       - name: report
-        path: .wave/output/security-report.json
+        path: .agents/output/security-report.json
 ```
 
 ## Step 6: Validate and Test

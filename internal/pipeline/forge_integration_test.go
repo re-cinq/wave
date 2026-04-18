@@ -165,14 +165,14 @@ func TestForgeIntegration_SourcePathResolution(t *testing.T) {
 		info     forge.ForgeInfo
 		expected string
 	}{
-		{"GitHub", forge.Detect("https://github.com/o/r.git"), ".wave/prompts/gh/create-pr.md"},
-		{"GitLab", forge.Detect("https://gitlab.com/o/r.git"), ".wave/prompts/gl/create-pr.md"},
-		{"Bitbucket", forge.Detect("https://bitbucket.org/o/r.git"), ".wave/prompts/bb/create-pr.md"},
-		{"Gitea", forge.Detect("https://gitea.example.com/o/r.git"), ".wave/prompts/gt/create-pr.md"},
-		{"Codeberg", forge.Detect("https://codeberg.org/o/r.git"), ".wave/prompts/gt/create-pr.md"},
+		{"GitHub", forge.Detect("https://github.com/o/r.git"), ".agents/prompts/gh/create-pr.md"},
+		{"GitLab", forge.Detect("https://gitlab.com/o/r.git"), ".agents/prompts/gl/create-pr.md"},
+		{"Bitbucket", forge.Detect("https://bitbucket.org/o/r.git"), ".agents/prompts/bb/create-pr.md"},
+		{"Gitea", forge.Detect("https://gitea.example.com/o/r.git"), ".agents/prompts/gt/create-pr.md"},
+		{"Codeberg", forge.Detect("https://codeberg.org/o/r.git"), ".agents/prompts/gt/create-pr.md"},
 	}
 
-	template := ".wave/prompts/{{ forge.prefix }}/create-pr.md"
+	template := ".agents/prompts/{{ forge.prefix }}/create-pr.md"
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

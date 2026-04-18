@@ -36,12 +36,12 @@ Expected output:
 [10:01:42] completed validate          (auditor)     26s   2.1k Validation complete
 
 Pipeline api-design completed in 101s
-Artifacts: .wave/output/api-spec.yaml
+Artifacts: .agents/output/api-spec.yaml
 ```
 
 ## Complete Pipeline
 
-Save the following YAML to `.wave/pipelines/api-design.yaml`:
+Save the following YAML to `.agents/pipelines/api-design.yaml`:
 
 <div v-pre>
 
@@ -87,7 +87,7 @@ steps:
         }
     output_artifacts:
       - name: requirements
-        path: .wave/output/api-requirements.json
+        path: .agents/output/api-requirements.json
         type: json
 
   - id: design
@@ -121,7 +121,7 @@ steps:
         - HATEOAS links where appropriate
     output_artifacts:
       - name: spec
-        path: .wave/output/api-spec.yaml
+        path: .agents/output/api-spec.yaml
         type: yaml
 
   - id: validate
@@ -154,7 +154,7 @@ steps:
         Output: list of issues or "APPROVED"
     output_artifacts:
       - name: validation
-        path: .wave/output/api-validation.md
+        path: .agents/output/api-validation.md
         type: markdown
 ```
 
@@ -166,13 +166,13 @@ The pipeline produces three artifacts:
 
 | Artifact | Path | Description |
 |----------|------|-------------|
-| `requirements` | `.wave/output/api-requirements.json` | Structured API requirements |
-| `spec` | `.wave/output/api-spec.yaml` | OpenAPI 3.0 specification |
-| `validation` | `.wave/output/api-validation.md` | Design review and validation |
+| `requirements` | `.agents/output/api-requirements.json` | Structured API requirements |
+| `spec` | `.agents/output/api-spec.yaml` | OpenAPI 3.0 specification |
+| `validation` | `.agents/output/api-validation.md` | Design review and validation |
 
 ### Example Output
 
-The pipeline produces `.wave/output/api-spec.yaml`:
+The pipeline produces `.agents/output/api-spec.yaml`:
 
 <div v-pre>
 
@@ -486,7 +486,7 @@ Add a code generation step:
       - Router configuration
   output_artifacts:
     - name: handlers
-      path: .wave/output/handlers.go
+      path: .agents/output/handlers.go
       type: code
 ```
 
@@ -520,7 +520,7 @@ Add a code generation step:
       must_pass: true
   output_artifacts:
     - name: tests
-      path: .wave/output/api_test.go
+      path: .agents/output/api_test.go
       type: code
 ```
 

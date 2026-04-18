@@ -130,8 +130,8 @@ func resolveStepOutput(expr string, ctx *TemplateContext) (string, error) {
 func LoadStepArtifact(workspaceRoot, pipelineID, stepID, artifactName string) ([]byte, error) {
 	// Try common artifact locations
 	candidates := []string{
-		filepath.Join(workspaceRoot, pipelineID, stepID, ".wave", "output", artifactName),
-		filepath.Join(workspaceRoot, pipelineID, stepID, ".wave", "artifacts", artifactName),
+		filepath.Join(workspaceRoot, pipelineID, stepID, ".agents", "output", artifactName),
+		filepath.Join(workspaceRoot, pipelineID, stepID, ".agents", "artifacts", artifactName),
 		filepath.Join(workspaceRoot, pipelineID, stepID, artifactName),
 	}
 	for _, path := range candidates {

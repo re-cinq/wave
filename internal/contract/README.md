@@ -220,7 +220,7 @@ err := validator.Validate(cfg, workspacePath)
 ### With Rollback
 
 ```go
-manager := contract.NewRollbackManager(".wave/rollback")
+manager := contract.NewRollbackManager(".agents/rollback")
 
 // Initialize
 log, _ := manager.InitRollbackLog("my-pipeline")
@@ -249,7 +249,7 @@ if err != nil {
 handover:
   contract:
     type: json_schema
-    schema_path: .wave/contracts/output.schema.json
+    schema_path: .agents/contracts/output.schema.json
     validate: true
     must_pass: true      # Block pipeline if validation fails
     max_retries: 3       # Retry up to 3 times
@@ -300,12 +300,12 @@ The contract system validates injected artifacts against schemas before step exe
 
 ```go
 // Validate a single input artifact
-err := contract.ValidateInputArtifact("findings", ".wave/contracts/shared-findings.schema.json", workspacePath)
+err := contract.ValidateInputArtifact("findings", ".agents/contracts/shared-findings.schema.json", workspacePath)
 
 // Validate multiple input artifacts
 configs := []contract.InputArtifactConfig{
-    {Name: "scan_findings", SchemaPath: ".wave/contracts/shared-findings.schema.json"},
-    {Name: "raw_findings", SchemaPath: ".wave/contracts/review-findings.schema.json"},
+    {Name: "scan_findings", SchemaPath: ".agents/contracts/shared-findings.schema.json"},
+    {Name: "raw_findings", SchemaPath: ".agents/contracts/review-findings.schema.json"},
 }
 results, err := contract.ValidateInputArtifacts(configs, workspacePath)
 ```
@@ -320,7 +320,7 @@ memory:
     - step: scan
       artifact: findings
       as: scan_findings
-      schema_path: .wave/contracts/shared-findings.schema.json
+      schema_path: .agents/contracts/shared-findings.schema.json
 ```
 
 ### Shared Schemas
@@ -333,7 +333,7 @@ memory:
 
 ### Schema Sync
 
-`.wave/contracts/` is authoritative. Shared schemas are synced to `internal/defaults/contracts/` for embedding. The `sync_test.go` test prevents drift.
+`.agents/contracts/` is authoritative. Shared schemas are synced to `internal/defaults/contracts/` for embedding. The `sync_test.go` test prevents drift.
 
 ## Integration Points
 

@@ -51,7 +51,7 @@ func TestSkillsPageRendersSkillNames(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestSkillsAPIReturnsCheckAndInstallCmds(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestSkillsAPIDeduplicatesAcrossPipelines(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
@@ -303,7 +303,7 @@ func TestSkillsAPIExcludesPipelinesWithoutSkills(t *testing.T) {
 	srv, _ := testServer(t)
 
 	tmpDir := t.TempDir()
-	pipelineDir := filepath.Join(tmpDir, ".wave", "pipelines")
+	pipelineDir := filepath.Join(tmpDir, ".agents", "pipelines")
 	if err := os.MkdirAll(pipelineDir, 0o755); err != nil {
 		t.Fatalf("failed to create pipeline dir: %v", err)
 	}
