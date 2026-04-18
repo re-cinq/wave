@@ -20,37 +20,37 @@ steps:
   - id: test-watchdog
     type: command
     script: |
-      mkdir -p .wave/output
-      go test ./internal/pipeline/ -v -run "Stall|Watchdog|Progress" > .wave/output/watchdog-results.txt 2>&1
-      echo "exit_code=$?" >> .wave/output/watchdog-results.txt
+      mkdir -p .agents/output
+      go test ./internal/pipeline/ -v -run "Stall|Watchdog|Progress" > .agents/output/watchdog-results.txt 2>&1
+      echo "exit_code=$?" >> .agents/output/watchdog-results.txt
     output_artifacts:
       - name: watchdog-results
-        path: .wave/output/watchdog-results.txt
+        path: .agents/output/watchdog-results.txt
         type: text
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/watchdog-results.txt
+        source: .agents/output/watchdog-results.txt
         on_failure: fail
 
   - id: verify
     type: command
     dependencies: [test-watchdog]
     script: |
-      mkdir -p .wave/output
-      if grep -q "FAIL" .wave/output/watchdog-results.txt; then
-        echo '{"status":"fail","reason":"FAIL found in watchdog test output"}' > .wave/output/watchdog-verify.json
-      elif grep -q "PASS" .wave/output/watchdog-results.txt; then
-        echo '{"status":"pass","reason":"All watchdog tests passed"}' > .wave/output/watchdog-verify.json
+      mkdir -p .agents/output
+      if grep -q "FAIL" .agents/output/watchdog-results.txt; then
+        echo '{"status":"fail","reason":"FAIL found in watchdog test output"}' > .agents/output/watchdog-verify.json
+      elif grep -q "PASS" .agents/output/watchdog-results.txt; then
+        echo '{"status":"pass","reason":"All watchdog tests passed"}' > .agents/output/watchdog-verify.json
       else
-        echo '{"status":"fail","reason":"No PASS found in watchdog test output"}' > .wave/output/watchdog-verify.json
+        echo '{"status":"fail","reason":"No PASS found in watchdog test output"}' > .agents/output/watchdog-verify.json
       fi
     output_artifacts:
       - name: verify
-        path: .wave/output/watchdog-verify.json
+        path: .agents/output/watchdog-verify.json
         type: json
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/watchdog-verify.json
+        source: .agents/output/watchdog-verify.json
         on_failure: fail

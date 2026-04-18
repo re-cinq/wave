@@ -30,12 +30,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -138,7 +138,7 @@ steps:
         A good coverage analysis identifies specific functions and specific branches that need testing, maps the dependencies that must be mocked, and suggests concrete test cases for each gap. A developer receiving this analysis should know exactly what tests to write. A bad analysis reports only package-level percentages without identifying which functions need tests, or suggests vague "add more tests" without specifying what to test.
     output_artifacts:
       - name: coverage
-        path: .wave/output/coverage-analysis.json
+        path: .agents/output/coverage-analysis.json
         type: json
     retry:
       policy: patient
@@ -146,8 +146,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/coverage-analysis.json
-        schema_path: .wave/contracts/coverage-analysis.schema.json
+        source: .agents/output/coverage-analysis.json
+        schema_path: .agents/contracts/coverage-analysis.schema.json
         on_failure: retry
 
   - id: generate-tests
@@ -283,7 +283,7 @@ steps:
         on_failure: retry
     output_artifacts:
       - name: tests
-        path: .wave/output/generated-tests.md
+        path: .agents/output/generated-tests.md
         type: markdown
 
   - id: run-tests
@@ -390,9 +390,9 @@ steps:
         A good verification report honestly assesses whether the generated tests add real value. It distinguishes between coverage improvement (more lines executed) and quality improvement (more bugs would be caught). It identifies tests that should be strengthened and gaps that remain. A bad verification report treats any coverage increase as success without examining whether the tests actually verify behavior.
     output_artifacts:
       - name: verification
-        path: .wave/output/coverage-verification.md
+        path: .agents/output/coverage-verification.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/coverage-verification.md
+        source: .agents/output/coverage-verification.md

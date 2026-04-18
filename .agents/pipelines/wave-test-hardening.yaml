@@ -35,12 +35,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 steps:
@@ -146,7 +146,7 @@ steps:
         while missing critical gaps in the pipeline executor.
     output_artifacts:
       - name: coverage-analysis
-        path: .wave/output/coverage-analysis.json
+        path: .agents/output/coverage-analysis.json
         type: json
     retry:
       policy: patient
@@ -154,8 +154,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/coverage-analysis.json
-        schema_path: .wave/contracts/improvement-assessment.schema.json
+        source: .agents/output/coverage-analysis.json
+        schema_path: .agents/contracts/improvement-assessment.schema.json
         on_failure: retry
 
   - id: harden

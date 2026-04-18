@@ -49,12 +49,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] full impl cycle started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] full impl cycle started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -124,10 +124,10 @@ steps:
           as: coverage_findings
     exec:
       type: prompt
-      source_path: .wave/prompts/full-impl-cycle/audit-aggregate.md
+      source_path: .agents/prompts/full-impl-cycle/audit-aggregate.md
     output_artifacts:
       - name: aggregated-findings
-        path: .wave/output/aggregated-findings.json
+        path: .agents/output/aggregated-findings.json
         type: json
     retry:
       policy: standard
@@ -135,8 +135,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/aggregated-findings.json
-        schema_path: .wave/contracts/aggregated-findings.schema.json
+        source: .agents/output/aggregated-findings.json
+        schema_path: .agents/contracts/aggregated-findings.schema.json
         on_failure: skip
 
   # ─── Phase 5: Rework Gate ──────────────────────────────────────────────
@@ -151,10 +151,10 @@ steps:
           as: aggregated_findings
     exec:
       type: prompt
-      source_path: .wave/prompts/full-impl-cycle/rework-gate.md
+      source_path: .agents/prompts/full-impl-cycle/rework-gate.md
     output_artifacts:
       - name: rework-verdict
-        path: .wave/output/rework-gate-verdict.json
+        path: .agents/output/rework-gate-verdict.json
         type: json
     retry:
       policy: standard
@@ -162,8 +162,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/rework-gate-verdict.json
-        schema_path: .wave/contracts/rework-gate-verdict.schema.json
+        source: .agents/output/rework-gate-verdict.json
+        schema_path: .agents/contracts/rework-gate-verdict.schema.json
         on_failure: skip
 
   # ─── Phase 6: Rework Loop (conditional on gate fail) ───────────────────
@@ -280,16 +280,16 @@ steps:
                 as: coverage_findings
           exec:
             type: prompt
-            source_path: .wave/prompts/full-impl-cycle/audit-aggregate.md
+            source_path: .agents/prompts/full-impl-cycle/audit-aggregate.md
           output_artifacts:
             - name: aggregated-findings
-              path: .wave/output/aggregated-findings.json
+              path: .agents/output/aggregated-findings.json
               type: json
           handover:
             contract:
               type: json_schema
-              source: .wave/output/aggregated-findings.json
-              schema_path: .wave/contracts/aggregated-findings.schema.json
+              source: .agents/output/aggregated-findings.json
+              schema_path: .agents/contracts/aggregated-findings.schema.json
               on_failure: skip
 
         - id: re-gate
@@ -303,16 +303,16 @@ steps:
                 as: aggregated_findings
           exec:
             type: prompt
-            source_path: .wave/prompts/full-impl-cycle/rework-gate.md
+            source_path: .agents/prompts/full-impl-cycle/rework-gate.md
           output_artifacts:
             - name: rework-verdict
-              path: .wave/output/rework-gate-verdict.json
+              path: .agents/output/rework-gate-verdict.json
               type: json
           handover:
             contract:
               type: json_schema
-              source: .wave/output/rework-gate-verdict.json
-              schema_path: .wave/contracts/rework-gate-verdict.schema.json
+              source: .agents/output/rework-gate-verdict.json
+              schema_path: .agents/contracts/rework-gate-verdict.schema.json
               on_failure: skip
 
   # ─── Phase 7: PR Creation ──────────────────────────────────────────────

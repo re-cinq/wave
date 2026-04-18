@@ -50,12 +50,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -160,7 +160,7 @@ steps:
         order in a way that creates dependency conflicts during sequential implementation.
     output_artifacts:
       - name: children
-        path: .wave/output/epic-children.json
+        path: .agents/output/epic-children.json
         type: json
         required: true
     retry:
@@ -169,8 +169,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/epic-children.json
-        schema_path: .wave/contracts/epic-children.schema.json
+        source: .agents/output/epic-children.json
+        schema_path: .agents/contracts/epic-children.schema.json
         must_pass: true
         on_failure: retry
 
@@ -308,11 +308,11 @@ steps:
         leaves the reviewer guessing about whether all children were actually handled.
     output_artifacts:
       - name: epic-summary
-        path: .wave/output/epic-summary.json
+        path: .agents/output/epic-summary.json
         type: json
     outcomes:
       - type: url
-        extract_from: .wave/output/epic-summary.json
+        extract_from: .agents/output/epic-summary.json
         json_path: .comment_url
         label: "Epic Summary Comment"
     retry:

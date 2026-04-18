@@ -22,8 +22,8 @@ steps:
   - id: create-artifact
     type: command
     script: |
-      mkdir -p .wave/output
-      cat > .wave/output/sample-code.md << 'CONTENT'
+      mkdir -p .agents/output
+      cat > .agents/output/sample-code.md << 'CONTENT'
       # Authentication Module — auth.go
 
       ```go
@@ -60,12 +60,12 @@ steps:
       CONTENT
     output_artifacts:
       - name: sample-code
-        path: .wave/output/sample-code.md
+        path: .agents/output/sample-code.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/sample-code.md
+        source: .agents/output/sample-code.md
         on_failure: fail
 
   - id: review
@@ -80,9 +80,9 @@ steps:
     exec:
       type: prompt
       source: |
-        Read the code sample at `project/.wave/output/sample-code.md`.
+        Read the code sample at `project/.agents/output/sample-code.md`.
 
-        Write a structured security review to `.wave/output/judge-output.md` with:
+        Write a structured security review to `.agents/output/judge-output.md` with:
         1. A **Summary** section (2-3 sentences)
         2. A **Findings** section with numbered items, each having severity (Critical/High/Medium/Low/Info)
         3. A **Recommendations** section with actionable fixes
@@ -90,12 +90,12 @@ steps:
         Focus on: authentication flaws, token handling, rate limiting gaps.
     output_artifacts:
       - name: judge-output
-        path: .wave/output/judge-output.md
+        path: .agents/output/judge-output.md
         type: markdown
     handover:
       contract:
         type: llm_judge
-        source: .wave/output/judge-output.md
+        source: .agents/output/judge-output.md
         model: cheapest
         criteria:
           - "Output contains a structured security review with clearly labeled findings"

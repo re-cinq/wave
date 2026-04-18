@@ -20,17 +20,17 @@ steps:
   - id: setup
     type: command
     script: |
-      mkdir -p .wave/output
-      echo '{"valid": true}' > .wave/output/test-data.json
-      echo '{"type":"object","properties":{"valid":{"type":"boolean"}},"required":["valid"]}' > .wave/output/test-schema.json
+      mkdir -p .agents/output
+      echo '{"valid": true}' > .agents/output/test-data.json
+      echo '{"type":"object","properties":{"valid":{"type":"boolean"}},"required":["valid"]}' > .agents/output/test-schema.json
     output_artifacts:
       - name: test-data
-        path: .wave/output/test-data.json
+        path: .agents/output/test-data.json
         type: json
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/test-data.json
+        source: .agents/output/test-data.json
         on_failure: fail
 
   - id: validate
@@ -40,16 +40,16 @@ steps:
     exec:
       type: prompt
       source: |
-        Read `.wave/output/test-data.json` and `.wave/output/test-schema.json`.
+        Read `.agents/output/test-data.json` and `.agents/output/test-schema.json`.
         Verify both exist and contain valid JSON. Write confirmation to
-        `.wave/output/contract-check.json`:
+        `.agents/output/contract-check.json`:
         {"data_valid": true, "schema_valid": true, "checked_at": "<timestamp>"}
     output_artifacts:
       - name: contract-check
-        path: .wave/output/contract-check.json
+        path: .agents/output/contract-check.json
         type: json
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/contract-check.json
+        source: .agents/output/contract-check.json
         on_failure: fail

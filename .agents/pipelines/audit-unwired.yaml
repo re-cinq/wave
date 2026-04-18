@@ -29,12 +29,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -118,11 +118,11 @@ steps:
         A good scan traces from concrete entry points inward and reports only symbols where the search for callers was thorough (covering cmd/, internal/, and YAML references). Each finding names the specific entry points checked and explains why no path was found. A bad scan simply lists exported symbols without verifying whether they are actually called, or reports interface methods and standard patterns as unwired.
     output_artifacts:
       - name: findings
-        path: .wave/output/unwired-findings.json
+        path: .agents/output/unwired-findings.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: .wave/output/unwired-findings.json
-        schema_path: .wave/contracts/shared-findings.schema.json
+        source: .agents/output/unwired-findings.json
+        schema_path: .agents/contracts/shared-findings.schema.json
         on_failure: skip

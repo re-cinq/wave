@@ -31,12 +31,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[wave-test-forge] started run={{ pipeline_id }} forge={{ forge.type }}' >> .wave/output/hook-log.txt"
+    command: "echo '[wave-test-forge] started run={{ pipeline_id }} forge={{ forge.type }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-step
     event: step_completed
     type: command
-    command: "echo '[wave-test-forge] step=$WAVE_HOOK_STEP_ID completed' >> .wave/output/hook-log.txt"
+    command: "echo '[wave-test-forge] step=$WAVE_HOOK_STEP_ID completed' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -128,12 +128,12 @@ steps:
         detected forge type and actual remote URL.
     output_artifacts:
       - name: forge-detect
-        path: .wave/output/forge-detect.json
+        path: .agents/output/forge-detect.json
         type: json
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/forge-detect.json
+        source: .agents/output/forge-detect.json
         on_failure: retry
     edges:
       - target: verify-cli
@@ -144,25 +144,25 @@ steps:
     script: |
       CLI="{{ forge.cli_tool }}"
       if [ -z "$CLI" ]; then
-        echo '{"cli":"none","status":"skipped","reason":"no forge CLI (local mode)"}' > .wave/output/cli-check.json
+        echo '{"cli":"none","status":"skipped","reason":"no forge CLI (local mode)"}' > .agents/output/cli-check.json
         exit 0
       fi
       if command -v "$CLI" > /dev/null 2>&1; then
         VERSION=$($CLI --version 2>&1 | head -1)
-        echo "{\"cli\":\"$CLI\",\"status\":\"found\",\"version\":\"$VERSION\"}" > .wave/output/cli-check.json
+        echo "{\"cli\":\"$CLI\",\"status\":\"found\",\"version\":\"$VERSION\"}" > .agents/output/cli-check.json
       else
-        echo "{\"cli\":\"$CLI\",\"status\":\"not_found\",\"error\":\"$CLI binary not in PATH\"}" > .wave/output/cli-check.json
+        echo "{\"cli\":\"$CLI\",\"status\":\"not_found\",\"error\":\"$CLI binary not in PATH\"}" > .agents/output/cli-check.json
         exit 1
       fi
     dependencies: [detect-forge]
     output_artifacts:
       - name: cli-check
-        path: .wave/output/cli-check.json
+        path: .agents/output/cli-check.json
         type: json
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/cli-check.json
+        source: .agents/output/cli-check.json
         on_failure: skip
     edges:
       - target: verify-auth
@@ -175,55 +175,55 @@ steps:
       case "$FORGE" in
         github)
           if gh auth status 2>&1 | grep -q "Logged in"; then
-            echo '{"forge":"github","auth":"ok"}' > .wave/output/auth-check.json
+            echo '{"forge":"github","auth":"ok"}' > .agents/output/auth-check.json
           else
-            echo '{"forge":"github","auth":"failed","error":"gh auth status failed"}' > .wave/output/auth-check.json
+            echo '{"forge":"github","auth":"failed","error":"gh auth status failed"}' > .agents/output/auth-check.json
           fi
           ;;
         gitlab)
           if [ -n "$GITLAB_TOKEN" ]; then
-            echo '{"forge":"gitlab","auth":"ok","method":"env_token"}' > .wave/output/auth-check.json
+            echo '{"forge":"gitlab","auth":"ok","method":"env_token"}' > .agents/output/auth-check.json
           else
-            echo '{"forge":"gitlab","auth":"failed","error":"GITLAB_TOKEN not set"}' > .wave/output/auth-check.json
+            echo '{"forge":"gitlab","auth":"failed","error":"GITLAB_TOKEN not set"}' > .agents/output/auth-check.json
           fi
           ;;
         gitea|forgejo)
           if [ -n "$GITEA_TOKEN" ]; then
-            echo '{"forge":"gitea","auth":"ok","method":"env_token"}' > .wave/output/auth-check.json
+            echo '{"forge":"gitea","auth":"ok","method":"env_token"}' > .agents/output/auth-check.json
           else
-            echo '{"forge":"gitea","auth":"failed","error":"GITEA_TOKEN not set"}' > .wave/output/auth-check.json
+            echo '{"forge":"gitea","auth":"failed","error":"GITEA_TOKEN not set"}' > .agents/output/auth-check.json
           fi
           ;;
         codeberg)
           if [ -n "$CODEBERG_TOKEN" ] || [ -n "$GITEA_TOKEN" ]; then
-            echo '{"forge":"codeberg","auth":"ok","method":"env_token"}' > .wave/output/auth-check.json
+            echo '{"forge":"codeberg","auth":"ok","method":"env_token"}' > .agents/output/auth-check.json
           else
-            echo '{"forge":"codeberg","auth":"failed","error":"CODEBERG_TOKEN not set"}' > .wave/output/auth-check.json
+            echo '{"forge":"codeberg","auth":"failed","error":"CODEBERG_TOKEN not set"}' > .agents/output/auth-check.json
           fi
           ;;
         bitbucket)
           if [ -n "$BITBUCKET_TOKEN" ]; then
-            echo '{"forge":"bitbucket","auth":"ok","method":"env_token"}' > .wave/output/auth-check.json
+            echo '{"forge":"bitbucket","auth":"ok","method":"env_token"}' > .agents/output/auth-check.json
           else
-            echo '{"forge":"bitbucket","auth":"failed","error":"BITBUCKET_TOKEN not set"}' > .wave/output/auth-check.json
+            echo '{"forge":"bitbucket","auth":"failed","error":"BITBUCKET_TOKEN not set"}' > .agents/output/auth-check.json
           fi
           ;;
         local)
-          echo '{"forge":"local","auth":"skipped","reason":"no forge in local mode"}' > .wave/output/auth-check.json
+          echo '{"forge":"local","auth":"skipped","reason":"no forge in local mode"}' > .agents/output/auth-check.json
           ;;
         *)
-          echo "{\"forge\":\"$FORGE\",\"auth\":\"unknown\"}" > .wave/output/auth-check.json
+          echo "{\"forge\":\"$FORGE\",\"auth\":\"unknown\"}" > .agents/output/auth-check.json
           ;;
       esac
     dependencies: [verify-cli]
     output_artifacts:
       - name: auth-check
-        path: .wave/output/auth-check.json
+        path: .agents/output/auth-check.json
         type: json
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/auth-check.json
+        source: .agents/output/auth-check.json
         on_failure: skip
     edges:
       - target: test-api
@@ -238,7 +238,7 @@ steps:
       CLI="{{ forge.cli_tool }}"
       FORGE="{{ forge.type }}"
       if [ -z "$CLI" ] || [ "$FORGE" = "local" ]; then
-        echo '{"api":"skipped","reason":"no forge CLI"}' > .wave/output/api-check.json
+        echo '{"api":"skipped","reason":"no forge CLI"}' > .agents/output/api-check.json
         exit 0
       fi
 
@@ -256,15 +256,15 @@ steps:
           ISSUES="bitbucket-cli-not-standard" && STATUS="skipped"
           ;;
       esac
-      echo "{\"forge\":\"$FORGE\",\"api\":\"$STATUS\",\"sample\":\"$(echo $ISSUES | head -c 200)\"}" > .wave/output/api-check.json
+      echo "{\"forge\":\"$FORGE\",\"api\":\"$STATUS\",\"sample\":\"$(echo $ISSUES | head -c 200)\"}" > .agents/output/api-check.json
     output_artifacts:
       - name: api-check
-        path: .wave/output/api-check.json
+        path: .agents/output/api-check.json
         type: json
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/api-check.json
+        source: .agents/output/api-check.json
         on_failure: skip
 
   # Step 5: Synthesize results — LLM reviews all checks
@@ -360,10 +360,10 @@ steps:
         reports FAIL when checks were legitimately skipped.
     output_artifacts:
       - name: forge-report
-        path: .wave/output/forge-report.md
+        path: .agents/output/forge-report.md
         type: markdown
       - name: forge-report-json
-        path: .wave/output/forge-report.json
+        path: .agents/output/forge-report.json
         type: json
     retry:
       policy: standard
@@ -371,5 +371,5 @@ steps:
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/forge-report.json
+        source: .agents/output/forge-report.json
         on_failure: retry

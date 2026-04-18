@@ -39,12 +39,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -173,7 +173,7 @@ steps:
         includes issues above the threshold in the poor-quality list.
     output_artifacts:
       - name: quality-report
-        path: .wave/artifacts/quality-report.json
+        path: .agents/artifacts/quality-report.json
         type: json
         required: true
     retry:
@@ -182,8 +182,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/artifacts/quality-report.json
-        schema_path: .wave/contracts/github-issue-analysis.schema.json
+        source: .agents/artifacts/quality-report.json
+        schema_path: .agents/contracts/github-issue-analysis.schema.json
         on_failure: retry
 
   - id: enhance
@@ -340,7 +340,7 @@ steps:
         quick snapshot of issue health across the repository.
     output_artifacts:
       - name: enhancement-summary
-        path: .wave/artifacts/enhancement-summary.md
+        path: .agents/artifacts/enhancement-summary.md
         type: markdown
         required: true
     retry:
@@ -349,4 +349,4 @@ steps:
     handover:
       contract:
         type: non_empty_file
-        source: .wave/artifacts/enhancement-summary.md
+        source: .agents/artifacts/enhancement-summary.md

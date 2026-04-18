@@ -39,12 +39,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -174,7 +174,7 @@ steps:
         the input.
     output_artifacts:
       - name: issue_context
-        path: .wave/artifact.json
+        path: .agents/artifact.json
         type: json
         required: true
     retry:
@@ -183,7 +183,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/issue-update-context.schema.json
+        schema_path: .agents/contracts/issue-update-context.schema.json
         validate: true
         must_pass: true
         on_failure: retry
@@ -308,7 +308,7 @@ steps:
         or leaves stale file references because it did not check the missing files list.
     output_artifacts:
       - name: update_draft
-        path: .wave/artifact.json
+        path: .agents/artifact.json
         type: json
         required: true
     retry:
@@ -317,7 +317,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/issue-update-draft.schema.json
+        schema_path: .agents/contracts/issue-update-draft.schema.json
         validate: true
         must_pass: true
         on_failure: retry
@@ -443,12 +443,12 @@ steps:
         and reports success without confirming.
     output_artifacts:
       - name: update_result
-        path: .wave/artifact.json
+        path: .agents/artifact.json
         type: json
         required: true
     outcomes:
       - type: issue
-        extract_from: .wave/artifact.json
+        extract_from: .agents/artifact.json
         json_path: .url
         label: "Updated Issue"
     retry:
@@ -457,7 +457,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        schema_path: .wave/contracts/issue-update-result.schema.json
+        schema_path: .agents/contracts/issue-update-result.schema.json
         validate: true
         must_pass: true
         on_failure: retry

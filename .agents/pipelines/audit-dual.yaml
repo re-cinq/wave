@@ -47,12 +47,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -118,13 +118,13 @@ steps:
         A good quality scan reads the actual source code for each finding, provides specific file:line references, and distinguishes between high-impact issues (behavioral duplication, complex critical-path functions) and low-impact ones (minor style preferences). A bad scan lists generic categories without examining actual code or reports every function over 20 lines as "complex."
     output_artifacts:
       - name: findings
-        path: .wave/output/findings.json
+        path: .agents/output/findings.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: .wave/output/findings.json
-        schema_path: .wave/contracts/shared-findings.schema.json
+        source: .agents/output/findings.json
+        schema_path: .agents/contracts/shared-findings.schema.json
         on_failure: skip
 
   - id: quality-detail
@@ -148,7 +148,7 @@ steps:
       source: |
         Deepen the code quality analysis from the scan results.
 
-        For each finding in .wave/artifacts/scan_results:
+        For each finding in .agents/artifacts/scan_results:
         1. Verify the finding by reading the source code
         2. Assess severity and impact on maintainability
         3. Suggest specific refactoring with code examples
@@ -157,12 +157,12 @@ steps:
         Produce a markdown report with prioritized recommendations.
     output_artifacts:
       - name: quality_report
-        path: .wave/output/quality-detail.md
+        path: .agents/output/quality-detail.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/quality-detail.md
+        source: .agents/output/quality-detail.md
 
   # ── Track B: Security ──────────────────────────────────────────────
   - id: security-scan
@@ -189,7 +189,7 @@ steps:
         Output a structured JSON report matching the contract schema.
     output_artifacts:
       - name: security_scan
-        path: .wave/output/security-scan.json
+        path: .agents/output/security-scan.json
         type: json
 
   - id: security-detail
@@ -213,7 +213,7 @@ steps:
       source: |
         Deepen the security analysis from the scan results.
 
-        For each finding in .wave/artifacts/scan_results:
+        For each finding in .agents/artifacts/scan_results:
         1. Verify by reading the actual source code
         2. Trace data flow from entry point to sink
         3. Assess exploitability and real-world impact
@@ -222,12 +222,12 @@ steps:
         Produce a markdown report with severity-ordered findings.
     output_artifacts:
       - name: security_report
-        path: .wave/output/security-detail.md
+        path: .agents/output/security-detail.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/security-detail.md
+        source: .agents/output/security-detail.md
 
   # ── Merge: Converge both tracks ────────────────────────────────────
   - id: merge
@@ -250,8 +250,8 @@ steps:
         unified assessment.
 
         Read both reports:
-        - .wave/artifacts/quality_findings (code quality)
-        - .wave/artifacts/security_findings (security)
+        - .agents/artifacts/quality_findings (code quality)
+        - .agents/artifacts/security_findings (security)
 
         Produce a final report with:
         1. Executive summary with overall health rating
@@ -260,9 +260,9 @@ steps:
         4. Positive observations and strengths
     output_artifacts:
       - name: report
-        path: .wave/output/dual-analysis-report.md
+        path: .agents/output/dual-analysis-report.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/dual-analysis-report.md
+        source: .agents/output/dual-analysis-report.md

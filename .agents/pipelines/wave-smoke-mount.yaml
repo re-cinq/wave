@@ -30,14 +30,14 @@ steps:
         Check if the directory `project/` exists and contains files.
         Run: ls project/ | head -10
         Verify AGENTS.md and wave.yaml are present.
-        Write result to `.wave/output/mount-check.json`:
+        Write result to `.agents/output/mount-check.json`:
         {"status":"pass","agents_md":true,"wave_yaml":true,"file_count":N}
     output_artifacts:
       - name: mount-check
-        path: .wave/output/mount-check.json
+        path: .agents/output/mount-check.json
         type: json
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/mount-check.json
+        source: .agents/output/mount-check.json
         on_failure: fail

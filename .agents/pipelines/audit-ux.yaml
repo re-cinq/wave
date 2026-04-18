@@ -34,12 +34,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -119,9 +119,9 @@ steps:
         A good UX audit simulates the user's journey through specific tasks and identifies concrete friction points with reproduction steps ("running `wave run` with no arguments produces an unhelpful error on line 47 of run.go"). A bad audit lists generic UX principles without checking whether they apply, or focuses on cosmetic issues while ignoring blocking usability problems.
     output_artifacts:
       - name: findings
-        path: .wave/output/findings.md
+        path: .agents/output/findings.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/findings.md
+        source: .agents/output/findings.md

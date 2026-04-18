@@ -15,18 +15,18 @@ steps:
   - id: prepare
     type: command
     script: |
-      mkdir -p .wave/output
+      mkdir -p .agents/output
       echo '{"gate_test": "pending", "created_at": "'$(date -Iseconds)'"}' \
-        > .wave/output/gate-marker.json
+        > .agents/output/gate-marker.json
       echo "Gate marker written"
     output_artifacts:
       - name: gate-marker
-        path: .wave/output/gate-marker.json
+        path: .agents/output/gate-marker.json
         type: json
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/gate-marker.json
+        source: .agents/output/gate-marker.json
         on_failure: fail
 
   - id: approval-gate
@@ -40,19 +40,19 @@ steps:
     type: command
     dependencies: [approval-gate]
     script: |
-      if [ ! -f .wave/output/gate-marker.json ]; then
+      if [ ! -f .agents/output/gate-marker.json ]; then
         echo "FAIL: gate-marker.json missing"
         exit 1
       fi
       echo '{"gate_test": "passed", "verified_at": "'$(date -Iseconds)'"}' \
-        > .wave/output/gate-result.json
+        > .agents/output/gate-result.json
       echo "Gate smoke test passed"
     output_artifacts:
       - name: gate-result
-        path: .wave/output/gate-result.json
+        path: .agents/output/gate-result.json
         type: json
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/gate-result.json
+        source: .agents/output/gate-result.json
         on_failure: fail

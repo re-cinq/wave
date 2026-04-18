@@ -30,31 +30,31 @@ hooks:
   - name: log-orchestration
     event: run_start
     type: command
-    command: "echo '[wave-orchestrate] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[wave-orchestrate] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 steps:
   - id: discover
     type: command
     script: |
-      mkdir -p .wave/output
-      echo "# Available Pipelines" > .wave/output/pipeline-catalog.md
-      echo "" >> .wave/output/pipeline-catalog.md
-      for f in .wave/pipelines/*.yaml; do
+      mkdir -p .agents/output
+      echo "# Available Pipelines" > .agents/output/pipeline-catalog.md
+      echo "" >> .agents/output/pipeline-catalog.md
+      for f in .agents/pipelines/*.yaml; do
         name=$(basename "$f" .yaml)
         # Skip smoke tests, validation, and stress test pipelines
         case "$name" in wave-smoke-*|wave-test-*|wave-validate*|wave-stress*|wave-ontology*) continue;; esac
         desc=$(grep -A3 'description:' "$f" 2>/dev/null | head -4 | sed 's/.*description: *>-\?//' | sed 's/^ *//' | tr '\n' ' ' | head -c 120)
-        echo "- **$name**: $desc" >> .wave/output/pipeline-catalog.md
+        echo "- **$name**: $desc" >> .agents/output/pipeline-catalog.md
       done
     output_artifacts:
       - name: catalog
-        path: .wave/output/pipeline-catalog.md
+        path: .agents/output/pipeline-catalog.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/pipeline-catalog.md
+        source: .agents/output/pipeline-catalog.md
         on_failure: fail
 
   - id: classify
@@ -79,7 +79,7 @@ steps:
 
         ## Available Pipelines
 
-        Read the pipeline catalog at `project/.wave/output/pipeline-catalog.md` to see
+        Read the pipeline catalog at `project/.agents/output/pipeline-catalog.md` to see
         all available pipelines with their descriptions. Pick the one that best matches
         the input task.
 
@@ -100,7 +100,7 @@ steps:
            (e.g. "audit-dead-code-scan", NOT "Code Audit Pipeline"). Copy the bold
            name from the catalog exactly as written. Any other value will fail.
 
-        5. Write ONLY valid JSON to `.wave/output/classification.json`:
+        5. Write ONLY valid JSON to `.agents/output/classification.json`:
            ```json
            {
              "domain": "<domain>",
@@ -119,7 +119,7 @@ steps:
         - The pipeline field MUST exactly match a name from the catalog.
     output_artifacts:
       - name: classification
-        path: .wave/output/classification.json
+        path: .agents/output/classification.json
         type: json
     retry:
       policy: patient
@@ -127,7 +127,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/classification.json
+        source: .agents/output/classification.json
         schema: |
           {
             "type": "object",
@@ -149,9 +149,9 @@ steps:
       # Find the classification artifact — check workspace artifact path, then project root
       CLASS_FILE=""
       for candidate in \
-        .wave/workspaces/{{ pipeline_id }}/classify/.wave/output/classification.json \
-        .wave/workspaces/{{ pipeline_id }}/classify/.wave/artifacts/classify/classification.json \
-        .wave/output/classification.json; do
+        .agents/workspaces/{{ pipeline_id }}/classify/.agents/output/classification.json \
+        .agents/workspaces/{{ pipeline_id }}/classify/.agents/artifacts/classify/classification.json \
+        .agents/output/classification.json; do
         if [ -f "$candidate" ]; then
           CLASS_FILE="$candidate"
           break
@@ -169,10 +169,10 @@ steps:
         exit 1
       fi
       # Validate pipeline exists on disk
-      if [ ! -f ".wave/pipelines/${PIPELINE}.yaml" ]; then
+      if [ ! -f ".agents/pipelines/${PIPELINE}.yaml" ]; then
         echo "ERROR: classified pipeline '$PIPELINE' not found"
         echo "Available pipelines:"
-        ls .wave/pipelines/*.yaml | sed 's|.wave/pipelines/||;s|\.yaml||' | head -20
+        ls .agents/pipelines/*.yaml | sed 's|.agents/pipelines/||;s|\.yaml||' | head -20
         exit 1
       fi
       echo "Orchestrating: pipeline=$PIPELINE"

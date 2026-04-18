@@ -28,12 +28,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -97,7 +97,7 @@ steps:
         - Do NOT exceed 20 findings. This is a smoke test, not an exhaustive audit.
 
         OUTPUT FORMAT:
-        Write your JSON output to the artifact path `.wave/output/analysis.json`.
+        Write your JSON output to the artifact path `.agents/output/analysis.json`.
         Produce the JSON report as a single valid JSON object (not an array, not wrapped
         in anything). It will be validated against the wave-smoke-test contract schema.
 
@@ -108,7 +108,7 @@ steps:
         array that would not exercise the summarize step meaningfully.
     output_artifacts:
       - name: analysis
-        path: .wave/output/analysis.json
+        path: .agents/output/analysis.json
         type: json
     retry:
       policy: patient
@@ -116,8 +116,8 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .wave/output/analysis.json
-        schema_path: .wave/contracts/wave-smoke-test.schema.json
+        source: .agents/output/analysis.json
+        schema_path: .agents/contracts/wave-smoke-test.schema.json
         on_failure: retry
 
   - id: summarize
@@ -185,10 +185,10 @@ steps:
         written without reading the artifact at all.
     output_artifacts:
       - name: summary
-        path: .wave/output/summary.md
+        path: .agents/output/summary.md
         type: markdown
     handover:
       contract:
         type: non_empty_file
-        source: .wave/output/summary.md
+        source: .agents/output/summary.md
         on_failure: retry

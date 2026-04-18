@@ -29,12 +29,12 @@ hooks:
   - name: log-start
     event: run_start
     type: command
-    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] started run={{ pipeline_id }} input={{ input }}' >> .agents/output/hook-log.txt"
     blocking: false
   - name: log-complete
     event: run_completed
     type: command
-    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .wave/output/hook-log.txt"
+    command: "echo '[{{ pipeline_name }}] completed run={{ pipeline_id }}' >> .agents/output/hook-log.txt"
     blocking: false
 
 pipeline_outputs:
@@ -105,11 +105,11 @@ steps:
         A good scan produces findings where every reported symbol has been verified with at least one cross-reference search covering /project/internal/ and /project/cmd/. Each finding includes the specific Grep pattern used and the absence of matches as evidence. A bad scan reports symbols without verification, includes obvious false positives like interface implementations or init() functions, or provides vague descriptions like "might be unused" without concrete evidence.
     output_artifacts:
       - name: findings
-        path: .wave/output/findings.json
+        path: .agents/output/findings.json
         type: json
     handover:
       contract:
         type: json_schema
-        source: .wave/output/findings.json
-        schema_path: .wave/contracts/shared-findings.schema.json
+        source: .agents/output/findings.json
+        schema_path: .agents/contracts/shared-findings.schema.json
         on_failure: skip
