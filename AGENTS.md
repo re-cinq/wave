@@ -66,8 +66,10 @@ Key source files: `internal/pipeline/executor.go`, `internal/adapter/claude.go`,
 ```
 internal/
 ├── adapter/      # Subprocess execution and adapter management
+├── attention/    # Attention budget tracking and enforcement
 ├── audit/        # Audit logging and credential scrubbing
 ├── bench/        # SWE-bench benchmarking and comparison
+├── classify/     # Issue and task classification heuristics
 ├── continuous/   # Continuous pipeline execution
 ├── contract/     # Output validation (JSON, TypeScript, test suites)
 ├── cost/         # Cost ledger, iron rule enforcement, model pricing
@@ -76,11 +78,14 @@ internal/
 ├── display/      # Terminal progress display and formatting
 ├── doctor/       # Project health checking and optimization
 ├── event/        # Progress event emission and monitoring
+├── fileutil/     # File path and filesystem helpers
 ├── forge/        # Git forge/hosting platform detection (GitHub, GitLab, Gitea, Forgejo, Codeberg, Bitbucket, local)
 ├── github/       # GitHub API integration for issue enhancement
 ├── hooks/        # Lifecycle hooks and webhook delivery runner
+├── humanize/     # Human-readable formatting helpers (durations, sizes)
 ├── manifest/     # Configuration loading and validation
 ├── onboarding/   # Interactive wave init flow (monorepo-aware, Docker compose, flavour detection)
+├── ontology/     # Ontology context loading and invariant injection
 ├── pathfmt/      # Path formatting and normalization utilities
 ├── pipeline/     # Pipeline execution, step management, model routing, decision logging
 ├── preflight/    # Pipeline dependency validation and auto-install
@@ -93,14 +98,18 @@ internal/
 ├── skill/        # Skill discovery, provisioning, and command management
 ├── state/        # SQLite persistence, webhooks, decision log, ontology usage
 ├── suggest/      # Pipeline suggestion engine
+├── testutil/     # Shared test utilities and fixtures
+├── timeouts/     # Timeout budget calculation and enforcement
+├── tools/        # Tool registry and invocation helpers
 ├── tui/          # Bubble Tea terminal UI
 ├── webui/        # Web operations dashboard (runs, pipelines, webhooks, admin, analytics)
 ├── worktree/     # Git worktree lifecycle for isolated workspaces
 └── workspace/    # Ephemeral workspace management
 
-cmd/wave/         # CLI command structure
-tests/            # Test coverage
-.agents/            # Default personas, pipelines, contracts
+cmd/wave/main.go    # CLI entry point
+cmd/wave/commands/  # Cobra subcommand implementations
+tests/              # Test coverage
+.agents/            # Runtime artifacts: personas, pipelines, contracts, workspaces, traces, state DB
 ```
 
 ## Active Adapters
@@ -201,6 +210,8 @@ When acting as the **core orchestrator** (the Claude instance steering Wave pipe
 | Dead code | `audit-dead-code` | Detect and report unused code |
 | Code simplification | `impl-recinq` | Divergent-convergent code simplification (Double Diamond) |
 | SWE-bench benchmark | `bench-solve` | Solve a single SWE-bench task (used by `wave bench run`) |
+
+> **Note**: The table above lists the most common orchestration choices. For the full authoritative list of installed pipelines (including `doc-*`, `plan-adr`, `plan-task`, `test-gen`, `audit-architecture|correctness|coverage|tests|duplicates|ux`, `impl-refactor|improve|feature|prototype`, and the `wave-smoke-*` family), run `wave list pipelines`.
 
 ### PR Review-Then-Merge Protocol
 
