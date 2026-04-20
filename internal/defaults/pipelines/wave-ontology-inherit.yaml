@@ -22,6 +22,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "verify ontology inherit-all"
 
 steps:

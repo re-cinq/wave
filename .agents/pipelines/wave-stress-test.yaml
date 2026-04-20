@@ -12,6 +12,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "test failure handling"
 
 chat_context:

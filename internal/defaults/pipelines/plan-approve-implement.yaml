@@ -12,6 +12,7 @@ metadata:
 
 input:
   source: argument
+  type: string
   schema:
     type: string
     description: "Description of the feature or change to implement"
@@ -31,6 +32,7 @@ pipeline_outputs:
   plan:
     step: plan
     artifact: plan
+    type: plan_ref
 
 steps:
   - id: plan

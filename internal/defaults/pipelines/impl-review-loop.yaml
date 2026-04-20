@@ -12,6 +12,7 @@ metadata:
 
 input:
   source: cli
+  type: issue_ref
   example: "https://github.com/owner/repo/issues/42"
 
 chat_context:
@@ -30,6 +31,7 @@ pipeline_outputs:
   verdict:
     step: review-fix
     artifact: verdict
+    type: findings_report
 
 skills:
   - "{{ project.skill }}"

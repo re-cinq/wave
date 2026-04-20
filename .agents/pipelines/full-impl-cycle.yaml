@@ -22,6 +22,7 @@ requires:
 
 input:
   source: cli
+  type: issue_ref
   schema:
     type: string
     description: "GitHub repository and issue number"
@@ -49,6 +50,7 @@ pipeline_outputs:
   pr:
     step: create-pr
     artifact: pr-result
+    type: pr_ref
 
 steps:
   # ─── Phase 1: Implementation ───────────────────────────────────────────

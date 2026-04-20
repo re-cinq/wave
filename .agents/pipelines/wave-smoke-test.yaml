@@ -10,6 +10,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "verify contract validation works"
 
 chat_context:
@@ -28,6 +29,7 @@ pipeline_outputs:
   summary:
     step: summarize
     artifact: summary
+    type: findings_report
 
 steps:
   - id: analyze

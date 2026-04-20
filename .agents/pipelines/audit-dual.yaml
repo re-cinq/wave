@@ -30,6 +30,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "analyze the authentication module"
 
 chat_context:
@@ -47,6 +48,7 @@ pipeline_outputs:
   report:
     step: merge
     artifact: report
+    type: findings_report
 
 steps:
   # ── Track A: Code Quality ──────────────────────────────────────────

@@ -9,6 +9,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "verify git forensics commands work"
 
 chat_context:

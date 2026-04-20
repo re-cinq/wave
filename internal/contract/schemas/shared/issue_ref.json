@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "wave://shared/issue_ref",
+  "title": "IssueRef",
+  "description": "Canonical reference to an issue on a git forge. Used as the lingua franca between pipelines that fetch, decompose, implement, or verify issues.",
+  "type": "object",
+  "required": ["forge", "owner", "repo", "number"],
+  "properties": {
+    "forge": {
+      "type": "string",
+      "description": "Forge type: github, gitlab, gitea, forgejo, bitbucket, local",
+      "enum": ["github", "gitlab", "gitea", "forgejo", "bitbucket", "local"]
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Owner (user or organization)."
+    },
+    "repo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Repository name."
+    },
+    "number": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Issue number."
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Full URL to the issue (optional convenience field)."
+    },
+    "title": {
+      "type": "string",
+      "description": "Issue title (optional)."
+    }
+  },
+  "additionalProperties": false
+}

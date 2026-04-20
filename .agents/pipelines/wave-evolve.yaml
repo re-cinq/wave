@@ -16,6 +16,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "analyze last 5 pipeline runs and improve prompts that had retries"
   schema:
     type: string
@@ -37,6 +38,7 @@ pipeline_outputs:
   result:
     step: verify
     artifact: verification
+    type: findings_report
 
 steps:
   - id: analyze

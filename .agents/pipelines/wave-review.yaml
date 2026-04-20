@@ -19,6 +19,7 @@ requires:
 
 input:
   source: cli
+  type: issue_ref
   example: "#42 — review the PR for the new contract validator"
   schema:
     type: string
@@ -39,6 +40,7 @@ pipeline_outputs:
   review:
     step: review
     artifact: review
+    type: findings_report
 
 steps:
   - id: review

@@ -18,6 +18,7 @@ requires:
 
 input:
   source: cli
+  type: issue_ref
   example: "re-cinq/wave 42 or https://github.com/re-cinq/wave/issues/42"
   schema:
     type: string
@@ -38,6 +39,7 @@ pipeline_outputs:
   result:
     step: apply-enhancements
     artifact: enhancement_results
+    type: findings_report
 
 steps:
   - id: scan-and-score

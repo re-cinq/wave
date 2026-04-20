@@ -21,6 +21,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "verify ontology empty contexts"
 
 steps:

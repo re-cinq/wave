@@ -15,6 +15,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "fix onboarding wizard bugs — personas missing from manifest, model at wrong level"
 
 chat_context:
@@ -33,6 +34,7 @@ pipeline_outputs:
   pr:
     step: ship
     artifact: ship-result
+    type: pr_ref
 
 steps:
   - id: commit

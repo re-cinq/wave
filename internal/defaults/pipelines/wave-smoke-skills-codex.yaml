@@ -15,6 +15,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "verify codex skills provisioning"
 
 steps:
