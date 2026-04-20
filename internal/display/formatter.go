@@ -280,64 +280,6 @@ func (f *Formatter) FormatDuration(durationMs int64) string {
 	return fmt.Sprintf("%dh %dm", hours, minutes)
 }
 
-// FormatETA formats estimated time remaining.
-func (f *Formatter) FormatETA(etaMs int64) string {
-	if etaMs <= 0 {
-		return "calculating..."
-	}
-	duration := f.FormatDuration(etaMs)
-	return fmt.Sprintf("ETA: %s", duration)
-}
-
-// FormatTimestamp formats a Unix timestamp to human-readable form.
-func (f *Formatter) FormatTimestamp(timestamp int64) string {
-	t := time.Unix(timestamp, 0)
-	return t.Format("15:04:05")
-}
-
-// State Formatting
-
-// FormatState returns a formatted state string with appropriate colors.
-func (f *Formatter) FormatState(state ProgressState) string {
-	tcc := NewTerminalColorContext()
-	return tcc.FormatState(state)
-}
-
-// GetStateIcon returns an appropriate icon for the given state.
-func (f *Formatter) GetStateIcon(state ProgressState) string {
-	tcc := NewTerminalColorContext()
-	return tcc.GetStateIcon(state)
-}
-
-// Size Formatting
-
-// FormatBytes formats a byte count to human-readable form.
-func (f *Formatter) FormatBytes(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-
-	units := []string{"KB", "MB", "GB", "TB", "PB"}
-	return fmt.Sprintf("%.1f %s", float64(bytes)/float64(div), units[exp])
-}
-
-// Token Formatting
-
-// FormatTokens formats a token count to human-readable form.
-func (f *Formatter) FormatTokens(tokens int) string {
-	if tokens < 1000 {
-		return fmt.Sprintf("%d tokens", tokens)
-	}
-	return fmt.Sprintf("%.1fk tokens", float64(tokens)/1000.0)
-}
-
 // Table Formatting
 
 // TableRow formats a row with columns of specific widths.
