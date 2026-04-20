@@ -14,6 +14,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "add a --dry-run flag to the run command"
 
 chat_context:
@@ -33,6 +34,7 @@ pipeline_outputs:
   pr:
     step: publish
     artifact: pr-result
+    type: pr_ref
 
 steps:
   - id: explore

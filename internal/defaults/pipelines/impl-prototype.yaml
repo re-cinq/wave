@@ -11,6 +11,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "build a REST API for user management with CRUD operations"
 
 chat_context:
@@ -30,6 +31,7 @@ pipeline_outputs:
   pr:
     step: pr-create
     artifact: pr-info
+    type: pr_ref
 
 steps:
   # Phase 1: Spec - Requirements capture with speckit integration

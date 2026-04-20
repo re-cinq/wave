@@ -14,6 +14,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "improve error handling in internal/pipeline"
 
 chat_context:
@@ -32,6 +33,7 @@ pipeline_outputs:
   result:
     step: verify
     artifact: verification
+    type: findings_report
 
 steps:
   - id: assess

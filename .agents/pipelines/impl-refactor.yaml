@@ -15,6 +15,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "extract workspace manager from executor into its own package"
 
 chat_context:
@@ -33,6 +34,7 @@ pipeline_outputs:
   result:
     step: verify
     artifact: verification
+    type: findings_report
 
 steps:
   - id: analyze
