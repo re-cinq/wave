@@ -3,15 +3,19 @@ package onboarding
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/huh"
+	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/tui"
 )
 
 // OntologyStep prompts for the project's telos and bounded context names.
 // This is the "first touch" ontology kernel scaffolded during onboarding.
+//
+// The step compiles unconditionally — feature gating happens at the
+// ontology Service layer. If the user supplies neither telos nor contexts
+// the step records Skipped and no git hook is installed.
 type OntologyStep struct{}
 
 // Name returns the display name for this wizard step.
@@ -57,10 +61,9 @@ func (s *OntologyStep) Run(cfg *WizardConfig) (*StepResult, error) {
 		}
 	}
 
-	// Parse contexts from comma-separated input
 	contexts := parseContextNames(contextsRaw)
 
-	// If telos is empty, skip ontology entirely (optional step)
+	// If telos is empty and no contexts, skip (optional step)
 	if strings.TrimSpace(telos) == "" && len(contexts) == 0 {
 		if cfg.Interactive {
 			fmt.Fprintf(os.Stderr, "  Skipping ontology — run 'wave analyze' later to generate it.\n\n")
@@ -71,8 +74,9 @@ func (s *OntologyStep) Run(cfg *WizardConfig) (*StepResult, error) {
 		}, nil
 	}
 
-	// Install git post-merge hook for ontology staleness detection
-	if err := installOntologyStalenessHook(); err != nil && cfg.Interactive {
+	// Install git post-merge hook via the ontology package — it owns the
+	// sentinel path and hook body convention.
+	if err := ontology.InstallStalenessHookAt(".git/hooks"); err != nil && cfg.Interactive {
 		fmt.Fprintf(os.Stderr, "  Note: could not install git post-merge hook: %v\n", err)
 	}
 
@@ -82,33 +86,6 @@ func (s *OntologyStep) Run(cfg *WizardConfig) (*StepResult, error) {
 			"contexts": contexts,
 		},
 	}, nil
-}
-
-// installOntologyStalenessHook installs a git post-merge hook that touches
-// .agents/.ontology-stale so the executor can warn about stale ontology.
-func installOntologyStalenessHook() error {
-	hookDir := ".git/hooks"
-	if _, err := os.Stat(hookDir); err != nil {
-		return fmt.Errorf("not a git repository")
-	}
-
-	hookPath := filepath.Join(hookDir, "post-merge")
-	marker := "# wave-ontology-staleness"
-
-	// Check if hook already exists
-	if data, err := os.ReadFile(hookPath); err == nil {
-		content := string(data)
-		if strings.Contains(content, marker) {
-			return nil // already installed
-		}
-		// Append to existing hook
-		snippet := "\n" + marker + "\ntouch .agents/.ontology-stale 2>/dev/null\n"
-		return os.WriteFile(hookPath, []byte(content+snippet), 0o755)
-	}
-
-	// Create new hook
-	hook := "#!/bin/sh\n" + marker + "\ntouch .agents/.ontology-stale 2>/dev/null\n"
-	return os.WriteFile(hookPath, []byte(hook), 0o755)
 }
 
 // parseContextNames splits a comma-separated string into trimmed, non-empty context names.

@@ -23,6 +23,7 @@ import (
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/hooks"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/retro"
@@ -119,6 +120,11 @@ type DefaultPipelineExecutor struct {
 	webhookRunner *hooks.WebhookRunner
 	// Task-level complexity from classifier (empty = no task-aware routing)
 	taskComplexity string
+	// Ontology service — bounded-context injection, staleness, lineage.
+	// Always non-nil: defaults to ontology.NoOp when not explicitly set so
+	// call sites can invoke methods unconditionally. Wired via
+	// WithOntologyService or auto-constructed in Execute from the manifest.
+	ontology ontology.Service
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -237,6 +243,14 @@ func WithRetroGenerator(g *retro.Generator) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.retroGenerator = g }
 }
 
+// WithOntologyService injects a pre-constructed ontology Service. When not
+// set, Execute auto-constructs one from the manifest via
+// ontology.EnabledFromManifest — wiring the store, emitter, and audit sink
+// from this executor.
+func WithOntologyService(svc ontology.Service) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.ontology = svc }
+}
+
 // WithRegistry sets the adapter registry for per-step adapter resolution.
 func WithRegistry(r *adapter.AdapterRegistry) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.registry = r }
@@ -311,6 +325,7 @@ func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOp
 		runner:             runner,
 		pipelines:          make(map[string]*PipelineExecution),
 		deliverableTracker: deliverable.NewTracker(""),
+		ontology:           ontology.NoOp{},
 	}
 	for _, opt := range opts {
 		opt(ex)
@@ -360,6 +375,7 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		autoApprove:            e.autoApprove,
 		gateHandler:            e.gateHandler,
 		retroGenerator:         e.retroGenerator,
+		ontology:               e.ontology,
 	}
 }
 
@@ -637,16 +653,33 @@ func (e *DefaultPipelineExecutor) initPipelineExecution(
 ) (*PipelineExecution, context.Context, context.CancelFunc) {
 	pipelineID := setup.pipelineID
 
-	// Ontology staleness check: warn if ontology is older than latest commit
-	if m.Ontology != nil && len(m.Ontology.Contexts) > 0 {
-		if msg := e.checkOntologyStaleness(); msg != "" {
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				State:      "warning",
-				Message:    msg,
-			})
+	// Auto-wire the ontology service if the caller did not inject one. The
+	// real Service is active iff the manifest declares at least one
+	// ontology context; otherwise the NoOp keeps call sites cheap.
+	if _, isNoop := e.ontology.(ontology.NoOp); isNoop {
+		var auditSink ontology.AuditSink
+		if e.logger != nil {
+			auditSink = e.logger
 		}
+		e.ontology = ontology.New(
+			ontology.Config{Enabled: ontology.EnabledFromManifest(m)},
+			ontology.Deps{
+				Manifest:  m,
+				Store:     e.store,
+				Emitter:   e.emitter,
+				AuditSink: auditSink,
+			},
+		)
+	}
+
+	// Ontology staleness check: warn if ontology is older than latest commit.
+	if msg := e.ontology.CheckStaleness(); msg != "" {
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			State:      "warning",
+			Message:    msg,
+		})
 	}
 
 	// Start cancellation poller for cross-process cancel support.
@@ -1913,7 +1946,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					State:      event.StateSkipped,
 					Message:    fmt.Sprintf("step skipped after %d failed attempts: %s", maxAttempts, err.Error()),
 				})
-				e.recordOntologyUsage(execution, step, "skipped")
+				e.recordStepOntologyUsage(execution, step, "skipped")
 				return nil
 
 			case OnFailureContinue:
@@ -1930,7 +1963,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					State:      event.StateFailed,
 					Message:    fmt.Sprintf("step failed after %d attempts but pipeline continues: %s", maxAttempts, err.Error()),
 				})
-				e.recordOntologyUsage(execution, step, "failed")
+				e.recordStepOntologyUsage(execution, step, "failed")
 				return nil
 
 			case OnFailureRework:
@@ -1955,7 +1988,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					e.hookRunner.RunHooks(ctx, stepFailedEvt)
 				}
 				e.fireWebhooks(ctx, stepFailedEvt)
-				e.recordOntologyUsage(execution, step, "failed")
+				e.recordStepOntologyUsage(execution, step, "failed")
 				return lastErr
 			}
 		}
@@ -2018,7 +2051,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		e.processStepOutcomes(execution, step)
 
 		// Record ontology usage for decision lineage tracking
-		e.recordOntologyUsage(execution, step, "success")
+		e.recordStepOntologyUsage(execution, step, "success")
 
 		return nil
 	}
@@ -2026,42 +2059,17 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 	return lastErr
 }
 
-// checkOntologyStaleness returns a warning message if the ontology may be out of date.
-// Two signals: (1) .agents/.ontology-stale sentinel exists (set by git post-merge hook),
-// (2) wave.yaml is older than the most recent git commit.
-func (e *DefaultPipelineExecutor) checkOntologyStaleness() string {
-	// Check sentinel file first (cheapest — single stat call)
-	if _, err := os.Stat(".agents/.ontology-stale"); err == nil {
-		// Remove sentinel so warning fires once per merge, not every run
-		_ = os.Remove(".agents/.ontology-stale")
-		return "ontology may be stale (post-merge changes detected) — run 'wave analyze' to refresh"
+// recordStepOntologyUsage is a thin adapter that projects the pipeline.Step
+// and PipelineExecution into the primitives the ontology.Service expects.
+// It keeps executor.go decoupled from the Service's call shape so future
+// Step/Execution refactors don't force ontology API changes.
+func (e *DefaultPipelineExecutor) recordStepOntologyUsage(execution *PipelineExecution, step *Step, stepStatus string) {
+	if e.ontology == nil {
+		return
 	}
-
-	// Compare wave.yaml mtime against last commit that touched ontology-relevant files.
-	// Using ANY commit causes false positives when unrelated files are committed.
-	manifestStat, err := os.Stat("wave.yaml")
-	if err != nil {
-		return ""
-	}
-
-	out, err := exec.Command("git", "log", "-1", "--format=%cI", "--", "wave.yaml", "internal/defaults/pipelines/", "internal/defaults/personas/").Output()
-	if err != nil || len(strings.TrimSpace(string(out))) == 0 {
-		return ""
-	}
-	lastCommit, err := time.Parse(time.RFC3339, strings.TrimSpace(string(out)))
-	if err != nil {
-		return ""
-	}
-
-	if lastCommit.After(manifestStat.ModTime()) {
-		return "ontology may be stale (wave.yaml older than latest commit) — run 'wave analyze' to refresh"
-	}
-	return ""
+	hasContract := step.Handover.Contract.Type != ""
+	e.ontology.RecordUsage(execution.Status.ID, step.ID, step.Contexts, hasContract, stepStatus)
 }
-
-// recordOntologyUsage and buildOntologySection are defined in
-// ontology_enabled.go (with "ontology" build tag) and
-// ontology_disabled.go (without it).
 
 // executeReworkStep handles on_failure=rework: marks the failed step, builds failure context,
 // executes the rework target step, and re-registers its artifacts under the original step's ID.
@@ -3276,8 +3284,9 @@ func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, exec
 		prompt = prompt + "\n\n" + contractPrompt
 	}
 
-	// Build ontology section from manifest for AGENTS.md injection (requires ontology build tag)
-	ontologySection := e.buildOntologySection(execution, step, pipelineID)
+	// Build ontology section from manifest for AGENTS.md injection.
+	// NoOp service returns "" when the feature is disabled.
+	ontologySection := e.ontology.BuildStepSection(pipelineID, step.ID, step.Contexts)
 
 	cfg := adapter.AdapterRunConfig{
 		Adapter:             res.resolvedAdapterName,

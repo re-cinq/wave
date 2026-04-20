@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -64,8 +65,8 @@ func (p *DefaultOntologyDataProvider) FetchOntology() (*OntologyOverview, error)
 	overview.Telos = o.Telos
 	overview.Conventions = o.Conventions
 
-	// Check staleness sentinel
-	if _, err := os.Stat(filepath.Join(".agents", ".ontology-stale")); err == nil {
+	// Check staleness sentinel (ownership lives in internal/ontology)
+	if ontology.IsStaleInDir(".agents") {
 		overview.Stale = true
 	}
 
