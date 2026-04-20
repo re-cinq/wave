@@ -17,6 +17,7 @@ skills:
 
 input:
   source: cli
+  type: pr_ref
   example: "https://github.com/re-cinq/wave/pull/42"
 
 chat_context:
@@ -35,6 +36,7 @@ pipeline_outputs:
   report:
     step: publish
     artifact: publish-result
+    type: findings_report
 
 steps:
   - id: scan

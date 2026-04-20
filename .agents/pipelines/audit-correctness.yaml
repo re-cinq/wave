@@ -13,6 +13,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "audit correctness of the authentication module implementation"
 
 chat_context:
@@ -31,6 +32,7 @@ pipeline_outputs:
   report:
     step: report
     artifact: report
+    type: findings_report
 
 steps:
   - id: scan

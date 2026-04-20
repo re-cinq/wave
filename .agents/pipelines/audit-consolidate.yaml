@@ -14,6 +14,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "internal/pipeline — check for redundant patterns"
   schema:
     type: string
@@ -34,6 +35,7 @@ pipeline_outputs:
   findings:
     step: scan
     artifact: findings
+    type: findings_report
 
 steps:
   - id: scan

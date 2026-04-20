@@ -12,6 +12,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "internal/"
 
 chat_context:
@@ -29,6 +30,7 @@ pipeline_outputs:
   findings:
     step: scan
     artifact: findings
+    type: findings_report
 
 steps:
   - id: scan
