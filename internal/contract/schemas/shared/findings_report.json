@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "wave://shared/findings_report",
+  "title": "FindingsReport",
+  "description": "Canonical shape for audit-style findings. Replaces the 11+ divergent schemas currently in use across audit-* pipelines.",
+  "type": "object",
+  "required": ["items"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "message"],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["info", "low", "medium", "high", "critical"]
+          },
+          "file": {
+            "type": "string",
+            "description": "Repo-relative path to the file where the finding was observed."
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fix_suggestion": {
+            "type": "string",
+            "description": "Optional human-readable suggested fix."
+          },
+          "category": {
+            "type": "string",
+            "description": "Optional category tag (e.g. security, dx, dead-code)."
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "summary": {
+      "type": "string",
+      "description": "Optional free-text summary."
+    }
+  },
+  "additionalProperties": true
+}

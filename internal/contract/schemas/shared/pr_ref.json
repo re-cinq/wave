@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "wave://shared/pr_ref",
+  "title": "PRRef",
+  "description": "Canonical reference to a pull/merge request on a git forge. Produced by pipelines that create a PR and consumed by review / merge pipelines.",
+  "type": "object",
+  "required": ["forge", "owner", "repo", "number", "branch"],
+  "properties": {
+    "forge": {
+      "type": "string",
+      "enum": ["github", "gitlab", "gitea", "forgejo", "bitbucket", "local"],
+      "description": "Forge type."
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repo": {
+      "type": "string",
+      "minLength": 1
+    },
+    "number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Full URL to the pull/merge request."
+    },
+    "branch": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Head branch name."
+    },
+    "head_sha": {
+      "type": "string",
+      "description": "Commit SHA at the head of the branch (optional)."
+    },
+    "title": {
+      "type": "string"
+    },
+    "issue_number": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Optional linked issue number."
+    }
+  },
+  "additionalProperties": false
+}
