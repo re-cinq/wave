@@ -12,10 +12,11 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "re-cinq/wave 42"
   schema:
     type: string
-    description: "GitHub epic reference (owner/repo number)"
+    description: "GitHub epic reference (owner/repo number). Parsed by the scope sub-pipeline."
 
 chat_context:
   artifact_summaries:
@@ -36,12 +37,16 @@ pipeline_outputs:
 steps:
   - id: scope
     pipeline: plan-scope
+    # Legacy string input is fine: plan-scope declares input.type: string.
     input: "{{input}}"
 
   - id: implement-all
     dependencies: [scope]
-    pipeline: impl-speckit
-    input: "{{item.url}} — child of {{input}}, see parent for full context"
+    pipeline: impl-issue
+    # Typed wiring: iterate binds each element of scope's child_issues
+    # (element type = issue_ref) as {{item}}, and impl-issue declares
+    # input.type: issue_ref. See docs/adr/010-pipeline-io-protocol.md.
     iterate:
       over: "{{scope.output.child_issues}}"
       mode: sequential
+    input: "{{item.owner}}/{{item.repo}} {{item.number}}"
