@@ -33,6 +33,7 @@ pipeline_outputs:
   scope:
     step: scope
     artifact: scope
+    type: scope_result
 
 steps:
   - id: scope

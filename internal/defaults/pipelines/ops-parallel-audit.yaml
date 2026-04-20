@@ -30,6 +30,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "internal/pipeline"
   schema:
     type: string
@@ -50,6 +51,7 @@ pipeline_outputs:
   report:
     step: report
     artifact: audit-report
+    type: findings_report
 
 steps:
   # ── Step 1: fan out over the three audit types in parallel ────────────────

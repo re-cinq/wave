@@ -34,6 +34,7 @@ requires:
 
 input:
   source: cli
+  type: pr_ref
   schema:
     type: string
     description: "Pull request URL"
@@ -43,6 +44,7 @@ pipeline_outputs:
   result:
     step: reply-comments
     artifact: resolution-summary
+    type: findings_report
 
 steps:
   - id: fetch-review

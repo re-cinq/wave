@@ -35,15 +35,18 @@ requires:
 
 input:
   source: cli
+  type: pr_ref
   example: "https://github.com/owner/repo/pull/42"
 
 pipeline_outputs:
   verdict:
     step: summary
     artifact: verdict
+    type: findings_report
   diff:
     step: diff-analysis
     artifact: diff
+    type: findings_report
 
 steps:
   - id: diff-analysis
