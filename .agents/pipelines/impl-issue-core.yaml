@@ -23,9 +23,11 @@ pipeline_outputs:
   assessment:
     step: fetch-assess
     artifact: assessment
+    type: findings_report
   plan:
     step: plan
     artifact: impl-plan
+    type: pr_ref
 
 skills:
   - "{{ project.skill }}"
@@ -38,6 +40,7 @@ requires:
 
 input:
   source: cli
+  type: issue_ref
   schema:
     type: string
     description: "GitHub repository and issue number"

@@ -14,6 +14,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "fix panic in pipeline executor when step has nil context"
 
 chat_context:
@@ -29,6 +30,7 @@ pipeline_outputs:
   verdict:
     step: verify
     artifact: verdict
+    type: findings_report
 
 steps:
   - id: investigate

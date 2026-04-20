@@ -11,6 +11,7 @@ metadata:
 
 input:
   source: cli
+  type: issue_ref
   example: "https://github.com/re-cinq/wave/issues/123"
 
 chat_context:
@@ -25,6 +26,7 @@ pipeline_outputs:
   classification:
     step: classify
     artifact: classification
+    type: findings_report
 
 steps:
   - id: discover

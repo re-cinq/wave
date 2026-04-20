@@ -9,6 +9,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "verify hooks fire correctly"
 
 chat_context:

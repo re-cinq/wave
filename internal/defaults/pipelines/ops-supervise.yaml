@@ -12,6 +12,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "review the last pipeline run for quality and process issues"
 
 chat_context:
@@ -30,6 +31,7 @@ pipeline_outputs:
   verdict:
     step: verdict
     artifact: verdict
+    type: findings_report
 
 steps:
   - id: gather

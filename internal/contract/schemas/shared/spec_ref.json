@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "wave://shared/spec_ref",
+  "title": "SpecRef",
+  "description": "Reference to a specification document (speckit-style spec.md or similar).",
+  "type": "object",
+  "required": ["path"],
+  "properties": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Repo-relative path to the spec file."
+    },
+    "title": {
+      "type": "string",
+      "description": "Human-readable spec title."
+    },
+    "feature_id": {
+      "type": "string",
+      "description": "Stable feature identifier (e.g. speckit feature ID)."
+    }
+  },
+  "additionalProperties": false
+}

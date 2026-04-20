@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "wave://shared/branch_ref",
+  "title": "BranchRef",
+  "description": "Reference to a git branch.",
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Branch name."
+    },
+    "base": {
+      "type": "string",
+      "description": "Base branch the head diverged from (optional)."
+    },
+    "head_sha": {
+      "type": "string",
+      "description": "Commit SHA at the head of the branch (optional)."
+    }
+  },
+  "additionalProperties": false
+}

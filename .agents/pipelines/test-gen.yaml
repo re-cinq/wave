@@ -14,6 +14,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "generate tests for internal/pipeline to improve coverage"
 
 chat_context:
@@ -30,6 +31,7 @@ pipeline_outputs:
   result:
     step: verify-coverage
     artifact: verification
+    type: findings_report
 
 steps:
   - id: analyze-coverage

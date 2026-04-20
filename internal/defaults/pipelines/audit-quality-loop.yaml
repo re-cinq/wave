@@ -15,6 +15,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "last pipeline run"
   schema:
     type: string
@@ -35,6 +36,7 @@ pipeline_outputs:
   quality-check:
     step: quality-check
     artifact: verdict
+    type: findings_report
 
 steps:
   - id: quality-check

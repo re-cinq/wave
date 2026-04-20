@@ -34,15 +34,17 @@ requires:
 
 input:
   source: cli
+  type: issue_ref
   schema:
     type: string
-    description: "GitHub repository and issue number"
+    description: "GitHub repository and issue number (accepts typed issue_ref or 'owner/repo number' text)"
   example: "re-cinq/wave 42"
 
 pipeline_outputs:
   pr:
     step: create-pr
     artifact: pr-result
+    type: pr_ref
 
 steps:
   - id: fetch-assess

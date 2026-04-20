@@ -18,6 +18,7 @@ requires:
 
 input:
   source: cli
+  type: string
   example: "last 30 days -- audit recent closed work"
   schema:
     type: string
@@ -38,6 +39,7 @@ pipeline_outputs:
   report:
     step: triage
     artifact: triage-report
+    type: findings_report
 
 steps:
   - id: inventory

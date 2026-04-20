@@ -12,6 +12,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "v1.0.0"
   schema:
     type: string
@@ -32,6 +33,7 @@ pipeline_outputs:
   scan:
     step: scan
     artifact: report
+    type: findings_report
 
 steps:
   - id: scan

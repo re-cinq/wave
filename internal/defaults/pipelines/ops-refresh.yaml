@@ -19,6 +19,7 @@ requires:
 
 input:
   source: cli
+  type: issue_ref
   example: "re-cinq/wave 45 -- acceptance criteria are outdated after the worktree refactor"
   schema:
     type: string
@@ -39,6 +40,7 @@ pipeline_outputs:
   result:
     step: apply-update
     artifact: update_result
+    type: issue_ref
 
 steps:
   - id: gather-context

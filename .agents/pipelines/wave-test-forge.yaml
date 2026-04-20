@@ -13,6 +13,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "full forge validation"
 
 chat_context:
@@ -31,6 +32,7 @@ pipeline_outputs:
   report:
     step: synthesize
     artifact: forge-report
+    type: findings_report
 
 steps:
   # Step 1: Detect forge and verify template variables resolve

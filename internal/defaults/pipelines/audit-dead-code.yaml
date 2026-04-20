@@ -16,6 +16,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "find and remove dead code in internal/pipeline"
 
 chat_context:
@@ -35,9 +36,11 @@ pipeline_outputs:
   pr:
     step: create-pr
     artifact: pr-result
+    type: findings_report
   findings:
     step: scan
     artifact: findings
+    type: findings_report
 
 steps:
   - id: scan

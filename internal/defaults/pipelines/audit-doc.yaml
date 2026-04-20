@@ -14,6 +14,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "full -- scan all documentation for inconsistencies with the codebase"
   schema:
     type: string
@@ -35,6 +36,7 @@ pipeline_outputs:
   findings:
     step: publish
     artifact: issue-result
+    type: findings_report
 
 steps:
   - id: scan-changes

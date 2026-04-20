@@ -19,6 +19,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "scan all packages for dead code and report findings"
 
 chat_context:
@@ -37,6 +38,7 @@ pipeline_outputs:
   findings:
     step: create-issue
     artifact: issue-result
+    type: findings_report
 
 steps:
   - id: scan
