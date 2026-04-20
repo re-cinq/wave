@@ -19,6 +19,7 @@ requires:
 
 input:
   source: cli
+  type: issue_ref
   example: "re-cinq/wave 42"
   schema:
     type: string
@@ -40,6 +41,7 @@ pipeline_outputs:
   result:
     step: post-comment
     artifact: comment-result
+    type: plan_ref
 
 steps:
   - id: fetch-issue

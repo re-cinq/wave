@@ -40,6 +40,7 @@ pipeline_outputs:
   report:
     step: verify-report
     artifact: scope_report
+    type: string
   scope:
     step: scope-and-create
     artifact: scope_plan

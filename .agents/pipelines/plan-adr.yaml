@@ -14,6 +14,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "ADR: should we use SQLite or PostgreSQL for pipeline state?"
 
 chat_context:
@@ -32,6 +33,7 @@ pipeline_outputs:
   pr:
     step: publish
     artifact: pr-result
+    type: plan_ref
 
 steps:
   - id: explore-context
