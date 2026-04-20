@@ -16,9 +16,12 @@ type AuditLogger interface {
 	LogStepStartWithAdapter(pipelineID, stepID, persona, adapter, model string, injectedArtifacts []string) error
 	LogStepEnd(pipelineID, stepID, status string, duration time.Duration, exitCode int, outputBytes int, tokensUsed int, errMsg string) error
 	LogContractResult(pipelineID, stepID, contractType, result string) error
-	LogOntologyInject(pipelineID, stepID string, contexts []string, invariantCount int) error
-	LogOntologyLineage(pipelineID, stepID, contextName, stepStatus string, invariantCount int) error
-	LogOntologyWarn(pipelineID, stepID string, undefinedContexts []string) error
+	// LogEvent writes a generic trace line in the form
+	//   <timestamp> [KIND] <body>
+	// Used by bounded-context services (e.g. ontology) that want to
+	// participate in the audit trail without adding domain-specific methods
+	// to this interface.
+	LogEvent(kind, body string) error
 	Close() error
 }
 
@@ -133,26 +136,14 @@ func (l *TraceLogger) LogContractResult(pipelineID, stepID, contractType, result
 	return err
 }
 
-func (l *TraceLogger) LogOntologyInject(pipelineID, stepID string, contexts []string, invariantCount int) error {
+// LogEvent writes a generic trace line used by bounded-context services
+// (e.g. internal/ontology) that do not own a dedicated method on this type.
+// The body is expected to already be formatted as "key=value key=value ..."
+// or similar; it is emitted verbatim after scrubbing credentials.
+func (l *TraceLogger) LogEvent(kind, body string) error {
 	timestamp := time.Now().Format(time.RFC3339Nano)
-	line := fmt.Sprintf("%s [ONTOLOGY_INJECT] pipeline=%s step=%s contexts=[%s] invariants=%d\n",
-		timestamp, pipelineID, stepID, strings.Join(contexts, ","), invariantCount)
-	_, err := l.file.WriteString(line)
-	return err
-}
-
-func (l *TraceLogger) LogOntologyLineage(pipelineID, stepID, contextName, stepStatus string, invariantCount int) error {
-	timestamp := time.Now().Format(time.RFC3339Nano)
-	line := fmt.Sprintf("%s [ONTOLOGY_LINEAGE] pipeline=%s step=%s context=%s status=%s invariants=%d\n",
-		timestamp, pipelineID, stepID, contextName, stepStatus, invariantCount)
-	_, err := l.file.WriteString(line)
-	return err
-}
-
-func (l *TraceLogger) LogOntologyWarn(pipelineID, stepID string, undefinedContexts []string) error {
-	timestamp := time.Now().Format(time.RFC3339Nano)
-	line := fmt.Sprintf("%s [ONTOLOGY_WARN] pipeline=%s step=%s undefined_contexts=[%s]\n",
-		timestamp, pipelineID, stepID, strings.Join(undefinedContexts, ","))
+	scrubbed := l.scrub(body)
+	line := timestamp + " [" + kind + "] " + scrubbed + "\n"
 	_, err := l.file.WriteString(line)
 	return err
 }
