@@ -543,7 +543,30 @@ func (c *CompositionExecutor) runSubPipeline(ctx context.Context, name, input st
 }
 
 // resolveStepInput resolves the input template for a step.
+//
+// Resolution order:
+//  1. step.InputRef.From      ("<step_id>.<output_name>") — looked up in
+//     the template context's StepOutputs; resolves to the raw JSON value.
+//  2. step.InputRef.Literal   (template string)
+//  3. step.SubInput           (legacy string template)
+//  4. parent input (c.tmplCtx.Input)
 func (c *CompositionExecutor) resolveStepInput(step *Step) (string, error) {
+	if step.InputRef != nil {
+		if step.InputRef.From != "" {
+			srcStep, _, ok := splitDot(step.InputRef.From)
+			if !ok {
+				return "", fmt.Errorf("step %q: input_ref.from %q must be '<step>.<output>'", step.ID, step.InputRef.From)
+			}
+			raw, has := c.tmplCtx.StepOutputs[srcStep]
+			if !has {
+				return "", fmt.Errorf("step %q: input_ref.from references step %q which has no recorded output", step.ID, srcStep)
+			}
+			return string(raw), nil
+		}
+		if step.InputRef.Literal != "" {
+			return ResolveTemplate(step.InputRef.Literal, c.tmplCtx)
+		}
+	}
 	if step.SubInput != "" {
 		return ResolveTemplate(step.SubInput, c.tmplCtx)
 	}
