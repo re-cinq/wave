@@ -15,6 +15,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "verify gemini skills provisioning"
 
 steps:

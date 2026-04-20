@@ -15,6 +15,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "pipeline executor panics when step has nil workspace config"
   schema:
     type: string

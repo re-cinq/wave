@@ -24,6 +24,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "verify claude skills provisioning"
 
 steps:

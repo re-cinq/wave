@@ -36,6 +36,7 @@ metadata:
 
 input:
   source: cli
+  type: issue_ref
   example: "https://github.com/re-cinq/wave/issues/655"
 
 chat_context:
@@ -55,6 +56,7 @@ pipeline_outputs:
   issues:
     step: create-issues
     artifact: created-issues
+    type: findings_report
 
 steps:
   # ── Phase 1: Fan out 6 audit pipelines in parallel ──────────────────────

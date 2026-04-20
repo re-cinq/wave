@@ -15,6 +15,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "harden tests in internal/pipeline and internal/contract"
   schema:
     type: string

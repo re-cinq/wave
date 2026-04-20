@@ -19,6 +19,7 @@ requires:
 
 input:
   source: cli
+  type: string
   example: "last 30 days -- audit only recent work"
   schema:
     type: string
@@ -41,6 +42,7 @@ pipeline_outputs:
   report:
     step: publish
     artifact: publish-result
+    type: findings_report
 
 steps:
   - id: collect-inventory
