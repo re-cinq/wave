@@ -10,6 +10,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   schema:
     type: string
     description: "Problem statement describing the bug or feature to implement"
@@ -28,6 +29,7 @@ pipeline_outputs:
   solution:
     step: solve
     artifact: solve
+    type: findings_report
 
 steps:
   - id: solve
