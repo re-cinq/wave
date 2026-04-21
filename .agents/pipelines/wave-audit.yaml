@@ -276,7 +276,7 @@ steps:
   - id: compose-triage
     persona: navigator
     thread: audit
-    model: strongest
+    model: balanced
     dependencies: [audit-items]
     memory:
       inject_artifacts:
