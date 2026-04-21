@@ -8,6 +8,8 @@ metadata:
     clarity, contract accuracy, retry policies, and execution traces to identify
     where steps retry or produce inconsistent output. Use this to iteratively
     improve Wave's pipeline infrastructure without modifying Go source code.
+    (prerelease: stabilizing self-evolution seam; flip release to true once a
+    full evolve run completes end-to-end without rework.)
   release: false
 
 skills:
@@ -38,7 +40,7 @@ pipeline_outputs:
   result:
     step: verify
     artifact: verification
-    type: findings_report
+    type: markdown
 
 steps:
   - id: analyze
@@ -98,15 +100,22 @@ steps:
              the agent to produce? Are there required fields that agents consistently
              struggle to populate? Are there optional fields that should be required?
            - Cross-reference with actual step prompts to find mismatches.
-        5. Analyze execution patterns if traces are available (`.agents/traces/`):
+        5. Analyze execution patterns if traces are available (`.agents/traces/` and
+           `.agents/logs/`). These directories are included in the `./` mount but may
+           be absent on fresh checkouts — if missing, skip this section rather than
+           fabricating data:
            - Which steps retry most often? What causes the retries (contract failure,
              timeout, error)?
            - Which contracts fail most? Is it a schema mismatch or agent output quality?
            - Which prompts produce inconsistent output across runs?
         6. Produce a prioritized list of improvements:
            - Each improvement must have: id (IMP-###), category (one of: error_handling,
-             performance, testability, robustness, maintainability, code_quality),
-             location (file path), title, description (what to change),
+             performance, testability, robustness, maintainability, code_quality,
+             prompt_clarity, contract_alignment, permission_scope, retry_policy; prefer
+             the Wave-domain ones when the finding is about pipeline/contract/persona
+             design rather than Go source behavior),
+             location (file path, optionally with :line; for pipeline steps use
+             'file.yaml (step: step-id)'), title, description (what to change),
              impact (high/medium/low), risk (none/low/medium/high), effort (trivial/small/medium/large)
            - Sort by impact descending, then by effort ascending (high-impact, low-effort
              improvements first)
@@ -191,8 +200,10 @@ steps:
               - For JSON schema files: ensure the file parses as valid JSON. Verify
                 that $schema, type, properties, and required fields are consistent.
               - For persona files: ensure role, description, and permissions are present.
-           d. Run `wave validate` after each change to verify configuration integrity.
-              If validation fails, revert the change and move to the next improvement.
+           d. After applying all selected improvements, run `cd /project && wave validate`.
+              If it fails, revert the most recent change and re-run until validate passes
+              or no improvements remain. (Single-shot validation matches the handover
+              contract, which runs once at step completion.)
         3. Make one improvement at a time. Do not batch multiple changes before validation.
            This ensures that if a change breaks something, you know exactly which change
            caused it.
@@ -217,9 +228,21 @@ steps:
           revert and skip that improvement.
 
         OUTPUT FORMAT:
-        The output is the modified .agents/ files. The handover contract validates by running
-        `wave validate`. No explicit artifact is produced beyond the file changes and the
-        validation passing.
+        Write a JSON log to .agents/output/evolution-log.json describing the outcome
+        of each improvement considered. The file must be a JSON object with this shape:
+          {
+            "entries": [
+              {
+                "improvement_id": "IMP-001",
+                "status": "applied",            // one of: applied | skipped | reverted
+                "target_file": ".agents/pipelines/wave-evolve.yaml",
+                "reason": "Short why: e.g. 'low risk, validated'."
+              }
+            ],
+            "summary": { "applied": 0, "skipped": 0, "reverted": 0 }
+          }
+        In addition, the modified .agents/ files are the substantive output. The handover
+        contract validates by running `wave validate`.
 
         QUALITY BAR:
         A good evolution run applies several high-impact improvements that measurably
@@ -237,7 +260,7 @@ steps:
     handover:
       contract:
         type: test_suite
-        command: "wave validate"
+        command: "cd /project && wave validate"
         must_pass: true
         on_failure: retry
 
@@ -245,6 +268,11 @@ steps:
     persona: reviewer
     model: strongest
     dependencies: [evolve, analyze]
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
     memory:
       inject_artifacts:
         - step: analyze
@@ -319,13 +347,16 @@ steps:
       - name: verification
         path: .agents/output/verification.md
         type: markdown
+    retry:
+      policy: standard
+      max_attempts: 2
     handover:
       contract:
         type: agent_review
         persona: navigator
         criteria_path: .agents/contracts/verification-criteria.md
         source: .agents/output/verification.md
-        model: cheapest
-        token_budget: 8000
+        model: balanced
+        token_budget: 16000
         timeout: 90s
         on_failure: rework
