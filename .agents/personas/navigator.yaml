@@ -15,5 +15,9 @@ permissions:
     - "Bash(grep*)"
   deny:
     - "Edit(*)"
+    - "Write(**/*.go)"
+    - "Write(**/*_test.go)"
+    - "Write(internal/**)"
+    - "Write(cmd/**)"
     - "Bash(git commit*)"
     - "Bash(git push*)"
