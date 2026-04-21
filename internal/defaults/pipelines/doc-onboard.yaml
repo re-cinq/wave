@@ -160,7 +160,7 @@ steps:
 
   - id: guide
     persona: philosopher
-    model: strongest
+    model: balanced
     dependencies: [survey]
     memory:
       inject_artifacts:
