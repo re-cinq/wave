@@ -37,7 +37,7 @@ pipeline_outputs:
 steps:
   - id: assess
     persona: navigator
-    model: strongest
+    model: balanced
     workspace:
       mount:
         - source: ./
@@ -134,7 +134,7 @@ steps:
   - id: scaffold
     persona: craftsman
     thread: bootstrap
-    model: strongest
+    model: balanced
     dependencies: [assess]
     memory:
       inject_artifacts:
@@ -272,7 +272,7 @@ steps:
         project's actual structure.
     retry:
       policy: standard
-      max_attempts: 2
+      max_attempts: 3
     handover:
       contract:
         type: test_suite
@@ -284,7 +284,7 @@ steps:
     persona: craftsman
     thread: bootstrap
     model: cheapest
-    dependencies: [scaffold]
+    dependencies: [scaffold, assess]
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"

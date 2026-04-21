@@ -37,7 +37,7 @@ pipeline_outputs:
 steps:
   - id: assess
     persona: navigator
-    model: strongest
+    model: balanced
     workspace:
       mount:
         - source: ./
@@ -134,7 +134,7 @@ steps:
   - id: scaffold
     persona: craftsman
     thread: bootstrap
-    model: strongest
+    model: balanced
     dependencies: [assess]
     memory:
       inject_artifacts:

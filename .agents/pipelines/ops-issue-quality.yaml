@@ -178,7 +178,7 @@ steps:
 
   - id: enhance
     persona: "{{ forge.type }}-commenter"
-    model: strongest
+    model: balanced
     dependencies: [scan]
     memory:
       inject_artifacts:
