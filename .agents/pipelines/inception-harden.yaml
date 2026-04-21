@@ -1,0 +1,68 @@
+kind: WavePipeline
+metadata:
+  name: inception-harden
+  description: >-
+    Self-referential hardening stack for Wave itself. Chains
+    wave-security-audit, wave-test-hardening, and wave-audit so a single run
+    produces a threat-model findings report, a coverage-tightening pass, and
+    a zero-trust fidelity audit. Use quarterly or before a release to refresh
+    Wave's own quality posture.
+  category: composition
+  release: false
+
+skills:
+  - wave
+  - software-design
+
+input:
+  source: cli
+  type: string
+  example: "internal/pipeline internal/contract"
+  schema:
+    type: string
+    description: "Area to focus the hardening stack on. Empty string means full project."
+
+chat_context:
+  artifact_summaries:
+    - security
+    - coverage
+    - audit
+  suggested_questions:
+    - "What security findings need immediate attention?"
+    - "Did the test hardening close the identified gaps?"
+    - "Are there regressions from the fidelity audit?"
+  focus_areas:
+    - "Security posture of Wave itself"
+    - "Test coverage delta"
+    - "Implementation-fidelity regressions"
+
+pipeline_outputs:
+  security:
+    step: security
+    artifact: security-report
+    type: findings_report
+  coverage:
+    step: harden
+    artifact: coverage-analysis
+    type: findings_report
+  audit:
+    step: audit
+    artifact: publish-result
+    type: findings_report
+
+steps:
+  - id: security
+    pipeline: wave-security-audit
+    input: "{{input}}"
+
+  # Run hardening sequentially after security so the test suite reflects any
+  # security-motivated code changes before the fidelity audit inspects it.
+  - id: harden
+    pipeline: wave-test-hardening
+    dependencies: [security]
+    input: "{{input}}"
+
+  - id: audit
+    pipeline: wave-audit
+    dependencies: [harden]
+    input: "{{input}}"

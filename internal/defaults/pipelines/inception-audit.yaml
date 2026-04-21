@@ -1,0 +1,129 @@
+kind: WavePipeline
+metadata:
+  name: inception-audit
+  description: >-
+    Composition wrapper that fans out architecture, tests, duplicates, and
+    doc-scan audits in parallel, aggregates their findings_report outputs
+    into one unified list, and routes the aggregate through a reviewer
+    persona for severity triage. Use when you want a single, prioritized
+    codebase health snapshot without running each audit individually.
+  category: composition
+  release: true
+
+skills:
+  - software-design
+
+input:
+  source: cli
+  type: string
+  example: "internal/"
+  schema:
+    type: string
+    description: "Scope hint — a package path, directory, or free-form description passed to each audit sub-pipeline."
+
+chat_context:
+  artifact_summaries:
+    - triage
+  suggested_questions:
+    - "What is the top tier of findings across all audits?"
+    - "Which findings should block release?"
+    - "Are the audits flagging real issues or noise?"
+  focus_areas:
+    - "Unified severity triage across four audit lenses"
+    - "Prioritized remediation plan"
+
+pipeline_outputs:
+  triage:
+    step: triage
+    artifact: triage
+    type: findings_report
+
+steps:
+  # Fan-out: each item is the name of an existing audit pipeline.
+  # All four pipelines declare input.type: string and produce a
+  # findings_report-typed output — typed wiring is checked at load time.
+  - id: run-audits
+    pipeline: "{{ item }}"
+    input: "{{ input }}"
+    iterate:
+      over: '["audit-architecture", "audit-tests", "audit-duplicates", "audit-doc-scan"]'
+      mode: parallel
+      max_concurrent: 4
+
+  # Aggregate: merge every audit's findings array into one flat list.
+  - id: merge
+    dependencies: [run-audits]
+    aggregate:
+      from: "{{ run-audits.output }}"
+      into: .agents/output/merged-findings.json
+      strategy: merge_arrays
+
+  # Reviewer handoff: a second pair of eyes classifies each finding by
+  # real-world impact and filters false positives before humans read it.
+  - id: triage
+    persona: reviewer
+    model: balanced
+    dependencies: [merge]
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    memory:
+      inject_artifacts:
+        - step: merge
+          artifact: merged-findings
+          as: merged_findings
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Triage the aggregated findings from four parallel audits (architecture,
+        tests, duplicates, doc-scan) into a single prioritized document. Separate
+        must-fix items from nice-to-haves; eliminate cross-audit duplicates that
+        describe the same underlying issue from different angles.
+
+        ## Context
+
+        The `merged_findings` artifact is the concatenation of every audit's
+        findings array. Each finding carries its originating audit source, a
+        severity, a file reference, and a description. Duplicates are common
+        when, for example, the architecture audit flags an unused package that
+        the dead-code audit already reported.
+
+        ## Requirements
+
+        1. Deduplicate: collapse findings that reference the same file and
+           describe the same root cause, preferring the most specific wording.
+        2. Reclassify: promote findings that chain across multiple audits
+           (e.g. an architecture violation also tagged by the tests audit)
+           to a higher tier because the signal is corroborated.
+        3. Produce output matching the contract schema (findings_report).
+           Group into three tiers: block-release, fix-this-sprint, backlog.
+
+        ## Constraints
+
+        - Do not invent new findings. Every output item must trace back to at
+          least one input finding.
+        - Do not silently drop findings; mark dropped duplicates with a short
+          note explaining which other finding supersedes them.
+
+        ## Quality Bar
+
+        A good triage lets a lead decide the next sprint in five minutes. A
+        bad triage just re-emits the merged list without deduplication or
+        priority shifts.
+    output_artifacts:
+      - name: triage
+        path: .agents/output/triage.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .agents/output/triage.json
+        schema_path: .agents/contracts/shared-findings.schema.json
+        on_failure: retry

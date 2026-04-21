@@ -1,0 +1,63 @@
+kind: WavePipeline
+metadata:
+  name: inception-bugfix
+  description: >-
+    Audit-driven bugfix flow. Runs audit-security as a read-only scan, picks
+    the top finding, drives impl-issue-core against a matching issue, then
+    routes the resulting branch through ops-pr-review-core. Use when a
+    security scan finds a concrete issue and the fix should land inside the
+    same pipeline run without a human hand-off.
+  category: composition
+  release: false
+
+skills:
+  - software-design
+  - gh-cli
+
+requires:
+  tools:
+    - gh
+
+input:
+  source: cli
+  type: issue_ref
+  example: "re-cinq/wave 608"
+  schema:
+    type: string
+    description: "GitHub issue reference that tracks a confirmed bug. The scan output narrows the fix scope."
+
+chat_context:
+  artifact_summaries:
+    - scan
+  suggested_questions:
+    - "What was the root cause identified by the scan?"
+    - "Did the fix pass the PR review?"
+  focus_areas:
+    - "Scan-driven narrowing of the fix"
+    - "Review verdict"
+
+pipeline_outputs:
+  scan:
+    step: scan
+    artifact: report
+    type: findings_report
+
+steps:
+  # Stage 1: security scan for the given scope.
+  - id: scan
+    pipeline: audit-security
+    input: "{{input}}"
+
+  # Stage 2: drive the core implementation against the issue. impl-issue-core
+  # skips PR creation so we can control the review loop below.
+  - id: fix
+    pipeline: impl-issue-core
+    dependencies: [scan]
+    input: "{{input}}"
+
+  # Stage 3: core PR review over the resulting branch. Outputs a
+  # findings_report-typed verdict the operator can act on.
+  - id: review
+    pipeline: ops-pr-review-core
+    dependencies: [fix]
+    input: "{{input}}"
