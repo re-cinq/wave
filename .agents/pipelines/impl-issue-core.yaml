@@ -109,7 +109,7 @@ steps:
           model: cheapest
           token_budget: 6000
           timeout: 90s
-          on_failure: retry
+          on_failure: rework
 
   - id: implement
     persona: craftsman
