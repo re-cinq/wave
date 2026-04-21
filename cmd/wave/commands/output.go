@@ -13,7 +13,31 @@ import (
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
+
+// ShouldSuppressOutput reports whether non-essential output (e.g., farewell
+// line) should be suppressed for the given command invocation. Suppression
+// applies when --quiet/--json is set, --output is quiet/json, stdout is not
+// a TTY, or TERM=dumb.
+func ShouldSuppressOutput(cmd *cobra.Command) bool {
+	root := cmd.Root()
+	flags := root.PersistentFlags()
+
+	if q, _ := flags.GetBool("quiet"); q {
+		return true
+	}
+	if j, _ := flags.GetBool("json"); j {
+		return true
+	}
+	if outputVal, _ := flags.GetString("output"); outputVal == OutputFormatQuiet || outputVal == OutputFormatJSON {
+		return true
+	}
+	if os.Getenv("TERM") == "dumb" {
+		return true
+	}
+	return !term.IsTerminal(int(os.Stdout.Fd()))
+}
 
 // Output format constants
 const (

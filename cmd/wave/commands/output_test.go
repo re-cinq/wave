@@ -347,3 +347,41 @@ func TestResolveFormat_OutputTextMapsToTable(t *testing.T) {
 	result := ResolveFormat(root, "json")
 	assert.Equal(t, "table", result)
 }
+
+func newSuppressTestCmd() *cobra.Command {
+	root := &cobra.Command{Use: "wave"}
+	root.PersistentFlags().Bool("json", false, "")
+	root.PersistentFlags().BoolP("quiet", "q", false, "")
+	root.PersistentFlags().StringP("output", "o", "auto", "")
+	return root
+}
+
+func TestShouldSuppressOutput_QuietFlag(t *testing.T) {
+	root := newSuppressTestCmd()
+	require.NoError(t, root.PersistentFlags().Set("quiet", "true"))
+	assert.True(t, ShouldSuppressOutput(root))
+}
+
+func TestShouldSuppressOutput_JSONFlag(t *testing.T) {
+	root := newSuppressTestCmd()
+	require.NoError(t, root.PersistentFlags().Set("json", "true"))
+	assert.True(t, ShouldSuppressOutput(root))
+}
+
+func TestShouldSuppressOutput_OutputQuiet(t *testing.T) {
+	root := newSuppressTestCmd()
+	require.NoError(t, root.PersistentFlags().Set("output", "quiet"))
+	assert.True(t, ShouldSuppressOutput(root))
+}
+
+func TestShouldSuppressOutput_NonTTY(t *testing.T) {
+	// Test run under `go test` => stdout is not a TTY => should suppress.
+	root := newSuppressTestCmd()
+	assert.True(t, ShouldSuppressOutput(root))
+}
+
+func TestShouldSuppressOutput_TermDumb(t *testing.T) {
+	t.Setenv("TERM", "dumb")
+	root := newSuppressTestCmd()
+	assert.True(t, ShouldSuppressOutput(root))
+}
