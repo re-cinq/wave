@@ -27,7 +27,7 @@ pipeline_outputs:
   plan:
     step: plan
     artifact: impl-plan
-    type: pr_ref
+    type: plan_ref
 
 skills:
   - "{{ project.skill }}"
@@ -74,7 +74,7 @@ steps:
 
   - id: plan
     persona: implementer
-    model: strongest
+    model: balanced
     dependencies: [fetch-assess]
     memory:
       inject_artifacts:
@@ -96,16 +96,24 @@ steps:
       policy: standard
       max_attempts: 2
     handover:
-      contract:
-        type: json_schema
-        source: .agents/output/impl-plan.json
-        schema_path: .agents/contracts/issue-impl-plan.schema.json
-        must_pass: true
-        on_failure: retry
+      contracts:
+        - type: json_schema
+          source: .agents/output/impl-plan.json
+          schema_path: .agents/contracts/issue-impl-plan.schema.json
+          must_pass: true
+          on_failure: retry
+        - type: agent_review
+          persona: reviewer
+          criteria_path: .agents/contracts/plan-review-criteria.md
+          source: .agents/output/impl-plan.json
+          model: cheapest
+          token_budget: 6000
+          timeout: 90s
+          on_failure: retry
 
   - id: implement
     persona: craftsman
-    model: strongest
+    model: balanced
     contexts: [execution, delivery]
     thread: impl
     dependencies: [plan]

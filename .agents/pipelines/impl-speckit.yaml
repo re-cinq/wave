@@ -108,7 +108,7 @@ steps:
   - id: plan
     persona: implementer
     thread: speckit
-    model: strongest
+    model: balanced
     dependencies: [clarify, specify]
     memory:
       inject_artifacts:
@@ -139,7 +139,7 @@ steps:
   - id: tasks
     persona: implementer
     thread: speckit
-    model: strongest
+    model: balanced
     dependencies: [plan, specify]
     memory:
       inject_artifacts:
@@ -231,7 +231,7 @@ steps:
 
   - id: implement
     persona: craftsman
-    model: strongest
+    model: balanced
     dependencies: [analyze, specify]
     max_concurrent_agents: 3
     memory:
