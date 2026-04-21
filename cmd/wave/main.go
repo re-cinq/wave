@@ -9,6 +9,7 @@ import (
 
 	"github.com/recinq/wave/cmd/wave/commands"
 	"github.com/recinq/wave/internal/doctor"
+	"github.com/recinq/wave/internal/farewell"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/suggest"
@@ -54,6 +55,10 @@ var rootCmd = &cobra.Command{
 		}
 
 		return nil
+	},
+	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+		suppress := commands.ShouldSuppressOutput(cmd)
+		return farewell.WriteFarewell(os.Stdout, os.Getenv("USER"), suppress)
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if shouldLaunchTUI(cmd) {
