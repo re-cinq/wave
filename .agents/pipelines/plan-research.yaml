@@ -329,7 +329,7 @@ steps:
 
   - id: synthesize-report
     persona: summarizer
-    model: strongest
+    model: balanced
     dependencies: [research-topics]
     memory:
       inject_artifacts:
