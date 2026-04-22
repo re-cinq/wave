@@ -14,10 +14,11 @@ import (
 )
 
 type ValidateOptions struct {
-	ManifestPath string
-	Pipeline     string
-	All          bool
-	Verbose      bool
+	ManifestPath    string
+	Pipeline        string
+	All             bool
+	Verbose         bool
+	PromptToolsWarn bool // Downgrade prompt/tool permission mismatches to warnings.
 }
 
 func NewValidateCmd() *cobra.Command {
@@ -37,6 +38,8 @@ Checks manifest syntax, references, and system dependencies.`,
 	cmd.Flags().StringVar(&opts.ManifestPath, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().StringVar(&opts.Pipeline, "pipeline", "", "Specific pipeline to validate")
 	cmd.Flags().BoolVar(&opts.All, "all", false, "Validate all pipelines in .agents/pipelines/")
+	cmd.Flags().BoolVar(&opts.PromptToolsWarn, "prompt-tools-warn", false,
+		"Downgrade prompt/tool permission mismatches to warnings (honours WAVE_PROMPT_TOOLS_WARN env)")
 
 	return cmd
 }
@@ -114,6 +117,8 @@ func runValidate(opts ValidateOptions) error {
 	// Detect forge for template resolution
 	forgeInfo, _ := forge.DetectFromGitRemotes()
 
+	warnPromptTools := promptToolWarnEnabled(opts)
+
 	if opts.All {
 		pipelineDir := filepath.Join(filepath.Dir(opts.ManifestPath), ".agents", "pipelines")
 		entries, err := os.ReadDir(pipelineDir)
@@ -121,17 +126,35 @@ func runValidate(opts ValidateOptions) error {
 			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to read pipeline directory: %s", err), "Run 'wave init' to create pipeline directory").WithCause(err)
 		}
 		var allErrs []string
+		var allPromptFindings []promptToolFinding
 		for _, entry := range entries {
 			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
 				continue
 			}
 			name := strings.TrimSuffix(entry.Name(), ".yaml")
-			if errs := validatePipelineFull(name, &m, forgeInfo); len(errs) > 0 {
-				for _, e := range errs {
+			structErrs, findings := validatePipelineWithPromptTools(name, &m, forgeInfo)
+			if len(structErrs) > 0 {
+				for _, e := range structErrs {
 					allErrs = append(allErrs, fmt.Sprintf("%s: %s", name, e))
 				}
-			} else if opts.Verbose {
+			} else if opts.Verbose && len(findings) == 0 {
 				fmt.Printf("✓ Pipeline '%s' is valid\n", name)
+			}
+			allPromptFindings = append(allPromptFindings, findings...)
+		}
+		if len(allPromptFindings) > 0 {
+			label := "✗ Pipeline prompt/tool mismatches:"
+			if warnPromptTools {
+				label = "⚠ Pipeline prompt/tool mismatches (warning mode):"
+			}
+			fmt.Println(label)
+			for _, f := range allPromptFindings {
+				fmt.Printf("  - %s\n", f)
+			}
+			if !warnPromptTools {
+				return NewCLIError(CodeValidationFailed,
+					fmt.Sprintf("%d prompt/tool mismatch(es) found across pipelines", len(allPromptFindings)),
+					"Either grant the persona the missing tool, change the prompt, or re-run with --prompt-tools-warn to downgrade to warnings")
 			}
 		}
 		if len(allErrs) > 0 {
@@ -142,20 +165,58 @@ func runValidate(opts ValidateOptions) error {
 			return NewCLIError(CodeValidationFailed, fmt.Sprintf("%d pipeline issue(s) found", len(allErrs)), "Fix the issues listed above and re-run 'wave validate --all'")
 		}
 	} else if opts.Pipeline != "" {
-		if errs := validatePipelineFull(opts.Pipeline, &m, forgeInfo); len(errs) > 0 {
+		structErrs, findings := validatePipelineWithPromptTools(opts.Pipeline, &m, forgeInfo)
+		if len(findings) > 0 {
+			label := "✗ Pipeline '%s' prompt/tool mismatches:\n"
+			if warnPromptTools {
+				label = "⚠ Pipeline '%s' prompt/tool mismatches (warning mode):\n"
+			}
+			fmt.Printf(label, opts.Pipeline)
+			for _, f := range findings {
+				fmt.Printf("  - %s\n", f)
+			}
+			if !warnPromptTools {
+				return NewCLIError(CodeValidationFailed,
+					fmt.Sprintf("pipeline '%s' has %d prompt/tool mismatch(es)", opts.Pipeline, len(findings)),
+					"Either grant the persona the missing tool, change the prompt, or re-run with --prompt-tools-warn to downgrade to warnings")
+			}
+		}
+		if len(structErrs) > 0 {
 			fmt.Printf("✗ Pipeline '%s' validation failed:\n", opts.Pipeline)
-			for _, e := range errs {
+			for _, e := range structErrs {
 				fmt.Printf("  - %s\n", e)
 			}
-			return NewCLIError(CodeValidationFailed, fmt.Sprintf("pipeline '%s' validation failed: %s", opts.Pipeline, strings.Join(errs, "; ")), "Fix the pipeline definition and re-run validation")
+			return NewCLIError(CodeValidationFailed, fmt.Sprintf("pipeline '%s' validation failed: %s", opts.Pipeline, strings.Join(structErrs, "; ")), "Fix the pipeline definition and re-run validation")
 		}
-		if opts.Verbose {
+		if opts.Verbose && len(findings) == 0 {
 			fmt.Printf("✓ Pipeline '%s' is valid\n", opts.Pipeline)
 		}
 	}
 
 	fmt.Printf("✓ Validation successful\n")
 	return nil
+}
+
+// validatePipelineWithPromptTools runs both the structural pipeline validator
+// and the prompt/tool permission check in a single pipeline file read. It
+// returns the structural error list (which is fatal) and the prompt/tool
+// findings (which the caller renders separately, optionally as warnings).
+func validatePipelineWithPromptTools(pipelineName string, m *manifest.Manifest, fi forge.ForgeInfo) ([]string, []promptToolFinding) {
+	structErrs := validatePipelineFull(pipelineName, m, fi)
+	pipelinePath := filepath.Join(".agents", "pipelines", pipelineName+".yaml")
+	pipelineData, err := os.ReadFile(pipelinePath)
+	if err != nil {
+		// Structural validator already reports the read failure; nothing to scan.
+		return structErrs, nil
+	}
+	loader := &pipeline.YAMLPipelineLoader{}
+	pParsed, err := loader.Unmarshal(pipelineData)
+	if err != nil {
+		// Same — YAML errors surfaced by the structural pass.
+		return structErrs, nil
+	}
+	findings := validatePromptToolPermissions(pipelineName, pParsed, m)
+	return structErrs, findings
 }
 
 func validateManifestStructure(m *manifest.Manifest) []string {
