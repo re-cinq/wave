@@ -64,7 +64,7 @@ steps:
     pipeline: "{{ item }}"
     input: "{{ input }}"
     iterate:
-      over: '["audit-dead-code-scan", "audit-unwired", "audit-duplicates", "audit-doc-scan"]'
+      over: '["audit-dead-code-scan", "audit-duplicates", "audit-doc-scan", "audit-architecture"]'
       mode: parallel
       max_concurrent: 4
 
