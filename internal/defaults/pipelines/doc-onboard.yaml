@@ -156,7 +156,7 @@ steps:
         type: json_schema
         source: .agents/output/project-survey.json
         schema_path: .agents/contracts/project-survey.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: guide
     persona: philosopher

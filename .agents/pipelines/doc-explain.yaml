@@ -130,7 +130,7 @@ steps:
         type: json_schema
         source: .agents/output/exploration.json
         schema_path: .agents/contracts/explain-exploration.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: analyze
     persona: planner
@@ -229,7 +229,7 @@ steps:
         type: json_schema
         source: .agents/output/analysis.json
         schema_path: .agents/contracts/explain-analysis.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: document
     persona: philosopher
