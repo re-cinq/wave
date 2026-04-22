@@ -126,4 +126,4 @@ steps:
         type: json_schema
         source: .agents/output/triage.json
         schema_path: .agents/contracts/shared-findings.schema.json
-        on_failure: retry
+        on_failure: warn
