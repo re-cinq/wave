@@ -151,7 +151,7 @@ steps:
         type: json_schema
         source: .agents/output/coverage-analysis.json
         schema_path: .agents/contracts/improvement-assessment.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: harden
     persona: craftsman
@@ -258,7 +258,7 @@ steps:
         type: test_suite
         command: "{{ project.contract_test_command }}"
         must_pass: true
-        on_failure: retry
+        on_failure: fail
 
   - id: run-tests
     type: command

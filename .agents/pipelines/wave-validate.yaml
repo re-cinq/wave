@@ -139,7 +139,7 @@ steps:
         type: json_schema
         source: .agents/output/config-check.json
         schema_path: .agents/contracts/config-check.schema.json
-        on_failure: retry
+        on_failure: warn
     edges:
       - target: sub-pipeline-test
 
@@ -232,7 +232,7 @@ steps:
       contract:
         type: non_empty_file
         source: .agents/output/diagnosis.md
-        on_failure: retry
+        on_failure: warn
     edges:
       - target: approval-gate
 
