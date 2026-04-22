@@ -1,0 +1,64 @@
+kind: WavePipeline
+metadata:
+  name: local-file-explain
+  description: >-
+    Read a single source file and produce a plain-text summary of its purpose,
+    public surface, and notable patterns. Designed for fast iteration on local
+    Ollama-backed adapters where prompts must stay narrow and outputs must be
+    plain text rather than structured JSON.
+  release: false
+
+input:
+  source: cli
+  example: "internal/ontology/service.go"
+  schema:
+    type: string
+    description: "Path to a single source file to explain"
+
+pipeline_outputs:
+  summary:
+    step: explain
+    artifact: summary
+
+steps:
+  - id: explain
+    persona: implementer
+    model: cheapest
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Read the file: {{ input }}
+
+        Write a Markdown summary to `summary.md` in the workspace root with these sections:
+
+        # {{ input }}
+
+        ## Purpose
+        One paragraph: what this file is for.
+
+        ## Public Surface
+        Bulleted list of exported types, functions, constants. One line each.
+
+        ## Notable Patterns
+        Brief notes on anything interesting: concurrency, error handling, dependencies,
+        invariants, weird tricks. Skip if unremarkable.
+
+        Keep the whole file under 50 lines. Be specific. No fluff.
+        Use the Write tool. Do not create any other files.
+    output_artifacts:
+      - name: summary
+        path: summary.md
+        type: text
+    handover:
+      contract:
+        type: non_empty_file
+        source: summary.md
+        on_failure: fail
+    retry:
+      policy: standard
+      max_attempts: 2
