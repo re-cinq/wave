@@ -42,6 +42,12 @@ func (l *YAMLPipelineLoader) Unmarshal(data []byte) (*Pipeline, error) {
 		return nil, err
 	}
 
+	// Collect Wave Lego Protocol (ADR-011) load-time warnings. These are
+	// non-fatal deprecation notices the executor emits at preflight. Hard
+	// enforcement lands in a later PR once shipped pipelines have been
+	// migrated.
+	pipeline.Warnings = append(pipeline.Warnings, CollectWLPLoadWarnings(&pipeline)...)
+
 	return &pipeline, nil
 }
 

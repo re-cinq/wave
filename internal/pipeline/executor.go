@@ -449,6 +449,24 @@ func (e *DefaultPipelineExecutor) validatePipelineAndCreateContext(p *Pipeline, 
 		return nil, fmt.Errorf("thread validation failed:\n  %s", strings.Join(msgs, "\n  "))
 	}
 
+	// Emit Wave Lego Protocol (ADR-011) load-time warnings collected by the
+	// YAML loader, plus any DAG validator warnings (fidelity, mixed-persona
+	// threads). These are non-fatal deprecation / style notices.
+	for _, w := range p.Warnings {
+		e.emit(event.Event{
+			Timestamp: time.Now(),
+			State:     "warning",
+			Message:   w,
+		})
+	}
+	for _, w := range validator.Warnings {
+		e.emit(event.Event{
+			Timestamp: time.Now(),
+			State:     "warning",
+			Message:   w,
+		})
+	}
+
 	sortedSteps, err := validator.TopologicalSort(p)
 	if err != nil {
 		return nil, fmt.Errorf("failed to topologically sort steps: %w", err)

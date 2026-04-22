@@ -233,3 +233,123 @@ func TestResolveStepInput_LegacyStringFallback(t *testing.T) {
 		t.Errorf("legacy fallback = %q, want %q", got, "legacy-input")
 	}
 }
+
+// --- Wave Lego Protocol (ADR-011) load-time checks ---
+
+func TestCollectWLPLoadWarnings_RetryOnContract(t *testing.T) {
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "bad-retry"},
+		Steps: []Step{{
+			ID: "s1",
+			Handover: HandoverConfig{
+				Contract: ContractConfig{
+					Type:      "json_schema",
+					OnFailure: OnFailureRetry,
+				},
+			},
+		}},
+	}
+	warnings := CollectWLPLoadWarnings(p)
+	if len(warnings) == 0 {
+		t.Fatal("expected a warning for on_failure=retry on contract, got none")
+	}
+	joined := strings.Join(warnings, "\n")
+	if !strings.Contains(joined, "retry") || !strings.Contains(joined, "ADR-011") {
+		t.Errorf("expected ADR-011 retry warning, got: %s", joined)
+	}
+}
+
+func TestCollectWLPLoadWarnings_RetryOnContractsList(t *testing.T) {
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "bad-retry-list"},
+		Steps: []Step{{
+			ID: "s1",
+			Handover: HandoverConfig{
+				Contracts: []ContractConfig{
+					{Type: "json_schema", OnFailure: OnFailureFail},
+					{Type: "agent_review", OnFailure: OnFailureRetry}, // flagged
+				},
+			},
+		}},
+	}
+	warnings := CollectWLPLoadWarnings(p)
+	if len(warnings) != 1 {
+		t.Fatalf("expected 1 warning for retry-in-list, got %d: %v", len(warnings), warnings)
+	}
+	if !strings.Contains(warnings[0], "contract[1]") || !strings.Contains(warnings[0], "agent_review") {
+		t.Errorf("expected contract[1] agent_review flagged, got: %s", warnings[0])
+	}
+}
+
+func TestCollectWLPLoadWarnings_PipelineOutputMissingType(t *testing.T) {
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "missing-type"},
+		PipelineOutputs: map[string]PipelineOutput{
+			"pr":     {Step: "s1", Artifact: "pr-result"}, // no type -> warn
+			"report": {Step: "s1", Artifact: "rep", Type: "findings_report"},
+		},
+		Steps: []Step{{ID: "s1"}},
+	}
+	warnings := CollectWLPLoadWarnings(p)
+	if len(warnings) != 1 {
+		t.Fatalf("expected exactly 1 warning, got %d: %v", len(warnings), warnings)
+	}
+	if !strings.Contains(warnings[0], `"pr"`) || !strings.Contains(warnings[0], "ADR-011") {
+		t.Errorf("expected warning to mention output 'pr' and ADR-011, got: %s", warnings[0])
+	}
+}
+
+func TestCollectWLPLoadWarnings_Clean(t *testing.T) {
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "clean"},
+		Input:    InputConfig{Source: "cli", Type: "issue_ref"},
+		PipelineOutputs: map[string]PipelineOutput{
+			"pr": {Step: "s1", Artifact: "pr-result", Type: "pr_ref"},
+		},
+		Steps: []Step{{
+			ID: "s1",
+			Handover: HandoverConfig{
+				Contract: ContractConfig{Type: "json_schema", OnFailure: OnFailureFail},
+			},
+		}},
+	}
+	if warnings := CollectWLPLoadWarnings(p); len(warnings) > 0 {
+		t.Errorf("expected no warnings on clean pipeline, got %d: %v", len(warnings), warnings)
+	}
+}
+
+// Loader wiring: Warnings on the returned Pipeline should be populated by
+// Unmarshal, not require a separate call.
+func TestYAMLPipelineLoader_PopulatesWLPWarnings(t *testing.T) {
+	data := []byte(`kind: WavePipeline
+metadata:
+  name: loader-warn
+input:
+  source: cli
+pipeline_outputs:
+  report:
+    step: s1
+    artifact: rep
+steps:
+  - id: s1
+    persona: navigator
+    workspace: {}
+    exec:
+      type: prompt
+      source: hi
+    memory:
+      strategy: fresh
+    handover:
+      contract:
+        type: json_schema
+        on_failure: retry
+`)
+	loader := &YAMLPipelineLoader{}
+	p, err := loader.Unmarshal(data)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if len(p.Warnings) < 2 {
+		t.Fatalf("expected at least 2 warnings (missing type + retry), got %d: %v", len(p.Warnings), p.Warnings)
+	}
+}

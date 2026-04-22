@@ -63,6 +63,12 @@ type Pipeline struct {
 	ChatContext     *ChatContextConfig        `yaml:"chat_context,omitempty"`     // Chat session context injection
 	Skills          []string                  `yaml:"skills,omitempty"`           // Declarative skill references
 	MaxStepVisits   int                       `yaml:"max_step_visits,omitempty"`  // Graph-level max total visits across all steps (default 50)
+
+	// Warnings is a runtime-only list of non-fatal load-time messages (e.g.
+	// WLP deprecation notices). Populated by YAMLPipelineLoader.Unmarshal and
+	// drained by the executor at startup. Not serialized.
+	// See docs/adr/011-wave-lego-protocol.md.
+	Warnings []string `yaml:"-" json:"-"`
 }
 
 // ChatContextConfig configures what context to inject into post-pipeline chat sessions.
