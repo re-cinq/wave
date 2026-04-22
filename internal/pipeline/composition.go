@@ -531,43 +531,49 @@ func (c *CompositionExecutor) runSubPipeline(ctx context.Context, stepID, pipeli
 	}
 
 	// Register sub-pipeline outputs into parent template context.
-	// Prefer the first declared pipeline_outputs entry as the "primary" output
-	// (keyed by parent step.ID so templates like {{step.output.field}} work).
-	// Fall back to terminal step artifact if no pipeline_outputs are declared.
-	if len(result.PipelineResults) > 0 {
-		pr := result.PipelineResults[0]
-		registered := false
+	// Use SequenceExecutor's recorded pipeline outputs (keyed by pipeline name
+	// -> artifact name) rather than reconstructing filesystem paths, since the
+	// worktree layout is managed by the executor and not trivially predictable.
+	outputs := c.seqExecutor.GetPipelineOutputs()[pipelineName]
+	if len(outputs) > 0 {
+		// Pick primary output: walk declared pipeline_outputs in step order so
+		// the first declared, load-successful output wins. Fall back to terminal
+		// step's first output artifact.
+		var primary []byte
 		if len(p.PipelineOutputs) > 0 {
-			// Iterate in declaration order by walking pipeline steps and matching
-			// pipeline_outputs that reference each step. First hit wins as primary.
 			for _, s := range p.Steps {
-				if registered {
+				if primary != nil {
 					break
 				}
-				for _, po := range p.PipelineOutputs {
+				for name, po := range p.PipelineOutputs {
 					if po.Step == s.ID {
-						data, loadErr := LoadStepArtifact(c.tmplCtx.WorkspaceRoot, pr.RunID, po.Step, po.Artifact)
-						if loadErr == nil {
-							c.tmplCtx.SetStepOutput(key, data)
-							registered = true
+						if data, ok := outputs[name]; ok {
+							primary = data
+							break
+						}
+						if data, ok := outputs[po.Artifact]; ok {
+							primary = data
 							break
 						}
 					}
 				}
 			}
 		}
-		if !registered && len(p.Steps) > 0 {
+		if primary == nil && len(p.Steps) > 0 {
 			terminalStep := p.Steps[len(p.Steps)-1]
 			for _, art := range terminalStep.OutputArtifacts {
-				data, loadErr := LoadStepArtifact(c.tmplCtx.WorkspaceRoot, pr.RunID, terminalStep.ID, art.Name)
-				if loadErr == nil {
-					c.tmplCtx.SetStepOutput(key, data)
+				if data, ok := outputs[art.Name]; ok {
+					primary = data
 					break
 				}
 			}
 		}
+		if primary != nil {
+			c.tmplCtx.SetStepOutput(key, primary)
+		}
 	}
 
+	_ = result
 	return nil
 }
 
