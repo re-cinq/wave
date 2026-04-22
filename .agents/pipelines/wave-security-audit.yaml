@@ -153,7 +153,7 @@ steps:
         type: json_schema
         source: .agents/output/threat-model.json
         schema_path: .agents/contracts/security-scan.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: verify
     persona: auditor

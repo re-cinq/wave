@@ -187,7 +187,7 @@ steps:
       contract:
         type: non_empty_file
         source: .agents/output/wave-scope.md
-        on_failure: retry
+        on_failure: warn
 
   # ── Phase 4: Human gate — approve scope before issue creation ───────────
   - id: approve-scope

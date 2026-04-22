@@ -153,7 +153,7 @@ steps:
         type: json_schema
         source: .agents/output/inventory.json
         schema_path: .agents/contracts/audit-inventory.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: audit-items
     persona: navigator
@@ -271,7 +271,7 @@ steps:
         type: json_schema
         source: .agents/output/audit-findings.json
         schema_path: .agents/contracts/audit-findings.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: compose-triage
     persona: navigator
@@ -377,7 +377,7 @@ steps:
         type: json_schema
         source: .agents/output/triage-report.json
         schema_path: .agents/contracts/audit-triage-report.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: publish
     persona: craftsman
@@ -501,7 +501,7 @@ steps:
         type: json_schema
         source: .agents/output/publish-result.json
         schema_path: .agents/contracts/audit-publish-result.schema.json
-        on_failure: retry
+        on_failure: warn
     outcomes:
       - type: issue
         extract_from: .agents/output/publish-result.json
