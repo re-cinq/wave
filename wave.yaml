@@ -125,7 +125,7 @@ adapters:
         project_files:
             - AGENTS.md
     opencode-glm:
-        binary: opencode
+        binary: opencode-patched
         default_model: ollama/glm-4.7-flash
         tier_models:
             cheapest: ollama/glm-4.7-flash

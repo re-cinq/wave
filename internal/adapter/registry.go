@@ -10,6 +10,7 @@ import (
 type AdapterRegistry struct {
 	fallbacks     map[string][]string      // provider → fallback providers
 	overrides     map[string]AdapterRunner // test-injected runners
+	binaries      map[string]string        // adapter name → manifest binary override
 	defaultRunner AdapterRunner            // fallback for all names when set
 }
 
@@ -18,7 +19,18 @@ func NewAdapterRegistry(fallbacks map[string][]string) *AdapterRegistry {
 	return &AdapterRegistry{
 		fallbacks: fallbacks,
 		overrides: make(map[string]AdapterRunner),
+		binaries:  make(map[string]string),
 	}
+}
+
+// SetBinary records the binary override for an adapter name as declared in the
+// manifest. It is honored when resolving the adapter via Resolve, allowing
+// forks like `opencode-patched` to be invoked without symlink hacks.
+func (r *AdapterRegistry) SetBinary(adapterName, binary string) {
+	if r.binaries == nil {
+		r.binaries = make(map[string]string)
+	}
+	r.binaries[adapterName] = binary
 }
 
 // NewSingleRunnerRegistry creates a registry that always returns the given runner.
@@ -39,7 +51,11 @@ func (r *AdapterRegistry) Resolve(adapterName string) AdapterRunner {
 	if r.defaultRunner != nil {
 		return r.defaultRunner
 	}
-	return ResolveAdapter(adapterName)
+	binary := ""
+	if r.binaries != nil {
+		binary = r.binaries[adapterName]
+	}
+	return ResolveAdapterWithBinary(adapterName, binary)
 }
 
 // ResolveWithFallback returns the primary runner wrapped in a FallbackRunner

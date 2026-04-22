@@ -16,8 +16,19 @@ type OpenCodeAdapter struct {
 }
 
 func NewOpenCodeAdapter() *OpenCodeAdapter {
-	path := "opencode"
-	if p, err := exec.LookPath("opencode"); err == nil {
+	return NewOpenCodeAdapterWithBinary("")
+}
+
+// NewOpenCodeAdapterWithBinary constructs an OpenCodeAdapter that invokes the
+// given binary name. An empty name defaults to "opencode". Callers that read
+// the manifest's `binary:` field (e.g. for opencode-patched forks) should pass
+// it here so the configured binary is actually executed.
+func NewOpenCodeAdapterWithBinary(binary string) *OpenCodeAdapter {
+	if binary == "" {
+		binary = "opencode"
+	}
+	path := binary
+	if p, err := exec.LookPath(binary); err == nil {
 		path = p
 	}
 	return &OpenCodeAdapter{opencodePath: path}
@@ -285,12 +296,20 @@ func (a *OpenCodeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 }
 
 func ResolveAdapter(adapterName string) AdapterRunner {
+	return ResolveAdapterWithBinary(adapterName, "")
+}
+
+// ResolveAdapterWithBinary is like ResolveAdapter but threads the manifest's
+// `binary:` field through to adapters that support binary overrides (currently
+// opencode). Other adapters ignore the binary argument. An empty binary
+// defaults to the adapter's built-in name.
+func ResolveAdapterWithBinary(adapterName, binary string) AdapterRunner {
 	name := strings.ToLower(adapterName)
 	switch {
 	case name == "claude":
 		return NewClaudeAdapter()
 	case name == "opencode" || strings.HasPrefix(name, "opencode-"):
-		return NewOpenCodeAdapter()
+		return NewOpenCodeAdapterWithBinary(binary)
 	case name == "codex":
 		return NewCodexAdapter()
 	case name == "gemini":
