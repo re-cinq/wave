@@ -90,7 +90,7 @@ steps:
 
   # ─── Phase 4: Findings Aggregation ─────────────────────────────────────
   - id: merge-findings
-    persona: navigator
+    persona: craftsman
     model: cheapest
     dependencies: [audit-security, audit-correctness, audit-architecture, audit-tests, audit-coverage]
     memory:

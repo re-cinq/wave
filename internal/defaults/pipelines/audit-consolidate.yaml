@@ -73,7 +73,7 @@ steps:
 
         5. **Package boundary violations**: Identify cases where one package reaches into another's internal details instead of using its public API. Look for imports that bypass intended abstraction layers, direct struct field access where accessor methods exist, and type assertions that defeat interface-based dispatch.
 
-        6. **Naming inconsistencies**: Find the same concept referred to by different names across packages. Common examples include: "workspace" vs "workdir" vs "cwd," "config" vs "settings" vs "options," "run" vs "execution" vs "invocation," "step" vs "task" vs "job." Use Grep to search for each variant and map which packages use which term.
+        6. **Naming inconsistencies**: Find the same concept referred to by different names across packages. Common examples include: "workspace" vs "workdir" vs "cwd," "config" vs "settings" vs "options," "run" vs "execution" vs "invocation," "step" vs "unit-of-work" vs "job." Use Grep to search for each variant and map which packages use which term.
 
         For each finding, perform this analysis:
         - List all affected file:line locations on both sides of the redundancy.

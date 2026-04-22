@@ -105,8 +105,24 @@ adapters:
         output_format: json
         project_files:
             - AGENTS.md
-    opencode-local:
-        binary: opencode
+    opencode-qwen:
+        binary: opencode-patched
+        default_model: ollama/qwen3.5:27b
+        tier_models:
+            cheapest: ollama/qwen3.5:27b
+            balanced: ollama/qwen3.5:27b
+            strongest: ollama/qwen3.5:27b
+        default_permissions:
+            allowed_tools:
+                - Read
+                - Bash
+            deny: []
+        mode: headless
+        output_format: json
+        project_files:
+            - AGENTS.md
+    opencode-glm:
+        binary: opencode-patched
         default_model: ollama/glm-4.7-flash
         tier_models:
             cheapest: ollama/glm-4.7-flash

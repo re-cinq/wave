@@ -38,7 +38,7 @@ steps:
       max_attempts: 2
 
   - id: review
-    persona: navigator
+    persona: craftsman
     model: cheapest
     dependencies: [greet]
     memory:

@@ -35,7 +35,7 @@ pipeline_outputs:
 
 steps:
   - id: explore-context
-    persona: navigator
+    persona: implementer
     model: cheapest
     workspace:
       mount:

@@ -36,7 +36,7 @@ pipeline_outputs:
 
 steps:
   - id: explore
-    persona: navigator
+    persona: implementer
     max_concurrent_agents: 3
     model: cheapest
     workspace:

@@ -51,7 +51,7 @@ steps:
         on_failure: fail
 
   - id: classify
-    persona: navigator
+    persona: craftsman
     model: balanced
     dependencies: [discover]
     workspace:
@@ -62,7 +62,7 @@ steps:
     exec:
       type: prompt
       source: |
-        TASK CLASSIFICATION — determine the right pipeline for this work item.
+        WORK CLASSIFICATION — determine the right pipeline for this work item.
 
         ## Objective
 
@@ -74,7 +74,7 @@ steps:
 
         Read the pipeline catalog at `project/.agents/output/pipeline-catalog.md` to see
         all available pipelines with their descriptions. Pick the one that best matches
-        the input task.
+        the input description.
 
         ## Instructions
 
@@ -93,7 +93,7 @@ steps:
            (e.g. "audit-dead-code-scan", NOT "Code Audit Pipeline"). Copy the bold
            name from the catalog exactly as written. Any other value will fail.
 
-        5. Write ONLY valid JSON to `.agents/output/classification.json`:
+        5. Save ONLY valid JSON to `.agents/output/classification.json`:
            ```json
            {
              "domain": "<domain>",
@@ -108,7 +108,7 @@ steps:
 
         - Do NOT implement anything. Classification only.
         - Do NOT explore the codebase beyond reading the catalog.
-        - Write ONLY valid JSON to the output file. No prose, no markdown.
+        - Save ONLY valid JSON to the output file. No prose, no markdown.
         - The pipeline field MUST exactly match a name from the catalog.
     output_artifacts:
       - name: classification

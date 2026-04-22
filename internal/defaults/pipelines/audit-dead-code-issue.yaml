@@ -4,7 +4,7 @@ metadata:
   description: >-
     Scan the codebase for dead code (unused exports, unreachable branches,
     orphaned files, stale tests, commented-out blocks) and create a GitHub
-    issue with a structured task list of findings. Use this for periodic
+    issue with a structured checklist of findings. Use this for periodic
     hygiene checks when you want a tracked issue rather than an immediate PR.
     Each finding includes confidence level, location, and suggested action.
   release: false
@@ -51,11 +51,11 @@ steps:
       source: |
         ## Objective
 
-        Perform a comprehensive scan for dead or redundant code across the codebase, producing verified findings that will be formatted into a GitHub issue with a structured task list. Unlike the audit-dead-code pipeline (which removes code directly), this pipeline creates a trackable issue for human-driven remediation. The findings must be accurate enough to serve as a checklist that developers can work through.
+        Perform a comprehensive scan for dead or redundant code across the codebase, producing verified findings that will be formatted into a GitHub issue with a structured checklist. Unlike the audit-dead-code pipeline (which removes code directly), this pipeline creates a trackable issue for human-driven remediation. The findings must be accurate enough to serve as a checklist that developers can work through.
 
         ## Context
 
-        This is the first step of a three-step pipeline (scan, compose-report, create-issue). The compose-report step will format these findings as a GitHub-ready markdown task list. The create-issue step will publish it as a tracked issue. Because the issue will be used as a work-tracking artifact, findings should include actionable detail: what to remove, where it is, and whether it is safe to remove without further investigation.
+        This is the first step of a three-step pipeline (scan, compose-report, create-issue). The compose-report step will format these findings as a GitHub-ready markdown checklist. The create-issue step will publish it as a tracked issue. Because the issue will be used as a work-tracking artifact, findings should include actionable detail: what to remove, where it is, and whether it is safe to remove without further investigation.
 
         Scope: {{ input }}
 
@@ -105,7 +105,7 @@ steps:
 
         ## Quality Bar
 
-        A good scan produces a task list where a developer can confidently act on HIGH-confidence, safe_to_remove=true items without further research, and knows exactly what additional investigation is needed for MEDIUM-confidence items. Each finding includes the specific Grep pattern used and its output (or absence thereof). A bad scan reports items without verification, mixes low-confidence guesses with confirmed findings, or provides descriptions too vague to act on.
+        A good scan produces a checklist where a developer can confidently act on HIGH-confidence, safe_to_remove=true items without further research, and knows exactly what additional investigation is needed for MEDIUM-confidence items. Each finding includes the specific Grep pattern used and its output (or absence thereof). A bad scan reports items without verification, mixes low-confidence guesses with confirmed findings, or provides descriptions too vague to act on.
     output_artifacts:
       - name: findings
         path: .agents/output/findings.json
@@ -121,7 +121,7 @@ steps:
         on_failure: skip
 
   - id: compose-report
-    persona: navigator
+    persona: craftsman
     model: cheapest
     dependencies: [scan]
     memory:
@@ -134,11 +134,11 @@ steps:
       source: |
         ## Objective
 
-        Transform the structured JSON scan findings into a polished, GitHub-ready markdown report suitable for publishing as a trackable issue. The report must organize findings into a clear task list that developers can work through checkbox by checkbox, with enough context per item to act without re-running the scan. If no findings exist, produce a clean-bill-of-health message instead.
+        Transform the structured JSON scan findings into a polished, GitHub-ready markdown report suitable for publishing as a trackable issue. The report must organize findings into a clear checklist that developers can work through checkbox by checkbox, with enough context per item to act without re-running the scan. If no findings exist, produce a clean-bill-of-health message instead.
 
         ## Context
 
-        This is the second step of a three-step pipeline (scan, compose-report, create-issue). The scan step has produced findings injected as the "findings" artifact. The create-issue step will publish this report as a GitHub issue body. The report format must be valid GitHub-flavored markdown, with task checkboxes (`- [ ]`) that become interactive in the GitHub issue interface.
+        This is the second step of a three-step pipeline (scan, compose-report, create-issue). The scan step has produced findings injected as the "findings" artifact. The create-issue step will publish this report as a GitHub issue body. The report format must be valid GitHub-flavored markdown, with checkboxes (`- [ ]`) that become interactive in the GitHub issue interface.
 
         Read the injected findings artifact first. Parse the findings array and summary statistics.
 
@@ -163,7 +163,7 @@ steps:
 
         4. **Summary by Confidence**: A markdown table showing high vs medium confidence counts. This helps prioritize which items to tackle first.
 
-        5. **Task List**: The core of the report. For each finding, sorted by confidence (HIGH first, then MEDIUM), then by severity (high first, then medium, then low), render a task checkbox line:
+        5. **Findings Checklist**: The core of the report. For each finding, sorted by confidence (HIGH first, then MEDIUM), then by severity (high first, then medium, then low), render a checkbox line:
            ```
            - [ ] **[DC-001]** (`type`, `confidence`) `file:line` -- description
              Action: `suggested_action` | Safe to remove: `safe_to_remove`
@@ -176,7 +176,7 @@ steps:
 
         - Use exact finding IDs (DC-001, DC-002, etc.) consistently so they can be referenced in commits and PRs
         - Include the file:line location for every finding so developers can navigate directly to the code
-        - Keep each task list item to 2 lines maximum (title line + detail line)
+        - Keep each checklist item to 2 lines maximum (title line + detail line)
         - Use backtick formatting for code identifiers (type names, file paths, function names)
         - Ensure the markdown renders correctly in GitHub (no raw HTML, no unsupported syntax)
 
@@ -184,9 +184,9 @@ steps:
 
         - Do NOT rewrite or editorialize the findings. Use the descriptions from the scan results verbatim.
         - Do NOT add findings that were not in the scan results.
-        - Do NOT omit findings from the task list. Every finding in the scan results must appear in the report.
+        - Do NOT omit findings from the checklist. Every finding in the scan results must appear in the report.
         - Do NOT use emoji or decorative formatting. Keep the report professional and scannable.
-        - Do NOT nest task lists. Each finding gets a single top-level checkbox.
+        - Do NOT nest checklists. Each finding gets a single top-level checkbox.
 
         ## Output Format
 
@@ -194,7 +194,7 @@ steps:
 
         ## Quality Bar
 
-        A good report allows a developer to open the GitHub issue, scan the summary tables to understand the scope, then work through the task list top-to-bottom, checking off items as they are addressed. Each item has enough context (file:line, action, safety assessment) to act immediately. A bad report buries findings in prose paragraphs, omits file locations, or uses a format that does not render as interactive checkboxes in GitHub.
+        A good report allows a developer to open the GitHub issue, scan the summary tables to understand the scope, then work through the checklist top-to-bottom, checking off items as they are addressed. Each item has enough context (file:line, action, safety assessment) to act immediately. A bad report buries findings in prose paragraphs, omits file locations, or uses a format that does not render as interactive checkboxes in GitHub.
     output_artifacts:
       - name: report
         path: .agents/output/report.md
@@ -227,7 +227,7 @@ steps:
 
         This is the third and final step of the audit-dead-code-issue pipeline (scan, compose-report, create-issue). The compose-report step has produced a markdown report injected as the "report" artifact, and the scan findings are injected as the "findings" artifact. This step publishes the report to GitHub as a trackable issue and captures the result for pipeline outcomes.
 
-        Read the injected report artifact first. Check whether it indicates a clean scan (no findings) or contains the full task list report.
+        Read the injected report artifact first. Check whether it indicates a clean scan (no findings) or contains the full checklist report.
 
         ## Requirements
 
@@ -283,7 +283,7 @@ steps:
         - Do NOT create duplicate issues. If running this pipeline multiple times, the issue will have a different title each time (due to pipeline_id), but the content may overlap. This is acceptable; deduplication is the user's responsibility.
         - Do NOT add assignees or milestones. The issue is created for triage; assignment is a human decision.
         - Do NOT include Co-Authored-By or AI attribution in the issue.
-        - Do NOT spawn Task subagents. Work directly in the main context.
+        - Do NOT spawn sub-agents. Work directly in the main context.
 
         ## Output Format
 

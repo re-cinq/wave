@@ -101,7 +101,7 @@ steps:
 
         3. **Extract all child issue references.** Scan the epic body thoroughly for
            linked child issues. Look for ALL of these patterns:
-           - Checkbox task lists: `- [ ] #123` or `- [x] #123`
+           - Checkbox checklists: `- [ ] #123` or `- [x] #123`
            - Full URL references: `- [ ] https://github.com/owner/repo/issues/123`
            - Inline references: `Closes #N`, `Fixes #N`, `Part of #N`, `Relates to #N`
            - Markdown link references: `[issue title](https://github.com/.../issues/N)`
@@ -120,7 +120,7 @@ steps:
            otherwise resolved issues. Log which issues were excluded and why.
 
         6. **Order the child list.** If the epic body presents children in a specific
-           order (numbered list, task list from top to bottom), preserve that order.
+           order (numbered list, checklist from top to bottom), preserve that order.
            Otherwise, order by issue number ascending.
 
         ## Constraints and Anti-patterns

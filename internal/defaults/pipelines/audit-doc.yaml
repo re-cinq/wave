@@ -6,7 +6,7 @@ metadata:
     cross-references them against documentation (README, guides, ADRs, CLI
     reference), and creates a GitHub issue listing inconsistencies. Use this
     before merging to catch doc drift from code changes. Rates each
-    inconsistency by severity and produces a task list for remediation.
+    inconsistency by severity and produces a checklist for remediation.
   release: false
 
 skills:
@@ -227,7 +227,7 @@ steps:
         on_failure: skip
 
   - id: compose-report
-    persona: navigator
+    persona: craftsman
     model: cheapest
     dependencies: [analyze-consistency]
     memory:
@@ -243,11 +243,11 @@ steps:
       source: |
         ## Objective
 
-        Transform the structured JSON consistency findings into a polished, GitHub-ready markdown report suitable for publishing as a trackable issue. The report must organize inconsistencies by severity into a task list that developers can work through checkbox by checkbox, with enough context per item to make the fix without re-running the analysis. If no inconsistencies were found, produce a clean-bill-of-health message instead.
+        Transform the structured JSON consistency findings into a polished, GitHub-ready markdown report suitable for publishing as a trackable issue. The report must organize inconsistencies by severity into a checklist that developers can work through checkbox by checkbox, with enough context per item to make the fix without re-running the analysis. If no inconsistencies were found, produce a clean-bill-of-health message instead.
 
         ## Context
 
-        This is the third step of a four-step pipeline (scan-changes, analyze-consistency, compose-report, publish). The analyze-consistency step has produced findings injected as the "report" artifact. The publish step will create a GitHub issue using this markdown as the issue body. The report format must be valid GitHub-flavored markdown, with task checkboxes (`- [ ]`) that become interactive in the GitHub issue interface.
+        This is the third step of a four-step pipeline (scan-changes, analyze-consistency, compose-report, publish). The analyze-consistency step has produced findings injected as the "report" artifact. The publish step will create a GitHub issue using this markdown as the issue body. The report format must be valid GitHub-flavored markdown, with checkboxes (`- [ ]`) that become interactive in the GitHub issue interface.
 
         Read the injected report artifact first. Parse the findings array and summary statistics.
 
@@ -270,7 +270,7 @@ steps:
 
         3. **Summary by Recommendation**: A markdown table counting inconsistencies by recommended action (fix, document, remove, investigate). This helps developers estimate the type of work needed.
 
-        4. **Task List**: The core of the report. For each inconsistency, sorted by severity (Critical first, then High, Medium, Low), render a task checkbox line:
+        4. **Findings Checklist**: The core of the report. For each inconsistency, sorted by severity (Critical first, then High, Medium, Low), render a checkbox line:
            ```
            - [ ] **[DOC-001]** (CRITICAL) Title -- `doc_location`
              Fix: description of what needs to change
@@ -290,7 +290,7 @@ steps:
 
         - Use exact finding IDs (DOC-001, DOC-002, etc.) consistently for commit message references
         - Include both the documentation path and the code reference for every finding
-        - Keep each task list item to 3 lines maximum (title, fix, code ref)
+        - Keep each checklist item to 3 lines maximum (title, fix, code ref)
         - Use backtick formatting for file paths and code identifiers
         - Ensure the markdown renders correctly in GitHub
 
@@ -298,9 +298,9 @@ steps:
 
         - Do NOT rewrite or editorialize the findings. Use the descriptions from the analysis results.
         - Do NOT add findings that were not in the analysis results.
-        - Do NOT omit any findings from the task list.
+        - Do NOT omit any findings from the checklist.
         - Do NOT use emoji or decorative formatting.
-        - Do NOT nest task lists. Each finding gets a single top-level checkbox.
+        - Do NOT nest checklists. Each finding gets a single top-level checkbox.
 
         ## Output Format
 
@@ -308,7 +308,7 @@ steps:
 
         ## Quality Bar
 
-        A good report allows a developer to open the issue and work through findings top-to-bottom, fixing documentation files based on the task descriptions and code references provided. Each item has enough context to make the edit without consulting the original analysis artifacts. A bad report uses vague descriptions ("some docs are outdated"), omits code references, or formats the task list in a way that does not render as interactive checkboxes.
+        A good report allows a developer to open the issue and work through findings top-to-bottom, fixing documentation files based on the descriptions and code references provided. Each item has enough context to make the edit without consulting the original analysis artifacts. A bad report uses vague descriptions ("some docs are outdated"), omits code references, or formats the checklist in a way that does not render as interactive checkboxes.
     output_artifacts:
       - name: report
         path: .agents/output/report.md
@@ -341,7 +341,7 @@ steps:
 
         This is the fourth and final step of the audit-doc pipeline (scan-changes, analyze-consistency, compose-report, publish). The compose-report step has produced a markdown report injected as the "report" artifact. This step publishes the report to GitHub as a trackable issue and captures the result for pipeline outcomes.
 
-        Read the injected report artifact first. Check whether it indicates a clean scan or contains the full task list report.
+        Read the injected report artifact first. Check whether it indicates a clean scan or contains the full checklist report.
 
         ## Requirements
 
@@ -396,7 +396,7 @@ steps:
         - Do NOT modify the report content. Publish it exactly as composed.
         - Do NOT add assignees, milestones, or project board associations. Issue triage is a human decision.
         - Do NOT include Co-Authored-By or AI attribution in the issue.
-        - Do NOT spawn Task subagents. Work directly in the main context.
+        - Do NOT spawn sub-agents. Work directly in the main context.
         - Do NOT create the issue if the report says clean. Creating empty issues adds noise.
 
         ## Output Format

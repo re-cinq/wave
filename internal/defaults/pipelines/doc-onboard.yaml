@@ -47,11 +47,11 @@ steps:
       source: |
         ## Objective
 
-        Survey the project comprehensively to collect all information needed to write an onboarding guide for new contributors. The survey must cover project identity, build system, directory structure, architecture, dependencies, configuration, testing patterns, development workflow, and existing documentation. The output is a structured JSON artifact that the guide-writing step will transform into a polished onboarding document.
+        Survey the project comprehensively to collect all information needed by the downstream step to compose an onboarding guide for new contributors. The survey must cover project identity, build system, directory structure, architecture, dependencies, configuration, testing patterns, development workflow, and existing documentation. The output is a structured JSON artifact that the guide-writing step will transform into a polished onboarding document.
 
         ## Context
 
-        This is the first step of a two-step pipeline (survey, guide). The guide step will use this survey data to write a comprehensive onboarding guide. The codebase is mounted read-only at /project. The survey must be thorough enough that the guide step can write the entire onboarding document without needing to re-read the codebase.
+        This is the first step of a two-step pipeline (survey, guide). The guide step will use this survey data to compose a comprehensive onboarding guide. The codebase is mounted read-only at /project. The survey must be thorough enough that the guide step can produce the entire onboarding document without needing to re-read the codebase.
 
         Survey scope: {{ input }}
 
@@ -226,7 +226,7 @@ steps:
 
         ### 6. Common Tasks (for someone with a specific goal)
 
-        Task-oriented guidance for the most common contributor activities:
+        Goal-oriented guidance for the most common contributor activities:
         - "I want to add a new CLI command" -- which files to create/modify, which patterns to follow, which existing command to use as a template
         - "I want to add a new pipeline" -- where to put the YAML, what fields are required, how to test it
         - "I want to fix a bug" -- how to reproduce, how to find the relevant code, debugging tools and techniques

@@ -32,7 +32,7 @@ pipeline_outputs:
 
 steps:
   - id: assess
-    persona: navigator
+    persona: craftsman
     model: cheapest
     exec:
       type: prompt
@@ -44,7 +44,7 @@ steps:
         Assess the complexity of the given GitHub issue to route it to the appropriate
         implementation pipeline. Simple and medium issues go to impl-issue (direct
         implementation). Complex issues go to impl-speckit (specification-driven
-        development with formal task decomposition). Your classification must be accurate
+        development with formal work decomposition). Your classification must be accurate
         — misrouting a complex issue to impl-issue wastes time on a failed implementation,
         while misrouting a simple issue to impl-speckit wastes time on unnecessary
         specification overhead.
@@ -98,7 +98,7 @@ steps:
            - 5+ files affected across multiple packages or layers
            - Requires formal specification — the issue does not fully define what to build
            - Involves new architectural patterns, new packages, or cross-cutting concerns
-           - Needs task decomposition before implementation can begin
+           - Needs work decomposition before implementation can begin
            - Has dependencies on multiple subsystems or external integrations
            - Examples: new subsystem, major refactoring, new adapter type, workflow engine
 
