@@ -124,7 +124,7 @@ steps:
         themes, or ignores existing issues that cover the same ground.
     output_artifacts:
       - name: epic_assessment
-        path: .agents/artifact.json
+        path: .agents/artifacts/fetch-epic/epic_assessment.json
         type: json
         required: true
     retry:
@@ -237,7 +237,7 @@ steps:
         scope creep.
     output_artifacts:
       - name: scope_plan
-        path: .agents/artifact.json
+        path: .agents/artifacts/scope-and-create/scope_plan.json
         type: json
         required: true
     outcomes:
@@ -353,7 +353,7 @@ steps:
         summary that does not match the actual verification results.
     output_artifacts:
       - name: scope_report
-        path: .agents/artifact.json
+        path: .agents/artifacts/verify-report/scope_report.json
         type: json
         required: true
     retry:
