@@ -1,0 +1,105 @@
+kind: WavePipeline
+metadata:
+  name: audit-dead-code-scan
+  description: >-
+    Lightweight dead code scan that produces JSON findings without creating
+    branches, PRs, or issues. Checks for unused exports, packages with no
+    external importers, and unreachable code paths. Use this as a building
+    block in composition pipelines or for quick read-only analysis of a
+    specific directory scope.
+  release: true
+  category: audit
+
+input:
+  source: cli
+  type: string
+  example: "internal/"
+
+chat_context:
+  artifact_summaries:
+    - findings
+  suggested_questions:
+    - "What dead code was detected?"
+    - "Which packages have the most unused exports?"
+    - "Are there unreachable code paths?"
+  focus_areas:
+    - "Unused exports and dead branches"
+    - "Packages with no external importers"
+
+pipeline_outputs:
+  findings:
+    step: scan
+    artifact: findings
+    type: findings_report
+
+steps:
+  - id: scan
+    persona: navigator
+    model: cheapest
+    max_concurrent_agents: 3
+    contexts: [configuration]
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Perform a lightweight dead code scan of the Go codebase, identifying exported symbols with no external callers, packages with no importers, and unreachable code paths. This step produces structured JSON findings that downstream composition pipelines or human reviewers can act on. The scan is read-only and must not create branches, PRs, or issues.
+
+        ## Context
+
+        This is a standalone, single-step pipeline designed for quick diagnostic runs or as a reusable building block inside composition pipelines (such as audit-quality-loop). The codebase is mounted read-only at /project. The caller may provide a directory scope via the input variable, or leave it empty for a full scan. No prior pipeline steps feed into this step.
+
+        Scope: {{ input }}
+
+        If the scope is empty or blank, scan all packages under internal/ and cmd/. If a specific directory is provided (e.g., "internal/pipeline"), restrict the analysis to that subtree but still verify cross-references against the full codebase.
+
+        ## Requirements
+
+        Perform the following checks systematically, package by package:
+
+        1. **Exported functions and types with no external callers**: For every exported symbol (function, type, constant, variable) in each package within scope, search the entire codebase for references outside the declaring package. A symbol is "dead" if no file outside its own package directory references it. Use Grep across /project/internal/ and /project/cmd/ to verify each candidate. Be precise: match the exact symbol name, not substrings.
+
+        2. **Packages with no external importers**: Identify packages whose import path never appears in any other Go file in the project. Use Grep to search for the full import path string (e.g., "internal/bench") across all .go files. A package with zero external importers is a strong dead-code signal, but verify it is not imported via a build-tag-gated file or test-only import.
+
+        3. **Unreachable code**: Look for code after unconditional return, panic, or os.Exit statements. Check for switch/select cases that can never be reached due to prior exhaustive matching. Identify if-else branches guarded by compile-time constant conditions that always evaluate the same way.
+
+        4. **Verification for each candidate**: Before reporting a finding, rule out these false-positive sources:
+           - Interface satisfaction: the symbol may exist solely to implement an interface required by another package.
+           - Reflect-based or string-based invocation: search for the symbol name as a string literal.
+           - Build-tag conditional compilation: check for `//go:build` or `// +build` directives that gate the file.
+           - Test-only usage: if the symbol is only called from test files, note that in the finding but still report it.
+           - Main entry points: symbols in package main are entry points, not dead code.
+
+        5. **Prioritize suspect packages**: If the scope is broad, begin with packages historically flagged as suspects: bench, browser, continuous, relay. Then proceed to the remaining packages. This ordering ensures the most likely dead-code hotspots are covered even if context limits are approached.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT report symbols with fewer than two corroborating search results as "confirmed dead" unless you have read the declaring file and verified there is genuinely no external usage.
+        - Do NOT count test-file-only usage as a valid external caller for the purpose of this scan, but DO annotate findings where test-only usage exists so reviewers can make an informed decision.
+        - Do NOT modify any files. The workspace is read-only.
+        - Do NOT exceed 25 findings. If more candidates exist, keep only the highest-confidence items and note the truncation in the summary.
+        - Do NOT use the Bash tool to run `go vet` or `staticcheck` or any other binary tool. This scan is purely static analysis via Grep and Read.
+        - Avoid false positives from init() functions, which are implicitly called by the Go runtime.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good scan produces findings where every reported symbol has been verified with at least one cross-reference search covering /project/internal/ and /project/cmd/. Each finding includes the specific Grep pattern used and the absence of matches as evidence. A bad scan reports symbols without verification, includes obvious false positives like interface implementations or init() functions, or provides vague descriptions like "might be unused" without concrete evidence.
+    output_artifacts:
+      - name: findings
+        path: .agents/output/findings.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .agents/output/findings.json
+        schema_path: .agents/contracts/shared-findings.schema.json
+        on_failure: skip

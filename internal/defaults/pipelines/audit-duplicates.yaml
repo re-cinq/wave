@@ -1,0 +1,114 @@
+kind: WavePipeline
+metadata:
+  name: audit-duplicates
+  description: >-
+    Find overlapping or duplicate implementations across packages by comparing
+    packages that may solve the same problem (sandbox backends, display layers,
+    health checks, routing, state tracking, template variables). Produces JSON
+    findings without creating branches or PRs. Use this as a building block in
+    composition pipelines or to identify consolidation targets after feature
+    sprawl.
+  release: true
+  category: audit
+
+input:
+  source: cli
+  type: string
+  example: "internal/"
+
+chat_context:
+  artifact_summaries:
+    - findings
+  suggested_questions:
+    - "What duplicate implementations were found?"
+    - "Which package pairs have the most overlap?"
+    - "Are the duplicates intentional or accidental?"
+  focus_areas:
+    - "Overlapping functionality between packages"
+    - "Consolidation targets"
+
+pipeline_outputs:
+  findings:
+    step: scan
+    artifact: findings
+    type: findings_report
+
+steps:
+  - id: scan
+    persona: navigator
+    model: cheapest
+    max_concurrent_agents: 3
+    contexts: [configuration]
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Audit the Go codebase for duplicate or overlapping implementations across packages that appear to solve the same problem. Produce structured JSON findings identifying where consolidation would reduce maintenance burden, eliminate behavioral divergence, and simplify the architecture. This is a read-only scan that must not create branches, PRs, or issues.
+
+        ## Context
+
+        This is a standalone, single-step pipeline designed for quick diagnostic runs or as a reusable building block inside composition pipelines. The codebase is mounted read-only at /project. The caller may provide a directory scope via the input variable, or leave it empty for a full scan. No prior pipeline steps feed into this step. This pipeline is particularly valuable after rapid development periods when parallel implementations tend to accumulate.
+
+        Scope: {{ input }}
+
+        If the scope is empty or blank, audit all packages under internal/ and cmd/. If a specific directory is provided, restrict the primary analysis to that subtree but still cross-reference against the full codebase to detect overlaps with packages outside the scope.
+
+        ## Requirements
+
+        Systematically compare the following known suspect pairs, plus any additional overlaps you discover:
+
+        1. **Sandbox backends** (internal/sandbox/): Compare docker and bubblewrap implementations. Determine whether both are actively maintained, whether they share an interface, and whether any logic is duplicated between them rather than abstracted into a shared layer. Check if both backends implement the same interface methods and whether their implementations have diverged in behavior.
+
+        2. **Display layers** (internal/display/ vs internal/tui/): Determine if these packages overlap in responsibility. Check whether both render pipeline status, step output, or progress indicators. Identify functions in each package that produce similar visual output or consume similar data structures.
+
+        3. **Health checks** (internal/doctor/ vs internal/preflight/): Both may validate system readiness. Compare the checks performed by each package. Identify whether they duplicate validation logic (e.g., tool existence checks, permission checks, network checks) or serve genuinely different purposes at different lifecycle stages.
+
+        4. **Routing** (internal/suggest/ vs internal/pipeline/routing.go): Both may route user intent to pipeline selection. Compare how each determines which pipeline to run. Check for duplicated scoring logic, keyword matching, or heuristic functions.
+
+        5. **State tracking** (internal/state/ vs internal/deliverable/): Both may track pipeline run status and outcomes. Compare their data models, storage mechanisms, and query patterns. Identify whether they track the same lifecycle events or serve different granularities of state.
+
+        6. **Template variables** (internal/pipeline/context.go ProjectVars vs internal/manifest/types.go ProjectVars): Check whether both define or populate project template variables. Identify whether the same variable names are resolved in two different places, which could lead to inconsistent values.
+
+        7. **Discovery of additional overlaps**: Beyond the known suspects, scan for:
+           - Functions with identical or near-identical signatures across different packages.
+           - Types that model the same domain concept under different names.
+           - Utility functions (string manipulation, file I/O helpers, error wrapping) duplicated across packages rather than centralized.
+           Use Grep to search for common function name patterns and type definitions.
+
+        For each suspected overlap, perform this verification:
+        - Read the relevant source files in both packages.
+        - Compare function signatures, type definitions, and behavioral logic.
+        - Determine whether the overlap is intentional (e.g., interface implementations with different backends) or accidental (copy-paste drift).
+        - Assess whether consolidation is feasible and what the risk would be.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT report intentional polymorphism as duplication. Two implementations of the same interface that serve different backends (e.g., Docker vs bubblewrap sandbox) are expected. Report them only if they contain duplicated internal logic that should be extracted into a shared helper.
+        - Do NOT flag test helpers or test fixtures as duplicates, even if similar patterns appear in multiple test files.
+        - Do NOT modify any files. The workspace is read-only.
+        - Do NOT report findings without reading the actual source code of both sides of the comparison. Surface-level name similarity is not sufficient evidence.
+        - Avoid false positives from standard Go patterns (e.g., every package having an init() function is not duplication).
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good scan reads actual source code from both sides of each comparison, identifies specific functions or types that overlap, and provides a concrete consolidation strategy. A bad scan reports package-level suspicions ("these two packages might overlap") without examining the code, or treats intentional interface polymorphism as accidental duplication.
+    output_artifacts:
+      - name: findings
+        path: .agents/output/duplicate-findings.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .agents/output/duplicate-findings.json
+        schema_path: .agents/contracts/shared-findings.schema.json
+        on_failure: skip
