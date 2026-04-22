@@ -27,8 +27,8 @@ Follow the `/speckit.checklist` workflow:
 
 ## CONSTRAINTS
 
-- Do NOT spawn Task subagents — work directly in the main context
-- Do NOT use WebSearch — all information is in the spec artifacts
+- Do NOT spawn sub-agents — work directly in the main context
+- Do NOT browse the web — all information is in the spec artifacts
 
 ## Checklist Anti-Patterns (AVOID)
 

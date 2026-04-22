@@ -53,7 +53,7 @@ previous step and is already checked out.
 
 ## CONSTRAINTS
 
-- Do NOT spawn Task subagents — work directly in the main context
+- Do NOT spawn sub-agents — work directly in the main context
 
 ## Output
 
