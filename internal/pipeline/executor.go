@@ -6435,61 +6435,163 @@ func (e *DefaultPipelineExecutor) resolveWorkspaceStepRefs(tmpl string, executio
 	return result, nil
 }
 
-// resolveStepOutputRef resolves {{ stepID.output }} and {{ stepID.output.field }}
-// references in a template string by reading the step's artifact file from disk.
-// This bridges composition steps (which use TemplateContext-style references) with
-// the DAG executor (which stores artifacts in execution.ArtifactPaths).
+// resolveStepOutputRef resolves step output references in template strings.
+// It supports two forms:
+//
+//   - Legacy (ADR-010): {{ stepID.output }} / {{ stepID.output.field }}.
+//     Resolves by prefix-scanning execution.ArtifactPaths for any key starting
+//     with "<stepID>:" — non-deterministic when a step has multiple outputs.
+//     The executor emits an ADR-011 rule-4 deprecation warning when this form
+//     resolves successfully.
+//
+//   - Typed (ADR-011 rule 4): {{ stepID.out.<name> }} / {{ stepID.out.<name>.field }}.
+//     Looks up exactly "<stepID>:<name>" in execution.ArtifactPaths. This is
+//     deterministic — a single step:name binding, no map scan.
+//
+// This bridges composition steps (which use TemplateContext-style references)
+// with the DAG executor (which stores artifacts in execution.ArtifactPaths).
 func (e *DefaultPipelineExecutor) resolveStepOutputRef(tmpl string, execution *PipelineExecution) string {
 	return templatePattern.ReplaceAllStringFunc(tmpl, func(match string) string {
 		expr := strings.TrimSpace(match[2 : len(match)-2])
 
-		// Must be stepID.output or stepID.output.field
-		parts := strings.SplitN(expr, ".", 3)
-		if len(parts) < 2 || parts[1] != "output" {
-			return match // not a step output ref
+		// Must be stepID.output(.field)? OR stepID.out.<name>(.field)?
+		parts := strings.SplitN(expr, ".", 4)
+		if len(parts) < 2 {
+			return match
 		}
 
 		stepID := parts[0]
 
-		// Gather all artifacts registered for this step. Multiple artifacts
-		// can live under the same step prefix when the step is a sub-pipeline
-		// composition and its child pipeline_outputs were all propagated.
-		execution.mu.Lock()
-		candidates := make([]string, 0, 4)
-		for key, path := range execution.ArtifactPaths {
-			if strings.HasPrefix(key, stepID+":") {
-				candidates = append(candidates, path)
+		switch parts[1] {
+		case "out":
+			// Typed named-output addressing — ADR-011 rule 4.
+			// {{ stepID.out.<name> }} or {{ stepID.out.<name>.field }}
+			if len(parts) < 3 {
+				return match // malformed: stepID.out with no name
 			}
-		}
-		execution.mu.Unlock()
+			outName := parts[2]
+			key := stepID + ":" + outName
 
-		if len(candidates) == 0 {
-			return match // no artifact found
-		}
+			execution.mu.Lock()
+			path, ok := execution.ArtifactPaths[key]
+			execution.mu.Unlock()
+			if !ok {
+				return match
+			}
 
-		// {{ stepID.output }} → full file content from first candidate.
-		if len(parts) == 2 {
-			data, err := os.ReadFile(candidates[0])
+			data, err := os.ReadFile(path)
 			if err != nil {
 				return match
 			}
-			return string(data)
-		}
 
-		// {{ stepID.output.field }} → try each candidate until field extracts.
-		// Map iteration is non-deterministic, so we probe all matches instead
-		// of relying on a single "primary" pick.
-		field := parts[2]
-		for _, p := range candidates {
-			data, err := os.ReadFile(p)
+			if len(parts) == 3 {
+				return string(data)
+			}
+			// len(parts) == 4 — field extraction
+			val, err := ExtractJSONPath(data, "."+parts[3])
 			if err != nil {
-				continue
+				return match
 			}
-			val, err := ExtractJSONPath(data, "."+field)
-			if err == nil {
-				return val
+			return val
+
+		case "output":
+			// Legacy addressing — ADR-010 / deprecated by ADR-011 rule 4.
+			// Gather all artifacts registered for this step. Multiple
+			// artifacts can live under the same step prefix when the step
+			// is a sub-pipeline composition and its child pipeline_outputs
+			// were all propagated.
+			execution.mu.Lock()
+			candidates := make([]string, 0, 4)
+			for key, path := range execution.ArtifactPaths {
+				if strings.HasPrefix(key, stepID+":") {
+					candidates = append(candidates, path)
+				}
 			}
+			execution.mu.Unlock()
+
+			if len(candidates) == 0 {
+				return match // no artifact found
+			}
+
+			var resolved string
+			// {{ stepID.output }} → full file content from first candidate.
+			if len(parts) == 2 {
+				data, err := os.ReadFile(candidates[0])
+				if err != nil {
+					return match
+				}
+				resolved = string(data)
+			} else {
+				// {{ stepID.output.field }} — parts[2] holds "field" or
+				// "field.subfield..." (SplitN capped at 4, so anything past
+				// the third dot is in parts[3]; reassemble for JSON path).
+				field := parts[2]
+				if len(parts) == 4 && parts[3] != "" {
+					field = field + "." + parts[3]
+				}
+				var val string
+				found := false
+				for _, p := range candidates {
+					data, err := os.ReadFile(p)
+					if err != nil {
+						continue
+					}
+					v, err := ExtractJSONPath(data, "."+field)
+					if err == nil {
+						val = v
+						found = true
+						break
+					}
+				}
+				if !found {
+					return match
+				}
+				resolved = val
+			}
+
+			// Emit ADR-011 rule-4 deprecation warning the first time a
+			// legacy reference resolves inside this execution.
+			e.warnLegacyStepOutputOnce(execution, stepID)
+			return resolved
+
+		default:
+			return match
 		}
-		return match
+	})
+}
+
+// warnLegacyStepOutputOnce emits a single WLP rule-4 deprecation warning per
+// (execution, stepID) for legacy `{{ stepID.output }}` references. The
+// execution tracks emitted warnings via its Results map under the reserved
+// key "__wlp_legacy_output_warnings__" to avoid event spam when the same
+// template is resolved many times.
+func (e *DefaultPipelineExecutor) warnLegacyStepOutputOnce(execution *PipelineExecution, stepID string) {
+	if execution == nil {
+		return
+	}
+	const bucket = "__wlp_legacy_output_warnings__"
+	execution.mu.Lock()
+	if execution.Results == nil {
+		execution.Results = make(map[string]map[string]interface{})
+	}
+	seen, ok := execution.Results[bucket]
+	if !ok {
+		seen = make(map[string]interface{})
+		execution.Results[bucket] = seen
+	}
+	if _, already := seen[stepID]; already {
+		execution.mu.Unlock()
+		return
+	}
+	seen[stepID] = true
+	execution.mu.Unlock()
+
+	e.emit(event.Event{
+		Timestamp: time.Now(),
+		State:     "warning",
+		Message: fmt.Sprintf(
+			"deprecated: use {{ %s.out.<name> }} instead of {{ %s.output }} — see ADR-011 rule 4",
+			stepID, stepID,
+		),
 	})
 }
