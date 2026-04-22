@@ -7,6 +7,7 @@ import (
 
 	"github.com/recinq/wave/internal/contract"
 	"github.com/recinq/wave/internal/hooks"
+	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/timeouts"
@@ -335,6 +336,14 @@ type Step struct {
 	// adapter's native skill discovery path at step start. Merged with persona
 	// and pipeline skills via skill.ResolveSkills.
 	Skills []string `yaml:"skills,omitempty"`
+
+	// Permissions overlays additional tool grants on top of the persona's permissions.
+	// AllowedTools entries are unioned with the persona's allowed list (additive — a
+	// step may ADD tools the persona does not normally have, e.g. let a navigator step
+	// Write to a specific path). Deny entries are likewise unioned; persona-level deny
+	// rules always win, since deny takes precedence in the resolved permission check.
+	// See ResolveStepPermissions for the merge semantics.
+	Permissions manifest.Permissions `yaml:"permissions,omitempty"`
 
 	// Composition primitives
 	SubPipeline string             `yaml:"pipeline,omitempty"`  // Child pipeline to execute
