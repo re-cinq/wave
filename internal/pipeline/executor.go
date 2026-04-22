@@ -578,13 +578,19 @@ func (e *DefaultPipelineExecutor) checkPipelinePreflights(_ context.Context, set
 			return ferr
 		}
 
-		// Build step inputs for forge dependency scanning
+		// Build step inputs for forge dependency scanning. Use the resolved
+		// per-step permission set so a step-level overlay (e.g. adding Write
+		// to a navigator step) does not trip the forge dependency scanner.
 		forgeStepInputs := make([]preflight.ForgeStepInput, 0, len(setup.sortedSteps))
 		for _, step := range setup.sortedSteps {
 			var personaTools []string
 			resolvedPersona := setup.pipelineContext.ResolvePlaceholders(step.Persona)
 			if persona := m.GetPersona(resolvedPersona); persona != nil {
-				personaTools = persona.Permissions.AllowedTools
+				adapterName := persona.Adapter
+				if step.Adapter != "" {
+					adapterName = step.Adapter
+				}
+				personaTools = ResolveStepPermissions(step, persona, m.GetAdapter(adapterName)).AllowedTools
 			}
 			forgeStepInputs = append(forgeStepInputs, preflight.ForgeStepInput{
 				StepID:       step.ID,
@@ -1102,7 +1108,11 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 			var personaTools []string
 			resolvedPersona := pipelineContext.ResolvePlaceholders(step.Persona)
 			if persona := m.GetPersona(resolvedPersona); persona != nil {
-				personaTools = persona.Permissions.AllowedTools
+				adapterName := persona.Adapter
+				if step.Adapter != "" {
+					adapterName = step.Adapter
+				}
+				personaTools = ResolveStepPermissions(step, persona, m.GetAdapter(adapterName)).AllowedTools
 			}
 			forgeStepInputs = append(forgeStepInputs, preflight.ForgeStepInput{
 				StepID:       step.ID,
@@ -3288,6 +3298,11 @@ func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, exec
 	// NoOp service returns "" when the feature is disabled.
 	ontologySection := e.ontology.BuildStepSection(pipelineID, step.ID, step.Contexts)
 
+	// Resolve effective tool permissions: step overlay ∪ persona ∪ adapter defaults.
+	// Step.Permissions can ADD tools (additive); persona-level deny rules still win
+	// because PermissionChecker enforces deny-first precedence.
+	effectivePerms := ResolveStepPermissions(step, res.persona, res.adapterDef)
+
 	cfg := adapter.AdapterRunConfig{
 		Adapter:             res.resolvedAdapterName,
 		Persona:             res.resolvedPersona,
@@ -3297,8 +3312,8 @@ func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, exec
 		Timeout:             timeout,
 		Temperature:         res.persona.Temperature,
 		Model:               res.resolvedModel,
-		AllowedTools:        res.persona.Permissions.AllowedTools,
-		DenyTools:           res.persona.Permissions.Deny,
+		AllowedTools:        effectivePerms.AllowedTools,
+		DenyTools:           effectivePerms.Deny,
 		OutputFormat:        res.adapterDef.OutputFormat,
 		Debug:               e.debug,
 		SandboxEnabled:      sandboxEnabled,

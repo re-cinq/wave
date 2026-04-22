@@ -40,6 +40,18 @@ steps:
     persona: navigator
     max_concurrent_agents: 3
     model: cheapest
+    # Demonstrates the per-step permissions overlay: navigator is normally
+    # read-only, but this step needs Write/Edit/Bash so the agent can emit
+    # the findings artifact and run lightweight inspection commands without
+    # picking a heavier persona. Persona-level deny rules still win.
+    permissions:
+      allowed_tools:
+        - Read
+        - Write
+        - Edit
+        - Glob
+        - Grep
+        - Bash
     workspace:
       mount:
         - source: ./
