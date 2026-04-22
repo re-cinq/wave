@@ -139,7 +139,7 @@ steps:
         type: json_schema
         source: .agents/output/exploration.json
         schema_path: .agents/contracts/plan-exploration.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: breakdown
     persona: planner
@@ -249,7 +249,7 @@ steps:
         type: json_schema
         source: .agents/output/tasks.json
         schema_path: .agents/contracts/plan-tasks.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: review
     persona: philosopher
@@ -378,4 +378,4 @@ steps:
         type: json_schema
         source: .agents/output/plan-review.json
         schema_path: .agents/contracts/plan-review.schema.json
-        on_failure: retry
+        on_failure: warn

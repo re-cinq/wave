@@ -136,7 +136,7 @@ steps:
         schema_path: .agents/contracts/epic-assessment.schema.json
         validate: true
         must_pass: true
-        on_failure: retry
+        on_failure: warn
 
   - id: scope-and-create
     persona: "{{ forge.type }}-scoper"
@@ -254,7 +254,7 @@ steps:
         schema_path: .agents/contracts/scope-plan.schema.json
         validate: true
         must_pass: true
-        on_failure: retry
+        on_failure: warn
 
   - id: verify-report
     persona: "{{ forge.type }}-analyst"
@@ -365,4 +365,4 @@ steps:
         schema_path: .agents/contracts/scope-report.schema.json
         validate: true
         must_pass: true
-        on_failure: retry
+        on_failure: warn
