@@ -183,7 +183,7 @@ steps:
         source: .agents/output/publish-result.json
         schema_path: .agents/contracts/gh-pr-comment-result.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: fail
     outcomes:
       - type: url
         extract_from: .agents/output/publish-result.json

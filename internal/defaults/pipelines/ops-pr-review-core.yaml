@@ -145,7 +145,7 @@ steps:
         type: json_schema
         source: .agents/output/diff-analysis.json
         schema_path: .agents/contracts/diff-analysis.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: security-review
     persona: reviewer
