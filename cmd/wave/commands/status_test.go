@@ -459,3 +459,62 @@ func TestStatusCmd_NoColor(t *testing.T) {
 	assert.Equal(t, "", statusColor("failed"))
 	assert.Equal(t, "", statusColor("cancelled"))
 }
+
+// TestReconcileZombies_PIDZeroOldRunMarkedFailed verifies that a running
+// record with no tracked PID and a started_at older than the age threshold
+// is reaped — leaving the live list empty and updating the DB record.
+func TestReconcileZombies_PIDZeroOldRunMarkedFailed(t *testing.T) {
+	h := newStatusTestHelper(t)
+	defer h.restore()
+
+	old := time.Now().Add(-2 * time.Hour)
+	h.createRun("zombie-old", "test-pipeline", "running", "", 0, old, nil)
+
+	running, err := h.store.GetRunningRuns()
+	require.NoError(t, err)
+	require.Len(t, running, 1, "fixture should produce one running record")
+
+	live := reconcileZombies(h.store, running)
+	assert.Empty(t, live, "old PID=0 running run should be reaped")
+
+	rec, err := h.store.GetRun("zombie-old")
+	require.NoError(t, err)
+	assert.Equal(t, "failed", rec.Status, "DB should reflect reaped status")
+}
+
+// TestReconcileZombies_FreshRunSurvives verifies that a fresh PID=0 run is
+// left alone — the heuristic must not steal genuine in-progress runs.
+func TestReconcileZombies_FreshRunSurvives(t *testing.T) {
+	h := newStatusTestHelper(t)
+	defer h.restore()
+
+	recent := time.Now().Add(-2 * time.Minute)
+	h.createRun("fresh", "test-pipeline", "running", "", 0, recent, nil)
+
+	running, err := h.store.GetRunningRuns()
+	require.NoError(t, err)
+
+	live := reconcileZombies(h.store, running)
+	assert.Len(t, live, 1, "recent PID=0 run should survive reconciliation")
+}
+
+// TestReconcileZombies_DeadPIDReaped verifies that a record with a PID that
+// no longer points at a live process is marked failed.
+func TestReconcileZombies_DeadPIDReaped(t *testing.T) {
+	h := newStatusTestHelper(t)
+	defer h.restore()
+
+	recent := time.Now().Add(-2 * time.Minute)
+	h.createRun("dead-pid", "test-pipeline", "running", "", 0, recent, nil)
+	require.NoError(t, h.store.UpdateRunPID("dead-pid", 1))
+
+	// PID 1 is init — it always exists. Use a PID we know is gone instead:
+	// allocate a high number that is overwhelmingly unlikely to be live.
+	require.NoError(t, h.store.UpdateRunPID("dead-pid", 0x7ffffffe))
+
+	running, err := h.store.GetRunningRuns()
+	require.NoError(t, err)
+
+	live := reconcileZombies(h.store, running)
+	assert.Empty(t, live, "dead PID should be reaped")
+}
