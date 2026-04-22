@@ -35,7 +35,7 @@ steps:
         on_failure: fail
 
   - id: verify
-    persona: navigator
+    persona: craftsman
     model: cheapest
     dependencies: [greet]
     memory:
