@@ -210,7 +210,12 @@ func validatePromptToolPermissions(pipelineName string, p *pipeline.Pipeline, m 
 			// Persona missing from manifest — already reported elsewhere.
 			continue
 		}
-		allowed := extractAllowedToolNames(persona.Permissions)
+		// Honor the per-step Permissions overlay so a pipeline can grant a tool
+		// to a single step without changing its persona. The adapter argument is
+		// nil here because the validator runs against the manifest before any
+		// adapter is selected; adapter-level grants don't apply at validate time.
+		effective := pipeline.ResolveStepPermissions(&step, persona, nil)
+		allowed := extractAllowedToolNames(effective)
 		allowedSet := make(map[string]bool, len(allowed))
 		for _, a := range allowed {
 			allowedSet[a] = true
