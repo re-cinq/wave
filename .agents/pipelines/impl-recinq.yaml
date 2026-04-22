@@ -15,6 +15,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "internal/pipeline"
 
 chat_context:
@@ -42,11 +43,12 @@ pipeline_outputs:
   pr:
     step: publish
     artifact: pr-result
+    type: pr_ref
 
 steps:
   - id: gather
     persona: "{{ forge.type }}-analyst"
-    model: strongest
+    model: balanced
     workspace:
       mount:
         - source: ./
@@ -245,7 +247,7 @@ steps:
   # ── Diamond 1: Define (CONVERGENT) ───────────────────────────────────
   - id: converge
     persona: validator
-    model: strongest
+    model: balanced
     dependencies: [diverge]
     memory:
       inject_artifacts:
@@ -360,7 +362,7 @@ steps:
   # ── Diamond 2: Develop (DIVERGENT) ───────────────────────────────────
   - id: probe
     persona: provocateur
-    model: strongest
+    model: balanced
     dependencies: [converge]
     memory:
       inject_artifacts:
@@ -482,7 +484,7 @@ steps:
   # ── Diamond 2: Deliver (CONVERGENT) ──────────────────────────────────
   - id: distill
     persona: synthesizer
-    model: strongest
+    model: balanced
     dependencies: [probe]
     memory:
       inject_artifacts:
@@ -616,7 +618,7 @@ steps:
   # ── Implementation ───────────────────────────────────────────────────
   - id: simplify
     persona: craftsman
-    model: strongest
+    model: balanced
     dependencies: [distill]
     memory:
       inject_artifacts:

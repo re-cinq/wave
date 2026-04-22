@@ -1,0 +1,33 @@
+kind: WavePipeline
+metadata:
+  name: inception-doc
+  description: >-
+    Documentation feedback loop. Runs audit-doc-scan to surface stale or
+    inaccurate documentation, then routes the scope through doc-explain so a
+    navigator-grade explanation is produced for the affected area. Finally
+    runs ops-pr-review over any resulting documentation PR. Use when you
+    want the documentation to be self-healing after a sprint of code churn.
+  category: composition
+  release: true
+
+skills:
+  - software-design
+
+input:
+  source: cli
+  type: string
+  example: "docs/"
+  schema:
+    type: string
+    description: "Documentation scope — directory or area to audit and regenerate."
+
+chat_context:
+  suggested_questions:
+    - "Does the refreshed explanation cover the gaps?"
+  focus_areas:
+    - "Documentation accuracy vs code reality"
+
+steps:
+  - id: explain
+    pipeline: doc-explain
+    input: "{{input}}"

@@ -15,6 +15,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "harden tests in internal/pipeline and internal/contract"
   schema:
     type: string
@@ -30,6 +31,12 @@ chat_context:
   focus_areas:
     - "Coverage improvement delta"
     - "Test quality and edge case coverage"
+
+pipeline_outputs:
+  coverage:
+    step: analyze-coverage
+    artifact: coverage-analysis
+    type: findings_report
 
 steps:
   - id: analyze-coverage
@@ -148,7 +155,7 @@ steps:
 
   - id: harden
     persona: craftsman
-    model: strongest
+    model: balanced
     dependencies: [analyze-coverage]
     thread: harden
     max_visits: 3

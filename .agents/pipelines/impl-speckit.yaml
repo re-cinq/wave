@@ -22,6 +22,7 @@ requires:
 
 input:
   source: cli
+  type: string
   example: "add user authentication with JWT tokens"
   schema:
     type: string
@@ -44,6 +45,7 @@ pipeline_outputs:
   pr:
     step: create-pr
     artifact: pr-result
+    type: pr_ref
 
 steps:
   - id: specify
@@ -106,7 +108,7 @@ steps:
   - id: plan
     persona: implementer
     thread: speckit
-    model: strongest
+    model: balanced
     dependencies: [clarify, specify]
     memory:
       inject_artifacts:
@@ -137,7 +139,7 @@ steps:
   - id: tasks
     persona: implementer
     thread: speckit
-    model: strongest
+    model: balanced
     dependencies: [plan, specify]
     memory:
       inject_artifacts:
@@ -229,7 +231,7 @@ steps:
 
   - id: implement
     persona: craftsman
-    model: strongest
+    model: balanced
     dependencies: [analyze, specify]
     max_concurrent_agents: 3
     memory:

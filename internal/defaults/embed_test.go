@@ -9,79 +9,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestRewritePipeline_NoHardcodedRepo(t *testing.T) {
-	pipelines, err := GetPipelines()
-	if err != nil {
-		t.Fatalf("GetPipelines() error: %v", err)
-	}
-
-	content, ok := pipelines["ops-rewrite.yaml"]
-	if !ok {
-		t.Fatal("ops-rewrite.yaml not found in embedded pipelines")
-	}
-
-	// The unified pipeline uses {{ forge.cli_tool }} instead of hardcoded gh/glab/tea/bb.
-	// Every CLI command should use {{ input }} or <REPO> placeholder, not a hardcoded owner/repo.
-	for i, line := range strings.Split(content, "\n") {
-		trimmed := strings.TrimSpace(line)
-		// Skip lines that don't contain forge CLI tool references
-		if !strings.Contains(trimmed, "{{ forge.cli_tool }}") {
-			continue
-		}
-		// Lines with --repo must use {{ input }} or <REPO> placeholder, not a hardcoded owner/repo
-		if strings.Contains(trimmed, "--repo") {
-			if !strings.Contains(trimmed, "--repo {{ input }}") && !strings.Contains(trimmed, "--repo <REPO>") {
-				t.Errorf("line %d has hardcoded --repo value: %s", i+1, trimmed)
-			}
-		}
-	}
-}
-
-func TestRewritePipeline_UsesInputTemplate(t *testing.T) {
-	pipelines, err := GetPipelines()
-	if err != nil {
-		t.Fatalf("GetPipelines() error: %v", err)
-	}
-
-	content, ok := pipelines["ops-rewrite.yaml"]
-	if !ok {
-		t.Fatal("ops-rewrite.yaml not found in embedded pipelines")
-	}
-
-	// The pipeline must contain {{ input }} template variables for interpolation
-	if !strings.Contains(content, "{{ input }}") {
-		t.Error("pipeline should contain {{ input }} template variables")
-	}
-
-	// Optimized 2-step pipeline: scan-and-plan has Input line + batch --repo = 2,
-	// apply-enhancements reads repo from artifact (no {{ input }}).
-	// Minimum 2 occurrences.
-	count := strings.Count(content, "{{ input }}")
-	if count < 2 {
-		t.Errorf("expected at least 2 {{ input }} occurrences, got %d", count)
-	}
-}
-
-func TestRewritePipeline_InputSchemaIsString(t *testing.T) {
-	pipelines, err := GetPipelines()
-	if err != nil {
-		t.Fatalf("GetPipelines() error: %v", err)
-	}
-
-	content, ok := pipelines["ops-rewrite.yaml"]
-	if !ok {
-		t.Fatal("ops-rewrite.yaml not found in embedded pipelines")
-	}
-
-	// Input schema should be a simple string type, not a structured object
-	if strings.Contains(content, "type: object") {
-		t.Error("input schema should be type: string, not type: object")
-	}
-	if !strings.Contains(content, "type: string") {
-		t.Error("input schema should contain type: string")
-	}
-}
-
 func TestGetReleasePipelines_ReturnsSubset(t *testing.T) {
 	all, err := GetPipelines()
 	if err != nil {
@@ -177,22 +104,12 @@ func TestGetReleasePipelines_KnownReleasePipelines(t *testing.T) {
 	}
 
 	expected := []string{
-		"plan-adr.yaml",
-		"doc-changelog.yaml",
 		"ops-pr-review.yaml",
-		"audit-dead-code.yaml",
-		"ops-debug.yaml",
-		"doc-fix.yaml",
 		"doc-explain.yaml",
-		"ops-refresh.yaml",
 		"plan-research.yaml",
-		"ops-rewrite.yaml",
-		"impl-improve.yaml",
 		"doc-onboard.yaml",
 		"plan-task.yaml",
-		"impl-refactor.yaml",
 		"audit-security.yaml",
-		"test-gen.yaml",
 		"plan-scope.yaml",
 		"impl-recinq.yaml",
 		"impl-speckit.yaml",

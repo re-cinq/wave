@@ -12,6 +12,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "audit test quality for the pipeline package"
 
 chat_context:
@@ -30,6 +31,7 @@ pipeline_outputs:
   report:
     step: report
     artifact: report
+    type: findings_report
 
 steps:
   - id: scan

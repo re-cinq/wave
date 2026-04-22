@@ -16,6 +16,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "audit persona permission enforcement and sandbox isolation"
   schema:
     type: string
@@ -37,6 +38,7 @@ pipeline_outputs:
   report:
     step: verify
     artifact: security-report
+    type: findings_report
 
 steps:
   - id: threat-model
@@ -155,7 +157,7 @@ steps:
 
   - id: verify
     persona: auditor
-    model: strongest
+    model: balanced
     dependencies: [threat-model]
     memory:
       inject_artifacts:

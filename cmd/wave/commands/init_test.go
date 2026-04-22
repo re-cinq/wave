@@ -1248,9 +1248,9 @@ func TestInitTransitivePersonaFiltering(t *testing.T) {
 		assert.True(t, has, "system persona %q should be present in manifest", name)
 	}
 
-	// supervisor is used by the release pipeline "ops-supervise"
-	_, hasSupervisor := personas["supervisor"]
-	assert.True(t, hasSupervisor, "supervisor should be in manifest (used by release pipeline ops-supervise)")
+	// craftsman is used by release pipelines (e.g. impl-recinq, impl-speckit)
+	_, hasCraftsman := personas["craftsman"]
+	assert.True(t, hasCraftsman, "craftsman should be in manifest (used by release pipelines)")
 
 	// With --all, all personas should be in the manifest
 	env2 := newTestEnv(t)
@@ -1265,8 +1265,8 @@ func TestInitTransitivePersonaFiltering(t *testing.T) {
 	allPersonas, ok := allManifest["personas"].(map[string]interface{})
 	require.True(t, ok)
 
-	_, hasSupervisorAll := allPersonas["supervisor"]
-	assert.True(t, hasSupervisorAll, "supervisor should be present with --all flag")
+	_, hasCraftsmanAll := allPersonas["craftsman"]
+	assert.True(t, hasCraftsmanAll, "craftsman should be present with --all flag")
 
 	// --all should have more or equal personas than filtered
 	assert.GreaterOrEqual(t, len(allPersonas), len(personas),

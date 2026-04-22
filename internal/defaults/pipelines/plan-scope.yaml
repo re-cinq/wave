@@ -19,10 +19,11 @@ requires:
 
 input:
   source: cli
+  type: string
   example: "re-cinq/wave 184"
   schema:
     type: string
-    description: "GitHub repository with epic issue number (e.g. 'owner/repo 42')"
+    description: "GitHub repository with epic issue number (e.g. 'owner/repo 42'). Accepts free-text; the fetch-epic step parses it into an issue_ref."
 
 chat_context:
   artifact_summaries:
@@ -39,6 +40,11 @@ pipeline_outputs:
   report:
     step: verify-report
     artifact: scope_report
+    type: string
+  scope:
+    step: scope-and-create
+    artifact: scope_plan
+    type: scope_result
 
 steps:
   - id: fetch-epic
@@ -134,7 +140,7 @@ steps:
 
   - id: scope-and-create
     persona: "{{ forge.type }}-scoper"
-    model: strongest
+    model: balanced
     dependencies: [fetch-epic]
     memory:
       inject_artifacts:

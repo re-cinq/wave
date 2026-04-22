@@ -34,15 +34,17 @@ requires:
 
 input:
   source: cli
+  type: issue_ref
   schema:
     type: string
-    description: "GitHub repository and issue number"
+    description: "GitHub repository and issue number (accepts typed issue_ref or 'owner/repo number' text)"
   example: "re-cinq/wave 42"
 
 pipeline_outputs:
   pr:
     step: create-pr
     artifact: pr-result
+    type: pr_ref
 
 steps:
   - id: fetch-assess
@@ -75,7 +77,7 @@ steps:
     # are automatically injected. This gives the planner the full domain picture.
     # See AGENTS.md § "Ontology Context Injection" for details.
     persona: implementer
-    model: strongest
+    model: balanced
     dependencies: [fetch-assess]
     memory:
       inject_artifacts:
@@ -97,16 +99,24 @@ steps:
       policy: standard
       max_attempts: 2
     handover:
-      contract:
-        type: json_schema
-        source: .agents/output/impl-plan.json
-        schema_path: .agents/contracts/issue-impl-plan.schema.json
-        must_pass: true
-        on_failure: retry
+      contracts:
+        - type: json_schema
+          source: .agents/output/impl-plan.json
+          schema_path: .agents/contracts/issue-impl-plan.schema.json
+          must_pass: true
+          on_failure: retry
+        - type: agent_review
+          persona: reviewer
+          criteria_path: .agents/contracts/plan-review-criteria.md
+          source: .agents/output/impl-plan.json
+          model: cheapest
+          token_budget: 6000
+          timeout: 90s
+          on_failure: warn
 
   - id: implement
     persona: craftsman
-    model: strongest
+    model: balanced
     contexts: [execution, delivery]
     thread: impl
     dependencies: [plan]

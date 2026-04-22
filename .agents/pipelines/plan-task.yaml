@@ -14,6 +14,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "add webhook support for pipeline completion events"
 
 chat_context:
@@ -32,6 +33,7 @@ pipeline_outputs:
   review:
     step: review
     artifact: review
+    type: plan_ref
 
 steps:
   - id: explore
@@ -60,7 +62,12 @@ steps:
         REQUIREMENTS:
         1. Understand the request: Summarize what is being asked in 2-3 sentences. Assess
            scope: small (1-2 files), medium (3-7 files), large (8-15 files), epic (16+ files).
-           Identify the primary subsystem this feature touches.
+           Identify the primary subsystem this feature touches. Use git diagnostics to
+           understand recent changes and authorship:
+           - `git log --oneline -20` for recent commit history
+           - `git log --oneline <file>` for change frequency of key files
+           - `git diff HEAD~5` to see recent modifications in context
+           - `git blame <file>` to understand authorship of critical sections
         2. Find related files: Use Glob to discover files by name pattern and Grep to
            search for relevant functions, types, and identifiers. For each relevant file,
            record:
@@ -136,7 +143,7 @@ steps:
 
   - id: breakdown
     persona: planner
-    model: strongest
+    model: balanced
     dependencies: [explore]
     memory:
       inject_artifacts:
@@ -246,8 +253,8 @@ steps:
 
   - id: review
     persona: philosopher
-    model: strongest
-    dependencies: [breakdown, explore]
+    model: balanced
+    dependencies: [breakdown]
     memory:
       inject_artifacts:
         - step: explore

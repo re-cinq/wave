@@ -12,6 +12,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "full validation run"
 
 chat_context:
@@ -31,6 +32,7 @@ pipeline_outputs:
   report:
     step: generate-report
     artifact: report
+    type: findings_report
 
 steps:
   # Step 1: Model routing — uses cheapest tier for cost-efficient analysis

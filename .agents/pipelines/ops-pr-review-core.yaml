@@ -35,15 +35,18 @@ requires:
 
 input:
   source: cli
+  type: pr_ref
   example: "https://github.com/owner/repo/pull/42"
 
 pipeline_outputs:
   verdict:
     step: summary
     artifact: verdict
+    type: findings_report
   diff:
     step: diff-analysis
     artifact: diff
+    type: findings_report
 
 steps:
   - id: diff-analysis
@@ -147,7 +150,7 @@ steps:
   - id: security-review
     persona: reviewer
     thread: review-security
-    model: strongest
+    model: balanced
     contexts: [security]
     dependencies: [diff-analysis]
     memory:
@@ -266,7 +269,7 @@ steps:
   - id: quality-review
     persona: reviewer
     thread: review-quality
-    model: strongest
+    model: balanced
     contexts: [validation]
     dependencies: [diff-analysis]
     memory:
@@ -383,7 +386,7 @@ steps:
   - id: slop-review
     persona: reviewer
     thread: review-slop
-    model: strongest
+    model: balanced
     contexts: [validation]
     dependencies: [diff-analysis]
     memory:
@@ -492,7 +495,7 @@ steps:
 
   - id: summary
     persona: summarizer
-    model: strongest
+    model: balanced
     dependencies: [security-review, quality-review, slop-review]
     memory:
       inject_artifacts:

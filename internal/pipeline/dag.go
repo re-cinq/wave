@@ -35,6 +35,13 @@ func (l *YAMLPipelineLoader) Unmarshal(data []byte) (*Pipeline, error) {
 
 	applyPipelineDefaults(&pipeline)
 
+	// Type-check I/O protocol declarations (input.type, pipeline_outputs[*].type,
+	// step input_ref) against the shared schema registry. Catches misspelled
+	// type names before any step runs. See docs/adr/010-pipeline-io-protocol.md.
+	if err := ValidatePipelineIOTypes(&pipeline); err != nil {
+		return nil, err
+	}
+
 	return &pipeline, nil
 }
 

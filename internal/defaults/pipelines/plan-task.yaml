@@ -14,6 +14,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "add webhook support for pipeline completion events"
 
 chat_context:
@@ -32,6 +33,7 @@ pipeline_outputs:
   review:
     step: review
     artifact: review
+    type: plan_ref
 
 steps:
   - id: explore
@@ -141,7 +143,7 @@ steps:
 
   - id: breakdown
     persona: planner
-    model: strongest
+    model: balanced
     dependencies: [explore]
     memory:
       inject_artifacts:
@@ -251,7 +253,7 @@ steps:
 
   - id: review
     persona: philosopher
-    model: strongest
+    model: balanced
     dependencies: [breakdown]
     memory:
       inject_artifacts:

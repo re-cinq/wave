@@ -11,6 +11,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   schema:
     type: string
     description: "Project description and intent (e.g. 'Rust CLI tool for processing CSV files')"
@@ -31,11 +32,12 @@ pipeline_outputs:
   assessment:
     step: assess
     artifact: assessment
+    type: workspace_ref
 
 steps:
   - id: assess
     persona: navigator
-    model: strongest
+    model: balanced
     workspace:
       mount:
         - source: ./
@@ -132,7 +134,7 @@ steps:
   - id: scaffold
     persona: craftsman
     thread: bootstrap
-    model: strongest
+    model: balanced
     dependencies: [assess]
     memory:
       inject_artifacts:

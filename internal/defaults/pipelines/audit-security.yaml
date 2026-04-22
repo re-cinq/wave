@@ -15,6 +15,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "audit the authentication module for vulnerabilities"
 
 chat_context:
@@ -33,6 +34,7 @@ pipeline_outputs:
   report:
     step: report
     artifact: report
+    type: findings_report
 
 steps:
   - id: scan
@@ -147,7 +149,7 @@ steps:
 
   - id: deep-dive
     persona: auditor
-    model: strongest
+    model: balanced
     contexts: [security]
     max_concurrent_agents: 3
     dependencies: [scan]

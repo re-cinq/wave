@@ -14,6 +14,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "explain the pipeline execution system and how steps are scheduled"
 
 chat_context:
@@ -31,6 +32,7 @@ pipeline_outputs:
   explanation:
     step: document
     artifact: explanation
+    type: findings_report
 
 steps:
   - id: explore
@@ -231,8 +233,8 @@ steps:
 
   - id: document
     persona: philosopher
-    model: strongest
-    dependencies: [analyze]
+    model: balanced
+    dependencies: [analyze, explore]
     memory:
       inject_artifacts:
         - step: explore

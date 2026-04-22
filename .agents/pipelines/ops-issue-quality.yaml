@@ -18,6 +18,7 @@ requires:
 
 input:
   source: cli
+  type: string
   example: "re-cinq/wave"
   schema:
     type: string
@@ -39,6 +40,7 @@ pipeline_outputs:
   report:
     step: enhance
     artifact: enhancement-summary
+    type: findings_report
 
 steps:
   - id: scan
@@ -176,7 +178,7 @@ steps:
 
   - id: enhance
     persona: "{{ forge.type }}-commenter"
-    model: strongest
+    model: balanced
     dependencies: [scan]
     memory:
       inject_artifacts:
