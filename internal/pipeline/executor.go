@@ -6433,37 +6433,45 @@ func (e *DefaultPipelineExecutor) resolveStepOutputRef(tmpl string, execution *P
 
 		stepID := parts[0]
 
-		// Find the artifact file for this step
+		// Gather all artifacts registered for this step. Multiple artifacts
+		// can live under the same step prefix when the step is a sub-pipeline
+		// composition and its child pipeline_outputs were all propagated.
 		execution.mu.Lock()
-		var artPath string
+		candidates := make([]string, 0, 4)
 		for key, path := range execution.ArtifactPaths {
 			if strings.HasPrefix(key, stepID+":") {
-				artPath = path
-				break
+				candidates = append(candidates, path)
 			}
 		}
 		execution.mu.Unlock()
 
-		if artPath == "" {
+		if len(candidates) == 0 {
 			return match // no artifact found
 		}
 
-		data, err := os.ReadFile(artPath)
-		if err != nil {
-			return match
-		}
-
+		// {{ stepID.output }} → full file content from first candidate.
 		if len(parts) == 2 {
-			// {{ stepID.output }} → full file content
+			data, err := os.ReadFile(candidates[0])
+			if err != nil {
+				return match
+			}
 			return string(data)
 		}
 
-		// {{ stepID.output.field }} → extract JSON field
+		// {{ stepID.output.field }} → try each candidate until field extracts.
+		// Map iteration is non-deterministic, so we probe all matches instead
+		// of relying on a single "primary" pick.
 		field := parts[2]
-		val, err := ExtractJSONPath(data, "."+field)
-		if err != nil {
-			return match
+		for _, p := range candidates {
+			data, err := os.ReadFile(p)
+			if err != nil {
+				continue
+			}
+			val, err := ExtractJSONPath(data, "."+field)
+			if err == nil {
+				return val
+			}
 		}
-		return val
+		return match
 	})
 }
