@@ -533,7 +533,7 @@ steps:
 
   # Phase 5: PR-Cycle - Automated pull request lifecycle
   - id: pr-create
-    persona: navigator
+    persona: craftsman
     model: cheapest
     dependencies: [implement]
 
@@ -880,7 +880,7 @@ steps:
       branch: "proto/{{ pipeline_id }}"
 
   - id: pr-merge
-    persona: navigator
+    persona: craftsman
     model: cheapest
     dependencies: [pr-fix]
 

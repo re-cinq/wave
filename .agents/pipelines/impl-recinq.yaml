@@ -755,7 +755,7 @@ steps:
 
   # ── Reporting ────────────────────────────────────────────────────────
   - id: report
-    persona: navigator
+    persona: craftsman
     model: cheapest
     dependencies: [simplify]
     memory:

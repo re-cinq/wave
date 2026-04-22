@@ -38,7 +38,7 @@ pipeline_outputs:
 
 steps:
   - id: scan
-    persona: navigator
+    persona: implementer
     model: cheapest
     workspace:
       mount:

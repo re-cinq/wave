@@ -32,7 +32,7 @@ pipeline_outputs:
 
 steps:
   - id: investigate
-    persona: navigator
+    persona: implementer
     model: cheapest
     workspace:
       mount:
