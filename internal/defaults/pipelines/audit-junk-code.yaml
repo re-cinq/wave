@@ -117,4 +117,4 @@ steps:
         type: json_schema
         source: .agents/output/findings.json
         schema_path: .agents/contracts/shared-findings.schema.json
-        on_failure: skip
+        on_failure: fail
