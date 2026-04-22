@@ -22,7 +22,7 @@ pipeline_outputs:
 
 steps:
   - id: explain
-    persona: implementer
+    persona: craftsman
     model: cheapest
     workspace:
       mount:
@@ -34,7 +34,11 @@ steps:
       source: |
         Read the file: {{ input }}
 
-        Write a Markdown summary to `summary.md` in the workspace root with these sections:
+        Write a Markdown summary to `./summary.md` in the CURRENT WORKING DIRECTORY.
+        Do NOT create any subdirectories. Do NOT put it in specs/ or anywhere
+        other than the workspace root. The path must be exactly `./summary.md`.
+
+        Sections:
 
         # {{ input }}
 
