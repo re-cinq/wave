@@ -200,8 +200,8 @@ func (c *CompositionExecutor) executeIterateSequential(ctx context.Context, p *P
 			return fmt.Errorf("item %d: %w", i, err)
 		}
 
-		// Load and execute the sub-pipeline
-		if err := c.runSubPipeline(ctx, resolvedName, input); err != nil {
+		// Load and execute the sub-pipeline (iterate: key by pipelineName; step.ID is aggregated later)
+		if err := c.runSubPipeline(ctx, "", resolvedName, input); err != nil {
 			return fmt.Errorf("item %d: pipeline %q failed: %w", i, resolvedName, err)
 		}
 	}
@@ -269,7 +269,7 @@ func (c *CompositionExecutor) executeIterateParallel(ctx context.Context, p *Pip
 		})
 
 		g.Go(func() error {
-			return c.runSubPipeline(gctx, resolvedName, input)
+			return c.runSubPipeline(gctx, "", resolvedName, input)
 		})
 	}
 
@@ -352,7 +352,7 @@ func (c *CompositionExecutor) executeBranch(ctx context.Context, p *Pipeline, st
 		return err
 	}
 
-	return c.runSubPipeline(ctx, pipelineName, input)
+	return c.runSubPipeline(ctx, step.ID, pipelineName, input)
 }
 
 // executeGate blocks until a gate condition is met.
@@ -393,7 +393,7 @@ func (c *CompositionExecutor) executeLoop(ctx context.Context, p *Pipeline, step
 			if err != nil {
 				return err
 			}
-			if err := c.runSubPipeline(ctx, step.SubPipeline, input); err != nil {
+			if err := c.runSubPipeline(ctx, step.ID, step.SubPipeline, input); err != nil {
 				return fmt.Errorf("loop iteration %d: %w", i, err)
 			}
 		}
@@ -409,7 +409,7 @@ func (c *CompositionExecutor) executeLoop(ctx context.Context, p *Pipeline, step
 				if err != nil {
 					return err
 				}
-				if err := c.runSubPipeline(ctx, subStep.SubPipeline, input); err != nil {
+				if err := c.runSubPipeline(ctx, subStep.ID, subStep.SubPipeline, input); err != nil {
 					return fmt.Errorf("loop iteration %d, sub-pipeline %q: %w", i, subStep.SubPipeline, err)
 				}
 			}
@@ -504,18 +504,20 @@ func (c *CompositionExecutor) executeSubPipeline(ctx context.Context, step *Step
 	execCtx, cancel := subPipelineTimeout(ctx, step.Config)
 	defer cancel()
 
-	return c.runSubPipeline(execCtx, step.SubPipeline, input)
+	return c.runSubPipeline(execCtx, step.ID, step.SubPipeline, input)
 }
 
 // runSubPipeline loads a pipeline by name and executes it.
-func (c *CompositionExecutor) runSubPipeline(ctx context.Context, name, input string) error {
+// stepID is the parent step ID used to key the sub-pipeline's outputs into
+// the parent template context. When empty, outputs are keyed by pipelineName.
+func (c *CompositionExecutor) runSubPipeline(ctx context.Context, stepID, pipelineName, input string) error {
 	if c.pipelineLoader == nil {
 		return fmt.Errorf("no pipeline loader configured")
 	}
 
-	p, err := c.pipelineLoader(c.pipelinesDir, name)
+	p, err := c.pipelineLoader(c.pipelinesDir, pipelineName)
 	if err != nil {
-		return fmt.Errorf("failed to load pipeline %q: %w", name, err)
+		return fmt.Errorf("failed to load pipeline %q: %w", pipelineName, err)
 	}
 
 	result, err := c.seqExecutor.Execute(ctx, []*Pipeline{p}, c.manifest, input)
@@ -523,16 +525,43 @@ func (c *CompositionExecutor) runSubPipeline(ctx context.Context, name, input st
 		return err
 	}
 
-	// Store the pipeline's output in template context if we can find the terminal step
-	if len(p.Steps) > 0 {
-		terminalStep := p.Steps[len(p.Steps)-1]
-		if len(result.PipelineResults) > 0 {
-			// Try to load terminal step artifact
-			pr := result.PipelineResults[0]
+	key := stepID
+	if key == "" {
+		key = pipelineName
+	}
+
+	// Register sub-pipeline outputs into parent template context.
+	// Prefer the first declared pipeline_outputs entry as the "primary" output
+	// (keyed by parent step.ID so templates like {{step.output.field}} work).
+	// Fall back to terminal step artifact if no pipeline_outputs are declared.
+	if len(result.PipelineResults) > 0 {
+		pr := result.PipelineResults[0]
+		registered := false
+		if len(p.PipelineOutputs) > 0 {
+			// Iterate in declaration order by walking pipeline steps and matching
+			// pipeline_outputs that reference each step. First hit wins as primary.
+			for _, s := range p.Steps {
+				if registered {
+					break
+				}
+				for _, po := range p.PipelineOutputs {
+					if po.Step == s.ID {
+						data, loadErr := LoadStepArtifact(c.tmplCtx.WorkspaceRoot, pr.RunID, po.Step, po.Artifact)
+						if loadErr == nil {
+							c.tmplCtx.SetStepOutput(key, data)
+							registered = true
+							break
+						}
+					}
+				}
+			}
+		}
+		if !registered && len(p.Steps) > 0 {
+			terminalStep := p.Steps[len(p.Steps)-1]
 			for _, art := range terminalStep.OutputArtifacts {
 				data, loadErr := LoadStepArtifact(c.tmplCtx.WorkspaceRoot, pr.RunID, terminalStep.ID, art.Name)
 				if loadErr == nil {
-					c.tmplCtx.SetStepOutput(name, data)
+					c.tmplCtx.SetStepOutput(key, data)
 					break
 				}
 			}
