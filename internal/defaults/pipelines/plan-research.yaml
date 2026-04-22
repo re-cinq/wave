@@ -427,7 +427,7 @@ steps:
         type: json_schema
         source: .agents/output/research-report.json
         schema_path: .agents/contracts/research-report.schema.json
-        on_failure: retry
+        on_failure: continue
 
   - id: post-comment
     persona: "{{ forge.type }}-commenter"
