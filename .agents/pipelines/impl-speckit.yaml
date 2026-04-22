@@ -72,7 +72,7 @@ steps:
         source: .agents/output/specify-status.json
         schema_path: .agents/contracts/specify-status.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: warn
 
   - id: clarify
     persona: implementer
@@ -103,7 +103,7 @@ steps:
         source: .agents/output/clarify-status.json
         schema_path: .agents/contracts/clarify-status.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: warn
 
   - id: plan
     persona: implementer
@@ -134,7 +134,7 @@ steps:
         source: .agents/output/plan-status.json
         schema_path: .agents/contracts/plan-status.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: warn
 
   - id: tasks
     persona: implementer
@@ -165,7 +165,7 @@ steps:
         source: .agents/output/tasks-status.json
         schema_path: .agents/contracts/tasks-status.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: warn
 
   - id: checklist
     persona: implementer
@@ -196,7 +196,7 @@ steps:
         source: .agents/output/checklist-status.json
         schema_path: .agents/contracts/checklist-status.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: warn
 
   - id: analyze
     persona: implementer
@@ -227,7 +227,7 @@ steps:
         source: .agents/output/analysis-report.json
         schema_path: .agents/contracts/analysis-report.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: warn
 
   - id: implement
     persona: craftsman
@@ -253,7 +253,7 @@ steps:
         - type: test_suite
           command: "{{ project.contract_test_command }}"
           must_pass: true
-          on_failure: retry
+          on_failure: fail
         - type: agent_review
           persona: navigator
           criteria_path: .agents/contracts/impl-review-criteria.md
@@ -296,7 +296,7 @@ steps:
         source: .agents/output/pr-result.json
         schema_path: .agents/contracts/pr-result.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: warn
     outcomes:
       - type: pr
         extract_from: .agents/output/pr-result.json

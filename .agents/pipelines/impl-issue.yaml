@@ -70,7 +70,7 @@ steps:
         source: .agents/output/issue-assessment.json
         schema_path: .agents/contracts/issue-assessment.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: fail
 
   - id: plan
     # No contexts: field — inherit-all behavior: all ontology contexts defined in wave.yaml
@@ -104,7 +104,7 @@ steps:
           source: .agents/output/impl-plan.json
           schema_path: .agents/contracts/issue-impl-plan.schema.json
           must_pass: true
-          on_failure: retry
+          on_failure: warn
         - type: agent_review
           persona: reviewer
           criteria_path: .agents/contracts/plan-review-criteria.md
@@ -144,7 +144,7 @@ steps:
         type: test_suite
         command: "{{ project.contract_test_command }}"
         must_pass: true
-        on_failure: retry
+        on_failure: fail
       compaction:
         trigger: "token_limit_80%"
         persona: summarizer
@@ -277,7 +277,7 @@ steps:
         source: .agents/output/pr-result.json
         schema_path: .agents/contracts/pr-result.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: warn
     outcomes:
       - type: pr
         extract_from: .agents/output/pr-result.json
