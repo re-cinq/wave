@@ -318,6 +318,34 @@ func TestValidatePromptToolPermissions(t *testing.T) {
 			wantTool:   []string{"Write"},
 			wantStepID: []string{"inventory"},
 		},
+		{
+			name: "step.permissions overlay grants missing tool",
+			manifest: &manifest.Manifest{
+				Personas: map[string]manifest.Persona{
+					"navigator": {
+						Adapter: "claude",
+						Permissions: manifest.Permissions{
+							AllowedTools: []string{"Read", "Glob", "Grep"},
+						},
+					},
+				},
+			},
+			pipeline: &pipeline.Pipeline{
+				Steps: []pipeline.Step{{
+					ID:      "scan",
+					Persona: "navigator",
+					Permissions: manifest.Permissions{
+						AllowedTools: []string{"Write"},
+					},
+					Exec: pipeline.ExecConfig{
+						Type:   "prompt",
+						Source: "Use the Write tool to emit findings.json.",
+					},
+				}},
+			},
+			wantTool:   nil,
+			wantStepID: nil,
+		},
 	}
 
 	for _, tt := range tests {
