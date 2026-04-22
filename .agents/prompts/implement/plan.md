@@ -53,37 +53,37 @@ Write `plan.md` in the feature directory with:
 5. **Risks**: Potential issues and mitigations
 6. **Testing Strategy**: What tests are needed
 
-### Step 5: Create Task Breakdown
+### Step 5: Create Work Breakdown
 
 Write `tasks.md` in the feature directory with a phased breakdown:
 
 ```markdown
-# Tasks
+# Work Items
 
 ## Phase 1: Setup
-- [ ] Task 1.1: Description
-- [ ] Task 1.2: Description
+- [ ] Item 1.1: Description
+- [ ] Item 1.2: Description
 
 ## Phase 2: Core Implementation
-- [ ] Task 2.1: Description [P] (parallelizable)
-- [ ] Task 2.2: Description [P]
+- [ ] Item 2.1: Description [P] (parallelizable)
+- [ ] Item 2.2: Description [P]
 
 ## Phase 3: Testing
-- [ ] Task 3.1: Write unit tests
-- [ ] Task 3.2: Write integration tests
+- [ ] Item 3.1: Write unit tests
+- [ ] Item 3.2: Write integration tests
 
 ## Phase 4: Polish
-- [ ] Task 4.1: Documentation updates
-- [ ] Task 4.2: Final validation
+- [ ] Item 4.1: Documentation updates
+- [ ] Item 4.2: Final validation
 ```
 
-Mark parallelizable tasks with `[P]`.
+Mark parallelizable items with `[P]`.
 
 ## CONSTRAINTS
 
-- Do NOT spawn Task subagents — work directly in the main context
+- Do NOT spawn sub-agents — work directly in the main context
 - Do NOT start implementation — only planning in this step
-- Do NOT use WebSearch — all information is in the issue and codebase
+- Do NOT browse the web — all information is in the issue and codebase
 - Do NOT create files or directories under `.wave/artifacts/` — that path is managed by the pipeline orchestrator
 
 ## Output

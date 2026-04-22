@@ -152,7 +152,7 @@ steps:
         on_failure: retry
 
   - id: audit
-    persona: "{{ forge.type }}-analyst"
+    persona: implementer
     model: cheapest
     dependencies: [inventory]
     memory:

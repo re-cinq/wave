@@ -80,7 +80,7 @@ steps:
         2. **Code navigation**: Is the codebase easy to navigate without prior knowledge?
            Check package organization, naming conventions, godoc/documentation comments,
            directory structure rationale, and whether a newcomer can find the right
-           file for a given task without extensive searching.
+           file for a given change without extensive searching.
 
         3. **Testing**: Is it easy to write, run, and understand tests?
            Check test helpers, mock/fixture infrastructure, test naming patterns,

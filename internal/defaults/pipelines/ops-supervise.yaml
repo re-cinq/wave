@@ -283,7 +283,7 @@ steps:
            - Rating guide: excellent = direct path, no wasted operations; good = minor
              detours; adequate = some wasted work; poor = significant thrashing
 
-        2. **Scope discipline**: Did the agent stay on task?
+        2. **Scope discipline**: Did the agent stay on goal?
            - Flag any changes unrelated to the original goal (scope creep)
            - Check whether formatting, refactoring, or "improvement" changes were made
              outside the scope
@@ -291,13 +291,13 @@ steps:
              adequate = some unrelated changes; poor = significant scope creep
 
         3. **Tool usage**: Were the right tools used?
-           - Check for: Read vs Bash cat, Glob vs find, Edit vs Write for existing files
+           - Check for: file-read tool vs `cat`, glob tool vs `find`, in-place patch vs full overwrite for existing files
            - Flag any unnecessary tool calls or inefficient patterns
            - Rating guide: excellent = optimal tool selection; good = mostly correct;
              adequate = some suboptimal choices; poor = systematically wrong tools
 
         4. **Token economy**: Was the work concise or bloated?
-           - Excessive context gathering (reading files not needed for the task)
+           - Excessive context gathering (reading files not needed for the goal)
            - Redundant operations (reading the same file multiple times)
            - Unnecessary verbosity in tool calls or outputs
            - Rating guide: excellent = minimal and focused; good = some extra context;

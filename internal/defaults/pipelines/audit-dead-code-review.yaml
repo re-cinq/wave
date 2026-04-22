@@ -281,7 +281,7 @@ steps:
         - Do NOT post multiple comments. One comment per pipeline run.
         - Do NOT edit existing comments on the PR. Always create a new comment.
         - Do NOT include Co-Authored-By or AI attribution beyond the Wave attribution already in the review content footer.
-        - Do NOT spawn Task subagents. Work directly in the main context.
+        - Do NOT spawn sub-agents. Work directly in the main context.
         - Clean up the temporary file after posting.
 
         ## Output Format

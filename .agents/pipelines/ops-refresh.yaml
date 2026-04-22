@@ -416,7 +416,7 @@ steps:
         - Do NOT skip verification. Always re-fetch and compare.
         - Do NOT close the issue. The refresh pipeline only updates content.
         - Do NOT modify labels, assignees, or milestone — title and body only.
-        - Do NOT edit the issue multiple times to "fix" formatting. Apply once, verify
+        - Do NOT modify the issue multiple times to "fix" formatting. Apply once, verify
           once, report discrepancies.
 
         ## Output Format

@@ -155,6 +155,10 @@ steps:
     persona: "{{ forge.type }}-analyst"
     model: cheapest
     dependencies: [inventory]
+    permissions:
+      allowed_tools:
+        - Glob
+        - Grep
     memory:
       inject_artifacts:
         - step: inventory

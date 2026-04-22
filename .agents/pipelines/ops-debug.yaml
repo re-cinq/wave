@@ -34,7 +34,7 @@ pipeline_outputs:
 
 steps:
   - id: reproduce
-    persona: debugger
+    persona: implementer
     model: cheapest
     thread: debug
     workspace:
@@ -74,7 +74,7 @@ steps:
            Then describe the actual behavior observed or reported. Be specific — "returns
            nil" is better than "doesn't work".
 
-        3. **Create minimal reproduction steps.** Write a numbered sequence of commands
+        3. **Create minimal reproduction steps.** Compose a numbered sequence of commands
            or actions that reliably trigger the bug. If a specific test fails, identify
            the exact test function name and the command to run it (e.g.,
            `{{ project.test_command }}` with a filter for the specific test). If the issue requires specific input

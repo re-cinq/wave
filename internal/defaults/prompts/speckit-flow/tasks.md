@@ -1,4 +1,4 @@
-You are generating an actionable, dependency-ordered task breakdown for implementation.
+You are generating an actionable, dependency-ordered work breakdown for implementation.
 
 Feature context: {{ input }}
 
@@ -18,7 +18,7 @@ Follow the `/speckit.tasks` workflow:
 3. Load from FEATURE_DIR:
    - **Required**: plan.md (tech stack, structure), spec.md (user stories, priorities)
    - **Optional**: data-model.md, contracts/, research.md, quickstart.md
-4. Execute task generation:
+4. Execute work-item generation:
    - Extract user stories with priorities (P1, P2, P3) from spec.md
    - Map entities and endpoints to user stories
    - Generate tasks organized by user story
@@ -36,13 +36,13 @@ Follow the `/speckit.tasks` workflow:
 
 ## CONSTRAINTS
 
-- Do NOT spawn Task subagents — work directly in the main context
-- Do NOT use WebSearch — all information is in the spec artifacts
-- Keep the scope tight: generate tasks from existing artifacts only
+- Do NOT spawn sub-agents — work directly in the main context
+- Do NOT browse the web — all information is in the spec artifacts
+- Keep the scope tight: generate work items from existing artifacts only
 
 ## Quality Requirements
 
-- Every task must have a unique ID (T001, T002...), description, and file path
+- Every work item must have a unique ID (T001, T002...), description, and file path
 - Mark parallelizable tasks with [P]
 - Each user story phase must be independently testable
 - Tasks must be specific enough for an LLM to complete without additional context

@@ -244,7 +244,7 @@ steps:
 
   # ── Diamond 1: Define (CONVERGENT) ───────────────────────────────────
   - id: converge
-    persona: validator
+    persona: synthesizer
     model: strongest
     dependencies: [diverge]
     memory:
@@ -315,7 +315,7 @@ steps:
              wrong, or the finding misunderstands the code's purpose. Explain what the
              provocateur got wrong.
 
-        5. **Write a detailed explanation**: For every classification, explain WHY you
+        5. **Provide a detailed explanation**: For every classification, explain WHY you
            reached that conclusion. For rejections, be specific about what evidence
            contradicts the finding. For confirmations, note whether the finding understates
            or overstates the opportunity.

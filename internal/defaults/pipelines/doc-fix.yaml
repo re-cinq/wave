@@ -462,7 +462,7 @@ steps:
 
         - Do NOT modify the working tree. No additional edits, no new commits.
         - Do NOT run `git checkout`, `git stash`, or any branch-switching commands.
-        - Do NOT spawn Task subagents. Work directly in the main context.
+        - Do NOT spawn sub-agents. Work directly in the main context.
         - Do NOT include Co-Authored-By or AI attribution.
         - Do NOT leave placeholder text in the PR body.
         - Do NOT force-push under any circumstances.

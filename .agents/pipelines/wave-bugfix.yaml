@@ -30,7 +30,7 @@ chat_context:
 
 steps:
   - id: investigate
-    persona: navigator
+    persona: implementer
     model: cheapest
     workspace:
       mount:
@@ -105,7 +105,7 @@ steps:
           is worse than the original.
 
         OUTPUT FORMAT:
-        Write the findings as structured JSON conforming to
+        Produce structured JSON conforming to
         .agents/contracts/bug-investigation.schema.json. Required fields: root_cause,
         affected_files, fix_approach. Include these additional fields for richer
         analysis: bug_summary (string), root_cause as object (with file, function,

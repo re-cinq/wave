@@ -35,7 +35,7 @@ pipeline_outputs:
 steps:
   # Step 1: Detect forge and verify template variables resolve
   - id: detect-forge
-    persona: navigator
+    persona: craftsman
     model: cheapest
     max_concurrent_agents: 3
     contexts: [configuration]
@@ -85,7 +85,7 @@ steps:
         4. If any value is empty, note it as "not_set". For ForgeLocal, this is expected
            for cli_tool, pr_command, host, owner, and repo. For other forge types, empty
            values indicate a detection problem.
-        5. Write the JSON report with all values and a validation_status field:
+        5. Save the JSON report with all values and a validation_status field:
            - "pass": all values are consistent with the detected forge type
            - "warn": some values are empty but the forge is functional
            - "fail": forge type does not match remote URL, or critical values are missing
@@ -257,7 +257,7 @@ steps:
 
   # Step 5: Synthesize results — LLM reviews all checks
   - id: synthesize
-    persona: navigator
+    persona: craftsman
     model: cheapest
     contexts: [quality]
     dependencies: [detect-forge, verify-cli, verify-auth, test-api]
@@ -302,7 +302,7 @@ steps:
            Rules for ForgeLocal: CLI skipped, auth skipped, and API skipped are all
            expected. Only detection must pass. Overall status should be PASS if detection
            is valid.
-        3. Write the markdown report with:
+        3. Compose the markdown report with:
            - Title: "Forge Validation Report"
            - Overall status in a prominent header: PASS / PARTIAL / FAIL
            - Summary: 2-3 sentences explaining the overall result
@@ -314,7 +314,7 @@ steps:
            - Recommendations: actionable items to fix any failures. For PASS status,
              note that no action is needed. For PARTIAL/FAIL, list specific steps
              (install CLI tool, configure auth token, fix remote URL, etc.)
-        4. Write the structured JSON report with:
+        4. Compose the structured JSON report with:
            - overall_status: "pass", "partial", or "fail"
            - forge_type: the detected forge type
            - checks: object with detection, cli, auth, api sub-objects, each containing

@@ -76,7 +76,7 @@ steps:
            ```
         4. Analyze the fetched epic to determine:
            - Is this truly an epic/umbrella issue? An epic contains multiple distinct work
-             items. If this is a single task, note that in the assessment with
+             items. If this is a single unit of work, note that in the assessment with
              is_epic: false and recommended_sub_issues: 1.
            - Key themes and work areas: group the work described in the epic body into
              3-10 logical themes. Each theme should map to one or more sub-issues.

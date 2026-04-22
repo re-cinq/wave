@@ -1,4 +1,4 @@
-You are implementing an issue according to the plan and task breakdown.
+You are implementing an issue according to the plan and work breakdown.
 
 Input: {{ input }}
 
@@ -14,18 +14,18 @@ the main working tree.
 ### Step 1: Load Context
 
 1. Get the issue details and branch name from the issue assessment artifact
-2. Get the task breakdown, file changes, and feature directory from the plan artifact
+2. Get the work breakdown, file changes, and feature directory from the plan artifact
 
 ### Step 2: Read Plan Files
 
 Navigate to the feature directory and read:
 - `spec.md` — the full specification
 - `plan.md` — the implementation plan
-- `tasks.md` — the phased task breakdown
+- `tasks.md` — the phased work breakdown
 
 ### Step 3: Execute Implementation
 
-Follow the task breakdown phase by phase:
+Follow the work breakdown phase by phase:
 
 **Setup first**: Initialize project structure, dependencies, configuration
 
@@ -49,44 +49,44 @@ After each phase, run:
 
 If tests fail, fix the issue before proceeding to the next phase.
 
-### Step 5: Mark Completed Tasks
+### Step 5: Mark Completed Items
 
-As you complete each task, mark it as `[X]` in `tasks.md`.
+As you complete each item, mark it as `[X]` in `tasks.md`.
 
 ### Step 6: Final Validation
 
-After all tasks are complete:
+After all items are complete:
 1. Run `{{ project.test_command }}` one final time
-2. Verify all tasks in `tasks.md` are marked complete
+2. Verify all items in `tasks.md` are marked complete
 3. Stage and commit all changes — YOU MUST run the git reset to exclude Wave internals:
    ```bash
    git add -A
-   git reset HEAD -- .agents/artifacts/ .agents/output/ .claude/ CLAUDE.md 2>/dev/null || true
-   git diff --cached --name-only | head -20  # verify no .agents/artifacts, .agents/output, .claude, or CLAUDE.md
+   git reset HEAD -- .wave/artifacts/ .wave/output/ .claude/ CLAUDE.md 2>/dev/null || true
+   git diff --cached --name-only | head -20  # verify no .wave/artifacts, .wave/output, .claude, or CLAUDE.md
    git commit -m "feat: implement #<ISSUE_NUMBER> — <short description>"
    ```
 
    CRITICAL: Never use `Closes #N`, `Fixes #N`, or `Resolves #N` in commit messages — these auto-close issues on merge. Use the issue number without closing keywords as shown above.
-   CRITICAL: Never commit `.claude/settings.json`, `CLAUDE.md`, `.agents/artifacts/`, or `.agents/output/`.
+   CRITICAL: Never commit `.claude/settings.json`, `CLAUDE.md`, `.wave/artifacts/`, or `.wave/output/`.
    These are Wave-managed files. The `specs/` directory IS allowed.
 
 Commit changes to the worktree branch.
 
-## Agent Usage
+## Parallelism
 
-Maximize parallelism with up to 6 Task agents for independent work:
-- Agents 1-2: Setup and foundational tasks (Phase 1-2)
-- Agents 3-4: Core implementation tasks (parallelizable [P] tasks)
-- Agent 5: Test writing and validation
-- Agent 6: Integration and polish tasks
+Maximize parallelism by working on independent items in batches:
+- Batch 1-2: Setup and foundational items (Phase 1-2)
+- Batch 3-4: Core implementation items (parallelizable [P] items)
+- Batch 5: Test writing and validation
+- Batch 6: Integration and polish items
 
-Coordinate agents to respect task dependencies:
-- Sequential tasks (no [P] marker) must complete before dependents start
-- Parallel tasks [P] affecting different files can run simultaneously
+Respect inter-item dependencies:
+- Sequential items (no [P] marker) must complete before dependents start
+- Parallel items [P] affecting different files can be batched together
 - Run test validation between phases
 
 ## Error Handling
 
-- If a task fails, halt dependent tasks but continue independent ones
+- If a work item fails, halt dependent items but continue independent ones
 - Provide clear error context for debugging
 - If tests fail, fix the issue before proceeding to the next phase

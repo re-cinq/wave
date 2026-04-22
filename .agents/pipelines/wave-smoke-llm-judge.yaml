@@ -69,7 +69,7 @@ steps:
         on_failure: fail
 
   - id: review
-    persona: navigator
+    persona: craftsman
     model: cheapest
     dependencies: [create-artifact]
     workspace:
@@ -82,7 +82,7 @@ steps:
       source: |
         Read the code sample at `project/.agents/output/sample-code.md`.
 
-        Write a structured security review to `.agents/output/judge-output.md` with:
+        Save a structured security review to `.agents/output/judge-output.md` with:
         1. A **Summary** section (2-3 sentences)
         2. A **Findings** section with numbered items, each having severity (Critical/High/Medium/Low/Info)
         3. A **Recommendations** section with actionable fixes

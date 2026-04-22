@@ -19,7 +19,7 @@ Follow the `/speckit.analyze` workflow:
 3. Load all three artifacts and build semantic models:
    - Requirements inventory from spec.md
    - User story/action inventory with acceptance criteria
-   - Task coverage mapping from tasks.md
+   - Coverage mapping from tasks.md
    - Constitution rule set from `.specify/memory/constitution.md`
 
 4. Run detection passes (limit to 50 findings total):
@@ -35,8 +35,8 @@ Follow the `/speckit.analyze` workflow:
 
 ## CONSTRAINTS
 
-- Do NOT spawn Task subagents — work directly in the main context
-- Do NOT use WebSearch — all information is in the spec artifacts
+- Do NOT spawn sub-agents — work directly in the main context
+- Do NOT browse the web — all information is in the spec artifacts
 - This is a READ-ONLY analysis — do NOT modify any files
 
 ## Output

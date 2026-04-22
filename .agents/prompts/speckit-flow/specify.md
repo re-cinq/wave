@@ -76,12 +76,12 @@ Follow the `/speckit.specify` workflow to generate a complete feature specificat
 6. Create the quality checklist at `FEATURE_DIR/checklists/requirements.md`
 7. Run self-validation against the checklist (up to 3 iterations)
 
-## Agent Usage
+## Parallel Exploration
 
-Use 1-3 Task agents to parallelize independent work:
-- Agent 1: Analyze the codebase to understand existing patterns and architecture
-- Agent 2: Research domain-specific best practices for the feature
-- Agent 3: Draft specification sections in parallel
+Sequence these activities to build the spec efficiently:
+- Step 1: Analyze the codebase to understand existing patterns and architecture
+- Step 2: Survey domain-specific best practices for the feature
+- Step 3: Draft specification sections grounded in the gathered context
 
 ## Quality Standards
 

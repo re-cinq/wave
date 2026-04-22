@@ -95,5 +95,5 @@ If the issue IS implementable:
 
 ## CONSTRAINTS
 
-- Do NOT spawn Task subagents — work directly in the main context
+- Do NOT spawn sub-agents — work directly in the main context
 - Do NOT modify the issue — this is read-only assessment

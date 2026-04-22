@@ -291,7 +291,7 @@ steps:
 
         - Do NOT modify issues that are not in the `issues_to_enhance` array.
         - Do NOT remove existing labels. Only add new ones.
-        - Do NOT edit the same issue more than once. Apply all changes (title, body,
+        - Do NOT modify the same issue more than once. Apply all changes (title, body,
           labels) in a single pass per issue.
         - Do NOT use `git add -A` or modify the worktree's git state. This step only
           interacts with the forge API.
