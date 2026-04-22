@@ -4472,6 +4472,86 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 			_ = e.store.RegisterArtifact(execution.Status.ID, step.ID, art.Name, registeredPath, art.Type, size)
 		}
 	}
+
+	e.warnOnUnexpectedArtifacts(execution, step, workspacePath)
+}
+
+// warnOnUnexpectedArtifacts walks the workspace at end-of-step and emits a
+// warning for any persona-created file outside the declared OutputArtifacts
+// paths. This catches model drift like GLM hallucinating
+// `specs/999-<branch>/<file>` subdirs because the project mount happened to
+// contain a `specs/` tree — the file is harmless but the divergence is a
+// signal that the prompt could be tightened or the artifact path moved.
+//
+// We deliberately skip:
+//   - the .agents/ tree (Wave-managed: artifacts, traces, output, AGENTS.md)
+//   - the project/ tree (read-only mount of the source repo)
+//   - the .git/ tree (worktree metadata when git ops occurred)
+//   - declared OutputArtifacts paths and their archive copies
+//   - hidden dotfiles at the root (e.g. AGENTS.md is plain but workspaces
+//     accumulate small bookkeeping that adapters write themselves)
+//
+// The check is best-effort — Walk errors are swallowed because a noisy
+// warning path must not become a new failure mode.
+func (e *DefaultPipelineExecutor) warnOnUnexpectedArtifacts(execution *PipelineExecution, step *Step, workspacePath string) {
+	if workspacePath == "" {
+		return
+	}
+	declared := make(map[string]bool, len(step.OutputArtifacts))
+	for _, art := range step.OutputArtifacts {
+		if art.IsStdoutArtifact() {
+			continue
+		}
+		if execution.Context != nil {
+			declared[filepath.Clean(execution.Context.ResolveArtifactPath(art))] = true
+		}
+		declared[filepath.Clean(art.Path)] = true
+	}
+
+	var unexpected []string
+	_ = filepath.WalkDir(workspacePath, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		rel, relErr := filepath.Rel(workspacePath, path)
+		if relErr != nil || rel == "." {
+			return nil
+		}
+		// Prune Wave-internal and project-mount subtrees.
+		if d.IsDir() {
+			switch rel {
+			case ".agents", "project", ".git", "node_modules", "vendor":
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		// Ignore hidden files at any depth and the standard AGENTS.md drop.
+		base := filepath.Base(rel)
+		if strings.HasPrefix(base, ".") || base == "AGENTS.md" || base == "CLAUDE.md" {
+			return nil
+		}
+		if declared[filepath.Clean(rel)] {
+			return nil
+		}
+		unexpected = append(unexpected, rel)
+		return nil
+	})
+
+	if len(unexpected) == 0 {
+		return
+	}
+	const maxList = 5
+	preview := unexpected
+	if len(preview) > maxList {
+		preview = append(append([]string{}, preview[:maxList]...), fmt.Sprintf("(+%d more)", len(unexpected)-maxList))
+	}
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: execution.Status.ID,
+		StepID:     step.ID,
+		State:      "warning",
+		Message:    fmt.Sprintf("step wrote %d file(s) outside declared output_artifacts paths: %s", len(unexpected), strings.Join(preview, ", ")),
+	})
 }
 
 // validateSkillRefs validates skill references at manifest (global + persona)
