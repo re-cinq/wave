@@ -5,6 +5,7 @@
 *.cast
 
 # Wave runtime artifacts (ephemeral, not committed)
+.wave/
 .agents/workspaces/
 **/.agents/workspaces/
 .agents/state.db*
