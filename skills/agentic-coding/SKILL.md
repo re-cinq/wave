@@ -1,6 +1,6 @@
 ---
 name: agentic-coding
-description: Expert agentic coding methodologies including autonomous AI development, multi-agent systems, and self-improving code generation
+description: "Builds multi-agent coding systems with orchestration, goal decomposition, and iterative self-improvement loops. Use when the user asks for autonomous coding workflows, agent orchestration, multi-agent architectures, or AI-driven development pipelines."
 ---
 
 ## User Input
@@ -11,83 +11,15 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
-## Outline
+## Workflow: Building an Agentic System
 
-You are an Agentic Coding expert specializing in autonomous AI development, multi-agent systems, and self-improving code generation. Use this skill when the user needs help with:
+1. **Define agent boundaries** — identify distinct responsibilities (code generation, review, testing, deployment)
+2. **Design message protocol** — standardize inter-agent communication format
+3. **Implement orchestrator** — route tasks, collect results, handle failures
+4. **Add feedback loops** — wire evaluation metrics back into improvement cycles
+5. **Validate end-to-end** — test agent communication before adding orchestration complexity
 
-- Building autonomous coding systems
-- Implementing multi-agent architectures
-- Creating self-improving AI systems
-- Developing agent orchestration frameworks
-- Building agentic workflow systems
-- Implementing AI-driven development pipelines
-
-## Core Agentic Concepts
-
-### 1. Autonomous Systems
-- **Self-direction**: Systems that can make decisions without human intervention
-- **Goal-oriented programming**: Define objectives and let systems determine execution
-- **Adaptive behavior**: Systems that adjust based on feedback
-- **Learning loops**: Continuous improvement through experience
-
-### 2. Multi-Agent Architectures
-- **Specialization**: Different agents for different tasks
-- **Communication**: Inter-agent messaging and coordination
-- **Conflict resolution**: Handling competing priorities or approaches
-- **Emergent behavior**: Complex outcomes from simple agent interactions
-
-### 3. Self-Improving Systems
-- **Meta-learning**: Learning how to learn better
-- **Code generation**: Systems that write and modify code
-- **Testing automation**: Autonomous validation of generated solutions
-- **Error recovery**: Automatic detection and correction of failures
-
-## Key Agentic Patterns
-
-### Agent + Orchestrator Structure (Python)
-
-```python
-from abc import ABC, abstractmethod
-import asyncio
-from dataclasses import dataclass
-from typing import Dict, Any, List
-
-@dataclass
-class AgentMessage:
-    sender: str
-    receiver: str
-    message_type: str
-    payload: Dict[str, Any]
-
-class Agent(ABC):
-    def __init__(self, name: str, capabilities: List[str]):
-        self.name = name
-        self.capabilities = capabilities
-        self.message_queue = asyncio.Queue()
-
-    @abstractmethod
-    async def process_message(self, message: AgentMessage) -> AgentMessage:
-        pass
-
-    @abstractmethod
-    async def execute_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
-        pass
-
-class AgentOrchestrator:
-    def __init__(self):
-        self.agents = {}
-
-    def register_agent(self, agent: Agent):
-        self.agents[agent.name] = agent
-
-    async def route_message(self, message: AgentMessage):
-        if message.receiver in self.agents:
-            await self.agents[message.receiver].message_queue.put(message)
-
-    async def coordinate_agents(self, task: Dict[str, Any]):
-        # Route task to appropriate agent, collect results, chain next steps
-        pass
-```
+## Key Patterns
 
 ### Self-Improving Loop (Go)
 
@@ -111,41 +43,12 @@ func (cg *CodeGenerator) improveCode(ctx context.Context, code string, req Gener
 }
 ```
 
-### Goal Decomposition (JavaScript)
-
-```javascript
-async analyzeAndBreakDown(goal) {
-    return [
-        { type: 'analysis',      agent: 'analyzer',  dependencies: [] },
-        { type: 'design',        agent: 'architect',  dependencies: ['analysis'] },
-        { type: 'implementation',agent: 'coder',      dependencies: ['design'] },
-        { type: 'testing',       agent: 'tester',     dependencies: ['implementation'] },
-    ];
-}
-```
-
 ## Best Practices
 
-### Safety and Control
-- Maintain human oversight and rollback capabilities
-- Log all decisions and actions for transparency
-- Apply multi-layer validation before execution
-
-### Coordination
-- Use standardized message formats between agents
-- Prevent deadlocks with explicit dependency graphs
-- Implement conflict resolution and load balancing
-
-### Learning and Adaptation
-- Build feedback loops for continuous improvement
-- Share learned patterns between agents
-- Monitor success rates and efficiency metrics
-
-## When to Use This Skill
-
-Use when building autonomous coding systems, multi-agent architectures, self-improving AI systems, or AI-driven development pipelines that require goal decomposition and agent coordination.
-
-Always prioritize safety, human oversight, and robust error recovery.
+- Log all agent decisions and actions for auditability
+- Use explicit dependency graphs to prevent deadlocks
+- Maintain human oversight with rollback capabilities
+- Build feedback loops — wire evaluation metrics into improvement cycles
 
 ## Complete Reference
 
