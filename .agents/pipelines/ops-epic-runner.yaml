@@ -51,4 +51,4 @@ steps:
     iterate:
       over: "{{scope.output.created_issues}}"
       mode: sequential
-    input: "{{item.repository}} {{item.number}}"
+    input: "{{scope.output.parent_issue.repository}} {{item.number}}"

@@ -69,7 +69,7 @@ steps:
     iterate:
       over: "{{scope.output.created_issues}}"
       mode: sequential
-    input: "{{item.repository}} {{item.number}}"
+    input: "{{scope.output.parent_issue.repository}} {{item.number}}"
 
   # Stage 4: aggregate PR refs and run ops-pr-review on each. Review
   # feedback lands as comments on the produced PRs, closing the loop.
