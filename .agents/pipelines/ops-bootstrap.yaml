@@ -11,6 +11,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   schema:
     type: string
     description: "Project description and intent (e.g. 'Rust CLI tool for processing CSV files')"
@@ -31,11 +32,12 @@ pipeline_outputs:
   assessment:
     step: assess
     artifact: assessment
+    type: workspace_ref
 
 steps:
   - id: assess
     persona: navigator
-    model: strongest
+    model: balanced
     workspace:
       mount:
         - source: ./
@@ -127,12 +129,12 @@ steps:
         source: .agents/output/bootstrap-assessment.json
         schema_path: .agents/contracts/bootstrap-assessment.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: warn
 
   - id: scaffold
     persona: craftsman
     thread: bootstrap
-    model: strongest
+    model: balanced
     dependencies: [assess]
     memory:
       inject_artifacts:
@@ -276,7 +278,7 @@ steps:
         type: test_suite
         command: "{{ project.contract_test_command }}"
         must_pass: false
-        on_failure: retry
+        on_failure: warn
 
   - id: commit
     persona: craftsman

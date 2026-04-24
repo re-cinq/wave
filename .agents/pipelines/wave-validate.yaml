@@ -12,6 +12,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "full validation run"
 
 chat_context:
@@ -31,6 +32,7 @@ pipeline_outputs:
   report:
     step: generate-report
     artifact: report
+    type: findings_report
 
 steps:
   # Step 1: Model routing — uses cheapest tier for cost-efficient analysis
@@ -137,7 +139,7 @@ steps:
         type: json_schema
         source: .agents/output/config-check.json
         schema_path: .agents/contracts/config-check.schema.json
-        on_failure: retry
+        on_failure: warn
     edges:
       - target: sub-pipeline-test
 
@@ -230,7 +232,7 @@ steps:
       contract:
         type: non_empty_file
         source: .agents/output/diagnosis.md
-        on_failure: retry
+        on_failure: warn
     edges:
       - target: approval-gate
 

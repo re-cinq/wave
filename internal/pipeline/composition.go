@@ -200,8 +200,8 @@ func (c *CompositionExecutor) executeIterateSequential(ctx context.Context, p *P
 			return fmt.Errorf("item %d: %w", i, err)
 		}
 
-		// Load and execute the sub-pipeline
-		if err := c.runSubPipeline(ctx, resolvedName, input); err != nil {
+		// Load and execute the sub-pipeline (iterate: key by pipelineName; step.ID is aggregated later)
+		if err := c.runSubPipeline(ctx, "", resolvedName, input); err != nil {
 			return fmt.Errorf("item %d: pipeline %q failed: %w", i, resolvedName, err)
 		}
 	}
@@ -269,7 +269,7 @@ func (c *CompositionExecutor) executeIterateParallel(ctx context.Context, p *Pip
 		})
 
 		g.Go(func() error {
-			return c.runSubPipeline(gctx, resolvedName, input)
+			return c.runSubPipeline(gctx, "", resolvedName, input)
 		})
 	}
 
@@ -352,7 +352,7 @@ func (c *CompositionExecutor) executeBranch(ctx context.Context, p *Pipeline, st
 		return err
 	}
 
-	return c.runSubPipeline(ctx, pipelineName, input)
+	return c.runSubPipeline(ctx, step.ID, pipelineName, input)
 }
 
 // executeGate blocks until a gate condition is met.
@@ -393,7 +393,7 @@ func (c *CompositionExecutor) executeLoop(ctx context.Context, p *Pipeline, step
 			if err != nil {
 				return err
 			}
-			if err := c.runSubPipeline(ctx, step.SubPipeline, input); err != nil {
+			if err := c.runSubPipeline(ctx, step.ID, step.SubPipeline, input); err != nil {
 				return fmt.Errorf("loop iteration %d: %w", i, err)
 			}
 		}
@@ -409,7 +409,7 @@ func (c *CompositionExecutor) executeLoop(ctx context.Context, p *Pipeline, step
 				if err != nil {
 					return err
 				}
-				if err := c.runSubPipeline(ctx, subStep.SubPipeline, input); err != nil {
+				if err := c.runSubPipeline(ctx, subStep.ID, subStep.SubPipeline, input); err != nil {
 					return fmt.Errorf("loop iteration %d, sub-pipeline %q: %w", i, subStep.SubPipeline, err)
 				}
 			}
@@ -504,18 +504,20 @@ func (c *CompositionExecutor) executeSubPipeline(ctx context.Context, step *Step
 	execCtx, cancel := subPipelineTimeout(ctx, step.Config)
 	defer cancel()
 
-	return c.runSubPipeline(execCtx, step.SubPipeline, input)
+	return c.runSubPipeline(execCtx, step.ID, step.SubPipeline, input)
 }
 
 // runSubPipeline loads a pipeline by name and executes it.
-func (c *CompositionExecutor) runSubPipeline(ctx context.Context, name, input string) error {
+// stepID is the parent step ID used to key the sub-pipeline's outputs into
+// the parent template context. When empty, outputs are keyed by pipelineName.
+func (c *CompositionExecutor) runSubPipeline(ctx context.Context, stepID, pipelineName, input string) error {
 	if c.pipelineLoader == nil {
 		return fmt.Errorf("no pipeline loader configured")
 	}
 
-	p, err := c.pipelineLoader(c.pipelinesDir, name)
+	p, err := c.pipelineLoader(c.pipelinesDir, pipelineName)
 	if err != nil {
-		return fmt.Errorf("failed to load pipeline %q: %w", name, err)
+		return fmt.Errorf("failed to load pipeline %q: %w", pipelineName, err)
 	}
 
 	result, err := c.seqExecutor.Execute(ctx, []*Pipeline{p}, c.manifest, input)
@@ -523,27 +525,93 @@ func (c *CompositionExecutor) runSubPipeline(ctx context.Context, name, input st
 		return err
 	}
 
-	// Store the pipeline's output in template context if we can find the terminal step
-	if len(p.Steps) > 0 {
-		terminalStep := p.Steps[len(p.Steps)-1]
-		if len(result.PipelineResults) > 0 {
-			// Try to load terminal step artifact
-			pr := result.PipelineResults[0]
+	key := stepID
+	if key == "" {
+		key = pipelineName
+	}
+
+	// Register sub-pipeline outputs into parent template context.
+	// Use SequenceExecutor's recorded pipeline outputs (keyed by pipeline name
+	// -> artifact name) rather than reconstructing filesystem paths, since the
+	// worktree layout is managed by the executor and not trivially predictable.
+	outputs := c.seqExecutor.GetPipelineOutputs()[pipelineName]
+	if len(outputs) > 0 {
+		// Pick primary output: walk declared pipeline_outputs in step order so
+		// the first declared, load-successful output wins. Fall back to terminal
+		// step's first output artifact.
+		var primary []byte
+		if len(p.PipelineOutputs) > 0 {
+			for _, s := range p.Steps {
+				if primary != nil {
+					break
+				}
+				for name, po := range p.PipelineOutputs {
+					if po.Step == s.ID {
+						if data, ok := outputs[name]; ok {
+							primary = data
+							break
+						}
+						if data, ok := outputs[po.Artifact]; ok {
+							primary = data
+							break
+						}
+					}
+				}
+			}
+		}
+		if primary == nil && len(p.Steps) > 0 {
+			terminalStep := p.Steps[len(p.Steps)-1]
 			for _, art := range terminalStep.OutputArtifacts {
-				data, loadErr := LoadStepArtifact(c.tmplCtx.WorkspaceRoot, pr.RunID, terminalStep.ID, art.Name)
-				if loadErr == nil {
-					c.tmplCtx.SetStepOutput(name, data)
+				if data, ok := outputs[art.Name]; ok {
+					primary = data
 					break
 				}
 			}
 		}
+		if primary != nil {
+			c.tmplCtx.SetStepOutput(key, primary)
+		}
 	}
 
+	_ = result
 	return nil
 }
 
 // resolveStepInput resolves the input template for a step.
+//
+// Resolution order:
+//  1. step.InputRef.From      ("<step_id>.<output_name>") — looked up in
+//     the template context's StepOutputs; resolves to the raw JSON value.
+//  2. step.InputRef.Literal   (template string)
+//  3. step.SubInput           (legacy string template)
+//  4. parent input (c.tmplCtx.Input)
 func (c *CompositionExecutor) resolveStepInput(step *Step) (string, error) {
+	if step.InputRef != nil {
+		if step.InputRef.From != "" {
+			srcStep, remainder, ok := splitDot(step.InputRef.From)
+			if !ok {
+				return "", fmt.Errorf("step %q: input_ref.from %q must be '<step>.<output>[.<field>...]'", step.ID, step.InputRef.From)
+			}
+			raw, has := c.tmplCtx.StepOutputs[srcStep]
+			if !has {
+				return "", fmt.Errorf("step %q: input_ref.from references step %q which has no recorded output", step.ID, srcStep)
+			}
+			// Rule 7: remainder may carry a JSON path beyond the output name.
+			// Shape: "<output>" (whole value) or "<output>.<path>" (navigate).
+			_, fieldPath, hasPath := splitDot(remainder)
+			if !hasPath {
+				return string(raw), nil
+			}
+			value, err := ExtractJSONPath(raw, "."+fieldPath)
+			if err != nil {
+				return "", fmt.Errorf("step %q: input_ref.from %q: %w", step.ID, step.InputRef.From, err)
+			}
+			return value, nil
+		}
+		if step.InputRef.Literal != "" {
+			return ResolveTemplate(step.InputRef.Literal, c.tmplCtx)
+		}
+	}
 	if step.SubInput != "" {
 		return ResolveTemplate(step.SubInput, c.tmplCtx)
 	}

@@ -9,6 +9,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "verify gate steps work"
 
 steps:

@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "wave://shared/workspace_ref",
+  "title": "WorkspaceRef",
+  "description": "Reference to a workspace (filesystem root, optionally a git worktree).",
+  "type": "object",
+  "required": ["root"],
+  "properties": {
+    "root": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Absolute or repo-relative root directory of the workspace."
+    },
+    "worktree_path": {
+      "type": "string",
+      "description": "Absolute path to the git worktree (if workspace is a worktree)."
+    },
+    "branch": {
+      "type": "string",
+      "description": "Branch checked out in the worktree."
+    }
+  },
+  "additionalProperties": false
+}

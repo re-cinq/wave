@@ -26,18 +26,21 @@ func ClassifyInput(input string) InputType {
 	}
 
 	lower := strings.ToLower(input)
+	isHTTP := strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://")
 
-	// Check for PR/MR URLs first (more specific than issue URLs).
-	if isPRURL(lower) {
+	// PR/MR URLs (more specific than issue URLs).
+	if isHTTP && (strings.Contains(lower, "/pull/") ||
+		strings.Contains(lower, "/pulls/") ||
+		strings.Contains(lower, "/merge_requests/")) {
 		return InputTypePRURL
 	}
 
-	// Check for issue URLs.
-	if isIssueURL(lower) {
+	// Issue URLs.
+	if isHTTP && strings.Contains(lower, "/issues/") {
 		return InputTypeIssueURL
 	}
 
-	// Check for repo ref pattern (owner/repo #123).
+	// Repo ref pattern (owner/repo #123).
 	if repoRefPattern.MatchString(input) {
 		return InputTypeRepoRef
 	}
@@ -45,66 +48,16 @@ func ClassifyInput(input string) InputType {
 	return InputTypeFreeText
 }
 
-// isPRURL returns true if the lowercased input looks like a pull request URL.
-func isPRURL(lower string) bool {
-	// GitHub: /pull/123
-	if strings.Contains(lower, "/pull/") {
-		return isForgeURL(lower)
-	}
-	// GitHub: /pulls/123
-	if strings.Contains(lower, "/pulls/") {
-		return isForgeURL(lower)
-	}
-	// GitLab: /merge_requests/123 or /-/merge_requests/123
-	if strings.Contains(lower, "/merge_requests/") {
-		return isForgeURL(lower)
-	}
-	return false
-}
-
-// isIssueURL returns true if the lowercased input looks like an issue URL.
-func isIssueURL(lower string) bool {
-	if !strings.Contains(lower, "/issues/") {
-		return false
-	}
-	return isForgeURL(lower)
-}
-
-// isForgeURL returns true if the lowercased input contains a known forge hostname.
-func isForgeURL(lower string) bool {
-	forgeHosts := []string{
-		"github.com",
-		"gitlab.com",
-		"gitea.com",
-		"gitea.io",
-		"codeberg.org",
-		"bitbucket.org",
-	}
-	for _, host := range forgeHosts {
-		if strings.Contains(lower, host) {
-			return true
-		}
-	}
-	// Also match self-hosted patterns: any URL with these path segments
-	// is likely a forge URL even on custom domains.
-	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
-		return true
-	}
-	return false
-}
-
 // SuggestPipelineForInput returns recommended pipeline names based on input type.
 // The first element is the highest-priority suggestion.
 func SuggestPipelineForInput(inputType InputType) []string {
 	switch inputType {
 	case InputTypeIssueURL:
-		return []string{"impl-issue", "impl-research", "plan-research"}
+		return []string{"impl-issue", "plan-research"}
 	case InputTypePRURL:
 		return []string{"ops-pr-review"}
 	case InputTypeRepoRef:
 		return []string{"impl-issue"}
-	case InputTypeFreeText:
-		return []string{"impl-feature", "impl-hotfix", "impl-improve"}
 	default:
 		return nil
 	}

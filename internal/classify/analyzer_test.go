@@ -233,10 +233,10 @@ func TestClassifyThenSelect(t *testing.T) {
 			wantDomain:   DomainFeature,
 		},
 		{
-			name:         "docs_typo_to_doc_fix",
+			name:         "docs_typo_to_doc_explain",
 			input:        "fix typo in README",
 			issueBody:    "",
-			wantPipeline: "doc-fix",
+			wantPipeline: "doc-explain",
 			wantDomain:   DomainDocs,
 		},
 		{
@@ -254,10 +254,10 @@ func TestClassifyThenSelect(t *testing.T) {
 			wantDomain:   DomainSecurity,
 		},
 		{
-			name:         "research_to_impl_research",
+			name:         "research_to_plan_research",
 			input:        "investigate caching strategies and compare options",
 			issueBody:    "",
-			wantPipeline: "impl-research",
+			wantPipeline: "plan-research",
 			wantDomain:   DomainResearch,
 		},
 	}

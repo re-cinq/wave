@@ -3,50 +3,114 @@
   "title": "Epic Scope Plan",
   "description": "Output from the fetch-scope step of ops-implement-epic: parsed subissues with dependency graph",
   "type": "object",
-  "required": ["parent_issue", "subissues", "total_subissues", "open_subissues"],
+  "required": [
+    "parent_issue",
+    "created_issues",
+    "total_created"
+  ],
   "properties": {
     "parent_issue": {
       "type": "object",
-      "required": ["owner", "repo", "number", "title", "url"],
+      "required": [
+        "owner",
+        "repo",
+        "number",
+        "title",
+        "url"
+      ],
       "properties": {
-        "owner": { "type": "string" },
-        "repo": { "type": "string" },
-        "number": { "type": "integer", "minimum": 1 },
-        "title": { "type": "string", "minLength": 1 },
-        "url": { "type": "string", "format": "uri" }
+        "owner": {
+          "type": "string"
+        },
+        "repo": {
+          "type": "string"
+        },
+        "number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
       },
       "additionalProperties": false
     },
-    "subissues": {
+    "dependency_tiers": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "created_issues": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["number", "repository", "title", "url", "state", "dependencies"],
+        "required": [
+          "number",
+          "repository",
+          "title",
+          "url",
+          "state",
+          "dependencies"
+        ],
         "properties": {
-          "number": { "type": "integer", "minimum": 1 },
-          "repository": { "type": "string", "pattern": "^[^/]+/[^/]+$" },
-          "title": { "type": "string", "minLength": 1 },
-          "url": { "type": "string", "format": "uri" },
-          "state": { "type": "string", "enum": ["OPEN", "CLOSED"] },
-          "complexity": { "type": "string", "enum": ["S", "M", "L", "XL"] },
+          "number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "repository": {
+            "type": "string",
+            "pattern": "^[^/]+/[^/]+$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "CLOSED"
+            ]
+          },
+          "complexity": {
+            "type": "string",
+            "enum": [
+              "S",
+              "M",
+              "L",
+              "XL"
+            ]
+          },
           "dependencies": {
             "type": "array",
-            "items": { "type": "integer", "minimum": 1 }
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            }
           }
         },
         "additionalProperties": false
       }
     },
-    "total_subissues": { "type": "integer", "minimum": 1 },
-    "open_subissues": { "type": "integer", "minimum": 0 },
-    "dependency_tiers": {
-      "type": "array",
-      "items": {
-        "type": "array",
-        "items": { "type": "integer", "minimum": 1 }
-      }
+    "total_created": {
+      "type": "integer",
+      "minimum": 1
     }
   },
-  "additionalProperties": false
+  "additionalProperties": true
 }

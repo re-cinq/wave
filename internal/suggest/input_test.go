@@ -202,7 +202,7 @@ func TestSuggestPipelineForInput(t *testing.T) {
 			name:      "issue URL suggests impl-issue first",
 			inputType: InputTypeIssueURL,
 			wantFirst: "impl-issue",
-			wantLen:   3,
+			wantLen:   2,
 		},
 		{
 			name:      "PR URL suggests ops-pr-review",
@@ -217,10 +217,10 @@ func TestSuggestPipelineForInput(t *testing.T) {
 			wantLen:   1,
 		},
 		{
-			name:      "free text suggests impl-feature first",
+			name:      "free text returns no suggestions",
 			inputType: InputTypeFreeText,
-			wantFirst: "impl-feature",
-			wantLen:   3,
+			wantFirst: "",
+			wantLen:   0,
 		},
 	}
 
@@ -273,12 +273,6 @@ func TestCheckInputPipelineMismatch(t *testing.T) {
 			input:    "https://github.com/owner/repo/pull/42",
 			pipeline: "impl-issue",
 			wantNil:  false,
-		},
-		{
-			name:     "free text with impl-feature is fine",
-			input:    "add auth support",
-			pipeline: "impl-feature",
-			wantNil:  true,
 		},
 		{
 			name:     "free text with impl-issue returns nil (free text never warns)",

@@ -8,14 +8,15 @@
     "target": { "type": "string", "minLength": 1 },
     "findings": {
       "type": "array",
+      "maxItems": 20,
       "items": {
         "type": "object",
-        "required": ["id", "category", "title", "location", "description", "impact", "effort"],
+        "required": ["id", "category", "title", "location", "description", "impact", "effort", "risk"],
         "properties": {
           "id": { "type": "string", "pattern": "^IMP-[0-9]{1,4}$" },
           "category": {
             "type": "string",
-            "enum": ["error_handling", "performance", "testability", "robustness", "maintainability", "code_quality"]
+            "enum": ["error_handling", "performance", "testability", "robustness", "maintainability", "code_quality", "prompt_clarity", "contract_alignment", "permission_scope", "retry_policy"]
           },
           "title": { "type": "string", "minLength": 3 },
           "location": { "type": "string", "minLength": 1 },

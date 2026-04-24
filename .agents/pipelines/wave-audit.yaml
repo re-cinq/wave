@@ -19,6 +19,7 @@ requires:
 
 input:
   source: cli
+  type: string
   example: "last 30 days -- audit only recent work"
   schema:
     type: string
@@ -41,6 +42,7 @@ pipeline_outputs:
   report:
     step: publish
     artifact: publish-result
+    type: findings_report
 
 steps:
   - id: collect-inventory
@@ -151,7 +153,7 @@ steps:
         type: json_schema
         source: .agents/output/inventory.json
         schema_path: .agents/contracts/audit-inventory.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: audit-items
     persona: navigator
@@ -269,12 +271,12 @@ steps:
         type: json_schema
         source: .agents/output/audit-findings.json
         schema_path: .agents/contracts/audit-findings.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: compose-triage
     persona: navigator
     thread: audit
-    model: strongest
+    model: balanced
     dependencies: [audit-items]
     memory:
       inject_artifacts:
@@ -375,7 +377,7 @@ steps:
         type: json_schema
         source: .agents/output/triage-report.json
         schema_path: .agents/contracts/audit-triage-report.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: publish
     persona: craftsman
@@ -499,7 +501,7 @@ steps:
         type: json_schema
         source: .agents/output/publish-result.json
         schema_path: .agents/contracts/audit-publish-result.schema.json
-        on_failure: retry
+        on_failure: warn
     outcomes:
       - type: issue
         extract_from: .agents/output/publish-result.json

@@ -37,12 +37,14 @@ requires:
 
 input:
   source: cli
+  type: pr_ref
   example: "https://github.com/owner/repo/pull/42"
 
 pipeline_outputs:
   verdict:
     step: publish
     artifact: publish-result
+    type: findings_report
 
 steps:
   # ─── Phase 1: Core review (diff, security, quality, slop, verdict) ──────
@@ -181,7 +183,7 @@ steps:
         source: .agents/output/publish-result.json
         schema_path: .agents/contracts/gh-pr-comment-result.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: fail
     outcomes:
       - type: url
         extract_from: .agents/output/publish-result.json

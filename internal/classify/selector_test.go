@@ -40,13 +40,13 @@ func TestSelectPipeline(t *testing.T) {
 		{
 			name:         "research",
 			profile:      TaskProfile{Domain: DomainResearch, Complexity: ComplexityMedium, VerificationDepth: VerificationBehavioral},
-			wantPipeline: "impl-research",
+			wantPipeline: "plan-research",
 			wantDepth:    VerificationBehavioral,
 		},
 		{
 			name:         "docs",
 			profile:      TaskProfile{Domain: DomainDocs, Complexity: ComplexitySimple, VerificationDepth: VerificationStructuralOnly},
-			wantPipeline: "doc-fix",
+			wantPipeline: "doc-explain",
 			wantDepth:    VerificationStructuralOnly,
 		},
 		{
@@ -76,7 +76,7 @@ func TestSelectPipeline(t *testing.T) {
 		{
 			name:         "simple_bug",
 			profile:      TaskProfile{Domain: DomainBug, Complexity: ComplexitySimple, VerificationDepth: VerificationStructuralOnly},
-			wantPipeline: "impl-hotfix",
+			wantPipeline: "impl-issue",
 			wantDepth:    VerificationStructuralOnly,
 		},
 		{
@@ -113,19 +113,19 @@ func TestSelectPipeline(t *testing.T) {
 		{
 			name:         "simple_bug_hotfix",
 			profile:      TaskProfile{Domain: DomainBug, Complexity: ComplexitySimple, VerificationDepth: VerificationStructuralOnly},
-			wantPipeline: "impl-hotfix",
+			wantPipeline: "impl-issue",
 			wantDepth:    VerificationStructuralOnly,
 		},
 		{
 			name:         "debug_simple",
 			profile:      TaskProfile{Domain: DomainDebug, Complexity: ComplexitySimple, VerificationDepth: VerificationStructuralOnly},
-			wantPipeline: "impl-hotfix",
+			wantPipeline: "impl-issue",
 			wantDepth:    VerificationStructuralOnly,
 		},
 		{
 			name:         "debug_complex",
 			profile:      TaskProfile{Domain: DomainDebug, Complexity: ComplexityComplex, VerificationDepth: VerificationFullSemantic},
-			wantPipeline: "ops-debug",
+			wantPipeline: "impl-speckit",
 			wantDepth:    VerificationFullSemantic,
 		},
 		{
@@ -137,13 +137,13 @@ func TestSelectPipeline(t *testing.T) {
 		{
 			name:         "testing",
 			profile:      TaskProfile{Domain: DomainTesting, Complexity: ComplexityMedium, VerificationDepth: VerificationBehavioral},
-			wantPipeline: "test-gen",
+			wantPipeline: "audit-tests",
 			wantDepth:    VerificationBehavioral,
 		},
 		{
 			name:         "audit_simple",
 			profile:      TaskProfile{Domain: DomainAudit, Complexity: ComplexitySimple, VerificationDepth: VerificationStructuralOnly},
-			wantPipeline: "audit-quality-loop",
+			wantPipeline: "audit-architecture",
 			wantDepth:    VerificationStructuralOnly,
 		},
 		{
@@ -179,7 +179,7 @@ func TestSelectPipeline(t *testing.T) {
 		{
 			name:         "performance",
 			profile:      TaskProfile{Domain: DomainPerformance, Complexity: ComplexityMedium, VerificationDepth: VerificationBehavioral},
-			wantPipeline: "impl-improve",
+			wantPipeline: "impl-issue",
 			wantDepth:    VerificationBehavioral,
 		},
 	}
