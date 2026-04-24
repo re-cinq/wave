@@ -46,24 +46,6 @@ func SelectPipeline(profile TaskProfile) PipelineConfig {
 		}
 	}
 
-	// Rule 4: Debug domain → ops-debug or impl-hotfix.
-	if profile.Domain == DomainDebug {
-		if profile.Complexity == ComplexitySimple {
-			return PipelineConfig{
-				Name:              "impl-hotfix",
-				Reason:            "simple debug task routed to hotfix pipeline",
-				VerificationDepth: profile.VerificationDepth,
-				ModelTier:         ModelTierBalanced,
-			}
-		}
-		return PipelineConfig{
-			Name:              "ops-debug",
-			Reason:            "debug task routed to systematic debugging pipeline",
-			VerificationDepth: profile.VerificationDepth,
-			ModelTier:         tier,
-		}
-	}
-
 	// Rule 5: Review domain → ops-pr-review.
 	if profile.Domain == DomainReview {
 		return PipelineConfig{
@@ -74,11 +56,11 @@ func SelectPipeline(profile TaskProfile) PipelineConfig {
 		}
 	}
 
-	// Rule 6: Testing domain → test-gen.
+	// Rule 6: Testing domain → audit-tests.
 	if profile.Domain == DomainTesting {
 		return PipelineConfig{
-			Name:              "test-gen",
-			Reason:            "testing domain routed to test generation pipeline",
+			Name:              "audit-tests",
+			Reason:            "testing domain routed to test audit pipeline",
 			VerificationDepth: profile.VerificationDepth,
 			ModelTier:         tier,
 		}
@@ -95,8 +77,8 @@ func SelectPipeline(profile TaskProfile) PipelineConfig {
 			}
 		}
 		return PipelineConfig{
-			Name:              "audit-quality-loop",
-			Reason:            "audit task routed to quality loop pipeline",
+			Name:              "audit-architecture",
+			Reason:            "audit task routed to architecture audit pipeline",
 			VerificationDepth: profile.VerificationDepth,
 			ModelTier:         tier,
 		}
@@ -138,45 +120,23 @@ func SelectPipeline(profile TaskProfile) PipelineConfig {
 		}
 	}
 
-	// Rule 10: Performance domain → benchmark pipeline or impl-improve.
-	if profile.Domain == DomainPerformance {
-		return PipelineConfig{
-			Name:              "impl-improve",
-			Reason:            "performance domain routed to improvement pipeline",
-			VerificationDepth: profile.VerificationDepth,
-			ModelTier:         tier,
-		}
-	}
-
-	// Rule 11: Research domain → impl-research.
+	// Rule 11: Research domain → plan-research.
 	if profile.Domain == DomainResearch {
 		return PipelineConfig{
-			Name:              "impl-research",
-			Reason:            "research domain routed to research pipeline",
+			Name:              "plan-research",
+			Reason:            "research domain routed to research planning pipeline",
 			VerificationDepth: profile.VerificationDepth,
 			ModelTier:         tier,
 		}
 	}
 
-	// Rule 12: Docs domain → route by content type.
+	// Rule 12: Docs domain → doc-explain.
 	if profile.Domain == DomainDocs {
 		return PipelineConfig{
-			Name:              "doc-fix",
-			Reason:            "documentation domain routed to doc-fix pipeline",
+			Name:              "doc-explain",
+			Reason:            "documentation domain routed to doc-explain pipeline",
 			VerificationDepth: profile.VerificationDepth,
 			ModelTier:         ModelTierCheapest,
-		}
-	}
-
-	// Rule 13: Bug domain → hotfix (simple) or impl-issue (medium+).
-	if profile.Domain == DomainBug {
-		if profile.Complexity == ComplexitySimple {
-			return PipelineConfig{
-				Name:              "impl-hotfix",
-				Reason:            "simple bug routed to hotfix pipeline",
-				VerificationDepth: profile.VerificationDepth,
-				ModelTier:         ModelTierBalanced,
-			}
 		}
 	}
 
