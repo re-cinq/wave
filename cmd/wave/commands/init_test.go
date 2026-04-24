@@ -36,6 +36,18 @@ func newTestEnv(t *testing.T) *testEnv {
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err, "failed to change to temp directory")
 
+	for _, args := range [][]string{
+		{"git", "init", "-q"},
+		{"git", "config", "--local", "user.email", "test@test.com"},
+		{"git", "config", "--local", "user.name", "Test"},
+		{"git", "config", "--local", "commit.gpgsign", "false"},
+		{"git", "config", "--local", "tag.gpgsign", "false"},
+	} {
+		if out, err := exec.Command(args[0], args[1:]...).CombinedOutput(); err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+	}
+
 	return &testEnv{
 		t:       t,
 		rootDir: tmpDir,
