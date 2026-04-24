@@ -98,13 +98,11 @@ func isForgeURL(lower string) bool {
 func SuggestPipelineForInput(inputType InputType) []string {
 	switch inputType {
 	case InputTypeIssueURL:
-		return []string{"impl-issue", "impl-research", "plan-research"}
+		return []string{"impl-issue", "plan-research"}
 	case InputTypePRURL:
 		return []string{"ops-pr-review"}
 	case InputTypeRepoRef:
 		return []string{"impl-issue"}
-	case InputTypeFreeText:
-		return []string{"impl-feature", "impl-hotfix", "impl-improve"}
 	default:
 		return nil
 	}
