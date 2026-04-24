@@ -207,42 +207,23 @@ func TestSuggest_ParallelGroup(t *testing.T) {
 	}
 }
 
-func TestStripForgePrefix(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"gh-implement", "implement"}, // stripForgePrefix strips gh- prefix
-		{"gl-debug", "debug"},
-		{"implement", "implement"},
-		{"bb-review", "review"},
-	}
-	for _, tt := range tests {
-		got := stripForgePrefix(tt.input)
-		if got != tt.want {
-			t.Errorf("stripForgePrefix(%q) = %q, want %q", tt.input, got, tt.want)
-		}
-	}
-}
-
 func TestResolvePipeline(t *testing.T) {
 	catalog := []string{"ops-pr-review", "impl-issue", "plan-research"}
 
 	tests := []struct {
-		prefix string
-		base   string
-		want   string
+		base string
+		want string
 	}{
-		{"", "impl-issue", "impl-issue"},       // exact bare name
-		{"", "plan-research", "plan-research"}, // exact bare name
-		{"", "ops-pr-review", "ops-pr-review"}, // exact bare name
-		{"", "nonexistent", ""},                // not in catalog
+		{"impl-issue", "impl-issue"},       // exact bare name
+		{"plan-research", "plan-research"}, // exact bare name
+		{"ops-pr-review", "ops-pr-review"}, // exact bare name
+		{"nonexistent", ""},                // not in catalog
 	}
 
 	for _, tt := range tests {
-		got := resolvePipeline(catalog, tt.prefix, tt.base)
+		got := resolvePipeline(catalog, tt.base)
 		if got != tt.want {
-			t.Errorf("resolvePipeline(%q, %q) = %q, want %q", tt.prefix, tt.base, got, tt.want)
+			t.Errorf("resolvePipeline(%q) = %q, want %q", tt.base, got, tt.want)
 		}
 	}
 }
@@ -251,18 +232,8 @@ func TestResolvePipeline_BareNamePreferred(t *testing.T) {
 	// When bare name exists, prefer it over taxonomy-prefixed
 	catalog := []string{"impl-issue"}
 
-	got := resolvePipeline(catalog, "", "impl-issue")
+	got := resolvePipeline(catalog, "impl-issue")
 	if got != "impl-issue" {
 		t.Errorf("resolvePipeline should match bare name, got %q", got)
-	}
-}
-
-func TestResolvePipeline_FallbackToForgePrefixed(t *testing.T) {
-	// When only forge-prefixed exists, fall back to it
-	catalog := []string{"gh-impl-issue"}
-
-	got := resolvePipeline(catalog, "gh", "impl-issue")
-	if got != "gh-impl-issue" {
-		t.Errorf("resolvePipeline should fall back to forge-prefixed, got %q", got)
 	}
 }

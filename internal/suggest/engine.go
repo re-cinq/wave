@@ -45,10 +45,6 @@ func Suggest(opts EngineOptions) (*Proposal, error) {
 	}
 
 	catalog := discoverPipelines(opts.PipelinesDir)
-	prefix := ""
-	if opts.Report.ForgeInfo != nil {
-		prefix = opts.Report.ForgeInfo.PipelinePrefix
-	}
 
 	var proposals []ProposedPipeline
 
@@ -58,8 +54,8 @@ func Suggest(opts EngineOptions) (*Proposal, error) {
 
 		// Priority 3: Open issues without linked PRs
 		if cb.Issues.Open > 0 {
-			implName := resolvePipeline(catalog, prefix, "impl-issue")
-			researchName := resolvePipeline(catalog, prefix, "plan-research")
+			implName := resolvePipeline(catalog, "impl-issue")
+			researchName := resolvePipeline(catalog, "plan-research")
 			if implName != "" {
 				proposals = append(proposals, ProposedPipeline{
 					Name:     implName,
@@ -85,7 +81,7 @@ func Suggest(opts EngineOptions) (*Proposal, error) {
 
 		// Priority 4: PRs needing review
 		if cb.PRs.NeedsReview > 0 {
-			if name := resolvePipeline(catalog, prefix, "ops-pr-review"); name != "" {
+			if name := resolvePipeline(catalog, "ops-pr-review"); name != "" {
 				proposals = append(proposals, ProposedPipeline{
 					Name:     name,
 					Reason:   fmt.Sprintf("%d PRs awaiting review", cb.PRs.NeedsReview),
@@ -98,7 +94,7 @@ func Suggest(opts EngineOptions) (*Proposal, error) {
 
 	// Detect sequence chains: if both research and implement are proposed, create
 	// a sequence proposal (research → implement).
-	proposals = detectSequences(proposals, catalog, prefix)
+	proposals = detectSequences(proposals)
 
 	// Detect parallel-eligible groups: if implement and ops-pr-review are both
 	// proposed, mark them as parallel-eligible.
@@ -163,10 +159,9 @@ func discoverPipelines(dir string) []string {
 var taxonomyPrefixes = []string{"plan-", "impl-", "audit-", "doc-", "test-", "ops-"}
 
 // resolvePipeline looks for a pipeline by semantic base name, trying:
-// 1. Exact bare name (e.g. "debug")
+// 1. Exact bare name (e.g. "impl-issue")
 // 2. Taxonomy-prefixed variants (e.g. "ops-debug", "impl-debug")
-// 3. Forge-prefixed variants (e.g. "gh-debug") — legacy fallback
-func resolvePipeline(catalog []string, prefix, base string) string {
+func resolvePipeline(catalog []string, base string) string {
 	// Try bare name first (unified pipeline)
 	if inCatalog(catalog, base) {
 		return base
@@ -174,13 +169,6 @@ func resolvePipeline(catalog []string, prefix, base string) string {
 	// Try taxonomy-prefixed variants
 	for _, tp := range taxonomyPrefixes {
 		prefixed := tp + base
-		if inCatalog(catalog, prefixed) {
-			return prefixed
-		}
-	}
-	// Fall back to forge-prefixed (legacy)
-	if prefix != "" {
-		prefixed := prefix + "-" + base
 		if inCatalog(catalog, prefixed) {
 			return prefixed
 		}
@@ -200,11 +188,10 @@ func inCatalog(catalog []string, name string) bool {
 
 // detectSequences checks if complementary pipelines are both proposed (e.g.
 // research + implement) and adds a sequence proposal that chains them.
-func detectSequences(proposals []ProposedPipeline, _ []string, _ string) []ProposedPipeline {
-	byBase := make(map[string]int) // base name → index in proposals
+func detectSequences(proposals []ProposedPipeline) []ProposedPipeline {
+	byBase := make(map[string]int) // pipeline name → index in proposals
 	for i, p := range proposals {
-		base := stripForgePrefix(p.Name)
-		byBase[base] = i
+		byBase[p.Name] = i
 	}
 
 	// Known chains: research → implement
@@ -239,8 +226,7 @@ func detectParallelGroups(proposals []ProposedPipeline) []ProposedPipeline {
 		if p.Type != "" {
 			continue // Skip existing sequence proposals
 		}
-		base := stripForgePrefix(p.Name)
-		byBase[base] = i
+		byBase[p.Name] = i
 	}
 
 	// Known parallel groups
@@ -267,15 +253,3 @@ func detectParallelGroups(proposals []ProposedPipeline) []ProposedPipeline {
 	return proposals
 }
 
-// forgePrefixes contains the known forge pipeline name prefixes.
-var forgePrefixes = []string{"gh-", "gl-", "bb-", "gt-"}
-
-// stripForgePrefix removes forge prefixes (gh-, gl-, bb-, gt-, cb-) from a pipeline name.
-func stripForgePrefix(name string) string {
-	for _, p := range forgePrefixes {
-		if strings.HasPrefix(name, p) {
-			return name[len(p):]
-		}
-	}
-	return name
-}
