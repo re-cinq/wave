@@ -23,9 +23,11 @@ pipeline_outputs:
   assessment:
     step: fetch-assess
     artifact: assessment
+    type: findings_report
   plan:
     step: plan
     artifact: impl-plan
+    type: plan_ref
 
 skills:
   - "{{ project.skill }}"
@@ -38,6 +40,7 @@ requires:
 
 input:
   source: cli
+  type: issue_ref
   schema:
     type: string
     description: "GitHub repository and issue number"
@@ -67,11 +70,11 @@ steps:
         source: .agents/output/issue-assessment.json
         schema_path: .agents/contracts/issue-assessment.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: fail
 
   - id: plan
     persona: implementer
-    model: strongest
+    model: balanced
     dependencies: [fetch-assess]
     memory:
       inject_artifacts:
@@ -93,16 +96,24 @@ steps:
       policy: standard
       max_attempts: 2
     handover:
-      contract:
-        type: json_schema
-        source: .agents/output/impl-plan.json
-        schema_path: .agents/contracts/issue-impl-plan.schema.json
-        must_pass: true
-        on_failure: retry
+      contracts:
+        - type: json_schema
+          source: .agents/output/impl-plan.json
+          schema_path: .agents/contracts/issue-impl-plan.schema.json
+          must_pass: true
+          on_failure: warn
+        - type: agent_review
+          persona: reviewer
+          criteria_path: .agents/contracts/plan-review-criteria.md
+          source: .agents/output/impl-plan.json
+          model: cheapest
+          token_budget: 6000
+          timeout: 90s
+          on_failure: warn
 
   - id: implement
     persona: craftsman
-    model: strongest
+    model: balanced
     contexts: [execution, delivery]
     thread: impl
     dependencies: [plan]
@@ -128,7 +139,7 @@ steps:
         type: test_suite
         command: "{{ project.contract_test_command }}"
         must_pass: true
-        on_failure: retry
+        on_failure: fail
       compaction:
         trigger: "token_limit_80%"
         persona: summarizer

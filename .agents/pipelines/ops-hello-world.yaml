@@ -11,6 +11,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "testing Wave"
 
 steps:

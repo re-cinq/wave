@@ -36,6 +36,7 @@ metadata:
 
 input:
   source: cli
+  type: issue_ref
   example: "https://github.com/re-cinq/wave/issues/655"
 
 chat_context:
@@ -55,6 +56,7 @@ pipeline_outputs:
   issues:
     step: create-issues
     artifact: created-issues
+    type: findings_report
 
 steps:
   # ── Phase 1: Fan out 6 audit pipelines in parallel ──────────────────────
@@ -62,7 +64,7 @@ steps:
     pipeline: "{{ item }}"
     input: "{{ input }}"
     iterate:
-      over: '["audit-dead-code-scan", "audit-unwired", "audit-duplicates", "audit-doc-scan"]'
+      over: '["audit-dead-code-scan", "audit-duplicates", "audit-doc-scan", "audit-architecture"]'
       mode: parallel
       max_concurrent: 4
 
@@ -77,7 +79,7 @@ steps:
   # ── Phase 3: Synthesize unified report + scope document ─────────────────
   - id: synthesize
     persona: philosopher
-    model: strongest
+    model: balanced
     thread: scope-audit
     contexts: [delivery, quality, configuration]
     dependencies: [merge-findings]
@@ -185,7 +187,7 @@ steps:
       contract:
         type: non_empty_file
         source: .agents/output/wave-scope.md
-        on_failure: retry
+        on_failure: warn
 
   # ── Phase 4: Human gate — approve scope before issue creation ───────────
   - id: approve-scope
@@ -211,7 +213,7 @@ steps:
   # ── Phase 5: Create follow-up issues from approved scope ────────────────
   - id: create-issues
     persona: craftsman
-    model: strongest
+    model: balanced
     contexts: [delivery]
     dependencies: [approve-scope]
     memory:

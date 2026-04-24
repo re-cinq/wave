@@ -15,6 +15,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "create an onboarding guide for this project"
 
 chat_context:
@@ -32,6 +33,7 @@ pipeline_outputs:
   guide:
     step: guide
     artifact: guide
+    type: findings_report
 
 steps:
   - id: survey
@@ -154,11 +156,11 @@ steps:
         type: json_schema
         source: .agents/output/project-survey.json
         schema_path: .agents/contracts/project-survey.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: guide
     persona: philosopher
-    model: strongest
+    model: balanced
     dependencies: [survey]
     memory:
       inject_artifacts:
