@@ -5689,10 +5689,20 @@ func (e *DefaultPipelineExecutor) executeIterateInDAG(ctx context.Context, execu
 		}
 		resolvedNames = append(resolvedNames, resolvedName)
 
-		// Resolve input
+		// Resolve input. Pre-resolve step-output references against the
+		// DAG executor's ArtifactPaths first (same path iterate.over uses),
+		// then fall through to the per-item template context for {{item}} /
+		// {{iteration}}. Without this, references like
+		// {{scope.output.parent_issue.repository}} inside SubInput cannot
+		// find the sub-pipeline step's output because each iteration gets
+		// a fresh TemplateContext without StepOutputs populated.
 		input := execution.Input
 		if step.SubInput != "" {
-			input, err = ResolveTemplate(step.SubInput, tmplCtx)
+			prepared := e.resolveStepOutputRef(step.SubInput, execution)
+			if execution.Context != nil {
+				prepared = execution.Context.ResolvePlaceholders(prepared)
+			}
+			input, err = ResolveTemplate(prepared, tmplCtx)
 			if err != nil {
 				return fmt.Errorf("iterate item %d: failed to resolve input: %w", i, err)
 			}
@@ -5755,7 +5765,11 @@ func (e *DefaultPipelineExecutor) executeIterateParallelInDAG(ctx context.Contex
 
 		input := execution.Input
 		if step.SubInput != "" {
-			input, err = ResolveTemplate(step.SubInput, tmplCtx)
+			prepared := e.resolveStepOutputRef(step.SubInput, execution)
+			if execution.Context != nil {
+				prepared = execution.Context.ResolvePlaceholders(prepared)
+			}
+			input, err = ResolveTemplate(prepared, tmplCtx)
 			if err != nil {
 				return fmt.Errorf("iterate item %d: failed to resolve input: %w", i, err)
 			}
