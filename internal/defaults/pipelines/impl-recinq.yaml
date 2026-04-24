@@ -756,7 +756,7 @@ steps:
         type: markdown
 
   # ── Reporting ────────────────────────────────────────────────────────
-  - id: report
+  - id: write-report
     persona: navigator
     model: cheapest
     dependencies: [simplify]
@@ -874,13 +874,13 @@ steps:
   - id: publish
     persona: craftsman
     model: cheapest
-    dependencies: [report, gather]
+    dependencies: [write-report, gather]
     memory:
       inject_artifacts:
         - step: gather
           artifact: context
           as: context
-        - step: report
+        - step: write-report
           artifact: report
           as: report
     workspace:
