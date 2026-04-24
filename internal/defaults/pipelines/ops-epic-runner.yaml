@@ -48,6 +48,6 @@ steps:
     # (element type = issue_ref) as {{item}}, and impl-issue declares
     # input.type: issue_ref. See docs/adr/010-pipeline-io-protocol.md.
     iterate:
-      over: "{{scope.output.child_issues}}"
+      over: "{{scope.output.created_issues}}"
       mode: sequential
     input: "{{item.owner}}/{{item.repo}} {{item.number}}"

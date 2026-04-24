@@ -67,7 +67,7 @@ steps:
     pipeline: impl-issue
     dependencies: [scope, research]
     iterate:
-      over: "{{scope.output.child_issues}}"
+      over: "{{scope.output.created_issues}}"
       mode: sequential
     input: "{{item.owner}}/{{item.repo}} {{item.number}}"
 

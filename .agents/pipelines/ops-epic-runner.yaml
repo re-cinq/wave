@@ -49,6 +49,6 @@ steps:
     # declared input.type is issue_ref which matches the element schema of
     # scope_result.child_issues. See docs/adr/010-pipeline-io-protocol.md.
     iterate:
-      over: "{{scope.output.child_issues}}"
+      over: "{{scope.output.created_issues}}"
       mode: sequential
     input: "{{item.owner}}/{{item.repo}} {{item.number}}"
