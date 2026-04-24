@@ -112,10 +112,17 @@ func TypedWiringCheck(p *Pipeline, childLoader SubPipelineLoader, pipelinesDir s
 		if step.InputRef == nil || step.InputRef.From == "" {
 			continue
 		}
-		srcStep, srcField, ok := splitDot(step.InputRef.From)
+		srcStep, remainder, ok := splitDot(step.InputRef.From)
 		if !ok {
-			return fmt.Errorf("pipeline %q step %q: input_ref.from %q must be '<step>.<output>'",
+			return fmt.Errorf("pipeline %q step %q: input_ref.from %q must be '<step>.<output>[.<field>...]'",
 				p.Metadata.Name, step.ID, step.InputRef.From)
+		}
+		// Rule 7: input_ref.from may be <step>.<output> (whole value) or
+		// <step>.<output>.<path...> (navigate into the JSON value).
+		srcField, fieldPath, hasPath := splitDot(remainder)
+		if !hasPath {
+			srcField = remainder
+			fieldPath = ""
 		}
 
 		srcOutputs, ok := childSourceOutputType[srcStep]
@@ -129,6 +136,11 @@ func TypedWiringCheck(p *Pipeline, childLoader SubPipelineLoader, pipelinesDir s
 		if !ok {
 			return fmt.Errorf("pipeline %q step %q: input_ref.from %q references unknown output %q of step %q",
 				p.Metadata.Name, step.ID, step.InputRef.From, srcField, srcStep)
+		}
+		// When navigating inside the output JSON, the effective type at the
+		// binding site is untyped (depends on the field). Skip type-match.
+		if fieldPath != "" {
+			continue
 		}
 
 		// If this step is itself a sub-pipeline step, compare against the child's input.

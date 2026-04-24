@@ -588,15 +588,25 @@ func (c *CompositionExecutor) runSubPipeline(ctx context.Context, stepID, pipeli
 func (c *CompositionExecutor) resolveStepInput(step *Step) (string, error) {
 	if step.InputRef != nil {
 		if step.InputRef.From != "" {
-			srcStep, _, ok := splitDot(step.InputRef.From)
+			srcStep, remainder, ok := splitDot(step.InputRef.From)
 			if !ok {
-				return "", fmt.Errorf("step %q: input_ref.from %q must be '<step>.<output>'", step.ID, step.InputRef.From)
+				return "", fmt.Errorf("step %q: input_ref.from %q must be '<step>.<output>[.<field>...]'", step.ID, step.InputRef.From)
 			}
 			raw, has := c.tmplCtx.StepOutputs[srcStep]
 			if !has {
 				return "", fmt.Errorf("step %q: input_ref.from references step %q which has no recorded output", step.ID, srcStep)
 			}
-			return string(raw), nil
+			// Rule 7: remainder may carry a JSON path beyond the output name.
+			// Shape: "<output>" (whole value) or "<output>.<path>" (navigate).
+			_, fieldPath, hasPath := splitDot(remainder)
+			if !hasPath {
+				return string(raw), nil
+			}
+			value, err := ExtractJSONPath(raw, "."+fieldPath)
+			if err != nil {
+				return "", fmt.Errorf("step %q: input_ref.from %q: %w", step.ID, step.InputRef.From, err)
+			}
+			return value, nil
 		}
 		if step.InputRef.Literal != "" {
 			return ResolveTemplate(step.InputRef.Literal, c.tmplCtx)
