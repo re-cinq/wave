@@ -50,4 +50,4 @@ steps:
     iterate:
       over: "{{scope.output.created_issues}}"
       mode: sequential
-    input: "{{item.owner}}/{{item.repo}} {{item.number}}"
+    input: "{{item.repository}} {{item.number}}"

@@ -23,6 +23,8 @@ func initBareRepo(t *testing.T, dir string) (barePath string, commitSHA string) 
 		{"git", "init", "-q", srcDir},
 		{"git", "-C", srcDir, "config", "user.email", "test@test.com"},
 		{"git", "-C", srcDir, "config", "user.name", "Test"},
+		{"git", "-C", srcDir, "config", "commit.gpgsign", "false"},
+		{"git", "-C", srcDir, "config", "tag.gpgsign", "false"},
 	} {
 		if out, err := exec.Command(args[0], args[1:]...).CombinedOutput(); err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, out)
