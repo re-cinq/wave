@@ -6,8 +6,8 @@
 #
 #   run-audits              ← iterate (parallel, max_concurrent: 3): fan out over
 #   ├─ audit-security       │  [security, dead-code, dx] — each runs its audit
-#   ├─ audit-dead-code      │  pipeline and emits findings JSON
-#   └─ audit-dx             │
+#   ├─ audit-dead-code-scan      │  pipeline and emits findings JSON
+#   └─ audit-duplicates             │
 #        │
 #   merge-findings          ← aggregate (merge_arrays): collect all findings arrays
 #        │                    into one unified JSON list
@@ -30,6 +30,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "internal/pipeline"
   schema:
     type: string
@@ -50,6 +51,7 @@ pipeline_outputs:
   report:
     step: report
     artifact: audit-report
+    type: findings_report
 
 steps:
   # ── Step 1: fan out over the three audit types in parallel ────────────────
@@ -60,7 +62,7 @@ steps:
     pipeline: "{{ item }}"
     input: "{{ input }}"
     iterate:
-      over: '["audit-security", "audit-dead-code", "audit-dx"]'
+      over: '["audit-security", "audit-dead-code-scan", "audit-duplicates"]'
       mode: parallel
       max_concurrent: 3
 
@@ -104,9 +106,9 @@ steps:
         Three parallel audit sub-pipelines have already completed:
         1. **audit-security**: scanned for vulnerabilities, injection risks, credential
            exposure, and authentication gaps
-        2. **audit-dead-code**: identified unused functions, unreachable code paths,
+        2. **audit-dead-code-scan**: identified unused functions, unreachable code paths,
            orphaned files, and unnecessary dependencies
-        3. **audit-dx**: evaluated developer experience — documentation quality, error
+        3. **audit-duplicates**: evaluated developer experience — documentation quality, error
            message clarity, onboarding friction, and tooling gaps
 
         Their findings have been aggregated by the merge-findings step into a single

@@ -30,6 +30,8 @@ func setupGitRepo(t *testing.T) string {
 	run("git", "init", "-b", "main")
 	run("git", "config", "user.email", "test@test.com")
 	run("git", "config", "user.name", "Test")
+	run("git", "config", "commit.gpgsign", "false")
+	run("git", "config", "tag.gpgsign", "false")
 
 	// Create initial files on main
 	if err := os.WriteFile(filepath.Join(dir, "existing.go"), []byte("package main\n\nfunc hello() {}\n"), 0o644); err != nil {
@@ -106,6 +108,8 @@ func TestResolveBaseBranch_NoMainBranch(t *testing.T) {
 	run("git", "init", "-b", "master")
 	run("git", "config", "user.email", "test@test.com")
 	run("git", "config", "user.name", "Test")
+	run("git", "config", "commit.gpgsign", "false")
+	run("git", "config", "tag.gpgsign", "false")
 	if err := os.WriteFile(filepath.Join(dir, "f.txt"), []byte("hello"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -272,6 +276,8 @@ func TestComputeFileDiff_Truncation(t *testing.T) {
 	run("git", "init", "-b", "main")
 	run("git", "config", "user.email", "test@test.com")
 	run("git", "config", "user.name", "Test")
+	run("git", "config", "commit.gpgsign", "false")
+	run("git", "config", "tag.gpgsign", "false")
 
 	// Create empty file on main
 	if err := os.WriteFile(filepath.Join(dir, "large.txt"), []byte(""), 0o644); err != nil {

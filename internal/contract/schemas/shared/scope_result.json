@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "wave://shared/scope_result",
+  "title": "ScopeResult",
+  "description": "Output of a scoping pipeline: a list of child issue references plus aggregate effort metadata. Designed to be consumed by an iterate step that implements each child issue.",
+  "type": "object",
+  "required": ["child_issues"],
+  "properties": {
+    "child_issues": {
+      "type": "array",
+      "items": { "$ref": "wave://shared/issue_ref" }
+    },
+    "estimated_effort": {
+      "type": "string",
+      "enum": ["S", "M", "L", "XL"],
+      "description": "Aggregate complexity estimate across all child issues."
+    },
+    "parent": { "$ref": "wave://shared/issue_ref" },
+    "summary": { "type": "string" }
+  },
+  "additionalProperties": true
+}

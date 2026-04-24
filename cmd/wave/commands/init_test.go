@@ -1248,9 +1248,9 @@ func TestInitTransitivePersonaFiltering(t *testing.T) {
 		assert.True(t, has, "system persona %q should be present in manifest", name)
 	}
 
-	// supervisor is used by the release pipeline "ops-supervise"
-	_, hasSupervisor := personas["supervisor"]
-	assert.True(t, hasSupervisor, "supervisor should be in manifest (used by release pipeline ops-supervise)")
+	// craftsman is used by release pipelines impl-issue / impl-issue-core / impl-recinq / impl-speckit
+	_, hasCraftsman := personas["craftsman"]
+	assert.True(t, hasCraftsman, "craftsman should be in manifest (used by release impl-* pipelines)")
 
 	// With --all, all personas should be in the manifest
 	env2 := newTestEnv(t)

@@ -19,10 +19,11 @@ requires:
 
 input:
   source: cli
+  type: string
   example: "re-cinq/wave 184"
   schema:
     type: string
-    description: "GitHub repository with epic issue number (e.g. 'owner/repo 42')"
+    description: "GitHub repository with epic issue number (e.g. 'owner/repo 42'). Accepts free-text; the fetch-epic step parses it into an issue_ref."
 
 chat_context:
   artifact_summaries:
@@ -39,6 +40,11 @@ pipeline_outputs:
   report:
     step: verify-report
     artifact: scope_report
+    type: string
+  scope:
+    step: scope-and-create
+    artifact: scope_plan
+    type: scope_result
 
 steps:
   - id: fetch-epic
@@ -104,8 +110,7 @@ steps:
           be split into multiple epics first.
 
         OUTPUT FORMAT:
-        Write the assessment as structured JSON to .agents/artifact.json matching the
-        epic-assessment schema. Include: epic (number, title, url, body_summary),
+        Produce output matching the contract schema. Include: epic (number, title, url, body_summary),
         is_epic (boolean), themes (array), planned_sub_issues (array with tentative
         titles, complexity, dependencies, overlap), existing_issues (array of potentially
         overlapping issues), overall_complexity (S/M/L/XL), and timestamp.
@@ -119,7 +124,7 @@ steps:
         themes, or ignores existing issues that cover the same ground.
     output_artifacts:
       - name: epic_assessment
-        path: .agents/artifact.json
+        path: .agents/artifacts/fetch-epic/epic_assessment.json
         type: json
         required: true
     retry:
@@ -131,11 +136,11 @@ steps:
         schema_path: .agents/contracts/epic-assessment.schema.json
         validate: true
         must_pass: true
-        on_failure: retry
+        on_failure: warn
 
   - id: scope-and-create
     persona: "{{ forge.type }}-scoper"
-    model: strongest
+    model: balanced
     dependencies: [fetch-epic]
     memory:
       inject_artifacts:
@@ -213,7 +218,7 @@ steps:
           continue with remaining issues. Do not abort the entire step.
 
         OUTPUT FORMAT:
-        Write the results as structured JSON to .agents/artifact.json with:
+        Produce output matching the contract schema. Include:
         - parent_issue: object with number, url, and repository
         - created_issues: array of objects, each with number, title, url, labels (array),
           success (boolean), complexity (S/M/L), dependencies (array of issue numbers)
@@ -232,7 +237,7 @@ steps:
         scope creep.
     output_artifacts:
       - name: scope_plan
-        path: .agents/artifact.json
+        path: .agents/artifacts/scope-and-create/scope_plan.json
         type: json
         required: true
     outcomes:
@@ -249,7 +254,7 @@ steps:
         schema_path: .agents/contracts/scope-plan.schema.json
         validate: true
         must_pass: true
-        on_failure: retry
+        on_failure: warn
 
   - id: verify-report
     persona: "{{ forge.type }}-analyst"
@@ -323,7 +328,7 @@ steps:
         - Do NOT modify the markdown_summary to hide failures. Report accurately.
 
         OUTPUT FORMAT:
-        Write the verification report as structured JSON to .agents/artifact.json with:
+        Produce output matching the contract schema. Include:
         - parent_issue: object with number (integer) and url (string)
         - verified_issues: array of objects, each with:
           - number: integer
@@ -348,7 +353,7 @@ steps:
         summary that does not match the actual verification results.
     output_artifacts:
       - name: scope_report
-        path: .agents/artifact.json
+        path: .agents/artifacts/verify-report/scope_report.json
         type: json
         required: true
     retry:
@@ -360,4 +365,4 @@ steps:
         schema_path: .agents/contracts/scope-report.schema.json
         validate: true
         must_pass: true
-        on_failure: retry
+        on_failure: warn

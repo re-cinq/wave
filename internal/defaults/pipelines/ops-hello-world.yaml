@@ -8,6 +8,7 @@ metadata:
 
 input:
   source: cli
+  type: string
   example: "testing Wave"
 
 steps:
@@ -60,7 +61,7 @@ steps:
         source: .agents/output/result.json
         schema_path: .agents/contracts/hello-world-result.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: fail
     retry:
       policy: standard
       max_attempts: 2

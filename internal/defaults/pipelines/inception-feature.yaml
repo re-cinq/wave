@@ -1,0 +1,83 @@
+kind: WavePipeline
+metadata:
+  name: inception-feature
+  description: >-
+    End-to-end feature delivery flow. Takes an epic issue, decomposes it with
+    plan-scope, runs plan-research against the scope output, implements each
+    child with impl-issue, and finally runs ops-pr-review over the produced
+    PRs. Typed I/O end-to-end: epic → scope_result → plan_ref → pr_ref →
+    findings_report. Use for full feature deliveries where every stage should
+    be composed from core Lego blocks.
+  category: composition
+  release: true
+
+skills:
+  - gh-cli
+  - software-design
+
+requires:
+  tools:
+    - gh
+
+input:
+  source: cli
+  type: issue_ref
+  example: "re-cinq/wave 184"
+  schema:
+    type: string
+    description: "GitHub epic reference — owner/repo number."
+
+chat_context:
+  artifact_summaries:
+    - scope
+  suggested_questions:
+    - "How many child issues were scoped?"
+    - "Were all implementations merged?"
+    - "What did the PR reviews flag?"
+  focus_areas:
+    - "Epic decomposition quality"
+    - "Per-child implementation and review outcomes"
+
+pipeline_outputs:
+  scope:
+    step: scope
+    artifact: scope
+    type: scope_result
+
+steps:
+  # Stage 1: decompose the epic into child issues.
+  - id: scope
+    pipeline: plan-scope
+    input: "{{input}}"
+
+  # Stage 2: research — run plan-research on the parent epic to attach a
+  # research comment before implementation begins. Consumes the original
+  # epic input (issue_ref). This runs in parallel with per-child impl once
+  # the scope is known.
+  - id: research
+    pipeline: plan-research
+    dependencies: [scope]
+    input: "{{input}}"
+
+  # Stage 3: implement each scoped child sequentially with impl-issue.
+  # Typed wiring: scope's scope_result output feeds the iterate loop;
+  # each element exposes owner/repo/number consumable by impl-issue's
+  # issue_ref input.
+  - id: implement-all
+    pipeline: impl-issue
+    dependencies: [scope, research]
+    iterate:
+      over: "{{scope.output.created_issues}}"
+      mode: sequential
+    input: "{{scope.output.parent_issue.repository}} {{item.number}}"
+
+  # Stage 4: aggregate PR refs and run ops-pr-review on each. Review
+  # feedback lands as comments on the produced PRs, closing the loop.
+  - id: review-all
+    pipeline: ops-pr-review
+    dependencies: [implement-all]
+    iterate:
+      over: "{{implement-all.output}}"
+      mode: parallel
+      max_concurrent: 3
+    input: "{{item.pr_url}}"
