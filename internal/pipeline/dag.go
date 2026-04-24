@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/recinq/wave/internal/skill"
 	"gopkg.in/yaml.v3"
@@ -42,11 +43,13 @@ func (l *YAMLPipelineLoader) Unmarshal(data []byte) (*Pipeline, error) {
 		return nil, err
 	}
 
-	// Collect Wave Lego Protocol (ADR-011) load-time warnings. These are
-	// non-fatal deprecation notices the executor emits at preflight. Hard
-	// enforcement lands in a later PR once shipped pipelines have been
-	// migrated.
-	pipeline.Warnings = append(pipeline.Warnings, CollectWLPLoadWarnings(&pipeline)...)
+	// Enforce Wave Lego Protocol (ADR-011) at load time. Rules 3 and 5 are
+	// hard errors: pipeline_outputs must declare types, and contract
+	// on_failure must be one of fail/skip/continue/rework/warn. Shipped
+	// pipelines have been migrated; fail fast on any drift.
+	if wlp := CollectWLPLoadWarnings(&pipeline); len(wlp) > 0 {
+		return nil, fmt.Errorf("WLP validation failed: %s", strings.Join(wlp, "; "))
+	}
 
 	return &pipeline, nil
 }

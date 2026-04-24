@@ -318,9 +318,8 @@ func TestCollectWLPLoadWarnings_Clean(t *testing.T) {
 	}
 }
 
-// Loader wiring: Warnings on the returned Pipeline should be populated by
-// Unmarshal, not require a separate call.
-func TestYAMLPipelineLoader_PopulatesWLPWarnings(t *testing.T) {
+// Loader wiring: WLP violations (Rules 3, 5) are hard errors at load time.
+func TestYAMLPipelineLoader_WLPViolationsAreErrors(t *testing.T) {
 	data := []byte(`kind: WavePipeline
 metadata:
   name: loader-warn
@@ -345,11 +344,9 @@ steps:
         on_failure: retry
 `)
 	loader := &YAMLPipelineLoader{}
-	p, err := loader.Unmarshal(data)
-	if err != nil {
-		t.Fatalf("load: %v", err)
-	}
-	if len(p.Warnings) < 2 {
-		t.Fatalf("expected at least 2 warnings (missing type + retry), got %d: %v", len(p.Warnings), p.Warnings)
+	if _, err := loader.Unmarshal(data); err == nil {
+		t.Fatal("expected WLP validation error, got nil")
+	} else if !strings.Contains(err.Error(), "WLP validation failed") {
+		t.Fatalf("expected WLP error, got: %v", err)
 	}
 }
