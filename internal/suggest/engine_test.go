@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/recinq/wave/internal/doctor"
-	"github.com/recinq/wave/internal/forge"
 )
 
 func setupPipelineDir(t *testing.T, names []string) string {
@@ -19,14 +18,15 @@ func setupPipelineDir(t *testing.T, names []string) string {
 	return dir
 }
 
-func TestSuggest_CIFailing(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"ops-debug", "impl-improve"})
+func TestSuggest_OpenIssues(t *testing.T) {
+	dir := setupPipelineDir(t, []string{"impl-issue"})
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
 		Report: &doctor.Report{
 			Codebase: &doctor.CodebaseHealth{
-				CI: doctor.CIStatus{Status: "failing", Failures: 2},
+				Issues: doctor.IssueSummary{Open: 3},
+				CI:     doctor.CIStatus{Status: "passing"},
 			},
 		},
 	})
@@ -37,23 +37,23 @@ func TestSuggest_CIFailing(t *testing.T) {
 	if len(proposal.Pipelines) == 0 {
 		t.Fatal("expected at least one proposal")
 	}
-	if proposal.Pipelines[0].Name != "ops-debug" {
-		t.Errorf("expected first proposal to be 'ops-debug', got %q", proposal.Pipelines[0].Name)
+	if proposal.Pipelines[0].Name != "impl-issue" {
+		t.Errorf("expected first proposal to be 'impl-issue', got %q", proposal.Pipelines[0].Name)
 	}
-	if proposal.Pipelines[0].Priority != 1 {
-		t.Errorf("expected priority 1, got %d", proposal.Pipelines[0].Priority)
+	if proposal.Pipelines[0].Priority != 3 {
+		t.Errorf("expected priority 3, got %d", proposal.Pipelines[0].Priority)
 	}
 }
 
-func TestSuggest_CIFailing_BareNameFallback(t *testing.T) {
-	// Old-style bare name should still work
-	dir := setupPipelineDir(t, []string{"debug"})
+func TestSuggest_PRsNeedingReview(t *testing.T) {
+	dir := setupPipelineDir(t, []string{"ops-pr-review"})
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
 		Report: &doctor.Report{
 			Codebase: &doctor.CodebaseHealth{
-				CI: doctor.CIStatus{Status: "failing", Failures: 1},
+				PRs: doctor.PRSummary{NeedsReview: 2},
+				CI:  doctor.CIStatus{Status: "passing"},
 			},
 		},
 	})
@@ -64,101 +64,13 @@ func TestSuggest_CIFailing_BareNameFallback(t *testing.T) {
 	if len(proposal.Pipelines) == 0 {
 		t.Fatal("expected at least one proposal")
 	}
-	if proposal.Pipelines[0].Name != "debug" {
-		t.Errorf("expected 'debug' (bare fallback), got %q", proposal.Pipelines[0].Name)
-	}
-}
-
-func TestSuggest_PrefixedPipelines(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"gh-debug", "gh-implement", "ops-debug"})
-
-	proposal, err := Suggest(EngineOptions{
-		PipelinesDir: dir,
-		Report: &doctor.Report{
-			ForgeInfo: &forge.ForgeInfo{
-				Type:           forge.ForgeGitHub,
-				PipelinePrefix: "gh",
-			},
-			Codebase: &doctor.CodebaseHealth{
-				CI: doctor.CIStatus{Status: "failing", Failures: 1},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(proposal.Pipelines) == 0 {
-		t.Fatal("expected at least one proposal")
-	}
-	// Should prefer taxonomy-prefixed over forge-prefixed
-	if proposal.Pipelines[0].Name != "ops-debug" {
-		t.Errorf("expected taxonomy-prefixed 'ops-debug', got %q", proposal.Pipelines[0].Name)
-	}
-}
-
-func TestSuggest_PrefixedFallback(t *testing.T) {
-	// When only forge-prefixed pipeline exists, it should be used
-	dir := setupPipelineDir(t, []string{"gh-debug"})
-
-	proposal, err := Suggest(EngineOptions{
-		PipelinesDir: dir,
-		Report: &doctor.Report{
-			ForgeInfo: &forge.ForgeInfo{
-				Type:           forge.ForgeGitHub,
-				PipelinePrefix: "gh",
-			},
-			Codebase: &doctor.CodebaseHealth{
-				CI: doctor.CIStatus{Status: "failing", Failures: 1},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(proposal.Pipelines) == 0 {
-		t.Fatal("expected at least one proposal")
-	}
-	// Should fall back to gh-debug when bare and taxonomy-prefixed don't exist
-	if proposal.Pipelines[0].Name != "gh-debug" {
-		t.Errorf("expected fallback to 'gh-debug', got %q", proposal.Pipelines[0].Name)
-	}
-}
-
-func TestSuggest_CleanState(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"impl-improve", "impl-refactor"})
-
-	proposal, err := Suggest(EngineOptions{
-		PipelinesDir: dir,
-		Report: &doctor.Report{
-			Codebase: &doctor.CodebaseHealth{
-				CI: doctor.CIStatus{Status: "passing"},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(proposal.Pipelines) != 2 {
-		t.Fatalf("expected 2 proposals, got %d", len(proposal.Pipelines))
-	}
-
-	names := make(map[string]bool)
-	for _, p := range proposal.Pipelines {
-		names[p.Name] = true
-	}
-	if !names["impl-improve"] {
-		t.Error("expected 'impl-improve' in proposals")
-	}
-	if !names["impl-refactor"] {
-		t.Error("expected 'impl-refactor' in proposals")
+	if proposal.Pipelines[0].Name != "ops-pr-review" {
+		t.Errorf("expected 'ops-pr-review', got %q", proposal.Pipelines[0].Name)
 	}
 }
 
 func TestSuggest_NilCodebase(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"impl-improve"})
+	dir := setupPipelineDir(t, []string{"impl-issue"})
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
@@ -168,9 +80,8 @@ func TestSuggest_NilCodebase(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// With nil codebase, should fall through to clean-state proposals
-	if len(proposal.Pipelines) == 0 {
-		t.Fatal("expected fallback proposals")
+	if len(proposal.Pipelines) != 0 {
+		t.Errorf("expected 0 proposals with nil codebase, got %d", len(proposal.Pipelines))
 	}
 }
 
@@ -182,16 +93,16 @@ func TestSuggest_NilReport(t *testing.T) {
 }
 
 func TestSuggest_Limit(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"ops-debug", "impl-issue", "ops-pr-review", "impl-improve", "impl-refactor"})
+	dir := setupPipelineDir(t, []string{"impl-issue", "plan-research", "ops-pr-review"})
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
 		Limit:        2,
 		Report: &doctor.Report{
 			Codebase: &doctor.CodebaseHealth{
-				CI:     doctor.CIStatus{Status: "failing", Failures: 1},
 				Issues: doctor.IssueSummary{Open: 5},
 				PRs:    doctor.PRSummary{NeedsReview: 3},
+				CI:     doctor.CIStatus{Status: "passing"},
 			},
 		},
 	})
@@ -204,54 +115,6 @@ func TestSuggest_Limit(t *testing.T) {
 	}
 }
 
-func TestSuggest_PoorQualityIssues(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"ops-rewrite"})
-
-	proposal, err := Suggest(EngineOptions{
-		PipelinesDir: dir,
-		Report: &doctor.Report{
-			Codebase: &doctor.CodebaseHealth{
-				Issues: doctor.IssueSummary{PoorQuality: 3},
-				CI:     doctor.CIStatus{Status: "passing"},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(proposal.Pipelines) == 0 {
-		t.Fatal("expected rewrite proposal")
-	}
-	if proposal.Pipelines[0].Name != "ops-rewrite" {
-		t.Errorf("expected 'ops-rewrite', got %q", proposal.Pipelines[0].Name)
-	}
-}
-
-func TestSuggest_StalePRs(t *testing.T) {
-	dir := setupPipelineDir(t, []string{"ops-refresh"})
-
-	proposal, err := Suggest(EngineOptions{
-		PipelinesDir: dir,
-		Report: &doctor.Report{
-			Codebase: &doctor.CodebaseHealth{
-				PRs: doctor.PRSummary{Stale: 2},
-				CI:  doctor.CIStatus{Status: "passing"},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(proposal.Pipelines) == 0 {
-		t.Fatal("expected refresh proposal")
-	}
-	if proposal.Pipelines[0].Name != "ops-refresh" {
-		t.Errorf("expected 'ops-refresh', got %q", proposal.Pipelines[0].Name)
-	}
-}
-
 func TestSuggest_NoPipelinesAvailable(t *testing.T) {
 	dir := setupPipelineDir(t, []string{})
 
@@ -259,7 +122,8 @@ func TestSuggest_NoPipelinesAvailable(t *testing.T) {
 		PipelinesDir: dir,
 		Report: &doctor.Report{
 			Codebase: &doctor.CodebaseHealth{
-				CI: doctor.CIStatus{Status: "failing", Failures: 1},
+				Issues: doctor.IssueSummary{Open: 1},
+				CI:     doctor.CIStatus{Status: "passing"},
 			},
 		},
 	})
@@ -362,18 +226,17 @@ func TestStripForgePrefix(t *testing.T) {
 }
 
 func TestResolvePipeline(t *testing.T) {
-	catalog := []string{"gh-debug", "ops-debug", "impl-improve"}
+	catalog := []string{"ops-pr-review", "impl-issue", "plan-research"}
 
 	tests := []struct {
 		prefix string
 		base   string
 		want   string
 	}{
-		{"gh", "debug", "ops-debug"},      // taxonomy-prefixed preferred over forge-prefixed
-		{"gl", "debug", "ops-debug"},      // taxonomy-prefixed found, no gl-debug needed
-		{"gh", "improve", "impl-improve"}, // taxonomy-prefixed resolved
-		{"gh", "nonexistent", ""},         // neither exists
-		{"", "debug", "ops-debug"},        // no forge prefix, taxonomy resolved
+		{"", "impl-issue", "impl-issue"},       // exact bare name
+		{"", "plan-research", "plan-research"}, // exact bare name
+		{"", "ops-pr-review", "ops-pr-review"}, // exact bare name
+		{"", "nonexistent", ""},                // not in catalog
 	}
 
 	for _, tt := range tests {
@@ -386,20 +249,20 @@ func TestResolvePipeline(t *testing.T) {
 
 func TestResolvePipeline_BareNamePreferred(t *testing.T) {
 	// When bare name exists, prefer it over taxonomy-prefixed
-	catalog := []string{"debug", "ops-debug"}
+	catalog := []string{"impl-issue"}
 
-	got := resolvePipeline(catalog, "", "debug")
-	if got != "debug" {
-		t.Errorf("resolvePipeline should prefer bare name, got %q", got)
+	got := resolvePipeline(catalog, "", "impl-issue")
+	if got != "impl-issue" {
+		t.Errorf("resolvePipeline should match bare name, got %q", got)
 	}
 }
 
 func TestResolvePipeline_FallbackToForgePrefixed(t *testing.T) {
 	// When only forge-prefixed exists, fall back to it
-	catalog := []string{"gh-debug"}
+	catalog := []string{"gh-impl-issue"}
 
-	got := resolvePipeline(catalog, "gh", "debug")
-	if got != "gh-debug" {
+	got := resolvePipeline(catalog, "gh", "impl-issue")
+	if got != "gh-impl-issue" {
 		t.Errorf("resolvePipeline should fall back to forge-prefixed, got %q", got)
 	}
 }

@@ -56,30 +56,6 @@ func Suggest(opts EngineOptions) (*Proposal, error) {
 	if opts.Report.Codebase != nil {
 		cb := opts.Report.Codebase
 
-		// Priority 1: CI failing
-		if cb.CI.Status == "failing" {
-			if name := resolvePipeline(catalog, prefix, "debug"); name != "" {
-				proposals = append(proposals, ProposedPipeline{
-					Name:     name,
-					Reason:   fmt.Sprintf("CI has %d recent failures", cb.CI.Failures),
-					Input:    "Fix failing CI",
-					Priority: 1,
-				})
-			}
-		}
-
-		// Priority 2: Poor quality issues
-		if cb.Issues.PoorQuality > 0 {
-			if name := resolvePipeline(catalog, prefix, "ops-rewrite"); name != "" {
-				proposals = append(proposals, ProposedPipeline{
-					Name:     name,
-					Reason:   fmt.Sprintf("%d issues with poor quality scores", cb.Issues.PoorQuality),
-					Input:    "Rewrite poor quality issues",
-					Priority: 2,
-				})
-			}
-		}
-
 		// Priority 3: Open issues without linked PRs
 		if cb.Issues.Open > 0 {
 			implName := resolvePipeline(catalog, prefix, "impl-issue")
@@ -117,38 +93,6 @@ func Suggest(opts EngineOptions) (*Proposal, error) {
 					Priority: 4,
 				})
 			}
-		}
-
-		// Priority 5: Stale PRs
-		if cb.PRs.Stale > 0 {
-			if name := resolvePipeline(catalog, prefix, "ops-refresh"); name != "" {
-				proposals = append(proposals, ProposedPipeline{
-					Name:     name,
-					Reason:   fmt.Sprintf("%d stale PRs (>14 days)", cb.PRs.Stale),
-					Input:    "Refresh stale PRs",
-					Priority: 5,
-				})
-			}
-		}
-	}
-
-	// Priority 6: Clean state — always suggest improvement pipelines
-	if len(proposals) == 0 {
-		if name := resolvePipeline(catalog, prefix, "improve"); name != "" {
-			proposals = append(proposals, ProposedPipeline{
-				Name:     name,
-				Reason:   "Codebase is healthy — suggest improvements",
-				Input:    "General improvement",
-				Priority: 6,
-			})
-		}
-		if name := resolvePipeline(catalog, prefix, "refactor"); name != "" {
-			proposals = append(proposals, ProposedPipeline{
-				Name:     name,
-				Reason:   "Codebase is healthy — suggest refactoring",
-				Input:    "General refactoring",
-				Priority: 6,
-			})
 		}
 	}
 
