@@ -1,10 +1,23 @@
 # ADR-010: Pipeline I/O Protocol
 
 ## Status
-Accepted
+Accepted (Phase 1 — load-time validation live; pipeline migration ongoing)
 
 ## Date
 2026-04-20
+
+## Implementation Status
+
+Landed:
+- Eight canonical schemas in `internal/contract/schemas/shared/*.json` (`issue_ref`, `pr_ref`, `scope_result`, `plan_ref`, `findings_report`, `workspace_ref`, `spec_ref`, `branch_ref`).
+- Registry: `internal/contract/schemas/registry.go` (+ test).
+- Typed I/O fields: `InputConfig.Type` (`internal/pipeline/types.go:138`) and `PipelineOutput.Type` (`types.go:725`); both expose `EffectiveType()` defaulting to `"string"`.
+- Load-time validation: `ValidatePipelineIOTypes` and `TypedWiringCheck` in `internal/pipeline/iotypes.go` (~216 LOC), wired into the loader at `dag.go:42` and `dag.go:52`.
+
+Phase 2 still in progress:
+- ~6 of 26 pipelines declare typed I/O (`impl-issue`, `impl-issue-core`, `impl-recinq`, `impl-speckit`, `inception-bugfix`, `inception-feature`, `ops-epic-runner`, `ops-pr-review`, `ops-pr-review-core`, `plan-research`, `plan-scope`).
+- No `input_ref:` blocks yet in `internal/defaults/pipelines/`; legacy `input:` templates still dominate composition wiring.
+- ADR-011 hard-error migration is the next step.
 
 ## Context
 

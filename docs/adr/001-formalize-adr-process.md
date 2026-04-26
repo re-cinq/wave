@@ -1,10 +1,19 @@
 # ADR-001: Formalize Architectural Decision Records with Hybrid Manual/Pipeline Approach
 
 ## Status
-Proposed
+Accepted
 
 ## Date
-2026-03-07
+2026-03-07 (proposed) — 2026-04-26 (accepted; pipeline + manual paths verified live)
+
+## Implementation Status
+
+Landed:
+- `docs/adr/000-template.md` and the index in `docs/adr/README.md` are in place.
+- Manual path: copy template, increment number, open PR.
+- Pipeline path: `plan-adr` pipeline ships in `internal/defaults/pipelines/` and produces records in this directory.
+
+ADRs 001–015 follow this process.
 
 ## Context
 

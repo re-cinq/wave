@@ -1,10 +1,24 @@
 # ADR-011: Wave Lego Protocol
 
 ## Status
-Accepted
+Accepted (Phase 1 — soft-warn; Phase 5 hard-error migration pending)
 
 ## Date
 2026-04-21
+
+## Implementation Status
+
+Phase 1 (soft-warn) landed:
+- `CollectWLPLoadErrors()` in `internal/pipeline/iotypes.go:175–202` raises warnings for missing `pipeline_outputs[*].type` (Rule 3) and for `on_failure: retry` (Rule 5).
+- Wired into the loader at `internal/pipeline/dag.go:56–62` as a hard error under lint mode.
+- Executor recognises `{{ step.out.<name> }}` syntax in `resolveStepOutputRef()` (Rule 4).
+
+Pending (Phase 5):
+- Rule 1 (one primary output, `secondary: true` markers) — no markers in defaults yet.
+- Rule 2 (canonical `.agents/artifacts/<step>/<output>.<ext>`) — enforced by executor at run time, not validated at load time.
+- Rule 6 (no path templating in contracts) — not actively validated.
+- Rule 7 (typed sub-pipeline handover via `input_ref:`) — schema supports it, no occurrences in shipped pipelines.
+- Hard-error migration of the ~33 known violations across the 26 default pipelines.
 
 ## Context
 

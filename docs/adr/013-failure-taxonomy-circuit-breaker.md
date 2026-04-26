@@ -1,12 +1,24 @@
-# ADR-004: Failure Taxonomy and Circuit Breaker
+# ADR-013: Failure Taxonomy and Circuit Breaker
 
 ## Status
 
-Proposed
+Accepted
 
 ## Date
 
-2026-03-27
+2026-03-27 (proposed) — 2026-04-26 (accepted; renumbered from ADR-004 to resolve collision with ADR-004 Multi-Adapter Architecture)
+
+## Implementation Status
+
+Substantially landed. Verified 2026-04-26:
+- Unified 6-class taxonomy in `internal/pipeline/failure.go` (`FailureClassTransient`, `Deterministic`, `BudgetExhausted`, `ContractFailure`, `TestFailure`, `Canceled`).
+- `ClassifyStepFailure()` in `failure.go` collapses prior `adapter.FailureReason`, `recovery.ErrorClass`, `contract.FailureType` into the canonical taxonomy.
+- `CircuitBreaker` struct with fingerprinting (`NormalizeFingerprint()` strips timestamps, hex, UUIDs, temp paths) integrated into executor at `executor.go:~1856`.
+- SQLite `step_attempt.failure_class` column persists classifications.
+
+Remaining work (not blocking acceptance):
+- Stall watchdog (Phase 4 of original plan) not implemented.
+- Logic lives in `internal/pipeline/failure.go` rather than a cross-cutting `internal/failure/` package; revisit if ADR-003 layer enforcement requires extraction.
 
 ## Context
 

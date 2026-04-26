@@ -2,11 +2,23 @@
 
 ## Status
 
-Proposed
+Accepted (Partial — pricing + budget + Iron Rule live; schema migration pending)
 
 ## Date
 
-2026-03-28
+2026-03-28 (proposed) — 2026-04-26 (accepted)
+
+## Implementation Status
+
+Landed:
+- Pricing matrix in `internal/cost/ledger.go` (`DefaultPricing` map covers Claude / OpenAI / Gemini models with per-million input/output rates).
+- Budget enforcement: `manifest.Runtime.Cost.BudgetCeiling` (USD); per-step check in `executor.go` (~line 3435) calls `cost.CheckIronRule()` and budget guard.
+- Token split: `adapter.AdapterResult` exposes `TokensIn` / `TokensOut` alongside legacy `TokensUsed`.
+- Iron Rule: `internal/cost/ironrule.go` enforces deployment-time prompt-size limits (alternative safety guardrail in lieu of a decision-log table).
+
+Pending:
+- `schema.sql` not yet extended with `tokens_input`, `tokens_output`, `estimated_cost_dollars` columns on `step_attempt`; aggregate cost reporting is approximate.
+- Decision log table deferred indefinitely; Iron Rule covers the highest-priority guardrail.
 
 ## Context
 
@@ -20,7 +32,7 @@ Several in-flight ADRs constrain the solution space:
 
 - **ADR-002** (Extract StepExecutor) targets a 40-50% reduction in executor.go — new features should target the StepExecutor boundary, not deepen the monolith.
 - **ADR-003** (Layered Architecture) defines four layers with dependency rules — cost tracking belongs in the infrastructure layer, budget enforcement is cross-cutting.
-- **ADR-004** (Failure Taxonomy) proposes `budget_exhausted` as a canonical failure class — budget enforcement directly implements this.
+- **ADR-013** (Failure Taxonomy, formerly ADR-004) proposes `budget_exhausted` as a canonical failure class — budget enforcement directly implements this.
 - **ADR-005** (Graph Execution Model) replaces TopologicalSort with NextSteps — cost tracking must work with both the current DAG executor and the future graph scheduler.
 
 ## Decision
@@ -51,7 +63,7 @@ Focus on the financial infrastructure layer: extend the state schema with input/
 **Pros:**
 - Addresses the highest-value gap: Wave has zero cost visibility despite tracking tokens at five levels
 - Input/output token split is a prerequisite for accurate cost calculation and for any future dynamic routing — avoids rework
-- Budget enforcement directly implements ADR-004's `budget_exhausted` failure class
+- Budget enforcement directly implements ADR-013's `budget_exhausted` failure class
 - Contained scope: primarily touches state (schema.sql, types.go, store.go) and manifest (pricing config)
 - Aligns with ADR-003: cost tracking is infrastructure layer, budget enforcement is cross-cutting
 - Enables operators to set cost ceilings on autonomous pipeline runs — the most urgent operational need
@@ -115,7 +127,7 @@ Evolve Wave's existing infrastructure toward cost visibility and budget control 
 - Wave gains cost visibility for the first time — operators can see per-step and per-pipeline cost estimates
 - Budget enforcement enables safe autonomous execution by capping spend with hard ceilings
 - Input/output token split creates the data foundation for future dynamic model routing and optimization profiles without pre-committing to those features
-- Budget ceilings integrate with ADR-004's failure taxonomy via the `budget_exhausted` class, maintaining architectural consistency
+- Budget ceilings integrate with ADR-013's failure taxonomy via the `budget_exhausted` class, maintaining architectural consistency
 - Real cost data from production pipelines will replace speculation when evaluating whether to adopt dynamic routing, decision logging, or Iron Rule enforcement
 
 ### Negative
@@ -173,7 +185,7 @@ Pricing defaults are embedded in the binary; `wave.yaml` overrides allow operato
              max_dollars: 2.00
    ```
 2. After each step completion, calculate cost and check against the pipeline-level ceiling
-3. When exceeded, emit `budget_exhausted` failure (per ADR-004 taxonomy) and halt the pipeline
+3. When exceeded, emit `budget_exhausted` failure (per ADR-013 taxonomy) and halt the pipeline
 
 ### Adapter Interface
 

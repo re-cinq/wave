@@ -1,8 +1,12 @@
-# ADR: Persona-to-Agent Migration Path
+# ADR-015: Persona-to-Agent Migration Path
 
 ## Status
 
-Complete
+Accepted
+
+## Date
+
+2026-04-26 (promoted from `docs/decisions/adr-agent-migration.md`; originally landed mid-2026 after issue #395)
 
 ## Context
 
@@ -68,7 +72,11 @@ permissionMode: bypassPermissions
 
 ## Implementation
 
-- `PersonaToAgentMarkdown()` in `internal/adapter/claude.go`
-- Agent mode is unconditional — `UseAgentFlag` removed from `AdapterRunConfig`
-- `wave agent` CLI in `cmd/wave/commands/agent.go`
-- Test coverage in `cmd/wave/commands/agent_test.go`
+Verified 2026-04-26:
+- `PersonaToAgentMarkdown()` lives at `internal/adapter/claude.go:~876` (signature at ~889).
+- `wave agent list/inspect/export` commands in `cmd/wave/commands/agent.go` (`newAgentListCmd`, `newAgentInspectCmd`, `newAgentExportCmd`).
+- `UseAgentFlag` is gone from `AdapterRunConfig` (`internal/adapter/adapter.go:41–69`).
+- `normalizeAllowedTools` no longer present anywhere in the codebase.
+- Test coverage in `cmd/wave/commands/agent_test.go`.
+
+Caveat: `settings.json` is still emitted, but only as `SandboxOnlySettings` (`internal/adapter/claude.go:34–48`) when sandboxing is enabled. The legacy CLAUDE.md + full-settings.json pair is gone.

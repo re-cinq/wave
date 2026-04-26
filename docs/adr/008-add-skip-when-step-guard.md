@@ -1,10 +1,14 @@
 # ADR-008: Add skip_when Step Guard for Token-Saving Short-Circuits
 
 ## Status
-Proposed
+Proposed (no code landed)
 
 ## Date
 2026-04-13
+
+## Implementation Status
+
+Not started as of 2026-04-26. No `Step.SkipWhen` field in `internal/pipeline/types.go`, no `skip_when` property in `wave-pipeline.schema.json`, no evaluation in the scheduling loop, no template-resolution call site at scheduling time. Only the ADR document landed (commit `db21a63e`).
 
 ## Context
 

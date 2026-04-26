@@ -1,10 +1,21 @@
 # ADR-007: Consolidate Database Access Through StateStore Interface
 
 ## Status
-Proposed
+Proposed (not started — five bypass sites confirmed open as of 2026-04-26)
 
 ## Date
 2026-04-13
+
+## Implementation Status
+
+Not started. All bypass sites listed in this ADR remain open:
+- `cmd/wave/commands/logs.go` (lines ~111, ~566) — opens `sql.Open("sqlite", ...)` directly.
+- `cmd/wave/commands/list.go` — `database/sql` import, `collectRunsFromDB()`.
+- `cmd/wave/commands/decisions.go` — `database/sql` import, `queryDecisions()`.
+- `cmd/wave/commands/clean.go` (lines ~4, ~68) — opens `sql.Open` directly.
+- `internal/webui/server.go` (line ~219) — `backfillRunTokens()` opens `sql.Open` directly.
+
+`StateStore` interface unchanged (~50 methods). No new `EventQueryOptions.SinceTime`/`TailLimit`, no `DecisionQueryOptions`, no `ListPipelineNamesByStatus()`, no `GetEventAggregation()`. `.golangci.yml` has no rule blocking `database/sql` imports under `cmd/wave/commands/**` — see ADR-003 next-iteration note.
 
 ## Context
 

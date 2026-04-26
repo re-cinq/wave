@@ -1,10 +1,23 @@
 # ADR-003: Layered Architecture Separation
 
 ## Status
-Proposed
+Accepted (Phase 1 — depguard rules live; package count drifted upward)
 
 ## Date
-2026-03-13
+2026-03-13 (proposed) — 2026-04-26 (accepted)
+
+## Implementation Status
+
+Landed:
+- `depguard` rules in `.golangci.yml` enforce two layer constraints:
+  - `no-presentation-reverse` blocks `display`, `tui`, `webui`, `onboarding` from being imported by domain or infrastructure code.
+  - `infrastructure-no-domain` blocks `pipeline`, `adapter`, `contract`, `relay`, `deliverable`, `preflight`, `recovery`, `skill`, `defaults`, `suggest`, `doctor` from being imported by infrastructure.
+- Verified import constraints: `display` → `event`/`pathfmt`/`deliverable` only; `pipeline` does not import `display`/`tui`.
+
+Drift since the original ADR was drafted:
+- `internal/` package count grew from 25 to 39 (additions include `attention`, `bench`, `classify`, `continuous`, `cost`, `fileutil`, `hooks`, `humanize`, `ontology`, `retro`, `sandbox`, `scope`, `testutil`, `timeouts`, `tools`).
+- `cmd/` layer has no depguard rule blocking `database/sql` imports — see ADR-007 for the consequences.
+- New packages still need explicit layer assignments; the next iteration is ADR-007 enforcement plus a `cmd/`-layer rule.
 
 ## Context
 

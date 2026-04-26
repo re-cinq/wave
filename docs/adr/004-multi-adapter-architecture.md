@@ -1,10 +1,19 @@
 # ADR-004: Multi-Adapter Architecture
 
 ## Status
-Accepted
+Accepted (Implemented)
 
 ## Date
-2026-03-27
+2026-03-27 (proposed) — 2026-04-09 (implemented in `internal/adapter/registry.go`)
+
+## Implementation Status
+
+Landed:
+- `AdapterRegistry` in `internal/adapter/registry.go` replaces the single executor-held runner.
+- `Resolve()` and `ResolveWithFallback()` dispatch per step (`executor.go:~3048`).
+- Four-tier resolution hierarchy in `executor.go:3030–3032`: CLI override → step.Adapter → persona.Adapter → default.
+- `FallbackRunner` rate-limit triggering in `internal/adapter/fallback.go:89`.
+- `--adapter` CLI flag in `cmd/wave/commands/run.go:174` propagated via `WithAdapterOverride()`.
 
 ## Context
 

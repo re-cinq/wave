@@ -1,10 +1,16 @@
 # ADR-002: Extract StepExecutor from Pipeline Executor
 
 ## Status
-Proposed
+Proposed (not started — file has grown since)
 
 ## Date
 2026-03-12
+
+## Implementation Status
+
+Not started as of 2026-04-26. `internal/pipeline/executor.go` has grown from 2,493 lines (when the ADR was written) to ~6,706 lines (+168%). No `StepExecutor` struct, no `step_executor.go` file. The `StepExecutor` callback in `graph.go` (introduced by ADR-005) is unrelated — it is a function callback passed into `GraphWalker`, not the proposed extraction.
+
+The extraction proposed here is more urgent now than when first written but interacts with ADR-005 (Graph Execution Model, accepted) and ADR-013 (Failure Taxonomy, accepted). Re-scope before starting.
 
 ## Context
 

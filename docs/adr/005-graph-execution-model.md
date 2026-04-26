@@ -2,11 +2,20 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Date
 
-2026-03-27
+2026-03-27 (proposed and shipped same day in commit `3bca8bd2`) — 2026-04-26 (accepted)
+
+## Implementation Status
+
+Landed:
+- `executeGraphPipeline()` in `internal/pipeline/executor.go` (~line 1097) drives graph-mode execution.
+- `GraphWalker` in `internal/pipeline/graph.go` (~278 LOC) handles backward edges with `max_visits` enforcement.
+- `Step.Type` accepts `"conditional"` and `"command"`; `Step.Edges []EdgeConfig` and `Step.MaxVisits` / `Pipeline.MaxStepVisits` are wired through.
+- Dual-mode dispatch: graph mode auto-activates when steps declare `edges` or `type: conditional`/`command`; otherwise legacy `TopologicalSort`/`executeStepBatch` path runs.
+- `internal/pipeline/dag.go` retained for the strict-DAG path; cycles are gated by graph-mode detection.
 
 ## Context
 

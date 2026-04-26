@@ -62,7 +62,7 @@ steps:
 
         Systematically audit each documentation surface area:
 
-        1. **ADR decisions (docs/adrs/*.md)**: For each Architecture Decision Record, identify the core decision statement and verify it is reflected in the codebase. For example, if an ADR says "we use bubblewrap for sandboxing," confirm that bubblewrap-related code exists and is active. If an ADR says "we chose X over Y," verify that Y is not still present. Check at least 3 specific claims per ADR against the code using Grep and Read.
+        1. **ADR decisions (docs/adr/*.md)**: For each Architecture Decision Record, identify the core decision statement and verify it is reflected in the codebase. For example, if an ADR says "we use bubblewrap for sandboxing," confirm that bubblewrap-related code exists and is active. If an ADR says "we chose X over Y," verify that Y is not still present. Check at least 3 specific claims per ADR against the code using Grep and Read.
 
         2. **Guide accuracy (docs/guides/*.md)**: For each guide, verify that:
            - File paths referenced in the guide actually exist at those locations.

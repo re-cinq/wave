@@ -1,8 +1,12 @@
-# ADR-007: Formalize Boundary Between Composition Primitives and Graph Execution
+# ADR-014: Formalize Boundary Between Composition Primitives and Graph Execution
 
 ## Status
 
 Accepted
+
+## Date
+
+2026-04-26 (renumbered from ADR-007 in `docs/adrs/`; original drafted post-epic #589)
 
 ## Context
 
@@ -54,11 +58,14 @@ Graph execution controls **flow between steps within one pipeline**:
 
 ### Migration: None Required
 
-Both systems are stable and in active use:
-- 6 composition pipelines: audit-quality-loop, ops-epic-runner, impl-review-loop, impl-smart-route, ops-implement-epic, ops-parallel-audit
-- 6+ graph pipelines: impl-hotfix, wave-bugfix, ops-debug, test-gen, wave-validate, wave-test-hardening
+Both code paths remain in `internal/pipeline/`. Authors pick the model that fits their use case.
 
-No pipeline needs to migrate. Authors choose the model that fits their use case.
+Pipeline inventory (verified 2026-04-26 against `internal/defaults/pipelines/`):
+
+- **Composition (12 pipelines)**: `impl-issue`, `impl-issue-core`, `impl-recinq`, `impl-speckit`, `inception-audit`, `inception-feature`, `ops-bootstrap`, `ops-epic-runner`, `ops-parallel-audit`, `plan-research`, `plan-scope`, `plan-task`. All use one or more of `iterate`, `branch`, `loop`, `aggregate`, `sub_pipeline`.
+- **Graph (0 shipped pipelines)**: the executor supports `type: conditional`, `type: command`, `edges`, `max_visits` (see ADR-005), but no default pipeline currently uses graph-mode features. Author-supplied `.wave/pipelines/` may use them.
+
+Earlier drafts of this ADR listed pipeline names (`audit-quality-loop`, `wave-bugfix`, etc.) that have since been removed or renamed; the inventory above is the canonical reference.
 
 ## Consequences
 

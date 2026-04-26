@@ -1,4 +1,4 @@
-# ADR-011: Introduce a Unified In-Memory Caching Layer
+# ADR-012: Introduce a Unified In-Memory Caching Layer
 
 ## Status
 Proposed
