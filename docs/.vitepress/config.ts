@@ -26,6 +26,18 @@ export default withMermaid(
 
     srcExclude: ['future/**', '.archive/**'],
 
+    // Disable Vue mustache interpolation in markdown content. Wave docs
+    // contain literal Wave template syntax (e.g. `{{ step.out.<name> }}`)
+    // that must not be parsed as Vue expressions. Re-route Vue to alternate
+    // delimiters that never appear in the docs.
+    vue: {
+      template: {
+        compilerOptions: {
+          delimiters: ['[[[', ']]]']
+        }
+      }
+    },
+
     themeConfig: {
       logo: '/logo.svg',
       nav: [

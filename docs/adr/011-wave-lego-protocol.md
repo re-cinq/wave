@@ -37,7 +37,7 @@ ADR-010's untyped baseline also enables a familiar family of bugs:
    is non-deterministic, so the same pipeline sometimes resolved the
    template against `scope:child_issues` and sometimes against
    `scope:plan`, with silently different content. (Mitigated by
-   [8c2de05c](../..) which probes all candidates, but that masks rather
+   [8c2de05c](https://github.com/re-cinq/wave/commit/8c2de05c) which probes all candidates, but that masks rather
    than fixes the ambiguity.)
 
 3. **`on_failure: retry` without `rework_step` (`impl-issue`, many others).**
@@ -176,7 +176,7 @@ Once compliant, `CollectWLPLoadWarnings` is promoted to
 Keep the status quo of "load accepts anything, executor papers over
 ambiguity." Harden `resolveStepOutputRef` and `writeOutputArtifacts` to
 be more tolerant (e.g., probe all candidates — already done in
-[8c2de05c](../..)).
+[8c2de05c](https://github.com/re-cinq/wave/commit/8c2de05c)).
 
 **Pros:**
 - Zero breaking changes.
