@@ -346,6 +346,90 @@ func TestValidatePromptToolPermissions(t *testing.T) {
 			wantTool:   nil,
 			wantStepID: nil,
 		},
+		{
+			name: "file output_artifact implies Write requirement",
+			manifest: &manifest.Manifest{
+				Personas: map[string]manifest.Persona{
+					"navigator": {
+						Adapter: "claude",
+						Permissions: manifest.Permissions{
+							AllowedTools: []string{"Read", "Glob", "Grep"},
+						},
+					},
+				},
+			},
+			pipeline: &pipeline.Pipeline{
+				Steps: []pipeline.Step{{
+					ID:      "scan",
+					Persona: "navigator",
+					Exec: pipeline.ExecConfig{
+						Type:   "prompt",
+						Source: "Audit the codebase. Produce findings.",
+					},
+					OutputArtifacts: []pipeline.ArtifactDef{
+						{Name: "findings", Path: ".agents/output/findings.json", Type: "json"},
+					},
+				}},
+			},
+			wantTool:   []string{"Write"},
+			wantStepID: []string{"scan"},
+		},
+		{
+			name: "file output_artifact + persona has Write — clean",
+			manifest: &manifest.Manifest{
+				Personas: map[string]manifest.Persona{
+					"craftsman": {
+						Adapter: "claude",
+						Permissions: manifest.Permissions{
+							AllowedTools: []string{"Read", "Write", "Edit", "Bash"},
+						},
+					},
+				},
+			},
+			pipeline: &pipeline.Pipeline{
+				Steps: []pipeline.Step{{
+					ID:      "build",
+					Persona: "craftsman",
+					Exec: pipeline.ExecConfig{
+						Type:   "prompt",
+						Source: "Build the report.",
+					},
+					OutputArtifacts: []pipeline.ArtifactDef{
+						{Name: "report", Path: "report.md", Type: "markdown"},
+					},
+				}},
+			},
+			wantTool:   nil,
+			wantStepID: nil,
+		},
+		{
+			name: "stdout output_artifact — no implicit Write",
+			manifest: &manifest.Manifest{
+				Personas: map[string]manifest.Persona{
+					"navigator": {
+						Adapter: "claude",
+						Permissions: manifest.Permissions{
+							AllowedTools: []string{"Read", "Glob", "Grep"},
+						},
+					},
+				},
+			},
+			pipeline: &pipeline.Pipeline{
+				Steps: []pipeline.Step{{
+					ID:      "summarize",
+					Persona: "navigator",
+					Exec: pipeline.ExecConfig{
+						Type:   "prompt",
+						Source: "Summarize the codebase to stdout.",
+					},
+					OutputArtifacts: []pipeline.ArtifactDef{
+						{Name: "summary", Source: "stdout", Type: "text"},
+					},
+				}},
+			},
+			wantTool:   nil,
+			wantStepID: nil,
+		},
 	}
 
 	for _, tt := range tests {
