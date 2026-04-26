@@ -72,10 +72,6 @@ func Classify(input string, issueBody string) TaskProfile {
 	domain := matchDomain(text)
 	complexity := matchComplexity(text)
 
-	// Lore enrichment: if keyword matching fell through to defaults,
-	// let high-confidence lore hints fill in the gap.
-	domain, complexity = applyLoreHints(domain, complexity, input)
-
 	blastRadius := deriveBlastRadius(complexity, domain)
 	depth := deriveVerificationDepth(complexity)
 
@@ -127,29 +123,6 @@ func deriveBlastRadius(c Complexity, d Domain) float64 {
 		return 1
 	}
 	return r
-}
-
-// applyLoreHints enriches domain/complexity with lore context when
-// keyword matching fell through to defaults (DomainFeature / ComplexityMedium).
-// Lore hints only fill gaps — they never override a positive keyword match.
-func applyLoreHints(domain Domain, complexity Complexity, input string) (Domain, Complexity) {
-	ctx := loreProvider().GetTaskContext(input)
-	if len(ctx.Hints) == 0 {
-		return domain, complexity
-	}
-	const minConfidence = 0.5
-	for _, h := range ctx.Hints {
-		if h.Confidence < minConfidence {
-			continue
-		}
-		if domain == DomainFeature && h.Domain != "" {
-			domain = h.Domain
-		}
-		if complexity == ComplexityMedium && h.Complexity != "" {
-			complexity = h.Complexity
-		}
-	}
-	return domain, complexity
 }
 
 // deriveVerificationDepth maps complexity to verification depth.

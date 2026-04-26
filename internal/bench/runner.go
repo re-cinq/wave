@@ -43,29 +43,29 @@ type RunConfig struct {
 	Offset int
 }
 
-// PipelineRunner is the interface for executing a single pipeline against a task.
+// pipelineRunner is the interface for executing a single pipeline against a task.
 // This enables testing without subprocess execution.
-type PipelineRunner interface {
+type pipelineRunner interface {
 	RunTask(ctx context.Context, task BenchTask, cfg RunConfig) (*BenchResult, error)
 }
 
-// SubprocessRunner executes pipelines by invoking the wave or claude binary.
-type SubprocessRunner struct {
-	// repoCache is shared across concurrent tasks to avoid clone races.
-	repoCache *RepoCache
+// subprocessRunner executes pipelines by invoking the wave or claude binary.
+type subprocessRunner struct {
+	// cache is shared across concurrent tasks to avoid clone races.
+	cache *repoCache
 }
 
 // NewSubprocessRunner creates a runner with a shared repo cache.
-func NewSubprocessRunner(cacheDir string) *SubprocessRunner {
-	return &SubprocessRunner{
-		repoCache: &RepoCache{CacheDir: cacheDir},
+func NewSubprocessRunner(cacheDir string) *subprocessRunner {
+	return &subprocessRunner{
+		cache: &repoCache{CacheDir: cacheDir},
 	}
 }
 
 // RunTask runs a single benchmark task. It clones the repo, creates a worktree
 // at the base commit, and then either runs a Wave pipeline or invokes Claude
 // directly depending on the configured mode.
-func (s *SubprocessRunner) RunTask(ctx context.Context, task BenchTask, cfg RunConfig) (*BenchResult, error) {
+func (s *subprocessRunner) RunTask(ctx context.Context, task BenchTask, cfg RunConfig) (*BenchResult, error) {
 	workDir := cfg.WorkDir
 	if workDir == "" {
 		workDir = ".agents/bench"
@@ -89,7 +89,7 @@ func (s *SubprocessRunner) RunTask(ctx context.Context, task BenchTask, cfg RunC
 	// Set up repository worktree if repo info is available.
 	worktreePath := taskDir
 	if task.Repo != "" && task.BaseCommit != "" {
-		rc := s.repoCache
+		rc := s.cache
 
 		if _, err := rc.EnsureCloned(ctx, task.Repo); err != nil {
 			result.DurationMs = time.Since(start).Milliseconds()
@@ -157,7 +157,7 @@ func (s *SubprocessRunner) RunTask(ctx context.Context, task BenchTask, cfg RunC
 
 // runWavePipeline invokes `wave run <pipeline> --quiet -- <problem>`.
 // It first ensures the worktree has a wave project via `wave init`.
-func (s *SubprocessRunner) runWavePipeline(ctx context.Context, task BenchTask, cfg RunConfig, dir string) error {
+func (s *subprocessRunner) runWavePipeline(ctx context.Context, task BenchTask, cfg RunConfig, dir string) error {
 	waveBin := "wave"
 
 	// Initialize a wave project in the worktree so the manifest and
@@ -179,7 +179,7 @@ func (s *SubprocessRunner) runWavePipeline(ctx context.Context, task BenchTask, 
 }
 
 // runClaudeDirect invokes `claude -p` with the problem statement directly.
-func (s *SubprocessRunner) runClaudeDirect(ctx context.Context, task BenchTask, _ RunConfig, dir string) error {
+func (s *subprocessRunner) runClaudeDirect(ctx context.Context, task BenchTask, _ RunConfig, dir string) error {
 	claudeBin := "claude"
 
 	args := []string{
@@ -199,7 +199,7 @@ func (s *SubprocessRunner) runClaudeDirect(ctx context.Context, task BenchTask, 
 
 // runTestCommand executes a shell command in the task directory.
 // Returns nil on success, or the combined output on failure.
-func (s *SubprocessRunner) runTestCommand(ctx context.Context, dir, command string) []byte {
+func (s *subprocessRunner) runTestCommand(ctx context.Context, dir, command string) []byte {
 	cmd := exec.CommandContext(ctx, "sh", "-c", command)
 	cmd.Dir = dir
 	output, err := cmd.CombinedOutput()
@@ -222,7 +222,7 @@ func captureDiff(dir string) string {
 
 // RunBenchmark executes a benchmark suite: loads tasks, runs them sequentially
 // through the specified pipeline, and returns an aggregated report.
-func RunBenchmark(ctx context.Context, tasks []BenchTask, cfg RunConfig, runner PipelineRunner) (*BenchReport, error) {
+func RunBenchmark(ctx context.Context, tasks []BenchTask, cfg RunConfig, runner pipelineRunner) (*BenchReport, error) {
 	if cfg.Pipeline == "" && cfg.Mode != ModeClaude {
 		return nil, fmt.Errorf("pipeline name is required (unless mode is %q)", ModeClaude)
 	}

@@ -10,10 +10,10 @@ import (
 	"sync"
 )
 
-// RepoCache manages bare-clone caching and worktree creation for benchmark
+// repoCache manages bare-clone caching and worktree creation for benchmark
 // repositories. Each repo is cloned once (bare) and subsequent tasks create
 // lightweight worktrees from the cached bare clone.
-type RepoCache struct {
+type repoCache struct {
 	// CacheDir is the root directory for cached bare clones.
 	CacheDir string
 
@@ -24,7 +24,7 @@ type RepoCache struct {
 }
 
 // repoMu returns a per-repo mutex, creating one if needed.
-func (rc *RepoCache) repoMu(repo string) *sync.Mutex {
+func (rc *repoCache) repoMu(repo string) *sync.Mutex {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 	if rc.repoLocks == nil {
@@ -41,7 +41,7 @@ func (rc *RepoCache) repoMu(repo string) *sync.Mutex {
 // EnsureCloned fetches a bare clone of the given repo into the cache directory.
 // If the clone already exists it runs git fetch instead.
 // repo is a GitHub slug like "django/django".
-func (rc *RepoCache) EnsureCloned(ctx context.Context, repo string) (string, error) {
+func (rc *repoCache) EnsureCloned(ctx context.Context, repo string) (string, error) {
 	// Serialize clone/fetch per repo to avoid concurrent clone races.
 	mu := rc.repoMu(repo)
 	mu.Lock()
@@ -73,7 +73,7 @@ func (rc *RepoCache) EnsureCloned(ctx context.Context, repo string) (string, err
 
 // PrepareWorktree creates a detached worktree at worktreePath checked out to
 // baseCommit. If testPatch is non-empty it is applied after checkout.
-func (rc *RepoCache) PrepareWorktree(ctx context.Context, repo, baseCommit, worktreePath, testPatch string) error {
+func (rc *repoCache) PrepareWorktree(ctx context.Context, repo, baseCommit, worktreePath, testPatch string) error {
 	cloneDir := rc.clonePath(repo)
 
 	// Resolve to absolute path so git worktree commands work from the bare clone dir.
@@ -109,7 +109,7 @@ func (rc *RepoCache) PrepareWorktree(ctx context.Context, repo, baseCommit, work
 }
 
 // RemoveWorktree removes a worktree created by PrepareWorktree.
-func (rc *RepoCache) RemoveWorktree(ctx context.Context, repo, worktreePath string) error {
+func (rc *repoCache) RemoveWorktree(ctx context.Context, repo, worktreePath string) error {
 	cloneDir := rc.clonePath(repo)
 	absWorktree, err := filepath.Abs(worktreePath)
 	if err != nil {
@@ -125,7 +125,7 @@ func (rc *RepoCache) RemoveWorktree(ctx context.Context, repo, worktreePath stri
 
 // clonePath returns the filesystem path for a cached bare clone.
 // "django/django" → "<CacheDir>/django__django".
-func (rc *RepoCache) clonePath(repo string) string {
+func (rc *repoCache) clonePath(repo string) string {
 	safe := strings.ReplaceAll(repo, "/", "__")
 	return filepath.Join(rc.CacheDir, safe)
 }
