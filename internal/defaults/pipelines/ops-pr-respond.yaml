@@ -1,0 +1,500 @@
+kind: WavePipeline
+metadata:
+  name: ops-pr-respond
+  description: >-
+    Composition pipeline that takes a PR ref, fans out a parallel multi-axis
+    review (six audit-* sub-pipelines), aggregates findings, triages them,
+    applies per-finding fixes via the impl-finding sub-pipeline (parallel
+    iterate), verifies the resulting branch with the project's contract test
+    command, and posts a structured response comment back to the PR. Doubles
+    as the canonical Wave-feature showcase: typed I/O, sub-pipeline
+    composition, parallel iterate, aggregate, loop, agent_review, json_schema,
+    test_suite, forge interpolation — every primitive in one workflow.
+  category: composition
+  release: false
+
+skills:
+  - "{{ project.skill }}"
+  - gh-cli
+  - software-design
+
+requires:
+  tools:
+    - gh
+
+input:
+  source: cli
+  type: pr_ref
+  example: "https://github.com/owner/repo/pull/42"
+
+chat_context:
+  artifact_summaries:
+    - pr-context
+    - merged-findings
+    - triaged-findings
+    - verify-verdict
+    - comment-result
+  suggested_questions:
+    - "Which findings did the triage step accept, defer, or reject?"
+    - "Did the verify step pass after the fixes were applied?"
+    - "Where can I read the response comment posted to the PR?"
+  focus_areas:
+    - "Per-finding fix → commit-SHA mapping"
+    - "Verify verdict and remaining manual-review items"
+
+pipeline_outputs:
+  comment:
+    step: comment-back
+    artifact: comment-result
+    type: findings_report
+
+steps:
+  # ─── Phase 1: fetch PR context ───────────────────────────────────────────
+  - id: fetch-pr
+    persona: implementer
+    contexts: [execution]
+    model: cheapest
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Fetch the pull request identified by the input ref and write a typed
+        `pr-context.json` artifact that downstream steps consume. The artifact
+        carries the PR number, head/base branches, head SHA, the list of
+        changed files, and the unified diff blob — enough for the parallel
+        audits to scope themselves and for the comment-back step to address
+        the right PR.
+
+        PR: {{ input }}
+
+        ## Requirements
+
+        ### Step 1 — Fetch PR metadata
+
+        ```bash
+        {{ forge.cli_tool }} {{ forge.pr_command }} view {{ input }} \
+          --json number,headRefName,baseRefName,headRefOid,url,title,changedFiles,files
+        ```
+
+        ### Step 2 — Capture the unified diff
+
+        ```bash
+        {{ forge.cli_tool }} {{ forge.pr_command }} diff {{ input }} \
+          > .agents/output/pr.diff
+        ```
+
+        ### Step 3 — Compose pr-context.json
+
+        Write `.agents/output/pr-context.json` matching this shape:
+
+        ```json
+        {
+          "forge": "{{ forge.type }}",
+          "owner": "<owner>",
+          "repo": "<repo>",
+          "number": <int>,
+          "url": "<url>",
+          "branch": "<head_branch>",
+          "head_sha": "<sha>",
+          "title": "<title>",
+          "changed_files": ["<path>", ...],
+          "diff_path": ".agents/output/pr.diff"
+        }
+        ```
+
+        Field rules:
+        - `branch` is the PR head branch name (matches the `pr_ref` schema).
+        - `changed_files` is the full list, no truncation.
+        - Do NOT inline the diff — keep it on disk and reference via
+          `diff_path` so triage / comment-back can stream it.
+
+        ## Constraints
+
+        - Do NOT modify the working tree.
+        - Do NOT post any comments — that is comment-back's job.
+        - If the PR does not exist or `gh` returns an error, fail loudly with
+          the error captured in the artifact's `error` field rather than a
+          half-written context.
+
+        ## Quality bar
+
+        A good pr-context lets every downstream step address the right PR
+        without re-fetching metadata. A bad one drops fields the schema marks
+        required, leaks credentials in the diff path, or truncates
+        `changed_files`.
+    output_artifacts:
+      - name: pr-context
+        path: .agents/output/pr-context.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: non_empty_file
+        source: .agents/output/pr-context.json
+        on_failure: fail
+
+  # ─── Phase 2: parallel multi-axis review ─────────────────────────────────
+  #
+  # Iterate.parallel fans out six audit-* sub-pipelines. Each one scopes itself
+  # to the PR via the input string. Outputs are propagated into the parent
+  # template context under the parallel-review step ID for the next phase.
+  - id: parallel-review
+    pipeline: "{{ item }}"
+    dependencies: [fetch-pr]
+    input: "Audit the changes in PR {{ input }}. Focus on files listed in .agents/output/pr-context.json (changed_files). Treat .agents/output/pr.diff as the authoritative scope."
+    iterate:
+      over: '["audit-security", "audit-architecture", "audit-tests", "audit-duplicates", "audit-doc-scan", "audit-dead-code-scan"]'
+      mode: parallel
+      max_concurrent: 6
+
+  # ─── Phase 3: aggregate audit outputs ────────────────────────────────────
+  #
+  # The six audits emit heterogeneous primary outputs (some JSON-shaped
+  # findings, some markdown reports). aggregate.merge_arrays without a key
+  # writes the raw JSON array to a file, which triage then normalizes.
+  - id: merge-findings
+    dependencies: [parallel-review]
+    aggregate:
+      from: "{{ parallel-review.out.collected-output }}"
+      into: .agents/output/merged-findings.json
+      strategy: merge_arrays
+
+  # ─── Phase 4: triage ─────────────────────────────────────────────────────
+  - id: triage
+    persona: planner
+    model: balanced
+    dependencies: [merge-findings, fetch-pr]
+    memory:
+      inject_artifacts:
+        - step: fetch-pr
+          artifact: pr-context
+          as: pr_context
+        - step: merge-findings
+          artifact: merged-findings
+          as: merged_findings
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Read the aggregated raw audit outputs (`merged_findings`) and the PR
+        context (`pr_context`), then produce a triaged classification of every
+        finding into actionable / deferred / rejected. Each actionable entry
+        carries a stable `id`, severity, file, description, remediation, and
+        type — enough that the impl-finding sub-pipeline can fix it without
+        re-reading the audit. Cap actionable at 25 to bound parallel resolve
+        cost.
+
+        ## Context
+
+        - `merged_findings` is a JSON array of six elements, one per audit
+          sub-pipeline. Elements may be JSON objects (with `findings:` or
+          `items:` arrays) or markdown strings (whole-report blobs). You are
+          responsible for normalising.
+        - `pr_context` is the typed PR reference with `changed_files` and a
+          `diff_path` pointing at the unified diff on disk.
+        - You have read-only access to the project mount so you can verify
+          a finding against actual code before classifying.
+
+        ## Requirements
+
+        ### Step 1 — Normalise
+
+        For each audit element:
+        - If it is a JSON object with a `findings` or `items` array, extract
+          those entries.
+        - If it is a markdown blob, parse out finding sections (look for
+          severity/file/line patterns; tolerate "H2: Findings" / "### "
+          headers used by audit-architecture / audit-security / audit-tests).
+        - Tag each finding with its `source` audit name.
+
+        ### Step 2 — Verify
+
+        Spot-check the top 5 findings by reading the cited file. Drop
+        findings that:
+        - Reference files not in `pr_context.changed_files` (out of PR scope).
+        - Reference symbols that no longer exist (stale).
+        - Restate something already fixed in the PR.
+
+        ### Step 3 — Classify
+
+        Each surviving finding becomes one of:
+        - **actionable**: small, scoped, deterministic. Will be fixed by the
+          impl-finding sub-pipeline this run. Assign `id: f1, f2, ...` in
+          severity order. Pick the closest-matching `type` from
+          `fix|delete|wire|rename|scrub|guard|doc`.
+        - **deferred**: valid but out of scope (cross-cutting, blocked,
+          requires design decision). Include `reason` and optional
+          `follow_up` text.
+        - **rejected**: false positive or duplicate. Include `reason`.
+
+        ### Step 4 — Cap and summarise
+
+        - Cap `actionable` at 25 (highest severity + lowest blast_radius
+          first).
+        - Write `.agents/output/triaged-findings.json` matching the schema
+          exactly. Include `counts` and a one-paragraph `summary`.
+
+        ## Constraints
+
+        - Do NOT invent findings. Every actionable entry traces back to a
+          source audit.
+        - Do NOT touch the working tree. This step is read-only.
+        - Do NOT bundle multiple distinct fixes under one `id` — one finding
+          per actionable entry, so impl-finding can address each in parallel.
+        - Do NOT include findings whose `file` is outside the PR diff scope.
+
+        ## Quality bar
+
+        A good triage produces small, well-scoped actionable items the
+        craftsman can fix in one commit each. A bad triage emits sprawling
+        items, lumps unrelated changes together, or leaves rejected items
+        without a justification.
+    output_artifacts:
+      - name: triaged-findings
+        path: .agents/output/triaged-findings.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contracts:
+        - type: json_schema
+          source: .agents/output/triaged-findings.json
+          schema_path: .agents/contracts/triaged-findings.schema.json
+          must_pass: true
+          on_failure: fail
+        - type: agent_review
+          persona: auditor
+          source: .agents/output/triaged-findings.json
+          model: cheapest
+          token_budget: 8000
+          timeout: 90s
+          criteria:
+            - "Every actionable item has a non-empty remediation that names a concrete edit."
+            - "Severity classifications are calibrated — critical/high reserved for correctness or security risks."
+            - "No actionable entry references a file outside the PR's changed_files scope."
+            - "Deferred and rejected entries include a justification."
+          on_failure: warn
+
+  # ─── Phase 5: resolve + verify loop ──────────────────────────────────────
+  #
+  # The loop primitive runs resolve-each (parallel iterate over actionable
+  # findings) followed by verify (test_suite + agent_review). max_iterations
+  # is 2 — first pass applies fixes, optional second pass re-runs against any
+  # findings that produced empty diffs. The until condition is omitted because
+  # loop.until cannot reference step output values today (only pipeline
+  # context placeholders); termination relies on max_iterations and on each
+  # impl-finding being idempotent (re-running over an already-applied fix is
+  # a no-op).
+  - id: resolve-and-verify
+    dependencies: [triage]
+    loop:
+      max_iterations: 2
+      steps:
+        - id: resolve-each
+          pipeline: impl-finding
+          input: "{{ item }}"
+          iterate:
+            over: "{{ triage.out.triaged-findings.actionable }}"
+            mode: parallel
+            max_concurrent: 4
+
+        - id: verify
+          type: command
+          dependencies: [resolve-each]
+          workspace:
+            mount:
+              - source: ./
+                target: /project
+                mode: readonly
+          script: |
+            set -o pipefail
+            mkdir -p .agents/output
+            if {{ project.contract_test_command }} > .agents/output/verify.log 2>&1; then
+              VERDICT=pass
+            else
+              VERDICT=fail
+            fi
+            cat > .agents/output/verify-verdict.json <<JSON
+            {
+              "verdict": "$VERDICT",
+              "pass": $([ "$VERDICT" = "pass" ] && echo true || echo false),
+              "command": "{{ project.contract_test_command }}",
+              "log_path": ".agents/output/verify.log"
+            }
+            JSON
+            test "$VERDICT" = "pass"
+          output_artifacts:
+            - name: verify-verdict
+              path: .agents/output/verify-verdict.json
+              type: json
+          handover:
+            contracts:
+              - type: test_suite
+                command: "{{ project.contract_test_command }}"
+                must_pass: false
+                on_failure: warn
+              - type: non_empty_file
+                source: .agents/output/verify-verdict.json
+                on_failure: fail
+
+  # ─── Phase 6: post the structured response comment ───────────────────────
+  - id: comment-back
+    persona: "{{ forge.type }}-commenter"
+    model: cheapest
+    contexts: [delivery]
+    dependencies: [resolve-and-verify]
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Post a single, structured response comment to the pull request that
+        captures: (a) every audit finding the triage step classified, (b) the
+        per-finding resolution (commit SHA, status), and (c) the verify
+        verdict + a "manual review needed" callout for any findings that did
+        not converge.
+
+        PR: {{ input }}
+
+        ## Context
+
+        Read these artifacts from disk (the parent pipeline propagates them
+        into the workspace):
+
+        - `.agents/output/pr-context.json` — PR number, URL, head branch.
+        - `.agents/output/triaged-findings.json` — actionable / deferred /
+          rejected lists.
+        - `.agents/output/verify-verdict.json` — `{verdict, pass, command,
+          log_path}`.
+
+        For each actionable finding, locate its resolution. The
+        resolve-each iterate step ran impl-finding once per finding; each
+        sub-pipeline wrote `.agents/output/resolution.md`. Read the most
+        recent resolution per finding id by walking the run's artifact
+        directory.
+
+        ## Requirements
+
+        ### Step 1 — Compose the comment
+
+        Write `/tmp/ops-pr-respond.md` with this structure:
+
+        ```markdown
+        ## Wave PR Respond — Verdict: <pass | fail>
+
+        <one-paragraph executive summary: how many findings, how many
+        applied, verify outcome>
+
+        ### Findings
+
+        | id | severity | type | file | description |
+        |----|----------|------|------|-------------|
+        | f1 | high     | fix  | ...  | ...         |
+
+        ### Resolutions
+
+        | id | status   | commit  | files |
+        |----|----------|---------|-------|
+        | f1 | applied  | abc1234 | ...   |
+        | f2 | skipped  | —       | ...   |
+
+        ### Verify
+
+        - Command: `<contract test command>`
+        - Result: pass | fail
+        - <pointer to verify.log if fail>
+
+        ### Deferred / Rejected (no commits this run)
+
+        - **deferred:** <id or summary> — <reason>
+        - **rejected:** <summary> — <reason>
+
+        ---
+        *Posted by Wave `ops-pr-respond` — see run id `{{ run.id }}`.*
+        ```
+
+        Truncate the description column at 80 characters.
+
+        ### Step 2 — Post
+
+        ```bash
+        {{ forge.cli_tool }} {{ forge.pr_command }} comment <PR_NUMBER> \
+          --body-file /tmp/ops-pr-respond.md
+        ```
+
+        Capture the comment URL.
+
+        ### Step 3 — Write comment-result
+
+        Write `.agents/output/comment-result.json` matching the
+        gh-pr-comment-result schema (success, issue_reference, comment, ...).
+
+        Clean up `/tmp/ops-pr-respond.md` after posting.
+
+        ## Constraints
+
+        - One comment per run — do NOT spam multiple comments.
+        - Do NOT include raw JSON in the comment body.
+        - If verdict=fail, the comment opens with "Manual review needed" and
+          surfaces the failing test names.
+        - Do NOT modify the working tree.
+        - If posting fails, the artifact must record `success: false` and the
+          error code; the pipeline still completes so the run log is captured.
+
+        ## Quality bar
+
+        A good comment is skim-able: a reviewer reads the verdict, the
+        findings table, the commit-SHA mapping, and knows what to do next in
+        under 60 seconds. A bad comment buries the verdict in markdown soup
+        or omits the finding-→-SHA mapping that justifies the fix.
+    output_artifacts:
+      - name: comment-result
+        path: .agents/output/comment-result.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contracts:
+        - type: json_schema
+          source: .agents/output/comment-result.json
+          schema_path: .agents/contracts/gh-pr-comment-result.schema.json
+          must_pass: true
+          on_failure: warn
+        - type: agent_review
+          persona: reviewer
+          source: .agents/output/comment-result.json
+          model: cheapest
+          token_budget: 6000
+          timeout: 60s
+          criteria:
+            - "The posted comment maps every actionable finding id to either a commit SHA or a clear skipped/failed status."
+            - "Verdict line at the top matches verify-verdict.json."
+            - "Tone is professional and constructive — no condescension or hostility."
+            - "Comment does not include raw JSON or unformatted machine output."
+          on_failure: warn
+    outcomes:
+      - type: url
+        extract_from: .agents/output/comment-result.json
+        json_path: .comment.url
+        label: "Response Comment"

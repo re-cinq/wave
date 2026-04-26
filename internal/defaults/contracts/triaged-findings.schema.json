@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Triaged Findings",
+  "description": "Output of the triage step in ops-pr-respond. Splits a flat findings array (produced by aggregate over the audit-* fan-out) into actionable, deferred, and rejected lists. The actionable list is the iterate input for the impl-finding sub-pipeline.",
+  "type": "object",
+  "required": ["actionable", "deferred", "rejected"],
+  "properties": {
+    "actionable": {
+      "type": "array",
+      "description": "Findings that will be addressed in this run via the impl-finding sub-pipeline.",
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "file", "description", "remediation", "type"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Stable identifier for this finding within the run. Used as the iterate key and referenced in commit messages."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low", "info"]
+          },
+          "file": {
+            "type": "string",
+            "description": "Repo-relative path to the file the fix should touch."
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Optional line number anchor."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What the finding is and why it matters."
+          },
+          "remediation": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Concrete instruction for the craftsman — what to change and how."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["fix", "delete", "wire", "rename", "scrub", "guard", "doc"],
+            "description": "Class of edit. Drives the craftsman's strategy: fix=code change, delete=remove dead code, wire=connect existing-but-orphaned code, rename=symbol/type rename, scrub=remove sensitive output, guard=add nil/range check, doc=update docs/comments."
+          },
+          "blast_radius": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Estimate of fix scope. Used by parallel iterate to schedule co-located fixes serially."
+          },
+          "source": {
+            "type": "string",
+            "description": "Originating audit (e.g. audit-security, audit-tests). Survives aggregation."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "deferred": {
+      "type": "array",
+      "description": "Valid findings that are out of scope for this run (pre-existing, too big, or blocked).",
+      "items": {
+        "type": "object",
+        "required": ["description", "reason"],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why the finding is deferred."
+          },
+          "follow_up": {
+            "type": "string",
+            "description": "Optional suggested follow-up action (e.g. 'file an issue')."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "rejected": {
+      "type": "array",
+      "description": "Findings dismissed as false positives or duplicates.",
+      "items": {
+        "type": "object",
+        "required": ["description", "reason"],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why the finding is rejected."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "string",
+      "description": "One-paragraph triage summary."
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "actionable": {"type": "integer", "minimum": 0},
+        "deferred": {"type": "integer", "minimum": 0},
+        "rejected": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
