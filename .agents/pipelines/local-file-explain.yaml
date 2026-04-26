@@ -19,6 +19,7 @@ pipeline_outputs:
   summary:
     step: explain
     artifact: summary
+    type: string
 
 steps:
   - id: explain

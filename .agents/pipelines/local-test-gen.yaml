@@ -18,6 +18,7 @@ pipeline_outputs:
   test_file:
     step: generate
     artifact: test_file
+    type: string
 
 steps:
   - id: generate
