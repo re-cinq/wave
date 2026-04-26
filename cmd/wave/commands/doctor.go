@@ -13,6 +13,8 @@ import (
 	"github.com/recinq/wave/internal/doctor"
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/onboarding"
+	"github.com/recinq/wave/internal/suggest"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -77,9 +79,10 @@ Exit codes:
 			manifestPath, _ := cmd.Root().PersistentFlags().GetString("manifest")
 
 			report, err := doctor.RunChecks(context.Background(), doctor.Options{
-				ManifestPath: manifestPath,
-				Fix:          fixFlag,
-				SkipCodebase: skipCodebase,
+				ManifestPath:   manifestPath,
+				Fix:            fixFlag,
+				SkipCodebase:   skipCodebase,
+				CheckOnboarded: onboarding.IsOnboarded,
 			})
 			if err != nil {
 				return NewCLIError(CodeInternalError, fmt.Sprintf("doctor check failed: %s", err), "A health check encountered an unexpected error").WithCause(err)
@@ -99,9 +102,9 @@ Exit codes:
 
 			// Exit code based on summary
 			switch report.Summary {
-			case doctor.StatusErr:
+			case suggest.StatusErr:
 				os.Exit(2)
-			case doctor.StatusWarn:
+			case suggest.StatusWarn:
 				os.Exit(1)
 			}
 
@@ -420,26 +423,26 @@ func displayValue(v string) string {
 	return v
 }
 
-func renderDoctorJSON(report *doctor.Report) error {
+func renderDoctorJSON(report *suggest.Report) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(report)
 }
 
-func renderDoctorText(report *doctor.Report) {
+func renderDoctorText(report *suggest.Report) {
 	for _, r := range report.Results {
 		var icon string
 		switch r.Status {
-		case doctor.StatusOK:
+		case suggest.StatusOK:
 			icon = "✓"
-		case doctor.StatusWarn:
+		case suggest.StatusWarn:
 			icon = "!"
-		case doctor.StatusErr:
+		case suggest.StatusErr:
 			icon = "✗"
 		}
 
 		fmt.Fprintf(os.Stdout, "  %s %s: %s\n", icon, r.Name, r.Message)
-		if r.Fix != "" && r.Status != doctor.StatusOK {
+		if r.Fix != "" && r.Status != suggest.StatusOK {
 			fmt.Fprintf(os.Stdout, "    Fix: %s\n", r.Fix)
 		}
 	}
@@ -447,11 +450,11 @@ func renderDoctorText(report *doctor.Report) {
 	fmt.Fprintln(os.Stdout)
 
 	switch report.Summary {
-	case doctor.StatusOK:
+	case suggest.StatusOK:
 		fmt.Fprintln(os.Stdout, "All checks passed.")
-	case doctor.StatusWarn:
+	case suggest.StatusWarn:
 		fmt.Fprintln(os.Stdout, "Some checks have warnings.")
-	case doctor.StatusErr:
+	case suggest.StatusErr:
 		fmt.Fprintln(os.Stdout, "Some checks failed. See above for remediation.")
 	}
 

@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/recinq/wave/internal/doctor"
 	"github.com/recinq/wave/internal/forge"
 )
 
@@ -24,9 +23,9 @@ func TestSuggest_CIFailing(t *testing.T) {
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
-		Report: &doctor.Report{
-			Codebase: &doctor.CodebaseHealth{
-				CI: doctor.CIStatus{Status: "failing", Failures: 2},
+		Report: &Report{
+			Codebase: &CodebaseHealth{
+				CI: CIStatus{Status: "failing", Failures: 2},
 			},
 		},
 	})
@@ -51,9 +50,9 @@ func TestSuggest_CIFailing_BareNameFallback(t *testing.T) {
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
-		Report: &doctor.Report{
-			Codebase: &doctor.CodebaseHealth{
-				CI: doctor.CIStatus{Status: "failing", Failures: 1},
+		Report: &Report{
+			Codebase: &CodebaseHealth{
+				CI: CIStatus{Status: "failing", Failures: 1},
 			},
 		},
 	})
@@ -74,13 +73,13 @@ func TestSuggest_PrefixedPipelines(t *testing.T) {
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
-		Report: &doctor.Report{
+		Report: &Report{
 			ForgeInfo: &forge.ForgeInfo{
 				Type:           forge.ForgeGitHub,
 				PipelinePrefix: "gh",
 			},
-			Codebase: &doctor.CodebaseHealth{
-				CI: doctor.CIStatus{Status: "failing", Failures: 1},
+			Codebase: &CodebaseHealth{
+				CI: CIStatus{Status: "failing", Failures: 1},
 			},
 		},
 	})
@@ -103,13 +102,13 @@ func TestSuggest_PrefixedFallback(t *testing.T) {
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
-		Report: &doctor.Report{
+		Report: &Report{
 			ForgeInfo: &forge.ForgeInfo{
 				Type:           forge.ForgeGitHub,
 				PipelinePrefix: "gh",
 			},
-			Codebase: &doctor.CodebaseHealth{
-				CI: doctor.CIStatus{Status: "failing", Failures: 1},
+			Codebase: &CodebaseHealth{
+				CI: CIStatus{Status: "failing", Failures: 1},
 			},
 		},
 	})
@@ -131,9 +130,9 @@ func TestSuggest_CleanState(t *testing.T) {
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
-		Report: &doctor.Report{
-			Codebase: &doctor.CodebaseHealth{
-				CI: doctor.CIStatus{Status: "passing"},
+		Report: &Report{
+			Codebase: &CodebaseHealth{
+				CI: CIStatus{Status: "passing"},
 			},
 		},
 	})
@@ -162,7 +161,7 @@ func TestSuggest_NilCodebase(t *testing.T) {
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
-		Report:       &doctor.Report{},
+		Report:       &Report{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -187,11 +186,11 @@ func TestSuggest_Limit(t *testing.T) {
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
 		Limit:        2,
-		Report: &doctor.Report{
-			Codebase: &doctor.CodebaseHealth{
-				CI:     doctor.CIStatus{Status: "failing", Failures: 1},
-				Issues: doctor.IssueSummary{Open: 5},
-				PRs:    doctor.PRSummary{NeedsReview: 3},
+		Report: &Report{
+			Codebase: &CodebaseHealth{
+				CI:     CIStatus{Status: "failing", Failures: 1},
+				Issues: IssueSummary{Open: 5},
+				PRs:    PRSummary{NeedsReview: 3},
 			},
 		},
 	})
@@ -209,10 +208,10 @@ func TestSuggest_PoorQualityIssues(t *testing.T) {
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
-		Report: &doctor.Report{
-			Codebase: &doctor.CodebaseHealth{
-				Issues: doctor.IssueSummary{PoorQuality: 3},
-				CI:     doctor.CIStatus{Status: "passing"},
+		Report: &Report{
+			Codebase: &CodebaseHealth{
+				Issues: IssueSummary{PoorQuality: 3},
+				CI:     CIStatus{Status: "passing"},
 			},
 		},
 	})
@@ -233,10 +232,10 @@ func TestSuggest_StalePRs(t *testing.T) {
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
-		Report: &doctor.Report{
-			Codebase: &doctor.CodebaseHealth{
-				PRs: doctor.PRSummary{Stale: 2},
-				CI:  doctor.CIStatus{Status: "passing"},
+		Report: &Report{
+			Codebase: &CodebaseHealth{
+				PRs: PRSummary{Stale: 2},
+				CI:  CIStatus{Status: "passing"},
 			},
 		},
 	})
@@ -257,9 +256,9 @@ func TestSuggest_NoPipelinesAvailable(t *testing.T) {
 
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
-		Report: &doctor.Report{
-			Codebase: &doctor.CodebaseHealth{
-				CI: doctor.CIStatus{Status: "failing", Failures: 1},
+		Report: &Report{
+			Codebase: &CodebaseHealth{
+				CI: CIStatus{Status: "failing", Failures: 1},
 			},
 		},
 	})
@@ -278,10 +277,10 @@ func TestSuggest_SequenceChain(t *testing.T) {
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
 		Limit:        10,
-		Report: &doctor.Report{
-			Codebase: &doctor.CodebaseHealth{
-				Issues: doctor.IssueSummary{Open: 5},
-				CI:     doctor.CIStatus{Status: "passing"},
+		Report: &Report{
+			Codebase: &CodebaseHealth{
+				Issues: IssueSummary{Open: 5},
+				CI:     CIStatus{Status: "passing"},
 			},
 		},
 	})
@@ -315,11 +314,11 @@ func TestSuggest_ParallelGroup(t *testing.T) {
 	proposal, err := Suggest(EngineOptions{
 		PipelinesDir: dir,
 		Limit:        10,
-		Report: &doctor.Report{
-			Codebase: &doctor.CodebaseHealth{
-				Issues: doctor.IssueSummary{Open: 5},
-				PRs:    doctor.PRSummary{NeedsReview: 3},
-				CI:     doctor.CIStatus{Status: "passing"},
+		Report: &Report{
+			Codebase: &CodebaseHealth{
+				Issues: IssueSummary{Open: 5},
+				PRs:    PRSummary{NeedsReview: 3},
+				CI:     CIStatus{Status: "passing"},
 			},
 		},
 	})

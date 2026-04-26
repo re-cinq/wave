@@ -5,6 +5,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/recinq/wave/internal/suggest"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -524,11 +525,11 @@ func TestHealthListModel_CheckResultUpdatesStatus(t *testing.T) {
 	// Simulate result arriving
 	m, _ = m.Update(HealthCheckResultMsg{
 		Name:    provider.CheckNames()[0],
-		Status:  HealthCheckOK,
+		Status:  suggest.StatusOK,
 		Message: "OK",
 	})
 
-	assert.Equal(t, HealthCheckOK, m.checks[0].Status)
+	assert.Equal(t, suggest.StatusOK, m.checks[0].Status)
 	assert.Equal(t, "OK", m.checks[0].Message)
 }
 
@@ -538,7 +539,7 @@ func TestHealthListModel_RKeyRerunsChecks(t *testing.T) {
 	m.SetSize(40, 20)
 
 	// Set first check to OK
-	m.checks[0].Status = HealthCheckOK
+	m.checks[0].Status = suggest.StatusOK
 
 	// Press 'r'
 	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
@@ -580,7 +581,7 @@ func TestHealthDetailModel_SetCheck(t *testing.T) {
 
 	check := &HealthCheck{
 		Name:    "Git Repository",
-		Status:  HealthCheckOK,
+		Status:  suggest.StatusOK,
 		Message: "Valid git repository",
 	}
 	m.SetCheck(check)
@@ -602,7 +603,7 @@ func TestHealthDetailModel_CheckResultUpdatesView(t *testing.T) {
 
 	m, _ = m.Update(HealthCheckResultMsg{
 		Name:    "Git Repository",
-		Status:  HealthCheckErr,
+		Status:  suggest.StatusErr,
 		Message: "Not a git repository",
 	})
 
@@ -665,7 +666,7 @@ func TestRenderHealthDetail_NilInput(t *testing.T) {
 func TestRenderHealthDetail_WithDetails(t *testing.T) {
 	check := &HealthCheck{
 		Name:    "Git Repository",
-		Status:  HealthCheckOK,
+		Status:  suggest.StatusOK,
 		Message: "Valid",
 		Details: map[string]string{
 			"Branch": "main",
@@ -784,7 +785,7 @@ func (m *mockHealthDataProvider) CheckNames() []string {
 func (m *mockHealthDataProvider) RunCheck(name string) HealthCheckResultMsg {
 	return HealthCheckResultMsg{
 		Name:    name,
-		Status:  HealthCheckOK,
+		Status:  suggest.StatusOK,
 		Message: "OK",
 	}
 }

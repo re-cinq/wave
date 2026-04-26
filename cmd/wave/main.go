@@ -10,6 +10,7 @@ import (
 	"github.com/recinq/wave/cmd/wave/commands"
 	"github.com/recinq/wave/internal/doctor"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/onboarding"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/suggest"
 	"github.com/recinq/wave/internal/tui"
@@ -87,8 +88,9 @@ var rootCmd = &cobra.Command{
 			deps.SuggestProvider = &tui.FuncSuggestDataProvider{
 				Fn: func() (*tui.SuggestProposal, error) {
 					report, err := doctor.RunChecks(context.Background(), doctor.Options{
-						PipelinesDir: pipelinesDir,
-						SkipCodebase: false,
+						PipelinesDir:   pipelinesDir,
+						SkipCodebase:   false,
+						CheckOnboarded: onboarding.IsOnboarded,
 					})
 					if err != nil {
 						return nil, err

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/recinq/wave/internal/suggest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,7 +22,7 @@ func (p *mockHealthProvider) RunCheck(name string) HealthCheckResultMsg {
 	if r, ok := p.results[name]; ok {
 		return r
 	}
-	return HealthCheckResultMsg{Name: name, Status: HealthCheckOK, Message: "ok"}
+	return HealthCheckResultMsg{Name: name, Status: suggest.StatusOK, Message: "ok"}
 }
 
 func (p *mockHealthProvider) CheckNames() []string {
@@ -64,7 +65,7 @@ func TestHealthListModel_AllOK_EmitsHealthAllCompleteMsg_NoErrors(t *testing.T) 
 	for _, name := range names {
 		m, lastCmd = m.Update(HealthCheckResultMsg{
 			Name:    name,
-			Status:  HealthCheckOK,
+			Status:  suggest.StatusOK,
 			Message: "ok",
 		})
 	}
@@ -83,8 +84,8 @@ func TestHealthListModel_OneError_EmitsHealthAllCompleteMsg_HasErrors(t *testing
 	m := newHealthListModelWithSize(provider)
 
 	// Deliver one OK and one error
-	m, _ = m.Update(HealthCheckResultMsg{Name: "check-a", Status: HealthCheckOK, Message: "ok"})
-	_, cmd := m.Update(HealthCheckResultMsg{Name: "check-b", Status: HealthCheckErr, Message: "failed"})
+	m, _ = m.Update(HealthCheckResultMsg{Name: "check-a", Status: suggest.StatusOK, Message: "ok"})
+	_, cmd := m.Update(HealthCheckResultMsg{Name: "check-b", Status: suggest.StatusErr, Message: "failed"})
 
 	require.NotNil(t, cmd, "completing all checks should emit a command")
 	msg := executeCmd(cmd)
@@ -98,7 +99,7 @@ func TestHealthListModel_WarnStatus_EmitsHealthAllCompleteMsg_NoErrors(t *testin
 	provider := newMockHealthProvider(names...)
 	m := newHealthListModelWithSize(provider)
 
-	_, cmd := m.Update(HealthCheckResultMsg{Name: "check-a", Status: HealthCheckWarn, Message: "warn"})
+	_, cmd := m.Update(HealthCheckResultMsg{Name: "check-a", Status: suggest.StatusWarn, Message: "warn"})
 
 	require.NotNil(t, cmd)
 	msg := executeCmd(cmd)
@@ -114,7 +115,7 @@ func TestHealthListModel_PartialCompletion_NoHealthAllCompleteMsg(t *testing.T) 
 	m := newHealthListModelWithSize(provider)
 
 	// Deliver only first result — check-b and check-c are still Checking
-	m, cmd := m.Update(HealthCheckResultMsg{Name: "check-a", Status: HealthCheckOK, Message: "ok"})
+	m, cmd := m.Update(HealthCheckResultMsg{Name: "check-a", Status: suggest.StatusOK, Message: "ok"})
 
 	// No HealthAllCompleteMsg should be emitted yet
 	if cmd != nil {
@@ -124,7 +125,7 @@ func TestHealthListModel_PartialCompletion_NoHealthAllCompleteMsg(t *testing.T) 
 	}
 
 	// Deliver second but not third
-	m, cmd = m.Update(HealthCheckResultMsg{Name: "check-b", Status: HealthCheckOK, Message: "ok"})
+	m, cmd = m.Update(HealthCheckResultMsg{Name: "check-b", Status: suggest.StatusOK, Message: "ok"})
 	if cmd != nil {
 		msg := executeCmd(cmd)
 		_, ok := msg.(HealthAllCompleteMsg)
@@ -140,8 +141,8 @@ func TestHealthListModel_RerunKey_ResetsCompletionTracking(t *testing.T) {
 	m := newHealthListModelWithSize(provider)
 
 	// Complete all checks
-	m, _ = m.Update(HealthCheckResultMsg{Name: "check-a", Status: HealthCheckOK, Message: "ok"})
-	m, _ = m.Update(HealthCheckResultMsg{Name: "check-b", Status: HealthCheckOK, Message: "ok"})
+	m, _ = m.Update(HealthCheckResultMsg{Name: "check-a", Status: suggest.StatusOK, Message: "ok"})
+	m, _ = m.Update(HealthCheckResultMsg{Name: "check-b", Status: suggest.StatusOK, Message: "ok"})
 
 	// Verify all resolved
 	for _, check := range m.checks {
@@ -172,32 +173,32 @@ func TestHealthListModel_EmptyProvider_NoHealthAllCompleteMsg(t *testing.T) {
 func TestHealthListModel_TableDriven_CompletionVariants(t *testing.T) {
 	tests := []struct {
 		name          string
-		statuses      []HealthCheckStatus
+		statuses      []suggest.Status
 		wantHasErrors bool
 	}{
 		{
 			name:          "all OK",
-			statuses:      []HealthCheckStatus{HealthCheckOK, HealthCheckOK},
+			statuses:      []suggest.Status{suggest.StatusOK, suggest.StatusOK},
 			wantHasErrors: false,
 		},
 		{
 			name:          "all warn",
-			statuses:      []HealthCheckStatus{HealthCheckWarn, HealthCheckWarn},
+			statuses:      []suggest.Status{suggest.StatusWarn, suggest.StatusWarn},
 			wantHasErrors: false,
 		},
 		{
 			name:          "all error",
-			statuses:      []HealthCheckStatus{HealthCheckErr, HealthCheckErr},
+			statuses:      []suggest.Status{suggest.StatusErr, suggest.StatusErr},
 			wantHasErrors: true,
 		},
 		{
 			name:          "mixed ok and error",
-			statuses:      []HealthCheckStatus{HealthCheckOK, HealthCheckErr},
+			statuses:      []suggest.Status{suggest.StatusOK, suggest.StatusErr},
 			wantHasErrors: true,
 		},
 		{
 			name:          "mixed warn and error",
-			statuses:      []HealthCheckStatus{HealthCheckWarn, HealthCheckErr},
+			statuses:      []suggest.Status{suggest.StatusWarn, suggest.StatusErr},
 			wantHasErrors: true,
 		},
 	}
@@ -316,7 +317,7 @@ func TestHealthListModel_NewChecksComplete(t *testing.T) {
 	for _, name := range names {
 		m, lastCmd = m.Update(HealthCheckResultMsg{
 			Name:    name,
-			Status:  HealthCheckOK,
+			Status:  suggest.StatusOK,
 			Message: "ok",
 		})
 	}
@@ -334,9 +335,9 @@ func TestHealthListModel_RetryPoliciesWarnDoesNotBlockCompletion(t *testing.T) {
 	provider := newMockHealthProvider(names...)
 	m := newHealthListModelWithSize(provider)
 
-	m, _ = m.Update(HealthCheckResultMsg{Name: "Adapter Registry", Status: HealthCheckOK, Message: "ok"})
-	m, _ = m.Update(HealthCheckResultMsg{Name: "Retry Policies", Status: HealthCheckWarn, Message: "raw max_attempts"})
-	_, cmd := m.Update(HealthCheckResultMsg{Name: "Engine Capabilities", Status: HealthCheckOK, Message: "ok"})
+	m, _ = m.Update(HealthCheckResultMsg{Name: "Adapter Registry", Status: suggest.StatusOK, Message: "ok"})
+	m, _ = m.Update(HealthCheckResultMsg{Name: "Retry Policies", Status: suggest.StatusWarn, Message: "raw max_attempts"})
+	_, cmd := m.Update(HealthCheckResultMsg{Name: "Engine Capabilities", Status: suggest.StatusOK, Message: "ok"})
 
 	require.NotNil(t, cmd)
 	msg := executeCmd(cmd)

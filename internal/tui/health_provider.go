@@ -11,26 +11,19 @@ import (
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/suggest"
 	"gopkg.in/yaml.v3"
 )
 
-// HealthCheckStatus represents the result of a health check.
-type HealthCheckStatus int
+// HealthCheckResultMsg is the Bubbletea message form of a health check result.
+// It aliases suggest.HealthCheckMsg so message-type switches in tui.Update
+// continue to use the local name without redefining the struct.
+type HealthCheckResultMsg = suggest.HealthCheckMsg
 
-const (
-	HealthCheckOK HealthCheckStatus = iota
-	HealthCheckWarn
-	HealthCheckErr
-	HealthCheckChecking
-)
-
-// HealthCheckResultMsg carries the result of an async health check.
-type HealthCheckResultMsg struct {
-	Name    string
-	Status  HealthCheckStatus
-	Message string
-	Details map[string]string
-}
+// HealthCheckChecking is a tui-local sentinel used by the list UI to render
+// the spinner state for not-yet-completed checks. It is not part of the
+// shared suggest.Status enum because "checking" has no meaning outside the TUI.
+const HealthCheckChecking suggest.Status = -1
 
 // HealthDataProvider executes health checks for the Health view.
 type HealthDataProvider interface {
@@ -93,7 +86,7 @@ func (p *DefaultHealthDataProvider) RunCheck(name string) HealthCheckResultMsg {
 	default:
 		return HealthCheckResultMsg{
 			Name:    name,
-			Status:  HealthCheckErr,
+			Status:  suggest.StatusErr,
 			Message: "Unknown check",
 		}
 	}
@@ -106,7 +99,7 @@ func (p *DefaultHealthDataProvider) checkGitRepository() HealthCheckResultMsg {
 	if err != nil {
 		return HealthCheckResultMsg{
 			Name:    "Git Repository",
-			Status:  HealthCheckErr,
+			Status:  suggest.StatusErr,
 			Message: "Not a git repository",
 			Details: details,
 		}
@@ -121,13 +114,13 @@ func (p *DefaultHealthDataProvider) checkGitRepository() HealthCheckResultMsg {
 		details["Remote"] = strings.TrimSpace(string(remoteOut))
 	}
 
-	status := HealthCheckOK
+	status := suggest.StatusOK
 	message := "Valid git repository"
 
 	if dirtyOut, err := exec.Command("git", "status", "--porcelain").CombinedOutput(); err == nil {
 		dirty := strings.TrimSpace(string(dirtyOut))
 		if dirty != "" {
-			status = HealthCheckWarn
+			status = suggest.StatusWarn
 			message = "Working tree has uncommitted changes"
 			details["Dirty files"] = fmt.Sprintf("%d", strings.Count(dirty, "\n")+1)
 		}
@@ -147,7 +140,7 @@ func (p *DefaultHealthDataProvider) checkAdapterBinary() HealthCheckResultMsg {
 	if p.manifest == nil || len(p.manifest.Adapters) == 0 {
 		return HealthCheckResultMsg{
 			Name:    "Adapter Binary",
-			Status:  HealthCheckOK,
+			Status:  suggest.StatusOK,
 			Message: "No adapters configured",
 			Details: details,
 		}
@@ -167,7 +160,7 @@ func (p *DefaultHealthDataProvider) checkAdapterBinary() HealthCheckResultMsg {
 	if allFound {
 		return HealthCheckResultMsg{
 			Name:    "Adapter Binary",
-			Status:  HealthCheckOK,
+			Status:  suggest.StatusOK,
 			Message: fmt.Sprintf("All %d adapter binaries found", len(p.manifest.Adapters)),
 			Details: details,
 		}
@@ -175,7 +168,7 @@ func (p *DefaultHealthDataProvider) checkAdapterBinary() HealthCheckResultMsg {
 
 	return HealthCheckResultMsg{
 		Name:    "Adapter Binary",
-		Status:  HealthCheckErr,
+		Status:  suggest.StatusErr,
 		Message: "Some adapter binaries not found",
 		Details: details,
 	}
@@ -187,7 +180,7 @@ func (p *DefaultHealthDataProvider) checkSQLiteDatabase() HealthCheckResultMsg {
 	if p.store == nil {
 		return HealthCheckResultMsg{
 			Name:    "SQLite Database",
-			Status:  HealthCheckErr,
+			Status:  suggest.StatusErr,
 			Message: "No state store configured",
 			Details: details,
 		}
@@ -197,7 +190,7 @@ func (p *DefaultHealthDataProvider) checkSQLiteDatabase() HealthCheckResultMsg {
 	if err != nil {
 		return HealthCheckResultMsg{
 			Name:    "SQLite Database",
-			Status:  HealthCheckErr,
+			Status:  suggest.StatusErr,
 			Message: fmt.Sprintf("Database query failed: %s", err),
 			Details: details,
 		}
@@ -207,7 +200,7 @@ func (p *DefaultHealthDataProvider) checkSQLiteDatabase() HealthCheckResultMsg {
 
 	return HealthCheckResultMsg{
 		Name:    "SQLite Database",
-		Status:  HealthCheckOK,
+		Status:  suggest.StatusOK,
 		Message: "Database accessible",
 		Details: details,
 	}
@@ -219,7 +212,7 @@ func (p *DefaultHealthDataProvider) checkWaveConfiguration() HealthCheckResultMs
 	if p.manifest == nil {
 		return HealthCheckResultMsg{
 			Name:    "Wave Configuration",
-			Status:  HealthCheckErr,
+			Status:  suggest.StatusErr,
 			Message: "No manifest loaded",
 			Details: details,
 		}
@@ -247,7 +240,7 @@ func (p *DefaultHealthDataProvider) checkWaveConfiguration() HealthCheckResultMs
 
 	return HealthCheckResultMsg{
 		Name:    "Wave Configuration",
-		Status:  HealthCheckOK,
+		Status:  suggest.StatusOK,
 		Message: "Configuration valid",
 		Details: details,
 	}
@@ -259,7 +252,7 @@ func (p *DefaultHealthDataProvider) checkRequiredTools() HealthCheckResultMsg {
 	if p.pipelinesDir == "" {
 		return HealthCheckResultMsg{
 			Name:    "Required Tools",
-			Status:  HealthCheckOK,
+			Status:  suggest.StatusOK,
 			Message: "No pipelines directory configured",
 			Details: details,
 		}
@@ -271,7 +264,7 @@ func (p *DefaultHealthDataProvider) checkRequiredTools() HealthCheckResultMsg {
 	if err != nil {
 		return HealthCheckResultMsg{
 			Name:    "Required Tools",
-			Status:  HealthCheckOK,
+			Status:  suggest.StatusOK,
 			Message: "No pipelines found",
 			Details: details,
 		}
@@ -303,7 +296,7 @@ func (p *DefaultHealthDataProvider) checkRequiredTools() HealthCheckResultMsg {
 	if len(toolSet) == 0 {
 		return HealthCheckResultMsg{
 			Name:    "Required Tools",
-			Status:  HealthCheckOK,
+			Status:  suggest.StatusOK,
 			Message: "No tools required",
 			Details: details,
 		}
@@ -322,7 +315,7 @@ func (p *DefaultHealthDataProvider) checkRequiredTools() HealthCheckResultMsg {
 	if allFound {
 		return HealthCheckResultMsg{
 			Name:    "Required Tools",
-			Status:  HealthCheckOK,
+			Status:  suggest.StatusOK,
 			Message: fmt.Sprintf("All %d tools available", len(toolSet)),
 			Details: details,
 		}
@@ -330,7 +323,7 @@ func (p *DefaultHealthDataProvider) checkRequiredTools() HealthCheckResultMsg {
 
 	return HealthCheckResultMsg{
 		Name:    "Required Tools",
-		Status:  HealthCheckErr,
+		Status:  suggest.StatusErr,
 		Message: "Some required tools missing",
 		Details: details,
 	}
@@ -342,7 +335,7 @@ func (p *DefaultHealthDataProvider) checkRequiredSkills() HealthCheckResultMsg {
 	if p.pipelinesDir == "" {
 		return HealthCheckResultMsg{
 			Name:    "Required Skills",
-			Status:  HealthCheckOK,
+			Status:  suggest.StatusOK,
 			Message: "No pipelines directory configured",
 			Details: details,
 		}
@@ -352,7 +345,7 @@ func (p *DefaultHealthDataProvider) checkRequiredSkills() HealthCheckResultMsg {
 	if err != nil {
 		return HealthCheckResultMsg{
 			Name:    "Required Skills",
-			Status:  HealthCheckOK,
+			Status:  suggest.StatusOK,
 			Message: "No pipelines found",
 			Details: details,
 		}
@@ -390,7 +383,7 @@ func (p *DefaultHealthDataProvider) checkRequiredSkills() HealthCheckResultMsg {
 	if len(skillMap) == 0 {
 		return HealthCheckResultMsg{
 			Name:    "Required Skills",
-			Status:  HealthCheckOK,
+			Status:  suggest.StatusOK,
 			Message: "No skills required",
 			Details: details,
 		}
@@ -415,7 +408,7 @@ func (p *DefaultHealthDataProvider) checkRequiredSkills() HealthCheckResultMsg {
 	if allOK {
 		return HealthCheckResultMsg{
 			Name:    "Required Skills",
-			Status:  HealthCheckOK,
+			Status:  suggest.StatusOK,
 			Message: fmt.Sprintf("All %d skills available", len(skillMap)),
 			Details: details,
 		}
@@ -423,7 +416,7 @@ func (p *DefaultHealthDataProvider) checkRequiredSkills() HealthCheckResultMsg {
 
 	return HealthCheckResultMsg{
 		Name:    "Required Skills",
-		Status:  HealthCheckErr,
+		Status:  suggest.StatusErr,
 		Message: "Some required skills missing",
 		Details: details,
 	}
@@ -435,7 +428,7 @@ func (p *DefaultHealthDataProvider) checkAdapterRegistry() HealthCheckResultMsg 
 	if p.manifest == nil || len(p.manifest.Adapters) == 0 {
 		return HealthCheckResultMsg{
 			Name:    "Adapter Registry",
-			Status:  HealthCheckOK,
+			Status:  suggest.StatusOK,
 			Message: "No adapters registered",
 			Details: details,
 		}
@@ -454,7 +447,7 @@ func (p *DefaultHealthDataProvider) checkAdapterRegistry() HealthCheckResultMsg 
 
 	return HealthCheckResultMsg{
 		Name:    "Adapter Registry",
-		Status:  HealthCheckOK,
+		Status:  suggest.StatusOK,
 		Message: fmt.Sprintf("Registered: %s", strings.Join(names, ", ")),
 		Details: details,
 	}
@@ -466,7 +459,7 @@ func (p *DefaultHealthDataProvider) checkRetryPolicies() HealthCheckResultMsg {
 	if p.pipelinesDir == "" {
 		return HealthCheckResultMsg{
 			Name:    "Retry Policies",
-			Status:  HealthCheckOK,
+			Status:  suggest.StatusOK,
 			Message: "No pipelines directory configured",
 			Details: details,
 		}
@@ -476,7 +469,7 @@ func (p *DefaultHealthDataProvider) checkRetryPolicies() HealthCheckResultMsg {
 	if err != nil {
 		return HealthCheckResultMsg{
 			Name:    "Retry Policies",
-			Status:  HealthCheckOK,
+			Status:  suggest.StatusOK,
 			Message: "No pipelines found",
 			Details: details,
 		}
@@ -517,7 +510,7 @@ func (p *DefaultHealthDataProvider) checkRetryPolicies() HealthCheckResultMsg {
 	if totalRetrySteps == 0 {
 		return HealthCheckResultMsg{
 			Name:    "Retry Policies",
-			Status:  HealthCheckOK,
+			Status:  suggest.StatusOK,
 			Message: "No retry configurations found",
 			Details: details,
 		}
@@ -530,7 +523,7 @@ func (p *DefaultHealthDataProvider) checkRetryPolicies() HealthCheckResultMsg {
 	if len(rawSteps) == 0 {
 		return HealthCheckResultMsg{
 			Name:    "Retry Policies",
-			Status:  HealthCheckOK,
+			Status:  suggest.StatusOK,
 			Message: fmt.Sprintf("All %d retry steps use named policies", policySteps),
 			Details: details,
 		}
@@ -542,7 +535,7 @@ func (p *DefaultHealthDataProvider) checkRetryPolicies() HealthCheckResultMsg {
 
 	return HealthCheckResultMsg{
 		Name:    "Retry Policies",
-		Status:  HealthCheckWarn,
+		Status:  suggest.StatusWarn,
 		Message: fmt.Sprintf("%d of %d retry steps use raw max_attempts without a named policy", len(rawSteps), totalRetrySteps),
 		Details: details,
 	}
@@ -562,7 +555,7 @@ func (p *DefaultHealthDataProvider) checkEngineCapabilities() HealthCheckResultM
 
 	return HealthCheckResultMsg{
 		Name:    "Engine Capabilities",
-		Status:  HealthCheckOK,
+		Status:  suggest.StatusOK,
 		Message: fmt.Sprintf("%d capabilities available", len(capabilities)),
 		Details: capabilities,
 	}

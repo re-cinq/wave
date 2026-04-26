@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/recinq/wave/internal/forge"
+	"github.com/recinq/wave/internal/suggest"
 )
 
 func TestRunChecks_AllHealthy(t *testing.T) {
@@ -66,10 +67,10 @@ ontology:
 		t.Fatalf("RunChecks failed: %v", err)
 	}
 
-	if report.Summary != StatusOK {
+	if report.Summary != suggest.StatusOK {
 		t.Errorf("expected summary OK, got %v", report.Summary)
 		for _, r := range report.Results {
-			if r.Status != StatusOK {
+			if r.Status != suggest.StatusOK {
 				t.Logf("  %s: %s (%s)", r.Name, r.Message, r.Status)
 			}
 		}
@@ -106,17 +107,17 @@ func TestRunChecks_MissingManifest(t *testing.T) {
 		t.Fatalf("RunChecks failed: %v", err)
 	}
 
-	if report.Summary != StatusErr {
+	if report.Summary != suggest.StatusErr {
 		t.Errorf("expected summary Err, got %v", report.Summary)
 	}
 
 	// Should have errors for onboarding and manifest
 	var foundManifestErr, foundOnboardingErr bool
 	for _, r := range report.Results {
-		if r.Name == "Manifest Valid" && r.Status == StatusErr {
+		if r.Name == "Manifest Valid" && r.Status == suggest.StatusErr {
 			foundManifestErr = true
 		}
-		if r.Name == "Wave Initialized" && r.Status == StatusErr {
+		if r.Name == "Wave Initialized" && r.Status == suggest.StatusErr {
 			foundOnboardingErr = true
 		}
 	}
@@ -165,7 +166,7 @@ runtime:
 
 	var foundGitErr bool
 	for _, r := range report.Results {
-		if r.Name == "Git Repository" && r.Status == StatusErr {
+		if r.Name == "Git Repository" && r.Status == suggest.StatusErr {
 			foundGitErr = true
 		}
 	}
@@ -215,7 +216,7 @@ runtime:
 
 	var foundAdapterErr bool
 	for _, r := range report.Results {
-		if r.Name == "Adapter: claude" && r.Status == StatusErr {
+		if r.Name == "Adapter: claude" && r.Status == suggest.StatusErr {
 			foundAdapterErr = true
 		}
 	}
@@ -268,7 +269,7 @@ runtime:
 
 	var foundCLIWarn bool
 	for _, r := range report.Results {
-		if r.Name == "Forge CLI: gh" && r.Status == StatusWarn {
+		if r.Name == "Forge CLI: gh" && r.Status == suggest.StatusWarn {
 			foundCLIWarn = true
 		}
 	}
@@ -328,10 +329,10 @@ steps:
 
 	var foundJQErr, foundCurlOK bool
 	for _, r := range report.Results {
-		if r.Name == "Tool: jq" && r.Status == StatusErr {
+		if r.Name == "Tool: jq" && r.Status == suggest.StatusErr {
 			foundJQErr = true
 		}
-		if r.Name == "Tool: curl" && r.Status == StatusOK {
+		if r.Name == "Tool: curl" && r.Status == suggest.StatusOK {
 			foundCurlOK = true
 		}
 	}
@@ -389,8 +390,8 @@ runtime:
 	for _, r := range report.Results {
 		if r.Name == "Adapter Registry" {
 			found = true
-			if r.Status != StatusOK {
-				t.Errorf("expected StatusOK, got %v", r.Status)
+			if r.Status != suggest.StatusOK {
+				t.Errorf("expected suggest.StatusOK, got %v", r.Status)
 			}
 			if r.Category != "capabilities" {
 				t.Errorf("expected category 'capabilities', got %q", r.Category)
@@ -442,8 +443,8 @@ runtime:
 
 	for _, r := range report.Results {
 		if r.Name == "Adapter Registry" {
-			if r.Status != StatusOK {
-				t.Errorf("expected StatusOK, got %v", r.Status)
+			if r.Status != suggest.StatusOK {
+				t.Errorf("expected suggest.StatusOK, got %v", r.Status)
 			}
 			if !contains(r.Message, "No adapters registered") {
 				t.Errorf("expected 'No adapters registered', got %q", r.Message)
@@ -501,8 +502,8 @@ steps:
 
 	for _, r := range report.Results {
 		if r.Name == "Retry Policies" {
-			if r.Status != StatusOK {
-				t.Errorf("expected StatusOK, got %v", r.Status)
+			if r.Status != suggest.StatusOK {
+				t.Errorf("expected suggest.StatusOK, got %v", r.Status)
 			}
 			if !contains(r.Message, "named policies") {
 				t.Errorf("expected message about named policies, got %q", r.Message)
@@ -564,8 +565,8 @@ steps:
 
 	for _, r := range report.Results {
 		if r.Name == "Retry Policies" {
-			if r.Status != StatusWarn {
-				t.Errorf("expected StatusWarn, got %v", r.Status)
+			if r.Status != suggest.StatusWarn {
+				t.Errorf("expected suggest.StatusWarn, got %v", r.Status)
 			}
 			if !contains(r.Message, "raw max_attempts") {
 				t.Errorf("expected warning about raw max_attempts, got %q", r.Message)
@@ -610,8 +611,8 @@ runtime:
 
 	for _, r := range report.Results {
 		if r.Name == "Engine Capabilities" {
-			if r.Status != StatusOK {
-				t.Errorf("expected StatusOK, got %v", r.Status)
+			if r.Status != suggest.StatusOK {
+				t.Errorf("expected suggest.StatusOK, got %v", r.Status)
 			}
 			if r.Category != "capabilities" {
 				t.Errorf("expected category 'capabilities', got %q", r.Category)
@@ -641,19 +642,3 @@ func containsSubstring(s, substr string) bool {
 	return false
 }
 
-func TestStatus_String(t *testing.T) {
-	tests := []struct {
-		s    Status
-		want string
-	}{
-		{StatusOK, "ok"},
-		{StatusWarn, "warn"},
-		{StatusErr, "error"},
-		{Status(99), "unknown"},
-	}
-	for _, tt := range tests {
-		if got := tt.s.String(); got != tt.want {
-			t.Errorf("Status(%d).String() = %q, want %q", tt.s, got, tt.want)
-		}
-	}
-}

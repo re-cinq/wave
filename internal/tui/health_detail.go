@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/recinq/wave/internal/suggest"
 )
 
 // HealthDetailModel is the right pane model for the Health view.
@@ -125,11 +126,11 @@ func renderHealthDetail(check *HealthCheck, _ int) string {
 	sb.WriteString("\n")
 	var statusStr string
 	switch check.Status {
-	case HealthCheckOK:
+	case suggest.StatusOK:
 		statusStr = lipgloss.NewStyle().Foreground(lipgloss.Color("2")).Render("● OK")
-	case HealthCheckWarn:
+	case suggest.StatusWarn:
 		statusStr = lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render("▲ Warning")
-	case HealthCheckErr:
+	case suggest.StatusErr:
 		statusStr = lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Render("✗ Failed")
 	case HealthCheckChecking:
 		statusStr = lipgloss.NewStyle().Foreground(lipgloss.Color("244")).Render("… Checking")

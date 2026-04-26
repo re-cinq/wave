@@ -3,6 +3,7 @@ package webui
 import (
 	"net/http"
 
+	"github.com/recinq/wave/internal/suggest"
 	"github.com/recinq/wave/internal/tui"
 )
 
@@ -47,13 +48,13 @@ func (s *Server) getHealthListData() HealthListResponse {
 	return HealthListResponse{Checks: checks}
 }
 
-func healthStatusString(s tui.HealthCheckStatus) string {
+func healthStatusString(s suggest.Status) string {
 	switch s {
-	case tui.HealthCheckOK:
+	case suggest.StatusOK:
 		return "ok"
-	case tui.HealthCheckWarn:
+	case suggest.StatusWarn:
 		return "warn"
-	case tui.HealthCheckErr:
+	case suggest.StatusErr:
 		return "error"
 	default:
 		return "unknown"

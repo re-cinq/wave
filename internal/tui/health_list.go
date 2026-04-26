@@ -6,13 +6,14 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/recinq/wave/internal/suggest"
 )
 
 // HealthCheck holds the state and result of a single health check.
 type HealthCheck struct {
 	Name        string
 	Description string
-	Status      HealthCheckStatus
+	Status      suggest.Status
 	Message     string
 	Details     map[string]string
 	LastChecked time.Time
@@ -171,13 +172,13 @@ func (m HealthListModel) View() string {
 		var icon string
 		var iconStyle lipgloss.Style
 		switch check.Status {
-		case HealthCheckOK:
+		case suggest.StatusOK:
 			icon = "●"
 			iconStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
-		case HealthCheckWarn:
+		case suggest.StatusWarn:
 			icon = "▲"
 			iconStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
-		case HealthCheckErr:
+		case suggest.StatusErr:
 			icon = "✗"
 			iconStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 		case HealthCheckChecking:
@@ -220,7 +221,7 @@ func (m HealthListModel) checkAllComplete() tea.Cmd {
 		if check.Status == HealthCheckChecking {
 			return nil
 		}
-		if check.Status == HealthCheckErr {
+		if check.Status == suggest.StatusErr {
 			hasErrors = true
 		}
 	}

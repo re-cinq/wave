@@ -9,35 +9,8 @@ import (
 
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/github"
+	"github.com/recinq/wave/internal/suggest"
 )
-
-// CodebaseHealth aggregates forge-API-sourced codebase metrics.
-type CodebaseHealth struct {
-	PRs    PRSummary    `json:"prs"`
-	Issues IssueSummary `json:"issues"`
-	CI     CIStatus     `json:"ci"`
-}
-
-// PRSummary summarizes open pull request state.
-type PRSummary struct {
-	Open        int `json:"open"`
-	NeedsReview int `json:"needs_review"`
-	Stale       int `json:"stale"`
-}
-
-// IssueSummary summarizes open issue state.
-type IssueSummary struct {
-	Open        int `json:"open"`
-	PoorQuality int `json:"poor_quality"`
-	Unassigned  int `json:"unassigned"`
-}
-
-// CIStatus summarizes recent CI run results.
-type CIStatus struct {
-	Status     string `json:"status"` // "passing", "failing", "unknown"
-	RecentRuns int    `json:"recent_runs"`
-	Failures   int    `json:"failures"`
-}
 
 // CodebaseOptions configures codebase health analysis.
 type CodebaseOptions struct {
@@ -66,12 +39,12 @@ func (o *CodebaseOptions) runGHCmd(args ...string) ([]byte, error) {
 
 // AnalyzeCodebase fetches codebase metrics from the forge API.
 // Returns nil, nil for non-GitHub forges (no error, no data).
-func AnalyzeCodebase(ctx context.Context, opts CodebaseOptions) (*CodebaseHealth, error) {
+func AnalyzeCodebase(ctx context.Context, opts CodebaseOptions) (*suggest.CodebaseHealth, error) {
 	if opts.ForgeInfo.Type != forge.ForgeGitHub {
 		return nil, nil
 	}
 
-	health := &CodebaseHealth{}
+	health := &suggest.CodebaseHealth{}
 
 	if opts.ForgeClient != nil {
 		prs, err := opts.ForgeClient.ListPullRequests(ctx, opts.ForgeInfo.Owner, opts.ForgeInfo.Repo, forge.ListPullRequestsOptions{
@@ -101,8 +74,8 @@ func AnalyzeCodebase(ctx context.Context, opts CodebaseOptions) (*CodebaseHealth
 	return health, nil
 }
 
-func analyzePRs(prs []*forge.PullRequest, now time.Time) PRSummary {
-	summary := PRSummary{Open: len(prs)}
+func analyzePRs(prs []*forge.PullRequest, now time.Time) suggest.PRSummary {
+	summary := suggest.PRSummary{Open: len(prs)}
 	staleThreshold := now.AddDate(0, 0, -14)
 
 	for _, pr := range prs {
@@ -117,8 +90,8 @@ func analyzePRs(prs []*forge.PullRequest, now time.Time) PRSummary {
 	return summary
 }
 
-func analyzeIssues(ctx context.Context, issues []*forge.Issue, client forge.Client) IssueSummary {
-	var summary IssueSummary
+func analyzeIssues(ctx context.Context, issues []*forge.Issue, client forge.Client) suggest.IssueSummary {
+	var summary suggest.IssueSummary
 
 	// Issue quality analysis requires the underlying GitHub client
 	var analyzer *github.Analyzer
@@ -179,22 +152,22 @@ type ghRunResult struct {
 	Conclusion string `json:"conclusion"`
 }
 
-func analyzeCIStatus(opts CodebaseOptions) CIStatus {
+func analyzeCIStatus(opts CodebaseOptions) suggest.CIStatus {
 	out, err := opts.runGHCmd("run", "list", "--limit", "5", "--json", "status,conclusion")
 	if err != nil {
-		return CIStatus{Status: "unknown"}
+		return suggest.CIStatus{Status: "unknown"}
 	}
 
 	var runs []ghRunResult
 	if err := json.Unmarshal(out, &runs); err != nil {
-		return CIStatus{Status: "unknown"}
+		return suggest.CIStatus{Status: "unknown"}
 	}
 
 	if len(runs) == 0 {
-		return CIStatus{Status: "unknown"}
+		return suggest.CIStatus{Status: "unknown"}
 	}
 
-	ci := CIStatus{
+	ci := suggest.CIStatus{
 		RecentRuns: len(runs),
 		Status:     "passing",
 	}

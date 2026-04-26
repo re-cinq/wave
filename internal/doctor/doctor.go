@@ -4,10 +4,11 @@ import (
 	"context"
 
 	"github.com/recinq/wave/internal/forge"
+	"github.com/recinq/wave/internal/suggest"
 )
 
 // RunChecks executes all health checks and returns a report.
-func RunChecks(ctx context.Context, opts Options) (*Report, error) {
+func RunChecks(ctx context.Context, opts Options) (*suggest.Report, error) {
 	if opts.ManifestPath == "" {
 		opts.ManifestPath = "wave.yaml"
 	}
@@ -18,7 +19,7 @@ func RunChecks(ctx context.Context, opts Options) (*Report, error) {
 		opts.PipelinesDir = ".agents/pipelines"
 	}
 
-	report := &Report{}
+	report := &suggest.Report{}
 
 	// 1. Wave initialization
 	report.Results = append(report.Results, checkOnboarding(&opts))
@@ -70,12 +71,12 @@ func RunChecks(ctx context.Context, opts Options) (*Report, error) {
 	report.Results = append(report.Results, checkEngineCapabilities())
 
 	// Compute summary
-	report.Summary = StatusOK
+	report.Summary = suggest.StatusOK
 	for _, r := range report.Results {
-		if r.Status == StatusErr && report.Summary < StatusErr {
-			report.Summary = StatusErr
-		} else if r.Status == StatusWarn && report.Summary < StatusWarn {
-			report.Summary = StatusWarn
+		if r.Status == suggest.StatusErr && report.Summary < suggest.StatusErr {
+			report.Summary = suggest.StatusErr
+		} else if r.Status == suggest.StatusWarn && report.Summary < suggest.StatusWarn {
+			report.Summary = suggest.StatusWarn
 		}
 	}
 

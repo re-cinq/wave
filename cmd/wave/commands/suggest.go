@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/recinq/wave/internal/doctor"
+	"github.com/recinq/wave/internal/onboarding"
 	"github.com/recinq/wave/internal/suggest"
 	"github.com/spf13/cobra"
 )
@@ -36,7 +37,8 @@ to generate prioritized recommendations.`,
 
 			// Run doctor checks first to get codebase state
 			report, err := doctor.RunChecks(context.Background(), doctor.Options{
-				ManifestPath: manifestPath,
+				ManifestPath:   manifestPath,
+				CheckOnboarded: onboarding.IsOnboarded,
 			})
 			if err != nil {
 				return fmt.Errorf("codebase analysis failed: %w", err)

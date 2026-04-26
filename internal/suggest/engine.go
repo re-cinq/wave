@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/recinq/wave/internal/doctor"
 )
 
 // Proposal contains a prioritized list of pipeline proposals.
@@ -27,7 +25,7 @@ type ProposedPipeline struct {
 
 // EngineOptions configures the suggestion engine.
 type EngineOptions struct {
-	Report       *doctor.Report
+	Report       *Report
 	PipelinesDir string
 	Limit        int
 }
