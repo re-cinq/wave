@@ -166,14 +166,6 @@ func BenchmarkFormatter_TableRow(b *testing.B) {
 	}
 }
 
-func BenchmarkFormatter_FormatBytes(b *testing.B) {
-	f := NewFormatter()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		f.FormatBytes(1073741824) // 1 GB
-	}
-}
-
 func BenchmarkSpinner_Current(b *testing.B) {
 	spinner := NewSpinner(AnimationSpinner)
 	spinner.Start()
