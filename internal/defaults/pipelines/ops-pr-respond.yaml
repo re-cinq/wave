@@ -482,10 +482,7 @@ steps:
         ### Step 3 — Write comment-result
 
         Write `.agents/output/comment-result.json` matching the
-        gh-pr-comment-result schema. Required fields: `comment_url`
-        (URL to the posted comment) and `pr_number` (integer). Optional
-        fields: `repository` (owner/repo) and `summary` (brief review
-        summary).
+        gh-pr-comment-result schema (success, issue_reference, comment, ...).
 
         Clean up `/tmp/ops-pr-respond.md` after posting.
 
@@ -534,5 +531,5 @@ steps:
     outcomes:
       - type: url
         extract_from: .agents/output/comment-result.json
-        json_path: .comment.url
+        json_path: .comment_url
         label: "Response Comment"
