@@ -95,14 +95,6 @@ steps:
         resolution record with `status: "skipped"` and exit cleanly. Do NOT
         guess.
 
-        Validate that `id` matches the regex `^[a-zA-Z0-9_-]+$`. The `id` is
-        interpolated into a shell `git commit -m` invocation in step 5, so
-        any character outside `[a-zA-Z0-9_-]` (quotes, `$()`, backticks, `;`,
-        whitespace, etc.) is a command-injection vector. If the `id` does
-        not match the regex, write a resolution record with
-        `status: "skipped"` and exit cleanly. Do NOT attempt to escape or
-        sanitize a non-conforming id — reject it.
-
         ### Step 2 — Read the target file
 
         Open `file`. If `line` is present, read a window around it. Read enough
@@ -132,18 +124,22 @@ steps:
 
         ### Step 5 — Commit and push
 
-        Stage only the files you edited (no `git add -A`). The finding `id`
-        was already validated against `^[a-zA-Z0-9_-]+$` in step 1, so it is
-        safe to interpolate into the commit message. As a defence-in-depth
-        measure, still pass it through a `sed` allowlist before use so a
-        regression in step 1 cannot turn into shell injection here:
+        Stage only the files you edited (no `git add -A`). Read the PR head
+        branch from `.agents/output/pr-context.json` (`.branch`) and refuse to
+        push if the working tree is not currently on that branch — this guards
+        against detached HEAD or wrong-branch state silently pushing to whatever
+        upstream happens to be set.
 
         ```bash
-        # ID has been validated against ^[a-zA-Z0-9_-]+$ in step 1.
-        SAFE_ID=$(printf '%s' "{{ '<finding-id>' }}" | sed 's/[^a-zA-Z0-9_-]//g')
+        BRANCH=$(jq -r .branch .agents/output/pr-context.json)
+        CURRENT=$(git rev-parse --abbrev-ref HEAD)
+        if [ "$CURRENT" != "$BRANCH" ]; then
+          echo "refusing to push: HEAD is '$CURRENT', expected PR head '$BRANCH'" >&2
+          exit 1
+        fi
         git add <file1> [<file2>...]
-        git commit -m "fix(${SAFE_ID}): <one-line summary from remediation>"
-        git push
+        git commit -m "fix({{ '<finding-id>' }}): <one-line summary from remediation>"
+        git push origin HEAD:"$BRANCH"
         ```
 
         Capture the commit SHA from `git rev-parse HEAD`.
