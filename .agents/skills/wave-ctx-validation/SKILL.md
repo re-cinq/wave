@@ -91,12 +91,12 @@ Multi-layer output validation system — contract enforcement with six validator
 
 - `internal/contract/contract.go`
 - `internal/contract/jsonschema.go`
-- `internal/contract/json_recovery.go`
+- `internal/contract/jsonschema_recovery.go`
 - `internal/contract/retry_strategy.go`
 - `internal/contract/testsuite.go`
-- `internal/contract/format_validator.go`
-- `internal/contract/wrapper_detection.go`
-- `internal/contract/input_validator.go`
+- `internal/contract/format.go`
+- `internal/contract/jsonschema_wrapper.go`
+- `internal/contract/jsonschema_input.go`
 - `internal/contract/validation_error_formatter.go`
 - `internal/contract/non_empty_file.go`
 - `internal/preflight/preflight.go`
