@@ -12,7 +12,7 @@ Author a new composition pipeline `ops-pr-respond` that takes a PR ref, runs a p
 
 ## Context
 
-Currently the post-WLP fleet ships:
+Currently the fleet (post-WLP, 34 pipelines) ships:
 
 - `ops-pr-review` — produces a verdict/comment (one-way).
 - `inception-bugfix` — issue → audit → impl-issue-core → review (no PR-input shape).
@@ -92,7 +92,7 @@ comment-back → {{ forge.type }}-commenter posts findings + resolution + verdic
 
 - [ ] `ops-pr-respond` ships in `.agents/pipelines/` and embedded in `internal/defaults/pipelines/`.
 - [ ] `impl-finding` ships in both locations (sub-pipeline).
-- [ ] Two schemas land in `.agents/contracts/` and `internal/defaults/contracts/`.
+- [ ] One new schema (`triaged-findings`) lands under both `.agents/contracts/` and `internal/defaults/contracts/`; aggregate output reuses `shared-findings.schema.json` per plan.md Decision B.
 - [ ] WLP-clean (Rules 1–7).
 - [ ] Real `wave run ops-pr-respond --input "<owner>/<repo> <pr>"` against a fresh PR completes end-to-end and posts a structured comment with finding → SHA mapping.
 - [ ] AGENTS.md "Pipeline Selection" table updated.
