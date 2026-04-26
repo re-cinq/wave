@@ -641,6 +641,144 @@ func containsSubstring(s, substr string) bool {
 	return false
 }
 
+func TestCheckDockerDaemon_BinaryMissing(t *testing.T) {
+	tmp := t.TempDir()
+	manifestPath := filepath.Join(tmp, "wave.yaml")
+	_ = os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+kind: Manifest
+metadata:
+  name: test-project
+runtime:
+  workspace_root: .agents/workspaces
+`), 0644)
+
+	report, err := RunChecks(context.Background(), Options{
+		ManifestPath: manifestPath,
+		WaveDir:      tmp,
+		PipelinesDir: filepath.Join(tmp, "pipelines"),
+		LookPath: func(file string) (string, error) {
+			if file == "docker" {
+				return "", fmt.Errorf("not found")
+			}
+			return "/usr/bin/" + file, nil
+		},
+		RunCmd: func(name string, args ...string) error {
+			return nil
+		},
+		DetectForge: func() (forge.ForgeInfo, error) {
+			return forge.ForgeInfo{Type: forge.ForgeUnknown}, nil
+		},
+		CheckOnboarded: func(waveDir string) bool { return true },
+	})
+	if err != nil {
+		t.Fatalf("RunChecks failed: %v", err)
+	}
+
+	var found bool
+	for _, r := range report.Results {
+		if r.Name == "Docker Daemon" {
+			found = true
+			if r.Status != StatusWarn {
+				t.Errorf("expected StatusWarn for missing docker binary, got %v", r.Status)
+			}
+			if !contains(r.Message, "not found on PATH") {
+				t.Errorf("expected message to mention PATH miss, got %q", r.Message)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected Docker Daemon check in results")
+	}
+}
+
+func TestCheckDockerDaemon_DaemonUp(t *testing.T) {
+	tmp := t.TempDir()
+	manifestPath := filepath.Join(tmp, "wave.yaml")
+	_ = os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+kind: Manifest
+metadata:
+  name: test-project
+runtime:
+  workspace_root: .agents/workspaces
+`), 0644)
+
+	report, err := RunChecks(context.Background(), Options{
+		ManifestPath: manifestPath,
+		WaveDir:      tmp,
+		PipelinesDir: filepath.Join(tmp, "pipelines"),
+		LookPath: func(file string) (string, error) {
+			return "/usr/bin/" + file, nil
+		},
+		RunCmd: func(name string, args ...string) error {
+			return nil // docker info succeeds
+		},
+		DetectForge: func() (forge.ForgeInfo, error) {
+			return forge.ForgeInfo{Type: forge.ForgeUnknown}, nil
+		},
+		CheckOnboarded: func(waveDir string) bool { return true },
+	})
+	if err != nil {
+		t.Fatalf("RunChecks failed: %v", err)
+	}
+
+	for _, r := range report.Results {
+		if r.Name == "Docker Daemon" {
+			if r.Status != StatusOK {
+				t.Errorf("expected StatusOK for daemon up, got %v (msg=%q)", r.Status, r.Message)
+			}
+			return
+		}
+	}
+	t.Error("expected Docker Daemon check in results")
+}
+
+func TestCheckDockerDaemon_DaemonDown(t *testing.T) {
+	tmp := t.TempDir()
+	manifestPath := filepath.Join(tmp, "wave.yaml")
+	_ = os.WriteFile(manifestPath, []byte(`apiVersion: wave/v1
+kind: Manifest
+metadata:
+  name: test-project
+runtime:
+  workspace_root: .agents/workspaces
+`), 0644)
+
+	report, err := RunChecks(context.Background(), Options{
+		ManifestPath: manifestPath,
+		WaveDir:      tmp,
+		PipelinesDir: filepath.Join(tmp, "pipelines"),
+		LookPath: func(file string) (string, error) {
+			return "/usr/bin/" + file, nil
+		},
+		RunCmd: func(name string, args ...string) error {
+			if name == "docker" && len(args) > 0 && args[0] == "info" {
+				return fmt.Errorf("cannot connect to docker daemon")
+			}
+			return nil
+		},
+		DetectForge: func() (forge.ForgeInfo, error) {
+			return forge.ForgeInfo{Type: forge.ForgeUnknown}, nil
+		},
+		CheckOnboarded: func(waveDir string) bool { return true },
+	})
+	if err != nil {
+		t.Fatalf("RunChecks failed: %v", err)
+	}
+
+	for _, r := range report.Results {
+		if r.Name == "Docker Daemon" {
+			if r.Status != StatusWarn {
+				t.Errorf("expected StatusWarn for daemon down, got %v", r.Status)
+			}
+			if !contains(r.Message, "daemon not reachable") {
+				t.Errorf("expected message to mention daemon not reachable, got %q", r.Message)
+			}
+			return
+		}
+	}
+	t.Error("expected Docker Daemon check in results")
+}
+
 func TestStatus_String(t *testing.T) {
 	tests := []struct {
 		s    Status
