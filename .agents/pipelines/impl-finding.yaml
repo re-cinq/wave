@@ -1,0 +1,225 @@
+kind: WavePipeline
+metadata:
+  name: impl-finding
+  description: >-
+    Single-step implementation pipeline that takes one triaged finding (JSON
+    blob) and applies a minimal, scoped fix on top of the currently checked-out
+    branch. Used by ops-pr-respond as the inner pipeline of resolve-each. The
+    fix is committed and pushed; the diff is captured for the verify step.
+  category: composition
+  release: false
+
+skills:
+  - "{{ project.skill }}"
+  - gh-cli
+  - software-design
+
+requires:
+  tools:
+    - gh
+
+input:
+  source: cli
+  type: string
+  example: '{"id":"f1","severity":"medium","file":"internal/foo.go","line":42,"description":"...","remediation":"...","type":"fix"}'
+  schema:
+    type: string
+    description: "JSON object describing one triaged finding (see triaged-findings.schema.json#actionable)."
+
+chat_context:
+  artifact_summaries:
+    - resolution
+  suggested_questions:
+    - "What did the fix change?"
+    - "Did the test_suite contract pass after the fix?"
+  focus_areas:
+    - "Per-finding minimal fix"
+    - "Diff captured for the verify step"
+
+pipeline_outputs:
+  resolution:
+    step: apply-fix
+    artifact: resolution
+    type: string
+
+steps:
+  - id: apply-fix
+    persona: implementer
+    contexts: [execution, delivery]
+    model: balanced
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readwrite
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Apply a single, minimal, scoped fix to the currently checked-out branch
+        that resolves exactly one triaged finding. Capture a structured
+        resolution record (finding id, commit SHA, files touched, diff summary)
+        so the parent pipeline (`ops-pr-respond`) can map findings to commits in
+        the response comment.
+
+        Finding (raw JSON): {{ input }}
+
+        ## Context
+
+        You are the inner pipeline of `resolve-each` in `ops-pr-respond`. The
+        parent pipeline has already:
+
+        1. Fetched the PR diff and head branch.
+        2. Aggregated audit findings into a flat array.
+        3. Triaged that array into actionable / deferred / rejected.
+
+        You receive a single actionable finding. The working directory is the
+        PR head branch (parent pipeline checked it out). You must touch only
+        the files implied by the finding's `remediation` field. Other findings
+        run in parallel — do NOT touch files outside your remediation scope.
+
+        ## Requirements
+
+        ### Step 1 — Parse the finding
+
+        Parse the JSON `input`. Extract:
+        - `id` (used in commit message and resolution record)
+        - `file` (primary file to edit)
+        - `line` (anchor — may be absent)
+        - `type` (fix | delete | wire | rename | scrub | guard | doc)
+        - `description` (problem)
+        - `remediation` (fix instruction — your authoritative directive)
+
+        If the JSON is malformed or missing `id`/`file`/`remediation`, write a
+        resolution record with `status: "skipped"` and exit cleanly. Do NOT
+        guess.
+
+        ### Step 2 — Read the target file
+
+        Open `file`. If `line` is present, read a window around it. Read enough
+        surrounding context to understand the code before editing.
+
+        ### Step 3 — Apply the fix
+
+        Make the minimal change implied by `type` + `remediation`:
+
+        - `fix`: correct buggy code per the remediation.
+        - `delete`: remove the dead symbol/file/block.
+        - `wire`: connect existing-but-orphaned code (add the missing call,
+          export, or import).
+        - `rename`: rename the symbol and update all references in the package.
+        - `scrub`: remove sensitive data from logs/output/errors.
+        - `guard`: add a nil/range/error check.
+        - `doc`: update the doc/comment. No code changes.
+
+        Do NOT bundle unrelated cleanups. Do NOT refactor surrounding code.
+        One finding = one targeted edit (plus any necessary references).
+
+        ### Step 4 — Verify locally
+
+        Run `{{ project.contract_test_command }}`. If it fails, attempt one
+        repair pass. If it still fails, capture the failure in the resolution
+        record but commit anyway — the parent verify step will gate the loop.
+
+        ### Step 5 — Commit and push (against the project repo, not the workspace)
+
+        The mount-based workspace gives you a fresh `git init` at the workspace
+        root and the project filesystem at `/project`. To make commits visible
+        on the PR head branch, run all `git` commands from `/project` (the
+        mounted project repo with the real `origin` remote and the PR branch
+        checked out), not from the workspace root.
+
+        Stage only the files you edited (no `git add -A`). Read the PR head
+        branch from `.agents/output/pr-context.json` (`.branch`) and refuse to
+        push if `/project` is not currently on that branch — this guards against
+        detached HEAD or wrong-branch state silently pushing to whatever upstream
+        happens to be set. Verify the push actually landed by checking the
+        remote ref before reporting success.
+
+        ```bash
+        BRANCH=$(jq -r .branch .agents/output/pr-context.json)
+        cd /project
+
+        CURRENT=$(git rev-parse --abbrev-ref HEAD)
+        if [ "$CURRENT" != "$BRANCH" ]; then
+          echo "refusing to push: /project HEAD is '$CURRENT', expected PR head '$BRANCH'" >&2
+          exit 1
+        fi
+        if ! git remote get-url origin >/dev/null 2>&1; then
+          echo "refusing to push: no 'origin' remote configured in /project" >&2
+          exit 1
+        fi
+
+        git add <file1> [<file2>...]
+        git commit -m "fix({{ '<finding-id>' }}): <one-line summary from remediation>"
+        SHA=$(git rev-parse HEAD)
+        git push origin HEAD:"$BRANCH"
+
+        # Verify the push landed on origin — fail loud if the SHA didn't reach
+        # the remote (e.g. push silently no-op'd, network drop, hooks rejected).
+        REMOTE_SHA=$(git ls-remote origin "$BRANCH" | awk '{print $1}')
+        if [ "$REMOTE_SHA" != "$SHA" ]; then
+          echo "push verification failed: local $SHA vs remote $REMOTE_SHA on $BRANCH" >&2
+          exit 1
+        fi
+        ```
+
+        Capture the commit SHA from `git rev-parse HEAD`.
+
+        ### Step 6 — Write the resolution record
+
+        Write `.agents/output/resolution.md` with:
+
+        ```markdown
+        # Resolution: <finding-id>
+
+        - **Finding type:** <type>
+        - **Severity:** <severity>
+        - **Status:** applied | skipped | failed
+        - **Commit:** <SHA>
+        - **Files touched:** <comma-separated list>
+        - **Tests:** pass | fail | not-run
+
+        ## Summary
+
+        <2–4 sentence description of what the fix does.>
+
+        ## Diff
+
+        ```
+        <output of `git show --stat HEAD`>
+        ```
+        ```
+
+        ## Constraints
+
+        - Do NOT touch files outside the finding's stated scope.
+        - Do NOT amend prior commits or rebase the branch.
+        - Do NOT run `git add -A` or stage the entire working tree.
+        - Do NOT skip the commit even if the local test command fails — the
+          parent's verify step is the source of truth.
+        - Do NOT leave the working tree dirty after the commit.
+
+        ## Quality bar
+
+        A good resolution applies exactly the change described by the
+        remediation, leaves the working tree clean, and produces a commit that
+        a reviewer can accept on its own. A bad resolution mixes unrelated
+        edits, reformats unrelated lines, or leaves uncommitted changes behind.
+    output_artifacts:
+      - name: resolution
+        path: .agents/output/resolution.md
+        type: markdown
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contracts:
+        - type: non_empty_file
+          source: .agents/output/resolution.md
+          on_failure: fail
+        - type: test_suite
+          command: "{{ project.contract_test_command }}"
+          must_pass: false
+          on_failure: warn

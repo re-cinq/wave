@@ -180,7 +180,7 @@ When acting as the **core orchestrator** (the Claude instance steering Wave pipe
 
 ### Pipeline Selection
 
-Fleet after the 2026-04 WLP (ADR-011) consolidation: 34 pipelines. All shipped pipelines satisfy the 7 WLP rules (typed I/O, explicit output types, deterministic contracts, canonical artifact paths, sub-pipeline composition, iterate over typed collections, input_ref.from field navigation).
+Fleet after the 2026-04 WLP (ADR-011) consolidation + ops-pr-respond showcase: 39 pipelines under `.agents/pipelines/` (28 default-embedded under `internal/defaults/pipelines/`). All shipped pipelines satisfy the 7 WLP rules (typed I/O, explicit output types, deterministic contracts, canonical artifact paths, sub-pipeline composition, iterate over typed collections, input_ref.from field navigation).
 
 | Issue complexity | Pipeline | When to use |
 |-----------------|----------|-------------|
@@ -198,7 +198,9 @@ Fleet after the 2026-04 WLP (ADR-011) consolidation: 34 pipelines. All shipped p
 | Code quality | `audit-duplicates`, `audit-tests`, `audit-architecture` | Analysis passes feeding findings_report |
 | Dead code / docs | `audit-dead-code-scan`, `audit-doc-scan` | Single-step scans used as Lego blocks |
 | Security | `audit-security`, `wave-security-audit` | Security scanning (any project / Wave itself) |
-| PR review | `ops-pr-review` | **Always** run before merging any PR |
+| PR review | `ops-pr-review` | **Always** run before merging any PR; close the loop with `ops-pr-respond` when fixes are wanted |
+| PR review-to-resolution | `ops-pr-respond` | Six-axis parallel review → triage → per-finding fix (sub-pipeline `impl-finding`) → verify → structured PR comment with finding-→-SHA mapping. Showcase pipeline that exercises most Wave primitives (composition, parallel iterate, aggregate, loop, json_schema, agent_review, test_suite); branch primitive is documented in spec but deferred — see spec.md. |
+| Per-finding fix block | `impl-finding` | Sub-pipeline used by `ops-pr-respond` to apply one triaged finding on a PR head branch |
 | Wave evolution | `wave-audit`, `wave-scope-audit`, `wave-test-hardening` | Self-evolution of Wave |
 | Wave validation | `wave-validate`, `wave-smoke-gates`, `wave-smoke-contracts` | Smoke tests for gates + contracts |
 | Epic decomposition | `plan-scope` | Decompose an epic into child issues |
