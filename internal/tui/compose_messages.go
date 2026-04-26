@@ -22,6 +22,3 @@ type ComposeStartMsg struct {
 
 // ComposeCancelMsg signals that compose mode should close.
 type ComposeCancelMsg struct{}
-
-// ComposeFocusDetailMsg signals that Enter was pressed on a boundary to focus the artifact flow detail.
-type ComposeFocusDetailMsg struct{}

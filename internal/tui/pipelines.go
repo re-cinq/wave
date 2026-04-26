@@ -7,7 +7,6 @@ import (
 	"sort"
 
 	"github.com/recinq/wave/internal/pipeline"
-
 )
 
 // PipelineInfo holds discoverable metadata about a pipeline.
