@@ -81,7 +81,10 @@ func TestResolveToken_Unknown(t *testing.T) {
 func TestNewClient_GitHubWithToken(t *testing.T) {
 	t.Setenv("GH_TOKEN", "test-token")
 
-	client := NewClient(ForgeInfo{Type: ForgeGitHub})
+	client, err := NewClient(ForgeInfo{Type: ForgeGitHub})
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
 	if client == nil {
 		t.Fatal("expected non-nil client for GitHub with token")
 	}
@@ -97,7 +100,10 @@ func TestNewClient_GitHubWithToken(t *testing.T) {
 func TestNewClient_GitLabWithToken(t *testing.T) {
 	t.Setenv("GITLAB_TOKEN", "test-token")
 
-	client := NewClient(ForgeInfo{Type: ForgeGitLab})
+	client, err := NewClient(ForgeInfo{Type: ForgeGitLab})
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
 	if client != nil {
 		t.Errorf("expected nil client for unsupported forge GitLab, got %T", client)
 	}
@@ -108,14 +114,20 @@ func TestNewClient_NoToken(t *testing.T) {
 	t.Setenv("GH_TOKEN", "")
 	t.Setenv("GITHUB_TOKEN", "")
 
-	client := NewClient(ForgeInfo{Type: ForgeGitHub})
+	client, err := NewClient(ForgeInfo{Type: ForgeGitHub})
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
 	// May still get a token from `gh auth token` if gh is installed,
-	// so we just verify no panic and the function returns.
+	// so we just verify the function returns without error.
 	_ = client
 }
 
 func TestNewClient_UnknownForge(t *testing.T) {
-	client := NewClient(ForgeInfo{Type: ForgeUnknown})
+	client, err := NewClient(ForgeInfo{Type: ForgeUnknown})
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
 	if client != nil {
 		t.Errorf("expected nil client for unknown forge, got %v", client)
 	}

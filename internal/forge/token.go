@@ -85,11 +85,14 @@ func resolveCodebergToken() string {
 }
 
 // NewClient creates a forge.Client for the given ForgeInfo, resolving
-// authentication tokens automatically. Returns nil if no token is found.
-func NewClient(info ForgeInfo) Client {
+// authentication tokens automatically. Returns (nil, nil) if no token is
+// found or the forge type is not supported, so callers' nil-guard checks
+// show "not configured" rather than a cryptic error. Returns a non-nil
+// error only when client construction itself fails.
+func NewClient(info ForgeInfo) (Client, error) {
 	token := ResolveToken(info.Type)
 	if token == "" {
-		return nil
+		return nil, nil
 	}
 
 	switch info.Type {
@@ -97,8 +100,8 @@ func NewClient(info ForgeInfo) Client {
 		ghClient := github.NewClient(github.ClientConfig{Token: token})
 		return NewGitHubClient(ghClient)
 	default:
-		// Non-GitHub forges not yet supported — return nil so callers'
+		// Non-GitHub forges not yet supported — return (nil, nil) so callers'
 		// nil-guard checks show "not configured" rather than cryptic errors.
-		return nil
+		return nil, nil
 	}
 }

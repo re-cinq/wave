@@ -75,7 +75,10 @@ func TestAnalyzeCodebase_WithMockServer(t *testing.T) {
 		BaseURL: server.URL,
 		Token:   "test-token",
 	})
-	forgeClient := forge.NewGitHubClient(client)
+	forgeClient, err := forge.NewGitHubClient(client)
+	if err != nil {
+		t.Fatalf("NewGitHubClient: %v", err)
+	}
 
 	result, err := AnalyzeCodebase(context.Background(), CodebaseOptions{
 		ForgeInfo: forge.ForgeInfo{

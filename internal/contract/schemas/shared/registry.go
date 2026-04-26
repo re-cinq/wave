@@ -28,6 +28,7 @@ var registry = func() map[string][]byte {
 	out := make(map[string][]byte)
 	entries, err := fs.ReadDir(schemasFS, ".")
 	if err != nil {
+		//nolint:forbidigo // package-init guard, embedded FS read cannot fail at runtime
 		panic(fmt.Sprintf("shared schemas: failed to read embedded FS: %v", err))
 	}
 	for _, e := range entries {
@@ -36,6 +37,7 @@ var registry = func() map[string][]byte {
 		}
 		data, err := schemasFS.ReadFile(e.Name())
 		if err != nil {
+			//nolint:forbidigo // package-init guard, embedded FS read cannot fail at runtime
 			panic(fmt.Sprintf("shared schemas: failed to read %s: %v", e.Name(), err))
 		}
 		name := strings.TrimSuffix(e.Name(), ".json")

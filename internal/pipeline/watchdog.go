@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -31,10 +32,10 @@ type StallWatchdog struct {
 // NewStallWatchdog creates a new watchdog with the given stall timeout.
 // The progress timeout defaults to 3x the activity timeout — an agent
 // can read for up to 3x longer than it can be completely silent.
-// It panics if timeout is zero or negative.
-func NewStallWatchdog(timeout time.Duration) *StallWatchdog {
+// Returns an error if timeout is zero or negative.
+func NewStallWatchdog(timeout time.Duration) (*StallWatchdog, error) {
 	if timeout <= 0 {
-		panic("pipeline: stall watchdog timeout must be positive")
+		return nil, errors.New("pipeline: stall watchdog timeout must be positive")
 	}
 	return &StallWatchdog{
 		timeout:         timeout,
@@ -42,7 +43,7 @@ func NewStallWatchdog(timeout time.Duration) *StallWatchdog {
 		activity:        make(chan struct{}, 1),
 		progress:        make(chan struct{}, 1),
 		done:            make(chan struct{}),
-	}
+	}, nil
 }
 
 // Start returns a derived context that will be canceled if either the

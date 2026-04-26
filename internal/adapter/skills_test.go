@@ -93,24 +93,20 @@ func TestProvisionSkillsRemovesStaleWaveManaged(t *testing.T) {
 	}
 }
 
-func TestProvisionSkillsPanicsOnTraversal(t *testing.T) {
+func TestProvisionSkillsRejectsTraversal(t *testing.T) {
 	tmp := t.TempDir()
 	workspace := filepath.Join(tmp, "ws")
 	if err := os.MkdirAll(workspace, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
-	defer func() {
-		r := recover()
-		if r == nil {
-			t.Fatal("expected panic on workspace-escape")
-		}
-		if !strings.Contains(r.(string), "refusing skill provisioning outside workspace") {
-			t.Errorf("unexpected panic message: %v", r)
-		}
-	}()
-
-	_ = ProvisionSkills(workspace, "../../../etc/skills", nil)
+	err := ProvisionSkills(workspace, "../../../etc/skills", nil)
+	if err == nil {
+		t.Fatal("expected error on workspace-escape")
+	}
+	if !strings.Contains(err.Error(), "refusing skill provisioning outside workspace") {
+		t.Errorf("unexpected error message: %v", err)
+	}
 }
 
 func TestProvisionSkillsRejectsAbsoluteSubdir(t *testing.T) {

@@ -15,8 +15,9 @@ const SentinelFile = ".wave-managed"
 // ProvisionSkills installs the given skills into <workspacePath>/<targetSubdir>/
 // using the adapter's native skill discovery layout. The flow is:
 //
-//  1. Workspace-scope assertion: panic if targetSubdir resolves outside
-//     workspacePath. This is a defensive guard against accidental host damage.
+//  1. Workspace-scope assertion: returns an error if targetSubdir resolves
+//     outside workspacePath. This is a defensive guard against accidental
+//     host damage.
 //  2. Clear stale Wave-managed skills: walk the existing target dir and
 //     RemoveAll any subdir containing the sentinel file. User-committed skills
 //     (no sentinel) are left untouched.
@@ -40,7 +41,7 @@ func ProvisionSkills(workspacePath, targetSubdir string, skills []SkillRef) erro
 	// against config tampering or path-traversal in targetSubdir.
 	prefix := workspaceClean + string(os.PathSeparator)
 	if skillsDir != workspaceClean && !strings.HasPrefix(skillsDir, prefix) {
-		panic(fmt.Sprintf("refusing skill provisioning outside workspace: workspace=%s target=%s", workspaceClean, skillsDir))
+		return fmt.Errorf("refusing skill provisioning outside workspace: workspace=%s target=%s", workspaceClean, skillsDir)
 	}
 
 	if err := clearWaveManagedSkills(skillsDir); err != nil {
