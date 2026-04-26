@@ -519,5 +519,17 @@ CREATE INDEX IF NOT EXISTS idx_run_parent ON pipeline_run(parent_run_id);`,
 			Down: `
 UPDATE pipeline_run SET status = 'completed' WHERE status = 'completed_empty';`,
 		},
+		{
+			Version:     24,
+			Description: "Backfill pipeline_run.total_tokens from event_log for legacy runs",
+			Up: `UPDATE pipeline_run SET total_tokens = (
+    SELECT COALESCE(SUM(el.tokens_used), 0)
+    FROM event_log el
+    WHERE el.run_id = pipeline_run.run_id AND el.tokens_used > 0
+)
+WHERE total_tokens = 0
+AND status IN ('completed', 'failed', 'cancelled');`,
+			Down: "",
+		},
 	}
 }
