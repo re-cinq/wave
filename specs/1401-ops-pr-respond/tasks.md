@@ -27,8 +27,8 @@
   - `merge-findings` step: `aggregate.from: "{{ parallel-review.output }}"`, `into: .agents/artifacts/merge-findings/findings.json`, `strategy: merge_arrays`.
 - [X] 4.2: Add `triage` step (planner, balanced): inject merged findings + pr-context, write `triaged-findings.json`, contracts: `json_schema` against the new schema + `agent_review` (auditor).
 - [X] 4.3: Add `loop` step wrapping `resolve-each` + `verify`:
-  - `resolve-each`: `pipeline: impl-finding`, `iterate.over: "{{ triage.output.actionable }}"`, `mode: parallel`, `max_concurrent: 4`, `on_failure: continue`, `input_ref.from: triage.out.triaged-findings.actionable[N]`.
-  - `verify`: command step running `{{ project.contract_test_command }}` (the `GIT_CONFIG_NOSYSTEM=1`/`GIT_CONFIG_GLOBAL=/dev/null` variant — keeps git-touching tests hermetic) + `agent_review` on the diff against pass/fail criteria. Writes `verify.json`.
+  - `resolve-each`: `pipeline: impl-finding`, `iterate.over: "{{ triage.out.triaged-findings.actionable }}"`, `mode: parallel`, `max_concurrent: 4`, `on_failure: continue`, `input: "{{ item }}"` (templated per-element form; the `input_ref.from` field-nav variant noted in spec.md's Rule-7 row was not adopted in the shipped YAML).
+  - `verify`: command step running `{{ project.test_command }}` + `agent_review` on the diff against pass/fail criteria. Writes `verify.json`.
   - `loop.until: "{{ verify.output.verdict == 'pass' }}"`, `max_iterations: 2`.
 - [X] 4.4: Add `branch` step routing on `verify.output.verdict`: `pass → comment-back`, `fail → comment-back` (both produce a comment; `fail` includes "manual review needed" callout). Decision: collapse to a single `comment-back` step that consumes verdict (simpler than branching to two near-identical leaves).
 - [X] 4.5: Add `comment-back` step: `persona: "{{ forge.type }}-commenter"`, mount-readonly, posts comment with three tables (findings, resolutions with commit SHAs, verdict). Contract: `agent_review` on tone + completeness + `json_schema` on `comment-result`.
