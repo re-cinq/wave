@@ -199,7 +199,7 @@ Fleet after the 2026-04 WLP (ADR-011) consolidation + ops-pr-respond showcase: 3
 | Dead code / docs | `audit-dead-code-scan`, `audit-doc-scan` | Single-step scans used as Lego blocks |
 | Security | `audit-security`, `wave-security-audit` | Security scanning (any project / Wave itself) |
 | PR review | `ops-pr-review` | **Always** run before merging any PR; close the loop with `ops-pr-respond` when fixes are wanted |
-| PR review-to-resolution | `ops-pr-respond` | Six-axis parallel review → triage → per-finding fix (sub-pipeline `impl-finding`) → verify → structured PR comment with finding-→-SHA mapping. Showcase pipeline that lights up every Wave primitive. |
+| PR review-to-resolution | `ops-pr-respond` | Six-axis parallel review → triage → per-finding fix (sub-pipeline `impl-finding`) → verify → structured PR comment with finding-→-SHA mapping. Showcase pipeline that exercises most Wave primitives (composition, parallel iterate, aggregate, loop, json_schema, agent_review, test_suite); branch primitive is documented in spec but deferred — see spec.md. |
 | Per-finding fix block | `impl-finding` | Sub-pipeline used by `ops-pr-respond` to apply one triaged finding on a PR head branch |
 | Wave evolution | `wave-audit`, `wave-scope-audit`, `wave-test-hardening` | Self-evolution of Wave |
 | Wave validation | `wave-validate`, `wave-smoke-gates`, `wave-smoke-contracts` | Smoke tests for gates + contracts |
