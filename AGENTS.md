@@ -180,7 +180,7 @@ When acting as the **core orchestrator** (the Claude instance steering Wave pipe
 
 ### Pipeline Selection
 
-Fleet after the 2026-04 WLP (ADR-011) consolidation + ops-pr-respond showcase: 36 pipelines. All shipped pipelines satisfy the 7 WLP rules (typed I/O, explicit output types, deterministic contracts, canonical artifact paths, sub-pipeline composition, iterate over typed collections, input_ref.from field navigation).
+Fleet after the 2026-04 WLP (ADR-011) consolidation + ops-pr-respond showcase: 39 pipelines under `.agents/pipelines/` (28 default-embedded under `internal/defaults/pipelines/`). All shipped pipelines satisfy the 7 WLP rules (typed I/O, explicit output types, deterministic contracts, canonical artifact paths, sub-pipeline composition, iterate over typed collections, input_ref.from field navigation).
 
 | Issue complexity | Pipeline | When to use |
 |-----------------|----------|-------------|
