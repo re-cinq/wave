@@ -364,14 +364,12 @@ steps:
             else
               VERDICT=fail
             fi
-            cat > .agents/output/verify-verdict.json <<JSON
-            {
-              "verdict": "$VERDICT",
-              "pass": $([ "$VERDICT" = "pass" ] && echo true || echo false),
-              "command": "{{ project.contract_test_command }}",
-              "log_path": ".agents/output/verify.log"
-            }
-            JSON
+            jq -n \
+              --arg verdict "$VERDICT" \
+              --arg cmd "{{ project.contract_test_command }}" \
+              --arg log .agents/output/verify.log \
+              '{verdict: $verdict, pass: ($verdict == "pass"), command: $cmd, log_path: $log}' \
+              > .agents/output/verify-verdict.json
             test "$VERDICT" = "pass"
           output_artifacts:
             - name: verify-verdict
@@ -531,5 +529,5 @@ steps:
     outcomes:
       - type: url
         extract_from: .agents/output/comment-result.json
-        json_path: .comment_url
+        json_path: .comment.url
         label: "Response Comment"
