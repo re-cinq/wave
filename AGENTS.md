@@ -180,27 +180,37 @@ When acting as the **core orchestrator** (the Claude instance steering Wave pipe
 
 ### Pipeline Selection
 
+Fleet after the 2026-04 WLP (ADR-011) consolidation: 34 pipelines. All shipped pipelines satisfy the 7 WLP rules (typed I/O, explicit output types, deterministic contracts, canonical artifact paths, sub-pipeline composition, iterate over typed collections, input_ref.from field navigation).
+
 | Issue complexity | Pipeline | When to use |
 |-----------------|----------|-------------|
 | Bug fix, small tweak | `impl-issue` | Single-file or few-file changes, clear scope |
 | Medium feature | `impl-issue` | Well-scoped feature with clear acceptance criteria |
 | Complex feature | `impl-speckit` | Multi-component changes, needs spec → plan → tasks → impl |
 | Architecture change | `impl-speckit` | Touches 5+ files, needs design discussion |
-| Research then implement | `impl-research` | External integrations, unfamiliar APIs, need web research first |
-| Code quality | `audit-junk-code`, `audit-dx`, `audit-dual` | Analysis and improvement |
+| Divergent-convergent simplification | `impl-recinq` | Double Diamond code simplification |
+| Epic runner | `ops-epic-runner` | Scope an epic and sequentially implement every child |
+| Feature inception (scope + research + impl + review) | `inception-feature` | End-to-end feature delivery composed from core blocks |
+| Bug inception | `inception-bugfix` | End-to-end bug triage + fix + review |
+| Doc inception | `inception-doc` | End-to-end doc fix composition |
+| Audit inception | `inception-audit` | Triage + merge of multiple audit passes |
+| Hardening inception (Wave self) | `inception-harden` | Release-hardening for Wave itself; not shipped in defaults (composes wave-* self-evolution sub-pipelines) |
+| Code quality | `audit-duplicates`, `audit-tests`, `audit-architecture` | Analysis passes feeding findings_report |
+| Dead code / docs | `audit-dead-code-scan`, `audit-doc-scan` | Single-step scans used as Lego blocks |
 | Security | `audit-security`, `wave-security-audit` | Security scanning (any project / Wave itself) |
 | PR review | `ops-pr-review` | **Always** run before merging any PR |
-| Wave bug fix | `wave-bugfix` | Fix bugs in Wave's own codebase |
-| Wave evolution | `wave-evolve` | Evolve Wave pipelines, personas, and prompts |
-| Wave test hardening | `wave-test-hardening` | Harden Wave's test suite — find gaps, add edge cases |
-| Wave audit | `wave-audit` | Zero-trust implementation fidelity audit of Wave |
-| Wave PR review | `wave-review` | Review Wave's own PRs |
+| Wave evolution | `wave-audit`, `wave-scope-audit`, `wave-test-hardening` | Self-evolution of Wave |
+| Wave validation | `wave-validate`, `wave-smoke-gates`, `wave-smoke-contracts` | Smoke tests for gates + contracts |
 | Epic decomposition | `plan-scope` | Decompose an epic into child issues |
 | Issue research | `plan-research` | Research an issue and post findings |
-| Stale issues | `ops-refresh` | Refresh a stale issue against recent codebase changes |
-| Dead code | `audit-dead-code` | Detect and report unused code |
-| Code simplification | `impl-recinq` | Divergent-convergent code simplification (Double Diamond) |
-| SWE-bench benchmark | `bench-solve` | Solve a single SWE-bench task (used by `wave bench run`) |
+| Task planning | `plan-task` | Break down a scoped task |
+| Greenfield scaffolding | `ops-bootstrap` | Cold-start onboarding for a new project |
+| PR review core | `ops-pr-review-core` | Core review block composed by wrappers |
+| Issue quality | `ops-issue-quality` | Quality triage of an issue |
+| Parallel audit | `ops-parallel-audit` | Run multiple audits in parallel and aggregate |
+| Smoke: hello world | `ops-hello-world` | Baseline smoke test |
+| Doc explain | `doc-explain` | Produce an explanatory document |
+| Doc onboard | `doc-onboard` | Produce onboarding documentation |
 
 ### PR Review-Then-Merge Protocol
 

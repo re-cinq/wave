@@ -25,6 +25,8 @@ func initGitRepo(t *testing.T) string {
 	run("init")
 	run("config", "user.email", "test@test.com")
 	run("config", "user.name", "Test")
+	run("config", "commit.gpgsign", "false")
+	run("config", "tag.gpgsign", "false")
 
 	// Create initial commit so HEAD exists
 	readme := filepath.Join(dir, "README.md")

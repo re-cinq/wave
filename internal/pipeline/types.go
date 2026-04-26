@@ -63,6 +63,12 @@ type Pipeline struct {
 	ChatContext     *ChatContextConfig        `yaml:"chat_context,omitempty"`     // Chat session context injection
 	Skills          []string                  `yaml:"skills,omitempty"`           // Declarative skill references
 	MaxStepVisits   int                       `yaml:"max_step_visits,omitempty"`  // Graph-level max total visits across all steps (default 50)
+
+	// Warnings is a runtime-only list of non-fatal load-time messages (e.g.
+	// WLP deprecation notices). Populated by YAMLPipelineLoader.Unmarshal and
+	// drained by the executor at startup. Not serialized.
+	// See docs/adr/011-wave-lego-protocol.md.
+	Warnings []string `yaml:"-" json:"-"`
 }
 
 // ChatContextConfig configures what context to inject into post-pipeline chat sessions.
@@ -122,11 +128,27 @@ type InputConfig struct {
 	Example     string       `yaml:"example,omitempty"`
 	LabelFilter string       `yaml:"label_filter,omitempty"`
 	BatchSize   int          `yaml:"batch_size,omitempty"`
+	// Type is the canonical I/O protocol type name for this pipeline's input.
+	// It must be either "string" (free-text) or a name registered in
+	// internal/contract/schemas/shared (e.g. "issue_ref", "pr_ref").
+	// Empty string is treated as "string" for backward-compat with legacy
+	// pipelines whose input is unstructured.
+	// See docs/adr/010-pipeline-io-protocol.md.
+	Type string `yaml:"type,omitempty"`
 }
 
 type InputSchema struct {
 	Type        string `yaml:"type,omitempty"`
 	Description string `yaml:"description,omitempty"`
+}
+
+// EffectiveType returns the declared I/O type, defaulting to "string"
+// when the pipeline author has not declared a typed input.
+func (c *InputConfig) EffectiveType() string {
+	if c == nil || c.Type == "" {
+		return "string"
+	}
+	return c.Type
 }
 
 // RetryConfig controls step retry behavior on failure.
@@ -316,7 +338,8 @@ type Step struct {
 
 	// Composition primitives
 	SubPipeline string             `yaml:"pipeline,omitempty"`  // Child pipeline to execute
-	SubInput    string             `yaml:"input,omitempty"`     // Input template for child pipeline
+	SubInput    string             `yaml:"input,omitempty"`     // Input template for child pipeline (legacy, string-typed children)
+	InputRef    *StepInput         `yaml:"input_ref,omitempty"` // Typed input wiring (from/literal). See docs/adr/010-pipeline-io-protocol.md.
 	Config      *SubPipelineConfig `yaml:"config,omitempty"`    // Sub-pipeline configuration (artifact flow, lifecycle)
 	Iterate     *IterateConfig     `yaml:"iterate,omitempty"`   // Iteration over items
 	Branch      *BranchConfig      `yaml:"branch,omitempty"`    // Conditional branching
@@ -687,4 +710,33 @@ type PipelineOutput struct {
 	Step     string `yaml:"step"`            // Source step ID
 	Artifact string `yaml:"artifact"`        // Artifact name
 	Field    string `yaml:"field,omitempty"` // Optional JSON field extraction
+	// Type is the canonical I/O protocol type name for this output.
+	// Must resolve via internal/contract/schemas/shared (or be "string").
+	// Empty = "string". See docs/adr/010-pipeline-io-protocol.md.
+	Type string `yaml:"type,omitempty"`
+}
+
+// EffectiveType returns the declared I/O type for this output, defaulting
+// to "string" when untyped.
+func (o *PipelineOutput) EffectiveType() string {
+	if o == nil || o.Type == "" {
+		return "string"
+	}
+	return o.Type
+}
+
+// StepInput declares how a composition step's input is wired.
+//
+// Exactly one of From / Literal must be set.
+//
+//   - From:    "<step_id>.<output_name>" — resolves at runtime to the named
+//     pipeline_output of that prior step. Type must match the
+//     child pipeline's declared input type.
+//   - Literal: "<free text>"            — a static string (templates allowed).
+//
+// This replaces the legacy `input: "<string template>"` field on sub-pipeline
+// steps. The legacy field is still accepted for "string"-typed children.
+type StepInput struct {
+	From    string `yaml:"from,omitempty"`
+	Literal string `yaml:"literal,omitempty"`
 }

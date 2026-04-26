@@ -1272,7 +1272,11 @@ func createInitialCommit(w io.Writer, outputPath string) error {
 		return fmt.Errorf("failed to stage wave files: %w", err)
 	}
 
-	commit := exec.Command("git", "commit", "-m", "chore: initialize wave project")
+	// Explicitly disable commit signing for this invocation. If the user's
+	// global gpg config is broken (keyboxd issues) or misses a secret key,
+	// signing would fail and block cold-start onboarding. The initial
+	// Wave-managed commit should always land.
+	commit := exec.Command("git", "-c", "commit.gpgsign=false", "commit", "-m", "chore: initialize wave project")
 	commit.Stdout = io.Discard
 	commit.Stderr = io.Discard
 	if err := commit.Run(); err != nil {
@@ -1364,7 +1368,7 @@ func suggestFirstRun(w io.Writer, flavour *onboarding.FlavourInfo) {
 	}
 
 	// Flavour was detected so source files exist — suggest analysis over scaffolding.
-	fmt.Fprintf(w, "  Suggestion: Run 'wave run audit-dx' to analyze your codebase\n")
+	fmt.Fprintf(w, "  Suggestion: Run 'wave run audit-architecture' to analyze your codebase\n")
 }
 
 // runWizardInit runs the interactive onboarding wizard for first-time setup.

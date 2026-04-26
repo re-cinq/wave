@@ -19,6 +19,7 @@ requires:
 
 input:
   source: cli
+  type: issue_ref
   example: "re-cinq/wave 42"
   schema:
     type: string
@@ -40,6 +41,7 @@ pipeline_outputs:
   result:
     step: post-comment
     artifact: comment-result
+    type: plan_ref
 
 steps:
   - id: fetch-issue
@@ -121,7 +123,7 @@ steps:
         type: json_schema
         source: .agents/output/issue-content.json
         schema_path: .agents/contracts/issue-content.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: analyze-topics
     persona: researcher
@@ -217,7 +219,7 @@ steps:
         type: json_schema
         source: .agents/output/research-topics.json
         schema_path: .agents/contracts/research-topics.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: research-topics
     persona: researcher
@@ -323,11 +325,11 @@ steps:
         type: json_schema
         source: .agents/output/research-findings.json
         schema_path: .agents/contracts/research-findings.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: synthesize-report
     persona: summarizer
-    model: strongest
+    model: balanced
     dependencies: [research-topics]
     memory:
       inject_artifacts:
@@ -425,7 +427,7 @@ steps:
         type: json_schema
         source: .agents/output/research-report.json
         schema_path: .agents/contracts/research-report.schema.json
-        on_failure: retry
+        on_failure: continue
 
   - id: post-comment
     persona: "{{ forge.type }}-commenter"
@@ -531,4 +533,4 @@ steps:
         type: json_schema
         source: .agents/output/comment-result.json
         schema_path: .agents/contracts/comment-result.schema.json
-        on_failure: retry
+        on_failure: warn

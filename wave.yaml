@@ -7,7 +7,10 @@ metadata:
 project:
     language: go
     test_command: "go test ./..."
-    contract_test_command: "go test ./..."
+    # Disable gpgsign for test-suite sub-commits (e.g. worktree tests that
+    # call `git commit`). A broken user gpg/keyboxd config must not fail
+    # the test suite.
+    contract_test_command: "env GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null go test ./..."
     lint_command: "go vet ./..."
     build_command: "go build ./..."
     source_glob: "*.go"

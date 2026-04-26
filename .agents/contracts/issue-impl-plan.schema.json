@@ -1,52 +1,40 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Issue Implementation Plan",
+  "description": "Planning artifact produced by impl-issue / impl-issue-core before implementation. Flexible shape — supports both task-decomposed (id/title/description) and file-list shapes.",
   "type": "object",
-  "required": ["issue_number", "branch_name", "feature_dir", "tasks"],
+  "required": ["issue_number"],
+  "anyOf": [
+    {"required": ["branch_name"]},
+    {"required": ["branch"]}
+  ],
   "properties": {
-    "issue_number": {
-      "type": "integer",
-      "minimum": 1
-    },
-    "branch_name": {
-      "type": "string",
-      "minLength": 1
-    },
-    "feature_dir": {
-      "type": "string",
-      "description": "Path to the feature directory under specs/"
-    },
-    "spec_file": {
-      "type": "string",
-      "description": "Path to the spec.md file"
-    },
-    "plan_file": {
-      "type": "string",
-      "description": "Path to the plan.md file"
-    },
-    "tasks_file": {
-      "type": "string",
-      "description": "Path to the tasks.md file"
-    },
+    "issue_number": { "type": "integer", "minimum": 1 },
+    "branch_name": { "type": "string", "minLength": 1 },
+    "branch": { "type": "string", "minLength": 1 },
+    "repository": { "type": "string" },
+    "complexity": { "type": "string" },
+    "status": { "type": "string" },
+    "skipped_steps": { "type": "array", "items": { "type": "string" } },
+    "feature_dir": { "type": "string" },
+    "spec_file": { "type": "string" },
+    "spec_path": { "type": "string" },
+    "plan_file": { "type": "string" },
+    "plan_path": { "type": "string" },
+    "tasks_file": { "type": "string" },
+    "tasks_path": { "type": "string" },
+    "files_to_create": { "type": "array", "items": { "type": "string" } },
+    "files_to_modify": { "type": "array", "items": { "type": "string" } },
+    "files_to_delete": { "type": "array", "items": { "type": "string" } },
     "tasks": {
       "type": "array",
-      "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "title", "description"],
+        "required": ["id", "title"],
         "properties": {
-          "id": {
-            "type": "string",
-            "description": "Task identifier"
-          },
-          "title": {
-            "type": "string",
-            "description": "Brief task title"
-          },
-          "description": {
-            "type": "string",
-            "description": "Detailed task description"
-          },
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
           "file_changes": {
             "type": "array",
             "items": {
@@ -54,19 +42,13 @@
               "required": ["path", "action"],
               "properties": {
                 "path": { "type": "string" },
-                "action": {
-                  "type": "string",
-                  "enum": ["create", "modify", "delete"]
-                }
+                "action": { "type": "string", "enum": ["create", "modify", "delete"] }
               }
             }
           }
         }
       }
     },
-    "summary": {
-      "type": "string",
-      "description": "Brief summary of the implementation plan"
-    }
+    "summary": { "type": "string" }
   }
 }

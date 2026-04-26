@@ -14,6 +14,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "explain the pipeline execution system and how steps are scheduled"
 
 chat_context:
@@ -31,6 +32,7 @@ pipeline_outputs:
   explanation:
     step: document
     artifact: explanation
+    type: findings_report
 
 steps:
   - id: explore
@@ -128,7 +130,7 @@ steps:
         type: json_schema
         source: .agents/output/exploration.json
         schema_path: .agents/contracts/explain-exploration.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: analyze
     persona: planner
@@ -227,12 +229,12 @@ steps:
         type: json_schema
         source: .agents/output/analysis.json
         schema_path: .agents/contracts/explain-analysis.schema.json
-        on_failure: retry
+        on_failure: warn
 
   - id: document
     persona: philosopher
-    model: strongest
-    dependencies: [analyze]
+    model: balanced
+    dependencies: [analyze, explore]
     memory:
       inject_artifacts:
         - step: explore

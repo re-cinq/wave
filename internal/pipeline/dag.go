@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/recinq/wave/internal/skill"
 	"gopkg.in/yaml.v3"
@@ -34,6 +35,31 @@ func (l *YAMLPipelineLoader) Unmarshal(data []byte) (*Pipeline, error) {
 	}
 
 	applyPipelineDefaults(&pipeline)
+
+	// Type-check I/O protocol declarations (input.type, pipeline_outputs[*].type,
+	// step input_ref) against the shared schema registry. Catches misspelled
+	// type names before any step runs. See docs/adr/010-pipeline-io-protocol.md.
+	if err := ValidatePipelineIOTypes(&pipeline); err != nil {
+		return nil, err
+	}
+
+	// Cross-pipeline typed-wiring check: when a sub-pipeline step consumes a
+	// sibling output via input_ref.from, verify the source's declared output
+	// type matches the child pipeline's declared input type. The loader is
+	// nil here (no recursive child loading at top-level Unmarshal); the check
+	// only enforces shape and intra-pipeline rules. Cross-pipeline typing is
+	// enforced by SequenceExecutor when it actually loads the children.
+	if err := TypedWiringCheck(&pipeline, nil, ""); err != nil {
+		return nil, err
+	}
+
+	// Enforce Wave Lego Protocol (ADR-011) at load time. Rules 3 and 5 are
+	// hard errors: pipeline_outputs must declare types, and contract
+	// on_failure must be one of fail/skip/continue/rework/warn. Shipped
+	// pipelines have been migrated; fail fast on any drift.
+	if errs := CollectWLPLoadErrors(&pipeline); len(errs) > 0 {
+		return nil, fmt.Errorf("WLP validation failed: %s", strings.Join(errs, "; "))
+	}
 
 	return &pipeline, nil
 }

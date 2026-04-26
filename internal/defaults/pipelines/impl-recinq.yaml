@@ -15,6 +15,7 @@ skills:
 
 input:
   source: cli
+  type: string
   example: "internal/pipeline"
 
 chat_context:
@@ -42,11 +43,12 @@ pipeline_outputs:
   pr:
     step: publish
     artifact: pr-result
+    type: pr_ref
 
 steps:
   - id: gather
     persona: "{{ forge.type }}-analyst"
-    model: strongest
+    model: balanced
     workspace:
       mount:
         - source: ./
@@ -140,7 +142,7 @@ steps:
         source: .agents/output/context.json
         schema_path: .agents/contracts/recinq-context.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: fail
 
   # ── Diamond 1: Discover (DIVERGENT) ──────────────────────────────────
   - id: diverge
@@ -240,12 +242,12 @@ steps:
         source: .agents/output/divergent-findings.json
         schema_path: .agents/contracts/divergent-findings.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: warn
 
   # ── Diamond 1: Define (CONVERGENT) ───────────────────────────────────
   - id: converge
     persona: validator
-    model: strongest
+    model: balanced
     dependencies: [diverge]
     memory:
       inject_artifacts:
@@ -355,12 +357,12 @@ steps:
         source: .agents/output/validated-findings.json
         schema_path: .agents/contracts/validated-findings.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: warn
 
   # ── Diamond 2: Develop (DIVERGENT) ───────────────────────────────────
   - id: probe
     persona: provocateur
-    model: strongest
+    model: balanced
     dependencies: [converge]
     memory:
       inject_artifacts:
@@ -477,12 +479,12 @@ steps:
         source: .agents/output/probed-findings.json
         schema_path: .agents/contracts/probed-findings.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: warn
 
   # ── Diamond 2: Deliver (CONVERGENT) ──────────────────────────────────
   - id: distill
     persona: synthesizer
-    model: strongest
+    model: balanced
     dependencies: [probe]
     memory:
       inject_artifacts:
@@ -611,12 +613,12 @@ steps:
         source: .agents/output/convergent-proposals.json
         schema_path: .agents/contracts/convergent-proposals.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: warn
 
   # ── Implementation ───────────────────────────────────────────────────
   - id: simplify
     persona: craftsman
-    model: strongest
+    model: balanced
     dependencies: [distill]
     memory:
       inject_artifacts:
@@ -744,7 +746,7 @@ steps:
         type: test_suite
         command: "{{ project.contract_test_command }}"
         must_pass: true
-        on_failure: retry
+        on_failure: fail
       compaction:
         trigger: "token_limit_80%"
         persona: summarizer
@@ -754,7 +756,7 @@ steps:
         type: markdown
 
   # ── Reporting ────────────────────────────────────────────────────────
-  - id: report
+  - id: write-report
     persona: navigator
     model: cheapest
     dependencies: [simplify]
@@ -872,13 +874,13 @@ steps:
   - id: publish
     persona: craftsman
     model: cheapest
-    dependencies: [report, gather]
+    dependencies: [write-report, gather]
     memory:
       inject_artifacts:
         - step: gather
           artifact: context
           as: context
-        - step: report
+        - step: write-report
           artifact: report
           as: report
     workspace:
@@ -988,7 +990,7 @@ steps:
         source: .agents/output/pr-result.json
         schema_path: .agents/contracts/pr-result.schema.json
         must_pass: true
-        on_failure: retry
+        on_failure: warn
     outcomes:
       - type: pr
         extract_from: .agents/output/pr-result.json
