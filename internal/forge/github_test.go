@@ -161,24 +161,31 @@ func TestConvertGitHubPR_NilHeadBase(t *testing.T) {
 }
 
 func TestGitHubClient_ForgeType(t *testing.T) {
-	client := NewGitHubClient(github.NewClient(github.ClientConfig{Token: "test"}))
+	client, err := NewGitHubClient(github.NewClient(github.ClientConfig{Token: "test"}))
+	if err != nil {
+		t.Fatalf("NewGitHubClient: %v", err)
+	}
 	if client.ForgeType() != ForgeGitHub {
 		t.Errorf("ForgeType() = %v, want %v", client.ForgeType(), ForgeGitHub)
 	}
 }
 
-func TestNewGitHubClient_NilPanics(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("expected panic for nil client")
-		}
-	}()
-	NewGitHubClient(nil)
+func TestNewGitHubClient_NilReturnsError(t *testing.T) {
+	client, err := NewGitHubClient(nil)
+	if err == nil {
+		t.Fatal("expected error for nil client")
+	}
+	if client != nil {
+		t.Fatal("expected nil client when error returned")
+	}
 }
 
 func TestGitHubClient_UnwrapGitHub(t *testing.T) {
 	ghClient := &github.Client{}
-	client := NewGitHubClient(ghClient)
+	client, err := NewGitHubClient(ghClient)
+	if err != nil {
+		t.Fatalf("NewGitHubClient: %v", err)
+	}
 	if client.UnwrapGitHub() != ghClient {
 		t.Error("UnwrapGitHub() should return the underlying client")
 	}

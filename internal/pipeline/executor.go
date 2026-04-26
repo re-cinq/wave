@@ -1805,7 +1805,12 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		stepCtx := ctx
 		var watchdog *StallWatchdog
 		if stallTimeout := e.parseStallTimeout(execution.Manifest); stallTimeout > 0 {
-			watchdog = NewStallWatchdog(stallTimeout)
+			w, err := NewStallWatchdog(stallTimeout)
+			if err != nil {
+				cancelTicker()
+				return fmt.Errorf("step %s: stall watchdog setup: %w", step.ID, err)
+			}
+			watchdog = w
 			stepCtx = watchdog.Start(stepCtx)
 		}
 

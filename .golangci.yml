@@ -8,10 +8,20 @@ linters:
     - gocritic
     - nolintlint
     - depguard
+    - forbidigo
   settings:
     nolintlint:
       require-explanation: true
       require-specific: true
+    forbidigo:
+      forbid:
+        # Library code must not panic. Constructors and validators in
+        # internal/ must return errors instead. Allowlist with
+        # //nolint:forbidigo and a justification when truly unreachable
+        # (e.g. embedded FS init guards).
+        - pattern: '^panic$'
+          msg: "library code must return errors instead of panicking (issue #1294)"
+      analyze-types: false
     depguard:
       rules:
         # Rule 1: Domain and Infrastructure packages must not import Presentation packages.
@@ -87,6 +97,12 @@ linters:
       - comments
       - std-error-handling
     rules:
+      # forbidigo panic-rule scope: only library code under internal/ is policed.
+      # Tests, cmd/, and anything outside internal/ are exempt.
+      - linters: [forbidigo]
+        path: '_test\.go$'
+      - linters: [forbidigo]
+        path-except: '^internal/'
       # Non-blocking fire-and-forget hook calls — errors are intentionally ignored
       # because hooks must never block pipeline execution.
       - linters: [errcheck]

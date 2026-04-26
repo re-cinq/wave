@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -157,7 +158,10 @@ func RunTUI(deps LaunchDependencies) error {
 	}
 	if repoSlug != "" {
 		forgeInfo, _ := forge.DetectFromGitRemotes()
-		forgeClient := forge.NewClient(forgeInfo)
+		forgeClient, err := forge.NewClient(forgeInfo)
+		if err != nil {
+			log.Printf("[tui] forge client init failed: %v", err)
+		}
 		if forgeClient != nil {
 			cp.IssueProvider = NewDefaultIssueDataProvider(forgeClient, repoSlug)
 			cp.PRProvider = NewDefaultPRDataProvider(forgeClient, repoSlug)

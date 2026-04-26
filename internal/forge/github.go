@@ -2,6 +2,7 @@ package forge
 
 import (
 	"context"
+	"errors"
 
 	"github.com/recinq/wave/internal/github"
 )
@@ -11,12 +12,13 @@ type GitHubClient struct {
 	client *github.Client
 }
 
-// NewGitHubClient wraps an existing github.Client. Panics if client is nil.
-func NewGitHubClient(client *github.Client) *GitHubClient {
+// NewGitHubClient wraps an existing github.Client. Returns an error if
+// client is nil.
+func NewGitHubClient(client *github.Client) (*GitHubClient, error) {
 	if client == nil {
-		panic("forge: NewGitHubClient called with nil github.Client")
+		return nil, errors.New("forge: NewGitHubClient called with nil github.Client")
 	}
-	return &GitHubClient{client: client}
+	return &GitHubClient{client: client}, nil
 }
 
 // UnwrapGitHub returns the underlying *github.Client for GitHub-specific operations.

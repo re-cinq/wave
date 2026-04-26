@@ -6,8 +6,17 @@ import (
 	"time"
 )
 
+func newWatchdog(t *testing.T, timeout time.Duration) *StallWatchdog {
+	t.Helper()
+	wd, err := NewStallWatchdog(timeout)
+	if err != nil {
+		t.Fatalf("NewStallWatchdog: %v", err)
+	}
+	return wd
+}
+
 func TestStallWatchdog_ActivityPreventsCancel(t *testing.T) {
-	wd := NewStallWatchdog(100 * time.Millisecond)
+	wd := newWatchdog(t, 100*time.Millisecond)
 	ctx := wd.Start(context.Background())
 	defer wd.Stop()
 
@@ -27,7 +36,7 @@ func TestStallWatchdog_ActivityPreventsCancel(t *testing.T) {
 }
 
 func TestStallWatchdog_SilenceCancels(t *testing.T) {
-	wd := NewStallWatchdog(50 * time.Millisecond)
+	wd := newWatchdog(t, 50*time.Millisecond)
 	ctx := wd.Start(context.Background())
 	defer wd.Stop()
 
@@ -39,7 +48,7 @@ func TestStallWatchdog_SilenceCancels(t *testing.T) {
 }
 
 func TestStallWatchdog_ReadOnlyLoopCancels(t *testing.T) {
-	wd := NewStallWatchdog(100 * time.Millisecond)
+	wd := newWatchdog(t, 100*time.Millisecond)
 	ctx := wd.Start(context.Background())
 	defer wd.Stop()
 
@@ -65,7 +74,7 @@ func TestStallWatchdog_ReadOnlyLoopCancels(t *testing.T) {
 }
 
 func TestStallWatchdog_WriteProgressPreventsCancel(t *testing.T) {
-	wd := NewStallWatchdog(100 * time.Millisecond)
+	wd := newWatchdog(t, 100*time.Millisecond)
 	ctx := wd.Start(context.Background())
 	defer wd.Stop()
 
@@ -79,6 +88,26 @@ func TestStallWatchdog_WriteProgressPreventsCancel(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal("context cancelled despite write progress")
 	default:
+	}
+}
+
+func TestNewStallWatchdog_InvalidTimeout(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		timeout time.Duration
+	}{
+		{"zero", 0},
+		{"negative", -time.Second},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wd, err := NewStallWatchdog(tc.timeout)
+			if err == nil {
+				t.Fatal("expected error for invalid timeout")
+			}
+			if wd != nil {
+				t.Fatal("expected nil watchdog when error returned")
+			}
+		})
 	}
 }
 

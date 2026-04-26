@@ -145,9 +145,15 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		log.Printf("[webui] failed to initialize workspace manager: %v", err)
 	}
 
-	// Detect forge and initialize client
+	// Detect forge and initialize client. A non-nil error here means
+	// construction itself failed; treat the client as unconfigured and log
+	// so the dashboard still renders.
 	forgeInfo, _ := forge.DetectFromGitRemotes()
-	forgeClient := forge.NewClient(forgeInfo)
+	forgeClient, err := forge.NewClient(forgeInfo)
+	if err != nil {
+		log.Printf("[webui] forge client init failed: %v", err)
+		forgeClient = nil
+	}
 	repoSlug := forgeInfo.Slug()
 
 	// Resolve git repo root for safe subprocess execution
