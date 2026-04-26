@@ -6,19 +6,33 @@ The Wave contract system provides deterministic output guarantees for AI-powered
 
 ## Architecture
 
+Files are organized **by contract type**: each type owns its validate, recover,
+and judge code. Operation-grouped helpers live next to the type they belong to.
+Cross-cutting infrastructure (dispatcher, retry, formatter) sits at the root.
+
 ```
 contract/
-├── contract.go           # Core validation infrastructure
-├── quality_gate.go       # Quality gate validation framework
-├── retry_strategy.go     # Adaptive retry with failure classification
-├── format_validator.go   # Production-ready format enforcement
-├── template.go           # Structured template validation
-├── verification.go       # Automated verification checks
-├── rollback.go           # State management and rollback
-├── jsonschema.go         # JSON Schema validator
-├── typescript.go         # TypeScript interface validator
-├── testsuite.go          # Test suite executor
-└── markdownspec.go       # Markdown structure validator
+├── contract.go                    # Dispatcher + ContractConfig (cross-cutting)
+├── retry_strategy.go              # Adaptive retry with failure classification (cross-cutting)
+├── validation_error_formatter.go  # Shared error rendering (cross-cutting)
+├── doc.go                         # Package docs
+│
+├── jsonschema.go                  # JSON Schema validator
+├── jsonschema_recovery.go         # JSON recovery from non-conformant output
+├── jsonschema_cleaner.go          # JSON extraction / cleaning helpers
+├── jsonschema_wrapper.go          # Error-wrapper detection for JSON payloads
+├── jsonschema_input.go            # Input-artifact validation (depends on jsonschema/v6)
+│
+├── format.go                      # Format / structural validator
+├── markdownspec.go                # Markdown structure validator
+├── typescript.go                  # TypeScript interface validator
+├── testsuite.go                   # Test suite executor
+├── source_diff.go                 # Source-diff validator
+├── spec_derived.go                # Spec-derived validator
+├── non_empty_file.go              # Non-empty-file validator
+├── event_contains.go              # Event-contains validator
+├── agent_review.go                # Agent-review validator
+└── llm_judge.go                   # LLM-as-judge validator
 ```
 
 ## Key Components
@@ -291,7 +305,7 @@ go test -cover ./internal/contract/...
 ## Examples
 
 See:
-- `format_validator_test.go` - Format validation examples
+- `format_test.go` - Format validation examples
 - `rollback_test.go` - Rollback mechanism examples
 
 ## Input Artifact Validation
