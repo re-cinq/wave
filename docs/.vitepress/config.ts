@@ -26,15 +26,25 @@ export default withMermaid(
 
     srcExclude: ['future/**', '.archive/**'],
 
-    // Disable Vue mustache interpolation in markdown content. Wave docs
-    // contain literal Wave template syntax (e.g. `{{ step.out.<name> }}`)
-    // that must not be parsed as Vue expressions. Re-route Vue to alternate
-    // delimiters that never appear in the docs.
-    vue: {
-      template: {
-        compilerOptions: {
-          delimiters: ['[[[', ']]]']
-        }
+    // Wave docs reference Wave template syntax (e.g. `{{ step.out.<name> }}`)
+    // throughout. VitePress runs the rendered markdown HTML through Vue's
+    // SFC compiler, which treats `{{ }}` as expression interpolation. Escape
+    // every mustache in markdown content to HTML entities so Vue never sees
+    // them as expressions; theme `.vue` files are unaffected.
+    markdown: {
+      config: (md) => {
+        const escape = (s: string) =>
+          s.replace(/\{\{/g, '&#123;&#123;').replace(/\}\}/g, '&#125;&#125;')
+        const wrap = (orig: any) =>
+          function (this: any, tokens: any[], idx: number, options: any, env: any, self: any) {
+            const out = orig.call(this, tokens, idx, options, env, self)
+            return escape(out)
+          }
+        const rules: any = md.renderer.rules
+        ;['text', 'code_inline', 'fence', 'code_block', 'html_block', 'html_inline'].forEach((rule) => {
+          const prev = rules[rule] || md.renderer.renderToken.bind(md.renderer)
+          rules[rule] = wrap(prev)
+        })
       }
     },
 
