@@ -464,6 +464,11 @@ func runRun(opts RunOptions, debug bool) error {
 		execOpts = append(execOpts, pipeline.WithForceModel(true))
 	}
 	registry := adapter.NewAdapterRegistry(nil)
+	for name, a := range m.Adapters {
+		if a.Binary != "" {
+			registry.SetBinary(name, a.Binary)
+		}
+	}
 	if opts.Mock {
 		registry.RegisterOverride("mock", runner)
 		registry.RegisterOverride("claude", runner)

@@ -1,4 +1,4 @@
-You are implementing a feature according to the specification, plan, and task breakdown.
+You are implementing a feature according to the specification, plan, and work breakdown.
 
 Feature context: {{ input }}
 
@@ -25,25 +25,25 @@ Follow the `/speckit.implement` workflow:
    **Integration**: Database connections, middleware, logging, external services
    **Polish**: Unit tests, performance optimization, documentation
 
-6. For each completed task, mark it as `[X]` in tasks.md
+6. For each completed work item, mark it as `[X]` in tasks.md
 7. Run `{{ project.test_command }}` after each phase to catch regressions early
 8. Final validation: verify all tasks complete, tests pass, spec requirements met
 
-## Agent Usage
+## Parallelism
 
-Maximize parallelism with up to 6 Task agents for independent work:
-- Agents 1-2: Setup and foundational tasks (Phase 1-2)
-- Agents 3-4: Core implementation tasks (parallelizable [P] tasks)
-- Agent 5: Test writing and validation
-- Agent 6: Integration and polish tasks
+Maximize parallelism by working on independent items in batches:
+- Batch 1-2: Setup and foundational items (Phase 1-2)
+- Batch 3-4: Core implementation items (parallelizable [P] items)
+- Batch 5: Test writing and validation
+- Batch 6: Integration and polish items
 
-Coordinate agents to respect task dependencies:
-- Sequential tasks (no [P] marker) must complete before dependents start
-- Parallel tasks [P] affecting different files can run simultaneously
+Respect inter-item dependencies:
+- Sequential items (no [P] marker) must complete before dependents start
+- Parallel items [P] affecting different files can be batched together
 - Run test validation between phases
 
 ## Error Handling
 
-- If a task fails, halt dependent tasks but continue independent ones
+- If a work item fails, halt dependent items but continue independent ones
 - Provide clear error context for debugging
 - If tests fail, fix the issue before proceeding to the next phase

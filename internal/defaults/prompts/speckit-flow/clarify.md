@@ -25,8 +25,8 @@ Follow the `/speckit.clarify` workflow:
 
 ## CONSTRAINTS
 
-- Do NOT spawn Task subagents — work directly in the main context
-- Do NOT use WebSearch — all clarifications should be resolved from codebase
+- Do NOT spawn sub-agents — work directly in the main context
+- Do NOT browse the web — all clarifications should be resolved from codebase
   context and the existing spec. The specify step already did the research.
 - Keep the scope tight: only fix genuine ambiguities, don't redesign the spec
 

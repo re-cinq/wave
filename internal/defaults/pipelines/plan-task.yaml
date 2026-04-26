@@ -46,17 +46,17 @@ steps:
       type: prompt
       source: |
         OBJECTIVE:
-        Explore the codebase to gather comprehensive context for a feature or task,
+        Explore the codebase to gather comprehensive context for a feature or work item,
         producing a structured JSON exploration report that a planner persona will use
-        (without any other context) to break the work into actionable implementation tasks.
+        (without any other context) to break the work into actionable implementation steps.
 
-        FEATURE/TASK: {{ input }}
+        FEATURE/WORK ITEM: {{ input }}
 
         CONTEXT:
-        You are the first step in a three-step task planning pipeline (explore, breakdown,
+        You are the first step in a three-step planning pipeline (explore, breakdown,
         review). Your exploration output is the ONLY context the planner will have. If you
         miss a relevant file, pattern, or risk, the planner will produce an incomplete or
-        incorrect task breakdown. Thoroughness here prevents rework later. You have
+        incorrect breakdown. Thoroughness here prevents rework later. You have
         read-only access to the full project codebase.
 
         REQUIREMENTS:
@@ -109,7 +109,7 @@ steps:
         - Do NOT fabricate file paths. Every path must be verified via Glob or Read.
         - Do NOT perform shallow exploration. If you examine fewer than 10 files, the
           planner will not have enough context. Read primary files in full.
-        - Do NOT ignore test files. Testing context is critical for task planning.
+        - Do NOT ignore test files. Testing context is critical for planning.
         - Do NOT assess risks generically. Every risk must be specific to this feature
           and this codebase, referencing actual files or patterns.
         - CRITICAL: Write ONLY the JSON object to the output file. No markdown wrapping,
@@ -123,10 +123,10 @@ steps:
         risks (array), and timestamp.
 
         QUALITY BAR:
-        A good exploration enables the planner to create tasks without needing to re-explore
+        A good exploration enables the planner to create work items without needing to re-explore
         the codebase. Every file path is real, every pattern has an example, and every risk
         is specific. A bad exploration is shallow (few files), misses critical patterns, or
-        fabricates file paths the planner will reference in tasks that turn out to be wrong.
+        fabricates file paths the planner will reference in items that turn out to be wrong.
     output_artifacts:
       - name: exploration
         path: .agents/output/exploration.json
@@ -157,85 +157,85 @@ steps:
       type: prompt
       source: |
         OBJECTIVE:
-        Break down a feature request into actionable, ordered implementation tasks with
+        Break down a feature request into actionable, ordered implementation work items with
         dependencies, complexity estimates, persona assignments, and acceptance criteria.
-        The task list must be detailed enough that each task can be handed to an agent or
+        The work breakdown must be detailed enough that each item can be handed to an agent or
         developer for independent execution.
 
         FEATURE REQUEST: {{ input }}
 
         CONTEXT:
-        You are the second step in a three-step task planning pipeline. The explore step
+        You are the second step in a three-step planning pipeline. The explore step
         has already analyzed the codebase and injected its findings as the "context"
         artifact. This contains: related files with relevance ratings, codebase patterns
         with enforcement levels, affected modules with dependency maps, testing landscape
         with coverage gaps, and identified risks with severities. You MUST read this
-        artifact completely and use ALL of its information to inform your task breakdown.
+        artifact completely and use ALL of its information to inform your work breakdown.
         Do not re-explore the codebase; trust the exploration output.
 
         REQUIREMENTS:
         1. Read the injected context artifact. Extract the scope assessment, related files,
            patterns (especially must_follow patterns), and risks.
-        2. Create tasks following these rules:
-           a. Task IDs: Use T01, T02, T03... format (zero-padded two digits). Maximum 20
-              tasks. If the feature needs more, you are scoping too finely.
-           b. Persona assignment: Assign each task to the most appropriate persona:
+        2. Create work items following these rules:
+           a. Item IDs: Use T01, T02, T03... format (zero-padded two digits). Maximum 20
+              items. If the feature needs more, you are scoping too finely.
+           b. Persona assignment: Assign each item to the most appropriate persona:
               - navigator: architecture decisions, exploration, planning, design documents
               - craftsman: implementation, coding, file creation, complex changes
               - philosopher: review, analysis, quality assessment, trade-off evaluation
               - auditor: security review, compliance checking, vulnerability assessment
-              - implementer: focused implementation tasks, mechanical code changes
+              - implementer: focused implementation work, mechanical code changes
               - reviewer: code review, test verification, documentation review
-           c. Dependencies: Express as task ID arrays (e.g., ["T01", "T02"]). A task with
+           c. Dependencies: Express as item ID arrays (e.g., ["T01", "T02"]). An item with
               no dependencies gets an empty array []. Dependencies must be acyclic.
            d. Complexity: S (<1hr), M (1-4hr), L (4-8hr), XL (>1 day). Justify the
               estimate based on file count and change type.
-           e. Acceptance criteria: Each task MUST have at least 2 concrete, verifiable
+           e. Acceptance criteria: Each item MUST have at least 2 concrete, verifiable
               criteria. Criteria must be testable: "function X returns error when input
               is nil" not "error handling works." Reference specific functions or files
               from the exploration where possible.
-           f. Affected files: List every file each task will create or modify. Use exact
+           f. Affected files: List every file each item will create or modify. Use exact
               paths from the exploration artifact. Mark each as "create", "modify", or
               "delete".
-           g. Risk references: If the exploration identified a risk relevant to this task,
+           g. Risk references: If the exploration identified a risk relevant to an item,
               reference it by RISK-### ID.
-        3. Group tasks into execution phases:
-           - Phase 1: tasks with no dependencies (can run in parallel)
-           - Phase 2: tasks that depend only on Phase 1 tasks
-           - Phase N: tasks that depend on Phase N-1 or earlier
-           Tasks within the same phase can run in parallel. The phase ordering must
+        3. Group items into execution phases:
+           - Phase 1: items with no dependencies (can run in parallel)
+           - Phase 2: items that depend only on Phase 1 items
+           - Phase N: items that depend on Phase N-1 or earlier
+           Items within the same phase can run in parallel. The phase ordering must
            respect all dependency edges.
         4. Include a feature_summary field with: title, description (2-3 sentences),
-           total_tasks, total_phases, and estimated_total_effort (sum of task estimates).
+           total_tasks, total_phases, and estimated_total_effort (sum of item estimates).
         5. For each must_follow pattern from the exploration, verify that at least one
-           task's acceptance criteria ensures compliance with that pattern.
+           item's acceptance criteria ensures compliance with that pattern.
 
         CONSTRAINTS AND ANTI-PATTERNS:
-        - Do NOT create tasks that are not grounded in the exploration. Every affected
+        - Do NOT create items that are not grounded in the exploration. Every affected
           file should come from the exploration's related_files list.
-        - Do NOT create circular dependencies. The task graph must be a DAG.
-        - Do NOT create tasks without acceptance criteria. Tasks without verifiable
+        - Do NOT create circular dependencies. The item graph must be a DAG.
+        - Do NOT create items without acceptance criteria. Items without verifiable
           criteria cannot be marked as complete.
-        - Do NOT assign all tasks to "craftsman." Use the persona that best fits the
-          task's nature. Architecture decisions go to navigator, reviews to philosopher.
-        - Do NOT create a single monolithic "implement everything" task. Break work into
+        - Do NOT assign all items to "craftsman." Use the persona that best fits the
+          item's nature. Architecture decisions go to navigator, reviews to philosopher.
+        - Do NOT create a single monolithic "implement everything" item. Break work into
           units that are independently verifiable.
-        - Do NOT ignore testing tasks. At minimum, one task should cover writing or
+        - Do NOT ignore testing items. At minimum, one item should cover writing or
           updating tests for the feature.
-        - CRITICAL: Write ONLY the JSON object to the output file. No markdown wrapping,
+        - CRITICAL: Save ONLY the JSON object to the output file. No markdown wrapping,
           no explanation outside the file. The file must parse as valid JSON.
 
         OUTPUT FORMAT:
         Produce structured JSON matching the plan-tasks contract schema.
-        Top-level fields: feature_summary (object), tasks (array of task objects), phases
-        (array of phase objects with task_ids), and timestamp.
+        Top-level fields: feature_summary (object), tasks (array of work-item objects),
+        phases (array of phase objects with task_ids), and timestamp.
 
         QUALITY BAR:
-        A good task breakdown is one where each task can be handed to a different developer
+        A good work breakdown is one where each item can be handed to a different developer
         (or agent) and executed independently, with clear acceptance criteria that leave no
-        ambiguity about when the task is done. The dependency graph should have maximum
+        ambiguity about when the item is done. The dependency graph should have maximum
         parallelism (wide phases) without sacrificing correctness. A bad breakdown has
-        vague tasks, missing dependencies, unreferenced files, or a linear chain where
+        vague items, missing dependencies, unreferenced files, or a linear chain where
         parallel execution was possible.
     output_artifacts:
       - name: tasks
@@ -270,66 +270,66 @@ steps:
       type: prompt
       source: |
         OBJECTIVE:
-        Review the task breakdown plan for quality, completeness, and correctness, producing
-        a structured review report with per-task assessments, cross-cutting concern analysis,
+        Review the work breakdown plan for quality, completeness, and correctness, producing
+        a structured review report with per-item assessments, cross-cutting concern analysis,
         actionable recommendations, and an overall verdict. The review should catch problems
         before implementation begins.
 
         FEATURE REQUEST: {{ input }}
 
         CONTEXT:
-        You are the third and final step in the task planning pipeline. Two artifacts are
+        You are the third and final step in the planning pipeline. Two artifacts are
         injected into your workspace:
         - context: the codebase exploration from the explore step, containing related files,
           patterns (with must_follow/should_follow levels), affected modules, testing
           landscape, and risks
-        - task_list: the task breakdown from the breakdown step, containing feature summary,
-          tasks with dependencies and acceptance criteria, and execution phases
+        - task_list: the work breakdown from the breakdown step, containing feature summary,
+          items with dependencies and acceptance criteria, and execution phases
         Read BOTH artifacts completely before starting your review. Your review is the
         quality gate: if the plan has problems, you must catch them here before implementation
         resources are spent on a flawed plan.
 
         REQUIREMENTS:
-        1. Per-task review: For EACH task in the plan, evaluate and assign a status:
-           - ok: task is well-defined and ready to execute
+        1. Per-item review: For EACH item in the plan, evaluate and assign a status:
+           - ok: item is well-defined and ready to execute
            - needs_refinement: good idea but description or criteria need more specificity
            - missing_details: lacks acceptance criteria, affected files, or dependencies
-           - overcomplicated: should be split into smaller tasks or simplified
+           - overcomplicated: should be split into smaller items or simplified
            - wrong_persona: a different persona would be more appropriate for this work
            - bad_dependencies: dependencies are incorrect, missing, or create a cycle
            For each issue found, create a review item with:
            - id: REV-### format
-           - task_id: which task this applies to
+           - task_id: which work item this applies to
            - severity: critical (blocks execution), major (significant quality issue),
              minor (improvement opportunity)
            - status: one of the statuses above
            - description: what the problem is
            - suggestion: specific fix (not vague advice)
-        2. Cross-cutting concerns: Look for concerns that span multiple tasks. For each
-           concern found, create an item with CC-### ID:
+        2. Cross-cutting concerns: Look for concerns that span multiple items. For each
+           concern found, create an entry with CC-### ID:
            - Testing strategy: Are tests planned? Do they follow codebase patterns
-             identified in the exploration (check must_follow patterns)? Is there a
-             task for integration testing?
+             identified in the exploration (check must_follow patterns)? Is there an
+             item for integration testing?
            - Security: If the exploration identified security risks, are they addressed
-             in task acceptance criteria?
-           - Performance: If the feature could affect performance, is there a task for
+             in item acceptance criteria?
+           - Performance: If the feature could affect performance, is there an item for
              benchmarking or performance testing?
            - Backward compatibility: If the feature changes APIs or behavior, is there
-             a migration or deprecation task?
+             a migration or deprecation item?
            - Documentation: If the feature adds new user-facing behavior, is there a
-             documentation task?
+             documentation item?
         3. Recommendations: Provide actionable recommendations with REC-### IDs. Each
            recommendation must have:
            - type: add_task, modify_task, remove_task, reorder, split_task, merge_tasks,
              change_persona, or add_dependency
-           - target: which task ID(s) this applies to (or "plan" for plan-level changes)
+           - target: which item ID(s) this applies to (or "plan" for plan-level changes)
            - description: what to do and why
            - priority: must_do (plan is flawed without this), should_do (improves quality),
              nice_to_have (marginal improvement)
         4. Dependency graph validation: Verify that:
            - No circular dependencies exist
            - Phase assignments are correct (all dependencies in earlier phases)
-           - Maximum parallelism is achieved (tasks that could run in parallel are in
+           - Maximum parallelism is achieved (items that could run in parallel are in
              the same phase)
         5. Overall verdict: After completing all reviews, provide exactly one verdict:
            - approve: plan is ready to execute as-is (no critical or major issues)
@@ -343,19 +343,19 @@ steps:
         - Do NOT rubber-stamp the plan. Review critically. If the plan is perfect, say so
           with specific reasons. But assume the plan has at least some room for improvement.
         - Do NOT invent issues that are not supported by the exploration context. If the
-          exploration did not find a security risk, do not flag "missing security task"
+          exploration did not find a security risk, do not flag "missing security item"
           as a cross-cutting concern.
-        - Do NOT provide vague recommendations. "Improve task T03" is unacceptable;
+        - Do NOT provide vague recommendations. "Improve item T03" is unacceptable;
           "Split T03 into T03a (add the interface) and T03b (implement the adapter)
           because the current scope covers two distinct deliverables" is correct.
         - Do NOT ignore the exploration's must_follow patterns. Each one should be
-          traceable to at least one task's acceptance criteria.
-        - CRITICAL: Write ONLY the JSON object to the output file. No markdown wrapping,
+          traceable to at least one item's acceptance criteria.
+        - CRITICAL: Save ONLY the JSON object to the output file. No markdown wrapping,
           no explanation outside the file. The file must parse as valid JSON.
 
         OUTPUT FORMAT:
         Produce structured JSON matching the plan-review contract
-        schema. Top-level fields: feature_request (string), task_reviews (array of per-task
+        schema. Top-level fields: feature_request (string), task_reviews (array of per-item
         review objects), cross_cutting_concerns (array), recommendations (array), dependency_validation
         (object with is_valid boolean and issues array), verdict (object with decision,
         confidence, and rationale), and timestamp.

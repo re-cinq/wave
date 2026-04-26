@@ -1,0 +1,65 @@
+kind: WavePipeline
+metadata:
+  name: local-test-gen
+  description: >-
+    Generate a Go table-driven test stub for a single function in a single
+    file. Local-Ollama-friendly: read one source file, emit one _test.go file.
+    No external dependencies, no mocks.
+  release: false
+
+input:
+  source: cli
+  example: "internal/ontology/service.go:NewService"
+  schema:
+    type: string
+    description: "Path:FuncName — file path and function name to test"
+
+pipeline_outputs:
+  test_file:
+    step: generate
+    artifact: test_file
+    type: string
+
+steps:
+  - id: generate
+    persona: implementer
+    model: cheapest
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Target: {{ input }}
+
+        The input is `<file_path>:<func_name>`. Read the file. Find the function.
+        Look at its signature, parameters, and return values.
+
+        Generate a Go table-driven test for that function and write it to
+        `generated_test.go` in the workspace root.
+
+        Requirements:
+        - Standard library only. No third-party deps.
+        - Table-driven shape: `tests := []struct{ name string; ...; want ... }{...}`
+        - Use `t.Run(tt.name, func(t *testing.T) { ... })`.
+        - At least 2 cases: happy path + edge case.
+        - Use `t.TempDir()` if the function touches the filesystem.
+        - The test file must compile. If you can't determine an input, use the
+          zero value and document why in a comment.
+
+        Output ONLY the .go file via the Write tool. No markdown, no preamble.
+        The file must start with `package <pkg>_test` matching the source.
+    output_artifacts:
+      - name: test_file
+        path: generated_test.go
+        type: text
+    handover:
+      contract:
+        type: non_empty_file
+        source: generated_test.go
+        on_failure: fail
+    retry:
+      policy: standard
+      max_attempts: 2

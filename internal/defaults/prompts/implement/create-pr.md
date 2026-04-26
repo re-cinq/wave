@@ -121,7 +121,7 @@ operation — if it fails, the {{ forge.pr_term }} is still created successfully
 
 ## CONSTRAINTS
 
-- Do NOT spawn Task subagents — work directly in the main context
+- Do NOT spawn sub-agents — work directly in the main context
 - Do NOT run `git checkout`, `git stash`, or any branch-switching commands
 - The {{ forge.pr_term }} description MUST contain `Related to #<NUMBER>` to link to the issue
 - Do NOT include Co-Authored-By or AI attribution in commits

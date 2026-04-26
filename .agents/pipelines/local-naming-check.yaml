@@ -1,0 +1,69 @@
+kind: WavePipeline
+metadata:
+  name: local-naming-check
+  description: >-
+    Scan a Go package or directory for naming inconsistencies against the
+    project convention (snake_case files, exported PascalCase, lowercase
+    package). Local-Ollama-friendly: single step, narrow scope, JSON list.
+  release: false
+
+input:
+  source: cli
+  example: "internal/ontology"
+  schema:
+    type: string
+    description: "Package or directory to scan"
+
+pipeline_outputs:
+  findings:
+    step: scan
+    artifact: findings
+    type: string
+
+steps:
+  - id: scan
+    persona: implementer
+    model: cheapest
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        Scan the Go directory: {{ input }}
+
+        Use Glob to list `.go` files. Use Read on each. Look for naming issues
+        AGAINST these rules:
+
+        1. File names: lowercase, snake_case (no dashes, no PascalCase).
+        2. Exported identifiers (start with capital) must be documented with a
+           leading comment beginning with the identifier name.
+        3. Package name must be a single lowercase word matching the directory.
+        4. No stuttering (e.g. `ontology.OntologyService` is wrong; should be
+           `ontology.Service`).
+
+        Write a JSON file `findings.json` in the workspace root:
+        {
+          "scanned_dir": "<input>",
+          "findings": [
+            {"file": "...", "line": 0, "rule": "1|2|3|4", "issue": "<short>", "suggestion": "<short>"}
+          ]
+        }
+
+        Output ONLY the JSON object. No markdown, no preamble.
+        Use the Write tool. Empty findings array is OK if the dir is clean.
+    output_artifacts:
+      - name: findings
+        path: findings.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: findings.json
+        schema_path: .agents/contracts/local-naming-check.schema.json
+        on_failure: fail
+    retry:
+      policy: standard
+      max_attempts: 2

@@ -248,7 +248,7 @@ steps:
         An excellent deep-dive eliminates at least 30% of scan findings as false
         positives and provides exploit-quality analysis for confirmed vulnerabilities.
         The data flow traces should be precise enough that a security engineer could
-        write a proof-of-concept exploit from them. Vague analysis or unverified
+        develop a proof-of-concept exploit from them. Vague analysis or unverified
         confirmations fail the quality bar.
     output_artifacts:
       - name: deep_dive

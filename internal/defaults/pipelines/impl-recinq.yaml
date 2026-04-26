@@ -317,7 +317,7 @@ steps:
              wrong, or the finding misunderstands the code's purpose. Explain what the
              provocateur got wrong.
 
-        5. **Write a detailed explanation**: For every classification, explain WHY you
+        5. **Provide a detailed explanation**: For every classification, explain WHY you
            reached that conclusion. For rejections, be specific about what evidence
            contradicts the finding. For confirmations, note whether the finding understates
            or overstates the opportunity.
@@ -757,7 +757,7 @@ steps:
 
   # ── Reporting ────────────────────────────────────────────────────────
   - id: write-report
-    persona: navigator
+    persona: craftsman
     model: cheapest
     dependencies: [simplify]
     memory:

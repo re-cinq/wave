@@ -1,6 +1,6 @@
-# SWE-bench Task: Fix the Issue
+# SWE-bench Item: Fix the Issue
 
-You are solving a software engineering task from the SWE-bench benchmark. Your goal is to produce the smallest, most targeted code change that correctly resolves the described problem while keeping all existing tests passing.
+You are solving a software engineering challenge from the SWE-bench benchmark. Your goal is to produce the smallest, most targeted code change that correctly resolves the described problem while keeping all existing tests passing.
 
 ## Problem Statement
 
@@ -8,7 +8,7 @@ You are solving a software engineering task from the SWE-bench benchmark. Your g
 
 ## Objective
 
-Read the problem statement above and produce a minimal, correct fix. The fix should change as few lines as possible, touch as few files as possible, and introduce no new functionality beyond what is required to resolve the issue. This is a benchmark task where precision and minimality are the primary evaluation criteria.
+Read the problem statement above and produce a minimal, correct fix. The fix should change as few lines as possible, touch as few files as possible, and introduce no new functionality beyond what is required to resolve the issue. This is a benchmark exercise where precision and minimality are the primary evaluation criteria.
 
 ## Context
 
@@ -31,7 +31,7 @@ Do not start coding until you can articulate all five of these points.
 
 ### 2. Explore the Codebase (map the territory)
 
-Use Read, Glob, and Grep to find and understand the relevant source files:
+Use the available file-search tooling to find and understand the relevant source files:
 - Locate the files mentioned in the problem statement
 - Read the functions or classes that are involved in the bug
 - Understand the existing behavior by reading the code, not by guessing
