@@ -364,12 +364,14 @@ steps:
             else
               VERDICT=fail
             fi
-            jq -n \
-              --arg verdict "$VERDICT" \
-              --arg cmd "{{ project.contract_test_command }}" \
-              --arg log .agents/output/verify.log \
-              '{verdict: $verdict, pass: ($verdict == "pass"), command: $cmd, log_path: $log}' \
-              > .agents/output/verify-verdict.json
+            cat > .agents/output/verify-verdict.json <<JSON
+            {
+              "verdict": "$VERDICT",
+              "pass": $([ "$VERDICT" = "pass" ] && echo true || echo false),
+              "command": "{{ project.contract_test_command }}",
+              "log_path": ".agents/output/verify.log"
+            }
+            JSON
             test "$VERDICT" = "pass"
           output_artifacts:
             - name: verify-verdict
@@ -430,7 +432,14 @@ steps:
 
         ### Step 1 — Compose the comment
 
-        Write `/tmp/ops-pr-respond.md` with this structure:
+        Allocate a per-run temp file (avoid the symlink-attack and
+        concurrent-run race window of a fixed `/tmp/ops-pr-respond.md`):
+
+        ```bash
+        BODY=$(mktemp -t ops-pr-respond.XXXXXX.md)
+        ```
+
+        Write the comment body to `"$BODY"` with this structure:
 
         ```markdown
         ## Wave PR Respond — Verdict: <pass | fail>
@@ -472,7 +481,7 @@ steps:
 
         ```bash
         {{ forge.cli_tool }} {{ forge.pr_command }} comment <PR_NUMBER> \
-          --body-file /tmp/ops-pr-respond.md
+          --body-file "$BODY"
         ```
 
         Capture the comment URL.
@@ -482,7 +491,11 @@ steps:
         Write `.agents/output/comment-result.json` matching the
         gh-pr-comment-result schema (success, issue_reference, comment, ...).
 
-        Clean up `/tmp/ops-pr-respond.md` after posting.
+        Clean up the temp file after posting (run on success and failure):
+
+        ```bash
+        rm -f "$BODY"
+        ```
 
         ## Constraints
 
