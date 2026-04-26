@@ -55,7 +55,7 @@ triage     → triaged-findings.json (actionable | deferred | rejected)
 resolve-each → impl-finding sub-pipeline per finding, on_failure: continue
        │
        ▼
-verify     → {{ project.test_command }} + agent_review on diff
+verify     → {{ project.test_command }}
        │  branch primitive
        │   verdict=pass → comment-back
        │   verdict=fail → resolve-each (loop max_visits: 2)
@@ -92,7 +92,7 @@ comment-back → {{ forge.type }}-commenter posts findings + resolution + verdic
 
 - [ ] `ops-pr-respond` ships in `.agents/pipelines/` and embedded in `internal/defaults/pipelines/`.
 - [ ] `impl-finding` ships in both locations (sub-pipeline).
-- [ ] One new schema (`triaged-findings`) lands under both `.agents/contracts/` and `internal/defaults/contracts/`; aggregate output reuses `shared-findings.schema.json` per plan.md Decision B.
+- [ ] Two schemas land in `.agents/contracts/` and `internal/defaults/contracts/`.
 - [ ] WLP-clean (Rules 1–7).
 - [ ] Real `wave run ops-pr-respond --input "<owner>/<repo> <pr>"` against a fresh PR completes end-to-end and posts a structured comment with finding → SHA mapping.
 - [ ] AGENTS.md "Pipeline Selection" table updated.
