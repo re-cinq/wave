@@ -26,6 +26,14 @@ input:
   source: cli
   type: pr_ref
   example: "https://github.com/owner/repo/pull/42"
+  # Accepts any of:
+  #   https://github.com/<owner>/<repo>/pull/<num>
+  #   <owner>/<repo>#<num>
+  #   <owner>/<repo> <num>
+  #   <owner>/<repo>/<num>
+  #   #<num>   (current repo only)
+  #   <num>    (current repo only)
+  # The fetch-pr step normalizes whichever form is supplied before invoking gh.
 
 chat_context:
   artifact_summaries:
@@ -71,25 +79,52 @@ steps:
         audits to scope themselves and for the comment-back step to address
         the right PR.
 
-        PR: {{ input }}
+        PR (raw input from the user, may be loose): {{ input }}
 
         ## Requirements
 
-        ### Step 1 — Fetch PR metadata
+        ### Step 1 — Normalize the input to a `gh`-friendly ref
+
+        Accept whichever shape the user supplied and reduce it to the
+        canonical `<owner>/<repo>#<number>` form (or a full URL) before
+        invoking `gh`. Common forms to handle:
+
+        | Input shape | Example |
+        |-------------|---------|
+        | Pull URL | `https://github.com/re-cinq/wave/pull/1407` |
+        | Cross-repo hash | `re-cinq/wave#1407` |
+        | Space separated | `re-cinq/wave 1407` |
+        | Slash separated | `re-cinq/wave/1407` |
+        | Hash + number | `#1407` (current repo) |
+        | Number only | `1407` (current repo) |
+
+        Steps:
+        1. Trim whitespace.
+        2. If the input matches a `pull/<num>` URL, extract owner / repo /
+           number from the URL.
+        3. Otherwise, try in order: `^([^/\s]+/[^/\s#]+)[\s#/]+(\d+)$` →
+           owner-repo + number; `^#?(\d+)$` → current repo + number (fall
+           back to `gh repo view --json nameWithOwner` to discover the
+           current repo).
+        4. Compose `PR_REF="<owner>/<repo>#<num>"` for use below.
+        5. Fail fast if no shape matches — write `error` field into the
+           artifact and exit non-zero.
+
+        ### Step 2 — Fetch PR metadata
 
         ```bash
-        {{ forge.cli_tool }} {{ forge.pr_command }} view {{ input }} \
+        {{ forge.cli_tool }} {{ forge.pr_command }} view "$PR_REF" \
           --json number,headRefName,baseRefName,headRefOid,url,title,changedFiles,files
         ```
 
-        ### Step 2 — Capture the unified diff
+        ### Step 3 — Capture the unified diff
 
         ```bash
-        {{ forge.cli_tool }} {{ forge.pr_command }} diff {{ input }} \
+        {{ forge.cli_tool }} {{ forge.pr_command }} diff "$PR_REF" \
           > .agents/output/pr.diff
         ```
 
-        ### Step 3 — Compose pr-context.json
+        ### Step 4 — Compose pr-context.json
 
         Write `.agents/output/pr-context.json` matching this shape:
 
@@ -447,7 +482,10 @@ steps:
         ### Step 3 — Write comment-result
 
         Write `.agents/output/comment-result.json` matching the
-        gh-pr-comment-result schema (success, issue_reference, comment, ...).
+        gh-pr-comment-result schema. Required fields: `comment_url`
+        (URL to the posted comment) and `pr_number` (integer). Optional
+        fields: `repository` (owner/repo) and `summary` (brief review
+        summary).
 
         Clean up `/tmp/ops-pr-respond.md` after posting.
 
