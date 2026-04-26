@@ -135,6 +135,7 @@ func testServer(t *testing.T) (*Server, state.StateStore) {
 		disabledPipelines: make(map[string]bool),
 		gateRegistry:      NewGateRegistry(),
 		csrfToken:         "test-csrf-token",
+		features:          NewFeatureRegistry(),
 	}
 
 	t.Cleanup(func() {
