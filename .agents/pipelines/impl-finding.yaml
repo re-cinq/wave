@@ -1,0 +1,225 @@
+kind: WavePipeline
+metadata:
+  name: impl-finding
+  description: >-
+    Single-finding fix sub-pipeline. Receives a JSON envelope describing the PR
+    reference and one triaged finding, checks out the PR head branch, applies a
+    minimal fix scoped to the finding, runs the project contract test suite,
+    and pushes one commit referencing the finding. Designed to be the resolve
+    primitive inside ops-pr-respond's sequential iterate over actionable
+    findings — never standalone.
+  category: composition
+  release: false
+
+skills:
+  - "{{ project.skill }}"
+  - gh-cli
+  - software-design
+
+requires:
+  tools:
+    - gh
+
+input:
+  source: cli
+  type: string
+  example: "{\"pr_ref\":\"re-cinq/wave 1401\",\"finding\":{\"source\":\"audit-security\",\"severity\":\"high\",\"title\":\"...\"}}"
+  schema:
+    type: string
+    description: >-
+      JSON envelope: {"pr_ref": "<owner/repo NUM | URL>", "finding": {<Finding object per
+      review-findings.schema.json#/definitions/Finding>}}. Parent passes via
+      input: '{"pr_ref": "{{ input }}", "finding": {{ item }}}'.
+
+pipeline_outputs:
+  fix:
+    step: fix-finding
+    artifact: fix-diff
+    type: findings_report
+
+steps:
+  - id: fix-finding
+    persona: craftsman
+    contexts: [execution, delivery]
+    thread: fix
+    model: balanced
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Apply a single, minimal fix to the pull request's head branch addressing exactly
+        one triaged finding. Commit the fix with a message that references the finding
+        for downstream traceability and push the commit to the remote PR branch. This
+        sub-pipeline is invoked by ops-pr-respond's resolve-each iterate; do not run it
+        standalone.
+
+        ## Context
+
+        The injected `{{ input }}` is a JSON envelope with two fields:
+        - `pr_ref`: the original PR reference passed to the parent pipeline. May be in
+          `owner/repo NUMBER` form or a full PR URL.
+        - `finding`: one Finding object matching review-findings.schema.json#/definitions/Finding.
+          Contains `source`, `severity`, `title`, `description`, optional `file`, `line`,
+          and `recommendation`.
+
+        Your worktree is a fresh branch of the project. You must switch the worktree to
+        the PR head branch before applying the fix so the commit lands on the right ref.
+
+        ## Requirements
+
+        ### Step 1: Parse Input
+
+        Parse `{{ input }}` as JSON. Extract:
+        - `pr_number` from `pr_ref` (last whitespace-separated token, or URL `/pull/<N>` segment).
+        - The `finding` object — title, description, file, line, severity, recommendation.
+
+        ### Step 2: Check Out PR Head Branch
+
+        Switch the worktree to the PR's head branch and pull the latest:
+        ```bash
+        {{ forge.cli_tool }} {{ forge.pr_command }} checkout <pr_number> --force
+        git pull --rebase --autostash
+        ```
+        After this, `git rev-parse --abbrev-ref HEAD` should return the PR's head branch.
+
+        ### Step 3: Apply the Fix
+
+        Read the affected file (use `finding.file` and `finding.line` as starting points)
+        and apply the smallest change that addresses the finding's `description` and
+        matches the spirit of `finding.recommendation`. Do not add unrelated cleanup, do
+        not reformat surrounding code, and do not introduce new dependencies unless the
+        fix demands it. Prefer surgical edits over rewrites.
+
+        If the finding refers to a missing file or section, create the minimum content
+        the recommendation calls for.
+
+        If after careful inspection the finding is no longer reproducible (already fixed,
+        invalid file path, etc.), still produce the fix-diff artifact with `git status`
+        output explaining why no code change was applied. The contract checks for a
+        non-empty file, not for code changes — so a textual no-op explanation passes.
+
+        ### Step 4: Commit
+
+        Stage the modified files explicitly (avoid `git add -A` to keep Wave-managed
+        files out of the commit per CLAUDE.md guidance):
+        ```bash
+        git add -- <files-you-changed>
+        git reset HEAD -- .agents/artifacts/ .agents/output/ .claude/ CLAUDE.md 2>/dev/null || true
+        ```
+
+        Compose the commit subject as:
+        `fix(<scope>): <finding-title> [refs: <source>/<severity>]`
+        where `<scope>` is the package or module containing the change (e.g., `pipeline`,
+        `webui`, `docs`). Keep the subject under 72 characters. Body is optional: a 1-2
+        sentence explanation of the fix, referencing the finding's source.
+
+        Never use `Closes #N` or `Fixes #N` keywords. Do not add Co-Authored-By trailers.
+
+        ```bash
+        git commit -m "fix(<scope>): <finding-title> [refs: <source>/<severity>]"
+        ```
+
+        ### Step 5: Push the Commit
+
+        ```bash
+        git push origin HEAD
+        ```
+
+        Capture the resulting commit SHA via `git rev-parse HEAD`.
+
+        ### Step 6: Write the Fix-Diff Artifact
+
+        Write the exact content of `git show --stat HEAD` plus a short JSON header to
+        `.agents/output/fix-diff.json`:
+
+        ```json
+        {
+          "pr_number": <integer>,
+          "head_branch": "<branch-name>",
+          "commit_sha": "<sha>",
+          "finding_title": "<finding.title>",
+          "finding_source": "<finding.source>",
+          "finding_severity": "<finding.severity>",
+          "files_changed": ["<path>", ...],
+          "summary": "<one line: what was changed and why>"
+        }
+        ```
+
+        ### Step 7: Run Contract Tests
+
+        The handover contract will execute `{{ project.contract_test_command }}` after
+        this step. If it fails, the rework_step (`fix-finding-rework`) will re-enter to
+        diagnose and patch the regression.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT push to a branch other than the PR head branch.
+        - Do NOT amend prior commits — always create a new commit per finding.
+        - Do NOT bundle multiple findings into one fix. The parent pipeline iterates
+          one-by-one for traceability.
+        - Do NOT commit Wave-managed paths (`.agents/artifacts/`, `.agents/output/`,
+          `.claude/`, `CLAUDE.md`).
+        - Do NOT add backwards-compat shims or feature flags. Apply the minimal change
+          the finding calls for.
+
+        ## Output Format
+
+        Produce `.agents/output/fix-diff.json` matching the JSON shape in Step 6.
+
+        ## Quality Bar
+
+        A good fix is the smallest diff that addresses the finding, has a clear commit
+        message that links back to the finding, and leaves the test suite green. A bad
+        fix is a sprawling refactor, a workaround that hides the problem, or a commit
+        that breaks unrelated code paths.
+    output_artifacts:
+      - name: fix-diff
+        path: .agents/output/fix-diff.json
+        type: json
+    retry:
+      policy: aggressive
+      max_attempts: 2
+    handover:
+      contracts:
+        - type: non_empty_file
+          source: .agents/output/fix-diff.json
+          on_failure: fail
+        - type: test_suite
+          command: "{{ project.contract_test_command }}"
+          must_pass: true
+          on_failure: rework
+          rework_step: fix-finding-rework
+
+  - id: fix-finding-rework
+    persona: craftsman
+    model: balanced
+    rework_only: true
+    thread: fix
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        REWORK — the contract test suite failed after the initial fix.
+
+        Read the failing test output from the prior step. Diagnose the root cause —
+        is it the new fix introducing a regression, or did the fix interact poorly
+        with another file? Apply the smallest patch that turns the suite green.
+
+        After fixing, re-run the test command, then commit the patch with subject:
+        `fix(<scope>): rework — <one-line cause> [refs: <source>/<severity>]`
+        and push to the PR head branch (`git push origin HEAD`).
+    retry:
+      policy: aggressive
+      max_attempts: 2
+    handover:
+      contract:
+        type: test_suite
+        command: "{{ project.contract_test_command }}"
+        must_pass: true
+        on_failure: fail

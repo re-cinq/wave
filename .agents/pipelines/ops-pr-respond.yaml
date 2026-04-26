@@ -1,0 +1,568 @@
+# ops-pr-respond — full PR review-to-resolution composition
+#
+# Closes the loop: PR ref → parallel multi-axis review → triage → per-finding
+# fix → verify → structured response comment. Designed as the canonical
+# showcase for the Wave composition surface.
+#
+# Execution flow:
+#
+#   parallel-review     ← iterate (parallel, max_concurrent: 3) over six audit
+#   ├─ audit-security   │  sub-pipelines plus ops-pr-review-core. Each emits
+#   ├─ audit-doc-scan   │  its own findings_report-typed output.
+#   ├─ audit-duplicates │
+#   ├─ audit-architecture
+#   ├─ audit-tests      │
+#   └─ ops-pr-review-core
+#        │
+#   aggregate-findings  ← aggregate (merge_arrays): flatten every reviewer's
+#                          findings into one list
+#        │
+#   normalize           ← persona: reshape merged findings into the unified
+#                          review-findings.schema.json shape (json_schema gate)
+#        │
+#   triage              ← persona: bucket into actionable / deferred / rejected
+#                          (json_schema must_pass + agent_review warn)
+#        │
+#   resolve-each        ← iterate (sequential) over triage.output.actionable[],
+#                          calling impl-finding sub-pipeline per finding. Each
+#                          impl-finding commits + pushes one fix to PR head.
+#        │
+#   verify              ← sub-pipeline ops-pr-review-core re-run on the now-
+#                          patched PR head — produces the post-fix verdict
+#        │
+#   comment-back        ← persona ({{ forge.type }}-commenter): post one PR
+#                          comment with finding → SHA mapping; json_schema
+#                          gate against gh-pr-comment-result.schema.json
+#
+# Note on branch + loop primitives: the issue spec aspirationally calls for a
+# branch step on verdict + a loop wrapping resolve-each + verify. In practice
+# both add bloat without clear semantic gain — branch.cases values must be
+# sub-pipeline names (not in-pipeline step IDs) and the loop's `until` would
+# need a custom verdict-extraction step because ops-pr-review-core's primary
+# output is the diff, not the verdict. impl-finding's own contract-level
+# rework_step handles per-finding test failures, which is the core retry loop
+# we actually need. Keeping the composition linear here.
+
+kind: WavePipeline
+metadata:
+  name: ops-pr-respond
+  description: >-
+    Composition pipeline that closes the loop on a pull request — runs a
+    six-axis parallel review, triages findings into actionable / deferred /
+    rejected buckets, applies one fix per actionable finding to the PR's head
+    branch, re-verifies, and posts a structured response comment with each
+    finding mapped to the commit SHA that addressed it. Use when you want a
+    PR's review feedback fully ground through automatically without manual
+    hand-off. Lights up iterate (parallel), aggregate, sub-pipeline, json_schema,
+    agent_review, test_suite, and forge interpolation primitives in a single
+    workflow.
+  category: composition
+  release: true
+
+skills:
+  - "{{ project.skill }}"
+  - gh-cli
+  - software-design
+
+requires:
+  tools:
+    - gh
+
+input:
+  source: cli
+  type: pr_ref
+  example: "https://github.com/re-cinq/wave/pull/1369"
+  schema:
+    type: string
+    description: >-
+      PR reference. Either a full URL (`https://<host>/<owner>/<repo>/pull/<n>`) or
+      `<owner>/<repo> <n>` shorthand. Propagated unchanged to every reviewer and
+      to the verify step.
+
+chat_context:
+  artifact_summaries:
+    - aggregated-findings
+    - review-findings
+    - triaged-findings
+    - resolve-each
+    - verify
+    - comment-result
+  suggested_questions:
+    - "Which findings did the pipeline auto-fix and which did it defer?"
+    - "What was the post-fix verdict from the verify step?"
+    - "Did any per-finding fix fail tests and trigger the rework path?"
+  focus_areas:
+    - "Per-finding fix attribution (finding → commit SHA)"
+    - "Post-fix review verdict"
+    - "Deferred and rejected findings with rationale"
+
+pipeline_outputs:
+  comment:
+    step: comment-back
+    artifact: comment-result
+    type: findings_report
+
+steps:
+  # ── Stage 1: Six-axis parallel review ──────────────────────────────────────
+  #
+  # Each item in the iterate list is the name of an existing reviewer pipeline.
+  # Five audit-* pipelines plus ops-pr-review-core fan out simultaneously, all
+  # consuming the same PR reference. max_concurrent: 3 caps API contention.
+  - id: parallel-review
+    pipeline: "{{ item }}"
+    input: "{{ input }}"
+    iterate:
+      over: '["audit-security", "audit-doc-scan", "audit-duplicates", "audit-architecture", "audit-tests", "ops-pr-review-core"]'
+      mode: parallel
+      max_concurrent: 3
+
+  # ── Stage 2: Merge findings arrays into one flat list ─────────────────────
+  #
+  # Each reviewer produced a findings_report-typed output. The aggregate
+  # primitive flattens every output's array fields into a single JSON file.
+  - id: aggregate-findings
+    dependencies: [parallel-review]
+    aggregate:
+      from: "{{ parallel-review.output }}"
+      into: .agents/output/aggregated-findings.json
+      strategy: merge_arrays
+
+  # ── Stage 3: Normalize finding shape against review-findings.schema.json ──
+  #
+  # Reviewers emit varying finding shapes. This step reshapes every entry into
+  # the canonical {source, severity, file, line, title, description,
+  # recommendation} contract enforced by review-findings.schema.json. A failed
+  # schema gate fails the pipeline — triage cannot operate on dirty input.
+  - id: normalize
+    persona: summarizer
+    model: cheapest
+    dependencies: [aggregate-findings]
+    memory:
+      inject_artifacts:
+        - step: aggregate-findings
+          artifact: aggregated-findings
+          as: raw_findings
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Reshape the merged findings produced by six parallel reviewers into the
+        canonical review-findings.schema.json shape so the downstream triage step has a
+        clean, predictable contract to work against. This step is purely structural —
+        do not invent findings, do not drop findings, do not re-prioritize severity.
+
+        ## Context
+
+        The injected `raw_findings` artifact is the output of the aggregate-findings
+        step. It is a flat array of finding objects, each carrying its originating
+        reviewer's output shape. Different reviewers used different field names — some
+        emit `summary` instead of `title`, some emit `detail` instead of `description`,
+        some omit `source`. Your job is to canonicalize.
+
+        ## Requirements
+
+        ### Step 1: Read raw_findings
+
+        Read every entry in the `raw_findings` array. If the artifact is empty or
+        missing, write an empty findings array and total: 0.
+
+        ### Step 2: Normalize Each Finding
+
+        For each entry, produce one Finding object with the following shape (per
+        review-findings.schema.json#/definitions/Finding):
+
+        - `source` (required): the originating reviewer pipeline name. Derive from the
+          input shape if not present (e.g., the security-review.md file maps to
+          `audit-security` or `ops-pr-review-core/security`). Use the most specific name
+          you can attribute.
+        - `severity` (required): one of `critical | high | medium | low | info`. Map
+          synonyms (`HIGH` → `high`, `MAJOR` → `high`, `WARNING` → `medium`, etc.).
+        - `file` (optional): the file path relative to project root, or "" if the
+          finding is repo-wide.
+        - `line` (optional integer ≥ 0): line number, or 0 if not applicable.
+        - `title` (required): one-line headline. If only `summary` is present, use it.
+          Truncate to ~80 chars; never empty.
+        - `description` (required): full description. If only `detail` is present, use
+          it. Concatenate `summary + detail` if both are present and short.
+        - `recommendation` (optional): suggested fix. Carry through if present.
+
+        ### Step 3: Deduplicate
+
+        If two findings reference the same file + line + title (case-insensitive), keep
+        the higher-severity entry and drop the duplicate. Do not deduplicate across
+        different files or different findings even if descriptions overlap — those are
+        the triage step's call to make.
+
+        ### Step 4: Produce Output
+
+        Write `.agents/output/review-findings.json` with this shape:
+
+        ```json
+        {
+          "findings": [<Finding>, ...],
+          "total": <integer>,
+          "summary": "<one-line: count and severity distribution>"
+        }
+        ```
+
+        `total` MUST equal `findings` array length. The `summary` should fit on one
+        line, e.g., `"23 findings: 1 critical, 5 high, 12 medium, 5 low"`.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT invent findings. Every output entry must trace back to a raw_findings
+          entry.
+        - Do NOT promote or demote severity during normalization. Map synonyms only.
+        - Do NOT drop findings except for exact-duplicate collapses (Step 3).
+        - Do NOT modify recommendation text — keep the reviewer's wording verbatim.
+        - Do NOT add fields beyond the schema. additionalProperties: false is enforced.
+
+        ## Output Format
+
+        JSON matching review-findings.schema.json. The `json_schema` contract validates
+        load-time — a malformed shape fails the step.
+
+        ## Quality Bar
+
+        A good normalization preserves every reviewer signal in a uniform shape so the
+        triage step never has to reason about source-specific quirks. A bad
+        normalization invents fields, drops findings silently, or breaks the schema.
+    output_artifacts:
+      - name: review-findings
+        path: .agents/output/review-findings.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .agents/output/review-findings.json
+        schema_path: .agents/contracts/review-findings.schema.json
+        must_pass: true
+        on_failure: fail
+
+  # ── Stage 4: Triage — actionable / deferred / rejected buckets ────────────
+  #
+  # The triage step decides what to auto-fix vs hand-off vs drop. Two contracts:
+  #   1. json_schema must_pass — output shape must conform.
+  #   2. agent_review warn — judge sanity-checks the bucketing decisions.
+  - id: triage
+    persona: summarizer
+    model: balanced
+    dependencies: [normalize]
+    memory:
+      inject_artifacts:
+        - step: normalize
+          artifact: review-findings
+          as: findings
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Triage every normalized finding into one of three buckets — actionable, deferred,
+        or rejected — so downstream resolve-each only attempts auto-fixes on findings
+        the pipeline can plausibly land in one commit. Conservative bucketing is correct
+        bucketing: when in doubt, prefer `deferred` over `actionable`.
+
+        ## Context
+
+        The injected `findings` artifact is the normalized review-findings.schema.json
+        document with `findings[]`, `total`, and `summary`. You have read-only access to
+        the project so you can sanity-check claims (e.g., does the file referenced in a
+        finding actually exist?).
+
+        ## Requirements
+
+        ### Step 1: Read All Findings
+
+        Walk every entry in `findings`. For each, classify into one of three buckets
+        using the rubric below.
+
+        ### Step 2: Apply the Triage Rubric
+
+        **actionable** — the finding is:
+        - localized to a small number of files (ideally one),
+        - has a concrete recommendation (or one is obvious from the description),
+        - is severity `high`, `medium`, or `low` AND the fix is mechanical (e.g., add
+          input validation, fix typo, move helper to right package).
+        - `critical` findings are actionable ONLY if the fix is well-bounded; otherwise
+          defer.
+
+        **deferred** — the finding is:
+        - legitimate but architectural / cross-cutting (e.g., "consider redesigning
+          retry logic"),
+        - too vague to fix in one commit ("improve error messages"),
+        - touches files outside the PR's diff (out of scope for this run),
+        - severity `info` (advisory only).
+
+        **rejected** — the finding is:
+        - a false positive (referenced file doesn't exist, line number invalid, claim
+          contradicted by the actual code),
+        - a duplicate of another finding already in the actionable or deferred bucket
+          (drop the duplicate, never split severity),
+        - out of project scope (e.g., commenting on third-party vendored code).
+
+        Every rejected entry MUST have a `reason` string explaining why.
+
+        ### Step 3: Produce Output
+
+        Write `.agents/output/triaged-findings.json` matching
+        triaged-findings.schema.json:
+
+        ```json
+        {
+          "actionable": [<Finding>, ...],
+          "deferred":   [<Finding>, ...],
+          "rejected":   [<RejectedFinding with reason>, ...],
+          "summary": "<one line: bucket counts and rationale highlight>"
+        }
+        ```
+
+        Total actionable + deferred + rejected MUST equal input findings count (after
+        deduplication). Carry every Finding field through unchanged — this is bucketing,
+        not editing.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT modify finding fields during bucketing. Carry through verbatim.
+        - Do NOT auto-fix severity inflation. A reviewer's `low` stays `low`.
+        - Do NOT put more than ~10 findings into `actionable` even on noisy reviews —
+          when budgets are large, prefer `deferred` and let the human pick. The resolve
+          step is sequential and per-finding work is expensive.
+        - Do NOT reject findings just because the recommendation is wordy. Reject only
+          for the three rubric reasons above.
+        - Every rejected entry needs a `reason`. Empty or generic ("not relevant") fails
+          the agent_review judge.
+
+        ## Output Format
+
+        JSON matching triaged-findings.schema.json (must_pass).
+
+        ## Quality Bar
+
+        A good triage produces an actionable bucket the resolve step can grind through
+        in 5-15 minutes total, defers anything that needs human judgment, and rejects
+        only with concrete justification. A bad triage stuffs the actionable bucket with
+        items the model can't fix in one commit, or rejects valid findings without a
+        reason.
+    output_artifacts:
+      - name: triaged-findings
+        path: .agents/output/triaged-findings.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contracts:
+        - type: json_schema
+          source: .agents/output/triaged-findings.json
+          schema_path: .agents/contracts/triaged-findings.schema.json
+          must_pass: true
+          on_failure: fail
+        - type: agent_review
+          persona: navigator
+          source: .agents/output/triaged-findings.json
+          criteria_path: .agents/contracts/triage-review-criteria.md
+          model: cheapest
+          token_budget: 6000
+          timeout: 90s
+          on_failure: warn
+
+  # ── Stage 5: Resolve actionable findings — sequential to avoid PR conflicts ─
+  #
+  # iterate sequential over the typed array `triage.output.actionable` (Rule 7
+  # field navigation). Each iteration spawns impl-finding with a JSON envelope
+  # containing the parent's PR ref and the current finding. impl-finding
+  # commits + pushes one fix per finding; sequential mode prevents racing
+  # commits on the same PR head branch.
+  - id: resolve-each
+    pipeline: impl-finding
+    dependencies: [triage]
+    input: '{"pr_ref": "{{ input }}", "finding": {{ item }}}'
+    iterate:
+      over: "{{ triage.output.actionable }}"
+      mode: sequential
+
+  # ── Stage 6: Re-verify the patched PR ─────────────────────────────────────
+  #
+  # Re-run ops-pr-review-core on the same PR (now containing the resolve-each
+  # commits). The verdict reflects the post-fix state.
+  - id: verify
+    pipeline: ops-pr-review-core
+    dependencies: [resolve-each]
+    input: "{{ input }}"
+
+  # ── Stage 7: Post structured response comment ─────────────────────────────
+  #
+  # Single PR comment with finding → SHA mapping. Persona name uses
+  # {{ forge.type }} to pick the right *-commenter (github-commenter,
+  # gitlab-commenter, etc.). Comment body cites the original finding source,
+  # the resolving commit SHA, and lists deferred / rejected items with reasons.
+  - id: comment-back
+    persona: "{{ forge.type }}-commenter"
+    model: cheapest
+    dependencies: [verify]
+    memory:
+      inject_artifacts:
+        - step: triage
+          artifact: triaged-findings
+          as: triaged
+        - step: resolve-each
+          artifact: resolve-each
+          as: fixes
+        - step: verify
+          artifact: verdict
+          as: verdict
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Post one structured PR comment that closes the response loop: cite each
+        actionable finding addressed, link to the commit SHA that fixed it, list
+        deferred findings with rationale, list rejected findings with reasons, and
+        report the post-fix verdict from the verify step. This is the public output
+        of ops-pr-respond — it must read clearly and survive re-reading after merge.
+
+        ## Context
+
+        Three artifacts are injected:
+        - `triaged`: the triaged-findings.schema.json document with actionable,
+          deferred, and rejected buckets.
+        - `fixes`: a JSON array of fix-diff results from impl-finding iterations
+          (one entry per actionable finding). Each entry has `commit_sha`,
+          `finding_title`, `finding_source`, `files_changed`, and `summary`.
+        - `verdict`: the post-fix review verdict from the verify step. Contains
+          `verdict` (APPROVE/REQUEST_CHANGES/COMMENT/REJECT), `summary`, finding
+          arrays.
+
+        Read all three before composing the comment.
+
+        ## Requirements
+
+        ### Step 1: Extract PR Number
+
+        From the original input `{{ input }}` extract the PR number — last whitespace
+        token of `<owner/repo> <n>` form, or `/pull/<n>` segment of a URL.
+
+        ### Step 2: Compose the Comment
+
+        Write `/tmp/ops-pr-respond-comment.md` with this structure:
+
+        ```markdown
+        ## Wave Response: <verdict.verdict>
+
+        <one-paragraph synthesis: how many findings were auto-fixed, deferred, rejected;
+         post-fix verdict in plain language>
+
+        ### Fixes Applied (<count>)
+
+        | Finding | Source | Severity | Commit |
+        |---------|--------|----------|--------|
+        | <title> | <source> | <severity> | `<short-sha>` |
+        | ...     | ...    | ...      | ...    |
+
+        ### Deferred (<count>)
+
+        For each deferred finding:
+        - **<title>** (<source>, <severity>) — <description>; <recommendation if any>
+
+        ### Rejected (<count>)
+
+        For each rejected finding:
+        - **<title>** (<source>) — Reason: <reason>
+
+        ### Post-Fix Verdict
+
+        <verdict.summary verbatim>
+
+        ---
+        *Automated response by [Wave](https://github.com/re-cinq/wave) `ops-pr-respond` pipeline.*
+        ```
+
+        Use short commit SHAs (first 7 characters). If the `fixes` array is empty,
+        replace the Fixes Applied section with `_No actionable findings — review was
+        clean or all findings were deferred / rejected._`. Likewise for empty deferred
+        / rejected sections.
+
+        ### Step 3: Post the Comment
+
+        ```bash
+        {{ forge.cli_tool }} {{ forge.pr_command }} comment <pr_number> --body-file /tmp/ops-pr-respond-comment.md
+        ```
+
+        Capture the comment URL from the command output.
+
+        ### Step 4: Produce Output
+
+        Write `.agents/output/comment-result.json` matching
+        gh-pr-comment-result.schema.json:
+
+        ```json
+        {
+          "comment_url": "<url-from-gh-output>",
+          "pr_number": <integer>,
+          "repository": "<owner/repo>",
+          "summary": "<one line: counts addressed | deferred | rejected | verdict>"
+        }
+        ```
+
+        Clean up `/tmp/ops-pr-respond-comment.md` after posting.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT post multiple comments. Exactly one comment per pipeline run.
+        - Do NOT include raw JSON in the comment body. Format as readable markdown.
+        - Do NOT use aggressive or condescending tone. Professional, factual, concise.
+        - Do NOT fabricate commit SHAs. Every SHA in the table must come from the
+          `fixes` artifact.
+        - Do NOT post if `verdict` artifact is missing — fail loudly so the operator
+          can investigate. The pipeline already paid for the work.
+
+        ## Output Format
+
+        JSON matching gh-pr-comment-result.schema.json (must_pass).
+
+        ## Quality Bar
+
+        A good comment lets the PR author understand in 60 seconds what was auto-fixed,
+        what remains for them, and the post-fix review state. A bad comment is a wall
+        of text without the finding-to-commit mapping, omits deferred items, or buries
+        the verdict.
+    output_artifacts:
+      - name: comment-result
+        path: .agents/output/comment-result.json
+        type: json
+    retry:
+      policy: aggressive
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .agents/output/comment-result.json
+        schema_path: .agents/contracts/gh-pr-comment-result.schema.json
+        must_pass: true
+        on_failure: fail
+    outcomes:
+      - type: url
+        extract_from: .agents/output/comment-result.json
+        json_path: .comment_url
+        label: "Response Comment"

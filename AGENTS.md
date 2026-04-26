@@ -180,7 +180,7 @@ When acting as the **core orchestrator** (the Claude instance steering Wave pipe
 
 ### Pipeline Selection
 
-Fleet after the 2026-04 WLP (ADR-011) consolidation: 34 pipelines. All shipped pipelines satisfy the 7 WLP rules (typed I/O, explicit output types, deterministic contracts, canonical artifact paths, sub-pipeline composition, iterate over typed collections, input_ref.from field navigation).
+Fleet after the 2026-04 WLP (ADR-011) consolidation: 36 pipelines. All shipped pipelines satisfy the 7 WLP rules (typed I/O, explicit output types, deterministic contracts, canonical artifact paths, sub-pipeline composition, iterate over typed collections, input_ref.from field navigation).
 
 | Issue complexity | Pipeline | When to use |
 |-----------------|----------|-------------|
@@ -199,6 +199,8 @@ Fleet after the 2026-04 WLP (ADR-011) consolidation: 34 pipelines. All shipped p
 | Dead code / docs | `audit-dead-code-scan`, `audit-doc-scan` | Single-step scans used as Lego blocks |
 | Security | `audit-security`, `wave-security-audit` | Security scanning (any project / Wave itself) |
 | PR review | `ops-pr-review` | **Always** run before merging any PR |
+| PR review-to-resolution | `ops-pr-respond` | Six-axis parallel review → triage → per-finding fix → verify → structured response comment. Canonical showcase composition. |
+| Per-finding fix (sub-pipeline) | `impl-finding` | Sub-pipeline only — invoked by `ops-pr-respond.resolve-each`. Not standalone. |
 | Wave evolution | `wave-audit`, `wave-scope-audit`, `wave-test-hardening` | Self-evolution of Wave |
 | Wave validation | `wave-validate`, `wave-smoke-gates`, `wave-smoke-contracts` | Smoke tests for gates + contracts |
 | Epic decomposition | `plan-scope` | Decompose an epic into child issues |

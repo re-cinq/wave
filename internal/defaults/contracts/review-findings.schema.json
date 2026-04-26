@@ -1,77 +1,65 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Review Findings",
+  "description": "Unified findings array produced by ops-pr-respond's normalize step after parallel review aggregation. Each item is one reviewer concern, source-tagged so downstream triage can weigh cross-source corroboration. Schema-validated before triage.",
   "type": "object",
-  "required": ["pr_number", "pr_url", "head_branch", "findings", "fix_plan_summary"],
+  "required": ["findings", "total"],
   "properties": {
-    "pr_number": {
-      "type": "integer",
-      "description": "Pull request number"
-    },
-    "pr_url": {
-      "type": "string",
-      "description": "Full PR URL"
-    },
-    "head_branch": {
-      "type": "string",
-      "description": "PR head branch name — used by apply-fixes to checkout"
-    },
-    "base_branch": {
-      "type": "string",
-      "description": "PR base branch name"
-    },
     "findings": {
       "type": "array",
       "items": {
-        "type": "object",
-        "required": ["severity", "summary", "file"],
-        "properties": {
-          "severity": {
-            "type": "string",
-            "enum": ["critical", "high", "medium", "low", "info"]
-          },
-          "summary": {
-            "type": "string",
-            "description": "One-line description of the finding"
-          },
-          "file": {
-            "type": "string",
-            "description": "File path affected"
-          },
-          "line": {
-            "type": "integer",
-            "description": "Line number if applicable"
-          },
-          "detail": {
-            "type": "string",
-            "description": "Full description and fix guidance"
-          },
-          "action": {
-            "type": "string",
-            "enum": ["fix", "skip"],
-            "description": "Whether to fix or skip this finding"
-          },
-          "skip_reason": {
-            "type": "string",
-            "description": "Why this finding is skipped (if action=skip)"
-          }
-        }
+        "$ref": "#/definitions/Finding"
       }
     },
-    "fix_plan_summary": {
+    "total": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total count of findings — must match findings array length."
+    },
+    "summary": {
       "type": "string",
-      "description": "Human-readable summary of what will be fixed"
-    },
-    "verdict": {
-      "type": "string",
-      "enum": ["approved", "changes_requested"],
-      "description": "Overall review verdict — allows clean reviews with no findings"
-    },
-    "critical_count": {
-      "type": "integer"
-    },
-    "high_count": {
-      "type": "integer"
+      "description": "One-line synthesis describing the overall finding distribution."
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "definitions": {
+    "Finding": {
+      "type": "object",
+      "required": ["source", "severity", "title", "description"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "Originating reviewer or audit pipeline (e.g., audit-security, ops-pr-review-core/quality, audit-doc-scan)."
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "file": {
+          "type": "string",
+          "description": "File path relative to the project root, or empty when not applicable."
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Line number, or 0 when not applicable."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Short headline for the finding."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Concrete description of the issue and its impact."
+        },
+        "recommendation": {
+          "type": "string",
+          "description": "Suggested fix the resolve step can act on."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
 }
