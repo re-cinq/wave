@@ -29,6 +29,61 @@ func TestDuration(t *testing.T) {
 	}
 }
 
+func TestDurationMs(t *testing.T) {
+	tests := []struct {
+		name string
+		ms   int64
+		want string
+	}{
+		{"zero", 0, "-"},
+		{"negative", -100, "-"},
+		{"sub-second", 250, "<1s"},
+		{"just under second", 999, "<1s"},
+		{"one second", 1000, "1s"},
+		{"seconds", 5_000, "5s"},
+		{"minute boundary", 60_000, "1m0s"},
+		{"minutes and seconds", 195_000, "3m15s"},
+		{"hour boundary", 3_600_000, "1h0m"},
+		{"hours and minutes", 9_000_000, "2h30m"},
+		{"large value", 36_000_000, "10h0m"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := DurationMs(tt.ms); got != tt.want {
+				t.Errorf("DurationMs(%d) = %q, want %q", tt.ms, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDurationSeconds(t *testing.T) {
+	tests := []struct {
+		name string
+		s    float64
+		want string
+	}{
+		{"zero", 0, "-"},
+		{"negative", -1.5, "-"},
+		{"sub-second", 0.25, "<1s"},
+		{"just under second", 0.999, "<1s"},
+		{"one second", 1, "1s"},
+		{"seconds", 5, "5s"},
+		{"sub-minute", 59.4, "59s"},
+		{"minute boundary", 60, "1m0s"},
+		{"minutes and seconds", 195.7, "3m15s"},
+		{"hour boundary", 3600, "1h0m"},
+		{"hours and minutes", 9000, "2h30m"},
+		{"large value", 36000, "10h0m"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := DurationSeconds(tt.s); got != tt.want {
+				t.Errorf("DurationSeconds(%v) = %q, want %q", tt.s, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestTokenCount(t *testing.T) {
 	tests := []struct {
 		name string

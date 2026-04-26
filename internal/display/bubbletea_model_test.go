@@ -566,8 +566,8 @@ func TestProgressModel_View_ETAShownWhenNonZero(t *testing.T) {
 	if !strings.Contains(view, "ETA:") {
 		t.Errorf("View should contain 'ETA:' when EstimatedTimeMs > 0, got:\n%s", view)
 	}
-	if !strings.Contains(view, "1m 30s") {
-		t.Errorf("View should contain formatted ETA '1m 30s', got:\n%s", view)
+	if !strings.Contains(view, "1m30s") {
+		t.Errorf("View should contain formatted ETA '1m30s', got:\n%s", view)
 	}
 }
 

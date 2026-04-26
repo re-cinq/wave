@@ -15,11 +15,43 @@ func Duration(d time.Duration) string {
 	if d == 0 {
 		return "-"
 	}
-	if d < time.Minute {
-		return fmt.Sprintf("%ds", int(d.Seconds()))
+	return formatTotalSeconds(int(d.Seconds()))
+}
+
+// DurationMs formats a duration given in milliseconds as a short
+// human-readable string. Returns "-" for zero or negative input,
+// "<1s" for sub-second values.
+func DurationMs(ms int64) string {
+	if ms <= 0 {
+		return "-"
 	}
-	minutes := int(d.Minutes())
-	seconds := int(d.Seconds()) % 60
+	if ms < 1000 {
+		return "<1s"
+	}
+	return formatTotalSeconds(int(ms / 1000))
+}
+
+// DurationSeconds formats a duration given in seconds as a short
+// human-readable string. Returns "-" for zero or negative input,
+// "<1s" for sub-second values.
+func DurationSeconds(s float64) string {
+	if s <= 0 {
+		return "-"
+	}
+	if s < 1 {
+		return "<1s"
+	}
+	return formatTotalSeconds(int(s))
+}
+
+// formatTotalSeconds renders a second count as the canonical short form:
+// "5s", "3m15s", "2h30m". Callers handle zero / sub-second pre-formatting.
+func formatTotalSeconds(totalSeconds int) string {
+	if totalSeconds < 60 {
+		return fmt.Sprintf("%ds", totalSeconds)
+	}
+	minutes := totalSeconds / 60
+	seconds := totalSeconds % 60
 	if minutes >= 60 {
 		hours := minutes / 60
 		minutes %= 60

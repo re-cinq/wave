@@ -3,11 +3,12 @@ package tui
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/recinq/wave/internal/humanize"
 )
 
 // PersonaStatsMsg carries fetched persona stats from the provider.
@@ -185,7 +186,7 @@ func renderPersonaDetail(info *PersonaInfo, stats *PersonaStats, _ int) string {
 			successRate := float64(stats.SuccessfulRuns) / float64(stats.TotalRuns) * 100
 			sb.WriteString(fmt.Sprintf("  %s %.0f%%\n", labelStyle.Render("Success rate:"), successRate))
 		}
-		sb.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Avg duration:"), formatDuration(time.Duration(stats.AvgDurationMs)*time.Millisecond)))
+		sb.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Avg duration:"), humanize.DurationMs(stats.AvgDurationMs)))
 		if !stats.LastRunAt.IsZero() {
 			sb.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Last run:"), stats.LastRunAt.Format("2006-01-02 15:04:05")))
 		}

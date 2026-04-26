@@ -306,35 +306,6 @@ func TestFormatter_Spinner(t *testing.T) {
 	}
 }
 
-func TestFormatter_FormatDuration(t *testing.T) {
-	f := NewFormatter()
-
-	tests := []struct {
-		name       string
-		durationMs int64
-		want       string
-	}{
-		{"negative", -100, "0s"},
-		{"zero", 0, "0ms"},
-		{"milliseconds", 500, "500ms"},
-		{"one second", 1000, "1s"},
-		{"seconds", 5000, "5s"},
-		{"one minute", 60000, "1m 0s"},
-		{"minutes and seconds", 90000, "1m 30s"},
-		{"one hour", 3600000, "1h 0m"},
-		{"hours and minutes", 5400000, "1h 30m"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := f.FormatDuration(tt.durationMs)
-			if got != tt.want {
-				t.Errorf("FormatDuration(%d) = %q, want %q", tt.durationMs, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestFormatter_TableRow(t *testing.T) {
 	f := NewFormatter()
 

@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/recinq/wave/internal/display"
+	"github.com/recinq/wave/internal/humanize"
 )
 
 const (
@@ -776,7 +776,7 @@ func (m PipelineListModel) renderFinishedItem(item navigableItem, isSelected boo
 		statusIcon = "✗"
 	}
 
-	duration := formatDuration(f.Duration)
+	duration := humanize.Duration(f.Duration)
 	// Strip pipeline name prefix from run ID since the parent node already shows it.
 	runLabel := f.RunID
 	if strings.HasPrefix(runLabel, f.Name+"-") {
@@ -828,14 +828,6 @@ func truncateName(name string, maxWidth int) string {
 		w += rw
 	}
 	return name + "…"
-}
-
-// formatDuration wraps display.FormatDuration converting time.Duration to milliseconds.
-func formatDuration(d time.Duration) string {
-	if d < 0 {
-		d = 0
-	}
-	return display.FormatDuration(d.Milliseconds())
 }
 
 // Async command factories

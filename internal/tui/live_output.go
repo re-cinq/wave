@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/humanize"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -285,9 +286,9 @@ func formatTokenCount(tokens int) string {
 	return display.FormatTokenCount(tokens)
 }
 
-// formatCompactDuration wraps display.FormatDuration converting time.Duration to milliseconds.
+// formatCompactDuration delegates to the shared humanize.Duration formatter.
 func formatCompactDuration(d time.Duration) string {
-	return display.FormatDuration(d.Milliseconds())
+	return humanize.Duration(d)
 }
 
 // formatErrorBlock formats a failure event as a multi-line error block.

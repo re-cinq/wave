@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/recinq/wave/internal/humanize"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -305,7 +306,7 @@ func computeStepDurationDelta(left, right StepDetail) (string, string) {
 		class = "compare-improvement"
 	}
 
-	return prefix + formatDurationValue(absDelta), class
+	return prefix + humanize.Duration(absDelta), class
 }
 
 // computeRunDurationDelta computes the delta between two runs' total durations.
@@ -337,7 +338,7 @@ func computeRunDurationDelta(left, right *state.RunRecord) (string, string) {
 		class = "compare-improvement"
 	}
 
-	return prefix + formatDurationValue(absDelta), class
+	return prefix + humanize.Duration(absDelta), class
 }
 
 // computeTokensDelta computes a human-readable token delta.

@@ -8,6 +8,8 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/recinq/wave/internal/humanize"
 )
 
 const (
@@ -393,7 +395,7 @@ func (m IssueListModel) renderFinishedChild(item issueNavItem, navIdx int, isSel
 		statusIcon = "✗"
 	}
 
-	duration := formatDuration(f.Duration)
+	duration := humanize.Duration(f.Duration)
 	runLabel := f.RunID
 	if strings.HasPrefix(runLabel, f.Name+"-") {
 		runLabel = runLabel[len(f.Name)+1:]

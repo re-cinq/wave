@@ -165,7 +165,7 @@ func TestPipelineDetailModel_FinishedCompleted(t *testing.T) {
 	assert.Contains(t, view, "speckit-flow")
 	assert.Contains(t, view, "✓")
 	assert.Contains(t, view, "completed")
-	assert.Contains(t, view, "5m 30s")
+	assert.Contains(t, view, "5m30s")
 	assert.Contains(t, view, "feat/my-feature")
 	assert.Contains(t, view, "specify")
 	assert.Contains(t, view, "navigator")

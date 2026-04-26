@@ -6,8 +6,8 @@ import (
 	"log"
 	"net/http"
 	"sort"
-	"time"
 
+	"github.com/recinq/wave/internal/humanize"
 	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/state"
 )
@@ -114,7 +114,7 @@ func (s *Server) handleRetrosPage(w http.ResponseWriter, r *http.Request) {
 		avgDur := "-"
 		if agg.durationCount > 0 {
 			avgMs := agg.totalDurationMs / int64(agg.durationCount)
-			avgDur = formatDurationValue(time.Duration(avgMs) * time.Millisecond)
+			avgDur = humanize.DurationMs(avgMs)
 		}
 		pipelineRates = append(pipelineRates, PipelineSuccessRate{
 			Pipeline:    name,

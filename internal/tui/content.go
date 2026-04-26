@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/recinq/wave/internal/display"
+	"github.com/recinq/wave/internal/humanize"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -2200,7 +2201,7 @@ func formatStoredEvent(ev state.LogRecord) string {
 	case "completed":
 		suffix := ""
 		if ev.DurationMs > 0 {
-			d := display.FormatDuration(ev.DurationMs)
+			d := humanize.DurationMs(ev.DurationMs)
 			tokenInfo := ""
 			if ev.TokensUsed > 0 {
 				tokenInfo = fmt.Sprintf(", %s tokens", display.FormatTokenCount(ev.TokensUsed))
