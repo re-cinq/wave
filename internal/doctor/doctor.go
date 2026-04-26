@@ -57,6 +57,9 @@ func RunChecks(ctx context.Context, opts Options) (*Report, error) {
 	// 8. Required skills
 	report.Results = append(report.Results, checkRequiredSkills(&opts)...)
 
+	// 8b. Docker daemon (informational — many projects don't use Docker)
+	report.Results = append(report.Results, checkDockerDaemon(&opts))
+
 	// 9. Ontology health
 	report.Results = append(report.Results, checkOntology(&opts, m)...)
 

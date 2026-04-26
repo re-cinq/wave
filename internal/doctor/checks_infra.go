@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/recinq/wave/internal/checks"
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 )
@@ -108,6 +109,39 @@ func checkAdapters(opts *Options, m *manifest.Manifest) []CheckResult {
 		}
 	}
 	return results
+}
+
+// checkDockerDaemon reports the Docker host capability via the shared
+// checks.DockerDaemon probe. Missing binary is StatusWarn (informational —
+// many Wave projects don't use Docker); binary present but daemon down is
+// StatusWarn with a remediation hint; daemon up is StatusOK.
+func checkDockerDaemon(opts *Options) CheckResult {
+	status := checks.DockerDaemon(opts.runCmd, opts.lookPath)
+	switch {
+	case !status.BinaryFound:
+		return CheckResult{
+			Name:     "Docker Daemon",
+			Category: "system",
+			Status:   StatusWarn,
+			Message:  "docker binary not found on PATH (skipping daemon probe)",
+			Fix:      "Install Docker if you plan to use the docker sandbox: https://docs.docker.com/get-docker/",
+		}
+	case !status.DaemonUp:
+		return CheckResult{
+			Name:     "Docker Daemon",
+			Category: "system",
+			Status:   StatusWarn,
+			Message:  "docker binary present but daemon not reachable",
+			Fix:      "Start Docker (Linux: systemctl start docker; macOS: open Docker Desktop)",
+		}
+	default:
+		return CheckResult{
+			Name:     "Docker Daemon",
+			Category: "system",
+			Status:   StatusOK,
+			Message:  "docker daemon available",
+		}
+	}
 }
 
 func checkForge(opts *Options) (forge.ForgeInfo, []CheckResult) {

@@ -4,11 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
+	"github.com/recinq/wave/internal/checks"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/tools"
 )
@@ -77,8 +76,7 @@ func NewChecker(skills map[string]skill.SkillConfig) *Checker {
 
 // defaultRunCmd executes a command and returns an error if it fails.
 func defaultRunCmd(name string, args ...string) error {
-	cmd := exec.Command(name, args...)
-	return cmd.Run()
+	return checks.DefaultRunCmd(name, args...)
 }
 
 // runCmdWithOutput executes a command and returns combined stdout+stderr output.
@@ -89,13 +87,6 @@ func runCmdWithOutput(name string, args ...string) (string, error) {
 	cmd.Stderr = &buf
 	err := cmd.Run()
 	return buf.String(), err
-}
-
-// runCmdWithEnv executes a command with additional environment variables.
-func runCmdWithEnv(env []string, name string, args ...string) error {
-	cmd := exec.Command(name, args...)
-	cmd.Env = append(os.Environ(), env...)
-	return cmd.Run()
 }
 
 // CheckTools verifies that all required CLI tools are available on PATH.
@@ -169,30 +160,29 @@ func (c *Checker) CheckBrowserBinary() (string, Result) {
 
 // CheckDockerDaemon verifies that the Docker daemon is available and running.
 func (c *Checker) CheckDockerDaemon() Result {
-	_, err := exec.LookPath("docker")
-	if err != nil {
+	status := checks.DockerDaemon(c.runCmd, nil)
+	switch {
+	case !status.BinaryFound:
 		return Result{
 			Name:    "docker",
 			Kind:    "tool",
 			OK:      false,
 			Message: "docker binary not found on PATH\n  Install Docker: https://docs.docker.com/get-docker/",
 		}
-	}
-
-	if err := c.runCmd("docker", "info"); err != nil {
+	case !status.DaemonUp:
 		return Result{
 			Name:    "docker",
 			Kind:    "tool",
 			OK:      false,
 			Message: "docker daemon not running\n  Linux: systemctl start docker\n  macOS: Open Docker Desktop\n  WSL2: Start Docker Desktop for Windows",
 		}
-	}
-
-	return Result{
-		Name:    "docker",
-		Kind:    "tool",
-		OK:      true,
-		Message: "docker daemon available",
+	default:
+		return Result{
+			Name:    "docker",
+			Kind:    "tool",
+			OK:      true,
+			Message: "docker daemon available",
+		}
 	}
 }
 
@@ -344,10 +334,7 @@ func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
 
 // isSkillInstalled runs the skill's check command to verify installation.
 func (c *Checker) isSkillInstalled(cfg skill.SkillConfig) bool {
-	if cfg.Check == "" {
-		return false
-	}
-	return c.runShellCommand(cfg.Check) == nil
+	return checks.SkillInstalled(c.runCmd, cfg.Check)
 }
 
 // isSkillInstalledWithToolBin checks skill installation with $HOME/.local/bin
@@ -355,22 +342,7 @@ func (c *Checker) isSkillInstalled(cfg skill.SkillConfig) bool {
 // in sandboxed or detached environments this directory may not be in PATH
 // even after a successful install.
 func (c *Checker) isSkillInstalledWithToolBin(cfg skill.SkillConfig) bool {
-	if cfg.Check == "" {
-		return false
-	}
-	// First try with existing PATH
-	if c.runShellCommand(cfg.Check) == nil {
-		return true
-	}
-	// Retry with $HOME/.local/bin prepended to PATH
-	home := os.Getenv("HOME")
-	if home == "" {
-		return false
-	}
-	toolBin := filepath.Join(home, ".local", "bin")
-	currentPath := os.Getenv("PATH")
-	enhancedPath := toolBin + string(os.PathListSeparator) + currentPath
-	return runCmdWithEnv([]string{"PATH=" + enhancedPath}, "sh", "-c", cfg.Check) == nil
+	return checks.SkillInstalledWithToolBin(c.runCmd, nil, cfg.Check)
 }
 
 // runShellCommand executes a shell command string via sh -c.

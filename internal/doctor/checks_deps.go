@@ -3,6 +3,7 @@ package doctor
 import (
 	"fmt"
 
+	"github.com/recinq/wave/internal/checks"
 	"github.com/recinq/wave/internal/tools"
 )
 
@@ -53,18 +54,16 @@ func checkRequiredSkills(opts *Options) []CheckResult {
 
 	var results []CheckResult
 	for name, check := range skills {
-		if check == "" {
+		status := checks.Skill(opts.runCmd, check)
+		switch {
+		case !status.HasCheck:
 			results = append(results, CheckResult{
 				Name:     fmt.Sprintf("Skill: %s", name),
 				Category: "system",
 				Status:   StatusWarn,
 				Message:  fmt.Sprintf("Skill %q has no check command", name),
 			})
-			continue
-		}
-
-		err := opts.runCmd("sh", "-c", check)
-		if err != nil {
+		case !status.Installed:
 			results = append(results, CheckResult{
 				Name:     fmt.Sprintf("Skill: %s", name),
 				Category: "system",
@@ -72,7 +71,7 @@ func checkRequiredSkills(opts *Options) []CheckResult {
 				Message:  fmt.Sprintf("Skill %q not installed", name),
 				Fix:      fmt.Sprintf("Install skill %q or run 'wave run' with auto-install", name),
 			})
-		} else {
+		default:
 			results = append(results, CheckResult{
 				Name:     fmt.Sprintf("Skill: %s", name),
 				Category: "system",
