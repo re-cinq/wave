@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/recinq/wave/internal/humanize"
 	"github.com/recinq/wave/internal/pathfmt"
 	"github.com/recinq/wave/internal/state"
 )
@@ -681,7 +682,7 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 	}
 
 	// Duration
-	sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Duration:"), formatDuration(detail.Duration)))
+	sb.WriteString(fmt.Sprintf("%s %s\n", labelStyle.Render("Duration:"), humanize.Duration(detail.Duration)))
 
 	// Branch
 	if detail.BranchName != "" {
@@ -751,7 +752,7 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 				fmt.Fprintf(&sb, "  %s %-20s  %s  (%s)%s\n",
 					iconStr,
 					step.ID,
-					formatDuration(step.Duration),
+					humanize.Duration(step.Duration),
 					step.Persona,
 					failureTag,
 				)
@@ -759,7 +760,7 @@ func renderFinishedDetail(detail *FinishedDetail, width int, branchDeleted bool,
 				fmt.Fprintf(&sb, "  %s %-20s  %s%s\n",
 					iconStr,
 					step.ID,
-					formatDuration(step.Duration),
+					humanize.Duration(step.Duration),
 					failureTag,
 				)
 			}

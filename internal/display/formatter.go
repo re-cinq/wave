@@ -3,7 +3,6 @@ package display
 import (
 	"fmt"
 	"strings"
-	"time"
 )
 
 // Formatter provides ANSI escape sequence management and text formatting utilities.
@@ -251,35 +250,6 @@ func (f *Formatter) Spinner(tick int) string {
 	return f.Primary(f.charSet.Spinner[frame])
 }
 
-// Duration Formatting
-
-// FormatDuration formats a duration in milliseconds to human-readable form.
-func (f *Formatter) FormatDuration(durationMs int64) string {
-	if durationMs < 0 {
-		return "0s"
-	}
-
-	d := time.Duration(durationMs) * time.Millisecond
-
-	if d < time.Second {
-		return fmt.Sprintf("%dms", durationMs)
-	}
-
-	if d < time.Minute {
-		return fmt.Sprintf("%ds", int(d.Seconds()))
-	}
-
-	if d < time.Hour {
-		minutes := int(d.Minutes())
-		seconds := int(d.Seconds()) % 60
-		return fmt.Sprintf("%dm %ds", minutes, seconds)
-	}
-
-	hours := int(d.Hours())
-	minutes := int(d.Minutes()) % 60
-	return fmt.Sprintf("%dh %dm", hours, minutes)
-}
-
 // Table Formatting
 
 // TableRow formats a row with columns of specific widths.
@@ -452,29 +422,3 @@ func FormatTokenCount(tokens int) string {
 	return fmt.Sprintf("%.1fB", float64(tokens)/1_000_000_000.0)
 }
 
-// FormatDuration formats a duration in milliseconds to human-readable form.
-func FormatDuration(durationMs int64) string {
-	if durationMs < 0 {
-		return "0s"
-	}
-
-	d := time.Duration(durationMs) * time.Millisecond
-
-	if d < time.Second {
-		return fmt.Sprintf("%dms", durationMs)
-	}
-
-	if d < time.Minute {
-		return fmt.Sprintf("%ds", int(d.Seconds()))
-	}
-
-	if d < time.Hour {
-		minutes := int(d.Minutes())
-		seconds := int(d.Seconds()) % 60
-		return fmt.Sprintf("%dm %ds", minutes, seconds)
-	}
-
-	hours := int(d.Hours())
-	minutes := int(d.Minutes()) % 60
-	return fmt.Sprintf("%dh %dm", hours, minutes)
-}

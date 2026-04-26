@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/forge"
+	"github.com/recinq/wave/internal/humanize"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -605,10 +606,10 @@ func runToSummary(r state.RunRecord) RunSummary {
 
 	if r.CompletedAt != nil {
 		dur := r.CompletedAt.Sub(r.StartedAt)
-		summary.Duration = formatDurationValue(dur)
+		summary.Duration = humanize.Duration(dur)
 	} else if r.Status == "running" {
 		dur := time.Since(r.StartedAt)
-		summary.Duration = formatDurationValue(dur)
+		summary.Duration = humanize.Duration(dur)
 	}
 
 	summary.BranchName = r.BranchName
@@ -877,9 +878,9 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 			// Calculate duration
 			if si.startedAt != nil {
 				if si.completedAt != nil {
-					sd.Duration = formatDurationValue(si.completedAt.Sub(*si.startedAt))
+					sd.Duration = humanize.Duration(si.completedAt.Sub(*si.startedAt))
 				} else if sd.State == "running" {
-					sd.Duration = formatDurationValue(time.Since(*si.startedAt))
+					sd.Duration = humanize.Duration(time.Since(*si.startedAt))
 				}
 			}
 
@@ -1032,26 +1033,6 @@ func artifactToSummary(a state.ArtifactRecord) ArtifactSummary {
 		Type:      a.Type,
 		SizeBytes: a.SizeBytes,
 	}
-}
-
-func formatDurationValue(d time.Duration) string {
-	if d < time.Minute {
-		return fmt.Sprintf("%.0fs", d.Seconds())
-	}
-	if d < time.Hour {
-		m := int(d.Minutes())
-		s := int(d.Seconds()) % 60
-		if s == 0 {
-			return fmt.Sprintf("%dm", m)
-		}
-		return fmt.Sprintf("%dm %ds", m, s)
-	}
-	h := int(d.Hours())
-	m := int(d.Minutes()) % 60
-	if m == 0 {
-		return fmt.Sprintf("%dh", h)
-	}
-	return fmt.Sprintf("%dh %dm", h, m)
 }
 
 func collectStepField(steps []StepDetail, fn func(StepDetail) string) []string {

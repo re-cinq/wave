@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/recinq/wave/internal/humanize"
 	"github.com/recinq/wave/internal/pathfmt"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -197,7 +198,7 @@ func (m *ProgressModel) renderHeader() string {
 		progressLine,
 	}
 	if m.ctx.EstimatedTimeMs > 0 {
-		projectLines = append(projectLines, fmt.Sprintf("ETA:      %s", FormatDuration(m.ctx.EstimatedTimeMs)))
+		projectLines = append(projectLines, fmt.Sprintf("ETA:      %s", humanize.DurationMs(m.ctx.EstimatedTimeMs)))
 	}
 
 	// Render logo with per-character shimmer animation

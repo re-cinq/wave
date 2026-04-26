@@ -2,8 +2,11 @@ package webui
 
 import (
 	"html/template"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/recinq/wave/internal/humanize"
 )
 
 func TestStatusClass(t *testing.T) {
@@ -34,105 +37,38 @@ func TestStatusClass(t *testing.T) {
 	}
 }
 
-func TestFormatDurationShort(t *testing.T) {
-	tests := []struct {
+// TestTemplateFormatDurationRendersEscaped verifies the formatDuration
+// template helper produces the canonical humanize output and that html/template
+// escapes the "<" in the "<1s" sub-second variant.
+func TestTemplateFormatDurationRendersEscaped(t *testing.T) {
+	tmpl, err := template.New("t").Funcs(template.FuncMap{
+		"formatDuration": humanize.DurationSeconds,
+	}).Parse(`{{ formatDuration .S }}`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	cases := []struct {
 		name    string
 		seconds float64
 		want    string
 	}{
-		{"zero", 0, "<1s"},
-		{"negative", -1, "<1s"},
-		{"fraction below one", 0.5, "<1s"},
-		{"just below one", 0.999, "<1s"},
-		{"exactly one", 1, "1s"},
-		{"just above one", 1.1, "1s"},
-		{"five seconds", 5, "5s"},
-		{"ten seconds", 10, "10s"},
-		{"fifty nine seconds", 59, "59s"},
-		{"rounds down at 1.9", 1.9, "2s"},
-		{"rounds at 1.5", 1.5, "2s"},
-		{"30.4 rounds to 30", 30.4, "30s"},
+		{"zero renders dash", 0, "-"},
+		{"sub-second escapes lt", 0.5, "&lt;1s"},
+		{"seconds", 5, "5s"},
+		{"minutes", 90, "1m30s"},
+		{"hours", 3661, "1h1m"},
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := formatDurationShort(tt.seconds)
-			if got != tt.want {
-				t.Errorf("formatDurationShort(%v) = %q, want %q", tt.seconds, got, tt.want)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var sb strings.Builder
+			if err := tmpl.Execute(&sb, struct{ S float64 }{tc.seconds}); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if got := sb.String(); got != tc.want {
+				t.Errorf("formatDuration(%v) = %q, want %q", tc.seconds, got, tc.want)
 			}
 		})
-	}
-}
-
-func TestFormatMinSec(t *testing.T) {
-	tests := []struct {
-		name string
-		m    int
-		s    int
-		want string
-	}{
-		{"1 minute 0 seconds", 1, 0, "1m 0s"},
-		{"1 minute 30 seconds", 1, 30, "1m 30s"},
-		{"2 minutes 5 seconds", 2, 5, "2m 5s"},
-		{"0 minutes 45 seconds", 0, 45, "0m 45s"},
-		{"60 minutes 0 seconds", 60, 0, "60m 0s"},
-		{"10 minutes 59 seconds", 10, 59, "10m 59s"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := formatMinSec(tt.m, tt.s)
-			if got != tt.want {
-				t.Errorf("formatMinSec(%d, %d) = %q, want %q", tt.m, tt.s, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestFormatDuration(t *testing.T) {
-	tests := []struct {
-		name    string
-		seconds float64
-		want    string
-	}{
-		// Below 60: delegates to formatDurationShort (HTML-escaped)
-		{"zero", 0, "&lt;1s"},
-		{"negative", -5, "&lt;1s"},
-		{"half second", 0.5, "&lt;1s"},
-		{"one second", 1, "1s"},
-		{"thirty seconds", 30, "30s"},
-		{"fifty nine seconds", 59, "59s"},
-		{"just below sixty", 59.9, "60s"},
-		// At and above 60: delegates to formatMinSec
-		{"exactly sixty", 60, "1m 0s"},
-		{"ninety seconds", 90, "1m 30s"},
-		{"two minutes", 120, "2m 0s"},
-		{"two minutes five seconds", 125, "2m 5s"},
-		{"one hour", 3600, "60m 0s"},
-		{"one hour thirty minutes", 5400, "90m 0s"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := formatDuration(tt.seconds)
-			if got != tt.want {
-				t.Errorf("formatDuration(%v) = %q, want %q", tt.seconds, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestFormatDuration_HTMLEscaping(t *testing.T) {
-	// The "<1s" output from formatDurationShort must be HTML-escaped in formatDuration.
-	got := formatDuration(0)
-	if got != "&lt;1s" {
-		t.Errorf("formatDuration(0) = %q, want %q (HTML-escaped)", got, "&lt;1s")
-	}
-
-	// Values >= 60 produce no HTML special chars, so escaping is a no-op.
-	got = formatDuration(65)
-	if got != "1m 5s" {
-		t.Errorf("formatDuration(65) = %q, want %q", got, "1m 5s")
 	}
 }
 

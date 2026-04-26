@@ -13,6 +13,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/recinq/wave/internal/humanize"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
 )
@@ -25,7 +26,7 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 	funcMap := template.FuncMap{
 		"statusClass":    statusClass,
 		"statusLabel":    statusLabel,
-		"formatDuration": formatDuration,
+		"formatDuration": humanize.DurationSeconds,
 		"formatTime":     formatTime,
 		"formatTokens":   formatTokensFunc,
 		"csrfToken":      func() string { return "test-csrf-token" },

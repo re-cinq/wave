@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/display"
+	"github.com/recinq/wave/internal/humanize"
 )
 
 //go:embed static/*
@@ -58,7 +59,7 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		"statusClass":       statusClass,
 		"statusLabel":       statusLabel,
 		"statusIcon":        statusIcon,
-		"formatDuration":    formatDuration,
+		"formatDuration":    humanize.DurationSeconds,
 		"formatTime":        formatTime,
 		"formatTimeISO":     formatTimeISO,
 		"formatTokens":      formatTokensFunc,
@@ -301,27 +302,6 @@ func checkLabel(status, conclusion string) string {
 	default:
 		return conclusion
 	}
-}
-
-// formatDuration formats a duration in human-readable form.
-func formatDuration(seconds float64) string {
-	if seconds < 60 {
-		return template.HTMLEscapeString(formatDurationShort(seconds))
-	}
-	m := int(seconds) / 60
-	s := int(seconds) % 60
-	return template.HTMLEscapeString(formatMinSec(m, s))
-}
-
-func formatDurationShort(seconds float64) string {
-	if seconds < 1 {
-		return "<1s"
-	}
-	return fmt.Sprintf("%.0fs", seconds)
-}
-
-func formatMinSec(m, s int) string {
-	return fmt.Sprintf("%dm %ds", m, s)
 }
 
 // formatTime formats a time.Time for display.
