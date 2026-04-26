@@ -193,8 +193,8 @@ Fleet after the 2026-04 WLP (ADR-011) consolidation: 34 pipelines. All shipped p
 | Feature inception (scope + research + impl + review) | `inception-feature` | End-to-end feature delivery composed from core blocks |
 | Bug inception | `inception-bugfix` | End-to-end bug triage + fix + review |
 | Doc inception | `inception-doc` | End-to-end doc fix composition |
-| Hardening inception | `inception-harden` | Release-hardening composition |
 | Audit inception | `inception-audit` | Triage + merge of multiple audit passes |
+| Hardening inception (Wave self) | `inception-harden` | Release-hardening for Wave itself; not shipped in defaults (composes wave-* self-evolution sub-pipelines) |
 | Code quality | `audit-duplicates`, `audit-tests`, `audit-architecture` | Analysis passes feeding findings_report |
 | Dead code / docs | `audit-dead-code-scan`, `audit-doc-scan` | Single-step scans used as Lego blocks |
 | Security | `audit-security`, `wave-security-audit` | Security scanning (any project / Wave itself) |
