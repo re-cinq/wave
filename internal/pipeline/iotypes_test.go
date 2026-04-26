@@ -236,7 +236,7 @@ func TestResolveStepInput_LegacyStringFallback(t *testing.T) {
 
 // --- Wave Lego Protocol (ADR-011) load-time checks ---
 
-func TestCollectWLPLoadWarnings_RetryOnContract(t *testing.T) {
+func TestCollectWLPLoadErrors_RetryOnContract(t *testing.T) {
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "bad-retry"},
 		Steps: []Step{{
@@ -249,7 +249,7 @@ func TestCollectWLPLoadWarnings_RetryOnContract(t *testing.T) {
 			},
 		}},
 	}
-	warnings := CollectWLPLoadWarnings(p)
+	warnings := CollectWLPLoadErrors(p)
 	if len(warnings) == 0 {
 		t.Fatal("expected a warning for on_failure=retry on contract, got none")
 	}
@@ -259,7 +259,7 @@ func TestCollectWLPLoadWarnings_RetryOnContract(t *testing.T) {
 	}
 }
 
-func TestCollectWLPLoadWarnings_RetryOnContractsList(t *testing.T) {
+func TestCollectWLPLoadErrors_RetryOnContractsList(t *testing.T) {
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "bad-retry-list"},
 		Steps: []Step{{
@@ -272,7 +272,7 @@ func TestCollectWLPLoadWarnings_RetryOnContractsList(t *testing.T) {
 			},
 		}},
 	}
-	warnings := CollectWLPLoadWarnings(p)
+	warnings := CollectWLPLoadErrors(p)
 	if len(warnings) != 1 {
 		t.Fatalf("expected 1 warning for retry-in-list, got %d: %v", len(warnings), warnings)
 	}
@@ -281,7 +281,7 @@ func TestCollectWLPLoadWarnings_RetryOnContractsList(t *testing.T) {
 	}
 }
 
-func TestCollectWLPLoadWarnings_PipelineOutputMissingType(t *testing.T) {
+func TestCollectWLPLoadErrors_PipelineOutputMissingType(t *testing.T) {
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "missing-type"},
 		PipelineOutputs: map[string]PipelineOutput{
@@ -290,7 +290,7 @@ func TestCollectWLPLoadWarnings_PipelineOutputMissingType(t *testing.T) {
 		},
 		Steps: []Step{{ID: "s1"}},
 	}
-	warnings := CollectWLPLoadWarnings(p)
+	warnings := CollectWLPLoadErrors(p)
 	if len(warnings) != 1 {
 		t.Fatalf("expected exactly 1 warning, got %d: %v", len(warnings), warnings)
 	}
@@ -299,7 +299,7 @@ func TestCollectWLPLoadWarnings_PipelineOutputMissingType(t *testing.T) {
 	}
 }
 
-func TestCollectWLPLoadWarnings_Clean(t *testing.T) {
+func TestCollectWLPLoadErrors_Clean(t *testing.T) {
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "clean"},
 		Input:    InputConfig{Source: "cli", Type: "issue_ref"},
@@ -313,7 +313,7 @@ func TestCollectWLPLoadWarnings_Clean(t *testing.T) {
 			},
 		}},
 	}
-	if warnings := CollectWLPLoadWarnings(p); len(warnings) > 0 {
+	if warnings := CollectWLPLoadErrors(p); len(warnings) > 0 {
 		t.Errorf("expected no warnings on clean pipeline, got %d: %v", len(warnings), warnings)
 	}
 }

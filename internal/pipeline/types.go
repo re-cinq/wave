@@ -740,8 +740,3 @@ type StepInput struct {
 	From    string `yaml:"from,omitempty"`
 	Literal string `yaml:"literal,omitempty"`
 }
-
-// IsSet reports whether the StepInput carries any wiring instruction.
-func (s *StepInput) IsSet() bool {
-	return s != nil && (s.From != "" || s.Literal != "")
-}

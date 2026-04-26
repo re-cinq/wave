@@ -71,11 +71,9 @@ func TypedWiringCheck(p *Pipeline, childLoader SubPipelineLoader, pipelinesDir s
 		return nil
 	}
 
-	outputsByStep := map[string]*Pipeline{} // parent step id -> child pipeline
 	// First pass: collect child pipelines and their declared input types.
-	childInputType := map[string]string{} // step id -> child input type
+	childInputType := map[string]string{}                   // step id -> child input type
 	childSourceOutputType := map[string]map[string]string{} // step id -> (output name -> type)
-	_ = outputsByStep
 
 	for _, step := range p.Steps {
 		if step.SubPipeline == "" {
@@ -157,25 +155,24 @@ func TypedWiringCheck(p *Pipeline, childLoader SubPipelineLoader, pipelinesDir s
 	return nil
 }
 
-// CollectWLPLoadWarnings returns a list of Wave Lego Protocol (ADR-011) style
-// warnings discovered at load time. Warnings are non-fatal and intended to be
-// emitted by the executor during preflight. The returned slice is nil when the
-// pipeline is WLP-clean.
+// CollectWLPLoadErrors returns a list of Wave Lego Protocol (ADR-011) load-time
+// violations. The returned slice is nil when the pipeline is WLP-clean. The
+// loader (dag.go) treats a non-empty slice as a hard error.
 //
-// Warning categories (ADR-011 rules):
+// Violation categories (ADR-011 rules):
 //
 //   - Rule 5: contract `on_failure: retry` — deterministic on_failure values
 //     must be fail/skip/continue/rework (+rework_step)/warn. `retry` is
-//     deprecated because retries belong to the step-level retry policy, not
+//     forbidden because retries belong to the step-level retry policy, not
 //     contracts.
-//   - Rule 3: pipeline_outputs entries without an explicit `type:` — the
-//     loader defaults to "string", but authors should declare the semantic
-//     type so consumers can type-check cross-pipeline wiring at load time.
+//   - Rule 3: pipeline_outputs entries without an explicit `type:` — every
+//     declared output must carry a semantic type so consumers can type-check
+//     cross-pipeline wiring at load time.
 //
 // This function is intentionally separate from ValidatePipelineIOTypes, which
-// returns hard errors only. WLP warnings will become errors in a later PR once
-// the shipped pipelines have been migrated.
-func CollectWLPLoadWarnings(p *Pipeline) []string {
+// covers shape/type-registry checks for input.type, pipeline_outputs[*].type,
+// and step input_ref bindings.
+func CollectWLPLoadErrors(p *Pipeline) []string {
 	if p == nil {
 		return nil
 	}

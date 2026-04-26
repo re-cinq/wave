@@ -1368,7 +1368,7 @@ func suggestFirstRun(w io.Writer, flavour *onboarding.FlavourInfo) {
 	}
 
 	// Flavour was detected so source files exist — suggest analysis over scaffolding.
-	fmt.Fprintf(w, "  Suggestion: Run 'wave run audit-dx' to analyze your codebase\n")
+	fmt.Fprintf(w, "  Suggestion: Run 'wave run audit-architecture' to analyze your codebase\n")
 }
 
 // runWizardInit runs the interactive onboarding wizard for first-time setup.
