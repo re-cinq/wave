@@ -122,24 +122,47 @@ steps:
         repair pass. If it still fails, capture the failure in the resolution
         record but commit anyway — the parent verify step will gate the loop.
 
-        ### Step 5 — Commit and push
+        ### Step 5 — Commit and push (against the project repo, not the workspace)
+
+        The mount-based workspace gives you a fresh `git init` at the workspace
+        root and the project filesystem at `/project`. To make commits visible
+        on the PR head branch, run all `git` commands from `/project` (the
+        mounted project repo with the real `origin` remote and the PR branch
+        checked out), not from the workspace root.
 
         Stage only the files you edited (no `git add -A`). Read the PR head
         branch from `.agents/output/pr-context.json` (`.branch`) and refuse to
-        push if the working tree is not currently on that branch — this guards
-        against detached HEAD or wrong-branch state silently pushing to whatever
-        upstream happens to be set.
+        push if `/project` is not currently on that branch — this guards against
+        detached HEAD or wrong-branch state silently pushing to whatever upstream
+        happens to be set. Verify the push actually landed by checking the
+        remote ref before reporting success.
 
         ```bash
         BRANCH=$(jq -r .branch .agents/output/pr-context.json)
+        cd /project
+
         CURRENT=$(git rev-parse --abbrev-ref HEAD)
         if [ "$CURRENT" != "$BRANCH" ]; then
-          echo "refusing to push: HEAD is '$CURRENT', expected PR head '$BRANCH'" >&2
+          echo "refusing to push: /project HEAD is '$CURRENT', expected PR head '$BRANCH'" >&2
           exit 1
         fi
+        if ! git remote get-url origin >/dev/null 2>&1; then
+          echo "refusing to push: no 'origin' remote configured in /project" >&2
+          exit 1
+        fi
+
         git add <file1> [<file2>...]
         git commit -m "fix({{ '<finding-id>' }}): <one-line summary from remediation>"
+        SHA=$(git rev-parse HEAD)
         git push origin HEAD:"$BRANCH"
+
+        # Verify the push landed on origin — fail loud if the SHA didn't reach
+        # the remote (e.g. push silently no-op'd, network drop, hooks rejected).
+        REMOTE_SHA=$(git ls-remote origin "$BRANCH" | awk '{print $1}')
+        if [ "$REMOTE_SHA" != "$SHA" ]; then
+          echo "push verification failed: local $SHA vs remote $REMOTE_SHA on $BRANCH" >&2
+          exit 1
+        fi
         ```
 
         Capture the commit SHA from `git rev-parse HEAD`.

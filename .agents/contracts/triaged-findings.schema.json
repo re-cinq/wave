@@ -24,7 +24,10 @@
           },
           "file": {
             "type": "string",
-            "description": "Repo-relative path to the file the fix should touch."
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^(?!/)(?!.*\\.\\.)(?!.*//)[A-Za-z0-9_./-]+$",
+            "description": "Repo-relative path to the file the fix should touch. Must not start with '/' (no absolute paths), must not contain '..' (no traversal) or '//' (no doubled separators). Allowed characters: alphanumerics, underscore, dot, slash, hyphen."
           },
           "line": {
             "type": "integer",

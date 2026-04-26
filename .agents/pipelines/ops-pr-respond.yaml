@@ -345,8 +345,10 @@ steps:
           input: "{{ item }}"
           iterate:
             over: "{{ triage.out.triaged-findings.actionable }}"
-            mode: parallel
-            max_concurrent: 4
+            # Serial until impl-finding gets per-child workspace isolation
+            # (see #1413). Parallel children share the /project mount and race
+            # on the working tree + git push, which silently drops commits.
+            mode: serial
 
         - id: verify
           type: command
@@ -361,17 +363,18 @@ steps:
             mkdir -p .agents/output
             if {{ project.contract_test_command }} > .agents/output/verify.log 2>&1; then
               VERDICT=pass
+              PASS=true
             else
               VERDICT=fail
+              PASS=false
             fi
-            cat > .agents/output/verify-verdict.json <<JSON
-            {
-              "verdict": "$VERDICT",
-              "pass": $([ "$VERDICT" = "pass" ] && echo true || echo false),
-              "command": "{{ project.contract_test_command }}",
-              "log_path": ".agents/output/verify.log"
-            }
-            JSON
+            jq -n \
+              --arg verdict "$VERDICT" \
+              --argjson pass "$PASS" \
+              --arg command '{{ project.contract_test_command }}' \
+              --arg log_path '.agents/output/verify.log' \
+              '{verdict: $verdict, pass: $pass, command: $command, log_path: $log_path}' \
+              > .agents/output/verify-verdict.json
             test "$VERDICT" = "pass"
           output_artifacts:
             - name: verify-verdict
@@ -432,7 +435,16 @@ steps:
 
         ### Step 1 — Compose the comment
 
-        Write `/tmp/ops-pr-respond.md` with this structure:
+        First, allocate a private temp file. Do not hardcode `/tmp/ops-pr-respond.md`
+        — concurrent runs would race on the same path, and a malicious local user
+        could pre-create the path as a symlink. Use `mktemp` and capture the
+        result in a variable that downstream steps reuse:
+
+        ```bash
+        BODY=$(mktemp -t ops-pr-respond.XXXXXX.md)
+        ```
+
+        Write the comment body into `"$BODY"` with this structure:
 
         ```markdown
         ## Wave PR Respond — Verdict: <pass | fail>
@@ -503,11 +515,12 @@ steps:
 
         ```bash
         # Belt-and-braces: enforce 16 KiB body cap regardless of LLM output.
-        head -c 16384 /tmp/ops-pr-respond.md > /tmp/ops-pr-respond.capped.md
-        mv /tmp/ops-pr-respond.capped.md /tmp/ops-pr-respond.md
+        CAPPED=$(mktemp -t ops-pr-respond.XXXXXX.md)
+        head -c 16384 "$BODY" > "$CAPPED"
+        mv "$CAPPED" "$BODY"
 
         {{ forge.cli_tool }} {{ forge.pr_command }} comment <PR_NUMBER> \
-          --body-file /tmp/ops-pr-respond.md
+          --body-file "$BODY"
         ```
 
         Capture the comment URL.
@@ -517,7 +530,11 @@ steps:
         Write `.agents/output/comment-result.json` matching the
         gh-pr-comment-result schema (success, issue_reference, comment, ...).
 
-        Clean up `/tmp/ops-pr-respond.md` after posting.
+        Clean up the temp body after posting:
+
+        ```bash
+        rm -f "$BODY"
+        ```
 
         ## Constraints
 
