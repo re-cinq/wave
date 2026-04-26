@@ -919,16 +919,6 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		}
 		return m, nil
 
-	case ComposeFocusDetailMsg:
-		m.focus = FocusPaneRight
-		if m.composeList != nil {
-			m.composeList.SetFocused(false)
-		}
-		if m.composeDetail != nil {
-			m.composeDetail.SetFocused(true)
-		}
-		return m, func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneRight} }
-
 	// Route alternative view messages
 	case PersonaDataMsg:
 		if m.personaList != nil {
@@ -1261,9 +1251,6 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		return m, nil
 
 	case HealthAllCompleteMsg:
-		return m, nil
-
-	case HealthTransitionMsg:
 		return m, nil
 
 	case HealthContinueMsg:
