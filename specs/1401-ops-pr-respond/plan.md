@@ -14,7 +14,7 @@ WLP-clean from day one: typed `pipeline_outputs`, canonical `.agents/artifacts/<
 
 ### Created
 
-- `.agents/pipelines/ops-pr-respond.yaml` — the composition pipeline (~250 lines).
+- `.agents/pipelines/ops-pr-respond.yaml` — the composition pipeline (~535 lines; ~2× the original ~250-line estimate because per-step prompt bodies grew during contract design).
 - `.agents/pipelines/impl-finding.yaml` — single-step craftsman sub-pipeline that fixes one finding on an existing PR branch (~80 lines).
 - `.agents/contracts/triaged-findings.schema.json` — `{actionable, deferred, rejected}` schema.
 - `.agents/contracts/pr-review-findings.schema.json` — unified findings array shape produced by aggregate. (Avoids name collision with existing `review-findings.schema.json` which describes a PR-review IO bundle, not a flat findings array.)
@@ -82,7 +82,7 @@ None — pipelines are declarative YAML; existing executor coverage applies. The
   - aggregate produces non-empty merged findings.
   - triage classifies ≥1 actionable.
   - resolve-each commits ≥1 fix to head branch.
-  - verify runs `{{ project.contract_test_command }}` (uses `GIT_CONFIG_NOSYSTEM=1`/`GIT_CONFIG_GLOBAL=/dev/null` so git-touching tests stay hermetic) and emits a verdict.
+  - verify runs `{{ project.test_command }}` and emits a verdict.
   - branch routes to comment-back on pass.
   - comment-back posts a structured comment with finding-→-SHA mapping.
 - Confirm the PR comment URL appears in the run output.
