@@ -12,7 +12,7 @@ Author a new composition pipeline `ops-pr-respond` that takes a PR ref, runs a p
 
 ## Context
 
-Currently the fleet (post-WLP, 34 pipelines) ships:
+Currently the post-WLP fleet ships:
 
 - `ops-pr-review` — produces a verdict/comment (one-way).
 - `inception-bugfix` — issue → audit → impl-issue-core → review (no PR-input shape).
@@ -55,15 +55,13 @@ triage     → triaged-findings.json (actionable | deferred | rejected)
 resolve-each → impl-finding sub-pipeline per finding, on_failure: continue
        │
        ▼
-verify     → {{ project.contract_test_command }} + agent_review on diff
+verify     → {{ project.test_command }} + agent_review on diff
        │  branch primitive
        │   verdict=pass → comment-back
        │   verdict=fail → resolve-each (loop max_visits: 2)
        ▼
 comment-back → {{ forge.type }}-commenter posts findings + resolution + verdict tables
 ```
-
-> Verify uses `project.contract_test_command` (not the plain `test_command`) so the suite runs with `GIT_CONFIG_NOSYSTEM=1` / `GIT_CONFIG_GLOBAL=/dev/null` — required because pipeline tests touch git config and would otherwise leak the host's user identity into fixtures.
 
 ## Wave feature matrix lit by this pipeline
 
