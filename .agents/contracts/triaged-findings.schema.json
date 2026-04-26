@@ -23,7 +23,8 @@
           },
           "file": {
             "type": "string",
-            "description": "Repo-relative path to the file the fix should touch."
+            "pattern": "^(?!.*\\.\\.)[A-Za-z0-9_./-]+$",
+            "description": "Repo-relative path to the file the fix should touch. Must not contain '..' traversal segments."
           },
           "line": {
             "type": "integer",
