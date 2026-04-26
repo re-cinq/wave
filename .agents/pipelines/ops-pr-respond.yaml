@@ -432,14 +432,7 @@ steps:
 
         ### Step 1 — Compose the comment
 
-        Allocate a per-run temp file (avoid the symlink-attack and
-        concurrent-run race window of a fixed `/tmp/ops-pr-respond.md`):
-
-        ```bash
-        BODY=$(mktemp -t ops-pr-respond.XXXXXX.md)
-        ```
-
-        Write the comment body to `"$BODY"` with this structure:
+        Write `/tmp/ops-pr-respond.md` with this structure:
 
         ```markdown
         ## Wave PR Respond — Verdict: <pass | fail>
@@ -475,13 +468,46 @@ steps:
         *Posted by Wave `ops-pr-respond` — see run id `{{ run.id }}`.*
         ```
 
-        Truncate the description column at 80 characters.
+        ### Sanitisation rules (MANDATORY)
+
+        Finding descriptions, remediation text, and resolution summaries are
+        attacker-controllable: they originate from PR diff content (file
+        names, code snippets, commit messages) that flowed through the audit
+        sub-pipelines. Treat every interpolated string as untrusted before it
+        lands in the comment body:
+
+        - **Strip HTML tags** from every interpolated description, remediation,
+          and summary string. Remove anything matching `<[^>]+>` so raw
+          `<script>`, `<img>`, or `<iframe>` cannot reach the rendered
+          comment. Also strip backtick-fence breakouts (` ``` ` inside a cell)
+          by replacing with a single space.
+        - **Truncate the description column to 80 characters** (hard cap, not
+          "around 80"). Apply the same 80-char cap to the `files` column.
+        - **Forbid `@`-mentions outside backticks.** Any `@username` token
+          that is not already inside an inline-code span must be rewritten as
+          `` `@username` `` so GitHub does not send a notification storm.
+          Apply the same rule to `#1234` issue refs that could trigger
+          cross-references.
+        - **Cap individual cell length** at 200 characters; longer values get
+          truncated with a trailing `…`.
+        - **Cap total body length** at 16 KiB (16384 bytes). If composition
+          would exceed that, drop the deferred/rejected sections first, then
+          shorten the resolutions table to id + status + commit only. The
+          shell step below also enforces this with `head -c 16384` as a
+          belt-and-braces guard against prompt drift.
 
         ### Step 2 — Post
 
+        Apply a shell-side hard cap before posting so the LLM cannot exceed
+        the 16 KiB budget even if Step 1 misbehaves:
+
         ```bash
+        # Belt-and-braces: enforce 16 KiB body cap regardless of LLM output.
+        head -c 16384 /tmp/ops-pr-respond.md > /tmp/ops-pr-respond.capped.md
+        mv /tmp/ops-pr-respond.capped.md /tmp/ops-pr-respond.md
+
         {{ forge.cli_tool }} {{ forge.pr_command }} comment <PR_NUMBER> \
-          --body-file "$BODY"
+          --body-file /tmp/ops-pr-respond.md
         ```
 
         Capture the comment URL.
@@ -491,16 +517,16 @@ steps:
         Write `.agents/output/comment-result.json` matching the
         gh-pr-comment-result schema (success, issue_reference, comment, ...).
 
-        Clean up the temp file after posting (run on success and failure):
-
-        ```bash
-        rm -f "$BODY"
-        ```
+        Clean up `/tmp/ops-pr-respond.md` after posting.
 
         ## Constraints
 
         - One comment per run — do NOT spam multiple comments.
         - Do NOT include raw JSON in the comment body.
+        - Do NOT pass through HTML, raw `@`-mentions, or oversized blobs from
+          finding descriptions — apply the sanitisation rules in Step 1.
+        - Body MUST be ≤ 16 KiB; the shell `head -c 16384` step is a hard
+          guard, not an excuse to skip Step 1's truncation logic.
         - If verdict=fail, the comment opens with "Manual review needed" and
           surfaces the failing test names.
         - Do NOT modify the working tree.
