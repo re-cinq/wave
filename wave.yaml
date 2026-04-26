@@ -147,10 +147,7 @@ personas:
         #temperature: 0.1
         permissions:
             allowed_tools:
-                - Read
-                - Grep
-                - Bash(go vet*)
-                - Bash(npm audit*)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/auditor.md
     craftsman:
@@ -159,10 +156,7 @@ personas:
         #temperature: 0.3
         permissions:
             allowed_tools:
-                - Read
-                - Write
-                - Edit
-                - Bash
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/craftsman.md
     debugger:
@@ -171,13 +165,7 @@ personas:
         #temperature: 0.2
         permissions:
             allowed_tools:
-                - Read
-                - Grep
-                - Glob
-                - Bash(go test*)
-                - Bash(git log*)
-                - Bash(git diff*)
-                - Bash(git bisect*)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/debugger.md
     navigator:
@@ -186,11 +174,7 @@ personas:
         #temperature: 0.3
         permissions:
             allowed_tools:
-                - Read
-                - Glob
-                - Grep
-                - Bash(git log*)
-                - Bash(git status*)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/navigator.md
     philosopher:
@@ -199,12 +183,7 @@ personas:
         #temperature: 0.7
         permissions:
             allowed_tools:
-                - Read
-                - Write
-                - Edit
-                - Bash
-                - Glob
-                - Grep
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/philosopher.md
     planner:
@@ -213,12 +192,7 @@ personas:
         #temperature: 0.3
         permissions:
             allowed_tools:
-                - Read
-                - Write
-                - Edit
-                - Bash
-                - Glob
-                - Grep
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/planner.md
     summarizer:
@@ -227,12 +201,7 @@ personas:
         #temperature: 0.2
         permissions:
             allowed_tools:
-                - Read
-                - Write
-                - Edit
-                - Bash
-                - Glob
-                - Grep
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/summarizer.md
     github-analyst:
@@ -245,17 +214,7 @@ personas:
             - repos:read
         permissions:
             allowed_tools:
-                - Read
-                - Bash(gh issue view*)
-                - Bash(gh issue list*)
-                - Bash(gh release list*)
-                - Bash(gh pr view*)
-                - Bash(gh pr list*)
-                - Bash(gh --version)
-                - Bash(git log*)
-                - Bash(git status*)
-                - Bash(ls *)
-                - Write(.agents/artifact.json)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/github-analyst.md
     github-enhancer:
@@ -266,12 +225,7 @@ personas:
             - issues:write
         permissions:
             allowed_tools:
-                - Read
-                - Bash(gh issue edit*)
-                - Bash(gh issue view*)
-                - Bash(gh --version)
-                - Write(.agents/artifact.json)
-                - Write(/tmp/*)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/github-enhancer.md
     github-scoper:
@@ -282,12 +236,7 @@ personas:
             - issues:write
         permissions:
             allowed_tools:
-                - Read
-                - Bash(gh issue create*)
-                - Bash(gh issue view*)
-                - Bash(gh issue list*)
-                - Bash(gh --version)
-                - Write(.agents/artifact.json)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/github-scoper.md
     implementer:
@@ -296,12 +245,7 @@ personas:
         #temperature: 0.3
         permissions:
             allowed_tools:
-                - Read
-                - Write
-                - Edit
-                - Bash
-                - Glob
-                - Grep
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/implementer.md
     reviewer:
@@ -310,13 +254,7 @@ personas:
         #temperature: 0.3
         permissions:
             allowed_tools:
-                - Read
-                - Glob
-                - Grep
-                - Write(.agents/artifact.json)
-                - Write(.agents/artifacts/*)
-                - Bash(go test*)
-                - Bash(npm test*)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/reviewer.md
     researcher:
@@ -325,14 +263,7 @@ personas:
         #temperature: 0.5
         permissions:
             allowed_tools:
-                - Read
-                - Write
-                - Edit
-                - Bash
-                - Glob
-                - Grep
-                - WebSearch
-                - WebFetch
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/researcher.md
     github-commenter:
@@ -344,18 +275,7 @@ personas:
             - pulls:write
         permissions:
             allowed_tools:
-                - Read
-                - Write(.agents/artifact.json)
-                - Write(.agents/output/*)
-                - Bash(gh issue comment*)
-                - Bash(gh pr comment*)
-                - Bash(gh pr review*)
-                - Bash(gh pr create*)
-                - Bash(gh pr edit*)
-                - Bash(gh pr view*)
-                - Bash(gh --version)
-                - Bash(git push*)
-                - Bash(git status*)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/github-commenter.md
     gitlab-analyst:
@@ -368,17 +288,7 @@ personas:
             - repos:read
         permissions:
             allowed_tools:
-                - Read
-                - Bash(glab issue view*)
-                - Bash(glab issue list*)
-                - Bash(glab release list*)
-                - Bash(glab mr view*)
-                - Bash(glab mr list*)
-                - Bash(glab --version)
-                - Bash(git log*)
-                - Bash(git status*)
-                - Bash(ls *)
-                - Write(.agents/artifact.json)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/gitlab-analyst.md
     gitlab-enhancer:
@@ -389,12 +299,7 @@ personas:
             - issues:write
         permissions:
             allowed_tools:
-                - Read
-                - Bash(glab issue edit*)
-                - Bash(glab issue view*)
-                - Bash(glab --version)
-                - Write(.agents/artifact.json)
-                - Write(/tmp/*)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/gitlab-enhancer.md
     gitlab-scoper:
@@ -405,12 +310,7 @@ personas:
             - issues:write
         permissions:
             allowed_tools:
-                - Read
-                - Bash(glab issue create*)
-                - Bash(glab issue view*)
-                - Bash(glab issue list*)
-                - Bash(glab --version)
-                - Write(.agents/artifact.json)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/gitlab-scoper.md
     gitlab-commenter:
@@ -422,16 +322,7 @@ personas:
             - pulls:write
         permissions:
             allowed_tools:
-                - Read
-                - Write(.agents/artifact.json)
-                - Write(.agents/output/*)
-                - Bash(glab issue note*)
-                - Bash(glab mr note*)
-                - Bash(glab mr create*)
-                - Bash(glab mr update*)
-                - Bash(glab --version)
-                - Bash(git push*)
-                - Bash(git status*)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/gitlab-commenter.md
     gitea-analyst:
@@ -444,17 +335,7 @@ personas:
             - repos:read
         permissions:
             allowed_tools:
-                - Read
-                - Bash(tea issues view*)
-                - Bash(tea issues list*)
-                - Bash(tea releases list*)
-                - Bash(tea pulls view*)
-                - Bash(tea pulls list*)
-                - Bash(tea --version)
-                - Bash(git log*)
-                - Bash(git status*)
-                - Bash(ls *)
-                - Write(.agents/artifact.json)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/gitea-analyst.md
     gitea-enhancer:
@@ -465,12 +346,7 @@ personas:
             - issues:write
         permissions:
             allowed_tools:
-                - Read
-                - Bash(tea issues edit*)
-                - Bash(tea issues view*)
-                - Bash(tea --version)
-                - Write(.agents/artifact.json)
-                - Write(/tmp/*)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/gitea-enhancer.md
     gitea-scoper:
@@ -481,12 +357,7 @@ personas:
             - issues:write
         permissions:
             allowed_tools:
-                - Read
-                - Bash(tea issues create*)
-                - Bash(tea issues view*)
-                - Bash(tea issues list*)
-                - Bash(tea --version)
-                - Write(.agents/artifact.json)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/gitea-scoper.md
     gitea-commenter:
@@ -498,14 +369,7 @@ personas:
             - pulls:write
         permissions:
             allowed_tools:
-                - Read
-                - Write(.agents/artifact.json)
-                - Write(.agents/output/*)
-                - Bash(tea issues comment*)
-                - Bash(tea pulls create*)
-                - Bash(tea --version)
-                - Bash(git push*)
-                - Bash(git status*)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/gitea-commenter.md
 
@@ -519,13 +383,7 @@ personas:
             - repos:read
         permissions:
             allowed_tools:
-                - Read
-                - Bash(curl -s*)
-                - Bash(jq *)
-                - Bash(git log*)
-                - Bash(git status*)
-                - Bash(ls *)
-                - Write(.agents/artifact.json)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/bitbucket-analyst.md
     bitbucket-enhancer:
@@ -536,11 +394,7 @@ personas:
             - issues:write
         permissions:
             allowed_tools:
-                - Read
-                - Bash(curl *)
-                - Bash(jq *)
-                - Write(.agents/artifact.json)
-                - Write(/tmp/*)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/bitbucket-enhancer.md
     bitbucket-scoper:
@@ -551,11 +405,7 @@ personas:
             - issues:write
         permissions:
             allowed_tools:
-                - Read
-                - Bash(curl *)
-                - Bash(jq *)
-                - Write(.agents/artifact.json)
-                - Write(/tmp/*)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/bitbucket-scoper.md
     bitbucket-commenter:
@@ -567,14 +417,7 @@ personas:
             - pulls:write
         permissions:
             allowed_tools:
-                - Read
-                - Write(.agents/artifact.json)
-                - Write(.agents/output/*)
-                - Write(/tmp/*)
-                - Bash(curl *)
-                - Bash(jq *)
-                - Bash(git push*)
-                - Bash(git status*)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/bitbucket-commenter.md
     supervisor:
@@ -583,15 +426,7 @@ personas:
         #temperature: 0.2
         permissions:
             allowed_tools:
-                - Read
-                - Glob
-                - Grep
-                - Bash(git *)
-                - Bash(ls *)
-                - Bash(find *)
-                - Bash(go test*)
-                - Bash(cat *)
-                - Bash(wc *)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/supervisor.md
     validator:
@@ -600,12 +435,7 @@ personas:
         #temperature: 0.1
         permissions:
             allowed_tools:
-                - Read
-                - Glob
-                - Grep
-                - Bash(wc *)
-                - Bash(git log*)
-                - Bash(git diff*)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/validator.md
     synthesizer:
@@ -614,12 +444,7 @@ personas:
         #temperature: 0.2
         permissions:
             allowed_tools:
-                - Read
-                - Write
-                - Edit
-                - Bash
-                - Glob
-                - Grep
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/synthesizer.md
     provocateur:
@@ -628,14 +453,7 @@ personas:
         #temperature: 0.8
         permissions:
             allowed_tools:
-                - Read
-                - Glob
-                - Grep
-                - Bash(wc *)
-                - Bash(git log*)
-                - Bash(git diff*)
-                - Bash(find*)
-                - Bash(ls*)
+                - "*"
             deny: []
         system_prompt_file: .agents/personas/provocateur.md
 runtime:

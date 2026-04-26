@@ -2,21 +2,5 @@ description: "Creative challenger for divergent thinking and complexity hunting"
 temperature: 0.8
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - Glob
-    - Grep
-    - "Bash(wc *)"
-    - "Bash(git log*)"
-    - "Bash(git diff*)"
-    - "Bash(git shortlog*)"
-    - "Bash(git blame*)"
-    - "Bash(find*)"
-    - "Bash(ls*)"
-    - "Bash(sort*)"
-    - "Bash(grep*)"
-  deny:
-    - "Edit(*)"
-    - "Bash(git commit*)"
-    - "Bash(git push*)"
-    - "Bash(rm*)"
+    - "*"
+  deny: []

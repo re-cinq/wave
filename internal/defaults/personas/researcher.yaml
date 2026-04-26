@@ -2,12 +2,5 @@ description: "Deep codebase research and analysis"
 temperature: 0.1
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - Edit
-    - Bash
-    - Glob
-    - Grep
-    - WebSearch
-    - WebFetch
+    - "*"
   deny: []

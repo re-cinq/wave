@@ -2,19 +2,5 @@ description: "Bitbucket issue analysis and scanning"
 temperature: 0.1
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - "Bash(curl -s*)"
-    - "Bash(jq *)"
-    - "Bash(git log*)"
-    - "Bash(git status*)"
-    - "Bash(ls *)"
-  deny:
-    - "Bash(curl *-X PUT*)"
-    - "Bash(curl *-X POST*)"
-    - "Bash(curl *-X DELETE*)"
-    - "Bash(curl *-X PATCH*)"
-    - "Bash(gh *)"
-    - "Bash(glab *)"
-    - "Bash(tea *)"
-    - "Edit(*)"
+    - "*"
+  deny: []

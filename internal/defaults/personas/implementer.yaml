@@ -2,16 +2,5 @@ description: "Execution specialist for code changes and structured output"
 temperature: 0.3
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - Edit
-    - Bash
-    - Glob
-    - Grep
-    - "Bash(git log*)"
-    - "Bash(git diff*)"
-    - "Bash(git status*)"
-    - "Bash(git blame*)"
-  deny:
-    - "Bash(rm -rf /*)"
-    - "Bash(sudo *)"
+    - "*"
+  deny: []

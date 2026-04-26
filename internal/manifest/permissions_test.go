@@ -690,12 +690,13 @@ func TestLoadWaveYAML_PersonaPermissions(t *testing.T) {
 		}
 	}
 
-	// Verify implementer has Write permission
+	// Verify implementer has Write permission. The wildcard "*" grant
+	// (current default) implies Write among everything else.
 	implementer := manifest.GetPersona("implementer")
 	if implementer != nil {
 		hasWrite := false
 		for _, tool := range implementer.Permissions.AllowedTools {
-			if strings.HasPrefix(tool, "Write") {
+			if tool == "*" || strings.HasPrefix(tool, "Write") {
 				hasWrite = true
 				break
 			}
@@ -705,18 +706,19 @@ func TestLoadWaveYAML_PersonaPermissions(t *testing.T) {
 		}
 	}
 
-	// Verify reviewer has limited Write permission
+	// Verify reviewer has Write permission. The wildcard "*" grant
+	// (current default) covers the previously-narrow artifact paths.
 	reviewer := manifest.GetPersona("reviewer")
 	if reviewer != nil {
 		hasArtifactWrite := false
 		for _, tool := range reviewer.Permissions.AllowedTools {
-			if tool == "Write(.agents/artifact.json)" || tool == "Write(.agents/artifacts/*)" {
+			if tool == "*" || tool == "Write(.agents/artifact.json)" || tool == "Write(.agents/artifacts/*)" {
 				hasArtifactWrite = true
 				break
 			}
 		}
 		if !hasArtifactWrite {
-			t.Error("reviewer in wave.yaml should have Write(.agents/artifact.json) or Write(.agents/artifacts/*) permission")
+			t.Error("reviewer in wave.yaml should have Write permission (or wildcard)")
 		}
 
 		// Deny rules are intentionally empty — security is enforced via bubblewrap

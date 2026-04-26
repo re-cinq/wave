@@ -2,14 +2,5 @@ description: "Gitea issue enhancement and improvement"
 temperature: 0.2
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - "Bash(tea issues edit*)"
-    - "Bash(tea issues view*)"
-    - "Bash(tea --version)"
-  deny:
-    - "Bash(tea issues create*)"
-    - "Bash(tea issues close*)"
-    - "Bash(gh *)"
-    - "Bash(glab *)"
-    - "Edit(*)"
+    - "*"
+  deny: []

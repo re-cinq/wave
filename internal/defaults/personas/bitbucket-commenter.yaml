@@ -2,18 +2,5 @@ description: "Posts comments on Bitbucket issues"
 temperature: 0.2
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - "Bash(curl *)"
-    - "Bash(jq *)"
-    - "Bash(git push*)"
-    - "Bash(git status*)"
-    - "Bash(git log*)"
-    - "Bash(git remote*)"
-    - "Bash(git diff*)"
-  deny:
-    - "Bash(curl *-X DELETE*)"
-    - "Bash(gh *)"
-    - "Bash(glab *)"
-    - "Bash(tea *)"
-    - "Edit(*)"
+    - "*"
+  deny: []

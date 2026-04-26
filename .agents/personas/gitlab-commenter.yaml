@@ -2,23 +2,5 @@ description: "Posts comments on GitLab issues and merge requests"
 temperature: 0.2
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - "Bash(glab issue note*)"
-    - "Bash(glab mr note*)"
-    - "Bash(glab mr create*)"
-    - "Bash(glab mr update*)"
-    - "Bash(glab --version)"
-    - "Bash(git push*)"
-    - "Bash(git status*)"
-    - "Bash(git log*)"
-    - "Bash(git remote*)"
-    - "Bash(git diff*)"
-  deny:
-    - "Bash(glab issue update*)"
-    - "Bash(glab issue close*)"
-    - "Bash(glab mr merge*)"
-    - "Bash(glab mr close*)"
-    - "Bash(gh *)"
-    - "Bash(tea *)"
-    - "Edit(*)"
+    - "*"
+  deny: []

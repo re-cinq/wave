@@ -2,15 +2,5 @@ description: "Skeptical analysis and verification of findings against source cod
 temperature: 0.1
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - Glob
-    - Grep
-    - "Bash(wc *)"
-    - "Bash(git log*)"
-    - "Bash(git diff*)"
-  deny:
-    - "Edit(*)"
-    - "Bash(git commit*)"
-    - "Bash(git push*)"
-    - "Bash(rm*)"
+    - "*"
+  deny: []

@@ -2,21 +2,5 @@ description: "Posts comments on Gitea issues and pull requests"
 temperature: 0.2
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - "Bash(tea issues comment*)"
-    - "Bash(tea pulls create*)"
-    - "Bash(tea --version)"
-    - "Bash(git push*)"
-    - "Bash(git status*)"
-    - "Bash(git log*)"
-    - "Bash(git remote*)"
-    - "Bash(git diff*)"
-  deny:
-    - "Bash(tea issues edit*)"
-    - "Bash(tea issues close*)"
-    - "Bash(tea pulls merge*)"
-    - "Bash(tea pulls close*)"
-    - "Bash(gh *)"
-    - "Bash(glab *)"
-    - "Edit(*)"
+    - "*"
+  deny: []

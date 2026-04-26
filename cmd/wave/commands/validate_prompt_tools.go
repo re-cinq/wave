@@ -229,6 +229,10 @@ func validatePromptToolPermissions(pipelineName string, p *pipeline.Pipeline, m 
 			allowedSet[a] = true
 		}
 
+		// Wildcard "*" in the persona's allowed list grants every tool.
+		if allowedSet["*"] {
+			continue
+		}
 		for _, tool := range mentioned {
 			if allowedSet[tool] {
 				continue

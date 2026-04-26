@@ -2,13 +2,5 @@ description: "Bitbucket epic analysis, decomposition, and sub-issue creation"
 temperature: 0.1
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - "Bash(curl *)"
-    - "Bash(jq *)"
-  deny:
-    - "Bash(curl *-X DELETE*)"
-    - "Bash(gh *)"
-    - "Bash(glab *)"
-    - "Bash(tea *)"
-    - "Edit(*)"
+    - "*"
+  deny: []

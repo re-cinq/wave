@@ -2,23 +2,5 @@ description: "Posts comments on GitHub issues and pull requests, creates PRs"
 temperature: 0.2
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - "Bash(gh issue comment*)"
-    - "Bash(gh pr comment*)"
-    - "Bash(gh pr review*)"
-    - "Bash(gh pr create*)"
-    - "Bash(gh pr edit*)"
-    - "Bash(gh pr view*)"
-    - "Bash(gh --version)"
-    - "Bash(git push*)"
-    - "Bash(git status*)"
-    - "Bash(git log*)"
-    - "Bash(git remote*)"
-    - "Bash(git diff*)"
-  deny:
-    - "Bash(gh issue edit*)"
-    - "Bash(gh issue close*)"
-    - "Bash(gh pr merge*)"
-    - "Bash(gh pr close*)"
-    - "Edit(*)"
+    - "*"
+  deny: []

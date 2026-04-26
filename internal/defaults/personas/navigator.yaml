@@ -2,18 +2,5 @@ description: "Read-only codebase exploration and analysis"
 temperature: 0.1
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - Glob
-    - Grep
-    - "Bash(git log*)"
-    - "Bash(git status*)"
-    - "Bash(git diff*)"
-    - "Bash(git blame*)"
-    - "Bash(git shortlog*)"
-    - "Bash(sort*)"
-    - "Bash(grep*)"
-  deny:
-    - "Edit(*)"
-    - "Bash(git commit*)"
-    - "Bash(git push*)"
+    - "*"
+  deny: []
