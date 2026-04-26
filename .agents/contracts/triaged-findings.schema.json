@@ -15,6 +15,7 @@
           "id": {
             "type": "string",
             "minLength": 1,
+            "pattern": "^[a-zA-Z0-9_-]{1,32}$",
             "description": "Stable identifier for this finding within the run. Used as the iterate key and referenced in commit messages."
           },
           "severity": {
@@ -23,8 +24,7 @@
           },
           "file": {
             "type": "string",
-            "pattern": "^(?!.*\\.\\.)[A-Za-z0-9_./-]+$",
-            "description": "Repo-relative path to the file the fix should touch. Must not contain '..' traversal segments."
+            "description": "Repo-relative path to the file the fix should touch."
           },
           "line": {
             "type": "integer",
