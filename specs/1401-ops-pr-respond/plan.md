@@ -82,7 +82,7 @@ None — pipelines are declarative YAML; existing executor coverage applies. The
   - aggregate produces non-empty merged findings.
   - triage classifies ≥1 actionable.
   - resolve-each commits ≥1 fix to head branch.
-  - verify runs `{{ project.test_command }}` and emits a verdict.
+  - verify runs `{{ project.contract_test_command }}` (uses `GIT_CONFIG_NOSYSTEM=1`/`GIT_CONFIG_GLOBAL=/dev/null` so git-touching tests stay hermetic) and emits a verdict.
   - branch routes to comment-back on pass.
   - comment-back posts a structured comment with finding-→-SHA mapping.
 - Confirm the PR comment URL appears in the run output.

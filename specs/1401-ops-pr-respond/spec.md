@@ -8,7 +8,7 @@
 
 ## Goal
 
-Author a new composition pipeline `ops-pr-respond` that takes a PR ref, runs a parallel multi-axis review, triages findings, applies fixes per finding to the PR's head branch, verifies the result, and posts a structured response comment. Designed as the canonical **showcase pipeline** for the Wave feature surface — typed I/O, sub-pipeline composition, parallel iterate, aggregate, loop, agent_review, json_schema, test_suite, and forge interpolation all lit up in one workflow.
+Author a new composition pipeline `ops-pr-respond` that takes a PR ref, runs a parallel multi-axis review, triages findings, applies fixes per finding to the PR's head branch, verifies the result, and posts a structured response comment. Designed as the canonical **showcase pipeline** for the Wave feature surface — every primitive (typed I/O, sub-pipeline, parallel iterate, aggregate, branch, loop, agent_review, json_schema, test_suite, forge interpolation) lit up in one workflow.
 
 ## Context
 
@@ -51,16 +51,19 @@ parallel-review (iterate.parallel, max_concurrent: 6)
        ▼  aggregate.merge_arrays → unified findings array
 triage     → triaged-findings.json (actionable | deferred | rejected)
        │
-       ▼  loop primitive (max_iterations: 2)
-resolve-and-verify
-   ├─ resolve-each → impl-finding sub-pipeline per finding (iterate.parallel
-   │                 over triaged.actionable, on_failure: continue)
-   └─ verify       → {{ project.test_command }} + agent_review on diff,
-                     emits verify-verdict.json (pass | fail)
+       ▼  iterate.parallel over triaged.actionable
+resolve-each → impl-finding sub-pipeline per finding, on_failure: continue
        │
+       ▼
+verify     → {{ project.contract_test_command }} + agent_review on diff
+       │  branch primitive
+       │   verdict=pass → comment-back
+       │   verdict=fail → resolve-each (loop max_visits: 2)
        ▼
 comment-back → {{ forge.type }}-commenter posts findings + resolution + verdict tables
 ```
+
+> Verify uses `project.contract_test_command` (not the plain `test_command`) so the suite runs with `GIT_CONFIG_NOSYSTEM=1` / `GIT_CONFIG_GLOBAL=/dev/null` — required because pipeline tests touch git config and would otherwise leak the host's user identity into fixtures.
 
 ## Wave feature matrix lit by this pipeline
 
@@ -69,7 +72,8 @@ comment-back → {{ forge.type }}-commenter posts findings + resolution + verdic
 | Sub-pipeline composition | parallel-review uses 6 sub-pipelines |
 | Parallel iterate | parallel-review (audits) + resolve-each (fixes) |
 | Aggregate primitive | merge across audits → unified findings |
-| Loop primitive | resolve-and-verify (resolve-each → verify), max_iterations: 2 |
+| Branch primitive | verify pass/fail routing |
+| Loop primitive | resolve-each → verify retry, max_visits: 2 |
 | Typed I/O (ADR-010/011) | pr_ref, findings_report, plan_ref |
 | input_ref.from with field nav (Rule 7) | resolve-each consumes triaged-findings.actionable[N] |
 | agent_review contracts | triage, verify, comment-back (3×) |
@@ -78,10 +82,6 @@ comment-back → {{ forge.type }}-commenter posts findings + resolution + verdic
 | Persona forge interpolation | {{ forge.type }}-commenter |
 | Concurrency caps | max_concurrent on parallel iterates |
 | Workspace modes | mount-readonly (review) + worktree (resolve) |
-
-### Considered, not adopted
-
-- **Branch primitive on verify verdict.** The original sketch routed `verdict=pass → comment-back` and `verdict=fail → resolve-each` via a `branch` step. Dropped because `loop.until` cannot reference step output values today (only pipeline context placeholders), so the loop primitive instead wraps `resolve-each + verify` and terminates on `max_iterations: 2`. `comment-back` runs unconditionally after the loop and renders the final `verify-verdict.json` it observed. Re-adoptable once `loop.until` (or an equivalent gate) reads step outputs.
 
 ## New blocks required
 
