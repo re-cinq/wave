@@ -4,9 +4,9 @@ package webui
 
 import "net/http"
 
-func init() {
-	EnabledFeatures.Webhooks = true
-	RegisterFeatureRoutes(func(s *Server, mux *http.ServeMux) {
+func registerWebhooks(r *FeatureRegistry) {
+	r.Features.Webhooks = true
+	r.addRoutes(func(s *Server, mux *http.ServeMux) {
 		// Pages
 		mux.HandleFunc("GET /webhooks", s.handleWebhooksPage)
 		mux.HandleFunc("GET /webhooks/{id}", s.handleWebhookDetailPage)

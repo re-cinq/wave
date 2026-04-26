@@ -66,6 +66,7 @@ type Server struct {
 	csrfToken         string
 	cache             *apiCache
 	attention         *attention.Broker
+	features          *FeatureRegistry
 }
 
 // ServerConfig holds configuration for the dashboard server.
@@ -81,6 +82,10 @@ type ServerConfig struct {
 	TLSCert       string
 	TLSKey        string
 	TLSCA         string // CA cert for mTLS client verification
+	// Features is the optional feature registry. When nil, NewServer
+	// constructs one via NewFeatureRegistry(), which selects the appropriate
+	// per-feature implementations based on build tags.
+	Features *FeatureRegistry
 }
 
 // NewServer creates a new dashboard server instance.
@@ -110,20 +115,25 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	}
 	csrfToken := hex.EncodeToString(csrfBytes)
 
+	features := cfg.Features
+	if features == nil {
+		features = NewFeatureRegistry()
+	}
+
 	tmpl, err := parseTemplates(template.FuncMap{
 		"csrfToken": func() string { return csrfToken },
 		"featureEnabled": func(name string) bool {
 			switch name {
 			case "metrics":
-				return EnabledFeatures.Metrics
+				return features.Features.Metrics
 			case "analytics":
-				return EnabledFeatures.Analytics
+				return features.Features.Analytics
 			case "webhooks":
-				return EnabledFeatures.Webhooks
+				return features.Features.Webhooks
 			case "ontology":
-				return EnabledFeatures.Ontology
+				return features.Features.Ontology
 			case "retros":
-				return EnabledFeatures.Retros
+				return features.Features.Retros
 			default:
 				return false
 			}
@@ -197,6 +207,7 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		csrfToken:         csrfToken,
 		cache:             newAPICache(5 * time.Minute),
 		attention:         attention.NewBroker(),
+		features:          features,
 	}
 
 	// Wire attention broker into the SSE broker so pipeline events

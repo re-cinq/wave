@@ -90,7 +90,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/admin/audit", s.handleAPIAdminAudit)
 
 	// Optional feature routes (analytics, webhooks, etc.)
-	for _, fn := range featureRoutes {
+	for _, fn := range s.features.routeFns {
 		fn(s, mux)
 	}
 

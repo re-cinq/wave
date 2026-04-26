@@ -13,18 +13,33 @@ type Features struct {
 	Retros    bool
 }
 
-// EnabledFeatures is the global feature flag state, populated by init()
-// functions in build-tagged feature files.
-var EnabledFeatures Features
-
 // featureRouteFunc registers routes for an optional feature.
 type featureRouteFunc func(s *Server, mux *http.ServeMux)
 
-var featureRoutes []featureRouteFunc
+// FeatureRegistry owns feature-flag state and the route hooks contributed by
+// build-tagged feature files. Each Server instance gets its own registry,
+// eliminating package-level mutable global state.
+type FeatureRegistry struct {
+	Features Features
+	routeFns []featureRouteFunc
+}
 
-// RegisterFeatureRoutes adds a route registration function that will be
-// called during server startup. Each build-tagged feature file calls this
-// in its init() to wire its routes into the mux.
-func RegisterFeatureRoutes(fn featureRouteFunc) {
-	featureRoutes = append(featureRoutes, fn)
+// NewFeatureRegistry constructs a registry by invoking every per-feature
+// register<Name> function. With default build tags, those calls are no-ops
+// (provided by features_<name>_disabled.go stubs); with the matching tag,
+// the real file populates flags and route hooks.
+func NewFeatureRegistry() *FeatureRegistry {
+	r := &FeatureRegistry{}
+	registerAnalytics(r)
+	registerMetrics(r)
+	registerWebhooks(r)
+	registerOntology(r)
+	registerRetros(r)
+	return r
+}
+
+// addRoutes appends a route registration function. Called by per-feature
+// register<Name> functions.
+func (r *FeatureRegistry) addRoutes(fn featureRouteFunc) {
+	r.routeFns = append(r.routeFns, fn)
 }

@@ -4,9 +4,9 @@ package webui
 
 import "net/http"
 
-func init() {
-	EnabledFeatures.Ontology = true
-	RegisterFeatureRoutes(func(s *Server, mux *http.ServeMux) {
+func registerOntology(r *FeatureRegistry) {
+	r.Features.Ontology = true
+	r.addRoutes(func(s *Server, mux *http.ServeMux) {
 		mux.HandleFunc("GET /ontology", s.handleOntologyPage)
 		mux.HandleFunc("GET /api/ontology", s.handleAPIOntology)
 	})
