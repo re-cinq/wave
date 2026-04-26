@@ -645,128 +645,89 @@ func NewBasicProgressDisplayWithVerbose(verbose bool) *BasicProgressDisplay {
 }
 
 // EmitProgress outputs simple text-based progress updates.
+//
+// State-tracking side effects (stepStates, stepOrder, handoverInfo) are kept
+// here. Line emission delegates to the canonical EventLine formatter (see
+// eventline.go) using the basic-CLI profile.
 func (bpd *BasicProgressDisplay) EmitProgress(ev event.Event) error {
 	bpd.mu.Lock()
 	defer bpd.mu.Unlock()
 
 	timestamp := ev.Timestamp.Format("15:04:05")
 
-	// Pipeline-level warnings (no StepID)
-	if ev.StepID == "" && ev.State == "warning" && ev.Message != "" {
-		fmt.Fprintf(bpd.writer, "[%s] ⚠ %s\n", timestamp, ev.Message)
+	// Update internal tracking first so downstream lookups (verbose handover
+	// render, stream-activity guard) see the new state.
+	bpd.updateTracking(ev)
+
+	// stream_activity is suppressed when the step is not in "running" state.
+	// The canonical formatter has no per-step state, so guard at the call site.
+	if ev.State == "stream_activity" && ev.StepID != "" && bpd.stepStates[ev.StepID] != "running" {
 		return nil
 	}
 
-	if ev.StepID != "" {
-		switch ev.State {
-		case "started", "running":
-			bpd.stepStates[ev.StepID] = "running"
-			if ev.Persona != "" {
-				stepLine := fmt.Sprintf("[%s] → %s (%s)", timestamp, ev.StepID, ev.Persona)
-				if ev.Model != "" {
-					stepLine += fmt.Sprintf(" [%s", ev.Model)
-					if ev.Adapter != "" {
-						stepLine += fmt.Sprintf(" via %s", ev.Adapter)
-					}
-					stepLine += "]"
-				}
-				fmt.Fprintln(bpd.writer, stepLine)
-			}
-			// Track step order for handover target lookup
-			found := false
-			for _, sid := range bpd.stepOrder {
-				if sid == ev.StepID {
-					found = true
-					break
-				}
-			}
-			if !found {
-				bpd.stepOrder = append(bpd.stepOrder, ev.StepID)
-			}
-		case "completed":
-			bpd.stepStates[ev.StepID] = "completed"
-			tokenInfo := FormatTokenCount(ev.TokensUsed) + " tokens"
-			if ev.TokensIn > 0 || ev.TokensOut > 0 {
-				tokenInfo = FormatTokenCount(ev.TokensIn) + " in / " + FormatTokenCount(ev.TokensOut) + " out"
-			}
-			fmt.Fprintf(bpd.writer, "[%s] ✓ %s completed (%.1fs, %s)\n",
-				timestamp, ev.StepID, float64(ev.DurationMs)/1000.0, tokenInfo)
-			// Capture artifacts into handover info
-			if len(ev.Artifacts) > 0 {
-				if _, exists := bpd.handoverInfo[ev.StepID]; !exists {
-					bpd.handoverInfo[ev.StepID] = &HandoverInfo{}
-				}
-				bpd.handoverInfo[ev.StepID].ArtifactPaths = ev.Artifacts
-			}
-			// Render handover metadata in verbose mode
-			if bpd.verbose {
-				if info, exists := bpd.handoverInfo[ev.StepID]; exists {
-					bpd.renderHandoverMetadata(timestamp, ev.StepID, info)
-				}
-			}
-		case "failed":
-			bpd.stepStates[ev.StepID] = "failed"
-			fmt.Fprintf(bpd.writer, "[%s] ✗ %s failed: %s\n", timestamp, ev.StepID, ev.Message)
-		case "retrying":
-			bpd.stepStates[ev.StepID] = "running"
-			fmt.Fprintf(bpd.writer, "[%s] ↻ %s retrying: %s\n", timestamp, ev.StepID, ev.Message)
-		case "step_progress":
-			if ev.CurrentAction != "" {
-				fmt.Fprintf(bpd.writer, "[%s]   %s %s\n", timestamp, ev.StepID, ev.CurrentAction)
-			}
-		case "warning":
-			fmt.Fprintf(bpd.writer, "[%s] ⚠ %s %s\n", timestamp, ev.StepID, ev.Message)
-		case "validating", "contract_validating":
-			fmt.Fprintf(bpd.writer, "[%s]   %s validating contract\n", timestamp, ev.StepID)
-			if _, exists := bpd.handoverInfo[ev.StepID]; !exists {
-				bpd.handoverInfo[ev.StepID] = &HandoverInfo{}
-			}
-			bpd.handoverInfo[ev.StepID].ContractSchema = ev.ValidationPhase
-			// Track step order
-			found := false
-			for _, sid := range bpd.stepOrder {
-				if sid == ev.StepID {
-					found = true
-					break
-				}
-			}
-			if !found {
-				bpd.stepOrder = append(bpd.stepOrder, ev.StepID)
-			}
-		case "contract_passed":
-			if _, exists := bpd.handoverInfo[ev.StepID]; !exists {
-				bpd.handoverInfo[ev.StepID] = &HandoverInfo{}
-			}
-			bpd.handoverInfo[ev.StepID].ContractStatus = "passed"
-		case "contract_failed":
-			if _, exists := bpd.handoverInfo[ev.StepID]; !exists {
-				bpd.handoverInfo[ev.StepID] = &HandoverInfo{}
-			}
-			bpd.handoverInfo[ev.StepID].ContractStatus = "failed"
-		case "contract_soft_failure":
-			if _, exists := bpd.handoverInfo[ev.StepID]; !exists {
-				bpd.handoverInfo[ev.StepID] = &HandoverInfo{}
-			}
-			bpd.handoverInfo[ev.StepID].ContractStatus = "soft_failure"
-		case "stream_activity":
-			if bpd.verbose && ev.ToolName != "" && bpd.stepStates[ev.StepID] == "running" {
-				// Compute available space: total width minus fixed prefix overhead
-				// Format: "[HH:MM:SS]   %-20s %s → " = 10 + 3 + 20 + 1 + toolName + 3
-				overhead := 37 + len(ev.ToolName)
-				maxTarget := bpd.termInfo.GetWidth() - overhead
-				if maxTarget < 20 {
-					maxTarget = 20
-				}
-				target := ev.ToolTarget
-				if len(target) > maxTarget {
-					target = target[:maxTarget-3] + "..."
-				}
-				fmt.Fprintf(bpd.writer, "[%s]   %-20s %s → %s\n", timestamp, ev.StepID, ev.ToolName, target)
-			}
+	if line, emit := EventLine(ev, BasicCLIProfile(timestamp, bpd.termInfo, bpd.verbose)); emit {
+		fmt.Fprintln(bpd.writer, line)
+	}
+
+	// On step completion in verbose mode, render handover metadata.
+	if ev.State == "completed" && ev.StepID != "" && bpd.verbose {
+		if info, exists := bpd.handoverInfo[ev.StepID]; exists {
+			bpd.renderHandoverMetadata(timestamp, ev.StepID, info)
 		}
 	}
 
 	return nil
+}
+
+// updateTracking maintains the per-step state, ordering, and handover metadata
+// that the canonical formatter does not own. Caller must hold bpd.mu.
+func (bpd *BasicProgressDisplay) updateTracking(ev event.Event) {
+	if ev.StepID == "" {
+		return
+	}
+	switch ev.State {
+	case "started", "running":
+		bpd.stepStates[ev.StepID] = "running"
+		bpd.trackStepOrder(ev.StepID)
+	case "completed":
+		bpd.stepStates[ev.StepID] = "completed"
+		if len(ev.Artifacts) > 0 {
+			info := bpd.ensureHandoverInfo(ev.StepID)
+			info.ArtifactPaths = ev.Artifacts
+		}
+	case "failed":
+		bpd.stepStates[ev.StepID] = "failed"
+	case "retrying":
+		bpd.stepStates[ev.StepID] = "running"
+	case "validating", "contract_validating":
+		info := bpd.ensureHandoverInfo(ev.StepID)
+		info.ContractSchema = ev.ValidationPhase
+		bpd.trackStepOrder(ev.StepID)
+	case "contract_passed":
+		bpd.ensureHandoverInfo(ev.StepID).ContractStatus = "passed"
+	case "contract_failed":
+		bpd.ensureHandoverInfo(ev.StepID).ContractStatus = "failed"
+	case "contract_soft_failure":
+		bpd.ensureHandoverInfo(ev.StepID).ContractStatus = "soft_failure"
+	}
+}
+
+func (bpd *BasicProgressDisplay) trackStepOrder(stepID string) {
+	for _, sid := range bpd.stepOrder {
+		if sid == stepID {
+			return
+		}
+	}
+	bpd.stepOrder = append(bpd.stepOrder, stepID)
+}
+
+func (bpd *BasicProgressDisplay) ensureHandoverInfo(stepID string) *HandoverInfo {
+	if info, exists := bpd.handoverInfo[stepID]; exists {
+		return info
+	}
+	info := &HandoverInfo{}
+	bpd.handoverInfo[stepID] = info
+	return info
 }
 
 // renderHandoverMetadata outputs handover metadata lines in tree format for a completed step.
