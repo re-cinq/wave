@@ -1,0 +1,792 @@
+# Audit-Issue — composition pipeline for read-only audit work
+#
+# Mirrors the proven ops-pr-respond shape, but for audit-only issues that
+# demand a doc + screenshots + auto-filed follow-up issues + PR — not the
+# code-→-PR delivery shape that impl-issue is built for.
+#
+# Flow:
+#
+#   fetch-issue                    ← issue_ref → issue-context (cited routes,
+#       │                             cited files, cited run id)
+#       ▼
+#   parallel-evidence              ← iterate.parallel max=4 over the four axes:
+#   ├─ audit-webui-shots           │  webui (chromedp screenshots)
+#   ├─ audit-code-walk             │  code  (file:line excerpts)
+#   ├─ audit-db-trace              │  db    (sqlite query rows)
+#   └─ audit-event-trace           │  event (event_log patterns)
+#       │
+#       ▼
+#   aggregate-evidence             ← merge_arrays into evidence-set
+#       │
+#       ▼
+#   enumerate-gaps                 ← planner persona, json_schema gap-set
+#       │
+#       ▼
+#   per-gap-deepdive               ← iterate.parallel max=3 → gap-analyze child
+#       │
+#       ▼
+#   aggregate-followups            ← merge_arrays into followup-specs
+#       │
+#       ▼
+#   synthesize                     ← analyst + agent_review against
+#       │                             audit-doc-criteria.md (novel signal first,
+#       │                             severity rubric, no count target)
+#       ▼
+#   file-each-followup             ← iterate.serial → gh issue create per
+#       │                             critical/high gap; URLs → followup-refs
+#       ▼
+#   create-pr                      ← implementer; commits doc + screenshots,
+#                                    opens PR linking the followup issues.
+#
+# Wave primitives lit by this composition: sub-pipeline, iterate (parallel +
+# serial), aggregate (merge_arrays), agent_review, json_schema, typed I/O,
+# forge interpolation, multi-persona, browser adapter via webui-capturer.
+
+kind: WavePipeline
+metadata:
+  name: audit-issue
+  description: >-
+    Composition pipeline that turns an audit-only GitHub issue ref into a
+    doc + screenshots + auto-filed follow-up issues + PR. Mirrors the
+    ops-pr-respond shape: fetch-issue → 4-axis parallel evidence (webui /
+    code / db / event) → aggregate → enumerate-gaps → per-gap deepdive
+    (iterate.parallel via gap-analyze) → synthesize with agent_review →
+    file-each-followup (iterate.serial via `gh issue create`) → create-pr.
+    Use this instead of impl-issue when the issue's deliverable is analysis
+    plus follow-up filings, not code.
+  category: composition
+  release: false
+
+skills:
+  - "{{ project.skill }}"
+  - gh-cli
+  - software-design
+
+requires:
+  tools:
+    - gh
+    - sqlite3
+    - jq
+
+input:
+  source: cli
+  type: issue_ref
+  example: "re-cinq/wave#1412"
+  schema:
+    type: string
+    description: "GitHub issue ref. Accepts owner/repo#N, owner/repo N, full URL, or current-repo #N."
+
+chat_context:
+  artifact_summaries:
+    - issue-context
+    - evidence-set
+    - gap-set
+    - followup-specs
+    - audit-doc
+    - followup-refs
+    - pr-result
+  suggested_questions:
+    - "Which evidence axes produced the most signal?"
+    - "How many follow-up issues were filed and where can I read them?"
+    - "Did the synthesize step pass the audit-doc criteria?"
+  focus_areas:
+    - "Cross-axis correlations called out in the audit doc"
+    - "Per-gap follow-up filings with URLs"
+
+pipeline_outputs:
+  doc:
+    step: synthesize
+    artifact: audit-doc
+    type: string
+  followups:
+    step: file-each-followup
+    artifact: followup-refs
+    type: string
+  pr:
+    step: create-pr
+    artifact: pr-result
+    type: pr_ref
+
+steps:
+  # ─── Phase 1: fetch the issue and its cited references ───────────────────
+  - id: fetch-issue
+    persona: "{{ forge.type }}-analyst"
+    contexts: [execution]
+    model: cheapest
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Fetch the audit issue identified by `{{ input }}` and write a typed
+        `issue-context.json` artifact that carries the issue's number, URL,
+        title, body, and three reference lists harvested from the body:
+
+        - `cited_routes`: WebUI route paths the audit needs screenshots of.
+        - `cited_files`: source files the audit references (with optional
+          line ranges).
+        - `cited_run_id`: optional run id the audit names as the empirical
+          baseline.
+
+        These lists drive the four parallel evidence axes downstream.
+
+        ## Requirements
+
+        ### Step 1 — Normalize the input ref
+
+        Accept any of: `https://<host>/<owner>/<repo>/issues/<num>`,
+        `<owner>/<repo>#<num>`, `<owner>/<repo> <num>`, `<owner>/<repo>/<num>`,
+        `#<num>` (current repo), or `<num>` (current repo). Reduce to
+        `owner/repo#num`.
+
+        ### Step 2 — Fetch the issue
+
+        ```bash
+        {{ forge.cli_tool }} issue view "$ISSUE_REF" \
+          --json number,title,body,labels,url,author,state,comments
+        ```
+
+        ### Step 3 — Harvest references from the body
+
+        Parse the issue body. Extract:
+
+        - `cited_routes`: any `/path` token inside backticks that looks like
+          a WebUI route (matches `^/[a-zA-Z0-9/_-]+$`). Deduplicate.
+        - `cited_files`: any `path/to/file.ext[:line[-line]]` token. Tolerate
+          and preserve the `:line` and `:line-line` suffixes.
+        - `cited_run_id`: any token matching `run-[a-z0-9-]+` or
+          `[0-9a-f]{8,}`. Take the first.
+
+        ### Step 4 — Compose issue-context.json
+
+        Write `.agents/output/issue-context.json`:
+
+        ```json
+        {
+          "forge": "{{ forge.type }}",
+          "owner": "<owner>",
+          "repo": "<repo>",
+          "number": <int>,
+          "url": "<url>",
+          "title": "<title>",
+          "body": "<body>",
+          "labels": ["..."],
+          "cited_routes": ["/runs", "/pipelines"],
+          "cited_files": ["internal/webui/composition.go:513-578"],
+          "cited_run_id": "run-2026-04-27-abcd1234"
+        }
+        ```
+
+        Drop fields with no harvest (omit, do not write empty arrays for
+        `cited_run_id`).
+
+        ## Constraints
+
+        - Do NOT modify the working tree.
+        - Do NOT post any comments — that is create-pr's job.
+        - If the issue does not exist, fail with a non-empty `error` field.
+
+        ## Quality bar
+
+        A good issue-context lets the parallel-evidence step scope each axis
+        without re-fetching the issue. A bad one drops fields the schema marks
+        required, or hallucinates routes/files that aren't in the body.
+    output_artifacts:
+      - name: issue-context
+        path: .agents/output/issue-context.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: non_empty_file
+        source: .agents/output/issue-context.json
+        on_failure: fail
+
+  # ─── Phase 2: parallel multi-axis evidence ───────────────────────────────
+  #
+  # iterate.parallel fans out four audit-axis sub-pipelines. Each one scopes
+  # itself to the issue via .agents/artifacts/issue-context (injected). Outputs
+  # are aggregated by merge_arrays in the next step.
+  - id: parallel-evidence
+    pipeline: "{{ item }}"
+    dependencies: [fetch-issue]
+    input: "Audit the references in issue {{ input }}. Read .agents/artifacts/issue-context for cited routes / files / run id."
+    config:
+      inject: ["issue-context"]
+    iterate:
+      over: '["audit-webui-shots", "audit-code-walk", "audit-db-trace", "audit-event-trace"]'
+      mode: parallel
+      max_concurrent: 4
+
+  # ─── Phase 3: aggregate evidence into a single evidence set ──────────────
+  - id: aggregate-evidence
+    dependencies: [parallel-evidence]
+    aggregate:
+      from: "{{ parallel-evidence.out.collected-output }}"
+      into: .agents/output/evidence-set.json
+      strategy: merge_arrays
+
+  # ─── Phase 4: enumerate gaps from the merged evidence ────────────────────
+  - id: enumerate-gaps
+    persona: planner
+    model: balanced
+    dependencies: [aggregate-evidence, fetch-issue]
+    memory:
+      inject_artifacts:
+        - step: fetch-issue
+          artifact: issue-context
+          as: issue_context
+        - step: aggregate-evidence
+          artifact: evidence-set
+          as: evidence_set
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Read the aggregated `evidence_set` (the four axes' findings flattened
+        into one JSON array) and the original `issue_context`, then enumerate
+        the distinct gaps the audit surfaces. Write a `gap-set.json` matching
+        the `gap-set.schema.json` contract.
+
+        Apply the severity rubric — NOT a count target. If the evidence
+        supports three high-severity gaps and nothing else, emit three.
+
+        ## Severity rubric
+
+        - **critical**: data loss, security exposure, or crash on a golden
+          path.
+        - **high**: blocks a documented user goal or breaks an acceptance
+          criterion of the parent issue.
+        - **medium**: degraded UX or maintainability hazard.
+        - **low**: stylistic or doc nit.
+        - **info**: no action required; captured for awareness.
+
+        ## Requirements
+
+        ### Step 1 — Cluster evidence into gaps
+
+        Group evidence items by root cause. If `audit-code-walk` cites
+        `composition.go:520` AND `audit-event-trace` shows a phase-completion
+        gap rooted in the same path, emit ONE gap with both evidence ids
+        attached, not two.
+
+        ### Step 2 — Write gap-set.json
+
+        Match `wave://contracts/gap-set`. Each gap entry:
+
+        ```json
+        {
+          "id": "g1",
+          "title": "Path A re-render loop",
+          "severity": "high",
+          "axis": "code",
+          "citation": "internal/webui/composition.go:520",
+          "evidence_ids": ["e1", "e3"],
+          "recommendation": "Replace the inline range with an append loop at composition.go:520",
+          "ux_tier": false
+        }
+        ```
+
+        ### Step 3 — Compose summary
+
+        One paragraph. Lead with novel signal — what the audit found that the
+        issue body did NOT already state. Cap recap of the issue body at 25%.
+
+        ### Step 4 — Tally counts
+
+        Populate `counts_by_severity` with the auto-tally. Informational only —
+        downstream steps key off `severity`, not the tally.
+
+        ## Constraints
+
+        - Do NOT pad to a count target. Severity rubric only.
+        - Do NOT bundle unrelated gaps under one id.
+        - Do NOT inflate severity to seem thorough.
+        - Do NOT split one root cause into multiple hairsplit findings (the
+          U9/U10 padding antipattern from PR #1440 baseline).
+
+        ## Quality bar
+
+        A good gap-set has one gap per root cause, calibrated severities, and
+        cross-axis correlations made explicit via shared `evidence_ids`. A bad
+        gap-set duplicates findings across axes or pads the count.
+    output_artifacts:
+      - name: gap-set
+        path: .agents/output/gap-set.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contracts:
+        - type: json_schema
+          source: .agents/output/gap-set.json
+          schema_path: .agents/contracts/gap-set.schema.json
+          must_pass: true
+          on_failure: fail
+
+  # ─── Phase 5: per-gap deepdive (iterate.parallel) ────────────────────────
+  #
+  # Each gap fans out into a gap-analyze child that returns a typed
+  # followup-spec. iterate.parallel max=3 keeps the LLM cost bounded.
+  - id: per-gap-deepdive
+    pipeline: gap-analyze
+    dependencies: [enumerate-gaps]
+    input: "{{ item }}"
+    config:
+      inject: ["issue-context"]
+    iterate:
+      over: "{{ enumerate-gaps.out.gap-set.gaps }}"
+      mode: parallel
+      max_concurrent: 3
+
+  # ─── Phase 6: aggregate per-gap follow-up specs ──────────────────────────
+  - id: aggregate-followups
+    dependencies: [per-gap-deepdive]
+    aggregate:
+      from: "{{ per-gap-deepdive.out.collected-output }}"
+      into: .agents/output/followup-specs.json
+      strategy: merge_arrays
+
+  # ─── Phase 7: synthesize the audit doc with agent_review ─────────────────
+  - id: synthesize
+    persona: auditor
+    model: strongest
+    dependencies: [aggregate-followups, fetch-issue, aggregate-evidence, enumerate-gaps]
+    memory:
+      inject_artifacts:
+        - step: fetch-issue
+          artifact: issue-context
+          as: issue_context
+        - step: aggregate-evidence
+          artifact: evidence-set
+          as: evidence_set
+        - step: enumerate-gaps
+          artifact: gap-set
+          as: gap_set
+        - step: aggregate-followups
+          artifact: followup-specs
+          as: followup_specs
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Synthesize the audit document from the four axes' merged evidence,
+        the enumerated gap-set, and the per-gap follow-up specs. Write to
+        `docs/<slug>-audit.md` AND record the rendered file path back as the
+        `audit-doc` artifact (so the create-pr step can reference it).
+
+        Subject: issue {{ input }}.
+
+        ## Context
+
+        - `issue_context` carries the issue title, body, cited routes / files /
+          run_id.
+        - `evidence_set` is the merged JSON array across the four axes.
+        - `gap_set` is the enumerator's classified output.
+        - `followup_specs` is the per-gap deepdive output (one spec per gap).
+        - You have a worktree CWD; you may create `docs/<slug>-audit.md` and
+          `.agents/output/screenshots/` is already populated by the webui
+          axis (if chromedp succeeded).
+
+        ## Requirements
+
+        ### Step 1 — Pick the slug
+
+        Slug = `<issue_number>-<kebab-case-of-issue-title-first-6-words>`.
+        Example: `1412-audit-webui-composition-rendering`. The audit doc lives
+        at `docs/<slug>-audit.md`.
+
+        ### Step 2 — Compose the audit doc
+
+        Layout:
+
+        ```markdown
+        # <Issue title> — Audit
+
+        > Audit of issue [#<n>](<url>) by Wave `audit-issue`.
+
+        ## Summary
+
+        <One paragraph leading with novel signal — what this audit found that
+        the issue body did NOT already state. ≤ 25% recap of the issue body.>
+
+        ## Severity Map
+
+        | Severity | Count |
+        |----------|-------|
+        | critical | <n>   |
+        | high     | <n>   |
+        | medium   | <n>   |
+        | low      | <n>   |
+        | info     | <n>   |
+
+        ## Gaps
+
+        ### G1 — <gap title> (<severity>)
+
+        - **Axis:** <webui | code | db | event | cross-axis>
+        - **Citation:** `<file:line>` or route + screenshot path or query
+        - **Recommendation:** <concrete edit instruction>
+
+        <For UX-tier gaps, inline the screenshot:>
+        ![<route> — <viewport>](.agents/output/screenshots/<slug>.png)
+
+        <Repeat for each gap. Cross-axis gaps explicitly link the supporting
+        evidence ids.>
+
+        ## Follow-ups
+
+        <One bullet per critical/high gap, naming the gap id and the follow-up
+        title. The actual `gh issue create` calls happen in the file-each-
+        followup step downstream.>
+
+        ---
+        *Generated by Wave `audit-issue` — run id `{{ run.id }}`.*
+        ```
+
+        ### Step 3 — Inline screenshots for UX-tier gaps
+
+        For every gap where `axis == "webui"` OR `ux_tier == true`, look up
+        the screenshot path from `evidence_set.items[].screenshot_path` and
+        inline it via a relative markdown image link.
+
+        ### Step 4 — Write the doc
+
+        Write `docs/<slug>-audit.md`. Stage it (`git add docs/<slug>-audit.md
+        .agents/output/screenshots/`) but DO NOT commit yet — the create-pr
+        step handles the commit so the doc + PR open atomically.
+
+        ### Step 5 — Echo the slug back
+
+        Write `.agents/output/audit-doc.json`:
+
+        ```json
+        {
+          "slug": "<slug>",
+          "doc_path": "docs/<slug>-audit.md",
+          "screenshots_dir": ".agents/output/screenshots",
+          "verdict": "pass"
+        }
+        ```
+
+        Set `verdict` based on the audit-doc-criteria self-assessment: `pass`
+        if all 7 criteria met, `warn` if 1-2 missed, `fail` if 3+. The
+        downstream `agent_review` handover validates this against the criteria
+        independently.
+
+        ## Constraints
+
+        - Do NOT emit speckit `specs/<branch>/{spec,plan,tasks}.md`. The audit
+          deliverable is the doc + screenshots + follow-up specs, not speckit
+          boilerplate.
+        - Do NOT pad to a count target. Severity rubric only.
+        - Do NOT inline screenshots for non-UX-tier gaps.
+        - Do NOT include raw JSON in the doc body.
+        - Do NOT commit. The create-pr step opens one atomic commit.
+
+        ## Quality bar
+
+        Pass all 7 criteria in `.agents/contracts/audit-doc-criteria.md`. The
+        agent_review handover enforces this — fail or warn routes the run into
+        the rework path.
+    output_artifacts:
+      - name: audit-doc
+        path: .agents/output/audit-doc.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contracts:
+        - type: non_empty_file
+          source: .agents/output/audit-doc.json
+          on_failure: fail
+        - type: agent_review
+          persona: reviewer
+          criteria_path: .agents/contracts/audit-doc-criteria.md
+          source: .agents/output/audit-doc.json
+          model: balanced
+          token_budget: 12000
+          timeout: 120s
+          on_failure: warn
+
+  # ─── Phase 8: file follow-up issues (iterate.serial) ─────────────────────
+  #
+  # Walk the merged followup-specs, drop anything below `high`, and call
+  # `gh issue create` once per remaining spec. Serial — not parallel — so we
+  # stay within the gh CLI's rate limits and avoid accidental duplicate
+  # filings on retry.
+  - id: file-each-followup
+    type: command
+    dependencies: [synthesize, aggregate-followups, fetch-issue]
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    script: |
+      set -o pipefail
+      mkdir -p .agents/output
+
+      SPECS=.agents/output/followup-specs.json
+      CONTEXT=.agents/output/issue-context.json
+      OUT=.agents/output/followup-refs.json
+
+      if [ ! -f "$SPECS" ] || [ ! -f "$CONTEXT" ]; then
+        echo "file-each-followup: missing input ($SPECS or $CONTEXT)" >&2
+        exit 1
+      fi
+
+      OWNER=$(jq -r .owner "$CONTEXT")
+      REPO=$(jq -r .repo "$CONTEXT")
+      PARENT=$(jq -r .number "$CONTEXT")
+
+      if [ -z "$OWNER" ] || [ "$OWNER" = "null" ] || [ -z "$REPO" ] || [ "$REPO" = "null" ]; then
+        echo "file-each-followup: issue-context missing owner/repo" >&2
+        exit 1
+      fi
+
+      # Filter to critical + high. Anything lower is documented in the audit
+      # doc only, not filed as a separate issue.
+      jq '[.[] | select(.severity == "critical" or .severity == "high")]' \
+        "$SPECS" > .agents/output/_high-specs.json
+
+      COUNT=$(jq 'length' .agents/output/_high-specs.json)
+      echo "filing $COUNT follow-up issues to $OWNER/$REPO (parent #$PARENT)"
+
+      REFS_FILE=$(mktemp)
+      echo "[]" > "$REFS_FILE"
+
+      i=0
+      while [ "$i" -lt "$COUNT" ]; do
+        BODY_FILE=$(mktemp -t audit-followup.XXXXXX.md)
+        TITLE_FILE=$(mktemp -t audit-followup-title.XXXXXX.txt)
+        # Write the title to a file rather than interpolating it inline on the
+        # gh command line — keeps the security audit (persona_audit_test.go)
+        # green and avoids shell injection if a spec.title contains
+        # backticks or $().
+        jq -r ".[$i].title" .agents/output/_high-specs.json > "$TITLE_FILE"
+        SEVERITY=$(jq -r ".[$i].severity" .agents/output/_high-specs.json)
+        GAP_ID=$(jq -r ".[$i].gap_id" .agents/output/_high-specs.json)
+
+        # Compose the body: prefix with parent reference, then the spec body.
+        {
+          printf 'Parent: #%s (audit)\n\n' "$PARENT"
+          jq -r ".[$i].body" .agents/output/_high-specs.json
+        } > "$BODY_FILE"
+
+        # Render labels — the spec MAY supply labels; always include
+        # `audit-followup` so the parent audit-issue run can later query
+        # filed issues by label.
+        LABELS=$(jq -r "[.[$i].labels // [] | .[], \"audit-followup\"] | unique | join(\",\")" \
+          .agents/output/_high-specs.json)
+
+        # File the issue. Capture URL or fall back to a synthetic placeholder
+        # if gh fails — the run continues, but the failure is recorded.
+        if URL=$({{ forge.cli_tool }} issue create \
+          --repo "$OWNER/$REPO" \
+          --title "$(cat "$TITLE_FILE")" \
+          --body-file "$BODY_FILE" \
+          --label "$LABELS" 2>&1 | tail -n 1); then
+          STATUS="filed"
+        else
+          URL="ERROR: $URL"
+          STATUS="failed"
+        fi
+
+        # Append to the refs file.
+        TITLE_FOR_LOG=$(cat "$TITLE_FILE")
+        jq --arg url "$URL" \
+           --arg gap_id "$GAP_ID" \
+           --arg title "$TITLE_FOR_LOG" \
+           --arg severity "$SEVERITY" \
+           --arg status "$STATUS" \
+           '. += [{gap_id:$gap_id, title:$title, severity:$severity, status:$status, url:$url}]' \
+           "$REFS_FILE" > "$REFS_FILE.tmp"
+        mv "$REFS_FILE.tmp" "$REFS_FILE"
+
+        rm -f "$BODY_FILE" "$TITLE_FILE"
+        i=$((i + 1))
+      done
+
+      jq -n \
+        --slurpfile refs "$REFS_FILE" \
+        --argjson count "$COUNT" \
+        '{count: $count, filed: $refs[0]}' \
+        > "$OUT"
+
+      rm -f "$REFS_FILE" .agents/output/_high-specs.json
+    output_artifacts:
+      - name: followup-refs
+        path: .agents/output/followup-refs.json
+        type: json
+    handover:
+      contract:
+        type: non_empty_file
+        source: .agents/output/followup-refs.json
+        on_failure: warn
+
+  # ─── Phase 9: open the PR with the audit doc + screenshots ───────────────
+  - id: create-pr
+    persona: implementer
+    contexts: [delivery]
+    model: balanced
+    dependencies: [file-each-followup, synthesize, fetch-issue]
+    memory:
+      inject_artifacts:
+        - step: fetch-issue
+          artifact: issue-context
+          as: issue_context
+        - step: synthesize
+          artifact: audit-doc
+          as: audit_doc
+        - step: file-each-followup
+          artifact: followup-refs
+          as: followup_refs
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Open a pull request that lands the audit doc + captured screenshots,
+        and links the audit doc to every follow-up issue filed in
+        `followup-refs`. Write `.agents/output/pr-result.json` matching the
+        `pr-result.schema.json` contract.
+
+        Subject: issue {{ input }}.
+
+        ## Context
+
+        - The synthesize step staged `docs/<slug>-audit.md` and the
+          `.agents/output/screenshots/` directory but did NOT commit.
+        - `audit_doc` carries the slug; `followup_refs` carries the URLs of
+          the filed follow-up issues; `issue_context` carries the parent
+          issue's number/url.
+        - You are in a worktree on branch `{{ pipeline_id }}`.
+
+        ## Requirements
+
+        ### Step 1 — Stage and commit
+
+        Stage only the audit doc and screenshots:
+
+        ```bash
+        SLUG=$(jq -r .slug .agents/artifacts/audit-doc)
+        git add "docs/${SLUG}-audit.md" .agents/output/screenshots/ 2>/dev/null || true
+
+        # Use a heredoc for the commit message — multi-line bodies need it.
+        git commit -m "docs: audit-issue #${PARENT_NUM} — ${SLUG}
+
+        Audit doc + screenshots produced by Wave audit-issue.
+
+        Refs #${PARENT_NUM}.
+        "
+        git push -u origin "$(git rev-parse --abbrev-ref HEAD)"
+        ```
+
+        DO NOT use `Closes #N`, `Fixes #N`, or `Resolves #N` — audit issues
+        stay open until the maintainer triages the follow-ups.
+
+        ### Step 2 — Compose the PR body
+
+        ```markdown
+        ## Audit deliverables
+
+        - **Doc:** `docs/<slug>-audit.md`
+        - **Screenshots:** `.agents/output/screenshots/<slug>.png`
+        - **Follow-ups filed:**
+          - <gap_id>: <title> — <url>
+          - ...
+
+        ## Verdict
+
+        <pass | warn | fail> — see the doc's Severity Map for the breakdown.
+
+        ---
+        *Opened by Wave `audit-issue` — refs #<parent>.*
+        ```
+
+        Render the follow-ups list from `followup_refs.filed[]`.
+
+        ### Step 3 — Open the PR
+
+        ```bash
+        BODY=$(mktemp -t audit-issue-pr.XXXXXX.md)
+        cat > "$BODY" <<EOF
+        <body composed in Step 2>
+        EOF
+
+        {{ forge.cli_tool }} {{ forge.pr_command }} create \
+          --title "docs: audit-issue #${PARENT_NUM} — ${SLUG}" \
+          --body-file "$BODY"
+        rm -f "$BODY"
+        ```
+
+        Capture the PR URL.
+
+        ### Step 4 — Write pr-result
+
+        Write `.agents/output/pr-result.json`:
+
+        ```json
+        {
+          "success": true,
+          "pr_number": <int>,
+          "pr_url": "<url>",
+          "branch": "<branch>",
+          "issue_reference": "<owner>/<repo>#<parent>"
+        }
+        ```
+
+        ## Constraints
+
+        - Do NOT use `Closes #N` / `Fixes #N` / `Resolves #N`.
+        - Do NOT stage anything outside `docs/` and `.agents/output/screenshots/`.
+        - Do NOT commit `.agents/artifacts/`, `.agents/output/` (other than
+          screenshots), `.claude/`, or `CLAUDE.md`.
+        - If pushing or PR-creation fails, write `success: false` with the
+          captured error in pr-result.json — the run still completes.
+
+        ## Quality bar
+
+        A good PR opens with a clear deliverables list, links every filed
+        follow-up issue, and includes the verdict. A bad PR commits Wave
+        internals or omits the follow-up cross-links.
+    output_artifacts:
+      - name: pr-result
+        path: .agents/output/pr-result.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: non_empty_file
+        source: .agents/output/pr-result.json
+        on_failure: warn
+    outcomes:
+      - type: pr
+        extract_from: .agents/output/pr-result.json
+        json_path: .pr_url
+        label: "Audit PR"

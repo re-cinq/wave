@@ -1,0 +1,76 @@
+kind: WavePipeline
+metadata:
+  name: audit-webui-shots
+  description: >-
+    Single-step audit sub-pipeline that captures full-page WebUI screenshots
+    for routes cited in an audit issue. Uses the chromedp browser adapter via
+    the webui-capturer persona. Output: webui-evidence.json + per-route PNGs
+    under .agents/output/screenshots/<slug>.png. Used by audit-issue as one
+    of the four parallel evidence axes; runs standalone for one-off captures.
+  category: composition
+  release: false
+
+skills:
+  - "{{ project.skill }}"
+
+input:
+  source: cli
+  type: string
+  example: '{"routes":["/runs","/pipelines"],"base_url":"http://localhost:8080"}'
+  schema:
+    type: string
+    description: "JSON object: {routes:[<path>...], base_url:<url>}. Parsed by the capture step."
+
+chat_context:
+  artifact_summaries:
+    - webui-evidence
+  suggested_questions:
+    - "Which routes were captured?"
+    - "Were any routes unreachable?"
+  focus_areas:
+    - "Screenshot path coverage"
+    - "Per-route capture timing"
+
+pipeline_outputs:
+  evidence:
+    step: capture
+    artifact: webui-evidence
+    type: string
+
+steps:
+  - id: capture
+    persona: webui-capturer
+    adapter: browser
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        [
+          {
+            "action": "navigate",
+            "url": "{{ input }}",
+            "timeout_ms": 30000,
+            "wait_for": "body"
+          },
+          {
+            "action": "screenshot",
+            "format": "png",
+            "timeout_ms": 30000
+          }
+        ]
+    output_artifacts:
+      - name: webui-evidence
+        path: .agents/output/webui-evidence.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: non_empty_file
+        source: .agents/output/webui-evidence.json
+        on_failure: warn

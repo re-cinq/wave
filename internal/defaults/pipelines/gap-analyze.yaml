@@ -1,0 +1,161 @@
+kind: WavePipeline
+metadata:
+  name: gap-analyze
+  description: >-
+    Single-step analyst sub-pipeline that takes one gap (JSON blob from the
+    audit-issue enumerate-gaps step), deepens its severity assessment, and
+    drafts the remediation as a follow-up issue spec (matching the
+    followup-spec schema). Analog of impl-finding for the audit shape.
+    Used by audit-issue's per-gap-deepdive iterate.parallel; can run
+    standalone for ad-hoc gap refinement.
+  category: composition
+  release: false
+
+skills:
+  - "{{ project.skill }}"
+  - software-design
+
+input:
+  source: cli
+  type: string
+  example: '{"id":"g1","title":"Path A bug","severity":"high","axis":"code","citation":"internal/webui/composition.go:520","recommendation":"Replace ranges with append loop"}'
+  schema:
+    type: string
+    description: "JSON object describing one gap (matches gap-set.gaps[*])."
+
+chat_context:
+  artifact_summaries:
+    - followup-spec
+  suggested_questions:
+    - "What severity did the deepdive land on?"
+    - "Does the follow-up spec have file:line anchors?"
+  focus_areas:
+    - "Severity calibration"
+    - "Acceptance criteria specificity"
+
+pipeline_outputs:
+  spec:
+    step: deepdive
+    artifact: followup-spec
+    type: string
+
+steps:
+  - id: deepdive
+    persona: auditor
+    model: balanced
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Take the single gap supplied as input, verify it against the actual
+        code (read-only), refine its severity, and write a typed follow-up
+        spec to `.agents/output/followup-spec.json` matching the
+        `followup-spec.schema.json` contract. The spec becomes the body of a
+        `gh issue create` call by the parent's file-each-followup step.
+
+        Gap (raw JSON): {{ input }}
+
+        ## Context
+
+        - You have read-only access to the project tree at `/project`.
+        - The parent pipeline (`audit-issue`) has injected the parent issue
+          context into `.agents/artifacts/issue_context` (per the SubPipeline
+          config.inject). Read it to populate the `parent_issue` field of the
+          spec.
+        - One gap in, one spec out — do NOT bundle multiple gaps.
+
+        ## Requirements
+
+        ### Step 1 — Parse the gap
+
+        Parse the JSON. Extract `id`, `title`, `severity`, `axis`, `citation`,
+        `recommendation`. If parsing fails or required fields are missing,
+        write a minimal spec with `severity: "info"` and `body` explaining the
+        parse error, and exit cleanly.
+
+        ### Step 2 — Verify against the source
+
+        For `axis: code`, open the cited file:line and confirm the pattern
+        described in the gap actually exists. For `axis: webui`, check that the
+        cited screenshot path exists under `.agents/output/screenshots/`. For
+        `axis: db | event`, treat the cited query / event row count as
+        authoritative without re-running.
+
+        ### Step 3 — Refine severity
+
+        Apply the rubric:
+
+        - **critical**: data loss, security exposure, or crash on the golden
+          path.
+        - **high**: blocks a documented user goal or breaks an acceptance
+          criterion of the parent issue.
+        - **medium**: degraded UX or maintainability hazard.
+        - **low**: stylistic or doc nit.
+        - **info**: no action required, captured for awareness.
+
+        Adjust the gap's input severity if the verification reveals it is
+        higher or lower than the enumerator estimated.
+
+        ### Step 4 — Compose the follow-up spec
+
+        Write `.agents/output/followup-spec.json` with these fields:
+
+        ```json
+        {
+          "gap_id": "<id>",
+          "title": "<concise issue title>",
+          "body": "<markdown body>",
+          "labels": ["enhancement"],
+          "severity": "<refined severity>",
+          "acceptance": ["<criterion 1>", "<criterion 2>"],
+          "parent_issue": {"owner": "<o>", "repo": "<r>", "number": <n>}
+        }
+        ```
+
+        Body MUST include:
+        1. **Context**: 2-3 sentences linking back to the parent audit issue.
+        2. **Symptom**: one paragraph naming the observable symptom.
+        3. **Citation**: `file:line` anchor (or screenshot path / query).
+        4. **Recommendation**: concrete edit instructions.
+        5. **Acceptance**: a `- [ ]` checklist (also mirrored into the
+           `acceptance` array).
+
+        ### Step 5 — Write the spec
+
+        Validate against `wave://contracts/followup-spec` shape. The handover
+        contract enforces the schema; failures are warned, not fatal.
+
+        ## Constraints
+
+        - Do NOT modify any files. Read-only.
+        - Do NOT bundle multiple gaps. One gap = one spec.
+        - Do NOT inflate severity to seem thorough — apply the rubric honestly.
+        - Do NOT omit the file:line anchor for code-tier gaps.
+
+        ## Quality bar
+
+        A good follow-up spec reads like a self-contained issue body that a
+        craftsman could implement without consulting the audit doc — it has
+        the context, the citation, and acceptance criteria all in one place.
+        A bad spec drops the file:line anchor, lacks acceptance criteria, or
+        bundles unrelated work.
+    output_artifacts:
+      - name: followup-spec
+        path: .agents/output/followup-spec.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .agents/output/followup-spec.json
+        schema_path: .agents/contracts/followup-spec.schema.json
+        must_pass: true
+        on_failure: warn

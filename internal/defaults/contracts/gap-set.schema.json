@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "wave://contracts/gap-set",
+  "title": "Audit Gap Set",
+  "description": "Output of the enumerate-gaps step in audit-issue. A list of distinct gaps discovered across the four evidence axes, classified by severity. No count target — the rubric is severity, not quantity.",
+  "type": "object",
+  "required": ["gaps", "summary"],
+  "properties": {
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "severity", "citation", "recommendation"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable identifier within the set (e.g. `g1`, `g2`, ...)."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One-line gap title."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low", "info"],
+            "description": "Severity rubric. Use the rubric, not a count target."
+          },
+          "axis": {
+            "type": "string",
+            "enum": ["webui", "code", "db", "event", "cross-axis"],
+            "description": "Which evidence axis (or cross-axis combination) surfaced this gap."
+          },
+          "citation": {
+            "type": "string",
+            "description": "Concrete pointer: `file:line` for code, route + screenshot path for webui, query + row count for db, event + count for event."
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "IDs of the evidence items that support this gap."
+          },
+          "recommendation": {
+            "type": "string",
+            "description": "Concrete remediation instruction including a file:line edit anchor for code-tier gaps."
+          },
+          "ux_tier": {
+            "type": "boolean",
+            "description": "Whether this gap is UX-tier (requires inlined screenshot in the audit doc)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "string",
+      "description": "One-paragraph synthesis: novel signal first, ≤25% recap of issue body."
+    },
+    "counts_by_severity": {
+      "type": "object",
+      "description": "Auto-tallied severity counts. Informational only.",
+      "properties": {
+        "critical": {"type": "integer"},
+        "high": {"type": "integer"},
+        "medium": {"type": "integer"},
+        "low": {"type": "integer"},
+        "info": {"type": "integer"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

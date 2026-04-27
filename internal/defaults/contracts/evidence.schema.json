@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "wave://contracts/evidence",
+  "title": "Audit Evidence",
+  "description": "Unified evidence shape produced by one audit-axis sub-pipeline (webui screenshots, code walk, db trace, or event trace). The audit-issue parent pipeline aggregates these into a single evidence set keyed by axis.",
+  "type": "object",
+  "required": ["axis", "items", "summary"],
+  "properties": {
+    "axis": {
+      "type": "string",
+      "enum": ["webui", "code", "db", "event"],
+      "description": "Which evidence axis produced this artifact. Discriminator for downstream gap enumeration."
+    },
+    "issue_ref": {
+      "type": "object",
+      "description": "The audit subject — populated by the parent pipeline when this evidence is generated as part of an audit-issue run.",
+      "properties": {
+        "owner": {"type": "string"},
+        "repo": {"type": "string"},
+        "number": {"type": "integer"}
+      }
+    },
+    "items": {
+      "type": "array",
+      "description": "Per-axis evidence entries. Schema differs by axis; consumers branch on `axis`.",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable identifier within this evidence set (e.g. `e1`, `e2`)."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Sub-classification within the axis (e.g. `screenshot`, `file_excerpt`, `query_row`, `event_pattern`)."
+          },
+          "file": {"type": "string"},
+          "line_start": {"type": "integer"},
+          "line_end": {"type": "integer"},
+          "excerpt": {"type": "string"},
+          "role": {
+            "type": "string",
+            "description": "Why this evidence matters (e.g. `path-a-bug`, `path-b-correct`, `runtime-symptom`)."
+          },
+          "route": {"type": "string"},
+          "screenshot_path": {"type": "string"},
+          "viewport": {"type": "string"},
+          "captured_at": {"type": "string"},
+          "query": {"type": "string"},
+          "rows": {"type": "integer"},
+          "sample": {"type": "array"},
+          "event": {"type": "string"},
+          "count": {"type": "integer"},
+          "first_seen": {"type": "string"},
+          "last_seen": {"type": "string"},
+          "note": {"type": "string"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "summary": {
+      "type": "string",
+      "description": "One-paragraph human-readable summary of this axis's findings. Synthesised by the synthesize step."
+    },
+    "captured_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the evidence was collected."
+    }
+  },
+  "additionalProperties": false
+}

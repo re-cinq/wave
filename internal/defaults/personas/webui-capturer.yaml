@@ -1,0 +1,6 @@
+description: "Browser-driven WebUI screenshot capture via the chromedp adapter"
+temperature: 0.0
+permissions:
+  allowed_tools:
+    - "*"
+  deny: []

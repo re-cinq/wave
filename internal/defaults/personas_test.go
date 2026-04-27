@@ -141,7 +141,7 @@ func TestAllPersonasCovered(t *testing.T) {
 			count++
 		}
 	}
-	if count != 30 {
-		t.Errorf("expected 30 persona files, got %d", count)
+	if count != 31 {
+		t.Errorf("expected 31 persona files, got %d", count)
 	}
 }
