@@ -465,7 +465,7 @@ func TestInitializeWithMigrations_ExistingDatabase(t *testing.T) {
 	manager := NewMigrationManager(db)
 	applied, err := manager.GetAppliedMigrations()
 	assert.NoError(t, err)
-	assert.Len(t, applied, 23) // All 23 defined migrations
+	assert.Len(t, applied, 24) // All 24 defined migrations
 }
 
 func TestInitializeWithMigrations_NoAutoMigrate(t *testing.T) {
@@ -496,11 +496,11 @@ func TestInitializeWithMigrations_NoAutoMigrate(t *testing.T) {
 func TestMigrationDefinitions(t *testing.T) {
 	migrations := GetAllMigrations()
 
-	// Should have 23 migrations based on our definition
-	assert.Len(t, migrations, 23)
+	// Should have 24 migrations based on our definition
+	assert.Len(t, migrations, 24)
 
 	// Check version sequence
-	expectedVersions := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
+	expectedVersions := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24}
 	for i, migration := range migrations {
 		assert.Equal(t, expectedVersions[i], migration.Version)
 		assert.NotEmpty(t, migration.Description)
@@ -618,4 +618,84 @@ func TestMigration7_BranchName(t *testing.T) {
 	err = db.QueryRow("SELECT tags_json FROM pipeline_run WHERE run_id = 'test-run-1'").Scan(&tagsJSON)
 	assert.NoError(t, err)
 	assert.Equal(t, "[]", tagsJSON, "existing tags_json should be preserved")
+}
+
+// TestMigration24_BackfillRunTokens verifies that v24 backfills total_tokens for
+// completed/failed/cancelled runs whose value is still zero, while leaving
+// already-populated rows and non-terminal rows untouched.
+func TestMigration24_BackfillRunTokens(t *testing.T) {
+	db, cleanup := setupTestMigrationDB(t)
+	defer cleanup()
+
+	manager := NewMigrationManager(db)
+	err := manager.InitializeMigrationTable()
+	require.NoError(t, err)
+
+	migrations := GetAllMigrations()
+	require.GreaterOrEqual(t, len(migrations), 24)
+
+	// Apply migrations 1..23 to set up the schema before v24.
+	for _, m := range migrations[:23] {
+		require.NoError(t, manager.ApplyMigration(m), "apply migration v%d", m.Version)
+	}
+
+	// Seed pipeline_run rows covering the relevant cases:
+	//   zero-completed:   total_tokens=0, status='completed'   -> should backfill
+	//   zero-failed:      total_tokens=0, status='failed'      -> should backfill
+	//   nonzero-completed:total_tokens=5, status='completed'   -> must remain 5
+	//   zero-running:     total_tokens=0, status='running'     -> must remain 0
+	rows := []struct {
+		runID  string
+		status string
+		tokens int
+	}{
+		{"zero-completed", "completed", 0},
+		{"zero-failed", "failed", 0},
+		{"nonzero-completed", "completed", 5},
+		{"zero-running", "running", 0},
+	}
+	for _, r := range rows {
+		_, err = db.Exec(
+			`INSERT INTO pipeline_run (run_id, pipeline_name, status, started_at, total_tokens) VALUES (?, ?, ?, ?, ?)`,
+			r.runID, "p", r.status, 1, r.tokens,
+		)
+		require.NoError(t, err)
+	}
+
+	// Seed event_log rows. tokens_used > 0 are the only ones that count.
+	events := []struct {
+		runID  string
+		tokens int
+	}{
+		{"zero-completed", 10},
+		{"zero-completed", 20},  // sums to 30
+		{"zero-completed", 0},   // ignored by tokens_used > 0 guard
+		{"zero-failed", 7},      // sums to 7
+		{"nonzero-completed", 99}, // would total 99 but row should stay at 5
+		{"zero-running", 42},    // would total 42 but status excludes it
+	}
+	for _, e := range events {
+		_, err = db.Exec(
+			`INSERT INTO event_log (run_id, timestamp, state, tokens_used) VALUES (?, ?, ?, ?)`,
+			e.runID, 1, "running", e.tokens,
+		)
+		require.NoError(t, err)
+	}
+
+	// Apply migration v24.
+	require.NoError(t, manager.ApplyMigration(migrations[23]))
+
+	// Assert resulting total_tokens per run.
+	expected := map[string]int{
+		"zero-completed":    30,
+		"zero-failed":       7,
+		"nonzero-completed": 5,
+		"zero-running":      0,
+	}
+	for runID, want := range expected {
+		var got int
+		err = db.QueryRow(`SELECT total_tokens FROM pipeline_run WHERE run_id = ?`, runID).Scan(&got)
+		require.NoError(t, err, "scan run %s", runID)
+		assert.Equal(t, want, got, "run %s total_tokens after v24", runID)
+	}
 }

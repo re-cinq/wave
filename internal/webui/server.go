@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"html/template"
@@ -25,7 +24,6 @@ import (
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/workspace"
-	_ "modernc.org/sqlite"
 )
 
 // AuthMode determines how the server authenticates requests.
@@ -101,10 +99,6 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		roStore.Close()
 		return nil, fmt.Errorf("failed to open read-write state store: %w", err)
 	}
-
-	// Backfill pipeline_run.total_tokens from event_log for runs that have 0
-	backfillRunTokens(cfg.DBPath)
-
 
 	// Generate a per-session CSRF token
 	csrfBytes := make([]byte, 32)
@@ -227,35 +221,6 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	}
 
 	return s, nil
-}
-
-// backfillRunTokens updates pipeline_run.total_tokens from event_log for runs
-// that still have 0 tokens. This fixes a historical bug where tokens were lost
-// because the executor cleaned up in-memory state before GetTotalTokens was called.
-func backfillRunTokens(dbPath string) {
-	db, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		log.Printf("[webui] backfill tokens: failed to open db: %v", err)
-		return
-	}
-	defer db.Close()
-
-	result, err := db.Exec(`
-		UPDATE pipeline_run SET total_tokens = (
-			SELECT COALESCE(SUM(el.tokens_used), 0)
-			FROM event_log el
-			WHERE el.run_id = pipeline_run.run_id AND el.tokens_used > 0
-		)
-		WHERE total_tokens = 0
-		AND status IN ('completed', 'failed', 'cancelled')
-	`)
-	if err != nil {
-		log.Printf("[webui] backfill tokens: %v", err)
-		return
-	}
-	if n, _ := result.RowsAffected(); n > 0 {
-		log.Printf("[webui] backfilled tokens for %d runs", n)
-	}
 }
 
 // pollAttention periodically queries the DB for active runs and updates the
