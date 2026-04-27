@@ -1857,17 +1857,27 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		// Start progress ticker for smooth animation updates during step execution
 		cancelTicker := e.startProgressTicker(ctx, pipelineID, step.ID)
 
-		// Start stall watchdog if configured
+		// Start stall watchdog if configured. Composition steps (iterate /
+		// aggregate / branch / loop / sub_pipeline) do not produce their
+		// own stream events — their work happens in spawned child
+		// pipelines under separate run IDs. Wiring a stall watchdog to
+		// them would fire after the configured timeout regardless of
+		// whether children are healthy. Skip the watchdog for those step
+		// kinds; each child pipeline owns its own stall watchdog.
 		stepCtx := ctx
 		var watchdog *StallWatchdog
-		if stallTimeout := e.parseStallTimeout(execution.Manifest); stallTimeout > 0 {
-			w, err := NewStallWatchdog(stallTimeout)
-			if err != nil {
-				cancelTicker()
-				return fmt.Errorf("step %s: stall watchdog setup: %w", step.ID, err)
+		isCompositionStep := step.Iterate != nil || step.Aggregate != nil ||
+			step.Branch != nil || step.Loop != nil || step.SubPipeline != ""
+		if !isCompositionStep {
+			if stallTimeout := e.parseStallTimeout(execution.Manifest); stallTimeout > 0 {
+				w, err := NewStallWatchdog(stallTimeout)
+				if err != nil {
+					cancelTicker()
+					return fmt.Errorf("step %s: stall watchdog setup: %w", step.ID, err)
+				}
+				watchdog = w
+				stepCtx = watchdog.Start(stepCtx)
 			}
-			watchdog = w
-			stepCtx = watchdog.Start(stepCtx)
 		}
 
 		// Store watchdog on execution so runStepExecution can wire NotifyActivity
