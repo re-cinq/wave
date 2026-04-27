@@ -200,8 +200,10 @@ func (c *ConcurrencyExecutor) createAgentWorkspace(execution *PipelineExecution,
 		wsRoot = ".agents/workspaces"
 	}
 
-	// Create agent-specific workspace under .agents/workspaces/<pipeline>/<step>/agent_<index>/
-	wsPath := filepath.Join(wsRoot, pipelineID, step.ID, fmt.Sprintf("agent_%d", agentIndex))
+	// Create agent-specific workspace under .agents/workspaces/<pipeline>/<step>/agent_<index>/.
+	// Use the executor's workspace run ID override so resume reuses the
+	// original run's workspace tree; falls back to pipelineID for fresh runs.
+	wsPath := filepath.Join(wsRoot, c.executor.workspaceRunIDFor(pipelineID), step.ID, fmt.Sprintf("agent_%d", agentIndex))
 	if err := os.MkdirAll(wsPath, 0755); err != nil {
 		return "", err
 	}

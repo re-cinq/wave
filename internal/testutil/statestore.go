@@ -643,6 +643,13 @@ func WithCreateRun(fn func(pipelineName, input string) (string, error)) MockStat
 	return func(m *MockStateStore) { m.createRun = fn }
 }
 
+// WithRegisterArtifact installs a custom RegisterArtifact handler. Useful in
+// tests that need to assert composition steps register their outputs in the
+// artifact table.
+func WithRegisterArtifact(fn func(runID, stepID, name, path, artifactType string, sizeBytes int64) error) MockStateStoreOption {
+	return func(m *MockStateStore) { m.registerArtifact = fn }
+}
+
 // Orchestration decision stubs
 func (m *MockStateStore) RecordOrchestrationDecision(_ *state.OrchestrationDecision) error {
 	return nil

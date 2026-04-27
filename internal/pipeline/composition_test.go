@@ -705,3 +705,101 @@ func TestCompositionExecutor_Execute_Gate_Auto(t *testing.T) {
 		t.Error("expected gate_resolved event")
 	}
 }
+
+// TestCompositionExecutor_Aggregate_RegistersArtifact verifies that the legacy
+// composition path also registers aggregate output artifacts when a runID and
+// store are wired — parity with executor.go's executeAggregateInDAG.
+func TestCompositionExecutor_Aggregate_RegistersArtifact(t *testing.T) {
+	tmpDir := t.TempDir()
+	outputPath := filepath.Join(tmpDir, "merged.json")
+
+	var (
+		gotRun, gotStep, gotName, gotPath, gotType string
+		gotSize                                    int64
+		called                                     bool
+	)
+	store := testutil.NewMockStateStore(testutil.WithRegisterArtifact(
+		func(runID, stepID, name, path, artifactType string, size int64) error {
+			called = true
+			gotRun, gotStep, gotName, gotPath, gotType, gotSize = runID, stepID, name, path, artifactType, size
+			return nil
+		},
+	))
+
+	emitter := testutil.NewEventCollector()
+	m := &manifest.Manifest{}
+	ce := NewCompositionExecutor(nil, emitter, store, m, "test", ".agents/pipelines", false)
+	ce.SetRunID("legacy-run-1")
+
+	step := &Step{
+		ID: "merge",
+		Aggregate: &AggregateConfig{
+			From:     `[{"id":1}]`,
+			Into:     outputPath,
+			Strategy: "concat",
+		},
+	}
+
+	if err := ce.executeAggregate(step); err != nil {
+		t.Fatalf("executeAggregate: %v", err)
+	}
+
+	if !called {
+		t.Fatal("expected RegisterArtifact to be called")
+	}
+	if gotRun != "legacy-run-1" {
+		t.Errorf("runID = %q, want legacy-run-1", gotRun)
+	}
+	if gotStep != "merge" {
+		t.Errorf("stepID = %q, want merge", gotStep)
+	}
+	if gotName != "merged" {
+		t.Errorf("name = %q, want merged", gotName)
+	}
+	if gotPath != outputPath {
+		t.Errorf("path = %q, want %q", gotPath, outputPath)
+	}
+	if gotType != "json" {
+		t.Errorf("type = %q, want json", gotType)
+	}
+	if gotSize <= 0 {
+		t.Errorf("size = %d, want > 0", gotSize)
+	}
+}
+
+// TestCompositionExecutor_Aggregate_NoRegistrationWithoutRunID confirms the
+// legacy path stays a no-op for tests/legacy callers that wire a store but no
+// runID — preserves test ergonomics.
+func TestCompositionExecutor_Aggregate_NoRegistrationWithoutRunID(t *testing.T) {
+	tmpDir := t.TempDir()
+	outputPath := filepath.Join(tmpDir, "merged.json")
+
+	var called bool
+	store := testutil.NewMockStateStore(testutil.WithRegisterArtifact(
+		func(_, _, _, _, _ string, _ int64) error {
+			called = true
+			return nil
+		},
+	))
+
+	emitter := testutil.NewEventCollector()
+	m := &manifest.Manifest{}
+	ce := NewCompositionExecutor(nil, emitter, store, m, "test", ".agents/pipelines", false)
+	// No SetRunID call — must skip registration.
+
+	step := &Step{
+		ID: "merge",
+		Aggregate: &AggregateConfig{
+			From:     `[{"id":1}]`,
+			Into:     outputPath,
+			Strategy: "concat",
+		},
+	}
+
+	if err := ce.executeAggregate(step); err != nil {
+		t.Fatalf("executeAggregate: %v", err)
+	}
+	if called {
+		t.Error("RegisterArtifact must be skipped when runID is empty")
+	}
+}

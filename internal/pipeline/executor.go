@@ -74,6 +74,10 @@ type DefaultPipelineExecutor struct {
 	outcomeTracker *state.OutcomeTracker
 	// Pre-generated run ID (optional — if empty, Execute generates one)
 	runID string
+	// Workspace run ID override (used by resume to point at the original
+	// run's workspace tree while persisting state under the new resume run).
+	// When empty, defaults to runID.
+	workspaceRunID string
 	// Per-step timeout override (from CLI --timeout flag)
 	stepTimeoutOverride time.Duration
 	// Model override (from CLI --model flag)
@@ -159,6 +163,14 @@ func WithRelayMonitor(r *relay.RelayMonitor) ExecutorOption {
 
 func WithRunID(id string) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.runID = id }
+}
+
+// WithWorkspaceRunID overrides the run ID used to compute step workspace paths.
+// Resume uses this to keep the resumed executor reading from the original run's
+// workspace tree (where prior steps wrote artifacts) while state and new
+// artifacts are persisted under the new resume run ID.
+func WithWorkspaceRunID(id string) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.workspaceRunID = id }
 }
 
 func WithStepTimeout(d time.Duration) ExecutorOption {
@@ -262,6 +274,18 @@ func WithOntologyService(svc ontology.Service) ExecutorOption {
 // WithRegistry sets the adapter registry for per-step adapter resolution.
 func WithRegistry(r *adapter.AdapterRegistry) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.registry = r }
+}
+
+// workspaceRunIDFor returns the run ID used to compute step workspace paths.
+// When WithWorkspaceRunID has been set (resume), the override wins so the
+// resumed executor reads from the original run's workspace tree. Otherwise it
+// falls back to the caller's pipelineID (typically execution.Status.ID),
+// which preserves prior behaviour for fresh runs.
+func (e *DefaultPipelineExecutor) workspaceRunIDFor(pipelineID string) string {
+	if e.workspaceRunID != "" {
+		return e.workspaceRunID
+	}
+	return pipelineID
 }
 
 // createRunID generates a run ID, preferring the state store's CreateRun()
@@ -3846,10 +3870,13 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 			return info.AbsPath, nil
 		}
 
-		// Branch-keyed path for sharing across steps
+		// Branch-keyed path for sharing across steps. Use the executor's
+		// workspace run ID override so resume reuses the original run's
+		// worktree dir instead of creating an empty one at the resume
+		// timestamp; falls back to pipelineID for fresh runs.
 		sanitized := sanitizeBranchName(branch)
 		wtKey := "__wt_" + sanitized
-		wsPath := filepath.Join(wsRoot, pipelineID, wtKey)
+		wsPath := filepath.Join(wsRoot, e.workspaceRunIDFor(pipelineID), wtKey)
 
 		absPath, err := filepath.Abs(wsPath)
 		if err != nil {
@@ -3939,8 +3966,10 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		return wsPath, nil
 	}
 
-	// Create directory under .agents/workspaces/<pipeline>/<step>/
-	wsPath := filepath.Join(wsRoot, pipelineID, step.ID)
+	// Create directory under .agents/workspaces/<pipeline>/<step>/. Use the
+	// executor's workspace run ID override so resume reads from the original
+	// run's tree; falls back to pipelineID for fresh runs.
+	wsPath := filepath.Join(wsRoot, e.workspaceRunIDFor(pipelineID), step.ID)
 	if err := os.MkdirAll(wsPath, 0755); err != nil {
 		return "", err
 	}
@@ -5890,6 +5919,17 @@ func (e *DefaultPipelineExecutor) collectIterateOutputs(execution *PipelineExecu
 	execution.ArtifactPaths[step.ID+":collected-output"] = outputPath
 	execution.mu.Unlock()
 
+	// Register in DB so resume preflight and inject_artifacts can find the
+	// collected output. Without this, downstream steps depending on iterate
+	// output fail to resume.
+	if e.store != nil {
+		var size int64
+		if info, statErr := os.Stat(outputPath); statErr == nil {
+			size = info.Size()
+		}
+		_ = e.store.RegisterArtifact(execution.Status.ID, step.ID, "collected-output", outputPath, "json", size)
+	}
+
 	return nil
 }
 
@@ -5943,6 +5983,17 @@ func (e *DefaultPipelineExecutor) executeAggregateInDAG(_ context.Context, execu
 	// Also register in context for template resolution
 	if execution.Context != nil {
 		execution.Context.SetArtifactPath(artifactName, outputPath)
+	}
+
+	// Register in DB so inject_artifacts and resume preflight can find this
+	// artifact via the run-scoped artifact table — without this, downstream
+	// steps depending on aggregate output fail to resume.
+	if e.store != nil {
+		var size int64
+		if info, statErr := os.Stat(outputPath); statErr == nil {
+			size = info.Size()
+		}
+		_ = e.store.RegisterArtifact(pipelineID, step.ID, artifactName, outputPath, "json", size)
 	}
 
 	execution.mu.Lock()
@@ -6143,7 +6194,7 @@ func (e *DefaultPipelineExecutor) executeGateInDAG(ctx context.Context, executio
 			if wsRoot == "" {
 				wsRoot = ".agents/workspaces"
 			}
-			artifactPath := filepath.Join(wsRoot, pipelineID, ".agents", "artifacts", fmt.Sprintf("gate-%s-text", step.ID))
+			artifactPath := filepath.Join(wsRoot, e.workspaceRunIDFor(pipelineID), ".agents", "artifacts", fmt.Sprintf("gate-%s-text", step.ID))
 			if mkErr := os.MkdirAll(filepath.Dir(artifactPath), 0755); mkErr != nil {
 				e.emit(event.Event{
 					Timestamp:  time.Now(),
