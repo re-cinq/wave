@@ -26,8 +26,8 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 256,
-            "pattern": "^(?!/)(?!.*\\.\\.)(?!.*//)[A-Za-z0-9_./-]+$",
-            "description": "Repo-relative path to the file the fix should touch. Must not start with '/' (no absolute paths), must not contain '..' (no traversal) or '//' (no doubled separators). Allowed characters: alphanumerics, underscore, dot, slash, hyphen."
+            "pattern": "^[A-Za-z0-9_.-][A-Za-z0-9_./-]*$",
+            "description": "Repo-relative path to the file the fix should touch. Must not start with '/' (no absolute paths). Allowed characters: alphanumerics, underscore, dot, slash, hyphen. Traversal ('..') and doubled-slash ('//') are rejected at the Go validator layer."
           },
           "line": {
             "type": "integer",
