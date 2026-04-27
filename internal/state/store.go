@@ -71,10 +71,16 @@ type StateStore interface {
 	GetRunningRuns() ([]RunRecord, error)
 	ListRuns(opts ListRunsOptions) ([]RunRecord, error)
 	DeleteRun(runID string) error
+	GetMostRecentRunID() (string, error)
+	RunExists(runID string) (bool, error)
+	GetRunStatus(runID string) (string, error)
+	ListPipelineNamesByStatus(status string) ([]string, error)
+	BackfillRunTokens() (int64, error)
 
 	// Event logging
 	LogEvent(runID string, stepID string, state string, persona string, message string, tokens int, durationMs int64, model string, configuredModel string, adapter string) error
 	GetEvents(runID string, opts EventQueryOptions) ([]LogRecord, error)
+	GetEventAggregateStats(runID string) (*EventAggregateStats, error)
 
 	// Artifact tracking
 	RegisterArtifact(runID string, stepID string, name string, path string, artifactType string, sizeBytes int64) error
@@ -151,6 +157,7 @@ type StateStore interface {
 	RecordDecision(record *DecisionRecord) error
 	GetDecisions(runID string) ([]*DecisionRecord, error)
 	GetDecisionsByStep(runID, stepID string) ([]*DecisionRecord, error)
+	GetDecisionsFiltered(runID string, opts DecisionQueryOptions) ([]*DecisionRecord, error)
 
 	// Audit log (cross-run event queries)
 	GetAuditEvents(states []string, limit, offset int) ([]LogRecord, error)
@@ -837,6 +844,113 @@ func (s *stateStore) ListRuns(opts ListRunsOptions) ([]RunRecord, error) {
 	return s.queryRunsWithArgs(query, args...)
 }
 
+// GetMostRecentRunID returns the run_id with the most recent started_at.
+// Returns ("", nil) when no runs exist so callers can switch on empty string
+// without depending on database/sql sentinel errors.
+func (s *stateStore) GetMostRecentRunID() (string, error) {
+	var runID string
+	err := s.db.QueryRow(
+		`SELECT run_id FROM pipeline_run ORDER BY started_at DESC, run_id DESC LIMIT 1`,
+	).Scan(&runID)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to query most recent run: %w", err)
+	}
+	return runID, nil
+}
+
+// RunExists reports whether a run with the given ID exists.
+func (s *stateStore) RunExists(runID string) (bool, error) {
+	var count int
+	err := s.db.QueryRow(
+		`SELECT COUNT(*) FROM pipeline_run WHERE run_id = ?`, runID,
+	).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("failed to check run existence: %w", err)
+	}
+	return count > 0, nil
+}
+
+// GetRunStatus returns the status of a run.
+// Returns ("", nil) when the run does not exist.
+func (s *stateStore) GetRunStatus(runID string) (string, error) {
+	var status string
+	err := s.db.QueryRow(
+		`SELECT status FROM pipeline_run WHERE run_id = ?`, runID,
+	).Scan(&status)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to query run status: %w", err)
+	}
+	return status, nil
+}
+
+// ListPipelineNamesByStatus returns distinct pipeline names whose status matches
+// the given status (case-insensitive). Falls back to pipeline_state if pipeline_run
+// query fails (legacy schema compatibility).
+func (s *stateStore) ListPipelineNamesByStatus(status string) ([]string, error) {
+	names, err := s.listDistinctPipelineNames(
+		`SELECT DISTINCT pipeline_name FROM pipeline_run WHERE LOWER(status) = LOWER(?)`,
+		status,
+	)
+	if err == nil {
+		return names, nil
+	}
+	// Fallback for legacy/partial schemas
+	return s.listDistinctPipelineNames(
+		`SELECT DISTINCT pipeline_name FROM pipeline_state WHERE LOWER(status) = LOWER(?)`,
+		status,
+	)
+}
+
+func (s *stateStore) listDistinctPipelineNames(query, status string) ([]string, error) {
+	rows, err := s.db.Query(query, status)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query pipeline names by status: %w", err)
+	}
+	defer rows.Close()
+
+	var names []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, fmt.Errorf("failed to scan pipeline name: %w", err)
+		}
+		names = append(names, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating pipeline names: %w", err)
+	}
+	return names, nil
+}
+
+// BackfillRunTokens updates pipeline_run.total_tokens from event_log for
+// finalized runs that still have 0 tokens. Idempotent — re-running yields 0
+// affected rows once all runs have been backfilled.
+func (s *stateStore) BackfillRunTokens() (int64, error) {
+	result, err := s.db.Exec(`
+		UPDATE pipeline_run SET total_tokens = (
+			SELECT COALESCE(SUM(el.tokens_used), 0)
+			FROM event_log el
+			WHERE el.run_id = pipeline_run.run_id AND el.tokens_used > 0
+		)
+		WHERE total_tokens = 0
+		AND status IN ('completed', 'failed', 'cancelled')
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to backfill run tokens: %w", err)
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to read rows affected: %w", err)
+	}
+	return n, nil
+}
+
 // DeleteRun removes a run and its associated events, artifacts, and cancellation records.
 func (s *stateStore) DeleteRun(runID string) error {
 	// Due to foreign key ON DELETE CASCADE, deleting from pipeline_run
@@ -875,6 +989,13 @@ func (s *stateStore) LogEvent(runID string, stepID string, state string, persona
 }
 
 // GetEvents retrieves events for a run with optional filtering.
+//
+// Ordering rules:
+//   - TailLimit > 0: query runs in DESC order with LIMIT, results are reversed
+//     before return so callers always see ASC order. Other ordering flags are
+//     ignored in this mode.
+//   - OrderDesc: timestamp DESC, id DESC.
+//   - Default: timestamp ASC.
 func (s *stateStore) GetEvents(runID string, opts EventQueryOptions) ([]LogRecord, error) {
 	query := `SELECT id, run_id, timestamp, step_id, state, persona, message, tokens_used, duration_ms, model, configured_model, adapter
 	          FROM event_log
@@ -892,10 +1013,23 @@ func (s *stateStore) GetEvents(runID string, opts EventQueryOptions) ([]LogRecor
 	if opts.ErrorsOnly {
 		query += " AND state = 'failed'"
 	}
+	if opts.SinceUnix > 0 {
+		query += " AND timestamp >= ?"
+		args = append(args, opts.SinceUnix)
+	}
 
-	query += " ORDER BY timestamp ASC"
+	tailMode := opts.TailLimit > 0
+	switch {
+	case tailMode:
+		query += " ORDER BY timestamp DESC, id DESC LIMIT ?"
+		args = append(args, opts.TailLimit)
+	case opts.OrderDesc:
+		query += " ORDER BY timestamp DESC, id DESC"
+	default:
+		query += " ORDER BY timestamp ASC, id ASC"
+	}
 
-	if opts.Limit > 0 {
+	if !tailMode && opts.Limit > 0 {
 		query += " LIMIT ?"
 		args = append(args, opts.Limit)
 		if opts.Offset > 0 {
@@ -968,7 +1102,44 @@ func (s *stateStore) GetEvents(runID string, opts EventQueryOptions) ([]LogRecor
 		return nil, fmt.Errorf("error iterating events: %w", err)
 	}
 
+	// Tail mode queries DESC for SQL-side LIMIT correctness; flip to ASC for callers.
+	if tailMode && len(records) > 1 {
+		for i, j := 0, len(records)-1; i < j; i, j = i+1, j-1 {
+			records[i], records[j] = records[j], records[i]
+		}
+	}
+
 	return records, nil
+}
+
+// GetEventAggregateStats returns aggregate metrics over event_log entries in
+// terminal states (completed, failed) for the given run.
+func (s *stateStore) GetEventAggregateStats(runID string) (*EventAggregateStats, error) {
+	var stats EventAggregateStats
+	var avg, minD, maxD sql.NullFloat64
+	err := s.db.QueryRow(`
+		SELECT
+		    COUNT(*),
+		    COALESCE(SUM(COALESCE(tokens_used, 0)), 0),
+		    AVG(COALESCE(duration_ms, 0)),
+		    MIN(COALESCE(duration_ms, 0)),
+		    MAX(COALESCE(duration_ms, 0))
+		FROM event_log
+		WHERE run_id = ? AND state IN ('completed', 'failed')
+	`, runID).Scan(&stats.TotalEvents, &stats.TotalTokens, &avg, &minD, &maxD)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query event aggregate stats: %w", err)
+	}
+	if avg.Valid {
+		stats.AvgDurationMs = avg.Float64
+	}
+	if minD.Valid {
+		stats.MinDurationMs = minD.Float64
+	}
+	if maxD.Valid {
+		stats.MaxDurationMs = maxD.Float64
+	}
+	return &stats, nil
 }
 
 // GetAuditEvents retrieves events across all runs, filtered by state types,
@@ -2580,6 +2751,31 @@ func (s *stateStore) GetDecisionsByStep(runID, stepID string) ([]*DecisionRecord
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query decisions by step: %w", err)
+	}
+	defer rows.Close()
+	return scanDecisionRecords(rows)
+}
+
+// GetDecisionsFiltered returns decision records for a run filtered by step
+// and/or category. Empty filter values match all entries on that field.
+func (s *stateStore) GetDecisionsFiltered(runID string, opts DecisionQueryOptions) ([]*DecisionRecord, error) {
+	query := `SELECT id, run_id, step_id, timestamp, category, decision, rationale, context_json
+	          FROM decision_log WHERE run_id = ?`
+	args := []any{runID}
+
+	if opts.StepID != "" {
+		query += " AND step_id = ?"
+		args = append(args, opts.StepID)
+	}
+	if opts.Category != "" {
+		query += " AND category = ?"
+		args = append(args, opts.Category)
+	}
+	query += " ORDER BY timestamp ASC, id ASC"
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query decisions: %w", err)
 	}
 	defer rows.Close()
 	return scanDecisionRecords(rows)

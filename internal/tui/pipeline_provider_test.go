@@ -149,6 +149,19 @@ func (b baseStateStore) GetDecisions(string) ([]*state.DecisionRecord, error) { 
 func (b baseStateStore) GetDecisionsByStep(string, string) ([]*state.DecisionRecord, error) {
 	return nil, nil
 }
+func (b baseStateStore) GetDecisionsFiltered(string, state.DecisionQueryOptions) ([]*state.DecisionRecord, error) {
+	return nil, nil
+}
+func (b baseStateStore) GetMostRecentRunID() (string, error)              { return "", nil }
+func (b baseStateStore) RunExists(string) (bool, error)                   { return false, nil }
+func (b baseStateStore) GetRunStatus(string) (string, error)              { return "", nil }
+func (b baseStateStore) ListPipelineNamesByStatus(string) ([]string, error) {
+	return nil, nil
+}
+func (b baseStateStore) BackfillRunTokens() (int64, error) { return 0, nil }
+func (b baseStateStore) GetEventAggregateStats(string) (*state.EventAggregateStats, error) {
+	return &state.EventAggregateStats{}, nil
+}
 func (b baseStateStore) GetAuditEvents([]string, int, int) ([]state.LogRecord, error) {
 	return nil, nil
 }

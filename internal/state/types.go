@@ -71,6 +71,25 @@ type EventQueryOptions struct {
 	Limit      int
 	Offset     int
 	AfterID    int64 // Filter events with ID > AfterID (for SSE Last-Event-ID backfill)
+	SinceUnix  int64 // Only return events with timestamp >= SinceUnix
+	TailLimit  int   // Return the most recent N events (applied via DESC + reverse)
+	OrderDesc  bool  // Order by timestamp DESC, id DESC instead of ASC
+}
+
+// DecisionQueryOptions specifies filters for decision-log queries.
+type DecisionQueryOptions struct {
+	StepID   string
+	Category string
+}
+
+// EventAggregateStats holds aggregate metrics over a run's event log,
+// limited to events in completed/failed terminal states.
+type EventAggregateStats struct {
+	TotalEvents   int
+	TotalTokens   int
+	AvgDurationMs float64
+	MinDurationMs float64
+	MaxDurationMs float64
 }
 
 // ArtifactRecord holds artifact metadata.

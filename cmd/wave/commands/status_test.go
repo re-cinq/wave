@@ -2,7 +2,6 @@ package commands
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -13,8 +12,6 @@ import (
 	"github.com/recinq/wave/internal/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	_ "modernc.org/sqlite"
 )
 
 // statusTestHelper provides common utilities for status command tests.
@@ -23,7 +20,6 @@ type statusTestHelper struct {
 	tmpDir  string
 	origDir string
 	store   state.StateStore
-	db      *sql.DB // direct connection for test data insertion with specific IDs
 }
 
 // newStatusTestHelper creates a new test helper with a temporary directory and database.
@@ -33,26 +29,19 @@ func newStatusTestHelper(t *testing.T) *statusTestHelper {
 	origDir, err := os.Getwd()
 	require.NoError(t, err, "failed to get current directory")
 
-	// Create .wave directory
 	waveDir := filepath.Join(tmpDir, ".agents")
 	err = os.MkdirAll(waveDir, 0755)
 	require.NoError(t, err, "failed to create .wave directory")
 
-	// Create state store (applies all migrations, ensuring full schema)
 	dbPath := filepath.Join(waveDir, "state.db")
 	store, err := state.NewStateStore(dbPath)
 	require.NoError(t, err, "failed to create state store")
-
-	// Open a direct SQL connection for inserting test data with specific run IDs
-	db, err := sql.Open("sqlite", dbPath)
-	require.NoError(t, err, "failed to open direct db connection")
 
 	return &statusTestHelper{
 		t:       t,
 		tmpDir:  tmpDir,
 		origDir: origDir,
 		store:   store,
-		db:      db,
 	}
 }
 
@@ -67,9 +56,6 @@ func (h *statusTestHelper) chdir() {
 func (h *statusTestHelper) restore() {
 	h.t.Helper()
 	_ = os.Chdir(h.origDir)
-	if h.db != nil {
-		h.db.Close()
-	}
 	if h.store != nil {
 		h.store.Close()
 	}
@@ -78,43 +64,28 @@ func (h *statusTestHelper) restore() {
 // createRun creates a run in the database.
 func (h *statusTestHelper) createRun(runID, pipelineName, status, currentStep string, tokens int, startedAt time.Time, completedAt *time.Time) {
 	h.t.Helper()
-
-	var completedAtUnix *int64
-	if completedAt != nil {
-		unix := completedAt.Unix()
-		completedAtUnix = &unix
-	}
-
-	var step any
-	if currentStep == "" {
-		step = nil
-	} else {
-		step = currentStep
-	}
-
-	_, err := h.db.Exec(`
-		INSERT INTO pipeline_run (run_id, pipeline_name, status, current_step, total_tokens, started_at, completed_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, runID, pipelineName, status, step, tokens, startedAt.Unix(), completedAtUnix)
-	require.NoError(h.t, err, "failed to create run")
+	require.NoError(h.t, state.SeedRun(h.store, state.SeedRunOptions{
+		RunID:        runID,
+		PipelineName: pipelineName,
+		Status:       status,
+		CurrentStep:  currentStep,
+		TotalTokens:  tokens,
+		StartedAt:    startedAt,
+		CompletedAt:  completedAt,
+	}), "failed to create run")
 }
 
 // createRunWithInput creates a run with input and optional error message.
 func (h *statusTestHelper) createRunWithInput(runID, pipelineName, status, input string, startedAt time.Time, errorMsg string) {
 	h.t.Helper()
-
-	var errVal any
-	if errorMsg == "" {
-		errVal = nil
-	} else {
-		errVal = errorMsg
-	}
-
-	_, err := h.db.Exec(`
-		INSERT INTO pipeline_run (run_id, pipeline_name, status, input, total_tokens, started_at, error_message)
-		VALUES (?, ?, ?, ?, 0, ?, ?)
-	`, runID, pipelineName, status, input, startedAt.Unix(), errVal)
-	require.NoError(h.t, err, "failed to create run")
+	require.NoError(h.t, state.SeedRun(h.store, state.SeedRunOptions{
+		RunID:        runID,
+		PipelineName: pipelineName,
+		Status:       status,
+		Input:        input,
+		StartedAt:    startedAt,
+		ErrorMessage: errorMsg,
+	}), "failed to create run")
 }
 
 // executeStatusCmd runs the status command with given arguments and returns output/error.

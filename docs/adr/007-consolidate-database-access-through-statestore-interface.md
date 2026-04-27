@@ -1,21 +1,21 @@
 # ADR-007: Consolidate Database Access Through StateStore Interface
 
 ## Status
-Proposed (not started — five bypass sites confirmed open as of 2026-04-26)
+Accepted (implemented 2026-04-27 in #1275)
 
 ## Date
 2026-04-13
 
 ## Implementation Status
 
-Not started. All bypass sites listed in this ADR remain open:
-- `cmd/wave/commands/logs.go` (lines ~111, ~566) — opens `sql.Open("sqlite", ...)` directly.
-- `cmd/wave/commands/list.go` — `database/sql` import, `collectRunsFromDB()`.
-- `cmd/wave/commands/decisions.go` — `database/sql` import, `queryDecisions()`.
-- `cmd/wave/commands/clean.go` (lines ~4, ~68) — opens `sql.Open` directly.
-- `internal/webui/server.go` (line ~219) — `backfillRunTokens()` opens `sql.Open` directly.
+Implemented. All bypass sites have been routed through `state.StateStore`:
+- `cmd/wave/commands/logs.go` — opens via `state.NewReadOnlyStateStore`; uses `GetMostRecentRunID`, `RunExists`, `GetRunStatus`, `GetEvents` (now honours `SinceUnix`, `TailLimit`, `OrderDesc`), and `GetEventAggregateStats`.
+- `cmd/wave/commands/decisions.go` — `GetDecisionsFiltered(runID, DecisionQueryOptions)` with `StepID`/`Category` filters.
+- `cmd/wave/commands/clean.go` — `ListPipelineNamesByStatus` with built-in `pipeline_state` fallback.
+- `cmd/wave/commands/list.go` — `ListRuns(state.ListRunsOptions)` replaces `collectRunsFromDB`.
+- `internal/webui/server.go` — `BackfillRunTokens()` on `StateStore`; the local helper is gone.
 
-`StateStore` interface unchanged (~50 methods). No new `EventQueryOptions.SinceTime`/`TailLimit`, no `DecisionQueryOptions`, no `ListPipelineNamesByStatus()`, no `GetEventAggregation()`. `.golangci.yml` has no rule blocking `database/sql` imports under `cmd/wave/commands/**` — see ADR-003 next-iteration note.
+`StateStore` interface gained 8 read methods (`GetMostRecentRunID`, `RunExists`, `GetRunStatus`, `ListPipelineNamesByStatus`, `BackfillRunTokens`, `GetEventAggregateStats`, `GetDecisionsFiltered`) plus `EventQueryOptions{SinceUnix, TailLimit, OrderDesc}` and the `DecisionQueryOptions` struct. `.golangci.yml` adds the `no-direct-sql` depguard rule denying `database/sql` outside `internal/state/**`. Test fixtures use `state.SeedRun`/`state.SeedEvent`/`state.SeedDecision` helpers. Repo-wide grep confirms `database/sql` lives only in `internal/state/`.
 
 ## Context
 

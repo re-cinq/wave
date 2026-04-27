@@ -2738,3 +2738,250 @@ func TestParentRunID_NotSetByDefault(t *testing.T) {
 	assert.Empty(t, run.ParentRunID, "ParentRunID should be empty by default")
 	assert.Empty(t, run.ParentStepID, "ParentStepID should be empty by default")
 }
+
+// TestGetMostRecentRunID covers happy path + empty DB.
+func TestGetMostRecentRunID(t *testing.T) {
+	t.Run("empty database returns empty id, no error", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		got, err := store.GetMostRecentRunID()
+		require.NoError(t, err)
+		assert.Empty(t, got)
+	})
+
+	t.Run("returns most recent run by started_at", func(t *testing.T) {
+		store, cleanup := setupTestStoreWithClock(t)
+		defer cleanup()
+
+		first, err := store.CreateRun("pipeline-a", "in")
+		require.NoError(t, err)
+		_, err = store.CreateRun("pipeline-b", "in")
+		require.NoError(t, err)
+		last, err := store.CreateRun("pipeline-c", "in")
+		require.NoError(t, err)
+
+		got, err := store.GetMostRecentRunID()
+		require.NoError(t, err)
+		assert.Equal(t, last, got)
+		assert.NotEqual(t, first, got)
+	})
+}
+
+// TestRunExists covers found, missing, and empty DB.
+func TestRunExists(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	exists, err := store.RunExists("nope")
+	require.NoError(t, err)
+	assert.False(t, exists)
+
+	runID, err := store.CreateRun("p", "")
+	require.NoError(t, err)
+
+	exists, err = store.RunExists(runID)
+	require.NoError(t, err)
+	assert.True(t, exists)
+
+	exists, err = store.RunExists("still-nope")
+	require.NoError(t, err)
+	assert.False(t, exists)
+}
+
+// TestGetRunStatus returns the run status string; missing runs produce empty + nil.
+func TestGetRunStatus(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	got, err := store.GetRunStatus("missing")
+	require.NoError(t, err)
+	assert.Empty(t, got)
+
+	runID, err := store.CreateRun("p", "")
+	require.NoError(t, err)
+
+	status, err := store.GetRunStatus(runID)
+	require.NoError(t, err)
+	assert.Equal(t, "pending", status)
+
+	require.NoError(t, store.UpdateRunStatus(runID, "completed", "", 0))
+	status, err = store.GetRunStatus(runID)
+	require.NoError(t, err)
+	assert.Equal(t, "completed", status)
+}
+
+// TestListPipelineNamesByStatus returns distinct pipeline names per status.
+func TestListPipelineNamesByStatus(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	names, err := store.ListPipelineNamesByStatus("failed")
+	require.NoError(t, err)
+	assert.Empty(t, names)
+
+	r1, err := store.CreateRun("alpha", "")
+	require.NoError(t, err)
+	r2, err := store.CreateRun("beta", "")
+	require.NoError(t, err)
+	r3, err := store.CreateRun("alpha", "")
+	require.NoError(t, err)
+	r4, err := store.CreateRun("gamma", "")
+	require.NoError(t, err)
+
+	require.NoError(t, store.UpdateRunStatus(r1, "failed", "", 0))
+	require.NoError(t, store.UpdateRunStatus(r2, "failed", "", 0))
+	require.NoError(t, store.UpdateRunStatus(r3, "completed", "", 0))
+	require.NoError(t, store.UpdateRunStatus(r4, "failed", "", 0))
+
+	failed, err := store.ListPipelineNamesByStatus("failed")
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"alpha", "beta", "gamma"}, failed)
+
+	completed, err := store.ListPipelineNamesByStatus("completed")
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"alpha"}, completed)
+
+	upper, err := store.ListPipelineNamesByStatus("FAILED")
+	require.NoError(t, err)
+	assert.ElementsMatch(t, failed, upper, "status match should be case-insensitive")
+}
+
+// TestBackfillRunTokens covers happy path, idempotency, and finalized-only guard.
+func TestBackfillRunTokens(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	completedRun, err := store.CreateRun("p", "")
+	require.NoError(t, err)
+	runningRun, err := store.CreateRun("p", "")
+	require.NoError(t, err)
+
+	require.NoError(t, store.LogEvent(completedRun, "s", "completed", "", "", 100, 0, "", "", ""))
+	require.NoError(t, store.LogEvent(completedRun, "s", "completed", "", "", 200, 0, "", "", ""))
+	require.NoError(t, store.LogEvent(runningRun, "s", "completed", "", "", 999, 0, "", "", ""))
+
+	require.NoError(t, store.UpdateRunStatus(completedRun, "completed", "", 0))
+
+	n, err := store.BackfillRunTokens()
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, n, "only finalized run should be backfilled")
+
+	rec, err := store.GetRun(completedRun)
+	require.NoError(t, err)
+	assert.Equal(t, 300, rec.TotalTokens)
+
+	running, err := store.GetRun(runningRun)
+	require.NoError(t, err)
+	assert.Zero(t, running.TotalTokens, "running run must not be backfilled")
+
+	// Idempotent: second call updates nothing
+	n2, err := store.BackfillRunTokens()
+	require.NoError(t, err)
+	assert.Zero(t, n2, "re-running should affect zero rows")
+}
+
+// TestGetEventAggregateStats covers empty + populated runs.
+func TestGetEventAggregateStats(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	runID, err := store.CreateRun("p", "")
+	require.NoError(t, err)
+
+	stats, err := store.GetEventAggregateStats(runID)
+	require.NoError(t, err)
+	assert.Zero(t, stats.TotalEvents)
+	assert.Zero(t, stats.TotalTokens)
+
+	// Mix of states; only completed/failed are aggregated.
+	require.NoError(t, store.LogEvent(runID, "s1", "running", "", "", 50, 250, "", "", ""))
+	require.NoError(t, store.LogEvent(runID, "s1", "completed", "", "", 100, 1000, "", "", ""))
+	require.NoError(t, store.LogEvent(runID, "s2", "failed", "", "", 200, 3000, "", "", ""))
+
+	stats, err = store.GetEventAggregateStats(runID)
+	require.NoError(t, err)
+	assert.Equal(t, 2, stats.TotalEvents)
+	assert.Equal(t, 300, stats.TotalTokens)
+	assert.InDelta(t, 2000.0, stats.AvgDurationMs, 0.0001)
+	assert.InDelta(t, 1000.0, stats.MinDurationMs, 0.0001)
+	assert.InDelta(t, 3000.0, stats.MaxDurationMs, 0.0001)
+}
+
+// TestGetDecisionsFiltered covers all-filter combinations.
+func TestGetDecisionsFiltered(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	runID, err := store.CreateRun("p", "")
+	require.NoError(t, err)
+
+	mk := func(stepID, category, decision string) {
+		require.NoError(t, store.RecordDecision(&DecisionRecord{
+			RunID:    runID,
+			StepID:   stepID,
+			Category: category,
+			Decision: decision,
+		}))
+	}
+	mk("plan", "model_routing", "p-mr")
+	mk("plan", "retry", "p-r")
+	mk("impl", "model_routing", "i-mr")
+	mk("impl", "contract", "i-c")
+
+	all, err := store.GetDecisionsFiltered(runID, DecisionQueryOptions{})
+	require.NoError(t, err)
+	assert.Len(t, all, 4)
+
+	byStep, err := store.GetDecisionsFiltered(runID, DecisionQueryOptions{StepID: "plan"})
+	require.NoError(t, err)
+	assert.Len(t, byStep, 2)
+
+	byCat, err := store.GetDecisionsFiltered(runID, DecisionQueryOptions{Category: "model_routing"})
+	require.NoError(t, err)
+	assert.Len(t, byCat, 2)
+
+	byBoth, err := store.GetDecisionsFiltered(runID, DecisionQueryOptions{StepID: "impl", Category: "contract"})
+	require.NoError(t, err)
+	require.Len(t, byBoth, 1)
+	assert.Equal(t, "i-c", byBoth[0].Decision)
+}
+
+// TestGetEventsExtendedOptions covers SinceUnix, TailLimit, OrderDesc.
+func TestGetEventsExtendedOptions(t *testing.T) {
+	store, cleanup := setupTestStoreWithClock(t)
+	defer cleanup()
+
+	runID, err := store.CreateRun("p", "")
+	require.NoError(t, err)
+
+	for i := 0; i < 6; i++ {
+		require.NoError(t, store.LogEvent(runID, "s", "running", "", "", i, 0, "", "", ""))
+	}
+
+	all, err := store.GetEvents(runID, EventQueryOptions{})
+	require.NoError(t, err)
+	require.Len(t, all, 6)
+	for i := 1; i < len(all); i++ {
+		assert.LessOrEqual(t, all[i-1].Timestamp.Unix(), all[i].Timestamp.Unix(), "ASC by default")
+	}
+
+	tailed, err := store.GetEvents(runID, EventQueryOptions{TailLimit: 3})
+	require.NoError(t, err)
+	require.Len(t, tailed, 3)
+	// Tail returns most recent 3 in ASC order
+	assert.Equal(t, all[3].ID, tailed[0].ID)
+	assert.Equal(t, all[5].ID, tailed[2].ID)
+
+	desc, err := store.GetEvents(runID, EventQueryOptions{OrderDesc: true})
+	require.NoError(t, err)
+	require.Len(t, desc, 6)
+	assert.Equal(t, all[5].ID, desc[0].ID)
+	assert.Equal(t, all[0].ID, desc[5].ID)
+
+	since := all[3].Timestamp.Unix()
+	sinceEvents, err := store.GetEvents(runID, EventQueryOptions{SinceUnix: since})
+	require.NoError(t, err)
+	require.Len(t, sinceEvents, 3)
+	assert.Equal(t, all[3].ID, sinceEvents[0].ID)
+}

@@ -2,7 +2,6 @@ package commands
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,9 +10,8 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/audit"
+	"github.com/recinq/wave/internal/state"
 	"github.com/spf13/cobra"
-
-	_ "modernc.org/sqlite"
 )
 
 // LogsOptions holds options for the logs command.
@@ -108,20 +106,20 @@ func runLogs(opts LogsOptions) error {
 		return nil
 	}
 
-	db, err := sql.Open("sqlite", dbPath)
+	store, err := state.NewReadOnlyStateStore(dbPath)
 	if err != nil {
 		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .agents/state.db file permissions or run 'wave run' to create it").WithCause(err)
 	}
-	defer db.Close()
-
-	// Configure SQLite
-	db.SetMaxOpenConns(1)
+	defer store.Close()
 
 	// Resolve run ID if not provided
 	runID := opts.RunID
 	if runID == "" {
-		runID, err = getMostRecentRunID(db)
+		runID, err = store.GetMostRecentRunID()
 		if err != nil {
+			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to query most recent run: %s", err), "The state database may be corrupted -- try 'wave migrate validate'").WithCause(err)
+		}
+		if runID == "" {
 			if opts.Format == "json" {
 				fmt.Println(`{"run_id":"","logs":[]}`)
 				return nil
@@ -132,7 +130,11 @@ func runLogs(opts LogsOptions) error {
 	}
 
 	// Verify run exists
-	if !runExists(db, runID) {
+	exists, err := store.RunExists(runID)
+	if err != nil {
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to verify run: %s", err), "The state database may be corrupted -- try 'wave migrate validate'").WithCause(err)
+	}
+	if !exists {
 		if opts.Format == "json" {
 			fmt.Printf(`{"run_id":"%s","logs":[],"error":"run not found"}`, runID)
 			fmt.Println()
@@ -148,18 +150,59 @@ func runLogs(opts LogsOptions) error {
 	}
 
 	if opts.Follow {
-		return runLogsFollow(db, runID, opts)
+		return runLogsFollow(store, runID, opts)
 	}
 
-	return runLogsOnce(db, runID, opts)
+	return runLogsOnce(store, runID, opts)
+}
+
+// queryEventOptions translates LogsOptions to state.EventQueryOptions.
+func queryEventOptions(opts LogsOptions) (state.EventQueryOptions, error) {
+	q := state.EventQueryOptions{
+		StepID:     opts.Step,
+		ErrorsOnly: opts.Level == "error",
+		TailLimit:  opts.Tail,
+	}
+	if opts.Since != "" {
+		duration, err := parseDuration(opts.Since)
+		if err != nil {
+			return q, NewCLIError(CodeInvalidArgs, fmt.Sprintf("invalid --since duration: %s", err), "Use a duration like '10m', '1h', or '30s'").WithCause(err)
+		}
+		q.SinceUnix = time.Now().Add(-duration).Unix()
+	}
+	return q, nil
+}
+
+// recordsToEntries converts state.LogRecord values into the CLI's LogsEntry DTO.
+func recordsToEntries(records []state.LogRecord) []LogsEntry {
+	out := make([]LogsEntry, 0, len(records))
+	for _, r := range records {
+		out = append(out, LogsEntry{
+			Timestamp:  r.Timestamp.Format("15:04:05"),
+			State:      r.State,
+			StepID:     r.StepID,
+			Persona:    r.Persona,
+			Message:    r.Message,
+			TokensUsed: r.TokensUsed,
+			DurationMs: r.DurationMs,
+		})
+	}
+	return out
 }
 
 // runLogsOnce retrieves and displays logs once.
-func runLogsOnce(db *sql.DB, runID string, opts LogsOptions) error {
-	logs, err := queryLogs(db, runID, opts)
+func runLogsOnce(store state.StateStore, runID string, opts LogsOptions) error {
+	q, err := queryEventOptions(opts)
 	if err != nil {
 		return err
 	}
+
+	records, err := store.GetEvents(runID, q)
+	if err != nil {
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to query logs: %s", err), "The state database may be corrupted -- try 'wave migrate validate'").WithCause(err)
+	}
+
+	logs := recordsToEntries(records)
 
 	if len(logs) == 0 {
 		if opts.Format == "json" {
@@ -172,21 +215,20 @@ func runLogsOnce(db *sql.DB, runID string, opts LogsOptions) error {
 		return nil
 	}
 
-	err = outputLogs(runID, logs, opts)
-	if err != nil {
+	if err := outputLogs(runID, logs, opts); err != nil {
 		return err
 	}
 
 	// Show performance summary in text mode (not for --errors or --step filters)
 	if opts.Format == "text" && !opts.Errors && opts.Step == "" {
-		renderPerformanceSummary(db, runID)
+		renderPerformanceSummary(store, runID)
 	}
 
 	return nil
 }
 
 // runLogsFollow streams logs in real-time.
-func runLogsFollow(db *sql.DB, runID string, opts LogsOptions) error {
+func runLogsFollow(store state.StateStore, runID string, opts LogsOptions) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -198,23 +240,42 @@ func runLogsFollow(db *sql.DB, runID string, opts LogsOptions) error {
 		cancel()
 	}()
 
-	var lastID int64 = 0
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 
-	// Print initial logs
-	logs, err := queryLogs(db, runID, opts)
+	q, err := queryEventOptions(opts)
 	if err != nil {
 		return err
 	}
 
-	for _, log := range logs {
-		printLogEntry(log, opts.Format)
-		// Track the highest ID we've seen
-		id := getLogID(db, runID, log)
-		if id > lastID {
-			lastID = id
+	// Print initial logs and seed lastID from the highest event ID seen.
+	initial, err := store.GetEvents(runID, q)
+	if err != nil {
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to query logs: %s", err), "The state database may be corrupted -- try 'wave migrate validate'").WithCause(err)
+	}
+	for _, r := range initial {
+		printLogEntry(LogsEntry{
+			Timestamp:  r.Timestamp.Format("15:04:05"),
+			State:      r.State,
+			StepID:     r.StepID,
+			Persona:    r.Persona,
+			Message:    r.Message,
+			TokensUsed: r.TokensUsed,
+			DurationMs: r.DurationMs,
+		}, opts.Format)
+	}
+
+	var lastID int64
+	for _, r := range initial {
+		if r.ID > lastID {
+			lastID = r.ID
 		}
+	}
+
+	// Follow mode polls AfterID — TailLimit/SinceUnix only apply to the initial fetch.
+	pollOpts := state.EventQueryOptions{
+		StepID:     opts.Step,
+		ErrorsOnly: opts.Level == "error",
 	}
 
 	for {
@@ -222,220 +283,38 @@ func runLogsFollow(db *sql.DB, runID string, opts LogsOptions) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			// Check if pipeline is still running
-			status, err := getRunStatus(db, runID)
-			if err != nil {
+			status, statusErr := store.GetRunStatus(runID)
+			if statusErr != nil {
 				return nil
 			}
 
-			// Query new logs since lastID
-			newLogs, newLastID, err := queryNewLogs(db, runID, lastID, opts)
+			pollOpts.AfterID = lastID
+			newRecords, err := store.GetEvents(runID, pollOpts)
 			if err != nil {
 				continue
 			}
 
-			for _, log := range newLogs {
-				printLogEntry(log, opts.Format)
-			}
-			if newLastID > lastID {
-				lastID = newLastID
+			for _, r := range newRecords {
+				printLogEntry(LogsEntry{
+					Timestamp:  r.Timestamp.Format("15:04:05"),
+					State:      r.State,
+					StepID:     r.StepID,
+					Persona:    r.Persona,
+					Message:    r.Message,
+					TokensUsed: r.TokensUsed,
+					DurationMs: r.DurationMs,
+				}, opts.Format)
+				if r.ID > lastID {
+					lastID = r.ID
+				}
 			}
 
-			// Exit if pipeline completed
-			if status != "running" && status != "pending" {
+			// Exit if pipeline completed (or run vanished).
+			if status == "" || (status != "running" && status != "pending") {
 				return nil
 			}
 		}
 	}
-}
-
-// queryLogs retrieves logs matching the options.
-func queryLogs(db *sql.DB, runID string, opts LogsOptions) ([]LogsEntry, error) {
-	query := `SELECT timestamp, step_id, state, persona, message, tokens_used, duration_ms
-	          FROM event_log
-	          WHERE run_id = ?`
-	args := []any{runID}
-
-	if opts.Step != "" {
-		query += " AND step_id = ?"
-		args = append(args, opts.Step)
-	}
-
-	if opts.Level == "error" {
-		query += " AND state = 'failed'"
-	}
-
-	if opts.Since != "" {
-		duration, err := parseDuration(opts.Since)
-		if err != nil {
-			return nil, NewCLIError(CodeInvalidArgs, fmt.Sprintf("invalid --since duration: %s", err), "Use a duration like '10m', '1h', or '30s'").WithCause(err)
-		}
-		cutoff := time.Now().Add(-duration).Unix()
-		query += " AND timestamp >= ?"
-		args = append(args, cutoff)
-	}
-
-	query += " ORDER BY timestamp ASC, id ASC"
-
-	if opts.Tail > 0 {
-		query = `SELECT timestamp, step_id, state, persona, message, tokens_used, duration_ms
-		         FROM event_log
-		         WHERE run_id = ?`
-		args = []any{runID}
-
-		if opts.Step != "" {
-			query += " AND step_id = ?"
-			args = append(args, opts.Step)
-		}
-
-		if opts.Level == "error" {
-			query += " AND state = 'failed'"
-		}
-
-		if opts.Since != "" {
-			duration, _ := parseDuration(opts.Since)
-			cutoff := time.Now().Add(-duration).Unix()
-			query += " AND timestamp >= ?"
-			args = append(args, cutoff)
-		}
-
-		// Order DESC, limit, then we'll reverse in code
-		query += " ORDER BY timestamp DESC, id DESC LIMIT ?"
-		args = append(args, opts.Tail)
-	}
-
-	rows, err := db.Query(query, args...)
-	if err != nil {
-		return nil, NewCLIError(CodeInternalError, fmt.Sprintf("failed to query logs: %s", err), "The state database may be corrupted -- try 'wave migrate validate'").WithCause(err)
-	}
-	defer rows.Close()
-
-	var logs []LogsEntry
-	for rows.Next() {
-		var log LogsEntry
-		var timestamp int64
-		var stepID, persona, message sql.NullString
-		var tokensUsed, durationMs sql.NullInt64
-
-		err := rows.Scan(
-			&timestamp,
-			&stepID,
-			&log.State,
-			&persona,
-			&message,
-			&tokensUsed,
-			&durationMs,
-		)
-		if err != nil {
-			return nil, NewCLIError(CodeInternalError, fmt.Sprintf("failed to scan log: %s", err), "The state database may have schema issues -- try 'wave migrate up'").WithCause(err)
-		}
-
-		log.Timestamp = time.Unix(timestamp, 0).Format("15:04:05")
-		if stepID.Valid {
-			log.StepID = stepID.String
-		}
-		if persona.Valid {
-			log.Persona = persona.String
-		}
-		if message.Valid {
-			log.Message = message.String
-		}
-		if tokensUsed.Valid {
-			log.TokensUsed = int(tokensUsed.Int64)
-		}
-		if durationMs.Valid {
-			log.DurationMs = durationMs.Int64
-		}
-
-		logs = append(logs, log)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, NewCLIError(CodeInternalError, fmt.Sprintf("error iterating logs: %s", err), "The state database may have schema issues -- try 'wave migrate up'").WithCause(err)
-	}
-
-	// Reverse if we used tail with DESC order
-	if opts.Tail > 0 && len(logs) > 0 {
-		for i, j := 0, len(logs)-1; i < j; i, j = i+1, j-1 {
-			logs[i], logs[j] = logs[j], logs[i]
-		}
-	}
-
-	return logs, nil
-}
-
-// queryNewLogs retrieves logs newer than lastID.
-func queryNewLogs(db *sql.DB, runID string, lastID int64, opts LogsOptions) ([]LogsEntry, int64, error) {
-	query := `SELECT id, timestamp, step_id, state, persona, message, tokens_used, duration_ms
-	          FROM event_log
-	          WHERE run_id = ? AND id > ?`
-	args := []any{runID, lastID}
-
-	if opts.Step != "" {
-		query += " AND step_id = ?"
-		args = append(args, opts.Step)
-	}
-
-	if opts.Level == "error" {
-		query += " AND state = 'failed'"
-	}
-
-	query += " ORDER BY id ASC"
-
-	rows, err := db.Query(query, args...)
-	if err != nil {
-		return nil, lastID, NewCLIError(CodeInternalError, fmt.Sprintf("failed to query new logs: %s", err), "Database query error during follow mode").WithCause(err)
-	}
-	defer rows.Close()
-
-	var logs []LogsEntry
-	newLastID := lastID
-
-	for rows.Next() {
-		var log LogsEntry
-		var id, timestamp int64
-		var stepID, persona, message sql.NullString
-		var tokensUsed, durationMs sql.NullInt64
-
-		err := rows.Scan(
-			&id,
-			&timestamp,
-			&stepID,
-			&log.State,
-			&persona,
-			&message,
-			&tokensUsed,
-			&durationMs,
-		)
-		if err != nil {
-			return nil, lastID, NewCLIError(CodeInternalError, fmt.Sprintf("failed to scan log: %s", err), "Database schema mismatch -- try 'wave migrate up'").WithCause(err)
-		}
-
-		if id > newLastID {
-			newLastID = id
-		}
-
-		log.Timestamp = time.Unix(timestamp, 0).Format("15:04:05")
-		if stepID.Valid {
-			log.StepID = stepID.String
-		}
-		if persona.Valid {
-			log.Persona = persona.String
-		}
-		if message.Valid {
-			log.Message = message.String
-		}
-		if tokensUsed.Valid {
-			log.TokensUsed = int(tokensUsed.Int64)
-		}
-		if durationMs.Valid {
-			log.DurationMs = durationMs.Int64
-		}
-
-		logs = append(logs, log)
-	}
-
-	return logs, newLastID, nil
 }
 
 // outputLogs formats and outputs the logs.
@@ -450,7 +329,6 @@ func outputLogs(runID string, logs []LogsEntry, opts LogsOptions) error {
 		return nil
 	}
 
-	// Text format
 	for _, log := range logs {
 		printLogEntry(log, opts.Format)
 	}
@@ -507,55 +385,10 @@ func printLogEntry(log LogsEntry, format string) {
 	fmt.Println(strings.Join(parts, " "))
 }
 
-// getMostRecentRunID gets the most recent run ID.
-func getMostRecentRunID(db *sql.DB) (string, error) {
-	var runID string
-	err := db.QueryRow(`SELECT run_id FROM pipeline_run ORDER BY started_at DESC LIMIT 1`).Scan(&runID)
-	if err != nil {
-		return "", err
-	}
-	return runID, nil
-}
-
-// runExists checks if a run exists.
-func runExists(db *sql.DB, runID string) bool {
-	var count int
-	err := db.QueryRow(`SELECT COUNT(*) FROM pipeline_run WHERE run_id = ?`, runID).Scan(&count)
-	return err == nil && count > 0
-}
-
-// getRunStatus gets the status of a run.
-func getRunStatus(db *sql.DB, runID string) (string, error) {
-	var status string
-	err := db.QueryRow(`SELECT status FROM pipeline_run WHERE run_id = ?`, runID).Scan(&status)
-	return status, err
-}
-
-// getLogID gets the ID of a log entry (for follow mode tracking).
-func getLogID(db *sql.DB, runID string, log LogsEntry) int64 {
-	// Parse timestamp back to unix time
-	t, err := time.Parse("15:04:05", log.Timestamp)
-	if err != nil {
-		return 0
-	}
-	// Combine with today's date
-	now := time.Now()
-	fullTime := time.Date(now.Year(), now.Month(), now.Day(), t.Hour(), t.Minute(), t.Second(), 0, time.Local)
-
-	var id int64
-	err = db.QueryRow(`SELECT id FROM event_log WHERE run_id = ? AND timestamp = ? AND state = ? LIMIT 1`,
-		runID, fullTime.Unix(), log.State).Scan(&id)
-	if err != nil {
-		return 0
-	}
-	return id
-}
-
 // runLogsTrace reads and displays structured NDJSON trace events from a debug trace file.
 func runLogsTrace(opts LogsOptions) error {
 	traceDir := ".agents/traces"
 
-	// If no run ID, find the most recent trace file.
 	runID := opts.RunID
 	if runID == "" {
 		dbPath := ".agents/state.db"
@@ -563,15 +396,17 @@ func runLogsTrace(opts LogsOptions) error {
 			fmt.Println("No trace files found (no runs recorded)")
 			return nil
 		}
-		db, err := sql.Open("sqlite", dbPath)
+		store, err := state.NewReadOnlyStateStore(dbPath)
 		if err != nil {
 			return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .agents/state.db file permissions").WithCause(err)
 		}
-		defer db.Close()
-		db.SetMaxOpenConns(1)
+		defer store.Close()
 
-		runID, err = getMostRecentRunID(db)
+		runID, err = store.GetMostRecentRunID()
 		if err != nil {
+			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to query most recent run: %s", err), "The state database may be corrupted").WithCause(err)
+		}
+		if runID == "" {
 			fmt.Println("No pipeline runs found")
 			return nil
 		}
@@ -593,7 +428,6 @@ func runLogsTrace(opts LogsOptions) error {
 		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to read trace file: %s", err), "The trace file may be corrupted or incomplete").WithCause(err)
 	}
 
-	// Filter by step if requested.
 	if opts.Step != "" {
 		var filtered []audit.TraceEvent
 		for _, ev := range events {
@@ -622,10 +456,8 @@ func runLogsTrace(opts LogsOptions) error {
 		return nil
 	}
 
-	// Text format.
 	for _, ev := range events {
 		ts := ev.Timestamp
-		// Shorten to time-only if it's a full RFC3339 timestamp.
 		if len(ts) > 19 {
 			if t, parseErr := time.Parse(time.RFC3339Nano, ts); parseErr == nil {
 				ts = t.Format("15:04:05.000")
@@ -640,7 +472,6 @@ func runLogsTrace(opts LogsOptions) error {
 			line += fmt.Sprintf(" %dms", ev.DurationMs)
 		}
 
-		// Print selected metadata inline.
 		for k, v := range ev.Metadata {
 			line += fmt.Sprintf(" %s=%s", k, v)
 		}
@@ -652,46 +483,32 @@ func runLogsTrace(opts LogsOptions) error {
 }
 
 // renderPerformanceSummary displays aggregated performance metrics for a run.
-func renderPerformanceSummary(db *sql.DB, runID string) {
-	// Query aggregated metrics
-	query := `SELECT
-	              COUNT(*) as total_events,
-	              SUM(COALESCE(tokens_used, 0)) as total_tokens,
-	              AVG(COALESCE(duration_ms, 0)) as avg_duration,
-	              MIN(COALESCE(duration_ms, 0)) as min_duration,
-	              MAX(COALESCE(duration_ms, 0)) as max_duration
-	          FROM event_log
-	          WHERE run_id = ? AND state IN ('completed', 'failed')`
-
-	var totalEvents, totalTokens int
-	var avgDuration, minDuration, maxDuration sql.NullFloat64
-
-	err := db.QueryRow(query, runID).Scan(&totalEvents, &totalTokens, &avgDuration, &minDuration, &maxDuration)
-	if err != nil || totalEvents == 0 {
+func renderPerformanceSummary(store state.StateStore, runID string) {
+	stats, err := store.GetEventAggregateStats(runID)
+	if err != nil || stats == nil || stats.TotalEvents == 0 {
 		return
 	}
 
 	fmt.Fprintln(os.Stderr, "\n--- Performance Summary ---")
-	fmt.Fprintf(os.Stderr, "Total Steps: %d\n", totalEvents)
+	fmt.Fprintf(os.Stderr, "Total Steps: %d\n", stats.TotalEvents)
 
-	if totalTokens > 0 {
-		fmt.Fprintf(os.Stderr, "Total Tokens: %s\n", formatTokens(totalTokens))
+	if stats.TotalTokens > 0 {
+		fmt.Fprintf(os.Stderr, "Total Tokens: %s\n", formatTokens(stats.TotalTokens))
 	}
 
-	if avgDuration.Valid && avgDuration.Float64 > 0 {
-		fmt.Fprintf(os.Stderr, "Avg Duration: %.1fs\n", avgDuration.Float64/1000.0)
+	if stats.AvgDurationMs > 0 {
+		fmt.Fprintf(os.Stderr, "Avg Duration: %.1fs\n", stats.AvgDurationMs/1000.0)
 	}
 
-	if minDuration.Valid && maxDuration.Valid && minDuration.Float64 > 0 {
+	if stats.MinDurationMs > 0 {
 		fmt.Fprintf(os.Stderr, "Duration Range: %.1fs - %.1fs\n",
-			minDuration.Float64/1000.0,
-			maxDuration.Float64/1000.0)
+			stats.MinDurationMs/1000.0,
+			stats.MaxDurationMs/1000.0)
 	}
 
-	// Calculate token burn rate
-	if avgDuration.Valid && avgDuration.Float64 > 0 && totalTokens > 0 {
-		totalDuration := avgDuration.Float64 * float64(totalEvents)
-		burnRate := float64(totalTokens) / (totalDuration / 1000.0)
+	if stats.AvgDurationMs > 0 && stats.TotalTokens > 0 {
+		totalDuration := stats.AvgDurationMs * float64(stats.TotalEvents)
+		burnRate := float64(stats.TotalTokens) / (totalDuration / 1000.0)
 		if burnRate >= 1.0 {
 			fmt.Fprintf(os.Stderr, "Token Burn Rate: %.1f tokens/s\n", burnRate)
 		}

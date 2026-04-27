@@ -2,17 +2,15 @@ package commands
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/recinq/wave/internal/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	_ "modernc.org/sqlite"
 )
 
 // logsTestHelper provides common utilities for logs command tests.
@@ -20,7 +18,7 @@ type logsTestHelper struct {
 	t       *testing.T
 	tmpDir  string
 	origDir string
-	db      *sql.DB
+	store   state.StateStore
 }
 
 // newLogsTestHelper creates a new test helper with a temporary directory and database.
@@ -30,50 +28,19 @@ func newLogsTestHelper(t *testing.T) *logsTestHelper {
 	origDir, err := os.Getwd()
 	require.NoError(t, err, "failed to get current directory")
 
-	// Create .wave directory
 	waveDir := filepath.Join(tmpDir, ".agents")
 	err = os.MkdirAll(waveDir, 0755)
 	require.NoError(t, err, "failed to create .wave directory")
 
-	// Create and initialize database
 	dbPath := filepath.Join(waveDir, "state.db")
-	db, err := sql.Open("sqlite", dbPath)
-	require.NoError(t, err, "failed to open database")
-
-	// Initialize schema
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS pipeline_run (
-			run_id TEXT PRIMARY KEY,
-			pipeline_name TEXT NOT NULL,
-			status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled')),
-			input TEXT,
-			current_step TEXT,
-			total_tokens INTEGER DEFAULT 0,
-			started_at INTEGER NOT NULL,
-			completed_at INTEGER,
-			cancelled_at INTEGER,
-			error_message TEXT
-		);
-		CREATE TABLE IF NOT EXISTS event_log (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			run_id TEXT NOT NULL,
-			timestamp INTEGER NOT NULL,
-			step_id TEXT,
-			state TEXT NOT NULL,
-			persona TEXT,
-			message TEXT,
-			tokens_used INTEGER,
-			duration_ms INTEGER,
-			FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
-		);
-	`)
-	require.NoError(t, err, "failed to initialize schema")
+	store, err := state.NewStateStore(dbPath)
+	require.NoError(t, err, "failed to create state store")
 
 	return &logsTestHelper{
 		t:       t,
 		tmpDir:  tmpDir,
 		origDir: origDir,
-		db:      db,
+		store:   store,
 	}
 }
 
@@ -84,35 +51,39 @@ func (h *logsTestHelper) chdir() {
 	require.NoError(h.t, err, "failed to change to temp directory")
 }
 
-// restore returns to the original directory and closes the database.
+// restore returns to the original directory and closes the store.
 func (h *logsTestHelper) restore() {
 	h.t.Helper()
 	_ = os.Chdir(h.origDir)
-	if h.db != nil {
-		h.db.Close()
+	if h.store != nil {
+		h.store.Close()
 	}
 }
 
 // createRun creates a run in the database.
 func (h *logsTestHelper) createRun(runID, pipelineName, status string, startedAt time.Time) {
 	h.t.Helper()
-
-	_, err := h.db.Exec(`
-		INSERT INTO pipeline_run (run_id, pipeline_name, status, total_tokens, started_at)
-		VALUES (?, ?, ?, 0, ?)
-	`, runID, pipelineName, status, startedAt.Unix())
-	require.NoError(h.t, err, "failed to create run")
+	require.NoError(h.t, state.SeedRun(h.store, state.SeedRunOptions{
+		RunID:        runID,
+		PipelineName: pipelineName,
+		Status:       status,
+		StartedAt:    startedAt,
+	}), "failed to create run")
 }
 
 // createLogEntry creates a log entry in the database.
-func (h *logsTestHelper) createLogEntry(runID string, timestamp time.Time, stepID, state, persona, message string, tokens int, durationMs int64) {
+func (h *logsTestHelper) createLogEntry(runID string, timestamp time.Time, stepID, evState, persona, message string, tokens int, durationMs int64) {
 	h.t.Helper()
-
-	_, err := h.db.Exec(`
-		INSERT INTO event_log (run_id, timestamp, step_id, state, persona, message, tokens_used, duration_ms)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, runID, timestamp.Unix(), stepID, state, persona, message, tokens, durationMs)
-	require.NoError(h.t, err, "failed to create log entry")
+	require.NoError(h.t, state.SeedEvent(h.store, state.SeedEventOptions{
+		RunID:      runID,
+		Timestamp:  timestamp,
+		StepID:     stepID,
+		State:      evState,
+		Persona:    persona,
+		Message:    message,
+		TokensUsed: tokens,
+		DurationMs: durationMs,
+	}), "failed to create log entry")
 }
 
 // executeLogsCmd runs the logs command with given arguments and returns output/error.

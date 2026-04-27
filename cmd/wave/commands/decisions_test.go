@@ -2,17 +2,15 @@ package commands
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/recinq/wave/internal/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	_ "modernc.org/sqlite"
 )
 
 // decisionsTestHelper provides common utilities for decisions command tests.
@@ -20,7 +18,7 @@ type decisionsTestHelper struct {
 	t       *testing.T
 	tmpDir  string
 	origDir string
-	db      *sql.DB
+	store   state.StateStore
 }
 
 // newDecisionsTestHelper creates a new test helper with a temporary directory and database.
@@ -30,49 +28,19 @@ func newDecisionsTestHelper(t *testing.T) *decisionsTestHelper {
 	origDir, err := os.Getwd()
 	require.NoError(t, err, "failed to get current directory")
 
-	// Create .wave directory
 	waveDir := filepath.Join(tmpDir, ".agents")
 	err = os.MkdirAll(waveDir, 0755)
 	require.NoError(t, err, "failed to create .wave directory")
 
-	// Create and initialize database
 	dbPath := filepath.Join(waveDir, "state.db")
-	db, err := sql.Open("sqlite", dbPath)
-	require.NoError(t, err, "failed to open database")
-
-	// Initialize schema (pipeline_run + decision_log)
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS pipeline_run (
-			run_id TEXT PRIMARY KEY,
-			pipeline_name TEXT NOT NULL,
-			status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled')),
-			input TEXT,
-			current_step TEXT,
-			total_tokens INTEGER DEFAULT 0,
-			started_at INTEGER NOT NULL,
-			completed_at INTEGER,
-			cancelled_at INTEGER,
-			error_message TEXT
-		);
-		CREATE TABLE IF NOT EXISTS decision_log (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			run_id TEXT NOT NULL,
-			step_id TEXT NOT NULL DEFAULT '',
-			timestamp INTEGER NOT NULL,
-			category TEXT NOT NULL,
-			decision TEXT NOT NULL,
-			rationale TEXT NOT NULL DEFAULT '',
-			context_json TEXT NOT NULL DEFAULT '{}',
-			FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
-		);
-	`)
-	require.NoError(t, err, "failed to initialize schema")
+	store, err := state.NewStateStore(dbPath)
+	require.NoError(t, err, "failed to create state store")
 
 	return &decisionsTestHelper{
 		t:       t,
 		tmpDir:  tmpDir,
 		origDir: origDir,
-		db:      db,
+		store:   store,
 	}
 }
 
@@ -83,36 +51,38 @@ func (h *decisionsTestHelper) chdir() {
 	require.NoError(h.t, err, "failed to change to temp directory")
 }
 
-// restore returns to the original directory and closes the database.
+// restore returns to the original directory and closes the store.
 func (h *decisionsTestHelper) restore() {
 	h.t.Helper()
 	_ = os.Chdir(h.origDir)
-	if h.db != nil {
-		h.db.Close()
+	if h.store != nil {
+		h.store.Close()
 	}
 }
 
 // createRun creates a run in the database.
 func (h *decisionsTestHelper) createRun(runID, pipelineName, status string, startedAt time.Time) {
 	h.t.Helper()
-	_, err := h.db.Exec(`
-		INSERT INTO pipeline_run (run_id, pipeline_name, status, total_tokens, started_at)
-		VALUES (?, ?, ?, 0, ?)
-	`, runID, pipelineName, status, startedAt.Unix())
-	require.NoError(h.t, err, "failed to create run")
+	require.NoError(h.t, state.SeedRun(h.store, state.SeedRunOptions{
+		RunID:        runID,
+		PipelineName: pipelineName,
+		Status:       status,
+		StartedAt:    startedAt,
+	}), "failed to create run")
 }
 
 // createDecision creates a decision entry in the database.
 func (h *decisionsTestHelper) createDecision(runID string, timestamp time.Time, stepID, category, decision, rationale, contextJSON string) {
 	h.t.Helper()
-	if contextJSON == "" {
-		contextJSON = "{}"
-	}
-	_, err := h.db.Exec(`
-		INSERT INTO decision_log (run_id, step_id, timestamp, category, decision, rationale, context_json)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, runID, stepID, timestamp.Unix(), category, decision, rationale, contextJSON)
-	require.NoError(h.t, err, "failed to create decision entry")
+	require.NoError(h.t, state.SeedDecision(h.store, state.SeedDecisionOptions{
+		RunID:     runID,
+		StepID:    stepID,
+		Timestamp: timestamp,
+		Category:  category,
+		Decision:  decision,
+		Rationale: rationale,
+		Context:   contextJSON,
+	}), "failed to create decision entry")
 }
 
 // executeDecisionsCmd runs the decisions command with given arguments and returns output/error.

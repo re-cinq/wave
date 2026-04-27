@@ -1,18 +1,16 @@
 package commands
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/workspace"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
-
-	_ "modernc.org/sqlite"
 )
 
 type CleanOptions struct {
@@ -65,36 +63,19 @@ func getWorkspacesWithStatus(status string) (map[string]bool, error) {
 		return result, nil
 	}
 
-	db, err := sql.Open("sqlite", dbPath)
+	store, err := state.NewReadOnlyStateStore(dbPath)
 	if err != nil {
 		return result, nil // Fail silently, return empty set
 	}
-	defer db.Close()
+	defer store.Close()
 
-	// Query from pipeline_run table for status
-	rows, err := db.Query(`
-		SELECT DISTINCT pipeline_name FROM pipeline_run
-		WHERE LOWER(status) = LOWER(?)
-	`, status)
+	names, err := store.ListPipelineNamesByStatus(status)
 	if err != nil {
-		// Try fallback to pipeline_state table
-		rows, err = db.Query(`
-			SELECT DISTINCT pipeline_name FROM pipeline_state
-			WHERE LOWER(status) = LOWER(?)
-		`, status)
-		if err != nil {
-			return result, nil
-		}
+		return result, nil
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err == nil {
-			result[name] = true
-		}
+	for _, name := range names {
+		result[name] = true
 	}
-
 	return result, nil
 }
 
