@@ -267,6 +267,37 @@ func TestBuildDepEnvVars(t *testing.T) {
 	}
 }
 
+// TestResolveDependencyArtifacts_ImplicitAggregateFallback covers the
+// case where the dep step did NOT declare OutputArtifacts (aggregate /
+// iterate / sub_pipeline) but registered its output via
+// executeAggregateInDAG into execution.ArtifactPaths[<dep>:<name>].
+func TestResolveDependencyArtifacts_ImplicitAggregateFallback(t *testing.T) {
+	tmp := t.TempDir()
+	src := writeArtifactFile(t, tmp, "merged-findings.json", `[]`)
+
+	// fetch declares no output_artifacts, but registers
+	// "fetch:merged-findings" in ArtifactPaths the same way an aggregate
+	// step would after it writes the file.
+	exec := fixtureExecution(t, nil)
+	exec.ArtifactPaths["fetch:merged-findings"] = src
+
+	ex := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	resolved, err := ex.ResolveDependencyArtifacts(exec, &exec.Pipeline.Steps[1])
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	got, ok := resolved["fetch:merged-findings"]
+	if !ok {
+		t.Fatalf("missing implicit fetch:merged-findings entry; got %v", resolved)
+	}
+	if got.Path != src {
+		t.Errorf("path = %q, want %q", got.Path, src)
+	}
+	if !got.Optional {
+		t.Error("implicit fallback artifacts should be Optional")
+	}
+}
+
 // TestBuildDepEnvVars_EmptyWorkspace returns nil when no workspace path.
 func TestBuildDepEnvVars_EmptyWorkspace(t *testing.T) {
 	if got := BuildDepEnvVars(map[string]ResolvedArtifact{"x:y": {}}, ""); got != nil {
