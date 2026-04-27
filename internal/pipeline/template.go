@@ -16,6 +16,10 @@ type TemplateContext struct {
 	Item          json.RawMessage   // Current iteration item (for iterate steps)
 	Iteration     int               // Current loop iteration (0-based)
 	WorkspaceRoot string            // Base workspace path for artifact resolution
+	// Env carries arbitrary string vars propagated from a parent sub-pipeline
+	// step's Config.Env. Resolved as {{ env.<key> }}. Distinct from process
+	// environment — never reads from os.Environ.
+	Env map[string]string
 }
 
 // NewTemplateContext creates an empty template context.
@@ -24,6 +28,7 @@ func NewTemplateContext(input string, workspaceRoot string) *TemplateContext {
 		StepOutputs:   make(map[string][]byte),
 		Input:         input,
 		WorkspaceRoot: workspaceRoot,
+		Env:           make(map[string]string),
 	}
 }
 
@@ -44,6 +49,7 @@ var templatePattern = regexp.MustCompile(`\{\{([^}]+)\}\}`)
 //   - {{item}}                → current iteration item (JSON)
 //   - {{item.field}}          → field from current iteration item
 //   - {{iteration}}           → current loop iteration number
+//   - {{env.<key>}}           → value from sub-pipeline-supplied Env map (NOT process env)
 func ResolveTemplate(tmpl string, ctx *TemplateContext) (string, error) {
 	var resolveErr error
 	result := templatePattern.ReplaceAllStringFunc(tmpl, func(match string) string {
@@ -91,6 +97,16 @@ func resolveExpression(expr string, ctx *TemplateContext) (string, error) {
 		}
 		field := expr[5:] // strip "item."
 		return ExtractJSONPath(ctx.Item, "."+field)
+
+	case strings.HasPrefix(expr, "env."):
+		// Sub-pipeline env passthrough — distinct from process environment.
+		// Missing keys resolve to empty string so callers can rely on
+		// {{ env.profile }} cleanly defaulting via branch `cases.default`.
+		key := expr[4:] // strip "env."
+		if ctx.Env == nil {
+			return "", nil
+		}
+		return ctx.Env[key], nil
 
 	default:
 		// Must be step_id.output or step_id.output.field

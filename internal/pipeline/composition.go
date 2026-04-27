@@ -741,7 +741,7 @@ func validateTemplateRefs(tmpl string, stepIDs map[string]bool, stepID, field st
 		}
 		expr := strings.TrimSpace(match[1])
 		// Skip built-in expressions
-		if expr == "input" || expr == "item" || expr == "iteration" || strings.HasPrefix(expr, "item.") {
+		if expr == "input" || expr == "item" || expr == "iteration" || strings.HasPrefix(expr, "item.") || strings.HasPrefix(expr, "env.") {
 			continue
 		}
 		// Must be step_id.output or step_id.output.field

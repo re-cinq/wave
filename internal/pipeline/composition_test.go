@@ -599,6 +599,86 @@ func TestCompositionExecutor_IterateCollectsOutputs_NullForMissing(t *testing.T)
 	}
 }
 
+// TestBranchDispatch_DefaultArmOnMissingEnv verifies the branch primitive
+// falls back to cases.default when {{ env.<key> }} resolves to empty (no
+// matching case key for "").
+func TestBranchDispatch_DefaultArmOnMissingEnv(t *testing.T) {
+	ctx := NewTemplateContext("", "/tmp")
+	// Env is empty — {{ env.profile }} resolves to ""
+	step := &Step{
+		ID: "publish",
+		Branch: &BranchConfig{
+			On: "{{ env.profile }}",
+			Cases: map[string]string{
+				"core":    "skip",
+				"default": "ops-pr-review-publish",
+			},
+		},
+	}
+
+	resolved, err := ResolveTemplate(step.Branch.On, ctx)
+	if err != nil {
+		t.Fatalf("template resolution failed: %v", err)
+	}
+	if resolved != "" {
+		t.Fatalf("expected empty resolution for missing env, got %q", resolved)
+	}
+
+	pipelineName, ok := step.Branch.Cases[resolved]
+	if !ok {
+		pipelineName = step.Branch.Cases["default"]
+	}
+	if pipelineName != "ops-pr-review-publish" {
+		t.Errorf("expected default arm 'ops-pr-review-publish', got %q", pipelineName)
+	}
+}
+
+// TestBranchDispatch_EnvProfileCore verifies the branch primitive routes to
+// the "core" case when env.profile is "core" — which the unified
+// ops-pr-review pipeline uses to skip the publish step.
+func TestBranchDispatch_EnvProfileCore(t *testing.T) {
+	ctx := NewTemplateContext("", "/tmp")
+	ctx.Env = map[string]string{"profile": "core"}
+	step := &Step{
+		ID: "publish",
+		Branch: &BranchConfig{
+			On: "{{ env.profile }}",
+			Cases: map[string]string{
+				"core":    "skip",
+				"default": "ops-pr-review-publish",
+			},
+		},
+	}
+
+	resolved, err := ResolveTemplate(step.Branch.On, ctx)
+	if err != nil {
+		t.Fatalf("template resolution failed: %v", err)
+	}
+	if resolved != "core" {
+		t.Fatalf("expected 'core', got %q", resolved)
+	}
+	if step.Branch.Cases[resolved] != "skip" {
+		t.Errorf("expected core arm to dispatch to 'skip', got %q", step.Branch.Cases[resolved])
+	}
+}
+
+// TestSubPipelineConfig_EnvField verifies the Env field is preserved on the
+// SubPipelineConfig and round-trips through Validate.
+func TestSubPipelineConfig_EnvField(t *testing.T) {
+	cfg := &SubPipelineConfig{
+		Env: map[string]string{"profile": "core", "region": "eu"},
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+	if got := cfg.Env["profile"]; got != "core" {
+		t.Errorf("expected profile=core, got %q", got)
+	}
+	if len(cfg.Env) != 2 {
+		t.Errorf("expected 2 env entries, got %d", len(cfg.Env))
+	}
+}
+
 func TestCompositionExecutor_Execute_Gate_Auto(t *testing.T) {
 	emitter := testutil.NewEventCollector()
 	m := &manifest.Manifest{}

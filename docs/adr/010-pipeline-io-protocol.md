@@ -15,7 +15,7 @@ Landed:
 - Load-time validation: `ValidatePipelineIOTypes` and `TypedWiringCheck` in `internal/pipeline/iotypes.go` (~216 LOC), wired into the loader at `dag.go:42` and `dag.go:52`.
 
 Phase 2 still in progress:
-- ~6 of 26 pipelines declare typed I/O (`impl-issue`, `impl-issue-core`, `impl-recinq`, `impl-speckit`, `inception-bugfix`, `inception-feature`, `ops-epic-runner`, `ops-pr-review`, `ops-pr-review-core`, `plan-research`, `plan-scope`).
+- ~6 of 25 pipelines declare typed I/O (`impl-issue`, `impl-issue-core`, `impl-recinq`, `impl-speckit`, `inception-bugfix`, `inception-feature`, `ops-epic-runner`, `ops-pr-review`, `ops-pr-review-publish`, `plan-research`, `plan-scope`).
 - No `input_ref:` blocks yet in `internal/defaults/pipelines/`; legacy `input:` templates still dominate composition wiring.
 - ADR-011 hard-error migration is the next step.
 
@@ -230,7 +230,7 @@ be migrated in a follow-up PR. None of them block this ADR.
 | `impl-issue-core` | `issue_ref` | `pr_ref` |
 | `impl-research` | `issue_ref` | `pr_ref` |
 | `impl-hotfix`, `impl-feature`, `impl-improve`, `impl-refactor`, `impl-recinq`, `impl-prototype` | `issue_ref` or `string` | `pr_ref` |
-| `ops-pr-review`, `ops-pr-review-core`, `ops-pr-fix-review` | `pr_ref` | `findings_report` |
+| `ops-pr-review`, `ops-pr-review-publish`, `ops-pr-fix-review` | `pr_ref` | `findings_report` |
 | `ops-refresh` | `issue_ref` | `issue_ref` |
 | `plan-research`, `plan-adr`, `plan-task`, `plan-approve-implement` | `string` or `issue_ref` | `plan_ref` |
 | `audit-*` (14 pipelines) | `string` (scope hint) | `findings_report` |

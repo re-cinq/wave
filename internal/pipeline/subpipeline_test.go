@@ -540,6 +540,60 @@ func TestAdapterOverride_PropagatedToChildExecutor(t *testing.T) {
 	}
 }
 
+func TestParentEnv_PropagatedToChildExecutor(t *testing.T) {
+	// Mirrors runNamedSubPipeline's env propagation: child inherits parent
+	// env first, then overlays step.Config.Env.
+	parent := NewDefaultPipelineExecutor(nil, WithParentEnv(map[string]string{
+		"profile": "core",
+		"region":  "eu",
+	}))
+	step := &Step{
+		ID:          "review",
+		SubPipeline: "ops-pr-review",
+		Config: &SubPipelineConfig{
+			Env: map[string]string{"profile": "full"}, // overrides parent
+		},
+	}
+
+	stepEnv := map[string]string{}
+	if step.Config != nil {
+		stepEnv = step.Config.Env
+	}
+	merged := make(map[string]string, len(parent.parentEnv)+len(stepEnv))
+	for k, v := range parent.parentEnv {
+		merged[k] = v
+	}
+	for k, v := range stepEnv {
+		merged[k] = v
+	}
+
+	child := NewDefaultPipelineExecutor(nil, WithParentEnv(merged))
+	if got := child.parentEnv["profile"]; got != "full" {
+		t.Errorf("child env profile = %q, want %q (step overrides parent)", got, "full")
+	}
+	if got := child.parentEnv["region"]; got != "eu" {
+		t.Errorf("child env region = %q, want %q (inherited from parent)", got, "eu")
+	}
+}
+
+func TestParentEnv_SeededAsCustomVariables(t *testing.T) {
+	// Verifies parent env vars seeded into PipelineContext.CustomVariables
+	// resolve via {{ env.<key> }} through ResolvePlaceholders.
+	ctx := &PipelineContext{
+		CustomVariables: make(map[string]string),
+	}
+	parentEnv := map[string]string{"profile": "core", "region": "us-west"}
+	for k, v := range parentEnv {
+		ctx.SetCustomVariable("env."+k, v)
+	}
+
+	got := ctx.ResolvePlaceholders("{{ env.profile }}-{{ env.region }}")
+	want := "core-us-west"
+	if got != want {
+		t.Errorf("ResolvePlaceholders() = %q, want %q", got, want)
+	}
+}
+
 func TestAdapterOverride_NotPropagatedWhenEmpty(t *testing.T) {
 	// When the parent has no adapterOverride, the child should not receive one.
 	parent := NewDefaultPipelineExecutor(nil)

@@ -9,7 +9,7 @@ Shared schemas live in `.agents/contracts/shared-*.schema.json` and are designed
 | Schema | Purpose | Used by |
 |--------|---------|---------|
 | `shared-findings.schema.json` | Standardized audit/analysis findings | All `audit-*` pipelines |
-| `shared-review-verdict.schema.json` | Review outcome with structured verdict | `ops-pr-review`, `ops-pr-review-core` |
+| `shared-review-verdict.schema.json` | Review outcome with structured verdict | `ops-pr-review` (verdict step; publish step gated by `config.env.profile`) |
 | `shared-pr-result.schema.json` | PR URL/number/branch/summary output | PR-producing pipelines |
 
 ### shared-findings
@@ -68,7 +68,7 @@ All audit pipelines that chain findings between scan and report steps now valida
 The `impl-review-loop` pipeline chains three sub-pipelines:
 
 ```
-impl-issue-core  -->  wave-land  -->  ops-pr-review-core
+impl-issue-core  -->  wave-land  -->  ops-pr-review (profile=core)
      |                    |                  |
   (implements)      (creates PR)      (reviews, produces verdict JSON)
                                              |
@@ -77,7 +77,16 @@ impl-issue-core  -->  wave-land  -->  ops-pr-review-core
                                           fix loop
 ```
 
-The `ops-pr-review-core` summary step produces `.agents/output/review-verdict.json` validated against `shared-review-verdict.schema.json`. The loop condition reads <code v-pre>{{ review-fix.output.verdict == 'APPROVE' }}</code> from this structured output.
+The `ops-pr-review` summary step produces `.agents/output/review-verdict.json` validated against `shared-review-verdict.schema.json`. Callers that want the verdict only (no PR comment) pass `config.env.profile: core`, which gates the trailing publish step via `branch`. The loop condition reads <code v-pre>{{ review-fix.output.verdict == 'APPROVE' }}</code> from this structured output.
+
+```yaml
+- id: review
+  pipeline: ops-pr-review
+  config:
+    env:
+      profile: core   # skip publish step; produce verdict artifact only
+  input: "{{ input }}"
+```
 
 ## Naming Conventions
 

@@ -679,11 +679,12 @@ type AggregateConfig struct {
 }
 
 type SubPipelineConfig struct {
-	Inject        []string `yaml:"inject,omitempty"`         // Parent artifact names to inject into child
-	Extract       []string `yaml:"extract,omitempty"`        // Child artifact names to extract back to parent
-	Timeout       string   `yaml:"timeout,omitempty"`        // Hard timeout for child execution (e.g. "3600s")
-	MaxCycles     int      `yaml:"max_cycles,omitempty"`     // Max iterations for child loop steps
-	StopCondition string   `yaml:"stop_condition,omitempty"` // Template expression for early termination
+	Inject        []string          `yaml:"inject,omitempty"`         // Parent artifact names to inject into child
+	Extract       []string          `yaml:"extract,omitempty"`        // Child artifact names to extract back to parent
+	Timeout       string            `yaml:"timeout,omitempty"`        // Hard timeout for child execution (e.g. "3600s")
+	MaxCycles     int               `yaml:"max_cycles,omitempty"`     // Max iterations for child loop steps
+	StopCondition string            `yaml:"stop_condition,omitempty"` // Template expression for early termination
+	Env           map[string]string `yaml:"env,omitempty"`            // Arbitrary key→value vars propagated to the child as {{ env.<key> }}
 }
 
 // Validate checks that the SubPipelineConfig is well-formed.
