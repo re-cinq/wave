@@ -464,7 +464,11 @@
       display: inline-flex; align-items: center; gap: 8px;
       font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
       color: var(--text); border-bottom: 1px solid var(--text-mute); padding-bottom: 2px;
+      white-space: nowrap;
     }
+    .feature-card .explore svg { width: 12px; height: 12px; flex-shrink: 0; }
+    /* safety net: any svg not sized by a more specific rule defaults to 1em */
+    svg:not([width]):not([height]) { width: 1em; height: 1em; }
     .feature-list {
       display: grid;
       grid-template-columns: 1fr 1fr;
