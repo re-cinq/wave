@@ -32,6 +32,7 @@ Wave CLI commands for pipeline orchestration.
 | `wave serve` | Start the web dashboard server |
 | `wave migrate` | Database migrations |
 | `wave bench` | Run and analyze SWE-bench benchmarks |
+| `wave audit complexity` | Score Go functions by cyclomatic and cognitive complexity |
 
 ---
 
@@ -1298,6 +1299,46 @@ Diagnose discovery issues: duplicate names across roots, malformed frontmatter, 
 wave skills doctor
 wave skills doctor --format json
 ```
+
+---
+
+## wave audit complexity
+
+Score Go functions by cyclomatic and cognitive complexity. Deterministic
+in-tree analyzer — no LLM, no third-party binary. Output is JSON conforming
+to the `shared-findings` schema, suitable for downstream aggregation in
+`ops-parallel-audit` or any other findings-consuming pipeline.
+
+```bash
+wave audit complexity ./internal
+wave audit complexity --max-cyclomatic 20 --output findings.json ./...
+wave audit complexity --format summary ./internal/pipeline
+```
+
+### Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--max-cyclomatic` | `15` | Fail threshold for cyclomatic complexity |
+| `--max-cognitive` | `15` | Fail threshold for cognitive complexity |
+| `--warn-cyclomatic` | `10` | Warn threshold for cyclomatic complexity |
+| `--warn-cognitive` | `10` | Warn threshold for cognitive complexity |
+| `--output` / `-o` | `.agents/output/findings.json` | Path to write findings JSON |
+| `--exclude` | _(none)_ | Substring patterns to skip (repeatable) |
+| `--format` | `json` | `json` writes to `--output`; `summary` prints to stdout |
+| `--include-tests` | `false` | Also score `_test.go` files |
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | All functions pass thresholds |
+| 1 | One or more functions exceed a fail threshold |
+| 2 | IO or parse error (path missing, file unreadable, syntax error) |
+
+The companion `audit-complexity` pipeline wraps this command behind a
+`json_schema` contract gate, so `wave run audit-complexity ./internal` fails
+the pipeline whenever any function exceeds the configured thresholds.
 
 ---
 
