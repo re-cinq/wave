@@ -567,6 +567,7 @@ type IterateConfig struct {
 	Over          string `yaml:"over"`                     // Template expression resolving to JSON array
 	Mode          string `yaml:"mode"`                     // "sequential" or "parallel"
 	MaxConcurrent int    `yaml:"max_concurrent,omitempty"` // Max parallel workers (parallel mode)
+	OnFailure     string `yaml:"on_failure,omitempty"`     // "fail" (default) or "continue" — per-item failure handling
 }
 
 // BranchConfig configures conditional pipeline selection.

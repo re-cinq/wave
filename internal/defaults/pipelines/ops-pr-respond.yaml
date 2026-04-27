@@ -196,6 +196,11 @@ steps:
       over: '["audit-security", "audit-architecture", "audit-tests", "audit-duplicates", "audit-doc-scan", "audit-dead-code-scan"]'
       mode: parallel
       max_concurrent: 6
+      # Per-axis failures are tolerated. If 1-2 audits time out or hit a
+      # contract failure, downstream merge-findings still has the
+      # successful audits' output to triage. Hard-failing the whole run
+      # because of one slow axis defeats the multi-axis design.
+      on_failure: continue
 
   # ─── Phase 3: aggregate audit outputs ────────────────────────────────────
   #

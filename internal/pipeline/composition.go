@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/recinq/wave/internal/event"
@@ -238,7 +239,16 @@ func (c *CompositionExecutor) executeIterateSequential(ctx context.Context, p *P
 
 		// Load and execute the sub-pipeline (iterate: key by pipelineName; step.ID is aggregated later)
 		if err := c.runSubPipeline(ctx, "", resolvedName, input); err != nil {
-			return fmt.Errorf("item %d: pipeline %q failed: %w", i, resolvedName, err)
+			if step.Iterate.OnFailure != OnFailureContinue {
+				return fmt.Errorf("item %d: pipeline %q failed: %w", i, resolvedName, err)
+			}
+			c.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: p.Metadata.Name,
+				StepID:     step.ID,
+				State:      "warning",
+				Message:    fmt.Sprintf("iterate item %q failed (on_failure: continue): %v", resolvedName, err),
+			})
 		}
 	}
 
@@ -289,8 +299,14 @@ func (c *CompositionExecutor) executeIterateParallel(ctx context.Context, p *Pip
 		resolvedInputs[i] = input
 	}
 
+	tolerateFailures := step.Iterate.OnFailure == OnFailureContinue
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(maxConcurrent)
+
+	var (
+		failuresMu sync.Mutex
+		failures   []string
+	)
 
 	for i := range items {
 		resolvedName := resolvedNames[i]
@@ -305,7 +321,27 @@ func (c *CompositionExecutor) executeIterateParallel(ctx context.Context, p *Pip
 		})
 
 		g.Go(func() error {
-			return c.runSubPipeline(gctx, "", resolvedName, input)
+			err := c.runSubPipeline(gctx, "", resolvedName, input)
+			if err == nil {
+				return nil
+			}
+			if !tolerateFailures {
+				return err
+			}
+			// Record the failure and let the iterate continue. errgroup
+			// short-circuits on first error otherwise — swallowing the
+			// error here keeps siblings running.
+			failuresMu.Lock()
+			failures = append(failures, fmt.Sprintf("%s: %v", resolvedName, err))
+			failuresMu.Unlock()
+			c.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: p.Metadata.Name,
+				StepID:     step.ID,
+				State:      "warning",
+				Message:    fmt.Sprintf("iterate item %q failed (on_failure: continue): %v", resolvedName, err),
+			})
+			return nil
 		})
 	}
 
@@ -317,12 +353,17 @@ func (c *CompositionExecutor) executeIterateParallel(ctx context.Context, p *Pip
 	// iterate step's ID so downstream steps can reference {{ stepID.output }}.
 	c.collectIterateOutputs(step, resolvedNames)
 
+	completedMsg := fmt.Sprintf("all %d items completed (parallel)", len(items))
+	if len(failures) > 0 {
+		completedMsg = fmt.Sprintf("%d/%d items completed (parallel); %d failed but continued: %s",
+			len(items)-len(failures), len(items), len(failures), strings.Join(failures, "; "))
+	}
 	c.emit(event.Event{
 		Timestamp:  time.Now(),
 		PipelineID: p.Metadata.Name,
 		StepID:     step.ID,
 		State:      event.StateIterationCompleted,
-		Message:    fmt.Sprintf("all %d items completed (parallel)", len(items)),
+		Message:    completedMsg,
 	})
 
 	return nil
