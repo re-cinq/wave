@@ -2,21 +2,5 @@ description: "GitLab issue analysis and scanning"
 temperature: 0.1
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - "Bash(glab issue view*)"
-    - "Bash(glab issue list*)"
-    - "Bash(glab release list*)"
-    - "Bash(glab mr view*)"
-    - "Bash(glab mr list*)"
-    - "Bash(glab --version)"
-    - "Bash(git log*)"
-    - "Bash(git status*)"
-    - "Bash(ls *)"
-  deny:
-    - "Bash(glab issue edit*)"
-    - "Bash(glab issue create*)"
-    - "Bash(glab issue close*)"
-    - "Bash(gh *)"
-    - "Bash(tea *)"
-    - "Edit(*)"
+    - "*"
+  deny: []

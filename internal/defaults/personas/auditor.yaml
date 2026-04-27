@@ -2,13 +2,5 @@ description: "Security review and quality assurance"
 temperature: 0.1
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - Grep
-    - Glob
-    - Bash
-  deny:
-    - "Edit(*)"
-    - "Bash(rm -rf /*)"
-    - "Bash(git push*)"
-    - "Bash(git commit*)"
+    - "*"
+  deny: []

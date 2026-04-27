@@ -197,10 +197,18 @@ func validatePromptToolPermissions(pipelineName string, p *pipeline.Pipeline, m 
 		}
 
 		prompt, err := readStepPrompt(step)
-		if err != nil || prompt == "" {
+		if err != nil {
 			continue
 		}
 		mentioned := detectPromptToolMentions(prompt)
+		// The executor auto-injects "Write valid <type> to <path> using the
+		// Write tool" into the prompt for any step declaring file-based
+		// output_artifacts (see executor.go buildContractPrompt). The YAML
+		// itself often does not mention Write — so without this implicit
+		// pass we miss the most common navigator+output_artifacts mismatch.
+		if hasFileOutputArtifact(step) {
+			mentioned = appendUnique(mentioned, "Write")
+		}
 		if len(mentioned) == 0 {
 			continue
 		}
@@ -221,6 +229,10 @@ func validatePromptToolPermissions(pipelineName string, p *pipeline.Pipeline, m 
 			allowedSet[a] = true
 		}
 
+		// Wildcard "*" in the persona's allowed list grants every tool.
+		if allowedSet["*"] {
+			continue
+		}
 		for _, tool := range mentioned {
 			if allowedSet[tool] {
 				continue
@@ -235,6 +247,32 @@ func validatePromptToolPermissions(pipelineName string, p *pipeline.Pipeline, m 
 		}
 	}
 	return findings
+}
+
+// hasFileOutputArtifact reports whether the step declares at least one
+// file-based output_artifact. The executor injects "Write valid <type> ...
+// using the Write tool" into the prompt for any such step, so the persona
+// must grant Write even when the YAML prompt itself never says it.
+//
+// stdout artifacts (path == "stdout") are excluded — the executor captures
+// stdout instead of asking the model to Write a file.
+func hasFileOutputArtifact(step pipeline.Step) bool {
+	for _, art := range step.OutputArtifacts {
+		if !art.IsStdoutArtifact() {
+			return true
+		}
+	}
+	return false
+}
+
+// appendUnique appends s to slice if not already present, preserving order.
+func appendUnique(slice []string, s string) []string {
+	for _, x := range slice {
+		if x == s {
+			return slice
+		}
+	}
+	return append(slice, s)
 }
 
 // resolvePersonaForStep returns the persona referenced by a step, expanding

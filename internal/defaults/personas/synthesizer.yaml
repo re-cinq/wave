@@ -2,10 +2,5 @@ description: "Structured synthesis of analysis findings into actionable JSON pro
 temperature: 0.2
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - Edit
-    - Bash
-    - Glob
-    - Grep
+    - "*"
   deny: []

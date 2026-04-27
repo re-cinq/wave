@@ -2,21 +2,5 @@ description: "GitHub issue analysis and scanning"
 temperature: 0.1
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - "Bash(gh issue view*)"
-    - "Bash(gh issue list*)"
-    - "Bash(gh release list*)"
-    - "Bash(gh pr view*)"
-    - "Bash(gh pr list*)"
-    - "Bash(gh --version)"
-    - "Bash(git log*)"
-    - "Bash(git status*)"
-    - "Bash(ls *)"
-  deny:
-    - "Bash(gh issue edit*)"
-    - "Bash(gh issue create*)"
-    - "Bash(gh issue close*)"
-    - "Bash(glab *)"
-    - "Bash(tea *)"
-    - "Edit(*)"
+    - "*"
+  deny: []

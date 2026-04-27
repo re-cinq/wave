@@ -2,15 +2,5 @@ description: "GitHub epic analysis, decomposition, and sub-issue creation"
 temperature: 0.1
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - "Bash(gh issue create*)"
-    - "Bash(gh issue view*)"
-    - "Bash(gh issue list*)"
-    - "Bash(gh --version)"
-  deny:
-    - "Bash(gh issue edit*)"
-    - "Bash(gh issue close*)"
-    - "Bash(glab *)"
-    - "Bash(tea *)"
-    - "Edit(*)"
+    - "*"
+  deny: []

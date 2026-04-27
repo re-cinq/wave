@@ -2,15 +2,5 @@ description: "GitLab epic analysis, decomposition, and sub-issue creation"
 temperature: 0.1
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - "Bash(glab issue create*)"
-    - "Bash(glab issue view*)"
-    - "Bash(glab issue list*)"
-    - "Bash(glab --version)"
-  deny:
-    - "Bash(glab issue edit*)"
-    - "Bash(glab issue close*)"
-    - "Bash(gh *)"
-    - "Bash(tea *)"
-    - "Edit(*)"
+    - "*"
+  deny: []

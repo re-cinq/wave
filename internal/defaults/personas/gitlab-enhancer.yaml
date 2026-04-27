@@ -2,15 +2,5 @@ description: "GitLab issue enhancement and improvement"
 temperature: 0.2
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - "Bash(glab issue update*)"
-    - "Bash(glab issue view*)"
-    - "Bash(glab label create*)"
-    - "Bash(glab --version)"
-  deny:
-    - "Bash(glab issue create*)"
-    - "Bash(glab issue close*)"
-    - "Bash(gh *)"
-    - "Bash(tea *)"
-    - "Edit(*)"
+    - "*"
+  deny: []

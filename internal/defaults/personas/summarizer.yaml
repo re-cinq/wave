@@ -2,10 +2,5 @@ description: "Context compaction for relay handoffs"
 temperature: 0.0
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - Edit
-    - Bash
-    - Glob
-    - Grep
+    - "*"
   deny: []

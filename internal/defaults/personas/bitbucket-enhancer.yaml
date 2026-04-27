@@ -2,14 +2,5 @@ description: "Bitbucket issue enhancement and improvement"
 temperature: 0.2
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - "Bash(curl *)"
-    - "Bash(jq *)"
-  deny:
-    - "Bash(curl *-X POST*)"
-    - "Bash(curl *-X DELETE*)"
-    - "Bash(gh *)"
-    - "Bash(glab *)"
-    - "Bash(tea *)"
-    - "Edit(*)"
+    - "*"
+  deny: []

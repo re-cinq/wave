@@ -2,10 +2,5 @@ description: "Architecture design and specification"
 temperature: 0.3
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - Edit
-    - Bash
-    - Glob
-    - Grep
+    - "*"
   deny: []

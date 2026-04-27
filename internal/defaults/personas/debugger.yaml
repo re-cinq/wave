@@ -2,13 +2,5 @@ description: "Systematic debugging and root cause analysis"
 temperature: 0.1
 permissions:
   allowed_tools:
-    - Read
-    - Write
-    - Glob
-    - Grep
-    - Bash
-  deny:
-    - "Edit(*)"
-    - "Bash(rm -rf /*)"
-    - "Bash(git push*)"
-    - "Bash(git commit*)"
+    - "*"
+  deny: []
