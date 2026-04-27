@@ -1498,6 +1498,14 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 	execution.WorkspacePaths[step.ID] = workspacePath
 	execution.mu.Unlock()
 
+	// Auto-inject declared dependency artifacts (issue #1452). Command
+	// scripts can read upstream outputs at .agents/artifacts/<dep>/<name>
+	// or the back-compat alias .agents/output/<name> without any
+	// workspace.mount or memory.inject_artifacts boilerplate.
+	if err := e.injectDependencyArtifacts(execution, step, workspacePath); err != nil {
+		return nil, fmt.Errorf("failed to auto-inject dep artifacts for step %q: %w", step.ID, err)
+	}
+
 	// Resolve the working directory for the command. For mount-based
 	// workspaces the project files live under the mount target (e.g.
 	// workspacePath/project/), so we set CWD to the project mount
@@ -3223,7 +3231,15 @@ func (e *DefaultPipelineExecutor) resolveStepResources(ctx context.Context, exec
 		)
 	}
 
-	// Inject artifacts from dependencies
+	// Auto-inject every declared dependency's output artifacts into the
+	// canonical .agents/artifacts/<dep>/<name> layout (issue #1452). Runs
+	// BEFORE legacy injectArtifacts so manual `as:` renames can still
+	// overwrite the canonical copy when desired.
+	if err := e.injectDependencyArtifacts(execution, step, workspacePath); err != nil {
+		return nil, fmt.Errorf("failed to auto-inject dep artifacts: %w", err)
+	}
+
+	// Inject artifacts from dependencies (legacy explicit inject_artifacts).
 	artifactInjectStart := time.Now()
 	if err := e.injectArtifacts(execution, step, workspacePath); err != nil {
 		return nil, fmt.Errorf("failed to inject artifacts: %w", err)
