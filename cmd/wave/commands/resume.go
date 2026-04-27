@@ -217,11 +217,14 @@ func runResume(opts ResumeOptions, debug bool) error {
 		}
 	}
 
-	// Build executor.
+	// Build executor. Pin the workspace dir to the original run so the
+	// resumed step sees prior step outputs that live under
+	// .agents/workspaces/<originalRunID>/, not a fresh dir at resume time.
 	execOpts := []pipeline.ExecutorOption{
 		pipeline.WithEmitter(emitter),
 		pipeline.WithDebug(debug),
 		pipeline.WithRunID(resumeRunID),
+		pipeline.WithWorkspaceRunID(opts.RunID),
 	}
 	if wsManager != nil {
 		execOpts = append(execOpts, pipeline.WithWorkspaceManager(wsManager))

@@ -6830,3 +6830,215 @@ func TestCreateStepWorkspace_DeferredBranch(t *testing.T) {
 	assert.Equal(t, cachedPath, wsPath, "workspace should be the pre-cached worktree for the resolved branch")
 	assert.Equal(t, cachedRepoRoot, execution.WorkspacePaths["apply-fixes__worktree_repo_root"])
 }
+
+// artifactCapture records the args of a single RegisterArtifact call.
+type artifactCapture struct {
+	runID, stepID, name, path, artifactType string
+	size                                    int64
+	called                                  bool
+}
+
+// newCapturingArtifactStore returns a MockStateStore wired with a
+// RegisterArtifact handler that records the most recent call into the given
+// capture struct. Use to assert that aggregate / iterate registration fires.
+func newCapturingArtifactStore(cap *artifactCapture) *testutil.MockStateStore {
+	return testutil.NewMockStateStore(testutil.WithRegisterArtifact(
+		func(runID, stepID, name, path, artifactType string, size int64) error {
+			cap.called = true
+			cap.runID = runID
+			cap.stepID = stepID
+			cap.name = name
+			cap.path = path
+			cap.artifactType = artifactType
+			cap.size = size
+			return nil
+		},
+	))
+}
+
+// TestWorkspaceRunIDFor covers the override accessor used by resume to keep
+// step-workspace paths pointed at the original run's tree.
+func TestWorkspaceRunIDFor(t *testing.T) {
+	t.Run("falls back to pipelineID when no override", func(t *testing.T) {
+		executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+		assert.Equal(t, "runtime-id", executor.workspaceRunIDFor("runtime-id"))
+	})
+	t.Run("override wins when set", func(t *testing.T) {
+		executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{},
+			WithWorkspaceRunID("original-run"),
+		)
+		assert.Equal(t, "original-run", executor.workspaceRunIDFor("resume-run"))
+	})
+	t.Run("empty override defers to pipelineID", func(t *testing.T) {
+		executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{},
+			WithWorkspaceRunID(""),
+		)
+		assert.Equal(t, "fresh-run", executor.workspaceRunIDFor("fresh-run"))
+	})
+}
+
+// TestExecuteAggregateInDAG_RegistersArtifact verifies the aggregate output is
+// recorded in the artifact table — without this, downstream steps depending on
+// the aggregate output cannot resume.
+func TestExecuteAggregateInDAG_RegistersArtifact(t *testing.T) {
+	tmpDir := t.TempDir()
+	outputPath := filepath.Join(tmpDir, "merged-findings.json")
+
+	cap := &artifactCapture{}
+	store := newCapturingArtifactStore(cap)
+
+	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{},
+		WithStateStore(store),
+		WithRunID("test-run-1"),
+	)
+
+	pipelineCtx := NewPipelineContext("test-run-1", "test-pipeline", "merge-findings")
+
+	execution := &PipelineExecution{
+		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "test-pipeline"}},
+		Manifest:       &manifest.Manifest{},
+		States:         make(map[string]string),
+		Results:        make(map[string]map[string]interface{}),
+		ArtifactPaths:  make(map[string]string),
+		WorkspacePaths: make(map[string]string),
+		WorktreePaths:  make(map[string]*WorktreeInfo),
+		Status:         &PipelineStatus{ID: "test-run-1"},
+		Context:        pipelineCtx,
+	}
+
+	step := &Step{
+		ID: "merge-findings",
+		Aggregate: &AggregateConfig{
+			From:     `[{"id":1},{"id":2}]`,
+			Into:     outputPath,
+			Strategy: "concat",
+		},
+	}
+
+	err := executor.executeAggregateInDAG(context.Background(), execution, step)
+	require.NoError(t, err)
+
+	require.True(t, cap.called, "store.RegisterArtifact must be called for aggregate steps")
+	assert.Equal(t, "test-run-1", cap.runID)
+	assert.Equal(t, "merge-findings", cap.stepID)
+	assert.Equal(t, "merged-findings", cap.name, "artifact name derived from filepath.Base sans ext")
+	assert.Equal(t, outputPath, cap.path)
+	assert.Equal(t, "json", cap.artifactType)
+	assert.Greater(t, cap.size, int64(0), "size must be populated from on-disk file")
+}
+
+// TestExecuteAggregateInDAG_NoStore preserves the test ergonomic where
+// executors created without a store don't panic on aggregate steps.
+func TestExecuteAggregateInDAG_NoStore(t *testing.T) {
+	tmpDir := t.TempDir()
+	outputPath := filepath.Join(tmpDir, "out.json")
+
+	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+
+	execution := &PipelineExecution{
+		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "p"}},
+		Manifest:       &manifest.Manifest{},
+		States:         make(map[string]string),
+		Results:        make(map[string]map[string]interface{}),
+		ArtifactPaths:  make(map[string]string),
+		WorkspacePaths: make(map[string]string),
+		WorktreePaths:  make(map[string]*WorktreeInfo),
+		Status:         &PipelineStatus{ID: "p"},
+	}
+
+	step := &Step{
+		ID: "agg",
+		Aggregate: &AggregateConfig{
+			From:     `[1,2,3]`,
+			Into:     outputPath,
+			Strategy: "concat",
+		},
+	}
+
+	err := executor.executeAggregateInDAG(context.Background(), execution, step)
+	require.NoError(t, err)
+}
+
+// TestCollectIterateOutputs_RegistersArtifact verifies that the iterate-step's
+// collected output is registered as a "collected-output" artifact so resume
+// preflight can locate it.
+func TestCollectIterateOutputs_RegistersArtifact(t *testing.T) {
+	// Run from a temp cwd: collectIterateOutputs writes the collected file to
+	// .agents/output/<stepID>-collected.json relative to cwd.
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	tmpDir := t.TempDir()
+	require.NoError(t, os.Chdir(tmpDir))
+	t.Cleanup(func() { _ = os.Chdir(origDir) })
+
+	cap := &artifactCapture{}
+	store := newCapturingArtifactStore(cap)
+
+	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{},
+		WithStateStore(store),
+		WithRunID("iterate-run"),
+	)
+
+	pipelineCtx := NewPipelineContext("iterate-run", "iterate-pipeline", "run-audits")
+	// Each child sub-pipeline's output is keyed by "<childPipeline>.<artifactName>".
+	pipelineCtx.SetArtifactPath("audit-alpha.scan", filepath.Join(tmpDir, "alpha.json"))
+	pipelineCtx.SetArtifactPath("audit-beta.scan", filepath.Join(tmpDir, "beta.json"))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "alpha.json"), []byte(`{"id":"a"}`), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "beta.json"), []byte(`{"id":"b"}`), 0644))
+
+	execution := &PipelineExecution{
+		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "iterate-pipeline"}},
+		Manifest:       &manifest.Manifest{},
+		States:         make(map[string]string),
+		Results:        make(map[string]map[string]interface{}),
+		ArtifactPaths:  make(map[string]string),
+		WorkspacePaths: make(map[string]string),
+		WorktreePaths:  make(map[string]*WorktreeInfo),
+		Status:         &PipelineStatus{ID: "iterate-run"},
+		Context:        pipelineCtx,
+	}
+
+	step := &Step{ID: "run-audits"}
+	err = executor.collectIterateOutputs(execution, step, []string{"audit-alpha", "audit-beta"})
+	require.NoError(t, err)
+
+	require.True(t, cap.called, "store.RegisterArtifact must be called for iterate steps")
+	assert.Equal(t, "iterate-run", cap.runID)
+	assert.Equal(t, "run-audits", cap.stepID)
+	assert.Equal(t, "collected-output", cap.name)
+	assert.Equal(t, "json", cap.artifactType)
+	assert.True(t, strings.HasSuffix(cap.path, "run-audits-collected.json"), "path: %s", cap.path)
+	assert.Greater(t, cap.size, int64(0))
+}
+
+// TestCreateStepWorkspace_UsesEffectiveWorkspaceRunID verifies the resume
+// override threads through to step-workspace path computation. Without the
+// override, resume would create an empty dir under the new run's timestamp;
+// with it, the resumed step reads from the original run's tree.
+func TestCreateStepWorkspace_UsesEffectiveWorkspaceRunID(t *testing.T) {
+	tmpDir := t.TempDir()
+	wsRoot := filepath.Join(tmpDir, "workspaces")
+
+	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{},
+		WithRunID("resume-run-2"),
+		WithWorkspaceRunID("original-run-1"),
+	)
+
+	execution := &PipelineExecution{
+		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "test-pipeline"}},
+		Manifest:       &manifest.Manifest{Runtime: manifest.Runtime{WorkspaceRoot: wsRoot}},
+		WorkspacePaths: make(map[string]string),
+		WorktreePaths:  make(map[string]*WorktreeInfo),
+		ArtifactPaths:  make(map[string]string),
+		Status:         &PipelineStatus{ID: "resume-run-2"},
+		Context:        NewPipelineContext("resume-run-2", "test-pipeline", "triage"),
+	}
+
+	step := &Step{ID: "triage"}
+
+	wsPath, err := executor.createStepWorkspace(execution, step)
+	require.NoError(t, err)
+
+	expected := filepath.Join(wsRoot, "original-run-1", "triage")
+	assert.Equal(t, expected, wsPath, "step workspace must use effective workspace run ID, not e.runID")
+}

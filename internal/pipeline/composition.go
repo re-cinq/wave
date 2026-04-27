@@ -32,6 +32,17 @@ type CompositionExecutor struct {
 	pipelineLoader SubPipelineLoader
 	debug          bool
 	gateHandler    GateHandler // Interactive handler for approval gates
+	// runID identifies the run for artifact registration. May be empty in
+	// legacy/test contexts; nil-checked at every registration site.
+	runID string
+}
+
+// artifactRegistrar is the narrow surface the composition executor needs to
+// record aggregate/iterate outputs in the artifact table. Defined locally so
+// CompositionExecutor.store can keep the lighter RunStore type while still
+// upgrading via type assertion when the concrete StateStore is wired in.
+type artifactRegistrar interface {
+	RegisterArtifact(runID, stepID, name, path, artifactType string, sizeBytes int64) error
 }
 
 // NewCompositionExecutor creates a composition executor.
@@ -62,6 +73,31 @@ func NewCompositionExecutor(
 // SetPipelineLoader sets the function used to load sub-pipelines by name.
 func (c *CompositionExecutor) SetPipelineLoader(loader SubPipelineLoader) {
 	c.pipelineLoader = loader
+}
+
+// SetRunID associates the composition executor with a run ID. The run ID is
+// used when registering aggregate/iterate output artifacts so they appear in
+// the run-scoped artifact table.
+func (c *CompositionExecutor) SetRunID(id string) {
+	c.runID = id
+}
+
+// registerArtifact records an aggregate/iterate output in the artifact table
+// when the wired store implements RegisterArtifact and a runID has been set.
+// Best-effort: failures are swallowed to avoid masking step success.
+func (c *CompositionExecutor) registerArtifact(stepID, name, path, artifactType string) {
+	if c.store == nil || c.runID == "" {
+		return
+	}
+	registrar, ok := c.store.(artifactRegistrar)
+	if !ok {
+		return
+	}
+	var size int64
+	if info, err := os.Stat(path); err == nil {
+		size = info.Size()
+	}
+	_ = registrar.RegisterArtifact(c.runID, stepID, name, path, artifactType, size)
 }
 
 // Execute runs a composition pipeline -- a pipeline whose steps are composition
@@ -317,6 +353,23 @@ func (c *CompositionExecutor) collectIterateOutputs(step *Step, resolvedNames []
 	}
 
 	c.tmplCtx.SetStepOutput(step.ID, arrayBytes)
+
+	// Persist the collected output and register it as an artifact so resume
+	// preflight can find it via the artifact table — parity with the
+	// production DAG path. Skipped in test/legacy contexts where no store or
+	// runID is wired so we don't pollute the cwd with output files.
+	if c.store == nil || c.runID == "" {
+		return
+	}
+	outputDir := filepath.Join(".agents", "output")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return
+	}
+	outputPath := filepath.Join(outputDir, step.ID+"-collected.json")
+	if err := os.WriteFile(outputPath, arrayBytes, 0644); err != nil {
+		return
+	}
+	c.registerArtifact(step.ID, "collected-output", outputPath, "json")
 }
 
 // executeBranch evaluates a condition and runs the matching pipeline.
@@ -480,6 +533,11 @@ func (c *CompositionExecutor) executeAggregate(step *Step) error {
 
 	// Store in template context
 	c.tmplCtx.SetStepOutput(step.ID, []byte(result))
+
+	// Register in DB so resume preflight and inject_artifacts can find this
+	// artifact — parity with executeAggregateInDAG in executor.go.
+	artifactName := strings.TrimSuffix(filepath.Base(outputPath), filepath.Ext(outputPath))
+	c.registerArtifact(step.ID, artifactName, outputPath, "json")
 
 	c.emit(event.Event{
 		Timestamp: time.Now(),

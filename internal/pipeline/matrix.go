@@ -485,8 +485,10 @@ func (m *MatrixExecutor) createWorkerWorkspace(execution *PipelineExecution, ste
 		wsRoot = ".agents/workspaces"
 	}
 
-	// Create worker-specific workspace under .agents/workspaces/<pipeline>/<step>/worker_<index>/
-	wsPath := filepath.Join(wsRoot, pipelineID, step.ID, fmt.Sprintf("worker_%d", itemIndex))
+	// Create worker-specific workspace under .agents/workspaces/<pipeline>/<step>/worker_<index>/.
+	// Use the executor's workspace run ID override so resume reuses the
+	// original run's workspace tree; falls back to pipelineID for fresh runs.
+	wsPath := filepath.Join(wsRoot, m.executor.workspaceRunIDFor(pipelineID), step.ID, fmt.Sprintf("worker_%d", itemIndex))
 	if err := os.MkdirAll(wsPath, 0755); err != nil {
 		return "", err
 	}
