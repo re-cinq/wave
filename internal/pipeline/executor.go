@@ -5481,11 +5481,34 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 		childOpts = append(childOpts, withSkillStore(e.skillStore))
 	}
 
-	// Inject parent artifacts into child executor when config specifies injection
+	// Inject parent artifacts into child executor when config specifies injection.
+	//
+	// Two registration paths produce parent artifacts the child may inject:
+	//   - Persona/command step outputs land in execution.ArtifactPaths under
+	//     keys of the form "<step.ID>:<artifact.Name>" (executor.go:4460,4472).
+	//   - Composition aggregate/iterate outputs ALSO call
+	//     execution.Context.SetArtifactPath(<artifact.Name>) so they show up
+	//     in the bare-name namespace used by templating.
+	// The lookup walks the bare-name space first (the natural author-facing
+	// API), then falls back to the dep-scoped ArtifactPaths map keyed by
+	// "<dep>:<name>" for any declared step dependency. Without this fallback,
+	// injecting a persona-step output (e.g. fetch-pr/pr-context) into a
+	// downstream iterate step fails with "artifact … not found in parent
+	// context for sub-pipeline injection" even though the artifact exists.
 	if step.Config != nil && len(step.Config.Inject) > 0 {
 		paths := make(map[string]string, len(step.Config.Inject))
 		for _, name := range step.Config.Inject {
 			path := execution.Context.GetArtifactPath(name)
+			if path == "" {
+				execution.mu.Lock()
+				for _, dep := range step.Dependencies {
+					if p, ok := execution.ArtifactPaths[dep+":"+name]; ok {
+						path = p
+						break
+					}
+				}
+				execution.mu.Unlock()
+			}
 			if path == "" {
 				return fmt.Errorf("artifact %q not found in parent context for sub-pipeline injection", name)
 			}
