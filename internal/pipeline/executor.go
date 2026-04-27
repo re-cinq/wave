@@ -3388,15 +3388,21 @@ func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, exec
 		OntologySection:     ontologySection,
 		MaxConcurrentAgents: step.MaxConcurrentAgents,
 		OnStreamEvent: func(evt adapter.StreamEvent) {
+			// Reset the activity timer on ANY stream event so a thinking-only
+			// loop (no tool_use yet) does not look identical to a wedged
+			// subprocess. Only progress events (tool_use on a writing tool)
+			// reset the longer progress timer; that is what protects against
+			// read-only loops.
+			execution.mu.Lock()
+			wd := execution.Watchdog
+			execution.mu.Unlock()
+			if wd != nil {
+				wd.NotifyActivity()
+			}
+
 			if evt.Type == "tool_use" && evt.ToolName != "" {
-				execution.mu.Lock()
-				wd := execution.Watchdog
-				execution.mu.Unlock()
-				if wd != nil {
-					wd.NotifyActivity()
-					if IsProgressTool(evt.ToolName) {
-						wd.NotifyProgress()
-					}
+				if wd != nil && IsProgressTool(evt.ToolName) {
+					wd.NotifyProgress()
 				}
 				e.emit(event.Event{
 					Timestamp:  time.Now(),

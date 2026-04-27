@@ -30,8 +30,10 @@ type StallWatchdog struct {
 }
 
 // NewStallWatchdog creates a new watchdog with the given stall timeout.
-// The progress timeout defaults to 3x the activity timeout — an agent
-// can read for up to 3x longer than it can be completely silent.
+// Both the activity (any stream event) and progress (write-tool use) timers
+// share the same window — there is no longer a 3x read-only grace, since
+// activity now resets on every stream event including thinking. A run that
+// fails to make progress within the timeout is treated as wedged.
 // Returns an error if timeout is zero or negative.
 func NewStallWatchdog(timeout time.Duration) (*StallWatchdog, error) {
 	if timeout <= 0 {
@@ -39,7 +41,7 @@ func NewStallWatchdog(timeout time.Duration) (*StallWatchdog, error) {
 	}
 	return &StallWatchdog{
 		timeout:         timeout,
-		progressTimeout: timeout * 3,
+		progressTimeout: timeout,
 		activity:        make(chan struct{}, 1),
 		progress:        make(chan struct{}, 1),
 		done:            make(chan struct{}),
