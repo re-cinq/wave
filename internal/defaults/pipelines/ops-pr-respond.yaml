@@ -343,12 +343,16 @@ steps:
         - id: resolve-each
           pipeline: impl-finding
           input: "{{ item }}"
+          # Inject pr-context so each impl-finding child can read the PR head
+          # branch from .agents/artifacts/pr-context. With per-child worktree
+          # workspaces (see impl-finding.yaml) the mount-based filesystem
+          # handoff no longer applies, so injection is the supported path.
+          config:
+            inject: ["pr-context"]
           iterate:
             over: "{{ triage.out.triaged-findings.actionable }}"
-            # Serial until impl-finding gets per-child workspace isolation
-            # (see #1413). Parallel children share the /project mount and race
-            # on the working tree + git push, which silently drops commits.
-            mode: serial
+            mode: parallel
+            max_concurrent: 6
 
         - id: verify
           type: command
