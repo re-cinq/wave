@@ -10,7 +10,7 @@ import (
 	"github.com/recinq/wave/internal/state"
 )
 
-// RetroIndexer is the subset of state.StateStore needed by Storage.
+// RetroIndexer is the subset of state.RunStore needed by Storage.
 type RetroIndexer interface {
 	SaveRetrospective(record *state.RetrospectiveRecord) error
 	GetRetrospective(runID string) (*state.RetrospectiveRecord, error)

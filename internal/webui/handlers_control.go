@@ -57,7 +57,7 @@ type RunOptions struct {
 // loggingEmitter wraps an event emitter and also logs events to the state store.
 type loggingEmitter struct {
 	inner event.EventEmitter
-	store state.StateStore
+	store state.EventStore
 	runID string
 }
 

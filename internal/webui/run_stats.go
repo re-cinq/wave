@@ -78,7 +78,7 @@ func extractIssueNumber(input string) int {
 // enrichPRSummariesWithRuns adds Wave pipeline run stats to PR summaries.
 // PRs match by /pull/<N> URL, branch name, short-form "owner/repo <N>",
 // or outcome records (persisted PR URLs from pipeline outputs).
-func enrichPRSummariesWithRuns(summaries []PRSummary, runs []state.RunRecord, store state.StateStore) {
+func enrichPRSummariesWithRuns(summaries []PRSummary, runs []state.RunRecord, store state.RunStore) {
 	// Map by number (from URL/short-form) and by branch name
 	numMap := make(map[int][]state.RunRecord)
 	branchMap := make(map[string][]state.RunRecord)

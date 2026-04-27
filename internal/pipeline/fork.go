@@ -12,11 +12,11 @@ import (
 
 // ForkManager creates new pipeline runs by forking from checkpoints of existing runs.
 type ForkManager struct {
-	store state.StateStore
+	store state.RunStore
 }
 
 // NewForkManager creates a new ForkManager.
-func NewForkManager(store state.StateStore) *ForkManager {
+func NewForkManager(store state.RunStore) *ForkManager {
 	return &ForkManager{store: store}
 }
 

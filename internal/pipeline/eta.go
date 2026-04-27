@@ -21,7 +21,7 @@ type ETACalculator struct {
 // NewETACalculator creates an ETACalculator by querying historical step performance
 // from the state store. If store is nil or no historical data exists, the calculator
 // gracefully degrades — returning 0 for all estimates.
-func NewETACalculator(store state.StateStore, pipelineName string, stepIDs []string) *ETACalculator {
+func NewETACalculator(store state.RunStore, pipelineName string, stepIDs []string) *ETACalculator {
 	calc := &ETACalculator{
 		historicalAvg:    make(map[string]int64, len(stepIDs)),
 		currentDurations: make(map[string]int64),

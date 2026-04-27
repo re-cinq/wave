@@ -21,7 +21,7 @@ const sentinelPath = ".agents/.ontology-stale"
 // gate.
 type realService struct {
 	manifest  *manifest.Manifest
-	store     state.StateStore
+	store     state.OntologyStore
 	emitter   event.EventEmitter
 	auditSink AuditSink
 }

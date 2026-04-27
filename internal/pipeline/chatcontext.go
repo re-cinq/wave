@@ -35,9 +35,17 @@ type ChatStepContext struct {
 	ErrorMessage  string
 }
 
+// ChatContextStore is the persistence surface needed to assemble a chat
+// context: run lookup + event/artifact retrieval. It is satisfied by both
+// the aggregate StateStore and any composition of RunStore + EventStore.
+type ChatContextStore interface {
+	state.RunStore
+	state.EventStore
+}
+
 // BuildChatContext assembles the context for a chat session from the state store.
 // It gathers run info, step events, artifacts, and workspace paths.
-func BuildChatContext(store state.StateStore, runID string, p *Pipeline, projectRoot string) (*ChatContext, error) {
+func BuildChatContext(store ChatContextStore, runID string, p *Pipeline, projectRoot string) (*ChatContext, error) {
 	// 1. Get run record
 	run, err := store.GetRun(runID)
 	if err != nil {
@@ -203,7 +211,7 @@ func buildStepContexts(p *Pipeline, events []state.LogRecord, artifacts []state.
 }
 
 // MostRecentCompletedRunID finds the most recent completed run ID from the state store.
-func MostRecentCompletedRunID(store state.StateStore) (string, error) {
+func MostRecentCompletedRunID(store state.RunStore) (string, error) {
 	runs, err := store.ListRuns(state.ListRunsOptions{
 		Limit: 10,
 	})

@@ -14,7 +14,7 @@ import (
 // commit SHAs after each step completes. Checkpoint data is persisted via the
 // StateStore and used by fork/rewind operations to restore pipeline state.
 type CheckpointRecorder struct {
-	store state.StateStore
+	store state.RunStore
 }
 
 // Record saves a checkpoint for the given step. It captures the current

@@ -19,7 +19,7 @@ type Generator struct {
 }
 
 // NewGenerator creates a Generator with all dependencies.
-func NewGenerator(store state.StateStore, runner adapter.AdapterRunner, retrosDir string, config *manifest.RetrosConfig) *Generator {
+func NewGenerator(store state.RunStore, runner adapter.AdapterRunner, retrosDir string, config *manifest.RetrosConfig) *Generator {
 	g := &Generator{
 		collector: NewCollector(store),
 		storage:   NewStorage(retrosDir, store),

@@ -27,14 +27,14 @@ func defaultCommandRunner(ctx context.Context, name string, args ...string) ([]b
 // GateExecutor handles blocking gate steps.
 type GateExecutor struct {
 	emitterMixin
-	store    state.StateStore
+	store    state.RunStore
 	runner   commandRunner // injectable for tests
 	timeouts *manifest.Timeouts
 	handler  GateHandler // interactive handler for approval gates with choices
 }
 
 // NewGateExecutor creates a gate executor.
-func NewGateExecutor(emitter event.EventEmitter, store state.StateStore, timeouts *manifest.Timeouts) *GateExecutor {
+func NewGateExecutor(emitter event.EventEmitter, store state.RunStore, timeouts *manifest.Timeouts) *GateExecutor {
 	return &GateExecutor{
 		emitterMixin: emitterMixin{emitter: emitter},
 		store:        store,
@@ -44,7 +44,7 @@ func NewGateExecutor(emitter event.EventEmitter, store state.StateStore, timeout
 }
 
 // NewGateExecutorWithHandler creates a gate executor with an interactive handler.
-func NewGateExecutorWithHandler(emitter event.EventEmitter, store state.StateStore, timeouts *manifest.Timeouts, handler GateHandler) *GateExecutor {
+func NewGateExecutorWithHandler(emitter event.EventEmitter, store state.RunStore, timeouts *manifest.Timeouts, handler GateHandler) *GateExecutor {
 	return &GateExecutor{
 		emitterMixin: emitterMixin{emitter: emitter},
 		store:        store,
