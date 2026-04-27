@@ -1,0 +1,130 @@
+kind: WavePipeline
+metadata:
+  name: audit-event-trace
+  description: >-
+    Single-step audit sub-pipeline that reads event_log rows for an audit's
+    cited baseline run and extracts behavioural patterns (orderings, gaps,
+    bursts, missing terminal events). Used by audit-issue as one of the four
+    parallel evidence axes; ontology-aware hook into the run history.
+  category: composition
+  release: false
+
+skills:
+  - "{{ project.skill }}"
+
+input:
+  source: cli
+  type: string
+  example: "run-2026-04-27-abcd1234"
+  schema:
+    type: string
+    description: "Optional run_id to scope the trace. Empty = most recent run in the event log."
+
+chat_context:
+  artifact_summaries:
+    - event-evidence
+  suggested_questions:
+    - "Which behavioural patterns did the trace surface?"
+    - "Were terminal events missing for any phase?"
+  focus_areas:
+    - "Event ordering anomalies"
+    - "Phase completion gaps"
+
+pipeline_outputs:
+  evidence:
+    step: trace
+    artifact: event-evidence
+    type: string
+
+steps:
+  - id: trace
+    persona: auditor
+    model: cheapest
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Read the `event_log` rows in `.agents/state.db` for the cited baseline
+        run, extract behavioural patterns (orderings, gaps, bursts, missing
+        terminal events), and emit `.agents/output/event-evidence.json` matching
+        `evidence.schema.json` with `axis: "event"`.
+
+        Run scope (optional): {{ input }}
+
+        ## Context
+
+        - You have read-only access to the project tree at `/project`.
+        - The state DB lives at `.agents/state.db`. Schema: at minimum a
+          `event_log` table with `run_id`, `event_type`, `step_id`, `emitted_at`,
+          and a JSON `payload` column. Adapt to the actual columns visible in
+          `PRAGMA table_info(event_log)`.
+        - If `.agents/artifacts/issue_context` exists (parent injection), read its
+          `cited_run_id` for narrowing. Otherwise treat `{{ input }}` as the
+          run_id; if both are empty, pick the most recent run via
+          `SELECT run_id FROM event_log ORDER BY emitted_at DESC LIMIT 1`.
+        - If `.agents/state.db` does NOT exist or `event_log` is empty, emit an
+          empty evidence artifact (`items: []`) with a `summary` explaining the
+          absence and exit cleanly. Do NOT fail the step.
+
+        ## Requirements
+
+        ### Step 1 — Resolve the run_id
+
+        Pick the run_id per the precedence above. If multiple matches, prefer
+        the most recent.
+
+        ### Step 2 — Bucket events into behavioural patterns
+
+        For the resolved run, query the event log and group rows into pattern
+        buckets:
+
+        - `phase-completion-gap`: a phase emitted a `*_started` event but no
+          matching `*_completed` or `*_failed` within the run window.
+        - `event-burst`: ≥ 50 events emitted within a 1-second window (worth
+          flagging in the audit doc).
+        - `ordering-anomaly`: events emitted out of the expected order
+          (e.g. `step_completed` before `step_started`).
+        - `missing-terminal`: the run has no `pipeline_completed` or
+          `pipeline_failed` row.
+
+        For each bucket that contains rows, emit one evidence item with `kind:
+        "event_pattern"`, the bucket name, the count, and first_seen / last_seen
+        timestamps. Include up to 3 sample row IDs in the `note` field.
+
+        ### Step 3 — Emit the evidence artifact
+
+        Write `.agents/output/event-evidence.json` matching the schema. Include a
+        `summary` that names the dominant pattern (or "no anomalies detected").
+
+        ## Constraints
+
+        - Do NOT modify the DB. Read-only.
+        - Do NOT inflate findings. If the event log is clean, say so.
+        - Do NOT exceed 12 evidence items.
+
+        ## Quality bar
+
+        A good event trace surfaces real behavioural anomalies (phase gaps,
+        ordering errors, missing terminal events) with first/last seen
+        timestamps. A bad trace dumps raw event rows or invents anomalies that
+        the data doesn't support.
+    output_artifacts:
+      - name: event-evidence
+        path: .agents/output/event-evidence.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .agents/output/event-evidence.json
+        schema_path: .agents/contracts/evidence.schema.json
+        must_pass: true
+        on_failure: warn

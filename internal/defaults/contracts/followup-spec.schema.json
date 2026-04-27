@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "wave://contracts/followup-spec",
+  "title": "Follow-up Issue Spec",
+  "description": "Specification for one follow-up issue to be filed by the file-each-followup step in audit-issue. One spec per high-severity gap.",
+  "type": "object",
+  "required": ["gap_id", "title", "body", "severity"],
+  "properties": {
+    "gap_id": {
+      "type": "string",
+      "description": "ID of the source gap from gap-set (e.g. `g1`)."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Issue title."
+    },
+    "body": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Markdown body of the follow-up issue. Includes context, file:line anchors, and acceptance criteria."
+    },
+    "labels": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Labels to apply (e.g. `enhancement`, `bug`, plus the originating audit slug)."
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low", "info"],
+      "description": "Inherited severity from the gap. The file-each-followup step files only critical and high."
+    },
+    "acceptance": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Acceptance criteria checklist items (one bullet each)."
+    },
+    "parent_issue": {
+      "type": "object",
+      "description": "Reference to the parent audit issue this follow-up was spawned from.",
+      "properties": {
+        "owner": {"type": "string"},
+        "repo": {"type": "string"},
+        "number": {"type": "integer"}
+      }
+    }
+  },
+  "additionalProperties": false
+}

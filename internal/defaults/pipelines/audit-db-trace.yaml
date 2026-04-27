@@ -1,0 +1,119 @@
+kind: WavePipeline
+metadata:
+  name: audit-db-trace
+  description: >-
+    Single-step audit sub-pipeline that runs sqlite queries against the
+    .agents/state.db state store to surface concrete runtime examples for
+    audit findings (e.g. orphaned parent_run_id rows, duplicate keys, etc).
+    Used by audit-issue as one of the four parallel evidence axes; runs
+    standalone for ad-hoc DB introspection.
+  category: composition
+  release: false
+
+skills:
+  - "{{ project.skill }}"
+
+input:
+  source: cli
+  type: string
+  example: "SELECT id, pipeline, parent_run_id FROM pipeline_run WHERE parent_run_id IS NULL LIMIT 5"
+  schema:
+    type: string
+    description: "Optional override SQL. Empty input falls back to a default audit query set."
+
+chat_context:
+  artifact_summaries:
+    - db-evidence
+  suggested_questions:
+    - "Which queries produced rows?"
+    - "What runtime symptoms did the queries surface?"
+  focus_areas:
+    - "Row counts per query"
+    - "Symptoms vs root causes"
+
+pipeline_outputs:
+  evidence:
+    step: trace
+    artifact: db-evidence
+    type: string
+
+steps:
+  - id: trace
+    type: command
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    script: |
+      set -o pipefail
+      mkdir -p .agents/output
+
+      DB=.agents/state.db
+      OUT=.agents/output/db-evidence.json
+      TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+      if [ ! -f "$DB" ]; then
+        # No state DB available — emit an empty evidence artifact so the parent
+        # aggregate step still has a typed input for this axis.
+        jq -n \
+          --arg ts "$TS" \
+          '{axis:"db", items:[], summary:"No .agents/state.db on disk; db-trace skipped.", captured_at:$ts}' \
+          > "$OUT"
+        exit 0
+      fi
+
+      # Default audit query set. Each query surfaces a known runtime symptom
+      # category. Override by passing custom SQL via {{ input }} (advanced use).
+      QUERY_PARENT_NULL='SELECT id, pipeline, started_at FROM pipeline_run WHERE parent_run_id IS NULL ORDER BY started_at DESC LIMIT 5'
+      QUERY_ORPHAN_STATE="SELECT pipeline_id, run_id, current_step FROM pipeline_state WHERE run_id NOT IN (SELECT id FROM pipeline_run) LIMIT 5"
+      QUERY_RECENT_FAILURES='SELECT id, pipeline, status, finished_at FROM pipeline_run WHERE status = "failed" ORDER BY finished_at DESC LIMIT 5'
+
+      run_query() {
+        local label="$1" sql="$2"
+        local rows sample
+        # Count rows; if the table doesn't exist, sqlite errors with a non-zero
+        # exit code — capture and treat as zero rows, no sample.
+        if ! rows=$(sqlite3 "$DB" "SELECT COUNT(*) FROM ($sql)" 2>/dev/null); then
+          rows=0
+          sample="[]"
+        else
+          if ! sample=$(sqlite3 -json "$DB" "$sql" 2>/dev/null); then
+            sample="[]"
+          fi
+          if [ -z "$sample" ]; then
+            sample="[]"
+          fi
+        fi
+        jq -n \
+          --arg id "$label" \
+          --arg query "$sql" \
+          --argjson rows "$rows" \
+          --argjson sample "$sample" \
+          '{id:$id, kind:"query_row", query:$query, rows:$rows, sample:$sample}'
+      }
+
+      ITEMS=$(jq -s '.' \
+        <(run_query e1 "$QUERY_PARENT_NULL") \
+        <(run_query e2 "$QUERY_ORPHAN_STATE") \
+        <(run_query e3 "$QUERY_RECENT_FAILURES"))
+
+      TOTAL=$(printf '%s' "$ITEMS" | jq '[.[] | .rows] | add // 0')
+
+      jq -n \
+        --argjson items "$ITEMS" \
+        --arg summary "Ran 3 default audit queries; total rows across queries: $TOTAL" \
+        --arg ts "$TS" \
+        '{axis:"db", items:$items, summary:$summary, captured_at:$ts}' \
+        > "$OUT"
+    output_artifacts:
+      - name: db-evidence
+        path: .agents/output/db-evidence.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .agents/output/db-evidence.json
+        schema_path: .agents/contracts/evidence.schema.json
+        must_pass: true
+        on_failure: warn

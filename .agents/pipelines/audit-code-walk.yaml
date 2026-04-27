@@ -1,0 +1,140 @@
+kind: WavePipeline
+metadata:
+  name: audit-code-walk
+  description: >-
+    Single-step audit sub-pipeline that walks the code paths cited in an audit
+    issue and emits a structured code-evidence artifact (file:line + excerpt +
+    role). Used by audit-issue as one of the four parallel evidence axes; runs
+    standalone against the local repo for ad-hoc inspections.
+  category: composition
+  release: false
+
+skills:
+  - "{{ project.skill }}"
+  - software-design
+
+input:
+  source: cli
+  type: string
+  example: "internal/webui/composition.go:513-578"
+  schema:
+    type: string
+    description: "Free-text scope: file:line range, package, or topical area to walk."
+
+chat_context:
+  artifact_summaries:
+    - code-evidence
+  suggested_questions:
+    - "Which file:line ranges were walked?"
+    - "What roles were assigned to each excerpt?"
+  focus_areas:
+    - "File:line precision"
+    - "Path-A vs Path-B labelling"
+
+pipeline_outputs:
+  evidence:
+    step: walk
+    artifact: code-evidence
+    type: string
+
+steps:
+  - id: walk
+    persona: navigator
+    model: balanced
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Walk the code paths cited in the input scope and emit
+        `.agents/output/code-evidence.json` matching the `evidence.schema.json`
+        contract with `axis: "code"`. Each item is one file:line excerpt with
+        a `role` label that explains why the excerpt matters.
+
+        Scope (free-text from the audit issue): {{ input }}
+
+        ## Context
+
+        - You have read-only access to the project tree at `/project`.
+        - If `.agents/artifacts/issue_context` exists (parent pipeline injection),
+          read its `cited_files` and `cited_routes` arrays for narrowing the walk.
+          Otherwise treat the input scope string as authoritative.
+        - The role taxonomy is intentionally loose: pick from
+          `path-a-bug | path-b-correct | runtime-symptom | dead-code | duplicate | risk | reference`
+          or invent a kebab-case label that names the role precisely.
+
+        ## Requirements
+
+        ### Step 1 — Resolve scope to file:line ranges
+
+        Parse the input. Use Grep / Read to locate each cited file. For each
+        file, identify the relevant line range (default: ±20 lines around the
+        cited symbol; tighten to the actual block).
+
+        ### Step 2 — Read each range and capture the excerpt
+
+        For every range, read the file and capture an excerpt (≤ 30 lines).
+        Trim trailing whitespace. Preserve indentation.
+
+        ### Step 3 — Label each excerpt with a role
+
+        Pick the role that explains WHY this excerpt matters in the audit. If
+        the audit identifies two competing code paths (e.g. Path A vs Path B),
+        emit one excerpt per path with `path-a-bug` and `path-b-correct`.
+
+        ### Step 4 — Emit the evidence artifact
+
+        Write `.agents/output/code-evidence.json`:
+
+        ```json
+        {
+          "axis": "code",
+          "items": [
+            {
+              "id": "e1",
+              "kind": "file_excerpt",
+              "file": "<path>",
+              "line_start": <int>,
+              "line_end": <int>,
+              "excerpt": "<text>",
+              "role": "<kebab-case-role>"
+            }
+          ],
+          "summary": "<one-paragraph synthesis>",
+          "captured_at": "<ISO 8601>"
+        }
+        ```
+
+        ## Constraints
+
+        - Do NOT modify any files. Read-only.
+        - Do NOT walk the entire repo. Stay within the cited scope.
+        - Do NOT inflate excerpts. ≤ 30 lines each.
+        - Do NOT invent roles that don't match the audit's framing — the
+          downstream synthesize step relies on stable role labels for cross-axis
+          correlation.
+
+        ## Quality bar
+
+        A good walk surfaces ≥ 80% of the code referenced in the audit issue
+        with precise line ranges and stable role labels. A bad walk drops ranges,
+        over-quotes (whole files), or labels everything with a single generic role.
+    output_artifacts:
+      - name: code-evidence
+        path: .agents/output/code-evidence.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .agents/output/code-evidence.json
+        schema_path: .agents/contracts/evidence.schema.json
+        must_pass: true
+        on_failure: warn
