@@ -11,8 +11,8 @@ Accepted (Phase 1 — depguard rules live; package count drifted upward)
 Landed:
 - `depguard` rules in `.golangci.yml` enforce two layer constraints:
   - `no-presentation-reverse` blocks `display`, `tui`, `webui`, `onboarding` from being imported by domain or infrastructure code.
-  - `infrastructure-no-domain` blocks `pipeline`, `adapter`, `contract`, `relay`, `deliverable`, `preflight`, `recovery`, `skill`, `defaults`, `suggest`, `doctor` from being imported by infrastructure.
-- Verified import constraints: `display` → `event`/`pathfmt`/`deliverable` only; `pipeline` does not import `display`/`tui`.
+  - `infrastructure-no-domain` blocks `pipeline`, `adapter`, `contract`, `relay`, `preflight`, `recovery`, `skill`, `defaults`, `suggest`, `doctor` from being imported by infrastructure.
+- Verified import constraints: `display` → `event`/`pathfmt`/`state` only; `pipeline` does not import `display`/`tui`.
 
 Drift since the original ADR was drafted:
 - `internal/` package count grew from 25 to 39 (additions include `attention`, `bench`, `classify`, `continuous`, `cost`, `fileutil`, `hooks`, `humanize`, `ontology`, `retro`, `sandbox`, `scope`, `testutil`, `timeouts`, `tools`).
@@ -21,7 +21,7 @@ Drift since the original ADR was drafted:
 
 ## Context
 
-Wave's `internal/` directory contains 25 packages that have grown organically during rapid prototyping (v0.15.0 → v0.84.1). While the separation between presentation and backend is already reasonably clean — `display/` imports only `event/`, `pathfmt/`, and `deliverable/`; `pipeline/` does not import `display/` or `tui/` — some areas have accumulated cross-layer coupling that warrants formal documentation and enforcement.
+Wave's `internal/` directory contains 25 packages that have grown organically during rapid prototyping (v0.15.0 → v0.84.1). While the separation between presentation and backend is already reasonably clean — `display/` imports only `event/`, `pathfmt/`, and `state/`; `pipeline/` does not import `display/` or `tui/` — some areas have accumulated cross-layer coupling that warrants formal documentation and enforcement.
 
 ### Current State
 
@@ -33,8 +33,7 @@ An audit of the codebase reveals the following import relationships among intern
 | `audit` | (none) |
 | `contract` | `pathfmt` |
 | `defaults` | `manifest`, `pipeline` |
-| `deliverable` | `pathfmt` |
-| `display` | `deliverable`, `event`, `pathfmt` |
+| `display` | `event`, `pathfmt`, `state` |
 | `doctor` | `forge`, `github`, `manifest`, `onboarding`, `pipeline` |
 | `event` | (none) |
 | `forge` | (none) |
@@ -42,7 +41,7 @@ An audit of the codebase reveals the following import relationships among intern
 | `manifest` | `skill` |
 | `onboarding` | `manifest`, `skill`, `tui` |
 | `pathfmt` | (none) |
-| `pipeline` | `adapter`, `audit`, `contract`, `deliverable`, `event`, `forge`, `manifest`, `preflight`, `recovery`, `relay`, `security`, `skill`, `state`, `workspace`, `worktree` |
+| `pipeline` | `adapter`, `audit`, `contract`, `event`, `forge`, `manifest`, `preflight`, `recovery`, `relay`, `security`, `skill`, `state`, `workspace`, `worktree` |
 | `preflight` | `skill` |
 | `recovery` | `contract`, `pathfmt`, `preflight`, `security` |
 | `relay` | (none) |
@@ -88,7 +87,6 @@ Adopt a four-layer architectural model for Wave's internal packages and enforce 
 | `adapter` | Subprocess execution and adapter management |
 | `contract` | Output validation (JSON schema, TypeScript, test suites) |
 | `relay` | Context compaction and summarization |
-| `deliverable` | Pipeline deliverable tracking and output |
 | `preflight` | Pipeline dependency validation and auto-install |
 | `recovery` | Pipeline recovery hints and error guidance |
 | `skill` | Skill discovery, provisioning, and command management |

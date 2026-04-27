@@ -39,12 +39,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unified forge-specific pipelines into forge-agnostic pipelines with template variables
 - `github_api_seconds` → `forge_api_seconds` in timeout configuration
 - All hardcoded timeout values replaced with configurable constants via `internal/timeouts`
+- `state.OutcomeRecord` extended with `Description`, `Metadata`, and typed `OutcomeType` (migration #24); new `state.OutcomeTracker` replaces `deliverable.Tracker` with persistence-on-add (#1286)
+- `executor.GetDeliverableTracker()` → `executor.GetOutcomeTracker()`; `BubbleTeaProgressDisplay.SetDeliverableTracker` → `SetOutcomeTracker` (#1286)
 
 ### Removed
 - Deprecated pipeline name resolution (`ResolveDeprecatedName`) — no backward-compat shims pre-1.0.0
 - Timeout constant re-exports from `manifest` package
 - Stale multiplatform pipeline tests referencing non-existent gl-*/gt-* YAML files
 - Nonexistent `timeout` and `retry` persona fields from custom-personas guide
+- `internal/deliverable` package — merged into `state.OutcomeRecord` and `state.OutcomeTracker`. Single outcome model backed by SQLite with persistence-on-add (#1286)
 
 ## [0.69.0] - 2026-03-10
 

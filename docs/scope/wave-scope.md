@@ -55,7 +55,6 @@
 | `audit` | 388 | Audit logging and credential scrubbing | Active |
 | `scope` | 604 | Persona token scope validation | Active |
 | `cost` | 237 | Cost ledger and budget enforcement | Active |
-| `deliverable` | 513 | Pipeline deliverable tracking | Active |
 | `retro` | 659 | Run retrospective generation | Active |
 | `pathfmt` | 22 | Path formatting utilities | Active |
 | `timeouts` | 29 | Timeout constants | Active |

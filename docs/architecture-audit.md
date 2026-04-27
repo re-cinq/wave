@@ -14,7 +14,6 @@ Wave's `internal/` directory contains **25 Go packages** totaling ~48,655 lines 
 | `audit` | 133 | 709 | Audit logging with credential scrubbing |
 | `contract` | 4,030 | 3,498 | Output validation (JSON schema, TypeScript, test suites, markdown spec) |
 | `defaults` | 209 | 529 | Embedded default personas, pipelines, and contracts |
-| `deliverable` | 513 | 222 | Pipeline deliverable tracking and output formatting |
 | `display` | 5,294 | 5,605 | Terminal progress display and formatting |
 | `doctor` | 2,474 | 2,500 | Project health checking and optimization |
 | `event` | 200 | 642 | Progress event emission and monitoring (producer/consumer) |
@@ -46,8 +45,7 @@ Each row shows which internal packages are imported.
 | `audit` | *(none)* | 0 |
 | `contract` | `pathfmt` | 1 |
 | `defaults` | `manifest`, `pipeline` | 2 |
-| `deliverable` | `pathfmt` | 1 |
-| `display` | `deliverable`, `event`, `pathfmt` | 3 |
+| `display` | `event`, `pathfmt`, `state` | 3 |
 | `doctor` | `forge`, `github`, `manifest`, `onboarding`, `pipeline` | 5 |
 | `event` | *(none)* | 0 |
 | `forge` | *(none)* | 0 |
@@ -55,7 +53,7 @@ Each row shows which internal packages are imported.
 | `manifest` | `skill` | 1 |
 | `onboarding` | `manifest`, `skill`, `tui` | 3 |
 | `pathfmt` | *(none)* | 0 |
-| `pipeline` | `adapter`, `audit`, `contract`, `deliverable`, `event`, `forge`, `manifest`, `preflight`, `recovery`, `relay`, `security`, `skill`, `state`, `workspace`, `worktree` | 15 |
+| `pipeline` | `adapter`, `audit`, `contract`, `event`, `forge`, `manifest`, `preflight`, `recovery`, `relay`, `security`, `skill`, `state`, `workspace`, `worktree` | 14 |
 | `preflight` | `skill` | 1 |
 | `recovery` | `contract`, `pathfmt`, `preflight`, `security` | 4 |
 | `relay` | *(none)* | 0 |
@@ -75,7 +73,7 @@ Each row shows which internal packages are imported.
 | `manifest` | `defaults`, `doctor`, `onboarding`, `pipeline`, `tui`, `webui` | 6 |
 | `skill` | `manifest`, `onboarding`, `pipeline`, `preflight` | 4 |
 | `event` | `display`, `pipeline`, `tui`, `webui` | 4 |
-| `pathfmt` | `contract`, `deliverable`, `display`, `recovery`, `tui` | 5 |
+| `pathfmt` | `contract`, `display`, `recovery`, `state`, `tui` | 5 |
 | `pipeline` | `defaults`, `doctor`, `tui`, `webui` | 4 |
 | `forge` | `doctor`, `pipeline`, `suggest`, `tui` | 4 |
 | `state` | `pipeline`, `tui`, `webui` | 3 |
@@ -85,7 +83,6 @@ Each row shows which internal packages are imported.
 | `github` | `adapter`, `doctor`, `tui` | 3 |
 | `contract` | `pipeline`, `recovery` | 2 |
 | `workspace` | `pipeline`, `webui` | 2 |
-| `deliverable` | `display`, `pipeline` | 2 |
 | `audit` | `pipeline`, `webui` | 2 |
 | `preflight` | `pipeline`, `recovery` | 2 |
 | `doctor` | `suggest` | 1 |
@@ -219,7 +216,6 @@ Test-to-production ratio varies significantly:
 | `workspace` | 3.3:1 | Well-tested |
 | `tui` | 0.9:1 | Could use more test coverage |
 | `webui` | 0.4:1 | Low test coverage |
-| `deliverable` | 0.4:1 | Low test coverage |
 
 ## ADR-003 Discrepancies Found
 
