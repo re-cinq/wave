@@ -77,7 +77,7 @@ steps:
     # are automatically injected. This gives the planner the full domain picture.
     # See AGENTS.md § "Ontology Context Injection" for details.
     persona: implementer
-    model: balanced
+    model: strongest
     dependencies: [fetch-assess]
     memory:
       inject_artifacts:
@@ -116,7 +116,7 @@ steps:
 
   - id: implement
     persona: craftsman
-    model: balanced
+    model: strongest
     contexts: [execution, delivery]
     thread: impl
     dependencies: [plan]
@@ -151,7 +151,7 @@ steps:
 
   - id: fix-implement
     persona: craftsman
-    model: balanced
+    model: strongest
     rework_only: true
     workspace:
       type: worktree

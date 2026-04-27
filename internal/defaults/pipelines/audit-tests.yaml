@@ -36,7 +36,6 @@ pipeline_outputs:
 steps:
   - id: scan
     persona: navigator
-    contexts: [validation]
     model: cheapest
     workspace:
       mount:
@@ -63,7 +62,6 @@ steps:
   - id: report
     persona: summarizer
     model: cheapest
-    contexts: [validation]
     dependencies: [scan]
     memory:
       inject_artifacts:

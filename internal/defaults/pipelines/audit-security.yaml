@@ -39,7 +39,6 @@ pipeline_outputs:
 steps:
   - id: scan
     persona: navigator
-    contexts: [security]
     model: balanced
     workspace:
       mount:
@@ -149,8 +148,7 @@ steps:
 
   - id: deep-dive
     persona: auditor
-    model: balanced
-    contexts: [security]
+    model: strongest
     max_concurrent_agents: 3
     dependencies: [scan]
     memory:
@@ -258,7 +256,6 @@ steps:
   - id: report
     persona: summarizer
     model: cheapest
-    contexts: [security]
     dependencies: [deep-dive, scan]
     memory:
       inject_artifacts:

@@ -247,7 +247,7 @@ steps:
   # ── Diamond 1: Define (CONVERGENT) ───────────────────────────────────
   - id: converge
     persona: validator
-    model: balanced
+    model: strongest
     dependencies: [diverge]
     memory:
       inject_artifacts:
@@ -484,7 +484,7 @@ steps:
   # ── Diamond 2: Deliver (CONVERGENT) ──────────────────────────────────
   - id: distill
     persona: synthesizer
-    model: balanced
+    model: strongest
     dependencies: [probe]
     memory:
       inject_artifacts:
@@ -618,7 +618,7 @@ steps:
   # ── Implementation ───────────────────────────────────────────────────
   - id: simplify
     persona: craftsman
-    model: balanced
+    model: strongest
     dependencies: [distill]
     memory:
       inject_artifacts:

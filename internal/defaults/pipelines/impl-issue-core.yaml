@@ -49,7 +49,6 @@ input:
 steps:
   - id: fetch-assess
     persona: implementer
-    contexts: [configuration]
     model: cheapest
     workspace:
       type: worktree
@@ -74,7 +73,7 @@ steps:
 
   - id: plan
     persona: implementer
-    model: balanced
+    model: strongest
     dependencies: [fetch-assess]
     memory:
       inject_artifacts:
@@ -113,8 +112,7 @@ steps:
 
   - id: implement
     persona: craftsman
-    model: balanced
-    contexts: [execution, delivery]
+    model: strongest
     thread: impl
     dependencies: [plan]
     memory:

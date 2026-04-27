@@ -149,7 +149,7 @@ steps:
 
   - id: deep-dive
     persona: auditor
-    model: balanced
+    model: strongest
     contexts: [security]
     max_concurrent_agents: 3
     dependencies: [scan]
