@@ -473,7 +473,7 @@ runtime:
         strategy: summarize_to_checkpoint
         token_threshold_percent: 80
     timeouts:
-        step_default_minutes: 5
+        step_default_minutes: 15
         relay_compaction_minutes: 5
         meta_default_minutes: 30
         skill_install_seconds: 120
