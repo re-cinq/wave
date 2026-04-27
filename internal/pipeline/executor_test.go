@@ -4874,7 +4874,7 @@ func TestExecuteWithoutSkillsField(t *testing.T) {
 			},
 		}
 
-		errs := executor.validateSkillRefs(p.Skills, p.Metadata.Name, m)
+		errs := executor.sec.validateSkillRefs(p.Skills, p.Metadata.Name, m)
 		assert.Nil(t, errs, "validateSkillRefs should return nil when skill store is nil")
 	})
 

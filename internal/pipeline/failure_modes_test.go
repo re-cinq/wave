@@ -54,10 +54,13 @@ func setupFailureModeTest(t *testing.T, runner adapter.AdapterRunner, opts ...Ex
 	securityConfig := security.DefaultSecurityConfig()
 	securityConfig.PathValidation.ApprovedDirectories = []string{tmpDir}
 	securityLogger := security.NewSecurityLogger(false)
-	executor.securityConfig = securityConfig
-	executor.pathValidator = security.NewPathValidator(*securityConfig, securityLogger)
-	executor.inputSanitizer = security.NewInputSanitizer(*securityConfig, securityLogger)
-	executor.securityLogger = securityLogger
+	executor.sec = &securityLayer{
+		e:              executor,
+		securityConfig: securityConfig,
+		pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
+		inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
+		securityLogger: securityLogger,
+	}
 
 	return &failureModeTestContext{
 		executor:  executor,

@@ -173,11 +173,6 @@ type StateStore interface {
 	RecordWebhookDelivery(delivery *WebhookDelivery) error
 	GetWebhookDeliveries(webhookID int64, limit int) ([]*WebhookDelivery, error)
 
-	// Pipeline outcome persistence (survives worktree cleanup)
-	RecordOutcome(runID, stepID, outcomeType, label, value, description string, metadata map[string]any) error
-	GetOutcomes(runID string) ([]OutcomeRecord, error)
-	GetOutcomesByValue(outcomeType, value string) ([]OutcomeRecord, error)
-
 	// Orchestration decision tracking (task classification feedback loop)
 	RecordOrchestrationDecision(record *OrchestrationDecision) error
 	UpdateOrchestrationOutcome(runID string, outcome string, tokensUsed int, durationMs int64) error

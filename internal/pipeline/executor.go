@@ -68,11 +68,8 @@ type DefaultPipelineExecutor struct {
 	pipelines    map[string]*PipelineExecution
 	mu           sync.RWMutex
 	debug        bool
-	// Security infrastructure
-	securityConfig *security.SecurityConfig
-	pathValidator  *security.PathValidator
-	inputSanitizer *security.InputSanitizer
-	securityLogger *security.SecurityLogger
+	// Security layer: path/input/schema sanitization, skill ref validation
+	sec *securityLayer
 	// Outcome tracking (in-memory cache + state-store persistence)
 	outcomeTracker *state.OutcomeTracker
 	// Pre-generated run ID (optional — if empty, Execute generates one)
@@ -335,13 +332,8 @@ func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOp
 		ex.registry = adapter.NewSingleRunnerRegistry(runner)
 	}
 
-	// Initialize security after options so logging respects --debug
-	securityConfig := security.DefaultSecurityConfig()
-	securityLogger := security.NewSecurityLogger(securityConfig.LoggingEnabled && ex.debug)
-	ex.securityConfig = securityConfig
-	ex.pathValidator = security.NewPathValidator(*securityConfig, securityLogger)
-	ex.inputSanitizer = security.NewInputSanitizer(*securityConfig, securityLogger)
-	ex.securityLogger = securityLogger
+	// Initialize security layer after options so logging respects --debug
+	ex.sec = newSecurityLayer(ex)
 
 	return ex
 }
@@ -350,7 +342,7 @@ func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOp
 // event emitter, workspace manager, and configuration, but has independent
 // execution state. Used for child pipeline invocation within matrix strategies.
 func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
-	return &DefaultPipelineExecutor{
+	child := &DefaultPipelineExecutor{
 		emitterMixin:           emitterMixin{emitter: e.emitter},
 		runner:                 e.runner,
 		registry:               e.registry,
@@ -362,10 +354,7 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		pipelines:              make(map[string]*PipelineExecution),
 		debug:                  e.debug,
 		modelOverride:          e.modelOverride,
-		securityConfig:         e.securityConfig,
-		pathValidator:          e.pathValidator,
-		inputSanitizer:         e.inputSanitizer,
-		securityLogger:         e.securityLogger,
+		sec:                    e.sec,
 		outcomeTracker:         state.NewOutcomeTracker("", e.store),
 		crossPipelineArtifacts: e.crossPipelineArtifacts,
 		preserveWorkspace:      e.preserveWorkspace,
@@ -376,6 +365,20 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		retroGenerator:         e.retroGenerator,
 		ontology:               e.ontology,
 	}
+	// Share parent security layer's collaborators so child sees identical
+	// path/sanitization config but with its own back-pointer.
+	if e.sec != nil {
+		child.sec = &securityLayer{
+			e:              child,
+			securityConfig: e.sec.securityConfig,
+			pathValidator:  e.sec.pathValidator,
+			inputSanitizer: e.sec.inputSanitizer,
+			securityLogger: e.sec.securityLogger,
+		}
+	} else {
+		child.sec = newSecurityLayer(child)
+	}
+	return child
 }
 
 // LastExecution returns the most recently executed pipeline's execution state.
@@ -547,7 +550,7 @@ func (e *DefaultPipelineExecutor) validatePipelineAndCreateContext(p *Pipeline, 
 // checks, and token scope validation. It is the second phase of Execute.
 func (e *DefaultPipelineExecutor) checkPipelinePreflights(_ context.Context, setup *pipelineSetup, p *Pipeline, m *manifest.Manifest) error {
 	// Validate skill references at manifest and pipeline scopes (after template resolution)
-	if errs := e.validateSkillRefs(setup.resolvedPipelineSkills, p.Metadata.Name, m); len(errs) > 0 {
+	if errs := e.sec.validateSkillRefs(setup.resolvedPipelineSkills, p.Metadata.Name, m); len(errs) > 0 {
 		msgs := make([]string, len(errs))
 		for i, err := range errs {
 			msgs[i] = err.Error()
@@ -1400,19 +1403,19 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 	// SECURITY: Reject command step execution when no sanitizer is configured.
 	// Template resolution can introduce user-controlled content that must be
 	// sanitized before shell execution.
-	if e.inputSanitizer == nil {
+	if e.sec == nil || e.sec.inputSanitizer == nil {
 		return nil, fmt.Errorf("command step %q: refusing to execute without input sanitizer", step.ID)
 	}
 
 	// SECURITY: Sanitize the resolved script to detect injection attempts.
 	// Template resolution can introduce user-controlled content (e.g. issue titles,
 	// branch names) that could contain shell metacharacters or injection payloads.
-	if e.inputSanitizer != nil {
-		record, sanitized, err := e.inputSanitizer.SanitizeInput(script, "command_script")
+	if e.sec.inputSanitizer != nil {
+		record, sanitized, err := e.sec.inputSanitizer.SanitizeInput(script, "command_script")
 		if err != nil {
 			// Sanitization rejected the input (strict mode / prompt injection detected)
-			if e.securityLogger != nil {
-				e.securityLogger.LogViolation(
+			if e.sec.securityLogger != nil {
+				e.sec.securityLogger.LogViolation(
 					string(security.ViolationPromptInjection),
 					string(security.SourceUserInput),
 					fmt.Sprintf("command step %q script rejected by sanitizer: %v", step.ID, err),
@@ -4032,10 +4035,10 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 	var sanitizedInput string
 	if execution.Input != "" {
 		// SECURITY FIX: Sanitize user input for prompt injection
-		sanitizationRecord, tmpInput, sanitizeErr := e.inputSanitizer.SanitizeInput(execution.Input, "task_description")
+		sanitizationRecord, tmpInput, sanitizeErr := e.sec.inputSanitizer.SanitizeInput(execution.Input, "task_description")
 		if sanitizeErr != nil {
 			// Security violation detected - log and reject
-			e.securityLogger.LogViolation(
+			e.sec.securityLogger.LogViolation(
 				string(security.ViolationPromptInjection),
 				string(security.SourceUserInput),
 				fmt.Sprintf("User input sanitization failed for step %s", step.ID),
@@ -4048,7 +4051,7 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 		} else {
 			// Log sanitization details
 			if sanitizationRecord.ChangesDetected {
-				e.securityLogger.LogViolation(
+				e.sec.securityLogger.LogViolation(
 					string(security.ViolationPromptInjection),
 					string(security.SourceUserInput),
 					fmt.Sprintf("User input sanitized for step %s (risk score: %d)", step.ID, sanitizationRecord.RiskScore),
@@ -4253,7 +4256,7 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 
 			// Schema validation for input artifacts (if schema_path is specified)
 			if ref.SchemaPath != "" {
-				schemaContent, err := e.loadSchemaContent(step, ref.SchemaPath)
+				schemaContent, err := e.sec.loadSchemaContent(step, ref.SchemaPath)
 				if err != nil {
 					return fmt.Errorf("input artifact '%s': %w", artName, err)
 				}
@@ -4363,7 +4366,7 @@ func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, 
 
 		// Schema validation for input artifacts (if schema_path is specified)
 		if ref.SchemaPath != "" {
-			schemaContent, err := e.loadSchemaContent(step, ref.SchemaPath)
+			schemaContent, err := e.sec.loadSchemaContent(step, ref.SchemaPath)
 			if err != nil {
 				return fmt.Errorf("input artifact '%s': %w", artName, err)
 			}
@@ -4565,32 +4568,6 @@ func (e *DefaultPipelineExecutor) warnOnUnexpectedArtifacts(execution *PipelineE
 		State:      "warning",
 		Message:    fmt.Sprintf("step wrote %d file(s) outside declared output_artifacts paths: %s", len(unexpected), strings.Join(preview, ", ")),
 	})
-}
-
-// validateSkillRefs validates skill references at manifest (global + persona)
-// and pipeline scopes against the skill store. Returns nil if no store is set.
-// pipelineSkills should be the already-resolved (template-expanded) skill list
-// so that callers never need to mutate the shared Pipeline struct.
-func (e *DefaultPipelineExecutor) validateSkillRefs(pipelineSkills []string, pipelineName string, m *manifest.Manifest) []error {
-	if e.skillStore == nil {
-		return nil
-	}
-
-	// Validate manifest-level skills (global + persona scopes)
-	var personas []skill.PersonaSkills
-	for name, persona := range m.Personas {
-		if len(persona.Skills) > 0 {
-			personas = append(personas, skill.PersonaSkills{Name: name, Skills: persona.Skills})
-		}
-	}
-	errs := skill.ValidateManifestSkills(m.Skills, personas, e.skillStore)
-
-	// Validate pipeline-level skills (already template-resolved by caller)
-	if len(pipelineSkills) > 0 {
-		errs = append(errs, skill.ValidateSkillRefs(pipelineSkills, "pipeline:"+pipelineName, e.skillStore)...)
-	}
-
-	return errs
 }
 
 // parseStallTimeout parses the stall timeout from the manifest runtime config.
@@ -4849,7 +4826,7 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 		// here: buildContractPrompt is advisory (it drives persona guidance),
 		// not authoritative — actual schema enforcement happens at validation
 		// time, which surfaces the real error.
-		schemaContent, _ := e.loadSecureSchemaContent(step)
+		schemaContent, _ := e.sec.loadSecureSchemaContent(step)
 		if schemaContent != "" {
 			// Include the full schema for the persona to reference
 			b.WriteString("**Schema** (your output must conform to this):\n```json\n")
@@ -4941,136 +4918,6 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 	return b.String()
 }
 
-// loadSchemaContent securely loads schema content from a path, applying
-// path traversal validation and content sanitization. This is the single
-// point for all schema loading — both output contracts and input artifact
-// validation should use this instead of raw os.ReadFile.
-//
-// The step parameter is used only for preserving the step ID in security
-// sanitization logs; it may be nil in contexts without a step (e.g. tests).
-//
-// Returns an empty string and nil error when schemaPath is empty (caller may
-// opt out of schema loading). Otherwise returns a specific wrapped error for
-// path-traversal, read failures, and sanitization failures so callers can
-// distinguish missing-schema from security-rejected content.
-func (e *DefaultPipelineExecutor) loadSchemaContent(step *Step, schemaPath string) (string, error) {
-	if schemaPath == "" {
-		return "", nil
-	}
-	if e.pathValidator != nil {
-		validationResult, pathErr := e.pathValidator.ValidatePath(schemaPath)
-		if pathErr != nil {
-			if e.securityLogger != nil {
-				e.securityLogger.LogViolation(
-					string(security.ViolationPathTraversal),
-					string(security.SourceSchemaPath),
-					fmt.Sprintf("Schema path validation failed: %s", schemaPath),
-					security.SeverityCritical,
-					true,
-				)
-			}
-			return "", fmt.Errorf("schema path validation failed: %w", pathErr)
-		}
-		if !validationResult.IsValid {
-			return "", fmt.Errorf("schema path rejected by validator")
-		}
-		data, readErr := os.ReadFile(validationResult.ValidatedPath)
-		if readErr != nil {
-			return "", fmt.Errorf("read schema: %w", readErr)
-		}
-		sanitized, sanitizeErr := e.sanitizeSchemaContent(step, string(data))
-		if sanitizeErr != nil {
-			return "", sanitizeErr
-		}
-		return sanitized, nil
-	}
-	// No path validator (e.g. in tests) — read directly
-	data, err := os.ReadFile(schemaPath)
-	if err != nil {
-		return "", fmt.Errorf("read schema: %w", err)
-	}
-	return string(data), nil
-}
-
-// loadSecureSchemaContent loads schema content for a step's handover contract,
-// honoring either SchemaPath (preferred) or inline Schema. Returns an empty
-// string with nil error when neither is specified, a wrapped error when
-// loading/sanitization fails, and the sanitized content otherwise.
-func (e *DefaultPipelineExecutor) loadSecureSchemaContent(step *Step) (string, error) {
-	if step.Handover.Contract.SchemaPath != "" {
-		return e.loadSchemaContent(step, step.Handover.Contract.SchemaPath)
-	}
-
-	if step.Handover.Contract.Schema != "" {
-		return e.sanitizeSchemaContent(step, step.Handover.Contract.Schema)
-	}
-
-	return "", nil
-}
-
-// sanitizeSchemaContent applies prompt injection sanitization to schema content.
-// Returns the sanitized content, or a wrapped error if sanitization fails.
-func (e *DefaultPipelineExecutor) sanitizeSchemaContent(step *Step, content string) (string, error) {
-	if e.inputSanitizer == nil {
-		return content, nil
-	}
-	sanitized, sanitizationActions, err := e.inputSanitizer.SanitizeSchemaContent(content)
-	if err != nil {
-		stepLabel := "unknown"
-		if step != nil {
-			stepLabel = step.ID
-		}
-		if e.securityLogger != nil {
-			e.securityLogger.LogViolation(
-				string(security.ViolationInputValidation),
-				string(security.SourceSchemaPath),
-				fmt.Sprintf("Schema content sanitization failed for step %s", stepLabel),
-				security.SeverityHigh,
-				true,
-			)
-		}
-		return "", fmt.Errorf("schema content sanitization failed")
-	}
-	if len(sanitizationActions) > 0 {
-		stepLabel := "unknown"
-		if step != nil {
-			stepLabel = step.ID
-		}
-		if e.securityLogger != nil {
-			e.securityLogger.LogViolation(
-				string(security.ViolationPromptInjection),
-				string(security.SourceSchemaPath),
-				fmt.Sprintf("Schema content sanitized for step %s: %v", stepLabel, sanitizationActions),
-				security.SeverityMedium,
-				false,
-			)
-		}
-	}
-	return sanitized, nil
-}
-
-// schemaFieldPlaceholder returns a JSON placeholder value for a schema property,
-// used in the contract compliance example skeleton.
-func schemaFieldPlaceholder(_ string, prop map[string]any) string {
-	if prop == nil {
-		return "\"...\""
-	}
-	t, _ := prop["type"].(string)
-	switch t {
-	case "string":
-		return "\"...\""
-	case "integer", "number":
-		return "0"
-	case "boolean":
-		return "false"
-	case "array":
-		return "[...]"
-	case "object":
-		return "{...}"
-	default:
-		return "\"...\""
-	}
-}
 
 // processStepOutcomes extracts declared outcomes from step artifacts and registers
 // them with the deliverable tracker for display in the pipeline output summary.

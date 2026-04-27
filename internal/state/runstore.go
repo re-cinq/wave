@@ -70,7 +70,7 @@ type RunStore interface {
 	GetDecisionsByStep(runID, stepID string) ([]*DecisionRecord, error)
 
 	// Outcomes
-	RecordOutcome(runID, stepID, outcomeType, label, value string) error
+	RecordOutcome(runID, stepID, outcomeType, label, value, description string, metadata map[string]any) error
 	GetOutcomes(runID string) ([]OutcomeRecord, error)
 	GetOutcomesByValue(outcomeType, value string) ([]OutcomeRecord, error)
 
