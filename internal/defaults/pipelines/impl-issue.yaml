@@ -105,7 +105,7 @@ steps:
           persona: reviewer
           criteria_path: .agents/contracts/plan-review-criteria.md
           source: .agents/output/impl-plan.json
-          model: cheapest
+          model: balanced
           token_budget: 16000
           timeout: 120s
           on_failure: warn
