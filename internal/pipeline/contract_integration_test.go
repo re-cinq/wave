@@ -316,10 +316,13 @@ func TestContractIntegration_SchemaInjectedIntoPrompt(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(capturingAdapter)
 	// Override security components to allow temp directory paths
-	executor.securityConfig = securityConfig
-	executor.pathValidator = security.NewPathValidator(*securityConfig, securityLogger)
-	executor.inputSanitizer = security.NewInputSanitizer(*securityConfig, securityLogger)
-	executor.securityLogger = securityLogger
+	executor.sec = &securityLayer{
+		e:              executor,
+		securityConfig: securityConfig,
+		pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
+		inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
+		securityLogger: securityLogger,
+	}
 
 	m := testutil.CreateTestManifest(tmpDir)
 

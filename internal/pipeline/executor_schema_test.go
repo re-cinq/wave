@@ -186,10 +186,12 @@ func TestContractPrompt_PromptInjectionInSchema(t *testing.T) {
 	securityLogger := security.NewSecurityLogger(false)
 
 	executor := &DefaultPipelineExecutor{
-		securityConfig: securityConfig,
-		pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
-		inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
-		securityLogger: securityLogger,
+		sec: &securityLayer{
+			securityConfig: securityConfig,
+			pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
+			inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
+			securityLogger: securityLogger,
+		},
 	}
 
 	step := &Step{
@@ -222,10 +224,12 @@ func TestContractPrompt_LargeSchemaFile(t *testing.T) {
 	securityLogger := security.NewSecurityLogger(false)
 
 	executor := &DefaultPipelineExecutor{
-		securityConfig: securityConfig,
-		pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
-		inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
-		securityLogger: securityLogger,
+		sec: &securityLayer{
+			securityConfig: securityConfig,
+			pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
+			inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
+			securityLogger: securityLogger,
+		},
 	}
 
 	step := &Step{
@@ -390,10 +394,12 @@ func TestContractPrompt_MustPassPromptInjection(t *testing.T) {
 	securityLogger := security.NewSecurityLogger(false)
 
 	executor := &DefaultPipelineExecutor{
-		securityConfig: securityConfig,
-		pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
-		inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
-		securityLogger: securityLogger,
+		sec: &securityLayer{
+			securityConfig: securityConfig,
+			pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
+			inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
+			securityLogger: securityLogger,
+		},
 	}
 
 	step := &Step{
@@ -433,10 +439,13 @@ func TestContractPrompt_EndToEndExecution(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 	)
-	executor.securityConfig = securityConfig
-	executor.pathValidator = security.NewPathValidator(*securityConfig, securityLogger)
-	executor.inputSanitizer = security.NewInputSanitizer(*securityConfig, securityLogger)
-	executor.securityLogger = securityLogger
+	executor.sec = &securityLayer{
+		e:              executor,
+		securityConfig: securityConfig,
+		pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
+		inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
+		securityLogger: securityLogger,
+	}
 
 	m := testutil.CreateTestManifest(tmpDir)
 
@@ -494,10 +503,12 @@ func TestContractPrompt_RelativeSchemaPath(t *testing.T) {
 	securityLogger := security.NewSecurityLogger(false)
 
 	executor := &DefaultPipelineExecutor{
-		securityConfig: securityConfig,
-		pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
-		inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
-		securityLogger: securityLogger,
+		sec: &securityLayer{
+			securityConfig: securityConfig,
+			pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
+			inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
+			securityLogger: securityLogger,
+		},
 	}
 
 	step := &Step{
@@ -587,10 +598,12 @@ func TestContractPrompt_SecurityLogging(t *testing.T) {
 	securityLogger := security.NewSecurityLogger(true)
 
 	executor := &DefaultPipelineExecutor{
-		securityConfig: securityConfig,
-		pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
-		inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
-		securityLogger: securityLogger,
+		sec: &securityLayer{
+			securityConfig: securityConfig,
+			pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
+			inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
+			securityLogger: securityLogger,
+		},
 	}
 
 	step := &Step{
@@ -844,10 +857,12 @@ func createSchemaTestExecutor(tmpDir string) *DefaultPipelineExecutor {
 	securityLogger := security.NewSecurityLogger(false)
 
 	return &DefaultPipelineExecutor{
-		securityConfig: securityConfig,
-		pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
-		inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
-		securityLogger: securityLogger,
+		sec: &securityLayer{
+			securityConfig: securityConfig,
+			pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
+			inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
+			securityLogger: securityLogger,
+		},
 	}
 }
 
@@ -860,7 +875,7 @@ func TestLoadSchemaContent_PathTraversalRejected(t *testing.T) {
 
 	step := &Step{ID: "traversal-step"}
 
-	content, err := executor.loadSchemaContent(step, "../../../etc/passwd")
+	content, err := executor.sec.loadSchemaContent(step, "../../../etc/passwd")
 	assert.Empty(t, content, "path-traversal schema must not return content")
 	require.Error(t, err, "path-traversal schema must return a non-nil error")
 	// Error should be wrapped, identifying the failure mode (either rejection
@@ -882,15 +897,17 @@ func TestLoadSchemaContent_OutsideApprovedDirs(t *testing.T) {
 	securityConfig.PathValidation.ApprovedDirectories = []string{approvedDir}
 	securityLogger := security.NewSecurityLogger(false)
 	executor := &DefaultPipelineExecutor{
-		securityConfig: securityConfig,
-		pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
-		inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
-		securityLogger: securityLogger,
+		sec: &securityLayer{
+			securityConfig: securityConfig,
+			pathValidator:  security.NewPathValidator(*securityConfig, securityLogger),
+			inputSanitizer: security.NewInputSanitizer(*securityConfig, securityLogger),
+			securityLogger: securityLogger,
+		},
 	}
 
 	step := &Step{ID: "outside-step"}
 
-	content, err := executor.loadSchemaContent(step, outsidePath)
+	content, err := executor.sec.loadSchemaContent(step, outsidePath)
 	assert.Empty(t, content, "unapproved-dir schema must not return content")
 	require.Error(t, err, "unapproved-dir schema must return a non-nil error")
 }
@@ -903,7 +920,7 @@ func TestLoadSchemaContent_EmptyPathReturnsEmpty(t *testing.T) {
 
 	step := &Step{ID: "empty-path-step"}
 
-	content, err := executor.loadSchemaContent(step, "")
+	content, err := executor.sec.loadSchemaContent(step, "")
 	assert.Empty(t, content, "empty path must return empty content")
 	require.NoError(t, err, "empty path must not be treated as an error")
 }
@@ -920,7 +937,7 @@ func TestLoadSchemaContent_ValidPathSucceeds(t *testing.T) {
 
 	step := &Step{ID: "valid-step"}
 
-	content, err := executor.loadSchemaContent(step, schemaPath)
+	content, err := executor.sec.loadSchemaContent(step, schemaPath)
 	require.NoError(t, err, "valid schema must not produce error")
 	assert.Contains(t, content, `"type":"object"`, "valid schema content must be returned")
 	assert.Contains(t, content, `"ok"`, "sanitizer must preserve benign schema fields")
@@ -943,10 +960,12 @@ func TestLoadSchemaContent_NilLoggerDoesNotPanic(t *testing.T) {
 	// field our nil-guards must protect.
 	internalLogger := security.NewSecurityLogger(false)
 	executor := &DefaultPipelineExecutor{
-		securityConfig: securityConfig,
-		pathValidator:  security.NewPathValidator(*securityConfig, internalLogger),
-		inputSanitizer: security.NewInputSanitizer(*securityConfig, internalLogger),
-		securityLogger: nil, // the critical nil — would panic without the guard
+		sec: &securityLayer{
+			securityConfig: securityConfig,
+			pathValidator:  security.NewPathValidator(*securityConfig, internalLogger),
+			inputSanitizer: security.NewInputSanitizer(*securityConfig, internalLogger),
+			securityLogger: nil, // the critical nil — would panic without the guard
+		},
 	}
 
 	step := &Step{ID: "nil-logger-step"}
@@ -954,7 +973,7 @@ func TestLoadSchemaContent_NilLoggerDoesNotPanic(t *testing.T) {
 	// An invalid path triggers the executor's LogViolation call site; with a
 	// nil securityLogger this used to panic before the guard was added.
 	require.NotPanics(t, func() {
-		content, err := executor.loadSchemaContent(step, "../../../etc/passwd")
+		content, err := executor.sec.loadSchemaContent(step, "../../../etc/passwd")
 		assert.Empty(t, content)
 		assert.Error(t, err)
 	}, "loadSchemaContent must not panic when securityLogger is nil")
