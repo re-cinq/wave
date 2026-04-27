@@ -8,8 +8,8 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/recinq/wave/internal/deliverable"
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/state"
 )
 
 // BubbleTeaProgressDisplay implements ProgressEmitter using bubbletea for proper terminal handling.
@@ -35,7 +35,7 @@ type BubbleTeaProgressDisplay struct {
 	startTime          time.Time
 	enabled            bool
 	verbose            bool
-	deliverableTracker *deliverable.Tracker
+	outcomeTracker     *state.OutcomeTracker
 	currentStepID      string                   // Track primary running step (first in order)
 	stepToolActivity   map[string][2]string     // stepID -> [toolName, toolTarget] per-step
 	lastToolName       string                   // Most recent tool name (global fallback)
@@ -45,7 +45,7 @@ type BubbleTeaProgressDisplay struct {
 }
 
 // NewBubbleTeaProgressDisplay creates a new bubbletea-based progress display.
-func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int, tracker *deliverable.Tracker, verbose ...bool) *BubbleTeaProgressDisplay {
+func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int, tracker *state.OutcomeTracker, verbose ...bool) *BubbleTeaProgressDisplay {
 	termInfo := NewTerminalInfo()
 	enabled := termInfo.IsTTY() && termInfo.SupportsANSI()
 
@@ -106,7 +106,7 @@ func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int
 		enabled:            true,
 		verbose:            isVerbose,
 		model:              model,
-		deliverableTracker: tracker,
+		outcomeTracker:     tracker,
 		currentStepID:      "",
 	}
 
@@ -215,14 +215,14 @@ func (btpd *BubbleTeaProgressDisplay) Finish() {
 	btpd.Clear()
 }
 
-// SetDeliverableTracker sets the deliverable tracker after construction
-func (btpd *BubbleTeaProgressDisplay) SetDeliverableTracker(tracker *deliverable.Tracker) {
+// SetOutcomeTracker sets the outcome tracker after construction.
+func (btpd *BubbleTeaProgressDisplay) SetOutcomeTracker(tracker *state.OutcomeTracker) {
 	if !btpd.enabled {
 		return
 	}
 	btpd.mu.Lock()
 	defer btpd.mu.Unlock()
-	btpd.deliverableTracker = tracker
+	btpd.outcomeTracker = tracker
 }
 
 // updateFromEvent updates internal state based on an event.
@@ -438,12 +438,12 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		}
 	}
 
-	// Get deliverables by step
+	// Get outcomes grouped by step
 	deliverablesByStep := make(map[string][]string)
-	if btpd.deliverableTracker != nil {
-		stepDeliverables := btpd.deliverableTracker.FormatByStep()
-		for stepID, deliverables := range stepDeliverables {
-			deliverablesByStep[stepID] = deliverables
+	if btpd.outcomeTracker != nil {
+		stepOutcomes := btpd.outcomeTracker.FormatByStep()
+		for stepID, outcomes := range stepOutcomes {
+			deliverablesByStep[stepID] = outcomes
 		}
 	}
 

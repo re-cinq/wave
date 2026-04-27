@@ -519,9 +519,9 @@ func runRun(opts RunOptions, debug bool) error {
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 
-	// Connect deliverable tracker to progress display
+	// Connect outcome tracker to progress display
 	if btpd, ok := progressDisplay.(*display.BubbleTeaProgressDisplay); ok {
-		btpd.SetDeliverableTracker(executor.GetDeliverableTracker())
+		btpd.SetOutcomeTracker(executor.GetOutcomeTracker())
 	}
 
 	if opts.Continuous {
@@ -716,8 +716,8 @@ func runRun(opts RunOptions, debug bool) error {
 			fmt.Fprintf(os.Stderr, "\n  ✓ Pipeline '%s' completed successfully (%.1fs)\n",
 				p.Metadata.Name, elapsed.Seconds())
 		}
-		// Build structured outcome summary from deliverable tracker
-		tracker := executor.GetDeliverableTracker()
+		// Build structured outcome summary from outcome tracker
+		tracker := executor.GetOutcomeTracker()
 		outcome := display.BuildOutcome(tracker, p.Metadata.Name, runID, true, elapsed, totalTokens, "", nil)
 		summary := display.RenderOutcomeSummary(outcome, opts.Output.Verbose, display.NewFormatter())
 		if summary != "" {
@@ -736,7 +736,7 @@ func runRun(opts RunOptions, debug bool) error {
 
 	// For JSON output mode, emit structured outcomes in the final completion event
 	if opts.Output.Format == OutputFormatJSON {
-		tracker := executor.GetDeliverableTracker()
+		tracker := executor.GetOutcomeTracker()
 		outcome := display.BuildOutcome(tracker, p.Metadata.Name, runID, true, elapsed, executor.GetTotalTokens(), "", nil)
 		outJSON := outcome.ToOutcomesJSON()
 		emitter.Emit(event.Event{

@@ -18,7 +18,6 @@ import (
 	"github.com/recinq/wave/internal/audit"
 	"github.com/recinq/wave/internal/contract"
 	"github.com/recinq/wave/internal/cost"
-	"github.com/recinq/wave/internal/deliverable"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/hooks"
@@ -74,8 +73,8 @@ type DefaultPipelineExecutor struct {
 	pathValidator  *security.PathValidator
 	inputSanitizer *security.InputSanitizer
 	securityLogger *security.SecurityLogger
-	// Deliverable tracking
-	deliverableTracker *deliverable.Tracker
+	// Outcome tracking (in-memory cache + state-store persistence)
+	outcomeTracker *state.OutcomeTracker
 	// Pre-generated run ID (optional — if empty, Execute generates one)
 	runID string
 	// Per-step timeout override (from CLI --timeout flag)
@@ -322,14 +321,14 @@ type pipelineSetup struct {
 
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
 	ex := &DefaultPipelineExecutor{
-		runner:             runner,
-		pipelines:          make(map[string]*PipelineExecution),
-		deliverableTracker: deliverable.NewTracker(""),
-		ontology:           ontology.NoOp{},
+		runner:    runner,
+		pipelines: make(map[string]*PipelineExecution),
+		ontology:  ontology.NoOp{},
 	}
 	for _, opt := range opts {
 		opt(ex)
 	}
+	ex.outcomeTracker = state.NewOutcomeTracker("", ex.store)
 
 	// If no registry was provided via WithRegistry, wrap the single runner
 	if ex.registry == nil {
@@ -367,7 +366,7 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		pathValidator:          e.pathValidator,
 		inputSanitizer:         e.inputSanitizer,
 		securityLogger:         e.securityLogger,
-		deliverableTracker:     deliverable.NewTracker(""),
+		outcomeTracker:         state.NewOutcomeTracker("", e.store),
 		crossPipelineArtifacts: e.crossPipelineArtifacts,
 		preserveWorkspace:      e.preserveWorkspace,
 		skillStore:             e.skillStore,
@@ -716,12 +715,13 @@ func (e *DefaultPipelineExecutor) initPipelineExecution(
 		go e.pollCancellation(runCtx, pipelineID, cancel)
 	}
 
-	// Initialize deliverable tracker for this pipeline (only if not already set)
-	if e.deliverableTracker == nil {
-		e.deliverableTracker = deliverable.NewTracker(pipelineID)
+	// Initialize outcome tracker for this pipeline (only if not already set)
+	if e.outcomeTracker == nil {
+		e.outcomeTracker = state.NewOutcomeTracker(pipelineID, e.store)
 	} else {
 		// Update pipeline ID if tracker already exists
-		e.deliverableTracker.SetPipelineID(pipelineID)
+		e.outcomeTracker.SetPipelineID(pipelineID)
+		e.outcomeTracker.SetStore(e.store)
 	}
 
 	// Build compaction adapter for thread summary fidelity (reuse relay monitor's adapter if available)
@@ -1143,11 +1143,12 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		}
 	}
 
-	// Initialize deliverable tracker
-	if e.deliverableTracker == nil {
-		e.deliverableTracker = deliverable.NewTracker(pipelineID)
+	// Initialize outcome tracker
+	if e.outcomeTracker == nil {
+		e.outcomeTracker = state.NewOutcomeTracker(pipelineID, e.store)
 	} else {
-		e.deliverableTracker.SetPipelineID(pipelineID)
+		e.outcomeTracker.SetPipelineID(pipelineID)
+		e.outcomeTracker.SetStore(e.store)
 	}
 
 	// Build compaction adapter for thread summary fidelity (reuse relay monitor's adapter if available)
@@ -3848,7 +3849,7 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		}
 
 		// Record branch creation as a deliverable for outcome tracking
-		e.deliverableTracker.AddBranch(step.ID, branch, absPath, "Feature branch")
+		e.outcomeTracker.AddBranch(step.ID, branch, absPath, "Feature branch")
 
 		// Mark CLAUDE.md as skip-worktree so prepareWorkspace() changes
 		// don't get staged by git add -A in implement steps
@@ -4773,7 +4774,7 @@ func (e *DefaultPipelineExecutor) checkRelayCompaction(ctx context.Context, exec
 
 // trackStepDeliverables automatically tracks deliverables produced by a completed step
 func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecution, step *Step) {
-	if e.deliverableTracker == nil {
+	if e.outcomeTracker == nil {
 		return
 	}
 
@@ -4796,7 +4797,7 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 			absPath = artifactPath
 		}
 
-		e.deliverableTracker.AddFile(step.ID, artifact.Name, absPath, artifact.Type)
+		e.outcomeTracker.AddFile(step.ID, artifact.Name, absPath, artifact.Type)
 		// NOTE: DB registration is handled by writeOutputArtifacts (with archiving).
 		// Do NOT duplicate it here.
 	}
@@ -5079,7 +5080,7 @@ func schemaFieldPlaceholder(_ string, prop map[string]any) string {
 // and each is registered as a separate deliverable. The optional json_path_label
 // field provides per-item labels; when absent, items are labeled with their index.
 func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecution, step *Step) {
-	if e.deliverableTracker == nil || len(step.Outcomes) == 0 {
+	if e.outcomeTracker == nil || len(step.Outcomes) == 0 {
 		return
 	}
 
@@ -5096,7 +5097,7 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 		cleanWorkspace := filepath.Clean(workspacePath) + string(filepath.Separator)
 		if !strings.HasPrefix(artifactPath, cleanWorkspace) {
 			msg := fmt.Sprintf("[%s] outcome: path %q escapes workspace, skipping", step.ID, outcome.ExtractFrom)
-			e.deliverableTracker.AddOutcomeWarning(msg)
+			e.outcomeTracker.AddOutcomeWarning(msg)
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
@@ -5109,7 +5110,7 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 		data, err := os.ReadFile(artifactPath)
 		if err != nil {
 			msg := fmt.Sprintf("[%s] outcome: cannot read %s: %v", step.ID, outcome.ExtractFrom, err)
-			e.deliverableTracker.AddOutcomeWarning(msg)
+			e.outcomeTracker.AddOutcomeWarning(msg)
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
@@ -5120,16 +5121,13 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 			continue
 		}
 
-		// file/artifact types: use the artifact path directly as the deliverable value
+		// file/artifact types: use the artifact path directly as the outcome value
 		if outcome.Type == "file" || outcome.Type == "artifact" {
 			label := outcome.Label
 			if label == "" {
 				label = outcome.Type
 			}
-			e.registerOutcomeDeliverable(step.ID, outcome.Type, label, artifactPath, fmt.Sprintf("Produced by step %s", step.ID))
-			if e.store != nil {
-				_ = e.store.RecordOutcome(pipelineID, step.ID, outcome.Type, label, artifactPath)
-			}
+			e.registerOutcome(step.ID, outcome.Type, label, artifactPath, fmt.Sprintf("Produced by step %s", step.ID))
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
@@ -5153,10 +5151,10 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 				// Empty array is a "no results" condition, not an error.
 				// Show a friendly message in the summary only — skip the real-time warning event.
 				msg := fmt.Sprintf("[%s] outcome: no items in %s — skipping %s extraction from %s", step.ID, emptyErr.Field, outcome.JSONPath, outcome.ExtractFrom)
-				e.deliverableTracker.AddOutcomeWarning(msg)
+				e.outcomeTracker.AddOutcomeWarning(msg)
 			} else {
 				msg := fmt.Sprintf("[%s] outcome: %s at %s: %v", step.ID, outcome.JSONPath, outcome.ExtractFrom, err)
-				e.deliverableTracker.AddOutcomeWarning(msg)
+				e.outcomeTracker.AddOutcomeWarning(msg)
 				e.emit(event.Event{
 					Timestamp:  time.Now(),
 					PipelineID: pipelineID,
@@ -5174,17 +5172,7 @@ func (e *DefaultPipelineExecutor) processStepOutcomes(execution *PipelineExecuti
 		}
 		desc := fmt.Sprintf("Extracted from %s at %s", outcome.ExtractFrom, outcome.JSONPath)
 
-		e.registerOutcomeDeliverable(step.ID, outcome.Type, label, value, desc)
-
-		// Persist outcome in state DB so it survives worktree cleanup
-		if e.store != nil {
-			if err := e.store.RecordOutcome(pipelineID, step.ID, outcome.Type, label, value); err != nil {
-				if e.logger != nil {
-					_ = e.logger.LogToolCall(pipelineID, step.ID, "recordOutcome",
-						fmt.Sprintf("type=%s label=%s err=%v", outcome.Type, label, err))
-				}
-			}
-		}
+		e.registerOutcome(step.ID, outcome.Type, label, value, desc)
 
 		e.emit(event.Event{
 			Timestamp:  time.Now(),
@@ -5204,7 +5192,7 @@ func (e *DefaultPipelineExecutor) processWildcardOutcome(execution *PipelineExec
 	values, err := ExtractJSONPathAll(data, outcome.JSONPath)
 	if err != nil {
 		msg := fmt.Sprintf("[%s] outcome: %s at %s: %v", step.ID, outcome.JSONPath, outcome.ExtractFrom, err)
-		e.deliverableTracker.AddOutcomeWarning(msg)
+		e.outcomeTracker.AddOutcomeWarning(msg)
 		e.emit(event.Event{
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
@@ -5218,7 +5206,7 @@ func (e *DefaultPipelineExecutor) processWildcardOutcome(execution *PipelineExec
 	// Empty array — log friendly message and skip
 	if len(values) == 0 {
 		msg := fmt.Sprintf("[%s] outcome: empty array at %s — skipping extraction from %s", step.ID, outcome.JSONPath, outcome.ExtractFrom)
-		e.deliverableTracker.AddOutcomeWarning(msg)
+		e.outcomeTracker.AddOutcomeWarning(msg)
 		return
 	}
 
@@ -5243,7 +5231,7 @@ func (e *DefaultPipelineExecutor) processWildcardOutcome(execution *PipelineExec
 		}
 
 		desc := fmt.Sprintf("Extracted from %s at %s [%d]", outcome.ExtractFrom, outcome.JSONPath, i)
-		e.registerOutcomeDeliverable(step.ID, outcome.Type, label, value, desc)
+		e.registerOutcome(step.ID, outcome.Type, label, value, desc)
 
 		e.emit(event.Event{
 			Timestamp:  time.Now(),
@@ -5255,37 +5243,37 @@ func (e *DefaultPipelineExecutor) processWildcardOutcome(execution *PipelineExec
 	}
 }
 
-// registerOutcomeDeliverable registers a single outcome value with the deliverable tracker
-// based on the outcome type.
-func (e *DefaultPipelineExecutor) registerOutcomeDeliverable(stepID, outcomeType, label, value, desc string) {
+// registerOutcome routes a declared step outcome through the appropriate
+// OutcomeTracker convenience method based on its type.
+func (e *DefaultPipelineExecutor) registerOutcome(stepID, outcomeType, label, value, desc string) {
 	switch outcomeType {
 	case "pr":
-		e.deliverableTracker.AddPR(stepID, label, value, desc)
+		e.outcomeTracker.AddPR(stepID, label, value, desc)
 	case "issue":
-		e.deliverableTracker.AddIssue(stepID, label, value, desc)
+		e.outcomeTracker.AddIssue(stepID, label, value, desc)
 	case "deployment":
-		e.deliverableTracker.AddDeployment(stepID, label, value, desc)
+		e.outcomeTracker.AddDeployment(stepID, label, value, desc)
 	case "file":
-		e.deliverableTracker.AddFile(stepID, label, value, desc)
+		e.outcomeTracker.AddFile(stepID, label, value, desc)
 	case "artifact":
-		e.deliverableTracker.AddArtifact(stepID, label, value, desc)
+		e.outcomeTracker.AddArtifact(stepID, label, value, desc)
 	default:
 		// "url" or any unknown type → generic URL
-		e.deliverableTracker.AddURL(stepID, label, value, desc)
+		e.outcomeTracker.AddURL(stepID, label, value, desc)
 	}
 }
 
-// GetDeliverables returns the deliverables summary for the completed pipeline
-func (e *DefaultPipelineExecutor) GetDeliverables() string {
-	if e.deliverableTracker == nil {
+// GetOutcomesSummary returns the formatted outcome summary for the completed pipeline.
+func (e *DefaultPipelineExecutor) GetOutcomesSummary() string {
+	if e.outcomeTracker == nil {
 		return ""
 	}
-	return e.deliverableTracker.FormatSummary()
+	return e.outcomeTracker.FormatSummary()
 }
 
-// GetDeliverableTracker returns the deliverable tracker for external access
-func (e *DefaultPipelineExecutor) GetDeliverableTracker() *deliverable.Tracker {
-	return e.deliverableTracker
+// GetOutcomeTracker returns the outcome tracker for external access.
+func (e *DefaultPipelineExecutor) GetOutcomeTracker() *state.OutcomeTracker {
+	return e.outcomeTracker
 }
 
 // GetRunID returns the run ID assigned to this executor (empty if not yet started).

@@ -226,3 +226,23 @@ CREATE TABLE IF NOT EXISTS checkpoint (
 
 CREATE INDEX IF NOT EXISTS idx_checkpoint_run ON checkpoint(run_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_checkpoint_run_step ON checkpoint(run_id, step_id);
+
+-- =============================================================================
+-- Pipeline Outcome Table (persistent outcome tracking — survives worktree cleanup)
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS pipeline_outcome (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT NOT NULL,
+    step_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    label TEXT NOT NULL,
+    value TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    metadata TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (run_id) REFERENCES pipeline_run(run_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_outcome_run ON pipeline_outcome(run_id);
+CREATE INDEX IF NOT EXISTS idx_outcome_type_value ON pipeline_outcome(type, value);

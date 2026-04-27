@@ -465,7 +465,7 @@ func TestInitializeWithMigrations_ExistingDatabase(t *testing.T) {
 	manager := NewMigrationManager(db)
 	applied, err := manager.GetAppliedMigrations()
 	assert.NoError(t, err)
-	assert.Len(t, applied, 24) // All 24 defined migrations
+	assert.Len(t, applied, 25) // All 25 defined migrations
 }
 
 func TestInitializeWithMigrations_NoAutoMigrate(t *testing.T) {
@@ -496,11 +496,11 @@ func TestInitializeWithMigrations_NoAutoMigrate(t *testing.T) {
 func TestMigrationDefinitions(t *testing.T) {
 	migrations := GetAllMigrations()
 
-	// Should have 24 migrations based on our definition
-	assert.Len(t, migrations, 24)
+	// Should have 25 migrations based on our definition
+	assert.Len(t, migrations, 25)
 
 	// Check version sequence
-	expectedVersions := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24}
+	expectedVersions := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}
 	for i, migration := range migrations {
 		assert.Equal(t, expectedVersions[i], migration.Version)
 		assert.NotEmpty(t, migration.Description)
@@ -698,4 +698,53 @@ func TestMigration24_BackfillRunTokens(t *testing.T) {
 		require.NoError(t, err, "scan run %s", runID)
 		assert.Equal(t, want, got, "run %s total_tokens after v24", runID)
 	}
+}
+
+// TestMigration25_OutcomeDescriptionMetadata verifies migration 25 adds the
+// description and metadata columns to pipeline_outcome and that legacy rows
+// receive the empty-string default.
+func TestMigration25_OutcomeDescriptionMetadata(t *testing.T) {
+	db, cleanup := setupTestMigrationDB(t)
+	defer cleanup()
+
+	manager := NewMigrationManager(db)
+	err := manager.InitializeMigrationTable()
+	require.NoError(t, err)
+
+	migrations := GetAllMigrations()
+	require.GreaterOrEqual(t, len(migrations), 25)
+
+	// Apply migrations 1-24 first
+	for _, migration := range migrations[:24] {
+		err := manager.ApplyMigration(migration)
+		require.NoError(t, err, "Failed to apply migration %d", migration.Version)
+	}
+
+	// Insert a legacy outcome row before migration 25
+	_, err = db.Exec(`INSERT INTO pipeline_run (run_id, pipeline_name, status, started_at)
+	                  VALUES ('test-run-1', 'test-pipeline', 'running', 1234567890)`)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO pipeline_outcome (run_id, step_id, type, label, value, created_at)
+	                  VALUES ('test-run-1', 'step-1', 'pr', 'PR #1', 'https://example/pr/1', 1234567890)`)
+	require.NoError(t, err)
+
+	// Apply migration 25
+	err = manager.ApplyMigration(migrations[24])
+	require.NoError(t, err)
+
+	// Verify the new columns exist with empty defaults on the legacy row
+	var description, metadata string
+	err = db.QueryRow("SELECT description, metadata FROM pipeline_outcome WHERE run_id = 'test-run-1'").Scan(&description, &metadata)
+	assert.NoError(t, err)
+	assert.Equal(t, "", description)
+	assert.Equal(t, "", metadata)
+
+	// Verify a fresh insert can populate the new columns
+	_, err = db.Exec(`INSERT INTO pipeline_outcome (run_id, step_id, type, label, value, description, metadata, created_at)
+	                  VALUES ('test-run-1', 'step-2', 'branch', 'feat/x', '/ws', 'Feature branch', '{"pushed":true}', 1234567891)`)
+	require.NoError(t, err)
+	err = db.QueryRow("SELECT description, metadata FROM pipeline_outcome WHERE step_id = 'step-2'").Scan(&description, &metadata)
+	assert.NoError(t, err)
+	assert.Equal(t, "Feature branch", description)
+	assert.Equal(t, `{"pushed":true}`, metadata)
 }

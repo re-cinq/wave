@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
-	"github.com/recinq/wave/internal/deliverable"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/skill"
@@ -2162,13 +2161,13 @@ func TestOutcomeExtractionRegistersDeliverables(t *testing.T) {
 	require.NoError(t, err)
 
 	// The outcome extraction should have registered a URL deliverable
-	tracker := executor.GetDeliverableTracker()
+	tracker := executor.GetOutcomeTracker()
 	require.NotNil(t, tracker)
 
-	urls := tracker.GetByType(deliverable.TypeURL)
+	urls := tracker.GetByType(state.OutcomeTypeURL)
 	require.Len(t, urls, 1, "should have 1 URL outcome registered")
-	assert.Equal(t, "https://github.com/re-cinq/wave/pull/42#issuecomment-999", urls[0].Path)
-	assert.Equal(t, "Review Comment", urls[0].Name)
+	assert.Equal(t, "https://github.com/re-cinq/wave/pull/42#issuecomment-999", urls[0].Value)
+	assert.Equal(t, "Review Comment", urls[0].Label)
 
 	// Verify outcome event was emitted
 	pipelineID := collector.GetPipelineID()
@@ -2285,11 +2284,11 @@ func TestOutcomeExtractionPRType(t *testing.T) {
 	err := executor.Execute(ctx, p, m, "test")
 	require.NoError(t, err)
 
-	tracker := executor.GetDeliverableTracker()
-	prs := tracker.GetByType(deliverable.TypePR)
+	tracker := executor.GetOutcomeTracker()
+	prs := tracker.GetByType(state.OutcomeTypePR)
 	require.Len(t, prs, 1, "should have 1 PR outcome")
-	assert.Equal(t, "https://github.com/re-cinq/wave/pull/99", prs[0].Path)
-	assert.Equal(t, "Pull Request", prs[0].Name)
+	assert.Equal(t, "https://github.com/re-cinq/wave/pull/99", prs[0].Value)
+	assert.Equal(t, "Pull Request", prs[0].Label)
 }
 
 // TestOutcomeExtractionIssueType verifies issue outcomes are registered as issue deliverables.
@@ -2327,11 +2326,11 @@ func TestOutcomeExtractionIssueType(t *testing.T) {
 
 	require.NoError(t, executor.Execute(ctx, p, m, "test"))
 
-	tracker := executor.GetDeliverableTracker()
-	issues := tracker.GetByType(deliverable.TypeIssue)
+	tracker := executor.GetOutcomeTracker()
+	issues := tracker.GetByType(state.OutcomeTypeIssue)
 	require.Len(t, issues, 1, "should have 1 issue outcome")
-	assert.Equal(t, "https://github.com/re-cinq/wave/issues/55", issues[0].Path)
-	assert.Equal(t, "Bug Report", issues[0].Name)
+	assert.Equal(t, "https://github.com/re-cinq/wave/issues/55", issues[0].Value)
+	assert.Equal(t, "Bug Report", issues[0].Label)
 }
 
 // TestOutcomeExtractionDeploymentType verifies deployment outcomes are registered as deployment deliverables.
@@ -2369,11 +2368,11 @@ func TestOutcomeExtractionDeploymentType(t *testing.T) {
 
 	require.NoError(t, executor.Execute(ctx, p, m, "test"))
 
-	tracker := executor.GetDeliverableTracker()
-	deploys := tracker.GetByType(deliverable.TypeDeployment)
+	tracker := executor.GetOutcomeTracker()
+	deploys := tracker.GetByType(state.OutcomeTypeDeployment)
 	require.Len(t, deploys, 1, "should have 1 deployment outcome")
-	assert.Equal(t, "https://staging.example.com", deploys[0].Path)
-	assert.Equal(t, "Staging Deploy", deploys[0].Name)
+	assert.Equal(t, "https://staging.example.com", deploys[0].Value)
+	assert.Equal(t, "Staging Deploy", deploys[0].Label)
 }
 
 // TestOutcomeExtractionUnknownTypeFallsBackToURL verifies that unrecognized outcome types
@@ -2412,10 +2411,10 @@ func TestOutcomeExtractionUnknownTypeFallsBackToURL(t *testing.T) {
 
 	require.NoError(t, executor.Execute(ctx, p, m, "test"))
 
-	tracker := executor.GetDeliverableTracker()
-	urls := tracker.GetByType(deliverable.TypeURL)
+	tracker := executor.GetOutcomeTracker()
+	urls := tracker.GetByType(state.OutcomeTypeURL)
 	require.Len(t, urls, 1, "unknown type should fall back to URL")
-	assert.Equal(t, "https://example.com/report", urls[0].Path)
+	assert.Equal(t, "https://example.com/report", urls[0].Value)
 }
 
 // TestOutcomeExtractionPathTraversal verifies that extract_from paths that escape the
@@ -2618,7 +2617,7 @@ func TestOutcomeExtractionEmptyArrayFriendlyMessage(t *testing.T) {
 	require.NoError(t, err)
 
 	// The tracker should have a friendly warning message about empty array
-	tracker := executor.GetDeliverableTracker()
+	tracker := executor.GetOutcomeTracker()
 	require.NotNil(t, tracker)
 	warnings := tracker.OutcomeWarnings()
 	require.Len(t, warnings, 1, "should have 1 outcome warning for empty array")
@@ -2690,7 +2689,7 @@ func TestOutcomeExtractionNonEmptyArrayOOBStillEmitsWarning(t *testing.T) {
 	require.NoError(t, err)
 
 	// Tracker should have a warning with the technical error message
-	tracker := executor.GetDeliverableTracker()
+	tracker := executor.GetOutcomeTracker()
 	require.NotNil(t, tracker)
 	warnings := tracker.OutcomeWarnings()
 	require.Len(t, warnings, 1, "should have 1 outcome warning for OOB")

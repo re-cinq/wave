@@ -241,9 +241,9 @@ func runResume(opts ResumeOptions, debug bool) error {
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 
-	// Connect deliverable tracker to progress display.
+	// Connect outcome tracker to progress display.
 	if btpd, ok := progressDisplay.(*display.BubbleTeaProgressDisplay); ok {
-		btpd.SetDeliverableTracker(executor.GetDeliverableTracker())
+		btpd.SetOutcomeTracker(executor.GetOutcomeTracker())
 	}
 
 	// Transition new run record to running.
@@ -335,7 +335,7 @@ func runResume(opts ResumeOptions, debug bool) error {
 	}
 
 	if opts.Output.Format == OutputFormatJSON {
-		tracker := executor.GetDeliverableTracker()
+		tracker := executor.GetOutcomeTracker()
 		outcome := display.BuildOutcome(tracker, p.Metadata.Name, resumeRunID, true, elapsed, executor.GetTotalTokens(), "", nil)
 		outJSON := outcome.ToOutcomesJSON()
 		emitter.Emit(event.Event{
