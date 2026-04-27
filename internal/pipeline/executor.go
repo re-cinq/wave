@@ -108,6 +108,10 @@ type DefaultPipelineExecutor struct {
 	parentArtifactPaths map[string]string
 	// Parent workspace path for workspace.ref: parent resolution
 	parentWorkspacePath string
+	// Parent env vars injected from a parent sub-pipeline step's Config.Env.
+	// Seeded into PipelineContext.CustomVariables as env.<key> so child
+	// templates resolve {{ env.<key> }} via ResolvePlaceholders.
+	parentEnv map[string]string
 	// Retrospective generator for post-run analysis
 	retroGenerator *retro.Generator
 	// Cost ledger for per-run cost tracking and budget enforcement
@@ -232,6 +236,14 @@ func WithParentArtifactPaths(paths map[string]string) ExecutorOption {
 // can reference it via workspace.ref: parent.
 func WithParentWorkspacePath(path string) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.parentWorkspacePath = path }
+}
+
+// WithParentEnv injects sub-pipeline-supplied env vars from a parent step's
+// Config.Env into the child executor. Seeded into the child's PipelineContext
+// as custom variables keyed env.<name>, making them available to all template
+// resolution in the child via {{ env.<name> }}. Distinct from process env.
+func WithParentEnv(env map[string]string) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.parentEnv = env }
 }
 
 // WithRetroGenerator sets the retrospective generator for post-run analysis.
@@ -785,6 +797,14 @@ func (e *DefaultPipelineExecutor) setupPipelineRun(ctx context.Context, executio
 		}
 	}
 
+	// Seed parent env vars as custom variables so child templates resolve
+	// {{ env.<key> }} via ResolvePlaceholders.
+	if len(e.parentEnv) > 0 {
+		for k, v := range e.parentEnv {
+			execution.Context.SetCustomVariable("env."+k, v)
+		}
+	}
+
 	if e.store != nil {
 		_ = e.store.SavePipelineState(pipelineID, stateRunning, input)
 	}
@@ -1199,6 +1219,14 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 	if e.parentArtifactPaths != nil {
 		for name, path := range e.parentArtifactPaths {
 			execution.Context.SetArtifactPath(name, path)
+		}
+	}
+
+	// Seed parent env vars as custom variables so child templates resolve
+	// {{ env.<key> }} via ResolvePlaceholders.
+	if len(e.parentEnv) > 0 {
+		for k, v := range e.parentEnv {
+			execution.Context.SetCustomVariable("env."+k, v)
 		}
 	}
 
@@ -5426,6 +5454,24 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 			paths[name] = path
 		}
 		childOpts = append(childOpts, WithParentArtifactPaths(paths))
+	}
+
+	// Propagate env: inherit parent's env first, then overlay step.Config.Env.
+	// Result is seeded into the child executor's PipelineContext as
+	// {{ env.<key> }} variables.
+	stepEnv := map[string]string{}
+	if step.Config != nil {
+		stepEnv = step.Config.Env
+	}
+	if len(e.parentEnv) > 0 || len(stepEnv) > 0 {
+		merged := make(map[string]string, len(e.parentEnv)+len(stepEnv))
+		for k, v := range e.parentEnv {
+			merged[k] = v
+		}
+		for k, v := range stepEnv {
+			merged[k] = v
+		}
+		childOpts = append(childOpts, WithParentEnv(merged))
 	}
 
 	// Pass parent workspace path if this step has a resolved workspace

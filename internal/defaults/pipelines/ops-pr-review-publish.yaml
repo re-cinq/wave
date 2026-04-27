@@ -1,0 +1,165 @@
+kind: WavePipeline
+metadata:
+  name: ops-pr-review-publish
+  description: >-
+    Internal building block. Formats the review verdict from a parent
+    ops-pr-review run into a markdown PR comment and posts it via the forge
+    CLI. Reads .agents/output/review-verdict.json and
+    .agents/output/diff-analysis.json from the parent workspace. Not intended
+    for direct invocation — wired into ops-pr-review's profile-gated branch.
+  release: false
+
+skills:
+  - "{{ project.skill }}"
+  - gh-cli
+
+requires:
+  tools:
+    - gh
+
+input:
+  source: cli
+  type: pr_ref
+  example: "https://github.com/owner/repo/pull/42"
+
+pipeline_outputs:
+  findings_report:
+    step: publish
+    artifact: publish-result
+    type: findings_report
+
+steps:
+  - id: publish
+    persona: "{{ forge.type }}-commenter"
+    model: cheapest
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Format the review verdict into a well-structured, human-readable PR comment and
+        post it to the pull request. This is the public-facing output of the entire
+        review pipeline — it must be clear, professional, and actionable. The comment
+        should enable the PR author to understand the verdict at a glance and know
+        exactly what needs to change (if anything) before the PR can merge.
+
+        ## Context
+
+        The parent ops-pr-review pipeline has produced two output files you must read:
+        - `.agents/output/review-verdict.json`: The structured review verdict JSON
+          containing the overall verdict (APPROVE/REQUEST_CHANGES/COMMENT/REJECT),
+          finding arrays by severity, and positive notes.
+        - `.agents/output/diff-analysis.json`: The diff analysis JSON containing PR
+          metadata — especially the PR number needed for the comment command.
+
+        Read BOTH files before composing the comment.
+
+        ## Requirements
+
+        ### Step 1: Extract PR Number
+
+        Read `.agents/output/diff-analysis.json` and extract the PR number from
+        `pr_metadata.number`. Parse the repository owner/name if needed for the
+        comment command.
+
+        ### Step 2: Compose the Review Comment
+
+        Write the comment body to `/tmp/pr-review-comment.md` with this structure:
+
+        ```markdown
+        ## Code Review: <VERDICT>
+
+        <2-3 sentence summary from the verdict>
+
+        ### Critical Findings
+        <numbered list of critical findings, or "None" if clean>
+
+        ### Major Findings
+        <numbered list of high-severity findings, or "None">
+
+        ### Minor Observations
+        <bulleted list of medium/low findings, or "None">
+
+        ### Positive Notes
+        <bulleted list of things done well>
+
+        ---
+        *Automated review by [Wave](https://github.com/re-cinq/wave) ops-pr-review pipeline*
+        ```
+
+        For each finding, include: the file path, a one-line description, and the
+        recommended fix. Keep it concise — the full review artifacts contain the details.
+
+        The verdict header should use clear language:
+        - APPROVE: "Approved — no blocking issues found"
+        - REQUEST_CHANGES: "Changes Requested — N issue(s) to address"
+        - COMMENT: "Observations — non-blocking feedback"
+        - REJECT: "Rejected — fundamental design concerns"
+
+        ### Step 3: Post the Comment
+
+        ```bash
+        {{ forge.cli_tool }} {{ forge.pr_command }} comment <PR_NUMBER> --body-file /tmp/pr-review-comment.md
+        ```
+
+        Capture the comment URL from the command output.
+
+        ### Step 4: Produce Output
+
+        Produce the result JSON with:
+        - `pr_number`: the PR number
+        - `verdict`: the review verdict string
+        - `comment_url`: the URL of the posted comment
+        - `findings_count`: total findings posted
+        - `posted`: true if the comment was posted successfully
+
+        Clean up `/tmp/pr-review-comment.md` after posting.
+
+        ## Constraints and Anti-patterns
+
+        - Do NOT modify the verdict or findings. Publish exactly what the parent
+          pipeline produced.
+        - Do NOT post multiple comments. Write one comprehensive review comment.
+        - Do NOT include raw JSON in the PR comment. Format everything as human-readable
+          markdown.
+        - Do NOT use aggressive or condescending language. The tone must be professional
+          and constructive, as if written by a senior colleague.
+        - Do NOT post a comment if the verdict JSON is missing or malformed. Report the
+          error in the output artifact instead.
+        - Keep the comment under 4000 characters if possible. Reviewers skim long
+          comments.
+
+        ## Output Format
+
+        Produce output matching the contract schema.
+
+        ## Quality Bar
+
+        A good PR comment lets the author understand the verdict and required changes in
+        under 60 seconds. It uses clear headings, concise finding descriptions, and
+        provides specific file references. A bad comment is a wall of unformatted text,
+        includes raw JSON, or uses a hostile tone that discourages the author.
+    output_artifacts:
+      - name: publish-result
+        path: .agents/output/publish-result.json
+        type: json
+    retry:
+      policy: aggressive
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .agents/output/publish-result.json
+        schema_path: .agents/contracts/gh-pr-comment-result.schema.json
+        must_pass: true
+        on_failure: fail
+    outcomes:
+      - type: url
+        extract_from: .agents/output/publish-result.json
+        json_path: .comment_url
+        label: "Review Comment"

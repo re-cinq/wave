@@ -4,9 +4,9 @@ metadata:
   description: >-
     Audit-driven bugfix flow. Runs audit-security as a read-only scan, picks
     the top finding, drives impl-issue-core against a matching issue, then
-    routes the resulting branch through ops-pr-review-core. Use when a
-    security scan finds a concrete issue and the fix should land inside the
-    same pipeline run without a human hand-off.
+    routes the resulting branch through ops-pr-review (core profile, no
+    publish). Use when a security scan finds a concrete issue and the fix
+    should land inside the same pipeline run without a human hand-off.
   category: composition
   release: false
 
@@ -56,8 +56,12 @@ steps:
     input: "{{input}}"
 
   # Stage 3: core PR review over the resulting branch. Outputs a
-  # findings_report-typed verdict the operator can act on.
+  # findings_report-typed verdict the operator can act on. The profile=core
+  # env var skips the publish step so no PR comment is posted.
   - id: review
-    pipeline: ops-pr-review-core
+    pipeline: ops-pr-review
     dependencies: [fix]
     input: "{{input}}"
+    config:
+      env:
+        profile: core

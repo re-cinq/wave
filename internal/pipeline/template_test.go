@@ -177,6 +177,48 @@ func TestResolveTemplate_MissingItem(t *testing.T) {
 	}
 }
 
+func TestResolveTemplate_Env(t *testing.T) {
+	ctx := NewTemplateContext("", "/tmp")
+	ctx.Env = map[string]string{"profile": "core", "region": "us-west"}
+
+	tests := []struct {
+		name     string
+		template string
+		want     string
+	}{
+		{"single key", "{{env.profile}}", "core"},
+		{"single key spaced", "{{ env.profile }}", "core"},
+		{"second key", "{{env.region}}", "us-west"},
+		{"missing key resolves to empty", "{{env.missing}}", ""},
+		{"embedded in string", "profile is {{env.profile}}!", "profile is core!"},
+		{"two keys", "{{env.profile}}/{{env.region}}", "core/us-west"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ResolveTemplate(tt.template, ctx)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveTemplate_EnvNilMap(t *testing.T) {
+	ctx := NewTemplateContext("", "/tmp")
+	ctx.Env = nil
+	got, err := ResolveTemplate("{{env.profile}}", ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "" {
+		t.Errorf("expected empty string for nil Env map, got %q", got)
+	}
+}
+
 func TestResolveTemplate_InvalidExpression(t *testing.T) {
 	ctx := NewTemplateContext("", "/tmp")
 	_, err := ResolveTemplate("{{invalid}}", ctx)

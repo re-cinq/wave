@@ -1023,6 +1023,13 @@
         "stop_condition": {
           "type": "string",
           "description": "Template expression for early termination of the child pipeline"
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Arbitrary key→value vars propagated to the child as {{ env.<key> }}. Distinct from process environment."
         }
       }
     },
