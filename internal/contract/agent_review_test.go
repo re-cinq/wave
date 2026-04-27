@@ -94,6 +94,30 @@ func TestParseReviewFeedback(t *testing.T) {
 			stdout:      `{"verdict":"pass"}`,
 			wantVerdict: "pass", // partial OK — missing fields zero-value
 		},
+		{
+			name: "Claude Code JSONL stream — verdict in result envelope",
+			stdout: `{"type":"system","subtype":"init","cwd":"/x","model":"claude"}
+{"type":"assistant","message":{"content":[{"type":"thinking","thinking":""}]}}
+{"type":"result","subtype":"success","is_error":false,"result":"{\"verdict\":\"pass\",\"issues\":[],\"suggestions\":[],\"confidence\":0.82,\"summary\":\"plan is feasible\"}","stop_reason":"end_turn"}
+`,
+			wantVerdict: "pass",
+		},
+		{
+			name: "Claude Code JSONL stream — multiple result objects, last one wins",
+			stdout: `{"type":"system","subtype":"init"}
+{"type":"result","result":"{\"verdict\":\"warn\",\"issues\":[],\"suggestions\":[],\"confidence\":0.5,\"summary\":\"first pass\"}"}
+{"type":"result","result":"{\"verdict\":\"pass\",\"issues\":[],\"suggestions\":[],\"confidence\":0.9,\"summary\":\"second pass\"}"}
+`,
+			wantVerdict: "pass",
+		},
+		{
+			name: "JSONL stream where verdict appears as standalone object",
+			stdout: `{"type":"system","subtype":"init"}
+{"type":"assistant","message":{}}
+{"verdict":"fail","issues":[{"severity":"major","description":"missing"}],"suggestions":[],"confidence":0.6,"summary":"x"}
+`,
+			wantVerdict: "fail",
+		},
 	}
 
 	for _, tc := range tests {

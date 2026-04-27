@@ -110,8 +110,8 @@ steps:
           criteria_path: .agents/contracts/plan-review-criteria.md
           source: .agents/output/impl-plan.json
           model: cheapest
-          token_budget: 6000
-          timeout: 90s
+          token_budget: 16000
+          timeout: 120s
           on_failure: warn
 
   - id: implement
