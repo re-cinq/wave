@@ -68,6 +68,9 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 	args := a.buildArgs(cfg)
 	cmd := exec.CommandContext(ctx, a.claudePath, args...)
 	cmd.Dir = workspacePath
+	if cfg.Prompt != "" {
+		cmd.Stdin = strings.NewReader(cfg.Prompt)
+	}
 
 	if cfg.Debug {
 		fmt.Printf("[DEBUG] Claude command: %s %s\n", a.claudePath, shelljoinArgs(args))
@@ -421,9 +424,10 @@ func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
 	args = append(args, "--dangerously-skip-permissions")
 	args = append(args, "--no-session-persistence")
 
-	if cfg.Prompt != "" {
-		args = append(args, cfg.Prompt)
-	}
+	// Prompt is piped via stdin (see Run). Linux ARG_MAX is ~2 MB and the
+	// argv shares that budget with envp; large prompts (relay compaction
+	// chat history with thousands of tool_use events) blew through it as
+	// E2BIG ("fork/exec: argument list too long"). stdin has no size cap.
 
 	return args
 }
