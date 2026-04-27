@@ -60,8 +60,8 @@ func initBareRepo(t *testing.T, dir string) (barePath string, commitSHA string) 
 	return barePath, sha
 }
 
-func TestRepoCache_ClonePath(t *testing.T) {
-	rc := &RepoCache{CacheDir: "/tmp/cache"}
+func Test_repoCache_ClonePath(t *testing.T) {
+	rc := &repoCache{CacheDir: "/tmp/cache"}
 	got := rc.clonePath("django/django")
 	want := "/tmp/cache/django__django"
 	if got != want {
@@ -69,12 +69,12 @@ func TestRepoCache_ClonePath(t *testing.T) {
 	}
 }
 
-func TestRepoCache_EnsureCloned_LocalFetch(t *testing.T) {
+func Test_repoCache_EnsureCloned_LocalFetch(t *testing.T) {
 	dir := t.TempDir()
 	barePath, _ := initBareRepo(t, dir)
 
 	// Pre-populate the cache with our local bare repo.
-	rc := &RepoCache{CacheDir: dir}
+	rc := &repoCache{CacheDir: dir}
 	cachePath := rc.clonePath("test/repo")
 
 	// Copy bare repo to cache location.
@@ -92,12 +92,12 @@ func TestRepoCache_EnsureCloned_LocalFetch(t *testing.T) {
 	}
 }
 
-func TestRepoCache_PrepareWorktree(t *testing.T) {
+func Test_repoCache_PrepareWorktree(t *testing.T) {
 	dir := t.TempDir()
 	barePath, sha := initBareRepo(t, dir)
 
 	// Set up cache with the bare repo.
-	rc := &RepoCache{CacheDir: dir}
+	rc := &repoCache{CacheDir: dir}
 	cachePath := rc.clonePath("test/repo")
 	if out, err := exec.Command("cp", "-r", barePath, cachePath).CombinedOutput(); err != nil {
 		t.Fatalf("cp: %v\n%s", err, out)
@@ -130,11 +130,11 @@ func TestRepoCache_PrepareWorktree(t *testing.T) {
 	}
 }
 
-func TestRepoCache_PrepareWorktree_WithPatch(t *testing.T) {
+func Test_repoCache_PrepareWorktree_WithPatch(t *testing.T) {
 	dir := t.TempDir()
 	barePath, sha := initBareRepo(t, dir)
 
-	rc := &RepoCache{CacheDir: dir}
+	rc := &repoCache{CacheDir: dir}
 	cachePath := rc.clonePath("test/repo")
 	if out, err := exec.Command("cp", "-r", barePath, cachePath).CombinedOutput(); err != nil {
 		t.Fatalf("cp: %v\n%s", err, out)

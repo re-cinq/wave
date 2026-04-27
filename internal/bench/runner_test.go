@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// mockRunner implements PipelineRunner for testing.
+// mockRunner implements pipelineRunner for testing.
 type mockRunner struct {
 	results map[string]*BenchResult
 	err     error
