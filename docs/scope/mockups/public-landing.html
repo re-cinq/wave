@@ -853,63 +853,6 @@
           </svg>
         </div>
       </a>
-
-      <a href="04-evolution-proposal.html" class="pcard pcard-wide">
-        <div class="pcard-head">
-          <span class="pcard-eyebrow">Self-evolution</span>
-          <span class="pcard-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg></span>
-        </div>
-        <div class="pcard-title">Pipelines that learn from themselves &mdash; you stay in control</div>
-        <div class="diagram">
-          <svg class="dgm" width="100%" height="100%" viewBox="0 0 1200 240" preserveAspectRatio="xMidYMid meet">
-            <!-- input signals -->
-            <rect class="box-dim" x="40" y="20" width="200" height="36" rx="8"/><svg x="52" y="30" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5c6675" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5l1.5 4.5h4.5L10.5 9l1.5 4.5L8 11l-4 2.5L5.5 9 1.5 6h4.5z"/></svg><text class="label-dim" text-anchor="start" x="76" y="42">judge 0.91 &rarr; 0.78</text>
-            <rect class="box-dim" x="270" y="20" width="160" height="36" rx="8"/><svg x="282" y="30" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5c6675" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8a6 6 0 0 1 10-4.5"/><polyline points="11.5 1.5 12 4 9.5 4"/><path d="M14 8a6 6 0 0 1-10 4.5"/><polyline points="4.5 14.5 4 12 6.5 12"/></svg><text class="label-dim" text-anchor="start" x="306" y="42">retry rate 38%</text>
-            <rect class="box-dim" x="460" y="20" width="240" height="36" rx="8"/><svg x="472" y="30" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5c6675" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2h7l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><line x1="5" y1="8" x2="11" y2="12"/><line x1="11" y1="8" x2="5" y2="12"/></svg><text class="label-dim" text-anchor="start" x="496" y="42">contract_failure dominant</text>
-            <rect class="box"     x="730" y="20" width="180" height="36" rx="8"/>
-            <svg x="472" y="30" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5L15 14H1z"/><line x1="8" y1="6" x2="8" y2="10"/><circle cx="8" cy="12" r="0.6" fill="currentColor"/></svg><text class="label" x="831" y="42">drift detected</text>
-
-            <!-- hub -->
-            <circle class="hub-halo-out" cx="600" cy="120" r="56"/>
-            <circle class="hub-halo-mid" cx="600" cy="120" r="42"/>
-            <rect class="box-hub" x="520" y="98" width="160" height="44" rx="10"/>
-            <svg x="534" y="110" width="22" height="22" viewBox="0 0 28 28">
-              <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14" fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round"/>
-              <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round" opacity="0.32"/>
-            </svg>
-            <text class="label-hub" text-anchor="middle" x="613" y="126">pipeline-evolve</text>
-
-            <!-- outputs -->
-            <rect class="box" x="200" y="184" width="160" height="36" rx="8"/><svg x="212" y="194" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 4 14 7 11 10"/><polyline points="5 4 2 7 5 10"/></svg><text class="label" text-anchor="start" x="236" y="206">diff proposed</text>
-            <rect class="box" x="510" y="184" width="180" height="36" rx="8"/><svg x="522" y="194" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 8 6.5 11.5 13 5"/></svg><text class="label" text-anchor="start" x="546" y="206">you approve</text>
-            <rect class="box" x="820" y="184" width="220" height="36" rx="8"/><svg x="832" y="194" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4v3.5h3.5"/><path d="M3 7.5a5.5 5.5 0 1 0 1.6-3.9"/></svg><text class="label" text-anchor="start" x="856" y="206">auto-rollback armed</text>
-
-            <!-- connectors: 4 inputs -> distributed ports (565, 590, 610, 635), 3 hub.bottom -> outputs (575, 600, 625) -->
-            <path class="connector alt" d="M140 62 V72 A8 8 0 0 1 148 80 H557 A8 8 0 0 0 565 88 V92"/>
-            <path class="connector alt" d="M350 62 V72 A8 8 0 0 1 358 80 H582 A8 8 0 0 0 590 88 V92"/>
-            <path class="connector alt" d="M580 62 V72 A8 8 0 0 0 588 80 H602 A8 8 0 0 1 610 88 V92"/>
-            <path class="connector alt" d="M820 62 V72 A8 8 0 0 0 812 80 H643 A8 8 0 0 1 635 88 V92"/>
-
-            <path class="connector out" d="M575 148 V162 A8 8 0 0 1 567 170 H288 A8 8 0 0 0 280 178 V184"/>
-            <path class="connector out" d="M600 148 V184"/>
-            <path class="connector out" d="M625 148 V162 A8 8 0 0 0 633 170 H922 A8 8 0 0 1 930 178 V184"/>
-
-            <!-- endpoints -->
-            <circle class="endpoint-halo" cx="140" cy="62"  r="6" fill="#ff8fb3"/><circle cx="140" cy="62"  r="3" fill="#ff8fb3"/>
-            <circle class="endpoint-halo" cx="350" cy="62"  r="6" fill="#ff8fb3"/><circle cx="350" cy="62"  r="3" fill="#ff8fb3"/>
-            <circle class="endpoint-halo" cx="580" cy="62"  r="6" fill="#ff8fb3"/><circle cx="580" cy="62"  r="3" fill="#ff8fb3"/>
-            <circle class="endpoint-halo" cx="820" cy="62"  r="6" fill="#ff8fb3"/><circle cx="820" cy="62"  r="3" fill="#ff8fb3"/>
-            <circle class="endpoint-halo" cx="565" cy="92"  r="6" fill="#ff8fb3"/><circle cx="565" cy="92"  r="3" fill="#ff8fb3"/>
-            <circle class="endpoint-halo" cx="590" cy="92"  r="6" fill="#ff8fb3"/><circle cx="590" cy="92"  r="3" fill="#ff8fb3"/>
-            <circle class="endpoint-halo" cx="610" cy="92"  r="6" fill="#ff8fb3"/><circle cx="610" cy="92"  r="3" fill="#ff8fb3"/>
-            <circle class="endpoint-halo" cx="635" cy="92"  r="6" fill="#ff8fb3"/><circle cx="635" cy="92"  r="3" fill="#ff8fb3"/>
-            <circle class="endpoint-halo" cx="280" cy="184" r="6" fill="#76e6c5"/><circle cx="280" cy="184" r="3" fill="#76e6c5"/>
-            <circle class="endpoint-halo" cx="600" cy="184" r="6" fill="#76e6c5"/><circle cx="600" cy="184" r="3" fill="#76e6c5"/>
-            <circle class="endpoint-halo" cx="930" cy="184" r="6" fill="#76e6c5"/><circle cx="930" cy="184" r="3" fill="#76e6c5"/>
-          </svg>
-        </div>
-      </a>
-
       <a href="00-landing.html" class="pcard">
         <div class="pcard-head">
           <span class="pcard-eyebrow">Bridge view</span>
