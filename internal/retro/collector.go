@@ -8,7 +8,7 @@ import (
 	"github.com/recinq/wave/internal/state"
 )
 
-// StateQuerier is the subset of state.StateStore needed by the Collector.
+// StateQuerier is the subset of state.RunStore needed by the Collector.
 type StateQuerier interface {
 	GetRun(runID string) (*state.RunRecord, error)
 	GetPerformanceMetrics(runID string, stepID string) ([]state.PerformanceMetricRecord, error)

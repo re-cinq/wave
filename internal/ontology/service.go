@@ -79,7 +79,7 @@ type Deps struct {
 	Manifest *manifest.Manifest
 	// Store receives lineage records via RecordOntologyUsage. Nil disables
 	// persistent lineage (the warn/inject events still fire).
-	Store state.StateStore
+	Store state.OntologyStore
 	// Emitter receives the [ontology_*] progress events. Nil disables them.
 	Emitter event.EventEmitter
 	// AuditSink receives ONTOLOGY_INJECT / ONTOLOGY_LINEAGE / ONTOLOGY_WARN

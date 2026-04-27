@@ -50,16 +50,18 @@ type StepStateRecord struct {
 	VisitCount    int
 }
 
-// StateStore persists and retrieves pipeline execution state.
+// StateStore is the aggregate persistence surface combining every
+// domain-scoped store. New consumers should depend on the smallest narrow
+// interface that satisfies their call sites (RunStore, EventStore,
+// OntologyStore, WebhookStore, ChatStore). The aggregate is retained for
+// constructors and root-level orchestrators that span multiple domains.
 type StateStore interface {
-	SavePipelineState(id string, status string, input string) error
-	SaveStepState(pipelineID string, stepID string, state StepState, err string) error
-	// Graph-mode visit count tracking
-	SaveStepVisitCount(pipelineID string, stepID string, count int) error
-	GetStepVisitCount(pipelineID string, stepID string) (int, error)
-	GetPipelineState(id string) (*PipelineStateRecord, error)
-	GetStepStates(pipelineID string) ([]StepStateRecord, error)
-	ListRecentPipelines(limit int) ([]PipelineStateRecord, error)
+	RunStore
+	EventStore
+	OntologyStore
+	WebhookStore
+	ChatStore
+
 	Close() error
 
 	// Run tracking (ops commands)

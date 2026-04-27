@@ -41,12 +41,12 @@ type HealthDataProvider interface {
 // DefaultHealthDataProvider implements HealthDataProvider.
 type DefaultHealthDataProvider struct {
 	manifest     *manifest.Manifest
-	store        state.StateStore
+	store        state.RunStore
 	pipelinesDir string
 }
 
 // NewDefaultHealthDataProvider creates a new health data provider.
-func NewDefaultHealthDataProvider(m *manifest.Manifest, store state.StateStore, pipelinesDir string) *DefaultHealthDataProvider {
+func NewDefaultHealthDataProvider(m *manifest.Manifest, store state.RunStore, pipelinesDir string) *DefaultHealthDataProvider {
 	return &DefaultHealthDataProvider{
 		manifest:     m,
 		store:        store,

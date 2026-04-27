@@ -25,7 +25,7 @@ type SubPipelineLoader func(dir, name string) (*Pipeline, error)
 type CompositionExecutor struct {
 	emitterMixin
 	seqExecutor    *SequenceExecutor
-	store          state.StateStore
+	store          state.RunStore
 	tmplCtx        *TemplateContext
 	manifest       *manifest.Manifest
 	pipelinesDir   string
@@ -38,7 +38,7 @@ type CompositionExecutor struct {
 func NewCompositionExecutor(
 	seqExecutor *SequenceExecutor,
 	emitter event.EventEmitter,
-	store state.StateStore,
+	store state.RunStore,
 	m *manifest.Manifest,
 	input string,
 	pipelinesDir string,

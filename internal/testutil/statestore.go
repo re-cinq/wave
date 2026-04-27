@@ -652,3 +652,15 @@ func (m *MockStateStore) GetOrchestrationStats(_ string) (*state.OrchestrationSt
 func (m *MockStateStore) ListOrchestrationDecisionSummary(_ int) ([]state.OrchestrationDecisionSummary, error) {
 	return nil, nil
 }
+
+// Compile-time assertions that *MockStateStore satisfies every domain-scoped
+// state interface as well as the aggregate StateStore. These guard against
+// drift if a method is added to one of the narrow interfaces and missed here.
+var (
+	_ state.RunStore      = (*MockStateStore)(nil)
+	_ state.EventStore    = (*MockStateStore)(nil)
+	_ state.OntologyStore = (*MockStateStore)(nil)
+	_ state.WebhookStore  = (*MockStateStore)(nil)
+	_ state.ChatStore     = (*MockStateStore)(nil)
+	_ state.StateStore    = (*MockStateStore)(nil)
+)
