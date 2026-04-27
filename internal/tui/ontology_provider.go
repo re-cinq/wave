@@ -45,11 +45,11 @@ type OntologyDataProvider interface {
 type DefaultOntologyDataProvider struct {
 	manifest  *manifest.Manifest
 	skillsDir string
-	store     state.StateStore
+	store     state.OntologyStore
 }
 
 // NewDefaultOntologyDataProvider creates a new ontology data provider.
-func NewDefaultOntologyDataProvider(m *manifest.Manifest, skillsDir string, store state.StateStore) *DefaultOntologyDataProvider {
+func NewDefaultOntologyDataProvider(m *manifest.Manifest, skillsDir string, store state.OntologyStore) *DefaultOntologyDataProvider {
 	return &DefaultOntologyDataProvider{manifest: m, skillsDir: skillsDir, store: store}
 }
 

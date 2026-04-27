@@ -93,14 +93,22 @@ type DetailDataProvider interface {
 	FetchRunEvents(runID string) ([]state.LogRecord, error)
 }
 
+// detailStore is the persistence surface needed by the detail provider:
+// run lookup + step performance/attempts (RunStore) plus event/artifact
+// retrieval (EventStore). Satisfied by the aggregate StateStore.
+type detailStore interface {
+	state.RunStore
+	state.EventStore
+}
+
 // DefaultDetailDataProvider implements DetailDataProvider using state store and pipeline directory.
 type DefaultDetailDataProvider struct {
-	store        state.StateStore
+	store        detailStore
 	pipelinesDir string
 }
 
 // NewDefaultDetailDataProvider creates a new provider.
-func NewDefaultDetailDataProvider(store state.StateStore, pipelinesDir string) *DefaultDetailDataProvider {
+func NewDefaultDetailDataProvider(store detailStore, pipelinesDir string) *DefaultDetailDataProvider {
 	return &DefaultDetailDataProvider{store: store, pipelinesDir: pipelinesDir}
 }
 

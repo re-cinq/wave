@@ -41,12 +41,12 @@ type PipelineDataProvider interface {
 
 // DefaultPipelineDataProvider implements PipelineDataProvider using a state store and pipeline discovery.
 type DefaultPipelineDataProvider struct {
-	store        state.StateStore
+	store        state.RunStore
 	pipelinesDir string
 }
 
 // NewDefaultPipelineDataProvider creates a new provider wrapping the given state store and pipelines directory.
-func NewDefaultPipelineDataProvider(store state.StateStore, pipelinesDir string) *DefaultPipelineDataProvider {
+func NewDefaultPipelineDataProvider(store state.RunStore, pipelinesDir string) *DefaultPipelineDataProvider {
 	return &DefaultPipelineDataProvider{
 		store:        store,
 		pipelinesDir: pipelinesDir,

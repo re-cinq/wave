@@ -40,12 +40,12 @@ type PersonaDataProvider interface {
 // DefaultPersonaDataProvider implements PersonaDataProvider using the manifest and state store.
 type DefaultPersonaDataProvider struct {
 	manifest     *manifest.Manifest
-	store        state.StateStore
+	store        state.RunStore
 	pipelinesDir string
 }
 
 // NewDefaultPersonaDataProvider creates a new persona data provider.
-func NewDefaultPersonaDataProvider(m *manifest.Manifest, store state.StateStore, pipelinesDir string) *DefaultPersonaDataProvider {
+func NewDefaultPersonaDataProvider(m *manifest.Manifest, store state.RunStore, pipelinesDir string) *DefaultPersonaDataProvider {
 	return &DefaultPersonaDataProvider{
 		manifest:     m,
 		store:        store,

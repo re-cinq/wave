@@ -33,12 +33,12 @@ type RevertPreview struct {
 
 // DefaultStepController implements StepController.
 type DefaultStepController struct {
-	store state.StateStore
+	store state.EventStore
 	model string // default model for interactive sessions
 }
 
 // NewStepController creates a new step controller with the given state store and default model.
-func NewStepController(store state.StateStore, model string) *DefaultStepController {
+func NewStepController(store state.EventStore, model string) *DefaultStepController {
 	return &DefaultStepController{store: store, model: model}
 }
 
