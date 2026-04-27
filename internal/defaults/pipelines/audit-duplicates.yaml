@@ -70,11 +70,9 @@ steps:
 
         4. **Routing** (internal/suggest/ vs internal/pipeline/routing.go): Both may route user intent to pipeline selection. Compare how each determines which pipeline to run. Check for duplicated scoring logic, keyword matching, or heuristic functions.
 
-        5. **State tracking** (internal/state/ vs internal/deliverable/): Both may track pipeline run status and outcomes. Compare their data models, storage mechanisms, and query patterns. Identify whether they track the same lifecycle events or serve different granularities of state.
+        5. **Template variables** (internal/pipeline/context.go ProjectVars vs internal/manifest/types.go ProjectVars): Check whether both define or populate project template variables. Identify whether the same variable names are resolved in two different places, which could lead to inconsistent values.
 
-        6. **Template variables** (internal/pipeline/context.go ProjectVars vs internal/manifest/types.go ProjectVars): Check whether both define or populate project template variables. Identify whether the same variable names are resolved in two different places, which could lead to inconsistent values.
-
-        7. **Discovery of additional overlaps**: Beyond the known suspects, scan for:
+        6. **Discovery of additional overlaps**: Beyond the known suspects, scan for:
            - Functions with identical or near-identical signatures across different packages.
            - Types that model the same domain concept under different names.
            - Utility functions (string manipulation, file I/O helpers, error wrapping) duplicated across packages rather than centralized.

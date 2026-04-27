@@ -617,7 +617,7 @@ func (m *MockStateStore) GetWebhookDeliveries(webhookID int64, limit int) ([]*st
 	return nil, nil
 }
 
-func (m *MockStateStore) RecordOutcome(runID, stepID, outcomeType, label, value string) error {
+func (m *MockStateStore) RecordOutcome(runID, stepID, outcomeType, label, value, description string, metadata map[string]any) error {
 	return nil
 }
 

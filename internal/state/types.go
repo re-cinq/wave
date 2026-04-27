@@ -295,16 +295,35 @@ type WebhookDelivery struct {
 	DeliveredAt    time.Time
 }
 
+// OutcomeType enumerates the kinds of pipeline outcomes tracked by the
+// in-memory OutcomeTracker and persisted via the state store.
+type OutcomeType string
+
+const (
+	OutcomeTypeFile       OutcomeType = "file"
+	OutcomeTypeURL        OutcomeType = "url"
+	OutcomeTypePR         OutcomeType = "pr"
+	OutcomeTypeDeployment OutcomeType = "deployment"
+	OutcomeTypeLog        OutcomeType = "log"
+	OutcomeTypeContract   OutcomeType = "contract"
+	OutcomeTypeArtifact   OutcomeType = "artifact"
+	OutcomeTypeBranch     OutcomeType = "branch"
+	OutcomeTypeIssue      OutcomeType = "issue"
+	OutcomeTypeOther      OutcomeType = "other"
+)
+
 // OutcomeRecord stores a pipeline outcome that survives worktree cleanup.
 // Examples: PR URL, issue URL, artifact path, branch name.
 type OutcomeRecord struct {
-	ID        int64
-	RunID     string
-	StepID    string
-	Type      string // "pr", "issue", "branch", "file", "artifact"
-	Label     string // human-readable label
-	Value     string // the actual URL, path, or identifier
-	CreatedAt time.Time
+	ID          int64
+	RunID       string
+	StepID      string
+	Type        OutcomeType
+	Label       string // human-readable label
+	Value       string // the actual URL, path, or identifier
+	Description string
+	Metadata    map[string]any
+	CreatedAt   time.Time
 }
 
 // OrchestrationDecision records a task classification → pipeline routing decision.

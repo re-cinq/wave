@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/recinq/wave/internal/deliverable"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/pathfmt"
+	"github.com/recinq/wave/internal/state"
 )
 
 // PipelineOutcome is a read-only summary struct constructed after pipeline
-// execution completes. It aggregates key results from the deliverable tracker
+// execution completes. It aggregates key results from the outcome tracker
 // into a structured format suitable for rendering.
 type PipelineOutcome struct {
 	// Identity
@@ -54,7 +54,7 @@ type PipelineOutcome struct {
 	OutcomeWarnings []string
 
 	// Verbose data (full lists, only rendered in verbose mode)
-	AllDeliverables []*deliverable.Deliverable
+	AllDeliverables []*state.OutcomeRecord
 
 	// Failed step tracking
 	FailedStepIDs []string
@@ -86,30 +86,30 @@ type NextStep struct {
 	URL     string // Optional URL to open
 }
 
-// isOutcomeWorthy returns true if the deliverable type should appear in the
-// outcome summary (as opposed to detail-level deliverables).
-func isOutcomeWorthy(t deliverable.DeliverableType) bool {
+// isOutcomeWorthy returns true if the outcome type should appear in the
+// outcome summary (as opposed to detail-level artifacts).
+func isOutcomeWorthy(t state.OutcomeType) bool {
 	switch t {
-	case deliverable.TypePR, deliverable.TypeIssue, deliverable.TypeBranch, deliverable.TypeDeployment:
+	case state.OutcomeTypePR, state.OutcomeTypeIssue, state.OutcomeTypeBranch, state.OutcomeTypeDeployment:
 		return true
 	default:
 		return false
 	}
 }
 
-// filterArtifacts returns only the detail-level deliverables (not outcome-worthy ones
+// filterArtifacts returns only the detail-level outcomes (not outcome-worthy ones
 // like PRs, branches, issues which are shown in the Outcomes section).
 // Deduplicates by absolute path so shared-worktree steps don't produce duplicate entries.
-func filterArtifacts(all []*deliverable.Deliverable) []*deliverable.Deliverable {
-	var result []*deliverable.Deliverable
+func filterArtifacts(all []*state.OutcomeRecord) []*state.OutcomeRecord {
+	var result []*state.OutcomeRecord
 	seen := make(map[string]bool)
 	for _, d := range all {
 		if isOutcomeWorthy(d.Type) {
 			continue
 		}
-		absPath, err := filepath.Abs(d.Path)
+		absPath, err := filepath.Abs(d.Value)
 		if err != nil {
-			absPath = d.Path
+			absPath = d.Value
 		}
 		if seen[absPath] {
 			continue
@@ -121,7 +121,7 @@ func filterArtifacts(all []*deliverable.Deliverable) []*deliverable.Deliverable 
 }
 
 // BuildOutcome constructs a PipelineOutcome from tracker data.
-func BuildOutcome(tracker *deliverable.Tracker, pipelineName, runID string, success bool, duration time.Duration, tokens int, workspacePath string, failedStepIDs []string) *PipelineOutcome {
+func BuildOutcome(tracker *state.OutcomeTracker, pipelineName, runID string, success bool, duration time.Duration, tokens int, workspacePath string, failedStepIDs []string) *PipelineOutcome {
 	outcome := &PipelineOutcome{
 		PipelineName:  pipelineName,
 		RunID:         runID,
@@ -146,10 +146,10 @@ func BuildOutcome(tracker *deliverable.Tracker, pipelineName, runID string, succ
 		failedSet[id] = true
 	}
 
-	// Extract branch info (first branch deliverable wins)
-	for _, d := range tracker.GetByType(deliverable.TypeBranch) {
+	// Extract branch info (first branch outcome wins)
+	for _, d := range tracker.GetByType(state.OutcomeTypeBranch) {
 		if outcome.Branch == "" {
-			outcome.Branch = d.Name
+			outcome.Branch = d.Label
 			if d.Metadata != nil {
 				if pushed, ok := d.Metadata["pushed"].(bool); ok {
 					outcome.Pushed = pushed
@@ -165,37 +165,37 @@ func BuildOutcome(tracker *deliverable.Tracker, pipelineName, runID string, succ
 	}
 
 	// Extract PRs
-	for _, d := range tracker.GetByType(deliverable.TypePR) {
-		label := d.Name
+	for _, d := range tracker.GetByType(state.OutcomeTypePR) {
+		label := d.Label
 		if label == "" {
 			label = "Pull Request"
 		}
-		outcome.PullRequests = append(outcome.PullRequests, OutcomeLink{Label: label, URL: d.Path})
+		outcome.PullRequests = append(outcome.PullRequests, OutcomeLink{Label: label, URL: d.Value})
 	}
 
 	// Extract issues
-	for _, d := range tracker.GetByType(deliverable.TypeIssue) {
-		label := d.Name
+	for _, d := range tracker.GetByType(state.OutcomeTypeIssue) {
+		label := d.Label
 		if label == "" {
 			label = "Issue"
 		}
-		outcome.Issues = append(outcome.Issues, OutcomeLink{Label: label, URL: d.Path})
+		outcome.Issues = append(outcome.Issues, OutcomeLink{Label: label, URL: d.Value})
 	}
 
 	// Extract deployments
-	for _, d := range tracker.GetByType(deliverable.TypeDeployment) {
-		label := d.Name
+	for _, d := range tracker.GetByType(state.OutcomeTypeDeployment) {
+		label := d.Label
 		if label == "" {
 			label = "Deployment"
 		}
-		outcome.Deployments = append(outcome.Deployments, OutcomeLink{Label: label, URL: d.Path})
+		outcome.Deployments = append(outcome.Deployments, OutcomeLink{Label: label, URL: d.Value})
 	}
 
-	// Count detail-level deliverables (deduplicated by path)
+	// Count detail-level outcomes (deduplicated by path)
 	outcome.ArtifactCount = len(filterArtifacts(all))
 
 	// Count contracts
-	contracts := tracker.GetByType(deliverable.TypeContract)
+	contracts := tracker.GetByType(state.OutcomeTypeContract)
 	outcome.ContractsTotal = len(contracts)
 	for _, c := range contracts {
 		if c.Metadata != nil {
@@ -451,13 +451,13 @@ func (o *PipelineOutcome) ToOutcomesJSON() *event.OutcomesJSON {
 		result.Deployments[i] = event.OutcomeLinkJSON{Label: dep.Label, URL: dep.URL}
 	}
 
-	// Convert all deliverables
+	// Convert all outcomes for the JSON envelope
 	result.Deliverables = make([]event.DeliverableJSON, len(o.AllDeliverables))
 	for i, d := range o.AllDeliverables {
 		result.Deliverables[i] = event.DeliverableJSON{
 			Type:        string(d.Type),
-			Name:        d.Name,
-			Path:        d.Path,
+			Name:        d.Label,
+			Path:        d.Value,
 			Description: d.Description,
 			StepID:      d.StepID,
 		}

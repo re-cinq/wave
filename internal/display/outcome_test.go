@@ -5,15 +5,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/recinq/wave/internal/deliverable"
+	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/event"
 )
 
 func TestBuildOutcome_BranchAndPR(t *testing.T) {
-	tracker := deliverable.NewTracker("test-pipeline")
+	tracker := state.NewOutcomeTracker("test-pipeline", nil)
 	tracker.AddBranch("step-1", "feat/my-feature", "/ws/test", "Feature branch")
-	tracker.UpdateMetadata(deliverable.TypeBranch, "feat/my-feature", "pushed", true)
-	tracker.UpdateMetadata(deliverable.TypeBranch, "feat/my-feature", "remote_ref", "origin/feat/my-feature")
+	tracker.UpdateMetadata(state.OutcomeTypeBranch, "feat/my-feature", "pushed", true)
+	tracker.UpdateMetadata(state.OutcomeTypeBranch, "feat/my-feature", "remote_ref", "origin/feat/my-feature")
 	tracker.AddPR("step-2", "Pull Request", "https://github.com/org/repo/pull/42", "New PR")
 	tracker.AddFile("step-1", "output.json", "/ws/test/output.json", "Output")
 	tracker.AddFile("step-1", "result.md", "/ws/test/result.md", "Result")
@@ -44,7 +44,7 @@ func TestBuildOutcome_BranchAndPR(t *testing.T) {
 }
 
 func TestBuildOutcome_Empty(t *testing.T) {
-	tracker := deliverable.NewTracker("test-pipeline")
+	tracker := state.NewOutcomeTracker("test-pipeline", nil)
 
 	outcome := BuildOutcome(tracker, "test-pipeline", "run-123", true, 10*time.Second, 1000, "", nil)
 
@@ -63,7 +63,7 @@ func TestBuildOutcome_Empty(t *testing.T) {
 }
 
 func TestBuildOutcome_OnlyArtifacts(t *testing.T) {
-	tracker := deliverable.NewTracker("test-pipeline")
+	tracker := state.NewOutcomeTracker("test-pipeline", nil)
 	for i := 0; i < 10; i++ {
 		tracker.AddFile("step-1", "file", "/ws/test/file", "desc")
 	}
@@ -83,9 +83,9 @@ func TestBuildOutcome_OnlyArtifacts(t *testing.T) {
 }
 
 func TestBuildOutcome_PushFailure(t *testing.T) {
-	tracker := deliverable.NewTracker("test-pipeline")
+	tracker := state.NewOutcomeTracker("test-pipeline", nil)
 	tracker.AddBranch("step-1", "feat/push-fail", "/ws/test", "Feature branch")
-	tracker.UpdateMetadata(deliverable.TypeBranch, "feat/push-fail", "push_error", "authentication failed")
+	tracker.UpdateMetadata(state.OutcomeTypeBranch, "feat/push-fail", "push_error", "authentication failed")
 
 	outcome := BuildOutcome(tracker, "test-pipeline", "run-123", true, 5*time.Second, 500, "", nil)
 
@@ -95,7 +95,7 @@ func TestBuildOutcome_PushFailure(t *testing.T) {
 }
 
 func TestBuildOutcome_LargeDeliverableCount(t *testing.T) {
-	tracker := deliverable.NewTracker("test-pipeline")
+	tracker := state.NewOutcomeTracker("test-pipeline", nil)
 	tracker.AddBranch("step-1", "feat/large", "/ws/test", "Branch")
 	tracker.AddPR("step-2", "PR", "https://github.com/org/repo/pull/1", "PR")
 	// Add 50+ unique files
@@ -122,7 +122,7 @@ func TestBuildOutcome_NilTracker(t *testing.T) {
 }
 
 func TestBuildOutcome_WithIssues(t *testing.T) {
-	tracker := deliverable.NewTracker("test-pipeline")
+	tracker := state.NewOutcomeTracker("test-pipeline", nil)
 	tracker.AddIssue("step-1", "Bug Fix", "https://github.com/org/repo/issues/10", "Bug")
 
 	outcome := BuildOutcome(tracker, "test-pipeline", "run-123", true, 5*time.Second, 500, "", nil)
@@ -209,7 +209,7 @@ func TestGenerateNextSteps_NoOutcomes(t *testing.T) {
 }
 
 func TestRenderOutcomeSummary_DefaultMode(t *testing.T) {
-	tracker := deliverable.NewTracker("test-pipeline")
+	tracker := state.NewOutcomeTracker("test-pipeline", nil)
 	tracker.AddBranch("step-1", "feat/render-test", "/ws/test", "Branch")
 	tracker.AddPR("step-2", "Pull Request", "https://github.com/org/repo/pull/5", "PR")
 	tracker.AddFile("step-1", "output.json", "/ws/test/output.json", "Output")
@@ -235,7 +235,7 @@ func TestRenderOutcomeSummary_DefaultMode(t *testing.T) {
 }
 
 func TestRenderOutcomeSummary_VerboseMode(t *testing.T) {
-	tracker := deliverable.NewTracker("test-pipeline")
+	tracker := state.NewOutcomeTracker("test-pipeline", nil)
 	tracker.AddBranch("step-1", "feat/verbose", "/ws/test", "Branch")
 	tracker.AddFile("step-1", "output.json", "/ws/test/output.json", "Output")
 	tracker.AddFile("step-1", "log.txt", "/ws/test/log.txt", "Log")
@@ -280,9 +280,9 @@ func TestRenderOutcomeSummary_Nil(t *testing.T) {
 }
 
 func TestRenderOutcomeSummary_PushError(t *testing.T) {
-	tracker := deliverable.NewTracker("test-pipeline")
+	tracker := state.NewOutcomeTracker("test-pipeline", nil)
 	tracker.AddBranch("step-1", "feat/push-err", "/ws/test", "Branch")
-	tracker.UpdateMetadata(deliverable.TypeBranch, "feat/push-err", "push_error", "auth failed")
+	tracker.UpdateMetadata(state.OutcomeTypeBranch, "feat/push-err", "push_error", "auth failed")
 
 	outcome := BuildOutcome(tracker, "test-pipeline", "run-123", true, 5*time.Second, 500, "", nil)
 
@@ -295,7 +295,7 @@ func TestRenderOutcomeSummary_PushError(t *testing.T) {
 }
 
 func TestRenderOutcomeSummary_NonTTYNoANSI(t *testing.T) {
-	tracker := deliverable.NewTracker("test-pipeline")
+	tracker := state.NewOutcomeTracker("test-pipeline", nil)
 	tracker.AddBranch("step-1", "feat/no-ansi", "/ws/test", "Branch")
 	tracker.AddPR("step-2", "PR", "https://github.com/org/repo/pull/1", "PR")
 
@@ -312,7 +312,7 @@ func TestRenderOutcomeSummary_NonTTYNoANSI(t *testing.T) {
 }
 
 func TestRenderOutcomeSummary_NextSteps(t *testing.T) {
-	tracker := deliverable.NewTracker("test-pipeline")
+	tracker := state.NewOutcomeTracker("test-pipeline", nil)
 	tracker.AddPR("step-1", "Pull Request", "https://github.com/org/repo/pull/5", "PR")
 
 	outcome := BuildOutcome(tracker, "test-pipeline", "run-123", true, 5*time.Second, 500, "/ws/test", nil)
@@ -329,9 +329,9 @@ func TestRenderOutcomeSummary_NextSteps(t *testing.T) {
 }
 
 func TestToOutcomesJSON(t *testing.T) {
-	tracker := deliverable.NewTracker("test-pipeline")
+	tracker := state.NewOutcomeTracker("test-pipeline", nil)
 	tracker.AddBranch("step-1", "feat/json-test", "/ws/test", "Branch")
-	tracker.UpdateMetadata(deliverable.TypeBranch, "feat/json-test", "pushed", true)
+	tracker.UpdateMetadata(state.OutcomeTypeBranch, "feat/json-test", "pushed", true)
 	tracker.AddPR("step-2", "Pull Request", "https://github.com/org/repo/pull/1", "PR")
 	tracker.AddIssue("step-3", "Issue #5", "https://github.com/org/repo/issues/5", "Issue")
 	tracker.AddFile("step-1", "output", "/ws/test/output.json", "Output file")
@@ -390,7 +390,7 @@ func TestToOutcomesJSON_EmptySlices(t *testing.T) {
 }
 
 func TestFilterArtifacts_DeduplicatesByPath(t *testing.T) {
-	tracker := deliverable.NewTracker("test-pipeline")
+	tracker := state.NewOutcomeTracker("test-pipeline", nil)
 	// Simulate 4 steps in a shared worktree all producing artifact.json
 	tracker.AddFile("step-1", "issue_analysis", "/ws/shared/artifact.json", "json")
 	tracker.AddFile("step-2", "enhancement_plan", "/ws/shared/artifact.json", "json")

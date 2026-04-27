@@ -531,5 +531,13 @@ WHERE total_tokens = 0
 AND status IN ('completed', 'failed', 'cancelled');`,
 			Down: "",
 		},
+		{
+			Version:     25,
+			Description: "Add description and metadata columns to pipeline_outcome (merge of internal/deliverable into state.OutcomeRecord)",
+			Up: `ALTER TABLE pipeline_outcome ADD COLUMN description TEXT NOT NULL DEFAULT '';
+ALTER TABLE pipeline_outcome ADD COLUMN metadata TEXT NOT NULL DEFAULT '';`,
+			Down: `ALTER TABLE pipeline_outcome DROP COLUMN description;
+ALTER TABLE pipeline_outcome DROP COLUMN metadata;`,
+		},
 	}
 }

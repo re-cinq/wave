@@ -174,7 +174,7 @@ func (b baseStateStore) RecordWebhookDelivery(*state.WebhookDelivery) error { re
 func (b baseStateStore) GetWebhookDeliveries(int64, int) ([]*state.WebhookDelivery, error) {
 	return nil, nil
 }
-func (b baseStateStore) RecordOutcome(string, string, string, string, string) error {
+func (b baseStateStore) RecordOutcome(string, string, string, string, string, string, map[string]any) error {
 	return nil
 }
 func (b baseStateStore) GetOutcomes(string) ([]state.OutcomeRecord, error) { return nil, nil }
