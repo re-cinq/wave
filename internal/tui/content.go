@@ -8,7 +8,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/recinq/wave/internal/display"
-	"github.com/recinq/wave/internal/humanize"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -2166,103 +2165,12 @@ func (m ContentModel) leftPaneWidth() int {
 	return w
 }
 
-// formatStoredEvent formats a persisted LogRecord for display in the live output buffer.
-// Uses structured fields (State, Persona, DurationMs, TokensUsed) for richer output
-// that matches the CLI's formatEventLine style.
+// formatStoredEvent formats a persisted LogRecord for display in the live
+// output buffer. Thin wrapper that adapts the LogRecord into an event.Event
+// view and delegates to the canonical display.EventLine formatter. The
+// canonical implementation lives in internal/display/eventline.go.
 func formatStoredEvent(ev state.LogRecord) string {
-	stepID := ev.StepID
-	if stepID == "" {
-		stepID = "pipeline"
-	}
-
-	nc := noColor()
-
-	switch ev.State {
-	case "started":
-		meta := ""
-		if ev.Persona != "" {
-			meta = " (" + ev.Persona + ")"
-		}
-		return fmt.Sprintf("[%s] Starting...%s", stepID, meta)
-
-	case "completed":
-		suffix := ""
-		if ev.DurationMs > 0 {
-			d := humanize.DurationMs(ev.DurationMs)
-			tokenInfo := ""
-			if ev.TokensUsed > 0 {
-				tokenInfo = fmt.Sprintf(", %s tokens", display.FormatTokenCount(ev.TokensUsed))
-			}
-			suffix = fmt.Sprintf(" (%s%s)", d, tokenInfo)
-		}
-		if nc {
-			return fmt.Sprintf("[%s] Completed%s", stepID, suffix)
-		}
-		return fmt.Sprintf("[%s] ✓ Completed%s", stepID, suffix)
-
-	case "failed":
-		msg := ev.Message
-		if msg == "" {
-			msg = "unknown error"
-		}
-		if nc {
-			return fmt.Sprintf("[%s] Failed: %s", stepID, msg)
-		}
-		return fmt.Sprintf("[%s] ✗ Failed: %s", stepID, msg)
-
-	case "running":
-		if ev.Message != "" {
-			return fmt.Sprintf("[%s] %s", stepID, ev.Message)
-		}
-		return fmt.Sprintf("[%s] Running...", stepID)
-
-	case "retrying":
-		if ev.Message != "" {
-			return fmt.Sprintf("[%s] Retrying: %s", stepID, ev.Message)
-		}
-		return fmt.Sprintf("[%s] Retrying...", stepID)
-
-	case "warning":
-		if nc {
-			return fmt.Sprintf("[%s] Warning: %s", stepID, ev.Message)
-		}
-		return fmt.Sprintf("[%s] ⚠ %s", stepID, ev.Message)
-
-	case "contract_validating":
-		phase := ev.Message
-		if phase == "" {
-			phase = "validating"
-		}
-		return fmt.Sprintf("[%s] Contract: %s", stepID, phase)
-
-	case "contract_passed":
-		if nc {
-			return fmt.Sprintf("[%s] Contract: passed", stepID)
-		}
-		return fmt.Sprintf("[%s] ✓ Contract: passed", stepID)
-
-	case "contract_failed":
-		if nc {
-			return fmt.Sprintf("[%s] Contract: failed", stepID)
-		}
-		return fmt.Sprintf("[%s] ✗ Contract: failed", stepID)
-
-	case "contract_soft_failure":
-		return fmt.Sprintf("[%s] Contract: soft failure (continuing)", stepID)
-
-	case "stream_activity":
-		return fmt.Sprintf("[%s] %s", stepID, ev.Message)
-
-	case "step_progress":
-		if ev.Message != "" {
-			return fmt.Sprintf("[%s] %s", stepID, ev.Message)
-		}
-		return fmt.Sprintf("[%s] heartbeat", stepID)
-
-	default:
-		if ev.Message != "" {
-			return fmt.Sprintf("[%s] %s", stepID, ev.Message)
-		}
-		return fmt.Sprintf("[%s] %s", stepID, ev.State)
-	}
+	evt := eventFromLogRecord(ev)
+	line, _ := display.EventLine(evt, display.LiveTUIProfile(!noColor()))
+	return line
 }

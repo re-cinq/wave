@@ -1,0 +1,23 @@
+[specify] Starting... (navigator)
+[plan] Starting...
+[pipeline] Starting...
+[specify] agent invoked
+[plan] Running...
+[tasks] ✓ Completed (5s, 12.3k tokens)
+[tasks] ✓ Completed (42s)
+[tasks] ✓ Completed
+[implement] ✗ Failed: context exhaustion
+[implement] ✗ Failed: unknown error
+[implement] Retrying: attempt 2/3
+[implement] Retrying...
+[implement] ⚠ workspace cleanup failed
+[plan] Contract: json_schema
+[plan] Contract: validating
+[plan] ✓ Contract: passed
+[plan] ✗ Contract: failed
+[plan] Contract: soft failure (continuing)
+[specify] Read .agents/artifacts/spec.md
+[specify] Executing agent
+[specify] heartbeat
+[specify] fallthrough message
+[specify] unknown_state
