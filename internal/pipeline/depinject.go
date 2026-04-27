@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/event"
@@ -136,17 +137,22 @@ func (e *DefaultPipelineExecutor) locateDepArtifact(execution *PipelineExecution
 //
 // Failures on optional artifacts are warnings; required artifacts that
 // cannot be linked or copied propagate as errors.
-func (e *DefaultPipelineExecutor) injectDependencyArtifacts(execution *PipelineExecution, step *Step, workspacePath string) error {
+//
+// The returned map is keyed "<dep>:<name>" with Path rewritten to the
+// canonical post-injection path (.agents/artifacts/<dep>/<name>) so
+// callers can build env-var or template surfaces from it without
+// re-resolving. Returns nil for steps with no dependencies.
+func (e *DefaultPipelineExecutor) injectDependencyArtifacts(execution *PipelineExecution, step *Step, workspacePath string) (map[string]ResolvedArtifact, error) {
 	if execution == nil || step == nil || workspacePath == "" {
-		return nil
+		return nil, nil
 	}
 
 	resolved, err := e.ResolveDependencyArtifacts(execution, step)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(resolved) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	pipelineID := ""
@@ -157,20 +163,21 @@ func (e *DefaultPipelineExecutor) injectDependencyArtifacts(execution *PipelineE
 	artifactsRoot := filepath.Join(workspacePath, ".agents", "artifacts")
 	outputRoot := filepath.Join(workspacePath, ".agents", "output")
 	if err := os.MkdirAll(artifactsRoot, 0755); err != nil {
-		return fmt.Errorf("failed to create artifacts dir: %w", err)
+		return nil, fmt.Errorf("failed to create artifacts dir: %w", err)
 	}
 	if err := os.MkdirAll(outputRoot, 0755); err != nil {
-		return fmt.Errorf("failed to create output dir: %w", err)
+		return nil, fmt.Errorf("failed to create output dir: %w", err)
 	}
 
 	// Track collisions on the back-compat alias path so we can warn but
 	// not fail when two deps both produce the same bare artifact name.
 	aliasOwners := make(map[string]string)
+	canonical := make(map[string]ResolvedArtifact, len(resolved))
 
 	for _, art := range resolved {
 		canonicalDir := filepath.Join(artifactsRoot, art.DepStep)
 		if err := os.MkdirAll(canonicalDir, 0755); err != nil {
-			return fmt.Errorf("failed to create canonical dir %q: %w", canonicalDir, err)
+			return nil, fmt.Errorf("failed to create canonical dir %q: %w", canonicalDir, err)
 		}
 		canonicalPath := filepath.Join(canonicalDir, art.Name)
 
@@ -185,7 +192,7 @@ func (e *DefaultPipelineExecutor) injectDependencyArtifacts(execution *PipelineE
 				})
 				continue
 			}
-			return fmt.Errorf("failed to inject %s/%s: %w", art.DepStep, art.Name, err)
+			return nil, fmt.Errorf("failed to inject %s/%s: %w", art.DepStep, art.Name, err)
 		}
 
 		// Back-compat alias at .agents/output/<name>. Warn on collision.
@@ -213,13 +220,59 @@ func (e *DefaultPipelineExecutor) injectDependencyArtifacts(execution *PipelineE
 			aliasOwners[art.Name] = art.DepStep
 		}
 
-		// Register canonical path under {{ artifacts.<dep>.<name> }}.
+		// Register canonical path under both {{ artifacts.<dep>.<name> }}
+		// (existing namespace) and {{ deps.<dep>.<name> }} (new, dep-scoped
+		// namespace introduced by issue #1452 phase 3).
 		if execution.Context != nil {
 			execution.Context.SetArtifactPath(art.DepStep+"."+art.Name, canonicalPath)
+			execution.Context.SetCustomVariable("deps."+art.DepStep+"."+art.Name, canonicalPath)
+		}
+
+		canonical[art.DepStep+":"+art.Name] = ResolvedArtifact{
+			DepStep:  art.DepStep,
+			Name:     art.Name,
+			Path:     canonicalPath,
+			Type:     art.Type,
+			Optional: art.Optional,
 		}
 	}
 
-	return nil
+	return canonical, nil
+}
+
+// BuildDepEnvVars returns the WAVE_DEP_<DEP>_<NAME> + WAVE_DEPS_DIR env
+// entries (KEY=VALUE strings) for the given resolved-dep map and
+// workspace. Names are uppercased; non-alphanumerics become underscores.
+// Empty map / empty workspace returns an empty slice.
+func BuildDepEnvVars(resolved map[string]ResolvedArtifact, workspacePath string) []string {
+	if workspacePath == "" {
+		return nil
+	}
+	out := make([]string, 0, len(resolved)+1)
+	out = append(out, "WAVE_DEPS_DIR="+filepath.Join(workspacePath, ".agents", "artifacts"))
+	for _, art := range resolved {
+		out = append(out, "WAVE_DEP_"+envSlug(art.DepStep)+"_"+envSlug(art.Name)+"="+art.Path)
+	}
+	return out
+}
+
+// envSlug uppercases s and replaces every non-alphanumeric byte with `_`,
+// producing a token safe for use in environment-variable names.
+func envSlug(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+			b.WriteByte(c)
+		case c >= 'a' && c <= 'z':
+			b.WriteByte(c - 32)
+		default:
+			b.WriteByte('_')
+		}
+	}
+	return b.String()
 }
 
 // findStepByID returns the step in p whose ID matches id, or nil.
