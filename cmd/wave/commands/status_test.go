@@ -445,8 +445,8 @@ func TestReconcileZombies_PIDZeroOldRunMarkedFailed(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, running, 1, "fixture should produce one running record")
 
-	live := reconcileZombies(h.store, running)
-	assert.Empty(t, live, "old PID=0 running run should be reaped")
+	reaped := state.ReconcileZombies(h.store, 0)
+	assert.Equal(t, 1, reaped, "old PID=0 running run should be reaped")
 
 	rec, err := h.store.GetRun("zombie-old")
 	require.NoError(t, err)
@@ -462,11 +462,11 @@ func TestReconcileZombies_FreshRunSurvives(t *testing.T) {
 	recent := time.Now().Add(-2 * time.Minute)
 	h.createRun("fresh", "test-pipeline", "running", "", 0, recent, nil)
 
-	running, err := h.store.GetRunningRuns()
+	_, err := h.store.GetRunningRuns()
 	require.NoError(t, err)
 
-	live := reconcileZombies(h.store, running)
-	assert.Len(t, live, 1, "recent PID=0 run should survive reconciliation")
+	reaped := state.ReconcileZombies(h.store, 0)
+	assert.Equal(t, 0, reaped, "recent PID=0 run should survive reconciliation")
 }
 
 // TestReconcileZombies_DeadPIDReaped verifies that a record with a PID that
@@ -483,9 +483,9 @@ func TestReconcileZombies_DeadPIDReaped(t *testing.T) {
 	// allocate a high number that is overwhelmingly unlikely to be live.
 	require.NoError(t, h.store.UpdateRunPID("dead-pid", 0x7ffffffe))
 
-	running, err := h.store.GetRunningRuns()
+	_, err := h.store.GetRunningRuns()
 	require.NoError(t, err)
 
-	live := reconcileZombies(h.store, running)
-	assert.Empty(t, live, "dead PID should be reaped")
+	reaped := state.ReconcileZombies(h.store, 0)
+	assert.Equal(t, 1, reaped, "dead PID should be reaped")
 }
