@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Wave mockups — onboarding-as-session</title>
+  <title>Wave &mdash; UI mockups</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -14,33 +14,57 @@
     </div>
     <div class="nav-links">
       <a href="index.html" class="active">Index</a>
+      <a href="00-landing.html">Bridge</a>
+      <a href="01-onboarding-session.html">Onboarding</a>
+      <a href="02-work-board.html">Work</a>
+      <a href="03-work-item.html">Item</a>
+      <a href="04-evolution-proposal.html">Proposal</a>
     </div>
     <div class="nav-meta"><span>docs/scope/mockups/</span></div>
   </nav>
 
   <div class="container">
-    <h1 class="page-title">Onboarding-as-Session — UI dummies</h1>
-    <p class="page-sub">Static HTML, no backend. Open files locally. Iterate before any code lands.</p>
+    <h1 class="page-title">Wave &mdash; UI mockups</h1>
+    <p class="page-sub">
+      The agentic Lego kit for software factories. Strong standards, low-friction entry, the bridge view.
+      Static HTML, no backend. Open files locally. Iterate before any code lands.
+    </p>
 
     <div class="hint">
-      Order suggested: 1 → 2 → 3 → 4. Each page has a "next" link. Push back on what's wrong before service-layer refactor begins.
+      Start with <strong>Public landing</strong> (ngrok-quality marketing page) and <strong>Bridge view</strong> (the in-product dashboard). Then 1 onboarding &rarr; 2 work board &rarr; 3 work item &rarr; 4 proposal. Push back on what's wrong before service-layer refactor begins.
     </div>
 
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px;">
 
+      <a href="public-landing.html" class="card" style="text-decoration: none; color: inherit; border: 1px solid var(--accent); grid-column: 1 / -1; background: linear-gradient(180deg, rgba(47,129,247,0.04), transparent);">
+        <div style="font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em;">marketing &middot; ngrok-quality</div>
+        <div style="font-size: 22px; font-weight: 700; margin: 6px 0;">Public landing &mdash; <em style="color: var(--text-mute); font-style: normal; font-weight: 400;">"All your agents. One factory."</em></div>
+        <div style="color: var(--text-mute); font-size: 13px;">
+          Mono typography, serif gradient hero, diagram cards, trust bar, code chip. Sells Wave to prospective users at the level of polish you'd expect from a paid SaaS.
+        </div>
+      </a>
+
+      <a href="00-landing.html" class="card" style="text-decoration: none; color: inherit; border: 1px solid var(--accent); grid-column: 1 / -1;">
+        <div style="font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em;">in-product &middot; bridge</div>
+        <div style="font-size: 19px; font-weight: 700; margin: 6px 0;">Bridge view (post-onboard)</div>
+        <div style="color: var(--text-mute); font-size: 13px;">
+          Fleet at a glance: in-flight runs, live activity, judge trend, multi-model comparison preview, recent landings, rhythm. The bridge of the ship &mdash; <em>erhabenheit, kontrolle, weitsicht</em>.
+        </div>
+      </a>
+
       <a href="01-onboarding-session.html" class="card" style="text-decoration: none; color: inherit;">
-        <div style="font-size: 11px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.05em;">1 / first run</div>
+        <div style="font-size: 11px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.05em;">1 / scaffolding</div>
         <div style="font-size: 17px; font-weight: 600; margin: 6px 0;">Onboarding Session</div>
         <div style="color: var(--text-mute); font-size: 13px;">
-          Claude-Code subprocess streams progress. Asks user questions inline. Writes <code>.agents/*</code> live. Sets onboarded sentinel on completion.
+          Wave scaffolds itself to your project. A streaming Claude-Code session writes tailored <code>.agents/*</code> while you answer inline gates.
         </div>
       </a>
 
       <a href="02-work-board.html" class="card" style="text-decoration: none; color: inherit;">
-        <div style="font-size: 11px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.05em;">2 / default landing</div>
+        <div style="font-size: 11px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.05em;">2 / the work</div>
         <div style="font-size: 17px; font-weight: 600; margin: 6px 0;">Work Board</div>
         <div style="color: var(--text-mute); font-size: 13px;">
-          Unified issues / PRs / scheduled tasks. Multi-forge. Pipelines hidden. "Run" button per item.
+          Unified issues / PRs / scheduled tasks across all forges. Pipelines hidden. <strong>Run</strong> per item.
         </div>
       </a>
 
@@ -48,35 +72,44 @@
         <div style="font-size: 11px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.05em;">3 / dispatch</div>
         <div style="font-size: 17px; font-weight: 600; margin: 6px 0;">Work Item Detail</div>
         <div style="color: var(--text-mute); font-size: 13px;">
-          Issue body + applicable bindings. JIT pipeline pick + run. Recent runs on this item.
+          Issue body + applicable bindings. Cost forecast pre-dispatch. Recent runs on this item.
         </div>
       </a>
 
       <a href="04-evolution-proposal.html" class="card" style="text-decoration: none; color: inherit;">
-        <div style="font-size: 11px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.05em;">4 / evolution</div>
+        <div style="font-size: 11px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.05em;">4 / self-evolution</div>
         <div style="font-size: 17px; font-weight: 600; margin: 6px 0;">Evolution Proposal</div>
         <div style="color: var(--text-mute); font-size: 13px;">
-          Diff of generated pipeline change. Eval signals that triggered it. Approve / reject gate.
+          Diff of generated pipeline change. Trigger signals + replay forecast. Approve / reject gate.
         </div>
       </a>
 
     </div>
 
-    <h2 style="margin-top: 40px; font-size: 16px;">Scope</h2>
+    <h2 style="margin-top: 40px; font-size: 16px;">Positioning vocabulary</h2>
+    <p style="color: var(--text-mute); font-size: 13px;">
+      Wave is a <strong>scaffolder for software factories</strong> &mdash; an <strong>agentic Lego baukasten</strong>
+      with strong standards and a low-friction entry into the action. The webui is the bridge: always something to
+      <em>discover, start, or compare</em>. Future: parallel runs across multiple models for cross-model agreement
+      ("quasi-reliability") &mdash; e.g. a security audit that flags a finding on three providers carries more weight
+      than one on one.
+    </p>
+
+    <h2 style="margin-top: 32px; font-size: 16px;">Scope of this batch</h2>
     <ul style="color: var(--text-mute); font-size: 13px;">
       <li>Dark theme only (one-shot pass).</li>
       <li>Fake-real data: <code>code-crispies</code> repo, plausible issue titles, plausible signals.</li>
       <li>SVG icons inline. No emojis (project policy).</li>
       <li>No JS yet. Forms are visual only.</li>
-      <li>Layout/CSS prototype only — final will reuse <code>internal/webui/templates/layout.html</code>.</li>
+      <li>Layout/CSS prototype only &mdash; final will reuse <code>internal/webui/templates/layout.html</code> via the build-tagged <code>/preview/*</code> route.</li>
     </ul>
 
     <h2 style="margin-top: 32px; font-size: 16px;">Not yet mocked</h2>
     <ul style="color: var(--text-mute); font-size: 13px;">
-      <li>Dashboard variant for power users (pipelines / personas / contracts admin).</li>
-      <li>Run detail page (existing <code>/runs/&lt;id&gt;</code> assumed reused).</li>
+      <li>Multi-model run detail (parallel comparison view in full).</li>
       <li>Schedule editor.</li>
       <li>Settings / forge auth.</li>
+      <li>Admin section (pipelines / personas / contracts power-user pages).</li>
     </ul>
   </div>
 </body>
