@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/state"
@@ -133,7 +132,7 @@ func RunTUI(deps LaunchDependencies) error {
 
 	// Clean up orphaned runs from previous sessions
 	if deps.Store != nil {
-		cleanStaleRuns(deps.Store)
+		state.ReconcileZombies(deps.Store, 0)
 	}
 
 	// Build content providers from launch dependencies
@@ -194,28 +193,3 @@ func RunTUI(deps LaunchDependencies) error {
 	return err
 }
 
-// cleanStaleRuns marks orphaned pending/running runs as failed on TUI startup.
-// These are runs from previous sessions whose processes died without updating the DB.
-func cleanStaleRuns(store interface{}) {
-	type staleRunCleaner interface {
-		ListRuns(opts state.ListRunsOptions) ([]state.RunRecord, error)
-		UpdateRunStatus(runID string, status string, currentStep string, tokens int) error
-	}
-	s, ok := store.(staleRunCleaner)
-	if !ok {
-		return
-	}
-
-	cutoff := time.Now().Add(-5 * time.Minute)
-	for _, status := range []string{"pending", "running"} {
-		runs, err := s.ListRuns(state.ListRunsOptions{Status: status, Limit: 100})
-		if err != nil {
-			continue
-		}
-		for _, r := range runs {
-			if r.StartedAt.Before(cutoff) {
-				_ = s.UpdateRunStatus(r.RunID, "failed", "orphaned — previous session exited", 0)
-			}
-		}
-	}
-}

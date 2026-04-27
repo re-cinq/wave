@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/recinq/wave/internal/display"
@@ -204,7 +203,12 @@ func showRunningRuns(store state.StateStore, opts StatusOptions) error {
 		return err
 	}
 
-	records = reconcileZombies(store, records)
+	if state.ReconcileZombies(store, 0) > 0 {
+		records, err = store.GetRunningRuns()
+		if err != nil {
+			return err
+		}
+	}
 
 	if len(records) == 0 {
 		if opts.Format == "json" {
@@ -321,46 +325,6 @@ func outputRuns(runs []StatusRunInfo, opts StatusOptions) error {
 	}
 
 	return nil
-}
-
-// reconcileZombies walks records still flagged as "running" and marks any
-// whose tracked process is gone as "failed". Returns the records that survived
-// reconciliation. Runs without a tracked PID (PID == 0, e.g. foreground
-// `wave run` invocations) are reconciled by age: if the started_at timestamp
-// is older than zombieAgeThreshold and no completion has been recorded, the
-// run is treated as orphaned.
-//
-// The state DB has no liveness ping today, so this is the best signal we have
-// without the executor itself writing heartbeats. Errors during reconciliation
-// are non-fatal — the run is left as-is and shown to the user.
-func reconcileZombies(store state.StateStore, records []state.RunRecord) []state.RunRecord {
-	const zombieAgeThreshold = 1 * time.Hour
-	live := make([]state.RunRecord, 0, len(records))
-	for _, r := range records {
-		if r.Status != "running" {
-			live = append(live, r)
-			continue
-		}
-		if isZombie(r, zombieAgeThreshold) {
-			_ = store.UpdateRunStatus(r.RunID, "failed", "process gone (orphaned)", r.TotalTokens)
-			continue
-		}
-		live = append(live, r)
-	}
-	return live
-}
-
-// isZombie reports whether a "running" record has lost its underlying process.
-// Returns true if the tracked PID no longer exists, or if the run has no PID
-// and is older than ageThreshold (proxy for "this should have finished by now").
-func isZombie(r state.RunRecord, ageThreshold time.Duration) bool {
-	if r.PID > 0 {
-		if err := syscall.Kill(r.PID, 0); err == syscall.ESRCH {
-			return true
-		}
-		return false
-	}
-	return time.Since(r.StartedAt) > ageThreshold
 }
 
 // statusColor returns the ANSI color code for a status.

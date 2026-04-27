@@ -100,6 +100,13 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		return nil, fmt.Errorf("failed to open read-write state store: %w", err)
 	}
 
+	// Reclaim zombie runs left over from previously-killed wave run processes
+	// (terminal close, OOM, signal). Without this, the run list accumulates
+	// "running" rows forever — see fix/zombie-reconciliation for context.
+	if reclaimed := state.ReconcileZombies(rwStore, 0); reclaimed > 0 {
+		log.Printf("[webui] reconciled %d zombie run(s) on boot", reclaimed)
+	}
+
 	// Generate a per-session CSRF token
 	csrfBytes := make([]byte, 32)
 	if _, err := rand.Read(csrfBytes); err != nil {
@@ -239,6 +246,24 @@ func (s *Server) pollAttention(ctx context.Context) {
 	}
 }
 
+// reconcileZombiesLoop periodically scans the DB for "running" runs whose
+// owning process is gone and marks them failed. This complements the one-shot
+// reconcile that runs at server boot, catching runs that died after boot.
+func (s *Server) reconcileZombiesLoop(ctx context.Context) {
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if reclaimed := state.ReconcileZombies(s.rwStore, 0); reclaimed > 0 {
+				log.Printf("[webui] reconciled %d zombie run(s)", reclaimed)
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func (s *Server) syncAttentionFromDB() {
 	if s.attention == nil {
 		return
@@ -283,6 +308,7 @@ func (s *Server) Start() error {
 	attentionCtx, attentionCancel := context.WithCancel(context.Background())
 	defer attentionCancel()
 	go s.pollAttention(attentionCtx)
+	go s.reconcileZombiesLoop(attentionCtx)
 
 	addr := fmt.Sprintf("%s:%d", s.bind, s.port)
 	listener, err := net.Listen("tcp", addr)
