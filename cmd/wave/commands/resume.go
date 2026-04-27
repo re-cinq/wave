@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
@@ -217,11 +218,17 @@ func runResume(opts ResumeOptions, debug bool) error {
 		}
 	}
 
+	// Pin the resumed run to the original run's workspace path so prior step
+	// outputs remain visible. Without this the executor would mint a fresh dir
+	// keyed by resumeRunID and the resumed step would see an empty workspace.
+	originalWsPath := filepath.Join(wsRoot, opts.RunID)
+
 	// Build executor.
 	execOpts := []pipeline.ExecutorOption{
 		pipeline.WithEmitter(emitter),
 		pipeline.WithDebug(debug),
 		pipeline.WithRunID(resumeRunID),
+		pipeline.WithWorkspaceOverride(originalWsPath),
 	}
 	if wsManager != nil {
 		execOpts = append(execOpts, pipeline.WithWorkspaceManager(wsManager))

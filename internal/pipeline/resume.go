@@ -373,6 +373,23 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID
 		}
 	}
 
+	// Merge DB-registered artifacts into ArtifactPaths. Composition steps
+	// (aggregate/iterate) don't declare OutputArtifacts, so the workspace walk
+	// above never picks them up. The artifact table is the source of truth for
+	// these — read it and merge so the resumed step's inject_artifacts lookup
+	// can resolve them.
+	if resolvedRunID != "" && r.executor.store != nil {
+		if records, err := r.executor.store.GetArtifacts(resolvedRunID, ""); err == nil {
+			for _, rec := range records {
+				key := rec.StepID + ":" + rec.Name
+				if _, exists := state.ArtifactPaths[key]; exists {
+					continue
+				}
+				state.ArtifactPaths[key] = rec.Path
+			}
+		}
+	}
+
 	// Load failure context from the prior run's step attempts so retry prompts have context
 	if resolvedRunID != "" && r.executor.store != nil {
 		// Query step attempts for the step being resumed

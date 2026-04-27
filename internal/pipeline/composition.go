@@ -32,6 +32,11 @@ type CompositionExecutor struct {
 	pipelineLoader SubPipelineLoader
 	debug          bool
 	gateHandler    GateHandler // Interactive handler for approval gates
+	// runID is the parent run's ID. When set together with a non-nil store
+	// that also implements state.EventStore, aggregate/iterate outputs are
+	// registered in the artifact table so resume + WebUI OUT pills can find
+	// them. Mirrors the production fix in DefaultPipelineExecutor.
+	runID string
 }
 
 // NewCompositionExecutor creates a composition executor.
@@ -62,6 +67,12 @@ func NewCompositionExecutor(
 // SetPipelineLoader sets the function used to load sub-pipelines by name.
 func (c *CompositionExecutor) SetPipelineLoader(loader SubPipelineLoader) {
 	c.pipelineLoader = loader
+}
+
+// SetRunID associates this composition executor with a parent run so output
+// artifacts (aggregate, iterate) can be registered against that run.
+func (c *CompositionExecutor) SetRunID(runID string) {
+	c.runID = runID
 }
 
 // Execute runs a composition pipeline -- a pipeline whose steps are composition
@@ -480,6 +491,21 @@ func (c *CompositionExecutor) executeAggregate(step *Step) error {
 
 	// Store in template context
 	c.tmplCtx.SetStepOutput(step.ID, []byte(result))
+
+	// Register aggregate output in the DB so resume + WebUI OUT pills can find
+	// it. Mirrors the DefaultPipelineExecutor.executeAggregateInDAG path. Only
+	// applies when the parent run has been set and the underlying store
+	// supports artifact registration (EventStore).
+	if c.runID != "" {
+		if es, ok := c.store.(state.EventStore); ok && es != nil {
+			artifactName := strings.TrimSuffix(filepath.Base(outputPath), filepath.Ext(outputPath))
+			var size int64
+			if info, statErr := os.Stat(outputPath); statErr == nil {
+				size = info.Size()
+			}
+			_ = es.RegisterArtifact(c.runID, step.ID, artifactName, outputPath, "json", size)
+		}
+	}
 
 	c.emit(event.Event{
 		Timestamp: time.Now(),

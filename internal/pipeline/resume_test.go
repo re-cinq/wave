@@ -1789,3 +1789,146 @@ func TestResumeFromStep_ReusesWorktree(t *testing.T) {
 		t.Errorf("WorktreePaths AbsPath = %q, want %q", wtInfo.AbsPath, absWt)
 	}
 }
+
+// TestLoadResumeState_MergesDBArtifacts verifies loadResumeState pulls
+// composition-step outputs out of the artifact table and into ArtifactPaths
+// so the resumed step's inject_artifacts lookup can resolve them. Without
+// this fallback, aggregate outputs (which never declare OutputArtifacts) are
+// invisible to resume. Regression: Bug 1 from issue #1434.
+func TestLoadResumeState_MergesDBArtifacts(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	store := newArtifactCapturingStore()
+	priorRunID := "ops-pr-respond-20260427-190848-9617"
+	mergedPath := filepath.Join(".agents", "artifacts", "merge-findings", "merged-findings.json")
+	if err := store.RegisterArtifact(priorRunID, "merge-findings", "merged-findings", mergedPath, "json", 42); err != nil {
+		t.Fatalf("seed artifact: %v", err)
+	}
+
+	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter(), WithStateStore(store))
+	manager := NewResumeManager(executor)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "ops-pr-respond"},
+		Steps: []Step{
+			{ID: "fetch-pr"},
+			{ID: "merge-findings", Dependencies: []string{"fetch-pr"}, Aggregate: &AggregateConfig{Strategy: "concat", From: "x", Into: mergedPath}},
+			{ID: "triage", Dependencies: []string{"merge-findings"}},
+		},
+	}
+
+	rs, err := manager.loadResumeState(p, "triage", priorRunID)
+	if err != nil {
+		t.Fatalf("loadResumeState: %v", err)
+	}
+
+	got, ok := rs.ArtifactPaths["merge-findings:merged-findings"]
+	if !ok {
+		t.Fatalf("ArtifactPaths missing 'merge-findings:merged-findings'; have keys: %v", artifactKeys(rs.ArtifactPaths))
+	}
+	if got != mergedPath {
+		t.Errorf("ArtifactPaths['merge-findings:merged-findings'] = %q, want %q", got, mergedPath)
+	}
+}
+
+func artifactKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+// TestResume_CompositionPipeline_E2E covers the integration path for issue
+// #1434: stage an original run's workspace + DB artifact records, then call
+// loadResumeState with the new (resume) run ID context. The resume manager
+// must surface the aggregate output via ArtifactPaths so the resumed step's
+// inject_artifacts lookup can resolve it without --force.
+func TestResume_CompositionPipeline_E2E(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	priorRunID := "ops-pr-respond-20260427-190848-9617"
+
+	// Stage original workspace dir with prior step outputs on disk so the
+	// workspace walk also picks up regular declarative outputs (fetch-pr's
+	// pr-context.json under fetch-pr/.agents/artifacts/...).
+	originalWs := filepath.Join(".agents", "workspaces", priorRunID)
+	fetchStepWs := filepath.Join(originalWs, "fetch-pr")
+	if err := os.MkdirAll(fetchStepWs, 0755); err != nil {
+		t.Fatalf("mkdir fetch step workspace: %v", err)
+	}
+	prContextPath := filepath.Join(fetchStepWs, "pr-context.json")
+	if err := os.WriteFile(prContextPath, []byte(`{"number":1407}`), 0644); err != nil {
+		t.Fatalf("write pr-context: %v", err)
+	}
+
+	// Seed DB artifact for the aggregate output (no declared OutputArtifacts).
+	mergedPath := filepath.Join(".agents", "artifacts", "merge-findings", "merged-findings.json")
+	if err := os.MkdirAll(filepath.Dir(mergedPath), 0755); err != nil {
+		t.Fatalf("mkdir merged dir: %v", err)
+	}
+	if err := os.WriteFile(mergedPath, []byte(`[]`), 0644); err != nil {
+		t.Fatalf("write merged: %v", err)
+	}
+	store := newArtifactCapturingStore()
+	if err := store.RegisterArtifact(priorRunID, "fetch-pr", "pr-context", prContextPath, "json", 16); err != nil {
+		t.Fatalf("seed fetch-pr artifact: %v", err)
+	}
+	if err := store.RegisterArtifact(priorRunID, "merge-findings", "merged-findings", mergedPath, "json", 2); err != nil {
+		t.Fatalf("seed merge-findings artifact: %v", err)
+	}
+
+	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter(), WithStateStore(store))
+	manager := NewResumeManager(executor)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "ops-pr-respond"},
+		Steps: []Step{
+			{ID: "fetch-pr", OutputArtifacts: []ArtifactDef{{Name: "pr-context", Path: "pr-context.json", Type: "json"}}},
+			{ID: "merge-findings", Dependencies: []string{"fetch-pr"}, Aggregate: &AggregateConfig{Strategy: "concat", From: "x", Into: mergedPath}},
+			{ID: "triage", Dependencies: []string{"merge-findings"}},
+		},
+	}
+
+	rs, err := manager.loadResumeState(p, "triage", priorRunID)
+	if err != nil {
+		t.Fatalf("loadResumeState: %v", err)
+	}
+
+	// Both the workspace-walk-discovered fetch-pr artifact AND the DB-only
+	// aggregate artifact must be present.
+	if _, ok := rs.ArtifactPaths["fetch-pr:pr-context"]; !ok {
+		t.Errorf("workspace walk should have populated fetch-pr:pr-context; keys: %v", artifactKeys(rs.ArtifactPaths))
+	}
+	got, ok := rs.ArtifactPaths["merge-findings:merged-findings"]
+	if !ok {
+		t.Fatalf("DB merge should have populated merge-findings:merged-findings; keys: %v", artifactKeys(rs.ArtifactPaths))
+	}
+	if got != mergedPath {
+		t.Errorf("merge-findings path: got %q, want %q", got, mergedPath)
+	}
+
+	// fetch-pr should appear as completed; merge-findings is not because no
+	// step workspace was staged for it (only DB artifact). triage is the
+	// resume target so it's not in CompletedSteps.
+	foundFetch := false
+	for _, id := range rs.CompletedSteps {
+		if id == "fetch-pr" {
+			foundFetch = true
+		}
+		if id == "triage" {
+			t.Errorf("triage should not be in CompletedSteps (it is the resume target)")
+		}
+	}
+	if !foundFetch {
+		t.Errorf("fetch-pr should be in CompletedSteps; got %v", rs.CompletedSteps)
+	}
+
+	_ = state.ArtifactRecord{} // use state import — keeps build stable if other refs change
+}

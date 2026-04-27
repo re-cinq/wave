@@ -188,6 +188,24 @@ State persistence and workspace persistence are independent:
 Always resume interrupted pipelines **before** cleaning their workspaces.
 :::
 
+## Composition Pipelines (aggregate / iterate)
+
+`wave resume` works for composition pipelines too. Aggregate and iterate
+steps register their outputs in the artifact table just like prompt steps,
+so a resumed step's `inject_artifacts` lookup can resolve them without
+re-running upstream phases:
+
+- `aggregate` registers the file written to `aggregate.into` under an
+  artifact name derived from its filename (e.g. `merged-findings.json` →
+  `merged-findings`).
+- `iterate` registers the implicit `<stepID>-collected.json` array under
+  artifact name `collected-output`.
+
+A resumed run reuses the original run's workspace path
+(`.agents/workspaces/<original-run-id>/`) instead of creating a fresh
+directory keyed by the resume run's ID. Prior step outputs on disk remain
+visible to the resumed step.
+
 ## Further Reading
 
 - [CLI Reference — run](/reference/cli#wave-run) — run command details (includes `--from-step`, `--force`, `--run`, `--exclude`)

@@ -86,6 +86,10 @@ type DefaultPipelineExecutor struct {
 	etaCalculator *ETACalculator
 	// Preserve workspace from previous run (skip cleanup for debugging)
 	preserveWorkspace bool
+	// Use this exact path as the pipeline workspace and skip cleanup. Set by
+	// the resume CLI so a resumed run reuses the original run's workspace
+	// instead of minting a new dir under the resume run's ID.
+	workspaceOverride string
 	// Step filter for selective step execution (--steps / --exclude)
 	stepFilter *StepFilter
 	// Skill store for DirectoryStore-based skill provisioning
@@ -194,6 +198,15 @@ func WithCrossPipelineArtifacts(artifacts map[string]map[string][]byte) Executor
 // preserving the workspace from a previous run for debugging purposes.
 func WithPreserveWorkspace(preserve bool) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.preserveWorkspace = preserve }
+}
+
+// WithWorkspaceOverride pins the pipeline workspace path to a pre-existing
+// directory and skips cleanup. Used by `wave resume` so the resumed run reads
+// the original run's step outputs instead of starting in a fresh dir keyed by
+// the new resume run ID. When set, the override is used in place of
+// filepath.Join(workspaceRoot, pipelineID) at every workspace-init site.
+func WithWorkspaceOverride(path string) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.workspaceOverride = path }
 }
 
 // WithStepFilter sets the step filter for selective step execution.
@@ -828,15 +841,32 @@ func (e *DefaultPipelineExecutor) setupPipelineRun(ctx context.Context, executio
 		wsRoot = ".agents/workspaces"
 	}
 	pipelineWsPath := filepath.Join(wsRoot, pipelineID)
-	// Clean previous run artifacts to ensure fresh state (unless --preserve-workspace is set)
-	if e.preserveWorkspace {
+	switch {
+	case e.workspaceOverride != "":
+		// Resume path: reuse the original run's workspace. Skip RemoveAll so
+		// prior step outputs survive; skip MkdirAll because the override is
+		// expected to already exist from the original run.
+		pipelineWsPath = e.workspaceOverride
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			State:      "warning",
+			Message:    fmt.Sprintf("workspace override active: reusing %s", pipelineWsPath),
+		})
+		if err := os.MkdirAll(pipelineWsPath, 0755); err != nil {
+			return fmt.Errorf("failed to ensure workspace override: %w", err)
+		}
+	case e.preserveWorkspace:
 		e.emit(event.Event{
 			Timestamp:  time.Now(),
 			PipelineID: pipelineID,
 			State:      "warning",
 			Message:    "--preserve-workspace active: stale workspace state may cause non-reproducible results",
 		})
-	} else {
+		if err := os.MkdirAll(pipelineWsPath, 0755); err != nil {
+			return fmt.Errorf("failed to create workspace: %w", err)
+		}
+	default:
 		if err := os.RemoveAll(pipelineWsPath); err != nil {
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
@@ -845,9 +875,9 @@ func (e *DefaultPipelineExecutor) setupPipelineRun(ctx context.Context, executio
 				Message:    fmt.Sprintf("failed to clean workspace: %v", err),
 			})
 		}
-	}
-	if err := os.MkdirAll(pipelineWsPath, 0755); err != nil {
-		return fmt.Errorf("failed to create workspace: %w", err)
+		if err := os.MkdirAll(pipelineWsPath, 0755); err != nil {
+			return fmt.Errorf("failed to create workspace: %w", err)
+		}
 	}
 
 	e.emit(event.Event{
@@ -1266,7 +1296,10 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		wsRoot = ".agents/workspaces"
 	}
 	pipelineWsPath := filepath.Join(wsRoot, pipelineID)
-	if !e.preserveWorkspace {
+	if e.workspaceOverride != "" {
+		// Resume path: reuse the original run's workspace.
+		pipelineWsPath = e.workspaceOverride
+	} else if !e.preserveWorkspace {
 		_ = os.RemoveAll(pipelineWsPath)
 	}
 	if err := os.MkdirAll(pipelineWsPath, 0755); err != nil {
@@ -5890,6 +5923,15 @@ func (e *DefaultPipelineExecutor) collectIterateOutputs(execution *PipelineExecu
 	execution.ArtifactPaths[step.ID+":collected-output"] = outputPath
 	execution.mu.Unlock()
 
+	// Register in DB so resume + WebUI OUT pills can find it.
+	if e.store != nil {
+		var size int64
+		if info, err := os.Stat(outputPath); err == nil {
+			size = info.Size()
+		}
+		_ = e.store.RegisterArtifact(execution.Status.ID, step.ID, "collected-output", outputPath, "json", size)
+	}
+
 	return nil
 }
 
@@ -5950,6 +5992,12 @@ func (e *DefaultPipelineExecutor) executeAggregateInDAG(_ context.Context, execu
 	execution.mu.Unlock()
 	if e.store != nil {
 		_ = e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
+		// Register aggregate output in DB so resume + WebUI OUT pills can find it.
+		var size int64
+		if info, err := os.Stat(outputPath); err == nil {
+			size = info.Size()
+		}
+		_ = e.store.RegisterArtifact(pipelineID, step.ID, artifactName, outputPath, "json", size)
 	}
 
 	e.emit(event.Event{
