@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Lab — step 1</title>
+  <style>
+    body {
+      margin: 0; padding: 60px 40px;
+      background: #0a0d12;
+      color: #e9eef5;
+      font-family: ui-monospace, 'JetBrains Mono', monospace;
+      font-size: 14px;
+    }
+    h2 {
+      font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
+      color: #76e6c5; margin: 0 0 6px;
+    }
+    p { color: #8a96a8; margin: 0 0 24px; max-width: 680px; }
+
+    .card {
+      max-width: 640px;
+      padding: 26px 26px 30px;
+      border: 1px solid #232a36;
+      border-radius: 14px;
+      background: #11151c;
+    }
+
+    /* The diagram surface */
+    .stage {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 5 / 3;
+      border: 1px dashed #1a2029;
+      border-radius: 10px;
+      background:
+        radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1.2px) 0 0 / 22px 22px;
+    }
+    .stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+    /* Nodes */
+    .node-input,
+    .node-hub {
+      position: absolute;
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 8px 14px;
+      background: #161b24;
+      border: 1px solid #232a36;
+      border-radius: 8px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .node-input { top: 14%; left: 10%; }
+    .node-hub {
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      border-color: rgba(118,230,197,0.6);
+      background:
+        radial-gradient(circle at 50% 50%,
+          rgba(118,230,197,0.20),
+          rgba(138,169,255,0.08) 60%,
+          #11151c 100%);
+      font-weight: 600;
+    }
+
+    /* Wave logo (real one from internal/webui) */
+    .wave-logo {
+      width: 18px; height: 18px;
+      stroke: #76e6c5;
+      fill: none;
+      stroke-width: 2.6;
+      stroke-linecap: round;
+    }
+    .wave-logo .ghost { opacity: 0.32; }
+
+    /* Connector path — straight line for now */
+    .connector {
+      stroke: #76e6c5;
+      stroke-width: 1.6;
+      fill: none;
+    }
+  </style>
+</head>
+<body>
+  <h2>step 1 — primitives only</h2>
+  <p>Outer frame · one input node · one center hub · one straight connector. No dasharray, no animation, no endpoints, no flow direction yet.</p>
+
+  <div class="card">
+    <div class="stage">
+      <svg viewBox="0 0 500 300" preserveAspectRatio="none">
+        <!-- straight connector from input center (~14% top, ~25% left) to hub (50%, 50%) -->
+        <path class="connector" d="M125 65 L250 150" />
+      </svg>
+      <div class="node-input">package.json</div>
+      <div class="node-hub">
+        <svg class="wave-logo" viewBox="0 0 28 28" aria-hidden="true">
+          <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/>
+          <path class="ghost" d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14"/>
+        </svg>
+        onboarder
+      </div>
+    </div>
+  </div>
+</body>
+</html>

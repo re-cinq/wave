@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Wave &mdash; the agentic Lego kit for software factories</title>
+  <title>Wave &mdash; agentic building blocks for software factories</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Newsreader:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" />
@@ -56,12 +56,14 @@
       align-items: center;
       gap: 8px;
     }
-    .nav-brand-dot {
-      display: inline-block;
-      width: 9px; height: 9px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    .wave-logo {
+      width: 24px; height: 24px;
+      flex-shrink: 0;
+      color: var(--text);
     }
+    .wave-logo .ghost { opacity: 0.32; }
+    .dnode .wave-logo { width: 14px; height: 14px; color: var(--accent); }
+    .dnode.center .wave-logo { width: 16px; height: 16px; color: var(--accent); }
     .nav-links { display: flex; gap: 26px; flex: 1; margin-left: 18px; }
     .nav-links a {
       color: var(--text-mute);
@@ -351,39 +353,136 @@
     }
     .pcard-wide { grid-column: 1 / -1; }
 
-    /* Diagram (dashed lines + boxes) */
+    /* Diagram — pure SVG */
     .diagram {
       position: relative;
-      height: 260px;
-      padding: 0;
-      margin-top: 16px;
-      font-family: var(--mono);
-      font-size: 11.5px;
+      height: 280px;
+      margin-top: 18px;
+      border: 1px dashed var(--border-soft);
+      border-radius: 10px;
+      background:
+        radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1.2px) 0 0 / 22px 22px,
+        radial-gradient(circle at 50% 55%, rgba(118,230,197,0.06), transparent 65%);
       overflow: hidden;
     }
-    .pcard-wide .diagram { height: 220px; }
+    .pcard-wide .diagram { height: 240px; }
+    .dgm { width: 100%; height: 100%; display: block; }
+    .dgm .box     { fill: var(--bg-2);   stroke: var(--border);   stroke-width: 1; }
+    .dgm .box-dim { fill: var(--bg);     stroke: var(--border-soft); stroke-width: 1; }
+    .dgm .box-hub { fill: var(--bg-elev); stroke: rgba(118,230,197,0.65); stroke-width: 1.4; }
+    .dgm .label    { font-family: var(--mono); font-size: 12px; fill: var(--text); text-anchor: middle; }
+    .dgm .label-dim{ font-family: var(--mono); font-size: 11px; fill: var(--text-mute); text-anchor: middle; }
+    .dgm .label-hub{ font-family: var(--mono); font-size: 12.5px; font-weight: 600; fill: var(--text); text-anchor: middle; }
+    .dgm .ico     { stroke: var(--text-mute); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .dgm .connector {
+      stroke-width: 1.6;
+      stroke-dasharray: 4 5;
+      stroke-linecap: round;
+      fill: none;
+      animation: dash-flow 1.2s linear infinite;
+    }
+    .dgm .connector.in   { stroke: #8aa9ff; }
+    .dgm .connector.out  { stroke: #76e6c5; }
+    .dgm .connector.warn { stroke: #ffd66e; }
+    .dgm .connector.alt  { stroke: #ff8fb3; }
+    @keyframes dash-flow { to { stroke-dashoffset: -9; } }
+    .dgm .endpoint-halo { opacity: 0.25; transform-origin: center; transform-box: fill-box;
+                           animation: breathe 2s ease-in-out infinite; }
+    @keyframes breathe {
+      0%, 100% { transform: scale(1);   opacity: 0.18; }
+      50%      { transform: scale(1.5); opacity: 0.45; }
+    }
+    .dgm .hub-halo-out { fill: rgba(118,230,197,0.06); transform-origin: center; transform-box: fill-box;
+                          animation: hub-pulse 3.4s ease-in-out infinite; }
+    .dgm .hub-halo-mid { fill: rgba(118,230,197,0.12); }
+    @keyframes hub-pulse {
+      0%, 100% { opacity: 0.55; transform: scale(1); }
+      50%      { opacity: 1;    transform: scale(1.08); }
+    }
+
     .dnode {
       position: absolute;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
+      gap: 7px;
+      padding: 7px 14px;
       background: var(--bg-2);
       border: 1px solid var(--border);
       border-radius: 8px;
       color: var(--text);
       white-space: nowrap;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.4);
     }
     .dnode svg { width: 13px; height: 13px; }
-    .dnode.dim { color: var(--text-mute); }
+    .dnode.dim { color: var(--text-mute); background: var(--bg); }
+
     .dnode.center {
-      background: linear-gradient(135deg, rgba(118,230,197,0.08), rgba(255,143,179,0.04));
-      border: 1px solid rgba(118,230,197,0.4);
+      background:
+        radial-gradient(circle at 50% 50%,
+          rgba(118,230,197,0.28) 0%,
+          rgba(138,169,255,0.12) 50%,
+          var(--bg-elev) 100%);
+      border: 1.5px solid rgba(118,230,197,0.65);
       padding: 14px 22px;
       font-size: 13px;
       font-weight: 600;
+      letter-spacing: 0.01em;
+      box-shadow:
+        0 0 0 6px rgba(118,230,197,0.05),
+        0 0 36px rgba(118,230,197,0.22),
+        0 0 0 1px rgba(255,143,179,0.10);
+      animation: hub-pulse 3.4s ease-in-out infinite;
     }
-    .dnode.center .nav-brand-dot { width: 12px; height: 12px; }
+    .dnode.center .wave-logo { width: 18px; height: 18px; animation: hub-logo 6s linear infinite; }
+
+    @keyframes hub-pulse {
+      0%, 100% {
+        box-shadow:
+          0 0 0 6px rgba(118,230,197,0.05),
+          0 0 32px rgba(118,230,197,0.22),
+          0 0 0 1px rgba(255,143,179,0.10);
+      }
+      50% {
+        box-shadow:
+          0 0 0 10px rgba(118,230,197,0.10),
+          0 0 56px rgba(118,230,197,0.42),
+          0 0 0 1px rgba(255,143,179,0.20);
+      }
+    }
+    @keyframes hub-logo {
+      0%, 100% { color: var(--accent); }
+      50%      { color: var(--accent-2); }
+    }
+
+    .dline {
+      width: 100%; height: 100%;
+      top: 0; left: 0;
+      z-index: 1;
+    }
+    .dline path {
+      stroke-linecap: round;
+      stroke-width: 1.8;
+      stroke-dasharray: 4 5;
+      fill: none;
+      animation: flow 1.4s linear infinite;
+    }
+    @keyframes flow {
+      from { stroke-dashoffset: 0; }
+      to   { stroke-dashoffset: -18; }
+    }
+    .dline .endpoint {
+      fill: currentColor;
+      animation: breathe 2.2s ease-in-out infinite;
+      transform-origin: center;
+      transform-box: fill-box;
+    }
+    .dline .endpoint-core { fill: currentColor; }
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); opacity: 0.35; }
+      50%      { transform: scale(1.4); opacity: 0.7; }
+    }
+    .dnode { z-index: 2; }
+    .dnode.center { z-index: 3; }
 
     /* SVG dashed connectors via absolute */
     .dline {
@@ -481,6 +580,49 @@
     }
     .feature-list span svg { width: 14px; height: 14px; color: var(--accent); flex-shrink: 0; }
 
+    /* Audit table */
+    .audit-card {
+      max-width: 980px;
+      margin: 24px auto 0;
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 26px;
+      font-family: var(--mono);
+      font-size: 13px;
+      overflow-x: auto;
+    }
+    .audit-comment { color: var(--text-dim); margin-bottom: 14px; font-size: 12.5px; }
+    .audit-table { width: 100%; border-collapse: collapse; }
+    .audit-table th {
+      text-align: left;
+      padding: 8px 14px;
+      font-weight: 500;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-mute);
+      border-bottom: 1px solid var(--border);
+    }
+    .audit-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-soft);
+      color: var(--text);
+    }
+    .audit-table tr:last-child td { border-bottom: none; }
+    .audit-table code {
+      background: var(--bg-2);
+      padding: 1px 6px;
+      border-radius: 3px;
+      color: var(--accent-2);
+      font-size: 12px;
+    }
+    .audit-flag { color: var(--accent-2); font-weight: 600; }
+    .audit-dash { color: var(--text-dim); }
+    .verdict-strong { color: var(--accent); font-weight: 600; }
+    .verdict-weigh  { color: var(--accent-3); font-weight: 600; }
+    .verdict-noise  { color: var(--text-mute); }
+
     /* Final CTA */
     .final-cta {
       padding: 100px 24px 120px;
@@ -535,7 +677,7 @@
   <div class="preview-banner">PREVIEW &middot; Mockup &middot; not connected to a backend</div>
 
   <nav class="nav">
-    <span class="nav-brand"><span class="nav-brand-dot"></span>wave</span>
+    <span class="nav-brand"><svg class="wave-logo" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/><path class="ghost" d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14"/></svg>wave</span>
     <div class="nav-links">
       <a href="#">Product <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" /></svg></a>
       <a href="#">Pipelines <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" /></svg></a>
@@ -562,7 +704,7 @@
       <span class="grad">One factory.</span>
     </h1>
     <p class="sub">
-      Wave is the agentic Lego kit for software factories. It scaffolds itself to your repo,
+      Wave gives you agentic building blocks for software factories. It scaffolds itself to your repo,
       hides the orchestration, and gives you the bridge view &mdash; strong standards,
       low-friction entry, and a clear sense of every agent in the fleet.
     </p>
@@ -584,6 +726,7 @@
       <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.5-1.4-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2 1-.3 2-.4 3-.4s2 .1 3 .4c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6C20.6 21.8 24 17.3 24 12c0-6.6-5.4-12-12-12z" /></svg>GitHub</span>
       <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7v10l10 5 10-5V7l-10-5zm0 2.3l7.5 3.7L12 11.7 4.5 8 12 4.3z" opacity="0.85" /></svg>Gitea</span>
       <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6z" /></svg>Forgejo</span>
+      <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 4h20l-2 16H4L2 4zm6 4l1 8h6l1-8H8z" /></svg>Bitbucket</span>
       <span><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9" opacity="0.6" /><circle cx="12" cy="12" r="4" /></svg>Anthropic</span>
       <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 4l-3 5h6l-3-5zm-4 7l3 5 3-5H8z" /></svg>OpenAI</span>
       <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>Gemini</span>
@@ -611,7 +754,7 @@
   </section>
 
   <section class="sec">
-    <h2>From <span class="codeword">issue</span> to live PR.</h2>
+    <h2>From <span class="codeword">issue</span> to <em>reviewed</em> PR.</h2>
     <p class="lede">
       No more pipeline picker, no more YAML wrangling, no more guessing which agent to spawn.
       Wave maps your forge work items to the right pipeline, runs it, and watches the result.
@@ -626,26 +769,43 @@
         </div>
         <div class="pcard-title">Wave scaffolds itself<br />to your project</div>
         <div class="diagram">
-          <div class="dnode" style="top: 10px; left: 6%;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
-            package.json
-          </div>
-          <div class="dnode" style="top: 10px; right: 6%;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /></svg>
-            biome.json
-          </div>
-          <div class="dnode center" style="left: 50%; top: 100px; transform: translateX(-50%);">
-            <span class="nav-brand-dot"></span>onboarder
-          </div>
-          <div class="dnode" style="bottom: 14px; left: 4%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" /></svg>.agents/pipelines/</div>
-          <div class="dnode" style="bottom: 14px; left: 36%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4" /><path d="M5 21a7 7 0 0 1 14 0" /></svg>.agents/personas/</div>
-          <div class="dnode" style="bottom: 14px; right: 4%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /></svg>.agents/contracts/</div>
-          <svg class="dline" style="inset: 0;" preserveAspectRatio="none" viewBox="0 0 400 260">
-            <path d="M50 26 L200 105" stroke="rgba(118,230,197,0.4)" stroke-width="1" stroke-dasharray="4 4" fill="none" />
-            <path d="M350 26 L200 105" stroke="rgba(118,230,197,0.4)" stroke-width="1" stroke-dasharray="4 4" fill="none" />
-            <path d="M200 130 L60 240" stroke="rgba(255,143,179,0.4)" stroke-width="1" stroke-dasharray="4 4" fill="none" />
-            <path d="M200 130 L200 240" stroke="rgba(255,143,179,0.4)" stroke-width="1" stroke-dasharray="4 4" fill="none" />
-            <path d="M200 130 L340 240" stroke="rgba(255,143,179,0.4)" stroke-width="1" stroke-dasharray="4 4" fill="none" />
+          <svg class="dgm" width="100%" height="100%" viewBox="0 0 600 280" preserveAspectRatio="xMidYMid meet">
+            <!-- inputs -->
+            <rect class="box" x="80"  y="20" width="147" height="36" rx="8"/>            <svg x="81.8" y="29.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l5-3 5 3v6l-5 3-5-3z"/><path d="M3 7l5 3v6"/><path d="M13 7l-5 3"/></svg><text class="label" x="164" y="42">package.json</text>
+
+            <rect class="box" x="400" y="20" width="132" height="36" rx="8"/>            <svg x="402.0" y="29.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h6l3 4-3 4-6-3z"/><path d="M5 11l3 3 3-1"/></svg><text class="label" x="477" y="42">biome.json</text>
+
+            <!-- hub -->
+            <circle class="hub-halo-out" cx="300" cy="140" r="48"/>
+            <circle class="hub-halo-mid" cx="300" cy="140" r="36"/>
+            <rect class="box-hub" x="240" y="119" width="120" height="42" rx="10"/>
+            <svg x="252" y="130" width="20" height="20" viewBox="0 0 28 28">
+              <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14" fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round"/>
+              <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round" opacity="0.32"/>
+            </svg>
+            <text class="label-hub" x="313" y="146">onboarder</text>
+
+            <!-- outputs -->
+            <rect class="box" x="10"  y="224" width="190" height="36" rx="8"/>
+            <svg x="14.9" y="233.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h5l1 1.5h6V12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg><text class="label" x="116" y="246" font-size="11.5">.agents/pipelines/</text>
+            <rect class="box" x="210" y="224" width="183" height="36" rx="8"/>
+            <svg x="214.3" y="233.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="6" r="2.5"/><path d="M3 13a5 5 0 0 1 10 0"/></svg><text class="label" x="312" y="246" font-size="11.5">.agents/personas/</text>
+            <rect class="box" x="403" y="224" width="187" height="36" rx="8"/>
+            <svg x="405.9" y="233.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2h7l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><polyline points="10 2 10 5 13 5"/><line x1="5" y1="9" x2="11" y2="9"/><line x1="5" y1="11.5" x2="11" y2="11.5"/></svg><text class="label" x="507" y="246" font-size="11.5">.agents/contracts/</text>
+
+            <!-- connectors: distributed ports on hub top (280, 320) and bottom (270, 300, 330) -->
+            <path class="connector in"  d="M153 62 V92 A8 8 0 0 0 161 100 H272 A8 8 0 0 1 280 108 V113"/>
+            <path class="connector in"  d="M466 62 V92 A8 8 0 0 1 458 100 H328 A8 8 0 0 0 320 108 V113"/>
+            <path class="connector alt" d="M270 167 V190 A8 8 0 0 1 262 198 H113 A8 8 0 0 0 105 206 V218"/>
+            <path class="connector alt" d="M300 167 V218"/>
+            <path class="connector alt" d="M330 167 V190 A8 8 0 0 0 338 198 H488 A8 8 0 0 1 496 206 V218"/>
+
+            <!-- endpoints -->
+            <circle class="endpoint-halo" cx="153" cy="62"  r="6" fill="#8aa9ff"/><circle cx="153" cy="62"  r="3" fill="#8aa9ff"/>
+            <circle class="endpoint-halo" cx="466" cy="62"  r="6" fill="#8aa9ff"/><circle cx="466" cy="62"  r="3" fill="#8aa9ff"/>
+            <circle class="endpoint-halo" cx="105" cy="218" r="6" fill="#ff8fb3"/><circle cx="105" cy="218" r="3" fill="#ff8fb3"/>
+            <circle class="endpoint-halo" cx="300" cy="218" r="6" fill="#ff8fb3"/><circle cx="300" cy="218" r="3" fill="#ff8fb3"/>
+            <circle class="endpoint-halo" cx="496" cy="218" r="6" fill="#ff8fb3"/><circle cx="496" cy="218" r="3" fill="#ff8fb3"/>
           </svg>
         </div>
       </a>
@@ -657,16 +817,46 @@
         </div>
         <div class="pcard-title">Click an issue,<br />get a PR</div>
         <div class="diagram">
-          <div class="dnode" style="top: 12px; left: 6%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /></svg>issue #142</div>
-          <div class="dnode dim" style="top: 64px; left: 14%; font-size: 10.5px;">label: enhancement</div>
-          <div class="dnode center" style="left: 50%; top: 100px; transform: translateX(-50%);"><span class="nav-brand-dot"></span>impl-issue</div>
-          <div class="dnode" style="top: 64px; right: 14%; font-size: 10.5px;">budget $0.50</div>
-          <div class="dnode" style="top: 12px; right: 8%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="18" r="3" /><path d="M6 9v6" /><path d="M18 6h-3a3 3 0 0 0-3 3v9" /></svg>PR !58</div>
-          <div class="dnode" style="bottom: 14px; left: 50%; transform: translateX(-50%); border: 1px dashed var(--border);">contracts gate every step</div>
-          <svg class="dline" style="inset: 0;" preserveAspectRatio="none" viewBox="0 0 400 260">
-            <path d="M58 30 L200 110" stroke="rgba(138,169,255,0.45)" stroke-width="1" stroke-dasharray="4 4" fill="none" />
-            <path d="M200 130 L342 30" stroke="rgba(118,230,197,0.45)" stroke-width="1" stroke-dasharray="4 4" fill="none" />
-            <path d="M200 138 L200 226" stroke="rgba(255,214,110,0.4)" stroke-width="1" stroke-dasharray="3 3" fill="none" />
+          <svg class="dgm" width="100%" height="100%" viewBox="0 0 600 280" preserveAspectRatio="xMidYMid meet">
+            <!-- inputs -->
+            <rect class="box" x="80" y="20" width="120" height="36" rx="8"/>            <svg x="76.0" y="29.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/></svg><text class="label" x="151" y="42">issue #142</text>
+
+            <rect class="box-dim" x="400" y="20" width="170" height="36" rx="8"/>
+            <svg x="397.6" y="29.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5c6675" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8l5-5h6v6l-5 5z"/><circle cx="10" cy="6" r="1" fill="currentColor"/></svg><text class="label-dim" x="496" y="42">label: enhancement</text>
+
+            <!-- hub -->
+            <circle class="hub-halo-out" cx="300" cy="140" r="48"/>
+            <circle class="hub-halo-mid" cx="300" cy="140" r="36"/>
+            <rect class="box-hub" x="232" y="119" width="136" height="42" rx="10"/>
+            <svg x="244" y="130" width="20" height="20" viewBox="0 0 28 28">
+              <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14" fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round"/>
+              <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round" opacity="0.32"/>
+            </svg>
+            <text class="label-hub" x="313" y="146">impl-issue</text>
+
+            <!-- outputs -->
+            <rect class="box" x="80"  y="224" width="120" height="36" rx="8"/>
+            <svg x="90.4" y="233.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="1.8"/><circle cx="4" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><path d="M4 6v4"/><path d="M12 4h-2a2 2 0 0 0-2 2v4"/></svg><text class="label" x="151" y="246">PR !58</text>
+
+            <rect class="box-dim" x="400" y="224" width="170" height="36" rx="8"/>
+            <svg x="404.2" y="233.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5c6675" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M11 5.5H7a1.5 1.5 0 0 0 0 3h2a1.5 1.5 0 0 1 0 3H5"/><path d="M8 4v8"/></svg><text class="label-dim" x="496" y="246">budget cap $0.50</text>
+
+            <rect class="box-dim" x="220" y="224" width="160" height="36" rx="8" stroke-dasharray="3 3"/>
+            <svg x="235.7" y="233.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5c6675" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><polyline points="5.5 8 7.5 10 11 6.5"/></svg><text class="label-dim" x="311" y="246">review pass</text>
+
+            <!-- connectors: distributed ports on hub top (286, 314) and bottom (270, 300, 330) -->
+            <path class="connector in"  d="M140 62 V92 A8 8 0 0 0 148 100 H278 A8 8 0 0 1 286 108 V113"/>
+            <path class="connector warn" d="M485 62 V92 A8 8 0 0 1 477 100 H322 A8 8 0 0 0 314 108 V113"/>
+            <path class="connector out" d="M270 167 V190 A8 8 0 0 1 262 198 H148 A8 8 0 0 0 140 206 V218"/>
+            <path class="connector warn" d="M330 167 V190 A8 8 0 0 0 338 198 H477 A8 8 0 0 1 485 206 V218"/>
+            <path class="connector out" d="M300 167 V218"/>
+
+            <!-- endpoints -->
+            <circle class="endpoint-halo" cx="140" cy="62"  r="6" fill="#8aa9ff"/><circle cx="140" cy="62"  r="3" fill="#8aa9ff"/>
+            <circle class="endpoint-halo" cx="485" cy="62"  r="6" fill="#ffd66e"/><circle cx="485" cy="62"  r="3" fill="#ffd66e"/>
+            <circle class="endpoint-halo" cx="140" cy="218" r="6" fill="#76e6c5"/><circle cx="140" cy="218" r="3" fill="#76e6c5"/>
+            <circle class="endpoint-halo" cx="300" cy="218" r="6" fill="#76e6c5"/><circle cx="300" cy="218" r="3" fill="#76e6c5"/>
+            <circle class="endpoint-halo" cx="485" cy="218" r="6" fill="#ffd66e"/><circle cx="485" cy="218" r="3" fill="#ffd66e"/>
           </svg>
         </div>
       </a>
@@ -677,23 +867,58 @@
           <span class="pcard-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg></span>
         </div>
         <div class="pcard-title">Pipelines that learn from themselves &mdash; you stay in control</div>
-        <div class="diagram" style="min-height: 200px;">
-          <div class="dnode dim" style="top: 18px; left: 4%;">10 runs &middot; judge 0.78</div>
-          <div class="dnode dim" style="top: 18px; left: 28%;">retry rate 38%</div>
-          <div class="dnode dim" style="top: 18px; left: 52%;">contract_failure dominant</div>
-          <div class="dnode" style="top: 18px; right: 4%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>drift detected</div>
-          <div class="dnode center" style="left: 50%; top: 80px; transform: translateX(-50%);"><span class="nav-brand-dot"></span>pipeline-evolve</div>
-          <div class="dnode" style="bottom: 12px; left: 18%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>diff proposed</div>
-          <div class="dnode" style="bottom: 12px; left: 50%; transform: translateX(-50%);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>you approve</div>
-          <div class="dnode" style="bottom: 12px; right: 18%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10" /><path d="M3.5 15a9 9 0 1 0 2.5-9.7L1 10" /></svg>auto-rollback armed</div>
-          <svg class="dline" style="inset: 0;" preserveAspectRatio="none" viewBox="0 0 1100 200">
-            <path d="M70 38 L550 95" stroke="rgba(255,143,179,0.4)" stroke-width="1" stroke-dasharray="4 4" fill="none" />
-            <path d="M260 38 L550 95" stroke="rgba(255,143,179,0.4)" stroke-width="1" stroke-dasharray="4 4" fill="none" />
-            <path d="M580 38 L550 95" stroke="rgba(255,143,179,0.4)" stroke-width="1" stroke-dasharray="4 4" fill="none" />
-            <path d="M1010 38 L590 95" stroke="rgba(255,143,179,0.4)" stroke-width="1" stroke-dasharray="4 4" fill="none" />
-            <path d="M540 130 L240 178" stroke="rgba(118,230,197,0.4)" stroke-width="1" stroke-dasharray="4 4" fill="none" />
-            <path d="M550 130 L550 178" stroke="rgba(118,230,197,0.4)" stroke-width="1" stroke-dasharray="4 4" fill="none" />
-            <path d="M580 130 L860 178" stroke="rgba(118,230,197,0.4)" stroke-width="1" stroke-dasharray="4 4" fill="none" />
+        <div class="diagram">
+          <svg class="dgm" width="100%" height="100%" viewBox="0 0 1200 240" preserveAspectRatio="xMidYMid meet">
+            <!-- input signals -->
+            <rect class="box-dim" x="40"  y="20" width="200" height="36" rx="8"/>
+            <svg x="55.9" y="29.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5c6675" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5l1.5 4.5h4.5L10.5 9l1.5 4.5L8 11l-4 2.5L5.5 9 1.5 6h4.5z"/></svg><text class="label-dim" x="151" y="42">judge 0.91 &rarr; 0.78</text>
+            <rect class="box-dim" x="270" y="20" width="160" height="36" rx="8"/>
+            <svg x="275.8" y="29.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5c6675" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8a6 6 0 0 1 10-4.5"/><polyline points="11.5 1.5 12 4 9.5 4"/><path d="M14 8a6 6 0 0 1-10 4.5"/><polyline points="4.5 14.5 4 12 6.5 12"/></svg><text class="label-dim" x="361" y="42">retry rate 38%</text>
+            <rect class="box-dim" x="460" y="20" width="240" height="36" rx="8"/>
+            <svg x="469.5" y="29.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5c6675" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2h7l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><line x1="5" y1="8" x2="11" y2="12"/><line x1="11" y1="8" x2="5" y2="12"/></svg><text class="label-dim" x="591" y="42">contract_failure dominant</text>
+            <rect class="box"     x="730" y="20" width="180" height="36" rx="8"/>
+            <svg x="741.6" y="29.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5L15 14H1z"/><line x1="8" y1="6" x2="8" y2="10"/><circle cx="8" cy="12" r="0.6" fill="currentColor"/></svg><text class="label" x="831" y="42">drift detected</text>
+
+            <!-- hub -->
+            <circle class="hub-halo-out" cx="600" cy="120" r="56"/>
+            <circle class="hub-halo-mid" cx="600" cy="120" r="42"/>
+            <rect class="box-hub" x="520" y="98" width="160" height="44" rx="10"/>
+            <svg x="534" y="110" width="22" height="22" viewBox="0 0 28 28">
+              <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14" fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round"/>
+              <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round" opacity="0.32"/>
+            </svg>
+            <text class="label-hub" x="613" y="126">pipeline-evolve</text>
+
+            <!-- outputs -->
+            <rect class="box" x="200" y="184" width="160" height="36" rx="8"/>
+            <svg x="205.2" y="193.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 4 14 7 11 10"/><polyline points="5 4 2 7 5 10"/></svg><text class="label" x="291" y="206">diff proposed</text>
+            <rect class="box" x="510" y="184" width="180" height="36" rx="8"/>
+            <svg x="532.4" y="193.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 8 6.5 11.5 13 5"/></svg><text class="label" x="611" y="206">you approve</text>
+            <rect class="box" x="820" y="184" width="220" height="36" rx="8"/>
+            <svg x="833.6" y="193.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4v3.5h3.5"/><path d="M3 7.5a5.5 5.5 0 1 0 1.6-3.9"/></svg><text class="label" x="941" y="206">auto-rollback armed</text>
+
+            <!-- connectors: 4 inputs -> distributed ports (565, 590, 610, 635), 3 hub.bottom -> outputs (575, 600, 625) -->
+            <path class="connector alt" d="M140 62 V72 A8 8 0 0 1 148 80 H557 A8 8 0 0 0 565 88 V92"/>
+            <path class="connector alt" d="M350 62 V72 A8 8 0 0 1 358 80 H582 A8 8 0 0 0 590 88 V92"/>
+            <path class="connector alt" d="M580 62 V72 A8 8 0 0 0 588 80 H602 A8 8 0 0 1 610 88 V92"/>
+            <path class="connector alt" d="M820 62 V72 A8 8 0 0 0 812 80 H643 A8 8 0 0 1 635 88 V92"/>
+
+            <path class="connector out" d="M575 148 V162 A8 8 0 0 1 567 170 H288 A8 8 0 0 0 280 178 V184"/>
+            <path class="connector out" d="M600 148 V184"/>
+            <path class="connector out" d="M625 148 V162 A8 8 0 0 0 633 170 H922 A8 8 0 0 1 930 178 V184"/>
+
+            <!-- endpoints -->
+            <circle class="endpoint-halo" cx="140" cy="62"  r="6" fill="#ff8fb3"/><circle cx="140" cy="62"  r="3" fill="#ff8fb3"/>
+            <circle class="endpoint-halo" cx="350" cy="62"  r="6" fill="#ff8fb3"/><circle cx="350" cy="62"  r="3" fill="#ff8fb3"/>
+            <circle class="endpoint-halo" cx="580" cy="62"  r="6" fill="#ff8fb3"/><circle cx="580" cy="62"  r="3" fill="#ff8fb3"/>
+            <circle class="endpoint-halo" cx="820" cy="62"  r="6" fill="#ff8fb3"/><circle cx="820" cy="62"  r="3" fill="#ff8fb3"/>
+            <circle class="endpoint-halo" cx="565" cy="92"  r="6" fill="#ff8fb3"/><circle cx="565" cy="92"  r="3" fill="#ff8fb3"/>
+            <circle class="endpoint-halo" cx="590" cy="92"  r="6" fill="#ff8fb3"/><circle cx="590" cy="92"  r="3" fill="#ff8fb3"/>
+            <circle class="endpoint-halo" cx="610" cy="92"  r="6" fill="#ff8fb3"/><circle cx="610" cy="92"  r="3" fill="#ff8fb3"/>
+            <circle class="endpoint-halo" cx="635" cy="92"  r="6" fill="#ff8fb3"/><circle cx="635" cy="92"  r="3" fill="#ff8fb3"/>
+            <circle class="endpoint-halo" cx="280" cy="184" r="6" fill="#76e6c5"/><circle cx="280" cy="184" r="3" fill="#76e6c5"/>
+            <circle class="endpoint-halo" cx="600" cy="184" r="6" fill="#76e6c5"/><circle cx="600" cy="184" r="3" fill="#76e6c5"/>
+            <circle class="endpoint-halo" cx="930" cy="184" r="6" fill="#76e6c5"/><circle cx="930" cy="184" r="3" fill="#76e6c5"/>
           </svg>
         </div>
       </a>
@@ -705,12 +930,46 @@
         </div>
         <div class="pcard-title">Always something to discover, start, or compare</div>
         <div class="diagram">
-          <div class="dnode" style="top: 10px; left: 6%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>in flight</div>
-          <div class="dnode" style="top: 10px; right: 6%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>recent landings</div>
-          <div class="dnode center" style="left: 50%; top: 95px; transform: translateX(-50%);"><span class="nav-brand-dot"></span>bridge</div>
-          <div class="dnode" style="bottom: 14px; left: 4%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>discover</div>
-          <div class="dnode" style="bottom: 14px; left: 38%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3" /></svg>start</div>
-          <div class="dnode" style="bottom: 14px; right: 4%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="3" x2="6" y2="15" /><circle cx="18" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M18 9a9 9 0 0 1-9 9" /></svg>compare</div>
+          <svg class="dgm" width="100%" height="100%" viewBox="0 0 600 280" preserveAspectRatio="xMidYMid meet">
+            <!-- inputs -->
+            <rect class="box" x="80"  y="20" width="120" height="36" rx="8"/>
+            <svg x="79.6" y="29.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8l5-1.5L9 1l1.5 5.5L15 8l-5 1.5L9 14l-1.5-5.5z"/></svg><text class="label" x="151" y="42">in flight</text>
+
+            <rect class="box" x="400" y="20" width="170" height="36" rx="8"/>
+            <svg x="403.0" y="29.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 9 6 13 14 4"/></svg><text class="label" x="496" y="42">recent landings</text>
+
+            <!-- hub -->
+            <circle class="hub-halo-out" cx="300" cy="140" r="48"/>
+            <circle class="hub-halo-mid" cx="300" cy="140" r="36"/>
+            <rect class="box-hub" x="252" y="119" width="96" height="42" rx="10"/>
+            <svg x="264" y="130" width="20" height="20" viewBox="0 0 28 28">
+              <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14" fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round"/>
+              <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round" opacity="0.32"/>
+            </svg>
+            <text class="label-hub" x="313" y="146">bridge</text>
+
+            <!-- outputs -->
+            <rect class="box" x="40"  y="224" width="130" height="36" rx="8"/>
+            <svg x="48.2" y="233.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg><text class="label" x="116" y="246">discover</text>
+            <rect class="box" x="235" y="224" width="130" height="36" rx="8"/>
+            <svg x="254.0" y="233.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3.5 2.5 13 8 3.5 13.5"/></svg><text class="label" x="311" y="246">start</text>
+            <rect class="box" x="430" y="224" width="130" height="36" rx="8"/>
+            <svg x="441.8" y="233.0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="2" x2="4" y2="14"/><line x1="12" y1="2" x2="12" y2="14"/><polyline points="6 5 4 3 2 5"/><polyline points="14 11 12 13 10 11"/></svg><text class="label" x="506" y="246">compare</text>
+
+            <!-- connectors: distributed ports on hub top (286, 314) and bottom (270, 300, 330) -->
+            <path class="connector in"  d="M140 62 V92 A8 8 0 0 0 148 100 H278 A8 8 0 0 1 286 108 V113"/>
+            <path class="connector in"  d="M485 62 V92 A8 8 0 0 1 477 100 H322 A8 8 0 0 0 314 108 V113"/>
+            <path class="connector out" d="M270 167 V190 A8 8 0 0 1 262 198 H113 A8 8 0 0 0 105 206 V218"/>
+            <path class="connector alt" d="M300 167 V218"/>
+            <path class="connector warn" d="M330 167 V190 A8 8 0 0 0 338 198 H487 A8 8 0 0 1 495 206 V218"/>
+
+            <!-- endpoints -->
+            <circle class="endpoint-halo" cx="140" cy="62"  r="6" fill="#8aa9ff"/><circle cx="140" cy="62"  r="3" fill="#8aa9ff"/>
+            <circle class="endpoint-halo" cx="485" cy="62"  r="6" fill="#8aa9ff"/><circle cx="485" cy="62"  r="3" fill="#8aa9ff"/>
+            <circle class="endpoint-halo" cx="105" cy="218" r="6" fill="#76e6c5"/><circle cx="105" cy="218" r="3" fill="#76e6c5"/>
+            <circle class="endpoint-halo" cx="300" cy="218" r="6" fill="#ff8fb3"/><circle cx="300" cy="218" r="3" fill="#ff8fb3"/>
+            <circle class="endpoint-halo" cx="495" cy="218" r="6" fill="#ffd66e"/><circle cx="495" cy="218" r="3" fill="#ffd66e"/>
+          </svg>
         </div>
       </a>
 
@@ -719,7 +978,7 @@
 
   <section class="sec">
     <p class="sec-eyebrow">strong standards, soft surface</p>
-    <h2><em>Lego baukasten</em> for agentic projects.</h2>
+    <h2><em>Wave building blocks</em> for agentic projects.</h2>
     <p class="lede">
       Composable, typed, contract-gated. Pipelines are durable building blocks &mdash;
       generated for your stack, validated at load time, hot-swappable per project.
@@ -772,7 +1031,7 @@
         </a>
       </div>
       <div class="feature-list">
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>Wave Lego protocol (WLP)</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>Agentic Pipeline Protocol (APP)</span>
         <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>Failure taxonomy + circuit breaker</span>
         <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>Sandboxed step execution</span>
         <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>Multi-adapter fallback</span>
@@ -793,13 +1052,42 @@
       the kind of trust budget you'd give a three-person review board.
     </p>
 
-    <div class="codeblock" style="max-width: 980px; margin: 24px auto 0;">
-      <span class="cm"># Audit fan-out across three providers</span>
-<br />
-<span class="ln">1</span><span class="k">finding</span>:                                    <span class="h">claude</span>     <span class="v">opencode</span>     <span class="kw-blue">gemini</span>      <span class="cm"># verdict</span>
-<span class="ln">2</span><span class="k">SQL injection in query.ts</span>                  flag       flag         flag         <span style="color: var(--accent);">3 / 3 strong</span>
-<span class="ln">3</span><span class="k">missing rate limit on /api</span>                 flag       flag         &mdash;            <span style="color: var(--accent-3);">2 / 3 weigh</span>
-<span class="ln">4</span><span class="k">weak entropy in token id</span>                   flag       &mdash;            &mdash;            <span style="color: var(--text-mute);">1 / 3 noise</span>
+    <div class="audit-card">
+      <div class="audit-comment"># Audit fan-out across three providers</div>
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th>finding</th>
+            <th>claude</th>
+            <th>opencode</th>
+            <th>gemini</th>
+            <th>verdict</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>SQL injection in <code>query.ts</code></td>
+            <td><span class="audit-flag">flag</span></td>
+            <td><span class="audit-flag">flag</span></td>
+            <td><span class="audit-flag">flag</span></td>
+            <td class="verdict-strong">3 / 3 &middot; strong</td>
+          </tr>
+          <tr>
+            <td>missing rate limit on <code>/api</code></td>
+            <td><span class="audit-flag">flag</span></td>
+            <td><span class="audit-flag">flag</span></td>
+            <td class="audit-dash">&mdash;</td>
+            <td class="verdict-weigh">2 / 3 &middot; weigh</td>
+          </tr>
+          <tr>
+            <td>weak entropy in token id</td>
+            <td><span class="audit-flag">flag</span></td>
+            <td class="audit-dash">&mdash;</td>
+            <td class="audit-dash">&mdash;</td>
+            <td class="verdict-noise">1 / 3 &middot; noise</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </section>
 

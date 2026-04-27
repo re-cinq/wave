@@ -37,7 +37,7 @@ Adjacent decisions already accepted constrain the design:
 - **ADR-009** (bounded-context pattern) — every new domain concern (`worksource`,
   `evolution`, `scheduler`) follows the `Service` interface + `NoOp` + `New(cfg, deps)`
   shape.
-- **ADR-010 / ADR-011** — generated pipelines from onboarding must be Wave-Lego clean from
+- **ADR-010 / ADR-011** — generated pipelines from onboarding must be APP-clean from
   day 1.
 - **ADR-013** (failure taxonomy) — the eval signals surfaced in the evolution-proposal UI
   consume the canonical 6-class taxonomy and per-step `failure_class` column directly.

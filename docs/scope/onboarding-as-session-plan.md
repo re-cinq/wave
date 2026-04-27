@@ -4,7 +4,7 @@
 **Date:** 2026-04-27
 **Author/Driver:** michael.c@re-cinq.com
 **Related issues:** (none yet — to file before phase 1)
-**Related ADRs:** ADR-003 (layered), ADR-007 (StateStore), ADR-009 (ontology bounded context), ADR-010 (pipeline IO), ADR-011 (Wave Lego), ADR-013 (failure taxonomy), ADR-014 (composition/graph boundary)
+**Related ADRs:** ADR-003 (layered), ADR-007 (StateStore), ADR-009 (ontology bounded context), ADR-010 (pipeline IO), ADR-011 (Agentic Pipeline Protocol), ADR-013 (failure taxonomy), ADR-014 (composition/graph boundary)
 
 ---
 
@@ -42,7 +42,7 @@ Non-goals (explicit):
 | **007 StateStore consolidation** | All DB access goes through `state.StateStore`. depguard denies `database/sql` outside `internal/state/`. | Any new tables (eval ledger, evolution proposals, pipeline versions, work-source bindings, schedules) extend `StateStore` interface — no new direct DB clients. |
 | **009 ontology bounded context** | Pattern: bounded-context package with `Service` interface + `NoOp` + `New(cfg, deps)`. | Reuse exact pattern for new bounded contexts: `internal/onboarding`, `internal/evolution`, `internal/worksource`, `internal/scheduler`. |
 | **010 pipeline IO protocol** | Typed `input_ref`, shared schema registry. | New work-source dispatch must use `input_ref: { from: ... }` or `{ literal: ... }`. New canonical schemas needed: `work_item_ref` (generalization of `issue_ref`/`pr_ref`), `schedule_ref`. |
-| **011 Wave Lego protocol** | One-step-one-output, canonical artifact path, `on_failure` deterministic, no path templating in contracts. | Generated `.agents/pipelines/*` must be WLP-clean from day one (we're authoring fresh; no migration debt). |
+| **011 Agentic Pipeline Protocol** | One-step-one-output, canonical artifact path, `on_failure` deterministic, no path templating in contracts. | Generated `.agents/pipelines/*` must be APP-clean from day one (we're authoring fresh; no migration debt). |
 | **013 failure taxonomy** | 6-class enum + `CircuitBreaker` + fingerprinting. | Eval ledger consumes `ClassifiedFailure` directly — don't invent parallel taxonomy. Evolution trigger reads circuit-breaker state. |
 | **014 composition/graph boundary** | Composition = pipeline-of-pipelines. Graph = step-level routing. | "Run on issue" = sub-pipeline invocation, NOT a graph dispatcher. Stay in composition layer. |
 | **015 persona-agent migration** | Personas compile to Claude Code agent `.md` files. | Generated `.agents/personas/*.md` use frontmatter format. No CLAUDE.md/settings.json assembly. |
@@ -474,7 +474,7 @@ New canonical schema (per ADR-010): `internal/contract/schemas/shared/work_item_
 | Risk | Mitigation |
 |---|---|
 | Service-layer refactor destabilizes CLI run path | Land PRE-1 behind feature flag; keep old code path until smoke-tests green |
-| Wave Lego protocol violations in generated pipelines | Onboarder writes pipelines, then runs `wave doctor` + `wave validate` before persisting; reject invalid YAML |
+| Agentic Pipeline Protocol violations in generated pipelines | Onboarder writes pipelines, then runs `wave doctor` + `wave validate` before persisting; reject invalid YAML |
 | Evolution proposes regressive changes | Mandatory human approve gate; signed diff in `.agents/proposals/`; rollback = re-activate prior version row |
 | Subprocess-driven onboarding hangs | Hard timeout per session; SSE heartbeat; user can abort + retry |
 | Webhook-style work-source events miss items | Polling fallback every 5min; idempotent dispatch (binding `last_seen_at`) |

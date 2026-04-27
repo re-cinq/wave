@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Lab — step 5</title>
+  <style>
+    body { margin: 0; padding: 60px 40px; background: #0a0d12; color: #e9eef5;
+           font-family: ui-monospace, 'JetBrains Mono', monospace; font-size: 14px; }
+    h2 { font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: #76e6c5; margin: 0 0 6px; }
+    p  { color: #8a96a8; margin: 0 0 24px; max-width: 680px; }
+
+    .card { max-width: 640px; padding: 26px 26px 30px; border: 1px solid #232a36; border-radius: 14px; background: #11151c; }
+    .stage { width: 100%; aspect-ratio: 5 / 3; border: 1px dashed #1a2029; border-radius: 10px;
+             background: radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1.2px) 0 0 / 22px 22px; }
+    .stage svg { width: 100%; height: 100%; display: block; }
+
+    .box     { fill: #161b24; stroke: #232a36; stroke-width: 1; }
+    .box-hub { fill: #11151c; stroke: rgba(118,230,197,0.65); stroke-width: 1.4; }
+    .label   { font-family: ui-monospace, 'JetBrains Mono', monospace; font-size: 12px; fill: #e9eef5; }
+    .ico     { stroke: #8a96a8; stroke-width: 2; fill: none; stroke-linecap: round; }
+
+    .connector {
+      stroke: #76e6c5; stroke-width: 1.6; stroke-dasharray: 4 5; stroke-linecap: round; fill: none;
+      animation: dash-flow 1.2s linear infinite;
+    }
+    @keyframes dash-flow { to { stroke-dashoffset: -9; } }
+
+    .endpoint-halo { fill: #76e6c5; opacity: 0.25; transform-origin: center; transform-box: fill-box;
+                     animation: breathe 2s ease-in-out infinite; }
+    .endpoint-core { fill: #76e6c5; }
+    @keyframes breathe {
+      0%, 100% { transform: scale(1);   opacity: 0.18; }
+      50%      { transform: scale(1.5); opacity: 0.45; }
+    }
+  </style>
+</head>
+<body>
+  <h2>step 5 — fixed wave logo · top-down flow · spaced from edge</h2>
+  <p>Input box exits from BOTTOM port. Manhattan drops down then jogs right into hub TOP. Wave logo embedded as nested &lt;svg&gt; preserving original 28×28 viewBox. Input shifted away from left edge.</p>
+
+  <div class="card">
+    <div class="stage">
+      <svg viewBox="0 0 500 300" preserveAspectRatio="none">
+
+        <!-- input box, shifted right (x=70 instead of 40) -->
+        <rect class="box" x="70" y="40" width="140" height="36" rx="8" />
+        <polyline class="ico" points="86 58 90 58 94 50 100 66 106 58 110 58" />
+        <text class="label" x="122" y="62">package.json</text>
+
+        <!-- connector: input.bottom (140,82) -> hub.top (260,174) -->
+        <!-- vertical drop, 8r right-turn, horizontal, 8r down-turn, vertical drop -->
+        <path class="connector"
+              d="M140 82 L140 100 A8 8 0 0 0 148 108 L252 108 A8 8 0 0 1 260 116 L260 174" />
+
+        <!-- input.bottom endpoint -->
+        <circle class="endpoint-halo" cx="140" cy="82" r="6" />
+        <circle class="endpoint-core" cx="140" cy="82" r="3" />
+
+        <!-- hub.top endpoint -->
+        <circle class="endpoint-halo" cx="260" cy="174" r="6" />
+        <circle class="endpoint-core" cx="260" cy="174" r="3" />
+
+        <!-- hub box -->
+        <rect class="box-hub" x="200" y="180" width="120" height="42" rx="10" />
+
+        <!-- wave logo nested w/ original 28x28 viewBox -->
+        <svg x="212" y="191" width="20" height="20" viewBox="0 0 28 28">
+          <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"
+                fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round" />
+          <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14"
+                fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round" opacity="0.32" />
+        </svg>
+        <text class="label" x="240" y="206">onboarder</text>
+
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

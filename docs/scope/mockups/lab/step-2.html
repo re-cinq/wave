@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Lab — step 2</title>
+  <style>
+    body {
+      margin: 0; padding: 60px 40px;
+      background: #0a0d12;
+      color: #e9eef5;
+      font-family: ui-monospace, 'JetBrains Mono', monospace;
+      font-size: 14px;
+    }
+    h2 {
+      font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
+      color: #76e6c5; margin: 0 0 6px;
+    }
+    p { color: #8a96a8; margin: 0 0 24px; max-width: 680px; }
+
+    .card {
+      max-width: 640px;
+      padding: 26px 26px 30px;
+      border: 1px solid #232a36;
+      border-radius: 14px;
+      background: #11151c;
+    }
+
+    /* Pure SVG stage. No HTML overlay. */
+    .stage {
+      width: 100%;
+      aspect-ratio: 5 / 3;
+      border: 1px dashed #1a2029;
+      border-radius: 10px;
+      background:
+        radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1.2px) 0 0 / 22px 22px;
+    }
+    .stage svg { width: 100%; height: 100%; display: block; }
+
+    /* SVG element styles */
+    .box      { fill: #161b24; stroke: #232a36; stroke-width: 1; }
+    .box-hub  { fill: #11151c; stroke: rgba(118,230,197,0.6); stroke-width: 1.4; }
+    .label    {
+      font-family: ui-monospace, 'JetBrains Mono', monospace;
+      font-size: 12px; fill: #e9eef5;
+    }
+    .connector {
+      stroke: #76e6c5;
+      stroke-width: 1.6;
+      fill: none;
+      stroke-linecap: round;
+    }
+    .ico { stroke: #76e6c5; stroke-width: 2; fill: none; stroke-linecap: round; }
+  </style>
+</head>
+<body>
+  <h2>step 2 — pure SVG, Manhattan routing</h2>
+  <p>One stage. Boxes drawn as &lt;rect&gt;. Connector terminates at box edges, not centers. Right-angle path with rounded corner.</p>
+
+  <div class="card">
+    <div class="stage">
+      <svg viewBox="0 0 500 300" preserveAspectRatio="none">
+
+        <!-- input box: x=40, y=40, w=140, h=36 -->
+        <rect class="box" x="40" y="40" width="140" height="36" rx="8" />
+        <!-- icon: small activity polyline -->
+        <polyline class="ico" points="56 58 60 58 64 50 70 66 76 58 80 58" stroke="#8a96a8" />
+        <text class="label" x="92" y="62">package.json</text>
+
+        <!-- Manhattan connector: input-right (180, 58) -> hub-top (260, 132) -->
+        <!-- horizontal to pivot x=215, arc, vertical, arc, horizontal to hub-top -->
+        <path class="connector"
+              d="M180 58 L207 58 A8 8 0 0 1 215 66 L215 124 A8 8 0 0 0 223 132 L260 132" />
+
+        <!-- hub box: x=200, y=132, w=120, h=42 -->
+        <rect class="box-hub" x="200" y="132" width="120" height="42" rx="10" />
+        <!-- wave logo glyph centered at (218, 153) -->
+        <g transform="translate(208 142)">
+          <path d="M0 11 C3 5, 7 5, 11 11 C15 17, 19 17, 22 11"
+                fill="none" stroke="#76e6c5" stroke-width="2" stroke-linecap="round"/>
+          <path d="M0 11 C3 17, 7 17, 11 11 C15 5, 19 5, 22 11"
+                fill="none" stroke="#76e6c5" stroke-width="2" stroke-linecap="round" opacity="0.32"/>
+        </g>
+        <text class="label" x="238" y="158">onboarder</text>
+
+      </svg>
+    </div>
+  </div>
+</body>
+</html>
