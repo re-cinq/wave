@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Evolution proposal &mdash; Wave mockup</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-6 10-6 10 6 10 6-3 6-10 6-10-6-10-6z" /><circle cx="12" cy="12" r="3" /></svg>
+      Wave
+    </div>
+    <div class="nav-links">
+      <a href="02-work-board.html">Work</a>
+      <a href="#">Schedules</a>
+      <a href="#" class="active">Proposals <span class="badge badge-yellow" style="font-size: 10px; padding: 1px 6px; margin-left: 2px;">2</span></a>
+      <a href="#">Runs</a>
+    </div>
+    <div class="nav-meta">
+      <span>code-crispies</span>
+      <span>git.librete.ch</span>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div style="color: var(--text-mute); font-size: 13px; margin-bottom: 8px;">
+      <a href="#">Proposals</a> &rsaquo; <span>#7</span>
+    </div>
+
+    <div class="page-header" style="align-items: flex-start;">
+      <div>
+        <h1 class="page-title">Tighten <code>impl-issue</code> contract: enforce type-coverage threshold</h1>
+        <div class="page-sub" style="display: flex; gap: 12px; align-items: center; margin-top: 6px;">
+          <span class="badge badge-yellow"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg> awaiting approval</span>
+          <span>proposed 6m ago by <code>pipeline-evolve</code></span>
+          <span>pipeline: <code>impl-issue</code></span>
+          <span>v3 &rarr; v4</span>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-success"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg> Approve &amp; activate</button>
+        <button class="btn btn-danger"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg> Reject</button>
+        <button class="btn"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg></button>
+      </div>
+    </div>
+
+    <div class="hint">
+      Why this proposal: judge score on <code>impl-issue</code> dropped from 0.91 (last 30d) to 0.78 (last 10d). Top failure class: <code>contract_failure</code> citing missing type annotations on new code. Evolution agent suggests tightening the test-suite contract to block PRs without type coverage &ge; 85% on changed files.
+    </div>
+
+    <div class="split">
+      <div>
+
+        <div class="tabs">
+          <div class="tab active">Diff</div>
+          <div class="tab">Signal log</div>
+          <div class="tab">Validation</div>
+          <div class="tab">Replay (last 10 runs vs new)</div>
+        </div>
+
+        <h3 style="font-size: 13px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.04em;">.agents/pipelines/impl-issue.yaml</h3>
+        <pre class="diff-block"><span class="diff-line-ctx">@@ -47,9 +47,16 @@ steps:</span>
+<span class="diff-line-ctx">  - id: implement</span>
+<span class="diff-line-ctx">    persona: craftsman</span>
+<span class="diff-line-ctx">    handover:</span>
+<span class="diff-line-ctx">      contract:</span>
+<span class="diff-line-del">-       type: test_suite</span>
+<span class="diff-line-del">-       command: bun test</span>
+<span class="diff-line-del">-       must_pass: true</span>
+<span class="diff-line-del">-       on_failure: rework</span>
+<span class="diff-line-del">-       rework_step: implement</span>
+<span class="diff-line-add">+       type: test_suite</span>
+<span class="diff-line-add">+       command: bun test &amp;&amp; bun run typecheck</span>
+<span class="diff-line-add">+       must_pass: true</span>
+<span class="diff-line-add">+       on_failure: rework</span>
+<span class="diff-line-add">+       rework_step: implement</span>
+<span class="diff-line-add">+       criteria:</span>
+<span class="diff-line-add">+         - id: type_coverage</span>
+<span class="diff-line-add">+           description: "&ge;85% of changed lines carry explicit types"</span>
+<span class="diff-line-add">+           threshold: 0.85</span>
+</pre>
+
+        <h3 style="font-size: 13px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 24px;">.agents/contracts/impl-issue.json</h3>
+        <pre class="diff-block"><span class="diff-line-ctx">@@ -12,6 +12,7 @@</span>
+<span class="diff-line-ctx">   "criteria": [</span>
+<span class="diff-line-ctx">     {"id": "tests_pass", "weight": 0.5},</span>
+<span class="diff-line-del">-    {"id": "lint_clean", "weight": 0.5}</span>
+<span class="diff-line-add">+    {"id": "lint_clean", "weight": 0.3},</span>
+<span class="diff-line-add">+    {"id": "type_coverage", "weight": 0.2}</span>
+<span class="diff-line-ctx">   ]</span>
+<span class="diff-line-ctx"> }</span>
+</pre>
+
+        <p class="diff-stats" style="margin-top: 16px;">
+          2 files changed &middot;
+          <span class="add">+11</span>
+          <span class="del">-6</span>
+        </p>
+
+        <h3 style="font-size: 13px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 32px;">Replay forecast</h3>
+        <p style="font-size: 13px; color: var(--text-mute);">If activated, the last 10 runs would have re-classified as:</p>
+        <div class="signal-list">
+          <div class="signal">
+            <div class="signal-label">Would-pass (was pass)</div>
+            <div class="signal-value">7</div>
+            <div class="signal-trend">unchanged</div>
+          </div>
+          <div class="signal">
+            <div class="signal-label">Would-fail (was pass)</div>
+            <div class="signal-value">2</div>
+            <div class="signal-trend down">stricter gate caught regression</div>
+          </div>
+          <div class="signal">
+            <div class="signal-label">Would-pass (was fail)</div>
+            <div class="signal-value">1</div>
+            <div class="signal-trend up">noise reduced</div>
+          </div>
+        </div>
+
+      </div>
+
+      <aside>
+        <div class="side-card card">
+          <h3>Trigger signals</h3>
+          <div class="signal-list" style="grid-template-columns: 1fr 1fr;">
+            <div class="signal">
+              <div class="signal-label">Judge score</div>
+              <div class="signal-value">0.78</div>
+              <div class="signal-trend down">&minus;0.13 vs prior</div>
+            </div>
+            <div class="signal">
+              <div class="signal-label">Retry rate</div>
+              <div class="signal-value">38%</div>
+              <div class="signal-trend down">+22pp</div>
+            </div>
+            <div class="signal">
+              <div class="signal-label">Top failure</div>
+              <div class="signal-value" style="font-size: 14px; line-height: 1.3;">contract_failure</div>
+              <div class="signal-trend">6 of last 10 runs</div>
+            </div>
+            <div class="signal">
+              <div class="signal-label">Avg cost</div>
+              <div class="signal-value">$0.21</div>
+              <div class="signal-trend down">+$0.05 due to retries</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="side-card card">
+          <h3>Version</h3>
+          <dl>
+            <dt>Current</dt><dd>v3 (active)</dd>
+            <dt>Proposed</dt><dd>v4</dd>
+            <dt>Approver</dt><dd>&mdash;</dd>
+            <dt>Auto-rollback</dt><dd>if next 3 runs &lt; 0.70</dd>
+          </dl>
+        </div>
+
+        <div class="side-card card">
+          <h3>Generated by</h3>
+          <dl>
+            <dt>Pipeline</dt><dd><code>pipeline-evolve</code></dd>
+            <dt>Run</dt><dd><a href="#"><code>r/9c2e3a</code></a></dd>
+            <dt>Adapter</dt><dd>claude / sonnet-4-6</dd>
+            <dt>Cost</dt><dd>$0.06</dd>
+          </dl>
+        </div>
+
+        <div class="side-card card">
+          <h3>Related proposals</h3>
+          <ul style="padding-left: 18px; margin: 0; font-size: 13px;">
+            <li><a href="#">#5 &mdash; tighten <code>scope</code> child issue cap</a></li>
+            <li><a href="#">#3 &mdash; switch <code>research</code> to gemini for cost</a></li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+
+    <div style="margin-top: 32px; text-align: center; color: var(--text-mute); font-size: 13px;">
+      <a href="03-work-item.html">&larr; work item</a> &middot; <a href="index.html">back to index</a>
+    </div>
+  </div>
+</body>
+</html>

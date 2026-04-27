@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Onboarding session — Wave mockup</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-6 10-6 10 6 10 6-3 6-10 6-10-6-10-6z" /><circle cx="12" cy="12" r="3" /></svg>
+      Wave
+    </div>
+    <div class="nav-links">
+      <a href="#" class="active">Onboarding</a>
+    </div>
+    <div class="nav-meta">
+      <span>code-crispies</span>
+      <span>git.librete.ch</span>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Setting up Wave for this project</h1>
+        <div class="page-sub">An agent is inspecting your repo and tailoring pipelines, personas, and prompts to it. Answer questions when prompted.</div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-ghost"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9" /><path d="M3 4v5h5" /></svg> Restart</button>
+        <button class="btn"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" /></svg> Abort</button>
+      </div>
+    </div>
+
+    <div class="stepper">
+      <span class="step-pip done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg> detect</span>
+      <span class="step-sep">&rarr;</span>
+      <span class="step-pip done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg> inspect</span>
+      <span class="step-sep">&rarr;</span>
+      <span class="step-pip active">propose</span>
+      <span class="step-sep">&rarr;</span>
+      <span class="step-pip">scaffold</span>
+      <span class="step-sep">&rarr;</span>
+      <span class="step-pip">smoke-test</span>
+      <span class="step-sep">&rarr;</span>
+      <span class="step-pip">commit</span>
+    </div>
+
+    <div class="chat">
+
+      <div class="msg msg-system">
+        <div class="msg-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg></div>
+        <div class="msg-body">
+          <div class="msg-from">session started <span class="badge badge-dim">run a3f7c2</span> <span class="badge badge-dim">claude opus-4-7</span></div>
+          <div class="msg-content">Workspace: <code>/workspaces/code-crispies</code> &middot; Forge: <strong>gitea</strong> (git.librete.ch) &middot; Detected language: <strong>Bun + TypeScript</strong></div>
+        </div>
+      </div>
+
+      <div class="msg msg-agent">
+        <div class="msg-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11.5a3 3 0 1 0 6 0V8a3 3 0 1 0-6 0z" /><path d="M5 19a7 7 0 0 1 14 0" /></svg></div>
+        <div class="msg-body">
+          <div class="msg-from">onboarder <span class="badge badge-purple">agent</span></div>
+          <div class="msg-content">
+            <p>Found a Bun + TypeScript monorepo. <code>package.json</code> declares Vitest. <code>biome.json</code> configures lint+format. CI runs on Gitea Actions.</p>
+            <p>I'll propose:</p>
+            <ul>
+              <li><code>impl-issue</code> &mdash; bun test, biome check, type-check, opens PR via tea CLI</li>
+              <li><code>scope</code> &mdash; epic decomposition into child issues</li>
+              <li><code>pr-review</code> &mdash; lint + tests + diff review on PRs</li>
+              <li><code>ops-bootstrap</code> not needed (project already scaffolded)</li>
+            </ul>
+            <p>Question before I write files:</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="msg msg-prompt">
+        <div class="msg-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg></div>
+        <div class="msg-body">
+          <div class="msg-from">your input needed</div>
+          <div class="msg-content">
+            <strong>How strict should the contract gate be on lint failures?</strong>
+            <div class="choice-grid">
+              <label class="choice">
+                <input type="radio" name="gate" /> <strong>Hard fail</strong>
+                <div class="choice-desc">Pipeline aborts. PR not opened.</div>
+              </label>
+              <label class="choice">
+                <input type="radio" name="gate" checked /> <strong>Rework</strong>
+                <div class="choice-desc">Send findings back to craftsman, retry up to 2&times;.</div>
+              </label>
+              <label class="choice">
+                <input type="radio" name="gate" /> <strong>Warn only</strong>
+                <div class="choice-desc">Log issue, open PR anyway. Reviewer decides.</div>
+              </label>
+              <label class="choice">
+                <input type="radio" name="gate" /> <strong>Skip lint</strong>
+                <div class="choice-desc">Don't run biome in pipeline.</div>
+              </label>
+            </div>
+            <div style="margin-top: 12px; display: flex; gap: 8px;">
+              <button class="btn btn-primary">Submit</button>
+              <button class="btn btn-ghost">Skip &amp; use default</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="msg msg-user">
+        <div class="msg-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg></div>
+        <div class="msg-body">
+          <div class="msg-from">you</div>
+          <div class="msg-content">Rework, max 2 attempts. Don't bother me about lint, fix it.</div>
+        </div>
+      </div>
+
+      <div class="msg msg-agent">
+        <div class="msg-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11.5a3 3 0 1 0 6 0V8a3 3 0 1 0-6 0z" /><path d="M5 19a7 7 0 0 1 14 0" /></svg></div>
+        <div class="msg-body">
+          <div class="msg-from">onboarder <span class="badge badge-purple">agent</span> <span class="badge badge-dim">writing files</span></div>
+          <div class="msg-content">
+            <p>Writing pipelines now.</p>
+            <div class="stream">
+<span class="stream-line">[propose] wrote .agents/pipelines/impl-issue.yaml      (+98 lines)</span>
+<span class="stream-line">[propose] wrote .agents/pipelines/scope.yaml           (+42 lines)</span>
+<span class="stream-line">[propose] wrote .agents/pipelines/pr-review.yaml       (+71 lines)</span>
+<span class="stream-line">[propose] wrote .agents/personas/craftsman.md          (+24 lines)</span>
+<span class="stream-line">[propose] wrote .agents/personas/reviewer.md           (+19 lines)</span>
+<span class="stream-line">[propose] wrote .agents/contracts/impl-issue.json      (+34 lines)</span>
+<span class="stream-line">[validate] running `wave validate` ...</span>
+<span class="stream-line">[validate] ok &mdash; 3 pipelines pass WLP load-time checks</span>
+<span class="stream-line">[smoke] running impl-issue --dry-run on issue #12 ...</span>
+<span class="stream-line">[smoke] ok &mdash; dry-run produced valid plan artifact</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="msg msg-prompt">
+        <div class="msg-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg></div>
+        <div class="msg-body">
+          <div class="msg-from">your input needed</div>
+          <div class="msg-content">
+            <strong>Recurring runs?</strong>
+            <p style="color: var(--text-mute); font-size: 13px; margin-top: 6px;">I can schedule pipelines to fire on triggers. Pick what makes sense.</p>
+            <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 10px;">
+              <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" checked /> <code>scope</code> on every new issue with label <code>epic</code></label>
+              <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" checked /> <code>pr-review</code> on every new PR</label>
+              <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" /> <code>impl-issue</code> nightly on issues labeled <code>auto-impl</code></label>
+              <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" /> Custom &mdash; configure later</label>
+            </div>
+            <div style="margin-top: 12px;"><button class="btn btn-primary">Save &amp; continue</button></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="margin-top: 32px; text-align: center; color: var(--text-mute); font-size: 13px;">
+      <a href="index.html">&larr; index</a> &middot; <a href="02-work-board.html">next: work board &rarr;</a>
+    </div>
+  </div>
+</body>
+</html>
