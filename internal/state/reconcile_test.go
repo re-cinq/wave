@@ -114,6 +114,69 @@ func TestReconcileZombies_PIDGone(t *testing.T) {
 	}
 }
 
+func TestReconcileZombies_HeartbeatFresh(t *testing.T) {
+	store := newReconcileStore(t)
+	runID, err := store.CreateRun("p", "in")
+	if err != nil {
+		t.Fatalf("CreateRun: %v", err)
+	}
+	if err := store.UpdateRunStatus(runID, "running", "", 0); err != nil {
+		t.Fatalf("UpdateRunStatus: %v", err)
+	}
+	if err := store.UpdateRunHeartbeat(runID); err != nil {
+		t.Fatalf("UpdateRunHeartbeat: %v", err)
+	}
+	// Fresh heartbeat must keep the run alive even with a dead tracked PID
+	// and an old started_at — heartbeat is the priority signal.
+	if err := store.UpdateRunPID(runID, findDeadPID(t)); err != nil {
+		t.Fatalf("UpdateRunPID: %v", err)
+	}
+	if _, err := store.db.Exec(
+		`UPDATE pipeline_run SET started_at = ? WHERE run_id = ?`,
+		time.Now().Add(-1*time.Hour).Unix(), runID,
+	); err != nil {
+		t.Fatalf("seed started_at: %v", err)
+	}
+
+	if got := ReconcileZombies(store, ZombieAgeThreshold); got != 0 {
+		t.Fatalf("ReconcileZombies (fresh heartbeat) = %d, want 0", got)
+	}
+	status, _ := store.GetRunStatus(runID)
+	if status != "running" {
+		t.Errorf("status = %q, want running (fresh heartbeat must outrank PID/age)", status)
+	}
+}
+
+func TestReconcileZombies_HeartbeatStale(t *testing.T) {
+	store := newReconcileStore(t)
+	runID, err := store.CreateRun("p", "in")
+	if err != nil {
+		t.Fatalf("CreateRun: %v", err)
+	}
+	if err := store.UpdateRunStatus(runID, "running", "", 0); err != nil {
+		t.Fatalf("UpdateRunStatus: %v", err)
+	}
+	// Stale heartbeat (older than HeartbeatStaleThreshold) must reap even
+	// when the tracked PID is alive — process may be wedged.
+	if err := store.UpdateRunPID(runID, os.Getpid()); err != nil {
+		t.Fatalf("UpdateRunPID: %v", err)
+	}
+	if _, err := store.db.Exec(
+		`UPDATE pipeline_run SET last_heartbeat = ? WHERE run_id = ?`,
+		time.Now().Add(-5*time.Minute).Unix(), runID,
+	); err != nil {
+		t.Fatalf("seed last_heartbeat: %v", err)
+	}
+
+	if got := ReconcileZombies(store, ZombieAgeThreshold); got != 1 {
+		t.Fatalf("ReconcileZombies (stale heartbeat) = %d, want 1", got)
+	}
+	status, _ := store.GetRunStatus(runID)
+	if status != "failed" {
+		t.Errorf("status = %q, want failed (stale heartbeat must reap even with live PID)", status)
+	}
+}
+
 // findDeadPID picks a PID that is not currently in use. Skips the test if a
 // dead PID cannot be located (extremely unlikely on a typical system).
 func findDeadPID(t *testing.T) int {

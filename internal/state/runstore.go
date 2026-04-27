@@ -30,6 +30,7 @@ type RunStore interface {
 	UpdateRunStatus(runID string, status string, currentStep string, tokens int) error
 	UpdateRunBranch(runID string, branch string) error
 	UpdateRunPID(runID string, pid int) error
+	UpdateRunHeartbeat(runID string) error
 	GetRun(runID string) (*RunRecord, error)
 	GetRunningRuns() ([]RunRecord, error)
 	ListRuns(opts ListRunsOptions) ([]RunRecord, error)

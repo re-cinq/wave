@@ -6,20 +6,30 @@ import (
 )
 
 // ZombieAgeThreshold is the default age beyond which a "running" run with no
-// tracked PID is treated as orphaned. Five minutes is short enough that real
-// dead processes do not linger, long enough that a freshly launched run is not
-// mistaken for a zombie before its first event is recorded.
+// tracked PID and no heartbeat is treated as orphaned. Five minutes is short
+// enough that real dead processes do not linger, long enough that a freshly
+// launched run is not mistaken for a zombie before its first event is recorded.
 const ZombieAgeThreshold = 5 * time.Minute
 
-// ReconcileZombies marks "running" pipeline runs as failed when their tracked
-// process is gone, or when no PID is tracked and the run is older than
-// ageThreshold. Returns the number of runs reclaimed.
+// HeartbeatStaleThreshold is the maximum gap between heartbeats before a
+// running run is considered orphaned. wave run writes a heartbeat every 30s,
+// so a 90s threshold tolerates two missed beats before reaping. This is the
+// primary liveness signal: when present, it overrides PID and age checks.
+const HeartbeatStaleThreshold = 90 * time.Second
+
+// ReconcileZombies marks "running" pipeline runs as failed when their owning
+// process is gone. Returns the number of runs reclaimed. Liveness signals are
+// checked in priority order:
 //
-// Reconciliation is the single defense against parent processes that die
-// without updating the DB (terminal close, OOM, signal, kernel panic). Without
-// it, the webui run list and CLI status accumulate "running" rows forever.
+//  1. Heartbeat: if the run wrote a heartbeat within HeartbeatStaleThreshold,
+//     it is alive — regardless of PID or age. If the last heartbeat is older,
+//     it is a zombie.
+//  2. PID: if the run has a tracked PID and the OS reports ESRCH, it is a
+//     zombie. A live PID without a recent heartbeat keeps the run.
+//  3. Age fallback: legacy runs with no PID and no heartbeat are reaped once
+//     their started_at is older than ageThreshold.
 //
-// Pass the zero value to use ZombieAgeThreshold.
+// Pass the zero value for ageThreshold to use ZombieAgeThreshold.
 func ReconcileZombies(store StateStore, ageThreshold time.Duration) int {
 	if ageThreshold <= 0 {
 		ageThreshold = ZombieAgeThreshold
@@ -40,10 +50,15 @@ func ReconcileZombies(store StateStore, ageThreshold time.Duration) int {
 	return reclaimed
 }
 
-// isZombie reports whether a "running" record has lost its underlying process.
-// Returns true if the tracked PID no longer exists, or if the run has no PID
-// and is older than ageThreshold (proxy for "this should have finished by now").
+// isZombie reports whether a "running" record has lost its owning process.
+// Heartbeat freshness is the primary signal; PID and age are fallbacks for
+// runs that have not yet started writing heartbeats (legacy data, or a run
+// reaped before the first heartbeat goroutine tick).
 func isZombie(r RunRecord, ageThreshold time.Duration) bool {
+	if !r.LastHeartbeat.IsZero() {
+		// Heartbeat exists: trust it absolutely. A late heartbeat is a zombie.
+		return time.Since(r.LastHeartbeat) > HeartbeatStaleThreshold
+	}
 	if r.PID > 0 {
 		if err := syscall.Kill(r.PID, 0); err == syscall.ESRCH {
 			return true

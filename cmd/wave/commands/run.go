@@ -608,6 +608,13 @@ func runRun(opts RunOptions, debug bool) error {
 	// Transition run from pending → running so dashboards and wave status reflect active execution.
 	if store != nil {
 		_ = store.UpdateRunStatus(runID, "running", "", 0)
+		_ = store.UpdateRunHeartbeat(runID)
+		// Periodic heartbeat: lets the reconciler distinguish a live run from
+		// a parent process that died without updating the DB. Goroutine exits
+		// when heartbeatCancel fires (deferred just below this block).
+		heartbeatCtx, heartbeatCancel := context.WithCancel(context.Background())
+		defer heartbeatCancel()
+		go runHeartbeatLoop(heartbeatCtx, store, runID)
 	}
 
 	var execErr error
@@ -1224,4 +1231,23 @@ func (a *relayCompactionAdapter) RunCompaction(ctx context.Context, cfg relay.Co
 	}
 
 	return result.ResultContent, nil
+}
+
+// runHeartbeatLoop periodically refreshes pipeline_run.last_heartbeat for the
+// running pipeline. The reconciler reads this column to distinguish live runs
+// from runs whose owning process died without updating the DB.
+//
+// Cadence is 30s — well below state.HeartbeatStaleThreshold (90s) so two
+// missed beats are tolerated before reaping.
+func runHeartbeatLoop(ctx context.Context, store state.StateStore, runID string) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			_ = store.UpdateRunHeartbeat(runID)
+		case <-ctx.Done():
+			return
+		}
+	}
 }
