@@ -69,14 +69,14 @@ func (w *cognitiveWalker) walkControlFlow(s ast.Stmt, nesting int) bool {
 		w.walkIf(n, nesting)
 	case *ast.ForStmt:
 		w.score += 1 + nesting
-		w.walkExpr(n.Cond, nesting)
+		w.walkExpr(n.Cond)
 		w.walkBlock(n.Body, nesting+1)
 	case *ast.RangeStmt:
 		w.score += 1 + nesting
 		w.walkBlock(n.Body, nesting+1)
 	case *ast.SwitchStmt:
 		w.score += 1 + nesting
-		w.walkExpr(n.Tag, nesting)
+		w.walkExpr(n.Tag)
 		w.walkCaseList(n.Body, nesting+1)
 	case *ast.TypeSwitchStmt:
 		w.score += 1 + nesting
@@ -102,29 +102,29 @@ func (w *cognitiveWalker) walkLeafStmt(s ast.Stmt, nesting int) {
 	case *ast.LabeledStmt:
 		w.walkStmt(n.Stmt, nesting)
 	case *ast.DeferStmt:
-		w.walkExpr(n.Call, nesting)
+		w.walkExpr(n.Call)
 	case *ast.GoStmt:
-		w.walkExpr(n.Call, nesting)
+		w.walkExpr(n.Call)
 	case *ast.ExprStmt:
-		w.walkExpr(n.X, nesting)
+		w.walkExpr(n.X)
 	case *ast.AssignStmt:
 		for _, e := range n.Rhs {
-			w.walkExpr(e, nesting)
+			w.walkExpr(e)
 		}
 	case *ast.ReturnStmt:
 		for _, e := range n.Results {
-			w.walkExpr(e, nesting)
+			w.walkExpr(e)
 		}
 	case *ast.IncDecStmt:
-		w.walkExpr(n.X, nesting)
+		w.walkExpr(n.X)
 	case *ast.SendStmt:
-		w.walkExpr(n.Value, nesting)
+		w.walkExpr(n.Value)
 	}
 }
 
 func (w *cognitiveWalker) walkIf(n *ast.IfStmt, nesting int) {
 	w.score += 1 + nesting
-	w.walkExpr(n.Cond, nesting)
+	w.walkExpr(n.Cond)
 	w.walkBlock(n.Body, nesting+1)
 	switch e := n.Else.(type) {
 	case *ast.BlockStmt:
@@ -132,7 +132,7 @@ func (w *cognitiveWalker) walkIf(n *ast.IfStmt, nesting int) {
 		w.walkBlock(e, nesting+1)
 	case *ast.IfStmt:
 		w.score++ // else-if: +1 (no nesting bonus)
-		w.walkExpr(e.Cond, nesting)
+		w.walkExpr(e.Cond)
 		w.walkBlock(e.Body, nesting+1)
 		w.walkElseChain(e.Else, nesting)
 	}
@@ -175,13 +175,13 @@ func (w *cognitiveWalker) walkElseChain(s ast.Stmt, nesting int) {
 		w.walkBlock(e, nesting+1)
 	case *ast.IfStmt:
 		w.score++
-		w.walkExpr(e.Cond, nesting)
+		w.walkExpr(e.Cond)
 		w.walkBlock(e.Body, nesting+1)
 		w.walkElseChain(e.Else, nesting)
 	}
 }
 
-func (w *cognitiveWalker) walkExpr(e ast.Expr, nesting int) {
+func (w *cognitiveWalker) walkExpr(e ast.Expr) {
 	if e == nil {
 		return
 	}
@@ -191,12 +191,12 @@ func (w *cognitiveWalker) walkExpr(e ast.Expr, nesting int) {
 			w.scoreBoolChain(n)
 			return
 		}
-		w.walkExpr(n.X, nesting)
-		w.walkExpr(n.Y, nesting)
+		w.walkExpr(n.X)
+		w.walkExpr(n.Y)
 	case *ast.ParenExpr:
-		w.walkExpr(n.X, nesting)
+		w.walkExpr(n.X)
 	case *ast.UnaryExpr:
-		w.walkExpr(n.X, nesting)
+		w.walkExpr(n.X)
 	case *ast.CallExpr:
 		// Recursion detection: direct call to enclosing function name.
 		if w.name != "" {
@@ -204,19 +204,19 @@ func (w *cognitiveWalker) walkExpr(e ast.Expr, nesting int) {
 				w.score++
 			}
 		}
-		w.walkExpr(n.Fun, nesting)
+		w.walkExpr(n.Fun)
 		for _, a := range n.Args {
-			w.walkExpr(a, nesting)
+			w.walkExpr(a)
 		}
 	case *ast.FuncLit:
 		// Function literals contribute to the enclosing total but reset
 		// nesting for the lambda body.
 		w.walkBlock(n.Body, 0)
 	case *ast.IndexExpr:
-		w.walkExpr(n.X, nesting)
-		w.walkExpr(n.Index, nesting)
+		w.walkExpr(n.X)
+		w.walkExpr(n.Index)
 	case *ast.SelectorExpr:
-		w.walkExpr(n.X, nesting)
+		w.walkExpr(n.X)
 	}
 }
 
@@ -234,7 +234,7 @@ func (w *cognitiveWalker) scoreBoolChain(root *ast.BinaryExpr) {
 			return
 		}
 		// recurse into the operand for nested control flow / calls
-		w.walkExpr(e, 0)
+		w.walkExpr(e)
 	}
 	collect(root)
 	if len(ops) == 0 {
