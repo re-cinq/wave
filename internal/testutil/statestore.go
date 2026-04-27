@@ -557,6 +557,34 @@ func (m *MockStateStore) GetDecisionsByStep(runID, stepID string) ([]*state.Deci
 	return nil, nil
 }
 
+func (m *MockStateStore) GetDecisionsFiltered(runID string, opts state.DecisionQueryOptions) ([]*state.DecisionRecord, error) {
+	return nil, nil
+}
+
+func (m *MockStateStore) GetMostRecentRunID() (string, error) {
+	return "", nil
+}
+
+func (m *MockStateStore) RunExists(runID string) (bool, error) {
+	return false, nil
+}
+
+func (m *MockStateStore) GetRunStatus(runID string) (string, error) {
+	return "", nil
+}
+
+func (m *MockStateStore) ListPipelineNamesByStatus(status string) ([]string, error) {
+	return nil, nil
+}
+
+func (m *MockStateStore) BackfillRunTokens() (int64, error) {
+	return 0, nil
+}
+
+func (m *MockStateStore) GetEventAggregateStats(runID string) (*state.EventAggregateStats, error) {
+	return &state.EventAggregateStats{}, nil
+}
+
 func (m *MockStateStore) GetAuditEvents(states []string, limit, offset int) ([]state.LogRecord, error) {
 	return nil, nil
 }

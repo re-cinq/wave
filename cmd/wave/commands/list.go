@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,11 +12,10 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/display"
+	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/tui"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
-
-	_ "modernc.org/sqlite"
 )
 
 // JSON output structures
@@ -764,72 +762,48 @@ func collectRuns(opts ListRunsOptions) ([]RunInfo, error) {
 	return runs, nil
 }
 
-// collectRunsFromDB reads run information from the state database
+// collectRunsFromDB reads run information from the state database via StateStore.
 func collectRunsFromDB(dbPath string, opts ListRunsOptions) ([]RunInfo, error) {
-	db, err := sql.Open("sqlite", dbPath)
+	store, err := state.NewReadOnlyStateStore(dbPath)
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	defer store.Close()
 
-	// Try pipeline_run table first (new schema from spec 016)
-	query := `
-		SELECT run_id, pipeline_name, status, started_at, completed_at
-		FROM pipeline_run
-		WHERE 1=1
-	`
-	args := []interface{}{}
-
-	if opts.Pipeline != "" {
-		query += " AND pipeline_name = ?"
-		args = append(args, opts.Pipeline)
+	listOpts := state.ListRunsOptions{
+		PipelineName: opts.Pipeline,
+		Status:       strings.ToLower(opts.Status),
+		Limit:        opts.Limit,
 	}
 
-	if opts.Status != "" {
-		query += " AND LOWER(status) = LOWER(?)"
-		args = append(args, opts.Status)
-	}
-
-	query += " ORDER BY started_at DESC LIMIT ?"
-	args = append(args, opts.Limit)
-
-	rows, err := db.Query(query, args...)
+	records, err := store.ListRuns(listOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query pipeline runs: %w", err)
 	}
-	defer rows.Close()
 
-	var runs []RunInfo
-	for rows.Next() {
-		var runID, pipelineName, status string
-		var startedAt int64
-		var completedAt sql.NullInt64
-
-		if err := rows.Scan(&runID, &pipelineName, &status, &startedAt, &completedAt); err != nil {
-			continue
-		}
-
-		startTime := time.Unix(startedAt, 0)
+	runs := make([]RunInfo, 0, len(records))
+	for _, r := range records {
 		var duration string
 		var durationMs int64
 
 		switch {
-		case completedAt.Valid:
-			endTime := time.Unix(completedAt.Int64, 0)
-			durationMs = endTime.Sub(startTime).Milliseconds()
-			duration = formatDuration(endTime.Sub(startTime))
-		case strings.ToLower(status) == "running":
-			durationMs = time.Since(startTime).Milliseconds()
-			duration = formatDuration(time.Since(startTime)) + " (running)"
+		case r.CompletedAt != nil:
+			d := r.CompletedAt.Sub(r.StartedAt)
+			durationMs = d.Milliseconds()
+			duration = formatDuration(d)
+		case strings.ToLower(r.Status) == "running":
+			d := time.Since(r.StartedAt)
+			durationMs = d.Milliseconds()
+			duration = formatDuration(d) + " (running)"
 		default:
 			duration = "-"
 		}
 
 		runs = append(runs, RunInfo{
-			RunID:      runID,
-			Pipeline:   pipelineName,
-			Status:     status,
-			StartedAt:  startTime.Format("2006-01-02 15:04:05"),
+			RunID:      r.RunID,
+			Pipeline:   r.PipelineName,
+			Status:     r.Status,
+			StartedAt:  r.StartedAt.Format("2006-01-02 15:04:05"),
 			Duration:   duration,
 			DurationMs: durationMs,
 		})

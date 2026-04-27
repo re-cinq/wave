@@ -2,7 +2,6 @@ package commands
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,10 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/recinq/wave/internal/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	_ "modernc.org/sqlite"
 )
 
 // T084: Test helpers for list command tests
@@ -1148,29 +1146,19 @@ func TestListRunsCmd_WithDatabase(t *testing.T) {
 	require.NoError(t, err)
 
 	dbPath := filepath.Join(dbDir, "state.db")
-	db, err := sql.Open("sqlite", dbPath)
+	store, err := state.NewStateStore(dbPath)
 	require.NoError(t, err)
-	defer db.Close()
+	defer store.Close()
 
-	// Create table
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS pipeline_run (
-			run_id TEXT PRIMARY KEY,
-			pipeline_name TEXT NOT NULL,
-			status TEXT NOT NULL,
-			started_at INTEGER NOT NULL,
-			completed_at INTEGER
-		)
-	`)
-	require.NoError(t, err)
-
-	// Insert test data
-	now := time.Now().Unix()
-	_, err = db.Exec(`
-		INSERT INTO pipeline_run (run_id, pipeline_name, status, started_at, completed_at)
-		VALUES (?, ?, ?, ?, ?)
-	`, "run-123", "test-pipeline", "completed", now-3600, now)
-	require.NoError(t, err)
+	now := time.Now()
+	completed := now
+	require.NoError(t, state.SeedRun(store, state.SeedRunOptions{
+		RunID:        "run-123",
+		PipelineName: "test-pipeline",
+		Status:       "completed",
+		StartedAt:    now.Add(-1 * time.Hour),
+		CompletedAt:  &completed,
+	}))
 
 	stdout, _, err := executeListRunsCmd()
 
@@ -1195,30 +1183,28 @@ func TestListRunsCmd_StatusFilter(t *testing.T) {
 	require.NoError(t, err)
 
 	dbPath := filepath.Join(dbDir, "state.db")
-	db, err := sql.Open("sqlite", dbPath)
+	store, err := state.NewStateStore(dbPath)
 	require.NoError(t, err)
-	defer db.Close()
+	defer store.Close()
 
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS pipeline_run (
-			run_id TEXT PRIMARY KEY,
-			pipeline_name TEXT NOT NULL,
-			status TEXT NOT NULL,
-			started_at INTEGER NOT NULL,
-			completed_at INTEGER
-		)
-	`)
-	require.NoError(t, err)
+	now := time.Now()
+	completed1 := now
+	completed2 := now.Add(-1 * time.Hour)
+	require.NoError(t, state.SeedRun(store, state.SeedRunOptions{
+		RunID:        "run-1",
+		PipelineName: "pipeline-a",
+		Status:       "completed",
+		StartedAt:    now.Add(-1 * time.Hour),
+		CompletedAt:  &completed1,
+	}))
+	require.NoError(t, state.SeedRun(store, state.SeedRunOptions{
+		RunID:        "run-2",
+		PipelineName: "pipeline-b",
+		Status:       "failed",
+		StartedAt:    now.Add(-2 * time.Hour),
+		CompletedAt:  &completed2,
+	}))
 
-	now := time.Now().Unix()
-	_, err = db.Exec(`INSERT INTO pipeline_run VALUES (?, ?, ?, ?, ?)`,
-		"run-1", "pipeline-a", "completed", now-3600, now)
-	require.NoError(t, err)
-	_, err = db.Exec(`INSERT INTO pipeline_run VALUES (?, ?, ?, ?, ?)`,
-		"run-2", "pipeline-b", "failed", now-7200, now-3600)
-	require.NoError(t, err)
-
-	// Filter by status
 	stdout, _, err := executeListRunsCmd("--run-status", "completed")
 
 	require.NoError(t, err)
@@ -1238,25 +1224,19 @@ func TestListRunsCmd_JSONStructure(t *testing.T) {
 	require.NoError(t, err)
 
 	dbPath := filepath.Join(dbDir, "state.db")
-	db, err := sql.Open("sqlite", dbPath)
+	store, err := state.NewStateStore(dbPath)
 	require.NoError(t, err)
-	defer db.Close()
+	defer store.Close()
 
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS pipeline_run (
-			run_id TEXT PRIMARY KEY,
-			pipeline_name TEXT NOT NULL,
-			status TEXT NOT NULL,
-			started_at INTEGER NOT NULL,
-			completed_at INTEGER
-		)
-	`)
-	require.NoError(t, err)
-
-	now := time.Now().Unix()
-	_, err = db.Exec(`INSERT INTO pipeline_run VALUES (?, ?, ?, ?, ?)`,
-		"test-run", "test-pipeline", "completed", now-60, now)
-	require.NoError(t, err)
+	now := time.Now()
+	completed := now
+	require.NoError(t, state.SeedRun(store, state.SeedRunOptions{
+		RunID:        "test-run",
+		PipelineName: "test-pipeline",
+		Status:       "completed",
+		StartedAt:    now.Add(-1 * time.Minute),
+		CompletedAt:  &completed,
+	}))
 
 	stdout, _, err := executeListRunsCmd("--format", "json")
 
@@ -1557,26 +1537,20 @@ func TestListRunsCmd_NoTruncationAtWideTerminal(t *testing.T) {
 	require.NoError(t, err)
 
 	dbPath := filepath.Join(dbDir, "state.db")
-	db, err := sql.Open("sqlite", dbPath)
+	store, err := state.NewStateStore(dbPath)
 	require.NoError(t, err)
-	defer db.Close()
-
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS pipeline_run (
-			run_id TEXT PRIMARY KEY,
-			pipeline_name TEXT NOT NULL,
-			status TEXT NOT NULL,
-			started_at INTEGER NOT NULL,
-			completed_at INTEGER
-		)
-	`)
-	require.NoError(t, err)
+	defer store.Close()
 
 	longRunID := "gh-implement-20260227-093609-787b-extra-suffix"
-	now := time.Now().Unix()
-	_, err = db.Exec(`INSERT INTO pipeline_run VALUES (?, ?, ?, ?, ?)`,
-		longRunID, "feature-pipeline", "completed", now-3600, now)
-	require.NoError(t, err)
+	now := time.Now()
+	completed := now
+	require.NoError(t, state.SeedRun(store, state.SeedRunOptions{
+		RunID:        longRunID,
+		PipelineName: "feature-pipeline",
+		Status:       "completed",
+		StartedAt:    now.Add(-1 * time.Hour),
+		CompletedAt:  &completed,
+	}))
 
 	stdout, _, err := executeListRunsCmd()
 

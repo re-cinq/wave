@@ -61,6 +61,18 @@ linters:
         # These are string-literal rules depguard cannot express. See the
         # package doc in internal/ontology/service.go.
 
+        # Rule: Only internal/state may import database/sql (ADR-007).
+        # depguard rules apply to files matching `files:`; use negative globs
+        # so the rule fires everywhere *except* inside internal/state/**.
+        no-direct-sql:
+          list-mode: lax
+          files:
+            - "$all"
+            - "!**/internal/state/**"
+          deny:
+            - pkg: "database/sql"
+              desc: "ADR-007: only internal/state may import database/sql"
+
         # Rule 2: Infrastructure packages must not import Domain packages.
         infrastructure-no-domain:
           files:

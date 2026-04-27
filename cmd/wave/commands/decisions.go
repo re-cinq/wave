@@ -1,16 +1,13 @@
 package commands
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
+	"github.com/recinq/wave/internal/state"
 	"github.com/spf13/cobra"
-
-	_ "modernc.org/sqlite"
 )
 
 // DecisionsOptions holds options for the decisions command.
@@ -89,19 +86,20 @@ func runDecisions(opts DecisionsOptions) error {
 		return nil
 	}
 
-	db, err := sql.Open("sqlite", dbPath)
+	store, err := state.NewReadOnlyStateStore(dbPath)
 	if err != nil {
 		return NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Check .agents/state.db file permissions or run 'wave run' to create it").WithCause(err)
 	}
-	defer db.Close()
-
-	db.SetMaxOpenConns(1)
+	defer store.Close()
 
 	// Resolve run ID if not provided
 	runID := opts.RunID
 	if runID == "" {
-		runID, err = getMostRecentRunID(db)
+		runID, err = store.GetMostRecentRunID()
 		if err != nil {
+			return NewCLIError(CodeInternalError, fmt.Sprintf("failed to query most recent run: %s", err), "The state database may be corrupted -- try 'wave migrate validate'").WithCause(err)
+		}
+		if runID == "" {
 			if opts.Format == "json" {
 				fmt.Println(`{"run_id":"","decisions":[]}`)
 				return nil
@@ -111,8 +109,11 @@ func runDecisions(opts DecisionsOptions) error {
 		}
 	}
 
-	// Verify run exists
-	if !runExists(db, runID) {
+	exists, err := store.RunExists(runID)
+	if err != nil {
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to verify run: %s", err), "The state database may be corrupted -- try 'wave migrate validate'").WithCause(err)
+	}
+	if !exists {
 		if opts.Format == "json" {
 			fmt.Printf(`{"run_id":"%s","decisions":[],"error":"run not found"}`, runID)
 			fmt.Println()
@@ -122,10 +123,15 @@ func runDecisions(opts DecisionsOptions) error {
 		return nil
 	}
 
-	decisions, err := queryDecisions(db, runID, opts)
+	records, err := store.GetDecisionsFiltered(runID, state.DecisionQueryOptions{
+		StepID:   opts.Step,
+		Category: opts.Category,
+	})
 	if err != nil {
-		return err
+		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to query decisions: %s", err), "The state database may need migration -- try 'wave migrate up'").WithCause(err)
 	}
+
+	decisions := decisionRecordsToEntries(records)
 
 	if len(decisions) == 0 {
 		if opts.Format == "json" {
@@ -141,69 +147,26 @@ func runDecisions(opts DecisionsOptions) error {
 	return outputDecisions(runID, decisions, opts)
 }
 
-// queryDecisions retrieves decisions matching the options.
-func queryDecisions(db *sql.DB, runID string, opts DecisionsOptions) ([]DecisionEntry, error) {
-	query := `SELECT id, timestamp, step_id, category, decision, rationale, context_json
-	          FROM decision_log
-	          WHERE run_id = ?`
-	args := []any{runID}
-
-	if opts.Step != "" {
-		query += " AND step_id = ?"
-		args = append(args, opts.Step)
-	}
-
-	if opts.Category != "" {
-		query += " AND category = ?"
-		args = append(args, opts.Category)
-	}
-
-	query += " ORDER BY timestamp ASC, id ASC"
-
-	rows, err := db.Query(query, args...)
-	if err != nil {
-		return nil, NewCLIError(CodeInternalError, fmt.Sprintf("failed to query decisions: %s", err), "The state database may need migration -- try 'wave migrate up'").WithCause(err)
-	}
-	defer rows.Close()
-
-	var decisions []DecisionEntry
-	for rows.Next() {
-		var d DecisionEntry
-		var timestamp int64
-		var stepID, rationale, contextJSON sql.NullString
-
-		err := rows.Scan(
-			&d.ID,
-			&timestamp,
-			&stepID,
-			&d.Category,
-			&d.Decision,
-			&rationale,
-			&contextJSON,
-		)
-		if err != nil {
-			return nil, NewCLIError(CodeInternalError, fmt.Sprintf("failed to scan decision: %s", err), "The state database may have schema issues -- try 'wave migrate up'").WithCause(err)
+// decisionRecordsToEntries converts state.DecisionRecord pointers into the
+// CLI's presentation DTO. Empty/`{}` context fields are stripped to keep the
+// JSON shape backward compatible with the prior raw-SQL implementation.
+func decisionRecordsToEntries(records []*state.DecisionRecord) []DecisionEntry {
+	out := make([]DecisionEntry, 0, len(records))
+	for _, r := range records {
+		entry := DecisionEntry{
+			ID:        r.ID,
+			Timestamp: r.Timestamp.Format("15:04:05"),
+			StepID:    r.StepID,
+			Category:  r.Category,
+			Decision:  r.Decision,
+			Rationale: r.Rationale,
 		}
-
-		d.Timestamp = time.Unix(timestamp, 0).Format("15:04:05")
-		if stepID.Valid {
-			d.StepID = stepID.String
+		if r.Context != "" && r.Context != "{}" {
+			entry.Context = json.RawMessage(r.Context)
 		}
-		if rationale.Valid {
-			d.Rationale = rationale.String
-		}
-		if contextJSON.Valid && contextJSON.String != "" && contextJSON.String != "{}" {
-			d.Context = json.RawMessage(contextJSON.String)
-		}
-
-		decisions = append(decisions, d)
+		out = append(out, entry)
 	}
-
-	if err := rows.Err(); err != nil {
-		return nil, NewCLIError(CodeInternalError, fmt.Sprintf("error iterating decisions: %s", err), "The state database may have schema issues -- try 'wave migrate up'").WithCause(err)
-	}
-
-	return decisions, nil
+	return out
 }
 
 // outputDecisions formats and outputs the decisions.
@@ -218,7 +181,6 @@ func outputDecisions(runID string, decisions []DecisionEntry, opts DecisionsOpti
 		return nil
 	}
 
-	// Text format
 	for _, d := range decisions {
 		printDecisionEntry(d)
 	}
@@ -231,7 +193,6 @@ func printDecisionEntry(d DecisionEntry) {
 	var parts []string
 	parts = append(parts, fmt.Sprintf("[%s]", d.Timestamp))
 
-	// Color-code categories
 	categoryStr := fmt.Sprintf("%-15s", d.Category)
 	switch d.Category {
 	case "model_routing":
