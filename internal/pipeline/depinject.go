@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -279,7 +278,3 @@ func linkOrCopy(src, dest string) error {
 	}
 	return destF.Close()
 }
-
-// ErrDepArtifactMissing is returned when a required dep artifact cannot be
-// located on disk via any tier of the resolver.
-var ErrDepArtifactMissing = errors.New("dep artifact missing")
