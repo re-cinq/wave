@@ -1,6 +1,7 @@
 package contract
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -130,11 +131,12 @@ func (v *agentReviewValidator) RunReview(cfg ContractConfig, workspacePath strin
 		stdoutStr = string(data)
 	}
 
-	// Check token budget before parsing — treat overrun as warning, not rejection
+	// Token budget overrun is informational. Log to stderr so the run log
+	// captures it, but never prepend the warning to stdoutStr — that breaks
+	// JSON parsing when the reviewer subprocess emits a JSONL stream.
 	if cfg.TokenBudget > 0 && result.TokensUsed > cfg.TokenBudget {
-		// Log warning but proceed with parsing
-		stdoutStr = fmt.Sprintf("[Warning: reviewer used %d tokens, exceeding budget of %d]\n\n%s",
-			result.TokensUsed, cfg.TokenBudget, stdoutStr)
+		fmt.Fprintf(os.Stderr, "[agent_review] reviewer used %d tokens, exceeding budget of %d\n",
+			result.TokensUsed, cfg.TokenBudget)
 	}
 
 	feedback, err := parseReviewFeedback(stdoutStr)
@@ -199,6 +201,14 @@ func buildReviewPrompt(criteria, contextText string) string {
 }
 
 // parseReviewFeedback extracts ReviewFeedback from agent stdout.
+//
+// The reviewer subprocess (Claude Code) emits a JSONL event stream — one JSON
+// object per line — with the reviewer's actual verdict surfacing either as the
+// `result` field of a `{"type":"result",...}` event, or as a standalone
+// `{"verdict":...}` object emitted via a text content block. We try a few
+// strategies in order: direct unmarshal, brace-trim via extractJSON, and a
+// JSONL-aware scan that returns the last object containing a `verdict` field.
+// Validation (verdict enum + confidence range) runs once on the chosen feedback.
 func parseReviewFeedback(stdout string) (*ReviewFeedback, error) {
 	if stdout == "" {
 		return nil, &ValidationError{
@@ -208,40 +218,102 @@ func parseReviewFeedback(stdout string) (*ReviewFeedback, error) {
 		}
 	}
 
-	cleaned := extractJSON(stdout)
-	var feedback ReviewFeedback
-	if err := json.Unmarshal([]byte(cleaned), &feedback); err != nil {
+	feedback := unmarshalFeedback(stdout)
+	if feedback == nil {
+		feedback = unmarshalFeedback(extractJSON(stdout))
+	}
+	if feedback == nil {
+		feedback = lastVerdictObjectFromJSONL(stdout)
+	}
+	if feedback == nil {
 		return nil, &ValidationError{
 			ContractType: "agent_review",
 			Message:      "failed to parse ReviewFeedback from reviewer output",
-			Details:      []string{err.Error(), stdout},
+			Details:      []string{"no JSON object containing a 'verdict' field was found in the reviewer output", stdout},
 			Retryable:    true,
 		}
 	}
+	if err := validateFeedback(feedback); err != nil {
+		// Decorate validation errors with the original stdout for diagnostics
+		if ve, ok := err.(*ValidationError); ok {
+			ve.Details = append(ve.Details, stdout)
+		}
+		return nil, err
+	}
+	return feedback, nil
+}
 
-	// Validate verdict enum
+// unmarshalFeedback attempts to unmarshal text into a ReviewFeedback. Returns
+// nil if the text is not valid JSON or does not carry a `verdict` field. Does
+// not enforce the verdict enum or confidence range — that is validateFeedback's
+// job. Splitting the two lets the caller surface validation errors instead of
+// silently rejecting otherwise-parseable feedback.
+func unmarshalFeedback(text string) *ReviewFeedback {
+	if text == "" {
+		return nil
+	}
+	var feedback ReviewFeedback
+	if err := json.Unmarshal([]byte(text), &feedback); err != nil {
+		return nil
+	}
+	if feedback.Verdict == "" {
+		return nil
+	}
+	return &feedback
+}
+
+// lastVerdictObjectFromJSONL scans stdout as a JSONL stream and returns the
+// last top-level JSON object that carries a `verdict` field. Each line may
+// itself be a Claude-Code event whose `result` field is a stringified
+// ReviewFeedback — that envelope is unwrapped before checking.
+func lastVerdictObjectFromJSONL(stdout string) *ReviewFeedback {
+	var last *ReviewFeedback
+	scanner := bufio.NewScanner(strings.NewReader(stdout))
+	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || !strings.HasPrefix(line, "{") {
+			continue
+		}
+		var envelope map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(line), &envelope); err != nil {
+			continue
+		}
+		if raw, ok := envelope["result"]; ok {
+			var inner string
+			if err := json.Unmarshal(raw, &inner); err == nil {
+				if fb := unmarshalFeedback(extractJSON(inner)); fb != nil {
+					last = fb
+					continue
+				}
+			}
+		}
+		if fb := unmarshalFeedback(line); fb != nil {
+			last = fb
+		}
+	}
+	return last
+}
+
+// validateFeedback enforces the verdict enum and confidence range invariants.
+func validateFeedback(feedback *ReviewFeedback) error {
 	switch feedback.Verdict {
 	case "pass", "fail", "warn":
-		// valid
 	default:
-		return nil, &ValidationError{
+		return &ValidationError{
 			ContractType: "agent_review",
 			Message:      fmt.Sprintf("invalid verdict %q (must be pass, fail, or warn)", feedback.Verdict),
-			Details:      []string{stdout},
 			Retryable:    true,
 		}
 	}
-
-	// Validate confidence range
 	if feedback.Confidence < 0.0 || feedback.Confidence > 1.0 {
-		return nil, &ValidationError{
+		return &ValidationError{
 			ContractType: "agent_review",
 			Message:      fmt.Sprintf("confidence %f is out of range [0.0, 1.0]", feedback.Confidence),
 			Retryable:    true,
 		}
 	}
-
-	return &feedback, nil
+	return nil
 }
 
 // assembleContext builds the context string for the reviewer from configured sources.

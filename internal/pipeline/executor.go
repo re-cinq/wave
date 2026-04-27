@@ -4567,10 +4567,13 @@ func (e *DefaultPipelineExecutor) warnOnUnexpectedArtifacts(execution *PipelineE
 		if relErr != nil || rel == "." {
 			return nil
 		}
-		// Prune Wave-internal and project-mount subtrees.
+		// Prune Wave-internal and project-mount subtrees, plus the .claude/
+		// directory where Claude Code drops per-skill slash-command files
+		// (.claude/commands/<skill>.md) on every subprocess startup. Those
+		// files are tooling state, not artifacts the persona produced.
 		if d.IsDir() {
 			switch rel {
-			case ".agents", "project", ".git", "node_modules", "vendor":
+			case ".agents", ".claude", "project", ".git", "node_modules", "vendor":
 				return filepath.SkipDir
 			}
 			return nil
