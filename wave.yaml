@@ -204,6 +204,15 @@ personas:
                 - "*"
             deny: []
         system_prompt_file: .agents/personas/summarizer.md
+    webui-capturer:
+        adapter: claude
+        description: Browser-driven WebUI screenshot capture via the chromedp adapter
+        #temperature: 0.0
+        permissions:
+            allowed_tools:
+                - "*"
+            deny: []
+        system_prompt_file: .agents/personas/webui-capturer.md
     github-analyst:
         adapter: claude
         description: GitHub issue analysis and quality assessment
