@@ -53,7 +53,7 @@ The template is `000-template.md` and is not itself a decision record.
 
 ## Index
 
-Last verified against the codebase: 2026-04-26.
+Last verified against the codebase: 2026-04-27.
 
 | ADR | Title | Status | Date |
 |-----|-------|--------|------|
@@ -72,6 +72,7 @@ Last verified against the codebase: 2026-04-26.
 | [013](013-failure-taxonomy-circuit-breaker.md) | Failure Taxonomy and Circuit Breaker | Accepted | 2026-03-27 |
 | [014](014-composition-graph-boundary.md) | Composition / Graph-Execution Boundary | Accepted | 2026-04-26 |
 | [015](015-persona-agent-migration.md) | Persona-to-Agent Migration Path | Accepted | 2026-04-26 |
+| [016](016-work-source-centric-webui-ia.md) | Work-Source-Centric Webui IA and Onboarding-as-Session UX | Proposed | 2026-04-27 |
 
 ### History
 
