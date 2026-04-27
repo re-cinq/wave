@@ -177,7 +177,8 @@ func TestInjectDependencyArtifacts_CanonicalAndAlias(t *testing.T) {
 	exec.ArtifactPaths["fetch:pr-context"] = src
 
 	ex := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
-	if err := ex.injectDependencyArtifacts(exec, &exec.Pipeline.Steps[1], workspace); err != nil {
+	canonicalMap, err := ex.injectDependencyArtifacts(exec, &exec.Pipeline.Steps[1], workspace)
+	if err != nil {
 		t.Fatalf("inject: %v", err)
 	}
 
@@ -190,10 +191,24 @@ func TestInjectDependencyArtifacts_CanonicalAndAlias(t *testing.T) {
 		t.Errorf("alias missing: %v", err)
 	}
 
-	// Template resolution.
+	// Template resolution under the existing artifacts namespace.
 	got := exec.Context.ResolvePlaceholders("{{ artifacts.fetch.pr-context }}")
 	if got != canonical {
-		t.Errorf("template resolved to %q, want %q", got, canonical)
+		t.Errorf("artifacts template resolved to %q, want %q", got, canonical)
+	}
+	// Template resolution under the new dep-scoped namespace (issue #1452 phase 3).
+	gotDeps := exec.Context.ResolvePlaceholders("{{ deps.fetch.pr-context }}")
+	if gotDeps != canonical {
+		t.Errorf("deps template resolved to %q, want %q", gotDeps, canonical)
+	}
+
+	// Returned canonical map should reflect post-injection paths.
+	got2, ok := canonicalMap["fetch:pr-context"]
+	if !ok {
+		t.Fatalf("canonical map missing fetch:pr-context entry; got %v", canonicalMap)
+	}
+	if got2.Path != canonical {
+		t.Errorf("canonical map path = %q, want %q", got2.Path, canonical)
 	}
 }
 
@@ -209,10 +224,52 @@ func TestInjectDependencyArtifacts_NoDepsNoOp(t *testing.T) {
 		Context:        NewPipelineContext("test", "t", "solo"),
 	}
 	ex := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
-	if err := ex.injectDependencyArtifacts(exec, &exec.Pipeline.Steps[0], tmp); err != nil {
+	if _, err := ex.injectDependencyArtifacts(exec, &exec.Pipeline.Steps[0], tmp); err != nil {
 		t.Fatalf("inject: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(tmp, ".agents")); err == nil {
 		t.Errorf(".agents created for step with no deps")
+	}
+}
+
+// TestBuildDepEnvVars verifies the env-name slug rule and that
+// WAVE_DEPS_DIR is always emitted alongside per-artifact entries.
+func TestBuildDepEnvVars(t *testing.T) {
+	resolved := map[string]ResolvedArtifact{
+		"fetch-pr:pr-context":     {DepStep: "fetch-pr", Name: "pr-context", Path: "/ws/.agents/artifacts/fetch-pr/pr-context"},
+		"merge-findings:findings": {DepStep: "merge-findings", Name: "findings", Path: "/ws/.agents/artifacts/merge-findings/findings"},
+	}
+	got := BuildDepEnvVars(resolved, "/ws")
+
+	want := map[string]string{
+		"WAVE_DEPS_DIR":                "/ws/.agents/artifacts",
+		"WAVE_DEP_FETCH_PR_PR_CONTEXT": "/ws/.agents/artifacts/fetch-pr/pr-context",
+		"WAVE_DEP_MERGE_FINDINGS_FINDINGS": "/ws/.agents/artifacts/merge-findings/findings",
+	}
+	gotMap := make(map[string]string, len(got))
+	for _, kv := range got {
+		idx := -1
+		for i, c := range kv {
+			if c == '=' {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 {
+			t.Fatalf("malformed env entry %q", kv)
+		}
+		gotMap[kv[:idx]] = kv[idx+1:]
+	}
+	for k, v := range want {
+		if gotMap[k] != v {
+			t.Errorf("%s = %q, want %q (full env: %v)", k, gotMap[k], v, gotMap)
+		}
+	}
+}
+
+// TestBuildDepEnvVars_EmptyWorkspace returns nil when no workspace path.
+func TestBuildDepEnvVars_EmptyWorkspace(t *testing.T) {
+	if got := BuildDepEnvVars(map[string]ResolvedArtifact{"x:y": {}}, ""); got != nil {
+		t.Errorf("expected nil, got %v", got)
 	}
 }

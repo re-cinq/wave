@@ -420,7 +420,7 @@ func (m *MatrixExecutor) executeWorker(ctx context.Context, execution *PipelineE
 	// Auto-inject declared dep artifacts (issue #1452) before the legacy
 	// explicit inject_artifacts pass so {{ artifacts.<dep>.<name> }} and
 	// .agents/artifacts/<dep>/<name> resolve transparently in the worker.
-	if err := m.executor.injectDependencyArtifacts(execution, workerStep, workspacePath); err != nil {
+	if _, err := m.executor.injectDependencyArtifacts(execution, workerStep, workspacePath); err != nil {
 		result.Error = fmt.Errorf("failed to auto-inject dep artifacts: %w", err)
 		return result
 	}

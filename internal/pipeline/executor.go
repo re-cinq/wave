@@ -1502,7 +1502,8 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 	// scripts can read upstream outputs at .agents/artifacts/<dep>/<name>
 	// or the back-compat alias .agents/output/<name> without any
 	// workspace.mount or memory.inject_artifacts boilerplate.
-	if err := e.injectDependencyArtifacts(execution, step, workspacePath); err != nil {
+	depArtifacts, err := e.injectDependencyArtifacts(execution, step, workspacePath)
+	if err != nil {
 		return nil, fmt.Errorf("failed to auto-inject dep artifacts for step %q: %w", step.ID, err)
 	}
 
@@ -1521,6 +1522,10 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 	// Prevents leaking secrets, API keys, or other sensitive environment
 	// variables into the command subprocess.
 	cmd.Env = filterEnvPassthrough(execution.Manifest.Runtime.Sandbox.EnvPassthrough)
+
+	// Append WAVE_DEP_<DEP>_<NAME>=<canonical path> + WAVE_DEPS_DIR for
+	// every auto-injected upstream artifact. Issue #1452 phase 3.
+	cmd.Env = append(cmd.Env, BuildDepEnvVars(depArtifacts, workspacePath)...)
 
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
@@ -3235,7 +3240,7 @@ func (e *DefaultPipelineExecutor) resolveStepResources(ctx context.Context, exec
 	// canonical .agents/artifacts/<dep>/<name> layout (issue #1452). Runs
 	// BEFORE legacy injectArtifacts so manual `as:` renames can still
 	// overwrite the canonical copy when desired.
-	if err := e.injectDependencyArtifacts(execution, step, workspacePath); err != nil {
+	if _, err := e.injectDependencyArtifacts(execution, step, workspacePath); err != nil {
 		return nil, fmt.Errorf("failed to auto-inject dep artifacts: %w", err)
 	}
 
