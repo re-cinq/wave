@@ -111,9 +111,45 @@
       "properties": {
         "actionable": {"type": "integer", "minimum": 0},
         "deferred": {"type": "integer", "minimum": 0},
-        "rejected": {"type": "integer", "minimum": 0}
+        "rejected": {"type": "integer", "minimum": 0},
+        "design_questions": {"type": "integer", "minimum": 0}
       },
       "additionalProperties": false
+    },
+    "design_questions": {
+      "type": "array",
+      "description": "Optional. Findings that are valid but require a design decision before any code change can be made. Surfaced as a separate 'Design Questions' section in the PR comment so a maintainer can answer them inline. Distinct from `deferred` (which means out-of-scope-for-this-run with no question pending).",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "question"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9_-]{1,32}$",
+            "description": "Stable identifier for the design question within the run (e.g. dq1, dq2)."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What the underlying finding is and why it matters."
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The specific decision the maintainer needs to make before this can be actioned."
+          },
+          "source_finding_id": {
+            "type": "string",
+            "description": "Optional reference to an aggregated-findings.json entry id this design question was derived from."
+          },
+          "suggested_followup": {
+            "type": "string",
+            "description": "Optional concrete next step the triage step proposes once the design question is answered (e.g. 'open a follow-up issue', 'document the threat model')."
+          }
+        },
+        "additionalProperties": false
+      }
     }
   },
   "additionalProperties": false

@@ -45,6 +45,23 @@ steps:
     exec:
       type: prompt
       source: |
+        ## PR-scope guard (mandatory first check)
+
+        Before scanning, check whether `.agents/artifacts/pr-context` exists. If it
+        does, read its `changed_files` (JSON array) and `diff_path` fields. From this
+        point on:
+
+        - ONLY flag dead-code candidates whose declaring file is in `changed_files`.
+          Do not walk the whole repository — restrict the scan to symbols introduced
+          or modified by this PR.
+        - Cross-reference verification (does anything still call this symbol?) MAY
+          search the whole repo, but the candidate set itself is the diff.
+        - Findings on files outside `changed_files` will be dropped by the downstream
+          `filter-scope` step regardless. Producing them wastes tokens.
+
+        If `.agents/artifacts/pr-context` does NOT exist, this is a standalone audit
+        run — proceed with the whole-repo scan described below.
+
         ## Objective
 
         Perform a lightweight dead code scan of the Go codebase, identifying exported symbols with no external callers, packages with no importers, and unreachable code paths. This step produces structured JSON findings that downstream composition pipelines or human reviewers can act on. The scan is read-only and must not create branches, PRs, or issues.

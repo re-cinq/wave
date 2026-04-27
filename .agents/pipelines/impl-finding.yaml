@@ -48,10 +48,8 @@ steps:
     contexts: [execution, delivery]
     model: balanced
     workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
@@ -74,10 +72,20 @@ steps:
         2. Aggregated audit findings into a flat array.
         3. Triaged that array into actionable / deferred / rejected.
 
-        You receive a single actionable finding. The working directory is the
-        PR head branch (parent pipeline checked it out). You must touch only
-        the files implied by the finding's `remediation` field. Other findings
-        run in parallel — do NOT touch files outside your remediation scope.
+        Your CWD is a per-child git worktree on a throwaway branch
+        (`{{ pipeline_id }}`). The worktree shares its `origin` remote and ref
+        database with the project repo, so `git fetch origin <pr-branch>` and
+        `git push origin HEAD:<pr-branch>` reach the same remote the parent
+        pipeline saw. The PR head branch is NOT yet checked out — Step 2 fetches
+        it and switches the worktree onto it before any edits or tests run.
+
+        The parent pipeline injects `pr-context` into `.agents/artifacts/pr-context`
+        (via the `resolve-each` step's `config.inject`). Read that file to learn
+        the PR head branch name. You must touch only the files implied by the
+        finding's `remediation` field. Other findings run in parallel in their
+        own worktrees — your edits cannot collide with theirs at the working-tree
+        level, but you must still keep the commit minimal so reviewers can
+        understand each fix in isolation.
 
         ## Requirements
 
@@ -95,12 +103,37 @@ steps:
         resolution record with `status: "skipped"` and exit cleanly. Do NOT
         guess.
 
-        ### Step 2 — Read the target file
+        ### Step 2 — Switch the worktree onto the PR head branch
+
+        Your CWD is a per-child worktree currently on a throwaway branch
+        (`{{ pipeline_id }}`). Before reading or editing files, switch onto the
+        PR head branch so all subsequent edits, tests, and commits target the
+        right tree:
+
+        ```bash
+        BRANCH=$(jq -r .branch .agents/artifacts/pr-context)
+        if [ -z "$BRANCH" ] || [ "$BRANCH" = "null" ]; then
+          echo "refusing to proceed: pr-context artifact missing .branch" >&2
+          exit 1
+        fi
+        if ! git remote get-url origin >/dev/null 2>&1; then
+          echo "refusing to proceed: no 'origin' remote configured in worktree" >&2
+          exit 1
+        fi
+        git fetch origin "$BRANCH"
+        git checkout -B "$BRANCH" "origin/$BRANCH"
+        ```
+
+        After this step the working tree mirrors `origin/<pr-branch>` and the
+        throwaway branch label is repointed onto that tip — subsequent commits
+        chain cleanly on top of the real PR HEAD.
+
+        ### Step 3 — Read the target file
 
         Open `file`. If `line` is present, read a window around it. Read enough
         surrounding context to understand the code before editing.
 
-        ### Step 3 — Apply the fix
+        ### Step 4 — Apply the fix
 
         Make the minimal change implied by `type` + `remediation`:
 
@@ -116,40 +149,25 @@ steps:
         Do NOT bundle unrelated cleanups. Do NOT refactor surrounding code.
         One finding = one targeted edit (plus any necessary references).
 
-        ### Step 4 — Verify locally
+        ### Step 5 — Verify locally
 
-        Run `{{ project.contract_test_command }}`. If it fails, attempt one
-        repair pass. If it still fails, capture the failure in the resolution
-        record but commit anyway — the parent verify step will gate the loop.
+        Run `{{ project.contract_test_command }}` from the worktree CWD. If it
+        fails, attempt one repair pass. If it still fails, capture the failure
+        in the resolution record but commit anyway — the parent verify step
+        will gate the loop.
 
-        ### Step 5 — Commit and push (against the project repo, not the workspace)
+        ### Step 6 — Commit and push from the worktree
 
-        The mount-based workspace gives you a fresh `git init` at the workspace
-        root and the project filesystem at `/project`. To make commits visible
-        on the PR head branch, run all `git` commands from `/project` (the
-        mounted project repo with the real `origin` remote and the PR branch
-        checked out), not from the workspace root.
-
-        Stage only the files you edited (no `git add -A`). Read the PR head
-        branch from `.agents/output/pr-context.json` (`.branch`) and refuse to
-        push if `/project` is not currently on that branch — this guards against
-        detached HEAD or wrong-branch state silently pushing to whatever upstream
-        happens to be set. Verify the push actually landed by checking the
-        remote ref before reporting success.
+        Step 2 already switched the worktree onto the PR head branch and
+        confirmed `origin` is configured. Stage only the files you edited
+        (no `git add -A`). Push to `origin/<pr-branch>` and verify the push
+        actually landed by comparing local SHA with the remote ref before
+        reporting success.
 
         ```bash
-        BRANCH=$(jq -r .branch .agents/output/pr-context.json)
-        cd /project
-
-        CURRENT=$(git rev-parse --abbrev-ref HEAD)
-        if [ "$CURRENT" != "$BRANCH" ]; then
-          echo "refusing to push: /project HEAD is '$CURRENT', expected PR head '$BRANCH'" >&2
-          exit 1
-        fi
-        if ! git remote get-url origin >/dev/null 2>&1; then
-          echo "refusing to push: no 'origin' remote configured in /project" >&2
-          exit 1
-        fi
+        # $BRANCH was resolved in Step 2 from .agents/artifacts/pr-context.
+        # Re-resolve here in case this step runs in a fresh shell.
+        BRANCH=$(jq -r .branch .agents/artifacts/pr-context)
 
         git add <file1> [<file2>...]
         git commit -m "fix({{ '<finding-id>' }}): <one-line summary from remediation>"
@@ -167,7 +185,7 @@ steps:
 
         Capture the commit SHA from `git rev-parse HEAD`.
 
-        ### Step 6 — Write the resolution record
+        ### Step 7 — Write the resolution record
 
         Write `.agents/output/resolution.md` with:
 
@@ -200,6 +218,13 @@ steps:
         - Do NOT skip the commit even if the local test command fails — the
           parent's verify step is the source of truth.
         - Do NOT leave the working tree dirty after the commit.
+        - Do NOT shell out to `{{ forge.cli_tool }} {{ forge.pr_command }} view`,
+          `{{ forge.cli_tool }} {{ forge.pr_command }} diff`, or any other
+          PR-metadata fetch. The parent pipeline (`ops-pr-respond`) has already
+          written `.agents/artifacts/pr-context` with the head branch, head SHA,
+          and `diff_path`. That artifact is the authoritative source for PR
+          metadata in this step — re-fetching wastes tokens, slows the run, and
+          can race with concurrent siblings.
 
         ## Quality bar
 

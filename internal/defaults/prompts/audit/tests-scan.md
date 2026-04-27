@@ -1,3 +1,18 @@
+## PR-scope guard (mandatory first check)
+
+Before scanning, check whether `.agents/artifacts/pr-context` exists. If it does, read
+its `changed_files` (JSON array) and `diff_path` fields. From this point on:
+
+- ONLY flag missing tests / coverage gaps for files in `changed_files`. Do not audit
+  test coverage of unchanged code — that is out of scope for this PR review.
+- Treat `diff_path` (the unified diff blob on disk) as the authoritative scope. A
+  test gap is in-scope only if the production code it should cover is in the diff.
+- Findings on files outside `changed_files` will be dropped by the downstream
+  `filter-scope` step regardless. Producing them wastes tokens.
+
+If `.agents/artifacts/pr-context` does NOT exist, this is a standalone audit run —
+proceed with the whole-repo scan described below.
+
 ## Objective
 
 Perform a test quality audit of the implementation, analyzing test coverage, test quality,

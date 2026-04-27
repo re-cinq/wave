@@ -1,3 +1,18 @@
+## PR-scope guard (mandatory first check)
+
+Before scanning, check whether `.agents/artifacts/pr-context` exists. If it does, read
+its `changed_files` (JSON array) and `diff_path` fields. From this point on:
+
+- ONLY flag issues whose file path is in `changed_files`. Do not walk the whole
+  repository — scan exclusively the listed files.
+- Treat `diff_path` (the unified diff blob on disk) as the authoritative scope. If a
+  finding is not visible as a hunk in that diff, it is out of scope.
+- Findings on files outside `changed_files` will be dropped by the downstream
+  `filter-scope` step regardless. Producing them wastes tokens.
+
+If `.agents/artifacts/pr-context` does NOT exist, this is a standalone audit run —
+proceed with the whole-repo scan described below.
+
 ## Objective
 
 Perform an architecture audit of the implementation, analyzing package structure, import
