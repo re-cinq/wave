@@ -417,6 +417,14 @@ func (m *MatrixExecutor) executeWorker(ctx context.Context, execution *PipelineE
 	// Create a modified step with the task template variable replaced
 	workerStep := m.createWorkerStep(step, item)
 
+	// Auto-inject declared dep artifacts (issue #1452) before the legacy
+	// explicit inject_artifacts pass so {{ artifacts.<dep>.<name> }} and
+	// .agents/artifacts/<dep>/<name> resolve transparently in the worker.
+	if err := m.executor.injectDependencyArtifacts(execution, workerStep, workspacePath); err != nil {
+		result.Error = fmt.Errorf("failed to auto-inject dep artifacts: %w", err)
+		return result
+	}
+
 	// Inject artifacts from dependencies into worker workspace
 	if err := m.executor.injectArtifacts(execution, workerStep, workspacePath); err != nil {
 		result.Error = fmt.Errorf("failed to inject artifacts: %w", err)
