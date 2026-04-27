@@ -218,6 +218,13 @@ steps:
         - Do NOT skip the commit even if the local test command fails — the
           parent's verify step is the source of truth.
         - Do NOT leave the working tree dirty after the commit.
+        - Do NOT shell out to `{{ forge.cli_tool }} {{ forge.pr_command }} view`,
+          `{{ forge.cli_tool }} {{ forge.pr_command }} diff`, or any other
+          PR-metadata fetch. The parent pipeline (`ops-pr-respond`) has already
+          written `.agents/artifacts/pr-context` with the head branch, head SHA,
+          and `diff_path`. That artifact is the authoritative source for PR
+          metadata in this step — re-fetching wastes tokens, slows the run, and
+          can race with concurrent siblings.
 
         ## Quality bar
 

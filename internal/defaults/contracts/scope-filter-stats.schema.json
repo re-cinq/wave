@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Scope Filter Stats",
+  "description": "Output of the filter-scope step in ops-pr-respond. Records how many findings the deterministic file-scope filter kept vs dropped, broken down per source audit, plus a small sample of dropped findings so a human can audit the filter's behaviour after the fact.",
+  "type": "object",
+  "required": ["total_in", "total_kept", "total_dropped", "per_axis"],
+  "properties": {
+    "total_in": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Findings count in merged-findings.json before filtering."
+    },
+    "total_kept": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Findings count after filtering (file in pr_context.changed_files)."
+    },
+    "total_dropped": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Findings dropped because their `file` was not in pr_context.changed_files."
+    },
+    "per_axis": {
+      "type": "array",
+      "description": "Per-source-audit breakdown. One entry per distinct `source` value seen in merged-findings.",
+      "items": {
+        "type": "object",
+        "required": ["source", "kept", "dropped"],
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Originating audit name (e.g. audit-security, audit-tests). Matches the `source` field on each finding."
+          },
+          "kept": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "dropped": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "dropped_sample": {
+      "type": "array",
+      "description": "Optional sample (max 10) of dropped findings — file path + source — so reviewers can confirm the filter behaved correctly. Truncated to keep the artifact small.",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": ["file", "source"],
+        "properties": {
+          "file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "description": "Optional finding id from the source audit, if present."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "changed_files_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Optional. Number of files in pr_context.changed_files at filter time."
+    }
+  },
+  "additionalProperties": false
+}

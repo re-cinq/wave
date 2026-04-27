@@ -46,6 +46,24 @@ steps:
     exec:
       type: prompt
       source: |
+        ## PR-scope guard (mandatory first check)
+
+        Before scanning, check whether `.agents/artifacts/pr-context` exists. If it
+        does, read its `changed_files` (JSON array) and `diff_path` fields. From this
+        point on:
+
+        - ONLY flag duplication where AT LEAST ONE side of the duplicated pair is in
+          `changed_files`. Pre-existing duplication between two unchanged files is
+          out of scope for this PR review.
+        - Cross-reference verification (does this overlap with code elsewhere?) MAY
+          search the whole repo, but at least one party to the duplication must be
+          in the diff.
+        - Findings on files outside `changed_files` will be dropped by the downstream
+          `filter-scope` step regardless. Producing them wastes tokens.
+
+        If `.agents/artifacts/pr-context` does NOT exist, this is a standalone audit
+        run — proceed with the whole-repo scan described below.
+
         ## Objective
 
         Audit the Go codebase for duplicate or overlapping implementations across packages that appear to solve the same problem. Produce structured JSON findings identifying where consolidation would reduce maintenance burden, eliminate behavioral divergence, and simplify the architecture. This is a read-only scan that must not create branches, PRs, or issues.

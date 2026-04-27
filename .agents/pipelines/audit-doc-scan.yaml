@@ -46,6 +46,25 @@ steps:
     exec:
       type: prompt
       source: |
+        ## PR-scope guard (mandatory first check)
+
+        Before scanning, check whether `.agents/artifacts/pr-context` exists. If it
+        does, read its `changed_files` (JSON array) and `diff_path` fields. From this
+        point on:
+
+        - ONLY flag documentation issues whose containing file is in `changed_files`,
+          OR whose described claim is contradicted by code in `changed_files`. Do not
+          audit unchanged docs against unchanged code — that is out of scope for this
+          PR review.
+        - Treat `diff_path` (the unified diff blob on disk) as the authoritative
+          scope. A doc finding is in-scope if either the doc itself or the code it
+          describes is part of this PR.
+        - Findings on files outside `changed_files` will be dropped by the downstream
+          `filter-scope` step regardless. Producing them wastes tokens.
+
+        If `.agents/artifacts/pr-context` does NOT exist, this is a standalone audit
+        run — proceed with the whole-repo scan described below.
+
         ## Objective
 
         Audit the project's documentation against the actual codebase to identify stale, inaccurate, or missing content. This step produces structured JSON findings that downstream composition pipelines or human reviewers can act on. The scan is read-only and must not create branches, PRs, or issues.

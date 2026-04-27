@@ -185,6 +185,13 @@ steps:
     pipeline: "{{ item }}"
     dependencies: [fetch-pr]
     input: "Audit the changes in PR {{ input }}. Focus on files listed in .agents/output/pr-context.json (changed_files). Treat .agents/output/pr.diff as the authoritative scope."
+    # Inject pr-context into every audit-* child so each one receives
+    # `.agents/artifacts/pr-context` and can scope its scan to changed_files
+    # instead of walking the whole repo. Standalone audit-* runs (no parent
+    # injection) keep their whole-repo behaviour — the audit prompts guard
+    # the scope-narrowing on the artifact's existence.
+    config:
+      inject: ["pr-context"]
     iterate:
       over: '["audit-security", "audit-architecture", "audit-tests", "audit-duplicates", "audit-doc-scan", "audit-dead-code-scan"]'
       mode: parallel
@@ -202,19 +209,124 @@ steps:
       into: .agents/output/merged-findings.json
       strategy: merge_arrays
 
+  # ─── Phase 3.5: deterministic file-scope filter ──────────────────────────
+  #
+  # Drop findings whose `file` is not in pr_context.changed_files BEFORE the
+  # LLM-based triage step sees them. Pure jq, no model — set-membership is
+  # not a judgement call. Empirically (#1411 baseline) ~80% of raw findings
+  # are out-of-PR-scope; pre-filtering lets triage spend its tokens on
+  # classification, not rejection.
+  - id: filter-scope
+    type: command
+    dependencies: [merge-findings, fetch-pr]
+    script: |
+      set -o pipefail
+      mkdir -p .agents/output
+
+      MERGED=.agents/output/merged-findings.json
+      CONTEXT=.agents/output/pr-context.json
+      SCOPED=.agents/output/scoped-findings.json
+      STATS=.agents/output/scope-filter-stats.json
+
+      if [ ! -f "$MERGED" ] || [ ! -f "$CONTEXT" ]; then
+        echo "filter-scope: missing input ($MERGED or $CONTEXT)" >&2
+        exit 1
+      fi
+
+      # The aggregate step writes a JSON array whose elements are the raw
+      # outputs of each audit child. Some are JSON objects with a `findings`
+      # or `items` array, some are raw markdown strings. Flatten to a single
+      # array of finding-shaped objects, tagging each with its source if
+      # available.
+      jq '[
+        .[]
+        | if type == "object" then
+            (.findings // .items // [])
+            | map(. + {source: (.source // (input_filename // "unknown"))})
+          else
+            []
+          end
+        ] | flatten' "$MERGED" > .agents/output/_flat-findings.json
+
+      # Build a JSON array of the PR scope.
+      jq -c '.changed_files // []' "$CONTEXT" > .agents/output/_changed-files.json
+
+      # Drop findings whose `file` is not in changed_files.
+      jq --slurpfile scope .agents/output/_changed-files.json \
+        '[ .[] | select(.file as $f | $scope[0] | index($f)) ]' \
+        .agents/output/_flat-findings.json > "$SCOPED"
+
+      # Compute per-axis stats and a small dropped sample.
+      TOTAL_IN=$(jq 'length' .agents/output/_flat-findings.json)
+      TOTAL_KEPT=$(jq 'length' "$SCOPED")
+      TOTAL_DROPPED=$((TOTAL_IN - TOTAL_KEPT))
+      CHANGED_COUNT=$(jq '. | length' .agents/output/_changed-files.json)
+
+      jq --slurpfile scope .agents/output/_changed-files.json \
+         --argjson total_in "$TOTAL_IN" \
+         --argjson total_kept "$TOTAL_KEPT" \
+         --argjson total_dropped "$TOTAL_DROPPED" \
+         --argjson changed_count "$CHANGED_COUNT" \
+        '
+        . as $all
+        | ([ .[] | .source // "unknown" ] | unique) as $sources
+        | {
+            total_in: $total_in,
+            total_kept: $total_kept,
+            total_dropped: $total_dropped,
+            changed_files_count: $changed_count,
+            per_axis: [
+              $sources[] as $s
+              | {
+                  source: $s,
+                  kept:    ([ $all[] | select((.source // "unknown") == $s) | select(.file as $f | $scope[0] | index($f)) ] | length),
+                  dropped: ([ $all[] | select((.source // "unknown") == $s) | select(.file as $f | ($scope[0] | index($f)) | not) ] | length)
+                }
+            ],
+            dropped_sample: [
+              $all[]
+              | select(.file as $f | ($scope[0] | index($f)) | not)
+              | { file: (.file // "unknown"), source: (.source // "unknown"), id: (.id // "") }
+            ][:10]
+          }
+        ' .agents/output/_flat-findings.json > "$STATS"
+
+      # Clean up scratch files; keep only declared artifacts.
+      rm -f .agents/output/_flat-findings.json .agents/output/_changed-files.json
+    output_artifacts:
+      - name: scoped-findings
+        path: .agents/output/scoped-findings.json
+        type: json
+      - name: scope-filter-stats
+        path: .agents/output/scope-filter-stats.json
+        type: json
+    handover:
+      contracts:
+        - type: non_empty_file
+          source: .agents/output/scoped-findings.json
+          on_failure: fail
+        - type: json_schema
+          source: .agents/output/scope-filter-stats.json
+          schema_path: .agents/contracts/scope-filter-stats.schema.json
+          must_pass: true
+          on_failure: warn
+
   # ─── Phase 4: triage ─────────────────────────────────────────────────────
   - id: triage
     persona: planner
     model: balanced
-    dependencies: [merge-findings, fetch-pr]
+    dependencies: [filter-scope, fetch-pr]
     memory:
       inject_artifacts:
         - step: fetch-pr
           artifact: pr-context
           as: pr_context
-        - step: merge-findings
-          artifact: merged-findings
-          as: merged_findings
+        - step: filter-scope
+          artifact: scoped-findings
+          as: scoped_findings
+        - step: filter-scope
+          artifact: scope-filter-stats
+          as: scope_stats
     workspace:
       mount:
         - source: ./
@@ -225,9 +337,11 @@ steps:
       source: |
         ## Objective
 
-        Read the aggregated raw audit outputs (`merged_findings`) and the PR
-        context (`pr_context`), then produce a triaged classification of every
-        finding into actionable / deferred / rejected. Each actionable entry
+        Read the pre-scoped findings (`scoped_findings`) and the PR context
+        (`pr_context`), then produce a triaged classification of every
+        finding into actionable / deferred / rejected, plus an optional
+        `design_questions[]` list for findings that are valid but need a
+        design decision before any code can change. Each actionable entry
         carries a stable `id`, severity, file, description, remediation, and
         type — enough that the impl-finding sub-pipeline can fix it without
         re-reading the audit. Cap actionable at 25 to bound parallel resolve
@@ -235,10 +349,12 @@ steps:
 
         ## Context
 
-        - `merged_findings` is a JSON array of six elements, one per audit
-          sub-pipeline. Elements may be JSON objects (with `findings:` or
-          `items:` arrays) or markdown strings (whole-report blobs). You are
-          responsible for normalising.
+        - `scoped_findings` is a flat JSON array of finding-shaped objects.
+          The upstream `filter-scope` step has already dropped findings
+          whose `file` is not in `pr_context.changed_files`, so EVERY entry
+          you see is in PR scope. You do NOT need to re-verify file scope.
+        - `scope_stats` carries the filter's per-axis counts and a small
+          dropped sample. Use it for the `summary` paragraph if helpful.
         - `pr_context` is the typed PR reference with `changed_files` and a
           `diff_path` pointing at the unified diff on disk.
         - You have read-only access to the project mount so you can verify
@@ -246,42 +362,51 @@ steps:
 
         ## Requirements
 
-        ### Step 1 — Normalise
+        ### Step 0 — Short-circuit on empty input
 
-        For each audit element:
-        - If it is a JSON object with a `findings` or `items` array, extract
-          those entries.
-        - If it is a markdown blob, parse out finding sections (look for
-          severity/file/line patterns; tolerate "H2: Findings" / "### "
-          headers used by audit-architecture / audit-security / audit-tests).
-        - Tag each finding with its `source` audit name.
+        If `scoped_findings` is an empty array, write
+        `.agents/output/triaged-findings.json` with empty `actionable`,
+        `deferred`, `rejected` arrays, `counts: {actionable:0, deferred:0,
+        rejected:0}`, and a one-line `summary` like "No in-scope findings
+        after file-scope filter; nothing to triage." Exit cleanly. Do NOT
+        invent findings.
 
-        ### Step 2 — Verify
+        ### Step 1 — Verify (lightweight)
 
         Spot-check the top 5 findings by reading the cited file. Drop
         findings that:
-        - Reference files not in `pr_context.changed_files` (out of PR scope).
         - Reference symbols that no longer exist (stale).
         - Restate something already fixed in the PR.
 
-        ### Step 3 — Classify
+        File-scope verification is NOT your responsibility — the
+        `filter-scope` step already enforced that. Trust its output.
+
+        ### Step 2 — Classify
 
         Each surviving finding becomes one of:
         - **actionable**: small, scoped, deterministic. Will be fixed by the
           impl-finding sub-pipeline this run. Assign `id: f1, f2, ...` in
           severity order. Pick the closest-matching `type` from
           `fix|delete|wire|rename|scrub|guard|doc`.
-        - **deferred**: valid but out of scope (cross-cutting, blocked,
-          requires design decision). Include `reason` and optional
-          `follow_up` text.
+        - **deferred**: valid but out of scope (cross-cutting, blocked, too
+          large for one run). Include `reason` and optional `follow_up`
+          text.
+        - **design_questions**: valid finding that cannot be actioned until
+          a maintainer answers a specific design question (threat model,
+          API contract, race-condition policy). Each entry needs `id`
+          (`dq1, dq2, ...`), `description`, `question`, and optional
+          `source_finding_id` + `suggested_followup`. Use this channel
+          INSTEAD of `deferred` when the blocker is "we need a decision",
+          not "we don't have time".
         - **rejected**: false positive or duplicate. Include `reason`.
 
-        ### Step 4 — Cap and summarise
+        ### Step 3 — Cap and summarise
 
         - Cap `actionable` at 25 (highest severity + lowest blast_radius
           first).
         - Write `.agents/output/triaged-findings.json` matching the schema
-          exactly. Include `counts` and a one-paragraph `summary`.
+          exactly. Include `counts` and a one-paragraph `summary`. Populate
+          `counts.design_questions` if the array is non-empty.
 
         ## Constraints
 
@@ -290,14 +415,18 @@ steps:
         - Do NOT touch the working tree. This step is read-only.
         - Do NOT bundle multiple distinct fixes under one `id` — one finding
           per actionable entry, so impl-finding can address each in parallel.
-        - Do NOT include findings whose `file` is outside the PR diff scope.
+        - Do NOT re-filter by file scope — `filter-scope` already did this.
+        - Do NOT route a finding to BOTH `deferred` and `design_questions` —
+          pick the one that matches the blocker.
 
         ## Quality bar
 
         A good triage produces small, well-scoped actionable items the
-        craftsman can fix in one commit each. A bad triage emits sprawling
-        items, lumps unrelated changes together, or leaves rejected items
-        without a justification.
+        craftsman can fix in one commit each, and surfaces design-blocked
+        items via `design_questions[]` so the maintainer can answer them
+        inline in the PR comment. A bad triage emits sprawling items, lumps
+        unrelated changes together, or buries design blockers in `deferred`
+        with no question to answer.
     output_artifacts:
       - name: triaged-findings
         path: .agents/output/triaged-findings.json
@@ -475,6 +604,14 @@ steps:
         - Result: pass | fail
         - <pointer to verify.log if fail>
 
+        ### Design Questions
+
+        <Render this section ONLY if triaged-findings.json has a non-empty
+        `design_questions` array. One bullet per entry:>
+
+        - **dq1** — <question> (<description>) <em>suggested follow-up:
+          <suggested_followup if present></em>
+
         ### Deferred / Rejected (no commits this run)
 
         - **deferred:** <id or summary> — <reason>
@@ -507,10 +644,14 @@ steps:
         - **Cap individual cell length** at 200 characters; longer values get
           truncated with a trailing `…`.
         - **Cap total body length** at 16 KiB (16384 bytes). If composition
-          would exceed that, drop the deferred/rejected sections first, then
-          shorten the resolutions table to id + status + commit only. The
-          shell step below also enforces this with `head -c 16384` as a
-          belt-and-braces guard against prompt drift.
+          would exceed that, shed sections in this order: (1) drop the
+          deferred/rejected sections first, (2) shorten the resolutions
+          table to id + status + commit only, (3) only as a last resort,
+          drop the Design Questions section — these are higher signal than
+          deferred/rejected because they ask the maintainer something
+          actionable. The shell step below also enforces the 16 KiB ceiling
+          with `head -c 16384` as a belt-and-braces guard against prompt
+          drift.
 
         ### Step 2 — Post
 
