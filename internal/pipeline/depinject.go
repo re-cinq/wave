@@ -48,7 +48,10 @@ func (e *DefaultPipelineExecutor) ResolveDependencyArtifacts(execution *Pipeline
 			continue
 		}
 
+		// Walk declared OutputArtifacts first.
+		declared := make(map[string]struct{}, len(depStep.OutputArtifacts))
 		for _, art := range depStep.OutputArtifacts {
+			declared[art.Name] = struct{}{}
 			required := art.Required
 			path, found := e.locateDepArtifact(execution, depID, art.Name)
 			if !found {
@@ -64,6 +67,39 @@ func (e *DefaultPipelineExecutor) ResolveDependencyArtifacts(execution *Pipeline
 				Path:     path,
 				Type:     art.Type,
 				Optional: !required,
+			}
+		}
+
+		// Implicit fallback: aggregate / iterate / sub_pipeline steps do
+		// not declare OutputArtifacts but register their outputs in
+		// execution.ArtifactPaths under "<dep>:<name>" or in the DB.
+		// Treat anything registered there but not already declared as an
+		// optional dep artifact so downstream steps see it via the same
+		// canonical injection path.
+		depPrefix := depID + ":"
+		execution.mu.Lock()
+		var implicit []string
+		for k := range execution.ArtifactPaths {
+			if !strings.HasPrefix(k, depPrefix) {
+				continue
+			}
+			name := k[len(depPrefix):]
+			if _, ok := declared[name]; ok {
+				continue
+			}
+			implicit = append(implicit, name)
+		}
+		execution.mu.Unlock()
+		for _, name := range implicit {
+			path, found := e.locateDepArtifact(execution, depID, name)
+			if !found {
+				continue
+			}
+			resolved[depID+":"+name] = ResolvedArtifact{
+				DepStep:  depID,
+				Name:     name,
+				Path:     path,
+				Optional: true,
 			}
 		}
 	}
