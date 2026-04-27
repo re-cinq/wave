@@ -594,6 +594,7 @@
     }
     .audit-comment { color: var(--text-dim); margin-bottom: 14px; font-size: 12.5px; }
     .audit-table { width: 100%; border-collapse: collapse; }
+    .audit-table th .sub { color: var(--text-dim); font-weight: 400; font-size: 10px; letter-spacing: 0.04em; text-transform: none; display: inline-block; margin-top: 2px; }
     .audit-table th {
       text-align: left;
       padding: 8px 14px;
@@ -745,7 +746,7 @@
     </div>
     <div class="code-chip">
       <span class="prompt">$</span>
-      <span><span style="color: var(--accent);">docker run</span> recinq/wave-experiment</span>
+      <span><span style="color: var(--accent);">curl</span> -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh</span>
       <span class="copy" title="copy">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
       </span>
@@ -983,9 +984,9 @@
         <thead>
           <tr>
             <th>finding</th>
-            <th>claude</th>
-            <th>opencode</th>
-            <th>gemini</th>
+            <th>claude<br /><span class="sub">sonnet-4-6</span></th>
+            <th>opencode<br /><span class="sub">glm-5.1</span></th>
+            <th>gemini<br /><span class="sub">2.5-pro</span></th>
             <th>verdict</th>
           </tr>
         </thead>
