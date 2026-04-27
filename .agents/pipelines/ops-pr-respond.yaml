@@ -224,6 +224,19 @@ steps:
   - id: filter-scope
     type: command
     dependencies: [merge-findings, fetch-pr]
+    # Bind the project's `.agents/output/` into the command workspace so the
+    # script can read upstream artifacts (`merged-findings.json` from the
+    # aggregate step, `pr-context.json` from fetch-pr — both written at the
+    # project root) AND write its own outputs (`scoped-findings.json`,
+    # `scope-filter-stats.json`) where downstream steps expect them. Command
+    # steps run in an isolated workspace dir by default and have no
+    # `memory.inject_artifacts` plumbing, so a workspace mount is the
+    # natural way to share a directory.
+    workspace:
+      mount:
+        - source: .agents/output
+          target: .agents/output
+          mode: readwrite
     script: |
       set -o pipefail
       mkdir -p .agents/output
