@@ -2110,6 +2110,13 @@ func (e *DefaultPipelineExecutor) executeReworkStep(ctx context.Context, executi
 	pipelineID := execution.Status.ID
 	reworkStepID := failedStep.Retry.ReworkStep
 
+	// Short-circuit when the parent context has already been cancelled or
+	// timed out: launching the rework subprocess would only produce a
+	// duplicate "context canceled" error and a misleading failure event.
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	// Mark the failed step
 	execution.mu.Lock()
 	execution.States[failedStep.ID] = stateFailed
