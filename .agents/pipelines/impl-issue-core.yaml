@@ -74,7 +74,7 @@ steps:
 
   - id: plan
     persona: implementer
-    model: balanced
+    model: strongest
     dependencies: [fetch-assess]
     memory:
       inject_artifacts:
@@ -113,7 +113,7 @@ steps:
 
   - id: implement
     persona: craftsman
-    model: balanced
+    model: strongest
     contexts: [execution, delivery]
     thread: impl
     dependencies: [plan, fetch-assess]
@@ -147,7 +147,7 @@ steps:
 
   - id: fix-implement
     persona: craftsman
-    model: balanced
+    model: strongest
     rework_only: true
     thread: impl
     workspace:

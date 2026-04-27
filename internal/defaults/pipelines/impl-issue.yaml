@@ -49,7 +49,6 @@ pipeline_outputs:
 steps:
   - id: fetch-assess
     persona: implementer
-    contexts: [configuration]
     model: cheapest
     workspace:
       type: worktree
@@ -73,11 +72,8 @@ steps:
         on_failure: fail
 
   - id: plan
-    # No contexts: field — inherit-all behavior: all ontology contexts defined in wave.yaml
-    # are automatically injected. This gives the planner the full domain picture.
-    # See AGENTS.md § "Ontology Context Injection" for details.
     persona: implementer
-    model: balanced
+    model: strongest
     dependencies: [fetch-assess]
     memory:
       inject_artifacts:
@@ -116,8 +112,7 @@ steps:
 
   - id: implement
     persona: craftsman
-    model: balanced
-    contexts: [execution, delivery]
+    model: strongest
     thread: impl
     dependencies: [plan]
     memory:
@@ -151,7 +146,7 @@ steps:
 
   - id: fix-implement
     persona: craftsman
-    model: balanced
+    model: strongest
     rework_only: true
     workspace:
       type: worktree
@@ -251,7 +246,6 @@ steps:
   - id: create-pr
     persona: "{{ forge.type }}-commenter"
     model: cheapest
-    contexts: [delivery]
     dependencies: [implement]
     memory:
       inject_artifacts:
