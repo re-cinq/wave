@@ -119,6 +119,10 @@ type StateStore interface {
 
 	// Process tracking (detached subprocess execution)
 	UpdateRunPID(runID string, pid int) error
+	// Liveness tracking — running processes call this periodically so the
+	// reconciler can flag zombies whose owning process died without
+	// updating the DB.
+	UpdateRunHeartbeat(runID string) error
 
 	// Step attempt tracking (retry/recovery)
 	RecordStepAttempt(record *StepAttemptRecord) error
@@ -684,11 +688,23 @@ func (s *stateStore) UpdateRunPID(runID string, pid int) error {
 	return nil
 }
 
+// UpdateRunHeartbeat refreshes the last_heartbeat timestamp for a running
+// pipeline. The reconciler reads this column to distinguish runs whose owning
+// process is still alive from runs whose process died without updating the DB.
+func (s *stateStore) UpdateRunHeartbeat(runID string) error {
+	query := `UPDATE pipeline_run SET last_heartbeat = ? WHERE run_id = ?`
+	_, err := s.db.Exec(query, s.now().Unix(), runID)
+	if err != nil {
+		return fmt.Errorf("failed to update run heartbeat: %w", err)
+	}
+	return nil
+}
+
 // GetRun retrieves a single run record by ID.
 func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
 	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid,
-	                 parent_run_id, parent_step_id, forked_from_run_id
+	                 parent_run_id, parent_step_id, forked_from_run_id, last_heartbeat
 	          FROM pipeline_run
 	          WHERE run_id = ?`
 
@@ -698,6 +714,7 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	var input, currentStep, errorMessage, tagsJSON, branchName sql.NullString
 	var pid sql.NullInt64
 	var parentRunID, parentStepID, forkedFromRunID sql.NullString
+	var lastHeartbeat int64
 
 	err := s.db.QueryRow(query, runID).Scan(
 		&record.RunID,
@@ -716,6 +733,7 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 		&parentRunID,
 		&parentStepID,
 		&forkedFromRunID,
+		&lastHeartbeat,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -763,6 +781,9 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	if forkedFromRunID.Valid {
 		record.ForkedFromRunID = forkedFromRunID.String
 	}
+	if lastHeartbeat > 0 {
+		record.LastHeartbeat = time.Unix(lastHeartbeat, 0)
+	}
 
 	return &record, nil
 }
@@ -771,7 +792,7 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 func (s *stateStore) GetRunningRuns() ([]RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
 	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid,
-	                 parent_run_id, parent_step_id, forked_from_run_id
+	                 parent_run_id, parent_step_id, forked_from_run_id, last_heartbeat
 	          FROM pipeline_run
 	          WHERE (status = 'running' OR (status = 'pending' AND started_at > unixepoch() - 300))
 	          ORDER BY started_at DESC`
@@ -783,7 +804,7 @@ func (s *stateStore) GetRunningRuns() ([]RunRecord, error) {
 func (s *stateStore) ListRuns(opts ListRunsOptions) ([]RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
 	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid,
-	                 parent_run_id, parent_step_id, forked_from_run_id
+	                 parent_run_id, parent_step_id, forked_from_run_id, last_heartbeat
 	          FROM pipeline_run
 	          WHERE 1=1`
 	args := []any{}
@@ -1384,6 +1405,7 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 		var input, currentStep, errorMessage, tagsJSON, branchName sql.NullString
 		var pid sql.NullInt64
 		var parentRunID, parentStepID, forkedFromRunID sql.NullString
+		var lastHeartbeat int64
 
 		err := rows.Scan(
 			&record.RunID,
@@ -1402,6 +1424,7 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 			&parentRunID,
 			&parentStepID,
 			&forkedFromRunID,
+			&lastHeartbeat,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan run: %w", err)
@@ -1445,6 +1468,9 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 		}
 		if forkedFromRunID.Valid {
 			record.ForkedFromRunID = forkedFromRunID.String
+		}
+		if lastHeartbeat > 0 {
+			record.LastHeartbeat = time.Unix(lastHeartbeat, 0)
 		}
 
 		records = append(records, record)
@@ -2602,7 +2628,7 @@ func (s *stateStore) SetParentRun(childRunID, parentRunID, stepID string) error 
 func (s *stateStore) GetChildRuns(parentRunID string) ([]RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
 	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid,
-	                 parent_run_id, parent_step_id, forked_from_run_id
+	                 parent_run_id, parent_step_id, forked_from_run_id, last_heartbeat
 	          FROM pipeline_run
 	          WHERE parent_run_id = ?
 	          ORDER BY started_at ASC`

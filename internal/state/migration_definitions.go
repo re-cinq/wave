@@ -539,5 +539,13 @@ ALTER TABLE pipeline_outcome ADD COLUMN metadata TEXT NOT NULL DEFAULT '';`,
 			Down: `ALTER TABLE pipeline_outcome DROP COLUMN description;
 ALTER TABLE pipeline_outcome DROP COLUMN metadata;`,
 		},
+		{
+			Version:     26,
+			Description: "Add last_heartbeat column to pipeline_run for liveness tracking",
+			Up: `ALTER TABLE pipeline_run ADD COLUMN last_heartbeat INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_run_heartbeat ON pipeline_run(last_heartbeat) WHERE status = 'running';`,
+			Down: `DROP INDEX IF EXISTS idx_run_heartbeat;
+ALTER TABLE pipeline_run DROP COLUMN last_heartbeat;`,
+		},
 	}
 }

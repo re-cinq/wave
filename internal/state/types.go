@@ -19,6 +19,7 @@ type RunRecord struct {
 	Tags            []string // Tags for categorization and filtering
 	BranchName      string   // Worktree branch for this run
 	PID             int      // OS process ID of the detached executor (0 = unknown/in-process)
+	LastHeartbeat   time.Time // Last liveness ping written by the running pipeline (zero = never reported)
 	ParentRunID     string   // Parent pipeline run ID (empty for top-level runs)
 	ParentStepID    string   // Step ID in parent pipeline that launched this child run
 	ForkedFromRunID string   // Run ID this was forked from (empty if not a fork)

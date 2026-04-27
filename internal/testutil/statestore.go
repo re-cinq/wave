@@ -402,6 +402,10 @@ func (m *MockStateStore) UpdateRunPID(runID string, pid int) error {
 	return nil
 }
 
+func (m *MockStateStore) UpdateRunHeartbeat(runID string) error {
+	return nil
+}
+
 func (m *MockStateStore) RecordStepAttempt(record *state.StepAttemptRecord) error {
 	if m.recordStepAttempt != nil {
 		return m.recordStepAttempt(record)
