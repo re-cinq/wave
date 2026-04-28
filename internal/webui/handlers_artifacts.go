@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/recinq/wave/internal/redact"
 )
 
 const maxArtifactSize = 1024 * 1024 // 1 MB
@@ -77,7 +79,7 @@ func (s *Server) handleArtifact(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Redact credentials (no HTML escaping — this is a JSON API, not HTML template)
-	redacted := RedactCredentials(string(content))
+	redacted := redact.Redact(string(content))
 
 	// Determine MIME type
 	mimeType := detectMimeType(name)

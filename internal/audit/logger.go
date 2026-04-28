@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
+
+	"github.com/recinq/wave/internal/redact"
 )
 
 type AuditLogger interface {
@@ -26,20 +27,8 @@ type AuditLogger interface {
 }
 
 type TraceLogger struct {
-	traceDir  string
-	credRegex *regexp.Regexp
-	file      *os.File
-}
-
-var credentialPatterns = []string{
-	`API[_-]?KEY`,
-	`TOKEN`,
-	`SECRET`,
-	`PASSWORD`,
-	`CREDENTIAL`,
-	`AUTH`,
-	`PRIVATE[_-]?KEY`,
-	`ACCESS[_-]?KEY`,
+	traceDir string
+	file     *os.File
 }
 
 func NewTraceLogger() (*TraceLogger, error) {
@@ -47,12 +36,6 @@ func NewTraceLogger() (*TraceLogger, error) {
 }
 
 func NewTraceLoggerWithDir(traceDir string) (*TraceLogger, error) {
-	pattern := `(?i)(` + strings.Join(credentialPatterns, `|`) + `)[=:]?\s*[\w\-]+`
-	credRegex, err := regexp.Compile(pattern)
-	if err != nil {
-		return nil, err
-	}
-
 	if err := os.MkdirAll(traceDir, 0755); err != nil {
 		return nil, err
 	}
@@ -65,14 +48,16 @@ func NewTraceLoggerWithDir(traceDir string) (*TraceLogger, error) {
 	}
 
 	return &TraceLogger{
-		traceDir:  traceDir,
-		credRegex: credRegex,
-		file:      file,
+		traceDir: traceDir,
+		file:     file,
 	}, nil
 }
 
+// scrub redacts credential patterns using the canonical internal/redact
+// implementation. The receiver is preserved so existing call sites that
+// already hold a *TraceLogger keep working unchanged.
 func (l *TraceLogger) scrub(text string) string {
-	return l.credRegex.ReplaceAllString(text, "[REDACTED]")
+	return redact.Redact(text)
 }
 
 func (l *TraceLogger) LogToolCall(pipelineID, stepID, tool, args string) error {
