@@ -809,6 +809,16 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 		if stepType == "" && step.SubPipeline != "" {
 			stepType = "pipeline"
 		}
+		// Composition primitives (#1450): treat iterate/aggregate/branch/loop
+		// as "pipeline" so the inline child-runs block under each step renders
+		// for them too. Without this, only bare sub_pipeline steps got the
+		// inline list; iterate steps that fan out children showed nothing.
+		if stepType == "" {
+			switch {
+			case step.Iterate != nil, step.Aggregate != nil, step.Branch != nil, step.Loop != nil:
+				stepType = "pipeline"
+			}
+		}
 
 		// Collect gate info
 		var gatePrompt, gateChoices string
