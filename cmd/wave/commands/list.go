@@ -5,92 +5,35 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/display"
-	"github.com/recinq/wave/internal/pipelinecatalog"
-	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/listing"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
-// JSON output structures
-type PipelineInfo struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	StepCount   int      `json:"step_count"`
-	Steps       []string `json:"steps"`
-}
+// Re-exported listing types for backward compatibility with tests inside this
+// package and any in-tree consumers. New code should import internal/listing
+// directly.
+type (
+	PipelineInfo  = listing.PipelineInfo
+	PersonaInfo   = listing.PersonaInfo
+	AdapterInfo   = listing.AdapterInfo
+	RunInfo       = listing.RunInfo
+	ContractInfo  = listing.ContractInfo
+	ContractUsage = listing.ContractUsage
+	SkillInfo     = listing.SkillInfo
+	ListOutput    = listing.Output
+)
 
-type PersonaInfo struct {
-	Name         string   `json:"name"`
-	Adapter      string   `json:"adapter"`
-	Description  string   `json:"description"`
-	Temperature  float64  `json:"temperature"`
-	AllowedTools []string `json:"allowed_tools,omitempty"`
-	DeniedTools  []string `json:"denied_tools,omitempty"`
-}
-
-type AdapterInfo struct {
-	Name         string `json:"name"`
-	Binary       string `json:"binary"`
-	Mode         string `json:"mode"`
-	OutputFormat string `json:"output_format"`
-	Available    bool   `json:"available"`
-}
-
-// RunInfo holds information about a pipeline run
-type RunInfo struct {
-	RunID      string `json:"run_id"`
-	Pipeline   string `json:"pipeline"`
-	Status     string `json:"status"`
-	StartedAt  string `json:"started_at"`
-	Duration   string `json:"duration"`
-	DurationMs int64  `json:"duration_ms,omitempty"`
-}
-
-// ContractInfo holds information about a contract schema
-type ContractInfo struct {
-	Name   string          `json:"name"`
-	Type   string          `json:"type"`
-	UsedBy []ContractUsage `json:"used_by,omitempty"`
-}
-
-// ContractUsage shows where a contract is used
-type ContractUsage struct {
-	Pipeline string `json:"pipeline"`
-	Step     string `json:"step"`
-	Persona  string `json:"persona"`
-}
-
-// SkillInfo holds information about a declared skill
-type SkillInfo struct {
-	Name      string   `json:"name"`
-	Check     string   `json:"check"`
-	Install   string   `json:"install,omitempty"`
-	Installed bool     `json:"installed"`
-	UsedBy    []string `json:"used_by,omitempty"`
-}
-
-type ListOutput struct {
-	Adapters  []AdapterInfo  `json:"adapters,omitempty"`
-	Runs      []RunInfo      `json:"runs,omitempty"`
-	Pipelines []PipelineInfo `json:"pipelines,omitempty"`
-	Personas  []PersonaInfo  `json:"personas,omitempty"`
-	Contracts []ContractInfo `json:"contracts,omitempty"`
-	Skills    []SkillInfo    `json:"skills,omitempty"`
-}
-
+// ListOptions holds flags shared across `wave list` invocations.
 type ListOptions struct {
 	Manifest string
 	Format   string
 }
 
-// ListRunsOptions holds options for the list runs subcommand
+// ListRunsOptions holds options for the `wave list runs` subcommand.
 type ListRunsOptions struct {
 	Limit    int
 	Pipeline string
@@ -98,16 +41,25 @@ type ListRunsOptions struct {
 	Format   string
 }
 
-// ListRunsFlags holds flags specific to the runs subcommand that can be set on main list command
-var listRunsLimit int
-var listRunsPipeline string
-var listRunsStatus string
+// Flags specific to `list runs` accumulated on the parent command for
+// backward compatibility — they are surfaced as `--limit`, `--run-pipeline`,
+// `--run-status` and only consulted when the filter is "runs".
+var (
+	listRunsLimit    int
+	listRunsPipeline string
+	listRunsStatus   string
+)
 
-// printLogo is intentionally a no-op. The ASCII banner added noise without value
-// and broke machine readability (clig.dev). Kept as a function to avoid churn
-// at call sites.
+// printLogo is intentionally a no-op. The ASCII banner added noise without
+// value and broke machine readability (clig.dev). Kept as a function to avoid
+// churn at call sites.
 func printLogo() {}
 
+// formatDuration is a thin alias preserved so existing in-package tests keep
+// compiling. New code should call listing.FormatDuration.
+func formatDuration(d time.Duration) string { return listing.FormatDuration(d) }
+
+// NewListCmd returns the root `wave list` cobra command.
 func NewListCmd() *cobra.Command {
 	var opts ListOptions
 
@@ -160,7 +112,6 @@ For 'list runs', additional flags are available:
 	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().StringVar(&opts.Format, "format", "table", "Output format (table, json)")
 
-	// Flags for 'list runs' (only used when filter is "runs")
 	cmd.Flags().IntVar(&listRunsLimit, "limit", 10, "Maximum number of runs to show (for 'list runs')")
 	cmd.Flags().StringVar(&listRunsPipeline, "run-pipeline", "", "Filter to specific pipeline (for 'list runs')")
 	cmd.Flags().StringVar(&listRunsStatus, "run-status", "", "Filter by status (for 'list runs')")
@@ -177,7 +128,6 @@ func runList(opts ListOptions, filter string) error {
 	showContracts := showAll || filter == "contracts"
 	showSkills := showAll || filter == "skills"
 
-	// Handle runs-only filter separately (redirect to runListRuns which prints its own logo)
 	if filter == "runs" {
 		return runListRuns(ListRunsOptions{
 			Limit:    listRunsLimit,
@@ -187,96 +137,37 @@ func runList(opts ListOptions, filter string) error {
 		})
 	}
 
-	// Handle compositions filter separately
 	if filter == "compositions" {
-		return listCompositions(".agents/pipelines", opts.Format)
+		return runListCompositions(listing.DefaultPipelineDir, opts.Format)
 	}
 
-	// For JSON output, collect all data first
 	if opts.Format == "json" {
-		output := ListOutput{}
-
-		// Load manifest for personas/adapters
-		manifestData, err := os.ReadFile(opts.Manifest)
-		if err == nil {
-			var m manifestData2
-			_ = yaml.Unmarshal(manifestData, &m)
-
-			if showAdapters {
-				output.Adapters = collectAdapters(m.Adapters)
-			}
-			if showPersonas {
-				output.Personas = collectPersonas(m.Personas)
-			}
-			if showSkills {
-				output.Skills = collectSkills(collectSkillsFromPipelines())
-			}
-		}
-
-		if showRuns {
-			runs, err := collectRuns(ListRunsOptions{
-				Limit:    listRunsLimit,
-				Pipeline: listRunsPipeline,
-				Status:   listRunsStatus,
-			})
-			if err == nil {
-				output.Runs = runs
-			}
-		}
-
-		if showPipelines {
-			pipelines, err := collectPipelines()
-			if err != nil {
-				return err
-			}
-			output.Pipelines = pipelines
-		}
-
-		if showContracts {
-			contracts, err := collectContracts()
-			if err == nil {
-				output.Contracts = contracts
-			}
-		}
-		jsonBytes, err := json.MarshalIndent(output, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal JSON: %w", err)
-		}
-		fmt.Println(string(jsonBytes))
-		return nil
+		return emitJSONList(opts, showAdapters, showRuns, showPipelines, showPersonas, showContracts, showSkills)
 	}
 
-	// Table format (default) - print logo once
 	printLogo()
 
-	// Load manifest for adapters/personas
-	manifestData, err := os.ReadFile(opts.Manifest)
-	if err != nil && (showPersonas || showAdapters) {
+	manifest, manifestErr := listing.LoadManifest(opts.Manifest)
+	if manifestErr != nil && (showPersonas || showAdapters) {
 		fmt.Printf("(manifest not found: %s)\n", opts.Manifest)
 		return nil
 	}
 
-	var m manifestData2
-	if err == nil {
-		_ = yaml.Unmarshal(manifestData, &m)
-	}
-
-	// Order: adapters, runs, pipelines, personas, contracts
 	if showAdapters {
-		listAdaptersTable(m.Adapters)
+		renderAdaptersTable(listing.ListAdapters(manifest.Adapters))
 		if showAll {
 			fmt.Println()
 		}
 	}
 
 	if showRuns {
-		runs, err := collectRuns(ListRunsOptions{
+		runs, err := listing.ListRuns(listing.RunsOptions{
 			Limit:    listRunsLimit,
 			Pipeline: listRunsPipeline,
 			Status:   listRunsStatus,
 		})
 		if err == nil {
-			listRunsTable(runs)
+			renderRunsTable(runs)
 			if showAll {
 				fmt.Println()
 			}
@@ -284,25 +175,27 @@ func runList(opts ListOptions, filter string) error {
 	}
 
 	if showPipelines {
-		if err := listPipelinesTable(); err != nil {
+		pipelines, err := listing.ListPipelines()
+		if err != nil {
 			return err
 		}
+		renderPipelinesTable(pipelines)
 		if showAll {
 			fmt.Println()
 		}
 	}
 
 	if showPersonas {
-		listPersonasTable(m.Personas)
+		renderPersonasTable(listing.ListPersonas(manifest.Personas))
 		if showAll {
 			fmt.Println()
 		}
 	}
 
 	if showContracts {
-		contracts, err := collectContracts()
+		contracts, err := listing.ListContracts()
 		if err == nil {
-			listContractsTable(contracts)
+			renderContractsTable(contracts)
 		}
 		if showAll {
 			fmt.Println()
@@ -310,422 +203,75 @@ func runList(opts ListOptions, filter string) error {
 	}
 
 	if showSkills {
-		listSkillsTable(collectSkillsFromPipelines())
+		renderSkillsTable(listing.ListSkills(listing.CollectSkillsFromPipelines()))
 	}
 
 	return nil
 }
 
-type manifestData2 struct {
-	Adapters map[string]struct {
-		Binary       string `yaml:"binary"`
-		Mode         string `yaml:"mode"`
-		OutputFormat string `yaml:"output_format"`
-	} `yaml:"adapters"`
-	Personas map[string]struct {
-		Adapter          string  `yaml:"adapter"`
-		Description      string  `yaml:"description"`
-		SystemPromptFile string  `yaml:"system_prompt_file"`
-		Temperature      float64 `yaml:"temperature"`
-		Permissions      struct {
-			AllowedTools []string `yaml:"allowed_tools"`
-			Deny         []string `yaml:"deny"`
-		} `yaml:"permissions"`
-	} `yaml:"personas"`
-}
+func emitJSONList(opts ListOptions, showAdapters, showRuns, showPipelines, showPersonas, showContracts, showSkills bool) error {
+	output := ListOutput{}
 
-func collectPipelines() ([]PipelineInfo, error) {
-	pipelineDir := ".agents/pipelines"
-	entries, err := os.ReadDir(pipelineDir)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("failed to read pipelines directory: %w", err)
+	manifest, manifestErr := listing.LoadManifest(opts.Manifest)
+	if manifestErr == nil {
+		if showAdapters {
+			output.Adapters = listing.ListAdapters(manifest.Adapters)
+		}
+		if showPersonas {
+			output.Personas = listing.ListPersonas(manifest.Personas)
+		}
+		if showSkills {
+			output.Skills = listing.ListSkills(listing.CollectSkillsFromPipelines())
+		}
 	}
 
-	var pipelines []PipelineInfo
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].Name() < entries[j].Name()
-	})
-
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
-			continue
+	if showRuns {
+		runs, err := listing.ListRuns(listing.RunsOptions{
+			Limit:    listRunsLimit,
+			Pipeline: listRunsPipeline,
+			Status:   listRunsStatus,
+		})
+		if err == nil {
+			output.Runs = runs
 		}
+	}
 
-		name := strings.TrimSuffix(entry.Name(), ".yaml")
-		pipelinePath := filepath.Join(pipelineDir, entry.Name())
-
-		data, err := os.ReadFile(pipelinePath)
+	if showPipelines {
+		pipelines, err := listing.ListPipelines()
 		if err != nil {
-			continue
+			return err
 		}
-
-		var p struct {
-			Metadata struct {
-				Description string `yaml:"description"`
-			} `yaml:"metadata"`
-			Steps []struct {
-				ID string `yaml:"id"`
-			} `yaml:"steps"`
-		}
-		if err := yaml.Unmarshal(data, &p); err != nil {
-			continue
-		}
-
-		stepIDs := []string{}
-		for _, s := range p.Steps {
-			stepIDs = append(stepIDs, s.ID)
-		}
-
-		pipelines = append(pipelines, PipelineInfo{
-			Name:        name,
-			Description: p.Metadata.Description,
-			StepCount:   len(p.Steps),
-			Steps:       stepIDs,
-		})
+		output.Pipelines = pipelines
 	}
 
-	return pipelines, nil
-}
-
-func collectPersonas(personas map[string]struct {
-	Adapter          string  `yaml:"adapter"`
-	Description      string  `yaml:"description"`
-	SystemPromptFile string  `yaml:"system_prompt_file"`
-	Temperature      float64 `yaml:"temperature"`
-	Permissions      struct {
-		AllowedTools []string `yaml:"allowed_tools"`
-		Deny         []string `yaml:"deny"`
-	} `yaml:"permissions"`
-}) []PersonaInfo {
-	var result []PersonaInfo
-
-	names := make([]string, 0, len(personas))
-	for name := range personas {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	for _, name := range names {
-		persona := personas[name]
-		result = append(result, PersonaInfo{
-			Name:         name,
-			Adapter:      persona.Adapter,
-			Description:  persona.Description,
-			Temperature:  persona.Temperature,
-			AllowedTools: persona.Permissions.AllowedTools,
-			DeniedTools:  persona.Permissions.Deny,
-		})
-	}
-
-	return result
-}
-
-func collectAdapters(adapters map[string]struct {
-	Binary       string `yaml:"binary"`
-	Mode         string `yaml:"mode"`
-	OutputFormat string `yaml:"output_format"`
-}) []AdapterInfo {
-	var result []AdapterInfo
-
-	names := make([]string, 0, len(adapters))
-	for name := range adapters {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	for _, name := range names {
-		adapter := adapters[name]
-		available := true
-		if _, err := exec.LookPath(adapter.Binary); err != nil {
-			available = false
-		}
-		result = append(result, AdapterInfo{
-			Name:         name,
-			Binary:       adapter.Binary,
-			Mode:         adapter.Mode,
-			OutputFormat: adapter.OutputFormat,
-			Available:    available,
-		})
-	}
-
-	return result
-}
-
-func listPipelinesTable() error {
-	pipelineDir := ".agents/pipelines"
-	entries, err := os.ReadDir(pipelineDir)
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to read pipelines directory: %w", err)
-	}
-
-	f := display.NewFormatter()
-
-	// Header
-	fmt.Println()
-	fmt.Printf("%s\n", f.Colorize("Pipelines", "\033[1;37m"))
-	sepWidth := display.GetTerminalWidth()
-	if sepWidth < 40 {
-		sepWidth = 40
-	}
-	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", sepWidth)))
-
-	if len(entries) == 0 {
-		fmt.Printf("  %s\n", f.Muted("(none found in "+pipelineDir+"/)"))
-		return nil
-	}
-
-	// Sort entries by name
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].Name() < entries[j].Name()
-	})
-
-	// Collect valid pipelines
-	type pipelineEntry struct {
-		name        string
-		description string
-		steps       []string
-	}
-	var pipelines []pipelineEntry
-
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
-			continue
-		}
-
-		name := strings.TrimSuffix(entry.Name(), ".yaml")
-		pipelinePath := filepath.Join(pipelineDir, entry.Name())
-
-		data, err := os.ReadFile(pipelinePath)
-		if err != nil {
-			pipelines = append(pipelines, pipelineEntry{name: name, description: "(error reading)"})
-			continue
-		}
-
-		var p struct {
-			Metadata struct {
-				Description string `yaml:"description"`
-			} `yaml:"metadata"`
-			Steps []struct {
-				ID      string `yaml:"id"`
-				Persona string `yaml:"persona"`
-			} `yaml:"steps"`
-		}
-		if err := yaml.Unmarshal(data, &p); err != nil {
-			pipelines = append(pipelines, pipelineEntry{name: name, description: "(error parsing)"})
-			continue
-		}
-
-		stepIDs := []string{}
-		for _, s := range p.Steps {
-			stepIDs = append(stepIDs, s.ID)
-		}
-
-		pipelines = append(pipelines, pipelineEntry{
-			name:        name,
-			description: p.Metadata.Description,
-			steps:       stepIDs,
-		})
-	}
-
-	// Render each pipeline
-	for _, p := range pipelines {
-		// Pipeline name with step count badge
-		stepBadge := f.Muted(fmt.Sprintf("[%d steps]", len(p.steps)))
-		fmt.Printf("\n  %s %s\n", f.Primary(p.name), stepBadge)
-
-		// Description
-		if p.description != "" {
-			fmt.Printf("    %s\n", f.Muted(p.description))
-		}
-
-		// Steps flow
-		if len(p.steps) > 0 {
-			stepsFlow := formatStepsFlow(p.steps, f)
-			fmt.Printf("    %s\n", stepsFlow)
+	if showContracts {
+		contracts, err := listing.ListContracts()
+		if err == nil {
+			output.Contracts = contracts
 		}
 	}
 
-	fmt.Println()
+	jsonBytes, err := json.MarshalIndent(output, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+	fmt.Println(string(jsonBytes))
 	return nil
 }
 
-// formatStepsFlow formats pipeline steps as a visual flow with arrows
-func formatStepsFlow(steps []string, f *display.Formatter) string {
-	if len(steps) == 0 {
-		return ""
-	}
-
-	var parts []string
-	for i, step := range steps {
-		if i == 0 {
-			parts = append(parts, f.Success("○")+f.Muted(" "+step))
-		} else {
-			parts = append(parts, f.Muted("→ "+step))
-		}
-	}
-
-	return strings.Join(parts, " ")
-}
-
-func listPersonasTable(personas map[string]struct {
-	Adapter          string  `yaml:"adapter"`
-	Description      string  `yaml:"description"`
-	SystemPromptFile string  `yaml:"system_prompt_file"`
-	Temperature      float64 `yaml:"temperature"`
-	Permissions      struct {
-		AllowedTools []string `yaml:"allowed_tools"`
-		Deny         []string `yaml:"deny"`
-	} `yaml:"permissions"`
-}) {
-	f := display.NewFormatter()
-
-	// Header
-	fmt.Println()
-	fmt.Printf("%s\n", f.Colorize("Personas", "\033[1;37m"))
-	sepWidth := display.GetTerminalWidth()
-	if sepWidth < 40 {
-		sepWidth = 40
-	}
-	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", sepWidth)))
-
-	if len(personas) == 0 {
-		fmt.Printf("  %s\n", f.Muted("(none defined)"))
-		return
-	}
-
-	// Sort by name for stable output
-	names := make([]string, 0, len(personas))
-	for name := range personas {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	for _, name := range names {
-		persona := personas[name]
-
-		// Persona name
-		fmt.Printf("\n  %s\n", f.Primary(name))
-
-		// Metadata line: adapter, temperature, permissions
-		metaParts := []string{}
-		metaParts = append(metaParts, fmt.Sprintf("adapter: %s", persona.Adapter))
-		metaParts = append(metaParts, fmt.Sprintf("temp: %.1f", persona.Temperature))
-
-		// Permission summary
-		permSummary := formatPermissionSummary(
-			persona.Permissions.AllowedTools,
-			persona.Permissions.Deny,
-		)
-		if permSummary != "" {
-			metaParts = append(metaParts, permSummary)
-		}
-
-		fmt.Printf("    %s\n", f.Muted(strings.Join(metaParts, " • ")))
-
-		// Description
-		if persona.Description != "" {
-			fmt.Printf("    %s\n", persona.Description)
-		}
-	}
-
-	fmt.Println()
-}
-
-// formatPermissionSummary creates a concise summary of persona permissions.
-func formatPermissionSummary(allowed []string, denied []string) string {
-	allowCount := len(allowed)
-	denyCount := len(denied)
-
-	if allowCount == 0 && denyCount == 0 {
-		return "tools:(default)"
-	}
-
-	parts := []string{}
-	if allowCount > 0 {
-		parts = append(parts, fmt.Sprintf("allow:%d", allowCount))
-	}
-	if denyCount > 0 {
-		parts = append(parts, fmt.Sprintf("deny:%d", denyCount))
-	}
-
-	return strings.Join(parts, " ")
-}
-
-// listAdaptersTable lists all configured adapters with binary availability check.
-func listAdaptersTable(adapters map[string]struct {
-	Binary       string `yaml:"binary"`
-	Mode         string `yaml:"mode"`
-	OutputFormat string `yaml:"output_format"`
-}) {
-	f := display.NewFormatter()
-
-	// Header
-	fmt.Println()
-	fmt.Printf("%s\n", f.Colorize("Adapters", "\033[1;37m"))
-	sepWidth := display.GetTerminalWidth()
-	if sepWidth < 40 {
-		sepWidth = 40
-	}
-	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", sepWidth)))
-
-	if len(adapters) == 0 {
-		fmt.Printf("  %s\n", f.Muted("(none defined)"))
-		return
-	}
-
-	// Sort by name for stable output
-	names := make([]string, 0, len(adapters))
-	for name := range adapters {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	for _, name := range names {
-		adapter := adapters[name]
-
-		// Check binary availability
-		available := true
-		if _, err := exec.LookPath(adapter.Binary); err != nil {
-			available = false
-		}
-
-		// Status icon
-		var statusIcon string
-		if available {
-			statusIcon = f.Success("✓")
-		} else {
-			statusIcon = f.Error("✗")
-		}
-
-		// Adapter name with status
-		fmt.Printf("\n  %s %s\n", statusIcon, f.Primary(name))
-
-		// Metadata
-		metaParts := []string{
-			fmt.Sprintf("binary: %s", adapter.Binary),
-			fmt.Sprintf("mode: %s", adapter.Mode),
-			fmt.Sprintf("format: %s", adapter.OutputFormat),
-		}
-		fmt.Printf("    %s\n", f.Muted(strings.Join(metaParts, " • ")))
-
-		if !available {
-			fmt.Printf("    %s\n", f.Error("binary not found in PATH"))
-		}
-	}
-
-	fmt.Println()
-}
-
-// runListRuns executes the 'list runs' subcommand
+// runListRuns executes the `wave list runs` subcommand.
 func runListRuns(opts ListRunsOptions) error {
-	runs, err := collectRuns(opts)
+	runs, err := listing.ListRuns(listing.RunsOptions{
+		Limit:    opts.Limit,
+		Pipeline: opts.Pipeline,
+		Status:   opts.Status,
+	})
 	if err != nil {
 		return err
 	}
 
 	if opts.Format == "json" {
-		output := ListOutput{Runs: runs}
-		jsonBytes, err := json.MarshalIndent(output, "", "  ")
+		jsonBytes, err := json.MarshalIndent(ListOutput{Runs: runs}, "", "  ")
 		if err != nil {
 			return fmt.Errorf("failed to marshal JSON: %w", err)
 		}
@@ -733,898 +279,46 @@ func runListRuns(opts ListRunsOptions) error {
 		return nil
 	}
 
-	// Table format
 	printLogo()
-	listRunsTable(runs)
+	renderRunsTable(runs)
 	return nil
 }
 
-// collectRuns collects run information from the state database or workspace metadata
-func collectRuns(opts ListRunsOptions) ([]RunInfo, error) {
-	var runs []RunInfo
-
-	// First try to read from the state database
-	dbPath := ".agents/state.db"
-	if _, err := os.Stat(dbPath); err == nil {
-		dbRuns, err := collectRunsFromDB(dbPath, opts)
-		if err == nil && len(dbRuns) > 0 {
-			return dbRuns, nil
-		}
-		// Fall through to workspace fallback if DB query failed or returned no results
-	}
-
-	// Fallback: read from workspace directory metadata
-	runs, err := collectRunsFromWorkspaces(opts)
+// runListCompositions handles the `wave list compositions` subcommand.
+func runListCompositions(pipelinesDir, format string) error {
+	compositions, err := listing.ListCompositions(pipelinesDir)
 	if err != nil {
-		return nil, err
-	}
-
-	return runs, nil
-}
-
-// collectRunsFromDB reads run information from the state database via StateStore.
-func collectRunsFromDB(dbPath string, opts ListRunsOptions) ([]RunInfo, error) {
-	store, err := state.NewReadOnlyStateStore(dbPath)
-	if err != nil {
-		return nil, err
-	}
-	defer store.Close()
-
-	listOpts := state.ListRunsOptions{
-		PipelineName: opts.Pipeline,
-		Status:       strings.ToLower(opts.Status),
-		Limit:        opts.Limit,
-	}
-
-	records, err := store.ListRuns(listOpts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query pipeline runs: %w", err)
-	}
-
-	runs := make([]RunInfo, 0, len(records))
-	for _, r := range records {
-		var duration string
-		var durationMs int64
-
-		switch {
-		case r.CompletedAt != nil:
-			d := r.CompletedAt.Sub(r.StartedAt)
-			durationMs = d.Milliseconds()
-			duration = formatDuration(d)
-		case strings.ToLower(r.Status) == "running":
-			d := time.Since(r.StartedAt)
-			durationMs = d.Milliseconds()
-			duration = formatDuration(d) + " (running)"
-		default:
-			duration = "-"
-		}
-
-		runs = append(runs, RunInfo{
-			RunID:      r.RunID,
-			Pipeline:   r.PipelineName,
-			Status:     r.Status,
-			StartedAt:  r.StartedAt.Format("2006-01-02 15:04:05"),
-			Duration:   duration,
-			DurationMs: durationMs,
-		})
-	}
-
-	return runs, nil
-}
-
-// collectRunsFromWorkspaces reads run information from workspace directory metadata
-func collectRunsFromWorkspaces(opts ListRunsOptions) ([]RunInfo, error) {
-	wsDir := ".agents/workspaces"
-	entries, err := os.ReadDir(wsDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	type wsInfo struct {
-		name      string
-		modTime   time.Time
-		startTime time.Time
-	}
-
-	var workspaces []wsInfo
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		// Apply pipeline filter
-		if opts.Pipeline != "" && entry.Name() != opts.Pipeline {
-			continue
-		}
-
-		info, err := entry.Info()
-		if err != nil {
-			continue
-		}
-
-		// Get creation time (start time) from directory
-		wsPath := filepath.Join(wsDir, entry.Name())
-		startTime := getDirectoryCreationTime(wsPath)
-		if startTime.IsZero() {
-			startTime = info.ModTime() // Fallback to mod time
-		}
-
-		workspaces = append(workspaces, wsInfo{
-			name:      entry.Name(),
-			modTime:   info.ModTime(),
-			startTime: startTime,
-		})
-	}
-
-	// Sort by modification time (most recent first)
-	sort.Slice(workspaces, func(i, j int) bool {
-		return workspaces[i].modTime.After(workspaces[j].modTime)
-	})
-
-	// Apply limit
-	if opts.Limit > 0 && len(workspaces) > opts.Limit {
-		workspaces = workspaces[:opts.Limit]
-	}
-
-	var runs []RunInfo
-	for _, ws := range workspaces {
-		// Infer status from workspace contents
-		wsPath := filepath.Join(wsDir, ws.name)
-		status, endTime := inferWorkspaceStatus(wsPath, ws.name)
-
-		// Apply status filter
-		if opts.Status != "" && !strings.EqualFold(status, opts.Status) {
-			continue
-		}
-
-		// Calculate duration
-		var duration string
-		var durationMs int64
-		if !endTime.IsZero() && !ws.startTime.IsZero() {
-			d := endTime.Sub(ws.startTime)
-			durationMs = d.Milliseconds()
-			duration = formatDuration(d)
-		} else {
-			duration = "-"
-		}
-
-		runs = append(runs, RunInfo{
-			RunID:      ws.name,
-			Pipeline:   extractPipelineName(ws.name),
-			Status:     status,
-			StartedAt:  ws.startTime.Format("2006-01-02 15:04:05"),
-			Duration:   duration,
-			DurationMs: durationMs,
-		})
-	}
-
-	return runs, nil
-}
-
-// extractPipelineName strips the run ID suffix from a workspace directory name.
-// e.g. "adr-0718471d" → "adr", "gh-implement-27186beb" → "gh-implement"
-func extractPipelineName(wsName string) string {
-	// Run IDs are 8-char hex suffixes appended with a dash.
-	// Try progressively shorter prefixes until we find a matching pipeline file.
-	parts := strings.Split(wsName, "-")
-	for i := len(parts) - 1; i >= 1; i-- {
-		candidate := strings.Join(parts[:i], "-")
-		if _, err := os.Stat(".agents/pipelines/" + candidate + ".yaml"); err == nil {
-			return candidate
-		}
-	}
-	// No match found — return as-is (workspace without run ID suffix).
-	return wsName
-}
-
-// inferWorkspaceStatus determines the status of a run by examining its workspace
-func inferWorkspaceStatus(wsPath string, pipelineName string) (status string, endTime time.Time) {
-	// Try to find and load the pipeline definition to know expected steps.
-	// Strip run ID suffix from workspace name to find the actual pipeline file.
-	baseName := extractPipelineName(pipelineName)
-	pipelinePath := ".agents/pipelines/" + baseName + ".yaml"
-	pipelineData, err := os.ReadFile(pipelinePath)
-	if err != nil {
-		// Can't determine expected steps, check if any step dirs exist
-		stepDirs, _ := os.ReadDir(wsPath)
-		if len(stepDirs) == 0 {
-			return "pending", time.Time{}
-		}
-		// Has step dirs but can't verify completion
-		return "unknown", getLatestFileTime(wsPath)
-	}
-
-	// Parse pipeline to get expected steps
-	var p struct {
-		Steps []struct {
-			ID string `yaml:"id"`
-		} `yaml:"steps"`
-	}
-	if err := yaml.Unmarshal(pipelineData, &p); err != nil {
-		return "unknown", getLatestFileTime(wsPath)
-	}
-
-	expectedSteps := make(map[string]bool)
-	for _, step := range p.Steps {
-		expectedSteps[step.ID] = false
-	}
-
-	// Check which steps have directories in the workspace
-	stepDirs, err := os.ReadDir(wsPath)
-	if err != nil {
-		return "unknown", time.Time{}
-	}
-
-	completedSteps := 0
-	var latestTime time.Time
-	for _, dir := range stepDirs {
-		if !dir.IsDir() {
-			continue
-		}
-		stepID := dir.Name()
-		if _, expected := expectedSteps[stepID]; expected {
-			// Check if step has output (indicates completion)
-			stepPath := filepath.Join(wsPath, stepID)
-			if hasStepOutput(stepPath) {
-				expectedSteps[stepID] = true
-				completedSteps++
-			}
-			// Track latest modification time
-			if info, err := dir.Info(); err == nil {
-				if info.ModTime().After(latestTime) {
-					latestTime = info.ModTime()
-				}
-			}
-		}
-	}
-
-	// Determine overall status
-	if completedSteps == 0 {
-		return "pending", time.Time{}
-	}
-	if completedSteps == len(expectedSteps) {
-		return "completed", latestTime
-	}
-	// Some steps completed but not all - could be running or failed
-	return "partial", latestTime
-}
-
-// hasStepOutput checks if a step directory contains output files
-func hasStepOutput(stepPath string) bool {
-	// Check for common output locations
-	outputDirs := []string{"", ".agents/output", ".agents/artifacts"}
-	for _, subdir := range outputDirs {
-		checkPath := stepPath
-		if subdir != "" {
-			checkPath = filepath.Join(stepPath, subdir)
-		}
-		entries, err := os.ReadDir(checkPath)
-		if err != nil {
-			continue
-		}
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				// Found at least one file
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// getLatestFileTime finds the most recent modification time in a directory tree
-func getLatestFileTime(dirPath string) time.Time {
-	var latest time.Time
-	_ = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if info.ModTime().After(latest) {
-			latest = info.ModTime()
-		}
-		return nil
-	})
-	return latest
-}
-
-// getDirectoryCreationTime gets the creation time of a directory (best effort)
-func getDirectoryCreationTime(path string) time.Time {
-	info, err := os.Stat(path)
-	if err != nil {
-		return time.Time{}
-	}
-	// On most systems, we can only reliably get ModTime
-	// But we can approximate creation time by finding the oldest file
-	var oldest time.Time
-	_ = filepath.Walk(path, func(p string, fi os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if oldest.IsZero() || fi.ModTime().Before(oldest) {
-			oldest = fi.ModTime()
-		}
-		return nil
-	})
-	// Use the directory's own mod time as a fallback
-	if oldest.IsZero() {
-		return info.ModTime()
-	}
-	return oldest
-}
-
-// listRunsTable displays run information in table format
-func listRunsTable(runs []RunInfo) {
-	f := display.NewFormatter()
-	termWidth := display.GetTerminalWidth()
-
-	// Separator width: cap at terminal width, minimum 40
-	sepWidth := termWidth
-	if sepWidth < 40 {
-		sepWidth = 40
-	}
-
-	// Header
-	fmt.Println()
-	fmt.Printf("%s\n", f.Colorize("Recent Pipeline Runs", "\033[1;37m"))
-	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", sepWidth)))
-
-	if len(runs) == 0 {
-		fmt.Printf("  %s\n\n", f.Muted("(no runs found)"))
-		return
-	}
-
-	// Dynamic column width allocation
-	// Fixed-width columns: Status=12, Started=20, Duration=10
-	// Indent (2) + 4 column gaps (2 each) = 10
-	const statusWidth = 12
-	const startedWidth = 20
-	const durationWidth = 10
-	const indent = 2
-	const gaps = 8 // 4 gaps x 2 chars each
-
-	fixedWidth := indent + statusWidth + startedWidth + durationWidth + gaps
-	remaining := termWidth - fixedWidth
-	if remaining < 20 {
-		remaining = 20
-	}
-
-	// Allocate remaining to RunID (priority) and Pipeline
-	// RunID gets 60% of remaining, Pipeline gets 40%
-	runIDWidth := remaining * 60 / 100
-	pipelineWidth := remaining - runIDWidth
-
-	// Ensure minimum widths
-	if runIDWidth < 10 {
-		runIDWidth = 10
-	}
-	if pipelineWidth < 8 {
-		pipelineWidth = 8
-	}
-
-	// Table header
-	fmt.Printf("  %s  %s  %s  %s  %s\n",
-		f.Muted(fmt.Sprintf("%-*s", runIDWidth, "RUN_ID")),
-		f.Muted(fmt.Sprintf("%-*s", pipelineWidth, "PIPELINE")),
-		f.Muted(fmt.Sprintf("%-*s", statusWidth, "STATUS")),
-		f.Muted(fmt.Sprintf("%-*s", startedWidth, "STARTED")),
-		f.Muted("DURATION"),
-	)
-
-	for _, run := range runs {
-		runID := run.RunID
-		pipeline := run.Pipeline
-
-		// Only truncate as a last resort for very narrow terminals
-		if len(runID) > runIDWidth {
-			if runIDWidth > 3 {
-				runID = runID[:runIDWidth-3] + "..."
-			}
-		}
-		if len(pipeline) > pipelineWidth {
-			if pipelineWidth > 3 {
-				pipeline = pipeline[:pipelineWidth-3] + "..."
-			}
-		}
-
-		// Format status with color
-		status := run.Status
-		var statusStr string
-		switch strings.ToLower(status) {
-		case "completed":
-			statusStr = f.Success(fmt.Sprintf("%-*s", statusWidth, status))
-		case "failed":
-			statusStr = f.Error(fmt.Sprintf("%-*s", statusWidth, status))
-		case "running":
-			statusStr = f.Primary(fmt.Sprintf("%-*s", statusWidth, status))
-		case "cancelled":
-			statusStr = f.Warning(fmt.Sprintf("%-*s", statusWidth, status))
-		default:
-			statusStr = f.Muted(fmt.Sprintf("%-*s", statusWidth, status))
-		}
-
-		fmt.Printf("  %-*s  %-*s  %s  %-*s  %s\n",
-			runIDWidth, runID, pipelineWidth, pipeline, statusStr,
-			startedWidth, run.StartedAt, f.Muted(run.Duration))
-	}
-
-	fmt.Println()
-}
-
-// collectContracts collects contract information from .agents/contracts/ and finds their usage in pipelines
-func collectContracts() ([]ContractInfo, error) {
-	contractDir := ".agents/contracts"
-	entries, err := os.ReadDir(contractDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	// First collect all contract files (handles both .json and .schema.json)
-	contractsByFile := make(map[string]*ContractInfo) // keyed by filename for matching
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
-			continue
-		}
-
-		filename := entry.Name()
-		// Display name: strip .schema.json or .json
-		displayName := strings.TrimSuffix(filename, ".json")
-		displayName = strings.TrimSuffix(displayName, ".schema")
-
-		contractsByFile[filename] = &ContractInfo{
-			Name:   displayName,
-			Type:   "json-schema",
-			UsedBy: []ContractUsage{},
-		}
-	}
-
-	// Now scan pipelines to find where contracts are used
-	pipelineDir := ".agents/pipelines"
-	pipelineEntries, err := os.ReadDir(pipelineDir)
-	if err == nil {
-		for _, entry := range pipelineEntries {
-			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
-				continue
-			}
-
-			pipelineName := strings.TrimSuffix(entry.Name(), ".yaml")
-			pipelinePath := filepath.Join(pipelineDir, entry.Name())
-
-			data, err := os.ReadFile(pipelinePath)
-			if err != nil {
-				continue
-			}
-
-			var p struct {
-				Steps []struct {
-					ID       string `yaml:"id"`
-					Persona  string `yaml:"persona"`
-					Contract struct {
-						SchemaPath string `yaml:"schema_path"`
-					} `yaml:"contract"`
-					Handover struct {
-						Contract struct {
-							SchemaPath string `yaml:"schema_path"`
-						} `yaml:"contract"`
-					} `yaml:"handover"`
-				} `yaml:"steps"`
-			}
-			if err := yaml.Unmarshal(data, &p); err != nil {
-				continue
-			}
-
-			for _, step := range p.Steps {
-				// Check both direct contract and handover.contract
-				schemaPath := step.Contract.SchemaPath
-				if schemaPath == "" {
-					schemaPath = step.Handover.Contract.SchemaPath
-				}
-				if schemaPath == "" {
-					continue
-				}
-
-				// Extract contract filename from path (e.g., ".agents/contracts/navigation.schema.json")
-				contractFile := filepath.Base(schemaPath)
-
-				// If this contract exists in our map, add the usage
-				if contract, exists := contractsByFile[contractFile]; exists {
-					contract.UsedBy = append(contract.UsedBy, ContractUsage{
-						Pipeline: pipelineName,
-						Step:     step.ID,
-						Persona:  step.Persona,
-					})
-				} else {
-					// Contract referenced but not found - add it with usage info
-					displayName := strings.TrimSuffix(contractFile, ".json")
-					displayName = strings.TrimSuffix(displayName, ".schema")
-					contractsByFile[contractFile] = &ContractInfo{
-						Name:   displayName,
-						Type:   "json-schema (missing)",
-						UsedBy: []ContractUsage{{Pipeline: pipelineName, Step: step.ID, Persona: step.Persona}},
-					}
-				}
-			}
-		}
-	}
-
-	// Convert map to slice and sort by display name
-	var contracts []ContractInfo
-	for _, contract := range contractsByFile {
-		contracts = append(contracts, *contract)
-	}
-	sort.Slice(contracts, func(i, j int) bool {
-		return contracts[i].Name < contracts[j].Name
-	})
-
-	return contracts, nil
-}
-
-// listContractsTable displays contract information in table format
-func listContractsTable(contracts []ContractInfo) {
-	f := display.NewFormatter()
-
-	// Header
-	fmt.Println()
-	fmt.Printf("%s\n", f.Colorize("Contracts", "\033[1;37m"))
-	sepWidth := display.GetTerminalWidth()
-	if sepWidth < 40 {
-		sepWidth = 40
-	}
-	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", sepWidth)))
-
-	if len(contracts) == 0 {
-		fmt.Printf("  %s\n", f.Muted("(none found in .agents/contracts/)"))
-		fmt.Println()
-		return
-	}
-
-	for _, contract := range contracts {
-		// Contract name with type badge
-		typeBadge := f.Muted(fmt.Sprintf("[%s]", contract.Type))
-		fmt.Printf("\n  %s %s\n", f.Primary(contract.Name), typeBadge)
-
-		// Show usage
-		if len(contract.UsedBy) == 0 {
-			fmt.Printf("    %s\n", f.Muted("(unused)"))
-		} else {
-			fmt.Printf("    %s\n", f.Muted("used by:"))
-			for _, usage := range contract.UsedBy {
-				// Format: pipeline → step (persona)
-				usageStr := fmt.Sprintf("%s → %s", usage.Pipeline, usage.Step)
-				if usage.Persona != "" {
-					usageStr += fmt.Sprintf(" (%s)", usage.Persona)
-				}
-				fmt.Printf("      %s %s\n", f.Success("•"), usageStr)
-			}
-		}
-	}
-
-	fmt.Println()
-}
-
-// pipelineSkillConfig is the anonymous struct used when parsing skills from pipeline YAML.
-type pipelineSkillConfig struct {
-	Install      string `yaml:"install,omitempty"`
-	Init         string `yaml:"init,omitempty"`
-	Check        string `yaml:"check,omitempty"`
-	CommandsGlob string `yaml:"commands_glob,omitempty"`
-}
-
-// collectSkillsFromPipelines scans all pipeline YAML files and returns a merged
-// map of skill name to config. When multiple pipelines declare the same skill,
-// the first definition wins (pipelines are scanned in alphabetical order).
-func collectSkillsFromPipelines() map[string]pipelineSkillConfig {
-	merged := make(map[string]pipelineSkillConfig)
-
-	pipelineDir := ".agents/pipelines"
-	entries, err := os.ReadDir(pipelineDir)
-	if err != nil {
-		return merged
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
-			continue
-		}
-
-		pipelinePath := filepath.Join(pipelineDir, entry.Name())
-
-		data, err := os.ReadFile(pipelinePath)
-		if err != nil {
-			continue
-		}
-
-		var p struct {
-			Requires *struct {
-				Skills map[string]pipelineSkillConfig `yaml:"skills"`
-			} `yaml:"requires"`
-		}
-		if err := yaml.Unmarshal(data, &p); err != nil {
-			continue
-		}
-
-		if p.Requires != nil {
-			for name, cfg := range p.Requires.Skills {
-				if _, exists := merged[name]; !exists {
-					merged[name] = cfg
-				}
-			}
-		}
-	}
-
-	return merged
-}
-
-// collectSkillPipelineUsage scans pipeline YAML files and returns a map of skill name to pipeline names that require it.
-func collectSkillPipelineUsage() map[string][]string {
-	usage := make(map[string][]string)
-
-	pipelineDir := ".agents/pipelines"
-	entries, err := os.ReadDir(pipelineDir)
-	if err != nil {
-		return usage
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
-			continue
-		}
-
-		pipelineName := strings.TrimSuffix(entry.Name(), ".yaml")
-		pipelinePath := filepath.Join(pipelineDir, entry.Name())
-
-		data, err := os.ReadFile(pipelinePath)
-		if err != nil {
-			continue
-		}
-
-		var p struct {
-			Requires *struct {
-				Skills map[string]pipelineSkillConfig `yaml:"skills"`
-			} `yaml:"requires"`
-		}
-		if err := yaml.Unmarshal(data, &p); err != nil {
-			continue
-		}
-
-		if p.Requires != nil {
-			for skillName := range p.Requires.Skills {
-				usage[skillName] = append(usage[skillName], pipelineName)
-			}
-		}
-	}
-
-	// Sort pipeline names for each skill
-	for skill := range usage {
-		sort.Strings(usage[skill])
-	}
-
-	return usage
-}
-
-// collectSkills collects skill information from pipeline-scoped skills.
-func collectSkills(skills map[string]pipelineSkillConfig) []SkillInfo {
-	var result []SkillInfo
-
-	names := make([]string, 0, len(skills))
-	for name := range skills {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	pipelineUsage := collectSkillPipelineUsage()
-
-	for _, name := range names {
-		skill := skills[name]
-
-		installed := false
-		if skill.Check != "" {
-			cmd := exec.Command("sh", "-c", skill.Check)
-			if err := cmd.Run(); err == nil {
-				installed = true
-			}
-		}
-
-		info := SkillInfo{
-			Name:      name,
-			Check:     skill.Check,
-			Install:   skill.Install,
-			Installed: installed,
-			UsedBy:    pipelineUsage[name],
-		}
-		result = append(result, info)
-	}
-
-	return result
-}
-
-// listSkillsTable displays skill information in table format.
-func listSkillsTable(skills map[string]pipelineSkillConfig) {
-	f := display.NewFormatter()
-
-	// Header
-	fmt.Println()
-	fmt.Printf("%s\n", f.Colorize("Skills", "\033[1;37m"))
-	sepWidth := display.GetTerminalWidth()
-	if sepWidth < 40 {
-		sepWidth = 40
-	}
-	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", sepWidth)))
-
-	if len(skills) == 0 {
-		fmt.Printf("  %s\n", f.Muted("(none defined)"))
-		fmt.Println()
-		return
-	}
-
-	collected := collectSkills(skills)
-
-	for _, skill := range collected {
-		// Status icon
-		var statusIcon string
-		if skill.Installed {
-			statusIcon = f.Success("✓")
-		} else {
-			statusIcon = f.Error("✗")
-		}
-
-		// Skill name with status
-		fmt.Printf("\n  %s %s\n", statusIcon, f.Primary(skill.Name))
-
-		// Metadata line: check command, install command
-		metaParts := []string{}
-		if skill.Check != "" {
-			metaParts = append(metaParts, fmt.Sprintf("check: %s", skill.Check))
-		}
-		if skill.Install != "" {
-			metaParts = append(metaParts, fmt.Sprintf("install: %s", skill.Install))
-		}
-		if len(metaParts) > 0 {
-			fmt.Printf("    %s\n", f.Muted(strings.Join(metaParts, " • ")))
-		}
-
-		// Pipeline usage
-		if len(skill.UsedBy) > 0 {
-			fmt.Printf("    %s %s\n", f.Muted("used by:"), strings.Join(skill.UsedBy, ", "))
-		}
-	}
-
-	fmt.Println()
-}
-
-// listCompositions lists composition pipelines with their sub-pipelines and step types.
-func listCompositions(pipelinesDir string, format string) error {
-	pipelines, err := pipelinecatalog.DiscoverPipelines(pipelinesDir)
-	if err != nil {
-		return fmt.Errorf("failed to discover pipelines: %w", err)
-	}
-
-	type CompositionInfo struct {
-		Name         string   `json:"name"`
-		Description  string   `json:"description"`
-		SubPipelines []string `json:"sub_pipelines"`
-		StepTypes    []string `json:"step_types"`
-	}
-
-	var compositions []CompositionInfo
-	for _, info := range pipelines {
-		// Load full pipeline to check for composition steps
-		p, err := pipelinecatalog.LoadPipelineByName(pipelinesDir, info.Name)
-		if err != nil {
-			continue
-		}
-
-		isComposition := info.Category == "composition"
-		var subPipelines []string
-		stepTypeSet := make(map[string]bool)
-
-		for _, step := range p.Steps {
-			if step.SubPipeline != "" {
-				subPipelines = append(subPipelines, step.SubPipeline)
-			}
-			if step.Iterate != nil {
-				stepTypeSet["iterate"] = true
-				isComposition = true
-			}
-			if step.Branch != nil {
-				stepTypeSet["branch"] = true
-				isComposition = true
-			}
-			if step.Gate != nil {
-				stepTypeSet["gate"] = true
-				isComposition = true
-			}
-			if step.Loop != nil {
-				stepTypeSet["loop"] = true
-				isComposition = true
-			}
-			if step.Aggregate != nil {
-				stepTypeSet["aggregate"] = true
-				isComposition = true
-			}
-			if step.SubPipeline != "" && step.Iterate == nil && step.Branch == nil {
-				stepTypeSet["sub-pipeline"] = true
-				isComposition = true
-			}
-		}
-
-		if !isComposition {
-			continue
-		}
-
-		var stepTypes []string
-		for st := range stepTypeSet {
-			stepTypes = append(stepTypes, st)
-		}
-		sort.Strings(stepTypes)
-
-		compositions = append(compositions, CompositionInfo{
-			Name:         info.Name,
-			Description:  info.Description,
-			SubPipelines: subPipelines,
-			StepTypes:    stepTypes,
-		})
+		return err
 	}
 
 	if format == "json" {
+		// Compositions emit a bare array (historic CLI shape) rather than the
+		// aggregated ListOutput envelope.
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
+		if compositions == nil {
+			compositions = []listing.CompositionInfo{}
+		}
 		return enc.Encode(compositions)
 	}
 
 	printLogo()
+	renderCompositionsTable(compositions)
+	return nil
+}
 
-	if len(compositions) == 0 {
-		fmt.Println("No composition pipelines found.")
-		return nil
-	}
-
-	f := display.NewFormatter()
-
-	fmt.Println()
-	fmt.Printf("%s\n", f.Colorize("Composition Pipelines", "\033[1;37m"))
+// sectionSeparator prints a dim horizontal rule sized to the terminal.
+func sectionSeparator(f *display.Formatter) {
 	sepWidth := display.GetTerminalWidth()
 	if sepWidth < 40 {
 		sepWidth = 40
 	}
-	fmt.Printf("%s\n", f.Muted(strings.Repeat("\u2500", sepWidth)))
-
-	for _, c := range compositions {
-		fmt.Printf("\n  %s\n", f.Primary(c.Name))
-		if c.Description != "" {
-			fmt.Printf("    %s\n", f.Muted(c.Description))
-		}
-		if len(c.SubPipelines) > 0 {
-			fmt.Printf("    %s %s\n", f.Muted("sub-pipelines:"), strings.Join(c.SubPipelines, ", "))
-		}
-		if len(c.StepTypes) > 0 {
-			fmt.Printf("    %s %s\n", f.Muted("step types:"), strings.Join(c.StepTypes, ", "))
-		}
-	}
-
-	fmt.Println()
-	return nil
+	fmt.Printf("%s\n", f.Muted(strings.Repeat("─", sepWidth)))
 }
 
-// formatDuration formats a duration into a human-readable string
-func formatDuration(d time.Duration) string {
-	if d < time.Second {
-		return fmt.Sprintf("%dms", d.Milliseconds())
-	}
-	if d < time.Minute {
-		return fmt.Sprintf("%.1fs", d.Seconds())
-	}
-	if d < time.Hour {
-		mins := int(d.Minutes())
-		secs := int(d.Seconds()) % 60
-		return fmt.Sprintf("%dm%ds", mins, secs)
-	}
-	hours := int(d.Hours())
-	mins := int(d.Minutes()) % 60
-	return fmt.Sprintf("%dh%dm", hours, mins)
+// sectionHeader prints "<title>\n<separator>" using the configured formatter.
+func sectionHeader(f *display.Formatter, title string) {
+	fmt.Println()
+	fmt.Printf("%s\n", f.Colorize(title, "\033[1;37m"))
+	sectionSeparator(f)
 }
