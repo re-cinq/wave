@@ -147,9 +147,14 @@ func TestFallbackRunner_EmptyChainReturnsPrimaryResult(t *testing.T) {
 	result, err := fr.Run(context.Background(), AdapterRunConfig{})
 
 	// Empty chain — the initial rate_limit result won't trigger any fallbacks
-	// but the loop doesn't execute, so we get the "all fallback adapters exhausted" error
-	assert.Error(t, err)
-	assert.NotNil(t, result)
+	// but the loop doesn't execute, so we get the "all fallback adapters exhausted" error.
+	// The primary's lastResult is returned unwrapped so callers can inspect why
+	// the fallback chain bailed out (here: the primary's rate_limit failure).
+	assert.EqualError(t, err, "all fallback adapters exhausted")
+	require.NotNil(t, result)
+	assert.Equal(t, "rate_limit", result.FailureReason)
+	assert.Equal(t, "failed: rate_limit", result.ResultContent)
+	assert.Equal(t, 1, primary.callCount)
 }
 
 func TestFallbackRunner_HardErrorFromPrimary(t *testing.T) {
