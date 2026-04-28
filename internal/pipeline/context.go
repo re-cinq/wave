@@ -293,7 +293,7 @@ func (ctx *PipelineContext) GetSpeckitPath(filename string) string {
 		// Check if branch indicates Speckit workflow
 		if strings.Contains(ctx.BranchName, "-") {
 			// This looks like it might be Speckit, but let's generate a path anyway
-			featureDir := "999-" + sanitizeBranchName(ctx.BranchName)
+			featureDir := "999-" + SanitizeBranchName(ctx.BranchName)
 			return "specs/" + featureDir + "/" + filename
 		}
 		return filename
@@ -307,7 +307,7 @@ func (ctx *PipelineContext) GetSpeckitPath(filename string) string {
 			featureDir = num
 		} else if ctx.SpeckitMode {
 			// Generate a simple numeric prefix for non-standard branch names when in Speckit mode
-			featureDir = "999-" + sanitizeBranchName(ctx.BranchName)
+			featureDir = "999-" + SanitizeBranchName(ctx.BranchName)
 		}
 	}
 
@@ -379,8 +379,10 @@ func extractFeatureNumber(branchName string) string {
 	return ""
 }
 
-// sanitizeBranchName removes invalid characters from branch names for use in paths
-func sanitizeBranchName(branchName string) string {
+// SanitizeBranchName removes invalid characters from branch names for use in paths.
+// It replaces any character outside [a-zA-Z0-9_-] with a dash, collapses consecutive
+// dashes, trims leading/trailing dashes, and caps the result at 50 characters.
+func SanitizeBranchName(branchName string) string {
 	// Replace invalid path characters
 	sanitized := invalidPathCharRe.ReplaceAllString(branchName, "-")
 

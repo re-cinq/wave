@@ -343,6 +343,32 @@ func TestDefaultDetailDataProvider_FetchFinishedDetail_EmptyBranchGlob(t *testin
 	assert.Equal(t, wsDir, got.WorkspacePath)
 }
 
+// TestSanitizeBranchName_TUIParity locks in the branch-sanitization output the
+// TUI workspace-path derivation depends on. Before the dedup, this lived as a
+// local sanitizeBranch() mirror in pipeline_detail_provider.go; the cases here
+// match what that mirror would have produced so any drift is caught.
+func TestSanitizeBranchName_TUIParity(t *testing.T) {
+	tests := []struct {
+		name     string
+		branch   string
+		expected string
+	}{
+		{name: "feature_slash", branch: "feat/my-feature", expected: "feat-my-feature"},
+		{name: "colon_in_branch", branch: "feature/branch:name", expected: "feature-branch-name"},
+		{name: "consecutive_dashes_collapsed", branch: "feat//my--branch", expected: "feat-my-branch"},
+		{name: "leading_trailing_trimmed", branch: "/feat/x/", expected: "feat-x"},
+		{name: "fifty_char_cap", branch: "this-is-a-very-long-branch-name-that-should-be-truncated-to-fifty-characters-maximum", expected: "this-is-a-very-long-branch-name-that-should-be-tru"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := pipeline.SanitizeBranchName(tt.branch)
+			assert.Equal(t, tt.expected, got)
+			assert.LessOrEqual(t, len(got), 50)
+		})
+	}
+}
+
 func TestStepTypeLabel(t *testing.T) {
 	tests := []struct {
 		name     string
