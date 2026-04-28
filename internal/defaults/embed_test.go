@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/skill"
 	"gopkg.in/yaml.v3"
 )
@@ -62,12 +62,12 @@ func TestGetReleasePipelines_OnlyReleaseTrue(t *testing.T) {
 	}
 
 	for name, content := range release {
-		var p pipeline.Pipeline
-		if err := yaml.Unmarshal([]byte(content), &p); err != nil {
+		var header manifest.PipelineHeader
+		if err := yaml.Unmarshal([]byte(content), &header); err != nil {
 			t.Errorf("failed to unmarshal release pipeline %q: %v", name, err)
 			continue
 		}
-		if !p.Metadata.Release {
+		if !header.Metadata.Release {
 			t.Errorf("pipeline %q is in release set but metadata.release is false", name)
 		}
 	}
@@ -85,11 +85,11 @@ func TestGetReleasePipelines_ExcludesNonRelease(t *testing.T) {
 	}
 
 	for name, content := range all {
-		var p pipeline.Pipeline
-		if err := yaml.Unmarshal([]byte(content), &p); err != nil {
+		var header manifest.PipelineHeader
+		if err := yaml.Unmarshal([]byte(content), &header); err != nil {
 			continue // skip pipelines that fail to unmarshal
 		}
-		if !p.Metadata.Release {
+		if !header.Metadata.Release {
 			if _, ok := release[name]; ok {
 				t.Errorf("pipeline %q does not have release: true but is in the release set", name)
 			}
@@ -137,11 +137,11 @@ func TestGetReleasePipelines_DisabledAndReleaseIncluded(t *testing.T) {
 	}
 
 	for name, content := range all {
-		var p pipeline.Pipeline
-		if err := yaml.Unmarshal([]byte(content), &p); err != nil {
+		var header manifest.PipelineHeader
+		if err := yaml.Unmarshal([]byte(content), &header); err != nil {
 			continue
 		}
-		if p.Metadata.Release && p.Metadata.Disabled {
+		if header.Metadata.Release && header.Metadata.Disabled {
 			if _, ok := release[name]; !ok {
 				t.Errorf("pipeline %q has both release: true and disabled: true but is not in the release set", name)
 			}
