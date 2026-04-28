@@ -12,7 +12,10 @@
         <span class="badge {{statusClass .Status}}">{{.Status}}</span>
     </td>
     <td class="wrap">
-        <div class="run-pipeline-name"><span class="child-indent">&#x2514;</span> {{.PipelineName}}</div>
+        <div class="run-pipeline-name">
+            <span class="child-indent">&#x2514;</span> {{.PipelineName}}
+            {{if .RunKind}}{{if ne .RunKind "top_level"}}<span class="badge badge-runkind badge-runkind-{{.RunKind}}" title="Launched by parent composition step">{{runKindLabel .RunKind}}{{if and (eq .RunKind "iterate_child") .IterateIndex .IterateTotal}} {{addInt (deref .IterateIndex) 1}}/{{deref .IterateTotal}}{{end}}</span>{{end}}{{end}}
+        </div>
         {{if .BranchName}}<div class="run-branch"><span class="branch-icon">&#9741;</span> {{.BranchName}}</div>{{end}}
         {{if .InputPreview}}<div class="run-input-preview" title="{{.InputPreview}}">{{.InputPreview}}</div>{{end}}
     </td>

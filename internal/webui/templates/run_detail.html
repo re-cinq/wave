@@ -6,7 +6,19 @@
 <div class="w-head">
     <div>
         <a href="/runs" class="back-link">&larr; Runs</a>
-        {{if .Run.ParentRunID}}<a href="/runs/{{.Run.ParentRunID}}" class="back-link" style="font-size:0.72rem;">&larr; parent: {{.Run.ParentRunID}}</a>{{end}}
+        {{if .Run.ParentRunID}}
+        <a href="/runs/{{.Run.ParentRunID}}" class="back-link" style="font-size:0.72rem;" title="{{.Run.ParentRunID}}">
+            &larr; parent
+            {{- with .Run.ParentStepID}}<span style="color:var(--color-text-muted);"> &rsaquo; </span><code style="font-size:0.7rem;background:var(--color-bg-tertiary);padding:0 0.25rem;border-radius:2px;">{{.}}</code>{{end}}
+            {{- if and (eq .Run.RunKind "iterate_child") .Run.IterateIndex .Run.IterateTotal}}
+            <span style="color:var(--color-text-muted);"> &rsaquo; </span>
+            <span class="badge badge-runkind badge-runkind-iterate_child">item {{addInt (deref .Run.IterateIndex) 1}}/{{deref .Run.IterateTotal}}</span>
+            {{- else if .Run.RunKind}}
+            <span style="color:var(--color-text-muted);"> &rsaquo; </span>
+            <span class="badge badge-runkind badge-runkind-{{.Run.RunKind}}">{{runKindLabel .Run.RunKind}}</span>
+            {{- end}}
+        </a>
+        {{end}}
         <h1>
             <a href="/pipelines/{{.Run.PipelineName}}">{{.Run.PipelineName}}</a>
             <span class="badge {{statusClass .Run.Status}}">{{statusLabel .Run.Status}}</span>
@@ -30,7 +42,7 @@
     <span style="color:var(--color-text-muted);">·</span>
     <span><b>{{.Run.StepsCompleted}}/{{.Run.StepsTotal}}</b> steps</span>
     <span style="color:var(--color-text-muted);">·</span>
-    <span><b>{{formatTokens .Run.TotalTokens}}</b> tok</span>
+    <span><b>{{formatTokens .Run.TotalTokens}}</b> tok{{if subtreeIsLarger .Run}} <span style="color:var(--color-text-muted);" title="Total tokens across this run + every descendant child run">(subtree {{formatTokens .Run.SubtreeTokens}})</span>{{end}}</span>
     {{range .Adapters}}<span class="badge badge-adapter">{{adapterIcon .}}{{friendlyModel .}}</span>{{end}}
     {{range .Models}}<span class="badge badge-model {{modelTierClass .}}"{{if modelTierTooltip .}} title="{{modelTierTooltip .}}" style="cursor:help"{{end}}>{{friendlyModel .}}</span>{{end}}
     {{if .Run.BranchName}}<span class="badge badge-branch">&#9741; {{.Run.BranchName}}</span>{{end}}

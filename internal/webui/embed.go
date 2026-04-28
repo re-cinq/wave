@@ -121,6 +121,9 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 			}
 			return *p
 		},
+		"subtreeIsLarger": func(r RunSummary) bool {
+			return r.SubtreeTokens > int64(r.TotalTokens)
+		},
 		"pluralize": func(n int, singular, plural string) string {
 			if n == 1 {
 				return singular
