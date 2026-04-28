@@ -65,7 +65,7 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 		return nil, fmt.Errorf("failed to prepare workspace: %w", err)
 	}
 
-	args := a.buildArgs(cfg)
+	args := a.buildArgs()
 	cmd := exec.CommandContext(ctx, a.claudePath, args...)
 	cmd.Dir = workspacePath
 	if cfg.Prompt != "" {
@@ -409,7 +409,7 @@ func getenvDefault(key, fallback string) string {
 	return fallback
 }
 
-func (a *ClaudeAdapter) buildArgs(cfg AdapterRunConfig) []string {
+func (a *ClaudeAdapter) buildArgs() []string {
 	args := []string{"-p"}
 
 	// Agent mode: pass --agent pointing to the compiled persona .md file.

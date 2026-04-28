@@ -182,11 +182,11 @@ func TestInjectDependencyArtifacts_CanonicalAndAlias(t *testing.T) {
 		t.Fatalf("inject: %v", err)
 	}
 
-	canonical := filepath.Join(workspace, ".agents", "artifacts", "fetch", "pr-context")
+	canonical := filepath.Join(workspace, ".agents", "artifacts", "fetch", "pr-context.json")
 	if _, err := os.Stat(canonical); err != nil {
 		t.Errorf("canonical missing: %v", err)
 	}
-	alias := filepath.Join(workspace, ".agents", "output", "pr-context")
+	alias := filepath.Join(workspace, ".agents", "output", "pr-context.json")
 	if _, err := os.Stat(alias); err != nil {
 		t.Errorf("alias missing: %v", err)
 	}
