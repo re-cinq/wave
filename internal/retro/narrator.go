@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -32,10 +33,20 @@ func NewNarrator(runner adapter.AdapterRunner, model string) *Narrator {
 func (n *Narrator) Narrate(ctx context.Context, runID string, pipeline string, quant *QuantitativeData) (*Narrative, error) {
 	prompt := n.buildPrompt(runID, pipeline, quant)
 
+	// Adapters require a non-empty WorkspacePath to avoid accidentally
+	// rooting an LLM call in the project directory. The narrator is a
+	// one-shot prompt with no file I/O, so an ephemeral tmpdir suffices.
+	workspace, err := os.MkdirTemp("", "wave-narrator-")
+	if err != nil {
+		return nil, fmt.Errorf("narrator workspace: %w", err)
+	}
+	defer os.RemoveAll(workspace)
+
 	cfg := adapter.AdapterRunConfig{
-		Prompt:  prompt,
-		Model:   n.model,
-		Timeout: n.timeout,
+		Prompt:        prompt,
+		Model:         n.model,
+		Timeout:       n.timeout,
+		WorkspacePath: workspace,
 	}
 
 	result, err := n.runner.Run(ctx, cfg)
