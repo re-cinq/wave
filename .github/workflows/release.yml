@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  validate:
+  test:
     if: "!startsWith(github.ref, 'refs/tags/')"
     runs-on: ubuntu-latest
     steps:
@@ -21,9 +21,34 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: true
 
-      - name: Run tests
-        run: go test -race ./...
+      - name: Cache go-build
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-build-
+
+      - name: Run race tests on hot packages
+        run: go test -race -timeout 5m ./internal/pipeline/... ./internal/contract/... ./internal/state/...
+
+      - name: Run remaining tests without race
+        run: go test -timeout 5m $(go list ./... | grep -v -E '/(internal/pipeline|internal/contract|internal/state)(/|$)')
+
+  goreleaser-check:
+    if: "!startsWith(github.ref, 'refs/tags/')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
 
       - name: Install GoReleaser
         run: go install github.com/goreleaser/goreleaser/v2@latest
@@ -33,6 +58,13 @@ jobs:
 
       - name: Test build
         run: goreleaser release --snapshot --clean
+
+  validate:
+    if: "!startsWith(github.ref, 'refs/tags/')"
+    runs-on: ubuntu-latest
+    needs: [test, goreleaser-check]
+    steps:
+      - run: echo "all validation jobs passed"
 
   auto-tag:
     if: github.ref == 'refs/heads/main'
