@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/recinq/wave/internal/manifest"
-	"github.com/recinq/wave/internal/pipeline"
 	"gopkg.in/yaml.v3"
 )
 
@@ -232,12 +231,12 @@ func GetReleasePipelines() (map[string]string, error) {
 
 	result := make(map[string]string)
 	for name, content := range all {
-		var p pipeline.Pipeline
-		if err := yaml.Unmarshal([]byte(content), &p); err != nil {
+		var header manifest.PipelineHeader
+		if err := yaml.Unmarshal([]byte(content), &header); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: skipping pipeline %s: failed to unmarshal: %v\n", name, err)
 			continue
 		}
-		if p.Metadata.Release {
+		if header.Metadata.Release {
 			result[name] = content
 		}
 	}
