@@ -10,21 +10,28 @@ import (
 	"strings"
 	"time"
 
+	"github.com/recinq/wave/internal/event"
+
 	_ "modernc.org/sqlite"
 )
 
-// StepState represents the state of a pipeline step.
-type StepState string
+// StepState represents the state of a pipeline step. It aliases event.StepState
+// — internal/event is the canonical owner of the lifecycle vocabulary, and
+// internal/state imports it (reversing the historical event -> state import).
+type StepState = event.StepState
 
+// Step lifecycle constants. These re-export the canonical untyped string
+// constants from internal/event so they are usable both as plain strings and
+// as StepState values (typed alias of event.StepState).
 const (
-	StatePending        StepState = "pending"
-	StateRunning        StepState = "running"
-	StateCompleted      StepState = "completed"
-	StateCompletedEmpty StepState = "completed_empty" // Step completed but produced no meaningful changes (zero diff in worktree)
-	StateFailed         StepState = "failed"
-	StateRetrying       StepState = "retrying"
-	StateSkipped        StepState = "skipped"
-	StateReworking      StepState = "reworking"
+	StatePending        StepState = event.StatePending
+	StateRunning        StepState = event.StateRunning
+	StateCompleted      StepState = event.StateCompleted
+	StateCompletedEmpty StepState = event.StateCompletedEmpty
+	StateFailed         StepState = event.StateFailed
+	StateRetrying       StepState = event.StateRetrying
+	StateSkipped        StepState = event.StateSkipped
+	StateReworking      StepState = event.StateReworking
 )
 
 // PipelineStateRecord holds persisted pipeline state.
