@@ -470,7 +470,7 @@ runtime:
         log_all_file_operations: false
         log_all_tool_calls: true
         log_dir: .agents/traces/
-    default_timeout_minutes: 30
+    default_timeout_minutes: 90
     stall_timeout: 10m
     max_concurrent_workers: 5
     meta_pipeline:
