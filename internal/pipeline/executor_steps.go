@@ -363,19 +363,12 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		_ = e.store.SaveStepState(pipelineID, step.ID, state.StateRunning, "")
 	}
 
-	// Check if this step uses concurrency (before matrix check — mutually exclusive)
-	if step.Concurrency > 1 {
-		return e.executeConcurrentStep(ctx, execution, step)
-	}
-
-	// Check if this step uses a matrix strategy
-	if step.Strategy != nil && step.Strategy.Type == "matrix" {
-		return e.executeMatrixStep(ctx, execution, step)
-	}
-
-	// Composition step: delegate to sub-pipeline execution
-	if step.IsCompositionStep() {
-		return e.executeCompositionStep(ctx, execution, step)
+	// Strategy dispatch: concurrency, matrix, and all composition primitives
+	// route through the StrategyExecutor registry in strategy.go. When the
+	// step is a regular persona / command step the registry returns nil and
+	// we fall through to the standard adapter pipeline.
+	if strategy := selectStrategy(e, step); strategy != nil {
+		return strategy.Execute(ctx, execution, step)
 	}
 
 	// Command step: execute shell script directly (no adapter/persona needed).
