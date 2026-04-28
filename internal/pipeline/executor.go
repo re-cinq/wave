@@ -3406,7 +3406,7 @@ func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, exec
 
 	// Auto-generate contract compliance section. Appended directly to the user prompt
 	// so the model sees it alongside the task instructions (system prompt injection was unreliable).
-	contractPrompt := e.buildContractPrompt(step, execution.Context)
+	contractPrompt := e.buildContractPrompt(step, execution.Context, &execution.Manifest.Runtime.Prompt)
 	if contractPrompt != "" {
 		prompt = prompt + "\n\n" + contractPrompt
 	}
@@ -4899,7 +4899,11 @@ func (e *DefaultPipelineExecutor) trackStepDeliverables(execution *PipelineExecu
 //
 // This is the SINGLE source of truth for schema injection — it includes security
 // validation (path traversal, content sanitization) and the full schema content.
-func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineContext) string {
+//
+// promptCfg controls inline-schema behavior. Pass nil to preserve historical
+// behavior (full schema dump). Callers in production go through
+// runStep, which threads `&execution.Manifest.Runtime.Prompt`.
+func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineContext, promptCfg *manifest.PromptConfig) string {
 	var b strings.Builder
 
 	// ── Output artifact guidance ──────────────────────────────────────
@@ -4939,10 +4943,20 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 		// time, which surfaces the real error.
 		schemaContent, _ := e.sec.loadSecureSchemaContent(step)
 		if schemaContent != "" {
-			// Include the full schema for the persona to reference
-			b.WriteString("**Schema** (your output must conform to this):\n```json\n")
-			b.WriteString(schemaContent)
-			b.WriteString("\n```\n\n")
+			inlineSchemas := true
+			if promptCfg != nil {
+				inlineSchemas = promptCfg.InlineSchemasEnabled()
+			}
+			if inlineSchemas {
+				// Include the full schema for the persona to reference
+				b.WriteString("**Schema** (your output must conform to this):\n```json\n")
+				b.WriteString(schemaContent)
+				b.WriteString("\n```\n\n")
+			} else if step.Handover.Contract.SchemaPath != "" {
+				// Skip the heavy inline dump but tell the model where the
+				// authoritative schema lives so it can be inspected on demand.
+				b.WriteString(fmt.Sprintf("**Schema reference**: `%s` (the validator enforces this; the skeleton below covers the required shape).\n\n", step.Handover.Contract.SchemaPath))
+			}
 
 			// Also extract required fields and build a skeleton example
 			var schema struct {

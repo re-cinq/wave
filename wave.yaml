@@ -470,9 +470,17 @@ runtime:
         log_all_file_operations: false
         log_all_tool_calls: true
         log_dir: .agents/traces/
-    default_timeout_minutes: 30
-    stall_timeout: 10m
+    default_timeout_minutes: 90
+    stall_timeout: 90m
     max_concurrent_workers: 5
+    prompt:
+        # Skip the full json_schema dump in the prompt (~50KB per step). The
+        # required-fields skeleton + schema path reference are kept; that's
+        # enough for any model that handled the YAML pipeline at all, and it
+        # frees ~12-15K tokens per step — the difference between a local
+        # 32K-context Ollama model finishing an audit step and hanging.
+        # Default for the rest of the world is true (full schema inlined).
+        inline_schemas: false
     meta_pipeline:
         max_depth: 2
         max_total_steps: 20
@@ -482,7 +490,7 @@ runtime:
         strategy: summarize_to_checkpoint
         token_threshold_percent: 80
     timeouts:
-        step_default_minutes: 15
+        step_default_minutes: 90
         relay_compaction_minutes: 5
         meta_default_minutes: 30
         skill_install_seconds: 120

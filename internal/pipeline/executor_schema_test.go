@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/security"
 	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/assert"
@@ -47,7 +48,7 @@ func TestContractPrompt_ValidFileSchema(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	// Verify output requirements and contract schema sections
 	assert.Contains(t, prompt, "Output Requirements")
@@ -68,6 +69,59 @@ func TestContractPrompt_ValidFileSchema(t *testing.T) {
 }
 
 // TestContractPrompt_InlineSchema tests that inline schemas are included in the contract prompt.
+// TestContractPrompt_InlineSchemasDisabled verifies that the
+// runtime.prompt.inline_schemas=false toggle drops the full schema dump but
+// keeps the schema-path reference and the required-fields skeleton.
+func TestContractPrompt_InlineSchemasDisabled(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	schemaContent := `{
+  "type": "object",
+  "required": ["name", "version"],
+  "properties": {
+    "name": {"type": "string"},
+    "version": {"type": "string"}
+  }
+}`
+	schemaPath := filepath.Join(tmpDir, "contracts", "test.schema.json")
+	require.NoError(t, os.MkdirAll(filepath.Dir(schemaPath), 0755))
+	require.NoError(t, os.WriteFile(schemaPath, []byte(schemaContent), 0644))
+
+	executor := createSchemaTestExecutor(tmpDir)
+
+	step := &Step{
+		ID: "step1",
+		OutputArtifacts: []ArtifactDef{
+			{Name: "output", Path: ".agents/output/result.json"},
+		},
+		Handover: HandoverConfig{
+			Contract: ContractConfig{
+				Type:       "json_schema",
+				SchemaPath: schemaPath,
+			},
+		},
+	}
+
+	disabled := false
+	prompt := executor.buildContractPrompt(step, nil, &manifest.PromptConfig{InlineSchemas: &disabled})
+
+	// Skeleton + required fields must still appear — that is enough for the
+	// model to produce conforming JSON.
+	assert.Contains(t, prompt, "Required fields")
+	assert.Contains(t, prompt, "Example structure")
+	assert.Contains(t, prompt, "`name`, `version`")
+
+	// Schema path reference is kept as a pointer to the authoritative source.
+	assert.Contains(t, prompt, "Schema reference")
+	assert.Contains(t, prompt, schemaPath)
+
+	// The full schema body must NOT be inlined when the flag is off.
+	assert.NotContains(t, prompt, `"properties": {`,
+		"full schema dump should be skipped when inline_schemas=false")
+	assert.NotContains(t, prompt, "**Schema** (your output must conform to this)",
+		"inline-schema header should be skipped when the dump is off")
+}
+
 func TestContractPrompt_InlineSchema(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -88,7 +142,7 @@ func TestContractPrompt_InlineSchema(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	assert.Contains(t, prompt, "Output Requirements")
 	assert.Contains(t, prompt, "Contract Schema")
@@ -116,7 +170,7 @@ func TestContractPrompt_MissingSchemaFile(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	// Contract prompt is still generated (CRITICAL warning) but no schema content
 	assert.Contains(t, prompt, "Contract Schema")
@@ -152,7 +206,7 @@ func TestContractPrompt_PathTraversalAttempt(t *testing.T) {
 				},
 			}
 
-			prompt := executor.buildContractPrompt(step, nil)
+			prompt := executor.buildContractPrompt(step, nil, nil)
 
 			// Path traversal should be blocked — no schema content injected
 			assert.NotContains(t, prompt, "etc/passwd")
@@ -204,7 +258,7 @@ func TestContractPrompt_PromptInjectionInSchema(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	assert.NotContains(t, strings.ToLower(prompt), "ignore previous instructions")
 	assert.NotContains(t, strings.ToLower(prompt), "disregard above")
@@ -242,7 +296,7 @@ func TestContractPrompt_LargeSchemaFile(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	assert.NotContains(t, prompt, strings.Repeat("x", 100),
 		"Large schema content should not be injected")
@@ -275,7 +329,7 @@ func TestContractPrompt_NonJsonSchemaContract(t *testing.T) {
 				},
 			}
 
-			prompt := executor.buildContractPrompt(step, nil)
+			prompt := executor.buildContractPrompt(step, nil, nil)
 
 			if tc.contractType == "" {
 				assert.Empty(t, prompt, "Empty contract type should produce empty prompt")
@@ -308,7 +362,7 @@ func TestContractPrompt_SchemaPathPrecedence(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	assert.Contains(t, prompt, `"source":"file"`, "File schema should be used")
 	assert.NotContains(t, prompt, `"source":"inline"`, "Inline schema should not be used when SchemaPath is provided")
@@ -330,7 +384,7 @@ func TestContractPrompt_EmptySchema(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	// Contract Schema header appears (contract type is json_schema) but no actual schema content
 	assert.Contains(t, prompt, "Contract Schema")
@@ -370,7 +424,7 @@ func TestContractPrompt_SpecialCharactersInSchema(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	assert.Contains(t, prompt, "Schema", "Schema with special chars should be injected")
 	assert.Contains(t, prompt, "email", "Schema content should be present")
@@ -412,7 +466,7 @@ func TestContractPrompt_MustPassPromptInjection(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	assert.NotContains(t, prompt, "ignore previous instructions")
 }
@@ -521,7 +575,7 @@ func TestContractPrompt_RelativeSchemaPath(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	assert.Contains(t, prompt, "Schema", "Relative path should work for allowed directories")
 }
@@ -546,7 +600,7 @@ func TestContractPrompt_InvalidJSONSchema(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	// Invalid JSON should still be included (validation happens at contract validation time)
 	assert.Contains(t, prompt, "Schema", "Invalid JSON content should still be injected")
@@ -579,7 +633,7 @@ func TestContractPrompt_UnicodeInSchema(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	assert.Contains(t, prompt, "Schema", "Unicode schema should be injected")
 	assert.Contains(t, prompt, "Schema with Unicode", "Schema description should be present")
@@ -616,7 +670,7 @@ func TestContractPrompt_SecurityLogging(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 	assert.Contains(t, prompt, "Schema", "Schema should be injected with logging enabled")
 }
 
@@ -641,7 +695,7 @@ func TestContractPrompt_ArtifactGuidance(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	assert.Contains(t, prompt, "Available Artifacts")
 	assert.Contains(t, prompt, "`research_data` → `.agents/artifacts/research_data`")
@@ -669,7 +723,7 @@ func TestContractPrompt_ArtifactGuidanceUsesArtifactNameWhenNoAs(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	assert.Contains(t, prompt, "`raw-data` → `.agents/artifacts/raw-data`")
 }
@@ -690,7 +744,7 @@ func TestContractPrompt_NoArtifactGuidanceWhenNoInjections(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	assert.NotContains(t, prompt, "Available Artifacts")
 }
@@ -714,7 +768,7 @@ func TestContractPrompt_JsonOutputWithoutContract(t *testing.T) {
 		// NOTE: No Handover.Contract at all
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	// Should still generate output requirements
 	assert.Contains(t, prompt, "Output Requirements")
@@ -742,7 +796,7 @@ func TestContractPrompt_MarkdownOutputWithoutContract(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	assert.Contains(t, prompt, "Output Requirements")
 	assert.Contains(t, prompt, ".agents/output/report.md")
@@ -763,7 +817,7 @@ func TestContractPrompt_MultipleOutputArtifacts(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	assert.Contains(t, prompt, ".agents/output/pr-result.json")
 	assert.Contains(t, prompt, ".agents/output/summary.md")
@@ -780,7 +834,7 @@ func TestContractPrompt_NoOutputsNoContract(t *testing.T) {
 		ID: "step1",
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 	assert.Empty(t, prompt)
 }
 
@@ -800,7 +854,7 @@ func TestContractPrompt_InjectArtifactsOnly(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	assert.NotEmpty(t, prompt)
 	assert.Contains(t, prompt, "Available Artifacts")

@@ -172,6 +172,29 @@ type Runtime struct {
 	Cost                 CostConfig             `yaml:"cost,omitempty"`
 	Fallbacks            map[string][]string    `yaml:"fallbacks,omitempty"`     // Adapter fallback chains (e.g., anthropic: [openai, gemini])
 	StallTimeout         string                 `yaml:"stall_timeout,omitempty"` // Duration string (e.g. "30m", "1800s"). 0 or empty = disabled.
+	Prompt               PromptConfig           `yaml:"prompt,omitempty"`        // Prompt-construction tuning knobs.
+}
+
+// PromptConfig controls how the executor builds the prompt sent to adapters.
+// All fields default to the historical behavior so omitting the block is a no-op.
+type PromptConfig struct {
+	// InlineSchemas controls whether the full json_schema contract content is
+	// inlined into the prompt as a fenced code block. When false, the executor
+	// keeps the lighter required-fields skeleton and a reference to the schema
+	// path, dropping ~50KB per step. Default: true (preserves existing behavior).
+	//
+	// Set to false for local-Ollama runs where the schema dump consumes a large
+	// fraction of the model's context window.
+	InlineSchemas *bool `yaml:"inline_schemas,omitempty"`
+}
+
+// InlineSchemasEnabled reports whether full json_schema contracts should be
+// inlined into the prompt. Defaults to true when unset.
+func (p PromptConfig) InlineSchemasEnabled() bool {
+	if p.InlineSchemas == nil {
+		return true
+	}
+	return *p.InlineSchemas
 }
 
 // CostConfig holds cost tracking and budget enforcement settings.
