@@ -72,7 +72,7 @@ func TestFallbackRunner_RateLimitTriggersFallback(t *testing.T) {
 	assert.Equal(t, 1, fallback.callCount)
 }
 
-func TestFallbackRunner_ContextExhaustionDoesNotTriggerFallback(t *testing.T) {
+func TestFallbackRunner_ContextExhaustionTriggersFallback(t *testing.T) {
 	primary := &failingRunner{failureReason: "context_exhaustion"}
 	fallback := &successRunner{}
 
@@ -83,8 +83,25 @@ func TestFallbackRunner_ContextExhaustionDoesNotTriggerFallback(t *testing.T) {
 	result, err := fr.Run(context.Background(), AdapterRunConfig{})
 
 	assert.NoError(t, err)
-	assert.Equal(t, "context_exhaustion", result.FailureReason)
-	assert.Equal(t, 0, fallback.callCount, "should NOT call fallback on context_exhaustion")
+	assert.Equal(t, "success", result.ResultContent,
+		"context_exhaustion should trigger fallback to a peer with a different context budget")
+	assert.Equal(t, 1, fallback.callCount)
+}
+
+func TestFallbackRunner_TimeoutTriggersFallback(t *testing.T) {
+	primary := &failingRunner{failureReason: "timeout"}
+	fallback := &successRunner{}
+
+	registry := NewAdapterRegistry(nil)
+	registry.RegisterOverride("codex", fallback)
+
+	fr := NewFallbackRunner(primary, []string{"codex"}, registry)
+	result, err := fr.Run(context.Background(), AdapterRunConfig{})
+
+	assert.NoError(t, err)
+	assert.Equal(t, "success", result.ResultContent,
+		"timeout should trigger fallback so a stalled local model hands off to a peer")
+	assert.Equal(t, 1, fallback.callCount)
 }
 
 func TestFallbackRunner_GeneralErrorDoesNotTriggerFallback(t *testing.T) {
@@ -130,9 +147,14 @@ func TestFallbackRunner_EmptyChainReturnsPrimaryResult(t *testing.T) {
 	result, err := fr.Run(context.Background(), AdapterRunConfig{})
 
 	// Empty chain — the initial rate_limit result won't trigger any fallbacks
-	// but the loop doesn't execute, so we get the "all fallback adapters exhausted" error
-	assert.Error(t, err)
-	assert.NotNil(t, result)
+	// but the loop doesn't execute, so we get the "all fallback adapters exhausted" error.
+	// The primary's lastResult is returned unwrapped so callers can inspect why
+	// the fallback chain bailed out (here: the primary's rate_limit failure).
+	assert.EqualError(t, err, "all fallback adapters exhausted")
+	require.NotNil(t, result)
+	assert.Equal(t, "rate_limit", result.FailureReason)
+	assert.Equal(t, "failed: rate_limit", result.ResultContent)
+	assert.Equal(t, 1, primary.callCount)
 }
 
 func TestFallbackRunner_HardErrorFromPrimary(t *testing.T) {
@@ -183,9 +205,9 @@ func TestFallbackRunner_ContextCancelledDuringFallback(t *testing.T) {
 
 func TestIsFallbackTrigger(t *testing.T) {
 	assert.True(t, isFallbackTrigger(&AdapterResult{FailureReason: "rate_limit"}))
-	assert.False(t, isFallbackTrigger(&AdapterResult{FailureReason: "context_exhaustion"}))
+	assert.True(t, isFallbackTrigger(&AdapterResult{FailureReason: "context_exhaustion"}))
+	assert.True(t, isFallbackTrigger(&AdapterResult{FailureReason: "timeout"}))
 	assert.False(t, isFallbackTrigger(&AdapterResult{FailureReason: "general_error"}))
-	assert.False(t, isFallbackTrigger(&AdapterResult{FailureReason: "timeout"}))
 	assert.False(t, isFallbackTrigger(&AdapterResult{FailureReason: ""}))
 	assert.False(t, isFallbackTrigger(nil))
 }

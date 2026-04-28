@@ -80,11 +80,23 @@ func (f *FallbackRunner) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapte
 	return lastResult, fmt.Errorf("all fallback adapters exhausted")
 }
 
-// isFallbackTrigger returns true if the result indicates a rate limit
-// failure that should trigger fallback to the next provider.
+// isFallbackTrigger returns true when a failure has a real chance of
+// succeeding on a different provider — i.e. the failure is upstream-capacity
+// (rate limit), wall-clock (the model stalled past the timeout), or
+// context-budget (the model couldn't fit the prompt). All three commonly
+// resolve when retried on a peer with different limits, model architecture,
+// or context window.
+//
+// Other classifications (general_error, validation, etc.) are intentionally
+// excluded — they typically indicate a bug or schema mismatch that will fail
+// the same way on any provider.
 func isFallbackTrigger(result *AdapterResult) bool {
 	if result == nil {
 		return false
 	}
-	return result.FailureReason == "rate_limit"
+	switch result.FailureReason {
+	case FailureReasonRateLimit, FailureReasonTimeout, FailureReasonContextExhaustion:
+		return true
+	}
+	return false
 }

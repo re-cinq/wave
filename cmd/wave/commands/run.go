@@ -463,7 +463,7 @@ func runRun(opts RunOptions, debug bool) error {
 	if opts.ForceModel {
 		execOpts = append(execOpts, pipeline.WithForceModel(true))
 	}
-	registry := adapter.NewAdapterRegistry(nil)
+	registry := adapter.NewAdapterRegistry(m.Runtime.Fallbacks)
 	for name, a := range m.Adapters {
 		if a.Binary != "" {
 			registry.SetBinary(name, a.Binary)

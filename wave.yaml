@@ -473,6 +473,14 @@ runtime:
     default_timeout_minutes: 30
     stall_timeout: 10m
     max_concurrent_workers: 5
+    # Adapter fallback chains. When the primary adapter returns a fallback-
+    # eligible failure (rate_limit, timeout, context_exhaustion), the registry
+    # walks the chain in order until one succeeds. Useful for self-healing
+    # when local Ollama models stall on tool-call streams (the GLM-via-Ollama
+    # bug documented in PRs #1404 / #1468).
+    fallbacks:
+        opencode-glm: [opencode-qwen, claude]
+        opencode-qwen: [claude]
     meta_pipeline:
         max_depth: 2
         max_total_steps: 20
