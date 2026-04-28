@@ -66,21 +66,26 @@ Key source files: `internal/pipeline/executor.go`, `internal/adapter/claude.go`,
 ```
 internal/
 ├── adapter/      # Subprocess execution and adapter management
+├── attention/    # Attention classifier driving dashboard notification badges
 ├── audit/        # Audit logging and credential scrubbing
 ├── bench/        # SWE-bench benchmarking and comparison
+├── checks/       # Shared host-capability probes for preflight and doctor
+├── classify/     # Issue domain/complexity classification and pipeline selection
 ├── continuous/   # Continuous pipeline execution
 ├── contract/     # Output validation (JSON, TypeScript, test suites)
 ├── cost/         # Cost ledger, iron rule enforcement, model pricing
 ├── defaults/     # Embedded default personas, pipelines, and contracts
-├── deliverable/  # Pipeline deliverable tracking and output
 ├── display/      # Terminal progress display and formatting
 ├── doctor/       # Project health checking and optimization
 ├── event/        # Progress event emission and monitoring
+├── fileutil/     # File and directory copy helpers
 ├── forge/        # Git forge/hosting platform detection (GitHub, GitLab, Gitea, Forgejo, Codeberg, Bitbucket, local)
 ├── github/       # GitHub API integration for issue enhancement
 ├── hooks/        # Lifecycle hooks and webhook delivery runner
+├── humanize/     # Human-readable formatting helpers (durations, counts, sizes)
 ├── manifest/     # Configuration loading and validation
 ├── onboarding/   # Interactive wave init flow (monorepo-aware, Docker compose, flavour detection)
+├── ontology/     # Bounded-context ontology service (staleness, injection, lineage, audit)
 ├── pathfmt/      # Path formatting and normalization utilities
 ├── pipeline/     # Pipeline execution, step management, model routing, decision logging
 ├── preflight/    # Pipeline dependency validation and auto-install
@@ -91,8 +96,11 @@ internal/
 ├── scope/        # Persona token scope parsing and validation
 ├── security/     # Security validation and sanitization
 ├── skill/        # Skill discovery, provisioning, and command management
-├── state/        # SQLite persistence, webhooks, decision log, ontology usage
+├── state/        # SQLite persistence, outcome tracking, webhooks, decision log, ontology usage
 ├── suggest/      # Pipeline suggestion engine
+├── testutil/     # Shared test helpers (event collectors, state mocks, manifest fixtures)
+├── timeouts/     # Default timeout constants (leaf package, breaks import cycles)
+├── tools/        # Shared CLI tool availability checks
 ├── tui/          # Bubble Tea terminal UI
 ├── webui/        # Web operations dashboard (runs, pipelines, webhooks, admin, analytics)
 ├── worktree/     # Git worktree lifecycle for isolated workspaces
