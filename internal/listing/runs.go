@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
-	"gopkg.in/yaml.v3"
 )
 
 // DefaultStateDBPath is the default Wave state database location.
@@ -169,21 +169,17 @@ func listRunsFromWorkspaces(opts RunsOptions) ([]RunInfo, error) {
 func inferWorkspaceStatus(wsPath string, pipelineName string) (status string, endTime time.Time) {
 	baseName := ExtractPipelineName(pipelineName)
 	pipelinePath := filepath.Join(DefaultPipelineDir, baseName+".yaml")
-	pipelineData, err := os.ReadFile(pipelinePath)
+	p, err := pipeline.LoadPipelineFileLenient(pipelinePath)
 	if err != nil {
-		stepDirs, _ := os.ReadDir(wsPath)
-		if len(stepDirs) == 0 {
-			return "pending", time.Time{}
+		// File missing → fall back to step-dir heuristic; parse failure →
+		// "unknown" with latest mtime, matching the pre-loader behaviour.
+		if _, statErr := os.Stat(pipelinePath); statErr != nil {
+			stepDirs, _ := os.ReadDir(wsPath)
+			if len(stepDirs) == 0 {
+				return "pending", time.Time{}
+			}
+			return "unknown", latestFileTime(wsPath)
 		}
-		return "unknown", latestFileTime(wsPath)
-	}
-
-	var p struct {
-		Steps []struct {
-			ID string `yaml:"id"`
-		} `yaml:"steps"`
-	}
-	if err := yaml.Unmarshal(pipelineData, &p); err != nil {
 		return "unknown", latestFileTime(wsPath)
 	}
 

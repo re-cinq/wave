@@ -13,7 +13,6 @@ import (
 	"github.com/recinq/wave/internal/defaults"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/skill"
-	"gopkg.in/yaml.v3"
 )
 
 // SkillTemplateSummary represents a bundled skill template for the web UI.
@@ -169,32 +168,9 @@ func installedSkillSet() map[string]bool {
 // mirroring the TUI's DefaultSkillDataProvider logic.
 func getSkillSummaries() []SkillSummary {
 	pipelinesDir := filepath.Join(".agents", "pipelines")
-	entries, err := os.ReadDir(pipelinesDir)
-	if err != nil {
-		return nil
-	}
-
 	skillMap := make(map[string]*SkillSummary)
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		ext := filepath.Ext(entry.Name())
-		if ext != ".yaml" && ext != ".yml" {
-			continue
-		}
-
-		data, err := os.ReadFile(filepath.Join(pipelinesDir, entry.Name()))
-		if err != nil {
-			continue
-		}
-
-		var pl pipeline.Pipeline
-		if err := yaml.Unmarshal(data, &pl); err != nil {
-			continue
-		}
-
+	for _, pl := range pipeline.ScanPipelinesDir(pipelinesDir) {
 		if pl.Requires == nil || len(pl.Requires.Skills) == 0 {
 			continue
 		}

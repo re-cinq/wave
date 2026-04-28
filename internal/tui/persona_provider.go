@@ -1,15 +1,12 @@
 package tui
 
 import (
-	"os"
-	"path/filepath"
 	"sort"
 	"time"
 
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
-	"gopkg.in/yaml.v3"
 )
 
 // PersonaInfo is the TUI data projection for a persona.
@@ -61,33 +58,13 @@ func (p *DefaultPersonaDataProvider) FetchPersonas() ([]PersonaInfo, error) {
 
 	// Build pipeline usage map by scanning all pipeline YAML files
 	usageMap := make(map[string][]PipelineStepRef)
-	if p.pipelinesDir != "" {
-		entries, err := os.ReadDir(p.pipelinesDir)
-		if err == nil {
-			for _, entry := range entries {
-				if entry.IsDir() {
-					continue
-				}
-				ext := filepath.Ext(entry.Name())
-				if ext != ".yaml" && ext != ".yml" {
-					continue
-				}
-				data, err := os.ReadFile(filepath.Join(p.pipelinesDir, entry.Name()))
-				if err != nil {
-					continue
-				}
-				var pl pipeline.Pipeline
-				if err := yaml.Unmarshal(data, &pl); err != nil {
-					continue
-				}
-				for _, step := range pl.Steps {
-					if step.Persona != "" {
-						usageMap[step.Persona] = append(usageMap[step.Persona], PipelineStepRef{
-							PipelineName: pl.Metadata.Name,
-							StepID:       step.ID,
-						})
-					}
-				}
+	for _, pl := range pipeline.ScanPipelinesDir(p.pipelinesDir) {
+		for _, step := range pl.Steps {
+			if step.Persona != "" {
+				usageMap[step.Persona] = append(usageMap[step.Persona], PipelineStepRef{
+					PipelineName: pl.Metadata.Name,
+					StepID:       step.ID,
+				})
 			}
 		}
 	}

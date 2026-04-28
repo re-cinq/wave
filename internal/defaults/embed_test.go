@@ -6,7 +6,6 @@ import (
 
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/skill"
-	"gopkg.in/yaml.v3"
 )
 
 func TestGetReleasePipelines_ReturnsSubset(t *testing.T) {
@@ -62,8 +61,8 @@ func TestGetReleasePipelines_OnlyReleaseTrue(t *testing.T) {
 	}
 
 	for name, content := range release {
-		var header manifest.PipelineHeader
-		if err := yaml.Unmarshal([]byte(content), &header); err != nil {
+		header, err := manifest.LoadPipelineHeader([]byte(content))
+		if err != nil {
 			t.Errorf("failed to unmarshal release pipeline %q: %v", name, err)
 			continue
 		}
@@ -85,8 +84,8 @@ func TestGetReleasePipelines_ExcludesNonRelease(t *testing.T) {
 	}
 
 	for name, content := range all {
-		var header manifest.PipelineHeader
-		if err := yaml.Unmarshal([]byte(content), &header); err != nil {
+		header, err := manifest.LoadPipelineHeader([]byte(content))
+		if err != nil {
 			continue // skip pipelines that fail to unmarshal
 		}
 		if !header.Metadata.Release {
@@ -137,8 +136,8 @@ func TestGetReleasePipelines_DisabledAndReleaseIncluded(t *testing.T) {
 	}
 
 	for name, content := range all {
-		var header manifest.PipelineHeader
-		if err := yaml.Unmarshal([]byte(content), &header); err != nil {
+		header, err := manifest.LoadPipelineHeader([]byte(content))
+		if err != nil {
 			continue
 		}
 		if header.Metadata.Release && header.Metadata.Disabled {

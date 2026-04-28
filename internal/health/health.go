@@ -15,7 +15,6 @@ import (
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
-	"gopkg.in/yaml.v3"
 )
 
 // CheckStatus represents the result of a health check.
@@ -276,8 +275,8 @@ func (p *DefaultDataProvider) checkRequiredTools() CheckResult {
 
 	// Collect all required tools across pipelines
 	toolSet := make(map[string]bool)
-	entries, err := os.ReadDir(p.pipelinesDir)
-	if err != nil {
+	pipelines := pipeline.ScanPipelinesDir(p.pipelinesDir)
+	if pipelines == nil {
 		return CheckResult{
 			Name:    "Required Tools",
 			Status:  StatusOK,
@@ -286,22 +285,7 @@ func (p *DefaultDataProvider) checkRequiredTools() CheckResult {
 		}
 	}
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		ext := filepath.Ext(entry.Name())
-		if ext != ".yaml" && ext != ".yml" {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(p.pipelinesDir, entry.Name()))
-		if err != nil {
-			continue
-		}
-		var pl pipeline.Pipeline
-		if err := yaml.Unmarshal(data, &pl); err != nil {
-			continue
-		}
+	for _, pl := range pipelines {
 		if pl.Requires != nil {
 			for _, tool := range pl.Requires.Tools {
 				toolSet[tool] = true
@@ -357,8 +341,8 @@ func (p *DefaultDataProvider) checkRequiredSkills() CheckResult {
 		}
 	}
 
-	entries, err := os.ReadDir(p.pipelinesDir)
-	if err != nil {
+	pipelines := pipeline.ScanPipelinesDir(p.pipelinesDir)
+	if pipelines == nil {
 		return CheckResult{
 			Name:    "Required Skills",
 			Status:  StatusOK,
@@ -373,22 +357,7 @@ func (p *DefaultDataProvider) checkRequiredSkills() CheckResult {
 	}
 	skillMap := make(map[string]skillEntry)
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		ext := filepath.Ext(entry.Name())
-		if ext != ".yaml" && ext != ".yml" {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(p.pipelinesDir, entry.Name()))
-		if err != nil {
-			continue
-		}
-		var pl pipeline.Pipeline
-		if err := yaml.Unmarshal(data, &pl); err != nil {
-			continue
-		}
+	for _, pl := range pipelines {
 		if pl.Requires != nil {
 			for name, cfg := range pl.Requires.Skills {
 				skillMap[name] = skillEntry{check: cfg.Check}
@@ -481,8 +450,8 @@ func (p *DefaultDataProvider) checkRetryPolicies() CheckResult {
 		}
 	}
 
-	entries, err := os.ReadDir(p.pipelinesDir)
-	if err != nil {
+	pipelines := pipeline.ScanPipelinesDir(p.pipelinesDir)
+	if pipelines == nil {
 		return CheckResult{
 			Name:    "Retry Policies",
 			Status:  StatusOK,
@@ -495,22 +464,7 @@ func (p *DefaultDataProvider) checkRetryPolicies() CheckResult {
 	totalRetrySteps := 0
 	policySteps := 0
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		ext := filepath.Ext(entry.Name())
-		if ext != ".yaml" && ext != ".yml" {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(p.pipelinesDir, entry.Name()))
-		if err != nil {
-			continue
-		}
-		var pl pipeline.Pipeline
-		if err := yaml.Unmarshal(data, &pl); err != nil {
-			continue
-		}
+	for _, pl := range pipelines {
 		for _, step := range pl.Steps {
 			if step.Retry.MaxAttempts > 1 || step.Retry.Policy != "" {
 				totalRetrySteps++

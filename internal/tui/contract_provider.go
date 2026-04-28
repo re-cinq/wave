@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/recinq/wave/internal/pipeline"
-	"gopkg.in/yaml.v3"
 )
 
 // ContractInfo is the TUI data projection for a contract.
@@ -41,33 +40,10 @@ func (p *DefaultContractDataProvider) FetchContracts() ([]ContractInfo, error) {
 		return nil, nil
 	}
 
-	entries, err := os.ReadDir(p.pipelinesDir)
-	if err != nil {
-		return nil, nil
-	}
-
 	// Map by schema path for deduplication; inline contracts use "pipeline:step" key
 	contractMap := make(map[string]*ContractInfo)
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		ext := filepath.Ext(entry.Name())
-		if ext != ".yaml" && ext != ".yml" {
-			continue
-		}
-
-		data, err := os.ReadFile(filepath.Join(p.pipelinesDir, entry.Name()))
-		if err != nil {
-			continue
-		}
-
-		var pl pipeline.Pipeline
-		if err := yaml.Unmarshal(data, &pl); err != nil {
-			continue
-		}
-
+	for _, pl := range pipeline.ScanPipelinesDir(p.pipelinesDir) {
 		for _, step := range pl.Steps {
 			contract := step.Handover.Contract
 			if contract.Type == "" {

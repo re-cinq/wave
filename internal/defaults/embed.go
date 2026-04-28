@@ -231,8 +231,8 @@ func GetReleasePipelines() (map[string]string, error) {
 
 	result := make(map[string]string)
 	for name, content := range all {
-		var header manifest.PipelineHeader
-		if err := yaml.Unmarshal([]byte(content), &header); err != nil {
+		header, err := manifest.LoadPipelineHeader([]byte(content))
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: skipping pipeline %s: failed to unmarshal: %v\n", name, err)
 			continue
 		}
