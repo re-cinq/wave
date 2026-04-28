@@ -3,7 +3,7 @@ package webui
 import (
 	"net/http"
 
-	"github.com/recinq/wave/internal/tui"
+	"github.com/recinq/wave/internal/health"
 )
 
 // handleHealthPage handles GET /health - serves the HTML health checks page.
@@ -31,7 +31,7 @@ func (s *Server) handleAPIHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getHealthListData() HealthListResponse {
-	provider := tui.NewDefaultHealthDataProvider(s.manifest, s.store, ".agents/pipelines")
+	provider := health.NewDefaultDataProvider(s.manifest, s.store, ".agents/pipelines")
 
 	var checks []HealthCheckResult
 	for _, name := range provider.CheckNames() {
@@ -47,13 +47,13 @@ func (s *Server) getHealthListData() HealthListResponse {
 	return HealthListResponse{Checks: checks}
 }
 
-func healthStatusString(s tui.HealthCheckStatus) string {
+func healthStatusString(s health.CheckStatus) string {
 	switch s {
-	case tui.HealthCheckOK:
+	case health.StatusOK:
 		return "ok"
-	case tui.HealthCheckWarn:
+	case health.StatusWarn:
 		return "warn"
-	case tui.HealthCheckErr:
+	case health.StatusErr:
 		return "error"
 	default:
 		return "unknown"
