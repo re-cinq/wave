@@ -3916,7 +3916,7 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		// workspace run ID override so resume reuses the original run's
 		// worktree dir instead of creating an empty one at the resume
 		// timestamp; falls back to pipelineID for fresh runs.
-		sanitized := sanitizeBranchName(branch)
+		sanitized := SanitizeBranchName(branch)
 		wtKey := "__wt_" + sanitized
 		wsPath := filepath.Join(wsRoot, e.workspaceRunIDFor(pipelineID), wtKey)
 

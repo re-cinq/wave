@@ -5,8 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/pipeline"
@@ -110,18 +108,6 @@ type DefaultDetailDataProvider struct {
 // NewDefaultDetailDataProvider creates a new provider.
 func NewDefaultDetailDataProvider(store detailStore, pipelinesDir string) *DefaultDetailDataProvider {
 	return &DefaultDetailDataProvider{store: store, pipelinesDir: pipelinesDir}
-}
-
-// sanitizeBranch sanitizes a branch name for use in filesystem paths.
-// Mirrors the logic in internal/pipeline/context.go:sanitizeBranchName().
-func sanitizeBranch(branchName string) string {
-	sanitized := regexp.MustCompile(`[^a-zA-Z0-9\-_]`).ReplaceAllString(branchName, "-")
-	sanitized = regexp.MustCompile(`-+`).ReplaceAllString(sanitized, "-")
-	sanitized = strings.Trim(sanitized, "-")
-	if len(sanitized) > 50 {
-		sanitized = sanitized[:50]
-	}
-	return sanitized
 }
 
 // FetchAvailableDetail reads all YAML files from pipelinesDir, finds the pipeline with the
@@ -286,7 +272,7 @@ func (d *DefaultDetailDataProvider) FetchFinishedDetail(runID string) (*Finished
 
 	// Derive workspace path from RunID and BranchName.
 	if run.BranchName != "" {
-		sanitized := sanitizeBranch(run.BranchName)
+		sanitized := pipeline.SanitizeBranchName(run.BranchName)
 		wsPath := filepath.Join(".agents", "workspaces", run.RunID, "__wt_"+sanitized)
 		if _, err := os.Stat(wsPath); err == nil {
 			detail.WorkspacePath = wsPath
