@@ -103,7 +103,8 @@ func (b baseStateStore) GetRunTags(string) ([]string, error) { return nil, nil }
 func (b baseStateStore) AddRunTag(string, string) error      { return nil }
 func (b baseStateStore) RemoveRunTag(string, string) error   { return nil }
 func (b baseStateStore) UpdateRunPID(string, int) error      { return nil }
-func (b baseStateStore) UpdateRunHeartbeat(string) error      { return nil }
+func (b baseStateStore) UpdateRunHeartbeat(string) error                { return nil }
+func (b baseStateStore) ReapOrphans(time.Duration) (int, error)         { return 0, nil }
 func (b baseStateStore) RecordStepAttempt(*state.StepAttemptRecord) error {
 	return nil
 }

@@ -2710,6 +2710,73 @@ func TestGetChildRuns(t *testing.T) {
 	}
 }
 
+// TestReapOrphans tests the orphaned-run reaper for issue #1467.
+func TestReapOrphans(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	// Backdate started_at via direct SQL so the cutoff check fires.
+	internalStore := store.(*stateStore)
+	pastTime := time.Now().Add(-30 * time.Minute).Unix()
+
+	// Stale: running, no heartbeat, started long ago — should be reaped.
+	staleNoHeartbeat, err := store.CreateRun("stale-no-heartbeat", "input")
+	require.NoError(t, err)
+	require.NoError(t, store.UpdateRunStatus(staleNoHeartbeat, "running", "step-a", 0))
+	_, err = internalStore.db.Exec(`UPDATE pipeline_run SET started_at = ? WHERE run_id = ?`, pastTime, staleNoHeartbeat)
+	require.NoError(t, err)
+
+	// Stale: running, last heartbeat older than threshold.
+	staleHeartbeat, err := store.CreateRun("stale-heartbeat", "input")
+	require.NoError(t, err)
+	require.NoError(t, store.UpdateRunStatus(staleHeartbeat, "running", "step-b", 0))
+	_, err = internalStore.db.Exec(`UPDATE pipeline_run SET started_at = ?, last_heartbeat = ? WHERE run_id = ?`, pastTime, pastTime, staleHeartbeat)
+	require.NoError(t, err)
+
+	// Live: recent heartbeat — must NOT be reaped.
+	liveHeartbeat, err := store.CreateRun("live-heartbeat", "input")
+	require.NoError(t, err)
+	require.NoError(t, store.UpdateRunStatus(liveHeartbeat, "running", "step-c", 0))
+	require.NoError(t, store.UpdateRunHeartbeat(liveHeartbeat))
+
+	// Young: just started, no heartbeat yet — must NOT be reaped (grace).
+	youngRun, err := store.CreateRun("young-run", "input")
+	require.NoError(t, err)
+	require.NoError(t, store.UpdateRunStatus(youngRun, "running", "step-d", 0))
+
+	// Already-completed: must be unchanged.
+	completedRun, err := store.CreateRun("completed-run", "input")
+	require.NoError(t, err)
+	require.NoError(t, store.UpdateRunStatus(completedRun, "completed", "step-e", 100))
+	_, err = internalStore.db.Exec(`UPDATE pipeline_run SET started_at = ? WHERE run_id = ?`, pastTime, completedRun)
+	require.NoError(t, err)
+
+	reaped, err := store.ReapOrphans(5 * time.Minute)
+	require.NoError(t, err)
+	assert.Equal(t, 2, reaped, "should reap two stale running runs")
+
+	r, err := store.GetRun(staleNoHeartbeat)
+	require.NoError(t, err)
+	assert.Equal(t, "failed", r.Status)
+	assert.Contains(t, r.ErrorMessage, "orphaned")
+
+	r, err = store.GetRun(staleHeartbeat)
+	require.NoError(t, err)
+	assert.Equal(t, "failed", r.Status)
+
+	r, err = store.GetRun(liveHeartbeat)
+	require.NoError(t, err)
+	assert.Equal(t, "running", r.Status, "live runs must not be reaped")
+
+	r, err = store.GetRun(youngRun)
+	require.NoError(t, err)
+	assert.Equal(t, "running", r.Status, "young runs must not be reaped")
+
+	r, err = store.GetRun(completedRun)
+	require.NoError(t, err)
+	assert.Equal(t, "completed", r.Status, "completed runs must be unchanged")
+}
+
 // TestGetSubtreeTokens tests the recursive subtree token rollup.
 func TestGetSubtreeTokens(t *testing.T) {
 	store, cleanup := setupTestStore(t)

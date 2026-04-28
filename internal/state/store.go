@@ -123,6 +123,7 @@ type StateStore interface {
 	// reconciler can flag zombies whose owning process died without
 	// updating the DB.
 	UpdateRunHeartbeat(runID string) error
+	ReapOrphans(staleAfter time.Duration) (int, error)
 
 	// Step attempt tracking (retry/recovery)
 	RecordStepAttempt(record *StepAttemptRecord) error
@@ -700,6 +701,38 @@ func (s *stateStore) UpdateRunHeartbeat(runID string) error {
 		return fmt.Errorf("failed to update run heartbeat: %w", err)
 	}
 	return nil
+}
+
+// ReapOrphans marks every "running" pipeline whose last_heartbeat is older
+// than staleAfter (or has never reported a heartbeat AND started more than
+// staleAfter ago) as failed with reason "orphaned (no heartbeat)". Returns
+// the number of rows transitioned. Issue #1467 — fixes the dead-process /
+// stale-DB-row leak where host sleep / sandbox cycle / SIGKILL skipped the
+// deferred UpdateRunStatus and left max_concurrent_workers wedged.
+func (s *stateStore) ReapOrphans(staleAfter time.Duration) (int, error) {
+	now := s.now().Unix()
+	cutoff := now - int64(staleAfter.Seconds())
+
+	query := `UPDATE pipeline_run
+	          SET status = 'failed',
+	              error_message = COALESCE(NULLIF(error_message, ''), 'orphaned (no heartbeat for ' || ? || 's)'),
+	              completed_at = ?
+	          WHERE status = 'running'
+	            AND started_at < ?
+	            AND (
+	                  (last_heartbeat IS NOT NULL AND last_heartbeat > 0 AND last_heartbeat < ?)
+	               OR (last_heartbeat IS NULL OR last_heartbeat = 0)
+	            )`
+
+	result, err := s.db.Exec(query, int64(staleAfter.Seconds()), now, cutoff, cutoff)
+	if err != nil {
+		return 0, fmt.Errorf("failed to reap orphans: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	return int(rows), nil
 }
 
 // GetRun retrieves a single run record by ID.

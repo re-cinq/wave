@@ -353,6 +353,18 @@ func (s *Server) Start() error {
 		fmt.Fprintf(os.Stderr, "Dashboard token: %s\n", s.token)
 	}
 
+	// Issue #1467 — reap any "running" rows whose owning process died
+	// without writing the deferred UpdateRunStatus (host sleep, sandbox
+	// cycle, SIGKILL). Heartbeats fire every 30s; treat anything stale
+	// for > 5 minutes as orphaned.
+	if s.store != nil {
+		if reaped, err := s.store.ReapOrphans(5 * time.Minute); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: orphan reap failed: %v\n", err)
+		} else if reaped > 0 {
+			fmt.Fprintf(os.Stderr, "Reaped %d orphaned run(s) on startup\n", reaped)
+		}
+	}
+
 	// Graceful shutdown on interrupt
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()

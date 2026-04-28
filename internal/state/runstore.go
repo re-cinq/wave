@@ -31,6 +31,7 @@ type RunStore interface {
 	UpdateRunBranch(runID string, branch string) error
 	UpdateRunPID(runID string, pid int) error
 	UpdateRunHeartbeat(runID string) error
+	ReapOrphans(staleAfter time.Duration) (int, error)
 	GetRun(runID string) (*RunRecord, error)
 	GetRunningRuns() ([]RunRecord, error)
 	ListRuns(opts ListRunsOptions) ([]RunRecord, error)
