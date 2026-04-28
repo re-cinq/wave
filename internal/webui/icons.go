@@ -12,6 +12,26 @@ func adapterIcon(name string) template.HTML {
 	return template.HTML(svg)
 }
 
+// runKindLabel maps the run_kind enum to a short human-readable label.
+// Unknown values return the raw value so the UI is forward-compatible
+// with future kinds without a panic. Issue #1450.
+func runKindLabel(kind string) string {
+	switch kind {
+	case "iterate_child":
+		return "iterate"
+	case "sub_pipeline_child":
+		return "sub-pipeline"
+	case "branch_arm":
+		return "branch"
+	case "loop_iteration":
+		return "loop"
+	case "top_level", "":
+		return ""
+	default:
+		return kind
+	}
+}
+
 // forgeIcon returns an inline SVG icon for a known forge name.
 // Unknown names return empty string (text-only fallback).
 func forgeIcon(name string) template.HTML {
