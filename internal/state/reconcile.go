@@ -55,6 +55,16 @@ func ReconcileZombies(store StateStore, ageThreshold time.Duration) int {
 // runs that have not yet started writing heartbeats (legacy data, or a run
 // reaped before the first heartbeat goroutine tick).
 func isZombie(r RunRecord, ageThreshold time.Duration) bool {
+	// Sub-pipeline child runs (composition: iterate, sub_pipeline, branch,
+	// loop) execute inside the parent process's goroutines and never get
+	// their own PID, never write their own heartbeats. Their liveness IS
+	// the parent's liveness. The reaper must not apply the age fallback to
+	// them — a 6-minute apply-fix run is not a zombie just because the
+	// child run row has no PID. The parent run row carries the heartbeat;
+	// reap on the parent if anything.
+	if r.ParentRunID != "" {
+		return false
+	}
 	if !r.LastHeartbeat.IsZero() {
 		// Heartbeat exists: trust it absolutely. A late heartbeat is a zombie.
 		return time.Since(r.LastHeartbeat) > HeartbeatStaleThreshold

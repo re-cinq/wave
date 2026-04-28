@@ -177,6 +177,54 @@ func TestReconcileZombies_HeartbeatStale(t *testing.T) {
 	}
 }
 
+// TestReconcileZombies_SubPipelineChildSpared is a regression test: a child
+// run row with a non-empty parent_run_id must NEVER be reaped, even when its
+// PID/heartbeat columns are empty and started_at is older than the age
+// threshold. Sub-pipelines execute in the parent process's goroutines and
+// inherit the parent's liveness signal. Without this carve-out, the reaper
+// silently kills active impl-finding / audit-* fan-out children at 5 minutes.
+func TestReconcileZombies_SubPipelineChildSpared(t *testing.T) {
+	store := newReconcileStore(t)
+	parentID, err := store.CreateRun("ops-pr-respond", "1472")
+	if err != nil {
+		t.Fatalf("CreateRun parent: %v", err)
+	}
+	if err := store.UpdateRunStatus(parentID, "running", "", 0); err != nil {
+		t.Fatalf("UpdateRunStatus parent: %v", err)
+	}
+
+	childID, err := store.CreateRun("impl-finding", "f1")
+	if err != nil {
+		t.Fatalf("CreateRun child: %v", err)
+	}
+	if err := store.UpdateRunStatus(childID, "running", "", 0); err != nil {
+		t.Fatalf("UpdateRunStatus child: %v", err)
+	}
+	// Wire up the parent linkage AND age the started_at past the age
+	// threshold AND clear PID/heartbeat — the exact shape of a live
+	// sub-pipeline child.
+	if _, err := store.db.Exec(
+		`UPDATE pipeline_run
+		    SET parent_run_id = ?,
+		        started_at    = ?,
+		        pid           = 0,
+		        last_heartbeat = 0
+		  WHERE run_id = ?`,
+		parentID, time.Now().Add(-30*time.Minute).Unix(), childID,
+	); err != nil {
+		t.Fatalf("seed child run: %v", err)
+	}
+
+	if got := ReconcileZombies(store, ZombieAgeThreshold); got != 0 {
+		t.Fatalf("ReconcileZombies reaped sub-pipeline child = %d, want 0", got)
+	}
+
+	status, _ := store.GetRunStatus(childID)
+	if status != "running" {
+		t.Errorf("child run status = %q, want running (must NOT be reaped — see #1467)", status)
+	}
+}
+
 // findDeadPID picks a PID that is not currently in use. Skips the test if a
 // dead PID cannot be located (extremely unlikely on a typical system).
 func findDeadPID(t *testing.T) int {
