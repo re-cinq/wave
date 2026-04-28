@@ -44,6 +44,7 @@ steps:
         - source: ./
           target: /project
           mode: readonly
+          subset_from: fetch-pr.pr-context.changed_files
     exec:
       type: prompt
       source_path: .agents/prompts/audit/architecture-scan.md
