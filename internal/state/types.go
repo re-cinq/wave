@@ -57,6 +57,7 @@ type ListRunsOptions struct {
 	BeforeUnix   int64    // Cursor: only return runs started before this unix timestamp
 	BeforeRunID  string   // Cursor: tie-break for runs at the same timestamp
 	SinceUnix    int64    // Only return runs started after this unix timestamp
+	TopLevelOnly bool     // Only return top-level runs (parent_run_id IS NULL OR ''). Issue #1450 — keeps composition children out of pipeline detail recent-runs lists.
 }
 
 // LogRecord holds an event log entry.

@@ -448,6 +448,10 @@ func (s *Server) handlePipelineDetailPage(w http.ResponseWriter, r *http.Request
 		runs, err := s.store.ListRuns(state.ListRunsOptions{
 			PipelineName: name,
 			Limit:        1000,
+			// Filter out composition children (issue #1450) — sub-pipeline
+			// runs spawned by ops-pr-respond / audit-issue / impl-issue
+			// otherwise flood the recent-runs table for audit-* etc.
+			TopLevelOnly: true,
 		})
 		if err == nil {
 			runCount = len(runs)
