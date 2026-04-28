@@ -1203,6 +1203,23 @@ func TestResolveCommandWorkDir_BareWorkspaceFallback(t *testing.T) {
 			t.Errorf("expected workspace root %q, got %q", wsRoot, got)
 		}
 	})
+
+	t.Run("auto-injected .agents/output keeps CWD on workspace", func(t *testing.T) {
+		// Issue #1452: command steps with auto-injected dep artifacts
+		// must NOT fall back to project root, otherwise the script
+		// reads CWD-relative paths that bypass the injected files.
+		wsRoot := t.TempDir()
+		// Simulate auto-injector having populated the workspace.
+		if err := os.MkdirAll(filepath.Join(wsRoot, ".agents", "output"), 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		step := &Step{ID: "test-step"}
+		got := resolveCommandWorkDir(wsRoot, step)
+		if got != wsRoot {
+			t.Errorf("expected workspace root %q (auto-injected dir treated as marker), got %q", wsRoot, got)
+		}
+	})
 }
 
 // --- Unit test: filterEnvPassthrough ---

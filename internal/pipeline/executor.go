@@ -4063,6 +4063,20 @@ func resolveCommandWorkDir(workspacePath string, step *Step) string {
 			break
 		}
 	}
+
+	// Auto-injected dep artifacts (#1452) populate .agents/artifacts and
+	// .agents/output before the command runs. Treat their presence as a
+	// "this workspace is real" signal so commands keep CWD here and find
+	// the auto-injected files at relative paths.
+	if !hasMarker {
+		for _, d := range []string{".agents/artifacts", ".agents/output"} {
+			if info, err := os.Stat(filepath.Join(workspacePath, d)); err == nil && info.IsDir() {
+				hasMarker = true
+				break
+			}
+		}
+	}
+
 	if !hasMarker {
 		if cwd, err := os.Getwd(); err == nil {
 			// Only fall back if CWD has a project marker
