@@ -322,10 +322,7 @@ func runComposePlan(_ tui.Sequence, plan pipeline.ExecutionPlan, input string, m
 	if wsManager != nil {
 		baseOpts = append(baseOpts, pipeline.WithWorkspaceManager(wsManager))
 	}
-	baseOpts = append(baseOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
-		skill.SkillSource{Root: "skills", Precedence: 2},
-		skill.SkillSource{Root: ".agents/skills", Precedence: 1},
-	)))
+	baseOpts = append(baseOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(skill.DefaultSources()...)))
 
 	newExecutor := func(opts ...pipeline.ExecutorOption) *pipeline.DefaultPipelineExecutor {
 		return pipeline.NewDefaultPipelineExecutor(runner, opts...)
@@ -447,10 +444,7 @@ func runCompose(seq tui.Sequence, input string, manifestPath string, mock bool, 
 	if wsManager != nil {
 		baseOpts = append(baseOpts, pipeline.WithWorkspaceManager(wsManager))
 	}
-	baseOpts = append(baseOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
-		skill.SkillSource{Root: "skills", Precedence: 2},
-		skill.SkillSource{Root: ".agents/skills", Precedence: 1},
-	)))
+	baseOpts = append(baseOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(skill.DefaultSources()...)))
 
 	// Factory function creates a fresh executor per pipeline
 	newExecutor := func(opts ...pipeline.ExecutorOption) *pipeline.DefaultPipelineExecutor {

@@ -24,32 +24,6 @@ var validPipelineName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 // path.
 type RunOptions = runner.Options
 
-// loggingEmitter wraps an event emitter and also logs events to the state
-// store, so the webui dashboard sees both real-time SSE updates and the
-// persistent event timeline.
-type loggingEmitter struct {
-	inner event.EventEmitter
-	store state.EventStore
-	runID string
-}
-
-func (l *loggingEmitter) Emit(ev event.Event) {
-	// Always forward to SSE broker for real-time streaming.
-	l.inner.Emit(ev)
-
-	// Skip empty heartbeat ticks — they carry no useful info.
-	if l.store != nil && !isHeartbeat(ev) {
-		if err := l.store.LogEvent(l.runID, ev.StepID, ev.State, ev.Persona, ev.Message, ev.TokensUsed, ev.DurationMs, ev.Model, ev.ConfiguredModel, ev.Adapter); err != nil {
-			log.Printf("Warning: failed to log event for run %s: %v", l.runID, err)
-		}
-	}
-}
-
-// isHeartbeat returns true for progress ticker events that carry no useful info.
-func isHeartbeat(ev event.Event) bool {
-	return ev.Message == "" && (ev.State == "step_progress" || ev.State == "stream_activity") && ev.TokensUsed == 0 && ev.DurationMs == 0
-}
-
 // launchPipelineExecution starts pipeline execution as a detached subprocess
 // via internal/runner. The subprocess is fully independent of the server
 // process — server shutdown does not cancel runs. Dry-run mode short-circuits
@@ -114,10 +88,13 @@ func (s *Server) launchInProcess(runID, pipelineName, input string, opts RunOpti
 		resolvedFromStep = fromStep[0]
 	}
 
-	emitter := &loggingEmitter{
-		inner: s.broker,
-		store: s.rwStore,
-		runID: runID,
+	emitter := &event.DBLoggingEmitter{
+		Inner: s.broker,
+		Store: s.rwStore,
+		RunID: runID,
+		OnError: func(rid string, err error) {
+			log.Printf("Warning: failed to log event for run %s: %v", rid, err)
+		},
 	}
 
 	var gateHandler pipeline.GateHandler

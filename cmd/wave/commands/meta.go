@@ -119,10 +119,7 @@ func runMeta(input string, opts MetaOptions) error {
 	if opts.Model != "" {
 		execOpts = append(execOpts, pipeline.WithModelOverride(opts.Model))
 	}
-	execOpts = append(execOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
-		skill.SkillSource{Root: "skills", Precedence: 2},
-		skill.SkillSource{Root: ".agents/skills", Precedence: 1},
-	)))
+	execOpts = append(execOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(skill.DefaultSources()...)))
 	childExecutor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 
 	// Create meta-pipeline executor

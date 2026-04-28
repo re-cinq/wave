@@ -145,7 +145,7 @@ func runResume(opts ResumeOptions, debug bool) error {
 	m := *mp
 
 	// Load the pipeline that was used in the original run.
-	p, err := loadPipeline(run.PipelineName, &m)
+	p, err := pipeline.LoadByName(run.PipelineName)
 	if err != nil {
 		return NewCLIError(CodePipelineNotFound,
 			fmt.Sprintf("pipeline %q not found (needed by run %s)", run.PipelineName, opts.RunID),
@@ -193,7 +193,7 @@ func runResume(opts ResumeOptions, debug bool) error {
 	defer result.Cleanup()
 
 	var emitter event.EventEmitter = result.Emitter
-	emitter = &dbLoggingEmitter{inner: emitter, store: store, runID: resumeRunID}
+	emitter = &event.DBLoggingEmitter{Inner: emitter, Store: store, RunID: resumeRunID}
 
 	// Initialize workspace manager.
 	wsRoot := m.Runtime.WorkspaceRoot
@@ -238,10 +238,7 @@ func runResume(opts ResumeOptions, debug bool) error {
 		execOpts = append(execOpts, pipeline.WithModelOverride(opts.Model))
 	}
 
-	execOpts = append(execOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
-		skill.SkillSource{Root: "skills", Precedence: 2},
-		skill.SkillSource{Root: ".agents/skills", Precedence: 1},
-	)))
+	execOpts = append(execOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(skill.DefaultSources()...)))
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 
@@ -284,7 +281,7 @@ func runResume(opts ResumeOptions, debug bool) error {
 
 		var preflightMeta *recovery.PreflightMetadata
 		if errClass == recovery.ClassPreflight {
-			preflightMeta = extractPreflightMetadata(cause)
+			preflightMeta = recovery.ExtractPreflightMetadata(cause)
 		}
 
 		block := recovery.BuildRecoveryBlock(recovery.RecoveryBlockOpts{

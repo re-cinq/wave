@@ -93,7 +93,7 @@ func runDo(input string, opts DoOptions) error {
 		pipelineCfg = classify.SelectPipeline(profile)
 
 		// Try to load the classified pipeline from disk
-		if p, err := loadPipeline(pipelineCfg.Name, &m); err == nil {
+		if p, err := pipeline.LoadByName(pipelineCfg.Name); err == nil {
 			classifiedPipeline = p
 		} else {
 			fmt.Fprintf(os.Stderr, "classified pipeline %q not found, falling back to ad-hoc\n", pipelineCfg.Name)
@@ -207,10 +207,7 @@ func runDo(input string, opts DoOptions) error {
 	if useClassification {
 		execOpts = append(execOpts, pipeline.WithTaskComplexity(string(profile.Complexity)))
 	}
-	execOpts = append(execOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
-		skill.SkillSource{Root: "skills", Precedence: 2},
-		skill.SkillSource{Root: ".agents/skills", Precedence: 1},
-	)))
+	execOpts = append(execOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(skill.DefaultSources()...)))
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 

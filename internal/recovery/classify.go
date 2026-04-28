@@ -47,6 +47,34 @@ func ClassifyError(err error) ErrorClass {
 	return ClassRuntimeError
 }
 
+// ExtractPreflightMetadata walks the error chain and returns a populated
+// *PreflightMetadata when err (or any wrapped error) is a preflight
+// SkillError or ToolError. Returns nil when no preflight metadata is
+// present — callers can pass the result straight to RecoveryBlockOpts.PreflightMeta.
+func ExtractPreflightMetadata(err error) *PreflightMetadata {
+	if err == nil {
+		return nil
+	}
+
+	meta := &PreflightMetadata{}
+
+	var skillErr *preflight.SkillError
+	if errors.As(err, &skillErr) {
+		meta.MissingSkills = skillErr.MissingSkills
+	}
+
+	var toolErr *preflight.ToolError
+	if errors.As(err, &toolErr) {
+		meta.MissingTools = toolErr.MissingTools
+	}
+
+	if len(meta.MissingSkills) == 0 && len(meta.MissingTools) == 0 {
+		return nil
+	}
+
+	return meta
+}
+
 // isGenericErrorMessage returns true for error messages that carry no
 // actionable context (bare exit codes, signal names, etc.).
 func isGenericErrorMessage(msg string) bool {

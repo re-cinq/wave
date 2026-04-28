@@ -228,12 +228,7 @@ func TestRunDryRunOutput(t *testing.T) {
 
 // TestRunWithNonExistentPipeline tests error handling for non-existent pipelines (T045)
 func TestRunWithNonExistentPipeline(t *testing.T) {
-	// Test loadPipeline with a non-existent pipeline name
-	m := &manifest.Manifest{
-		Metadata: manifest.Metadata{Name: "test-project"},
-	}
-
-	_, err := loadPipeline("nonexistent-pipeline-xyz", m)
+	_, err := pipeline.LoadByName("nonexistent-pipeline-xyz")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "pipeline 'nonexistent-pipeline-xyz' not found")
 }
@@ -461,10 +456,8 @@ steps:
 	_ = os.Chdir(tmpDir)
 	defer func() { _ = os.Chdir(oldWd) }()
 
-	m := &manifest.Manifest{}
-
 	// Test loading by name (should find in .agents/pipelines/)
-	p, err := loadPipeline("my-pipeline", m)
+	p, err := pipeline.LoadByName("my-pipeline")
 	require.NoError(t, err)
 	assert.Equal(t, "test-candidate", p.Metadata.Name)
 }

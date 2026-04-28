@@ -120,14 +120,12 @@ func runChat(opts ChatOptions) error {
 	}
 
 	// Load manifest
-	mp, err := loadManifestStrict(opts.Manifest)
-	if err != nil {
+	if _, err := loadManifestStrict(opts.Manifest); err != nil {
 		return err
 	}
-	m := *mp
 
 	// Load pipeline definition
-	p, err := loadPipeline(run.PipelineName, &m)
+	p, err := pipeline.LoadByName(run.PipelineName)
 	if err != nil {
 		return NewCLIError(CodePipelineNotFound, fmt.Sprintf("failed to load pipeline %q: %s", run.PipelineName, err), "The pipeline definition may have been removed or renamed").WithCause(err)
 	}

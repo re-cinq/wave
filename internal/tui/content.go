@@ -186,8 +186,7 @@ func (m *ContentModel) SetSize(w, h int) {
 func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	var cmds []tea.Cmd
 
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		// Intercept Shift+Tab for reverse view cycling
 		if msg.Type == tea.KeyShiftTab {
 			if m.composing {
