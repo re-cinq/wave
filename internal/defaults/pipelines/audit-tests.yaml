@@ -117,6 +117,6 @@ steps:
         criteria_path: .agents/contracts/quality-review-criteria.md
         source: .agents/output/tests-report.md
         model: cheapest
-        token_budget: 8000
+        token_budget: 0
         timeout: 90s
         on_failure: warn

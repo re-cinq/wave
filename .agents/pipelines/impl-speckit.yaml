@@ -258,7 +258,7 @@ steps:
           persona: navigator
           criteria_path: .agents/contracts/impl-review-criteria.md
           model: cheapest
-          token_budget: 8000
+          token_budget: 0
           timeout: 5m
           context:
             - source: git_diff
