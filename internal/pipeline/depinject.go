@@ -230,7 +230,49 @@ func (e *DefaultPipelineExecutor) injectDependencyArtifacts(execution *PipelineE
 	aliasOwners := make(map[string]string)
 	canonical := make(map[string]ResolvedArtifact, len(resolved))
 
+	// Absolutize workspacePath once for "is the src already inside this
+	// workspace?" comparisons below. Worktree workspaces are reused
+	// across steps on the same branch so the upstream archive often
+	// lives inside the same workspace tree, in which case we'd create a
+	// no-op self-symlink (worse: a symlink loop with the alias pass).
+	absWorkspace := workspacePath
+	if !filepath.IsAbs(absWorkspace) {
+		if a, err := filepath.Abs(absWorkspace); err == nil {
+			absWorkspace = a
+		}
+	}
+
 	for _, art := range resolved {
+		// If the upstream archive is already inside this step's workspace
+		// (shared worktree case — synthesize, create-pr both run on the
+		// same `branch: pipeline_id`), the file is reachable at its
+		// recorded path. Skip both canonical and alias creation; legacy
+		// injectArtifacts and direct path references still work because
+		// the file already exists where it was archived.
+		absArt := art.Path
+		if !filepath.IsAbs(absArt) {
+			if a, err := filepath.Abs(absArt); err == nil {
+				absArt = a
+			}
+		}
+		if strings.HasPrefix(absArt, absWorkspace+string(filepath.Separator)) {
+			// Still register canonical-name templates so prompts using
+			// {{ artifacts.<dep>.<name> }} or {{ deps.<dep>.<name> }}
+			// resolve to the existing path.
+			if execution.Context != nil {
+				execution.Context.SetArtifactPath(art.DepStep+"."+art.Name, absArt)
+				execution.Context.SetCustomVariable("deps."+art.DepStep+"."+art.Name, absArt)
+			}
+			canonical[art.DepStep+":"+art.Name] = ResolvedArtifact{
+				DepStep:  art.DepStep,
+				Name:     art.Name,
+				Path:     absArt,
+				Type:     art.Type,
+				Optional: art.Optional,
+			}
+			continue
+		}
+
 		canonicalDir := filepath.Join(artifactsRoot, art.DepStep)
 		if err := os.MkdirAll(canonicalDir, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create canonical dir %q: %w", canonicalDir, err)
