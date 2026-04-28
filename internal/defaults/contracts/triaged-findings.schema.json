@@ -69,9 +69,8 @@
         "type": "object",
         "required": ["description", "reason"],
         "properties": {
-          "description": {
-            "type": "string"
-          },
+          "id": {"type": "string"},
+          "description": {"type": "string"},
           "reason": {
             "type": "string",
             "description": "Why the finding is deferred."
@@ -79,7 +78,13 @@
           "follow_up": {
             "type": "string",
             "description": "Optional suggested follow-up action (e.g. 'file an issue')."
-          }
+          },
+          "severity": {"type": "string"},
+          "file": {"type": "string"},
+          "line": {"type": "integer"},
+          "item": {"type": "string"},
+          "type": {"type": "string"},
+          "source": {"type": "string"}
         },
         "additionalProperties": false
       }
@@ -91,13 +96,18 @@
         "type": "object",
         "required": ["description", "reason"],
         "properties": {
-          "description": {
-            "type": "string"
-          },
+          "id": {"type": "string"},
+          "description": {"type": "string"},
           "reason": {
             "type": "string",
             "description": "Why the finding is rejected."
-          }
+          },
+          "severity": {"type": "string"},
+          "file": {"type": "string"},
+          "line": {"type": "integer"},
+          "item": {"type": "string"},
+          "type": {"type": "string"},
+          "source": {"type": "string"}
         },
         "additionalProperties": false
       }
