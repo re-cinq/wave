@@ -5526,8 +5526,18 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 	// injecting a persona-step output (e.g. fetch-pr/pr-context) into a
 	// downstream iterate step fails with "artifact … not found in parent
 	// context for sub-pipeline injection" even though the artifact exists.
+	// Auto-derived parent artifact paths from declared step.Dependencies
+	// (issue #1452). Every upstream artifact a composition step depends
+	// on becomes visible to its child sub-pipeline as
+	// {{ artifacts.<name> }} without an explicit step.Config.Inject
+	// entry. Explicit Inject still works and overrides on conflict.
+	parentPaths := make(map[string]string)
+	if autoResolved, err := e.ResolveDependencyArtifacts(execution, step); err == nil {
+		for _, art := range autoResolved {
+			parentPaths[art.Name] = art.Path
+		}
+	}
 	if step.Config != nil && len(step.Config.Inject) > 0 {
-		paths := make(map[string]string, len(step.Config.Inject))
 		for _, name := range step.Config.Inject {
 			path := execution.Context.GetArtifactPath(name)
 			if path == "" {
@@ -5543,9 +5553,11 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 			if path == "" {
 				return fmt.Errorf("artifact %q not found in parent context for sub-pipeline injection", name)
 			}
-			paths[name] = path
+			parentPaths[name] = path
 		}
-		childOpts = append(childOpts, WithParentArtifactPaths(paths))
+	}
+	if len(parentPaths) > 0 {
+		childOpts = append(childOpts, WithParentArtifactPaths(parentPaths))
 	}
 
 	// Propagate env: inherit parent's env first, then overlay step.Config.Env.
