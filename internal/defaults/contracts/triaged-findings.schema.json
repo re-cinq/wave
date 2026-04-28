@@ -57,6 +57,10 @@
           "source": {
             "type": "string",
             "description": "Originating audit (e.g. audit-security, audit-tests). Survives aggregation."
+          },
+          "item": {
+            "type": "string",
+            "description": "Optional symbol or identifier (function, type, route) that the finding is about. Survives aggregation."
           }
         },
         "additionalProperties": false
@@ -150,11 +154,11 @@
             "description": "The specific decision the maintainer needs to make before this can be actioned."
           },
           "source_finding_id": {
-            "type": "string",
-            "description": "Optional reference to an aggregated-findings.json entry id this design question was derived from."
+            "type": ["string", "null"],
+            "description": "Optional reference to an aggregated-findings.json entry id this design question was derived from. Null when the question is not tied to a specific source finding."
           },
           "suggested_followup": {
-            "type": "string",
+            "type": ["string", "null"],
             "description": "Optional concrete next step the triage step proposes once the design question is answered (e.g. 'open a follow-up issue', 'document the threat model')."
           }
         },
