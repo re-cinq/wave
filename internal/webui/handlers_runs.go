@@ -762,6 +762,11 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 			t := ev.Timestamp
 			si.completedAt = &t
 			si.state = "completed"
+			// Clear any error message left over from a prior failed
+			// attempt — a later "completed" event for the same step
+			// means the step succeeded on retry / resume and the stale
+			// error must not bleed into the final UI row (#1450 follow-up).
+			si.errMsg = ""
 		case "failed":
 			t := ev.Timestamp
 			si.completedAt = &t
