@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/recinq/wave/internal/pipelinecatalog"
 )
 
 // Selection holds the result of the interactive pipeline selection.
@@ -38,7 +39,7 @@ func DefaultFlags() []Flag {
 // preFilter narrows the initial pipeline list (e.g. from a partial name argument).
 // pipelinesDir is the directory to scan for pipeline YAML files.
 func RunPipelineSelector(pipelinesDir, preFilter string) (*Selection, error) {
-	pipelines, err := DiscoverPipelines(pipelinesDir)
+	pipelines, err := pipelinecatalog.DiscoverPipelines(pipelinesDir)
 	if err != nil {
 		return nil, fmt.Errorf("discovering pipelines: %w", err)
 	}
@@ -103,7 +104,7 @@ func RunPipelineSelector(pipelinesDir, preFilter string) (*Selection, error) {
 
 // runInputAndFlags runs the input prompt, flag selection, and confirmation
 // when the pipeline is already known (auto-selected via preFilter).
-func runInputAndFlags(selected PipelineInfo) (*Selection, error) {
+func runInputAndFlags(selected pipelinecatalog.PipelineInfo) (*Selection, error) {
 	var input string
 	var selectedFlags []string
 
@@ -172,7 +173,7 @@ func confirmAndReturn(pipeline, input string, selectedFlags []string) (*Selectio
 }
 
 // buildPipelineOptions creates huh options from pipeline info.
-func buildPipelineOptions(pipelines []PipelineInfo) []huh.Option[string] {
+func buildPipelineOptions(pipelines []pipelinecatalog.PipelineInfo) []huh.Option[string] {
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	options := make([]huh.Option[string], len(pipelines))
 	for i, p := range pipelines {
@@ -197,9 +198,9 @@ func buildFlagOptions(flags []Flag) []huh.Option[string] {
 }
 
 // filterPipelines returns pipelines whose names contain the filter string (case-insensitive).
-func filterPipelines(pipelines []PipelineInfo, filter string) []PipelineInfo {
+func filterPipelines(pipelines []pipelinecatalog.PipelineInfo, filter string) []pipelinecatalog.PipelineInfo {
 	filter = strings.ToLower(filter)
-	var matched []PipelineInfo
+	var matched []pipelinecatalog.PipelineInfo
 	for _, p := range pipelines {
 		if strings.Contains(strings.ToLower(p.Name), filter) {
 			matched = append(matched, p)

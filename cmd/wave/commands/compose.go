@@ -13,10 +13,11 @@ import (
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/pipelinecatalog"
+	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/tui"
 	"github.com/recinq/wave/internal/workspace"
-	"github.com/recinq/wave/internal/skill"
 	"github.com/spf13/cobra"
 )
 
@@ -67,7 +68,7 @@ Use --validate-only to check compatibility without executing.`,
 			// Load all pipelines from arguments
 			var seq tui.Sequence
 			for _, name := range args {
-				p, err := tui.LoadPipelineByName(pDir, name)
+				p, err := pipelinecatalog.LoadPipelineByName(pDir, name)
 				if err != nil {
 					return NewCLIError(CodePipelineNotFound,
 						fmt.Sprintf("pipeline not found: %s", name),

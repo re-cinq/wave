@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/recinq/wave/internal/humanize"
+	"github.com/recinq/wave/internal/pipelinecatalog"
 )
 
 const (
@@ -46,7 +47,7 @@ type PipelineListModel struct {
 	// Section data
 	running   []RunningPipeline
 	finished  []FinishedPipeline
-	available []PipelineInfo
+	available []pipelinecatalog.PipelineInfo
 
 	// Navigation state
 	cursor    int

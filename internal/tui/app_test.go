@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/recinq/wave/internal/pipelinecatalog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -35,7 +36,7 @@ func (m *mockPipelineDataProvider) FetchFinishedPipelines(limit int) ([]Finished
 	return nil, nil
 }
 
-func (m *mockPipelineDataProvider) FetchAvailablePipelines() ([]PipelineInfo, error) {
+func (m *mockPipelineDataProvider) FetchAvailablePipelines() ([]pipelinecatalog.PipelineInfo, error) {
 	return nil, nil
 }
 

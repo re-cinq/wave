@@ -14,6 +14,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
+	"github.com/recinq/wave/internal/pipelinecatalog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -55,7 +56,7 @@ func (p *integrationMockProvider) FetchPipelineHealth() (HealthStatus, error) {
 
 // integrationPipelineProvider is a PipelineDataProvider returning stable pipeline data.
 type integrationPipelineProvider struct {
-	available []PipelineInfo
+	available []pipelinecatalog.PipelineInfo
 	running   []RunningPipeline
 	finished  []FinishedPipeline
 }
@@ -68,12 +69,12 @@ func (p *integrationPipelineProvider) FetchFinishedPipelines(limit int) ([]Finis
 	return p.finished, nil
 }
 
-func (p *integrationPipelineProvider) FetchAvailablePipelines() ([]PipelineInfo, error) {
+func (p *integrationPipelineProvider) FetchAvailablePipelines() ([]pipelinecatalog.PipelineInfo, error) {
 	return p.available, nil
 }
 
 // newIntegrationApp creates an AppModel wired with integration-level mock providers.
-func newIntegrationApp(projectName string, pipelines []PipelineInfo) AppModel { //nolint:unparam // test helper
+func newIntegrationApp(projectName string, pipelines []pipelinecatalog.PipelineInfo) AppModel { //nolint:unparam // test helper
 	meta := &integrationMockProvider{projectName: projectName}
 	pipeProv := &integrationPipelineProvider{available: pipelines}
 	return NewAppModel(meta, pipeProv, nil, LaunchDependencies{})
@@ -306,7 +307,7 @@ func TestHeader_ShowsMetadata_ViaApp(t *testing.T) {
 func TestApp_ComposedLayout(t *testing.T) {
 	const projectName = "composed-layout-test"
 
-	pipelines := []PipelineInfo{
+	pipelines := []pipelinecatalog.PipelineInfo{
 		{Name: "impl-issue", Description: "Implement a GitHub issue", StepCount: 5},
 		{Name: "ops-pr-review", Description: "Review a pull request", StepCount: 3},
 	}

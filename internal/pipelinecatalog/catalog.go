@@ -1,4 +1,5 @@
-package tui
+// Package pipelinecatalog discovers and loads pipeline metadata from YAML files.
+package pipelinecatalog
 
 import (
 	"fmt"

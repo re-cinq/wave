@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/recinq/wave/internal/pipelinecatalog"
 )
 
 // IssueDetailModel is the right pane model for the Issues view.
@@ -17,7 +18,7 @@ type IssueDetailModel struct {
 	focused       bool
 	viewport      viewport.Model
 	selected      *IssueData
-	pipelines     []PipelineInfo
+	pipelines     []pipelinecatalog.PipelineInfo
 	chooserActive bool
 	chooserCursor int
 }
@@ -61,7 +62,7 @@ func (m *IssueDetailModel) SetIssue(issue *IssueData) {
 }
 
 // SetPipelines sets the available pipelines for the chooser.
-func (m *IssueDetailModel) SetPipelines(pipelines []PipelineInfo) {
+func (m *IssueDetailModel) SetPipelines(pipelines []pipelinecatalog.PipelineInfo) {
 	m.pipelines = pipelines
 }
 
@@ -257,7 +258,7 @@ func (m *IssueDetailModel) sortPipelinesByRelevance() {
 }
 
 // pipelineRelevanceScore computes a simple keyword-overlap score between a pipeline and an issue.
-func pipelineRelevanceScore(p PipelineInfo, issue *IssueData) int {
+func pipelineRelevanceScore(p pipelinecatalog.PipelineInfo, issue *IssueData) int {
 	score := 0
 	titleLower := strings.ToLower(issue.Title)
 	nameLower := strings.ToLower(p.Name)

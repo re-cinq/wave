@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/display"
+	"github.com/recinq/wave/internal/pipelinecatalog"
 	"github.com/recinq/wave/internal/state"
-	"github.com/recinq/wave/internal/tui"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -1499,7 +1499,7 @@ func listSkillsTable(skills map[string]pipelineSkillConfig) {
 
 // listCompositions lists composition pipelines with their sub-pipelines and step types.
 func listCompositions(pipelinesDir string, format string) error {
-	pipelines, err := tui.DiscoverPipelines(pipelinesDir)
+	pipelines, err := pipelinecatalog.DiscoverPipelines(pipelinesDir)
 	if err != nil {
 		return fmt.Errorf("failed to discover pipelines: %w", err)
 	}
@@ -1514,7 +1514,7 @@ func listCompositions(pipelinesDir string, format string) error {
 	var compositions []CompositionInfo
 	for _, info := range pipelines {
 		// Load full pipeline to check for composition steps
-		p, err := tui.LoadPipelineByName(pipelinesDir, info.Name)
+		p, err := pipelinecatalog.LoadPipelineByName(pipelinesDir, info.Name)
 		if err != nil {
 			continue
 		}

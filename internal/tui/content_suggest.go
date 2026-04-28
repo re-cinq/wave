@@ -4,6 +4,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/recinq/wave/internal/pipelinecatalog"
 )
 
 // ensureSuggestModels lazily creates the suggest list and detail models.
@@ -114,7 +115,7 @@ func (m ContentModel) updateSuggestMessage(msg tea.Msg) (ContentModel, tea.Cmd, 
 			// Build compose sequence from selected proposals
 			var seq Sequence
 			for _, p := range msg.Pipelines {
-				loaded, err := LoadPipelineByName(m.launcher.deps.PipelinesDir, p.Name)
+				loaded, err := pipelinecatalog.LoadPipelineByName(m.launcher.deps.PipelinesDir, p.Name)
 				if err == nil {
 					seq.Add(p.Name, loaded)
 				} else {
