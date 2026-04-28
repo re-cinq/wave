@@ -260,6 +260,14 @@ steps:
       # Build a JSON array of the PR scope.
       jq -c '.changed_files // []' "$CONTEXT" > .agents/output/_changed-files.json
 
+      # Normalise finding paths: strip mount-target prefixes (e.g.
+      # `project/`, `/project/`) that auditors record when reading via
+      # the workspace mount target. Findings emitted with bare
+      # repo-relative paths pass through unchanged.
+      jq '[ .[] | .file = ((.file // "") | sub("^/?project/"; "")) ]' \
+        .agents/output/_flat-findings.json > .agents/output/_flat-findings.normalised.json
+      mv .agents/output/_flat-findings.normalised.json .agents/output/_flat-findings.json
+
       # Drop findings whose `file` is not in changed_files.
       jq --slurpfile scope .agents/output/_changed-files.json \
         '[ .[] | select(.file as $f | $scope[0] | index($f)) ]' \
