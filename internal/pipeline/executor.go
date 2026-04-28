@@ -3982,9 +3982,27 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		// Use pipeline context for template variables
 		templateVars := execution.Context.ToTemplateVars()
 
+		// Issue #1453 — resolve subset_from on each mount before passing
+		// to the workspace manager. When set, the materialised subset
+		// tree replaces the mount Source so the resulting workspace only
+		// contains files listed in the named artifact's JSON path.
+		mounts := step.Workspace.Mount
+		resolvedMounts := make([]Mount, len(mounts))
+		copy(resolvedMounts, mounts)
+		for i := range resolvedMounts {
+			if resolvedMounts[i].SubsetFrom == "" {
+				continue
+			}
+			subsetSrc, err := e.materialiseMountSubset(execution, step.ID, i, resolvedMounts[i])
+			if err != nil {
+				return "", fmt.Errorf("step %q mount subset: %w", step.ID, err)
+			}
+			resolvedMounts[i].Source = subsetSrc
+		}
+
 		wsPath, err := e.wsManager.Create(workspace.WorkspaceConfig{
 			Root:  wsRoot,
-			Mount: toWorkspaceMounts(step.Workspace.Mount),
+			Mount: toWorkspaceMounts(resolvedMounts),
 		}, templateVars)
 		if err != nil {
 			return "", err
@@ -4007,6 +4025,140 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 	// Anchor Claude Code path resolution (see mount-based workspace above)
 	_ = exec.Command("git", "init", "-q", wsPath).Run()
 	return wsPath, nil
+}
+
+// materialiseMountSubset reads the artifact named in mount.SubsetFrom,
+// extracts the path list at the dotted JSON path, and copies only
+// those files (preserving directory structure) into a fresh temp dir
+// rooted under .agents/workspaces/_subsets/. Returns the temp-dir path
+// to be used as the mount source. Issue #1453.
+//
+// SubsetFrom format: "<step>.<artifact>.<json-path>".
+// The first two segments name the artifact; the remainder is a JSON
+// path navigated via ExtractJSONPath. The extracted value must be a
+// JSON array of strings, each interpreted as a path relative to the
+// original mount.Source.
+func (e *DefaultPipelineExecutor) materialiseMountSubset(execution *PipelineExecution, ownerStepID string, mountIdx int, mount Mount) (string, error) {
+	parts := strings.SplitN(mount.SubsetFrom, ".", 3)
+	if len(parts) < 3 {
+		return "", fmt.Errorf("subset_from %q: must be '<step>.<artifact>.<json-path>'", mount.SubsetFrom)
+	}
+	stepID, artifactName, jsonPath := parts[0], parts[1], parts[2]
+
+	// Resolve artifact path via the same lookup tiers as the auto-injector.
+	path, ok := e.locateDepArtifact(execution, stepID, artifactName)
+	if !ok {
+		return "", fmt.Errorf("subset_from artifact %q:%q not found", stepID, artifactName)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read subset artifact: %w", err)
+	}
+
+	listJSON, err := ExtractJSONPath(data, "."+jsonPath)
+	if err != nil {
+		return "", fmt.Errorf("extract %q: %w", jsonPath, err)
+	}
+
+	var files []string
+	if err := json.Unmarshal([]byte(listJSON), &files); err != nil {
+		return "", fmt.Errorf("subset_from %q: expected array of strings, got %s", mount.SubsetFrom, string(listJSON))
+	}
+
+	// Resolve original source path for relative copy. EvalSymlinks
+	// gives us the canonical path so the security check below catches
+	// cases where the source itself is a symlink.
+	source := mount.Source
+	if !filepath.IsAbs(source) {
+		if abs, err := filepath.Abs(source); err == nil {
+			source = abs
+		}
+	}
+	canonicalSource, err := filepath.EvalSymlinks(source)
+	if err != nil {
+		return "", fmt.Errorf("resolve source: %w", err)
+	}
+
+	// Materialise into a path unique to (run, ownerStep, mountIdx) so two
+	// concurrent steps with the same SubsetFrom can't collide on the
+	// RemoveAll/MkdirAll race.
+	pipelineID := execution.Status.ID
+	subsetRoot := filepath.Join(".agents", "workspaces", "_subsets", pipelineID, ownerStepID, fmt.Sprintf("mount%d", mountIdx))
+	if err := os.RemoveAll(subsetRoot); err != nil {
+		return "", fmt.Errorf("clean subset dir: %w", err)
+	}
+	if err := os.MkdirAll(subsetRoot, 0755); err != nil {
+		return "", fmt.Errorf("create subset dir: %w", err)
+	}
+
+	for _, rel := range files {
+		// Reject path traversal — entries must be repo-relative.
+		clean := filepath.Clean(rel)
+		if filepath.IsAbs(clean) || strings.HasPrefix(clean, "..") {
+			continue
+		}
+		srcFile := filepath.Join(source, clean)
+		info, err := os.Lstat(srcFile)
+		if err != nil {
+			// Listed but missing — skip silently. PR file lists may
+			// include deleted paths.
+			continue
+		}
+		if info.IsDir() {
+			continue
+		}
+		// Reject symlinks — even if the JSON path itself looks safe,
+		// a symlink in the source tree could point outside it. Belt
+		// and suspenders below.
+		if info.Mode()&os.ModeSymlink != 0 {
+			continue
+		}
+		// Belt and suspenders: resolve through any parent symlinks
+		// and confirm the canonical path is still under source.
+		canonicalSrc, err := filepath.EvalSymlinks(srcFile)
+		if err != nil {
+			continue
+		}
+		if !strings.HasPrefix(canonicalSrc, canonicalSource+string(filepath.Separator)) && canonicalSrc != canonicalSource {
+			// Canonical path escaped source — drop.
+			continue
+		}
+		dstFile := filepath.Join(subsetRoot, clean)
+		if err := os.MkdirAll(filepath.Dir(dstFile), 0755); err != nil {
+			return "", fmt.Errorf("mkdir subset parent: %w", err)
+		}
+		// Copy rather than symlink — readonly mode chmods the tree
+		// later, which symlinks don't carry.
+		if err := copySubsetFile(canonicalSrc, dstFile); err != nil {
+			return "", fmt.Errorf("copy %q: %w", clean, err)
+		}
+	}
+
+	return subsetRoot, nil
+}
+
+// copySubsetFile copies a single file (regular or symlink target)
+// from src to dst, preserving mode bits.
+func copySubsetFile(src, dst string) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, info.Mode().Perm())
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
 }
 
 func toWorkspaceMounts(mounts []Mount) []workspace.Mount {

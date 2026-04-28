@@ -425,6 +425,15 @@ type Mount struct {
 	Source string `yaml:"source"`
 	Target string `yaml:"target"`
 	Mode   string `yaml:"mode,omitempty"`
+	// SubsetFrom narrows the mount to files listed in an upstream
+	// artifact. Form: "<step>.<artifact>.<json-path>" (e.g.
+	// "fetch-pr.pr-context.changed_files"). When set, the executor
+	// reads the artifact JSON, extracts the array at <json-path> (each
+	// entry being a path relative to Source), and materialises a
+	// symlink tree at a temp dir containing only those files. That
+	// temp dir replaces Source for the actual mount. Issue #1453 —
+	// keeps audit-* sub-pipelines from scanning the whole repo.
+	SubsetFrom string `yaml:"subset_from,omitempty"`
 }
 
 type ExecConfig struct {
