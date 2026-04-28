@@ -225,6 +225,12 @@ steps:
       over: '["audit-webui-shots", "audit-code-walk", "audit-db-trace", "audit-event-trace"]'
       mode: parallel
       max_concurrent: 4
+      # Per-axis failures are tolerated — same pattern as
+      # ops-pr-respond.parallel-review (#1446). If 1-2 evidence axes time
+      # out, hit a contract failure, or get canceled by an external event
+      # (host sleep, sandbox cycle), aggregate-evidence still has the
+      # successful axes' output to feed enumerate-gaps.
+      on_failure: continue
 
   # ─── Phase 3: aggregate evidence into a single evidence set ──────────────
   - id: aggregate-evidence
