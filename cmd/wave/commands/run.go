@@ -811,49 +811,7 @@ func runDetached(opts RunOptions, p *pipeline.Pipeline, m *manifest.Manifest) er
 	_ = store.UpdateRunStatus(runID, "running", "", 0)
 
 	// Build subprocess args: same flags minus --detach/-d, plus --run <runID>.
-	args := []string{"run", "--pipeline", opts.Pipeline, "--run", runID}
-	if opts.Input != "" {
-		args = append(args, "--input", opts.Input)
-	}
-	if opts.FromStep != "" {
-		args = append(args, "--from-step", opts.FromStep)
-	}
-	if opts.Force {
-		args = append(args, "--force")
-	}
-	if opts.Timeout > 0 {
-		args = append(args, "--timeout", fmt.Sprintf("%d", opts.Timeout))
-	}
-	if opts.Manifest != "wave.yaml" {
-		args = append(args, "--manifest", opts.Manifest)
-	}
-	if opts.Mock {
-		args = append(args, "--mock")
-	}
-	if opts.Model != "" {
-		args = append(args, "--model", opts.Model)
-	}
-	if opts.ForceModel {
-		args = append(args, "--force-model")
-	}
-	if opts.Adapter != "" {
-		args = append(args, "--adapter", opts.Adapter)
-	}
-	if opts.PreserveWorkspace {
-		args = append(args, "--preserve-workspace")
-	}
-	if opts.Steps != "" {
-		args = append(args, "--steps", opts.Steps)
-	}
-	if opts.Exclude != "" {
-		args = append(args, "--exclude", opts.Exclude)
-	}
-	if opts.Output.Verbose {
-		args = append(args, "--verbose")
-	}
-	if opts.AutoApprove {
-		args = append(args, "--auto-approve")
-	}
+	args := buildDetachedArgs(opts, runID)
 
 	cmd := exec.Command(os.Args[0], args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
@@ -890,6 +848,101 @@ func runDetached(opts RunOptions, p *pipeline.Pipeline, m *manifest.Manifest) er
 	fmt.Fprintf(os.Stderr, "  Cancel:  wave cancel %s\n", runID)
 
 	return nil
+}
+
+// detachFlagSpec mirrors a single RunOptions field into the argv of a detached
+// `wave run` subprocess. emit appends "--flag" or "--flag value" tokens to args
+// when the field warrants forwarding (skipping zero/default values). Together
+// detachFlagSpecs forms the single source of truth for runDetached's argv
+// rebuilder. TestDetachedArgsExhaustive guards against new RunOptions fields
+// being silently dropped — every field must be registered here or in
+// detachFlagSkippedFields.
+type detachFlagSpec struct {
+	field string // RunOptions struct field name (matched by exhaustiveness test)
+	flag  string // CLI flag name without leading dashes
+	emit  func(opts RunOptions, args []string) []string
+}
+
+// detachFlagSkippedFields lists RunOptions fields that intentionally do NOT
+// flow through to the detached subprocess. Update this list (with a reason)
+// when adding a new field that should not be mirrored.
+var detachFlagSkippedFields = map[string]string{
+	"Pipeline": "always emitted explicitly as --pipeline before spec processing",
+	"RunID":    "always emitted explicitly as --run with the freshly created runID",
+	"Detach":   "subprocess must not recurse into detached mode",
+	"DryRun":   "runDetached is unreachable when --dry-run is set (handled in runRun)",
+	"Output":   "OutputConfig is a struct — Verbose handled outside the spec list",
+}
+
+// boolFlag emits "--<flag>" when get(o) is true.
+func boolFlag(field, flag string, get func(RunOptions) bool) detachFlagSpec {
+	return detachFlagSpec{field: field, flag: flag, emit: func(o RunOptions, a []string) []string {
+		if get(o) {
+			return append(a, "--"+flag)
+		}
+		return a
+	}}
+}
+
+// strFlag emits "--<flag> <value>" when get(o) is non-empty and not equal to skip.
+func strFlag(field, flag, skip string, get func(RunOptions) string) detachFlagSpec {
+	return detachFlagSpec{field: field, flag: flag, emit: func(o RunOptions, a []string) []string {
+		v := get(o)
+		if v != "" && v != skip {
+			return append(a, "--"+flag, v)
+		}
+		return a
+	}}
+}
+
+// intFlag emits "--<flag> <value>" when get(o) > 0.
+func intFlag(field, flag string, get func(RunOptions) int) detachFlagSpec {
+	return detachFlagSpec{field: field, flag: flag, emit: func(o RunOptions, a []string) []string {
+		if v := get(o); v > 0 {
+			return append(a, "--"+flag, fmt.Sprintf("%d", v))
+		}
+		return a
+	}}
+}
+
+// detachFlagSpecs is the single source of truth for argv mirroring.
+// Adding a new pass-through flag means adding ONE entry here.
+var detachFlagSpecs = []detachFlagSpec{
+	strFlag("Input", "input", "", func(o RunOptions) string { return o.Input }),
+	strFlag("FromStep", "from-step", "", func(o RunOptions) string { return o.FromStep }),
+	boolFlag("Force", "force", func(o RunOptions) bool { return o.Force }),
+	intFlag("Timeout", "timeout", func(o RunOptions) int { return o.Timeout }),
+	strFlag("Manifest", "manifest", "wave.yaml", func(o RunOptions) string { return o.Manifest }),
+	boolFlag("Mock", "mock", func(o RunOptions) bool { return o.Mock }),
+	strFlag("Model", "model", "", func(o RunOptions) string { return o.Model }),
+	strFlag("Adapter", "adapter", "", func(o RunOptions) string { return o.Adapter }),
+	boolFlag("PreserveWorkspace", "preserve-workspace", func(o RunOptions) bool { return o.PreserveWorkspace }),
+	strFlag("Steps", "steps", "", func(o RunOptions) string { return o.Steps }),
+	strFlag("Exclude", "exclude", "", func(o RunOptions) string { return o.Exclude }),
+	boolFlag("Continuous", "continuous", func(o RunOptions) bool { return o.Continuous }),
+	strFlag("Source", "source", "", func(o RunOptions) string { return o.Source }),
+	intFlag("MaxIterations", "max-iterations", func(o RunOptions) int { return o.MaxIterations }),
+	strFlag("Delay", "delay", "0s", func(o RunOptions) string { return o.Delay }),
+	strFlag("OnFailure", "on-failure", "halt", func(o RunOptions) string { return o.OnFailure }),
+	boolFlag("AutoApprove", "auto-approve", func(o RunOptions) bool { return o.AutoApprove }),
+	boolFlag("NoRetro", "no-retro", func(o RunOptions) bool { return o.NoRetro }),
+	boolFlag("ForceModel", "force-model", func(o RunOptions) bool { return o.ForceModel }),
+}
+
+// buildDetachedArgs constructs argv for a detached `wave run` subprocess from
+// the parent RunOptions plus the freshly created runID. Pipeline and run id
+// are always emitted; all other fields flow through detachFlagSpecs so adding
+// a new pass-through flag requires editing exactly one spec list.
+func buildDetachedArgs(opts RunOptions, runID string) []string {
+	args := []string{"run", "--pipeline", opts.Pipeline, "--run", runID}
+	for _, spec := range detachFlagSpecs {
+		args = spec.emit(opts, args)
+	}
+	// OutputConfig is a struct — only Verbose flows through to the subprocess.
+	if opts.Output.Verbose {
+		args = append(args, "--verbose")
+	}
+	return args
 }
 
 // buildDetachEnv constructs a minimal environment for detached subprocesses.
