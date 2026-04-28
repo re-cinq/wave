@@ -1,60 +1,32 @@
 package webui
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"regexp"
-	"strings"
-	"syscall"
 	"time"
 
-	"github.com/recinq/wave/internal/adapter"
-	"github.com/recinq/wave/internal/audit"
 	"github.com/recinq/wave/internal/event"
-	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
-	"github.com/recinq/wave/internal/skill"
+	"github.com/recinq/wave/internal/runner"
 	"github.com/recinq/wave/internal/state"
-
 )
 
 // validPipelineName matches safe pipeline names: alphanumeric, hyphens, underscores, dots.
 var validPipelineName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
-// RunOptions holds CLI-parity options passed from the webui start form.
-type RunOptions struct {
-	// Tier 1
-	Model   string
-	Adapter string
-	// Tier 2
-	DryRun    bool
-	FromStep  string
-	Force     bool
-	Detach    bool
-	Timeout   int
-	Steps     string
-	Exclude   string
-	OnFailure string
-	// Tier 3
-	Continuous    bool
-	Source        string
-	MaxIterations int
-	Delay         string
-	// Tier 4
-	Mock              bool
-	PreserveWorkspace bool
-	AutoApprove       bool
-	NoRetro           bool
-	ForceModel        bool
-}
+// RunOptions is the CLI-parity option set forwarded from the webui start
+// form to internal/runner. Aliased so webui handlers and request DTOs keep
+// their existing field names while sharing one canonical shape with the cmd
+// path.
+type RunOptions = runner.Options
 
-// loggingEmitter wraps an event emitter and also logs events to the state store.
+// loggingEmitter wraps an event emitter and also logs events to the state
+// store, so the webui dashboard sees both real-time SSE updates and the
+// persistent event timeline.
 type loggingEmitter struct {
 	inner event.EventEmitter
 	store state.EventStore
@@ -62,10 +34,10 @@ type loggingEmitter struct {
 }
 
 func (l *loggingEmitter) Emit(ev event.Event) {
-	// Always forward to SSE broker for real-time streaming
+	// Always forward to SSE broker for real-time streaming.
 	l.inner.Emit(ev)
 
-	// Only log meaningful events to the database — skip empty heartbeat ticks
+	// Skip empty heartbeat ticks — they carry no useful info.
 	if l.store != nil && !isHeartbeat(ev) {
 		if err := l.store.LogEvent(l.runID, ev.StepID, ev.State, ev.Persona, ev.Message, ev.TokensUsed, ev.DurationMs, ev.Model, ev.ConfiguredModel, ev.Adapter); err != nil {
 			log.Printf("Warning: failed to log event for run %s: %v", l.runID, err)
@@ -78,14 +50,16 @@ func isHeartbeat(ev event.Event) bool {
 	return ev.Message == "" && (ev.State == "step_progress" || ev.State == "stream_activity") && ev.TokensUsed == 0 && ev.DurationMs == 0
 }
 
-// launchPipelineExecution starts pipeline execution as a detached subprocess.
-// The subprocess runs `wave run --pipeline <name> --run <runID> --input <input>`,
-// fully independent of the server process. Server shutdown does not cancel runs.
-// Dry-run mode is handled in-process since it completes instantly.
-// This is shared by handleStartPipeline, handleRetryRun, and handleResumeRun.
-// When fromStep is non-empty, the subprocess resumes from that step.
+// launchPipelineExecution starts pipeline execution as a detached subprocess
+// via internal/runner. The subprocess is fully independent of the server
+// process — server shutdown does not cancel runs. Dry-run mode short-circuits
+// to a synchronous status update because validation completes instantly.
+//
+// This helper is shared by handleStartPipeline, handleRetryRun, handleResumeRun,
+// and handleForkRun. When fromStep is non-empty the subprocess resumes from
+// that step.
 func (s *Server) launchPipelineExecution(runID, pipelineName, input string, _ *pipeline.Pipeline, opts RunOptions, fromStep ...string) {
-	// Dry-run: handle in-process (instant, no subprocess needed)
+	// Dry-run: handle in-process (instant, no subprocess needed).
 	if opts.DryRun {
 		if err := s.rwStore.UpdateRunStatus(runID, "completed", "dry run (validation only)", 0); err != nil {
 			log.Printf("Warning: failed to update run %s status for dry-run: %v", runID, err)
@@ -93,157 +67,51 @@ func (s *Server) launchPipelineExecution(runID, pipelineName, input string, _ *p
 		return
 	}
 
-	// Spawn a detached subprocess — same mechanism as `wave run --detach`
-	// Concurrency is enforced atomically at CreateRunWithLimit in the callers.
+	// Spawn a detached subprocess via the shared runner. Concurrency is
+	// enforced atomically at CreateRunWithLimit by the calling handler.
 	if err := s.spawnDetachedRun(runID, pipelineName, input, opts, fromStep...); err != nil {
 		log.Printf("Error: failed to spawn detached run %s: %v — falling back to in-process", runID, err)
 		s.launchInProcess(runID, pipelineName, input, opts, fromStep...)
-		return
 	}
 }
 
-// spawnDetachedRun launches a `wave run` subprocess that is fully detached from
-// the server process. The subprocess inherits the run ID and writes to the shared
-// state DB, so the web UI can track progress via SSE and the runs page.
+// spawnDetachedRun delegates to runner.Detach, reusing the run ID the handler
+// already created in the state DB. The runner consumes the same flag-spec
+// table the CLI uses, so flag changes only need to land in one place.
 func (s *Server) spawnDetachedRun(runID, pipelineName, input string, opts RunOptions, fromStep ...string) error {
-	args := []string{"run", "--pipeline", pipelineName, "--run", runID}
-	if input != "" {
-		args = append(args, "--input", input)
-	}
+	opts.Pipeline = pipelineName
+	opts.Input = input
+	opts.RunID = runID
 	if len(fromStep) > 0 && fromStep[0] != "" {
-		args = append(args, "--from-step", fromStep[0])
+		opts.FromStep = fromStep[0]
 	}
-	if opts.Model != "" {
-		args = append(args, "--model", opts.Model)
-	}
-	if opts.Adapter != "" {
-		args = append(args, "--adapter", opts.Adapter)
-	}
-	if opts.Timeout > 0 {
-		args = append(args, "--timeout", fmt.Sprintf("%d", opts.Timeout))
-	}
-	if opts.Steps != "" {
-		args = append(args, "--steps", opts.Steps)
-	}
-	if opts.Exclude != "" {
-		args = append(args, "--exclude", opts.Exclude)
-	}
-	if opts.Force {
-		args = append(args, "--force")
-	}
-	// Never pass --detach to the subprocess — spawnDetachedRun already
-	// launches it detached. Passing --detach would cause the subprocess
-	// to re-detach, creating a ghost pending run in the DB.
-	if opts.OnFailure != "" && opts.OnFailure != "halt" {
-		args = append(args, "--on-failure", opts.OnFailure)
-	}
-	if opts.Continuous {
-		args = append(args, "--continuous")
-	}
-	if opts.Source != "" {
-		args = append(args, "--source", opts.Source)
-	}
-	if opts.MaxIterations > 0 {
-		args = append(args, "--max-iterations", fmt.Sprintf("%d", opts.MaxIterations))
-	}
-	if opts.Delay != "" && opts.Delay != "0s" {
-		args = append(args, "--delay", opts.Delay)
-	}
-	if opts.Mock {
-		args = append(args, "--mock")
-	}
-	if opts.PreserveWorkspace {
-		args = append(args, "--preserve-workspace")
-	}
-	if opts.AutoApprove {
-		args = append(args, "--auto-approve")
-	}
-	if opts.NoRetro {
-		args = append(args, "--no-retro")
-	}
-	if opts.ForceModel {
-		args = append(args, "--force-model")
-	}
-	args = append(args, "--debug")
+	// Never recurse into detached mode in the subprocess — runner.Detach
+	// is already producing a Setsid'd child.
+	opts.Detach = false
+	// Force --debug for visibility into server-launched runs (matches the
+	// pre-extraction behaviour where buildDetachedArgs always appended --debug).
+	opts.Output.Verbose = true
 
-	waveBin, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("failed to find wave binary: %w", err)
+	cfg := runner.DetachConfig{
+		WorkDir:  s.repoDir,
+		ExtraEnv: []string{"GH_TOKEN", "GITHUB_TOKEN"},
 	}
-
-	cmd := exec.Command(waveBin, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	cmd.Dir = s.repoDir
-	cmd.Env = buildServerDetachEnv()
-
-	// Redirect output to .agents/logs/<runID>.log
-	logsDir := filepath.Join(s.repoDir, ".agents", "logs")
-	if mkErr := os.MkdirAll(logsDir, 0o755); mkErr != nil {
-		return fmt.Errorf("failed to create logs directory: %w", mkErr)
+	// runner.Detach reuses the pre-created run row when opts.RunID exists
+	// in the store, so no extra coordination is needed.
+	if _, err := runner.Detach(opts, s.rwStore, 0, cfg); err != nil {
+		return err
 	}
-	logPath := filepath.Join(logsDir, runID+".log")
-	logFile, logErr := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if logErr != nil {
-		return fmt.Errorf("failed to create log file: %w", logErr)
-	}
-	cmd.Stdout = logFile
-	cmd.Stderr = logFile
-
-	if startErr := cmd.Start(); startErr != nil {
-		logFile.Close()
-		return fmt.Errorf("failed to start detached pipeline: %w", startErr)
-	}
-
-	logFile.Close()
-
-	_ = s.rwStore.UpdateRunPID(runID, cmd.Process.Pid)
-	_ = cmd.Process.Release()
-
-	log.Printf("Pipeline %s (%s) launched as detached process (PID %d)", pipelineName, runID, cmd.Process.Pid)
+	log.Printf("Pipeline %s (%s) launched as detached process", pipelineName, runID)
 	return nil
 }
 
-// buildServerDetachEnv constructs environment for detached subprocesses spawned by the server.
-func buildServerDetachEnv() []string {
-	path := os.Getenv("PATH")
-	home := os.Getenv("HOME")
-	if home != "" {
-		toolBin := filepath.Join(home, ".local", "bin")
-		if !strings.Contains(path, toolBin) {
-			path = toolBin + string(os.PathListSeparator) + path
-		}
-	}
-
-	env := []string{
-		"HOME=" + home,
-		"PATH=" + path,
-	}
-	for _, key := range []string{
-		"ANTHROPIC_API_KEY", "CLAUDE_CODE_USE_BEDROCK", "AWS_PROFILE", "AWS_REGION",
-		"TERM", "USER", "SHELL", "GH_TOKEN", "GITHUB_TOKEN",
-		"XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME",
-	} {
-		if val, ok := os.LookupEnv(key); ok {
-			env = append(env, key+"="+val)
-		}
-	}
-	return env
-}
-
-// launchInProcess is the fallback when detached spawn fails. It runs the pipeline
-// in a goroutine tied to the server process (original behavior).
+// launchInProcess runs the pipeline inside the server process via
+// internal/runner. This is the fallback path when subprocess spawning fails;
+// the server-shutdown path will cancel these via activeRuns.
 func (s *Server) launchInProcess(runID, pipelineName, input string, opts RunOptions, fromStep ...string) {
-	var runner adapter.AdapterRunner
-	if opts.Adapter != "" {
-		runner = adapter.ResolveAdapter(opts.Adapter)
-	} else if s.manifest != nil {
-		for adapterName := range s.manifest.Adapters {
-			runner = adapter.ResolveAdapter(adapterName)
-			break
-		}
-	}
-	if runner == nil {
-		runner = adapter.ResolveAdapter("claude")
+	resolvedFromStep := ""
+	if len(fromStep) > 0 {
+		resolvedFromStep = fromStep[0]
 	}
 
 	emitter := &loggingEmitter{
@@ -252,94 +120,36 @@ func (s *Server) launchInProcess(runID, pipelineName, input string, opts RunOpti
 		runID: runID,
 	}
 
-	traceLogger, traceErr := audit.NewTraceLogger()
-	if traceErr != nil {
-		log.Printf("Warning: failed to create trace logger: %v", traceErr)
-	}
-
-	execOpts := []pipeline.ExecutorOption{
-		pipeline.WithRunID(runID),
-		pipeline.WithStateStore(s.rwStore),
-		pipeline.WithEmitter(emitter),
-		pipeline.WithDebug(true),
-	}
-	if s.wsManager != nil {
-		execOpts = append(execOpts, pipeline.WithWorkspaceManager(s.wsManager))
-	}
-	if traceLogger != nil {
-		execOpts = append(execOpts, pipeline.WithAuditLogger(traceLogger))
-	}
+	var gateHandler pipeline.GateHandler
 	if s.gateRegistry != nil {
-		execOpts = append(execOpts, pipeline.WithGateHandler(NewWebUIGateHandler(runID, s.gateRegistry)))
-	}
-	if opts.Model != "" {
-		execOpts = append(execOpts, pipeline.WithModelOverride(opts.Model))
-	}
-	if opts.Adapter != "" {
-		execOpts = append(execOpts, pipeline.WithAdapterOverride(opts.Adapter))
-	}
-	if opts.Timeout > 0 {
-		execOpts = append(execOpts, pipeline.WithStepTimeout(time.Duration(opts.Timeout)*time.Minute))
-	}
-	if opts.Steps != "" || opts.Exclude != "" {
-		execOpts = append(execOpts, pipeline.WithStepFilter(pipeline.ParseStepFilter(opts.Steps, opts.Exclude)))
+		gateHandler = NewWebUIGateHandler(runID, s.gateRegistry)
 	}
 
-	execOpts = append(execOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(
-		skill.SkillSource{Root: "skills", Precedence: 2},
-		skill.SkillSource{Root: ".agents/skills", Precedence: 1},
-	)))
+	cancel := runner.LaunchInProcess(runner.InProcessConfig{
+		RunID:            runID,
+		PipelineName:     pipelineName,
+		Input:            input,
+		Manifest:         s.manifest,
+		Store:            s.rwStore,
+		Emitter:          emitter,
+		WorkspaceManager: s.wsManager,
+		GateHandler:      gateHandler,
+		FromStep:         resolvedFromStep,
+		Options:          opts,
+		OnComplete: func(string, error) {
+			// Invalidate issue/PR caches so fresh data shows after pipeline completion.
+			s.cache.InvalidatePrefix("issues:")
+			s.cache.InvalidatePrefix("prs:")
 
-	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	s.mu.Lock()
-	s.activeRuns[runID] = cancel
-	s.mu.Unlock()
-
-	go func() {
-		defer func() {
-			if traceLogger != nil {
-				traceLogger.Close()
-			}
 			s.mu.Lock()
 			delete(s.activeRuns, runID)
 			s.mu.Unlock()
-			cancel()
-		}()
+		},
+	})
 
-		if err := s.rwStore.UpdateRunStatus(runID, "running", "", 0); err != nil {
-			log.Printf("Warning: failed to update run %s to running: %v", runID, err)
-		}
-
-		m := s.manifest
-		if m == nil {
-			m = &manifest.Manifest{}
-		}
-
-		var execErr error
-		if len(fromStep) > 0 && fromStep[0] != "" {
-			execErr = executor.ResumeWithValidation(ctx, &pipeline.Pipeline{}, m, input, fromStep[0], false, runID)
-		} else {
-			execErr = executor.Execute(ctx, &pipeline.Pipeline{}, m, input)
-		}
-
-		tokens := executor.GetTotalTokens()
-		if execErr != nil {
-			log.Printf("Pipeline %s (%s) failed: %v", pipelineName, runID, execErr)
-			if err := s.rwStore.UpdateRunStatus(runID, "failed", execErr.Error(), tokens); err != nil {
-				log.Printf("Warning: failed to update run %s to failed: %v", runID, err)
-			}
-		} else {
-			if err := s.rwStore.UpdateRunStatus(runID, "completed", "", tokens); err != nil {
-				log.Printf("Warning: failed to update run %s to completed: %v", runID, err)
-			}
-		}
-
-		// Invalidate issue/PR caches so fresh data shows after pipeline completion
-		s.cache.InvalidatePrefix("issues:")
-		s.cache.InvalidatePrefix("prs:")
-	}()
+	s.mu.Lock()
+	s.activeRuns[runID] = cancel
+	s.mu.Unlock()
 }
 
 // handleStartPipeline handles POST /api/pipelines/{name}/start
@@ -350,7 +160,6 @@ func (s *Server) handleStartPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if pipeline is disabled by admin
 	if s.isPipelineDisabled(name) {
 		writeJSONError(w, http.StatusForbidden, "pipeline is disabled")
 		return
@@ -362,7 +171,6 @@ func (s *Server) handleStartPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate mutual exclusions
 	if req.Continuous && req.FromStep != "" {
 		writeJSONError(w, http.StatusBadRequest, "--continuous and --from-step are mutually exclusive")
 		return
@@ -372,61 +180,32 @@ func (s *Server) handleStartPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Load pipeline definition from .agents/pipelines/
 	p, err := loadPipelineYAML(name)
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, "failed to load pipeline: "+err.Error())
 		return
 	}
 
-	// Create the run record in the DB — this ID is used everywhere
 	runID, err := s.rwStore.CreateRun(name, req.Input)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to create run: "+err.Error())
 		return
 	}
 
-	opts := RunOptions{
-		Model:             req.Model,
-		Adapter:           req.Adapter,
-		DryRun:            req.DryRun,
-		FromStep:          req.FromStep,
-		Force:             req.Force,
-		Detach:            req.Detach,
-		Timeout:           req.Timeout,
-		Steps:             req.Steps,
-		Exclude:           req.Exclude,
-		OnFailure:         req.OnFailure,
-		Continuous:        req.Continuous,
-		Source:            req.Source,
-		MaxIterations:     req.MaxIterations,
-		Delay:             req.Delay,
-		Mock:              req.Mock,
-		PreserveWorkspace: req.PreserveWorkspace,
-		AutoApprove:       req.AutoApprove,
-		NoRetro:           req.NoRetro,
-		ForceModel:        req.ForceModel,
-	}
+	opts := runOptionsFromStartRequest(req)
 
-	var fromStep string
 	if req.FromStep != "" {
-		fromStep = req.FromStep
-	}
-
-	if fromStep != "" {
-		s.launchPipelineExecution(runID, name, req.Input, p, opts, fromStep)
+		s.launchPipelineExecution(runID, name, req.Input, p, opts, req.FromStep)
 	} else {
 		s.launchPipelineExecution(runID, name, req.Input, p, opts)
 	}
 
-	resp := StartPipelineResponse{
+	writeJSON(w, http.StatusCreated, StartPipelineResponse{
 		RunID:        runID,
 		PipelineName: name,
 		Status:       "running",
 		StartedAt:    time.Now(),
-	}
-
-	writeJSON(w, http.StatusCreated, resp)
+	})
 }
 
 // handleCancelRun handles POST /api/runs/{id}/cancel
@@ -442,7 +221,6 @@ func (s *Server) handleCancelRun(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&req) // best-effort; defaults are fine
 	}
 
-	// Check run exists and is cancellable
 	run, err := s.store.GetRun(runID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "run not found")
@@ -454,7 +232,6 @@ func (s *Server) handleCancelRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Cancel the goroutine context if the run is active
 	s.mu.Lock()
 	if cancelFn, ok := s.activeRuns[runID]; ok {
 		cancelFn()
@@ -470,12 +247,7 @@ func (s *Server) handleCancelRun(w http.ResponseWriter, r *http.Request) {
 	if req.Force {
 		status = "cancelled"
 	}
-	resp := CancelRunResponse{
-		RunID:  runID,
-		Status: status,
-	}
-
-	writeJSON(w, http.StatusOK, resp)
+	writeJSON(w, http.StatusOK, CancelRunResponse{RunID: runID, Status: status})
 }
 
 // handleRetryRun handles POST /api/runs/{id}/retry
@@ -486,7 +258,6 @@ func (s *Server) handleRetryRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get original run to copy parameters
 	originalRun, err := s.store.GetRun(runID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "run not found")
@@ -498,32 +269,27 @@ func (s *Server) handleRetryRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Load pipeline definition
 	p, err := loadPipelineYAML(originalRun.PipelineName)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to load pipeline: "+err.Error())
 		return
 	}
 
-	// Create a new run with the same parameters
 	newRunID, err := s.rwStore.CreateRun(originalRun.PipelineName, originalRun.Input)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to create retry run")
 		return
 	}
 
-	// Launch actual pipeline execution
-	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p, RunOptions{})
+	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p, runner.Options{})
 
-	resp := RetryRunResponse{
+	writeJSON(w, http.StatusCreated, RetryRunResponse{
 		RunID:         newRunID,
 		OriginalRunID: runID,
 		PipelineName:  originalRun.PipelineName,
 		Status:        "running",
 		StartedAt:     time.Now(),
-	}
-
-	writeJSON(w, http.StatusCreated, resp)
+	})
 }
 
 // handleResumeRun handles POST /api/runs/{id}/resume
@@ -545,7 +311,6 @@ func (s *Server) handleResumeRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get original run — must be in a resumable state
 	originalRun, err := s.store.GetRun(runID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "run not found")
@@ -557,14 +322,12 @@ func (s *Server) handleResumeRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Load pipeline definition
 	p, err := loadPipelineYAML(originalRun.PipelineName)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to load pipeline: "+err.Error())
 		return
 	}
 
-	// Validate that the step exists in the pipeline
 	stepFound := false
 	for _, step := range p.Steps {
 		if step.ID == req.FromStep {
@@ -577,26 +340,22 @@ func (s *Server) handleResumeRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create a new run record for the resumed execution
 	newRunID, err := s.rwStore.CreateRun(originalRun.PipelineName, originalRun.Input)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to create resume run")
 		return
 	}
 
-	// Launch execution with resume from the specified step
-	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p, RunOptions{}, req.FromStep)
+	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p, runner.Options{}, req.FromStep)
 
-	resp := ResumeRunResponse{
+	writeJSON(w, http.StatusCreated, ResumeRunResponse{
 		RunID:         newRunID,
 		OriginalRunID: runID,
 		PipelineName:  originalRun.PipelineName,
 		FromStep:      req.FromStep,
 		Status:        "running",
 		StartedAt:     time.Now(),
-	}
-
-	writeJSON(w, http.StatusCreated, resp)
+	})
 }
 
 // handleSubmitRun handles POST /api/runs — submit a new pipeline run.
@@ -612,7 +371,6 @@ func (s *Server) handleSubmitRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate mutual exclusions
 	if req.Continuous && req.FromStep != "" {
 		writeJSONError(w, http.StatusBadRequest, "--continuous and --from-step are mutually exclusive")
 		return
@@ -622,61 +380,32 @@ func (s *Server) handleSubmitRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Load pipeline definition
 	p, err := loadPipelineYAML(req.Pipeline)
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, "failed to load pipeline: "+err.Error())
 		return
 	}
 
-	// Create run record
 	runID, err := s.rwStore.CreateRun(req.Pipeline, req.Input)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to create run: "+err.Error())
 		return
 	}
 
-	opts := RunOptions{
-		Model:             req.Model,
-		Adapter:           req.Adapter,
-		DryRun:            req.DryRun,
-		FromStep:          req.FromStep,
-		Force:             req.Force,
-		Detach:            req.Detach,
-		Timeout:           req.Timeout,
-		Steps:             req.Steps,
-		Exclude:           req.Exclude,
-		OnFailure:         req.OnFailure,
-		Continuous:        req.Continuous,
-		Source:            req.Source,
-		MaxIterations:     req.MaxIterations,
-		Delay:             req.Delay,
-		Mock:              req.Mock,
-		PreserveWorkspace: req.PreserveWorkspace,
-		AutoApprove:       req.AutoApprove,
-		NoRetro:           req.NoRetro,
-		ForceModel:        req.ForceModel,
-	}
+	opts := runOptionsFromSubmitRequest(req)
 
-	var fromStep string
 	if req.FromStep != "" {
-		fromStep = req.FromStep
-	}
-
-	if fromStep != "" {
-		s.launchPipelineExecution(runID, req.Pipeline, req.Input, p, opts, fromStep)
+		s.launchPipelineExecution(runID, req.Pipeline, req.Input, p, opts, req.FromStep)
 	} else {
 		s.launchPipelineExecution(runID, req.Pipeline, req.Input, p, opts)
 	}
 
-	resp := SubmitRunResponse{
+	writeJSON(w, http.StatusCreated, SubmitRunResponse{
 		RunID:        runID,
 		PipelineName: req.Pipeline,
 		Status:       "running",
 		StartedAt:    time.Now(),
-	}
-
-	writeJSON(w, http.StatusCreated, resp)
+	})
 }
 
 // handleRunLogs handles GET /api/runs/{id}/logs — get structured run logs.
@@ -687,7 +416,6 @@ func (s *Server) handleRunLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify run exists
 	if _, err := s.store.GetRun(runID); err != nil {
 		writeJSONError(w, http.StatusNotFound, "run not found")
 		return
@@ -712,10 +440,7 @@ func (s *Server) handleRunLogs(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	writeJSON(w, http.StatusOK, RunLogsResponse{
-		RunID: runID,
-		Logs:  logs,
-	})
+	writeJSON(w, http.StatusOK, RunLogsResponse{RunID: runID, Logs: logs})
 }
 
 // loadPipelineYAML loads a pipeline definition from .agents/pipelines/.
@@ -772,7 +497,6 @@ func (s *Server) handleGateApprove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Limit request body to 1MB to prevent abuse via oversized freeform text.
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
 	var req GateApproveRequest
@@ -786,7 +510,6 @@ func (s *Server) handleGateApprove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check that a gate is actually pending for this run
 	if s.gateRegistry == nil {
 		writeJSONError(w, http.StatusServiceUnavailable, "gate registry not initialized")
 		return
@@ -798,9 +521,6 @@ func (s *Server) handleGateApprove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify that the step ID in the URL matches the actual pending gate step.
-	// This prevents approving the wrong gate when steps change between request
-	// construction and submission.
 	pendingStepID := s.gateRegistry.GetPendingStepID(runID)
 	if pendingStepID != "" && pendingStepID != stepID {
 		writeJSONError(w, http.StatusConflict,
@@ -808,7 +528,6 @@ func (s *Server) handleGateApprove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate the choice key against the gate's choices
 	choice := gate.FindChoiceByKey(req.Choice)
 	if choice == nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid choice key: "+req.Choice)
@@ -843,7 +562,6 @@ func (s *Server) handleForkRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Limit request body size for consistency with other POST handlers.
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
 	var req ForkRunRequest
@@ -905,7 +623,7 @@ func (s *Server) handleForkRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p, RunOptions{}, resumeStep)
+	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p, runner.Options{}, resumeStep)
 
 	writeJSON(w, http.StatusCreated, ForkRunResponse{
 		RunID:        newRunID,
@@ -925,7 +643,6 @@ func (s *Server) handleRewindRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Limit request body size for consistency with other POST handlers.
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
 	var req RewindRunRequest
@@ -1023,7 +740,6 @@ func (s *Server) handleAPIModels(w http.ResponseWriter, r *http.Request) {
 		seen[m] = true
 		models = append(models, m)
 	}
-	// Always include tier names as suggestions
 	add("cheapest")
 	add("balanced")
 	add("strongest")
@@ -1072,3 +788,57 @@ func (s *Server) handleForkPoints(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, resp)
 }
+
+// runOptionsFromStartRequest projects an HTTP StartPipelineRequest onto the
+// shared runner.Options struct so the launch path is identical regardless of
+// which handler triggered the run.
+func runOptionsFromStartRequest(req StartPipelineRequest) runner.Options {
+	return runner.Options{
+		Model:             req.Model,
+		Adapter:           req.Adapter,
+		DryRun:            req.DryRun,
+		FromStep:          req.FromStep,
+		Force:             req.Force,
+		Detach:            req.Detach,
+		Timeout:           req.Timeout,
+		Steps:             req.Steps,
+		Exclude:           req.Exclude,
+		OnFailure:         req.OnFailure,
+		Continuous:        req.Continuous,
+		Source:            req.Source,
+		MaxIterations:     req.MaxIterations,
+		Delay:             req.Delay,
+		Mock:              req.Mock,
+		PreserveWorkspace: req.PreserveWorkspace,
+		AutoApprove:       req.AutoApprove,
+		NoRetro:           req.NoRetro,
+		ForceModel:        req.ForceModel,
+	}
+}
+
+// runOptionsFromSubmitRequest mirrors runOptionsFromStartRequest for the
+// /api/runs submit endpoint.
+func runOptionsFromSubmitRequest(req SubmitRunRequest) runner.Options {
+	return runner.Options{
+		Model:             req.Model,
+		Adapter:           req.Adapter,
+		DryRun:            req.DryRun,
+		FromStep:          req.FromStep,
+		Force:             req.Force,
+		Detach:            req.Detach,
+		Timeout:           req.Timeout,
+		Steps:             req.Steps,
+		Exclude:           req.Exclude,
+		OnFailure:         req.OnFailure,
+		Continuous:        req.Continuous,
+		Source:            req.Source,
+		MaxIterations:     req.MaxIterations,
+		Delay:             req.Delay,
+		Mock:              req.Mock,
+		PreserveWorkspace: req.PreserveWorkspace,
+		AutoApprove:       req.AutoApprove,
+		NoRetro:           req.NoRetro,
+		ForceModel:        req.ForceModel,
+	}
+}
+

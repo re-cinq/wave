@@ -5,11 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
-	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/charmbracelet/huh"
@@ -25,6 +22,7 @@ import (
 	"github.com/recinq/wave/internal/recovery"
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/retro"
+	"github.com/recinq/wave/internal/runner"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/suggest"
@@ -34,32 +32,11 @@ import (
 	"golang.org/x/term"
 )
 
-type RunOptions struct {
-	Pipeline          string
-	Input             string
-	DryRun            bool
-	FromStep          string
-	Force             bool
-	Timeout           int
-	Manifest          string
-	Mock              bool
-	RunID             string
-	Output            OutputConfig
-	Model             string
-	Adapter           string
-	PreserveWorkspace bool
-	Steps             string // Comma-separated step names to include (--steps)
-	Exclude           string // Comma-separated step names to exclude (-x/--exclude)
-	Continuous        bool   // --continuous flag
-	Source            string // --source URI for work item discovery
-	MaxIterations     int    // --max-iterations cap
-	Delay             string // --delay between iterations
-	OnFailure         string // --on-failure halt|skip
-	Detach            bool   // --detach flag for background execution
-	AutoApprove       bool   // --auto-approve flag for skipping approval gates
-	NoRetro           bool   // --no-retro flag to skip retrospective generation
-	ForceModel        bool   // --force-model overrides all step/persona model tiers
-}
+// RunOptions is aliased from internal/runner — the canonical struct lives
+// there so the webui launch path consumes the exact same fields without a
+// translation layer. The exhaustiveness test (TestDetachedArgsExhaustive)
+// also lives in internal/runner alongside the spec table it guards.
+type RunOptions = runner.Options
 
 func NewRunCmd() *cobra.Command {
 	var opts RunOptions
@@ -761,11 +738,12 @@ func runRun(opts RunOptions, debug bool) error {
 }
 
 // runDetached spawns a new `wave run` subprocess that is fully detached from
-// the current process session. The subprocess inherits all flags except --detach,
-// so it runs the pipeline in-process in its own session group. This mirrors the
-// TUI's pipeline_launcher.go pattern (Setsid + Process.Release).
+// the current process session via internal/runner. The subprocess inherits
+// all flags except --detach and runs the pipeline in its own session group.
+// runner.Detach is the single source of truth used by both the CLI path and
+// the webui server, so changes to the spawn protocol live in exactly one
+// place (and are exercised by TestDetachedArgsExhaustive).
 func runDetached(opts RunOptions, p *pipeline.Pipeline, m *manifest.Manifest) error {
-	// Initialize state store to create a run ID visible to wave status / wave logs.
 	stateDB := ".agents/state.db"
 	store, err := state.NewStateStore(stateDB)
 	if err != nil {
@@ -773,208 +751,27 @@ func runDetached(opts RunOptions, p *pipeline.Pipeline, m *manifest.Manifest) er
 	}
 	defer store.Close()
 
-	// Enforce max_concurrent_workers atomically via CreateRunWithLimit.
-	maxWorkers := 5 // default
+	maxWorkers := 5
 	if m != nil && m.Runtime.MaxConcurrentWorkers > 0 {
 		maxWorkers = m.Runtime.MaxConcurrentWorkers
 	}
 
-	var runID string
-	// Resume-in-place: when the user passes --run <prior> alongside
-	// --from-step, reuse that run id instead of creating a fresh one.
-	// Otherwise the detached subprocess loses the prior-run reference and
-	// loadResumeState queries the empty new run, leaving the auto-injector
-	// (#1452) with nothing to inject.
-	if opts.RunID != "" && opts.FromStep != "" {
-		if _, err := store.GetRun(opts.RunID); err == nil {
-			runID = opts.RunID
-		}
-	}
-	if runID == "" {
-		notified := false
-		for {
-			var createErr error
-			runID, createErr = store.CreateRunWithLimit(p.Metadata.Name, opts.Input, maxWorkers)
-			if createErr == nil {
-				break
-			}
-			if !errors.Is(createErr, state.ErrConcurrencyLimit) {
-				return fmt.Errorf("failed to create run record: %w", createErr)
-			}
-			if !notified {
-				fmt.Fprintf(os.Stderr, "  Queued: %d/%d workers busy, waiting for a slot...\n", maxWorkers, maxWorkers)
-				notified = true
-			}
-			time.Sleep(5 * time.Second)
-		}
-	}
-	// Mark as running so wave status picks it up immediately.
-	_ = store.UpdateRunStatus(runID, "running", "", 0)
-
-	// Build subprocess args: same flags minus --detach/-d, plus --run <runID>.
-	args := buildDetachedArgs(opts, runID)
-
-	cmd := exec.Command(os.Args[0], args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	cmd.Env = buildDetachEnv()
-
-	// Redirect output to .agents/logs/<runID>.log
-	logsDir := filepath.Join(".agents", "logs")
-	if mkErr := os.MkdirAll(logsDir, 0o755); mkErr != nil {
-		return fmt.Errorf("failed to create logs directory: %w", mkErr)
-	}
-	logPath := filepath.Join(logsDir, runID+".log")
-	logFile, logErr := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if logErr != nil {
-		return fmt.Errorf("failed to create log file: %w", logErr)
-	}
-	cmd.Stdout = logFile
-	cmd.Stderr = logFile
-
-	if startErr := cmd.Start(); startErr != nil {
-		logFile.Close()
-		return fmt.Errorf("failed to start detached pipeline: %w", startErr)
+	// runner.Detach defaults Pipeline name onto opts; ensure it is set so
+	// CreateRunWithLimit records the right pipeline_name.
+	if opts.Pipeline == "" {
+		opts.Pipeline = p.Metadata.Name
 	}
 
-	// Close the log file — the subprocess inherited the fd.
-	logFile.Close()
-
-	// Record PID and fully detach the subprocess.
-	_ = store.UpdateRunPID(runID, cmd.Process.Pid)
-	_ = cmd.Process.Release()
+	runID, err := runner.Detach(opts, store, maxWorkers, runner.DetachConfig{})
+	if err != nil {
+		return err
+	}
 
 	fmt.Fprintf(os.Stderr, "  Pipeline '%s' launched (detached)\n", p.Metadata.Name)
 	fmt.Fprintf(os.Stderr, "  Run ID:  %s\n", runID)
 	fmt.Fprintf(os.Stderr, "  Logs:    wave logs %s\n", runID)
 	fmt.Fprintf(os.Stderr, "  Cancel:  wave cancel %s\n", runID)
-
 	return nil
-}
-
-// detachFlagSpec mirrors a single RunOptions field into the argv of a detached
-// `wave run` subprocess. emit appends "--flag" or "--flag value" tokens to args
-// when the field warrants forwarding (skipping zero/default values). Together
-// detachFlagSpecs forms the single source of truth for runDetached's argv
-// rebuilder. TestDetachedArgsExhaustive guards against new RunOptions fields
-// being silently dropped — every field must be registered here or in
-// detachFlagSkippedFields.
-type detachFlagSpec struct {
-	field string // RunOptions struct field name (matched by exhaustiveness test)
-	flag  string // CLI flag name without leading dashes
-	emit  func(opts RunOptions, args []string) []string
-}
-
-// detachFlagSkippedFields lists RunOptions fields that intentionally do NOT
-// flow through to the detached subprocess. Update this list (with a reason)
-// when adding a new field that should not be mirrored.
-var detachFlagSkippedFields = map[string]string{
-	"Pipeline": "always emitted explicitly as --pipeline before spec processing",
-	"RunID":    "always emitted explicitly as --run with the freshly created runID",
-	"Detach":   "subprocess must not recurse into detached mode",
-	"DryRun":   "runDetached is unreachable when --dry-run is set (handled in runRun)",
-	"Output":   "OutputConfig is a struct — Verbose handled outside the spec list",
-}
-
-// boolFlag emits "--<flag>" when get(o) is true.
-func boolFlag(field, flag string, get func(RunOptions) bool) detachFlagSpec {
-	return detachFlagSpec{field: field, flag: flag, emit: func(o RunOptions, a []string) []string {
-		if get(o) {
-			return append(a, "--"+flag)
-		}
-		return a
-	}}
-}
-
-// strFlag emits "--<flag> <value>" when get(o) is non-empty and not equal to skip.
-func strFlag(field, flag, skip string, get func(RunOptions) string) detachFlagSpec {
-	return detachFlagSpec{field: field, flag: flag, emit: func(o RunOptions, a []string) []string {
-		v := get(o)
-		if v != "" && v != skip {
-			return append(a, "--"+flag, v)
-		}
-		return a
-	}}
-}
-
-// intFlag emits "--<flag> <value>" when get(o) > 0.
-func intFlag(field, flag string, get func(RunOptions) int) detachFlagSpec {
-	return detachFlagSpec{field: field, flag: flag, emit: func(o RunOptions, a []string) []string {
-		if v := get(o); v > 0 {
-			return append(a, "--"+flag, fmt.Sprintf("%d", v))
-		}
-		return a
-	}}
-}
-
-// detachFlagSpecs is the single source of truth for argv mirroring.
-// Adding a new pass-through flag means adding ONE entry here.
-var detachFlagSpecs = []detachFlagSpec{
-	strFlag("Input", "input", "", func(o RunOptions) string { return o.Input }),
-	strFlag("FromStep", "from-step", "", func(o RunOptions) string { return o.FromStep }),
-	boolFlag("Force", "force", func(o RunOptions) bool { return o.Force }),
-	intFlag("Timeout", "timeout", func(o RunOptions) int { return o.Timeout }),
-	strFlag("Manifest", "manifest", "wave.yaml", func(o RunOptions) string { return o.Manifest }),
-	boolFlag("Mock", "mock", func(o RunOptions) bool { return o.Mock }),
-	strFlag("Model", "model", "", func(o RunOptions) string { return o.Model }),
-	strFlag("Adapter", "adapter", "", func(o RunOptions) string { return o.Adapter }),
-	boolFlag("PreserveWorkspace", "preserve-workspace", func(o RunOptions) bool { return o.PreserveWorkspace }),
-	strFlag("Steps", "steps", "", func(o RunOptions) string { return o.Steps }),
-	strFlag("Exclude", "exclude", "", func(o RunOptions) string { return o.Exclude }),
-	boolFlag("Continuous", "continuous", func(o RunOptions) bool { return o.Continuous }),
-	strFlag("Source", "source", "", func(o RunOptions) string { return o.Source }),
-	intFlag("MaxIterations", "max-iterations", func(o RunOptions) int { return o.MaxIterations }),
-	strFlag("Delay", "delay", "0s", func(o RunOptions) string { return o.Delay }),
-	strFlag("OnFailure", "on-failure", "halt", func(o RunOptions) string { return o.OnFailure }),
-	boolFlag("AutoApprove", "auto-approve", func(o RunOptions) bool { return o.AutoApprove }),
-	boolFlag("NoRetro", "no-retro", func(o RunOptions) bool { return o.NoRetro }),
-	boolFlag("ForceModel", "force-model", func(o RunOptions) bool { return o.ForceModel }),
-}
-
-// buildDetachedArgs constructs argv for a detached `wave run` subprocess from
-// the parent RunOptions plus the freshly created runID. Pipeline and run id
-// are always emitted; all other fields flow through detachFlagSpecs so adding
-// a new pass-through flag requires editing exactly one spec list.
-func buildDetachedArgs(opts RunOptions, runID string) []string {
-	args := []string{"run", "--pipeline", opts.Pipeline, "--run", runID}
-	for _, spec := range detachFlagSpecs {
-		args = spec.emit(opts, args)
-	}
-	// OutputConfig is a struct — only Verbose flows through to the subprocess.
-	if opts.Output.Verbose {
-		args = append(args, "--verbose")
-	}
-	return args
-}
-
-// buildDetachEnv constructs a minimal environment for detached subprocesses.
-func buildDetachEnv() []string {
-	// Ensure $HOME/.local/bin is in PATH — install tools (uv, pip, cargo)
-	// place binaries there and it may not be in PATH in sandboxed environments.
-	path := os.Getenv("PATH")
-	home := os.Getenv("HOME")
-	if home != "" {
-		toolBin := filepath.Join(home, ".local", "bin")
-		if !strings.Contains(path, toolBin) {
-			path = toolBin + string(os.PathListSeparator) + path
-		}
-	}
-
-	env := []string{
-		"HOME=" + home,
-		"PATH=" + path,
-	}
-	// Pass through common env vars needed by adapters and tool managers.
-	for _, key := range []string{
-		"ANTHROPIC_API_KEY", "CLAUDE_CODE_USE_BEDROCK", "AWS_PROFILE", "AWS_REGION",
-		"TERM", "USER", "SHELL",
-		// XDG dirs used by uv, pip, and other tool managers for locating data/config
-		"XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME",
-	} {
-		if val, ok := os.LookupEnv(key); ok {
-			env = append(env, key+"="+val)
-		}
-	}
-	return env
 }
 
 // resolveRunID selects or creates the run ID for a pipeline execution.
