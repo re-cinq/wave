@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/pipeline"
@@ -276,8 +277,8 @@ func runComposePlan(_ tui.Sequence, plan pipeline.ExecutionPlan, input string, m
 
 	var runner adapter.AdapterRunner
 	if mock {
-		runner = adapter.NewMockAdapter(
-			adapter.WithSimulatedDelay(5 * time.Second),
+		runner = adaptertest.NewMockAdapter(
+			adaptertest.WithSimulatedDelay(5 * time.Second),
 		)
 	} else {
 		var adapterName string
@@ -397,8 +398,8 @@ func runCompose(seq tui.Sequence, input string, manifestPath string, mock bool, 
 	// Resolve adapter
 	var runner adapter.AdapterRunner
 	if mock {
-		runner = adapter.NewMockAdapter(
-			adapter.WithSimulatedDelay(5 * time.Second),
+		runner = adaptertest.NewMockAdapter(
+			adaptertest.WithSimulatedDelay(5 * time.Second),
 		)
 	} else {
 		var adapterName string

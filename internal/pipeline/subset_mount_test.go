@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
 )
 
@@ -54,7 +54,7 @@ func TestMaterialiseMountSubset(t *testing.T) {
 		Context:        NewPipelineContext("test-run", "test", "audit"),
 	}
 
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 
 	mount := Mount{
 		Source:     source,
@@ -113,7 +113,7 @@ func TestMaterialiseMountSubset_PathTraversalRejected(t *testing.T) {
 		Status:         &PipelineStatus{ID: "test-run"},
 		Context:        NewPipelineContext("test-run", "test", "audit"),
 	}
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 
 	subsetDir, err := executor.materialiseMountSubset(exec, "audit", 0, Mount{
 		Source:     source,
@@ -171,7 +171,7 @@ func TestMaterialiseMountSubset_SymlinkRejected(t *testing.T) {
 		Status:         &PipelineStatus{ID: "test-run"},
 		Context:        NewPipelineContext("test-run", "test", "audit"),
 	}
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 
 	subsetDir, err := executor.materialiseMountSubset(exec, "audit", 0, Mount{
 		Source:     source,

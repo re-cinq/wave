@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/security"
 	"github.com/recinq/wave/internal/testutil"
@@ -31,15 +32,15 @@ import (
 
 // contractTestPromptCapturingAdapter captures prompts sent to the adapter for inspection
 type contractTestPromptCapturingAdapter struct {
-	*adapter.MockAdapter
+	*adaptertest.MockAdapter
 	mu              sync.Mutex
 	capturedPrompts []string
 	capturedConfigs []adapter.AdapterRunConfig
 }
 
-func newContractTestPromptCapturingAdapter(opts ...adapter.MockOption) *contractTestPromptCapturingAdapter {
+func newContractTestPromptCapturingAdapter(opts ...adaptertest.MockOption) *contractTestPromptCapturingAdapter {
 	return &contractTestPromptCapturingAdapter{
-		MockAdapter:     adapter.NewMockAdapter(opts...),
+		MockAdapter:     adaptertest.NewMockAdapter(opts...),
 		capturedPrompts: make([]string, 0),
 		capturedConfigs: make([]adapter.AdapterRunConfig, 0),
 	}
@@ -302,8 +303,8 @@ func TestContractIntegration_SchemaInjectedIntoPrompt(t *testing.T) {
 
 	// Create capturing adapter to verify prompt contents
 	capturingAdapter := newContractTestPromptCapturingAdapter(
-		adapter.WithStdoutJSON(`{"result": "success", "confidence": 0.95}`),
-		adapter.WithTokensUsed(1000),
+		adaptertest.WithStdoutJSON(`{"result": "success", "confidence": 0.95}`),
+		adaptertest.WithTokensUsed(1000),
 	)
 
 	// Also write the valid artifact
@@ -378,8 +379,8 @@ func TestContractIntegration_InlineSchemaInjectedIntoPrompt(t *testing.T) {
 	inlineSchema := `{"type": "object", "properties": {"status": {"type": "string"}}, "required": ["status"]}`
 
 	capturingAdapter := newContractTestPromptCapturingAdapter(
-		adapter.WithStdoutJSON(`{"status": "complete"}`),
-		adapter.WithTokensUsed(500),
+		adaptertest.WithStdoutJSON(`{"status": "complete"}`),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	executor := NewDefaultPipelineExecutor(capturingAdapter)
@@ -929,8 +930,8 @@ func TestContractIntegration_InputTemplateReplacement(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	capturingAdapter := newContractTestPromptCapturingAdapter(
-		adapter.WithStdoutJSON(`{"result": "done"}`),
-		adapter.WithTokensUsed(500),
+		adaptertest.WithStdoutJSON(`{"result": "done"}`),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	executor := NewDefaultPipelineExecutor(capturingAdapter)

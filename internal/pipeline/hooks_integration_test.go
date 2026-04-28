@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/hooks"
 	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/assert"
@@ -45,9 +45,9 @@ func (m *mockHookRunner) getCalls() []hooks.HookEvent {
 // workspace_created, step_completed), and finally run_completed.
 func TestHooksFireAtCorrectLifecyclePoints(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(500),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	hr := &mockHookRunner{failOn: map[hooks.EventType]error{}}
@@ -133,9 +133,9 @@ func TestHooksFireAtCorrectLifecyclePoints(t *testing.T) {
 // on step_start causes the pipeline to fail.
 func TestBlockingStepStartHookAbortsPipeline(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(500),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	hookErr := errors.New("step_start hook rejected")
@@ -173,9 +173,9 @@ func TestBlockingStepStartHookAbortsPipeline(t *testing.T) {
 // (run_completed) does not cause the pipeline to fail.
 func TestNonBlockingHooksContinue(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(500),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	hr := &mockHookRunner{

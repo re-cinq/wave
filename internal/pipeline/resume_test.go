@@ -12,14 +12,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/testutil"
 )
 
 func TestResumeManager_ValidateResumePoint(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	pipeline := &Pipeline{
@@ -125,7 +125,7 @@ func TestResumeManager_ValidateResumePoint(t *testing.T) {
 }
 
 func TestResumeManager_LoadResumeState(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	pipeline := &Pipeline{
@@ -275,7 +275,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 }
 
 func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	pipeline := &Pipeline{
@@ -444,7 +444,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 }
 
 func TestResumeManager_CreateResumeSubpipeline(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	pipeline := &Pipeline{
@@ -515,7 +515,7 @@ func TestResumeManager_CreateResumeSubpipeline(t *testing.T) {
 }
 
 func TestResumeManager_GetRecommendedResumePoint(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	pipeline := &Pipeline{
@@ -670,7 +670,7 @@ func TestResumeManager_GetRecommendedResumePoint(t *testing.T) {
 
 func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 	// Test integration between resume functionality and stale artifact detection
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	pipeline := &Pipeline{
@@ -800,7 +800,7 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 }
 
 func TestCreateResumeSubpipelineStripsPriorDependencies(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	p := &Pipeline{
@@ -836,7 +836,7 @@ func TestCreateResumeSubpipelineStripsPriorDependencies(t *testing.T) {
 }
 
 func TestLoadResumeState_WithPriorRunID(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	p := &Pipeline{
@@ -1033,7 +1033,7 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 }
 
 func TestLoadResumeState_LoadsFailureContext(t *testing.T) {
-	mockAdapter := adapter.NewMockAdapter()
+	mockAdapter := adaptertest.NewMockAdapter()
 	executor := NewDefaultPipelineExecutor(mockAdapter)
 
 	// Wire a mock store with step attempt data
@@ -1098,7 +1098,7 @@ func TestLoadResumeState_LoadsFailureContext(t *testing.T) {
 }
 
 func TestLoadResumeState_NoFailureContextWithoutStore(t *testing.T) {
-	mockAdapter := adapter.NewMockAdapter()
+	mockAdapter := adaptertest.NewMockAdapter()
 	executor := NewDefaultPipelineExecutor(mockAdapter)
 	// No store set — executor.store is nil
 	manager := NewResumeManager(executor)
@@ -1127,7 +1127,7 @@ func TestLoadResumeState_NoFailureContextWithoutStore(t *testing.T) {
 }
 
 func TestLoadResumeState_NoFailureContextWhenStepSucceeded(t *testing.T) {
-	mockAdapter := adapter.NewMockAdapter()
+	mockAdapter := adaptertest.NewMockAdapter()
 	executor := NewDefaultPipelineExecutor(mockAdapter)
 
 	store := &resumeMockStore{
@@ -1185,9 +1185,9 @@ func TestResumeFromStepWithForceSkipsValidation(t *testing.T) {
 	_ = os.Chdir(tmpDir)
 	defer func() { _ = os.Chdir(origDir) }()
 
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(500),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter)
@@ -1240,9 +1240,9 @@ func TestResumeFromStepWithForceSkipsValidation(t *testing.T) {
 // TestResumeWithExcludeFilter verifies --from-step + -x combo works correctly.
 // When resuming from "step-b" with -x "step-c", only step-b should execute.
 func TestResumeWithExcludeFilter(t *testing.T) {
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	collector := testutil.NewEventCollector()
@@ -1304,8 +1304,8 @@ func TestExecuteResumedPipeline_ReturnsStepExecutionError(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Create a mock adapter that always fails
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithFailure(fmt.Errorf("adapter crashed")),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithFailure(fmt.Errorf("adapter crashed")),
 	)
 
 	collector := testutil.NewEventCollector()
@@ -1374,9 +1374,9 @@ func TestResumeNonPrototypePipeline(t *testing.T) {
 	_ = os.Chdir(tmpDir)
 	defer func() { _ = os.Chdir(origDir) }()
 
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(500),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter)
@@ -1425,7 +1425,7 @@ func TestResumeNonPrototype_NoRunStateFails(t *testing.T) {
 	_ = os.Chdir(tmpDir)
 	defer func() { _ = os.Chdir(origDir) }()
 
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	p := &Pipeline{
@@ -1466,7 +1466,7 @@ func TestGetRecommendedResumePoint_NonPrototype(t *testing.T) {
 	_ = os.Chdir(tmpDir)
 	defer func() { _ = os.Chdir(origDir) }()
 
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	p := &Pipeline{
@@ -1533,8 +1533,8 @@ func TestFailureClassRecordedOnStepAttempt(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Use a failing adapter
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithFailure(fmt.Errorf("runtime failure: process exited with code 1")),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithFailure(fmt.Errorf("runtime failure: process exited with code 1")),
 	)
 
 	store := &capturingMockStore{MockStateStore: testutil.NewMockStateStore()}
@@ -1563,7 +1563,7 @@ func TestFailureClassRecordedOnStepAttempt(t *testing.T) {
 		t.Fatal("expected at least one recorded step attempt, got none")
 	}
 
-	// The adapter.WithFailure returns a generic error (not contract/security/preflight),
+	// The adaptertest.WithFailure returns a generic error (not contract/security/preflight),
 	// so it should be classified as "unknown" by recovery.ClassifyError()
 	lastAttempt := attempts[len(attempts)-1]
 	if lastAttempt.FailureClass == "" {
@@ -1602,9 +1602,9 @@ func TestResumeFromStep_ReusesExecutorRunID(t *testing.T) {
 	)
 
 	executor := NewDefaultPipelineExecutor(
-		adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 		WithRunID("preset-run-id"),
 		WithStateStore(store),
@@ -1643,7 +1643,6 @@ func TestResumeFromStep_ReusesExecutorRunID(t *testing.T) {
 	}
 }
 
-
 // initGitRepo initializes a minimal git repo with a GitHub remote for forge detection.
 func initGitRepo(t *testing.T, dir string) {
 	t.Helper()
@@ -1660,7 +1659,7 @@ func initGitRepo(t *testing.T, dir string) {
 }
 
 func TestResumeFromStep_InjectsForgeVariables(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	tempDir := t.TempDir()
@@ -1717,7 +1716,7 @@ func TestResumeFromStep_InjectsForgeVariables(t *testing.T) {
 }
 
 func TestResumeFromStep_ReusesWorktree(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	tempDir := t.TempDir()

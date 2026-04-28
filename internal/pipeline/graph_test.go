@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/testutil"
 )
 
@@ -910,9 +910,9 @@ func TestExecuteGraphPipeline_CommandStepIntegration(t *testing.T) {
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
 
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	collector := testutil.NewEventCollector()
