@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/pipelinecatalog"
 )
 
 // ComposeListModel is the Bubble Tea model for the sequence builder list
@@ -22,7 +23,7 @@ type ComposeListModel struct {
 	picking      bool
 	picker       *huh.Form
 	pickerTarget *string // heap-allocated target for huh form value binding
-	available    []PipelineInfo
+	available    []pipelinecatalog.PipelineInfo
 	validation   CompatibilityResult
 	confirming   bool         // T026: inline confirmation for incompatible sequences
 	parallel     bool         // When true, launch with --parallel flag
@@ -32,7 +33,7 @@ type ComposeListModel struct {
 // NewComposeListModel creates a new compose list model. The initial pipeline
 // is added as the first entry in the sequence, and available provides the
 // list of pipelines that can be appended via the picker.
-func NewComposeListModel(initial PipelineInfo, initialPipeline *pipeline.Pipeline, available []PipelineInfo) ComposeListModel {
+func NewComposeListModel(initial pipelinecatalog.PipelineInfo, initialPipeline *pipeline.Pipeline, available []pipelinecatalog.PipelineInfo) ComposeListModel {
 	m := ComposeListModel{
 		available: available,
 	}

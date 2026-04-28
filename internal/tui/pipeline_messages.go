@@ -3,6 +3,7 @@ package tui
 import (
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/pipelinecatalog"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -10,7 +11,7 @@ import (
 type PipelineDataMsg struct {
 	Running   []RunningPipeline
 	Finished  []FinishedPipeline
-	Available []PipelineInfo
+	Available []pipelinecatalog.PipelineInfo
 	Err       error
 }
 

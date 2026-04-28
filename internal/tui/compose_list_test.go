@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/pipelinecatalog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,11 +27,11 @@ func composeStripAnsi(s string) string {
 // entries. The first entry is always "pipeline-1" (added by the constructor).
 // Additional entries are added via sequence.Add.
 func newTestComposeList(entries int) ComposeListModel {
-	initial := PipelineInfo{Name: "pipeline-1", Description: "First", StepCount: 2}
+	initial := pipelinecatalog.PipelineInfo{Name: "pipeline-1", Description: "First", StepCount: 2}
 	initialPipeline := testPipeline("pipeline-1",
 		[]pipeline.ArtifactDef{{Name: "output1"}}, nil)
 
-	available := []PipelineInfo{
+	available := []pipelinecatalog.PipelineInfo{
 		{Name: "pipeline-1", Description: "First", StepCount: 2},
 		{Name: "pipeline-2", Description: "Second", StepCount: 3},
 		{Name: "pipeline-3", Description: "Third", StepCount: 1},

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/huh"
+	"github.com/recinq/wave/internal/pipelinecatalog"
 	"github.com/recinq/wave/internal/tui"
 )
 
@@ -236,7 +237,7 @@ func (s *PipelineSelectionStep) Name() string { return "Pipeline Selection" }
 
 func (s *PipelineSelectionStep) Run(cfg *WizardConfig) (*StepResult, error) {
 	pipelinesDir := ".agents/pipelines"
-	pipelines, err := tui.DiscoverPipelines(pipelinesDir)
+	pipelines, err := pipelinecatalog.DiscoverPipelines(pipelinesDir)
 	if err != nil {
 		// No pipelines directory yet — not an error during init
 		return &StepResult{
@@ -255,7 +256,7 @@ func (s *PipelineSelectionStep) Run(cfg *WizardConfig) (*StepResult, error) {
 	}
 
 	// Build options grouped by category
-	groups := make(map[string][]tui.PipelineInfo)
+	groups := make(map[string][]pipelinecatalog.PipelineInfo)
 	for _, p := range pipelines {
 		cat := p.Category
 		if cat == "" {

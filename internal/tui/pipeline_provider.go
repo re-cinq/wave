@@ -4,6 +4,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/recinq/wave/internal/pipelinecatalog"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -36,7 +37,7 @@ type FinishedPipeline struct {
 type PipelineDataProvider interface {
 	FetchRunningPipelines() ([]RunningPipeline, error)
 	FetchFinishedPipelines(limit int) ([]FinishedPipeline, error)
-	FetchAvailablePipelines() ([]PipelineInfo, error)
+	FetchAvailablePipelines() ([]pipelinecatalog.PipelineInfo, error)
 }
 
 // DefaultPipelineDataProvider implements PipelineDataProvider using a state store and pipeline discovery.
@@ -144,6 +145,6 @@ func (p *DefaultPipelineDataProvider) FetchFinishedPipelines(limit int) ([]Finis
 }
 
 // FetchAvailablePipelines returns all configured pipelines from the manifest directory.
-func (p *DefaultPipelineDataProvider) FetchAvailablePipelines() ([]PipelineInfo, error) {
-	return DiscoverPipelines(p.pipelinesDir)
+func (p *DefaultPipelineDataProvider) FetchAvailablePipelines() ([]pipelinecatalog.PipelineInfo, error) {
+	return pipelinecatalog.DiscoverPipelines(p.pipelinesDir)
 }

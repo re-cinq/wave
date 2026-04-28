@@ -5,6 +5,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/recinq/wave/internal/pipelinecatalog"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -252,7 +253,7 @@ func (m ContentModel) handlePipelineKeyMsg(msg tea.KeyMsg) (ContentModel, tea.Cm
 			idx := m.list.availableIndexForName(item.pipelineName)
 			if item.kind == itemKindPipelineName && idx >= 0 {
 				selectedPipeline := m.list.available[idx]
-				loadedPipeline, err := LoadPipelineByName(m.launcher.deps.PipelinesDir, selectedPipeline.Name)
+				loadedPipeline, err := pipelinecatalog.LoadPipelineByName(m.launcher.deps.PipelinesDir, selectedPipeline.Name)
 				if err == nil {
 					cl := NewComposeListModel(selectedPipeline, loadedPipeline, m.list.available)
 					cd := NewComposeDetailModel()

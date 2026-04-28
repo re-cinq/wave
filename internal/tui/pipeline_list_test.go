@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/recinq/wave/internal/pipelinecatalog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +21,7 @@ import (
 type listTestPipelineProvider struct {
 	running   []RunningPipeline
 	finished  []FinishedPipeline
-	available []PipelineInfo
+	available []pipelinecatalog.PipelineInfo
 }
 
 func (m *listTestPipelineProvider) FetchRunningPipelines() ([]RunningPipeline, error) {
@@ -31,13 +32,13 @@ func (m *listTestPipelineProvider) FetchFinishedPipelines(limit int) ([]Finished
 	return m.finished, nil
 }
 
-func (m *listTestPipelineProvider) FetchAvailablePipelines() ([]PipelineInfo, error) {
+func (m *listTestPipelineProvider) FetchAvailablePipelines() ([]pipelinecatalog.PipelineInfo, error) {
 	return m.available, nil
 }
 
 // newTestListModel creates a PipelineListModel pre-loaded with the given data.
 // It bypasses async commands by directly injecting a PipelineDataMsg.
-func newTestListModel(running []RunningPipeline, finished []FinishedPipeline, available []PipelineInfo) PipelineListModel {
+func newTestListModel(running []RunningPipeline, finished []FinishedPipeline, available []pipelinecatalog.PipelineInfo) PipelineListModel {
 	provider := &listTestPipelineProvider{running: running, finished: finished, available: available}
 	m := NewPipelineListModel(provider)
 	m.SetSize(40, 20)
@@ -154,10 +155,10 @@ func sampleFinished(n int) []FinishedPipeline {
 	return out
 }
 
-func sampleAvailable(n int) []PipelineInfo {
-	out := make([]PipelineInfo, n)
+func sampleAvailable(n int) []pipelinecatalog.PipelineInfo {
+	out := make([]pipelinecatalog.PipelineInfo, n)
 	for i := range n {
-		out[i] = PipelineInfo{
+		out[i] = pipelinecatalog.PipelineInfo{
 			Name:        "avail-" + string(rune('a'+i)),
 			Description: "desc " + string(rune('a'+i)),
 			StepCount:   i + 1,
@@ -221,7 +222,7 @@ func TestPipelineListModel_View_FinishedItemsShowStatusAndDuration(t *testing.T)
 }
 
 func TestPipelineListModel_View_AvailableItemsShowNameOnly(t *testing.T) {
-	avail := []PipelineInfo{{Name: "speckit-flow", Description: "A pipeline"}}
+	avail := []pipelinecatalog.PipelineInfo{{Name: "speckit-flow", Description: "A pipeline"}}
 	m := newTestListModel(nil, nil, avail)
 	view := listStripAnsi(m.View())
 
@@ -239,7 +240,7 @@ func TestPipelineListModel_View_EmptyList_ShowsEmptyMessage(t *testing.T) {
 }
 
 func TestPipelineListModel_View_NoMatchingPipelines_ShowsEmptyMessage(t *testing.T) {
-	avail := []PipelineInfo{{Name: "speckit-flow"}}
+	avail := []pipelinecatalog.PipelineInfo{{Name: "speckit-flow"}}
 	m := newTestListModel(nil, nil, avail)
 
 	// Activate filter with a query that matches nothing
@@ -254,7 +255,7 @@ func TestPipelineListModel_View_NoMatchingPipelines_ShowsEmptyMessage(t *testing
 
 func TestPipelineListModel_View_LongNamesTruncated(t *testing.T) {
 	longName := strings.Repeat("x", 50)
-	avail := []PipelineInfo{{Name: longName}}
+	avail := []pipelinecatalog.PipelineInfo{{Name: longName}}
 	m := newTestListModel(nil, nil, avail)
 	m.SetSize(40, 20)
 	// Re-inject data so View uses updated size
@@ -454,7 +455,7 @@ func TestPipelineListModel_Navigation_RunningItemIncludesRunID(t *testing.T) {
 }
 
 func TestPipelineListModel_Navigation_PipelineNameHasEmptyRunID(t *testing.T) {
-	avail := []PipelineInfo{{Name: "speckit-flow"}}
+	avail := []pipelinecatalog.PipelineInfo{{Name: "speckit-flow"}}
 	m := newTestListModel(nil, nil, avail)
 
 	// Cursor starts on the pipeline name node
@@ -482,7 +483,7 @@ func TestPipelineListModel_Filter_SlashActivates(t *testing.T) {
 }
 
 func TestPipelineListModel_Filter_MatchesSubstring(t *testing.T) {
-	avail := []PipelineInfo{
+	avail := []pipelinecatalog.PipelineInfo{
 		{Name: "speckit-flow"},
 		{Name: "wave-evolve"},
 		{Name: "speckit-debug"},
@@ -511,7 +512,7 @@ func TestPipelineListModel_Filter_AcrossPipelines(t *testing.T) {
 	finished := []FinishedPipeline{
 		{RunID: "f1", Name: "speckit-done", Status: "completed", Duration: time.Minute},
 	}
-	avail := []PipelineInfo{
+	avail := []pipelinecatalog.PipelineInfo{
 		{Name: "wave-evolve"},
 	}
 	m := newTestListModel(running, finished, avail)
@@ -529,7 +530,7 @@ func TestPipelineListModel_Filter_AcrossPipelines(t *testing.T) {
 }
 
 func TestPipelineListModel_Filter_EscapeDismisses(t *testing.T) {
-	avail := []PipelineInfo{
+	avail := []pipelinecatalog.PipelineInfo{
 		{Name: "speckit-flow"},
 		{Name: "wave-evolve"},
 	}
@@ -553,7 +554,7 @@ func TestPipelineListModel_Filter_EscapeDismisses(t *testing.T) {
 }
 
 func TestPipelineListModel_Filter_ZeroMatchesMessage(t *testing.T) {
-	avail := []PipelineInfo{{Name: "speckit-flow"}}
+	avail := []pipelinecatalog.PipelineInfo{{Name: "speckit-flow"}}
 	m := newTestListModel(nil, nil, avail)
 
 	m, _ = sendRune(m, '/')
@@ -566,7 +567,7 @@ func TestPipelineListModel_Filter_ZeroMatchesMessage(t *testing.T) {
 }
 
 func TestPipelineListModel_Filter_NavigationInFilteredResults(t *testing.T) {
-	avail := []PipelineInfo{
+	avail := []pipelinecatalog.PipelineInfo{
 		{Name: "alpha-pipe"},
 		{Name: "alpha-debug"},
 		{Name: "beta-pipe"},
@@ -595,7 +596,7 @@ func TestPipelineListModel_Filter_NavigationInFilteredResults(t *testing.T) {
 }
 
 func TestPipelineListModel_Filter_CursorClampedAfterNarrow(t *testing.T) {
-	avail := []PipelineInfo{
+	avail := []pipelinecatalog.PipelineInfo{
 		{Name: "alpha-pipeline"},
 		{Name: "beta-pipeline"},
 		{Name: "gamma-pipeline"},
@@ -623,7 +624,7 @@ func TestPipelineListModel_Filter_CursorClampedAfterNarrow(t *testing.T) {
 }
 
 func TestPipelineListModel_Filter_EnterWithZeroResults_StaysInFilterMode(t *testing.T) {
-	avail := []PipelineInfo{{Name: "speckit-flow"}}
+	avail := []pipelinecatalog.PipelineInfo{{Name: "speckit-flow"}}
 	m := newTestListModel(nil, nil, avail)
 
 	// Activate filter and type a query that matches nothing
@@ -645,7 +646,7 @@ func TestPipelineListModel_Filter_EnterWithZeroResults_StaysInFilterMode(t *test
 }
 
 func TestPipelineListModel_Filter_SlashRestoresListAfterConfirmedFilter(t *testing.T) {
-	avail := []PipelineInfo{
+	avail := []pipelinecatalog.PipelineInfo{
 		{Name: "speckit-flow"},
 		{Name: "wave-evolve"},
 	}
@@ -802,7 +803,7 @@ func TestPipelineListModel_Collapse_CursorSkipsHiddenItems(t *testing.T) {
 		{RunID: "f1", Name: "alpha-pipe", Status: "completed", Duration: time.Minute, StartedAt: time.Now()},
 		{RunID: "f2", Name: "alpha-pipe", Status: "failed", Duration: time.Minute, StartedAt: time.Now()},
 	}
-	avail := []PipelineInfo{{Name: "beta-pipe"}}
+	avail := []pipelinecatalog.PipelineInfo{{Name: "beta-pipe"}}
 	m := newTestListModel(nil, finished, avail)
 
 	require.True(t, m.collapsed["alpha-pipe"], "alpha-pipe should start collapsed")
@@ -832,7 +833,7 @@ func TestPipelineListModel_Collapse_IndicatorRendering(t *testing.T) {
 
 func TestPipelineListModel_Collapse_NoIndicatorForLeafNodes(t *testing.T) {
 	// A pipeline with no runs should not show collapse indicators
-	avail := []PipelineInfo{{Name: "leaf-pipe"}}
+	avail := []pipelinecatalog.PipelineInfo{{Name: "leaf-pipe"}}
 	m := newTestListModel(nil, nil, avail)
 
 	view := listStripAnsi(m.View())
@@ -987,7 +988,7 @@ func TestPipelineListModel_PipelineLaunchedMsg_PreservesExistingRunning(t *testi
 // ===========================================================================
 
 func TestPipelineListModel_TreeLayout_AlphabeticalOrder(t *testing.T) {
-	avail := []PipelineInfo{
+	avail := []pipelinecatalog.PipelineInfo{
 		{Name: "zebra"},
 		{Name: "alpha"},
 		{Name: "middle"},
@@ -1006,7 +1007,7 @@ func TestPipelineListModel_TreeLayout_MergesAcrossDataSources(t *testing.T) {
 	running := []RunningPipeline{
 		{RunID: "r1", Name: "shared-pipe", StartedAt: time.Now()},
 	}
-	avail := []PipelineInfo{
+	avail := []pipelinecatalog.PipelineInfo{
 		{Name: "shared-pipe"},
 	}
 	m := newTestListModel(running, nil, avail)

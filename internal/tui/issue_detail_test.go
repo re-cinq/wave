@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/recinq/wave/internal/pipelinecatalog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -86,7 +87,7 @@ func TestIssueDetailModel_PipelineChooser_Open(t *testing.T) {
 	m.SetSize(80, 40)
 	m.SetFocused(true)
 
-	m.SetPipelines([]PipelineInfo{
+	m.SetPipelines([]pipelinecatalog.PipelineInfo{
 		{Name: "speckit-flow"},
 		{Name: "wave-bugfix"},
 		{Name: "wave-review"},
@@ -111,7 +112,7 @@ func TestIssueDetailModel_PipelineChooser_Navigate(t *testing.T) {
 	m.SetSize(80, 40)
 	m.SetFocused(true)
 
-	m.SetPipelines([]PipelineInfo{
+	m.SetPipelines([]pipelinecatalog.PipelineInfo{
 		{Name: "speckit-flow"},
 		{Name: "wave-bugfix"},
 		{Name: "wave-review"},
@@ -149,7 +150,7 @@ func TestIssueDetailModel_PipelineChooser_Launch(t *testing.T) {
 	m.SetSize(80, 40)
 	m.SetFocused(true)
 
-	m.SetPipelines([]PipelineInfo{
+	m.SetPipelines([]pipelinecatalog.PipelineInfo{
 		{Name: "speckit-flow"},
 		{Name: "wave-bugfix"},
 	})
@@ -187,7 +188,7 @@ func TestIssueDetailModel_PipelineChooser_Cancel(t *testing.T) {
 	m.SetSize(80, 40)
 	m.SetFocused(true)
 
-	m.SetPipelines([]PipelineInfo{
+	m.SetPipelines([]pipelinecatalog.PipelineInfo{
 		{Name: "speckit-flow"},
 	})
 
@@ -231,7 +232,7 @@ func TestIssueDetailModel_UnfocusedIgnoresKeys(t *testing.T) {
 	m.SetSize(80, 40)
 	m.SetFocused(false)
 
-	m.SetPipelines([]PipelineInfo{{Name: "speckit-flow"}})
+	m.SetPipelines([]pipelinecatalog.PipelineInfo{{Name: "speckit-flow"}})
 
 	issue := &IssueData{
 		Number:  1,
@@ -250,7 +251,7 @@ func TestIssueDetailModel_ViewShowsPipelineChooser(t *testing.T) {
 	m := NewIssueDetailModel()
 	m.SetSize(80, 40)
 
-	m.SetPipelines([]PipelineInfo{
+	m.SetPipelines([]pipelinecatalog.PipelineInfo{
 		{Name: "speckit-flow"},
 		{Name: "wave-bugfix"},
 	})
@@ -269,7 +270,7 @@ func TestIssueDetailModel_ViewShowsPipelineChooser(t *testing.T) {
 }
 
 func TestPipelineRelevanceScore_NameMatchesTitle(t *testing.T) {
-	p := PipelineInfo{Name: "pr-review", Description: "Automated code review workflow"}
+	p := pipelinecatalog.PipelineInfo{Name: "pr-review", Description: "Automated code review workflow"}
 	issue := &IssueData{Title: "Review the PR for auth module", Labels: nil}
 
 	score := pipelineRelevanceScore(p, issue)
@@ -277,7 +278,7 @@ func TestPipelineRelevanceScore_NameMatchesTitle(t *testing.T) {
 }
 
 func TestPipelineRelevanceScore_LabelMatchesName(t *testing.T) {
-	p := PipelineInfo{Name: "wave-bugfix", Description: "Fix bugs", Category: "maintenance"}
+	p := pipelinecatalog.PipelineInfo{Name: "wave-bugfix", Description: "Fix bugs", Category: "maintenance"}
 	issue := &IssueData{Title: "Something unrelated", Labels: []string{"bugfix"}}
 
 	score := pipelineRelevanceScore(p, issue)
@@ -285,7 +286,7 @@ func TestPipelineRelevanceScore_LabelMatchesName(t *testing.T) {
 }
 
 func TestPipelineRelevanceScore_NoMatch(t *testing.T) {
-	p := PipelineInfo{Name: "deploy-prod", Description: "Deploy to production"}
+	p := pipelinecatalog.PipelineInfo{Name: "deploy-prod", Description: "Deploy to production"}
 	issue := &IssueData{Title: "Fix authentication bug", Labels: []string{"bug"}}
 
 	score := pipelineRelevanceScore(p, issue)
@@ -293,7 +294,7 @@ func TestPipelineRelevanceScore_NoMatch(t *testing.T) {
 }
 
 func TestPipelineRelevanceScore_CategoryMatchesLabel(t *testing.T) {
-	p := PipelineInfo{Name: "some-pipeline", Description: "A pipeline", Category: "security"}
+	p := pipelinecatalog.PipelineInfo{Name: "some-pipeline", Description: "A pipeline", Category: "security"}
 	issue := &IssueData{Title: "Unrelated title", Labels: []string{"security"}}
 
 	score := pipelineRelevanceScore(p, issue)
@@ -304,7 +305,7 @@ func TestIssueDetailModel_RelevanceSorting(t *testing.T) {
 	m := NewIssueDetailModel()
 	m.SetSize(80, 40)
 
-	m.SetPipelines([]PipelineInfo{
+	m.SetPipelines([]pipelinecatalog.PipelineInfo{
 		{Name: "deploy-prod", Description: "Deploy to production"},
 		{Name: "wave-bugfix", Description: "Fix bugs quickly"},
 		{Name: "speckit-flow", Description: "Feature development"},

@@ -3,11 +3,12 @@ package tui
 import (
 	"testing"
 
+	"github.com/recinq/wave/internal/pipelinecatalog"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestFilterPipelines(t *testing.T) {
-	pipelines := []PipelineInfo{
+	pipelines := []pipelinecatalog.PipelineInfo{
 		{Name: "feature", Description: "Plan and implement"},
 		{Name: "hotfix", Description: "Quick fix"},
 		{Name: "pr-review", Description: "Review PRs"},
@@ -119,7 +120,7 @@ func TestComposeCommand(t *testing.T) {
 }
 
 func TestBuildPipelineOptions(t *testing.T) {
-	pipelines := []PipelineInfo{
+	pipelines := []pipelinecatalog.PipelineInfo{
 		{Name: "feature", Description: "Plan and implement"},
 		{Name: "minimal"},
 	}

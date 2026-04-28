@@ -11,6 +11,7 @@ import (
 
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/pipelinecatalog"
 	"github.com/recinq/wave/internal/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -26,7 +27,7 @@ func (m *contentTestPipelineProvider) FetchFinishedPipelines(limit int) ([]Finis
 	return nil, nil
 }
 
-func (m *contentTestPipelineProvider) FetchAvailablePipelines() ([]PipelineInfo, error) {
+func (m *contentTestPipelineProvider) FetchAvailablePipelines() ([]pipelinecatalog.PipelineInfo, error) {
 	return nil, nil
 }
 
@@ -116,7 +117,7 @@ func TestContentModel_EnterOnAvailableItemTransitionsFocusRight(t *testing.T) {
 
 	// Inject data with an available pipeline
 	c.list, _ = c.list.Update(PipelineDataMsg{
-		Available: []PipelineInfo{{Name: "test-pipe", StepCount: 1}},
+		Available: []pipelinecatalog.PipelineInfo{{Name: "test-pipe", StepCount: 1}},
 	})
 
 	// Move cursor to the pipeline name node
@@ -164,7 +165,7 @@ func TestContentModel_EnterOnPipelineName_TransitionsRight(t *testing.T) {
 	c.SetSize(120, 40)
 
 	c.list, _ = c.list.Update(PipelineDataMsg{
-		Available: []PipelineInfo{{Name: "test"}},
+		Available: []pipelinecatalog.PipelineInfo{{Name: "test"}},
 	})
 
 	// Cursor starts on a pipeline name node
@@ -225,7 +226,7 @@ func TestContentModel_ArrowKeysInRightPaneDoNotMoveList(t *testing.T) {
 	c.SetSize(120, 40)
 
 	c.list, _ = c.list.Update(PipelineDataMsg{
-		Available: []PipelineInfo{{Name: "pipe1"}, {Name: "pipe2"}},
+		Available: []pipelinecatalog.PipelineInfo{{Name: "pipe1"}, {Name: "pipe2"}},
 	})
 
 	// Move cursor to first available item
@@ -261,7 +262,7 @@ func TestContentModel_EnterOnAvailable_EmitsConfigureFormMsg(t *testing.T) {
 
 	// Inject data with an available pipeline that has an input example
 	c.list, _ = c.list.Update(PipelineDataMsg{
-		Available: []PipelineInfo{{Name: "test-pipe", StepCount: 1, InputExample: "example input"}},
+		Available: []pipelinecatalog.PipelineInfo{{Name: "test-pipe", StepCount: 1, InputExample: "example input"}},
 	})
 
 	// Move cursor to the available item
@@ -352,7 +353,7 @@ func TestContentModel_CKey_OnNonRunningItem_IsNoOp(t *testing.T) {
 
 	// Inject data with an available pipeline
 	c.list, _ = c.list.Update(PipelineDataMsg{
-		Available: []PipelineInfo{{Name: "test-pipe", StepCount: 1}},
+		Available: []pipelinecatalog.PipelineInfo{{Name: "test-pipe", StepCount: 1}},
 	})
 
 	// Move cursor to the available item
@@ -529,7 +530,7 @@ steps:
 	m := NewContentModel(nil, nil, deps)
 
 	// Populate the list with pipeline data
-	m.list.available = []PipelineInfo{{
+	m.list.available = []pipelinecatalog.PipelineInfo{{
 		Name:        "test-pipeline",
 		Description: "A test pipeline",
 		StepCount:   1,

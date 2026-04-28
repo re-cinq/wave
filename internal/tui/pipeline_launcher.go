@@ -12,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/pipelinecatalog"
 )
 
 // PipelineLauncher manages pipeline execution from the TUI.
@@ -41,7 +42,7 @@ func (l *PipelineLauncher) SetProgram(p *tea.Program) {
 // SQLite events, not in-memory buffers.
 func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 	// Load the full pipeline definition to validate it exists
-	p, err := LoadPipelineByName(l.deps.PipelinesDir, config.PipelineName)
+	p, err := pipelinecatalog.LoadPipelineByName(l.deps.PipelinesDir, config.PipelineName)
 	if err != nil {
 		pipelineName := config.PipelineName
 		return func() tea.Msg {

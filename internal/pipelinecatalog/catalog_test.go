@@ -1,4 +1,4 @@
-package tui
+package pipelinecatalog
 
 import (
 	"os"
