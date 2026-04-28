@@ -364,6 +364,11 @@ func fileExists(path string) bool {
 // linkOrCopy attempts to symlink dest → src (cheap, atomic). Falls back to
 // a hard copy when the filesystem rejects symlinks (e.g. Windows CI) or
 // when src and dest live on filesystems that disagree.
+//
+// Symlink targets are absolutized first because the dest's parent
+// directory differs from the process CWD, and a relative src would
+// silently dangle. The absolutize uses os.Getwd at link time and is
+// best-effort: if it fails, fall through to copy mode.
 func linkOrCopy(src, dest string) error {
 	if src == dest {
 		return nil
@@ -371,16 +376,22 @@ func linkOrCopy(src, dest string) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 		return err
 	}
-	// If dest already exists pointing to src, leave it.
-	if existing, err := os.Readlink(dest); err == nil && existing == src {
+	absSrc := src
+	if !filepath.IsAbs(absSrc) {
+		if a, err := filepath.Abs(absSrc); err == nil {
+			absSrc = a
+		}
+	}
+	// If dest already exists pointing to absSrc, leave it.
+	if existing, err := os.Readlink(dest); err == nil && existing == absSrc {
 		return nil
 	}
 	_ = os.Remove(dest)
-	if err := os.Symlink(src, dest); err == nil {
+	if err := os.Symlink(absSrc, dest); err == nil {
 		return nil
 	}
-	// Fallback: copy.
-	srcF, err := os.Open(src)
+	// Fallback: copy from the absolutized source.
+	srcF, err := os.Open(absSrc)
 	if err != nil {
 		return err
 	}
