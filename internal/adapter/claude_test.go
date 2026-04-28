@@ -2051,14 +2051,7 @@ func TestPrepareWorkspaceAgentMode(t *testing.T) {
 // T028: Verify buildArgs produces --agent, no legacy flags
 func TestBuildArgsAgentMode(t *testing.T) {
 	adapter := NewClaudeAdapter()
-	cfg := AdapterRunConfig{
-		AllowedTools: []string{"Read", "Write", "Edit", "Bash"},
-		DenyTools:    []string{"Bash(rm *)"},
-		Model:        "opus",
-		Prompt:       "test prompt",
-	}
-
-	args := adapter.buildArgs(cfg)
+	args := adapter.buildArgs()
 
 	// --agent must be present
 	hasAgent := false

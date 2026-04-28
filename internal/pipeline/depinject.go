@@ -215,7 +215,15 @@ func (e *DefaultPipelineExecutor) injectDependencyArtifacts(execution *PipelineE
 		if err := os.MkdirAll(canonicalDir, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create canonical dir %q: %w", canonicalDir, err)
 		}
-		canonicalPath := filepath.Join(canonicalDir, art.Name)
+		// Filename on disk preserves the source basename (e.g.
+		// `pr-context.json`) so scripts that reference the original
+		// extension keep working transparently. Logical artifact name
+		// (`pr-context`) remains the key for env vars and templates.
+		filename := filepath.Base(art.Path)
+		if filename == "" || filename == "." || filename == "/" {
+			filename = art.Name
+		}
+		canonicalPath := filepath.Join(canonicalDir, filename)
 
 		if err := linkOrCopy(art.Path, canonicalPath); err != nil {
 			if art.Optional {
@@ -231,15 +239,15 @@ func (e *DefaultPipelineExecutor) injectDependencyArtifacts(execution *PipelineE
 			return nil, fmt.Errorf("failed to inject %s/%s: %w", art.DepStep, art.Name, err)
 		}
 
-		// Back-compat alias at .agents/output/<name>. Warn on collision.
-		aliasPath := filepath.Join(outputRoot, art.Name)
-		if prev, exists := aliasOwners[art.Name]; exists && prev != art.DepStep {
+		// Back-compat alias at .agents/output/<filename>. Warn on collision.
+		aliasPath := filepath.Join(outputRoot, filename)
+		if prev, exists := aliasOwners[filename]; exists && prev != art.DepStep {
 			e.emit(event.Event{
 				Timestamp:  time.Now(),
 				PipelineID: pipelineID,
 				StepID:     step.ID,
 				State:      "step_progress",
-				Message:    fmt.Sprintf("dep artifact name collision on %q: %s vs %s — alias .agents/output/%s won by %s; canonical paths remain unambiguous", art.Name, prev, art.DepStep, art.Name, art.DepStep),
+				Message:    fmt.Sprintf("dep artifact name collision on %q: %s vs %s — alias .agents/output/%s won by %s; canonical paths remain unambiguous", filename, prev, art.DepStep, filename, art.DepStep),
 			})
 		}
 		_ = os.Remove(aliasPath)
@@ -250,10 +258,10 @@ func (e *DefaultPipelineExecutor) injectDependencyArtifacts(execution *PipelineE
 				PipelineID: pipelineID,
 				StepID:     step.ID,
 				State:      "step_progress",
-				Message:    fmt.Sprintf("alias .agents/output/%s could not be created: %v", art.Name, err),
+				Message:    fmt.Sprintf("alias .agents/output/%s could not be created: %v", filename, err),
 			})
 		} else {
-			aliasOwners[art.Name] = art.DepStep
+			aliasOwners[filename] = art.DepStep
 		}
 
 		// Register canonical path under both {{ artifacts.<dep>.<name> }}
