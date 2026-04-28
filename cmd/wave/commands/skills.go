@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/recinq/wave/internal/display"
+	"github.com/recinq/wave/internal/listing"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/spf13/cobra"
 )
@@ -145,7 +146,7 @@ func runSkillsList(cmd *cobra.Command, format string, ontologyOnly bool) error {
 		return err
 	}
 
-	usage := collectSkillPipelineUsage()
+	usage := listing.CollectSkillPipelineUsage()
 
 	output := SkillListOutput{
 		Skills:   make([]SkillListItem, 0, len(skills)),
@@ -240,7 +241,7 @@ func runSkillsCheck(cmd *cobra.Command, name, format string) error {
 		return err
 	}
 
-	usage := collectSkillPipelineUsage()
+	usage := listing.CollectSkillPipelineUsage()
 	output := SkillCheckOutput{
 		Name:        s.Name,
 		Description: s.Description,
