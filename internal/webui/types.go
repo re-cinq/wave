@@ -39,6 +39,16 @@ type RunSummary struct {
 	ChildRuns            []RunSummary `json:"child_runs,omitempty"`
 	Adapters             []string     `json:"adapters,omitempty"`
 	Models               []string     `json:"models,omitempty"`
+
+	// Composition metadata (issue #1450). Populated when the run was
+	// launched by a parent composition step (iterate / aggregate /
+	// sub_pipeline / branch / loop).
+	IterateIndex    *int   `json:"iterate_index,omitempty"`
+	IterateTotal    *int   `json:"iterate_total,omitempty"`
+	IterateMode     string `json:"iterate_mode,omitempty"`
+	RunKind         string `json:"run_kind,omitempty"`
+	SubPipelineRef  string `json:"sub_pipeline_ref,omitempty"`
+	SubtreeTokens   int64  `json:"subtree_tokens,omitempty"`
 }
 
 // RunDetailResponse is the JSON response for the run detail API.

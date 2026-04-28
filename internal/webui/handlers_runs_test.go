@@ -293,6 +293,81 @@ func TestHandleAPIRunDetail_WithEvents(t *testing.T) {
 	}
 }
 
+// TestHandleAPIRunChildren tests the children endpoint introduced for #1450.
+func TestHandleAPIRunChildren(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	parentID, err := rwStore.CreateRun("parent-pipeline", "test input")
+	if err != nil {
+		t.Fatalf("create parent: %v", err)
+	}
+	childA, err := rwStore.CreateRun("audit-security", "test input")
+	if err != nil {
+		t.Fatalf("create child A: %v", err)
+	}
+	childB, err := rwStore.CreateRun("audit-architecture", "test input")
+	if err != nil {
+		t.Fatalf("create child B: %v", err)
+	}
+	if err := rwStore.SetParentRun(childA, parentID, "parallel-review"); err != nil {
+		t.Fatalf("set parent A: %v", err)
+	}
+	if err := rwStore.SetParentRun(childB, parentID, "parallel-review"); err != nil {
+		t.Fatalf("set parent B: %v", err)
+	}
+	if err := rwStore.UpdateRunStatus(parentID, "running", "", 1000); err != nil {
+		t.Fatalf("update parent tokens: %v", err)
+	}
+	if err := rwStore.UpdateRunStatus(childA, "completed", "", 2500); err != nil {
+		t.Fatalf("update child A tokens: %v", err)
+	}
+	if err := rwStore.UpdateRunStatus(childB, "completed", "", 3300); err != nil {
+		t.Fatalf("update child B tokens: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/runs/"+parentID+"/children", nil)
+	req.SetPathValue("id", parentID)
+	rec := httptest.NewRecorder()
+	srv.handleAPIRunChildren(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		ParentRunID   string       `json:"parent_run_id"`
+		Children      []RunSummary `json:"children"`
+		SubtreeTokens int64        `json:"subtree_tokens"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.ParentRunID != parentID {
+		t.Errorf("parent_run_id = %q, want %q", resp.ParentRunID, parentID)
+	}
+	if len(resp.Children) != 2 {
+		t.Fatalf("expected 2 children, got %d", len(resp.Children))
+	}
+	wantSubtree := int64(1000 + 2500 + 3300)
+	if resp.SubtreeTokens != wantSubtree {
+		t.Errorf("subtree_tokens = %d, want %d", resp.SubtreeTokens, wantSubtree)
+	}
+}
+
+// TestHandleAPIRunChildren_Missing returns 404 for unknown run IDs.
+func TestHandleAPIRunChildren_Missing(t *testing.T) {
+	srv, _ := testServer(t)
+
+	req := httptest.NewRequest("GET", "/api/runs/missing/children", nil)
+	req.SetPathValue("id", "missing")
+	rec := httptest.NewRecorder()
+	srv.handleAPIRunChildren(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rec.Code)
+	}
+}
+
 // TestRunToSummary_CompletedRun tests duration calculation for completed runs.
 func TestRunToSummary_CompletedRun(t *testing.T) {
 	start := time.Now().Add(-5 * time.Minute)

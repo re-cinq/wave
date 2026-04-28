@@ -522,6 +522,10 @@ func (m *MockStateStore) SetRunComposition(childRunID, runKind, subPipelineRef, 
 	return nil
 }
 
+func (m *MockStateStore) GetSubtreeTokens(rootRunID string) (int64, error) {
+	return 0, nil
+}
+
 func (m *MockStateStore) GetChildRuns(parentRunID string) ([]state.RunRecord, error) {
 	if m.getChildRuns != nil {
 		return m.getChildRuns(parentRunID)

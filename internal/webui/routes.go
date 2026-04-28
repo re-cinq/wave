@@ -45,6 +45,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/adapters", s.handleAPIAdapters)
 	mux.HandleFunc("GET /api/models", s.handleAPIModels)
 	mux.HandleFunc("GET /api/runs/{id}", s.handleAPIRunDetail)
+	mux.HandleFunc("GET /api/runs/{id}/children", s.handleAPIRunChildren)
 	mux.HandleFunc("GET /api/runs/{id}/logs", s.handleRunLogs)
 	mux.HandleFunc("POST /api/pipelines/{name}/start", s.handleStartPipeline)
 	mux.HandleFunc("POST /api/runs/{id}/cancel", s.handleCancelRun)

@@ -2710,6 +2710,44 @@ func TestGetChildRuns(t *testing.T) {
 	}
 }
 
+// TestGetSubtreeTokens tests the recursive subtree token rollup.
+func TestGetSubtreeTokens(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	rootID, err := store.CreateRun("root-pipeline", "input")
+	require.NoError(t, err)
+	childID, err := store.CreateRun("child-pipeline", "input")
+	require.NoError(t, err)
+	grandchildID, err := store.CreateRun("grandchild-pipeline", "input")
+	require.NoError(t, err)
+
+	require.NoError(t, store.SetParentRun(childID, rootID, "step-a"))
+	require.NoError(t, store.SetParentRun(grandchildID, childID, "step-b"))
+
+	// Set token totals so the rollup has something to sum.
+	require.NoError(t, store.UpdateRunStatus(rootID, "completed", "", 100))
+	require.NoError(t, store.UpdateRunStatus(childID, "completed", "", 250))
+	require.NoError(t, store.UpdateRunStatus(grandchildID, "completed", "", 75))
+
+	total, err := store.GetSubtreeTokens(rootID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(100+250+75), total, "subtree tokens must include root + descendants recursively")
+
+	// Childless run rollup equals the run's own tokens.
+	loneID, err := store.CreateRun("lone-pipeline", "input")
+	require.NoError(t, err)
+	require.NoError(t, store.UpdateRunStatus(loneID, "completed", "", 42))
+	loneTotal, err := store.GetSubtreeTokens(loneID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(42), loneTotal)
+
+	// Nonexistent run rollup is 0, not error.
+	missingTotal, err := store.GetSubtreeTokens("does-not-exist")
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), missingTotal)
+}
+
 // TestGetChildRuns_Empty tests GetChildRuns with no children.
 func TestGetChildRuns_Empty(t *testing.T) {
 	store, cleanup := setupTestStore(t)

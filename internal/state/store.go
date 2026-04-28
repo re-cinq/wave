@@ -151,6 +151,7 @@ type StateStore interface {
 	SetParentRun(childRunID, parentRunID, stepID string) error
 	SetRunComposition(childRunID, runKind, subPipelineRef, iterateMode string, iterateIndex, iterateTotal *int) error
 	GetChildRuns(parentRunID string) ([]RunRecord, error)
+	GetSubtreeTokens(rootRunID string) (int64, error)
 
 	// Retrospective tracking
 	SaveRetrospective(record *RetrospectiveRecord) error
@@ -2711,6 +2712,33 @@ func (s *stateStore) SetRunComposition(childRunID, runKind, subPipelineRef, iter
 	}
 
 	return nil
+}
+
+// GetSubtreeTokens walks parent_run_id recursively from rootRunID and
+// sums total_tokens across the root + every descendant. Used by the
+// WebUI to display subtree-rolled-up cost on parent runs (issue #1450).
+//
+// Returns 0 with no error when the run has no children — a single-row
+// rollup equals the root's own total_tokens.
+func (s *stateStore) GetSubtreeTokens(rootRunID string) (int64, error) {
+	query := `WITH RECURSIVE subtree(run_id) AS (
+	    SELECT run_id FROM pipeline_run WHERE run_id = ?
+	  UNION ALL
+	    SELECT pr.run_id FROM pipeline_run pr
+	    JOIN subtree s ON pr.parent_run_id = s.run_id
+	)
+	SELECT COALESCE(SUM(pr.total_tokens), 0)
+	FROM pipeline_run pr
+	JOIN subtree s ON pr.run_id = s.run_id`
+
+	var total sql.NullInt64
+	if err := s.db.QueryRow(query, rootRunID).Scan(&total); err != nil {
+		return 0, fmt.Errorf("failed to compute subtree tokens: %w", err)
+	}
+	if total.Valid {
+		return total.Int64, nil
+	}
+	return 0, nil
 }
 
 // GetChildRuns returns all runs that are children of the specified parent run,
