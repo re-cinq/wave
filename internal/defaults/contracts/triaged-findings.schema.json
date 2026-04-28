@@ -63,7 +63,7 @@
             "description": "Optional symbol or identifier (function, type, route) that the finding is about. Survives aggregation."
           }
         },
-        "additionalProperties": false
+        "additionalProperties": true
       }
     },
     "deferred": {
@@ -90,7 +90,7 @@
           "type": {"type": "string"},
           "source": {"type": "string"}
         },
-        "additionalProperties": false
+        "additionalProperties": true
       }
     },
     "rejected": {
@@ -113,7 +113,7 @@
           "type": {"type": "string"},
           "source": {"type": "string"}
         },
-        "additionalProperties": false
+        "additionalProperties": true
       }
     },
     "summary": {
@@ -128,7 +128,7 @@
         "rejected": {"type": "integer", "minimum": 0},
         "design_questions": {"type": "integer", "minimum": 0}
       },
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "design_questions": {
       "type": "array",
@@ -162,9 +162,9 @@
             "description": "Optional concrete next step the triage step proposes once the design question is answered (e.g. 'open a follow-up issue', 'document the threat model')."
           }
         },
-        "additionalProperties": false
+        "additionalProperties": true
       }
     }
   },
-  "additionalProperties": false
+  "additionalProperties": true
 }

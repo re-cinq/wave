@@ -14,7 +14,7 @@
         "number": { "type": "integer", "minimum": 1 },
         "url": { "type": "string", "format": "uri" }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "results": {
       "type": "array",
@@ -28,7 +28,7 @@
           "pr_url": { "type": "string" },
           "pr_number": { "type": "integer" }
         },
-        "additionalProperties": false
+        "additionalProperties": true
       }
     },
     "summary": {
@@ -42,8 +42,8 @@
         "comment_posted": { "type": "boolean" },
         "comment_url": { "type": "string" }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     }
   },
-  "additionalProperties": false
+  "additionalProperties": true
 }

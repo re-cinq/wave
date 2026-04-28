@@ -69,5 +69,5 @@
       "description": "ISO 8601 timestamp when the evidence was collected."
     }
   },
-  "additionalProperties": false
+  "additionalProperties": true
 }

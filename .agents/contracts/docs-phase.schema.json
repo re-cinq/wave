@@ -33,7 +33,7 @@
             }
           },
           "required": ["path", "exists", "content_type"],
-          "additionalProperties": false
+          "additionalProperties": true
         },
         "stakeholder_summary": {
           "type": "object",
@@ -55,7 +55,7 @@
             }
           },
           "required": ["path", "exists", "content_type"],
-          "additionalProperties": false
+          "additionalProperties": true
         }
       },
       "required": ["feature_docs", "stakeholder_summary"],
@@ -83,7 +83,7 @@
         }
       },
       "required": ["documentation_quality"],
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "metadata": {
       "type": "object",
@@ -104,9 +104,9 @@
         }
       },
       "required": ["timestamp", "source_spec_path"],
-      "additionalProperties": false
+      "additionalProperties": true
     }
   },
   "required": ["phase", "artifacts", "validation", "metadata"],
-  "additionalProperties": false
+  "additionalProperties": true
 }

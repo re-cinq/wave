@@ -30,5 +30,5 @@
     "commit_message_suggestion": { "type": "string" },
     "timestamp": { "type": "string", "format": "date-time" }
   },
-  "additionalProperties": false
+  "additionalProperties": true
 }

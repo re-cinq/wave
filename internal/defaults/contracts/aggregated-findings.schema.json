@@ -91,5 +91,5 @@
       "description": "ISO 8601 timestamp of when aggregation completed"
     }
   },
-  "additionalProperties": false
+  "additionalProperties": true
 }

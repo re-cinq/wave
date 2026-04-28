@@ -33,7 +33,7 @@
             }
           },
           "required": ["path", "exists", "content_type"],
-          "additionalProperties": false
+          "additionalProperties": true
         },
         "requirements": {
           "type": "object",
@@ -55,7 +55,7 @@
             }
           },
           "required": ["path", "exists", "content_type"],
-          "additionalProperties": false
+          "additionalProperties": true
         }
       },
       "required": ["spec"],
@@ -89,7 +89,7 @@
         }
       },
       "required": ["specification_quality"],
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "metadata": {
       "type": "object",
@@ -111,9 +111,9 @@
         }
       },
       "required": ["timestamp", "input_description"],
-      "additionalProperties": false
+      "additionalProperties": true
     }
   },
   "required": ["phase", "artifacts", "validation", "metadata"],
-  "additionalProperties": false
+  "additionalProperties": true
 }

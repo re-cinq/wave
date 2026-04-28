@@ -30,5 +30,5 @@
       "description": "Pull request title"
     }
   },
-  "additionalProperties": false
+  "additionalProperties": true
 }

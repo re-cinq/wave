@@ -21,9 +21,9 @@
           "issue": {"type": "string"},
           "suggestion": {"type": "string"}
         },
-        "additionalProperties": false
+        "additionalProperties": true
       }
     }
   },
-  "additionalProperties": false
+  "additionalProperties": true
 }

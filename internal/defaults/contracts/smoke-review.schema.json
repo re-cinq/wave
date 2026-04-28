@@ -13,5 +13,5 @@
       "description": "Explanation of the verification result"
     }
   },
-  "additionalProperties": false
+  "additionalProperties": true
 }

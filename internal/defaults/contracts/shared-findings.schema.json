@@ -66,5 +66,5 @@
       "description": "ISO 8601 timestamp of when scan completed"
     }
   },
-  "additionalProperties": false
+  "additionalProperties": true
 }

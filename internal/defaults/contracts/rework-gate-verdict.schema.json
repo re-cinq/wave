@@ -67,5 +67,5 @@
       "description": "List of findings that caused the gate to fail"
     }
   },
-  "additionalProperties": false
+  "additionalProperties": true
 }

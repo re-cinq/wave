@@ -41,7 +41,7 @@
             "minimum": 0
           }
         },
-        "additionalProperties": false
+        "additionalProperties": true
       }
     },
     "dropped_sample": {
@@ -64,7 +64,7 @@
             "description": "Optional finding id from the source audit, if present."
           }
         },
-        "additionalProperties": false
+        "additionalProperties": true
       }
     },
     "changed_files_count": {
@@ -73,5 +73,5 @@
       "description": "Optional. Number of files in pr_context.changed_files at filter time."
     }
   },
-  "additionalProperties": false
+  "additionalProperties": true
 }

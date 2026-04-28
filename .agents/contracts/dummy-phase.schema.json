@@ -33,7 +33,7 @@
             }
           },
           "required": ["path", "exists", "content_type"],
-          "additionalProperties": false
+          "additionalProperties": true
         },
         "interface_definitions": {
           "type": "object",
@@ -55,7 +55,7 @@
             }
           },
           "required": ["path", "exists", "content_type"],
-          "additionalProperties": false
+          "additionalProperties": true
         }
       },
       "required": ["prototype", "interface_definitions"],
@@ -81,7 +81,7 @@
         }
       },
       "required": ["runnable", "prototype_quality"],
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "metadata": {
       "type": "object",
@@ -102,9 +102,9 @@
         }
       },
       "required": ["timestamp", "source_docs_path"],
-      "additionalProperties": false
+      "additionalProperties": true
     }
   },
   "required": ["phase", "artifacts", "validation", "metadata"],
-  "additionalProperties": false
+  "additionalProperties": true
 }

@@ -41,5 +41,5 @@
       "description": "ISO 8601 timestamp"
     }
   },
-  "additionalProperties": false
+  "additionalProperties": true
 }

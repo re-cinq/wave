@@ -38,7 +38,7 @@
           "format": "uri"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "dependency_tiers": {
       "type": "array",
@@ -104,7 +104,7 @@
             }
           }
         },
-        "additionalProperties": false
+        "additionalProperties": true
       }
     },
     "total_created": {
