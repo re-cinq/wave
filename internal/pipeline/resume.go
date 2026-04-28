@@ -453,6 +453,16 @@ func (r *ResumeManager) createResumeSubpipeline(p *Pipeline, fromStep string) *P
 	subSteps := make([]Step, len(p.Steps[startIndex:]))
 	copy(subSteps, p.Steps[startIndex:])
 	for i := range subSteps {
+		// Preserve the pre-strip dependency list so the auto-injector
+		// (#1452) can still walk upstream OutputArtifacts after resume.
+		// Without this, deps that point at already-completed steps get
+		// stripped to satisfy DAGValidator and the resolver sees an
+		// empty Dependencies slice, leaving the workspace empty.
+		if len(subSteps[i].Dependencies) > 0 && len(subSteps[i].ResumeOriginalDeps) == 0 {
+			orig := make([]string, len(subSteps[i].Dependencies))
+			copy(orig, subSteps[i].Dependencies)
+			subSteps[i].ResumeOriginalDeps = orig
+		}
 		var kept []string
 		for _, dep := range subSteps[i].Dependencies {
 			if includedSteps[dep] {
