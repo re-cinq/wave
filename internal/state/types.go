@@ -23,6 +23,16 @@ type RunRecord struct {
 	ParentRunID     string   // Parent pipeline run ID (empty for top-level runs)
 	ParentStepID    string   // Step ID in parent pipeline that launched this child run
 	ForkedFromRunID string   // Run ID this was forked from (empty if not a fork)
+
+	// Composition metadata (issue #1450). Set when a parent composition
+	// step (iterate, aggregate, sub_pipeline, branch, loop) launches
+	// this run; lets the WebUI render iterate progress, sub-pipeline
+	// breadcrumbs, and run-kind chips without re-deriving from event_log.
+	IterateIndex   *int   // 0-based index within an iterate step's items array (nil for non-iterate launches)
+	IterateTotal   *int   // total items in the parent iterate step (nil for non-iterate launches)
+	IterateMode    string // "parallel" or "serial" (empty for non-iterate launches)
+	RunKind        string // "top_level" | "iterate_child" | "sub_pipeline_child" | "loop_iteration" | "branch_arm" (empty defaults to top_level for legacy rows)
+	SubPipelineRef string // Sub-pipeline name as referenced in YAML (e.g. "audit-security"); empty for top-level runs
 }
 
 // CheckpointRecord holds checkpoint data at a step boundary for fork/rewind.

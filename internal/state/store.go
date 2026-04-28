@@ -149,6 +149,7 @@ type StateStore interface {
 
 	// Parent-child run linkage
 	SetParentRun(childRunID, parentRunID, stepID string) error
+	SetRunComposition(childRunID, runKind, subPipelineRef, iterateMode string, iterateIndex, iterateTotal *int) error
 	GetChildRuns(parentRunID string) ([]RunRecord, error)
 
 	// Retrospective tracking
@@ -704,7 +705,8 @@ func (s *stateStore) UpdateRunHeartbeat(runID string) error {
 func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
 	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid,
-	                 parent_run_id, parent_step_id, forked_from_run_id, last_heartbeat
+	                 parent_run_id, parent_step_id, forked_from_run_id, last_heartbeat,
+	                 iterate_index, iterate_total, iterate_mode, run_kind, sub_pipeline_ref
 	          FROM pipeline_run
 	          WHERE run_id = ?`
 
@@ -715,6 +717,8 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	var pid sql.NullInt64
 	var parentRunID, parentStepID, forkedFromRunID sql.NullString
 	var lastHeartbeat int64
+	var iterateIndex, iterateTotal sql.NullInt64
+	var iterateMode, runKind, subPipelineRef sql.NullString
 
 	err := s.db.QueryRow(query, runID).Scan(
 		&record.RunID,
@@ -734,6 +738,11 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 		&parentStepID,
 		&forkedFromRunID,
 		&lastHeartbeat,
+		&iterateIndex,
+		&iterateTotal,
+		&iterateMode,
+		&runKind,
+		&subPipelineRef,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -784,6 +793,23 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 	if lastHeartbeat > 0 {
 		record.LastHeartbeat = time.Unix(lastHeartbeat, 0)
 	}
+	if iterateIndex.Valid {
+		v := int(iterateIndex.Int64)
+		record.IterateIndex = &v
+	}
+	if iterateTotal.Valid {
+		v := int(iterateTotal.Int64)
+		record.IterateTotal = &v
+	}
+	if iterateMode.Valid {
+		record.IterateMode = iterateMode.String
+	}
+	if runKind.Valid {
+		record.RunKind = runKind.String
+	}
+	if subPipelineRef.Valid {
+		record.SubPipelineRef = subPipelineRef.String
+	}
 
 	return &record, nil
 }
@@ -792,7 +818,8 @@ func (s *stateStore) GetRun(runID string) (*RunRecord, error) {
 func (s *stateStore) GetRunningRuns() ([]RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
 	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid,
-	                 parent_run_id, parent_step_id, forked_from_run_id, last_heartbeat
+	                 parent_run_id, parent_step_id, forked_from_run_id, last_heartbeat,
+	                 iterate_index, iterate_total, iterate_mode, run_kind, sub_pipeline_ref
 	          FROM pipeline_run
 	          WHERE (status = 'running' OR (status = 'pending' AND started_at > unixepoch() - 300))
 	          ORDER BY started_at DESC`
@@ -804,7 +831,8 @@ func (s *stateStore) GetRunningRuns() ([]RunRecord, error) {
 func (s *stateStore) ListRuns(opts ListRunsOptions) ([]RunRecord, error) {
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
 	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid,
-	                 parent_run_id, parent_step_id, forked_from_run_id, last_heartbeat
+	                 parent_run_id, parent_step_id, forked_from_run_id, last_heartbeat,
+	                 iterate_index, iterate_total, iterate_mode, run_kind, sub_pipeline_ref
 	          FROM pipeline_run
 	          WHERE 1=1`
 	args := []any{}
@@ -1406,6 +1434,8 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 		var pid sql.NullInt64
 		var parentRunID, parentStepID, forkedFromRunID sql.NullString
 		var lastHeartbeat int64
+		var iterateIndex, iterateTotal sql.NullInt64
+		var iterateMode, runKind, subPipelineRef sql.NullString
 
 		err := rows.Scan(
 			&record.RunID,
@@ -1425,6 +1455,11 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 			&parentStepID,
 			&forkedFromRunID,
 			&lastHeartbeat,
+			&iterateIndex,
+			&iterateTotal,
+			&iterateMode,
+			&runKind,
+			&subPipelineRef,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan run: %w", err)
@@ -1471,6 +1506,23 @@ func (s *stateStore) queryRunsWithArgs(query string, args ...any) ([]RunRecord, 
 		}
 		if lastHeartbeat > 0 {
 			record.LastHeartbeat = time.Unix(lastHeartbeat, 0)
+		}
+		if iterateIndex.Valid {
+			v := int(iterateIndex.Int64)
+			record.IterateIndex = &v
+		}
+		if iterateTotal.Valid {
+			v := int(iterateTotal.Int64)
+			record.IterateTotal = &v
+		}
+		if iterateMode.Valid {
+			record.IterateMode = iterateMode.String
+		}
+		if runKind.Valid {
+			record.RunKind = runKind.String
+		}
+		if subPipelineRef.Valid {
+			record.SubPipelineRef = subPipelineRef.String
 		}
 
 		records = append(records, record)
@@ -2623,15 +2675,57 @@ func (s *stateStore) SetParentRun(childRunID, parentRunID, stepID string) error 
 	return nil
 }
 
+// SetRunComposition records the composition metadata for a child run —
+// run kind, sub-pipeline reference, and per-iterate-item index/total/mode.
+// Issue #1450 — used by the WebUI to render parent → step → item-N
+// breadcrumbs and run-kind chips without re-deriving from event_log.
+//
+// Pass nil for iterateIndex / iterateTotal when the launch was not an
+// iterate item. Empty strings for iterateMode / subPipelineRef are valid
+// for non-iterate / non-sub-pipeline launches respectively.
+func (s *stateStore) SetRunComposition(childRunID, runKind, subPipelineRef, iterateMode string, iterateIndex, iterateTotal *int) error {
+	query := `UPDATE pipeline_run
+	          SET run_kind = ?, sub_pipeline_ref = ?, iterate_mode = ?,
+	              iterate_index = ?, iterate_total = ?
+	          WHERE run_id = ?`
+
+	var idxArg, totalArg any
+	if iterateIndex != nil {
+		idxArg = *iterateIndex
+	}
+	if iterateTotal != nil {
+		totalArg = *iterateTotal
+	}
+
+	result, err := s.db.Exec(query, runKind, subPipelineRef, iterateMode, idxArg, totalArg, childRunID)
+	if err != nil {
+		return fmt.Errorf("failed to set run composition metadata: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("run not found: %s", childRunID)
+	}
+
+	return nil
+}
+
 // GetChildRuns returns all runs that are children of the specified parent run,
 // ordered by started_at.
 func (s *stateStore) GetChildRuns(parentRunID string) ([]RunRecord, error) {
+	// Sort by iterate_index (NULLS LAST handled by COALESCE), then started_at,
+	// so iterate-children render in their YAML-defined order rather than
+	// goroutine-launch order. Issue #1450.
 	query := `SELECT run_id, pipeline_name, status, input, current_step, total_tokens,
 	                 started_at, completed_at, cancelled_at, error_message, tags_json, branch_name, pid,
-	                 parent_run_id, parent_step_id, forked_from_run_id, last_heartbeat
+	                 parent_run_id, parent_step_id, forked_from_run_id, last_heartbeat,
+	                 iterate_index, iterate_total, iterate_mode, run_kind, sub_pipeline_ref
 	          FROM pipeline_run
 	          WHERE parent_run_id = ?
-	          ORDER BY started_at ASC`
+	          ORDER BY COALESCE(iterate_index, 1<<30) ASC, started_at ASC`
 
 	return s.queryRunsWithArgs(query, parentRunID)
 }

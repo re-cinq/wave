@@ -83,6 +83,29 @@ func (c *CompositionExecutor) SetRunID(id string) {
 	c.runID = id
 }
 
+// recordParentLinkage writes parent_run_id / parent_step_id and
+// run_kind / sub_pipeline_ref onto every child run that just finished.
+// Best-effort: failures are swallowed because they only affect WebUI
+// rendering, not pipeline correctness. Issue #1450.
+func (c *CompositionExecutor) recordParentLinkage(result *SequenceResult, parentStepID, pipelineName string) {
+	if c.store == nil || c.runID == "" || result == nil {
+		return
+	}
+	for _, pr := range result.PipelineResults {
+		if pr.RunID == "" || pr.RunID == c.runID {
+			continue
+		}
+		if parentStepID != "" {
+			_ = c.store.SetParentRun(pr.RunID, c.runID, parentStepID)
+		}
+		// Default kind for composition-launched children. Iterate /
+		// branch / loop sites can refine this in a follow-up by
+		// calling SetRunComposition with a more specific kind +
+		// iterate index/total.
+		_ = c.store.SetRunComposition(pr.RunID, "sub_pipeline_child", pipelineName, "", nil, nil)
+	}
+}
+
 // registerArtifact records an aggregate/iterate output in the artifact table
 // when the wired store implements RegisterArtifact and a runID has been set.
 // Best-effort: failures are swallowed to avoid masking step success.
@@ -621,8 +644,12 @@ func (c *CompositionExecutor) runSubPipeline(ctx context.Context, stepID, pipeli
 
 	result, err := c.seqExecutor.Execute(ctx, []*Pipeline{p}, c.manifest, input)
 	if err != nil {
+		// Even on failure, record parent linkage so the WebUI can render the
+		// child under its parent in the run tree (issue #1450).
+		c.recordParentLinkage(result, stepID, pipelineName)
 		return err
 	}
+	c.recordParentLinkage(result, stepID, pipelineName)
 
 	key := stepID
 	if key == "" {
