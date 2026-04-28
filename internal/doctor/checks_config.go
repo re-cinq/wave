@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/pipeline"
 )
 
 // checkOntology lives in checks_ontology.go. It is compiled unconditionally
@@ -37,7 +38,7 @@ func checkAdapterRegistry(m *manifest.Manifest) CheckResult {
 }
 
 func checkRetryPolicies(opts *Options) []CheckResult {
-	pipelines := loadAllPipelines(opts.PipelinesDir)
+	pipelines := pipeline.ScanPipelinesDir(opts.PipelinesDir)
 	if len(pipelines) == 0 {
 		return []CheckResult{{
 			Name:     "Retry Policies",

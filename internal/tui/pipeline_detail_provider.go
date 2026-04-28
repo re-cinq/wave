@@ -9,7 +9,6 @@ import (
 
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
-	"gopkg.in/yaml.v3"
 )
 
 // StepSummary is a lightweight projection of a pipeline step for display.
@@ -113,30 +112,16 @@ func NewDefaultDetailDataProvider(store detailStore, pipelinesDir string) *Defau
 // FetchAvailableDetail reads all YAML files from pipelinesDir, finds the pipeline with the
 // given name, and returns a detailed projection of its configuration.
 func (d *DefaultDetailDataProvider) FetchAvailableDetail(name string) (*AvailableDetail, error) {
-	entries, err := os.ReadDir(d.pipelinesDir)
-	if err != nil {
-		return nil, err
+	pipelines := pipeline.ScanPipelinesDir(d.pipelinesDir)
+	if pipelines == nil {
+		// Distinguish "no pipelines dir / unreadable" from "not found"
+		// — preserve the original error semantics by stat'ing the dir.
+		if _, err := os.Stat(d.pipelinesDir); err != nil {
+			return nil, err
+		}
 	}
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		ext := filepath.Ext(entry.Name())
-		if ext != ".yaml" && ext != ".yml" {
-			continue
-		}
-
-		data, err := os.ReadFile(filepath.Join(d.pipelinesDir, entry.Name()))
-		if err != nil {
-			continue
-		}
-
-		var p pipeline.Pipeline
-		if err := yaml.Unmarshal(data, &p); err != nil {
-			continue
-		}
-
+	for _, p := range pipelines {
 		if p.Metadata.Name != name {
 			continue
 		}

@@ -7,22 +7,11 @@ import (
 	"sort"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	"github.com/recinq/wave/internal/pipeline"
 )
 
 // DefaultPipelineDir is where Wave stores pipeline YAML files for a project.
 const DefaultPipelineDir = ".agents/pipelines"
-
-// pipelineFileShape mirrors the relevant subset of pipeline YAML for listing.
-type pipelineFileShape struct {
-	Metadata struct {
-		Description string `yaml:"description"`
-	} `yaml:"metadata"`
-	Steps []struct {
-		ID      string `yaml:"id"`
-		Persona string `yaml:"persona"`
-	} `yaml:"steps"`
-}
 
 // ListPipelines reads all pipeline YAML files under DefaultPipelineDir and
 // returns them in alphabetical order. A missing directory yields a nil slice
@@ -49,15 +38,15 @@ func ListPipelines() ([]PipelineInfo, error) {
 		name := strings.TrimSuffix(entry.Name(), ".yaml")
 		pipelinePath := filepath.Join(DefaultPipelineDir, entry.Name())
 
-		data, err := os.ReadFile(pipelinePath)
+		p, err := pipeline.LoadPipelineFileLenient(pipelinePath)
 		if err != nil {
-			pipelines = append(pipelines, PipelineInfo{Name: name, Description: "(error reading)"})
-			continue
-		}
-
-		var p pipelineFileShape
-		if err := yaml.Unmarshal(data, &p); err != nil {
-			pipelines = append(pipelines, PipelineInfo{Name: name, Description: "(error parsing)"})
+			// Distinguish read errors from parse errors to preserve the
+			// original UX (different placeholder text per failure mode).
+			if _, statErr := os.Stat(pipelinePath); statErr != nil {
+				pipelines = append(pipelines, PipelineInfo{Name: name, Description: "(error reading)"})
+			} else {
+				pipelines = append(pipelines, PipelineInfo{Name: name, Description: "(error parsing)"})
+			}
 			continue
 		}
 

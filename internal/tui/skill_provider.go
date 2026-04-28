@@ -1,12 +1,10 @@
 package tui
 
 import (
-	"os"
 	"path/filepath"
 	"sort"
 
 	"github.com/recinq/wave/internal/pipeline"
-	"gopkg.in/yaml.v3"
 )
 
 // SkillInfo is the TUI data projection for a skill.
@@ -40,33 +38,10 @@ func (p *DefaultSkillDataProvider) FetchSkills() ([]SkillInfo, error) {
 		return nil, nil
 	}
 
-	entries, err := os.ReadDir(p.pipelinesDir)
-	if err != nil {
-		return nil, nil
-	}
-
 	// Map by skill name for deduplication
 	skillMap := make(map[string]*SkillInfo)
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		ext := filepath.Ext(entry.Name())
-		if ext != ".yaml" && ext != ".yml" {
-			continue
-		}
-
-		data, err := os.ReadFile(filepath.Join(p.pipelinesDir, entry.Name()))
-		if err != nil {
-			continue
-		}
-
-		var pl pipeline.Pipeline
-		if err := yaml.Unmarshal(data, &pl); err != nil {
-			continue
-		}
-
+	for _, pl := range pipeline.ScanPipelinesDir(p.pipelinesDir) {
 		if pl.Requires == nil || len(pl.Requires.Skills) == 0 {
 			continue
 		}
