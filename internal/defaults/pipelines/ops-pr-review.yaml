@@ -379,7 +379,7 @@ steps:
         criteria_path: .agents/contracts/quality-review-criteria.md
         source: .agents/output/quality-review.md
         model: cheapest
-        token_budget: 8000
+        token_budget: 0
         timeout: 90s
         on_failure: continue
 

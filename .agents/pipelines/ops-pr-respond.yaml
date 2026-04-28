@@ -462,7 +462,7 @@ steps:
           persona: auditor
           source: .agents/output/triaged-findings.json
           model: cheapest
-          token_budget: 8000
+          token_budget: 0
           timeout: 90s
           criteria:
             - "Every actionable item has a non-empty remediation that names a concrete edit."
@@ -736,7 +736,7 @@ steps:
           persona: reviewer
           source: .agents/output/comment-result.json
           model: cheapest
-          token_budget: 6000
+          token_budget: 0
           timeout: 60s
           criteria:
             - "The posted comment maps every actionable finding id to either a commit SHA or a clear skipped/failed status."
