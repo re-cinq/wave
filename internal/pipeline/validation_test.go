@@ -588,3 +588,38 @@ func TestValidateThreadFields(t *testing.T) {
 		})
 	}
 }
+
+// TestValidateGenericStepSequence_CompositionAndWorktree is a regression test
+// for #1434. Composition steps (iterate, sub_pipeline, etc.) and worktree
+// steps don't leave a step-named directory under the run workspace —
+// composition steps put their state in child runs + registered artifacts;
+// worktree steps prune the worktree on success. The validator must not
+// reject resume just because there's no on-disk dir for those step kinds.
+func TestValidateGenericStepSequence_CompositionAndWorktree(t *testing.T) {
+	tmpDir := t.TempDir()
+	cwd, _ := os.Getwd()
+	t.Cleanup(func() { _ = os.Chdir(cwd) })
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+
+	pipeline := &Pipeline{
+		Metadata: PipelineMetadata{Name: "audit-issue"},
+		Steps: []Step{
+			{ID: "fetch-issue"},
+			{ID: "parallel-evidence", Iterate: &IterateConfig{Over: "{{ axes }}", Mode: "parallel"}},
+			{ID: "synthesize", Workspace: WorkspaceConfig{Type: "worktree"}},
+			{ID: "create-pr"},
+		},
+	}
+
+	// Create only the fetch-issue workspace — none for composition or worktree
+	// steps, mirroring the real audit-issue failure shape.
+	runDir := filepath.Join(tmpDir, ".agents/workspaces/audit-issue-20260428-111246-6a7d")
+	_ = os.MkdirAll(filepath.Join(runDir, "fetch-issue"), 0755)
+
+	v := NewPhaseSkipValidator()
+	if err := v.ValidatePhaseSequence(pipeline, "create-pr"); err != nil {
+		t.Fatalf("expected resume to validate (composition + worktree priors should be skipped), got: %v", err)
+	}
+}
