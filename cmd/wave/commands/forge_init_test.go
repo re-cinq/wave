@@ -6,6 +6,7 @@ import (
 
 	"github.com/recinq/wave/internal/defaults"
 	"github.com/recinq/wave/internal/forge"
+	"github.com/recinq/wave/internal/onboarding"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -144,7 +145,7 @@ func TestCrossForgeInit(t *testing.T) {
 			personaConfigs, err := defaults.GetPersonaConfigs()
 			require.NoError(t, err, "loading persona configs")
 
-			filteredPersonas := filterPersonasByForge(personaConfigs, info.Type)
+			filteredPersonas := onboarding.FilterPersonasByForge(personaConfigs, info.Type)
 
 			if tt.wantPersonaPrefix != "" {
 				// For forges with a persona prefix, every forge-specific persona

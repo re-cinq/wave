@@ -1149,7 +1149,7 @@ func TestDetectProject(t *testing.T) {
 				require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0644))
 			}
 
-			result := flavourToProjectMap(onboarding.DetectFlavour(dir))
+			result := onboarding.FlavourToProjectMap(onboarding.DetectFlavour(dir))
 
 			if tc.wantNil {
 				assert.Nil(t, result, "expected nil for unknown project")
@@ -1313,15 +1313,15 @@ func TestInitPersonaManifestMatchesConfig(t *testing.T) {
 func TestComputeChangeSummary(t *testing.T) {
 	tests := []struct {
 		name          string
-		setup         func(t *testing.T, assets *initAssets)
-		wantNewCount  int  // expected minimum count of FileStatusNew entries (-1 means all)
-		wantUpToDate  int  // expected minimum count of FileStatusUpToDate entries (-1 means all)
-		wantPreserved int  // expected minimum count of FileStatusPreserved entries
+		setup         func(t *testing.T, assets *onboarding.AssetSet)
+		wantNewCount  int  // expected minimum count of onboarding.FileStatusNew entries (-1 means all)
+		wantUpToDate  int  // expected minimum count of onboarding.FileStatusUpToDate entries (-1 means all)
+		wantPreserved int  // expected minimum count of onboarding.FileStatusPreserved entries
 		checkUpToDate bool // if true, assert summary.AlreadyUpToDate is true
 	}{
 		{
 			name: "all files new (fresh project)",
-			setup: func(t *testing.T, assets *initAssets) {
+			setup: func(t *testing.T, assets *onboarding.AssetSet) {
 				t.Helper()
 				// Only create wave.yaml — no .agents/ directory at all.
 				require.NoError(t, os.WriteFile("wave.yaml", []byte("apiVersion: v1\nkind: WaveManifest\n"), 0644))
@@ -1330,7 +1330,7 @@ func TestComputeChangeSummary(t *testing.T) {
 		},
 		{
 			name: "all files up-to-date",
-			setup: func(t *testing.T, assets *initAssets) {
+			setup: func(t *testing.T, assets *onboarding.AssetSet) {
 				t.Helper()
 				// Run a full init so every default file is on disk with default content
 				_, _, err := executeInitCmd()
@@ -1341,7 +1341,7 @@ func TestComputeChangeSummary(t *testing.T) {
 		},
 		{
 			name: "mixed states",
-			setup: func(t *testing.T, assets *initAssets) {
+			setup: func(t *testing.T, assets *onboarding.AssetSet) {
 				t.Helper()
 				// Run a full init first
 				_, _, err := executeInitCmd()
@@ -1353,7 +1353,7 @@ func TestComputeChangeSummary(t *testing.T) {
 					0644,
 				))
 				// Remove one pipeline to make it "new" on next check
-				for name := range assets.pipelines {
+				for name := range assets.Pipelines {
 					os.Remove(filepath.Join(".agents", "pipelines", name))
 					break // only remove one
 				}
@@ -1363,7 +1363,7 @@ func TestComputeChangeSummary(t *testing.T) {
 		},
 		{
 			name: "empty persona file treated as preserved",
-			setup: func(t *testing.T, assets *initAssets) {
+			setup: func(t *testing.T, assets *onboarding.AssetSet) {
 				t.Helper()
 				// Run a full init first
 				_, _, err := executeInitCmd()
@@ -1386,7 +1386,7 @@ func TestComputeChangeSummary(t *testing.T) {
 			defer env.cleanup()
 
 			cmd := NewInitCmd()
-			assets, err := getFilteredAssets(cmd, InitOptions{})
+			assets, err := onboarding.LoadAssets(cmd.ErrOrStderr(), onboarding.AssetOptions{})
 			require.NoError(t, err)
 
 			tc.setup(t, assets)
@@ -1400,8 +1400,8 @@ func TestComputeChangeSummary(t *testing.T) {
 				existingManifest = map[string]interface{}{}
 			}
 
-			defaultManifest := createDefaultManifest("claude", ".agents/workspaces", nil, assets.personaConfigs)
-			summary := computeChangeSummary(assets, existingManifest, defaultManifest)
+			defaultManifest := onboarding.BuildDefaultManifest("claude", ".agents/workspaces", nil, assets.PersonaConfigs)
+			summary := onboarding.ComputeChangeSummary(assets, existingManifest, defaultManifest)
 
 			require.NotNil(t, summary)
 			require.NotEmpty(t, summary.Files, "summary should contain file entries")
@@ -1410,11 +1410,11 @@ func TestComputeChangeSummary(t *testing.T) {
 			var newCount, upToDateCount, preservedCount int
 			for _, f := range summary.Files {
 				switch f.Status {
-				case FileStatusNew:
+				case onboarding.FileStatusNew:
 					newCount++
-				case FileStatusUpToDate:
+				case onboarding.FileStatusUpToDate:
 					upToDateCount++
-				case FileStatusPreserved:
+				case onboarding.FileStatusPreserved:
 					preservedCount++
 				}
 			}
@@ -1536,7 +1536,7 @@ func TestComputeManifestDiff(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			merged, changes := computeManifestDiff(tc.defaults, tc.existing)
+			merged, changes := onboarding.ComputeManifestDiff(tc.defaults, tc.existing)
 
 			require.NotNil(t, merged)
 
@@ -1545,9 +1545,9 @@ func TestComputeManifestDiff(t *testing.T) {
 			preservedKeys := make(map[string]bool)
 			for _, c := range changes {
 				switch c.Action {
-				case ManifestActionAdded:
+				case onboarding.ManifestActionAdded:
 					addedKeys[c.KeyPath] = true
-				case ManifestActionPreserved:
+				case onboarding.ManifestActionPreserved:
 					preservedKeys[c.KeyPath] = true
 				}
 			}
@@ -1608,10 +1608,10 @@ func TestInitMergeUpgradeLifecycle(t *testing.T) {
 
 	// Step 3b: Delete one pipeline to create a "new" entry for merge
 	cmd0 := NewInitCmd()
-	assets, err := getFilteredAssets(cmd0, InitOptions{})
+	assets, err := onboarding.LoadAssets(cmd0.ErrOrStderr(), onboarding.AssetOptions{})
 	require.NoError(t, err)
 	var removedPipeline string
-	for name := range assets.pipelines {
+	for name := range assets.Pipelines {
 		removed := filepath.Join(".agents", "pipelines", name)
 		os.Remove(removed)
 		removedPipeline = name
@@ -1900,9 +1900,9 @@ func TestInitMergeEdgeCases(t *testing.T) {
 
 		// Remove a pipeline to ensure there's a "new" entry
 		cmd0 := NewInitCmd()
-		assets, err := getFilteredAssets(cmd0, InitOptions{})
+		assets, err := onboarding.LoadAssets(cmd0.ErrOrStderr(), onboarding.AssetOptions{})
 		require.NoError(t, err)
-		for name := range assets.pipelines {
+		for name := range assets.Pipelines {
 			os.Remove(filepath.Join(".agents", "pipelines", name))
 			break // only remove one
 		}
@@ -1955,7 +1955,7 @@ steps:
 		"unrelated":         {Adapter: "claude"},
 	}
 
-	_, _, personaConfigs := filterTransitiveDeps(cmd, pipelines, nil, nil, allPersonaConfigs)
+	_, _, personaConfigs := onboarding.FilterTransitiveDeps(cmd.ErrOrStderr(), pipelines, nil, nil, allPersonaConfigs)
 
 	// All 4 forge variants should be included
 	assert.Contains(t, personaConfigs, "github-analyst", "github variant should be included")
@@ -2011,7 +2011,7 @@ func TestMergeTypedManifestsPreservesCustomPersonas(t *testing.T) {
 		},
 	}
 
-	result := mergeTypedManifests(existing, generated)
+	result := onboarding.MergeTypedManifests(existing, generated)
 
 	// Custom persona preserved
 	customAgent, hasCustom := result.Personas["custom-agent"]
@@ -2056,7 +2056,7 @@ func TestMergeTypedManifestsPreservesAdapters(t *testing.T) {
 		},
 	}
 
-	result := mergeTypedManifests(existing, generated)
+	result := onboarding.MergeTypedManifests(existing, generated)
 
 	// Custom adapter preserved
 	_, hasCustom := result.Adapters["custom-llm"]
@@ -2095,7 +2095,7 @@ func TestMergeTypedManifestsPreservesOntology(t *testing.T) {
 		// No ontology in generated
 	}
 
-	result := mergeTypedManifests(existing, generated)
+	result := onboarding.MergeTypedManifests(existing, generated)
 
 	// Ontology preserved entirely from existing
 	require.NotNil(t, result.Ontology, "ontology should be preserved")
@@ -2128,7 +2128,7 @@ func TestMergeTypedManifestsUpdatesInfrastructure(t *testing.T) {
 		},
 	}
 
-	result := mergeTypedManifests(existing, generated)
+	result := onboarding.MergeTypedManifests(existing, generated)
 
 	// Infrastructure updated from generated
 	assert.Equal(t, "v1", result.APIVersion, "apiVersion should be updated from generated")
@@ -2159,7 +2159,7 @@ func TestMergeTypedManifestsPreservesMetadata(t *testing.T) {
 		},
 	}
 
-	result := mergeTypedManifests(existing, generated)
+	result := onboarding.MergeTypedManifests(existing, generated)
 
 	assert.Equal(t, "my-project", result.Metadata.Name, "name should be preserved from existing")
 	assert.Equal(t, "My custom description", result.Metadata.Description, "description should be preserved")
@@ -2194,7 +2194,7 @@ func TestMergeTypedManifestsEmptyExisting(t *testing.T) {
 		},
 	}
 
-	result := mergeTypedManifests(existing, generated)
+	result := onboarding.MergeTypedManifests(existing, generated)
 
 	// When existing is empty, generated values are used
 	assert.Equal(t, "wave-project", result.Metadata.Name, "generated name used when existing is empty")
@@ -2226,7 +2226,7 @@ func TestMergeTypedManifestsPreservesProject(t *testing.T) {
 		},
 	}
 
-	result := mergeTypedManifests(existing, generated)
+	result := onboarding.MergeTypedManifests(existing, generated)
 
 	require.NotNil(t, result.Project)
 	assert.Equal(t, "go", result.Project.Language)
@@ -2249,7 +2249,7 @@ func TestMergeTypedManifestsMergesSkills(t *testing.T) {
 		Skills:     []string{"skill-b", "skill-c"},
 	}
 
-	result := mergeTypedManifests(existing, generated)
+	result := onboarding.MergeTypedManifests(existing, generated)
 
 	assert.Len(t, result.Skills, 3, "skills should be merged and deduplicated")
 	assert.Contains(t, result.Skills, "skill-a")
