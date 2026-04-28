@@ -3993,7 +3993,7 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 			if resolvedMounts[i].SubsetFrom == "" {
 				continue
 			}
-			subsetSrc, err := e.materialiseMountSubset(execution, resolvedMounts[i])
+			subsetSrc, err := e.materialiseMountSubset(execution, step.ID, i, resolvedMounts[i])
 			if err != nil {
 				return "", fmt.Errorf("step %q mount subset: %w", step.ID, err)
 			}
@@ -4038,7 +4038,7 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 // path navigated via ExtractJSONPath. The extracted value must be a
 // JSON array of strings, each interpreted as a path relative to the
 // original mount.Source.
-func (e *DefaultPipelineExecutor) materialiseMountSubset(execution *PipelineExecution, mount Mount) (string, error) {
+func (e *DefaultPipelineExecutor) materialiseMountSubset(execution *PipelineExecution, ownerStepID string, mountIdx int, mount Mount) (string, error) {
 	parts := strings.SplitN(mount.SubsetFrom, ".", 3)
 	if len(parts) < 3 {
 		return "", fmt.Errorf("subset_from %q: must be '<step>.<artifact>.<json-path>'", mount.SubsetFrom)
@@ -4066,17 +4066,25 @@ func (e *DefaultPipelineExecutor) materialiseMountSubset(execution *PipelineExec
 		return "", fmt.Errorf("subset_from %q: expected array of strings, got %s", mount.SubsetFrom, string(listJSON))
 	}
 
-	// Resolve original source path for relative copy.
+	// Resolve original source path for relative copy. EvalSymlinks
+	// gives us the canonical path so the security check below catches
+	// cases where the source itself is a symlink.
 	source := mount.Source
 	if !filepath.IsAbs(source) {
 		if abs, err := filepath.Abs(source); err == nil {
 			source = abs
 		}
 	}
+	canonicalSource, err := filepath.EvalSymlinks(source)
+	if err != nil {
+		return "", fmt.Errorf("resolve source: %w", err)
+	}
 
-	// Materialise into .agents/workspaces/_subsets/<runID>/<stepID>/<step-mount-idx>.
+	// Materialise into a path unique to (run, ownerStep, mountIdx) so two
+	// concurrent steps with the same SubsetFrom can't collide on the
+	// RemoveAll/MkdirAll race.
 	pipelineID := execution.Status.ID
-	subsetRoot := filepath.Join(".agents", "workspaces", "_subsets", pipelineID, fmt.Sprintf("%x", []byte(mount.SubsetFrom)))
+	subsetRoot := filepath.Join(".agents", "workspaces", "_subsets", pipelineID, ownerStepID, fmt.Sprintf("mount%d", mountIdx))
 	if err := os.RemoveAll(subsetRoot); err != nil {
 		return "", fmt.Errorf("clean subset dir: %w", err)
 	}
@@ -4100,13 +4108,29 @@ func (e *DefaultPipelineExecutor) materialiseMountSubset(execution *PipelineExec
 		if info.IsDir() {
 			continue
 		}
+		// Reject symlinks — even if the JSON path itself looks safe,
+		// a symlink in the source tree could point outside it. Belt
+		// and suspenders below.
+		if info.Mode()&os.ModeSymlink != 0 {
+			continue
+		}
+		// Belt and suspenders: resolve through any parent symlinks
+		// and confirm the canonical path is still under source.
+		canonicalSrc, err := filepath.EvalSymlinks(srcFile)
+		if err != nil {
+			continue
+		}
+		if !strings.HasPrefix(canonicalSrc, canonicalSource+string(filepath.Separator)) && canonicalSrc != canonicalSource {
+			// Canonical path escaped source — drop.
+			continue
+		}
 		dstFile := filepath.Join(subsetRoot, clean)
 		if err := os.MkdirAll(filepath.Dir(dstFile), 0755); err != nil {
 			return "", fmt.Errorf("mkdir subset parent: %w", err)
 		}
 		// Copy rather than symlink — readonly mode chmods the tree
 		// later, which symlinks don't carry.
-		if err := copySubsetFile(srcFile, dstFile); err != nil {
+		if err := copySubsetFile(canonicalSrc, dstFile); err != nil {
 			return "", fmt.Errorf("copy %q: %w", clean, err)
 		}
 	}

@@ -63,7 +63,7 @@ func TestMaterialiseMountSubset(t *testing.T) {
 		SubsetFrom: "fetch-pr.pr-context.changed_files",
 	}
 
-	subsetDir, err := executor.materialiseMountSubset(exec, mount)
+	subsetDir, err := executor.materialiseMountSubset(exec, "audit", 0, mount)
 	if err != nil {
 		t.Fatalf("materialise: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestMaterialiseMountSubset_PathTraversalRejected(t *testing.T) {
 	}
 	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
 
-	subsetDir, err := executor.materialiseMountSubset(exec, Mount{
+	subsetDir, err := executor.materialiseMountSubset(exec, "audit", 0, Mount{
 		Source:     source,
 		Target:     "/project",
 		SubsetFrom: "fetch-pr.pr-context.changed_files",
@@ -129,5 +129,63 @@ func TestMaterialiseMountSubset_PathTraversalRejected(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(subsetDir, "../../etc/passwd")); err == nil {
 		t.Errorf("path traversal entry must be dropped")
+	}
+}
+
+// TestMaterialiseMountSubset_SymlinkRejected verifies that a symlink
+// inside Source pointing outside is dropped rather than dereferenced.
+func TestMaterialiseMountSubset_SymlinkRejected(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "project")
+	secret := filepath.Join(tmp, "secret.txt")
+	if err := os.MkdirAll(source, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(secret, []byte("CONFIDENTIAL"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(secret, filepath.Join(source, "leak")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "ok.go"), []byte("package x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	artifact := filepath.Join(tmp, "pr-context.json")
+	body, _ := json.Marshal(map[string]any{"changed_files": []string{"ok.go", "leak"}})
+	if err := os.WriteFile(artifact, body, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	origWD, _ := os.Getwd()
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(origWD) }()
+
+	exec := &PipelineExecution{
+		Pipeline:       &Pipeline{Steps: []Step{{ID: "fetch-pr"}}},
+		Manifest:       &manifest.Manifest{},
+		ArtifactPaths:  map[string]string{"fetch-pr:pr-context": artifact},
+		WorkspacePaths: map[string]string{},
+		Status:         &PipelineStatus{ID: "test-run"},
+		Context:        NewPipelineContext("test-run", "test", "audit"),
+	}
+	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+
+	subsetDir, err := executor.materialiseMountSubset(exec, "audit", 0, Mount{
+		Source:     source,
+		Target:     "/project",
+		SubsetFrom: "fetch-pr.pr-context.changed_files",
+	})
+	if err != nil {
+		t.Fatalf("materialise: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(subsetDir, "ok.go")); err != nil {
+		t.Errorf("ok.go missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(subsetDir, "leak")); err == nil {
+		t.Errorf("symlink leaking outside source must be dropped")
 	}
 }
