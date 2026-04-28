@@ -870,6 +870,10 @@ func (s *stateStore) ListRuns(opts ListRunsOptions) ([]RunRecord, error) {
 		args = append(args, opts.SinceUnix)
 	}
 
+	if opts.TopLevelOnly {
+		query += " AND (parent_run_id IS NULL OR parent_run_id = '')"
+	}
+
 	// Cursor-based pagination: return runs before the cursor position
 	if opts.BeforeUnix > 0 {
 		if opts.BeforeRunID != "" {
