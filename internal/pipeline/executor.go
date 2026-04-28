@@ -1320,10 +1320,14 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 			if err != nil {
 				return result, err
 			}
+			// Register output artifacts in ArtifactPaths so downstream
+			// inject_artifacts can find the files the script wrote (#1490).
+			workspacePath := execution.WorkspacePaths[step.ID]
+			e.writeOutputArtifacts(execution, step, workspacePath, nil)
 			// Run handover contract validation for command steps.
 			// Command steps run in the project root (or mount target), so resolve
 			// contract sources against the command's actual working directory.
-			contractDir := resolveCommandWorkDir(execution.WorkspacePaths[step.ID], step)
+			contractDir := resolveCommandWorkDir(workspacePath, step)
 			adapterResult := &adapter.AdapterResult{}
 			if cErr := e.validateStepContracts(ctx, execution, step, contractDir, nil, execution.Status.ID, "", time.Now(), adapterResult); cErr != nil {
 				return result, cErr
@@ -1791,9 +1795,16 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		if result != nil && result.Outcome == "failure" {
 			return result.Error
 		}
+		// Register output artifacts so downstream `inject_artifacts` lookups
+		// in `injectArtifacts` (executor.go: ArtifactPaths[step.ID+":"+name])
+		// resolve to the on-disk file the script wrote. Without this,
+		// command-step outputs were silently delivered as 0-byte blobs to
+		// downstream personas — see #1490.
+		workspacePath := execution.WorkspacePaths[step.ID]
+		e.writeOutputArtifacts(execution, step, workspacePath, nil)
 		// Run handover contract validation (same as persona steps).
 		// Resolve against the command's actual working directory, not the workspace root.
-		contractDir := resolveCommandWorkDir(execution.WorkspacePaths[step.ID], step)
+		contractDir := resolveCommandWorkDir(workspacePath, step)
 		adapterResult := &adapter.AdapterResult{}
 		if cErr := e.validateStepContracts(ctx, execution, step, contractDir, nil, pipelineID, "", time.Now(), adapterResult); cErr != nil {
 			return cErr

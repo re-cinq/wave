@@ -1328,6 +1328,83 @@ func TestWriteOutputArtifactsPreservesExistingFiles(t *testing.T) {
 		"Persona-written artifact should be preserved when file already exists")
 }
 
+// TestCommandStepOutputArtifactsRegisteredForInjection is a regression test for
+// #1490. A `type: command` step that writes a file declared in
+// `output_artifacts` must register the file path in
+// `execution.ArtifactPaths[step.ID+":"+art.Name]` so a downstream step's
+// `memory.inject_artifacts` lookup resolves to actual content rather than
+// silently falling through to the (usually empty) stdout fallback.
+func TestCommandStepOutputArtifactsRegisteredForInjection(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	mockAdapter := adapter.NewMockAdapter(
+		adapter.WithStdoutJSON(`{"type": "result", "result": "ok"}`),
+		adapter.WithTokensUsed(10),
+	)
+	collector := testutil.NewEventCollector()
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
+
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "command-output-artifact-test"},
+		Steps: []Step{
+			{
+				ID:     "produce",
+				Type:   StepTypeCommand,
+				Script: `mkdir -p .agents/output && printf '{"items":[{"x":1}]}' > .agents/output/data.json`,
+				OutputArtifacts: []ArtifactDef{
+					{Name: "data", Path: ".agents/output/data.json", Type: "json"},
+				},
+			},
+			{
+				ID:           "consume",
+				Persona:      "navigator",
+				Dependencies: []string{"produce"},
+				Memory: MemoryConfig{
+					InjectArtifacts: []ArtifactRef{
+						{Step: "produce", Artifact: "data", As: "data"},
+					},
+				},
+				Exec: ExecConfig{Source: "consume artifact"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "workspace-cmd-art")
+	require.NoError(t, err)
+
+	// The injected artifact should be the JSON the command wrote, not a
+	// 0-byte file from the stdout fallback path. Walk the tmpDir for the
+	// `data` injection target — its exact location depends on the
+	// workspace-creation strategy in effect.
+	var injectedPath string
+	walkErr := filepath.Walk(tmpDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		if filepath.Base(path) == "data" && strings.Contains(path, filepath.Join("consume", ".agents", "artifacts")) {
+			injectedPath = path
+		}
+		return nil
+	})
+	require.NoError(t, walkErr)
+	require.NotEmpty(t, injectedPath, "injected artifact must exist somewhere under %s", tmpDir)
+
+	stat, err := os.Stat(injectedPath)
+	require.NoError(t, err)
+	assert.Greater(t, stat.Size(), int64(0),
+		"injected artifact must be non-empty — see #1490")
+
+	content, err := os.ReadFile(injectedPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), `"items"`,
+		"injected content must match what the command wrote, not stdout fallback")
+}
+
 // configCapturingAdapter wraps MockAdapter and captures the AdapterRunConfig passed to Run
 type configCapturingAdapter struct {
 	*adapter.MockAdapter
