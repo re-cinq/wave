@@ -164,7 +164,7 @@ func CreateProjectInstructionFiles() error {
 
 // RemoveDeselectedPipelines deletes pipeline YAML files in pipelinesDir whose
 // stem (filename without .yaml extension) is not in the selected list.
-func RemoveDeselectedPipelines(pipelinesDir string, selected []string) error { //nolint:unparam // error return kept for future use
+func RemoveDeselectedPipelines(pipelinesDir string, selected []string) error {
 	keep := make(map[string]bool)
 	for _, name := range selected {
 		keep[name] = true
