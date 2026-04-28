@@ -1919,6 +1919,43 @@ func TestRunTags(t *testing.T) {
 	})
 }
 
+// TestListRunsTopLevelOnly tests the TopLevelOnly filter that excludes
+// composition children from list views (issue #1450 sub-PR 5).
+func TestListRunsTopLevelOnly(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	parentID, err := store.CreateRun("ops-pr-respond", "input")
+	require.NoError(t, err)
+	childID, err := store.CreateRun("audit-security", "input")
+	require.NoError(t, err)
+	otherTopLevelID, err := store.CreateRun("ops-pr-respond", "input")
+	require.NoError(t, err)
+	require.NoError(t, store.SetParentRun(childID, parentID, "parallel-review"))
+
+	// Without filter: all 3 runs visible.
+	all, err := store.ListRuns(ListRunsOptions{})
+	require.NoError(t, err)
+	assert.Len(t, all, 3, "default list returns parent + child + other")
+
+	// With filter: only the 2 top-level runs.
+	topOnly, err := store.ListRuns(ListRunsOptions{TopLevelOnly: true})
+	require.NoError(t, err)
+	assert.Len(t, topOnly, 2, "TopLevelOnly excludes composition child")
+	for _, r := range topOnly {
+		assert.Empty(t, r.ParentRunID, "filtered runs must have no parent")
+		assert.Contains(t, []string{parentID, otherTopLevelID}, r.RunID)
+	}
+
+	// Combined with PipelineName filter.
+	pipelineFiltered, err := store.ListRuns(ListRunsOptions{
+		PipelineName: "ops-pr-respond",
+		TopLevelOnly: true,
+	})
+	require.NoError(t, err)
+	assert.Len(t, pipelineFiltered, 2)
+}
+
 // TestListRunsWithTags tests filtering runs by tags.
 func TestListRunsWithTags(t *testing.T) {
 	t.Run("filter by single tag", func(t *testing.T) {
