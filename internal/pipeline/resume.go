@@ -373,6 +373,25 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID
 		}
 	}
 
+	// Load every artifact registered for the prior run from the DB.
+	// Workspace-derived registration above only covers steps that declare
+	// OutputArtifacts; aggregate / iterate / sub_pipeline outputs land in
+	// the DB without a YAML declaration and would otherwise be invisible
+	// to the auto-injector after resume (#1452).
+	if resolvedRunID != "" && r.executor.store != nil {
+		if records, err := r.executor.store.GetArtifacts(resolvedRunID, ""); err == nil {
+			for _, rec := range records {
+				key := rec.StepID + ":" + rec.Name
+				if _, ok := state.ArtifactPaths[key]; ok {
+					// Workspace-derived path takes precedence (it points at
+					// the live workspace location, not the archived copy).
+					continue
+				}
+				state.ArtifactPaths[key] = rec.Path
+			}
+		}
+	}
+
 	// Load failure context from the prior run's step attempts so retry prompts have context
 	if resolvedRunID != "" && r.executor.store != nil {
 		// Query step attempts for the step being resumed
