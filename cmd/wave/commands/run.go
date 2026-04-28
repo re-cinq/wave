@@ -779,21 +779,33 @@ func runDetached(opts RunOptions, p *pipeline.Pipeline, m *manifest.Manifest) er
 	}
 
 	var runID string
-	notified := false
-	for {
-		var createErr error
-		runID, createErr = store.CreateRunWithLimit(p.Metadata.Name, opts.Input, maxWorkers)
-		if createErr == nil {
-			break
+	// Resume-in-place: when the user passes --run <prior> alongside
+	// --from-step, reuse that run id instead of creating a fresh one.
+	// Otherwise the detached subprocess loses the prior-run reference and
+	// loadResumeState queries the empty new run, leaving the auto-injector
+	// (#1452) with nothing to inject.
+	if opts.RunID != "" && opts.FromStep != "" {
+		if _, err := store.GetRun(opts.RunID); err == nil {
+			runID = opts.RunID
 		}
-		if !errors.Is(createErr, state.ErrConcurrencyLimit) {
-			return fmt.Errorf("failed to create run record: %w", createErr)
+	}
+	if runID == "" {
+		notified := false
+		for {
+			var createErr error
+			runID, createErr = store.CreateRunWithLimit(p.Metadata.Name, opts.Input, maxWorkers)
+			if createErr == nil {
+				break
+			}
+			if !errors.Is(createErr, state.ErrConcurrencyLimit) {
+				return fmt.Errorf("failed to create run record: %w", createErr)
+			}
+			if !notified {
+				fmt.Fprintf(os.Stderr, "  Queued: %d/%d workers busy, waiting for a slot...\n", maxWorkers, maxWorkers)
+				notified = true
+			}
+			time.Sleep(5 * time.Second)
 		}
-		if !notified {
-			fmt.Fprintf(os.Stderr, "  Queued: %d/%d workers busy, waiting for a slot...\n", maxWorkers, maxWorkers)
-			notified = true
-		}
-		time.Sleep(5 * time.Second)
 	}
 	// Mark as running so wave status picks it up immediately.
 	_ = store.UpdateRunStatus(runID, "running", "", 0)
