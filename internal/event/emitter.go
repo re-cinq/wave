@@ -6,9 +6,12 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"github.com/recinq/wave/internal/state"
 )
+
+// StepState represents the lifecycle state of a pipeline step. It is the
+// canonical type for step lifecycle observability and is consumed by
+// internal/state for persistence (state -> event, not the reverse).
+type StepState string
 
 type Event struct {
 	Timestamp  time.Time `json:"timestamp"`
@@ -93,18 +96,27 @@ type DeliverableJSON struct {
 	StepID      string `json:"step_id"`
 }
 
-// Event state constants for pipeline and step lifecycle
+// Event state constants for pipeline and step lifecycle.
+//
+// The step lifecycle constants below are the canonical lifecycle vocabulary
+// for the project. They are untyped string constants so they can be assigned
+// directly to both the `string` Event.State field and the typed StepState
+// alias re-exported by internal/state for persistence APIs.
 const (
 	// Event-specific states
 	StateStarted = "started"
 
-	// Step lifecycle states — canonical source: state.StepState
-	StateRunning   = string(state.StateRunning)
-	StateCompleted = string(state.StateCompleted)
-	StateFailed    = string(state.StateFailed)
-	StateRetrying  = string(state.StateRetrying)
-	StateSkipped   = string(state.StateSkipped)
-	StateReworking = string(state.StateReworking)
+	// Step lifecycle states (canonical). Untyped string constants — assignable
+	// to both string and StepState. See internal/state for the persistence
+	// alias (state.StepState = event.StepState).
+	StatePending        = "pending"
+	StateRunning        = "running"
+	StateCompleted      = "completed"
+	StateCompletedEmpty = "completed_empty" // Step completed but produced no meaningful changes (zero diff in worktree)
+	StateFailed         = "failed"
+	StateRetrying       = "retrying"
+	StateSkipped        = "skipped"
+	StateReworking      = "reworking"
 
 	// Progress tracking states
 	StateStepProgress       = "step_progress"       // Step is making progress (with percentage)
