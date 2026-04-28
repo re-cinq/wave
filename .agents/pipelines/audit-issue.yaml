@@ -539,11 +539,11 @@ steps:
   - id: file-each-followup
     type: command
     dependencies: [synthesize, aggregate-followups, fetch-issue]
-    workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readonly
+    # No workspace.mount needed — auto-injection (#1452) puts
+    # followup-specs.json + issue-context.json in
+    # <workspace>/.agents/output/, and `gh issue create --repo $OWNER/$REPO`
+    # uses owner/repo harvested from issue-context, not the local git
+    # remote, so the project tree is not required.
     script: |
       set -o pipefail
       mkdir -p .agents/output
