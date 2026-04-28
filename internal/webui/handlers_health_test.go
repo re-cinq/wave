@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/recinq/wave/internal/tui"
+	"github.com/recinq/wave/internal/health"
 )
 
 func TestHandleAPIHealth(t *testing.T) {
@@ -72,8 +72,8 @@ func TestHealthStatusString(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		// Cast to the tui type through the int value
-		got := healthStatusString(tui.HealthCheckStatus(tt.input))
+		// Cast to the health type through the int value
+		got := healthStatusString(health.CheckStatus(tt.input))
 		if got != tt.expected {
 			t.Errorf("healthStatusString(%d) = %q, want %q", tt.input, got, tt.expected)
 		}
