@@ -185,13 +185,12 @@ steps:
     pipeline: "{{ item }}"
     dependencies: [fetch-pr]
     input: "Audit the changes in PR {{ input }}. Focus on files listed in .agents/output/pr-context.json (changed_files). Treat .agents/output/pr.diff as the authoritative scope."
-    # Inject pr-context into every audit-* child so each one receives
-    # `.agents/artifacts/pr-context` and can scope its scan to changed_files
-    # instead of walking the whole repo. Standalone audit-* runs (no parent
-    # injection) keep their whole-repo behaviour — the audit prompts guard
-    # the scope-narrowing on the artifact's existence.
-    config:
-      inject: ["pr-context"]
+    # `pr-context` reaches every audit-* child via auto-derived parent
+    # artifact paths (#1452 / #1458): the dependency on fetch-pr already
+    # tells Wave to forward its declared output_artifacts. Standalone
+    # audit-* runs (no parent injection) keep their whole-repo behaviour —
+    # the audit prompts guard the scope-narrowing on the artifact's
+    # existence.
     iterate:
       over: '["audit-security", "audit-architecture", "audit-tests", "audit-duplicates", "audit-doc-scan", "audit-dead-code-scan"]'
       mode: parallel
