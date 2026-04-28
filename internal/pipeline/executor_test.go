@@ -561,7 +561,7 @@ func TestBuildContractPrompt_JSONSchema(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	assert.Contains(t, prompt, "Output Requirements")
 	assert.Contains(t, prompt, "artifact.json")
@@ -586,7 +586,7 @@ func TestBuildContractPrompt_TestSuite(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 
 	assert.Contains(t, prompt, "Test Validation")
 	assert.Contains(t, prompt, "go test ./...")
@@ -600,7 +600,7 @@ func TestBuildContractPrompt_NoContract(t *testing.T) {
 
 	step := &Step{ID: "test-step"}
 
-	prompt := executor.buildContractPrompt(step, nil)
+	prompt := executor.buildContractPrompt(step, nil, nil)
 	assert.Empty(t, prompt)
 }
 
