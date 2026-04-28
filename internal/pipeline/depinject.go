@@ -382,6 +382,19 @@ func linkOrCopy(src, dest string) error {
 			absSrc = a
 		}
 	}
+	absDest := dest
+	if !filepath.IsAbs(absDest) {
+		if a, err := filepath.Abs(absDest); err == nil {
+			absDest = a
+		}
+	}
+	// Same target after absolutization (e.g. archive path inside a
+	// shared worktree equals the canonical injection path). Skip — any
+	// symlink we create here would form a loop because os.Remove(dest)
+	// would delete the file we are trying to link to.
+	if absSrc == absDest {
+		return nil
+	}
 	// If dest already exists pointing to absSrc, leave it.
 	if existing, err := os.Readlink(dest); err == nil && existing == absSrc {
 		return nil
