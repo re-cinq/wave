@@ -174,6 +174,17 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 	forgeInfo := forge.DetectFromGitRemotesWithOverride(m.Metadata.Forge)
 	InjectForgeVariables(pipelineContext, forgeInfo)
 
+	// Re-publish bare-name artifact paths from the prior run so
+	// sub-pipeline injection lookups (executor.go:5752 — uses
+	// Context.GetArtifactPath without a step prefix) can find
+	// pr-context/issue-context/etc. produced by completed steps.
+	// Without this, resuming past a step that produced a bare-name
+	// artifact loses the binding even though ArtifactPaths
+	// (the dep-scoped namespace) is rehydrated. See #1434 part 3.
+	for name, path := range resumeState.BareArtifactPaths {
+		pipelineContext.SetArtifactPath(name, path)
+	}
+
 	execution := &PipelineExecution{
 		Pipeline:        resumePipeline,
 		Manifest:        m,
@@ -238,6 +249,7 @@ type ResumeState struct {
 	States              map[string]string
 	Results             map[string]map[string]interface{}
 	ArtifactPaths       map[string]string
+	BareArtifactPaths   map[string]string // bare-name artifact paths to repopulate PipelineContext on resume (#1434)
 	WorkspacePaths      map[string]string
 	CompletedSteps      []string
 	FailureContexts     map[string]*AttemptContext // stepID -> failure context from prior run
@@ -264,6 +276,7 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID
 		States:            make(map[string]string),
 		Results:           make(map[string]map[string]interface{}),
 		ArtifactPaths:     make(map[string]string),
+		BareArtifactPaths: make(map[string]string),
 		WorkspacePaths:    make(map[string]string),
 		CompletedSteps:    []string{},
 		FailureContexts:   make(map[string]*AttemptContext),
@@ -368,6 +381,7 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID
 					artifactKey := fmt.Sprintf("%s:%s", step.ID, artifact.Name)
 					artifactPath := filepath.Join(stepWorkspace, artifact.Path)
 					state.ArtifactPaths[artifactKey] = artifactPath
+					state.BareArtifactPaths[artifact.Name] = artifactPath
 				}
 			}
 		}
@@ -382,12 +396,19 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID
 		if records, err := r.executor.store.GetArtifacts(resolvedRunID, ""); err == nil {
 			for _, rec := range records {
 				key := rec.StepID + ":" + rec.Name
-				if _, ok := state.ArtifactPaths[key]; ok {
-					// Workspace-derived path takes precedence (it points at
-					// the live workspace location, not the archived copy).
-					continue
+				if _, ok := state.ArtifactPaths[key]; !ok {
+					state.ArtifactPaths[key] = rec.Path
 				}
-				state.ArtifactPaths[key] = rec.Path
+				// Bare-name binding for sub-pipeline injection lookups
+				// (executor.go:5752 — Context.GetArtifactPath without a
+				// step prefix). Without this, resuming past a step that
+				// produced pr-context/issue-context/etc. loses the
+				// bare-name binding even though the dep-scoped key is
+				// set. The Context is populated post-state-load by the
+				// caller. See #1434 part 3.
+				if _, ok := state.BareArtifactPaths[rec.Name]; !ok {
+					state.BareArtifactPaths[rec.Name] = rec.Path
+				}
 			}
 		}
 	}
