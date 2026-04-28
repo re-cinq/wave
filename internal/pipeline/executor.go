@@ -4048,7 +4048,21 @@ func (e *DefaultPipelineExecutor) materialiseMountSubset(execution *PipelineExec
 	// Resolve artifact path via the same lookup tiers as the auto-injector.
 	path, ok := e.locateDepArtifact(execution, stepID, artifactName)
 	if !ok {
-		return "", fmt.Errorf("subset_from artifact %q:%q not found", stepID, artifactName)
+		// Soft fallback: when the artifact is unavailable (e.g. the
+		// audit-* pipeline runs standalone without ops-pr-respond
+		// providing pr-context), keep the original mount.Source. The
+		// LLM-side scope guard from #1411 still narrows behaviour but
+		// the workspace itself remains the full project tree. Issue
+		// #1453 — this preserves backwards compatibility for ad-hoc
+		// audit-* runs while letting ops-pr-respond enforce scope.
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: execution.Status.ID,
+			StepID:     ownerStepID,
+			State:      "step_progress",
+			Message:    fmt.Sprintf("subset_from %q artifact not found — falling back to full mount.Source", mount.SubsetFrom),
+		})
+		return mount.Source, nil
 	}
 
 	data, err := os.ReadFile(path)
