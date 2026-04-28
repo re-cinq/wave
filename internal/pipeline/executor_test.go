@@ -129,12 +129,16 @@ func TestParallelStepExecution(t *testing.T) {
 	var maxConcurrent int32
 	var currentConcurrent int32
 
-	// Create a mock adapter that tracks concurrency — use enough delay to ensure overlap
+	// Create a mock adapter that tracks concurrency. The simulated delay
+	// has to be long enough that both B and C are still running when the
+	// other starts; 50ms was on the edge under CI load and produced
+	// sporadic max-concurrent=1 false negatives. 500ms gives a 10x
+	// margin against scheduler jitter while keeping wall time under 2s.
 	concurrentAdapter := &concurrencyTrackingAdapter{
 		MockAdapter: adapter.NewMockAdapter(
 			adapter.WithStdoutJSON(`{"status": "success"}`),
 			adapter.WithTokensUsed(500),
-			adapter.WithSimulatedDelay(50*time.Millisecond),
+			adapter.WithSimulatedDelay(500*time.Millisecond),
 		),
 		onStart: func() {
 			current := atomic.AddInt32(&currentConcurrent, 1)
