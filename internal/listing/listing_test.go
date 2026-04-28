@@ -12,14 +12,13 @@ import (
 
 // chdirToTemp switches into a fresh temp dir for the test and restores the
 // original working directory afterwards.
-func chdirToTemp(t *testing.T) string {
+func chdirToTemp(t *testing.T) {
 	t.Helper()
 	tmp := t.TempDir()
 	orig, err := os.Getwd()
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tmp))
 	t.Cleanup(func() { _ = os.Chdir(orig) })
-	return tmp
 }
 
 func writeFile(t *testing.T, path, content string) {
