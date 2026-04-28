@@ -45,6 +45,11 @@ steps:
         - source: ./
           target: /project
           mode: readonly
+          # When invoked from ops-pr-respond.parallel-review, narrow the
+          # mount to the PR's changed_files only so audits cannot scan
+          # out-of-scope code (#1453). Standalone runs without
+          # pr-context fall back to the full tree.
+          subset_from: fetch-pr.pr-context.changed_files
     exec:
       type: prompt
       source: |

@@ -43,6 +43,9 @@ steps:
         - source: ./
           target: /project
           mode: readonly
+          # Narrow mount to PR scope when invoked from ops-pr-respond
+          # (#1453). Soft-fallback to full tree on standalone runs.
+          subset_from: fetch-pr.pr-context.changed_files
     exec:
       type: prompt
       source: |
