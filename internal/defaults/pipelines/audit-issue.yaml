@@ -345,10 +345,11 @@ steps:
   # followup-spec. iterate.parallel max=3 keeps the LLM cost bounded.
   - id: per-gap-deepdive
     pipeline: gap-analyze
-    dependencies: [enumerate-gaps]
+    dependencies: [enumerate-gaps, fetch-issue]
     input: "{{ item }}"
-    config:
-      inject: ["issue-context"]
+    # `issue-context` reaches every gap-analyze child via auto-derived
+    # parent artifact paths (#1452 / #1458) — fetch-issue is now a direct
+    # dependency so its declared output_artifacts forward automatically.
     iterate:
       over: "{{ enumerate-gaps.out.gap-set.gaps }}"
       mode: parallel
