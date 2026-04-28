@@ -99,6 +99,25 @@ func (v *PhaseSkipValidator) validateGenericStepSequence(p *Pipeline, fromStep s
 			break
 		}
 
+		// Composition steps (iterate, sub_pipeline, branch, loop, aggregate)
+		// don't create their own workspace dir — their state lives in child
+		// run rows + the registered aggregate artifact. Their existence is
+		// validated by the artifact-based resume preflight, not the
+		// workspace-on-disk heuristic. See #1434.
+		if step.IsCompositionStep() {
+			continue
+		}
+
+		// Worktree steps prune their worktree on success, so a completed
+		// step leaves no `step.ID` directory behind. The DB step_state +
+		// registered artifacts are the authoritative record. Skipping the
+		// workspace heuristic for worktree steps keeps resume working for
+		// composition pipelines that mix worktree personas with later
+		// command/aggregate steps. See #1434.
+		if step.Workspace.Type == "worktree" {
+			continue
+		}
+
 		if v.hasWorkspaceInAnyRun(step, runDirs) {
 			continue
 		}
