@@ -102,6 +102,51 @@ func (s *Server) handleAPIRuns(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// handleAPIRunChildren handles GET /api/runs/{id}/children — returns
+// the immediate child runs of a parent run, plus the rolled-up subtree
+// token total. Used by the WebUI to render iterate / sub-pipeline
+// children inline on the parent run page (issue #1450).
+func (s *Server) handleAPIRunChildren(w http.ResponseWriter, r *http.Request) {
+	runID := r.PathValue("id")
+	if runID == "" {
+		writeJSONError(w, http.StatusBadRequest, "missing run ID")
+		return
+	}
+
+	if _, err := s.store.GetRun(runID); err != nil {
+		writeJSONError(w, http.StatusNotFound, "run not found")
+		return
+	}
+
+	children, err := s.store.GetChildRuns(runID)
+	if err != nil {
+		log.Printf("[webui] failed to get children for run %s: %v", runID, err)
+		writeJSONError(w, http.StatusInternalServerError, "failed to query children")
+		return
+	}
+	summaries := make([]RunSummary, len(children))
+	for i, c := range children {
+		summaries[i] = runToSummary(c)
+	}
+
+	subtreeTokens, err := s.store.GetSubtreeTokens(runID)
+	if err != nil {
+		log.Printf("[webui] failed to compute subtree tokens for run %s: %v", runID, err)
+		// Soft-fail: still return children, just without the rollup.
+	}
+
+	resp := struct {
+		ParentRunID   string       `json:"parent_run_id"`
+		Children      []RunSummary `json:"children"`
+		SubtreeTokens int64        `json:"subtree_tokens"`
+	}{
+		ParentRunID:   runID,
+		Children:      summaries,
+		SubtreeTokens: subtreeTokens,
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
 // handleAPIRunDetail handles GET /api/runs/{id} - returns run detail as JSON.
 func (s *Server) handleAPIRunDetail(w http.ResponseWriter, r *http.Request) {
 	runID := r.PathValue("id")
@@ -136,8 +181,13 @@ func (s *Server) handleAPIRunDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	artSummaries := deduplicateArtifacts(allArts)
 
+	runSummary := runToSummary(*run)
+	if subtree, err := s.store.GetSubtreeTokens(runID); err == nil {
+		runSummary.SubtreeTokens = subtree
+	}
+
 	resp := RunDetailResponse{
-		Run:       runToSummary(*run),
+		Run:       runSummary,
 		Steps:     stepDetails,
 		Events:    eventSummaries,
 		Artifacts: artSummaries,
@@ -615,6 +665,11 @@ func runToSummary(r state.RunRecord) RunSummary {
 	summary.BranchName = r.BranchName
 	summary.ParentRunID = r.ParentRunID
 	summary.ParentStepID = r.ParentStepID
+	summary.IterateIndex = r.IterateIndex
+	summary.IterateTotal = r.IterateTotal
+	summary.IterateMode = r.IterateMode
+	summary.RunKind = r.RunKind
+	summary.SubPipelineRef = r.SubPipelineRef
 
 	// Full input and truncated preview
 	if r.Input != "" {
