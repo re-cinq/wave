@@ -14,29 +14,15 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// executeCompositionStep dispatches a composition step (iterate, aggregate,
+// branch, loop, gate, or bare sub-pipeline) to the matching StrategyExecutor.
+// Routing is driven by the strategy registry in strategy.go rather than a
+// chained if-else, so adding a new primitive is a one-file change.
 func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, execution *PipelineExecution, step *Step) error {
-	// Route gate steps to the gate executor
-	if step.Gate != nil {
-		return e.executeGateInDAG(ctx, execution, step)
+	if strategy := selectCompositionStrategy(e, step); strategy != nil {
+		return strategy.Execute(ctx, execution, step)
 	}
-
-	// Route composition primitives
-	if step.Iterate != nil {
-		return e.executeIterateInDAG(ctx, execution, step)
-	}
-	if step.Aggregate != nil {
-		return e.executeAggregateInDAG(ctx, execution, step)
-	}
-	if step.Branch != nil {
-		return e.executeBranchInDAG(ctx, execution, step)
-	}
-	if step.Loop != nil {
-		return e.executeLoopInDAG(ctx, execution, step)
-	}
-
-	// Fall through: bare sub-pipeline step
-	input := e.resolveSubPipelineInput(execution, step)
-	return e.runNamedSubPipeline(ctx, execution, step, step.SubPipeline, input, compositionLaunchInfo{kind: "sub_pipeline_child"})
+	return fmt.Errorf("step %q is not a composition step", step.ID)
 }
 
 // resolveSubPipelineInput resolves the input string for a composition step,
