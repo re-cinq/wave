@@ -133,7 +133,10 @@ func (b baseStateStore) GetCheckpoints(string) ([]state.CheckpointRecord, error)
 func (b baseStateStore) CreateRunWithFork(string, string, string) (string, error) {
 	return "", nil
 }
-func (b baseStateStore) SetParentRun(string, string, string) error          { return nil }
+func (b baseStateStore) SetParentRun(string, string, string) error { return nil }
+func (b baseStateStore) SetRunComposition(string, string, string, string, *int, *int) error {
+	return nil
+}
 func (b baseStateStore) GetChildRuns(string) ([]state.RunRecord, error)     { return nil, nil }
 func (b baseStateStore) SaveRetrospective(*state.RetrospectiveRecord) error { return nil }
 func (b baseStateStore) GetRetrospective(string) (*state.RetrospectiveRecord, error) {

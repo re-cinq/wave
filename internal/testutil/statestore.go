@@ -518,6 +518,10 @@ func (m *MockStateStore) SetParentRun(childRunID, parentRunID, stepID string) er
 	return nil
 }
 
+func (m *MockStateStore) SetRunComposition(childRunID, runKind, subPipelineRef, iterateMode string, iterateIndex, iterateTotal *int) error {
+	return nil
+}
+
 func (m *MockStateStore) GetChildRuns(parentRunID string) ([]state.RunRecord, error) {
 	if m.getChildRuns != nil {
 		return m.getChildRuns(parentRunID)

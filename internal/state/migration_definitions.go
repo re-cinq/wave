@@ -547,5 +547,21 @@ CREATE INDEX IF NOT EXISTS idx_run_heartbeat ON pipeline_run(last_heartbeat) WHE
 			Down: `DROP INDEX IF EXISTS idx_run_heartbeat;
 ALTER TABLE pipeline_run DROP COLUMN last_heartbeat;`,
 		},
+		{
+			Version:     27,
+			Description: "Add iterate metadata + run_kind + sub_pipeline_ref to pipeline_run for composition tree rendering (issue #1450)",
+			Up: `ALTER TABLE pipeline_run ADD COLUMN iterate_index INTEGER;
+ALTER TABLE pipeline_run ADD COLUMN iterate_total INTEGER;
+ALTER TABLE pipeline_run ADD COLUMN iterate_mode TEXT NOT NULL DEFAULT '';
+ALTER TABLE pipeline_run ADD COLUMN run_kind TEXT NOT NULL DEFAULT '';
+ALTER TABLE pipeline_run ADD COLUMN sub_pipeline_ref TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_run_kind ON pipeline_run(run_kind) WHERE run_kind != '';`,
+			Down: `DROP INDEX IF EXISTS idx_run_kind;
+ALTER TABLE pipeline_run DROP COLUMN sub_pipeline_ref;
+ALTER TABLE pipeline_run DROP COLUMN run_kind;
+ALTER TABLE pipeline_run DROP COLUMN iterate_mode;
+ALTER TABLE pipeline_run DROP COLUMN iterate_total;
+ALTER TABLE pipeline_run DROP COLUMN iterate_index;`,
+		},
 	}
 }

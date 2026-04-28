@@ -49,6 +49,7 @@ type RunStore interface {
 
 	// Parent/child run linkage
 	SetParentRun(childRunID, parentRunID, stepID string) error
+	SetRunComposition(childRunID, runKind, subPipelineRef, iterateMode string, iterateIndex, iterateTotal *int) error
 	GetChildRuns(parentRunID string) ([]RunRecord, error)
 
 	// Checkpoints (fork/rewind)
