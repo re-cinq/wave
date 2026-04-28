@@ -5436,7 +5436,7 @@ func (e *DefaultPipelineExecutor) executeCompositionStep(ctx context.Context, ex
 
 	// Fall through: bare sub-pipeline step
 	input := e.resolveSubPipelineInput(execution, step)
-	return e.runNamedSubPipeline(ctx, execution, step, step.SubPipeline, input)
+	return e.runNamedSubPipeline(ctx, execution, step, step.SubPipeline, input, compositionLaunchInfo{kind: "sub_pipeline_child"})
 }
 
 // resolveSubPipelineInput resolves the input string for a composition step,
@@ -5458,10 +5458,29 @@ func (e *DefaultPipelineExecutor) resolveSubPipelineInput(execution *PipelineExe
 	return input
 }
 
+// compositionLaunchInfo carries the metadata needed to populate the
+// run_kind / iterate_index / iterate_total / iterate_mode columns
+// (issue #1450) for a child run launched by a composition primitive.
+// Zero-value defaults to "sub_pipeline_child" with no iterate metadata,
+// matching bare sub-pipeline launches.
+type compositionLaunchInfo struct {
+	kind          string // "sub_pipeline_child" | "iterate_child" | "branch_arm" | "loop_iteration"
+	iterateIndex  *int   // 0-based index within iterate.over (nil for non-iterate launches)
+	iterateTotal  *int   // total items in iterate.over (nil for non-iterate launches)
+	iterateMode   string // "parallel" or "serial"; empty for non-iterate launches
+}
+
+func (info compositionLaunchInfo) effectiveKind() string {
+	if info.kind != "" {
+		return info.kind
+	}
+	return "sub_pipeline_child"
+}
+
 // runNamedSubPipeline loads a pipeline by name from disk and executes it as a
 // child of the current execution. It handles timeout, artifact injection/extraction,
 // context merging, and parent-child state linking.
-func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execution *PipelineExecution, step *Step, pipelineName, input string) error {
+func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execution *PipelineExecution, step *Step, pipelineName, input string, info compositionLaunchInfo) error {
 	pipelineID := execution.Status.ID
 
 	// Apply lifecycle timeout from sub-pipeline config
@@ -5614,6 +5633,9 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 		childRunID := e.createRunID(pipelineName, 4, input)
 		childOpts = append(childOpts, WithRunID(childRunID))
 		_ = e.store.SetParentRun(childRunID, pipelineID, step.ID)
+		// Issue #1450 — record composition metadata so iterate progress
+		// + run-kind chips render without re-deriving from event_log.
+		_ = e.store.SetRunComposition(childRunID, info.effectiveKind(), pipelineName, info.iterateMode, info.iterateIndex, info.iterateTotal)
 	}
 
 	childOpts = append(childOpts, WithRegistry(e.registry))
@@ -5824,7 +5846,15 @@ func (e *DefaultPipelineExecutor) executeIterateInDAG(ctx context.Context, execu
 			CompletedSteps: i,
 		})
 
-		if err := e.runNamedSubPipeline(ctx, execution, step, resolvedName, input); err != nil {
+		idx := i
+		total := len(items)
+		info := compositionLaunchInfo{
+			kind:         "iterate_child",
+			iterateIndex: &idx,
+			iterateTotal: &total,
+			iterateMode:  "serial",
+		}
+		if err := e.runNamedSubPipeline(ctx, execution, step, resolvedName, input, info); err != nil {
 			return fmt.Errorf("iterate item %d (%s): %w", i, resolvedName, err)
 		}
 	}
@@ -5898,8 +5928,16 @@ func (e *DefaultPipelineExecutor) executeIterateParallelInDAG(ctx context.Contex
 			Message:    fmt.Sprintf("iterate parallel item %d/%d: %s", i+1, len(items), resolvedName),
 		})
 
+		idx := i
+		total := len(items)
+		info := compositionLaunchInfo{
+			kind:         "iterate_child",
+			iterateIndex: &idx,
+			iterateTotal: &total,
+			iterateMode:  "parallel",
+		}
 		g.Go(func() error {
-			return e.runNamedSubPipeline(gctx, execution, step, resolvedName, input)
+			return e.runNamedSubPipeline(gctx, execution, step, resolvedName, input, info)
 		})
 	}
 
@@ -6132,7 +6170,7 @@ func (e *DefaultPipelineExecutor) executeBranchInDAG(ctx context.Context, execut
 	}
 
 	input := e.resolveSubPipelineInput(execution, step)
-	return e.runNamedSubPipeline(ctx, execution, step, pipelineName, input)
+	return e.runNamedSubPipeline(ctx, execution, step, pipelineName, input, compositionLaunchInfo{kind: "branch_arm"})
 }
 
 // executeLoopInDAG runs sub-steps/sub-pipelines repeatedly until a condition is
@@ -6162,7 +6200,14 @@ func (e *DefaultPipelineExecutor) executeLoopInDAG(ctx context.Context, executio
 		// Execute sub-pipeline if specified at the loop step level
 		if step.SubPipeline != "" {
 			input := e.resolveSubPipelineInput(execution, step)
-			if err := e.runNamedSubPipeline(ctx, execution, step, step.SubPipeline, input); err != nil {
+			idx := i
+			total := step.Loop.MaxIterations
+			info := compositionLaunchInfo{
+				kind:         "loop_iteration",
+				iterateIndex: &idx,
+				iterateTotal: &total,
+			}
+			if err := e.runNamedSubPipeline(ctx, execution, step, step.SubPipeline, input, info); err != nil {
 				return fmt.Errorf("loop iteration %d: %w", i, err)
 			}
 		}

@@ -113,6 +113,14 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		"forgeIcon":      forgeIcon,
 		"modelTierClass":   modelTierClass,
 		"modelTierTooltip": modelTierTooltip,
+		"runKindLabel":     runKindLabel,
+		"addInt":           func(a, b int) int { return a + b },
+		"deref": func(p *int) int {
+			if p == nil {
+				return 0
+			}
+			return *p
+		},
 		"pluralize": func(n int, singular, plural string) string {
 			if n == 1 {
 				return singular
