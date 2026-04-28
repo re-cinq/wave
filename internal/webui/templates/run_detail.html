@@ -249,6 +249,7 @@
                 {{range .}}
                 <a href="/runs/{{.RunID}}" style="display:flex;align-items:center;gap:0.4rem;padding:0.2rem 0.4rem;margin-bottom:0.15rem;background:var(--color-bg-tertiary);border-radius:4px;border-left:3px solid {{if eq .Status "completed"}}var(--color-completed){{else if eq .Status "failed"}}var(--color-failed){{else if eq .Status "running"}}var(--color-running){{else}}var(--color-border){{end}};text-decoration:none;color:inherit;font-size:0.72rem;">
                     <span style="font-weight:600;color:var(--color-text);">{{.PipelineName}}</span>
+                    {{if .RunKind}}{{if ne .RunKind "top_level"}}<span class="badge badge-runkind badge-runkind-{{.RunKind}}" style="font-size:0.62rem;" title="Launched by parent composition step">{{runKindLabel .RunKind}}{{if and (eq .RunKind "iterate_child") .IterateIndex .IterateTotal}} {{addInt (deref .IterateIndex) 1}}/{{deref .IterateTotal}}{{end}}</span>{{end}}{{end}}
                     <span class="badge {{statusClass .Status}}" style="font-size:0.65rem;">{{.Status}}</span>
                     {{if .Duration}}<span style="color:var(--color-text-muted);">{{.Duration}}</span>{{end}}
                     {{if .TotalTokens}}<span style="color:var(--color-text-muted);">{{formatTokens .TotalTokens}} tok</span>{{end}}
