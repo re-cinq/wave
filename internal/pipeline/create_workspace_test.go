@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
 )
 
@@ -13,7 +13,7 @@ import (
 // error paths in createStepWorkspace.
 func TestCreateStepWorkspace_TemplateResolution(t *testing.T) {
 	newExecutor := func() *DefaultPipelineExecutor {
-		return NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+		return NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	}
 
 	newExecution := func() *PipelineExecution {

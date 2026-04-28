@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/assert"
@@ -44,9 +45,9 @@ func newMinimalPipeline(name string) *Pipeline {
 
 func TestSequenceExecutor_SinglePipeline(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(500),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	tmpDir := t.TempDir()
@@ -83,9 +84,9 @@ func TestSequenceExecutor_SinglePipeline(t *testing.T) {
 
 func TestSequenceExecutor_MultiplePipelines(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(300),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(300),
 	)
 
 	tmpDir := t.TempDir()
@@ -129,8 +130,8 @@ func TestSequenceExecutor_FailureStopsSequence(t *testing.T) {
 	collector := testutil.NewEventCollector()
 
 	// This adapter always fails
-	failAdapter := adapter.NewMockAdapter(
-		adapter.WithFailure(errors.New("adapter explosion")),
+	failAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithFailure(errors.New("adapter explosion")),
 	)
 
 	tmpDir := t.TempDir()
@@ -173,7 +174,7 @@ func TestSequenceExecutor_FailureStopsSequence(t *testing.T) {
 
 func TestSequenceExecutor_EmptySequence(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter()
+	mockAdapter := adaptertest.NewMockAdapter()
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -201,10 +202,10 @@ func TestSequenceExecutor_ContextCancellation(t *testing.T) {
 	collector := testutil.NewEventCollector()
 
 	// Use a delay so context cancellation can fire between pipelines
-	slowAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(100),
-		adapter.WithSimulatedDelay(50*time.Millisecond),
+	slowAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(100),
+		adaptertest.WithSimulatedDelay(50*time.Millisecond),
 	)
 
 	tmpDir := t.TempDir()
@@ -237,9 +238,9 @@ func TestSequenceExecutor_ContextCancellation(t *testing.T) {
 
 func TestSequenceExecutor_ResultTracksTokens(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(1000),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(1000),
 	)
 
 	tmpDir := t.TempDir()
@@ -275,9 +276,9 @@ func TestSequenceExecutor_ResultTracksTokens(t *testing.T) {
 
 func TestSequenceExecutor_ExecutePlan_Sequential(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	tmpDir := t.TempDir()
@@ -311,9 +312,9 @@ func TestSequenceExecutor_ExecutePlan_Sequential(t *testing.T) {
 
 func TestSequenceExecutor_ExecutePlan_Parallel(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(200),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(200),
 	)
 
 	tmpDir := t.TempDir()
@@ -360,7 +361,7 @@ func TestSequenceExecutor_ExecutePlan_Parallel(t *testing.T) {
 
 func TestSequenceExecutor_ExecutePlan_Empty(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter()
+	mockAdapter := adaptertest.NewMockAdapter()
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -392,9 +393,9 @@ func TestSequenceExecutor_ExecutePlan_ParallelFailFastFalse(t *testing.T) {
 		callCount:  &callCount,
 		failOnCall: 2,
 		failErr:    errors.New("pipeline exploded"),
-		successAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithSimulatedDelay(10*time.Millisecond),
+		successAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithSimulatedDelay(10*time.Millisecond),
 		),
 	}
 
@@ -461,9 +462,9 @@ func TestSequenceExecutor_ExecutePlan_MaxConcurrent(t *testing.T) {
 	var maxConcurrent int32
 
 	trackingAdapter := &concurrencyTrackingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithSimulatedDelay(50*time.Millisecond),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithSimulatedDelay(50*time.Millisecond),
 		),
 		onStart: func() {
 			current := atomic.AddInt32(&currentConcurrent, 1)
@@ -530,8 +531,8 @@ func TestSequenceExecutor_CrossPipelineArtifacts(t *testing.T) {
 	// Verify that pipelineOutputs are passed to downstream executors via
 	// WithCrossPipelineArtifacts option.
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
 	)
 
 	tmpDir := t.TempDir()
@@ -587,8 +588,8 @@ func TestSequenceExecutor_ExecutePlan_SequentialFailFastFalse(t *testing.T) {
 		callCount:  &callCount,
 		failOnCall: 2,
 		failErr:    errors.New("sequential bad pipeline failed"),
-		successAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
+		successAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
 		),
 	}
 
@@ -696,7 +697,7 @@ func TestSequenceExecutor_RecordPipelineOutputs_ConcurrentRace(t *testing.T) {
 	}
 
 	seq := NewSequenceExecutor(
-		newSequenceTestExecutorFactory(adapter.NewMockAdapter()),
+		newSequenceTestExecutorFactory(adaptertest.NewMockAdapter()),
 		nil,
 		nil, // no emitter needed
 		nil,
@@ -735,8 +736,8 @@ func TestSequenceExecutor_CrossPipelineArtifacts_WrittenToDisk(t *testing.T) {
 	workspacePath := t.TempDir()
 
 	// Set up a DefaultPipelineExecutor with cross-pipeline artifacts.
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
 	)
 	executor := NewDefaultPipelineExecutor(
 		mockAdapter,

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
@@ -97,7 +98,7 @@ runtime:
 
 	// Create executor with the run ID
 	executor := pipeline.NewDefaultPipelineExecutor(
-		adapter.NewMockAdapter(),
+		adaptertest.NewMockAdapter(),
 		pipeline.WithRunID(runID),
 		pipeline.WithStateStore(store),
 	)

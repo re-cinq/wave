@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
@@ -81,10 +82,10 @@ func loadTestPipeline(t *testing.T, name string) *pipeline.Pipeline {
 }
 
 // createTestExecutor creates an executor with mock adapter and event collector
-func createTestExecutor(collector *testEventCollector) (*pipeline.DefaultPipelineExecutor, *adapter.MockAdapter) {
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success", "result": "test output"}`),
-		adapter.WithTokensUsed(1000),
+func createTestExecutor(collector *testEventCollector) (*pipeline.DefaultPipelineExecutor, *adaptertest.MockAdapter) {
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success", "result": "test output"}`),
+		adaptertest.WithTokensUsed(1000),
 	)
 
 	opts := []pipeline.ExecutorOption{

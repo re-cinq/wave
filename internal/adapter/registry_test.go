@@ -8,6 +8,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// stubRunner is a minimal AdapterRunner used by registry tests where we
+// only need a recognisable identity. Living inside the adapter package
+// avoids importing the dedicated test-double package (adaptertest) which
+// would create an import cycle.
+type stubRunner struct {
+	exitCode int
+}
+
+func (r *stubRunner) Run(_ context.Context, _ AdapterRunConfig) (*AdapterResult, error) {
+	return &AdapterResult{ExitCode: r.exitCode}, nil
+}
+
 func TestAdapterRegistry_ResolveKnownAdapters(t *testing.T) {
 	registry := NewAdapterRegistry(nil)
 
@@ -63,7 +75,7 @@ func TestAdapterRegistry_ResolveUnknownReturnsProcessGroupRunner(t *testing.T) {
 
 func TestAdapterRegistry_OverrideTakesPrecedence(t *testing.T) {
 	registry := NewAdapterRegistry(nil)
-	mock := NewMockAdapter()
+	mock := &stubRunner{}
 	registry.RegisterOverride("claude", mock)
 
 	runner := registry.Resolve("claude")
@@ -71,7 +83,7 @@ func TestAdapterRegistry_OverrideTakesPrecedence(t *testing.T) {
 }
 
 func TestSingleRunnerRegistry_AlwaysReturnsSameRunner(t *testing.T) {
-	mock := NewMockAdapter()
+	mock := &stubRunner{}
 	registry := NewSingleRunnerRegistry(mock)
 
 	// Any name should return the same runner
@@ -123,10 +135,10 @@ func TestAdapterRegistry_NilFallbacks(t *testing.T) {
 }
 
 func TestSingleRunnerRegistry_OverrideStillWorks(t *testing.T) {
-	defaultMock := NewMockAdapter()
+	defaultMock := &stubRunner{}
 	registry := NewSingleRunnerRegistry(defaultMock)
 
-	overrideMock := NewMockAdapter(WithExitCode(42))
+	overrideMock := &stubRunner{exitCode: 42}
 	registry.RegisterOverride("special", overrideMock)
 
 	// Override should take precedence
@@ -154,7 +166,7 @@ func TestAdapterRegistry_ResolveDoesNotReturnNil(t *testing.T) {
 }
 
 func TestSingleRunnerRegistry_RunDelegates(t *testing.T) {
-	mock := NewMockAdapter(WithExitCode(0))
+	mock := &stubRunner{exitCode: 0}
 	registry := NewSingleRunnerRegistry(mock)
 	runner := registry.Resolve("anything")
 

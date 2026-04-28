@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/preflight"
@@ -49,7 +49,7 @@ func TestPreflightRecovery_MissingSkill(t *testing.T) {
 	}
 
 	// Create executor with mock adapter
-	mockAdapter := adapter.NewMockAdapter()
+	mockAdapter := adaptertest.NewMockAdapter()
 	executor := pipeline.NewDefaultPipelineExecutor(
 		mockAdapter,
 		pipeline.WithDebug(false),
@@ -163,7 +163,7 @@ func TestPreflightRecovery_MissingTool(t *testing.T) {
 		},
 	}
 
-	mockAdapter := adapter.NewMockAdapter()
+	mockAdapter := adaptertest.NewMockAdapter()
 	executor := pipeline.NewDefaultPipelineExecutor(
 		mockAdapter,
 		pipeline.WithDebug(false),
@@ -280,7 +280,7 @@ func TestPreflightRecovery_MixedFailures(t *testing.T) {
 		},
 	}
 
-	mockAdapter := adapter.NewMockAdapter()
+	mockAdapter := adaptertest.NewMockAdapter()
 	executor := pipeline.NewDefaultPipelineExecutor(
 		mockAdapter,
 		pipeline.WithDebug(false),
@@ -458,7 +458,7 @@ func TestPreflightRecovery_NoRedundantErrorMessage(t *testing.T) {
 				},
 			}
 
-			mockAdapter := adapter.NewMockAdapter()
+			mockAdapter := adaptertest.NewMockAdapter()
 			executor := pipeline.NewDefaultPipelineExecutor(mockAdapter)
 
 			ctx := context.Background()
@@ -592,8 +592,8 @@ func TestPreflightRecovery_EndToEndFlow(t *testing.T) {
 	}
 
 	// Step 3: Execute pipeline
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithSimulatedDelay(10 * time.Millisecond),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithSimulatedDelay(10 * time.Millisecond),
 	)
 	executor := pipeline.NewDefaultPipelineExecutor(
 		mockAdapter,

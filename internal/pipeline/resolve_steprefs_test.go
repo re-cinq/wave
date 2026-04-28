@@ -8,13 +8,13 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 )
 
 // TestResolveWorkspaceStepRefs tests the template resolution for step artifact/output references.
 func TestResolveWorkspaceStepRefs(t *testing.T) {
 	newExecutor := func() *DefaultPipelineExecutor {
-		return NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+		return NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	}
 
 	newExecution := func(artifacts map[string]string) *PipelineExecution {

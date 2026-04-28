@@ -3,6 +3,7 @@
 package adapter
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -13,6 +14,51 @@ import (
 	"testing"
 	"time"
 )
+
+// concurrentMockRunner is an inline test double used by
+// TestAdapterIntegration_ConcurrentAccess. Living inside the adapter
+// package avoids importing the adaptertest helper package — which would
+// create an import cycle with this file's `package adapter` declaration.
+type concurrentMockRunner struct {
+	stdoutJSON string
+	tokensUsed int
+}
+
+func (m *concurrentMockRunner) Run(_ context.Context, cfg AdapterRunConfig) (*AdapterResult, error) {
+	_ = cfg
+	return &AdapterResult{
+		ExitCode:      0,
+		Stdout:        bytes.NewReader([]byte(m.stdoutJSON)),
+		TokensUsed:    m.tokensUsed,
+		ResultContent: m.stdoutJSON,
+	}, nil
+}
+
+// concurrentMockRegistry is a minimal registry that hands out
+// concurrentMockRunner instances by name.
+type concurrentMockRegistry struct {
+	mu       sync.RWMutex
+	adapters map[string]*concurrentMockRunner
+}
+
+func newConcurrentMockRegistry() *concurrentMockRegistry {
+	return &concurrentMockRegistry{adapters: make(map[string]*concurrentMockRunner)}
+}
+
+func (r *concurrentMockRegistry) Register(name string, m *concurrentMockRunner) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.adapters[name] = m
+}
+
+func (r *concurrentMockRegistry) CreateRunner(name string) AdapterRunner {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if m, ok := r.adapters[name]; ok {
+		return m
+	}
+	return &concurrentMockRunner{}
+}
 
 // =============================================================================
 // Integration Tests for Adapter Package
@@ -128,16 +174,15 @@ func TestAdapterIntegration_ConcurrentAccess(t *testing.T) {
 	const numWorkers = 10
 	const opsPerWorker = 5
 
-	registry := NewMockAdapterRegistry()
+	registry := newConcurrentMockRegistry()
 
 	// Register different adapters for each worker
 	for i := 0; i < numWorkers; i++ {
 		name := fmt.Sprintf("worker-%d", i)
-		adapter := NewMockAdapter(
-			WithStdoutJSON(fmt.Sprintf(`{"worker": %d, "timestamp": "%d"}`, i, time.Now().Unix())),
-			WithTokensUsed(100+i*10),
-		)
-		registry.Register(name, adapter)
+		registry.Register(name, &concurrentMockRunner{
+			stdoutJSON: fmt.Sprintf(`{"worker": %d, "timestamp": "%d"}`, i, time.Now().Unix()),
+			tokensUsed: 100 + i*10,
+		})
 	}
 
 	var wg sync.WaitGroup

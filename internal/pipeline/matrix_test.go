@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/require"
@@ -505,9 +506,9 @@ func TestMatrixExecutor_SpawnsCorrectWorkerCount(t *testing.T) {
 			// Create a tracking adapter
 			trackingAdapter := &workerTrackingAdapter{
 				tracker: workerSpawns,
-				baseAdapter: adapter.NewMockAdapter(
-					adapter.WithStdoutJSON(`{"status": "success"}`),
-					adapter.WithTokensUsed(100),
+				baseAdapter: adaptertest.NewMockAdapter(
+					adaptertest.WithStdoutJSON(`{"status": "success"}`),
+					adaptertest.WithTokensUsed(100),
 				),
 			}
 
@@ -649,10 +650,10 @@ func TestMatrixExecutor_MaxConcurrencyLimit(t *testing.T) {
 			// Create adapter that tracks concurrency
 			concurrencyAdapter := &concurrencyTrackingMatrixAdapter{
 				tracker: concurrencyTracker,
-				baseAdapter: adapter.NewMockAdapter(
-					adapter.WithStdoutJSON(`{"status": "success"}`),
-					adapter.WithTokensUsed(100),
-					adapter.WithSimulatedDelay(50*time.Millisecond), // Add delay to test concurrency
+				baseAdapter: adaptertest.NewMockAdapter(
+					adaptertest.WithStdoutJSON(`{"status": "success"}`),
+					adaptertest.WithTokensUsed(100),
+					adaptertest.WithSimulatedDelay(50*time.Millisecond), // Add delay to test concurrency
 				),
 			}
 
@@ -804,9 +805,9 @@ func TestMatrixExecutor_PartialFailureHandling(t *testing.T) {
 			partialFailAdapter := &partialFailureAdapter{
 				failingIndices: failingSet,
 				callCount:      0,
-				baseAdapter: adapter.NewMockAdapter(
-					adapter.WithStdoutJSON(`{"status": "success"}`),
-					adapter.WithTokensUsed(100),
+				baseAdapter: adaptertest.NewMockAdapter(
+					adaptertest.WithStdoutJSON(`{"status": "success"}`),
+					adaptertest.WithTokensUsed(100),
 				),
 			}
 
@@ -946,7 +947,7 @@ func TestMatrixExecutor_ZeroTasks(t *testing.T) {
 			eventCollector := testutil.NewEventCollector()
 
 			executor := NewDefaultPipelineExecutor(
-				adapter.NewMockAdapter(adapter.WithStdoutJSON(`{"status": "success"}`)),
+				adaptertest.NewMockAdapter(adaptertest.WithStdoutJSON(`{"status": "success"}`)),
 				WithEmitter(eventCollector),
 			)
 			matrixExecutor := NewMatrixExecutor(executor)
@@ -1044,7 +1045,7 @@ func TestMatrixExecutor_ZeroTasksEdgeCases(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	t.Run("missing items_source file", func(t *testing.T) {
-		executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+		executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 		matrixExecutor := NewMatrixExecutor(executor)
 
 		execution := &PipelineExecution{
@@ -1076,7 +1077,7 @@ func TestMatrixExecutor_ZeroTasksEdgeCases(t *testing.T) {
 		invalidJSONFile := filepath.Join(tmpDir, "invalid.json")
 		_ = os.WriteFile(invalidJSONFile, []byte("not valid json{"), 0644)
 
-		executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+		executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 		matrixExecutor := NewMatrixExecutor(executor)
 
 		execution := &PipelineExecution{
@@ -1108,7 +1109,7 @@ func TestMatrixExecutor_ZeroTasksEdgeCases(t *testing.T) {
 		objectJSONFile := filepath.Join(tmpDir, "object.json")
 		_ = os.WriteFile(objectJSONFile, []byte(`{"key": "value"}`), 0644)
 
-		executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+		executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 		matrixExecutor := NewMatrixExecutor(executor)
 
 		execution := &PipelineExecution{
@@ -1280,9 +1281,9 @@ func TestMatrixExecutor_TieredExecution_IndependentItems(t *testing.T) {
 
 	trackAdapter := &orderTrackingAdapter{
 		tracker: orderTracker,
-		baseAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		baseAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -1351,9 +1352,9 @@ func TestMatrixExecutor_TieredExecution_LinearChain(t *testing.T) {
 	orderTracker := &executionOrderTracker{}
 	trackAdapter := &orderTrackingAdapter{
 		tracker: orderTracker,
-		baseAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		baseAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -1432,9 +1433,9 @@ func TestMatrixExecutor_TieredExecution_Diamond(t *testing.T) {
 
 	eventCollector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(
-		adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 		WithEmitter(eventCollector),
 	)
@@ -1497,9 +1498,9 @@ func TestMatrixExecutor_TieredExecution_DependencyFailure(t *testing.T) {
 	// Fail item A (index 0) by matching workspace path
 	failAdapter := &tieredFailureAdapter{
 		failPatterns: []string{`"id":"A"`},
-		baseAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		baseAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -1572,7 +1573,7 @@ func TestMatrixExecutor_TieredExecution_CycleDetection(t *testing.T) {
 	}
 	itemsFile := createTieredItemsFile(t, tmpDir, items)
 
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	matrixExecutor := NewMatrixExecutor(executor)
 
 	execution := createTieredExecution(t, tmpDir, "tier-cycle")
@@ -1611,7 +1612,7 @@ func TestMatrixExecutor_TieredExecution_MissingDependency(t *testing.T) {
 	}
 	itemsFile := createTieredItemsFile(t, tmpDir, items)
 
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	matrixExecutor := NewMatrixExecutor(executor)
 
 	execution := createTieredExecution(t, tmpDir, "tier-missing-dep")
@@ -1753,9 +1754,9 @@ func TestMatrixExecutor_ChildPipeline_LoadsAndExecutes(t *testing.T) {
 
 	// Track adapter calls
 	counter := &childPipelineCallCounter{
-		baseAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		baseAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -1875,9 +1876,9 @@ func TestMatrixExecutor_ChildPipeline_WithTiers(t *testing.T) {
 	itemsFile := createTieredItemsFile(t, tmpDir, items)
 
 	counter := &childPipelineCallCounter{
-		baseAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		baseAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -1955,9 +1956,9 @@ func TestMatrixExecutor_ChildPipeline_PartialFailure(t *testing.T) {
 	// Fail the 2nd adapter call (0-indexed: call #1)
 	failAdapter := &partialFailureAdapter{
 		failingIndices: map[int]bool{1: true},
-		baseAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		baseAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -2010,7 +2011,7 @@ func TestMatrixExecutor_ChildPipeline_NotFound(t *testing.T) {
 	}
 	itemsFile := createTieredItemsFile(t, tmpDir, items)
 
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	matrixExecutor := NewMatrixExecutor(executor)
 
 	execution := createTieredExecution(t, tmpDir, "child-not-found")
@@ -2117,9 +2118,9 @@ func TestMatrixExecutor_Stacked_TwoTierLinearChain(t *testing.T) {
 	trackAdapter := &stackedBranchTrackingAdapter{
 		mu:             &mu,
 		branchCaptures: branchCaptures,
-		baseAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		baseAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -2187,9 +2188,9 @@ func TestMatrixExecutor_Stacked_WithoutDependencyKey(t *testing.T) {
 	}
 	itemsFile := createTieredItemsFile(t, tmpDir, items)
 
-	baseAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(100),
+	baseAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	eventCollector := testutil.NewEventCollector()
@@ -2249,9 +2250,9 @@ func TestMatrixExecutor_Stacked_PartialTierFailure(t *testing.T) {
 
 	failAdapter := &tieredFailureAdapter{
 		failPatterns: []string{`"id":"C"`}, // Match item C by its JSON content in the prompt
-		baseAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		baseAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -2324,9 +2325,9 @@ steps:
 	require.NoError(t, os.MkdirAll(childPipelineDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(childPipelineDir, "test-child.yaml"), []byte(childPipelineYAML), 0644))
 
-	baseAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(100),
+	baseAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	executor := NewDefaultPipelineExecutor(baseAdapter)
@@ -2375,9 +2376,9 @@ func TestMatrixExecutor_Stacked_ParentNoOutputBranch(t *testing.T) {
 	}
 	itemsFile := createTieredItemsFile(t, tmpDir, items)
 
-	baseAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(100),
+	baseAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	eventCollector := testutil.NewEventCollector()

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/security"
 	"github.com/recinq/wave/internal/testutil"
@@ -90,9 +91,9 @@ func TestFailureMode_ContractSchemaMismatch(t *testing.T) {
 	// Schema requires "name" (string) and "version" (string).
 	// Adapter returns {"bad": true} which lacks required fields.
 	badOutput := `{"bad": true}`
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(badOutput),
-		adapter.WithTokensUsed(500),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(badOutput),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	tc := setupFailureModeTest(t, mockAdapter)
@@ -152,9 +153,9 @@ func TestFailureMode_ContractSchemaMismatch(t *testing.T) {
 func TestFailureMode_StepTimeout(t *testing.T) {
 	// Adapter simulates a long-running step (5 seconds).
 	// Context has a short timeout (200ms) so the step should be cancelled.
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithSimulatedDelay(5*time.Second),
-		adapter.WithTokensUsed(500),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithSimulatedDelay(5*time.Second),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	tc := setupFailureModeTest(t, mockAdapter)
@@ -190,9 +191,9 @@ func TestFailureMode_MissingArtifact(t *testing.T) {
 	// executed ("nonexistent-step"). The DAG validator only checks
 	// Dependencies, not inject_artifacts step references, so the pipeline
 	// starts but fails at artifact injection time.
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(500),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	tc := setupFailureModeTest(t, mockAdapter)
@@ -243,9 +244,9 @@ func TestFailureMode_MalformedArtifact(t *testing.T) {
 	// Step produces malformed JSON (truncated) as stdout.
 	// Contract validation with json_schema should reject it.
 	malformedJSON := `{"name": "test", "version": `
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(malformedJSON),
-		adapter.WithTokensUsed(500),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(malformedJSON),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	tc := setupFailureModeTest(t, mockAdapter)
@@ -316,9 +317,9 @@ func (f *failingWorkspaceManager) CleanAll(root string) error {
 func TestFailureMode_WorkspaceCorruption(t *testing.T) {
 	// Workspace manager returns an error on Create().
 	// The step uses mount-based workspace to trigger wsManager.Create().
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(500),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	tc := setupFailureModeTest(t, mockAdapter,
@@ -359,10 +360,10 @@ func TestFailureMode_NonZeroExitCode(t *testing.T) {
 		// Adapter returns exit code 1 but no error.
 		// Output doesn't match schema, and contract has MustPass: true.
 		// Pipeline should fail because contract validation fails (not because of exit code).
-		mockAdapter := adapter.NewMockAdapter(
-			adapter.WithExitCode(1),
-			adapter.WithStdoutJSON(`{"bad": true}`),
-			adapter.WithTokensUsed(500),
+		mockAdapter := adaptertest.NewMockAdapter(
+			adaptertest.WithExitCode(1),
+			adaptertest.WithStdoutJSON(`{"bad": true}`),
+			adaptertest.WithTokensUsed(500),
 		)
 
 		tc := setupFailureModeTest(t, mockAdapter)
@@ -409,10 +410,10 @@ func TestFailureMode_NonZeroExitCode(t *testing.T) {
 	t.Run("without_contract_completes_successfully", func(t *testing.T) {
 		// Adapter returns exit code 1 but no error, and no contract is configured.
 		// Pipeline should still complete since non-zero exit code alone is not fatal.
-		mockAdapter := adapter.NewMockAdapter(
-			adapter.WithExitCode(1),
-			adapter.WithStdoutJSON(`{"status": "done"}`),
-			adapter.WithTokensUsed(500),
+		mockAdapter := adaptertest.NewMockAdapter(
+			adaptertest.WithExitCode(1),
+			adaptertest.WithStdoutJSON(`{"status": "done"}`),
+			adaptertest.WithTokensUsed(500),
 		)
 
 		tc := setupFailureModeTest(t, mockAdapter)
@@ -460,8 +461,8 @@ func TestFailureMode_AdapterError(t *testing.T) {
 	// Adapter returns a direct error via WithFailure().
 	// Pipeline should propagate the error and emit a failed event.
 	adapterErr := fmt.Errorf("adapter crashed: out of memory")
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithFailure(adapterErr),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithFailure(adapterErr),
 	)
 
 	tc := setupFailureModeTest(t, mockAdapter)

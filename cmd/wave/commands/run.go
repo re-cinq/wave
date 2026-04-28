@@ -14,6 +14,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/audit"
 	"github.com/recinq/wave/internal/continuous"
 	"github.com/recinq/wave/internal/display"
@@ -333,8 +334,8 @@ func runRun(opts RunOptions, debug bool) error {
 	// Resolve adapter — use mock if --mock or if no adapter binary found
 	var runner adapter.AdapterRunner
 	if opts.Mock {
-		runner = adapter.NewMockAdapter(
-			adapter.WithSimulatedDelay(5 * time.Second),
+		runner = adaptertest.NewMockAdapter(
+			adaptertest.WithSimulatedDelay(5 * time.Second),
 		)
 	} else {
 		runner = adapter.ResolveAdapter("claude")

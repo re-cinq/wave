@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/classify"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
@@ -170,7 +171,7 @@ func runDo(input string, opts DoOptions) error {
 
 	var runner adapter.AdapterRunner
 	if opts.Mock {
-		runner = adapter.NewMockAdapter()
+		runner = adaptertest.NewMockAdapter()
 	} else {
 		adapterName := opts.Adapter
 		if adapterName == "" {

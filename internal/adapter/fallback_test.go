@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -179,6 +180,48 @@ func TestFallbackRunner_ContextCancelledDuringFallback(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cancel")
+}
+
+func TestFallbackRunner_UnknownFallbackNameSurfacesTypedError(t *testing.T) {
+	// Primary fails with rate_limit so the runner walks the fallback chain.
+	primary := &failingRunner{failureReason: "rate_limit"}
+
+	// Registry has no override and no default runner. The fallback name
+	// "definitely-not-a-real-adapter" is not a built-in adapter, so
+	// ResolveStrict must return ErrUnknownAdapter and the FallbackRunner
+	// must surface it without panicking.
+	registry := NewAdapterRegistry(nil)
+
+	fr := NewFallbackRunner(primary, []string{"definitely-not-a-real-adapter"}, registry)
+	result, err := fr.Run(context.Background(), AdapterRunConfig{})
+
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrUnknownAdapter),
+		"expected wrapped ErrUnknownAdapter, got: %v", err)
+	assert.Contains(t, err.Error(), "all fallback adapters exhausted")
+	// The last seen result from the primary is propagated through.
+	assert.NotNil(t, result)
+	assert.Equal(t, "rate_limit", result.FailureReason)
+	assert.Equal(t, 1, primary.callCount)
+}
+
+func TestFallbackRunner_UnknownFallbackThenSuccessSecondAttempt(t *testing.T) {
+	// Primary rate-limits; first fallback name is unknown (must not crash);
+	// second fallback succeeds and the chain unwinds normally.
+	primary := &failingRunner{failureReason: "rate_limit"}
+	good := &successRunner{}
+
+	registry := NewAdapterRegistry(nil)
+	registry.RegisterOverride("good", good)
+
+	fr := NewFallbackRunner(primary, []string{"unknown-typo", "good"}, registry)
+	result, err := fr.Run(context.Background(), AdapterRunConfig{})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "success", result.ResultContent)
+	assert.Equal(t, 1, primary.callCount)
+	assert.Equal(t, 1, good.callCount)
 }
 
 func TestIsFallbackTrigger(t *testing.T) {

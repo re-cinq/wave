@@ -60,7 +60,18 @@ func (f *FallbackRunner) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapte
 		default:
 		}
 
-		runner := f.registry.Resolve(fallbackName)
+		if f.registry == nil {
+			return lastResult, fmt.Errorf("fallback registry is nil; cannot resolve %q", fallbackName)
+		}
+		runner, resolveErr := f.registry.ResolveStrict(fallbackName)
+		if resolveErr != nil {
+			lastErr = resolveErr
+			continue
+		}
+		if runner == nil {
+			lastErr = fmt.Errorf("%w: %q (registry returned nil)", ErrUnknownAdapter, fallbackName)
+			continue
+		}
 		result, err = runner.Run(ctx, cfg)
 		if err == nil && !isFallbackTrigger(result) {
 			return result, nil

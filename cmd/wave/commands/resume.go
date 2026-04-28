@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/audit"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
@@ -154,8 +155,8 @@ func runResume(opts ResumeOptions, debug bool) error {
 	// Resolve adapter.
 	var runner adapter.AdapterRunner
 	if opts.Mock {
-		runner = adapter.NewMockAdapter(
-			adapter.WithSimulatedDelay(5 * time.Second),
+		runner = adaptertest.NewMockAdapter(
+			adaptertest.WithSimulatedDelay(5 * time.Second),
 		)
 	} else {
 		var adapterName string

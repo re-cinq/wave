@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/security"
 	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/assert"
@@ -428,8 +428,8 @@ func TestContractPrompt_EndToEndExecution(t *testing.T) {
 	collector := testutil.NewEventCollector()
 
 	mockAdapter := newContractTestPromptCapturingAdapter(
-		adapter.WithStdoutJSON(`{"result": "success"}`),
-		adapter.WithTokensUsed(100),
+		adaptertest.WithStdoutJSON(`{"result": "success"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	securityConfig := security.DefaultSecurityConfig()

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/skill"
@@ -26,9 +27,9 @@ import (
 // TestStepOrdering verifies steps execute in topological order (T047)
 func TestStepOrdering(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(1000),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(1000),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -70,9 +71,9 @@ func TestStepOrdering(t *testing.T) {
 // TestComplexDAGOrdering tests a more complex DAG structure
 func TestComplexDAGOrdering(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(500),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -135,10 +136,10 @@ func TestParallelStepExecution(t *testing.T) {
 	// sporadic max-concurrent=1 false negatives. 500ms gives a 10x
 	// margin against scheduler jitter while keeping wall time under 2s.
 	concurrentAdapter := &concurrencyTrackingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(500),
-			adapter.WithSimulatedDelay(500*time.Millisecond),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(500),
+			adaptertest.WithSimulatedDelay(500*time.Millisecond),
 		),
 		onStart: func() {
 			current := atomic.AddInt32(&currentConcurrent, 1)
@@ -217,14 +218,14 @@ func TestConcurrentStepFailure(t *testing.T) {
 
 	// Create an adapter that fails for step-b but succeeds (slowly) for step-c
 	failingConcurrentAdapter := &stepAwareAdapter{
-		defaultAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(500),
-			adapter.WithSimulatedDelay(200*time.Millisecond),
+		defaultAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(500),
+			adaptertest.WithSimulatedDelay(200*time.Millisecond),
 		),
 		stepAdapters: map[string]adapter.AdapterRunner{
-			"step-b": adapter.NewMockAdapter(
-				adapter.WithFailure(errors.New("step-b intentional failure")),
+			"step-b": adaptertest.NewMockAdapter(
+				adaptertest.WithFailure(errors.New("step-b intentional failure")),
 			),
 		},
 		onStart: func(stepID string) {
@@ -269,9 +270,9 @@ func TestConcurrentStepFailure(t *testing.T) {
 // dependencies run through the single-step fast path (no goroutine overhead).
 func TestSingleStepBatchNoOverhead(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(500),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -313,8 +314,8 @@ func TestSingleStepBatchNoOverhead(t *testing.T) {
 // even when the step fails on a single-step batch (no concurrency).
 func TestFailedStepAlwaysHasID(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	failingAdapter := adapter.NewMockAdapter(
-		adapter.WithFailure(errors.New("simulated timeout")),
+	failingAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithFailure(errors.New("simulated timeout")),
 	)
 
 	_ = NewDefaultPipelineExecutor(failingAdapter,
@@ -335,9 +336,9 @@ func TestFailedStepAlwaysHasID(t *testing.T) {
 
 	// Make step-a succeed, step-b fail
 	stepAdapter := &stepAwareAdapter{
-		defaultAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		defaultAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 		stepAdapters: map[string]adapter.AdapterRunner{
 			"step-b": failingAdapter,
@@ -365,10 +366,10 @@ func TestConcurrentStepWideFanOut(t *testing.T) {
 	var currentConcurrent int32
 
 	concurrentAdapter := &concurrencyTrackingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
-			adapter.WithSimulatedDelay(200*time.Millisecond),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
+			adaptertest.WithSimulatedDelay(200*time.Millisecond),
 		),
 		onStart: func() {
 			current := atomic.AddInt32(&currentConcurrent, 1)
@@ -457,12 +458,12 @@ func TestContractFailureRetry(t *testing.T) {
 	retryAdapter := &retryTrackingAdapter{
 		attempts:  &attemptCount,
 		failUntil: 2,
-		successAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(1000),
+		successAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(1000),
 		),
-		failAdapter: adapter.NewMockAdapter(
-			adapter.WithFailure(errors.New("contract validation failed")),
+		failAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithFailure(errors.New("contract validation failed")),
 		),
 	}
 
@@ -506,8 +507,8 @@ func TestContractFailureExhaustsRetries(t *testing.T) {
 	collector := testutil.NewEventCollector()
 
 	// Create an adapter that always fails
-	failingAdapter := adapter.NewMockAdapter(
-		adapter.WithFailure(errors.New("persistent failure")),
+	failingAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithFailure(errors.New("persistent failure")),
 	)
 
 	executor := NewDefaultPipelineExecutor(failingAdapter,
@@ -611,9 +612,9 @@ func TestBuildContractPrompt_NoContract(t *testing.T) {
 // TestProgressEventEmission tests that progress events are emitted during execution (T052)
 func TestProgressEventEmission(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(2500),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(2500),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -686,9 +687,9 @@ func TestProgressEventEmission(t *testing.T) {
 // TestProgressEventFields tests that progress events have correct field values
 func TestProgressEventFields(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(3000),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(3000),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -732,8 +733,8 @@ func TestProgressEventFields(t *testing.T) {
 
 // TestExecutorWithoutEmitter tests executor works without an emitter configured
 func TestExecutorWithoutEmitter(t *testing.T) {
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
 	)
 
 	// Create executor without emitter
@@ -761,8 +762,8 @@ func TestExecutorWithoutEmitter(t *testing.T) {
 func TestGetStatus(t *testing.T) {
 	mockStore := testutil.NewMockStateStore()
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -806,7 +807,7 @@ func TestGetStatus(t *testing.T) {
 // TestDAGCycleDetection tests that cycles are detected and rejected
 func TestDAGCycleDetection(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter()
+	mockAdapter := adaptertest.NewMockAdapter()
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
@@ -836,7 +837,7 @@ func TestDAGCycleDetection(t *testing.T) {
 // TestMissingDependency tests that missing dependencies are caught
 func TestMissingDependency(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter()
+	mockAdapter := adaptertest.NewMockAdapter()
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
@@ -863,8 +864,8 @@ func TestMissingDependency(t *testing.T) {
 // TestWorkspaceCreation tests that workspaces are created for each step
 func TestWorkspaceCreation(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -911,9 +912,9 @@ func TestEmptyResultContentDoesNotOverwriteArtifacts(t *testing.T) {
 	require.NoError(t, err)
 
 	// Mock adapter that returns empty ResultContent (simulating parsing failure or compaction effect)
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"type": "result", "result": ""}`), // Empty result in JSON
-		adapter.WithTokensUsed(1000),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"type": "result", "result": ""}`), // Empty result in JSON
+		adaptertest.WithTokensUsed(1000),
 	)
 
 	collector := testutil.NewEventCollector()
@@ -961,7 +962,7 @@ func indexOfInSlice(slice []string, item string) int {
 
 // concurrencyTrackingAdapter wraps MockAdapter to track concurrent executions
 type concurrencyTrackingAdapter struct {
-	*adapter.MockAdapter
+	*adaptertest.MockAdapter
 	onStart func()
 	onEnd   func()
 }
@@ -1000,8 +1001,8 @@ func TestMemoryCleanupAfterCompletion(t *testing.T) {
 	// Use a mock state store to test persistent storage fallback
 	mockStore := testutil.NewMockStateStore()
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -1048,8 +1049,8 @@ func TestMemoryCleanupAfterFailure(t *testing.T) {
 	mockStore := testutil.NewMockStateStore()
 	collector := testutil.NewEventCollector()
 	// Use a failing adapter
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithFailure(errors.New("step failure")),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithFailure(errors.New("step failure")),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -1097,8 +1098,8 @@ func TestRegressionProductionIssues(t *testing.T) {
 	t.Run("EmptyInputDoesNotCauseIssues", func(t *testing.T) {
 		mockStore := testutil.NewMockStateStore()
 		collector := testutil.NewEventCollector()
-		mockAdapter := adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
+		mockAdapter := adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
 		)
 
 		executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -1142,8 +1143,8 @@ func TestRegressionProductionIssues(t *testing.T) {
 
 	t.Run("NilContextIsHandledDefensively", func(t *testing.T) {
 		// Create a pipeline execution with nil context to test defensive handling
-		mockAdapter := adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
+		mockAdapter := adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
 		)
 
 		executor := NewDefaultPipelineExecutor(mockAdapter)
@@ -1181,8 +1182,8 @@ func TestRegressionProductionIssues(t *testing.T) {
 
 	t.Run("MatrixExecutorContextPropagation", func(t *testing.T) {
 		// Test that matrix executor properly propagates context to worker executions
-		mockAdapter := adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
+		mockAdapter := adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
 		)
 
 		executor := NewDefaultPipelineExecutor(mockAdapter)
@@ -1238,8 +1239,8 @@ func TestRegressionProductionIssues(t *testing.T) {
 // This is a regression test for a bug where test code didn't check for nil status
 // after GetStatus returned an error, causing a panic when accessing status.CompletedSteps.
 func TestNilStatusHandlingInTests(t *testing.T) {
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithFailure(errors.New("simulated failure")),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithFailure(errors.New("simulated failure")),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter)
@@ -1291,9 +1292,9 @@ func TestWriteOutputArtifactsPreservesExistingFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	// Mock adapter returns non-empty ResultContent (conversational prose)
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"type": "result", "result": "I analyzed the issue and wrote the file."}`),
-		adapter.WithTokensUsed(1000),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"type": "result", "result": "I analyzed the issue and wrote the file."}`),
+		adaptertest.WithTokensUsed(1000),
 	)
 
 	collector := testutil.NewEventCollector()
@@ -1337,9 +1338,9 @@ func TestWriteOutputArtifactsPreservesExistingFiles(t *testing.T) {
 func TestCommandStepOutputArtifactsRegisteredForInjection(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"type": "result", "result": "ok"}`),
-		adapter.WithTokensUsed(10),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"type": "result", "result": "ok"}`),
+		adaptertest.WithTokensUsed(10),
 	)
 	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
@@ -1407,7 +1408,7 @@ func TestCommandStepOutputArtifactsRegisteredForInjection(t *testing.T) {
 
 // configCapturingAdapter wraps MockAdapter and captures the AdapterRunConfig passed to Run
 type configCapturingAdapter struct {
-	*adapter.MockAdapter
+	*adaptertest.MockAdapter
 	mu         sync.Mutex
 	lastConfig adapter.AdapterRunConfig
 }
@@ -1429,9 +1430,9 @@ func (a *configCapturingAdapter) getLastConfig() adapter.AdapterRunConfig {
 // emits a warning event but still allows the step to complete (work may have been done).
 func TestExecuteStep_NonZeroExitCode_EmitsWarning(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithExitCode(1),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithExitCode(1),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -1474,9 +1475,9 @@ func TestExecuteStep_NonZeroExitCode_EmitsWarning(t *testing.T) {
 // exits with a non-zero code, subsequent steps still execute (work may have been done).
 func TestExecuteStep_NonZeroExitCode_ContinuesSubsequentSteps(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithExitCode(1),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithExitCode(1),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -1526,7 +1527,7 @@ func TestExecuteStep_NonZeroExitCode_ContinuesSubsequentSteps(t *testing.T) {
 // streamEventAdapter wraps MockAdapter and fires OnStreamEvent callbacks before delegating Run.
 // This lets us test the stream-activity event bridge in the executor.
 type streamEventAdapter struct {
-	*adapter.MockAdapter
+	*adaptertest.MockAdapter
 	streamEvents []adapter.StreamEvent
 }
 
@@ -1551,9 +1552,9 @@ func TestStreamActivityEventBridge(t *testing.T) {
 	// 2. Non-tool_use event (type "text") -> should NOT emit stream_activity
 	// 3. tool_use with empty ToolName -> should NOT emit stream_activity
 	streamAdapter := &streamEventAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(500),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(500),
 		),
 		streamEvents: []adapter.StreamEvent{
 			{
@@ -1625,7 +1626,7 @@ func TestStreamActivityEventBridge(t *testing.T) {
 }
 
 func TestCreateStepWorkspace_Ref(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 	m := &manifest.Manifest{}
 	tmpDir := t.TempDir()
 
@@ -1650,7 +1651,7 @@ func TestCreateStepWorkspace_Ref(t *testing.T) {
 }
 
 func TestCreateStepWorkspace_RefMissing(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 	m := &manifest.Manifest{}
 
 	execution := &PipelineExecution{
@@ -1673,8 +1674,8 @@ func TestCreateStepWorkspace_RefMissing(t *testing.T) {
 
 func TestCreateStepWorkspace_SharedWorktree(t *testing.T) {
 	// Test that two steps with the same branch reuse the same worktree path
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
 	)
 	executor := NewDefaultPipelineExecutor(mockAdapter)
 
@@ -1738,8 +1739,8 @@ func TestCreateStepWorkspace_SharedWorktree(t *testing.T) {
 
 func TestCreateStepWorkspace_DifferentBranches(t *testing.T) {
 	// Test that two steps with different branches get separate worktree entries
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
 	)
 	executor := NewDefaultPipelineExecutor(mockAdapter)
 
@@ -1800,8 +1801,8 @@ func TestCreateStepWorkspace_DifferentBranches(t *testing.T) {
 
 func TestCleanupWorktrees_Dedup(t *testing.T) {
 	// Test that shared worktree paths are only cleaned up once
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
 	)
 	executor := NewDefaultPipelineExecutor(mockAdapter)
 
@@ -1849,9 +1850,9 @@ func getExecutorPipeline(executor PipelineExecutor, pipelineID string) (*Pipelin
 func TestStdoutArtifactCapture(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	stdoutContent := `{"analysis": "test analysis data", "score": 42}`
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(stdoutContent),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(stdoutContent),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -1903,9 +1904,9 @@ func TestStdoutArtifactSizeLimitEnforced(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	// Create a large stdout (over 10MB would be too slow, so we'll configure a smaller limit)
 	largeContent := strings.Repeat("x", 1000)
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(largeContent),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(largeContent),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -1944,9 +1945,9 @@ func TestStdoutArtifactSizeLimitEnforced(t *testing.T) {
 func TestStdoutArtifactWrittenToCorrectLocation(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	expectedContent := "test content for stdout artifact"
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(expectedContent),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(expectedContent),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -1990,9 +1991,9 @@ func TestStdoutArtifactWrittenToCorrectLocation(t *testing.T) {
 // TestMissingRequiredArtifactFailsBeforeStep tests that missing required artifacts fail before step execution
 func TestMissingRequiredArtifactFailsBeforeStep(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -2038,9 +2039,9 @@ func TestMissingRequiredArtifactFailsBeforeStep(t *testing.T) {
 // TestOptionalMissingArtifactProceeds tests that optional missing artifacts don't fail the step
 func TestOptionalMissingArtifactProceeds(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -2095,9 +2096,9 @@ func TestOptionalMissingArtifactProceeds(t *testing.T) {
 // TestTypeMismatchFailsWithClearError tests that type mismatch produces a clear error
 func TestTypeMismatchFailsWithClearError(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -2146,9 +2147,9 @@ func TestTypeMismatchFailsWithClearError(t *testing.T) {
 // TestTypeNotDeclaredSkipsValidation tests that missing type declaration skips validation
 func TestTypeNotDeclaredSkipsValidation(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -2199,9 +2200,9 @@ func TestOutcomeExtractionRegistersDeliverables(t *testing.T) {
 
 	artifactJSON := `{"comment_url": "https://github.com/re-cinq/wave/pull/42#issuecomment-999", "pr": "42"}`
 	outcomeAdapter := &outcomeTestAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 		artifactJSON: artifactJSON,
 	}
@@ -2267,9 +2268,9 @@ func TestOutcomeExtractionRegistersDeliverables(t *testing.T) {
 // warnings but don't fail the step.
 func TestOutcomeExtractionMissingFileWarns(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -2323,9 +2324,9 @@ func TestOutcomeExtractionPRType(t *testing.T) {
 
 	prJSON := `{"pr_url": "https://github.com/re-cinq/wave/pull/99", "title": "feat: add feature"}`
 	outcomeAdapter := &outcomeTestAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 		artifactJSON: prJSON,
 	}
@@ -2378,9 +2379,9 @@ func TestOutcomeExtractionIssueType(t *testing.T) {
 
 	issueJSON := `{"issue_url": "https://github.com/re-cinq/wave/issues/55"}`
 	outcomeAdapter := &outcomeTestAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 		artifactJSON: issueJSON,
 	}
@@ -2420,9 +2421,9 @@ func TestOutcomeExtractionDeploymentType(t *testing.T) {
 
 	deployJSON := `{"deploy_url": "https://staging.example.com"}`
 	outcomeAdapter := &outcomeTestAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 		artifactJSON: deployJSON,
 	}
@@ -2463,9 +2464,9 @@ func TestOutcomeExtractionUnknownTypeFallsBackToURL(t *testing.T) {
 
 	artifactJSON := `{"link": "https://example.com/report"}`
 	outcomeAdapter := &outcomeTestAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 		artifactJSON: artifactJSON,
 	}
@@ -2502,9 +2503,9 @@ func TestOutcomeExtractionUnknownTypeFallsBackToURL(t *testing.T) {
 // workspace are rejected with a warning.
 func TestOutcomeExtractionPathTraversal(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
@@ -2546,9 +2547,9 @@ func TestOutcomeExtractionInvalidJSONPath(t *testing.T) {
 
 	artifactJSON := `{"url": "https://example.com"}`
 	outcomeAdapter := &outcomeTestAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 		artifactJSON: artifactJSON,
 	}
@@ -2620,7 +2621,7 @@ func TestOutcomeDefValidation(t *testing.T) {
 // outcomeTestAdapter wraps MockAdapter and writes an artifact JSON file during execution
 // so that outcome extraction can find it afterward.
 type outcomeTestAdapter struct {
-	*adapter.MockAdapter
+	*adaptertest.MockAdapter
 	artifactJSON string
 }
 
@@ -2655,9 +2656,9 @@ func TestOutcomeExtractionEmptyArrayFriendlyMessage(t *testing.T) {
 	// Artifact contains an empty array — a valid "no results" condition
 	artifactJSON := `{"enhanced_issues": []}`
 	outcomeAdapter := &outcomeTestAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 		artifactJSON: artifactJSON,
 	}
@@ -2727,9 +2728,9 @@ func TestOutcomeExtractionNonEmptyArrayOOBStillEmitsWarning(t *testing.T) {
 	// Array has 1 element but the outcome path asks for index 5
 	artifactJSON := `{"items": [{"url": "https://example.com"}]}`
 	outcomeAdapter := &outcomeTestAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 		artifactJSON: artifactJSON,
 	}
@@ -2801,9 +2802,9 @@ type modelCapturingAdapter struct {
 func newModelCapturingAdapter() *modelCapturingAdapter {
 	return &modelCapturingAdapter{
 		models: make(map[string]string),
-		inner: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		inner: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 }
@@ -2824,14 +2825,14 @@ func (a *modelCapturingAdapter) getModel(stepID string) string {
 
 // TestWithModelOverrideOption verifies that the WithModelOverride option sets the field
 func TestWithModelOverrideOption(t *testing.T) {
-	mockAdapter := adapter.NewMockAdapter()
+	mockAdapter := adaptertest.NewMockAdapter()
 	executor := NewDefaultPipelineExecutor(mockAdapter, WithModelOverride("haiku"))
 	assert.Equal(t, "haiku", executor.modelOverride)
 }
 
 // TestWithModelOverrideEmpty verifies that empty string override is not set
 func TestWithModelOverrideEmpty(t *testing.T) {
-	mockAdapter := adapter.NewMockAdapter()
+	mockAdapter := adaptertest.NewMockAdapter()
 	executor := NewDefaultPipelineExecutor(mockAdapter, WithModelOverride(""))
 	assert.Equal(t, "", executor.modelOverride)
 }
@@ -2924,7 +2925,7 @@ func TestModelOverridePrecedence(t *testing.T) {
 
 // TestModelOverrideInChildExecutor verifies that NewChildExecutor inherits modelOverride
 func TestModelOverrideInChildExecutor(t *testing.T) {
-	mockAdapter := adapter.NewMockAdapter()
+	mockAdapter := adaptertest.NewMockAdapter()
 	parent := NewDefaultPipelineExecutor(mockAdapter, WithModelOverride("haiku"))
 
 	child := parent.NewChildExecutor()
@@ -3297,7 +3298,7 @@ type countingFailAdapter struct {
 	failCount   int // how many calls should fail
 	callCount   int
 	failError   error
-	successMock *adapter.MockAdapter
+	successMock *adaptertest.MockAdapter
 	lastConfigs []adapter.AdapterRunConfig
 }
 
@@ -3305,7 +3306,7 @@ func newCountingFailAdapter(failCount int, failErr error) *countingFailAdapter {
 	return &countingFailAdapter{
 		failCount:   failCount,
 		failError:   failErr,
-		successMock: adapter.NewMockAdapter(adapter.WithStdoutJSON(`{"status":"ok"}`)),
+		successMock: adaptertest.NewMockAdapter(adaptertest.WithStdoutJSON(`{"status":"ok"}`)),
 	}
 }
 
@@ -3559,9 +3560,9 @@ func TestExecuteStep_AdaptPrompt_InjectsFailureContext(t *testing.T) {
 // takes precedence over runtime.default_timeout_minutes from the manifest.
 func TestStepTimeoutMinutes_OverridesManifestDefault(t *testing.T) {
 	capturingAdapter := &configCapturingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -3598,9 +3599,9 @@ func TestStepTimeoutMinutes_OverridesManifestDefault(t *testing.T) {
 // takes precedence over the CLI --timeout flag.
 func TestStepTimeoutMinutes_OverridesCLITimeout(t *testing.T) {
 	capturingAdapter := &configCapturingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -3639,9 +3640,9 @@ func TestStepTimeoutMinutes_OverridesCLITimeout(t *testing.T) {
 // timeout is configured, the CLI --timeout flag is used.
 func TestStepTimeoutMinutes_FallsBackToCLIWhenUnset(t *testing.T) {
 	capturingAdapter := &configCapturingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -3680,9 +3681,9 @@ func TestStepTimeoutMinutes_FallsBackToCLIWhenUnset(t *testing.T) {
 // step-level timeout nor CLI --timeout is set, the manifest default is used.
 func TestStepTimeoutMinutes_FallsBackToManifestWhenNoCLI(t *testing.T) {
 	capturingAdapter := &configCapturingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -3719,9 +3720,9 @@ func TestStepTimeoutMinutes_FallsBackToManifestWhenNoCLI(t *testing.T) {
 // set on a pipeline step is correctly passed through to the AdapterRunConfig.
 func TestMaxConcurrentAgents_FlowsToAdapterConfig(t *testing.T) {
 	capturingAdapter := &configCapturingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -3757,9 +3758,9 @@ func TestMaxConcurrentAgents_FlowsToAdapterConfig(t *testing.T) {
 // to 0 in AdapterRunConfig when not set on the step.
 func TestMaxConcurrentAgents_ZeroWhenUnset(t *testing.T) {
 	capturingAdapter := &configCapturingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -3796,9 +3797,9 @@ func TestStepTimeoutMinutes_PerStepDifferentTimeouts(t *testing.T) {
 	var mu sync.Mutex
 	configs := make(map[string]adapter.AdapterRunConfig)
 
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	// Custom adapter that captures configs per step
@@ -3858,7 +3859,7 @@ func TestStepTimeoutMinutes_PerStepDifferentTimeouts(t *testing.T) {
 
 // perStepCapturingAdapter captures AdapterRunConfig per step based on prompt content.
 type perStepCapturingAdapter struct {
-	*adapter.MockAdapter
+	*adaptertest.MockAdapter
 	mu      *sync.Mutex
 	configs map[string]adapter.AdapterRunConfig
 }
@@ -3885,11 +3886,11 @@ func (a *perStepCapturingAdapter) Run(ctx context.Context, cfg adapter.AdapterRu
 // the pipeline continues to the next independent step and completes successfully.
 func TestOptionalStep_FailsPipelineContinues(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	successAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "ok"}`),
+	successAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "ok"}`),
 	)
-	failAdapter := adapter.NewMockAdapter(
-		adapter.WithFailure(errors.New("optional step failed")),
+	failAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithFailure(errors.New("optional step failed")),
 	)
 
 	sa := &stepAwareAdapter{
@@ -3939,8 +3940,8 @@ func TestOptionalStep_FailsPipelineContinues(t *testing.T) {
 // behaves identically to a required step.
 func TestOptionalStep_SucceedsNormally(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "ok"}`),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "ok"}`),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
@@ -3975,8 +3976,8 @@ func TestOptionalStep_SucceedsNormally(t *testing.T) {
 // field still halts the pipeline on failure (regression test).
 func TestOptionalStep_DefaultBehaviorPreserved(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	failAdapter := adapter.NewMockAdapter(
-		adapter.WithFailure(errors.New("required step failed")),
+	failAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithFailure(errors.New("required step failed")),
 	)
 
 	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(collector))
@@ -4054,11 +4055,11 @@ func TestOptionalStep_WithRetries(t *testing.T) {
 // optional step is skipped.
 func TestOptionalStep_DependentSkipped(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	successAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "ok"}`),
+	successAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "ok"}`),
 	)
-	failAdapter := adapter.NewMockAdapter(
-		adapter.WithFailure(errors.New("optional failure")),
+	failAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithFailure(errors.New("optional failure")),
 	)
 
 	sa := &stepAwareAdapter{
@@ -4107,11 +4108,11 @@ func TestOptionalStep_DependentSkipped(t *testing.T) {
 // optional A — when A fails, both B and C are skipped.
 func TestOptionalStep_TransitiveDependencySkip(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	successAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "ok"}`),
+	successAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "ok"}`),
 	)
-	failAdapter := adapter.NewMockAdapter(
-		adapter.WithFailure(errors.New("optional failure")),
+	failAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithFailure(errors.New("optional failure")),
 	)
 
 	sa := &stepAwareAdapter{
@@ -4162,8 +4163,8 @@ func TestOptionalStep_TransitiveDependencySkip(t *testing.T) {
 // retry.on_failure: "fail" results in pipeline halt (explicit wins).
 func TestOptionalStep_ExplicitOnFailurePrecedence(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	failAdapter := adapter.NewMockAdapter(
-		adapter.WithFailure(errors.New("step failed")),
+	failAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithFailure(errors.New("step failed")),
 	)
 
 	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(collector))
@@ -4201,11 +4202,11 @@ func TestOptionalStep_ExplicitOnFailurePrecedence(t *testing.T) {
 func TestOptionalStep_PipelineStatusCompleted(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	stateStore := testutil.NewMockStateStore()
-	successAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "ok"}`),
+	successAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "ok"}`),
 	)
-	failAdapter := adapter.NewMockAdapter(
-		adapter.WithFailure(errors.New("optional failure")),
+	failAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithFailure(errors.New("optional failure")),
 	)
 
 	sa := &stepAwareAdapter{
@@ -4268,8 +4269,8 @@ func TestPreserveWorkspaceKeepsExistingContent(t *testing.T) {
 	require.NoError(t, os.WriteFile(markerFile, []byte("preserved"), 0644))
 
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -4321,8 +4322,8 @@ func TestDefaultBehaviorCleansWorkspace(t *testing.T) {
 	require.NoError(t, os.WriteFile(markerFile, []byte("should-be-removed"), 0644))
 
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -4353,9 +4354,9 @@ func TestDefaultBehaviorCleansWorkspace(t *testing.T) {
 // TestExecuteWithIncludeFilter verifies that --steps filter runs only the named steps
 func TestExecuteWithIncludeFilter(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	filter := &StepFilter{Include: []string{"step-a", "step-c"}}
@@ -4389,9 +4390,9 @@ func TestExecuteWithIncludeFilter(t *testing.T) {
 // TestExecuteWithExcludeFilter verifies that --exclude filter skips the named steps
 func TestExecuteWithExcludeFilter(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	filter := &StepFilter{Exclude: []string{"step-b"}}
@@ -4424,7 +4425,7 @@ func TestExecuteWithExcludeFilter(t *testing.T) {
 
 // TestExecuteWithInvalidStepFilter verifies that invalid step names in filter produce errors
 func TestExecuteWithInvalidStepFilter(t *testing.T) {
-	mockAdapter := adapter.NewMockAdapter()
+	mockAdapter := adaptertest.NewMockAdapter()
 	filter := &StepFilter{Include: []string{"nonexistent"}}
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithStepFilter(filter),
@@ -4451,9 +4452,9 @@ func TestExecuteWithInvalidStepFilter(t *testing.T) {
 // TestExecuteWithNilFilter verifies that nil filter runs all steps (no-op)
 func TestExecuteWithNilFilter(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -4491,7 +4492,7 @@ type promptFailAdapter struct {
 	mu          sync.Mutex
 	failPrompt  string // fail if prompt contains this substring
 	failError   error
-	successMock *adapter.MockAdapter
+	successMock *adaptertest.MockAdapter
 	lastConfigs []adapter.AdapterRunConfig
 }
 
@@ -4499,7 +4500,7 @@ func newPromptFailAdapter(failPrompt string, failErr error) *promptFailAdapter {
 	return &promptFailAdapter{
 		failPrompt:  failPrompt,
 		failError:   failErr,
-		successMock: adapter.NewMockAdapter(adapter.WithStdoutJSON(`{"status":"ok"}`)),
+		successMock: adaptertest.NewMockAdapter(adaptertest.WithStdoutJSON(`{"status":"ok"}`)),
 	}
 }
 
@@ -4837,7 +4838,7 @@ func TestExecuteStep_OnFailureRework_DownstreamStepsRun(t *testing.T) {
 // are not scheduled in the normal DAG pass.
 func TestExecuteStep_OnFailureRework_ReworkOnlyNotScheduled(t *testing.T) {
 	// Adapter succeeds for everything — step-1 should NOT fail, so rework step should never run.
-	mockAdapter := adapter.NewMockAdapter(adapter.WithStdoutJSON(`{"status":"ok"}`))
+	mockAdapter := adaptertest.NewMockAdapter(adaptertest.WithStdoutJSON(`{"status":"ok"}`))
 	collector := testutil.NewEventCollector()
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -4888,9 +4889,9 @@ func TestExecuteWithoutSkillsField(t *testing.T) {
 		// should execute without errors and without needing a skill store.
 		// The check command uses "true" which always succeeds on Linux.
 		collector := testutil.NewEventCollector()
-		mockAdapter := adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		mockAdapter := adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		)
 
 		// No withSkillStore option — executor has nil skillStore
@@ -4936,7 +4937,7 @@ func TestExecuteWithoutSkillsField(t *testing.T) {
 	t.Run("validateSkillRefs_nil_store_returns_nil", func(t *testing.T) {
 		// When the executor has no skill store, validateSkillRefs should
 		// return nil regardless of what skill references exist.
-		mockAdapter := adapter.NewMockAdapter()
+		mockAdapter := adaptertest.NewMockAdapter()
 		executor := NewDefaultPipelineExecutor(mockAdapter)
 
 		// Pipeline with skills references at all scopes
@@ -4963,9 +4964,9 @@ func TestExecuteWithoutSkillsField(t *testing.T) {
 		// A pipeline with zero skill references anywhere should behave
 		// identically to pre-skill-hierarchy pipelines.
 		collector := testutil.NewEventCollector()
-		mockAdapter := adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"result": "ok"}`),
-			adapter.WithTokensUsed(200),
+		mockAdapter := adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"result": "ok"}`),
+			adaptertest.WithTokensUsed(200),
 		)
 		executor := NewDefaultPipelineExecutor(mockAdapter,
 			WithEmitter(collector),
@@ -5024,9 +5025,9 @@ func TestSkillProvisioningIntegration(t *testing.T) {
 		store := skill.NewDirectoryStore(skill.SkillSource{Root: storeDir, Precedence: 0})
 
 		capturingAdapter := &configCapturingAdapter{
-			MockAdapter: adapter.NewMockAdapter(
-				adapter.WithStdoutJSON(`{"status": "success"}`),
-				adapter.WithTokensUsed(100),
+			MockAdapter: adaptertest.NewMockAdapter(
+				adaptertest.WithStdoutJSON(`{"status": "success"}`),
+				adaptertest.WithTokensUsed(100),
 			),
 		}
 
@@ -5067,9 +5068,9 @@ func TestSkillProvisioningIntegration(t *testing.T) {
 		store := skill.NewDirectoryStore(skill.SkillSource{Root: storeDir, Precedence: 0})
 
 		capturingAdapter := &configCapturingAdapter{
-			MockAdapter: adapter.NewMockAdapter(
-				adapter.WithStdoutJSON(`{"status": "success"}`),
-				adapter.WithTokensUsed(100),
+			MockAdapter: adaptertest.NewMockAdapter(
+				adaptertest.WithStdoutJSON(`{"status": "success"}`),
+				adaptertest.WithTokensUsed(100),
 			),
 		}
 
@@ -5105,9 +5106,9 @@ func TestSkillProvisioningIntegration(t *testing.T) {
 		storeDir := t.TempDir()
 		store := skill.NewDirectoryStore(skill.SkillSource{Root: storeDir, Precedence: 0})
 
-		mockAdapter := adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		mockAdapter := adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		)
 		executor := NewDefaultPipelineExecutor(mockAdapter, withSkillStore(store))
 
@@ -5138,9 +5139,9 @@ func TestSkillProvisioningIntegration(t *testing.T) {
 		storeDir := t.TempDir()
 		store := skill.NewDirectoryStore(skill.SkillSource{Root: storeDir, Precedence: 0})
 
-		mockAdapter := adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		mockAdapter := adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		)
 
 		executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -5179,11 +5180,11 @@ func TestSkillProvisioningIntegration(t *testing.T) {
 // All of B, C, D should be skipped. Pipeline should succeed because A is optional.
 func TestTransitiveSkip_DiamondDependency(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	successAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "ok"}`),
+	successAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "ok"}`),
 	)
-	failAdapter := adapter.NewMockAdapter(
-		adapter.WithFailure(errors.New("optional failure")),
+	failAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithFailure(errors.New("optional failure")),
 	)
 
 	sa := &stepAwareAdapter{
@@ -5241,11 +5242,11 @@ func TestTransitiveSkip_DiamondDependency(t *testing.T) {
 //	B (skipped)            F (should execute)
 func TestTransitiveSkip_IndependentPathsExecute(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	successAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "ok"}`),
+	successAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "ok"}`),
 	)
-	failAdapter := adapter.NewMockAdapter(
-		adapter.WithFailure(errors.New("optional failure")),
+	failAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithFailure(errors.New("optional failure")),
 	)
 
 	sa := &stepAwareAdapter{
@@ -5335,8 +5336,8 @@ func TestConcurrentBatchCancellation(t *testing.T) {
 		TokensUsed: 100,
 	}
 
-	failAdapter := adapter.NewMockAdapter(
-		adapter.WithFailure(errors.New("step-b exploded")),
+	failAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithFailure(errors.New("step-b exploded")),
 	)
 
 	sa := &stepAwareAdapter{
@@ -5382,14 +5383,14 @@ func TestConcurrentBatchCancellation(t *testing.T) {
 
 // promptCapturingAdapter captures prompt from each step's AdapterRunConfig.
 type promptCapturingAdapter struct {
-	*adapter.MockAdapter
+	*adaptertest.MockAdapter
 	mu      sync.Mutex
 	prompts map[string]string // stepID (from workspace path) -> prompt
 }
 
-func newPromptCapturingAdapter(opts ...adapter.MockOption) *promptCapturingAdapter {
+func newPromptCapturingAdapter(opts ...adaptertest.MockOption) *promptCapturingAdapter {
 	return &promptCapturingAdapter{
-		MockAdapter: adapter.NewMockAdapter(opts...),
+		MockAdapter: adaptertest.NewMockAdapter(opts...),
 		prompts:     make(map[string]string),
 	}
 }
@@ -5414,8 +5415,8 @@ func (a *promptCapturingAdapter) getPrompt(stepID string) string {
 // as step A receives step A's output in its prompt via THREAD CONTEXT header.
 func TestThreadSharing_TwoStepsSameThread(t *testing.T) {
 	capturing := newPromptCapturingAdapter(
-		adapter.WithStdoutJSON(`{"status":"ok"}`),
-		adapter.WithTokensUsed(100),
+		adaptertest.WithStdoutJSON(`{"status":"ok"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	executor := NewDefaultPipelineExecutor(capturing)
@@ -5458,8 +5459,8 @@ func TestThreadSharing_TwoStepsSameThread(t *testing.T) {
 // do NOT share transcripts.
 func TestThreadIsolation_DifferentThreads(t *testing.T) {
 	capturing := newPromptCapturingAdapter(
-		adapter.WithStdoutJSON(`{"status":"ok"}`),
-		adapter.WithTokensUsed(100),
+		adaptertest.WithStdoutJSON(`{"status":"ok"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	executor := NewDefaultPipelineExecutor(capturing)
@@ -5503,8 +5504,8 @@ func TestThreadIsolation_DifferentThreads(t *testing.T) {
 // do NOT receive any thread context (fresh memory behavior).
 func TestNoThread_FreshMemory(t *testing.T) {
 	capturing := newPromptCapturingAdapter(
-		adapter.WithStdoutJSON(`{"status":"ok"}`),
-		adapter.WithTokensUsed(100),
+		adaptertest.WithStdoutJSON(`{"status":"ok"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	executor := NewDefaultPipelineExecutor(capturing)
@@ -5544,9 +5545,9 @@ func TestNoThread_FreshMemory(t *testing.T) {
 
 // TestThreadValidation_InvalidFidelity verifies the executor rejects invalid fidelity values.
 func TestThreadValidation_InvalidFidelity(t *testing.T) {
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status":"ok"}`),
-		adapter.WithTokensUsed(100),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status":"ok"}`),
+		adaptertest.WithTokensUsed(100),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter)
@@ -5580,9 +5581,9 @@ func TestThreadValidation_InvalidFidelity(t *testing.T) {
 // with a default, and auto-approve selects the default (approve -> implement).
 func TestExecutor_GateStep_AutoApprove(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(500),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -5649,9 +5650,9 @@ func TestExecutor_GateStep_AutoApprove(t *testing.T) {
 // returns a choice targeting _fail. The pipeline should fail with a gateAbortError.
 func TestExecutor_GateStep_Abort(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(500),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	// Custom handler that always selects "abort" (the _fail target)
@@ -5744,9 +5745,9 @@ func TestExecutor_GateStep_ChoiceRouting_Revise(t *testing.T) {
 	var implCount int32
 
 	countingAdapter := &stepAwareAdapter{
-		defaultAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(500),
+		defaultAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(500),
 		),
 		onStart: func(stepID string) {
 			switch stepID {
@@ -5812,9 +5813,9 @@ func TestExecutor_GateStep_ChoiceRouting_Revise(t *testing.T) {
 // in the PipelineContext after a gate step completes with auto-approve.
 func TestExecutor_GateStep_TemplateVars(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(500),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(500),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -6049,8 +6050,8 @@ func TestExecuteStep_FailureClassification_Canceled(t *testing.T) {
 	store := newAttemptTrackingStore()
 
 	// Use a mock adapter with a simulated delay so that it respects ctx.Done()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithSimulatedDelay(10 * time.Second),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithSimulatedDelay(10 * time.Second),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -6098,9 +6099,9 @@ func TestExecuteStep_FailureClassification_Canceled(t *testing.T) {
 // TestThreadedSteps_FreshFidelity verifies that fidelity: fresh suppresses transcript injection.
 func TestThreadedSteps_FreshFidelity(t *testing.T) {
 	capAdapter := &allConfigCapturingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "success"}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "success"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -6145,7 +6146,7 @@ func TestThreadedSteps_FreshFidelity(t *testing.T) {
 
 // allConfigCapturingAdapter captures AdapterRunConfig for every call, keyed by step workspace path.
 type allConfigCapturingAdapter struct {
-	*adapter.MockAdapter
+	*adaptertest.MockAdapter
 	mu      sync.Mutex
 	configs []adapter.AdapterRunConfig
 }
@@ -6170,9 +6171,9 @@ func (a *allConfigCapturingAdapter) getConfigs() []adapter.AdapterRunConfig {
 func TestIterateInDAG_Sequential(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	capAdapter := &allConfigCapturingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"findings": []}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"findings": []}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -6236,9 +6237,9 @@ steps:
 func TestIterateInDAG_Parallel(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	capAdapter := &allConfigCapturingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"findings": []}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"findings": []}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -6301,9 +6302,9 @@ steps:
 func TestIterateInDAG_CollectsOutputs(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	capAdapter := &allConfigCapturingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"findings": ["issue-1"]}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"findings": ["issue-1"]}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -6387,9 +6388,9 @@ steps:
 func TestIterateInDAG_Parallel_CollectsOutputs(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	capAdapter := &allConfigCapturingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "done"}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "done"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -6463,9 +6464,9 @@ steps:
 func TestIterateInDAG_OutputResolvesInAggregate(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	capAdapter := &allConfigCapturingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"findings": ["f1"]}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"findings": ["f1"]}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -6544,8 +6545,8 @@ steps:
 // TestAggregateInDAG verifies the aggregate primitive merges output to a file.
 func TestAggregateInDAG(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "ok"}`),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "ok"}`),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
@@ -6588,9 +6589,9 @@ func TestAggregateInDAG(t *testing.T) {
 func TestBranchInDAG(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	capAdapter := &allConfigCapturingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "ok"}`),
-			adapter.WithTokensUsed(100),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "ok"}`),
+			adaptertest.WithTokensUsed(100),
 		),
 	}
 
@@ -6646,8 +6647,8 @@ steps:
 func TestBranchInDAG_Skip(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	capAdapter := &allConfigCapturingAdapter{
-		MockAdapter: adapter.NewMockAdapter(
-			adapter.WithStdoutJSON(`{"status": "ok"}`),
+		MockAdapter: adaptertest.NewMockAdapter(
+			adaptertest.WithStdoutJSON(`{"status": "ok"}`),
 		),
 	}
 
@@ -6688,7 +6689,7 @@ func TestRetryInjectsContractFailureContext(t *testing.T) {
 	// succeed at the adapter level — the failure comes from the contract.
 	capAdapter := &countingFailAdapter{
 		failCount:   0, // adapter always succeeds
-		successMock: adapter.NewMockAdapter(adapter.WithStdoutJSON(`{"status":"ok"}`)),
+		successMock: adaptertest.NewMockAdapter(adaptertest.WithStdoutJSON(`{"status":"ok"}`)),
 	}
 
 	collector := testutil.NewEventCollector()
@@ -6768,7 +6769,7 @@ fi
 // {{ steps.STEP_ID.artifacts.ARTIFACT_NAME.JSON_PATH }} is resolved from
 // execution.ArtifactPaths at workspace creation time.
 func TestResolveWorkspaceStepRefs_ArtifactsNamedField(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 
 	tmpDir := t.TempDir()
 
@@ -6797,7 +6798,7 @@ func TestResolveWorkspaceStepRefs_ArtifactsNamedField(t *testing.T) {
 // TestResolveWorkspaceStepRefs_Output verifies that
 // {{ steps.STEP_ID.output.JSON_FIELD }} is resolved from the first artifact.
 func TestResolveWorkspaceStepRefs_Output(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 
 	tmpDir := t.TempDir()
 	artFile := filepath.Join(tmpDir, "step-output.json")
@@ -6823,7 +6824,7 @@ func TestResolveWorkspaceStepRefs_Output(t *testing.T) {
 // TestResolveWorkspaceStepRefs_MissingStep verifies a clear error when the
 // referenced step artifact does not exist.
 func TestResolveWorkspaceStepRefs_MissingStep(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 
 	execution := &PipelineExecution{
 		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "ws-missing-test"}},
@@ -6844,7 +6845,7 @@ func TestResolveWorkspaceStepRefs_MissingStep(t *testing.T) {
 // TestResolveWorkspaceStepRefs_NoStepsRef verifies that non-steps templates
 // are passed through unchanged (they are resolved by ResolvePlaceholders later).
 func TestResolveWorkspaceStepRefs_NoStepsRef(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 
 	execution := &PipelineExecution{
 		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "ws-passthrough-test"}},
@@ -6870,7 +6871,7 @@ func TestResolveWorkspaceStepRefs_NoStepsRef(t *testing.T) {
 // the WorktreePaths cache (pre-populated to simulate a worktree that was
 // already created on the resolved branch).
 func TestCreateStepWorkspace_DeferredBranch(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 
 	tmpDir := t.TempDir()
 
@@ -6941,17 +6942,17 @@ func newCapturingArtifactStore(cap *artifactCapture) *testutil.MockStateStore {
 // step-workspace paths pointed at the original run's tree.
 func TestWorkspaceRunIDFor(t *testing.T) {
 	t.Run("falls back to pipelineID when no override", func(t *testing.T) {
-		executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+		executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 		assert.Equal(t, "runtime-id", executor.workspaceRunIDFor("runtime-id"))
 	})
 	t.Run("override wins when set", func(t *testing.T) {
-		executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{},
+		executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{},
 			WithWorkspaceRunID("original-run"),
 		)
 		assert.Equal(t, "original-run", executor.workspaceRunIDFor("resume-run"))
 	})
 	t.Run("empty override defers to pipelineID", func(t *testing.T) {
-		executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{},
+		executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{},
 			WithWorkspaceRunID(""),
 		)
 		assert.Equal(t, "fresh-run", executor.workspaceRunIDFor("fresh-run"))
@@ -6968,7 +6969,7 @@ func TestExecuteAggregateInDAG_RegistersArtifact(t *testing.T) {
 	cap := &artifactCapture{}
 	store := newCapturingArtifactStore(cap)
 
-	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{},
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{},
 		WithStateStore(store),
 		WithRunID("test-run-1"),
 	)
@@ -7014,7 +7015,7 @@ func TestExecuteAggregateInDAG_NoStore(t *testing.T) {
 	tmpDir := t.TempDir()
 	outputPath := filepath.Join(tmpDir, "out.json")
 
-	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{})
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 
 	execution := &PipelineExecution{
 		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "p"}},
@@ -7055,7 +7056,7 @@ func TestCollectIterateOutputs_RegistersArtifact(t *testing.T) {
 	cap := &artifactCapture{}
 	store := newCapturingArtifactStore(cap)
 
-	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{},
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{},
 		WithStateStore(store),
 		WithRunID("iterate-run"),
 	)
@@ -7100,7 +7101,7 @@ func TestCreateStepWorkspace_UsesEffectiveWorkspaceRunID(t *testing.T) {
 	tmpDir := t.TempDir()
 	wsRoot := filepath.Join(tmpDir, "workspaces")
 
-	executor := NewDefaultPipelineExecutor(&adapter.MockAdapter{},
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{},
 		WithRunID("resume-run-2"),
 		WithWorkspaceRunID("original-run-1"),
 	)

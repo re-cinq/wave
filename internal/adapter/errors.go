@@ -2,9 +2,18 @@ package adapter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 )
+
+// ErrUnknownAdapter is returned when a registry is asked to strictly resolve
+// an adapter name that has no override registered and is not a built-in
+// adapter (claude, codex, gemini, opencode, browser). It allows callers
+// such as FallbackRunner to surface a typed error rather than silently
+// falling back to a generic ProcessGroupRunner — which would attempt to
+// exec the adapter name as a binary.
+var ErrUnknownAdapter = errors.New("unknown adapter")
 
 // Failure reason constants for error classification.
 const (

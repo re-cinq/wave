@@ -18,6 +18,14 @@ func ValidatePipelineIOTypes(p *Pipeline) error {
 		return nil
 	}
 
+	// Eagerly load the embedded shared-schema registry so that an FS read
+	// failure surfaces here as a structured error rather than a stale empty
+	// registry. LoadSchemas is idempotent (sync.Once) so repeated calls are
+	// cheap.
+	if err := shared.LoadSchemas(); err != nil {
+		return fmt.Errorf("pipeline %q: shared schema registry failed to load: %w", p.Metadata.Name, err)
+	}
+
 	if t := p.Input.EffectiveType(); !shared.Exists(t) {
 		return fmt.Errorf("pipeline %q: input.type %q is not a registered shared schema (known: %v, or use %q)",
 			p.Metadata.Name, t, shared.Names(), shared.TypeString)

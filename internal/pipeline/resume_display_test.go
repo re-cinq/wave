@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 )
@@ -120,7 +120,7 @@ func TestResumeFromStep_SyntheticCompletionEvents(t *testing.T) {
 			tt.setupWorkspace(t, tempDir)
 
 			emitter := &capturingEmitter{}
-			mockAdapter := adapter.NewMockAdapter()
+			mockAdapter := adaptertest.NewMockAdapter()
 			executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(emitter))
 			manager := NewResumeManager(executor)
 
@@ -185,7 +185,7 @@ func TestResumeFromStep_SyntheticCompletionEvents(t *testing.T) {
 }
 
 func TestLookupStepPersona(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adapter.NewMockAdapter())
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	p := &Pipeline{

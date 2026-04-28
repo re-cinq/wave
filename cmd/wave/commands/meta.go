@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/workspace"
 	"github.com/recinq/wave/internal/skill"
@@ -87,7 +88,7 @@ func runMeta(input string, opts MetaOptions) error {
 	// Resolve adapter
 	var runner adapter.AdapterRunner
 	if opts.Mock {
-		runner = adapter.NewMockAdapter()
+		runner = adaptertest.NewMockAdapter()
 	} else {
 		var adapterName string
 		for name := range m.Adapters {

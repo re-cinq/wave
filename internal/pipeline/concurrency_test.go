@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/assert"
@@ -17,9 +18,9 @@ import (
 func TestConcurrencyExecutor_BasicExecution(t *testing.T) {
 	var callCount atomic.Int32
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(1000),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(1000),
 	)
 
 	// Wrap to count calls
@@ -161,9 +162,9 @@ func TestConcurrencyExecutor_MaxConcurrencyCap(t *testing.T) {
 
 func TestConcurrencyExecutor_SingleAgent(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(1000),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(1000),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -197,9 +198,9 @@ func TestConcurrencyExecutor_SingleAgent(t *testing.T) {
 
 func TestConcurrencyExecutor_ZeroConcurrency(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(1000),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(1000),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -233,9 +234,9 @@ func TestConcurrencyExecutor_ZeroConcurrency(t *testing.T) {
 
 func TestConcurrencyExecutor_ResultAggregation(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(1000),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(1000),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -290,9 +291,9 @@ func TestConcurrencyExecutor_ResultAggregation(t *testing.T) {
 
 func TestConcurrencyExecutor_WorkspaceIsolation(t *testing.T) {
 	collector := testutil.NewEventCollector()
-	mockAdapter := adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(1000),
+	mockAdapter := adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(1000),
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
@@ -345,7 +346,7 @@ func TestConcurrencyExecutor_WorkspaceIsolation(t *testing.T) {
 
 // concurrencyCountingAdapter wraps MockAdapter and counts calls.
 type concurrencyCountingAdapter struct {
-	*adapter.MockAdapter
+	*adaptertest.MockAdapter
 	callCount *atomic.Int32
 }
 
@@ -365,9 +366,9 @@ func (a *concurrencyFailAdapter) Run(ctx context.Context, cfg adapter.AdapterRun
 	if n == a.failOnCall {
 		return nil, errors.New("simulated agent failure")
 	}
-	return adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(1000),
+	return adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(1000),
 	).Run(ctx, cfg)
 }
 
@@ -390,9 +391,9 @@ func (a *concurrencyConcurrentTracker) Run(ctx context.Context, cfg adapter.Adap
 	time.Sleep(10 * time.Millisecond)
 	a.currentConcurrent.Add(-1)
 
-	return adapter.NewMockAdapter(
-		adapter.WithStdoutJSON(`{"status": "success"}`),
-		adapter.WithTokensUsed(1000),
+	return adaptertest.NewMockAdapter(
+		adaptertest.WithStdoutJSON(`{"status": "success"}`),
+		adaptertest.WithTokensUsed(1000),
 	).Run(ctx, cfg)
 }
 
