@@ -12,24 +12,23 @@ import (
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/runner"
 	"github.com/spf13/cobra"
 )
 
-// Output format constants
+// Output format constants — aliased from internal/runner to keep a single
+// source of truth shared with the webui launch path.
 const (
-	OutputFormatAuto  = "auto"
-	OutputFormatJSON  = "json"
-	OutputFormatText  = "text"
-	OutputFormatQuiet = "quiet"
+	OutputFormatAuto  = runner.OutputFormatAuto
+	OutputFormatJSON  = runner.OutputFormatJSON
+	OutputFormatText  = runner.OutputFormatText
+	OutputFormatQuiet = runner.OutputFormatQuiet
 )
 
-// OutputConfig holds the resolved output configuration from CLI flags.
-type OutputConfig struct {
-	Format  string
-	Verbose bool
-	NoColor bool
-	Debug   bool
-}
+// OutputConfig is aliased from internal/runner so the cmd and webui layers
+// share an identical shape; cmd-only consumers continue to reference
+// commands.OutputConfig without churn.
+type OutputConfig = runner.OutputConfig
 
 // resolvedFlagsKey is the context key for storing ResolvedFlags.
 type resolvedFlagsKey struct{}
