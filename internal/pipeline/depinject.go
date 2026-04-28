@@ -36,37 +36,57 @@ type ResolvedArtifact struct {
 // artifacts that cannot be located return an error naming both dep and name.
 func (e *DefaultPipelineExecutor) ResolveDependencyArtifacts(execution *PipelineExecution, step *Step) (map[string]ResolvedArtifact, error) {
 	resolved := make(map[string]ResolvedArtifact)
-	if execution == nil || step == nil || len(step.Dependencies) == 0 || execution.Pipeline == nil {
+	if execution == nil || step == nil || execution.Pipeline == nil {
 		return resolved, nil
 	}
 
-	for _, depID := range step.Dependencies {
-		depStep := findStepByID(execution.Pipeline, depID)
-		if depStep == nil {
-			// Dependency not declared in pipeline — skip silently.
-			// DAG validation already errors on undeclared deps.
-			continue
-		}
-
-		// Walk declared OutputArtifacts first.
-		declared := make(map[string]struct{}, len(depStep.OutputArtifacts))
-		for _, art := range depStep.OutputArtifacts {
-			declared[art.Name] = struct{}{}
-			required := art.Required
-			path, found := e.locateDepArtifact(execution, depID, art.Name)
-			if !found {
-				if required {
-					return nil, fmt.Errorf("dependency %q output artifact %q not found", depID, art.Name)
-				}
-				continue
+	// Walk both the live deps and any deps stripped by the resume
+	// subpipeline rewriter so artifacts from already-completed steps
+	// still get auto-injected on a resumed run.
+	depList := step.Dependencies
+	for _, dep := range step.ResumeOriginalDeps {
+		seen := false
+		for _, d := range depList {
+			if d == dep {
+				seen = true
+				break
 			}
-			key := depID + ":" + art.Name
-			resolved[key] = ResolvedArtifact{
-				DepStep:  depID,
-				Name:     art.Name,
-				Path:     path,
-				Type:     art.Type,
-				Optional: !required,
+		}
+		if !seen {
+			depList = append(depList, dep)
+		}
+	}
+	if len(depList) == 0 {
+		return resolved, nil
+	}
+
+	for _, depID := range depList {
+		depStep := findStepByID(execution.Pipeline, depID)
+		// depStep may be nil after resume — the resume subpipeline only
+		// contains steps from fromStep onwards. Fall through to the
+		// implicit-ArtifactPaths scan with an empty declared set so every
+		// "<dep>:*" registration still resolves.
+		declared := make(map[string]struct{})
+		if depStep != nil {
+			declared = make(map[string]struct{}, len(depStep.OutputArtifacts))
+			for _, art := range depStep.OutputArtifacts {
+				declared[art.Name] = struct{}{}
+				required := art.Required
+				path, found := e.locateDepArtifact(execution, depID, art.Name)
+				if !found {
+					if required {
+						return nil, fmt.Errorf("dependency %q output artifact %q not found", depID, art.Name)
+					}
+					continue
+				}
+				key := depID + ":" + art.Name
+				resolved[key] = ResolvedArtifact{
+					DepStep:  depID,
+					Name:     art.Name,
+					Path:     path,
+					Type:     art.Type,
+					Optional: !required,
+				}
 			}
 		}
 
