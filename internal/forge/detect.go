@@ -270,6 +270,11 @@ func classifyHost(host string) ForgeType {
 		return ForgeForgejo
 	case h == "codeberg.org" || strings.HasSuffix(h, ".codeberg.org"):
 		return ForgeCodeberg
+	// Re-cinq-hosted Gitea instance — ship it explicitly so the boot path
+	// classifier doesn't pay the 3s HTTP probe on every wave init / wave
+	// run inside a librete.ch repo.
+	case h == "git.librete.ch":
+		return ForgeGitea
 	}
 
 	// Check if tea CLI knows about this host (registered Gitea/Forgejo instance).

@@ -99,9 +99,26 @@ func NewClient(info ForgeInfo) (Client, error) {
 	case ForgeGitHub:
 		ghClient := github.NewClient(github.ClientConfig{Token: token})
 		return NewGitHubClient(ghClient)
+	case ForgeGitea, ForgeForgejo, ForgeCodeberg:
+		host := info.Host
+		if host == "" {
+			// Codeberg has a fixed host; vanilla Gitea/Forgejo without a
+			// host means we never resolved the remote — bail.
+			if info.Type == ForgeCodeberg {
+				host = "codeberg.org"
+			} else {
+				return nil, nil
+			}
+		}
+		return NewGiteaClient(GiteaConfig{
+			Host:      host,
+			Token:     token,
+			ForgeType: info.Type,
+		})
 	default:
-		// Non-GitHub forges not yet supported — return (nil, nil) so callers'
-		// nil-guard checks show "not configured" rather than cryptic errors.
+		// Non-GitHub/Gitea forges not yet supported — return (nil, nil) so
+		// callers' nil-guard checks show "not configured" rather than
+		// cryptic errors.
 		return nil, nil
 	}
 }
