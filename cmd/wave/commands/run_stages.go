@@ -29,6 +29,7 @@ import (
 	"github.com/recinq/wave/internal/recovery"
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/retro"
+	"github.com/recinq/wave/internal/runner"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/suggest"
@@ -200,12 +201,16 @@ func resolveOrGenerateRunID(opts RunOptions, store state.StateStore, p *pipeline
 // the cleanups for emitter, audit logger, and debug tracer in reverse order
 // so the caller can defer a single Close() instead of tracking each.
 type runResources struct {
-	executor    *pipeline.DefaultPipelineExecutor
 	emitter     event.EventEmitter
 	emitterAux  *EmitterResult
 	wsRoot      string
 	runner      adapter.AdapterRunner
 	execOpts    []pipeline.ExecutorOption
+	// Foreground carries the resolved ForegroundConfig for runOnce. The
+	// executor is built lazily inside runner.LaunchForeground rather than
+	// here so the CLI no longer reaches into pipeline.NewDefaultPipelineExecutor
+	// directly — both webui and CLI funnel through the same launcher.
+	foreground  runner.ForegroundConfig
 	closeFns    []func()
 	cleanupOnce bool
 }
@@ -305,90 +310,15 @@ func buildExecutor(opts RunOptions, m *manifest.Manifest, p *pipeline.Pipeline, 
 	execOpts := assembleExecutorOptions(opts, m, store, stepFilter, runID, debug, emitter, wsManager, logger, debugTracer, res.runner)
 	res.execOpts = execOpts
 
-	executor := pipeline.NewDefaultPipelineExecutor(res.runner, execOpts...)
-	res.executor = executor
-
-	// Connect outcome tracker to progress display
-	if btpd, ok := emitterResult.Progress.(*display.BubbleTeaProgressDisplay); ok {
-		btpd.SetOutcomeTracker(executor.GetOutcomeTracker())
-	}
-
-	return res, nil
-}
-
-// assembleExecutorOptions builds the ExecutorOption slice from opts and the
-// already-constructed dependencies. Split out from buildExecutor so the
-// option list — the part most likely to grow — has its own focused function
-// without the resource-bookkeeping noise.
-func assembleExecutorOptions(opts RunOptions, m *manifest.Manifest, store state.StateStore, stepFilter *pipeline.StepFilter, runID string, debug bool, emitter event.EventEmitter, wsManager workspace.WorkspaceManager, logger audit.AuditLogger, debugTracer *audit.DebugTracer, runner adapter.AdapterRunner) []pipeline.ExecutorOption {
-	execOpts := []pipeline.ExecutorOption{
-		pipeline.WithEmitter(emitter),
-		pipeline.WithDebug(debug),
-		pipeline.WithRunID(runID),
-	}
-	if debugTracer != nil {
-		execOpts = append(execOpts, pipeline.WithDebugTracer(debugTracer))
-	}
-	if wsManager != nil {
-		execOpts = append(execOpts, pipeline.WithWorkspaceManager(wsManager))
-	}
-	if store != nil {
-		execOpts = append(execOpts, pipeline.WithStateStore(store))
-	}
-	if logger != nil {
-		execOpts = append(execOpts, pipeline.WithAuditLogger(logger))
-	}
-	if opts.Timeout > 0 {
-		execOpts = append(execOpts, pipeline.WithStepTimeout(time.Duration(opts.Timeout)*time.Minute))
-	}
-	if opts.Model != "" {
-		execOpts = append(execOpts, pipeline.WithModelOverride(opts.Model))
-	}
-	if opts.ForceModel {
-		execOpts = append(execOpts, pipeline.WithForceModel(true))
-	}
-	registry := adapter.NewAdapterRegistry(nil)
-	for name, a := range m.Adapters {
-		if a.Binary != "" {
-			registry.SetBinary(name, a.Binary)
-		}
-	}
-	if opts.Mock {
-		// Route every adapter declared in the manifest through the mock runner.
-		// "mock" itself is always registered so pipelines that pin adapter: mock
-		// resolve correctly even when the manifest does not enumerate it.
-		registry.RegisterOverride("mock", runner)
-		for name := range m.Adapters {
-			registry.RegisterOverride(name, runner)
-		}
-	}
-	execOpts = append(execOpts, pipeline.WithRegistry(registry))
-
-	// Wire skill store so declared skills are provisioned into adapter workspaces.
-	// Source ordering (project skills/ wins over installed .agents/skills/) is
-	// owned by the skill package — see skill.DefaultSources.
 	skillStore := skill.NewDirectoryStore(skill.DefaultSources()...)
-	execOpts = append(execOpts, pipeline.WithSkillStore(skillStore))
-	if opts.Adapter != "" {
-		execOpts = append(execOpts, pipeline.WithAdapterOverride(opts.Adapter))
-	}
-	if opts.PreserveWorkspace {
-		execOpts = append(execOpts, pipeline.WithPreserveWorkspace(true))
-	}
-	if stepFilter != nil {
-		execOpts = append(execOpts, pipeline.WithStepFilter(stepFilter))
-	}
-	if opts.AutoApprove {
-		execOpts = append(execOpts, pipeline.WithAutoApprove(true))
-	}
+
+	var retroGen *retro.Generator
 	if store != nil && !opts.NoRetro {
 		mstore := metrics.NewStore(state.UnderlyingDB(store))
-		retroGen := retro.NewGenerator(store, mstore, runner, ".agents/retros", &m.Runtime.Retros)
-		execOpts = append(execOpts, pipeline.WithRetroGenerator(retroGen))
+		retroGen = retro.NewGenerator(store, mstore, res.runner, ".agents/retros", &m.Runtime.Retros)
 	}
 
-	// Wire relay context compaction — prevents long-running steps from exhausting
-	// the Claude context window by summarizing conversation at a token threshold.
+	var relayMon *relay.RelayMonitor
 	if m.Runtime.Relay.TokenThresholdPercent > 0 {
 		relayCfg := relay.RelayMonitorConfig{
 			DefaultThreshold:   m.Runtime.Relay.TokenThresholdPercent,
@@ -396,12 +326,96 @@ func assembleExecutorOptions(opts RunOptions, m *manifest.Manifest, store state.
 			ContextWindow:      m.Runtime.Relay.ContextWindow,
 			CompactionTimeout:  m.Runtime.Timeouts.GetRelayCompaction(),
 		}
+		registry := adapter.NewAdapterRegistry(nil)
+		for name, a := range m.Adapters {
+			if a.Binary != "" {
+				registry.SetBinary(name, a.Binary)
+			}
+		}
 		compactionAdapter := relay.NewAdapterCompactionRunner(registry, m)
-		relayMon := relay.NewRelayMonitor(relayCfg, compactionAdapter)
-		execOpts = append(execOpts, pipeline.WithRelayMonitor(relayMon))
+		relayMon = relay.NewRelayMonitor(relayCfg, compactionAdapter)
 	}
 
-	return execOpts
+	res.foreground = runner.ForegroundConfig{
+		RunID:            runID,
+		Pipeline:         p,
+		Manifest:         m,
+		Store:            store,
+		Emitter:          emitter,
+		WorkspaceManager: wsManager,
+		AuditLogger:      logger,
+		DebugTracer:      debugTracer,
+		Runner:           res.runner,
+		MockOverride:     opts.Mock,
+		RetroGenerator:   retroGen,
+		RelayMonitor:     relayMon,
+		SkillStore:       skillStore,
+		StepFilter:       stepFilter,
+		Runtime:          opts,
+		Force:            opts.Force,
+		Debug:            debug,
+		// runOnce sets Input + FromStep before calling LaunchForeground.
+		OnExecutorReady: func(executor *pipeline.DefaultPipelineExecutor) {
+			if btpd, ok := emitterResult.Progress.(*display.BubbleTeaProgressDisplay); ok {
+				btpd.SetOutcomeTracker(executor.GetOutcomeTracker())
+			}
+		},
+	}
+
+	return res, nil
+}
+
+// assembleExecutorOptions builds the ExecutorOption slice. Delegates to
+// runner.BuildExecutorOptions so both the CLI's foreground path and the
+// webui's in-process launcher share one source of truth — the previous
+// duplication is what allowed LaunchInProcess to silently miss
+// pipeline.WithRegistry (manifest adapter binaries).
+func assembleExecutorOptions(opts RunOptions, m *manifest.Manifest, store state.StateStore, stepFilter *pipeline.StepFilter, runID string, debug bool, emitter event.EventEmitter, wsManager workspace.WorkspaceManager, logger audit.AuditLogger, debugTracer *audit.DebugTracer, adapterRunner adapter.AdapterRunner) []pipeline.ExecutorOption {
+	skillStore := skill.NewDirectoryStore(skill.DefaultSources()...)
+
+	var retroGen *retro.Generator
+	if store != nil && !opts.NoRetro {
+		mstore := metrics.NewStore(state.UnderlyingDB(store))
+		retroGen = retro.NewGenerator(store, mstore, adapterRunner, ".agents/retros", &m.Runtime.Retros)
+	}
+
+	var relayMon *relay.RelayMonitor
+	if m.Runtime.Relay.TokenThresholdPercent > 0 {
+		relayCfg := relay.RelayMonitorConfig{
+			DefaultThreshold:   m.Runtime.Relay.TokenThresholdPercent,
+			MinTokensToCompact: 1000,
+			ContextWindow:      m.Runtime.Relay.ContextWindow,
+			CompactionTimeout:  m.Runtime.Timeouts.GetRelayCompaction(),
+		}
+		// Compaction routes through a registry seeded from the same manifest;
+		// runner.BuildExecutorOptions wires the same shape internally.
+		registry := adapter.NewAdapterRegistry(nil)
+		for name, a := range m.Adapters {
+			if a.Binary != "" {
+				registry.SetBinary(name, a.Binary)
+			}
+		}
+		compactionAdapter := relay.NewAdapterCompactionRunner(registry, m)
+		relayMon = relay.NewRelayMonitor(relayCfg, compactionAdapter)
+	}
+
+	return runner.BuildExecutorOptions(runner.ExecutorBuildConfig{
+		RunID:            runID,
+		Manifest:         m,
+		Store:            store,
+		Emitter:          emitter,
+		WorkspaceManager: wsManager,
+		AuditLogger:      logger,
+		DebugTracer:      debugTracer,
+		Runtime:          opts,
+		Runner:           adapterRunner,
+		MockOverride:     opts.Mock,
+		RetroGenerator:   retroGen,
+		RelayMonitor:     relayMon,
+		SkillStore:       skillStore,
+		StepFilter:       stepFilter,
+		Debug:            debug,
+	})
 }
 
 // runOnce executes the pipeline a single time. It transitions the run from
@@ -409,54 +423,21 @@ func assembleExecutorOptions(opts RunOptions, m *manifest.Manifest, store state.
 // Execute or ResumeWithValidation depending on --from-step, and records the
 // terminal status (cancelled/failed/completed) so the dashboard converges
 // even when the caller bails on the returned error.
-func runOnce(ctx context.Context, executor *pipeline.DefaultPipelineExecutor, opts RunOptions, m *manifest.Manifest, p *pipeline.Pipeline, store state.StateStore, runID string) error {
-	// Transition run from pending → running so dashboards and wave status reflect active execution.
-	if store != nil {
-		_ = store.UpdateRunStatus(runID, "running", "", 0)
-		_ = store.UpdateRunHeartbeat(runID)
-		// Periodic heartbeat: lets the reconciler distinguish a live run from
-		// a parent process that died without updating the DB. Goroutine exits
-		// when heartbeatCancel fires (deferred just below this block).
-		heartbeatCtx, heartbeatCancel := context.WithCancel(context.Background())
-		defer heartbeatCancel()
-		go state.RunHeartbeatLoop(heartbeatCtx, store, runID)
+// runOnce executes the pipeline a single time via runner.LaunchForeground.
+// LaunchForeground owns the running/heartbeat/terminal status transitions
+// (cancelled/rejected/failed/completed) so the CLI no longer duplicates them.
+// Returns the executor (for printSummary) alongside the exec error.
+func runOnce(ctx context.Context, res *runResources, opts RunOptions) (*pipeline.DefaultPipelineExecutor, error) {
+	cfg := res.foreground
+	cfg.Input = opts.Input
+	cfg.FromStep = opts.FromStep
+	// --run with --from-step: resume but resolve artifacts from the original
+	// run's workspace tree. The new resume run row stays under cfg.RunID.
+	if opts.FromStep != "" && opts.RunID != "" {
+		cfg.PriorRunID = opts.RunID
 	}
-
-	var execErr error
-	if opts.FromStep != "" {
-		// Resume from specific step - uses ResumeWithValidation which handles artifacts.
-		// When --run is specified, pass the run ID so artifact paths resolve from
-		// that specific run's workspace instead of scanning for the most recent match.
-		if opts.RunID != "" {
-			execErr = executor.ResumeWithValidation(ctx, p, m, opts.Input, opts.FromStep, opts.Force, opts.RunID)
-		} else {
-			execErr = executor.ResumeWithValidation(ctx, p, m, opts.Input, opts.FromStep, opts.Force)
-		}
-	} else {
-		execErr = executor.Execute(ctx, p, m, opts.Input)
-	}
-
-	// Update the pipeline_run record so the dashboard reflects final status
-	if store != nil {
-		tokens := executor.GetTotalTokens()
-		var rejectionErr *pipeline.ContractRejectionError
-		switch {
-		case ctx.Err() != nil:
-			_ = store.UpdateRunStatus(runID, "cancelled", "pipeline cancelled", tokens)
-			_ = store.ClearCancellation(runID)
-		case execErr != nil && errors.As(execErr, &rejectionErr):
-			// Design rejection: persona output deliberately reported the
-			// work is non-actionable (e.g. `implementable: false`). This
-			// is a legitimate terminal verdict, not a runtime failure.
-			_ = store.UpdateRunStatus(runID, "rejected", execErr.Error(), tokens)
-		case execErr != nil:
-			_ = store.UpdateRunStatus(runID, "failed", execErr.Error(), tokens)
-		default:
-			_ = store.UpdateRunStatus(runID, "completed", "", tokens)
-		}
-	}
-
-	return execErr
+	result := runner.LaunchForeground(ctx, cfg)
+	return result.Executor, result.ExecErr
 }
 
 // runContinuous drives the --continuous batch loop. Each work item from the

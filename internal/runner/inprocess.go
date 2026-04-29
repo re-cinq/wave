@@ -96,12 +96,9 @@ func (s SkillStoreConfig) resolved() (skill.SkillSource, skill.SkillSource) {
 // lifetime. If cfg.OnComplete is non-nil it is invoked after the final
 // status row is written.
 func LaunchInProcess(cfg InProcessConfig) context.CancelFunc {
-	// Resolve manifest + env + runtime into a single effective view. The
-	// merge layer owns the "runtime > manifest > fallback" precedence for
-	// adapter and timeout, so the option-list assembly below stops doing
-	// it inline.
+	// Resolve manifest + env + runtime into a single effective view to pick
+	// the runner. Per-option merge happens inside BuildExecutorOptions.
 	eff := config.Resolve(manifestDefaultsFromManifest(cfg.Manifest), config.FromEnv(), cfg.Options)
-
 	runner := adapter.ResolveAdapter(eff.Adapter)
 
 	traceLogger, traceErr := audit.NewTraceLogger()
@@ -109,44 +106,21 @@ func LaunchInProcess(cfg InProcessConfig) context.CancelFunc {
 		log.Printf("Warning: failed to create trace logger: %v", traceErr)
 	}
 
-	execOpts := []pipeline.ExecutorOption{
-		pipeline.WithRunID(cfg.RunID),
-		pipeline.WithStateStore(cfg.Store),
-		pipeline.WithEmitter(cfg.Emitter),
-		pipeline.WithDebug(true),
-	}
-	if cfg.WorkspaceManager != nil {
-		execOpts = append(execOpts, pipeline.WithWorkspaceManager(cfg.WorkspaceManager))
-	}
-	if traceLogger != nil {
-		execOpts = append(execOpts, pipeline.WithAuditLogger(traceLogger))
-	}
-	if cfg.GateHandler != nil {
-		execOpts = append(execOpts, pipeline.WithGateHandler(cfg.GateHandler))
-	}
-	if eff.Model != "" {
-		execOpts = append(execOpts, pipeline.WithModelOverride(eff.Model))
-	}
-	// WithAdapterOverride forces the named adapter onto every step,
-	// overriding step.Adapter and persona.Adapter. Only apply it when the
-	// runtime supplied an explicit --adapter — the manifest-first / "claude"
-	// fallbacks captured by eff.Adapter are for runner resolution, not
-	// per-step dispatch.
-	if cfg.Options.Adapter != "" {
-		execOpts = append(execOpts, pipeline.WithAdapterOverride(cfg.Options.Adapter))
-	}
-	if cfg.Options.Timeout > 0 {
-		// Only honour the merged timeout when it actually came from a
-		// runtime override — manifest defaults are applied per-step inside
-		// the executor and overriding here would short-circuit them.
-		execOpts = append(execOpts, pipeline.WithStepTimeout(eff.StepTimeout))
-	}
-	if cfg.Options.Steps != "" || cfg.Options.Exclude != "" {
-		execOpts = append(execOpts, pipeline.WithStepFilter(pipeline.ParseStepFilter(cfg.Options.Steps, cfg.Options.Exclude)))
-	}
-
 	primary, fallback := cfg.Skills.resolved()
-	execOpts = append(execOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(primary, fallback)))
+
+	execOpts := BuildExecutorOptions(ExecutorBuildConfig{
+		RunID:            cfg.RunID,
+		Manifest:         cfg.Manifest,
+		Store:            cfg.Store,
+		Emitter:          cfg.Emitter,
+		WorkspaceManager: cfg.WorkspaceManager,
+		GateHandler:      cfg.GateHandler,
+		AuditLogger:      traceLogger,
+		Runtime:          cfg.Options,
+		Runner:           runner,
+		SkillStore:       skill.NewDirectoryStore(primary, fallback),
+		Debug:            true,
+	})
 
 	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
 

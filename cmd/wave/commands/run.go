@@ -244,18 +244,17 @@ func runRun(opts RunOptions, debug bool) error {
 		return err
 	}
 	defer res.Close()
-	executor := res.executor
 	emitter := res.emitter
 	wsRoot := res.wsRoot
-	runner := res.runner
+	adapterRunner := res.runner
 	execOpts := res.execOpts
 
 	if opts.Continuous {
-		return runContinuous(ctx, opts, &m, p, store, runner, emitter, execOpts)
+		return runContinuous(ctx, opts, &m, p, store, adapterRunner, emitter, execOpts)
 	}
 
 	pipelineStart := time.Now()
-	execErr := runOnce(ctx, executor, opts, &m, p, store, runID)
+	executor, execErr := runOnce(ctx, res, opts)
 
 	if execErr != nil {
 		// Design rejection: contract with on_failure: rejected fired. The
