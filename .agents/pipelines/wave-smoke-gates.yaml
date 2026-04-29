@@ -39,7 +39,7 @@ steps:
 
   - id: verify
     type: command
-    dependencies: [approval-gate]
+    dependencies: [prepare, approval-gate]
     script: |
       if [ ! -f .agents/output/gate-marker.json ]; then
         echo "FAIL: gate-marker.json missing"
