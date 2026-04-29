@@ -37,6 +37,10 @@ pipeline_outputs:
     step: analyze-coverage
     artifact: coverage-analysis
     type: findings_report
+  pr:
+    step: create-pr
+    artifact: pr-result
+    type: pr_ref
 
 steps:
   - id: analyze-coverage
@@ -58,10 +62,11 @@ steps:
         FOCUS: {{ input }}
 
         CONTEXT:
-        You are the first step in a four-step test hardening pipeline (analyze-coverage,
-        harden, run-tests, gate with loop). Your analysis will be consumed by a craftsman
-        persona who will add tests to cover the identified gaps. The pipeline loops: if
-        new tests fail, the harden step is re-visited. This is a Wave self-evolution
+        You are the first step in a five-step test hardening pipeline (analyze-coverage,
+        harden, run-tests, gate with loop, create-pr). Your analysis will be consumed by
+        a craftsman persona who will add tests to cover the identified gaps. The pipeline
+        loops: if new tests fail, the harden step is re-visited; on success the run ends
+        with a pull request opened by the create-pr step. This is a Wave self-evolution
         pipeline that always targets Wave's own Go codebase. You have read-only access
         to the project.
 
@@ -166,10 +171,8 @@ steps:
           artifact: coverage-analysis
           as: findings
     workspace:
-      mount:
-        - source: ./
-          target: /project
-          mode: readwrite
+      type: worktree
+      branch: "{{ pipeline_id }}"
     exec:
       type: prompt
       source: |
@@ -181,11 +184,12 @@ steps:
         CONTEXT:
         You are the second step in the test hardening pipeline. The coverage analysis
         artifact (injected as "findings") contains a prioritized list of test gaps with
-        package names, function names, gap types, and difficulty ratings. You have
-        read-write access to the project codebase. This step may be visited up to 3 times
-        if the test suite fails (the pipeline loops through run-tests and back to this step).
-        If this is a re-visit, focus on fixing the specific test failures from the previous
-        run rather than adding more new tests.
+        package names, function names, gap types, and difficulty ratings. You are running
+        in an isolated git worktree on a feature branch ({{ pipeline_id }}); commit your
+        changes here so the create-pr step can push the branch and open a pull request.
+        This step may be visited up to 3 times if the test suite fails (the pipeline loops
+        through run-tests and back to this step). If this is a re-visit, focus on fixing
+        the specific test failures from the previous run rather than adding more new tests.
 
         REQUIREMENTS:
         1. Read the findings artifact to get the prioritized list of test gaps. Start with
@@ -222,6 +226,12 @@ steps:
            - Fix those failures first before adding any new tests
         5. Aim to address at least 5 gaps per visit, prioritizing critical and high-priority
            items. If time/context allows, continue to medium-priority items.
+        6. Commit your changes on the current branch so the create-pr step has something
+           to push. Stage only the files you actually modified (test files and any source
+           files you fixed); never use `git add -A` because Wave-managed artifact and
+           output directories must stay out of the commit. Use a conventional commit
+           message such as `test(<package>): cover <gap-id> ...`. If a re-visit only
+           tweaks existing changes, amend or add follow-up commits as appropriate.
 
         CONSTRAINTS AND ANTI-PATTERNS:
         - Do NOT use t.Skip() without a linked issue number explaining why the test
@@ -263,12 +273,126 @@ steps:
   - id: run-tests
     type: command
     dependencies: [harden]
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
     script: "{{ project.contract_test_command }}"
 
   - id: gate
     type: conditional
     dependencies: [run-tests]
     edges:
-      - target: _complete
+      - target: create-pr
         condition: "outcome=success"
       - target: harden
+
+  - id: create-pr
+    persona: "{{ forge.type }}-commenter"
+    model: cheapest
+    contexts: [delivery]
+    dependencies: [gate]
+    memory:
+      inject_artifacts:
+        - step: analyze-coverage
+          artifact: coverage-analysis
+          as: coverage_findings
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source: |
+        OBJECTIVE:
+        Open a pull request for the test hardening commits produced by the harden step.
+        The PR is the operator-facing deliverable for this pipeline run — without it the
+        added tests sit unreviewed on a feature branch.
+
+        FOCUS: {{ input }}
+
+        CONTEXT:
+        You are running in an isolated git worktree on branch `{{ pipeline_id }}` shared
+        with the harden + run-tests steps. The harden step has already committed new test
+        files (and any minimal source fixes) to this branch and the test suite passes.
+        Your job is to push the branch and open a pull request with a summary that
+        references the coverage gaps addressed in this run. The injected
+        `coverage_findings` artifact contains the prioritized list of gaps and metadata.
+
+        SAFETY: Do NOT run `git checkout`, `git stash`, `git reset --hard`, or any command
+        that switches the current branch. The worktree is already on the right branch.
+
+        REQUIREMENTS:
+        1. Verify there is at least one commit ahead of the base branch:
+           ```bash
+           git log --oneline origin/main..HEAD
+           ```
+           The harden step's `must_pass: true` test_suite contract guarantees commits
+           exist on this branch — if the log is empty, fail the step with a clear
+           message rather than fabricating a PR.
+        2. Detect the repository owner/repo:
+           ```bash
+           gh repo view --json nameWithOwner --jq .nameWithOwner
+           ```
+        3. Push the feature branch (retry over HTTPS if SSH fails):
+           ```bash
+           git push -u origin "{{ pipeline_id }}" \
+             || GIT_SSH_COMMAND="ssh -F /dev/null" git push -u origin "{{ pipeline_id }}"
+           ```
+        4. Create the pull request. Read `coverage_findings` to extract the focus area and
+           the highest-priority gap IDs that were addressed. Build a summary:
+           ```bash
+           gh pr create \
+             --repo <OWNER/REPO> \
+             --head "{{ pipeline_id }}" \
+             --title "test(wave): harden coverage for <focus area>" \
+             --body "$(cat <<'EOF'
+        ## Summary
+        Test hardening run produced by the `wave-test-hardening` pipeline.
+
+        - Focus area: <from coverage_findings.focus>
+        - Gaps addressed: <comma-separated GAP-### ids from the coverage findings>
+        - Test suite: green at HEAD ({{ project.contract_test_command }})
+
+        ## Coverage Notes
+        <2-4 bullets describing which packages and functions gained coverage>
+
+        ## Test Plan
+        - [x] `{{ project.contract_test_command }}` passes locally on this branch
+        - [ ] Reviewer spot-checks the new tests for table-driven structure and edge case coverage
+        EOF
+        )"
+           ```
+        5. Capture the resulting PR number and URL from the `gh` output and write the
+           `pr-result` JSON. If PR creation fails for an already-existing branch, fall
+           back to `gh pr view --head "{{ pipeline_id }}" --json number,url` to recover
+           the existing PR reference.
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT include Co-Authored-By trailers or AI attribution in the PR body or
+          commits.
+        - Do NOT stage or commit anything new in this step. The harden step already did
+          the work; you only push and open the PR.
+        - Do NOT switch branches under any circumstances.
+        - Do NOT fabricate the PR URL. If `gh pr create` fails, record the error in the
+          `pr-result` artifact instead of inventing a URL.
+
+        OUTPUT FORMAT:
+        Produce a `pr-result` JSON matching the schema injected by the contract block.
+        Required fields: `pr_url`, `pr_number`, `branch`, `summary`.
+    output_artifacts:
+      - name: pr-result
+        path: .agents/output/pr-result.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .agents/output/pr-result.json
+        schema_path: .agents/contracts/pr-result.schema.json
+        on_failure: warn
+    outcomes:
+      - type: pr
+        extract_from: .agents/output/pr-result.json
+        json_path: .pr_url
+        label: "Pull Request"
