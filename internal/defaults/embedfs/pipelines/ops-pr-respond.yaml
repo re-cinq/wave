@@ -462,7 +462,7 @@ steps:
           source: .agents/output/triaged-findings.json
           model: cheapest
           token_budget: 0
-          timeout: 90s
+          timeout: 300s
           criteria:
             - "Every actionable item has a non-empty remediation that names a concrete edit."
             - "Severity classifications are calibrated — critical/high reserved for correctness or security risks."
@@ -735,7 +735,7 @@ steps:
           source: .agents/output/comment-result.json
           model: cheapest
           token_budget: 0
-          timeout: 60s
+          timeout: 300s
           criteria:
             - "The posted comment maps every actionable finding id to either a commit SHA or a clear skipped/failed status."
             - "Verdict line at the top matches verify-verdict.json."

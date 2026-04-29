@@ -118,5 +118,5 @@ steps:
         source: .agents/output/tests-report.md
         model: cheapest
         token_budget: 0
-        timeout: 90s
+        timeout: 300s
         on_failure: warn

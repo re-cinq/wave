@@ -107,7 +107,7 @@ steps:
           source: .agents/output/impl-plan.json
           model: balanced
           token_budget: 0
-          timeout: 120s
+          timeout: 300s
           on_failure: warn
 
   - id: implement
@@ -238,7 +238,7 @@ steps:
           criteria_path: .agents/contracts/impl-review-criteria.md
           model: cheapest
           token_budget: 0
-          timeout: 90s
+          timeout: 300s
           context:
             - source: git_diff
           on_failure: warn
