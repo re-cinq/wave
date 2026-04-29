@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Contract Check Result",
+  "description": "Outcome of the wave-smoke-contracts validate step. Both data_valid and schema_valid must be true for the smoke test to count as passing.",
+  "type": "object",
+  "required": ["data_valid", "schema_valid", "checked_at"],
+  "additionalProperties": true,
+  "properties": {
+    "data_valid": {
+      "type": "boolean",
+      "const": true,
+      "description": "Test data file existed and parsed as valid JSON."
+    },
+    "schema_valid": {
+      "type": "boolean",
+      "const": true,
+      "description": "Test schema file existed and parsed as valid JSON."
+    },
+    "checked_at": {
+      "type": "string",
+      "description": "Timestamp when the check ran."
+    }
+  }
+}

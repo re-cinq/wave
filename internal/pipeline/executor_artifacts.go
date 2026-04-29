@@ -190,6 +190,24 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 		}
 	}
 
+	// Inject input artifact paths so the persona knows where to read upstream files.
+	// Paths mirror injectArtifacts() destination logic: filepath.Join(workspace, ".agents/artifacts", as|artifact).
+	if len(step.Memory.InjectArtifacts) > 0 {
+		var sb strings.Builder
+		sb.WriteString("\n## Input Artifacts\n\n")
+		sb.WriteString("Upstream artifacts have been placed in your workspace at these paths:\n\n")
+		for _, ref := range step.Memory.InjectArtifacts {
+			name := ref.As
+			if name == "" {
+				name = ref.Artifact
+			}
+			sb.WriteString(fmt.Sprintf("- `.agents/artifacts/%s` (from step `%s`, artifact `%s`)\n", name, ref.Step, ref.Artifact))
+		}
+		sb.WriteString("\nRead these files at the paths shown. They are guaranteed to exist before this step runs.\n\n")
+		sb.WriteString(prompt)
+		prompt = sb.String()
+	}
+
 	// Inject output artifact paths so the persona knows where to write artifacts
 	if len(step.OutputArtifacts) > 0 {
 		var sb strings.Builder
