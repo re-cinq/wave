@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"log"
-	"time"
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/audit"
@@ -98,7 +97,13 @@ func (s SkillStoreConfig) resolved() (skill.SkillSource, skill.SkillSource) {
 // lifetime. If cfg.OnComplete is non-nil it is invoked after the final
 // status row is written.
 func LaunchInProcess(cfg InProcessConfig) context.CancelFunc {
-	runner := resolveAdapterRunner(cfg.Options.Adapter, cfg.Manifest)
+	// Resolve manifest + env + runtime into a single effective view. The
+	// merge layer owns the "runtime > manifest > fallback" precedence for
+	// adapter and timeout, so the option-list assembly below stops doing
+	// it inline.
+	eff := config.Resolve(manifestDefaultsFromManifest(cfg.Manifest), config.FromEnv(), cfg.Options)
+
+	runner := adapter.ResolveAdapter(eff.Adapter)
 
 	traceLogger, traceErr := audit.NewTraceLogger()
 	if traceErr != nil {
@@ -121,14 +126,22 @@ func LaunchInProcess(cfg InProcessConfig) context.CancelFunc {
 	if cfg.GateHandler != nil {
 		execOpts = append(execOpts, pipeline.WithGateHandler(cfg.GateHandler))
 	}
-	if cfg.Options.Model != "" {
-		execOpts = append(execOpts, pipeline.WithModelOverride(cfg.Options.Model))
+	if eff.Model != "" {
+		execOpts = append(execOpts, pipeline.WithModelOverride(eff.Model))
 	}
+	// WithAdapterOverride forces the named adapter onto every step,
+	// overriding step.Adapter and persona.Adapter. Only apply it when the
+	// runtime supplied an explicit --adapter — the manifest-first / "claude"
+	// fallbacks captured by eff.Adapter are for runner resolution, not
+	// per-step dispatch.
 	if cfg.Options.Adapter != "" {
 		execOpts = append(execOpts, pipeline.WithAdapterOverride(cfg.Options.Adapter))
 	}
 	if cfg.Options.Timeout > 0 {
-		execOpts = append(execOpts, pipeline.WithStepTimeout(time.Duration(cfg.Options.Timeout)*time.Minute))
+		// Only honour the merged timeout when it actually came from a
+		// runtime override — manifest defaults are applied per-step inside
+		// the executor and overriding here would short-circuit them.
+		execOpts = append(execOpts, pipeline.WithStepTimeout(eff.StepTimeout))
 	}
 	if cfg.Options.Steps != "" || cfg.Options.Exclude != "" {
 		execOpts = append(execOpts, pipeline.WithStepFilter(pipeline.ParseStepFilter(cfg.Options.Steps, cfg.Options.Exclude)))
@@ -189,18 +202,29 @@ func LaunchInProcess(cfg InProcessConfig) context.CancelFunc {
 	return cancel
 }
 
-// resolveAdapterRunner mirrors the heuristic the webui used: explicit override
-// wins, otherwise pick the first adapter declared on the manifest, otherwise
-// fall back to "claude". Kept as a private helper because the cmd path uses a
-// richer adapter registry that we don't want to invade in this PR.
-func resolveAdapterRunner(adapterOverride string, m *manifest.Manifest) adapter.AdapterRunner {
-	if adapterOverride != "" {
-		return adapter.ResolveAdapter(adapterOverride)
+// manifestDefaultsFromManifest adapts a *manifest.Manifest into the
+// config.ManifestDefaults interface used by config.Resolve. The interface
+// indirection exists because internal/config cannot import internal/manifest
+// (manifest transitively imports config via hooks/scope, which would cycle).
+//
+// A nil manifest yields a ManifestDefaults that returns zero values; Resolve
+// treats that the same as a zero-valued manifest, falling through to the
+// hard-coded adapter and timeout fallbacks.
+func manifestDefaultsFromManifest(m *manifest.Manifest) config.ManifestDefaults {
+	if m == nil {
+		return nil
 	}
-	if m != nil {
-		for adapterName := range m.Adapters {
-			return adapter.ResolveAdapter(adapterName)
-		}
+	return config.ManifestDefaultsFunc{
+		FirstAdapterFn: func() string {
+			// Map iteration order is non-deterministic; the previous
+			// implementation relied on this. Preserve semantics by
+			// returning the first key Go yields — callers that pin a
+			// specific adapter must use --adapter explicitly.
+			for adapterName := range m.Adapters {
+				return adapterName
+			}
+			return ""
+		},
+		DefaultTimeoutFn: m.Runtime.GetDefaultTimeout,
 	}
-	return adapter.ResolveAdapter("claude")
 }
