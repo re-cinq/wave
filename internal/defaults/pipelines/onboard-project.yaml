@@ -44,7 +44,6 @@ pipeline_outputs:
 steps:
   - id: detect
     persona: onboarder
-    model: cheapest
     workspace:
       mount:
         - source: ./
@@ -71,7 +70,6 @@ steps:
   - id: propose
     persona: onboarder
     thread: onboard
-    model: cheapest
     dependencies: [detect]
     memory:
       inject_artifacts:
@@ -101,7 +99,6 @@ steps:
   - id: generate
     persona: onboarder
     thread: onboard
-    model: cheapest
     dependencies: [propose]
     memory:
       inject_artifacts:
@@ -134,7 +131,6 @@ steps:
   - id: finalize
     persona: craftsman
     thread: onboard
-    model: cheapest
     dependencies: [generate]
     memory:
       inject_artifacts:

@@ -70,7 +70,7 @@ Examples:
 
 func runDo(input string, opts DoOptions) error {
 	// Gate on onboarding completion
-	if err := checkOnboarding(); err != nil {
+	if err := checkOnboarding(""); err != nil {
 		return err
 	}
 

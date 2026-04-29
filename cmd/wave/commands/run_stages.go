@@ -41,9 +41,10 @@ import (
 // that must hold before any I/O happens. Each guard returns a CLIError so the
 // caller surfaces a structured exit code.
 func validateFlags(opts RunOptions) error {
-	// Gate on onboarding completion — skip when --force is set
+	// Gate on onboarding completion — skip when --force is set, or when the
+	// pipeline is a bootstrap pipeline (which exists to prime the project).
 	if !opts.Force {
-		if err := checkOnboarding(); err != nil {
+		if err := checkOnboarding(opts.Pipeline); err != nil {
 			return NewCLIError(CodeOnboardingRequired,
 				"onboarding not complete",
 				"Run 'wave init' to complete setup before running pipelines")
@@ -91,7 +92,17 @@ func setupSignalHandling() (context.Context, context.CancelFunc) {
 func loadManifestAndPipeline(opts *RunOptions, debug *bool) (*pipeline.Pipeline, manifest.Manifest, *pipeline.StepFilter, bool, error) {
 	mp, err := loadManifestStrict(opts.Manifest)
 	if err != nil {
-		return nil, manifest.Manifest{}, nil, false, err
+		// Bootstrap pipelines may run without a pre-existing manifest — they
+		// exist to produce one. Fall back to embedded defaults so the cold-start
+		// flow can complete.
+		if bootstrapPipelines[opts.Pipeline] && os.IsNotExist(errors.Unwrap(err)) {
+			mp, err = loadDefaultBootstrapManifest()
+			if err != nil {
+				return nil, manifest.Manifest{}, nil, false, err
+			}
+		} else {
+			return nil, manifest.Manifest{}, nil, false, err
+		}
 	}
 	m := *mp
 
@@ -146,6 +157,9 @@ func loadManifestAndPipeline(opts *RunOptions, debug *bool) (*pipeline.Pipeline,
 // run to in-memory operation with a warning, returning nil so callers can
 // nil-check without separate error plumbing.
 func buildStateStore() state.StateStore {
+	// Cold-start repos have no .agents/ yet; create it so SQLite can open the
+	// db file. mkdir-all is a no-op when the directory already exists.
+	_ = os.MkdirAll(".agents", 0o755)
 	store, err := state.NewStateStore(".agents/state.db")
 	if err != nil {
 		// Non-fatal: continue without state persistence

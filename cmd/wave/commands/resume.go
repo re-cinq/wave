@@ -79,15 +79,6 @@ matching the behaviour of 'wave run --force'.`,
 }
 
 func runResume(opts ResumeOptions, debug bool) error {
-	// Gate on onboarding completion — skip when --force is set.
-	if !opts.Force {
-		if err := checkOnboarding(); err != nil {
-			return NewCLIError(CodeOnboardingRequired,
-				"onboarding not complete",
-				"Run 'wave init' to complete setup before running pipelines")
-		}
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -114,6 +105,16 @@ func runResume(opts ResumeOptions, debug bool) error {
 		return NewCLIError(CodeInvalidArgs,
 			fmt.Sprintf("run %q not found", opts.RunID),
 			"Use 'wave list runs' to see available run IDs")
+	}
+
+	// Gate on onboarding completion — skip when --force is set, or when
+	// resuming a bootstrap pipeline (which exists to prime the project).
+	if !opts.Force {
+		if err := checkOnboarding(run.PipelineName); err != nil {
+			return NewCLIError(CodeOnboardingRequired,
+				"onboarding not complete",
+				"Run 'wave init' to complete setup before running pipelines")
+		}
 	}
 
 	// Refuse to resume a run that completed successfully.
