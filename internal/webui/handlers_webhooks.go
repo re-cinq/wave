@@ -51,7 +51,7 @@ func isPublicURL(rawURL string) bool {
 // --- Page Handler ---
 
 func (s *Server) handleWebhooksPage(w http.ResponseWriter, r *http.Request) {
-	webhooks, _ := s.store.ListWebhooks()
+	webhooks, _ := s.runtime.store.ListWebhooks()
 
 	data := struct {
 		ActivePage string
@@ -62,7 +62,7 @@ func (s *Server) handleWebhooksPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/webhooks.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/webhooks.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -75,13 +75,13 @@ func (s *Server) handleWebhookDetailPage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	webhook, err := s.store.GetWebhook(id)
+	webhook, err := s.runtime.store.GetWebhook(id)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("webhook not found: %s", err), http.StatusNotFound)
 		return
 	}
 
-	deliveries, _ := s.store.GetWebhookDeliveries(id, 50)
+	deliveries, _ := s.runtime.store.GetWebhookDeliveries(id, 50)
 
 	data := struct {
 		ActivePage string
@@ -94,7 +94,7 @@ func (s *Server) handleWebhookDetailPage(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/webhook_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/webhook_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -102,7 +102,7 @@ func (s *Server) handleWebhookDetailPage(w http.ResponseWriter, r *http.Request)
 // --- API Endpoints ---
 
 func (s *Server) handleAPIWebhooks(w http.ResponseWriter, r *http.Request) {
-	webhooks, err := s.store.ListWebhooks()
+	webhooks, err := s.runtime.store.ListWebhooks()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to list webhooks: %s", err), http.StatusInternalServerError)
 		return
@@ -152,7 +152,7 @@ func (s *Server) handleAPICreateWebhook(w http.ResponseWriter, r *http.Request) 
 		UpdatedAt: time.Now(),
 	}
 
-	id, err := s.rwStore.CreateWebhook(webhook)
+	id, err := s.runtime.rwStore.CreateWebhook(webhook)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to create webhook: %s", err), http.StatusInternalServerError)
 		return
@@ -172,13 +172,13 @@ func (s *Server) handleAPIWebhookDetail(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	webhook, err := s.store.GetWebhook(id)
+	webhook, err := s.runtime.store.GetWebhook(id)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("webhook not found: %s", err), http.StatusNotFound)
 		return
 	}
 
-	deliveries, _ := s.store.GetWebhookDeliveries(id, 20)
+	deliveries, _ := s.runtime.store.GetWebhookDeliveries(id, 20)
 
 	resp := struct {
 		*state.Webhook
@@ -200,7 +200,7 @@ func (s *Server) handleAPIUpdateWebhook(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	existing, err := s.store.GetWebhook(id)
+	existing, err := s.runtime.store.GetWebhook(id)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("webhook not found: %s", err), http.StatusNotFound)
 		return
@@ -243,7 +243,7 @@ func (s *Server) handleAPIUpdateWebhook(w http.ResponseWriter, r *http.Request) 
 	}
 	existing.UpdatedAt = time.Now()
 
-	if err := s.rwStore.UpdateWebhook(existing); err != nil {
+	if err := s.runtime.rwStore.UpdateWebhook(existing); err != nil {
 		http.Error(w, fmt.Sprintf("failed to update webhook: %s", err), http.StatusInternalServerError)
 		return
 	}
@@ -260,7 +260,7 @@ func (s *Server) handleAPIDeleteWebhook(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := s.rwStore.DeleteWebhook(id); err != nil {
+	if err := s.runtime.rwStore.DeleteWebhook(id); err != nil {
 		http.Error(w, fmt.Sprintf("failed to delete webhook: %s", err), http.StatusInternalServerError)
 		return
 	}
@@ -276,7 +276,7 @@ func (s *Server) handleAPITestWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	webhook, err := s.store.GetWebhook(id)
+	webhook, err := s.runtime.store.GetWebhook(id)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("webhook not found: %s", err), http.StatusNotFound)
 		return

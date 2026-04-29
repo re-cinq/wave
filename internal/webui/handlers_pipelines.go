@@ -29,8 +29,8 @@ func (s *Server) handlePipelinesPage(w http.ResponseWriter, r *http.Request) {
 	pipelines := s.getPipelineSummaries()
 
 	// Enrich with run counts
-	if s.store != nil {
-		allRuns, err := s.store.ListRuns(state.ListRunsOptions{Limit: 10000})
+	if s.runtime.store != nil {
+		allRuns, err := s.runtime.store.ListRuns(state.ListRunsOptions{Limit: 10000})
 		if err == nil {
 			counts := make(map[string]int)
 			for _, run := range allRuns {
@@ -87,7 +87,7 @@ func (s *Server) handlePipelinesPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/pipelines.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/pipelines.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -444,8 +444,8 @@ func (s *Server) handlePipelineDetailPage(w http.ResponseWriter, r *http.Request
 	// Fetch recent runs for this pipeline
 	var recentRuns []RunSummary
 	var runCount int
-	if s.store != nil {
-		runs, err := s.store.ListRuns(state.ListRunsOptions{
+	if s.runtime.store != nil {
+		runs, err := s.runtime.store.ListRuns(state.ListRunsOptions{
 			PipelineName: name,
 			Limit:        1000,
 			// Filter out composition children (issue #1450) — sub-pipeline
@@ -484,7 +484,7 @@ func (s *Server) handlePipelineDetailPage(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/pipeline_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/pipeline_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }

@@ -23,7 +23,7 @@ func (s *Server) handleArtifact(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Find the artifact in the database
-	artifacts, err := s.store.GetArtifacts(runID, stepID)
+	artifacts, err := s.runtime.store.GetArtifacts(runID, stepID)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to get artifacts")
 		return

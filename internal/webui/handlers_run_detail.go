@@ -18,7 +18,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	run, err := s.store.GetRun(runID)
+	run, err := s.runtime.store.GetRun(runID)
 	if err != nil {
 		http.Error(w, "run not found", http.StatusNotFound)
 		return
@@ -33,7 +33,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		stepDetailMap[sd.StepID] = sd
 	}
 
-	events, err := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 5000})
+	events, err := s.runtime.store.GetEvents(runID, state.EventQueryOptions{Limit: 5000})
 	if err != nil {
 		log.Printf("[webui] failed to get events for run %s: %v", runID, err)
 	}
@@ -87,7 +87,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 
 	// Collect child runs for sub-pipeline steps
 	childRuns := make(map[string][]RunSummary)
-	if children, err := s.store.GetChildRuns(runID); err == nil {
+	if children, err := s.runtime.store.GetChildRuns(runID); err == nil {
 		for _, cr := range children {
 			summary := runToSummary(cr)
 			childRuns[cr.ParentStepID] = append(childRuns[cr.ParentStepID], summary)
@@ -172,7 +172,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/run_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/run_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -205,10 +205,10 @@ func buildOutputCard(stepDetails []StepDetail) (summary string, artifacts []Arti
 // linked URL. Returns empty values when no URL is set, the forge client is
 // unavailable, or the URL doesn't match a recognized PR/issue path.
 func (s *Server) enrichLinkedURL(r *http.Request, linkedURL string) (title, state, author, kind string, number int) {
-	if linkedURL == "" || s.forgeClient == nil || s.repoSlug == "" {
+	if linkedURL == "" || s.runtime.forgeClient == nil || s.runtime.repoSlug == "" {
 		return
 	}
-	parts := strings.Split(s.repoSlug, "/")
+	parts := strings.Split(s.runtime.repoSlug, "/")
 	if len(parts) != 2 {
 		return
 	}
@@ -227,7 +227,7 @@ func (s *Server) enrichLinkedURL(r *http.Request, linkedURL string) (title, stat
 		switch p {
 		case "pull", "merge_requests":
 			kind = "pr"
-			if pr, err := s.forgeClient.GetPullRequest(ctx, owner, repo, num); err == nil {
+			if pr, err := s.runtime.forgeClient.GetPullRequest(ctx, owner, repo, num); err == nil {
 				title = pr.Title
 				state = pr.State
 				if pr.Merged {
@@ -237,7 +237,7 @@ func (s *Server) enrichLinkedURL(r *http.Request, linkedURL string) (title, stat
 			}
 		case "issues":
 			kind = "issue"
-			if iss, err := s.forgeClient.GetIssue(ctx, owner, repo, num); err == nil {
+			if iss, err := s.runtime.forgeClient.GetIssue(ctx, owner, repo, num); err == nil {
 				title = iss.Title
 				state = iss.State
 				author = iss.Author
@@ -259,8 +259,8 @@ func (s *Server) buildTemplateVars(input string) map[string]string {
 	templateVars["forge.type"] = string(forgeInfo.Type)
 	templateVars["forge.pr_term"] = forgeInfo.PRTerm
 	templateVars["forge.pr_command"] = forgeInfo.PRCommand
-	if s.manifest != nil && s.manifest.Project != nil {
-		for k, v := range s.manifest.Project.ProjectVars() {
+	if s.runtime.manifest != nil && s.runtime.manifest.Project != nil {
+		for k, v := range s.runtime.manifest.Project.ProjectVars() {
 			templateVars["project."+k] = v
 		}
 	}
@@ -271,14 +271,14 @@ func (s *Server) buildTemplateVars(input string) map[string]string {
 // (timeout, stall timeout) for the run-detail page.
 func (s *Server) buildRunConfigItems() []struct{ Label, Value, Tooltip string } {
 	var items []struct{ Label, Value, Tooltip string }
-	if s.manifest == nil {
+	if s.runtime.manifest == nil {
 		return items
 	}
-	if timeout := s.manifest.Runtime.GetDefaultTimeout(); timeout > 0 {
+	if timeout := s.runtime.manifest.Runtime.GetDefaultTimeout(); timeout > 0 {
 		items = append(items, struct{ Label, Value, Tooltip string }{"Timeout", timeout.String(), "Maximum duration per step before it is cancelled"})
 	}
-	if s.manifest.Runtime.StallTimeout != "" {
-		items = append(items, struct{ Label, Value, Tooltip string }{"Stall timeout", s.manifest.Runtime.StallTimeout, "Step is cancelled if no tool activity for this duration"})
+	if s.runtime.manifest.Runtime.StallTimeout != "" {
+		items = append(items, struct{ Label, Value, Tooltip string }{"Stall timeout", s.runtime.manifest.Runtime.StallTimeout, "Step is cancelled if no tool activity for this duration"})
 	}
 	return items
 }

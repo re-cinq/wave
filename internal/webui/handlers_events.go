@@ -21,7 +21,7 @@ func (s *Server) handleAPIStepEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify run exists
-	_, err := s.store.GetRun(runID)
+	_, err := s.runtime.store.GetRun(runID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "run not found")
 		return
@@ -47,7 +47,7 @@ func (s *Server) handleAPIStepEvents(w http.ResponseWriter, r *http.Request) {
 		Limit:  limit + 1, // fetch one extra to determine hasMore
 	}
 
-	events, err := s.store.GetEvents(runID, opts)
+	events, err := s.runtime.store.GetEvents(runID, opts)
 	if err != nil {
 		log.Printf("[webui] failed to get step events for run %s: %v", runID, err)
 		writeJSONError(w, http.StatusInternalServerError, "failed to get events")

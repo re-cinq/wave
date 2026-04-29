@@ -36,35 +36,65 @@ const (
 	AuthModeMTLS   AuthMode = "mtls"
 )
 
-// Server is the HTTP server for the Wave dashboard.
-type Server struct {
-	httpServer        *http.Server
-	store             state.StateStore
-	rwStore           state.StateStore // read-write store for execution control
-	manifest          *manifest.Manifest
-	templates         map[string]*template.Template
+// serverTransport groups HTTP-only fields: the underlying server and its
+// bind address.
+type serverTransport struct {
+	httpServer *http.Server
+	bind       string
+	port       int
+}
+
+// serverAuth groups credentials and TLS material used to authenticate and
+// secure incoming requests.
+type serverAuth struct {
+	token     string
+	authMode  AuthMode
+	jwtSecret string
+	tlsCert   string
+	tlsKey    string
+	tlsCA     string
+	csrfToken string
+}
+
+// serverRuntime groups the long-lived runtime collaborators: state stores,
+// manifest, workspace manager, forge client, and pipeline scheduler.
+type serverRuntime struct {
+	store       state.StateStore
+	rwStore     state.StateStore // read-write store for execution control
+	manifest    *manifest.Manifest
+	wsManager   workspace.WorkspaceManager
+	forgeClient forge.Client
+	repoSlug    string // "owner/repo"
+	repoDir     string // git repository root directory
+	scheduler   *Scheduler
+}
+
+// serverRealtime groups the realtime/eventing collaborators: SSE broker,
+// gate registry, attention broker, and the live run/pipeline tracking maps.
+type serverRealtime struct {
 	broker            *SSEBroker
-	wsManager         workspace.WorkspaceManager
-	forgeClient       forge.Client
-	repoSlug          string // "owner/repo"
-	repoDir           string // git repository root directory
-	bind              string
-	port              int
-	token             string
-	authMode          AuthMode
-	jwtSecret         string
-	scheduler         *Scheduler
 	gateRegistry      *GateRegistry
+	attention         *attention.Broker
 	activeRuns        map[string]context.CancelFunc // runID -> cancel
 	disabledPipelines map[string]bool               // pipeline name -> disabled
-	mu                sync.Mutex
-	tlsCert           string
-	tlsKey            string
-	tlsCA             string
-	csrfToken         string
-	cache             *apiCache
-	attention         *attention.Broker
-	features          *FeatureRegistry
+}
+
+// serverAssets groups templates, the in-memory API cache, and the feature
+// registry — the read-mostly assets used to render responses.
+type serverAssets struct {
+	templates map[string]*template.Template
+	cache     *apiCache
+	features  *FeatureRegistry
+}
+
+// Server is the HTTP server for the Wave dashboard.
+type Server struct {
+	transport serverTransport
+	auth      serverAuth
+	runtime   serverRuntime
+	realtime  serverRealtime
+	assets    serverAssets
+	mu        sync.Mutex
 }
 
 // ServerConfig holds configuration for the dashboard server.
@@ -184,42 +214,52 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	}
 
 	s := &Server{
-		store:             roStore,
-		rwStore:           rwStore,
-		manifest:          cfg.Manifest,
-		templates:         tmpl,
-		broker:            NewSSEBroker(),
-		wsManager:         wsManager,
-		forgeClient:       forgeClient,
-		repoSlug:          repoSlug,
-		repoDir:           repoDir,
-		bind:              cfg.Bind,
-		port:              cfg.Port,
-		token:             cfg.Token,
-		authMode:          authMode,
-		jwtSecret:         cfg.JWTSecret,
-		scheduler:         NewScheduler(cfg.MaxConcurrent),
-		gateRegistry:      NewGateRegistry(),
-		activeRuns:        make(map[string]context.CancelFunc),
-		disabledPipelines: make(map[string]bool),
-		tlsCert:           cfg.TLSCert,
-		tlsKey:            cfg.TLSKey,
-		tlsCA:             cfg.TLSCA,
-		csrfToken:         csrfToken,
-		cache:             newAPICache(5 * time.Minute),
-		attention:         attention.NewBroker(),
-		features:          features,
+		transport: serverTransport{
+			bind: cfg.Bind,
+			port: cfg.Port,
+		},
+		auth: serverAuth{
+			token:     cfg.Token,
+			authMode:  authMode,
+			jwtSecret: cfg.JWTSecret,
+			tlsCert:   cfg.TLSCert,
+			tlsKey:    cfg.TLSKey,
+			tlsCA:     cfg.TLSCA,
+			csrfToken: csrfToken,
+		},
+		runtime: serverRuntime{
+			store:       roStore,
+			rwStore:     rwStore,
+			manifest:    cfg.Manifest,
+			wsManager:   wsManager,
+			forgeClient: forgeClient,
+			repoSlug:    repoSlug,
+			repoDir:     repoDir,
+			scheduler:   NewScheduler(cfg.MaxConcurrent),
+		},
+		realtime: serverRealtime{
+			broker:            NewSSEBroker(),
+			gateRegistry:      NewGateRegistry(),
+			attention:         attention.NewBroker(),
+			activeRuns:        make(map[string]context.CancelFunc),
+			disabledPipelines: make(map[string]bool),
+		},
+		assets: serverAssets{
+			templates: tmpl,
+			cache:     newAPICache(5 * time.Minute),
+			features:  features,
+		},
 	}
 
 	// Wire attention broker into the SSE broker so pipeline events
 	// are automatically forwarded to the attention classifier.
-	s.broker.attentionSink = s.attention
+	s.realtime.broker.attentionSink = s.realtime.attention
 
 	mux := http.NewServeMux()
 	s.registerRoutes(mux)
 
 	addr := fmt.Sprintf("%s:%d", cfg.Bind, cfg.Port)
-	s.httpServer = &http.Server{
+	s.transport.httpServer = &http.Server{
 		Addr:         addr,
 		Handler:      s.applyMiddleware(mux),
 		ReadTimeout:  15 * time.Second,
@@ -255,7 +295,7 @@ func (s *Server) reconcileZombiesLoop(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			if reclaimed := state.ReconcileZombies(s.rwStore, 0); reclaimed > 0 {
+			if reclaimed := state.ReconcileZombies(s.runtime.rwStore, 0); reclaimed > 0 {
 				log.Printf("[webui] reconciled %d zombie run(s)", reclaimed)
 			}
 		case <-ctx.Done():
@@ -265,12 +305,12 @@ func (s *Server) reconcileZombiesLoop(ctx context.Context) {
 }
 
 func (s *Server) syncAttentionFromDB() {
-	if s.attention == nil {
+	if s.realtime.attention == nil {
 		return
 	}
 	// Only track running runs. Completed and failed runs are done —
 	// they don't need live attention, the run detail page shows their status.
-	running, err := s.store.ListRuns(state.ListRunsOptions{Status: "running"})
+	running, err := s.runtime.store.ListRuns(state.ListRunsOptions{Status: "running"})
 	if err != nil {
 		log.Printf("[attention] failed to list running runs: %v", err)
 		return
@@ -281,7 +321,7 @@ func (s *Server) syncAttentionFromDB() {
 
 	for _, r := range running {
 		seen[r.RunID] = true
-		s.attention.UpdateWithName(r.RunID, r.PipelineName, event.Event{
+		s.realtime.attention.UpdateWithName(r.RunID, r.PipelineName, event.Event{
 			PipelineID: r.RunID,
 			State:      "running",
 			StepID:     r.CurrentStep,
@@ -290,10 +330,10 @@ func (s *Server) syncAttentionFromDB() {
 	}
 
 	// Clear completed runs that the attention broker still tracks.
-	summary := s.attention.Summary()
+	summary := s.realtime.attention.Summary()
 	for _, ra := range summary.Runs {
 		if !seen[ra.RunID] {
-			s.attention.Update(event.Event{
+			s.realtime.attention.Update(event.Event{
 				PipelineID: ra.RunID,
 				State:      "completed",
 				Timestamp:  now,
@@ -304,34 +344,34 @@ func (s *Server) syncAttentionFromDB() {
 
 // Start starts the HTTP server and blocks until shutdown.
 func (s *Server) Start() error {
-	go s.broker.Start()
+	go s.realtime.broker.Start()
 	attentionCtx, attentionCancel := context.WithCancel(context.Background())
 	defer attentionCancel()
 	go s.pollAttention(attentionCtx)
 	go s.reconcileZombiesLoop(attentionCtx)
 
-	addr := fmt.Sprintf("%s:%d", s.bind, s.port)
+	addr := fmt.Sprintf("%s:%d", s.transport.bind, s.transport.port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
 
 	// Configure TLS if enabled
-	if s.tlsCert != "" && s.tlsKey != "" {
+	if s.auth.tlsCert != "" && s.auth.tlsKey != "" {
 		tlsConfig := &tls.Config{
 			MinVersion: tls.VersionTLS12,
 		}
 
 		// Load server certificate
-		cert, err := tls.LoadX509KeyPair(s.tlsCert, s.tlsKey)
+		cert, err := tls.LoadX509KeyPair(s.auth.tlsCert, s.auth.tlsKey)
 		if err != nil {
 			return fmt.Errorf("failed to load TLS certificate: %w", err)
 		}
 		tlsConfig.Certificates = []tls.Certificate{cert}
 
 		// Configure mTLS if auth mode is mtls
-		if s.authMode == AuthModeMTLS && s.tlsCA != "" {
-			caCert, err := os.ReadFile(s.tlsCA)
+		if s.auth.authMode == AuthModeMTLS && s.auth.tlsCA != "" {
+			caCert, err := os.ReadFile(s.auth.tlsCA)
 			if err != nil {
 				return fmt.Errorf("failed to read CA certificate: %w", err)
 			}
@@ -349,16 +389,16 @@ func (s *Server) Start() error {
 		fmt.Fprintf(os.Stderr, "Wave dashboard running at http://%s\n", addr)
 	}
 
-	if s.token != "" && s.bind != "127.0.0.1" && s.bind != "localhost" {
-		fmt.Fprintf(os.Stderr, "Dashboard token: %s\n", s.token)
+	if s.auth.token != "" && s.transport.bind != "127.0.0.1" && s.transport.bind != "localhost" {
+		fmt.Fprintf(os.Stderr, "Dashboard token: %s\n", s.auth.token)
 	}
 
 	// Issue #1467 — reap any "running" rows whose owning process died
 	// without writing the deferred UpdateRunStatus (host sleep, sandbox
 	// cycle, SIGKILL). Heartbeats fire every 30s; treat anything stale
 	// for > 5 minutes as orphaned.
-	if s.store != nil {
-		if reaped, err := s.store.ReapOrphans(5 * time.Minute); err != nil {
+	if s.runtime.store != nil {
+		if reaped, err := s.runtime.store.ReapOrphans(5 * time.Minute); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: orphan reap failed: %v\n", err)
 		} else if reaped > 0 {
 			fmt.Fprintf(os.Stderr, "Reaped %d orphaned run(s) on startup\n", reaped)
@@ -371,7 +411,7 @@ func (s *Server) Start() error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- s.httpServer.Serve(listener)
+		errCh <- s.transport.httpServer.Serve(listener)
 	}()
 
 	select {
@@ -384,7 +424,7 @@ func (s *Server) Start() error {
 
 		// Cancel in-process fallback runs only (detached runs are independent processes)
 		s.mu.Lock()
-		for runID, cancelFn := range s.activeRuns {
+		for runID, cancelFn := range s.realtime.activeRuns {
 			log.Printf("Cancelling in-process run %s", runID)
 			cancelFn()
 		}
@@ -393,26 +433,26 @@ func (s *Server) Start() error {
 		// Drain scheduler queue
 		drainCtx, drainCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer drainCancel()
-		if err := s.scheduler.Shutdown(drainCtx); err != nil {
+		if err := s.runtime.scheduler.Shutdown(drainCtx); err != nil {
 			log.Printf("Warning: scheduler drain timed out: %v", err)
 		}
 
 		// Shutdown HTTP server
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
+		if err := s.transport.httpServer.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("server shutdown error: %w", err)
 		}
 	}
 
-	s.broker.Stop()
-	s.store.Close()
-	s.rwStore.Close()
+	s.realtime.broker.Stop()
+	s.runtime.store.Close()
+	s.runtime.rwStore.Close()
 
 	return nil
 }
 
 // GetBroker returns the SSE broker for external event integration.
 func (s *Server) GetBroker() *SSEBroker {
-	return s.broker
+	return s.realtime.broker
 }

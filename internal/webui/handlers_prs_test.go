@@ -184,7 +184,7 @@ func TestHandlePRsPage_StateParam(t *testing.T) {
 func TestHandleAPIPRs_EmptyRepoSlug(t *testing.T) {
 	srv, _ := testServer(t)
 	// Set a non-nil GitHub client but empty repo slug
-	srv.repoSlug = ""
+	srv.runtime.repoSlug = ""
 
 	req := httptest.NewRequest("GET", "/api/prs", nil)
 	rec := httptest.NewRecorder()
@@ -271,8 +271,8 @@ func TestRunToSummary_LongInputTruncated(t *testing.T) {
 
 func TestGetPRListData_EnrichedStats(t *testing.T) {
 	srv, _ := testServer(t)
-	srv.repoSlug = "owner/repo"
-	srv.forgeClient = &mockForgeClient{
+	srv.runtime.repoSlug = "owner/repo"
+	srv.runtime.forgeClient = &mockForgeClient{
 		listPRs: func(_ context.Context, _, _ string, _ forge.ListPullRequestsOptions) ([]*forge.PullRequest, error) {
 			return []*forge.PullRequest{
 				{Number: 1, Title: "PR 1", State: "open", Author: "alice", CreatedAt: time.Now()},
@@ -312,8 +312,8 @@ func TestGetPRListData_EnrichedStats(t *testing.T) {
 
 func TestGetPRListData_PartialEnrichmentFailure(t *testing.T) {
 	srv, _ := testServer(t)
-	srv.repoSlug = "owner/repo"
-	srv.forgeClient = &mockForgeClient{
+	srv.runtime.repoSlug = "owner/repo"
+	srv.runtime.forgeClient = &mockForgeClient{
 		listPRs: func(_ context.Context, _, _ string, _ forge.ListPullRequestsOptions) ([]*forge.PullRequest, error) {
 			return []*forge.PullRequest{
 				{Number: 1, Title: "Good PR", State: "open", Author: "alice", CreatedAt: time.Now()},
@@ -349,8 +349,8 @@ func TestGetPRListData_PartialEnrichmentFailure(t *testing.T) {
 
 func TestGetPRListData_Labels(t *testing.T) {
 	srv, _ := testServer(t)
-	srv.repoSlug = "owner/repo"
-	srv.forgeClient = &mockForgeClient{
+	srv.runtime.repoSlug = "owner/repo"
+	srv.runtime.forgeClient = &mockForgeClient{
 		listPRs: func(_ context.Context, _, _ string, _ forge.ListPullRequestsOptions) ([]*forge.PullRequest, error) {
 			return []*forge.PullRequest{
 				{

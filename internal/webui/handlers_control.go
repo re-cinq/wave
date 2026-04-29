@@ -45,7 +45,7 @@ func (s *Server) handleStartPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	runID, err := s.rwStore.CreateRun(name, req.Input)
+	runID, err := s.runtime.rwStore.CreateRun(name, req.Input)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to create run: "+err.Error())
 		return
@@ -80,7 +80,7 @@ func (s *Server) handleCancelRun(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&req) // best-effort; defaults are fine
 	}
 
-	run, err := s.store.GetRun(runID)
+	run, err := s.runtime.store.GetRun(runID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "run not found")
 		return
@@ -92,12 +92,12 @@ func (s *Server) handleCancelRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.mu.Lock()
-	if cancelFn, ok := s.activeRuns[runID]; ok {
+	if cancelFn, ok := s.realtime.activeRuns[runID]; ok {
 		cancelFn()
 	}
 	s.mu.Unlock()
 
-	if err := s.rwStore.RequestCancellation(runID, req.Force); err != nil {
+	if err := s.runtime.rwStore.RequestCancellation(runID, req.Force); err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to request cancellation")
 		return
 	}
@@ -117,7 +117,7 @@ func (s *Server) handleRetryRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	originalRun, err := s.store.GetRun(runID)
+	originalRun, err := s.runtime.store.GetRun(runID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "run not found")
 		return
@@ -134,7 +134,7 @@ func (s *Server) handleRetryRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newRunID, err := s.rwStore.CreateRun(originalRun.PipelineName, originalRun.Input)
+	newRunID, err := s.runtime.rwStore.CreateRun(originalRun.PipelineName, originalRun.Input)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to create retry run")
 		return
@@ -170,7 +170,7 @@ func (s *Server) handleResumeRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	originalRun, err := s.store.GetRun(runID)
+	originalRun, err := s.runtime.store.GetRun(runID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "run not found")
 		return
@@ -199,7 +199,7 @@ func (s *Server) handleResumeRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newRunID, err := s.rwStore.CreateRun(originalRun.PipelineName, originalRun.Input)
+	newRunID, err := s.runtime.rwStore.CreateRun(originalRun.PipelineName, originalRun.Input)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to create resume run")
 		return
@@ -245,7 +245,7 @@ func (s *Server) handleSubmitRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	runID, err := s.rwStore.CreateRun(req.Pipeline, req.Input)
+	runID, err := s.runtime.rwStore.CreateRun(req.Pipeline, req.Input)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to create run: "+err.Error())
 		return
@@ -275,12 +275,12 @@ func (s *Server) handleRunLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := s.store.GetRun(runID); err != nil {
+	if _, err := s.runtime.store.GetRun(runID); err != nil {
 		writeJSONError(w, http.StatusNotFound, "run not found")
 		return
 	}
 
-	events, err := s.store.GetEvents(runID, state.EventQueryOptions{})
+	events, err := s.runtime.store.GetEvents(runID, state.EventQueryOptions{})
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to get events")
 		return
@@ -336,18 +336,18 @@ func (s *Server) handleGateApprove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.gateRegistry == nil {
+	if s.realtime.gateRegistry == nil {
 		writeJSONError(w, http.StatusServiceUnavailable, "gate registry not initialized")
 		return
 	}
 
-	gate := s.gateRegistry.GetPending(runID)
+	gate := s.realtime.gateRegistry.GetPending(runID)
 	if gate == nil {
 		writeJSONError(w, http.StatusNotFound, "no pending gate for this run")
 		return
 	}
 
-	pendingStepID := s.gateRegistry.GetPendingStepID(runID)
+	pendingStepID := s.realtime.gateRegistry.GetPendingStepID(runID)
 	if pendingStepID != "" && pendingStepID != stepID {
 		writeJSONError(w, http.StatusConflict,
 			fmt.Sprintf("step mismatch: pending gate is for step %q, not %q", pendingStepID, stepID))
@@ -367,7 +367,7 @@ func (s *Server) handleGateApprove(w http.ResponseWriter, r *http.Request) {
 		Target: choice.Target,
 	}
 
-	if err := s.gateRegistry.Resolve(runID, decision); err != nil {
+	if err := s.realtime.gateRegistry.Resolve(runID, decision); err != nil {
 		writeJSONError(w, http.StatusConflict, err.Error())
 		return
 	}

@@ -58,7 +58,7 @@ func (s *Server) handleOntologyPage(w http.ResponseWriter, r *http.Request) {
 	data := s.buildOntologyData()
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/ontology.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/ontology.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -75,19 +75,19 @@ func (s *Server) buildOntologyData() OntologyPageData {
 		ActivePage: "ontology",
 	}
 
-	if s.manifest == nil || s.manifest.Ontology == nil {
+	if s.runtime.manifest == nil || s.runtime.manifest.Ontology == nil {
 		return data
 	}
 
-	o := s.manifest.Ontology
+	o := s.runtime.manifest.Ontology
 	data.HasOntology = true
 	data.Telos = o.Telos
 	data.Conventions = o.Conventions
 
 	// Fetch lineage stats from state store
 	statsMap := make(map[string]*state.OntologyStats)
-	if s.store != nil {
-		if allStats, err := s.store.GetOntologyStatsAll(); err == nil {
+	if s.runtime.store != nil {
+		if allStats, err := s.runtime.store.GetOntologyStatsAll(); err == nil {
 			for i := range allStats {
 				statsMap[allStats[i].ContextName] = &allStats[i]
 			}

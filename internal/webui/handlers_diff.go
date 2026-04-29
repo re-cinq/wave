@@ -14,7 +14,7 @@ func (s *Server) handleAPIDiffSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	run, err := s.store.GetRun(runID)
+	run, err := s.runtime.store.GetRun(runID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "run not found")
 		return
@@ -30,7 +30,7 @@ func (s *Server) handleAPIDiffSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	baseBranch, err := resolveBaseBranch(r.Context(), s.repoDir)
+	baseBranch, err := resolveBaseBranch(r.Context(), s.runtime.repoDir)
 	if err != nil {
 		writeJSON(w, http.StatusOK, &DiffSummary{
 			Available: false,
@@ -40,7 +40,7 @@ func (s *Server) handleAPIDiffSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	summary := computeDiffSummary(r.Context(), s.repoDir, baseBranch, run.BranchName)
+	summary := computeDiffSummary(r.Context(), s.runtime.repoDir, baseBranch, run.BranchName)
 	writeJSON(w, http.StatusOK, summary)
 }
 
@@ -65,7 +65,7 @@ func (s *Server) handleAPIDiffFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	run, err := s.store.GetRun(runID)
+	run, err := s.runtime.store.GetRun(runID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "run not found")
 		return
@@ -76,13 +76,13 @@ func (s *Server) handleAPIDiffFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	baseBranch, err := resolveBaseBranch(r.Context(), s.repoDir)
+	baseBranch, err := resolveBaseBranch(r.Context(), s.runtime.repoDir)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	fileDiff, err := computeFileDiff(r.Context(), s.repoDir, baseBranch, run.BranchName, cleanPath)
+	fileDiff, err := computeFileDiff(r.Context(), s.runtime.repoDir, baseBranch, run.BranchName, cleanPath)
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, err.Error())
 		return

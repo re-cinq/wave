@@ -10,7 +10,7 @@ import (
 // handleAttentionSSE handles GET /api/attention/events — a global SSE stream
 // that broadcasts attention summary changes across all active runs.
 func (s *Server) handleAttentionSSE(w http.ResponseWriter, r *http.Request) {
-	if s.attention == nil {
+	if s.realtime.attention == nil {
 		http.Error(w, "attention broker not initialized", http.StatusServiceUnavailable)
 		return
 	}
@@ -30,13 +30,13 @@ func (s *Server) handleAttentionSSE(w http.ResponseWriter, r *http.Request) {
 	flusher.Flush()
 
 	// Send current state immediately.
-	summary := s.attention.Summary()
+	summary := s.realtime.attention.Summary()
 	data, _ := json.Marshal(summary)
 	fmt.Fprintf(w, "event: attention\ndata: %s\n\n", data)
 	flusher.Flush()
 
-	ch := s.attention.Subscribe()
-	defer s.attention.Unsubscribe(ch)
+	ch := s.realtime.attention.Subscribe()
+	defer s.realtime.attention.Unsubscribe(ch)
 
 	keepalive := time.NewTicker(15 * time.Second)
 	defer keepalive.Stop()
@@ -62,14 +62,14 @@ func (s *Server) handleAttentionSSE(w http.ResponseWriter, r *http.Request) {
 
 // handleAttentionSummary handles GET /api/attention — returns current attention summary as JSON.
 func (s *Server) handleAttentionSummary(w http.ResponseWriter, r *http.Request) {
-	if s.attention == nil {
+	if s.realtime.attention == nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, `{"worst_state":"autonomous","total_runs":0}`)
 		return
 	}
 
-	summary := s.attention.Summary()
+	summary := s.realtime.attention.Summary()
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(summary); err != nil {
 		http.Error(w, "failed to encode attention summary", http.StatusInternalServerError)

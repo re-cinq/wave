@@ -91,7 +91,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/admin/audit", s.handleAPIAdminAudit)
 
 	// Optional feature routes (analytics, webhooks, etc.)
-	for _, fn := range s.features.routeFns {
+	for _, fn := range s.assets.features.routeFns {
 		fn(s, mux)
 	}
 
@@ -102,7 +102,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 // handleNotFound renders the 404 page for unmatched routes.
 func (s *Server) handleNotFound(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
-	tmpl := s.templates["templates/notfound.html"]
+	tmpl := s.assets.templates["templates/notfound.html"]
 	if tmpl != nil {
 		_ = tmpl.ExecuteTemplate(w, "templates/layout.html", nil)
 	}

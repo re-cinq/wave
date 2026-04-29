@@ -210,8 +210,8 @@ func (f *deadlineCapturingForge) ListIssues(ctx context.Context, _, _ string, _ 
 func TestGetIssueListData_UsesForgeAPIListTimeout(t *testing.T) {
 	srv, _ := testServer(t)
 	fc := &deadlineCapturingForge{}
-	srv.forgeClient = fc
-	srv.repoSlug = "owner/repo"
+	srv.runtime.forgeClient = fc
+	srv.runtime.repoSlug = "owner/repo"
 
 	before := time.Now()
 	srv.getIssueListData("open", 1)

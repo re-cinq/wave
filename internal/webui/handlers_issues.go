@@ -31,7 +31,7 @@ func (s *Server) handleIssuesPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/issues.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/issues.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -72,7 +72,7 @@ func (s *Server) handleAPIStartFromIssue(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	runID, err := s.rwStore.CreateRun(req.PipelineName, req.IssueURL)
+	runID, err := s.runtime.rwStore.CreateRun(req.PipelineName, req.IssueURL)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to create run: "+err.Error())
 		return
@@ -118,16 +118,16 @@ func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.forgeClient == nil || s.repoSlug == "" {
+	if s.runtime.forgeClient == nil || s.runtime.repoSlug == "" {
 		http.Error(w, "Forge integration not configured", http.StatusServiceUnavailable)
 		return
 	}
 
-	owner, repo := splitRepoSlug(s.repoSlug)
+	owner, repo := splitRepoSlug(s.runtime.repoSlug)
 	ctx, cancel := context.WithTimeout(context.Background(), timeouts.ForgeAPI)
 	defer cancel()
 
-	issue, err := s.forgeClient.GetIssue(ctx, owner, repo, number)
+	issue, err := s.runtime.forgeClient.GetIssue(ctx, owner, repo, number)
 	if err != nil {
 		http.Error(w, "issue not found: "+err.Error(), http.StatusNotFound)
 		return
@@ -143,7 +143,7 @@ func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Find runs whose input contains this issue URL
-	allRuns, err := s.store.ListRuns(state.ListRunsOptions{Limit: 500})
+	allRuns, err := s.runtime.store.ListRuns(state.ListRunsOptions{Limit: 500})
 	if err != nil {
 		allRuns = nil
 	}
@@ -172,7 +172,7 @@ func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch last 10 comments
 	var comments []CommentSummary
-	forgeComments, err := s.forgeClient.ListIssueComments(ctx, owner, repo, number, 10)
+	forgeComments, err := s.runtime.forgeClient.ListIssueComments(ctx, owner, repo, number, 10)
 	if err == nil {
 		for _, c := range forgeComments {
 			comments = append(comments, CommentSummary{
@@ -227,7 +227,7 @@ func (s *Server) handleIssueDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/issue_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/issue_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -246,7 +246,7 @@ func parsePageNumber2(s string) int {
 const issuesPerPage = 10
 
 func (s *Server) getIssueListData(stateFilter string, page int) IssueListResponse {
-	if s.forgeClient == nil || s.repoSlug == "" {
+	if s.runtime.forgeClient == nil || s.runtime.repoSlug == "" {
 		return IssueListResponse{
 			Issues:      []IssueSummary{},
 			FilterState: stateFilter,
@@ -255,7 +255,7 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 		}
 	}
 
-	owner, repo := splitRepoSlug(s.repoSlug)
+	owner, repo := splitRepoSlug(s.runtime.repoSlug)
 	if owner == "" {
 		return IssueListResponse{
 			Issues:      []IssueSummary{},
@@ -269,7 +269,7 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 	cacheKey := fmt.Sprintf("issues:list:%s:%d", stateFilter, page)
 	useCache := stateFilter != "running"
 	if useCache {
-		if cached, ok := s.cache.Get(cacheKey); ok {
+		if cached, ok := s.assets.cache.Get(cacheKey); ok {
 			return cached.(IssueListResponse)
 		}
 	}
@@ -277,7 +277,7 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 	ctx, cancel := context.WithTimeout(context.Background(), timeouts.ForgeAPIList)
 	defer cancel()
 
-	issues, err := s.forgeClient.ListIssues(ctx, owner, repo, forge.ListIssuesOptions{
+	issues, err := s.runtime.forgeClient.ListIssues(ctx, owner, repo, forge.ListIssuesOptions{
 		State:   stateFilter,
 		PerPage: issuesPerPage + 1, // fetch one extra to detect HasMore
 		Page:    page,
@@ -318,8 +318,8 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 	}
 
 	// Enrich with Wave run stats
-	if s.store != nil {
-		allRuns, err := s.store.ListRuns(state.ListRunsOptions{Limit: 10000})
+	if s.runtime.store != nil {
+		allRuns, err := s.runtime.store.ListRuns(state.ListRunsOptions{Limit: 10000})
 		if err == nil {
 			enrichSummariesWithRuns(summaries, allRuns, "issue")
 		}
@@ -337,7 +337,7 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 
 	result := IssueListResponse{
 		Issues:      summaries,
-		RepoSlug:    s.repoSlug,
+		RepoSlug:    s.runtime.repoSlug,
 		FilterState: stateFilter,
 		Page:        page,
 		HasMore:     hasMore,
@@ -346,7 +346,7 @@ func (s *Server) getIssueListData(stateFilter string, page int) IssueListRespons
 	}
 
 	if useCache {
-		s.cache.Set(cacheKey, result)
+		s.assets.cache.Set(cacheKey, result)
 	}
 
 	return result

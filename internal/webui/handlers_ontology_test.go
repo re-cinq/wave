@@ -41,7 +41,7 @@ func TestOntologyPageRendersEmptyHTML(t *testing.T) {
 // telos and context names from the manifest.
 func TestOntologyPageRendersWithData(t *testing.T) {
 	srv, _ := testServer(t)
-	srv.manifest = &manifest.Manifest{
+	srv.runtime.manifest = &manifest.Manifest{
 		Ontology: &manifest.Ontology{
 			Telos: "Build the best orchestrator",
 			Contexts: []manifest.OntologyContext{
@@ -109,7 +109,7 @@ func TestOntologyAPIReturnsEmptyWhenNoOntology(t *testing.T) {
 // data including telos, contexts, and conventions.
 func TestOntologyAPIReturnsFullData(t *testing.T) {
 	srv, _ := testServer(t)
-	srv.manifest = &manifest.Manifest{
+	srv.runtime.manifest = &manifest.Manifest{
 		Ontology: &manifest.Ontology{
 			Telos: "Ship quality software",
 			Contexts: []manifest.OntologyContext{
@@ -163,7 +163,7 @@ func TestOntologyAPIReturnsFullData(t *testing.T) {
 // sorted by name.
 func TestOntologyContextsSortedAlphabetically(t *testing.T) {
 	srv, _ := testServer(t)
-	srv.manifest = &manifest.Manifest{
+	srv.runtime.manifest = &manifest.Manifest{
 		Ontology: &manifest.Ontology{
 			Contexts: []manifest.OntologyContext{
 				{Name: "zebra"},

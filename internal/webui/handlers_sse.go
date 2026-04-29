@@ -45,7 +45,7 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 
 	// Backfill missed events from DB on reconnection
 	if lastEventID > 0 {
-		events, err := s.store.GetEvents(runID, state.EventQueryOptions{
+		events, err := s.runtime.store.GetEvents(runID, state.EventQueryOptions{
 			AfterID: lastEventID,
 		})
 		if err == nil {
@@ -58,8 +58,8 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Subscribe to live events
-	ch := s.broker.Subscribe()
-	defer s.broker.Unsubscribe(ch)
+	ch := s.realtime.broker.Subscribe()
+	defer s.realtime.broker.Unsubscribe(ch)
 
 	// Keepalive ticker prevents idle connection timeouts.
 	// SSE comments (lines starting with ':') are ignored by EventSource

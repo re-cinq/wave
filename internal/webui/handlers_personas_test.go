@@ -14,7 +14,7 @@ import (
 // HTML successfully when the manifest is nil.
 func TestPersonasPageRendersWithNilManifest(t *testing.T) {
 	srv, _ := testServer(t)
-	srv.manifest = nil
+	srv.runtime.manifest = nil
 
 	req := httptest.NewRequest("GET", "/personas", nil)
 	rec := httptest.NewRecorder()
@@ -39,7 +39,7 @@ func TestPersonasPageRendersWithNilManifest(t *testing.T) {
 // persona names from the manifest.
 func TestPersonasPageRendersPersonaNames(t *testing.T) {
 	srv, _ := testServer(t)
-	srv.manifest = &manifest.Manifest{
+	srv.runtime.manifest = &manifest.Manifest{
 		Personas: map[string]manifest.Persona{
 			"navigator": {
 				Adapter:     "claude",
@@ -73,7 +73,7 @@ func TestPersonasPageRendersPersonaNames(t *testing.T) {
 // persona list when the manifest is nil.
 func TestPersonasAPIReturnsEmptyWithNilManifest(t *testing.T) {
 	srv, _ := testServer(t)
-	srv.manifest = nil
+	srv.runtime.manifest = nil
 
 	req := httptest.NewRequest("GET", "/api/personas", nil)
 	rec := httptest.NewRecorder()
@@ -97,7 +97,7 @@ func TestPersonasAPIReturnsEmptyWithNilManifest(t *testing.T) {
 // with a nil personas map.
 func TestPersonasAPIHandlesNilPersonasMap(t *testing.T) {
 	srv, _ := testServer(t)
-	srv.manifest = &manifest.Manifest{
+	srv.runtime.manifest = &manifest.Manifest{
 		Personas: nil,
 	}
 
@@ -123,7 +123,7 @@ func TestPersonasAPIHandlesNilPersonasMap(t *testing.T) {
 // with all fields populated.
 func TestPersonasAPIReturnsAllFields(t *testing.T) {
 	srv, _ := testServer(t)
-	srv.manifest = &manifest.Manifest{
+	srv.runtime.manifest = &manifest.Manifest{
 		Personas: map[string]manifest.Persona{
 			"navigator": {
 				Adapter:     "claude",
@@ -192,7 +192,7 @@ func TestPersonasAPIReturnsAllFields(t *testing.T) {
 // by name for consistent display.
 func TestPersonasAPISortsByName(t *testing.T) {
 	srv, _ := testServer(t)
-	srv.manifest = &manifest.Manifest{
+	srv.runtime.manifest = &manifest.Manifest{
 		Personas: map[string]manifest.Persona{
 			"zebra":  {Adapter: "claude"},
 			"alpha":  {Adapter: "claude"},

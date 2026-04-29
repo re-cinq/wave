@@ -33,7 +33,7 @@ func (s *Server) handlePRsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/prs.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/prs.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		log.Printf("[webui] template error rendering prs page: %v", err)
 		http.Error(w, "template error", http.StatusInternalServerError)
 	}
@@ -56,16 +56,16 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.forgeClient == nil || s.repoSlug == "" {
+	if s.runtime.forgeClient == nil || s.runtime.repoSlug == "" {
 		http.Error(w, "Forge integration not configured", http.StatusServiceUnavailable)
 		return
 	}
 
-	owner, repo := splitRepoSlug(s.repoSlug)
+	owner, repo := splitRepoSlug(s.runtime.repoSlug)
 	ctx, cancel := context.WithTimeout(context.Background(), timeouts.ForgeAPI)
 	defer cancel()
 
-	pr, err := s.forgeClient.GetPullRequest(ctx, owner, repo, number)
+	pr, err := s.runtime.forgeClient.GetPullRequest(ctx, owner, repo, number)
 	if err != nil {
 		log.Printf("[webui] failed to fetch PR #%d: %v", number, err)
 		http.Error(w, "PR not found", http.StatusNotFound)
@@ -75,7 +75,7 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 	// Find related runs — match by PR URL or head branch name
 	prURL := pr.HTMLURL
 
-	allRuns, err := s.store.ListRuns(state.ListRunsOptions{Limit: 500})
+	allRuns, err := s.runtime.store.ListRuns(state.ListRunsOptions{Limit: 500})
 	if err != nil {
 		allRuns = nil
 	}
@@ -105,7 +105,7 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 	// Fetch status checks for the PR head commit
 	var checks []PRCheck
 	if pr.HeadSHA != "" {
-		forgeChecks, err := s.forgeClient.GetCommitChecks(ctx, owner, repo, pr.HeadSHA)
+		forgeChecks, err := s.runtime.forgeClient.GetCommitChecks(ctx, owner, repo, pr.HeadSHA)
 		if err != nil {
 			log.Printf("[webui] failed to fetch checks for PR #%d (SHA %s): %v", number, pr.HeadSHA, err)
 		} else {
@@ -122,7 +122,7 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch commits for the PR
 	var commits []CommitSummary
-	forgeCommits, err := s.forgeClient.ListPullRequestCommits(ctx, owner, repo, number)
+	forgeCommits, err := s.runtime.forgeClient.ListPullRequestCommits(ctx, owner, repo, number)
 	if err != nil {
 		log.Printf("[webui] failed to fetch commits for PR #%d: %v", number, err)
 	} else {
@@ -149,7 +149,7 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch last 10 comments
 	var comments []CommentSummary
-	forgeComments, err := s.forgeClient.ListIssueComments(ctx, owner, repo, number, 10)
+	forgeComments, err := s.runtime.forgeClient.ListIssueComments(ctx, owner, repo, number, 10)
 	if err != nil {
 		log.Printf("[webui] failed to fetch comments for PR #%d: %v", number, err)
 	} else {
@@ -216,7 +216,7 @@ func (s *Server) handlePRDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/pr_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/pr_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		log.Printf("[webui] template error rendering PR detail page: %v", err)
 		http.Error(w, "template error", http.StatusInternalServerError)
 	}
@@ -298,7 +298,7 @@ func aggregateCheckStatus(checks []*forge.CheckRun) string {
 }
 
 func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
-	if s.forgeClient == nil || s.repoSlug == "" {
+	if s.runtime.forgeClient == nil || s.runtime.repoSlug == "" {
 		return PRListResponse{
 			PullRequests: []PRSummary{},
 			FilterState:  stateFilter,
@@ -307,7 +307,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 		}
 	}
 
-	owner, repo := splitRepoSlug(s.repoSlug)
+	owner, repo := splitRepoSlug(s.runtime.repoSlug)
 	if owner == "" {
 		return PRListResponse{
 			PullRequests: []PRSummary{},
@@ -321,7 +321,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 	cacheKey := fmt.Sprintf("prs:list:%s:%d", stateFilter, page)
 	useCache := stateFilter != "running"
 	if useCache {
-		if cached, ok := s.cache.Get(cacheKey); ok {
+		if cached, ok := s.assets.cache.Get(cacheKey); ok {
 			return cached.(PRListResponse)
 		}
 	}
@@ -329,7 +329,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 	ctx, cancel := context.WithTimeout(context.Background(), timeouts.ForgeAPI)
 	defer cancel()
 
-	prs, err := s.forgeClient.ListPullRequests(ctx, owner, repo, forge.ListPullRequestsOptions{
+	prs, err := s.runtime.forgeClient.ListPullRequests(ctx, owner, repo, forge.ListPullRequestsOptions{
 		State:   stateFilter,
 		PerPage: prsPerPage + 1, // fetch one extra to detect HasMore
 		Page:    page,
@@ -349,7 +349,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 		prs = prs[:prsPerPage]
 	}
 
-	checkStatuses := enrichPRStats(ctx, s.forgeClient, owner, repo, prs)
+	checkStatuses := enrichPRStats(ctx, s.runtime.forgeClient, owner, repo, prs)
 
 	var summaries []PRSummary
 	for _, pr := range prs {
@@ -378,10 +378,10 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 	}
 
 	// Enrich with Wave run stats
-	if s.store != nil {
-		allRuns, err := s.store.ListRuns(state.ListRunsOptions{Limit: 10000})
+	if s.runtime.store != nil {
+		allRuns, err := s.runtime.store.ListRuns(state.ListRunsOptions{Limit: 10000})
 		if err == nil {
-			enrichPRSummariesWithRuns(summaries, allRuns, s.store)
+			enrichPRSummariesWithRuns(summaries, allRuns, s.runtime.store)
 		}
 	}
 
@@ -396,7 +396,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 
 	result := PRListResponse{
 		PullRequests: summaries,
-		RepoSlug:     s.repoSlug,
+		RepoSlug:     s.runtime.repoSlug,
 		FilterState:  stateFilter,
 		Page:         page,
 		HasMore:      hasMore,
@@ -405,7 +405,7 @@ func (s *Server) getPRListData(stateFilter string, page int) PRListResponse {
 	}
 
 	if useCache {
-		s.cache.Set(cacheKey, result)
+		s.assets.cache.Set(cacheKey, result)
 	}
 
 	return result
@@ -433,7 +433,7 @@ func (s *Server) handlePRReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.forgeClient == nil || s.repoSlug == "" {
+	if s.runtime.forgeClient == nil || s.runtime.repoSlug == "" {
 		writeJSONError(w, http.StatusServiceUnavailable, "forge integration not configured")
 		return
 	}
@@ -461,11 +461,11 @@ func (s *Server) handlePRReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	owner, repo := splitRepoSlug(s.repoSlug)
+	owner, repo := splitRepoSlug(s.runtime.repoSlug)
 	ctx, cancel := context.WithTimeout(context.Background(), timeouts.ForgeAPI)
 	defer cancel()
 
-	if err := s.forgeClient.CreatePullRequestReview(ctx, owner, repo, number, req.Event, req.Body); err != nil {
+	if err := s.runtime.forgeClient.CreatePullRequestReview(ctx, owner, repo, number, req.Event, req.Body); err != nil {
 		log.Printf("[webui] failed to submit review for PR #%d: %v", number, err)
 		writeJSONError(w, http.StatusBadGateway, "failed to submit review: "+err.Error())
 		return
@@ -502,7 +502,7 @@ func (s *Server) handleAPIStartFromPR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	runID, err := s.rwStore.CreateRun(req.PipelineName, req.PRURL)
+	runID, err := s.runtime.rwStore.CreateRun(req.PipelineName, req.PRURL)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to create run: "+err.Error())
 		return
