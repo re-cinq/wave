@@ -50,7 +50,7 @@ Use --validate-only to check compatibility without executing.`,
   wave compose --parallel A B -- C  (A+B parallel, then C sequential)`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := checkOnboarding(); err != nil {
+			if err := checkOnboarding(args[0]); err != nil {
 				return NewCLIError(CodeOnboardingRequired,
 					"onboarding not complete",
 					"Run 'wave init' to complete setup before running pipelines")

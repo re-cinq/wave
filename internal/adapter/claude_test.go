@@ -1513,9 +1513,11 @@ func TestBaseProtocolInAgentFile(t *testing.T) {
 	}
 }
 
-// T005: prepareWorkspace returns error when base-protocol.md is missing
-func TestBaseProtocolMissingError(t *testing.T) {
-	// Do NOT call setupBaseProtocol — intentionally missing
+// T005: prepareWorkspace falls back to embedded base-protocol.md when the
+// on-disk copy is missing — supports cold-start bootstrap pipelines that
+// run before .agents/ is scaffolded.
+func TestBaseProtocolEmbeddedFallback(t *testing.T) {
+	// Do NOT call setupBaseProtocol — intentionally missing on disk.
 	a := NewClaudeAdapter()
 	tmpDir := t.TempDir()
 
@@ -1526,12 +1528,8 @@ func TestBaseProtocolMissingError(t *testing.T) {
 		AllowedTools: []string{"Read"},
 	}
 
-	err := a.prepareWorkspace(tmpDir, cfg)
-	if err == nil {
-		t.Fatal("expected error when base-protocol.md is missing, got nil")
-	}
-	if !strings.Contains(err.Error(), "base protocol") {
-		t.Errorf("error should mention 'base protocol', got: %v", err)
+	if err := a.prepareWorkspace(tmpDir, cfg); err != nil {
+		t.Fatalf("expected embed fallback to succeed, got: %v", err)
 	}
 }
 

@@ -22,7 +22,7 @@ func TestAllShippedPipelinesLoad(t *testing.T) {
 
 	dirs := []string{
 		filepath.Join(repoRoot, ".agents", "pipelines"),
-		filepath.Join(repoRoot, "internal", "defaults", "pipelines"),
+		filepath.Join(repoRoot, "internal", "defaults", "embedfs", "pipelines"),
 	}
 
 	loader := &YAMLPipelineLoader{}

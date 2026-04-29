@@ -278,6 +278,16 @@ func runRun(opts RunOptions, debug bool) error {
 	// Cleanup is idempotent so the deferred call above becomes a no-op.
 	res.Close()
 
+	// Bootstrap pipelines mutate worktree-isolated state by design. After a
+	// successful run, materialise the project-shaping outputs (sentinel,
+	// wave.yaml, custom personas/pipelines/prompts, output JSONs) at the
+	// project root so the user sees the result of the onboarding work.
+	if bootstrapPipelines[opts.Pipeline] {
+		if err := materialiseBootstrapOutputs(runID); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to materialise bootstrap outputs: %v\n", err)
+		}
+	}
+
 	printSummary(opts, executor, p, runID, elapsed, emitter)
 	return nil
 }
@@ -289,6 +299,9 @@ func runRun(opts RunOptions, debug bool) error {
 // the webui server, so changes to the spawn protocol live in exactly one
 // place (and are exercised by TestDetachedArgsExhaustive).
 func runDetached(opts RunOptions, p *pipeline.Pipeline, m *manifest.Manifest) error {
+	// Cold-start repos have no .agents/ yet; create it so SQLite can open the
+	// db file. mkdir-all is a no-op when the directory already exists.
+	_ = os.MkdirAll(".agents", 0o755)
 	stateDB := ".agents/state.db"
 	store, err := state.NewStateStore(stateDB)
 	if err != nil {
