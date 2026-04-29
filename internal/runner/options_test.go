@@ -1,13 +1,21 @@
 package runner
 
 import (
+	"context"
 	"strings"
 	"testing"
 
+	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/config"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 )
+
+type stubAdapterRunner struct{}
+
+func (stubAdapterRunner) Run(_ context.Context, _ adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	return &adapter.AdapterResult{}, nil
+}
 
 // TestBuildExecutorOptions_AlwaysAttachesRegistryFromManifest pins the bug
 // fix at the heart of PRE-1: LaunchInProcess used to skip pipeline.WithRegistry,
@@ -117,6 +125,34 @@ func TestBuildExecutorOptions_StepFilterFromRuntime(t *testing.T) {
 	}
 	if ex := pipeline.NewDefaultPipelineExecutor(nil, opts...); ex == nil {
 		t.Fatal("executor build failed")
+	}
+}
+
+// TestBuildExecutorOptions_MockOverrideFanout exercises the --mock CLI flag
+// shape: when MockOverride=true and a Runner is supplied, every
+// manifest-declared adapter must be rerouted through that runner. Without
+// the fanout, pipelines that pin adapter: claude would still hit the real
+// binary even under --mock.
+func TestBuildExecutorOptions_MockOverrideFanout(t *testing.T) {
+	m := &manifest.Manifest{
+		Adapters: map[string]manifest.Adapter{
+			"claude":   {Binary: "/usr/bin/claude"},
+			"opencode": {Binary: "/usr/bin/opencode"},
+		},
+	}
+	mockRunner := stubAdapterRunner{}
+	opts := BuildExecutorOptions(ExecutorBuildConfig{
+		RunID:        "r",
+		Manifest:     m,
+		Runner:       mockRunner,
+		MockOverride: true,
+		Runtime:      config.RuntimeConfig{Mock: true},
+	})
+	if len(opts) == 0 {
+		t.Fatal("expected non-empty option list")
+	}
+	if ex := pipeline.NewDefaultPipelineExecutor(mockRunner, opts...); ex == nil {
+		t.Fatal("executor build failed under MockOverride")
 	}
 }
 

@@ -60,10 +60,12 @@ type ForegroundConfig struct {
 	// Debug toggles WithDebug on the executor.
 	Debug bool
 
-	// SkipStatusUpdates leaves UpdateRunStatus calls to the caller. The CLI
-	// wants this so its progress display can drive the transitions itself;
-	// LaunchInProcess sets it false (default) so background runs converge
-	// without caller intervention.
+	// SkipStatusUpdates leaves UpdateRunStatus calls to the caller. Both
+	// the CLI and the webui leave this false (default) so LaunchForeground
+	// owns the running → cancelled/rejected/failed/completed dispatch in
+	// one place. Set true only when the caller already drives a status
+	// state machine that would conflict with LaunchForeground writing the
+	// same rows.
 	SkipStatusUpdates bool
 
 	// OnExecutorReady fires after the executor is built but before Execute
