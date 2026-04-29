@@ -827,6 +827,84 @@ func truncateJSON(data json.RawMessage) string {
 	return s
 }
 
+// ComposeEntry is an ordered, named pipeline reference used by the compose
+// command and by callers that build execution plans from CLI-style argument
+// lists.
+//
+// It is intentionally a thin record (name + pipeline pointer) so callers in
+// cmd/, webui/, and tui/ can share the same plan-building logic without
+// pulling tui.Sequence into the pipeline package.
+type ComposeEntry struct {
+	Name     string
+	Pipeline *Pipeline
+}
+
+// BuildExecutionPlan turns a CLI-style argument list into an ExecutionPlan.
+//
+// Pipelines before the first "--" form a stage; each group separated by "--"
+// forms an additional stage. Multi-pipeline stages are parallel; single-pipeline
+// stages are sequential. Names not present in entries are silently dropped —
+// callers are expected to validate the entry set before calling this function.
+func BuildExecutionPlan(entries []ComposeEntry, args []string) ExecutionPlan {
+	var plan ExecutionPlan
+
+	// Split args by "--" to determine stage boundaries.
+	var stages [][]string
+	current := []string{}
+	for _, arg := range args {
+		if arg == "--" {
+			if len(current) > 0 {
+				stages = append(stages, current)
+			}
+			current = []string{}
+		} else {
+			current = append(current, arg)
+		}
+	}
+	if len(current) > 0 {
+		stages = append(stages, current)
+	}
+
+	// Map pipeline names to pipeline objects from the entries.
+	pipelineMap := make(map[string]*Pipeline, len(entries))
+	for _, e := range entries {
+		pipelineMap[e.Name] = e.Pipeline
+	}
+
+	for _, group := range stages {
+		var pipelines []*Pipeline
+		for _, name := range group {
+			if p, ok := pipelineMap[name]; ok {
+				pipelines = append(pipelines, p)
+			}
+		}
+		if len(pipelines) > 0 {
+			plan.Stages = append(plan.Stages, Stage{
+				Pipelines: pipelines,
+				Parallel:  len(pipelines) > 1,
+			})
+		}
+	}
+
+	return plan
+}
+
+// ValidateComposeSpec runs ValidateCompositionTemplates against every pipeline
+// in the entries and returns prefixed errors so the caller can surface which
+// entry produced which violation.
+func ValidateComposeSpec(entries []ComposeEntry) []string {
+	var errs []string
+	for _, e := range entries {
+		if e.Pipeline == nil {
+			continue
+		}
+		for _, msg := range ValidateCompositionTemplates(e.Pipeline) {
+			errs = append(errs, fmt.Sprintf("[%s] %s", e.Name, msg))
+		}
+	}
+	return errs
+}
+
 // ValidateCompositionTemplates checks that all template references in a composition
 // pipeline resolve to known step IDs or valid expressions.
 func ValidateCompositionTemplates(p *Pipeline) []string {

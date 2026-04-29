@@ -12,6 +12,7 @@ import (
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/pipelinecatalog"
 	"github.com/recinq/wave/internal/skill"
@@ -80,14 +81,17 @@ Use --validate-only to check compatibility without executing.`,
 			// Validate artifact compatibility across the sequence
 			result := tui.ValidateSequence(seq)
 
-			// Add template validation for composition pipelines
-			var templateErrors []string
-			for _, entry := range seq.Entries {
-				errs := pipeline.ValidateCompositionTemplates(entry.Pipeline)
-				for _, e := range errs {
-					templateErrors = append(templateErrors, fmt.Sprintf("[%s] %s", entry.PipelineName, e))
+			// Add composition template validation for all pipelines in the
+			// sequence. Logic lives in internal/pipeline so webui/tui can reuse
+			// it without depending on cobra.
+			composeEntries := make([]pipeline.ComposeEntry, len(seq.Entries))
+			for i, entry := range seq.Entries {
+				composeEntries[i] = pipeline.ComposeEntry{
+					Name:     entry.PipelineName,
+					Pipeline: entry.Pipeline,
 				}
 			}
+			templateErrors := pipeline.ValidateComposeSpec(composeEntries)
 
 			if validateOnly {
 				if err := renderValidationReport(args, result); err != nil {
@@ -125,7 +129,7 @@ Use --validate-only to check compatibility without executing.`,
 			debug, _ := cmd.Flags().GetBool("debug")
 
 			if parallelFlag {
-				plan := buildExecutionPlan(seq, args)
+				plan := pipeline.BuildExecutionPlan(composeEntries, args)
 				plan.FailFast = failFastFlag
 				plan.MaxConcurrent = maxConcurrentFlag
 				return runComposePlan(seq, plan, inputFlag, manifestFlag, mockFlag, outputCfg, debug)
@@ -209,59 +213,22 @@ func formatSequenceArrow(names []string) string {
 	return strings.Join(names, " → ")
 }
 
-// buildExecutionPlan parses args with "--" separators into stages.
-// Pipelines before the first "--" form a parallel stage;
-// each group after "--" forms a sequential stage.
-func buildExecutionPlan(seq tui.Sequence, args []string) pipeline.ExecutionPlan {
-	var plan pipeline.ExecutionPlan
-
-	// Split args by "--" to determine stage boundaries
-	var stages [][]string
-	current := []string{}
-	for _, arg := range args {
-		if arg == "--" {
-			if len(current) > 0 {
-				stages = append(stages, current)
-			}
-			current = []string{}
-		} else {
-			current = append(current, arg)
-		}
-	}
-	if len(current) > 0 {
-		stages = append(stages, current)
-	}
-
-	// Map pipeline names to pipeline objects from the sequence
-	pipelineMap := make(map[string]*pipeline.Pipeline)
-	for _, entry := range seq.Entries {
-		pipelineMap[entry.PipelineName] = entry.Pipeline
-	}
-
-	// All multi-pipeline groups are parallel (--parallel flag is always set
-	// when buildExecutionPlan is called); single-pipeline groups are sequential
-	for _, group := range stages {
-		var pipelines []*pipeline.Pipeline
-		for _, name := range group {
-			if p, ok := pipelineMap[name]; ok {
-				pipelines = append(pipelines, p)
-			}
-		}
-		if len(pipelines) > 0 {
-			plan.Stages = append(plan.Stages, pipeline.Stage{
-				Pipelines: pipelines,
-				Parallel:  len(pipelines) > 1,
-			})
-		}
-	}
-
-	return plan
+// composeRuntime bundles the shared dependencies wired up before sequence
+// execution. Constructed once per compose run and reused by both Execute and
+// ExecutePlan code paths.
+type composeRuntime struct {
+	ctx         context.Context
+	cancel      context.CancelFunc
+	manifest    manifest.Manifest
+	seqExecutor *pipeline.SequenceExecutor
+	store       interface{ Close() error }
 }
 
-// runComposePlan executes a pipeline execution plan with parallel stage support.
-func runComposePlan(_ tui.Sequence, plan pipeline.ExecutionPlan, input string, manifestPath string, mock bool, outputCfg OutputConfig, debug bool) error {
+// setupComposeRuntime constructs the manifest, adapter, state store, event
+// emitter, workspace manager, and SequenceExecutor used by both compose
+// execution paths. Caller is responsible for invoking close().
+func setupComposeRuntime(manifestPath string, mock bool, outputCfg OutputConfig, debug bool) (*composeRuntime, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
@@ -272,15 +239,14 @@ func runComposePlan(_ tui.Sequence, plan pipeline.ExecutionPlan, input string, m
 
 	mp, err := loadManifestStrict(manifestPath)
 	if err != nil {
-		return err
+		cancel()
+		return nil, err
 	}
 	m := *mp
 
 	var runner adapter.AdapterRunner
 	if mock {
-		runner = adaptertest.NewMockAdapter(
-			adaptertest.WithSimulatedDelay(5 * time.Second),
-		)
+		runner = adaptertest.NewMockAdapter(adaptertest.WithSimulatedDelay(5 * time.Second))
 	} else {
 		var adapterName string
 		for name := range m.Adapters {
@@ -290,21 +256,17 @@ func runComposePlan(_ tui.Sequence, plan pipeline.ExecutionPlan, input string, m
 		runner = adapter.ResolveAdapter(adapterName)
 	}
 
-	stateDB := ".agents/state.db"
-	store, err := state.NewStateStore(stateDB)
+	store, err := state.NewStateStore(".agents/state.db")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: state persistence disabled: %v\n", err)
 		store = nil
-	}
-	if store != nil {
-		defer store.Close()
 	}
 
 	emitter := event.NewNDJSONEmitter()
 	var eventEmitter event.EventEmitter = emitter
 	if outputCfg.Format == OutputFormatAuto || outputCfg.Format == OutputFormatText {
-		emitter = event.NewProgressOnlyEmitter(nil)
-		eventEmitter = emitter
+		// Suppress JSON in text mode.
+		eventEmitter = event.NewProgressOnlyEmitter(nil)
 	}
 
 	wsRoot := m.Runtime.WorkspaceRoot
@@ -313,12 +275,14 @@ func runComposePlan(_ tui.Sequence, plan pipeline.ExecutionPlan, input string, m
 	}
 	wsManager, err := workspace.NewWorkspaceManager(wsRoot)
 	if err != nil {
-		return fmt.Errorf("failed to create workspace manager: %w", err)
+		cancel()
+		if store != nil {
+			_ = store.Close()
+		}
+		return nil, fmt.Errorf("failed to create workspace manager: %w", err)
 	}
 
-	baseOpts := []pipeline.ExecutorOption{
-		pipeline.WithDebug(debug),
-	}
+	baseOpts := []pipeline.ExecutorOption{pipeline.WithDebug(debug)}
 	if wsManager != nil {
 		baseOpts = append(baseOpts, pipeline.WithWorkspaceManager(wsManager))
 	}
@@ -328,7 +292,60 @@ func runComposePlan(_ tui.Sequence, plan pipeline.ExecutionPlan, input string, m
 		return pipeline.NewDefaultPipelineExecutor(runner, opts...)
 	}
 
-	seqExecutor := pipeline.NewSequenceExecutor(newExecutor, baseOpts, eventEmitter, store)
+	rt := &composeRuntime{
+		ctx:         ctx,
+		cancel:      cancel,
+		manifest:    m,
+		seqExecutor: pipeline.NewSequenceExecutor(newExecutor, baseOpts, eventEmitter, store),
+	}
+	if store != nil {
+		rt.store = store
+	}
+	return rt, nil
+}
+
+func (rt *composeRuntime) close() {
+	if rt == nil {
+		return
+	}
+	if rt.store != nil {
+		_ = rt.store.Close()
+	}
+	if rt.cancel != nil {
+		rt.cancel()
+	}
+}
+
+// printPipelineSummary prints per-pipeline status lines and an aggregate footer.
+func printPipelineSummary(seqResult *pipeline.SequenceResult, footer string, elapsed time.Duration) {
+	for _, pr := range seqResult.PipelineResults {
+		status := "OK"
+		if pr.Status == "failed" {
+			status = "FAILED"
+		}
+		tokStr := ""
+		if pr.TokensUsed > 0 {
+			tokStr = fmt.Sprintf(", %s tokens", display.FormatTokenCount(pr.TokensUsed))
+		}
+		fmt.Fprintf(os.Stderr, "  [%s] %s (%.1fs%s)\n", status, pr.PipelineName, pr.Duration.Seconds(), tokStr)
+	}
+	fmt.Fprintln(os.Stderr)
+
+	tokStr := ""
+	if seqResult.TotalTokens > 0 {
+		tokStr = fmt.Sprintf(", %s tokens", display.FormatTokenCount(seqResult.TotalTokens))
+	}
+	fmt.Fprintf(os.Stderr, "%s: %d pipelines in %.1fs%s\n",
+		footer, len(seqResult.PipelineResults), elapsed.Seconds(), tokStr)
+}
+
+// runComposePlan executes a pipeline execution plan with parallel stage support.
+func runComposePlan(_ tui.Sequence, plan pipeline.ExecutionPlan, input string, manifestPath string, mock bool, outputCfg OutputConfig, debug bool) error {
+	rt, err := setupComposeRuntime(manifestPath, mock, outputCfg, debug)
+	if err != nil {
+		return err
+	}
+	defer rt.close()
 
 	// Describe the plan
 	for i, stage := range plan.Stages {
@@ -345,115 +362,25 @@ func runComposePlan(_ tui.Sequence, plan pipeline.ExecutionPlan, input string, m
 	fmt.Fprintln(os.Stderr)
 
 	startTime := time.Now()
-	seqResult, execErr := seqExecutor.ExecutePlan(ctx, plan, &m, input)
+	seqResult, execErr := rt.seqExecutor.ExecutePlan(rt.ctx, plan, &rt.manifest, input)
 	elapsed := time.Since(startTime)
 
-	for _, pr := range seqResult.PipelineResults {
-		status := "OK"
-		if pr.Status == "failed" {
-			status = "FAILED"
-		}
-		tokStr := ""
-		if pr.TokensUsed > 0 {
-			tokStr = fmt.Sprintf(", %s tokens", display.FormatTokenCount(pr.TokensUsed))
-		}
-		fmt.Fprintf(os.Stderr, "  [%s] %s (%.1fs%s)\n", status, pr.PipelineName, pr.Duration.Seconds(), tokStr)
-	}
-	fmt.Fprintln(os.Stderr)
-
 	if execErr != nil {
+		printPipelineSummary(seqResult, "Plan completed", elapsed)
 		return fmt.Errorf("compose execution failed: %w", execErr)
 	}
-
-	tokStr := ""
-	if seqResult.TotalTokens > 0 {
-		tokStr = fmt.Sprintf(", %s tokens", display.FormatTokenCount(seqResult.TotalTokens))
-	}
-	fmt.Fprintf(os.Stderr, "Plan completed: %d pipelines in %.1fs%s\n",
-		len(seqResult.PipelineResults), elapsed.Seconds(), tokStr)
-
+	printPipelineSummary(seqResult, "Plan completed", elapsed)
 	return nil
 }
 
 // runCompose executes a validated pipeline sequence using SequenceExecutor.
 func runCompose(seq tui.Sequence, input string, manifestPath string, mock bool, outputCfg OutputConfig, debug bool) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
-	go func() {
-		<-sigChan
-		cancel()
-	}()
-
-	mp, err := loadManifestStrict(manifestPath)
+	rt, err := setupComposeRuntime(manifestPath, mock, outputCfg, debug)
 	if err != nil {
 		return err
 	}
-	m := *mp
+	defer rt.close()
 
-	// Resolve adapter
-	var runner adapter.AdapterRunner
-	if mock {
-		runner = adaptertest.NewMockAdapter(
-			adaptertest.WithSimulatedDelay(5 * time.Second),
-		)
-	} else {
-		var adapterName string
-		for name := range m.Adapters {
-			adapterName = name
-			break
-		}
-		runner = adapter.ResolveAdapter(adapterName)
-	}
-
-	// Initialize state store
-	stateDB := ".agents/state.db"
-	store, err := state.NewStateStore(stateDB)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: state persistence disabled: %v\n", err)
-		store = nil
-	}
-	if store != nil {
-		defer store.Close()
-	}
-
-	// Initialize event emitter
-	emitter := event.NewNDJSONEmitter()
-	var eventEmitter event.EventEmitter = emitter
-	if outputCfg.Format == OutputFormatAuto || outputCfg.Format == OutputFormatText {
-		emitter = event.NewProgressOnlyEmitter(nil) // suppress JSON in text mode
-		eventEmitter = emitter
-	}
-
-	// Initialize workspace manager
-	wsRoot := m.Runtime.WorkspaceRoot
-	if wsRoot == "" {
-		wsRoot = ".agents/workspaces"
-	}
-	wsManager, err := workspace.NewWorkspaceManager(wsRoot)
-	if err != nil {
-		return fmt.Errorf("failed to create workspace manager: %w", err)
-	}
-
-	// Build base executor options shared across all pipelines
-	baseOpts := []pipeline.ExecutorOption{
-		pipeline.WithDebug(debug),
-	}
-	if wsManager != nil {
-		baseOpts = append(baseOpts, pipeline.WithWorkspaceManager(wsManager))
-	}
-	baseOpts = append(baseOpts, pipeline.WithSkillStore(skill.NewDirectoryStore(skill.DefaultSources()...)))
-
-	// Factory function creates a fresh executor per pipeline
-	newExecutor := func(opts ...pipeline.ExecutorOption) *pipeline.DefaultPipelineExecutor {
-		return pipeline.NewDefaultPipelineExecutor(runner, opts...)
-	}
-
-	seqExecutor := pipeline.NewSequenceExecutor(newExecutor, baseOpts, eventEmitter, store)
-
-	// Collect pipeline pointers from the sequence entries
 	pipelines := make([]*pipeline.Pipeline, len(seq.Entries))
 	pipelineNames := make([]string, len(seq.Entries))
 	for i, entry := range seq.Entries {
@@ -464,33 +391,13 @@ func runCompose(seq tui.Sequence, input string, manifestPath string, mock bool, 
 	fmt.Fprintf(os.Stderr, "Executing sequence: %s\n\n", formatSequenceArrow(pipelineNames))
 
 	startTime := time.Now()
-	seqResult, execErr := seqExecutor.Execute(ctx, pipelines, &m, input)
+	seqResult, execErr := rt.seqExecutor.Execute(rt.ctx, pipelines, &rt.manifest, input)
 	elapsed := time.Since(startTime)
 
-	// Print summary
-	for _, pr := range seqResult.PipelineResults {
-		status := "OK"
-		if pr.Status == "failed" {
-			status = "FAILED"
-		}
-		tokStr := ""
-		if pr.TokensUsed > 0 {
-			tokStr = fmt.Sprintf(", %s tokens", display.FormatTokenCount(pr.TokensUsed))
-		}
-		fmt.Fprintf(os.Stderr, "  [%s] %s (%.1fs%s)\n", status, pr.PipelineName, pr.Duration.Seconds(), tokStr)
-	}
-	fmt.Fprintln(os.Stderr)
-
 	if execErr != nil {
+		printPipelineSummary(seqResult, "Sequence completed", elapsed)
 		return fmt.Errorf("compose execution failed: %w", execErr)
 	}
-
-	tokStr := ""
-	if seqResult.TotalTokens > 0 {
-		tokStr = fmt.Sprintf(", %s tokens", display.FormatTokenCount(seqResult.TotalTokens))
-	}
-	fmt.Fprintf(os.Stderr, "Sequence completed: %d pipelines in %.1fs%s\n",
-		len(seqResult.PipelineResults), elapsed.Seconds(), tokStr)
-
+	printPipelineSummary(seqResult, "Sequence completed", elapsed)
 	return nil
 }

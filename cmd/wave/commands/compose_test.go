@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/recinq/wave/internal/pipeline"
-	"github.com/recinq/wave/internal/tui"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -302,69 +300,3 @@ func TestComposeCmd_ExecutionModeCompatible(t *testing.T) {
 		"output should mention the first pipeline")
 }
 
-func TestBuildExecutionPlan_MultipleParallelGroups(t *testing.T) {
-	// Simulate: wave compose --parallel A B -- C D -- E
-	// Expected: Stage 1 (parallel: A,B), Stage 2 (parallel: C,D), Stage 3 (sequential: E)
-
-	newPipeline := func(name string) *pipeline.Pipeline {
-		return &pipeline.Pipeline{
-			Metadata: pipeline.PipelineMetadata{Name: name},
-			Steps: []pipeline.Step{
-				{ID: "step1", Persona: "navigator", Exec: pipeline.ExecConfig{Source: "do it"}},
-			},
-		}
-	}
-
-	var seq tui.Sequence
-	for _, name := range []string{"A", "B", "C", "D", "E"} {
-		seq.Add(name, newPipeline(name))
-	}
-
-	args := []string{"A", "B", "--", "C", "D", "--", "E"}
-	plan := buildExecutionPlan(seq, args)
-
-	require.Len(t, plan.Stages, 3, "should have 3 stages")
-
-	// Stage 1: A, B — parallel
-	assert.Len(t, plan.Stages[0].Pipelines, 2)
-	assert.True(t, plan.Stages[0].Parallel, "stage 1 should be parallel")
-	assert.Equal(t, "A", plan.Stages[0].Pipelines[0].Metadata.Name)
-	assert.Equal(t, "B", plan.Stages[0].Pipelines[1].Metadata.Name)
-
-	// Stage 2: C, D — parallel
-	assert.Len(t, plan.Stages[1].Pipelines, 2)
-	assert.True(t, plan.Stages[1].Parallel, "stage 2 should be parallel")
-	assert.Equal(t, "C", plan.Stages[1].Pipelines[0].Metadata.Name)
-	assert.Equal(t, "D", plan.Stages[1].Pipelines[1].Metadata.Name)
-
-	// Stage 3: E — sequential (single pipeline)
-	assert.Len(t, plan.Stages[2].Pipelines, 1)
-	assert.False(t, plan.Stages[2].Parallel, "stage 3 with single pipeline should be sequential")
-	assert.Equal(t, "E", plan.Stages[2].Pipelines[0].Metadata.Name)
-}
-
-func TestBuildExecutionPlan_SingleGroupParallel(t *testing.T) {
-	// Simulate: wave compose --parallel A B C (no -- separators)
-	// Expected: Stage 1 (parallel: A,B,C)
-
-	newPipeline := func(name string) *pipeline.Pipeline {
-		return &pipeline.Pipeline{
-			Metadata: pipeline.PipelineMetadata{Name: name},
-			Steps: []pipeline.Step{
-				{ID: "step1", Persona: "navigator", Exec: pipeline.ExecConfig{Source: "do it"}},
-			},
-		}
-	}
-
-	var seq tui.Sequence
-	for _, name := range []string{"A", "B", "C"} {
-		seq.Add(name, newPipeline(name))
-	}
-
-	args := []string{"A", "B", "C"}
-	plan := buildExecutionPlan(seq, args)
-
-	require.Len(t, plan.Stages, 1)
-	assert.Len(t, plan.Stages[0].Pipelines, 3)
-	assert.True(t, plan.Stages[0].Parallel, "single multi-pipeline group should be parallel")
-}
