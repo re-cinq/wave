@@ -168,6 +168,7 @@ func init() {
 	rootCmd.AddCommand(commands.NewPersonaCmd())
 	rootCmd.AddCommand(commands.NewCleanupCmd())
 	rootCmd.AddCommand(commands.NewMergeCmd())
+	rootCmd.AddCommand(commands.NewAuditCmd())
 }
 
 // shouldLaunchTUI determines whether to launch the Bubble Tea TUI.
@@ -227,6 +228,6 @@ func main() {
 		} else {
 			commands.RenderTextError(os.Stderr, err, debug)
 		}
-		os.Exit(1)
+		os.Exit(commands.ExitCodeFor(err))
 	}
 }

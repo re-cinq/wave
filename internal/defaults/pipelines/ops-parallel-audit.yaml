@@ -4,10 +4,11 @@
 #
 # Execution flow:
 #
-#   run-audits              ← iterate (parallel, max_concurrent: 3): fan out over
-#   ├─ audit-security       │  [security, dead-code, dx] — each runs its audit
-#   ├─ audit-dead-code-scan      │  pipeline and emits findings JSON
-#   └─ audit-duplicates             │
+#   run-audits              ← iterate (parallel, max_concurrent: 4): fan out over
+#   ├─ audit-security       │  [security, dead-code, duplicates, complexity] —
+#   ├─ audit-dead-code-scan │  each runs its audit pipeline and emits findings.
+#   ├─ audit-duplicates     │
+#   └─ audit-complexity     │
 #        │
 #   merge-findings          ← aggregate (merge_arrays): collect all findings arrays
 #        │                    into one unified JSON list
@@ -19,9 +20,9 @@ metadata:
   name: ops-parallel-audit
   description: >-
     Parallel audit pipeline that fans out security vulnerability scanning,
-    dead-code detection, and developer experience analysis as concurrent
-    sub-pipelines. Aggregates all findings into a unified report sorted
-    by severity and actionability.
+    dead-code detection, duplicate analysis, and complexity scoring as
+    concurrent sub-pipelines. Aggregates all findings into a unified report
+    sorted by severity and actionability.
   category: composition
   release: true
 
@@ -54,17 +55,17 @@ pipeline_outputs:
     type: findings_report
 
 steps:
-  # ── Step 1: fan out over the three audit types in parallel ────────────────
+  # ── Step 1: fan out over the four audit types in parallel ────────────────
   #
   # Each item is the name of an existing audit pipeline. The iterate primitive
-  # spawns up to 3 workers simultaneously, one per audit type.
+  # spawns up to 4 workers simultaneously, one per audit type.
   - id: run-audits
     pipeline: "{{ item }}"
     input: "{{ input }}"
     iterate:
-      over: '["audit-security", "audit-dead-code-scan", "audit-duplicates"]'
+      over: '["audit-security", "audit-dead-code-scan", "audit-duplicates", "audit-complexity"]'
       mode: parallel
-      max_concurrent: 3
+      max_concurrent: 4
 
   # ── Step 2: merge all findings arrays into one flat list ─────────────────
   #
@@ -92,8 +93,8 @@ steps:
       source: |
         ## Objective
 
-        Synthesize the merged findings from three parallel audits (security, dead-code,
-        and developer experience) into a single, prioritized markdown report. This report
+        Synthesize the merged findings from four parallel audits (security, dead-code,
+        duplicates, and complexity) into a single, prioritized markdown report. This report
         is the primary deliverable of the ops-parallel-audit pipeline — it should give a
         technical lead or project maintainer a clear picture of codebase health, highlight
         the most urgent issues, and provide an ordered action plan. The report must be
@@ -103,13 +104,14 @@ steps:
 
         ## Context
 
-        Three parallel audit sub-pipelines have already completed:
+        Four parallel audit sub-pipelines have already completed:
         1. **audit-security**: scanned for vulnerabilities, injection risks, credential
            exposure, and authentication gaps
         2. **audit-dead-code-scan**: identified unused functions, unreachable code paths,
            orphaned files, and unnecessary dependencies
-        3. **audit-duplicates**: evaluated developer experience — documentation quality, error
-           message clarity, onboarding friction, and tooling gaps
+        3. **audit-duplicates**: detected near-duplicate code blocks and suggested merges
+        4. **audit-complexity**: deterministic in-tree analyzer — flags Go functions whose
+           cyclomatic or cognitive complexity exceeds configured thresholds
 
         Their findings have been aggregated by the merge-findings step into a single
         flat JSON array via the merge-findings aggregation step. Each finding object in

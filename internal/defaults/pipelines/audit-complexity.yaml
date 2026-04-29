@@ -1,0 +1,74 @@
+# Complexity Audit — Deterministic In-Tree Analysis
+#
+# Unlike audit-security/audit-architecture/etc. (which run an LLM persona over
+# the source), this pipeline calls the in-tree `wave audit complexity` command
+# to score Go functions by cyclomatic and cognitive complexity. Output conforms
+# to the shared-findings schema so it composes with other audits via
+# ops-parallel-audit's iterate fan-out.
+#
+# A `type: command` step is correct here: complexity is a quantitative,
+# deterministic metric — using an LLM would be slow, expensive, and unstable.
+
+kind: WavePipeline
+metadata:
+  name: audit-complexity
+  description: >-
+    Deterministic complexity audit. Scores Go functions by cyclomatic and
+    cognitive complexity, fails the pipeline when any function exceeds the
+    configured thresholds, and emits findings in shared-findings JSON format
+    for cross-pipeline aggregation.
+  category: composition
+  release: true
+
+input:
+  source: cli
+  type: string
+  example: "internal/pipeline"
+  schema:
+    type: string
+    description: "Scope to audit — package path, directory, or '.' for repo root"
+
+chat_context:
+  artifact_summaries:
+    - findings
+  suggested_questions:
+    - "Which functions exceed the cyclomatic threshold?"
+    - "Which functions exceed the cognitive threshold?"
+  focus_areas:
+    - "Per-function cyclomatic and cognitive complexity"
+    - "Refactoring candidates above threshold"
+
+pipeline_outputs:
+  findings:
+    step: scan
+    artifact: findings
+    type: findings_report
+
+steps:
+  - id: scan
+    type: command
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    script: |
+      set -o pipefail
+      mkdir -p .agents/output
+      wave audit complexity \
+        --output .agents/output/findings.json \
+        --max-cyclomatic 15 \
+        --max-cognitive 15 \
+        --warn-cyclomatic 10 \
+        --warn-cognitive 10 \
+        {{ input }}
+    output_artifacts:
+      - name: findings
+        path: .agents/output/findings.json
+        type: json
+    handover:
+      contract:
+        type: json_schema
+        source: .agents/output/findings.json
+        schema_path: .agents/contracts/shared-findings.schema.json
+        on_failure: fail
