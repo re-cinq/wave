@@ -14,57 +14,6 @@ project:
     lint_command: "go vet ./..."
     build_command: "go build ./..."
     source_glob: "*.go"
-ontology:
-    telos: "Coordinate multiple AI personas through structured pipelines with permissions, contracts, and workspace isolation"
-    contexts:
-        - name: execution
-          description: "Pipeline execution engine — DAG resolution, step orchestration, workspace lifecycle, adapter subprocess management"
-          invariants:
-            - "Steps execute in topological order for DAGs, or via graph walker for pipelines with loops and conditional edges"
-            - "Each step gets fresh memory by default — thread continuity is opt-in"
-            - "Contract validation must pass before step is marked successful"
-            - "Each step runs in an isolated workspace"
-            - "Artifacts from prior steps are injected before persona prompt fires"
-        - name: security
-          description: "Permission enforcement, input sanitization, path validation, sandbox configuration"
-          invariants:
-            - "All user inputs sanitized for prompt injection"
-            - "Deny rules projected into both settings.json AND runtime CLAUDE.md"
-            - "No credentials on disk; sanitized logging"
-            - "Workspace isolation prevents data leakage between steps"
-        - name: validation
-          description: "Output validation, contract enforcement, preflight checks, adaptive retry"
-          invariants:
-            - "Hard contract failures block step completion"
-            - "Soft contract failures log warnings but do not block"
-            - "Contract validation MUST NOT pass silently on failure"
-            - "Preflight checks run before any step executes"
-        - name: delivery
-          description: "Feature completeness — a capability exists only when users experience it through shipped pipelines and defaults"
-          invariants:
-            - "A feature is not done until shipped pipelines use it — engine code without pipeline adoption is incomplete"
-            - "Validation means the user-facing product changed — not that tests pass or files exist"
-            - "internal/defaults/pipelines/ must reflect all capabilities the engine supports"
-            - "Every new executor capability requires at least one default pipeline demonstrating it"
-        - name: configuration
-          description: "Manifest loading, persona management, pipeline definitions, embedded defaults"
-          invariants:
-            - "wave.yaml is the single source of truth for project configuration"
-            - "Single static binary — no runtime dependencies except adapter binaries"
-            - "Parity enforcement between .agents/ files and internal/defaults/"
-            - "Pipeline YAML defaults memory.strategy to fresh"
-        - name: quality
-          description: "Validation and quality gates — first-pass failure is expected, rework is the norm"
-          invariants:
-            - "First-pass success is the exception — validation exists to catch and correct, not to rubber-stamp"
-            - "Every pipeline output must pass through a validation gate before being considered done"
-            - "Rework after review is not failure — it is the expected path to quality"
-            - "Contract validation, PR review, and test suites are gates, not formalities"
-            - "When validation fails, analyze root cause and fix — do not work around the validator"
-    conventions:
-        naming: "snake_case for Go files, kebab-case for pipelines and personas"
-        testing: "table-driven tests with t.TempDir() for isolation"
-        errors: "structured CLIError with code, message, suggestion"
 adapters:
     claude:
         binary: claude

@@ -9,13 +9,12 @@ import (
 	"testing"
 
 	"github.com/recinq/wave/internal/adapter/adaptertest"
-	"github.com/recinq/wave/internal/ontology"
 )
 
 // TestResolveWorkspaceStepRefs tests the template resolution for step artifact/output references.
 func TestResolveWorkspaceStepRefs(t *testing.T) {
 	newExecutor := func() *DefaultPipelineExecutor {
-		return NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+		return NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	}
 
 	newExecution := func(artifacts map[string]string) *PipelineExecution {

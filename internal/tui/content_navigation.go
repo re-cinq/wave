@@ -6,7 +6,7 @@ import (
 
 // cycleView moves to the next view and returns init commands if the view was just created.
 func (m *ContentModel) cycleView() tea.Cmd {
-	m.currentView = (m.currentView + 1) % 9
+	m.currentView = (m.currentView + 1) % 8
 	m.focus = FocusPaneLeft
 
 	var initCmd tea.Cmd
@@ -33,8 +33,6 @@ func (m *ContentModel) cycleView() tea.Cmd {
 		initCmd = m.ensurePRModels(leftWidth, rightWidth, ch)
 	case ViewSuggest:
 		initCmd = m.ensureSuggestModels(leftWidth, rightWidth, ch)
-	case ViewOntology:
-		initCmd = m.ensureOntologyModels(leftWidth, rightWidth, ch)
 	}
 
 	batchCmds := []tea.Cmd{
@@ -76,8 +74,6 @@ func (m *ContentModel) setView(v ViewType) tea.Cmd {
 		initCmd = m.ensurePRModels(leftWidth, rightWidth, ch)
 	case ViewSuggest:
 		initCmd = m.ensureSuggestModels(leftWidth, rightWidth, ch)
-	case ViewOntology:
-		initCmd = m.ensureOntologyModels(leftWidth, rightWidth, ch)
 	}
 
 	batchCmds := []tea.Cmd{
@@ -109,8 +105,6 @@ func numberKeyToView(key string) (ViewType, bool) {
 		return ViewPullRequests, true
 	case "8":
 		return ViewSuggest, true
-	case "9":
-		return ViewOntology, true
 	default:
 		return 0, false
 	}

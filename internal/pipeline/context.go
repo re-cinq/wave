@@ -18,7 +18,7 @@ import (
 // missing project config fields resolve to empty strings instead of leaking
 // literal mustache syntax into prompts and contract commands.
 var (
-	unresolvedProjectVarRe = regexp.MustCompile(`\{\{\s*(?:project|ontology)\.\w+(?:\.\w+)*\s*\}\}`)
+	unresolvedProjectVarRe = regexp.MustCompile(`\{\{\s*project\.\w+(?:\.\w+)*\s*\}\}`)
 	threeDigitPrefixRe     = regexp.MustCompile(`^(\d{3})-`)
 	numericPrefixRe        = regexp.MustCompile(`(\d+)[-_]`)
 	invalidPathCharRe      = regexp.MustCompile(`[^a-zA-Z0-9\-_]`)
@@ -135,11 +135,6 @@ func newContextWithProject(pipelineID, pipelineName, stepID string, m *manifest.
 	ctx := NewPipelineContext(pipelineID, pipelineName, stepID)
 	if m != nil && m.Project != nil {
 		for k, v := range m.Project.ProjectVars() {
-			ctx.SetCustomVariable(k, v)
-		}
-	}
-	if m != nil && m.Ontology != nil {
-		for k, v := range m.Ontology.OntologyVars() {
 			ctx.SetCustomVariable(k, v)
 		}
 	}

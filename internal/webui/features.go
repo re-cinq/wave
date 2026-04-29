@@ -9,7 +9,6 @@ type Features struct {
 	Metrics   bool
 	Analytics bool
 	Webhooks  bool
-	Ontology  bool
 	Retros    bool
 }
 
@@ -33,7 +32,6 @@ func NewFeatureRegistry() *FeatureRegistry {
 	registerAnalytics(r)
 	registerMetrics(r)
 	registerWebhooks(r)
-	registerOntology(r)
 	registerRetros(r)
 	return r
 }

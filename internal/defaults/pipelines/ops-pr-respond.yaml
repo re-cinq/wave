@@ -60,7 +60,6 @@ steps:
   # ─── Phase 1: fetch PR context ───────────────────────────────────────────
   - id: fetch-pr
     persona: implementer
-    contexts: [execution]
     model: cheapest
     workspace:
       mount:
@@ -544,7 +543,6 @@ steps:
   - id: comment-back
     persona: "{{ forge.type }}-commenter"
     model: cheapest
-    contexts: [delivery]
     dependencies: [resolve-and-verify]
     workspace:
       mount:

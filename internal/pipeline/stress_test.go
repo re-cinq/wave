@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/manifest"
-	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -147,7 +146,6 @@ func TestStressTest_Executor_CircuitBreakerWithFailureClassification(t *testing.
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
 		WithStateStore(store),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -219,7 +217,6 @@ func TestStressTest_Executor_MaxVisitsEnforced_GraphMode(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()

@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/recinq/wave/internal/adapter/adaptertest"
-	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/testutil"
 )
 
@@ -919,7 +918,6 @@ func TestExecuteGraphPipeline_CommandStepIntegration(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	// Pipeline: init (command: echo hello) -> verify (command: echo done)

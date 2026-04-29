@@ -210,13 +210,6 @@ const features = [
     link: '/guides/vv-patterns'
   },
   {
-    icon: 'compose',
-    title: 'Project Ontology',
-    badge: 'upcoming',
-    description: 'Declare bounded contexts, invariants, and conventions in wave.yaml. Wave injects domain knowledge into steps and tracks context success rates. Behind feature flag.',
-    link: '/guide/vv-paradigm'
-  },
-  {
     icon: 'composition',
     title: 'Pipeline Composition',
     description: 'Five composition primitives — sub-pipelines, iterate, branch, loop, and aggregate — let pipelines compose other pipelines for complex multi-stage workflows.',
@@ -268,25 +261,20 @@ const features = [
 
 <div class="vv-section">
   <h2 class="vv-heading">How Wave Verifies Agent Work</h2>
-  <p class="vv-lead">A four-layer verification & validation model ensures every pipeline output meets quality, structural, and behavioral requirements.</p>
+  <p class="vv-lead">A three-layer verification & validation model ensures every pipeline output meets quality, structural, and behavioral requirements.</p>
   <div class="vv-grid">
     <div class="vv-card">
       <div class="vv-layer">Layer 1</div>
-      <div class="vv-name">Ontology <span style="font-size:0.7em;opacity:0.6">upcoming</span></div>
-      <p>Bounded contexts inject domain invariants and conventions into agent sessions. Lineage tracking measures which contexts produce the best outcomes. Behind feature flag — not shipped by default.</p>
-    </div>
-    <div class="vv-card">
-      <div class="vv-layer">Layer 2</div>
       <div class="vv-name">Personas</div>
       <p>Role-scoped agents with controlled tool access, temperature, and git forensics capabilities for each pipeline step.</p>
     </div>
     <div class="vv-card">
-      <div class="vv-layer">Layer 3</div>
+      <div class="vv-layer">Layer 2</div>
       <div class="vv-name">Contracts</div>
       <p>11 contract types with rework loops and convergence tracking. Self-correcting steps retry with feedback until quality thresholds are met.</p>
     </div>
     <div class="vv-card">
-      <div class="vv-layer">Layer 4</div>
+      <div class="vv-layer">Layer 3</div>
       <div class="vv-name">Gates</div>
       <p>Four checkpoint types — human approval, timed waits, PR merge polling, and CI pass polling — with toast notifications for attention states.</p>
     </div>

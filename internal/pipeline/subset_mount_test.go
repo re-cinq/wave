@@ -8,7 +8,6 @@ import (
 
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
-	"github.com/recinq/wave/internal/ontology"
 )
 
 // TestMaterialiseMountSubset covers the workspace subset mount mode
@@ -55,7 +54,7 @@ func TestMaterialiseMountSubset(t *testing.T) {
 		Context:        NewPipelineContext("test-run", "test", "audit"),
 	}
 
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 
 	mount := Mount{
 		Source:     source,
@@ -114,7 +113,7 @@ func TestMaterialiseMountSubset_PathTraversalRejected(t *testing.T) {
 		Status:         &PipelineStatus{ID: "test-run"},
 		Context:        NewPipelineContext("test-run", "test", "audit"),
 	}
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 
 	subsetDir, err := executor.materialiseMountSubset(exec, "audit", 0, Mount{
 		Source:     source,
@@ -172,7 +171,7 @@ func TestMaterialiseMountSubset_SymlinkRejected(t *testing.T) {
 		Status:         &PipelineStatus{ID: "test-run"},
 		Context:        NewPipelineContext("test-run", "test", "audit"),
 	}
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 
 	subsetDir, err := executor.materialiseMountSubset(exec, "audit", 0, Mount{
 		Source:     source,

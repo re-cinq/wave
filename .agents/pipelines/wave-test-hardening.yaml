@@ -289,7 +289,6 @@ steps:
   - id: create-pr
     persona: "{{ forge.type }}-commenter"
     model: cheapest
-    contexts: [delivery]
     dependencies: [gate]
     memory:
       inject_artifacts:

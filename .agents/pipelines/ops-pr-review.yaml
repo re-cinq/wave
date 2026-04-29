@@ -54,7 +54,6 @@ steps:
   # ─── Phase 1: Diff analysis ───────────────────────────────────────────────
   - id: diff-analysis
     persona: navigator
-    contexts: [execution]
     model: cheapest
     workspace:
       mount:
@@ -154,7 +153,6 @@ steps:
     persona: reviewer
     thread: review-security
     model: balanced
-    contexts: [security]
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:
@@ -271,7 +269,6 @@ steps:
     persona: reviewer
     thread: review-quality
     model: balanced
-    contexts: [validation]
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:
@@ -387,7 +384,6 @@ steps:
     persona: reviewer
     thread: review-slop
     model: balanced
-    contexts: [validation]
     dependencies: [diff-analysis]
     memory:
       inject_artifacts:

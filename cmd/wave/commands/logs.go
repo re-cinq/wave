@@ -359,13 +359,8 @@ func printLogEntry(log LogsEntry, format string) {
 	var parts []string
 	parts = append(parts, fmt.Sprintf("[%s]", log.Timestamp))
 
-	// Highlight ontology events with color
 	stateStr := fmt.Sprintf("%-18s", log.State)
 	switch log.State {
-	case "ontology_inject":
-		stateStr = fmt.Sprintf("\033[1;35m%-18s\033[0m", log.State) // bold magenta
-	case "ontology_lineage":
-		stateStr = fmt.Sprintf("\033[35m%-18s\033[0m", log.State) // magenta
 	case "failed":
 		stateStr = fmt.Sprintf("\033[31m%-18s\033[0m", log.State) // red
 	case "completed":

@@ -171,7 +171,6 @@ steps:
 | `max_concurrent_agents` | no | - | Alias for `concurrency` |
 | `thread` | no | - | [Thread group](#threads) ID for conversation continuity |
 | `fidelity` | no | auto | [Context fidelity](#threads): `full`, `compact`, `summary`, `fresh` |
-| `contexts` | no | `[]` | [Ontology context](#contexts) filter for bounded contexts |
 | `type` | no | - | Step type: `conditional`, `command`, or empty (prompt) |
 | `edges` | no | `[]` | [Graph edges](#edges) for conditional routing |
 | `max_visits` | no | `10` | Max visits to this step in a [loop](#graph-loops) |
@@ -728,31 +727,6 @@ steps:
 |-------|---------|-------------|
 | `thread` | - | Thread group ID. Steps with the same thread share conversation context. |
 | `fidelity` | `full` (if thread set), `fresh` (if no thread) | How much prior context to inject. |
-
----
-
-## Contexts
-
-Filter which ontology bounded contexts are injected into a step. When set, only the specified contexts are provided to the persona, reducing noise for focused steps.
-
-```yaml
-steps:
-  - id: security-review
-    persona: auditor
-    contexts: [security, authentication]
-    exec:
-      type: prompt
-      source: "Review for security vulnerabilities"
-
-  - id: api-design
-    persona: navigator
-    contexts: [api, contracts]
-    exec:
-      type: prompt
-      source: "Design the API surface"
-```
-
-When `contexts` is omitted, the step receives all available context.
 
 ---
 

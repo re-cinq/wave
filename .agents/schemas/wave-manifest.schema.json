@@ -32,9 +32,6 @@
     "project": {
       "$ref": "#/definitions/Project"
     },
-    "ontology": {
-      "$ref": "#/definitions/Ontology"
-    },
     "adapters": {
       "type": "object",
       "additionalProperties": {
@@ -174,54 +171,6 @@
         "source_glob": {
           "type": "string",
           "description": "Source file glob pattern for this service"
-        }
-      }
-    },
-    "Ontology": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "telos": {
-          "type": "string",
-          "description": "The project's purpose — why it exists (injected into every agent's context)"
-        },
-        "contexts": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/OntologyContext"
-          },
-          "description": "Bounded contexts defining the project's domain boundaries"
-        },
-        "conventions": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          },
-          "description": "Project conventions (commits, testing, etc.) injected into agent context"
-        }
-      }
-    },
-    "OntologyContext": {
-      "type": "object",
-      "required": [
-        "name"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Bounded context name (e.g., 'billing', 'identity-tenancy')"
-        },
-        "description": {
-          "type": "string",
-          "description": "Brief description of what this context covers"
-        },
-        "invariants": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Rules that must NEVER be violated within this context"
         }
       }
     },

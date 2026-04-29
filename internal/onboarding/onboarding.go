@@ -75,8 +75,6 @@ type WizardResult struct {
 	Skills               []string // installed skill names from onboarding
 	WaveCommandGenerated bool     // true if .claude/commands/wave.md was created
 	Dependencies         []DependencyStatus
-	OntologyTelos        string                            // project purpose statement
-	OntologyContexts     []string                          // bounded context names
 	Services             map[string]manifest.ServiceConfig // detected monorepo services
 }
 
@@ -234,21 +232,6 @@ func RunWizard(cfg WizardConfig) (*WizardResult, error) {
 	if skillResult != nil && skillResult.Data != nil {
 		if skills, ok := skillResult.Data["skills"].([]string); ok {
 			result.Skills = skills
-		}
-	}
-
-	// Step 7: Project ontology
-	ontologyStep := &OntologyStep{}
-	ontologyResult, err := ontologyStep.Run(&cfg)
-	if err != nil {
-		return nil, fmt.Errorf("ontology configuration failed: %w", err)
-	}
-	if ontologyResult != nil && !ontologyResult.Skipped && ontologyResult.Data != nil {
-		if v, ok := ontologyResult.Data["telos"].(string); ok {
-			result.OntologyTelos = v
-		}
-		if v, ok := ontologyResult.Data["contexts"].([]string); ok {
-			result.OntologyContexts = v
 		}
 	}
 
@@ -481,48 +464,6 @@ func buildManifest(cfg WizardConfig, result *WizardResult) map[string]interface{
 
 	if len(result.Skills) > 0 {
 		m["skills"] = result.Skills
-	}
-
-	// Add ontology section — always include base quality context
-	ontology := map[string]interface{}{}
-	if result.OntologyTelos != "" {
-		ontology["telos"] = result.OntologyTelos
-	}
-
-	// Build contexts: user-provided + base quality context
-	var contexts []map[string]interface{}
-	for _, name := range result.OntologyContexts {
-		contexts = append(contexts, map[string]interface{}{
-			"name": name,
-		})
-	}
-
-	// Inject base quality context (validation-as-expected-loop)
-	hasQuality := false
-	for _, name := range result.OntologyContexts {
-		if name == "quality" {
-			hasQuality = true
-			break
-		}
-	}
-	if !hasQuality {
-		contexts = append(contexts, map[string]interface{}{
-			"name":        "quality",
-			"description": "Validation and quality gates — first-pass failure is expected, rework is the norm",
-			"invariants": []string{
-				"First-pass success is the exception, not the rule — validation exists to catch and correct",
-				"Every pipeline output must pass through a validation gate before being considered done",
-				"Rework after review is not a failure — it is the expected path to quality",
-				"Contract validation, PR review, and test suites are gates, not formalities",
-			},
-		})
-	}
-
-	if len(contexts) > 0 {
-		ontology["contexts"] = contexts
-	}
-	if len(ontology) > 0 {
-		m["ontology"] = ontology
 	}
 
 	return m

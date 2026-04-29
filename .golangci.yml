@@ -51,14 +51,6 @@ linters:
               desc: "Layer violation: Domain/Infrastructure must not import Presentation (ADR-003)"
             - pkg: "github.com/recinq/wave/internal/onboarding"
               desc: "Layer violation: Domain/Infrastructure must not import Presentation (ADR-003)"
-        # ADR-009 note: ontology bounded-context isolation is enforced by
-        # convention, not depguard. The invariants are:
-        #   - Only internal/ontology may read/write the .agents/.ontology-stale
-        #     sentinel, own the "wave-ctx-*" skill path convention, or emit
-        #     the [ONTOLOGY_*] audit trace lines.
-        #   - Other packages must consume ontology.Service, not inline helpers.
-        # These are string-literal rules depguard cannot express. See the
-        # package doc in internal/ontology/service.go.
 
         # Rule: Only internal/state and internal/metrics may import
         # database/sql (ADR-007). internal/metrics was carved out of state in

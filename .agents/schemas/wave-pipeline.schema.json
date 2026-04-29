@@ -249,13 +249,6 @@
         "aggregate": {
           "$ref": "#/definitions/AggregateConfig"
         },
-        "contexts": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Ontology bounded context filter — when set, only these contexts are injected into the step's CLAUDE.md."
-        },
         "dependencies": {
           "type": "array",
           "items": {

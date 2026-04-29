@@ -14,13 +14,12 @@ import (
 
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
-	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/testutil"
 )
 
 func TestResumeManager_ValidateResumePoint(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	pipeline := &Pipeline{
@@ -126,7 +125,7 @@ func TestResumeManager_ValidateResumePoint(t *testing.T) {
 }
 
 func TestResumeManager_LoadResumeState(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	pipeline := &Pipeline{
@@ -276,7 +275,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 }
 
 func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	pipeline := &Pipeline{
@@ -445,7 +444,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 }
 
 func TestResumeManager_CreateResumeSubpipeline(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	pipeline := &Pipeline{
@@ -516,7 +515,7 @@ func TestResumeManager_CreateResumeSubpipeline(t *testing.T) {
 }
 
 func TestResumeManager_GetRecommendedResumePoint(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	pipeline := &Pipeline{
@@ -671,7 +670,7 @@ func TestResumeManager_GetRecommendedResumePoint(t *testing.T) {
 
 func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 	// Test integration between resume functionality and stale artifact detection
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	pipeline := &Pipeline{
@@ -801,7 +800,7 @@ func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 }
 
 func TestCreateResumeSubpipelineStripsPriorDependencies(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	p := &Pipeline{
@@ -837,7 +836,7 @@ func TestCreateResumeSubpipelineStripsPriorDependencies(t *testing.T) {
 }
 
 func TestLoadResumeState_WithPriorRunID(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	p := &Pipeline{
@@ -1035,7 +1034,7 @@ func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 
 func TestLoadResumeState_LoadsFailureContext(t *testing.T) {
 	mockAdapter := adaptertest.NewMockAdapter()
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter)
 
 	// Wire a mock store with step attempt data
 	store := &resumeMockStore{
@@ -1100,7 +1099,7 @@ func TestLoadResumeState_LoadsFailureContext(t *testing.T) {
 
 func TestLoadResumeState_NoFailureContextWithoutStore(t *testing.T) {
 	mockAdapter := adaptertest.NewMockAdapter()
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter)
 	// No store set — executor.store is nil
 	manager := NewResumeManager(executor)
 
@@ -1129,7 +1128,7 @@ func TestLoadResumeState_NoFailureContextWithoutStore(t *testing.T) {
 
 func TestLoadResumeState_NoFailureContextWhenStepSucceeded(t *testing.T) {
 	mockAdapter := adaptertest.NewMockAdapter()
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter)
 
 	store := &resumeMockStore{
 		attempts: map[string][]state.StepAttemptRecord{
@@ -1191,7 +1190,7 @@ func TestResumeFromStepWithForceSkipsValidation(t *testing.T) {
 		adaptertest.WithTokensUsed(500),
 	)
 
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter)
 	manager := NewResumeManager(executor)
 
 	m := &manifest.Manifest{
@@ -1251,7 +1250,6 @@ func TestResumeWithExcludeFilter(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 		WithStepFilter(filter),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -1313,7 +1311,6 @@ func TestExecuteResumedPipeline_ReturnsStepExecutionError(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 	manager := NewResumeManager(executor)
 
@@ -1382,7 +1379,7 @@ func TestResumeNonPrototypePipeline(t *testing.T) {
 		adaptertest.WithTokensUsed(500),
 	)
 
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter)
 	manager := NewResumeManager(executor)
 
 	m := testutil.CreateTestManifest(tmpDir)
@@ -1428,7 +1425,7 @@ func TestResumeNonPrototype_NoRunStateFails(t *testing.T) {
 	_ = os.Chdir(tmpDir)
 	defer func() { _ = os.Chdir(origDir) }()
 
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	p := &Pipeline{
@@ -1469,7 +1466,7 @@ func TestGetRecommendedResumePoint_NonPrototype(t *testing.T) {
 	_ = os.Chdir(tmpDir)
 	defer func() { _ = os.Chdir(origDir) }()
 
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	p := &Pipeline{
@@ -1544,7 +1541,6 @@ func TestFailureClassRecordedOnStepAttempt(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithStateStore(store),
 		WithEmitter(testutil.NewEventCollector()),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	m := testutil.CreateTestManifest(tmpDir)
@@ -1612,7 +1608,6 @@ func TestResumeFromStep_ReusesExecutorRunID(t *testing.T) {
 		),
 		WithRunID("preset-run-id"),
 		WithStateStore(store),
-		WithOntologyService(ontology.NoOp{}),
 	)
 	manager := NewResumeManager(executor)
 
@@ -1664,7 +1659,7 @@ func initGitRepo(t *testing.T, dir string) {
 }
 
 func TestResumeFromStep_InjectsForgeVariables(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	tempDir := t.TempDir()
@@ -1721,7 +1716,7 @@ func TestResumeFromStep_InjectsForgeVariables(t *testing.T) {
 }
 
 func TestResumeFromStep_ReusesWorktree(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	tempDir := t.TempDir()

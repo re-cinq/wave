@@ -10,7 +10,7 @@ metadata:
 
 input:
   source: cli
-  example: "internal/ontology/service.go"
+  example: "internal/manifest/parser.go"
   schema:
     type: string
     description: "Path to a single source file to explain"

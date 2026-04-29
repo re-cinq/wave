@@ -11,7 +11,6 @@ import (
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
-	"github.com/recinq/wave/internal/ontology"
 )
 
 // capturingEmitter records all emitted events for test assertions.
@@ -122,7 +121,7 @@ func TestResumeFromStep_SyntheticCompletionEvents(t *testing.T) {
 
 			emitter := &capturingEmitter{}
 			mockAdapter := adaptertest.NewMockAdapter()
-			executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(emitter), WithOntologyService(ontology.NoOp{}))
+			executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(emitter))
 			manager := NewResumeManager(executor)
 
 			p := &Pipeline{
@@ -186,7 +185,7 @@ func TestResumeFromStep_SyntheticCompletionEvents(t *testing.T) {
 }
 
 func TestLookupStepPersona(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	manager := NewResumeManager(executor)
 
 	p := &Pipeline{

@@ -363,9 +363,6 @@ type Step struct {
 	Thread   string `yaml:"thread,omitempty"`   // Thread group ID (opt-in; empty = fresh memory)
 	Fidelity string `yaml:"fidelity,omitempty"` // Context fidelity: full, compact, summary, fresh
 
-	// Ontology context filter — when set, only these bounded contexts are injected
-	Contexts []string `yaml:"contexts,omitempty"`
-
 	// Skills declared at step granularity. Provisioned by the executor into the
 	// adapter's native skill discovery path at step start. Merged with persona
 	// and pipeline skills via skill.ResolveSkills.

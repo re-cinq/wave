@@ -69,7 +69,7 @@ func TestContentModel_TabCyclesThroughAllViews(t *testing.T) {
 	)
 	c.SetSize(120, 40)
 
-	views := []ViewType{ViewPersonas, ViewContracts, ViewSkills, ViewHealth, ViewIssues, ViewPullRequests, ViewSuggest, ViewOntology, ViewPipelines}
+	views := []ViewType{ViewPersonas, ViewContracts, ViewSkills, ViewHealth, ViewIssues, ViewPullRequests, ViewSuggest, ViewPipelines}
 	msg := tea.KeyMsg{Type: tea.KeyTab}
 
 	for _, expected := range views {

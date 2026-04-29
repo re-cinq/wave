@@ -50,7 +50,7 @@ func TestPersonaToAgentMarkdown_Basic(t *testing.T) {
 		AllowedTools: []string{"Read", "Glob", "Grep"},
 	}
 
-	md := adapter.PersonaToAgentMarkdown(spec, "# Base Protocol", "", "# Navigator\nYou are a navigator.", "", "")
+	md := adapter.PersonaToAgentMarkdown(spec, "# Base Protocol", "# Navigator\nYou are a navigator.", "", "")
 
 	assert.True(t, strings.HasPrefix(md, "---\n"))
 	assert.Contains(t, md, "model: sonnet")
@@ -65,7 +65,7 @@ func TestPersonaToAgentMarkdown_Basic(t *testing.T) {
 func TestPersonaToAgentMarkdown_NoDeny(t *testing.T) {
 	spec := adapter.PersonaSpec{Model: "opus"}
 
-	md := adapter.PersonaToAgentMarkdown(spec, "", "", "System prompt", "", "")
+	md := adapter.PersonaToAgentMarkdown(spec, "", "System prompt", "", "")
 
 	assert.NotContains(t, md, "disallowedTools")
 	assert.Contains(t, md, "model: opus")
@@ -75,7 +75,7 @@ func TestPersonaToAgentMarkdown_NoDeny(t *testing.T) {
 func TestPersonaToAgentMarkdown_WithDeny(t *testing.T) {
 	spec := adapter.PersonaSpec{DenyTools: []string{"Bash(rm*)"}}
 
-	md := adapter.PersonaToAgentMarkdown(spec, "", "", "", "", "")
+	md := adapter.PersonaToAgentMarkdown(spec, "", "", "", "")
 
 	assert.Contains(t, md, "disallowedTools:")
 	assert.Contains(t, md, "  - Bash(rm*)")
@@ -84,7 +84,7 @@ func TestPersonaToAgentMarkdown_WithDeny(t *testing.T) {
 func TestPersonaToAgentMarkdown_WithRestrictions(t *testing.T) {
 	spec := adapter.PersonaSpec{}
 
-	md := adapter.PersonaToAgentMarkdown(spec, "", "", "", "## Contract\nMust output JSON", "## Restrictions\nNo network")
+	md := adapter.PersonaToAgentMarkdown(spec, "", "", "## Contract\nMust output JSON", "## Restrictions\nNo network")
 
 	assert.Contains(t, md, "## Contract")
 	assert.Contains(t, md, "## Restrictions")

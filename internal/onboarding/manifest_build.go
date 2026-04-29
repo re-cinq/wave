@@ -354,21 +354,6 @@ func BuildDefaultManifest(adapter, workspace string, project map[string]interfac
 		m["project"] = project
 	}
 
-	m["ontology"] = map[string]interface{}{
-		"contexts": []map[string]interface{}{
-			{
-				"name":        "quality",
-				"description": "Validation and quality gates — first-pass failure is expected, rework is the norm",
-				"invariants": []string{
-					"First-pass success is the exception, not the rule — validation exists to catch and correct",
-					"Every pipeline output must pass through a validation gate before being considered done",
-					"Rework after review is not a failure — it is the expected path to quality",
-					"Contract validation, PR review, and test suites are gates, not formalities",
-				},
-			},
-		},
-	}
-
 	return m
 }
 
@@ -425,7 +410,6 @@ func mergeMapsRecursive(defaults, existing map[string]interface{}) map[string]in
 // Preservation rules:
 //   - Custom personas (not in generated) are preserved
 //   - Custom adapter configurations are preserved
-//   - Ontology section is preserved entirely from existing
 //   - Metadata.Name is preserved if already set
 //   - Metadata.Description is preserved if already set
 //   - apiVersion, kind, and runtime settings are updated from generated
@@ -463,12 +447,6 @@ func MergeTypedManifests(existing, generated *manifest.Manifest) *manifest.Manif
 	}
 	for name, persona := range existing.Personas {
 		result.Personas[name] = persona
-	}
-
-	if existing.Ontology != nil {
-		result.Ontology = existing.Ontology
-	} else {
-		result.Ontology = generated.Ontology
 	}
 
 	if existing.Project != nil {

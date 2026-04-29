@@ -166,21 +166,21 @@ handover:
 
 ### Event Contains
 
-Validates that specific pipeline events occurred during step execution. Matches events by state and optional message substrings. Used in Wave's own default ontology pipelines.
+Validates that specific pipeline events occurred during step execution. Matches events by state and optional message substrings.
 
 ```yaml
 handover:
   contract:
     type: event_contains
     events:
-      - state: ontology_warn
-        contains: "delivery"
+      - state: step_failed
+        contains: "timeout"
 ```
 
 | Field | Default | Description |
 |-------|---------|-------------|
 | `events` | - | List of event patterns to match |
-| `events[].state` | - | Required event state to match (e.g., `ontology_warn`) |
+| `events[].state` | - | Required event state to match (e.g., `step_failed`) |
 | `events[].contains` | (any) | Optional substring the event message must include |
 
 ### Spec-Derived Test

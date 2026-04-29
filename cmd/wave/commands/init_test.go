@@ -201,7 +201,6 @@ func TestInitForceRequiresConfirmation(t *testing.T) {
 	// Should have printed warning to stderr
 	assert.Contains(t, errBuf.String(), "WARNING", "should print warning about data loss")
 	assert.Contains(t, errBuf.String(), "Custom personas", "warning should mention personas")
-	assert.Contains(t, errBuf.String(), "Ontology", "warning should mention ontology")
 
 	// Original file should be unchanged
 	data, err := os.ReadFile("wave.yaml")
@@ -246,7 +245,7 @@ func TestInitDefaultsMergeWhenExisting(t *testing.T) {
 	env := newTestEnv(t)
 	defer env.cleanup()
 
-	// Create an existing wave.yaml with custom personas and ontology
+	// Create an existing wave.yaml with custom personas
 	existingContent := `apiVersion: v1
 kind: WaveManifest
 metadata:
@@ -261,13 +260,6 @@ personas:
     adapter: custom-llm
     system_prompt_file: .agents/personas/my-agent.md
     temperature: 0.7
-ontology:
-  telos: "Build the best widget system"
-  contexts:
-    - name: widget-core
-      description: Core widget functionality
-      invariants:
-        - "Widgets must be immutable after creation"
 runtime:
   workspace_root: .agents/workspaces
 `
@@ -2065,44 +2057,6 @@ func TestMergeTypedManifestsPreservesAdapters(t *testing.T) {
 	// Default adapter added
 	_, hasClaude := result.Adapters["claude"]
 	assert.True(t, hasClaude, "default adapter should be added")
-}
-
-// TestMergeTypedManifestsPreservesOntology tests that the ontology section is preserved.
-func TestMergeTypedManifestsPreservesOntology(t *testing.T) {
-	existing := &manifest.Manifest{
-		APIVersion: "v1",
-		Kind:       "WaveManifest",
-		Metadata:   manifest.Metadata{Name: "test"},
-		Ontology: &manifest.Ontology{
-			Telos: "Build the best widget system",
-			Contexts: []manifest.OntologyContext{
-				{
-					Name:        "widget-core",
-					Description: "Core widget functionality",
-					Invariants:  []string{"Widgets must be immutable after creation"},
-				},
-			},
-			Conventions: map[string]string{
-				"naming": "PascalCase for types",
-			},
-		},
-	}
-
-	generated := &manifest.Manifest{
-		APIVersion: "v1",
-		Kind:       "WaveManifest",
-		Metadata:   manifest.Metadata{Name: "wave-project"},
-		// No ontology in generated
-	}
-
-	result := onboarding.MergeTypedManifests(existing, generated)
-
-	// Ontology preserved entirely from existing
-	require.NotNil(t, result.Ontology, "ontology should be preserved")
-	assert.Equal(t, "Build the best widget system", result.Ontology.Telos)
-	assert.Len(t, result.Ontology.Contexts, 1)
-	assert.Equal(t, "widget-core", result.Ontology.Contexts[0].Name)
-	assert.Equal(t, "PascalCase for types", result.Ontology.Conventions["naming"])
 }
 
 // TestMergeTypedManifestsUpdatesInfrastructure tests that apiVersion, kind, and runtime are updated.

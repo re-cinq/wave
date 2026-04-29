@@ -85,7 +85,6 @@ internal/
 ├── humanize/     # Human-readable formatting helpers (durations, counts, sizes)
 ├── manifest/     # Configuration loading and validation
 ├── onboarding/   # Interactive wave init flow (monorepo-aware, Docker compose, flavour detection)
-├── ontology/     # Bounded-context ontology service (staleness, injection, lineage, audit)
 ├── pathfmt/      # Path formatting and normalization utilities
 ├── pipeline/     # Pipeline execution, step management, model routing, decision logging
 ├── preflight/    # Pipeline dependency validation and auto-install
@@ -96,7 +95,7 @@ internal/
 ├── scope/        # Persona token scope parsing and validation
 ├── security/     # Security validation and sanitization
 ├── skill/        # Skill discovery, provisioning, and command management
-├── state/        # SQLite persistence, outcome tracking, webhooks, decision log, ontology usage
+├── state/        # SQLite persistence, outcome tracking, webhooks, decision log
 ├── suggest/      # Pipeline suggestion engine
 ├── testutil/     # Shared test helpers (event collectors, state mocks, manifest fixtures)
 ├── timeouts/     # Default timeout constants (leaf package, breaks import cycles)
@@ -286,43 +285,6 @@ wave logs <run-id> | grep "stream_activity" | tail -3             # Latest activ
 2. Check remaining PRs for conflicts after each merge
 3. Close CONFLICTING PRs and re-run from updated main
 4. Pull main after batch: `git pull origin main`
-
-## Ontology Context Injection
-
-Ontology contexts (`wave.yaml` → `ontology.contexts`) are injected into step prompts to encode invariants, key decisions, and domain vocabulary. Understanding how context selection works is important for writing and debugging pipelines.
-
-### Inherit-All vs Explicit Context Selection
-
-**Explicit contexts** — a step with a `contexts:` list receives only the named contexts:
-
-```yaml
-- id: implement
-  contexts: [execution, delivery]   # injects only execution + delivery invariants
-```
-
-**Inherit-all** — a step with **no** `contexts:` field automatically receives **all** defined contexts from `wave.yaml`:
-
-```yaml
-- id: plan
-  # no contexts: field → injects ALL ontology contexts
-```
-
-This is intentional: the plan step typically needs the full domain picture, while implementation steps are narrowed to execution/delivery constraints. The trace log reveals the difference:
-
-```
-[ONTOLOGY_INJECT] step=plan    contexts=[quality,execution,delivery] invariants=11
-[ONTOLOGY_INJECT] step=implement contexts=[execution,delivery]       invariants=7
-```
-
-### Undefined Context Warning
-
-If a step's `contexts:` list references a context name that does **not** exist in `wave.yaml`, the runtime emits an `[ONTOLOGY_WARN]` log line and continues — the step runs unconstrained rather than failing:
-
-```
-[ONTOLOGY_WARN] pipeline=impl-issue step=fetch-assess undefined_contexts=[configuration]
-```
-
-This warning means the step received zero invariants from that context. Fix it by either adding the missing context to `wave.yaml` or correcting the context name in the pipeline step.
 
 ## Custom Pipeline Tips
 

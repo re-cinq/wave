@@ -108,11 +108,6 @@ func TestPipelineContext_ResolvePlaceholders(t *testing.T) {
 			template: "path {{ project.services.api.path }}",
 			expected: "path ",
 		},
-		{
-			name:     "unresolved_ontology_var",
-			template: "ctx {{ ontology.bounded_context.name }}",
-			expected: "ctx ",
-		},
 	}
 
 	for _, tt := range tests {

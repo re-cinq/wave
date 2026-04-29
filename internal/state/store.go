@@ -60,8 +60,8 @@ type StepStateRecord struct {
 }
 
 // StateStore is the aggregate persistence surface — the union of every
-// domain-scoped sub-interface (RunStore, EventStore, OntologyStore,
-// WebhookStore, ChatStore) plus Close.
+// domain-scoped sub-interface (RunStore, EventStore, WebhookStore, ChatStore)
+// plus Close.
 //
 // DEPRECATED for new code: consumers should depend on the smallest narrow
 // interface that satisfies their call sites. StateStore is retained as the
@@ -71,7 +71,6 @@ type StepStateRecord struct {
 type StateStore interface {
 	RunStore
 	EventStore
-	OntologyStore
 	WebhookStore
 	ChatStore
 

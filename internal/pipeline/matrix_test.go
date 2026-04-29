@@ -14,7 +14,6 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
-	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
@@ -513,7 +512,7 @@ func TestMatrixExecutor_SpawnsCorrectWorkerCount(t *testing.T) {
 				),
 			}
 
-			executor := NewDefaultPipelineExecutor(trackingAdapter, WithOntologyService(ontology.NoOp{}))
+			executor := NewDefaultPipelineExecutor(trackingAdapter)
 			matrixExecutor := NewMatrixExecutor(executor)
 
 			m := &manifest.Manifest{
@@ -658,7 +657,7 @@ func TestMatrixExecutor_MaxConcurrencyLimit(t *testing.T) {
 				),
 			}
 
-			executor := NewDefaultPipelineExecutor(concurrencyAdapter, WithOntologyService(ontology.NoOp{}))
+			executor := NewDefaultPipelineExecutor(concurrencyAdapter)
 			matrixExecutor := NewMatrixExecutor(executor)
 
 			m := &manifest.Manifest{
@@ -815,7 +814,7 @@ func TestMatrixExecutor_PartialFailureHandling(t *testing.T) {
 			// Collect events to verify failure reporting
 			eventCollector := testutil.NewEventCollector()
 
-			executor := NewDefaultPipelineExecutor(partialFailAdapter, WithEmitter(eventCollector), WithOntologyService(ontology.NoOp{}))
+			executor := NewDefaultPipelineExecutor(partialFailAdapter, WithEmitter(eventCollector))
 			matrixExecutor := NewMatrixExecutor(executor)
 
 			m := &manifest.Manifest{
@@ -950,7 +949,6 @@ func TestMatrixExecutor_ZeroTasks(t *testing.T) {
 			executor := NewDefaultPipelineExecutor(
 				adaptertest.NewMockAdapter(adaptertest.WithStdoutJSON(`{"status": "success"}`)),
 				WithEmitter(eventCollector),
-				WithOntologyService(ontology.NoOp{}),
 			)
 			matrixExecutor := NewMatrixExecutor(executor)
 
@@ -1047,7 +1045,7 @@ func TestMatrixExecutor_ZeroTasksEdgeCases(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	t.Run("missing items_source file", func(t *testing.T) {
-		executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+		executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 		matrixExecutor := NewMatrixExecutor(executor)
 
 		execution := &PipelineExecution{
@@ -1079,7 +1077,7 @@ func TestMatrixExecutor_ZeroTasksEdgeCases(t *testing.T) {
 		invalidJSONFile := filepath.Join(tmpDir, "invalid.json")
 		_ = os.WriteFile(invalidJSONFile, []byte("not valid json{"), 0644)
 
-		executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+		executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 		matrixExecutor := NewMatrixExecutor(executor)
 
 		execution := &PipelineExecution{
@@ -1111,7 +1109,7 @@ func TestMatrixExecutor_ZeroTasksEdgeCases(t *testing.T) {
 		objectJSONFile := filepath.Join(tmpDir, "object.json")
 		_ = os.WriteFile(objectJSONFile, []byte(`{"key": "value"}`), 0644)
 
-		executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+		executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 		matrixExecutor := NewMatrixExecutor(executor)
 
 		execution := &PipelineExecution{
@@ -1290,7 +1288,7 @@ func TestMatrixExecutor_TieredExecution_IndependentItems(t *testing.T) {
 	}
 
 	eventCollector := testutil.NewEventCollector()
-	executor := NewDefaultPipelineExecutor(trackAdapter, WithEmitter(eventCollector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(trackAdapter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
 	execution := createTieredExecution(t, tmpDir, "tier-independent")
@@ -1361,7 +1359,7 @@ func TestMatrixExecutor_TieredExecution_LinearChain(t *testing.T) {
 	}
 
 	eventCollector := testutil.NewEventCollector()
-	executor := NewDefaultPipelineExecutor(trackAdapter, WithEmitter(eventCollector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(trackAdapter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
 	execution := createTieredExecution(t, tmpDir, "tier-linear")
@@ -1440,7 +1438,6 @@ func TestMatrixExecutor_TieredExecution_Diamond(t *testing.T) {
 			adaptertest.WithTokensUsed(100),
 		),
 		WithEmitter(eventCollector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 	matrixExecutor := NewMatrixExecutor(executor)
 
@@ -1508,7 +1505,7 @@ func TestMatrixExecutor_TieredExecution_DependencyFailure(t *testing.T) {
 	}
 
 	eventCollector := testutil.NewEventCollector()
-	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(eventCollector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
 	execution := createTieredExecution(t, tmpDir, "tier-dep-failure")
@@ -1576,7 +1573,7 @@ func TestMatrixExecutor_TieredExecution_CycleDetection(t *testing.T) {
 	}
 	itemsFile := createTieredItemsFile(t, tmpDir, items)
 
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	matrixExecutor := NewMatrixExecutor(executor)
 
 	execution := createTieredExecution(t, tmpDir, "tier-cycle")
@@ -1615,7 +1612,7 @@ func TestMatrixExecutor_TieredExecution_MissingDependency(t *testing.T) {
 	}
 	itemsFile := createTieredItemsFile(t, tmpDir, items)
 
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	matrixExecutor := NewMatrixExecutor(executor)
 
 	execution := createTieredExecution(t, tmpDir, "tier-missing-dep")
@@ -1764,7 +1761,7 @@ func TestMatrixExecutor_ChildPipeline_LoadsAndExecutes(t *testing.T) {
 	}
 
 	eventCollector := testutil.NewEventCollector()
-	executor := NewDefaultPipelineExecutor(counter, WithEmitter(eventCollector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(counter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
 	execution := createTieredExecution(t, tmpDir, "child-pipeline-test")
@@ -1886,7 +1883,7 @@ func TestMatrixExecutor_ChildPipeline_WithTiers(t *testing.T) {
 	}
 
 	eventCollector := testutil.NewEventCollector()
-	executor := NewDefaultPipelineExecutor(counter, WithEmitter(eventCollector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(counter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
 	execution := createTieredExecution(t, tmpDir, "child-tiered-test")
@@ -1966,7 +1963,7 @@ func TestMatrixExecutor_ChildPipeline_PartialFailure(t *testing.T) {
 	}
 
 	eventCollector := testutil.NewEventCollector()
-	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(eventCollector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
 	execution := createTieredExecution(t, tmpDir, "child-partial-fail")
@@ -2014,7 +2011,7 @@ func TestMatrixExecutor_ChildPipeline_NotFound(t *testing.T) {
 	}
 	itemsFile := createTieredItemsFile(t, tmpDir, items)
 
-	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
 	matrixExecutor := NewMatrixExecutor(executor)
 
 	execution := createTieredExecution(t, tmpDir, "child-not-found")
@@ -2128,7 +2125,7 @@ func TestMatrixExecutor_Stacked_TwoTierLinearChain(t *testing.T) {
 	}
 
 	eventCollector := testutil.NewEventCollector()
-	executor := NewDefaultPipelineExecutor(trackAdapter, WithEmitter(eventCollector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(trackAdapter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
 	execution := createTieredExecution(t, tmpDir, "stacked-linear")
@@ -2197,7 +2194,7 @@ func TestMatrixExecutor_Stacked_WithoutDependencyKey(t *testing.T) {
 	)
 
 	eventCollector := testutil.NewEventCollector()
-	executor := NewDefaultPipelineExecutor(baseAdapter, WithEmitter(eventCollector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(baseAdapter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
 	execution := createTieredExecution(t, tmpDir, "stacked-no-dep")
@@ -2260,7 +2257,7 @@ func TestMatrixExecutor_Stacked_PartialTierFailure(t *testing.T) {
 	}
 
 	eventCollector := testutil.NewEventCollector()
-	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(eventCollector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
 	execution := createTieredExecution(t, tmpDir, "stacked-partial-fail")
@@ -2333,7 +2330,7 @@ steps:
 		adaptertest.WithTokensUsed(100),
 	)
 
-	executor := NewDefaultPipelineExecutor(baseAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(baseAdapter)
 	matrixExec := NewMatrixExecutor(executor)
 
 	// Load the child pipeline
@@ -2385,7 +2382,7 @@ func TestMatrixExecutor_Stacked_ParentNoOutputBranch(t *testing.T) {
 	)
 
 	eventCollector := testutil.NewEventCollector()
-	executor := NewDefaultPipelineExecutor(baseAdapter, WithEmitter(eventCollector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(baseAdapter, WithEmitter(eventCollector))
 	matrixExecutor := NewMatrixExecutor(executor)
 
 	execution := createTieredExecution(t, tmpDir, "stacked-no-branch")

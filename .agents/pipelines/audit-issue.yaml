@@ -111,7 +111,6 @@ steps:
   # ─── Phase 1: fetch the issue and its cited references ───────────────────
   - id: fetch-issue
     persona: "{{ forge.type }}-analyst"
-    contexts: [execution]
     model: cheapest
     workspace:
       mount:
@@ -655,7 +654,6 @@ steps:
   # ─── Phase 9: open the PR with the audit doc + screenshots ───────────────
   - id: create-pr
     persona: implementer
-    contexts: [delivery]
     model: balanced
     dependencies: [file-each-followup, synthesize, fetch-issue]
     memory:
