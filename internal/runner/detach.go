@@ -171,9 +171,18 @@ type DetachConfig struct {
 // opts.RunID is non-empty it is reused (the resume-in-place path used by
 // `--from-step`, see issue #1452).
 //
+// detachStore is the narrow run-lifecycle surface Detach needs: pre-create
+// or reuse a run row, mark it running, and stamp the spawned PID.
+type detachStore interface {
+	GetRun(runID string) (*state.RunRecord, error)
+	CreateRunWithLimit(pipelineName string, input string, maxConcurrent int) (string, error)
+	UpdateRunStatus(runID string, status string, currentStep string, tokens int) error
+	UpdateRunPID(runID string, pid int) error
+}
+
 // On success the returned runID is the canonical ID for the spawned run and
 // the subprocess has already been fully released (cmd.Process.Release).
-func Detach(opts Options, store state.StateStore, maxConcurrentWorkers int, cfg DetachConfig) (runID string, err error) {
+func Detach(opts Options, store detachStore, maxConcurrentWorkers int, cfg DetachConfig) (runID string, err error) {
 	if store == nil {
 		return "", fmt.Errorf("Detach: state store is required")
 	}

@@ -210,8 +210,14 @@ func buildStepContexts(p *Pipeline, events []state.LogRecord, artifacts []state.
 	return steps
 }
 
+// runLister is the minimal store surface MostRecentCompletedRunID needs:
+// list recent runs to find a default analysis target.
+type runLister interface {
+	ListRuns(opts state.ListRunsOptions) ([]state.RunRecord, error)
+}
+
 // MostRecentCompletedRunID finds the most recent completed run ID from the state store.
-func MostRecentCompletedRunID(store state.RunStore) (string, error) {
+func MostRecentCompletedRunID(store runLister) (string, error) {
 	runs, err := store.ListRuns(state.ListRunsOptions{
 		Limit: 10,
 	})

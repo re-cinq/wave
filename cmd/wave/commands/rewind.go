@@ -204,8 +204,14 @@ func findStepsAfter(p *pipeline.Pipeline, afterIndex int) []string {
 	return steps
 }
 
+// rewindStore is the narrow surface executeRewind needs: drop checkpoints
+// after a given step index so wave resume re-runs the tail of the pipeline.
+type rewindStore interface {
+	DeleteCheckpointsAfterStep(runID string, stepIndex int) error
+}
+
 // executeRewind deletes state DB records for steps after the rewind point.
-func executeRewind(store state.StateStore, runID string, rewindIndex int) error {
+func executeRewind(store rewindStore, runID string, rewindIndex int) error {
 	// Delete checkpoints after the rewind point
 	if err := store.DeleteCheckpointsAfterStep(runID, rewindIndex); err != nil {
 		return fmt.Errorf("failed to delete checkpoints: %w", err)

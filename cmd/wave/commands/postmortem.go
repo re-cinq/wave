@@ -308,8 +308,14 @@ func extractContractErrors(events []state.LogRecord) []string {
 	return out
 }
 
+// artifactReader is the narrow surface collectPostmortemArtifacts needs:
+// look up registered artifacts per step.
+type artifactReader interface {
+	GetArtifacts(runID string, stepID string) ([]state.ArtifactRecord, error)
+}
+
 // collectPostmortemArtifacts gathers artifact names from steps that completed successfully.
-func collectPostmortemArtifacts(store state.StateStore, runID string, stepStates []state.StepStateRecord) []string {
+func collectPostmortemArtifacts(store artifactReader, runID string, stepStates []state.StepStateRecord) []string {
 	var artifacts []string
 	seen := map[string]bool{}
 

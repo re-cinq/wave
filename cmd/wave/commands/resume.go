@@ -354,11 +354,17 @@ func runResume(opts ResumeOptions, debug bool) error {
 	return nil
 }
 
+// failedStepReader is the narrow surface detectFailedStep needs: scan
+// recent events to find the last "failed" entry.
+type failedStepReader interface {
+	GetEvents(runID string, opts state.EventQueryOptions) ([]state.LogRecord, error)
+}
+
 // detectFailedStep inspects the run's event log to find which step failed.
 // It prefers an explicit "failed" event for a step. As a fallback it uses
 // the run's CurrentStep field (the step that was active when the run was
 // recorded as failed).
-func detectFailedStep(store state.StateStore, run *state.RunRecord) (string, error) {
+func detectFailedStep(store failedStepReader, run *state.RunRecord) (string, error) {
 	// Query the event log for a "failed" state entry tied to a specific step.
 	events, err := store.GetEvents(run.RunID, state.EventQueryOptions{
 		Limit: 200,

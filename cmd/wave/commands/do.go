@@ -237,9 +237,15 @@ func runDo(input string, opts DoOptions) error {
 	return nil
 }
 
+// orchestrationRecorder is the narrow surface recordOrchestrationDecision
+// needs: append a single classification → routing record.
+type orchestrationRecorder interface {
+	RecordOrchestrationDecision(record *state.OrchestrationDecision) error
+}
+
 // recordOrchestrationDecision persists the classification → pipeline routing decision
 // so it appears in `wave analyze --decisions`.
-func recordOrchestrationDecision(store state.StateStore, runID, input string, profile classify.TaskProfile, cfg classify.PipelineConfig, outcome string, tokensUsed int, durationMs int64) {
+func recordOrchestrationDecision(store orchestrationRecorder, runID, input string, profile classify.TaskProfile, cfg classify.PipelineConfig, outcome string, tokensUsed int, durationMs int64) {
 	if runID == "" {
 		return
 	}

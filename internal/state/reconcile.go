@@ -29,8 +29,17 @@ const HeartbeatStaleThreshold = 90 * time.Second
 //  3. Age fallback: legacy runs with no PID and no heartbeat are reaped once
 //     their started_at is older than ageThreshold.
 //
+// ZombieReconciler is the minimal store surface ReconcileZombies needs:
+// list "running" runs and mark stale ones as failed. Defined here so any
+// caller-side narrow interface can pass through without inheriting the
+// full RunStore.
+type ZombieReconciler interface {
+	ListRuns(opts ListRunsOptions) ([]RunRecord, error)
+	UpdateRunStatus(runID string, status string, currentStep string, tokens int) error
+}
+
 // Pass the zero value for ageThreshold to use ZombieAgeThreshold.
-func ReconcileZombies(store StateStore, ageThreshold time.Duration) int {
+func ReconcileZombies(store ZombieReconciler, ageThreshold time.Duration) int {
 	if ageThreshold <= 0 {
 		ageThreshold = ZombieAgeThreshold
 	}

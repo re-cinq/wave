@@ -270,8 +270,15 @@ func runChat(opts ChatOptions) error {
 	return err
 }
 
+// chatResumeStore is the narrow surface resumeChatSession needs to load,
+// list, and persist chat sessions plus resolve a default run ID.
+type chatResumeStore interface {
+	state.ChatStore
+	ListRuns(opts state.ListRunsOptions) ([]state.RunRecord, error)
+}
+
 // resumeChatSession loads a previous session and resumes it.
-func resumeChatSession(store state.StateStore, opts ChatOptions) error {
+func resumeChatSession(store chatResumeStore, opts ChatOptions) error {
 	var session *state.ChatSession
 
 	if opts.Resume == "last" {
