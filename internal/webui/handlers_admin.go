@@ -3,10 +3,11 @@ package webui
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"os/exec"
 	"strconv"
 	"time"
+
+	"github.com/recinq/wave/internal/config"
 )
 
 // --- Page Handler ---
@@ -88,7 +89,7 @@ func (s *Server) handleAPIAdminCredentials(w http.ResponseWriter, _ *http.Reques
 
 	resp := make(adminCredentialsResponse)
 	for _, key := range allKeys {
-		if os.Getenv(key) != "" {
+		if config.EnvPresent(key) {
 			resp[key] = true
 		}
 	}

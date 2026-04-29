@@ -16,7 +16,12 @@
 // must be added here intentionally rather than scattered across packages.
 package config
 
-import "os"
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+)
 
 // Env is a snapshot of relevant process environment variables, captured by
 // FromEnv. Consumers receive Env by value or read individual fields via the
@@ -91,6 +96,14 @@ func Lookup(key string) string {
 	return os.Getenv(key)
 }
 
+// EnvPresent reports whether the named environment variable is set to a
+// non-empty value. Use for presence-only probes (e.g. token introspection
+// preconditions, admin credential surface detection) where the value itself
+// is not consumed at the call site.
+func EnvPresent(key string) bool {
+	return os.Getenv(key) != ""
+}
+
 // HomeOr returns the HOME value or the supplied fallback if HOME is unset.
 // Convenience for subprocess env construction.
 func (e Env) HomeOr(fallback string) string {
@@ -107,4 +120,73 @@ func (e Env) TermOr(fallback string) string {
 		return e.Term
 	}
 	return fallback
+}
+
+// SubprocessHomePath returns the HOME and PATH values intended to be forwarded
+// into curated subprocess environments. The values are returned as-is from the
+// inherited process environment — callers that need a fallback (for example,
+// when HOME is unset) should apply it explicitly. Centralising the read here
+// keeps the inherited-env contract auditable from a single place.
+func SubprocessHomePath() (home, path string) {
+	env := FromEnv()
+	return env.Home, env.Path
+}
+
+// MigrationEnv groups the four WAVE_MIGRATION_* environment variables that
+// configure the schema migration subsystem. A nil pointer field means the
+// corresponding env var was unset and the consumer should keep its default.
+//
+// The boolean fields accept "true", "1", or "yes" (case-insensitive) as truthy
+// values; any other non-empty value is interpreted as false. The explicit
+// pointer-vs-zero-value distinction lets callers tell "unset" apart from
+// "explicitly set to false".
+type MigrationEnv struct {
+	Enabled              *bool
+	AutoMigrate          *bool
+	SkipValidation       *bool
+	MaxVersion           *int
+	MaxVersionParseError error // non-nil when WAVE_MAX_MIGRATION_VERSION was set but failed to parse
+	MaxVersionRawValue   string
+}
+
+// LoadMigrationEnv reads the four WAVE_MIGRATION_* environment variables and
+// returns a MigrationEnv with each field populated only when its underlying
+// env var was set to a non-empty value. The version int parser surfaces an
+// explicit error rather than silently dropping malformed values.
+func LoadMigrationEnv() MigrationEnv {
+	out := MigrationEnv{}
+	if v := os.Getenv("WAVE_MIGRATION_ENABLED"); v != "" {
+		b := parseBoolish(v)
+		out.Enabled = &b
+	}
+	if v := os.Getenv("WAVE_AUTO_MIGRATE"); v != "" {
+		b := parseBoolish(v)
+		out.AutoMigrate = &b
+	}
+	if v := os.Getenv("WAVE_SKIP_MIGRATION_VALIDATION"); v != "" {
+		b := parseBoolish(v)
+		out.SkipValidation = &b
+	}
+	if v := os.Getenv("WAVE_MAX_MIGRATION_VERSION"); v != "" {
+		out.MaxVersionRawValue = v
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			out.MaxVersionParseError = fmt.Errorf("WAVE_MAX_MIGRATION_VERSION=%q: %w", v, err)
+		} else {
+			out.MaxVersion = &n
+		}
+	}
+	return out
+}
+
+// parseBoolish returns true when v (case-insensitive, trimmed) matches one of
+// the accepted truthy spellings: "true", "1", "yes". Any other non-empty value
+// returns false. Empty strings should be filtered out by the caller.
+func parseBoolish(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "true", "1", "yes":
+		return true
+	default:
+		return false
+	}
 }
