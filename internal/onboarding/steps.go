@@ -1,15 +1,16 @@
 package onboarding
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"sort"
 	"time"
 
 	"github.com/charmbracelet/huh"
+	"github.com/recinq/wave/internal/httpx"
 	"github.com/recinq/wave/internal/pipelinecatalog"
 	"github.com/recinq/wave/internal/uitheme"
 )
@@ -36,9 +37,12 @@ func probeAdapter(binary string) bool {
 
 // probeOllamaModels queries a running Ollama server for available models.
 func probeOllamaModels() []string {
-	// Try to connect to local Ollama
-	client := &http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get("http://localhost:11434/api/tags")
+	// Single-shot probe — Ollama either responds immediately on localhost
+	// or it isn't running. Retries would only delay startup.
+	client := httpx.New(httpx.Config{Timeout: 2 * time.Second, MaxRetries: 0})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	resp, err := client.Get(ctx, "http://localhost:11434/api/tags")
 	if err != nil {
 		return nil
 	}

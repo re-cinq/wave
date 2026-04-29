@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/recinq/wave/internal/config"
+	"github.com/recinq/wave/internal/httpx"
 	"github.com/recinq/wave/internal/manifest"
 )
 
@@ -25,9 +26,12 @@ var anthropicAPIURL = "https://api.anthropic.com/v1/messages"
 // judgeHTTPClient is used for all LLM judge API calls instead of
 // http.DefaultClient so that callers sharing the process cannot observe
 // or mutate transport-level settings (timeouts, cookies, redirects).
-var judgeHTTPClient = &http.Client{
-	Timeout: 60 * time.Second,
-}
+// Built on the shared internal/httpx Client for consistent retry and
+// audit policy across Wave's outbound HTTP traffic.
+var judgeHTTPClient = httpx.New(httpx.Config{
+	Timeout:    60 * time.Second,
+	MaxRetries: 2, // Anthropic API can transiently 5xx; retry conservatively.
+})
 
 type llmJudgeValidator struct{}
 
@@ -206,7 +210,7 @@ func (v *llmJudgeValidator) callAPI(apiKey, model, systemPrompt, userPrompt stri
 	req.Header.Set("x-api-key", apiKey)
 	req.Header.Set("anthropic-version", "2023-06-01")
 
-	resp, err := judgeHTTPClient.Do(req)
+	resp, err := judgeHTTPClient.Do(ctx, req)
 	if err != nil {
 		return nil, &ValidationError{
 			ContractType: "llm_judge",

@@ -1,11 +1,14 @@
 package forge
 
 import (
+	"context"
 	"crypto/tls"
 	"net/http"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/recinq/wave/internal/httpx"
 )
 
 // ForgeType identifies the source code hosting platform.
@@ -302,16 +305,21 @@ func forgeMetadata(ft ForgeType) (cli, prefix, prTerm, prCommand string) {
 }
 
 // probeHTTPClient is the HTTP client used by probeForgeType. Package-level
-// variable so tests can replace it with a client pointing at httptest servers.
-var probeHTTPClient = &http.Client{
-	Timeout: 3 * time.Second,
+// variable so tests can replace it with a client pointing at httptest
+// servers. Single-shot (MaxRetries: 0) — probes are best-effort and a
+// failed probe just means "this isn't that forge", retrying would only
+// slow detection. Self-signed TLS is tolerated because self-hosted Gitea
+// or GitLab instances frequently ship with non-public CAs.
+var probeHTTPClient = httpx.New(httpx.Config{
+	Timeout:    3 * time.Second,
+	MaxRetries: 0,
 	Transport: &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // self-hosted instances often use self-signed certs
 	},
 	CheckRedirect: func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse // don't follow redirects
 	},
-}
+})
 
 // probeForgeType probes well-known API endpoints on the given host to identify
 // the forge software. Each probe uses a 3s HTTP timeout. Returns the first
@@ -331,7 +339,9 @@ func probeForgeType(host string) ForgeType {
 
 	for _, p := range probes {
 		url := "https://" + host + p.path
-		resp, err := probeHTTPClient.Get(url) //nolint:noctx // fire-and-forget probe; context not needed
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		resp, err := probeHTTPClient.Get(ctx, url)
+		cancel()
 		if err != nil {
 			continue
 		}
