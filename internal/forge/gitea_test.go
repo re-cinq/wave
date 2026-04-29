@@ -163,8 +163,16 @@ func TestGiteaClient_NonOKReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "500")
 }
 
-func TestClassifyHost_LibreteShortcut(t *testing.T) {
-	assert.Equal(t, ForgeGitea, classifyHost("git.librete.ch"))
+func TestClassifyHost_GiteaHostsEnv(t *testing.T) {
+	t.Setenv("WAVE_GITEA_HOSTS", "private.example.com, another.example.org")
+	assert.Equal(t, ForgeGitea, classifyHost("private.example.com"))
+	assert.Equal(t, ForgeGitea, classifyHost("ANOTHER.example.org"))
+	assert.NotEqual(t, ForgeGitea, classifyHost("github.com"))
+}
+
+func TestClassifyHost_ForgejoHostsEnv(t *testing.T) {
+	t.Setenv("WAVE_FORGEJO_HOSTS", "git.example.com")
+	assert.Equal(t, ForgeForgejo, classifyHost("git.example.com"))
 }
 
 // giteaClientForTest builds a GiteaClient pointed at the supplied

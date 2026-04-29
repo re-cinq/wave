@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -255,8 +256,19 @@ func parseHTTPSPath(path string) (host, owner, repo string) {
 // classifyHost maps a hostname to a ForgeType.
 // When the hostname doesn't match known patterns, it falls back to
 // tea CLI detection and HTTP endpoint probing.
+//
+// Self-hosted Gitea/Forgejo hostnames that don't contain "gitea" or
+// "forgejo" cost a 3s HTTP probe on every classify. Operators can
+// short-circuit the probe by listing their hosts in the WAVE_GITEA_HOSTS
+// env (comma-separated). The same applies to WAVE_FORGEJO_HOSTS.
 func classifyHost(host string) ForgeType {
 	h := strings.ToLower(host)
+	if hostInEnvList(h, "WAVE_GITEA_HOSTS") {
+		return ForgeGitea
+	}
+	if hostInEnvList(h, "WAVE_FORGEJO_HOSTS") {
+		return ForgeForgejo
+	}
 	switch {
 	case h == "github.com" || strings.HasSuffix(h, ".github.com"):
 		return ForgeGitHub
@@ -270,11 +282,6 @@ func classifyHost(host string) ForgeType {
 		return ForgeForgejo
 	case h == "codeberg.org" || strings.HasSuffix(h, ".codeberg.org"):
 		return ForgeCodeberg
-	// Re-cinq-hosted Gitea instance — ship it explicitly so the boot path
-	// classifier doesn't pay the 3s HTTP probe on every wave init / wave
-	// run inside a librete.ch repo.
-	case h == "git.librete.ch":
-		return ForgeGitea
 	}
 
 	// Check if tea CLI knows about this host (registered Gitea/Forgejo instance).
@@ -386,6 +393,24 @@ func checkTeaCLI(host string) ForgeType {
 		}
 	}
 	return ForgeUnknown
+}
+
+// hostInEnvList reports whether host appears (case-insensitively) in the
+// comma-separated value of the named env. Empty/missing env returns false.
+// Used by classifyHost to let operators register self-hosted Gitea/Forgejo
+// hosts whose hostname doesn't contain "gitea"/"forgejo", avoiding the
+// 3s HTTP probe.
+func hostInEnvList(host, envKey string) bool {
+	v := os.Getenv(envKey)
+	if v == "" {
+		return false
+	}
+	for _, h := range strings.Split(v, ",") {
+		if strings.EqualFold(strings.TrimSpace(h), host) {
+			return true
+		}
+	}
+	return false
 }
 
 // hasForgePrefix checks if a pipeline name starts with any known forge prefix.
