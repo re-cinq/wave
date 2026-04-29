@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/recinq/wave/internal/httpx"
 	"github.com/recinq/wave/internal/timeouts"
 )
 
@@ -24,7 +25,7 @@ const (
 // Client is a production-ready GitHub API client
 type Client struct {
 	baseURL     string
-	httpClient  *http.Client
+	httpClient  *httpx.Client
 	token       string
 	userAgent   string
 	maxRetries  int
@@ -35,20 +36,24 @@ type Client struct {
 type ClientConfig struct {
 	Token      string
 	BaseURL    string
-	HTTPClient *http.Client
+	HTTPClient *httpx.Client
 	UserAgent  string
 	MaxRetries int
 }
 
-// NewClient creates a new GitHub API client
+// NewClient creates a new GitHub API client. Transport-level requests go
+// through internal/httpx for unified timeout/audit policy. Retry and rate
+// limiting are handled at this layer (see doRequest), so the embedded
+// httpx.Client runs in single-shot mode (MaxRetries: 0).
 func NewClient(config ClientConfig) *Client {
 	if config.BaseURL == "" {
 		config.BaseURL = DefaultAPIURL
 	}
 	if config.HTTPClient == nil {
-		config.HTTPClient = &http.Client{
-			Timeout: timeouts.ForgeAPI,
-		}
+		config.HTTPClient = httpx.New(httpx.Config{
+			Timeout:    timeouts.ForgeAPI,
+			MaxRetries: 0,
+		})
 	}
 	if config.UserAgent == "" {
 		config.UserAgent = DefaultUserAgent
@@ -113,7 +118,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 			req.Header.Set("Content-Type", "application/json")
 		}
 
-		resp, err := c.httpClient.Do(req)
+		resp, err := c.httpClient.Do(ctx, req)
 		if err != nil {
 			lastErr = fmt.Errorf("request failed: %w", err)
 			continue

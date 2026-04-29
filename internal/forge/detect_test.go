@@ -6,6 +6,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/recinq/wave/internal/httpx"
 )
 
 // disableProbing stubs the tea CLI check and HTTP probe client so tests don't
@@ -17,10 +20,11 @@ func disableProbing(t *testing.T) {
 	origTeaFunc := checkTeaCLIFunc
 
 	// HTTP client that always fails (no server listening on 127.0.0.1:1)
-	probeHTTPClient = &http.Client{
-		Transport: &http.Transport{},
-		Timeout:   1, // 1ns — effectively instant timeout
-	}
+	probeHTTPClient = httpx.New(httpx.Config{
+		Timeout:    1, // 1ns — effectively instant timeout
+		MaxRetries: 0,
+		Transport:  &http.Transport{},
+	})
 	checkTeaCLIFunc = func(string) ForgeType { return ForgeUnknown }
 
 	t.Cleanup(func() {
@@ -607,28 +611,23 @@ func TestProbeForgeType(t *testing.T) {
 			defer srv.Close()
 
 			origClient := probeHTTPClient
-			probeHTTPClient = srv.Client()
 			defer func() { probeHTTPClient = origClient }()
 
 			// Extract host:port from test server URL (strip "http://")
 			host := strings.TrimPrefix(srv.URL, "http://")
 
-			// Override the probe to use http:// instead of https:// for test server.
-			// We achieve this by temporarily wrapping the client transport to
-			// rewrite URLs. Instead, we use a simpler approach: directly test
-			// probeForgeType after monkey-patching the probeHTTPClient to point
-			// at the test server.
-
 			// probeForgeType builds "https://host/path" but our test server is
 			// http. We work around this by intercepting with a custom RoundTripper.
-			probeHTTPClient = &http.Client{
+			probeHTTPClient = httpx.New(httpx.Config{
+				Timeout:    2 * time.Second,
+				MaxRetries: 0,
 				Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 					// Rewrite https → http and point at test server
 					req.URL.Scheme = "http"
 					req.URL.Host = host
 					return http.DefaultTransport.RoundTrip(req)
 				}),
-			}
+			})
 
 			got := probeForgeType(host)
 			if got != tt.wantType {
@@ -663,13 +662,15 @@ func TestClassifyHost_UnknownFallsToProbe(t *testing.T) {
 
 	origClient := probeHTTPClient
 	origTeaFunc := checkTeaCLIFunc
-	probeHTTPClient = &http.Client{
+	probeHTTPClient = httpx.New(httpx.Config{
+		Timeout:    2 * time.Second,
+		MaxRetries: 0,
 		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 			req.URL.Scheme = "http"
 			req.URL.Host = host
 			return http.DefaultTransport.RoundTrip(req)
 		}),
-	}
+	})
 	checkTeaCLIFunc = func(string) ForgeType { return ForgeUnknown }
 	defer func() {
 		probeHTTPClient = origClient
