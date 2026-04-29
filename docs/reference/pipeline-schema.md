@@ -1357,6 +1357,7 @@ Explicit fields override policy defaults.
 | `adapt_prompt` | no | `false` | Inject prior failure context into retry prompt |
 | `on_failure` | no | `fail` | Action when all attempts are exhausted: `fail`, `skip`, `continue`, `rework` |
 | `rework_step` | conditional | - | Step ID to execute when `on_failure: rework`. Required when `on_failure` is `rework`. |
+| `no_escalate` | no | `false` | Disable automatic model tier escalation on retry. By default each retry resolves one tier stronger (`cheapest` -> `balanced` -> `strongest`); set to `true` to reuse the original tier on every retry. Literal model IDs are never auto-escalated regardless. |
 
 ### On-Failure Actions
 
