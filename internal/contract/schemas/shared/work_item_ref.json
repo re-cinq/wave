@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "wave://shared/work_item_ref",
+  "title": "WorkItemRef",
+  "description": "Canonical reference to a unit of work emitted by a work-source (forge issue/PR, scheduled job, manual trigger) and consumed by pipelines. Forge-specific fields (forge_host, owner, repo, number) are required only when source identifies a git forge; schedule/manual sources omit them.",
+  "type": "object",
+  "required": ["source", "url", "title", "state", "created_at"],
+  "properties": {
+    "source": {
+      "type": "string",
+      "enum": ["github", "gitea", "gitlab", "bitbucket", "schedule", "manual"],
+      "description": "Origin of the work item. Forge values (github, gitea, gitlab, bitbucket) imply forge_host, owner, repo are required."
+    },
+    "forge_host": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Hostname of the forge instance (e.g. github.com, codeberg.org, gitlab.example.com). Required for forge sources."
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Owner (user or organization). Required for forge sources."
+    },
+    "repo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Repository name. Required for forge sources."
+    },
+    "number": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Issue or PR number. Optional even for forge sources because some forges expose numberless work items (e.g. Gitea task lists)."
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Canonical URL identifying the work item. Used as the primary key in the worksource_binding table."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable title of the work item."
+    },
+    "labels": {
+      "type": "array",
+      "description": "Labels or tags attached to the work item. May be empty; absent for sources that have no label concept.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "state": {
+      "type": "string",
+      "enum": ["open", "closed", "merged"],
+      "description": "Lifecycle state. 'merged' applies only to PR-like work items; consumers may filter per source."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 timestamp marking when the work item was created."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source": {
+            "enum": ["github", "gitea", "gitlab", "bitbucket"]
+          }
+        },
+        "required": ["source"]
+      },
+      "then": {
+        "required": ["forge_host", "owner", "repo"]
+      }
+    }
+  ],
+  "additionalProperties": false
+}
