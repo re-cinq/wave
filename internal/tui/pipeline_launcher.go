@@ -2,21 +2,23 @@ package tui
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/pipelinecatalog"
+	"github.com/recinq/wave/internal/runner"
 )
 
 // PipelineLauncher manages pipeline execution from the TUI.
-// It spawns detached subprocesses via `wave run` so pipelines survive TUI exit.
+// It spawns detached subprocesses via internal/runner so pipelines survive
+// TUI exit. The runner package owns the actual fork/exec dance, env filter,
+// log-file routing, and PID record — this type is purely the TUI-facing
+// adapter that translates LaunchConfig into runner.Options and emits
+// Bubble Tea messages on success/failure.
 type PipelineLauncher struct {
 	deps    LaunchDependencies
 	program *tea.Program
@@ -40,8 +42,13 @@ func (l *PipelineLauncher) SetProgram(p *tea.Program) {
 // Launch starts a pipeline as a detached subprocess and returns a tea.Cmd
 // that immediately sends PipelineLaunchedMsg. Live output comes from polling
 // SQLite events, not in-memory buffers.
+//
+// Subprocess spawning is delegated to runner.Detach so the TUI launch path
+// shares one canonical detach contract (argv, env, log file, PID record)
+// with the foreground CLI (`wave run --detach`) and the webui server. The
+// flag-spec exhaustiveness test in internal/runner guards the argv shape.
 func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
-	// Load the full pipeline definition to validate it exists
+	// Load the full pipeline definition to validate it exists.
 	p, err := pipelinecatalog.LoadPipelineByName(l.deps.PipelinesDir, config.PipelineName)
 	if err != nil {
 		pipelineName := config.PipelineName
@@ -50,90 +57,50 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 		}
 	}
 
-	// Generate run ID via StateStore so the run appears in the dashboard
-	var runID string
+	cfg := runner.DetachConfig{
+		ExtraEnv: manifestEnvPassthrough(l.deps.Manifest),
+	}
+
+	// Two paths preserve the original TUI behaviour exactly:
+	//
+	//  - With a state store, delegate to runner.Detach. It owns run-id
+	//    reservation (reusing a pre-created row when opts.RunID is set,
+	//    falling through to CreateRunWithLimit otherwise), the running
+	//    transition, and the spawn dance. We capture the canonical id it
+	//    returns and forward that to the TUI.
+	//  - Without a state store the TUI used to launch with a locally
+	//    generated id and skip persistence entirely. runner.Detach refuses
+	//    a nil store, so we drop down to runner.SpawnDetached for that
+	//    edge case so subprocesses still survive TUI exit.
+	var canonicalRunID string
 	if l.deps.Store != nil {
-		var storeErr error
-		runID, storeErr = l.deps.Store.CreateRun(p.Metadata.Name, config.Input)
+		preID, storeErr := l.deps.Store.CreateRun(p.Metadata.Name, config.Input)
 		if storeErr != nil {
-			runID = pipeline.GenerateRunID(p.Metadata.Name, 8)
+			// Generate a local id; runner.Detach will see no matching row
+			// and reserve a fresh canonical id via CreateRunWithLimit.
+			preID = pipeline.GenerateRunID(p.Metadata.Name, 8)
 		}
+		opts := launchConfigToOptions(config, preID)
+		rid, err := runner.Detach(opts, l.deps.Store, 0, cfg)
+		if err != nil {
+			pipelineName := config.PipelineName
+			return func() tea.Msg {
+				return LaunchErrorMsg{PipelineName: pipelineName, Err: fmt.Errorf("starting subprocess: %w", err)}
+			}
+		}
+		canonicalRunID = rid
 	} else {
-		runID = pipeline.GenerateRunID(p.Metadata.Name, 8)
-	}
-
-	// Transition run from pending -> running so wave status picks it up
-	if l.deps.Store != nil {
-		_ = l.deps.Store.UpdateRunStatus(runID, "running", "", 0)
-	}
-
-	// Build subprocess command: wave run --pipeline <name> --run <runID> --input <input> [flags...]
-	args := []string{"run", "--pipeline", config.PipelineName, "--run", runID}
-	if config.Input != "" {
-		args = append(args, "--input", config.Input)
-	}
-	if config.ModelOverride != "" {
-		args = append(args, "--model", config.ModelOverride)
-	}
-	if config.Adapter != "" {
-		args = append(args, "--adapter", config.Adapter)
-	}
-	if config.Timeout > 0 {
-		args = append(args, "--timeout", fmt.Sprintf("%d", config.Timeout))
-	}
-	if config.FromStep != "" {
-		args = append(args, "--from-step", config.FromStep)
-	}
-	if config.Steps != "" {
-		args = append(args, "--steps", config.Steps)
-	}
-	if config.Exclude != "" {
-		args = append(args, "--exclude", config.Exclude)
-	}
-	if config.OnFailure != "" && config.OnFailure != "halt" {
-		args = append(args, "--on-failure", config.OnFailure)
-	}
-	// Pass through user-selected flags to the subprocess.
-	// Compound flags like "--output text" are split into separate args.
-	for _, f := range config.Flags {
-		parts := strings.SplitN(f, " ", 2)
-		args = append(args, parts...)
-	}
-
-	cmd := exec.Command(os.Args[0], args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	cmd.Env = buildPassthroughEnv(l.deps)
-
-	// Redirect stdout/stderr to .agents/logs/<runID>.log so detached output is preserved
-	logFile, logErr := openRunLog(runID)
-	if logErr == nil {
-		cmd.Stdout = logFile
-		cmd.Stderr = logFile
-	} else {
-		cmd.Stdout = nil
-		cmd.Stderr = nil
-	}
-
-	if startErr := cmd.Start(); startErr != nil {
-		if logFile != nil {
-			logFile.Close()
+		runID := pipeline.GenerateRunID(p.Metadata.Name, 8)
+		opts := launchConfigToOptions(config, runID)
+		args := runner.BuildDetachedArgs(opts, runID)
+		if err := runner.SpawnDetached(args, runID, nil, cfg); err != nil {
+			pipelineName := config.PipelineName
+			return func() tea.Msg {
+				return LaunchErrorMsg{PipelineName: pipelineName, Err: fmt.Errorf("starting subprocess: %w", err)}
+			}
 		}
-		pipelineName := config.PipelineName
-		return func() tea.Msg {
-			return LaunchErrorMsg{PipelineName: pipelineName, Err: fmt.Errorf("starting subprocess: %w", startErr)}
-		}
+		canonicalRunID = runID
 	}
-
-	// Close the log file — the subprocess inherited the fd via fork
-	if logFile != nil {
-		logFile.Close()
-	}
-
-	// Record PID and release the process so it becomes fully detached
-	if l.deps.Store != nil {
-		_ = l.deps.Store.UpdateRunPID(runID, cmd.Process.Pid)
-	}
-	_ = cmd.Process.Release()
 
 	// Return immediate PipelineLaunchedMsg — no blocking executor cmd
 	pipelineName := config.PipelineName
@@ -142,7 +109,7 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 	debug := config.Debug
 	return func() tea.Msg {
 		return PipelineLaunchedMsg{
-			RunID:        runID,
+			RunID:        canonicalRunID,
 			PipelineName: pipelineName,
 			Input:        input,
 			Verbose:      verbose,
@@ -155,6 +122,10 @@ func (l *PipelineLauncher) Launch(config LaunchConfig) tea.Cmd {
 // `wave compose` subprocess. When parallel is true the --parallel flag is
 // passed and stages are separated by "--". Returns a single PipelineLaunchedMsg
 // whose RunID is the compose group ID.
+//
+// The fork/exec dance, env filter, and log-file routing are delegated to
+// runner.SpawnDetached so the TUI does not maintain its own copy of that
+// logic. Only the `wave compose` argv assembly is TUI-specific.
 func (l *PipelineLauncher) LaunchSequence(names []string, input string, parallel bool, stages [][]int) tea.Cmd {
 	if len(names) == 0 {
 		return func() tea.Msg {
@@ -199,33 +170,19 @@ func (l *PipelineLauncher) LaunchSequence(names []string, input string, parallel
 		args = append(args, names...)
 	}
 
-	cmd := exec.Command(os.Args[0], args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	cmd.Env = buildPassthroughEnv(l.deps)
-
-	logFile, logErr := openRunLog(groupRunID)
-	if logErr == nil {
-		cmd.Stdout = logFile
-		cmd.Stderr = logFile
+	cfg := runner.DetachConfig{
+		ExtraEnv: manifestEnvPassthrough(l.deps.Manifest),
 	}
 
-	if startErr := cmd.Start(); startErr != nil {
-		if logFile != nil {
-			logFile.Close()
-		}
-		return func() tea.Msg {
-			return LaunchErrorMsg{PipelineName: "compose", Err: fmt.Errorf("starting compose subprocess: %w", startErr)}
-		}
-	}
-
-	if logFile != nil {
-		logFile.Close()
-	}
-
+	var recorder runner.PIDRecorder
 	if l.deps.Store != nil {
-		_ = l.deps.Store.UpdateRunPID(groupRunID, cmd.Process.Pid)
+		recorder = l.deps.Store
 	}
-	_ = cmd.Process.Release()
+	if err := runner.SpawnDetached(args, groupRunID, recorder, cfg); err != nil {
+		return func() tea.Msg {
+			return LaunchErrorMsg{PipelineName: "compose", Err: fmt.Errorf("starting compose subprocess: %w", err)}
+		}
+	}
 
 	runID := groupRunID
 	return func() tea.Msg {
@@ -272,32 +229,61 @@ func (l *PipelineLauncher) Cleanup(_ string) {
 	// No in-process state to clean up.
 }
 
-// buildPassthroughEnv constructs a minimal environment for the subprocess.
-// It includes HOME, PATH, and any vars specified in manifest runtime.sandbox.env_passthrough.
-func buildPassthroughEnv(deps LaunchDependencies) []string {
-	env := []string{
-		"HOME=" + os.Getenv("HOME"),
-		"PATH=" + os.Getenv("PATH"),
+// launchConfigToOptions translates the form-driven LaunchConfig into the
+// runner.Options surface. Known UI-level "extra flags" (--verbose, --debug,
+// --output text|json, --dry-run, --mock, --detach) are mapped onto typed
+// Options fields so the runner.BuildDetachedArgs spec table owns argv
+// shaping. Unknown flags are silently dropped — the form only exposes the
+// known set via DefaultFlags().
+func launchConfigToOptions(config LaunchConfig, runID string) runner.Options {
+	opts := runner.Options{
+		Pipeline:  config.PipelineName,
+		Input:     config.Input,
+		RunID:     runID,
+		Model:     config.ModelOverride,
+		Adapter:   config.Adapter,
+		Timeout:   config.Timeout,
+		FromStep:  config.FromStep,
+		Steps:     config.Steps,
+		Exclude:   config.Exclude,
+		OnFailure: config.OnFailure,
 	}
 
-	if deps.Manifest != nil && len(deps.Manifest.Runtime.Sandbox.EnvPassthrough) > 0 {
-		for _, key := range deps.Manifest.Runtime.Sandbox.EnvPassthrough {
-			if val, ok := os.LookupEnv(key); ok {
-				env = append(env, key+"="+val)
-			}
+	// Translate known UI-flag tokens into typed Options fields.
+	// "--output X" appears as a single space-joined token in config.Flags.
+	for _, f := range config.Flags {
+		switch {
+		case f == "--verbose":
+			opts.Output.Verbose = true
+		case f == "--debug":
+			opts.Output.Debug = true
+		case f == "--dry-run":
+			opts.DryRun = true
+		case f == "--mock":
+			opts.Mock = true
+		case f == "--detach":
+			// Already detaching via runner.Detach — no-op.
+		case strings.HasPrefix(f, "--output "):
+			opts.Output.Format = strings.TrimPrefix(f, "--output ")
 		}
 	}
-
-	return env
+	return opts
 }
 
-// openRunLog creates the .agents/logs/ directory if needed and opens a log file for the run.
-func openRunLog(runID string) (*os.File, error) {
-	logsDir := filepath.Join(".agents", "logs")
-	if err := os.MkdirAll(logsDir, 0o755); err != nil {
-		return nil, err
+// manifestEnvPassthrough returns the additional env-variable names declared
+// in the manifest's runtime.sandbox.env_passthrough list. The result is
+// passed to runner.DetachConfig.ExtraEnv so the runner's BuildDetachEnv
+// forwards them alongside its standard set.
+func manifestEnvPassthrough(m *manifest.Manifest) []string {
+	if m == nil {
+		return nil
 	}
-	return os.OpenFile(filepath.Join(logsDir, runID+".log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if len(m.Runtime.Sandbox.EnvPassthrough) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(m.Runtime.Sandbox.EnvPassthrough))
+	out = append(out, m.Runtime.Sandbox.EnvPassthrough...)
+	return out
 }
 
 // TUIProgressEmitter implements event.ProgressEmitter to bridge executor events
