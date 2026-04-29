@@ -27,7 +27,7 @@ func projectRoot(t *testing.T) string {
 func TestSchemaSync(t *testing.T) {
 	root := projectRoot(t)
 	waveDir := filepath.Join(root, ".agents", "contracts")
-	defaultsDir := filepath.Join(root, "internal", "defaults", "contracts")
+	defaultsDir := filepath.Join(root, "internal", "defaults", "embedfs", "contracts")
 
 	// All *.schema.json files in .agents/contracts/ must exist and match in
 	// internal/defaults/contracts/. .agents/contracts/ is the authoritative source.

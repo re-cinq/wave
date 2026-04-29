@@ -1,9 +1,13 @@
 // Package defaults provides embedded default personas, pipelines, and contracts
 // that are included in the Wave binary for use with `wave init`.
+//
+// Raw asset access lives in the sub-package internal/defaults/embedfs (no
+// manifest dependency, used by internal/adapter + internal/pipeline cold-start
+// fallback). This file adds the manifest-typed wrappers that internal/onboarding
+// and the init command use.
 package defaults
 
 import (
-	"embed"
 	"fmt"
 	"io/fs"
 	"os"
@@ -11,40 +15,21 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/recinq/wave/internal/defaults/embedfs"
 	"github.com/recinq/wave/internal/manifest"
 	"gopkg.in/yaml.v3"
 )
 
-//go:embed personas/*.md
-var personasFS embed.FS
-
-//go:embed pipelines/*.yaml
-var pipelinesFS embed.FS
-
-//go:embed contracts/*.json contracts/*.md
-var contractsFS embed.FS
-
-//go:embed prompts/**/*.md
-var promptsFS embed.FS
-
-//go:embed personas/*.yaml
-var personaConfigsFS embed.FS
-
-//go:embed schemas/*.json
-var schemasFS embed.FS
-
-//go:embed skills/*/SKILL.md
-var skillsFS embed.FS
-
 // GetPersonas returns a map of filename to content for all default personas.
 func GetPersonas() (map[string]string, error) {
-	return readDir(personasFS, "personas")
+	return embedfs.GetPersonas()
 }
 
 // GetPersonaConfigs returns parsed persona configurations keyed by persona name
 // (e.g. "navigator", not "navigator.yaml").
 func GetPersonaConfigs() (map[string]manifest.Persona, error) {
 	result := make(map[string]manifest.Persona)
+	personaConfigsFS := embedfs.PersonaConfigsFS()
 
 	err := fs.WalkDir(personaConfigsFS, "personas", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -74,28 +59,45 @@ func GetPersonaConfigs() (map[string]manifest.Persona, error) {
 
 // GetPipelines returns a map of filename to content for all default pipelines.
 func GetPipelines() (map[string]string, error) {
-	return readDir(pipelinesFS, "pipelines")
+	return embedfs.GetPipelines()
 }
 
 // GetContracts returns a map of filename to content for all default contracts.
 func GetContracts() (map[string]string, error) {
-	return readDir(contractsFS, "contracts")
+	return embedfs.GetContracts()
 }
 
 // GetPrompts returns a map of relative path to content for all default prompts.
 // Keys are like "speckit-flow/specify.md" (preserving subdirectory structure).
 func GetPrompts() (map[string]string, error) {
-	return readDirNested(promptsFS, "prompts")
+	return embedfs.GetPrompts()
 }
 
 // GetSchemas returns a map of filename to content for all default JSON schemas.
 func GetSchemas() (map[string]string, error) {
-	return readDir(schemasFS, "schemas")
+	schemasFS := embedfs.SchemasFS()
+	result := make(map[string]string)
+	err := fs.WalkDir(schemasFS, "schemas", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		data, rerr := schemasFS.ReadFile(path)
+		if rerr != nil {
+			return rerr
+		}
+		result[filepath.Base(path)] = string(data)
+		return nil
+	})
+	return result, err
 }
 
 // GetSkillTemplates returns a map of skill name to SKILL.md content
 // for all shipped skill templates.
 func GetSkillTemplates() map[string][]byte {
+	skillsFS := embedfs.SkillsFS()
 	result := make(map[string][]byte)
 
 	entries, err := fs.ReadDir(skillsFS, "skills")
@@ -130,55 +132,6 @@ func SkillTemplateNames() []string {
 	return names
 }
 
-func readDir(fsys embed.FS, dir string) (map[string]string, error) {
-	result := make(map[string]string)
-
-	err := fs.WalkDir(fsys, dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-
-		content, err := fsys.ReadFile(path)
-		if err != nil {
-			return err
-		}
-
-		filename := filepath.Base(path)
-		result[filename] = string(content)
-		return nil
-	})
-
-	return result, err
-}
-
-func readDirNested(fsys embed.FS, dir string) (map[string]string, error) {
-	result := make(map[string]string)
-
-	err := fs.WalkDir(fsys, dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-
-		content, err := fsys.ReadFile(path)
-		if err != nil {
-			return err
-		}
-
-		// Preserve relative path from the embed root directory
-		// e.g. "prompts/speckit-flow/specify.md" → "speckit-flow/specify.md"
-		relPath := strings.TrimPrefix(path, dir+"/")
-		result[relPath] = string(content)
-		return nil
-	})
-
-	return result, err
-}
 
 // PersonaNames returns a list of all persona filenames.
 func PersonaNames() []string {

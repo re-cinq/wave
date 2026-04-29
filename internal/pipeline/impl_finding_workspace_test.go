@@ -15,7 +15,7 @@ func TestImplFindingDeclaresWorktreeWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve repo root: %v", err)
 	}
-	path := filepath.Join(repoRoot, "internal", "defaults", "pipelines", "impl-finding.yaml")
+	path := filepath.Join(repoRoot, "internal", "defaults", "embedfs", "pipelines", "impl-finding.yaml")
 
 	loader := &YAMLPipelineLoader{}
 	pipe, err := loader.Load(path)
@@ -56,7 +56,7 @@ func TestOpsPRRespondResolveEachInjectsPRContext(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve repo root: %v", err)
 	}
-	path := filepath.Join(repoRoot, "internal", "defaults", "pipelines", "ops-pr-respond.yaml")
+	path := filepath.Join(repoRoot, "internal", "defaults", "embedfs", "pipelines", "ops-pr-respond.yaml")
 
 	loader := &YAMLPipelineLoader{}
 	pipe, err := loader.Load(path)

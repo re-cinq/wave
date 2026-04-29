@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/recinq/wave/internal/defaults"
+	"github.com/recinq/wave/internal/defaults/embedfs"
 	"github.com/recinq/wave/internal/persona"
 	"github.com/recinq/wave/internal/timeouts"
 )
@@ -247,7 +247,7 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 	baseProtocolPath := filepath.Join(".agents", "personas", "base-protocol.md")
 	baseProtocol, err := os.ReadFile(baseProtocolPath)
 	if err != nil {
-		if personas, perr := defaults.GetPersonas(); perr == nil {
+		if personas, perr := embedfs.GetPersonas(); perr == nil {
 			if c, ok := personas["base-protocol.md"]; ok {
 				baseProtocol = []byte(c)
 				err = nil
@@ -266,7 +266,7 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		personaPath := filepath.Join(".agents", "personas", cfg.Persona+".md")
 		if data, err := os.ReadFile(personaPath); err == nil {
 			systemPrompt = string(data)
-		} else if personas, perr := defaults.GetPersonas(); perr == nil {
+		} else if personas, perr := embedfs.GetPersonas(); perr == nil {
 			if c, ok := personas[cfg.Persona+".md"]; ok {
 				systemPrompt = c
 			} else {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/recinq/wave/internal/defaults"
+	"github.com/recinq/wave/internal/defaults/embedfs"
 )
 
 // bootstrapPipelines may load directly from embedded defaults so a fresh
@@ -62,7 +62,7 @@ func LoadByName(name string) (*Pipeline, error) {
 }
 
 func lookupEmbeddedPipeline(name string) (string, bool) {
-	pipelines, err := defaults.GetPipelines()
+	pipelines, err := embedfs.GetPipelines()
 	if err != nil {
 		return "", false
 	}
