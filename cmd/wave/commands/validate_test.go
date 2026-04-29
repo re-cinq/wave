@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 // newValidateCmdWithRoot creates a validate command under a root that has the
@@ -1179,23 +1180,20 @@ func TestShippedPipelines_ValidateAll(t *testing.T) {
 			// Get persona configs for manifest generation
 			personaConfigs, _ := defaults.GetPersonaConfigs()
 
-			// Generate manifest via onboarding wizard (non-interactive)
+			// Generate manifest via the onboarding default-build path (non-interactive).
 			origDir, _ := os.Getwd()
 			_ = os.Chdir(dir)
 			defer func() { _ = os.Chdir(origDir) }()
 
-			cfg := onboarding.WizardConfig{
-				WaveDir:        waveDir,
-				Interactive:    false,
-				Adapter:        "claude",
-				Workspace:      ".agents/workspaces",
-				OutputPath:     filepath.Join(dir, "wave.yaml"),
-				PersonaConfigs: personaConfigs,
+			flavour := onboarding.DetectFlavour(dir)
+			project := onboarding.FlavourToProjectMap(flavour)
+			manifestMap := onboarding.BuildDefaultManifest("claude", ".agents/workspaces", project, personaConfigs)
+			data, mErr := yaml.Marshal(manifestMap)
+			if mErr != nil {
+				t.Fatalf("failed to marshal manifest for %s: %v", lang.name, mErr)
 			}
-
-			_, wizErr := onboarding.RunWizard(cfg)
-			if wizErr != nil {
-				t.Fatalf("wizard failed for %s: %v", lang.name, wizErr)
+			if wErr := os.WriteFile(filepath.Join(dir, "wave.yaml"), data, 0o644); wErr != nil {
+				t.Fatalf("failed to write manifest for %s: %v", lang.name, wErr)
 			}
 
 			// Load the generated manifest

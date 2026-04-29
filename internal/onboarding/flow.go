@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/recinq/wave/internal/forge"
-	"github.com/recinq/wave/internal/manifest"
 	"gopkg.in/yaml.v3"
 )
 
@@ -95,44 +94,4 @@ func Greenfield(o GreenfieldOpts) (*AssetSet, *FlavourInfo, error) {
 	}
 
 	return assets, flavour, nil
-}
-
-// WizardOpts captures the inputs needed for the interactive wizard flow.
-type WizardOpts struct {
-	Adapter    string
-	Workspace  string
-	OutputPath string
-	All        bool
-	// Existing manifest (read by caller after confirming overwrite). May be nil.
-	Existing *manifest.Manifest
-	Stderr   io.Writer
-}
-
-// PrepareWizard ensures the .agents + .claude/commands directory tree exists,
-// loads filtered assets, and seeds them on disk so the wizard's pipeline
-// picker can discover them. Returns the loaded asset set.
-func PrepareWizard(o WizardOpts) (*AssetSet, error) {
-	if err := EnsureWaveDirs(WizardWaveDirs); err != nil {
-		return nil, err
-	}
-
-	assets, err := LoadAssets(o.Stderr, AssetOptions{All: o.All})
-	if err != nil {
-		return nil, err
-	}
-
-	if err := CreateExamplePersonas(assets.Personas); err != nil {
-		return nil, fmt.Errorf("failed to create example personas: %w", err)
-	}
-	if err := CreateExamplePipelines(assets.Pipelines); err != nil {
-		return nil, fmt.Errorf("failed to create example pipelines: %w", err)
-	}
-	if err := CreateExampleContracts(assets.Contracts); err != nil {
-		return nil, fmt.Errorf("failed to create example contracts: %w", err)
-	}
-	if err := CreateExamplePrompts(assets.Prompts); err != nil {
-		return nil, fmt.Errorf("failed to create example prompts: %w", err)
-	}
-
-	return assets, nil
 }

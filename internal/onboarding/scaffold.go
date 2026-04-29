@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"golang.org/x/term"
 )
@@ -20,10 +19,6 @@ var DefaultWaveDirs = []string{
 	".agents/traces",
 	".agents/workspaces",
 }
-
-// WizardWaveDirs extends DefaultWaveDirs with the .claude/commands dir used by the
-// interactive wizard for slash-command scaffolding.
-var WizardWaveDirs = append(append([]string{}, DefaultWaveDirs...), ".claude/commands")
 
 // EnsureWaveDirs creates the standard .agents directory tree.
 func EnsureWaveDirs(dirs []string) error {
@@ -162,28 +157,3 @@ func CreateProjectInstructionFiles() error {
 	return nil
 }
 
-// RemoveDeselectedPipelines deletes pipeline YAML files in pipelinesDir whose
-// stem (filename without .yaml extension) is not in the selected list.
-func RemoveDeselectedPipelines(pipelinesDir string, selected []string) error {
-	keep := make(map[string]bool)
-	for _, name := range selected {
-		keep[name] = true
-	}
-	entries, err := os.ReadDir(pipelinesDir)
-	if err != nil {
-		return nil
-	}
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		name := strings.TrimSuffix(e.Name(), ".yaml")
-		if name == e.Name() {
-			continue
-		}
-		if !keep[name] {
-			_ = os.Remove(filepath.Join(pipelinesDir, e.Name()))
-		}
-	}
-	return nil
-}
