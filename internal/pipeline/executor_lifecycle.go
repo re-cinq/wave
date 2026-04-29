@@ -535,6 +535,37 @@ func (e *DefaultPipelineExecutor) runSchedulingLoop(ctx context.Context, executi
 				}
 				continue
 			}
+			// Design rejection: a step's contract with on_failure: rejected
+			// fired. Halt the pipeline in the dedicated `rejected` terminal
+			// state — distinct from `failed` so UIs render it without the
+			// red "this is broken" signal. The error is preserved so callers
+			// (CLI runOnce, webui) can inspect it via errors.As.
+			var rejectionErr *ContractRejectionError
+			if errors.As(err, &rejectionErr) {
+				execution.Status.State = stateRejected
+				rejectedStepID := rejectionErr.StepID
+				if rejectedStepID == "" && len(ready) > 0 {
+					rejectedStepID = ready[0].ID
+				}
+				if rejectedStepID != "" {
+					execution.Status.FailedSteps = append(execution.Status.FailedSteps, rejectedStepID)
+				}
+				if e.store != nil {
+					_ = e.store.SavePipelineState(pipelineID, stateRejected, execution.Input)
+				}
+				e.emit(event.Event{
+					Timestamp:  time.Now(),
+					PipelineID: pipelineID,
+					StepID:     rejectedStepID,
+					State:      stateRejected,
+					Message:    err.Error(),
+				})
+				if e.retroGenerator != nil {
+					e.retroGenerator.Generate(pipelineID, execution.Pipeline.Metadata.Name)
+				}
+				e.cleanupCompletedPipeline(pipelineID)
+				return 0, &StepExecutionError{StepID: rejectedStepID, Err: err}
+			}
 			execution.Status.State = stateFailed
 			// Identify which step(s) failed from the batch
 			var failedStepID string

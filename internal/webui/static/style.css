@@ -414,6 +414,12 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .status-completed-empty { background: var(--color-completed-empty-bg); color: var(--color-completed-empty); }
 .badge.status-running, .status-running { background: var(--color-running-bg); color: var(--color-running) !important; }
 .status-failed { background: var(--color-failed-bg); color: var(--color-failed); }
+/* Design rejection: deliberate non-actionable verdict (e.g. fetch-assess
+   reported `implementable: false`). Yellow signals "stop, look" without
+   the red "this broke" connotation of a runtime failure. Reuses
+   --color-pending so the design tokens stay consistent across the run
+   row, run detail header, and step badges. */
+.status-rejected { background: var(--color-pending-bg); color: var(--color-pending); }
 .status-cancelled { background: var(--color-cancelled-bg); color: var(--color-cancelled); }
 .status-pending { background: var(--color-pending-bg); color: var(--color-pending); }
 .status-warning { background: var(--color-pending-bg); color: var(--color-pending); }
@@ -723,6 +729,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible
 .step-card.status-completed { box-shadow: inset 3px 0 0 0 var(--color-completed); }
 .step-card.status-completed-empty { box-shadow: inset 3px 0 0 0 var(--color-completed-empty); }
 .step-card.status-failed { box-shadow: inset 3px 0 0 0 var(--color-failed); }
+.step-card.status-rejected { box-shadow: inset 3px 0 0 0 var(--color-pending); }
 .step-card.status-pending { box-shadow: inset 3px 0 0 0 var(--color-pending); }
 .step-card.status-cancelled { box-shadow: inset 3px 0 0 0 var(--color-cancelled); }
 .step-header {

@@ -170,9 +170,11 @@ func TypedWiringCheck(p *Pipeline, childLoader SubPipelineLoader, pipelinesDir s
 // Violation categories (ADR-011 rules):
 //
 //   - Rule 5: contract `on_failure: retry` — deterministic on_failure values
-//     must be fail/skip/continue/rework (+rework_step)/warn. `retry` is
-//     forbidden because retries belong to the step-level retry policy, not
-//     contracts.
+//     must be fail/skip/continue/rework (+rework_step)/warn/rejected.
+//     `retry` is forbidden because retries belong to the step-level retry
+//     policy, not contracts. `rejected` is a terminal "design rejection"
+//     outcome where the persona deliberately reports a non-actionable
+//     verdict (e.g. issue already implemented).
 //   - Rule 3: pipeline_outputs entries without an explicit `type:` — every
 //     declared output must carry a semantic type so consumers can type-check
 //     cross-pipeline wiring at load time.
@@ -200,7 +202,7 @@ func CollectWLPLoadErrors(p *Pipeline) []string {
 		for i, c := range step.Handover.EffectiveContracts() {
 			if c.OnFailure == OnFailureRetry {
 				warnings = append(warnings,
-					fmt.Sprintf("pipeline %q step %q contract[%d] (%s): on_failure=%q is deprecated — use step-level retry.max_attempts for retries, or a deterministic contract outcome (fail, skip, continue, rework, warn). See ADR-011 rule 5.",
+					fmt.Sprintf("pipeline %q step %q contract[%d] (%s): on_failure=%q is deprecated — use step-level retry.max_attempts for retries, or a deterministic contract outcome (fail, skip, continue, rework, warn, rejected). See ADR-011 rule 5.",
 						p.Metadata.Name, step.ID, i, c.Type, OnFailureRetry))
 			}
 		}

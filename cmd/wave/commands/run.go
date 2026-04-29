@@ -256,6 +256,18 @@ func runRun(opts RunOptions, debug bool) error {
 	execErr := runOnce(ctx, executor, opts, &m, p, store, runID)
 
 	if execErr != nil {
+		// Design rejection: contract with on_failure: rejected fired. The
+		// persona reported the work is non-actionable (e.g. issue already
+		// implemented, no real bug, superseded). Render with a distinct
+		// non-red banner and exit 0 — this was a legitimate verdict, not
+		// a runtime failure. Stop the TUI first so the banner reaches a
+		// clean terminal.
+		var rejectionErr *pipeline.ContractRejectionError
+		if errors.As(execErr, &rejectionErr) {
+			res.Close()
+			printRejectionSummary(opts, p, rejectionErr, time.Since(pipelineStart), emitter, runID)
+			return nil
+		}
 		return formatRecoveryError(execErr, opts, p, runID, wsRoot, emitter)
 	}
 

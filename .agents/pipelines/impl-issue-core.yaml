@@ -70,7 +70,14 @@ steps:
         source: .agents/output/issue-assessment.json
         schema_path: .agents/contracts/issue-assessment.schema.json
         must_pass: true
-        on_failure: fail
+        # The schema's `implementable: { const: true }` rule deliberately
+        # rejects assessments where the persona reports `implementable:
+        # false` (issue already implemented, superseded, no real bug).
+        # Surface this as a distinct `rejected` terminal state rather than
+        # a runtime `failed` so operators don't see a red banner for what
+        # was actually a correct, intentional verdict. The CLI exits 0 and
+        # the webui renders a yellow no-op badge for rejected runs.
+        on_failure: rejected
 
   - id: plan
     persona: implementer

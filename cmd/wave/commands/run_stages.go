@@ -439,10 +439,16 @@ func runOnce(ctx context.Context, executor *pipeline.DefaultPipelineExecutor, op
 	// Update the pipeline_run record so the dashboard reflects final status
 	if store != nil {
 		tokens := executor.GetTotalTokens()
+		var rejectionErr *pipeline.ContractRejectionError
 		switch {
 		case ctx.Err() != nil:
 			_ = store.UpdateRunStatus(runID, "cancelled", "pipeline cancelled", tokens)
 			_ = store.ClearCancellation(runID)
+		case execErr != nil && errors.As(execErr, &rejectionErr):
+			// Design rejection: persona output deliberately reported the
+			// work is non-actionable (e.g. `implementable: false`). This
+			// is a legitimate terminal verdict, not a runtime failure.
+			_ = store.UpdateRunStatus(runID, "rejected", execErr.Error(), tokens)
 		case execErr != nil:
 			_ = store.UpdateRunStatus(runID, "failed", execErr.Error(), tokens)
 		default:
@@ -606,6 +612,48 @@ func formatRecoveryError(execErr error, opts RunOptions, p *pipeline.Pipeline, r
 // modes print the green "completed" banner plus an indented outcome
 // breakdown to stderr; JSON mode emits a final "completed" event with the
 // structured outcomes payload. Quiet mode is intentionally silent.
+// printRejectionSummary renders the post-run banner for a design-rejection
+// terminal state. It is the rejection sibling of printSummary — the run was
+// halted because a contract with `on_failure: rejected` fired (e.g. an issue
+// assessment returned `implementable: false`). The banner uses a yellow
+// "rejected" colour rather than red, the CLI exits 0, and JSON consumers
+// receive a `state: "rejected"` event so dashboards can route it to the
+// dedicated rejected status.
+//
+// Banner sample (text mode):
+//
+//	! Pipeline 'inception-bugfix' rejected (1.5s) — no implementable issue
+//	  step "fetch-assess": value must be true at /implementable
+func printRejectionSummary(opts RunOptions, p *pipeline.Pipeline, rejectionErr *pipeline.ContractRejectionError, elapsed time.Duration, emitter event.EventEmitter, runID string) {
+	if opts.Output.Format == OutputFormatJSON {
+		emitter.Emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: runID,
+			StepID:     rejectionErr.StepID,
+			State:      "rejected",
+			DurationMs: elapsed.Milliseconds(),
+			Message:    rejectionErr.Error(),
+		})
+		return
+	}
+	if opts.Output.Format != OutputFormatAuto && opts.Output.Format != OutputFormatText {
+		return
+	}
+	// Yellow ANSI bang glyph keeps the run visually distinct from a green
+	// completion (✓) or red failure (✕). The colour code is the same one
+	// `display.FormatStateBadge` uses for warning-class signals.
+	const yellow = "\033[33m"
+	const reset = "\033[0m"
+	fmt.Fprintf(os.Stderr, "\n  %s!%s Pipeline '%s' rejected (%.1fs) — no implementable result\n",
+		yellow, reset, p.Metadata.Name, elapsed.Seconds())
+	if rejectionErr.StepID != "" {
+		fmt.Fprintf(os.Stderr, "    step %q: %s\n", rejectionErr.StepID, rejectionErr.Reason)
+	} else if rejectionErr.Reason != "" {
+		fmt.Fprintf(os.Stderr, "    %s\n", rejectionErr.Reason)
+	}
+	fmt.Fprintf(os.Stderr, "    This is not a runtime failure — the pipeline declared the work non-actionable by design.\n\n")
+}
+
 func printSummary(opts RunOptions, executor *pipeline.DefaultPipelineExecutor, p *pipeline.Pipeline, runID string, elapsed time.Duration, emitter event.EventEmitter) {
 	// Show human summary only in auto/text modes — json and quiet stay clean
 	if opts.Output.Format == OutputFormatAuto || opts.Output.Format == OutputFormatText {

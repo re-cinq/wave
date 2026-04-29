@@ -513,6 +513,24 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		if err != nil {
 			lastErr = err
 
+			// Design rejection short-circuit: a contract with on_failure:
+			// rejected fired because the persona output deliberately
+			// signalled no-op. This is NOT a retryable failure — the work
+			// being non-actionable is the *answer*, not a bug. Skip retries
+			// and route directly to the rejected terminal state. The
+			// executor's States map is already set by applyContractOnFailure;
+			// we just need to short-circuit the loop, persist state, and
+			// propagate the typed error so callers (run.go, webui) can
+			// render the run with the dedicated rejected status.
+			var rejectionErr *ContractRejectionError
+			if errors.As(err, &rejectionErr) {
+				if e.store != nil {
+					_ = e.store.SaveStepState(pipelineID, step.ID, state.StateRejected, err.Error())
+				}
+				e.recordStepOntologyUsage(execution, step, stateRejected)
+				return err
+			}
+
 			// Classify the failure for intelligent retry decisions.
 			// Use stepCtx (watchdog-derived) so stall cancellation is detected.
 			failureClass := ClassifyStepFailure(err, nil, stepCtx.Err())

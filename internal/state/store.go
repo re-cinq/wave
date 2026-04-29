@@ -28,6 +28,12 @@ const (
 	StateRetrying       StepState = event.StateRetrying
 	StateSkipped        StepState = event.StateSkipped
 	StateReworking      StepState = event.StateReworking
+	// StateRejected marks a terminal "design rejection" — a contract with
+	// on_failure: rejected fired because the persona output deliberately
+	// signalled the work is non-actionable (e.g. issue already implemented).
+	// It is not a runtime failure; UIs render it distinctly from
+	// StateFailed. See internal/event for the canonical definition.
+	StateRejected StepState = event.StateRejected
 )
 
 // PipelineStateRecord holds persisted pipeline state.

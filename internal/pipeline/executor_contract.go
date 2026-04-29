@@ -198,6 +198,55 @@ func (e *DefaultPipelineExecutor) applyContractOnFailure(
 		)
 		return false, fmt.Errorf("contract validation failed: %w", cErr)
 
+	case OnFailureRejected:
+		// Design rejection: contract failed because the persona output
+		// deliberately signalled no-op (e.g. `implementable: false`). This
+		// is NOT a runtime failure — the run terminates in the dedicated
+		// `rejected` state and the CLI exits 0. Mark step state as
+		// rejected so step-level UIs render it distinctly.
+		execution.mu.Lock()
+		execution.States[step.ID] = stateRejected
+		execution.mu.Unlock()
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      stateRejected,
+			Message:    fmt.Sprintf("design rejection: %s contract reported non-actionable result (%s)", c.Type, cErr.Error()),
+		})
+		if e.logger != nil {
+			e.logger.LogContractResult(pipelineID, step.ID, c.Type, "rejected")
+			_ = e.logger.LogStepEnd(pipelineID, step.ID, stateRejected, time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, "design rejection: "+cErr.Error())
+		}
+		if e.store != nil {
+			completedAt := time.Now()
+			// A rejection is not a runtime failure; treat it as a
+			// successful no-op for performance metrics so dashboards
+			// don't double-count it as a failure.
+			e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+				RunID:        pipelineID,
+				StepID:       step.ID,
+				PipelineName: execution.Status.PipelineName,
+				Persona:      resolvedPersona,
+				StartedAt:    stepStart,
+				CompletedAt:  &completedAt,
+				DurationMs:   time.Since(stepStart).Milliseconds(),
+				TokensUsed:   result.TokensUsed,
+				Success:      true,
+				ErrorMessage: "design rejection: " + cErr.Error(),
+			})
+		}
+		e.recordDecision(pipelineID, step.ID, "contract",
+			fmt.Sprintf("contract reported design rejection for step %s", step.ID),
+			fmt.Sprintf("on_failure is 'rejected' — pipeline halted with non-actionable verdict: %s", cErr.Error()),
+			map[string]interface{}{"contract_type": c.Type, "error": cErr.Error()},
+		)
+		return false, &ContractRejectionError{
+			StepID:       step.ID,
+			ContractType: c.Type,
+			Reason:       cErr.Error(),
+		}
+
 	case OnFailureSkip:
 		// Halt contract processing; the step is treated as passing (return nil upstream)
 		e.emit(event.Event{

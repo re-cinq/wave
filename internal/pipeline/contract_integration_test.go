@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1437,4 +1438,190 @@ func contractTestIndexOf(slice []string, item string) int {
 		}
 	}
 	return -1
+}
+
+// ============================================================================
+// Test: Contract on_failure: rejected routes to design-rejection terminal state
+// ============================================================================
+//
+// Regression for the UX bug where impl-issue-core's fetch-assess step,
+// when correctly determining `implementable: false` for an
+// already-implemented or superseded issue, would surface as a generic red
+// "failed" run. The contract opt-in `on_failure: rejected` now routes
+// these cases to the dedicated `rejected` terminal state with:
+//
+//   - Pipeline status = "rejected" (distinct from "failed").
+//   - Step state = "rejected" (distinct from "failed").
+//   - The returned error implements ContractRejectionError so callers
+//     (CLI runOnce, webui handlers) can branch to non-red rendering.
+//   - A `rejected` event in the event log for SSE consumers.
+
+func TestContractIntegration_DesignRejectionTerminalState(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Schema mirrors issue-assessment.schema.json's `implementable` rule —
+	// const: true means a `false` value is a deliberate, schema-encoded
+	// rejection signal, not a missing-field bug.
+	schemaDir := filepath.Join(tmpDir, ".agents", "contracts")
+	require.NoError(t, os.MkdirAll(schemaDir, 0755))
+	schema := `{
+		"$schema": "http://json-schema.org/draft-07/schema#",
+		"type": "object",
+		"required": ["implementable"],
+		"properties": {
+			"implementable": { "type": "boolean", "const": true },
+			"reason": { "type": "string" }
+		}
+	}`
+	schemaPath := filepath.Join(schemaDir, "assess.schema.json")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(schema), 0644))
+
+	// Persona output: deliberately reports `implementable: false`. This
+	// is the "design rejection" signal — the issue cannot/should not be
+	// worked on. The schema's const:true rejects this value.
+	rejectionArtifact := `{"implementable": false, "reason": "issue already implemented in commit abc123"}`
+	mockAdapter := newContractTestArtifactWritingAdapter(map[string]string{
+		"fetch-assess": rejectionArtifact,
+	})
+
+	collector := testutil.NewEventCollector()
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
+	)
+
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "design-rejection-test"},
+		Steps: []Step{
+			{
+				ID:      "fetch-assess",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "Assess whether this issue is implementable"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "assessment", Path: ".agents/artifact.json"},
+				},
+				Handover: HandoverConfig{
+					Contract: ContractConfig{
+						Type:       "json_schema",
+						SchemaPath: schemaPath,
+						MustPass:   true,
+						OnFailure:  OnFailureRejected,
+					},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err, "Execute should propagate the rejection error so callers can branch")
+
+	// The error must be a ContractRejectionError (possibly wrapped in
+	// StepExecutionError) so cmd/wave/commands/run_stages.go and the
+	// webui can detect it via errors.As and route to the rejected
+	// terminal state instead of treating it as a runtime failure.
+	var rejectionErr *ContractRejectionError
+	require.True(t, errors.As(err, &rejectionErr),
+		"error must unwrap to *ContractRejectionError so CLI/webui can detect design rejection (got: %T)", err)
+	assert.Equal(t, "fetch-assess", rejectionErr.StepID, "rejection error should carry the step ID")
+	assert.Equal(t, "json_schema", rejectionErr.ContractType, "rejection error should carry the contract type")
+
+	// Event log should contain a `rejected` state event (not just `failed`)
+	// so SSE clients and the webui timeline render the run distinctly.
+	events := collector.GetEvents()
+	hasRejected := false
+	hasFailed := false
+	for _, e := range events {
+		switch e.State {
+		case "rejected":
+			hasRejected = true
+		case "failed":
+			// Only count failed events that aren't from sub-step retry
+			// fingerprinting (those are emitted regardless).
+			if e.StepID == "fetch-assess" {
+				hasFailed = true
+			}
+		}
+	}
+	assert.True(t, hasRejected, "should emit at least one `rejected` state event")
+	assert.False(t, hasFailed, "should NOT emit a `failed` state event for the fetch-assess step — that would be the very bug this test guards against")
+}
+
+// TestContractIntegration_OnFailureFailStillRejectsBrokenSchema confirms
+// that `on_failure: fail` (the default) is unchanged by the rejection
+// patch — schema breakage, runtime panics, and other genuine errors must
+// continue to surface as red `failed` runs. The rejection opt-in must not
+// mask real bugs.
+func TestContractIntegration_OnFailureFailStillFailsRun(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	schemaDir := filepath.Join(tmpDir, ".agents", "contracts")
+	require.NoError(t, os.MkdirAll(schemaDir, 0755))
+	schema := `{
+		"$schema": "http://json-schema.org/draft-07/schema#",
+		"type": "object",
+		"required": ["implementable"],
+		"properties": {
+			"implementable": { "type": "boolean", "const": true }
+		}
+	}`
+	schemaPath := filepath.Join(schemaDir, "assess.schema.json")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(schema), 0644))
+
+	// Same `implementable: false` payload, but the contract uses the
+	// default `on_failure: fail` (no explicit value). The run must still
+	// surface as a regular failure — backward compatibility for pipelines
+	// that have not opted into the rejection signal.
+	rejectionArtifact := `{"implementable": false}`
+	mockAdapter := newContractTestArtifactWritingAdapter(map[string]string{
+		"step1": rejectionArtifact,
+	})
+
+	collector := testutil.NewEventCollector()
+	executor := NewDefaultPipelineExecutor(mockAdapter,
+		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
+	)
+
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "fail-default-test"},
+		Steps: []Step{
+			{
+				ID:      "step1",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "Generate"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "out", Path: ".agents/artifact.json"},
+				},
+				Handover: HandoverConfig{
+					Contract: ContractConfig{
+						Type:       "json_schema",
+						SchemaPath: schemaPath,
+						MustPass:   true,
+						// no on_failure set — defaults to "fail"
+					},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err)
+
+	// Must NOT be classified as a rejection — pipelines must explicitly
+	// opt in via `on_failure: rejected`. Otherwise we'd silently change
+	// the semantics of every `const`/`enum` schema check across the
+	// codebase.
+	var rejectionErr *ContractRejectionError
+	assert.False(t, errors.As(err, &rejectionErr),
+		"default on_failure: fail must NOT trigger the rejection path")
 }
