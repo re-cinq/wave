@@ -50,22 +50,21 @@ steps:
     memory:
       inject_artifacts:
         # The parent pipeline (`ops-pr-respond`) produces `pr-context` from
-        # its `fetch-pr` step and propagates it to this child via the
-        # `resolve-each` step's `config.inject: ["pr-context"]`. Declaring
-        # the input here makes the contract explicit AND triggers the
-        # framework's auto-emitted `## Input Artifacts` prompt block, so the
-        # persona never has to hard-code the on-disk path.
+        # its `fetch-pr` step. Declaring the input here makes the contract
+        # explicit AND triggers the framework's auto-emitted
+        # `## Input Artifacts` prompt block, so the persona never has to
+        # hard-code the on-disk path.
         #
         # The reference uses `pipeline:` rather than `step:` because the
         # producer lives in a different pipeline (the parent) — there is no
-        # in-pipeline producer step to point at. `optional: true` tolerates
-        # standalone runs of impl-finding (no parent injection): the
-        # contract is documented but a missing input is a controlled skip
-        # rather than a hard error.
+        # in-pipeline producer step to point at. The framework propagates
+        # the parent's already-produced output artifacts into the child's
+        # crossPipelineArtifacts map at sub-pipeline launch (#1551), so
+        # the cross-pipeline ref resolves the bytes directly without
+        # needing the parent step to also list `config.inject: [pr-context]`.
         - pipeline: ops-pr-respond
           artifact: pr-context
           as: pr-context
-          optional: true
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
