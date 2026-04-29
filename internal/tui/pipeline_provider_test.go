@@ -168,6 +168,52 @@ func (b baseStateStore) ListOrchestrationDecisionSummary(int) ([]state.Orchestra
 	return nil, nil
 }
 
+// EvolutionStore stubs (epic #1565 PRE-5).
+func (b baseStateStore) RecordEval(state.PipelineEvalRecord) error { return nil }
+func (b baseStateStore) GetEvalsForPipeline(string, int) ([]state.PipelineEvalRecord, error) {
+	return nil, nil
+}
+func (b baseStateStore) CreatePipelineVersion(state.PipelineVersionRecord) error { return nil }
+func (b baseStateStore) ActivateVersion(string, int) error                       { return nil }
+func (b baseStateStore) GetActiveVersion(string) (*state.PipelineVersionRecord, error) {
+	return nil, nil
+}
+func (b baseStateStore) ListPipelineVersions(string) ([]state.PipelineVersionRecord, error) {
+	return nil, nil
+}
+func (b baseStateStore) CreateProposal(state.EvolutionProposalRecord) (int64, error) { return 0, nil }
+func (b baseStateStore) DecideProposal(int64, state.EvolutionProposalStatus, string) error {
+	return nil
+}
+func (b baseStateStore) GetProposal(int64) (*state.EvolutionProposalRecord, error) { return nil, nil }
+func (b baseStateStore) ListProposalsByStatus(state.EvolutionProposalStatus, int) ([]state.EvolutionProposalRecord, error) {
+	return nil, nil
+}
+
+// WorksourceStore stubs (epic #1565 PRE-5).
+func (b baseStateStore) CreateBinding(state.WorksourceBindingRecord) (int64, error) { return 0, nil }
+func (b baseStateStore) UpdateBinding(state.WorksourceBindingRecord) error          { return nil }
+func (b baseStateStore) DeactivateBinding(int64) error                              { return nil }
+func (b baseStateStore) GetBinding(int64) (*state.WorksourceBindingRecord, error)   { return nil, nil }
+func (b baseStateStore) ListBindings(string, string) ([]state.WorksourceBindingRecord, error) {
+	return nil, nil
+}
+func (b baseStateStore) ListActiveBindings() ([]state.WorksourceBindingRecord, error) {
+	return nil, nil
+}
+
+// ScheduleStore stubs (epic #1565 PRE-5).
+func (b baseStateStore) CreateSchedule(state.ScheduleRecord) (int64, error) { return 0, nil }
+func (b baseStateStore) UpdateScheduleNextFire(int64, time.Time, string) error {
+	return nil
+}
+func (b baseStateStore) DeactivateSchedule(int64) error                  { return nil }
+func (b baseStateStore) GetSchedule(int64) (*state.ScheduleRecord, error) { return nil, nil }
+func (b baseStateStore) ListSchedules() ([]state.ScheduleRecord, error)   { return nil, nil }
+func (b baseStateStore) ListDueSchedules(time.Time) ([]state.ScheduleRecord, error) {
+	return nil, nil
+}
+
 // Compile-time check: baseStateStore must satisfy state.StateStore.
 var _ state.StateStore = baseStateStore{}
 

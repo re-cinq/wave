@@ -571,5 +571,98 @@ DROP INDEX IF EXISTS idx_ontology_usage_context;
 DROP TABLE IF EXISTS ontology_usage;`,
 			Down: "",
 		},
+		{
+			Version:     29,
+			Description: "Add pipeline_eval table for evolution signal aggregation (epic #1565 PRE-5)",
+			Up: `CREATE TABLE IF NOT EXISTS pipeline_eval (
+    pipeline_name TEXT NOT NULL,
+    run_id TEXT NOT NULL,
+    judge_score REAL,
+    contract_pass BOOLEAN,
+    retry_count INTEGER,
+    failure_class TEXT,
+    human_override BOOLEAN,
+    duration_ms INTEGER,
+    cost_dollars REAL,
+    recorded_at INTEGER NOT NULL,
+    PRIMARY KEY (pipeline_name, run_id)
+);
+CREATE INDEX IF NOT EXISTS idx_pipeline_eval_recorded ON pipeline_eval(pipeline_name, recorded_at DESC);`,
+			Down: `DROP INDEX IF EXISTS idx_pipeline_eval_recorded;
+DROP TABLE IF EXISTS pipeline_eval;`,
+		},
+		{
+			Version:     30,
+			Description: "Add pipeline_version table for active-version tracking (epic #1565 PRE-5)",
+			Up: `CREATE TABLE IF NOT EXISTS pipeline_version (
+    pipeline_name TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    sha256 TEXT NOT NULL,
+    yaml_path TEXT NOT NULL,
+    active BOOLEAN NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (pipeline_name, version)
+);
+CREATE INDEX IF NOT EXISTS idx_pipeline_version_active ON pipeline_version(pipeline_name) WHERE active = 1;`,
+			Down: `DROP INDEX IF EXISTS idx_pipeline_version_active;
+DROP TABLE IF EXISTS pipeline_version;`,
+		},
+		{
+			Version:     31,
+			Description: "Add evolution_proposal table for human-approve gate on auto-evolved pipelines (epic #1565 PRE-5)",
+			Up: `CREATE TABLE IF NOT EXISTS evolution_proposal (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pipeline_name TEXT NOT NULL,
+    version_before INTEGER NOT NULL,
+    version_after INTEGER NOT NULL,
+    diff_path TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    signal_summary TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('proposed','approved','rejected','superseded')),
+    proposed_at INTEGER NOT NULL,
+    decided_at INTEGER,
+    decided_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_evolution_proposal_status ON evolution_proposal(status, proposed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_evolution_proposal_pipeline ON evolution_proposal(pipeline_name);`,
+			Down: `DROP INDEX IF EXISTS idx_evolution_proposal_pipeline;
+DROP INDEX IF EXISTS idx_evolution_proposal_status;
+DROP TABLE IF EXISTS evolution_proposal;`,
+		},
+		{
+			Version:     32,
+			Description: "Add worksource_binding table for issue→pipeline dispatch (epic #1565 PRE-5)",
+			Up: `CREATE TABLE IF NOT EXISTS worksource_binding (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    forge TEXT NOT NULL,
+    repo TEXT NOT NULL,
+    selector TEXT NOT NULL,
+    pipeline_name TEXT NOT NULL,
+    trigger TEXT NOT NULL CHECK (trigger IN ('on_demand','on_label','on_open','scheduled')),
+    config TEXT,
+    active BOOLEAN NOT NULL,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_worksource_binding_active ON worksource_binding(forge, repo) WHERE active = 1;`,
+			Down: `DROP INDEX IF EXISTS idx_worksource_binding_active;
+DROP TABLE IF EXISTS worksource_binding;`,
+		},
+		{
+			Version:     33,
+			Description: "Add schedule table for cron-driven pipeline runs (epic #1565 PRE-5)",
+			Up: `CREATE TABLE IF NOT EXISTS schedule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pipeline_name TEXT NOT NULL,
+    cron_expr TEXT NOT NULL,
+    input_ref TEXT,
+    active BOOLEAN NOT NULL,
+    next_fire_at INTEGER,
+    last_run_id TEXT,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_schedule_due ON schedule(next_fire_at) WHERE active = 1;`,
+			Down: `DROP INDEX IF EXISTS idx_schedule_due;
+DROP TABLE IF EXISTS schedule;`,
+		},
 	}
 }

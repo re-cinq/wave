@@ -73,6 +73,9 @@ type StateStore interface {
 	EventStore
 	WebhookStore
 	ChatStore
+	EvolutionStore
+	WorksourceStore
+	ScheduleStore
 
 	Close() error
 }

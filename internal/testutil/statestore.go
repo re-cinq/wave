@@ -588,13 +588,89 @@ func (m *MockStateStore) ListOrchestrationDecisionSummary(_ int) ([]state.Orches
 	return nil, nil
 }
 
+// EvolutionStore stubs (epic #1565 PRE-5). Tests that exercise eval/version/
+// proposal logic should swap in a real *stateStore via NewTestStateStore.
+func (m *MockStateStore) RecordEval(_ state.PipelineEvalRecord) error {
+	return nil
+}
+func (m *MockStateStore) GetEvalsForPipeline(_ string, _ int) ([]state.PipelineEvalRecord, error) {
+	return nil, nil
+}
+func (m *MockStateStore) CreatePipelineVersion(_ state.PipelineVersionRecord) error {
+	return nil
+}
+func (m *MockStateStore) ActivateVersion(_ string, _ int) error {
+	return nil
+}
+func (m *MockStateStore) GetActiveVersion(_ string) (*state.PipelineVersionRecord, error) {
+	return nil, nil
+}
+func (m *MockStateStore) ListPipelineVersions(_ string) ([]state.PipelineVersionRecord, error) {
+	return nil, nil
+}
+func (m *MockStateStore) CreateProposal(_ state.EvolutionProposalRecord) (int64, error) {
+	return 0, nil
+}
+func (m *MockStateStore) DecideProposal(_ int64, _ state.EvolutionProposalStatus, _ string) error {
+	return nil
+}
+func (m *MockStateStore) GetProposal(_ int64) (*state.EvolutionProposalRecord, error) {
+	return nil, nil
+}
+func (m *MockStateStore) ListProposalsByStatus(_ state.EvolutionProposalStatus, _ int) ([]state.EvolutionProposalRecord, error) {
+	return nil, nil
+}
+
+// WorksourceStore stubs (epic #1565 PRE-5).
+func (m *MockStateStore) CreateBinding(_ state.WorksourceBindingRecord) (int64, error) {
+	return 0, nil
+}
+func (m *MockStateStore) UpdateBinding(_ state.WorksourceBindingRecord) error {
+	return nil
+}
+func (m *MockStateStore) DeactivateBinding(_ int64) error {
+	return nil
+}
+func (m *MockStateStore) GetBinding(_ int64) (*state.WorksourceBindingRecord, error) {
+	return nil, nil
+}
+func (m *MockStateStore) ListBindings(_, _ string) ([]state.WorksourceBindingRecord, error) {
+	return nil, nil
+}
+func (m *MockStateStore) ListActiveBindings() ([]state.WorksourceBindingRecord, error) {
+	return nil, nil
+}
+
+// ScheduleStore stubs (epic #1565 PRE-5).
+func (m *MockStateStore) CreateSchedule(_ state.ScheduleRecord) (int64, error) {
+	return 0, nil
+}
+func (m *MockStateStore) UpdateScheduleNextFire(_ int64, _ time.Time, _ string) error {
+	return nil
+}
+func (m *MockStateStore) DeactivateSchedule(_ int64) error {
+	return nil
+}
+func (m *MockStateStore) GetSchedule(_ int64) (*state.ScheduleRecord, error) {
+	return nil, nil
+}
+func (m *MockStateStore) ListSchedules() ([]state.ScheduleRecord, error) {
+	return nil, nil
+}
+func (m *MockStateStore) ListDueSchedules(_ time.Time) ([]state.ScheduleRecord, error) {
+	return nil, nil
+}
+
 // Compile-time assertions that *MockStateStore satisfies every domain-scoped
 // state interface as well as the aggregate StateStore. These guard against
 // drift if a method is added to one of the narrow interfaces and missed here.
 var (
-	_ state.RunStore     = (*MockStateStore)(nil)
-	_ state.EventStore   = (*MockStateStore)(nil)
-	_ state.WebhookStore = (*MockStateStore)(nil)
-	_ state.ChatStore    = (*MockStateStore)(nil)
-	_ state.StateStore    = (*MockStateStore)(nil)
+	_ state.RunStore        = (*MockStateStore)(nil)
+	_ state.EventStore      = (*MockStateStore)(nil)
+	_ state.WebhookStore    = (*MockStateStore)(nil)
+	_ state.ChatStore       = (*MockStateStore)(nil)
+	_ state.EvolutionStore  = (*MockStateStore)(nil)
+	_ state.WorksourceStore = (*MockStateStore)(nil)
+	_ state.ScheduleStore   = (*MockStateStore)(nil)
+	_ state.StateStore      = (*MockStateStore)(nil)
 )
