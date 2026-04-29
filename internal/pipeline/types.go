@@ -176,6 +176,12 @@ type RetryConfig struct {
 	AdaptPrompt bool   `yaml:"adapt_prompt,omitempty"` // Deprecated: failure context is now always injected on retry. Kept for YAML compat.
 	OnFailure   string `yaml:"on_failure,omitempty"`   // "fail", "skip", "continue", "rework". Default: "fail"
 	ReworkStep  string `yaml:"rework_step,omitempty"`  // Step ID to execute when on_failure is "rework"
+	// NoEscalate disables automatic model tier escalation on retry. By default
+	// (NoEscalate=false) a retried step resolves one tier stronger than the
+	// original attempt: cheapest -> balanced -> strongest. Literal model
+	// names (e.g. "claude-opus-4") never escalate regardless of this flag —
+	// they are user-pinned overrides and are preserved verbatim.
+	NoEscalate bool `yaml:"no_escalate,omitempty"`
 }
 
 // Validate checks that the RetryConfig is well-formed.

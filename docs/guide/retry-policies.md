@@ -31,6 +31,41 @@ steps:
 
 Explicit fields override policy defaults — set `policy` for the base, then override individual fields as needed.
 
+## Model Tier Escalation on Retry
+
+When a step retries, Wave automatically escalates the model one tier stronger
+along the cost ladder `cheapest -> balanced -> strongest`. The first retry
+moves up one tier, the second another, and once `strongest` is reached
+further retries stay there.
+
+```yaml
+steps:
+  - id: implement
+    persona: craftsman
+    model: cheapest          # attempt 1: cheapest -> haiku
+    retry:
+      policy: standard       # attempt 2: balanced -> adapter default
+                             # attempt 3: strongest -> opus
+```
+
+Escalation only applies when the step's effective model is a recognized
+tier name (`cheapest`, `balanced`, `strongest`). Literal model IDs (e.g.
+`claude-opus-4`, `gpt-4o-mini`) are user-pinned overrides and are
+preserved verbatim across retries.
+
+Set `retry.no_escalate: true` to disable escalation and reuse the same
+model across retries:
+
+```yaml
+steps:
+  - id: scan
+    persona: navigator
+    model: cheapest
+    retry:
+      policy: standard
+      no_escalate: true      # keep using cheapest on every retry
+```
+
 ## Failure Classification
 
 The retry system classifies failures into 6 categories:
