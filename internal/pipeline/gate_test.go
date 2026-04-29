@@ -553,8 +553,8 @@ func TestParsePollGateTiming_Defaults(t *testing.T) {
 	if interval != 30*time.Second {
 		t.Errorf("expected 30s interval, got %v", interval)
 	}
-	if timeout != 30*time.Minute {
-		t.Errorf("expected 30m timeout, got %v", timeout)
+	if timeout != 60*time.Minute {
+		t.Errorf("expected 60m timeout, got %v", timeout)
 	}
 }
 
