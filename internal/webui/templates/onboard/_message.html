@@ -1,0 +1,6 @@
+{{define "templates/onboard/_message.html"}}
+<div class="chat-msg chat-msg-{{.Kind}}">
+    {{if .StepID}}<span class="chat-msg-step">{{.StepID}}</span>{{end}}
+    <span class="chat-msg-body">{{.Message}}</span>
+</div>
+{{end}}

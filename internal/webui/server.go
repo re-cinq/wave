@@ -22,6 +22,7 @@ import (
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/onboarding"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/workspace"
 )
@@ -87,6 +88,16 @@ type serverAssets struct {
 	features  *FeatureRegistry
 }
 
+// serverOnboard groups the in-memory onboarding session registry plus the
+// onboarding.Service factory used by the /onboard chat-style driver. The
+// factory is overridable so tests can swap a fake Service that exercises the
+// PromptString/PromptChoice path without touching the real Greenfield flow.
+type serverOnboard struct {
+	mu       sync.Mutex
+	sessions map[string]*webOnboardSession
+	factory  func() onboarding.Service
+}
+
 // Server is the HTTP server for the Wave dashboard.
 type Server struct {
 	transport serverTransport
@@ -94,6 +105,7 @@ type Server struct {
 	runtime   serverRuntime
 	realtime  serverRealtime
 	assets    serverAssets
+	onboard   serverOnboard
 	mu        sync.Mutex
 }
 
@@ -246,6 +258,10 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 			templates: tmpl,
 			cache:     newAPICache(5 * time.Minute),
 			features:  features,
+		},
+		onboard: serverOnboard{
+			sessions: make(map[string]*webOnboardSession),
+			factory:  func() onboarding.Service { return onboarding.NewBaselineService(os.Stderr) },
 		},
 	}
 
