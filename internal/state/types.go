@@ -31,9 +31,24 @@ type RunRecord struct {
 	IterateIndex   *int   // 0-based index within an iterate step's items array (nil for non-iterate launches)
 	IterateTotal   *int   // total items in the parent iterate step (nil for non-iterate launches)
 	IterateMode    string // "parallel" or "serial" (empty for non-iterate launches)
-	RunKind        string // "top_level" | "iterate_child" | "sub_pipeline_child" | "loop_iteration" | "branch_arm" (empty defaults to top_level for legacy rows)
+	RunKind        string // "top_level" | "iterate_child" | "sub_pipeline_child" | "loop_iteration" | "branch_arm" | "resume" (empty defaults to top_level for legacy rows)
 	SubPipelineRef string // Sub-pipeline name as referenced in YAML (e.g. "audit-security"); empty for top-level runs
 }
+
+// RunKind enum values for pipeline_run.run_kind. Issue #1450 introduced
+// composition kinds; #1510 added "resume" so the WebUI can link a resumed
+// run back to the failed parent run.
+const (
+	RunKindTopLevel         = "top_level"
+	RunKindIterateChild     = "iterate_child"
+	RunKindSubPipelineChild = "sub_pipeline_child"
+	RunKindLoopIteration    = "loop_iteration"
+	RunKindBranchArm        = "branch_arm"
+	// RunKindResume marks a run that was launched via `wave resume <id>` /
+	// `wave run --from-step ... --run <id>` / web UI resume button. The
+	// `parent_run_id` column points at the original failed run.
+	RunKindResume = "resume"
+)
 
 // CheckpointRecord holds checkpoint data at a step boundary for fork/rewind.
 type CheckpointRecord struct {

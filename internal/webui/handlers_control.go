@@ -205,6 +205,16 @@ func (s *Server) handleResumeRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Link the resume run back to the failed parent so the WebUI can render
+	// the breadcrumb on the resumed run and a "Resumed by" pill on the
+	// parent failed run (issue #1510). Best-effort.
+	if err := s.runtime.rwStore.SetParentRun(newRunID, runID, req.FromStep); err != nil {
+		fmt.Printf("warning: failed to link resume run %s to parent %s: %v\n", newRunID, runID, err)
+	}
+	if err := s.runtime.rwStore.SetRunComposition(newRunID, state.RunKindResume, "", "", nil, nil); err != nil {
+		fmt.Printf("warning: failed to set resume run kind on %s: %v\n", newRunID, err)
+	}
+
 	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p, runner.Options{}, req.FromStep)
 
 	writeJSON(w, http.StatusCreated, ResumeRunResponse{

@@ -2747,6 +2747,46 @@ func TestGetChildRuns(t *testing.T) {
 	}
 }
 
+// TestResumeRunLinkage verifies that a resumed run can be linked back to its
+// failed parent run via SetParentRun + SetRunComposition with run_kind="resume".
+// This mirrors the wiring used by `wave resume` and the WebUI resume button —
+// issue #1510.
+func TestResumeRunLinkage(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	// Create the original failed run.
+	parentRunID, err := store.CreateRun("impl-issue", "fix login bug")
+	require.NoError(t, err)
+	require.NoError(t, store.UpdateRunStatus(parentRunID, "failed", "step plan failed", 1234))
+
+	// Create the resume run and link it.
+	resumeRunID, err := store.CreateRun("impl-issue", "fix login bug")
+	require.NoError(t, err)
+	require.NoError(t, store.SetParentRun(resumeRunID, parentRunID, "plan"))
+	require.NoError(t, store.SetRunComposition(resumeRunID, RunKindResume, "", "", nil, nil))
+
+	// Verify linkage on the child resume run.
+	resume, err := store.GetRun(resumeRunID)
+	require.NoError(t, err)
+	assert.Equal(t, parentRunID, resume.ParentRunID, "resume run should reference parent")
+	assert.Equal(t, "plan", resume.ParentStepID, "resume run should record the from-step")
+	assert.Equal(t, RunKindResume, resume.RunKind, "resume run should carry run_kind=resume")
+
+	// Verify GetChildRuns returns the resume.
+	children, err := store.GetChildRuns(parentRunID)
+	require.NoError(t, err)
+	require.Len(t, children, 1, "parent should have exactly one child resume run")
+	assert.Equal(t, resumeRunID, children[0].RunID)
+	assert.Equal(t, RunKindResume, children[0].RunKind)
+
+	// Parent itself should remain unlinked.
+	parent, err := store.GetRun(parentRunID)
+	require.NoError(t, err)
+	assert.Empty(t, parent.ParentRunID, "parent should not be linked")
+	assert.Empty(t, parent.RunKind, "parent run_kind should default to empty / top_level")
+}
+
 // TestReapOrphans tests the orphaned-run reaper for issue #1467.
 func TestReapOrphans(t *testing.T) {
 	store, cleanup := setupTestStore(t)

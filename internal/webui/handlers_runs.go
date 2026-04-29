@@ -164,6 +164,15 @@ func (s *Server) handleAPIRunDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleRunsPage serves GET /runs — runs list with Fat Gantt design.
+//
+// Query params:
+//   - status: filter by status (default "all")
+//   - pipeline: filter by pipeline name
+//   - cursor: pagination cursor
+//   - top_level_only: when "true" (default), child runs (composition children
+//     and resumes — anything with a non-empty parent_run_id) are hidden.
+//     When "false", child rows are returned and rendered nested under their
+//     parent via nestChildRuns. Issue #1510.
 func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	cursor, err := decodeCursor(r.URL.Query().Get("cursor"))
 	if err != nil {
@@ -176,6 +185,11 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	pipelineFilter := r.URL.Query().Get("pipeline")
 
+	// top_level_only defaults to true so resumes and composition children
+	// don't clutter the main list. Accept "false"/"0" to opt in.
+	topLevelOnlyStr := r.URL.Query().Get("top_level_only")
+	topLevelOnly := topLevelOnlyStr != "false" && topLevelOnlyStr != "0"
+
 	// "all" means no status filter
 	queryStatus := status
 	if queryStatus == "all" {
@@ -186,6 +200,7 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		Status:       queryStatus,
 		PipelineName: pipelineFilter,
 		Limit:        limit + 1,
+		TopLevelOnly: topLevelOnly,
 	}
 	if cursor != nil {
 		opts.BeforeUnix = cursor.Timestamp
@@ -215,6 +230,19 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		filteredRuns = append(filteredRuns, run)
 	}
 	s.enrichRunSummaries(allSummaries, filteredRuns)
+
+	// When showing all runs (top_level_only=false), also pull in resumes /
+	// composition children for any top-level parent on the page so they nest
+	// inline rather than bubbling up. When top_level_only=true, child rows
+	// were filtered at the DB level so this is a no-op.
+	if !topLevelOnly {
+		// nestChildRuns only nests children whose parent is on the same page;
+		// anything else stays at top-level. That's the behaviour we want.
+	} else {
+		// Even when filtering at the DB level, pre-attach known resume children
+		// so the parent row carries a "Resumed by" indicator inline.
+		s.attachResumesToParents(allSummaries)
+	}
 	summaries := nestChildRuns(allSummaries)
 
 	var nextCursor string
@@ -243,6 +271,7 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		Pipelines      []string
 		FilterStatus   string
 		FilterPipeline string
+		TopLevelOnly   bool
 		RunningRuns    []RunSummary
 		RunningCount   int
 	}{
@@ -253,6 +282,7 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		Pipelines:      pipelines,
 		FilterStatus:   status,
 		FilterPipeline: pipelineFilter,
+		TopLevelOnly:   topLevelOnly,
 		RunningRuns:    runningRuns,
 		RunningCount:   len(runningRuns),
 	}
@@ -260,6 +290,32 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.assets.templates["templates/runs.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// attachResumesToParents fetches resume-kind children for each parent run
+// in the list and attaches them as ChildRuns. Used by /runs when
+// top_level_only=true to keep the main list clean while still surfacing the
+// "this run was resumed" indicator on the parent row. Issue #1510.
+func (s *Server) attachResumesToParents(parents []RunSummary) {
+	if s.runtime.store == nil {
+		return
+	}
+	for i := range parents {
+		// Only failed/cancelled runs can be resumed; skip the others.
+		if parents[i].Status != "failed" && parents[i].Status != "cancelled" {
+			continue
+		}
+		children, err := s.runtime.store.GetChildRuns(parents[i].RunID)
+		if err != nil {
+			continue
+		}
+		for _, ch := range children {
+			if ch.RunKind != state.RunKindResume {
+				continue
+			}
+			parents[i].ChildRuns = append(parents[i].ChildRuns, runToSummary(ch))
+		}
 	}
 }
 
