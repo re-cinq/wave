@@ -49,16 +49,20 @@ steps:
     model: balanced
     memory:
       inject_artifacts:
-        # The parent pipeline (`ops-pr-respond`, step `fetch-pr`) produces
-        # `pr-context` and propagates it to this child via the `resolve-each`
-        # step's `config.inject: ["pr-context"]`. Declaring it here makes the
-        # contract explicit AND triggers the framework's auto-emitted
-        # `## Input Artifacts` prompt block, so the persona never has to
-        # hard-code the on-disk path. `optional: true` tolerates standalone
-        # runs of impl-finding (no parent injection): the contract is
-        # documented but a missing input is a controlled skip rather than a
-        # hard error.
-        - step: fetch-pr
+        # The parent pipeline (`ops-pr-respond`) produces `pr-context` from
+        # its `fetch-pr` step and propagates it to this child via the
+        # `resolve-each` step's `config.inject: ["pr-context"]`. Declaring
+        # the input here makes the contract explicit AND triggers the
+        # framework's auto-emitted `## Input Artifacts` prompt block, so the
+        # persona never has to hard-code the on-disk path.
+        #
+        # The reference uses `pipeline:` rather than `step:` because the
+        # producer lives in a different pipeline (the parent) — there is no
+        # in-pipeline producer step to point at. `optional: true` tolerates
+        # standalone runs of impl-finding (no parent injection): the
+        # contract is documented but a missing input is a controlled skip
+        # rather than a hard error.
+        - pipeline: ops-pr-respond
           artifact: pr-context
           as: pr-context
           optional: true
