@@ -7,7 +7,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/recinq/wave/internal/ontology"
-	"github.com/recinq/wave/internal/tui"
+	"github.com/recinq/wave/internal/uitheme"
 )
 
 // OntologyStep prompts for the project's telos and bounded context names.
@@ -51,7 +51,7 @@ func (s *OntologyStep) Run(cfg *WizardConfig) (*StepResult, error) {
 					Placeholder("e.g. identity, conversation, analytics"),
 			).Title("Step 7 of 8 — Project Ontology").
 				Description("Wave works best when it understands your project's domain."),
-		).WithTheme(tui.WaveTheme())
+		).WithTheme(uitheme.WaveTheme())
 
 		if err := form.Run(); err != nil {
 			if err == huh.ErrUserAborted {

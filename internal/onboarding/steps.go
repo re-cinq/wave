@@ -11,7 +11,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/recinq/wave/internal/pipelinecatalog"
-	"github.com/recinq/wave/internal/tui"
+	"github.com/recinq/wave/internal/uitheme"
 )
 
 // knownAdapters lists the adapters available for selection.
@@ -204,7 +204,7 @@ func (s *TestConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
 					Placeholder("e.g. go build ./..."),
 			).Title("Step 2 of 8 — Test Commands").
 				Description("Confirm or override the detected project commands."),
-		).WithTheme(tui.WaveTheme())
+		).WithTheme(uitheme.WaveTheme())
 
 		if err := form.Run(); err != nil {
 			if err == huh.ErrUserAborted {
@@ -343,7 +343,7 @@ func (s *PipelineSelectionStep) Run(cfg *WizardConfig) (*StepResult, error) {
 				Height(12),
 		).Title("Step 3 of 8 — Pipeline Selection").
 			Description("Choose which pipelines to include in your project."),
-	).WithTheme(tui.WaveTheme())
+	).WithTheme(uitheme.WaveTheme())
 
 	if err := form.Run(); err != nil {
 		if err == huh.ErrUserAborted {
@@ -404,7 +404,7 @@ func (s *AdapterConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
 					Value(&selectedAdapter),
 			).Title("Step 4 of 8 — Adapter Configuration").
 				Description("Choose the LLM adapter for pipeline execution."),
-		).WithTheme(tui.WaveTheme())
+		).WithTheme(uitheme.WaveTheme())
 
 		if err := form.Run(); err != nil {
 			if err == huh.ErrUserAborted {
@@ -423,7 +423,7 @@ func (s *AdapterConfigStep) Run(cfg *WizardConfig) (*StepResult, error) {
 						Value(&customAdapter).
 						Placeholder("e.g. my-adapter"),
 				),
-			).WithTheme(tui.WaveTheme())
+			).WithTheme(uitheme.WaveTheme())
 
 			if err := inputForm.Run(); err != nil {
 				if err == huh.ErrUserAborted {
@@ -498,7 +498,7 @@ func (s *ModelSelectionStep) Run(cfg *WizardConfig) (*StepResult, error) {
 						Value(&selectedModel),
 				).Title("Step 5 of 8 — Model Selection").
 					Description("Choose the default model for pipeline execution."),
-			).WithTheme(tui.WaveTheme())
+			).WithTheme(uitheme.WaveTheme())
 
 			if err := form.Run(); err != nil {
 				if err == huh.ErrUserAborted {
@@ -516,7 +516,7 @@ func (s *ModelSelectionStep) Run(cfg *WizardConfig) (*StepResult, error) {
 							Value(&selectedModel).
 							Placeholder("e.g. claude-3-opus-20240229"),
 					),
-				).WithTheme(tui.WaveTheme())
+				).WithTheme(uitheme.WaveTheme())
 
 				if err := inputForm.Run(); err != nil {
 					if err == huh.ErrUserAborted {
@@ -536,7 +536,7 @@ func (s *ModelSelectionStep) Run(cfg *WizardConfig) (*StepResult, error) {
 					Placeholder("e.g. gpt-4o"),
 			).Title("Step 5 of 8 — Model Selection").
 				Description("Enter the model name for your adapter."),
-		).WithTheme(tui.WaveTheme())
+		).WithTheme(uitheme.WaveTheme())
 
 		if err := inputForm.Run(); err != nil {
 			if err == huh.ErrUserAborted {
