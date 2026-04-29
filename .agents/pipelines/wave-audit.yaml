@@ -39,9 +39,13 @@ chat_context:
     - "Remediation actions and issue creation"
 
 pipeline_outputs:
-  report:
+  publish:
     step: publish
     artifact: publish-result
+    type: findings_report
+  report:
+    step: report
+    artifact: wave-audit-report
     type: findings_report
 
 steps:
@@ -507,3 +511,83 @@ steps:
         extract_from: .agents/output/publish-result.json
         json_path: .issues_created[].url
         label: "Audit Remediation Issue"
+
+  - id: report
+    persona: summarizer
+    model: cheapest
+    dependencies: [publish]
+    memory:
+      inject_artifacts:
+        - step: compose-triage
+          artifact: triage-report
+          as: triage_report
+        - step: publish
+          artifact: publish-result
+          as: publish_result
+    exec:
+      type: prompt
+      source: |
+        OBJECTIVE:
+        Produce a single, operator-facing markdown report summarising the wave-audit run.
+        Anyone reading this file in a browser or editor must immediately see what was
+        audited, what the audit found, which remediation issues were filed, and where to
+        click next. Without this report the operator only has a JSON blob and a list of
+        new issues — not a digest.
+
+        CONTEXT:
+        Two artifacts are injected: `triage_report` (the categorised, prioritised
+        findings) and `publish_result` (the JSON record of created/failed/skipped issues
+        from the publish step). All issue creation has already happened — your job is
+        purely to render a human-readable summary, not to take any new actions.
+
+        REQUIREMENTS:
+        1. Read both artifacts completely.
+        2. Render a markdown report at the configured output path with these sections, in
+           order:
+           - `# Wave Audit Report`
+           - `## Run Metadata` — repository, scope, timestamp, total items audited.
+           - `## Health Snapshot` — counts and percentages per fidelity category from
+             `triage_report.summary` (verified, partial, regressed, obsolete,
+             unverifiable) plus the overall health score.
+           - `## Remediation Issues Filed` — table with columns Source Item, Category,
+             New Issue, URL. One row per entry in `publish_result.issues_created`. URLs
+             must be rendered as live markdown links so the operator can click them.
+           - `## Failed Issue Creations` — same table shape but for
+             `publish_result.issues_failed`. If empty, write `_None._`.
+           - `## Top Findings` — bullet list of the 5 highest-priority items from
+             `triage_report.prioritized_actions` (priority, item number, action
+             description, estimated effort, link to the original item URL).
+           - `## Next Steps` — short paragraph telling the operator what to do (review
+             the filed issues, run `wave run impl-issue` against the highest priority
+             one, etc.). No emojis; use plain prose or HTML entities if any glyphs are
+             needed.
+        3. Citations must be clickable — every URL becomes a markdown link. Include the
+           source item URL and the new issue URL for every remediation row.
+
+        CONSTRAINTS AND ANTI-PATTERNS:
+        - Do NOT fabricate data not present in the injected artifacts.
+        - Do NOT take any side effects (no `gh` calls, no commits, no edits to other
+          files). This step is a pure renderer.
+        - Do NOT include emojis. Use plain text, markdown tables, or HTML entities only.
+        - Do NOT skip the report when there are zero actionable findings — instead write
+          a clear `## Health Snapshot` section noting that no remediation was required
+          and a `## Next Steps` section pointing to the verified items so the operator
+          knows the run completed cleanly.
+
+        QUALITY BAR:
+        A good report is one a maintainer can paste into Slack or a release note and have
+        the team understand the audit outcome without opening any other artifact. A bad
+        report restates the JSON without links, omits the issue URLs, or buries the
+        health snapshot below the fold.
+    output_artifacts:
+      - name: wave-audit-report
+        path: .agents/output/wave-audit-report.md
+        type: markdown
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: non_empty_file
+        source: .agents/output/wave-audit-report.md
+        on_failure: warn
