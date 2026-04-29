@@ -28,6 +28,9 @@ steps:
       - name: test-data
         path: .agents/output/test-data.json
         type: json
+      - name: test-schema
+        path: .agents/output/test-schema.json
+        type: json
     handover:
       contract:
         type: non_empty_file
@@ -38,19 +41,28 @@ steps:
     persona: navigator
     model: cheapest
     dependencies: [setup]
+    memory:
+      inject_artifacts:
+        - step: setup
+          artifact: test-data
+          as: test-data
+        - step: setup
+          artifact: test-schema
+          as: test-schema
     exec:
       type: prompt
       source: |
-        Read `.agents/output/test-data.json` and `.agents/output/test-schema.json`.
-        Verify both exist and contain valid JSON. Write confirmation to
-        `.agents/output/contract-check.json`:
-        {"data_valid": true, "schema_valid": true, "checked_at": "<timestamp>"}
+        Read the two injected input artifacts. Each must parse as valid JSON.
+        Set `data_valid` true iff `test-data` parses; set `schema_valid` true
+        iff `test-schema` parses. Set `checked_at` to the current RFC3339 UTC
+        timestamp.
     output_artifacts:
       - name: contract-check
         path: .agents/output/contract-check.json
         type: json
     handover:
       contract:
-        type: non_empty_file
+        type: json_schema
         source: .agents/output/contract-check.json
+        schema_path: .agents/contracts/contract-check.schema.json
         on_failure: fail

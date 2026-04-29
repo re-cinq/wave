@@ -256,6 +256,11 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 	if err := os.MkdirAll(wsPath, 0755); err != nil {
 		return "", err
 	}
+	// Pre-create the .agents/output dir so resolveCommandWorkDir treats this
+	// workspace as real and command steps run with CWD here instead of falling
+	// back to the project root (which would pollute the project tree and break
+	// artifact isolation).
+	_ = os.MkdirAll(filepath.Join(wsPath, ".agents", "output"), 0755)
 	// Anchor Claude Code path resolution (see mount-based workspace above)
 	_ = exec.Command("git", "init", "-q", wsPath).Run()
 	return wsPath, nil
