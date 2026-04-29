@@ -163,7 +163,7 @@ steps:
         includes issues above the threshold in the poor-quality list.
     output_artifacts:
       - name: quality-report
-        path: .agents/artifacts/quality-report.json
+        path: .agents/output/quality-report.json
         type: json
         required: true
     retry:
@@ -172,7 +172,7 @@ steps:
     handover:
       contract:
         type: json_schema
-        source: .agents/artifacts/quality-report.json
+        source: .agents/output/quality-report.json
         schema_path: .agents/contracts/github-issue-analysis.schema.json
         on_failure: warn
 
