@@ -94,7 +94,7 @@ func TestPersonaFilesMandatorySections(t *testing.T) {
 	}
 }
 
-// TestAllPersonasCovered verifies exactly 23 persona files exist (excluding
+// TestAllPersonasCovered verifies the expected persona files exist (excluding
 // base-protocol.md) with the expected names (SC-004).
 func TestAllPersonasCovered(t *testing.T) {
 	personas, err := GetPersonas()
@@ -126,6 +126,7 @@ func TestAllPersonasCovered(t *testing.T) {
 		"validator.md":        true,
 		"synthesizer.md":      true,
 		"supervisor.md":       true,
+		"onboarder.md":        true,
 	}
 
 	for name := range expected {
@@ -141,7 +142,7 @@ func TestAllPersonasCovered(t *testing.T) {
 			count++
 		}
 	}
-	if count != 31 {
-		t.Errorf("expected 31 persona files, got %d", count)
+	if count != 32 {
+		t.Errorf("expected 32 persona files, got %d", count)
 	}
 }

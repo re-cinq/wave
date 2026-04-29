@@ -154,9 +154,9 @@ func TestGetPersonaConfigs_ReturnsAllPersonas(t *testing.T) {
 		t.Fatalf("GetPersonaConfigs() error: %v", err)
 	}
 
-	// Should have exactly 31 persona configs (all .md files minus base-protocol)
-	if len(configs) != 31 {
-		t.Errorf("expected 31 persona configs, got %d", len(configs))
+	// Should have exactly 32 persona configs (all .md files minus base-protocol)
+	if len(configs) != 32 {
+		t.Errorf("expected 32 persona configs, got %d", len(configs))
 	}
 
 	// Verify a few known personas exist

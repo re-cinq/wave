@@ -1,0 +1,168 @@
+kind: WavePipeline
+metadata:
+  name: onboard-project
+  description: >-
+    Generate a tailored .agents/* overlay for an existing project. Surveys the
+    project to detect its flavour, proposes a manifest of personas, pipelines,
+    and prompts, writes them, validates the result, and marks the project as
+    onboarded by writing the .agents/.onboarding-done sentinel. Use this as the
+    first run on any project where Wave has not yet been onboarded.
+  release: true
+
+input:
+  source: cli
+  type: string
+  schema:
+    type: string
+    description: "Optional project description or intent hint (defaults to empty string)"
+  example: ""
+
+chat_context:
+  artifact_summaries:
+    - detection
+    - proposal
+    - generation
+  suggested_questions:
+    - "What flavour was detected?"
+    - "Which .agents/* files were generated?"
+    - "Did the sentinel get written?"
+  focus_areas:
+    - "Detection accuracy"
+    - "Generated overlay completeness"
+    - "Sentinel state"
+
+pipeline_outputs:
+  detection:
+    step: detect
+    artifact: detection
+    type: workspace_ref
+  proposal:
+    step: propose
+    artifact: proposal
+    type: workspace_ref
+
+steps:
+  - id: detect
+    persona: onboarder
+    model: cheapest
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source_path: .agents/prompts/onboard/detect.md
+    output_artifacts:
+      - name: detection
+        path: .agents/output/detection.json
+        type: json
+    retry:
+      policy: patient
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .agents/output/detection.json
+        schema_path: .agents/contracts/detection.schema.json
+        must_pass: true
+        on_failure: fail
+
+  - id: propose
+    persona: onboarder
+    thread: onboard
+    model: cheapest
+    dependencies: [detect]
+    memory:
+      inject_artifacts:
+        - step: detect
+          artifact: detection
+          as: detection
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source_path: .agents/prompts/onboard/propose.md
+    output_artifacts:
+      - name: proposal
+        path: .agents/output/onboard-proposal.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: non_empty_file
+        source: .agents/output/onboard-proposal.json
+        must_pass: true
+        on_failure: warn
+
+  - id: generate
+    persona: onboarder
+    thread: onboard
+    model: cheapest
+    dependencies: [propose]
+    memory:
+      inject_artifacts:
+        - step: detect
+          artifact: detection
+          as: detection
+        - step: propose
+          artifact: proposal
+          as: proposal
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source_path: .agents/prompts/onboard/generate.md
+    output_artifacts:
+      - name: generation
+        path: .agents/output/onboard-generation.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: non_empty_file
+        source: .agents/output/onboard-generation.json
+        must_pass: true
+        on_failure: warn
+
+  - id: finalize
+    persona: craftsman
+    thread: onboard
+    model: cheapest
+    dependencies: [generate]
+    memory:
+      inject_artifacts:
+        - step: detect
+          artifact: detection
+          as: detection
+        - step: propose
+          artifact: proposal
+          as: proposal
+        - step: generate
+          artifact: generation
+          as: generation
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source_path: .agents/prompts/onboard/finalize.md
+    output_artifacts:
+      - name: finalize-report
+        path: .agents/output/onboard-finalize.json
+        type: json
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: non_empty_file
+        source: .agents/output/onboard-finalize.json
+        must_pass: true
+        on_failure: fail

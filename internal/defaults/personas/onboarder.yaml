@@ -1,0 +1,6 @@
+description: "Project introspection and .agents/* overlay generation"
+temperature: 0.4
+permissions:
+  allowed_tools:
+    - "*"
+  deny: []

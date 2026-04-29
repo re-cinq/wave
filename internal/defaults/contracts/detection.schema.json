@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Project Detection",
+  "description": "Schema for the JSON shape produced by the onboarder persona during the detect step of the onboard-project meta-pipeline. Captures the project's flavour, build system, test command, and any signals that informed the detection.",
+  "type": "object",
+  "required": ["flavour", "signals"],
+  "additionalProperties": false,
+  "properties": {
+    "flavour": {
+      "type": "string",
+      "description": "Detected project flavour. Use 'unknown' when no signal is conclusive — downstream steps will degrade gracefully.",
+      "examples": ["go", "rust", "node", "bun", "deno", "python", "csharp", "java", "ruby", "unknown"]
+    },
+    "build_system": {
+      "type": ["string", "null"],
+      "description": "Build system associated with the flavour (e.g. go, cargo, npm, bun, pip, dotnet). Null when not determinable."
+    },
+    "test_command": {
+      "type": ["string", "null"],
+      "description": "Canonical test command for the project (e.g. 'go test ./...'). Null when not determinable."
+    },
+    "package_managers": {
+      "type": "array",
+      "description": "Package managers in use, ordered by precedence.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "signals": {
+      "type": "array",
+      "description": "Concrete files or markers that informed the detection (e.g. 'go.mod', 'package.json', 'Cargo.toml'). Each entry is a path relative to the project root.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "additional_signals": {
+      "type": "object",
+      "description": "Free-form key/value pairs for unusual or composite signals not covered by the canonical fields. Use this rather than guessing at the canonical shape.",
+      "additionalProperties": true
+    },
+    "project_intent": {
+      "type": ["string", "null"],
+      "description": "Optional human-readable summary of what the project does, derived from README / design docs."
+    },
+    "frameworks": {
+      "type": "array",
+      "description": "Frameworks or major libraries detected (e.g. 'react', 'gin', 'fastapi').",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
