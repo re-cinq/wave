@@ -11,6 +11,7 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/security"
 	"github.com/recinq/wave/internal/testutil"
 	"github.com/recinq/wave/internal/workspace"
@@ -48,7 +49,7 @@ func setupFailureModeTest(t *testing.T, runner adapter.AdapterRunner, opts ...Ex
 	m := testutil.CreateTestManifest(tmpDir)
 	collector := testutil.NewEventCollector()
 
-	allOpts := append([]ExecutorOption{WithEmitter(collector)}, opts...)
+	allOpts := append([]ExecutorOption{WithEmitter(collector), WithOntologyService(ontology.NoOp{})}, opts...)
 	executor := NewDefaultPipelineExecutor(runner, allOpts...)
 
 	// Configure security to allow the temp directory

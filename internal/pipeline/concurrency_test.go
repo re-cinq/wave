@@ -10,6 +10,7 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,6 +32,7 @@ func TestConcurrencyExecutor_BasicExecution(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(countingAdapter,
 		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -84,6 +86,7 @@ func TestConcurrencyExecutor_FailFast(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -125,6 +128,7 @@ func TestConcurrencyExecutor_MaxConcurrencyCap(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(trackingAdapter,
 		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -169,6 +173,7 @@ func TestConcurrencyExecutor_SingleAgent(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -205,6 +210,7 @@ func TestConcurrencyExecutor_ZeroConcurrency(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -241,6 +247,7 @@ func TestConcurrencyExecutor_ResultAggregation(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -298,6 +305,7 @@ func TestConcurrencyExecutor_WorkspaceIsolation(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()

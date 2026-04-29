@@ -7,13 +7,14 @@ import (
 
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/ontology"
 )
 
 // TestCreateStepWorkspace_TemplateResolution tests the branch/base template resolution
 // error paths in createStepWorkspace.
 func TestCreateStepWorkspace_TemplateResolution(t *testing.T) {
 	newExecutor := func() *DefaultPipelineExecutor {
-		return NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
+		return NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
 	}
 
 	newExecution := func() *PipelineExecution {

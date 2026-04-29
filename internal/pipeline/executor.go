@@ -111,9 +111,12 @@ type DefaultPipelineExecutor struct {
 	// Task-level complexity from classifier (empty = no task-aware routing)
 	taskComplexity string
 	// Ontology service — bounded-context injection, staleness, lineage.
-	// Always non-nil: defaults to ontology.NoOp when not explicitly set so
-	// call sites can invoke methods unconditionally. Wired via
-	// WithOntologyService or auto-constructed in Execute from the manifest.
+	// Required at construction time: callers must supply via
+	// WithOntologyService (use ontology.NoOp{} to opt out explicitly). The
+	// constructor panics on nil so a forgotten dependency surfaces loudly
+	// instead of silently disabling lineage tracking. The Execute path may
+	// still promote a NoOp to a real service when the manifest declares
+	// ontology contexts.
 	ontology ontology.Service
 }
 
@@ -342,10 +345,16 @@ func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOp
 	ex := &DefaultPipelineExecutor{
 		runner:    runner,
 		pipelines: make(map[string]*PipelineExecution),
-		ontology:  ontology.NoOp{},
 	}
 	for _, opt := range opts {
 		opt(ex)
+	}
+	// Ontology is a required dependency. Callers that don't need lineage
+	// tracking must opt out explicitly via WithOntologyService(ontology.NoOp{}).
+	// This avoids the silent no-op trap where forgetting to wire the service
+	// produces a successful run with no lineage data and no warning.
+	if ex.ontology == nil {
+		panic("pipeline: ontology service is required; pass WithOntologyService(ontology.NoOp{}) to opt out explicitly")
 	}
 	ex.outcomeTracker = state.NewOutcomeTracker("", ex.store)
 

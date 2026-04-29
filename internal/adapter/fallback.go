@@ -8,15 +8,19 @@ import (
 // FallbackRunner wraps a primary AdapterRunner with a fallback chain.
 // When the primary fails with a rate_limit failure, it tries each
 // fallback adapter in order. Max attempts equals len(chain) + 1.
+//
+// The fallback chain is resolved through a Resolver, not the concrete
+// *AdapterRegistry, so tests can substitute a one-method fake.
 type FallbackRunner struct {
 	primary  AdapterRunner
-	chain    []string         // fallback adapter names in order
-	registry *AdapterRegistry // for resolving fallback adapter names
+	chain    []string // fallback adapter names in order
+	registry Resolver // for resolving fallback adapter names
 }
 
 // NewFallbackRunner creates a FallbackRunner wrapping the primary runner
-// with the given fallback chain.
-func NewFallbackRunner(primary AdapterRunner, chain []string, registry *AdapterRegistry) *FallbackRunner {
+// with the given fallback chain. The resolver is used to look up fallback
+// adapter names; *AdapterRegistry satisfies Resolver.
+func NewFallbackRunner(primary AdapterRunner, chain []string, registry Resolver) *FallbackRunner {
 	return &FallbackRunner{
 		primary:  primary,
 		chain:    chain,
@@ -61,7 +65,7 @@ func (f *FallbackRunner) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapte
 		}
 
 		if f.registry == nil {
-			return lastResult, fmt.Errorf("fallback registry is nil; cannot resolve %q", fallbackName)
+			return lastResult, fmt.Errorf("fallback resolver is nil; cannot resolve %q", fallbackName)
 		}
 		runner, resolveErr := f.registry.ResolveStrict(fallbackName)
 		if resolveErr != nil {

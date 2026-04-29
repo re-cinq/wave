@@ -9,6 +9,7 @@ import (
 
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/recovery"
@@ -53,6 +54,7 @@ func TestPreflightRecovery_MissingSkill(t *testing.T) {
 	executor := pipeline.NewDefaultPipelineExecutor(
 		mockAdapter,
 		pipeline.WithDebug(false),
+		pipeline.WithOntologyService(ontology.NoOp{}),
 	)
 
 	// Execute the pipeline - should fail at preflight
@@ -167,6 +169,7 @@ func TestPreflightRecovery_MissingTool(t *testing.T) {
 	executor := pipeline.NewDefaultPipelineExecutor(
 		mockAdapter,
 		pipeline.WithDebug(false),
+		pipeline.WithOntologyService(ontology.NoOp{}),
 	)
 
 	ctx := context.Background()
@@ -284,6 +287,7 @@ func TestPreflightRecovery_MixedFailures(t *testing.T) {
 	executor := pipeline.NewDefaultPipelineExecutor(
 		mockAdapter,
 		pipeline.WithDebug(false),
+		pipeline.WithOntologyService(ontology.NoOp{}),
 	)
 
 	ctx := context.Background()
@@ -459,7 +463,7 @@ func TestPreflightRecovery_NoRedundantErrorMessage(t *testing.T) {
 			}
 
 			mockAdapter := adaptertest.NewMockAdapter()
-			executor := pipeline.NewDefaultPipelineExecutor(mockAdapter)
+			executor := pipeline.NewDefaultPipelineExecutor(mockAdapter, pipeline.WithOntologyService(ontology.NoOp{}))
 
 			ctx := context.Background()
 			err := executor.Execute(ctx, p, m, "test input")
@@ -598,6 +602,7 @@ func TestPreflightRecovery_EndToEndFlow(t *testing.T) {
 	executor := pipeline.NewDefaultPipelineExecutor(
 		mockAdapter,
 		pipeline.WithDebug(false),
+		pipeline.WithOntologyService(ontology.NoOp{}),
 	)
 
 	ctx := context.Background()

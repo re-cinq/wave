@@ -26,6 +26,18 @@ func isKnownAdapterName(name string) bool {
 	return strings.HasPrefix(lc, "opencode-")
 }
 
+// Resolver is the narrow contract used by callers that only need to map an
+// adapter name to a runner with strict semantics — i.e. an unknown name
+// produces an error rather than a silent fallthrough to a process-group
+// runner. *AdapterRegistry satisfies Resolver via ResolveStrict.
+//
+// Wire dependencies (e.g. FallbackRunner) against Resolver instead of the
+// concrete *AdapterRegistry so tests can supply lightweight fakes that
+// implement only this single method.
+type Resolver interface {
+	ResolveStrict(name string) (AdapterRunner, error)
+}
+
 // AdapterRegistry resolves adapter names to AdapterRunner implementations.
 // It replaces the single-runner model with per-step adapter resolution,
 // supporting fallback chains for provider resilience.

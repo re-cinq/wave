@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/adapter/adaptertest"
+	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/security"
 	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/assert"
@@ -438,6 +439,7 @@ func TestContractPrompt_EndToEndExecution(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
 	)
 	executor.sec = &securityLayer{
 		e:              executor,

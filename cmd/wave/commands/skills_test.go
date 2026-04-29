@@ -11,10 +11,10 @@ import (
 
 // skillTestEnv provides a testing environment for skills tests.
 type skillTestEnv struct {
-	t       *testing.T
-	rootDir string
-	origDir string
-	homeDir string
+	t        *testing.T
+	rootDir  string
+	origDir  string
+	homeDir  string
 	origHome string
 }
 

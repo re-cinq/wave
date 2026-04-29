@@ -13,6 +13,7 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/security"
 	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/assert"
@@ -152,6 +153,7 @@ func TestContractIntegration_JSONSchemaProducesValidJSON(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	m := testutil.CreateTestManifest(tmpDir)
@@ -234,6 +236,7 @@ func TestContractIntegration_JSONSchemaValidationFailure(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	m := testutil.CreateTestManifest(tmpDir)
@@ -315,7 +318,7 @@ func TestContractIntegration_SchemaInjectedIntoPrompt(t *testing.T) {
 	securityConfig.PathValidation.ApprovedDirectories = []string{tmpDir}
 	securityLogger := security.NewSecurityLogger(false)
 
-	executor := NewDefaultPipelineExecutor(capturingAdapter)
+	executor := NewDefaultPipelineExecutor(capturingAdapter, WithOntologyService(ontology.NoOp{}))
 	// Override security components to allow temp directory paths
 	executor.sec = &securityLayer{
 		e:              executor,
@@ -383,7 +386,7 @@ func TestContractIntegration_InlineSchemaInjectedIntoPrompt(t *testing.T) {
 		adaptertest.WithTokensUsed(500),
 	)
 
-	executor := NewDefaultPipelineExecutor(capturingAdapter)
+	executor := NewDefaultPipelineExecutor(capturingAdapter, WithOntologyService(ontology.NoOp{}))
 	m := testutil.CreateTestManifest(tmpDir)
 
 	p := &Pipeline{
@@ -563,6 +566,7 @@ func TestContractIntegration_ValidatorChecksOutput(t *testing.T) {
 			collector := testutil.NewEventCollector()
 			executor := NewDefaultPipelineExecutor(mockAdapter,
 				WithEmitter(collector),
+				WithOntologyService(ontology.NoOp{}),
 			)
 
 			m := testutil.CreateTestManifest(tmpDir)
@@ -657,6 +661,7 @@ func TestContractIntegration_ArtifactHandoverBetweenSteps(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	m := testutil.CreateTestManifest(tmpDir)
@@ -767,6 +772,7 @@ func TestContractIntegration_MultiStepArtifactChain(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	m := testutil.CreateTestManifest(tmpDir)
@@ -879,6 +885,7 @@ func TestContractIntegration_SoftFailureContinues(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	m := testutil.CreateTestManifest(tmpDir)
@@ -895,9 +902,9 @@ func TestContractIntegration_SoftFailureContinues(t *testing.T) {
 				},
 				Handover: HandoverConfig{
 					Contract: ContractConfig{
-						Type:      "json_schema",
+						Type:       "json_schema",
 						SchemaPath: schemaPath,
-						OnFailure: OnFailureContinue, // Explicit soft failure
+						OnFailure:  OnFailureContinue, // Explicit soft failure
 					},
 				},
 			},
@@ -934,7 +941,7 @@ func TestContractIntegration_InputTemplateReplacement(t *testing.T) {
 		adaptertest.WithTokensUsed(500),
 	)
 
-	executor := NewDefaultPipelineExecutor(capturingAdapter)
+	executor := NewDefaultPipelineExecutor(capturingAdapter, WithOntologyService(ontology.NoOp{}))
 	m := testutil.CreateTestManifest(tmpDir)
 
 	testInput := "build feature XYZ"
@@ -990,6 +997,7 @@ func TestContractIntegration_RetryOnContractFailure(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(retryAdapter,
 		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	m := testutil.CreateTestManifest(tmpDir)
@@ -1110,6 +1118,7 @@ func TestContractIntegration_PersonaContractSeparation(t *testing.T) {
 	capturingCollector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(capturingCollector),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	m := &manifest.Manifest{
@@ -1227,6 +1236,7 @@ func TestContractIntegration_CustomSourcePath(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(customAdapter,
 		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	m := testutil.CreateTestManifest(tmpDir)
@@ -1314,6 +1324,7 @@ func TestContractIntegration_DiamondDependencyWithContracts(t *testing.T) {
 	collector := testutil.NewEventCollector()
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	m := testutil.CreateTestManifest(tmpDir)

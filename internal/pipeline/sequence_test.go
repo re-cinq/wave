@@ -14,6 +14,7 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +25,8 @@ import (
 // given adapter runner and any additional options.
 func newSequenceTestExecutorFactory(runner adapter.AdapterRunner) func(opts ...ExecutorOption) *DefaultPipelineExecutor {
 	return func(opts ...ExecutorOption) *DefaultPipelineExecutor {
-		return NewDefaultPipelineExecutor(runner, opts...)
+		allOpts := append([]ExecutorOption{WithOntologyService(ontology.NoOp{})}, opts...)
+		return NewDefaultPipelineExecutor(runner, allOpts...)
 	}
 }
 
@@ -404,7 +406,8 @@ func TestSequenceExecutor_ExecutePlan_ParallelFailFastFalse(t *testing.T) {
 
 	seq := NewSequenceExecutor(
 		func(opts ...ExecutorOption) *DefaultPipelineExecutor {
-			return NewDefaultPipelineExecutor(counterAdapter, opts...)
+			allOpts := append([]ExecutorOption{WithOntologyService(ontology.NoOp{})}, opts...)
+			return NewDefaultPipelineExecutor(counterAdapter, allOpts...)
 		},
 		nil,
 		collector,
@@ -485,7 +488,8 @@ func TestSequenceExecutor_ExecutePlan_MaxConcurrent(t *testing.T) {
 
 	seq := NewSequenceExecutor(
 		func(opts ...ExecutorOption) *DefaultPipelineExecutor {
-			return NewDefaultPipelineExecutor(trackingAdapter, opts...)
+			allOpts := append([]ExecutorOption{WithOntologyService(ontology.NoOp{})}, opts...)
+			return NewDefaultPipelineExecutor(trackingAdapter, allOpts...)
 		},
 		nil,
 		collector,
@@ -544,7 +548,8 @@ func TestSequenceExecutor_CrossPipelineArtifacts(t *testing.T) {
 
 	seq := NewSequenceExecutor(
 		func(opts ...ExecutorOption) *DefaultPipelineExecutor {
-			ex := NewDefaultPipelineExecutor(mockAdapter, opts...)
+			allOpts_ex := append([]ExecutorOption{WithOntologyService(ontology.NoOp{})}, opts...)
+			ex := NewDefaultPipelineExecutor(mockAdapter, allOpts_ex...)
 			mu.Lock()
 			if ex.crossPipelineArtifacts != nil {
 				capturedArtifacts = append(capturedArtifacts, ex.crossPipelineArtifacts)
@@ -598,7 +603,8 @@ func TestSequenceExecutor_ExecutePlan_SequentialFailFastFalse(t *testing.T) {
 
 	seq := NewSequenceExecutor(
 		func(opts ...ExecutorOption) *DefaultPipelineExecutor {
-			return NewDefaultPipelineExecutor(counterAdapter, opts...)
+			allOpts := append([]ExecutorOption{WithOntologyService(ontology.NoOp{})}, opts...)
+			return NewDefaultPipelineExecutor(counterAdapter, allOpts...)
 		},
 		nil,
 		collector,
@@ -747,6 +753,7 @@ func TestSequenceExecutor_CrossPipelineArtifacts_WrittenToDisk(t *testing.T) {
 				"summary.md":    []byte("# Summary\n\nAll checks passed."),
 			},
 		}),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	// Create a pipeline execution context (required by injectArtifacts).
