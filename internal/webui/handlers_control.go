@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/runner"
 	"github.com/recinq/wave/internal/state"
 )
@@ -39,8 +38,7 @@ func (s *Server) handleStartPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := loadPipelineYAML(name)
-	if err != nil {
+	if _, err := loadPipelineYAML(name); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "failed to load pipeline: "+err.Error())
 		return
 	}
@@ -54,9 +52,9 @@ func (s *Server) handleStartPipeline(w http.ResponseWriter, r *http.Request) {
 	opts := runOptionsFromStartRequest(req)
 
 	if req.FromStep != "" {
-		s.launchPipelineExecution(runID, name, req.Input, p, opts, req.FromStep)
+		s.launchPipelineExecution(runID, name, req.Input, opts, req.FromStep)
 	} else {
-		s.launchPipelineExecution(runID, name, req.Input, p, opts)
+		s.launchPipelineExecution(runID, name, req.Input, opts)
 	}
 
 	writeJSON(w, http.StatusCreated, StartPipelineResponse{
@@ -128,8 +126,7 @@ func (s *Server) handleRetryRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := loadPipelineYAML(originalRun.PipelineName)
-	if err != nil {
+	if _, err := loadPipelineYAML(originalRun.PipelineName); err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to load pipeline: "+err.Error())
 		return
 	}
@@ -140,7 +137,7 @@ func (s *Server) handleRetryRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p, runner.Options{})
+	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, runner.Options{})
 
 	writeJSON(w, http.StatusCreated, RetryRunResponse{
 		RunID:         newRunID,
@@ -181,18 +178,10 @@ func (s *Server) handleResumeRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := loadPipelineYAML(originalRun.PipelineName)
+	stepFound, err := runner.PipelineHasStep(originalRun.PipelineName, req.FromStep)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to load pipeline: "+err.Error())
 		return
-	}
-
-	stepFound := false
-	for _, step := range p.Steps {
-		if step.ID == req.FromStep {
-			stepFound = true
-			break
-		}
 	}
 	if !stepFound {
 		writeJSONError(w, http.StatusBadRequest, "step not found in pipeline: "+req.FromStep)
@@ -215,7 +204,7 @@ func (s *Server) handleResumeRun(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("warning: failed to set resume run kind on %s: %v\n", newRunID, err)
 	}
 
-	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p, runner.Options{}, req.FromStep)
+	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, runner.Options{}, req.FromStep)
 
 	writeJSON(w, http.StatusCreated, ResumeRunResponse{
 		RunID:         newRunID,
@@ -249,8 +238,7 @@ func (s *Server) handleSubmitRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := loadPipelineYAML(req.Pipeline)
-	if err != nil {
+	if _, err := loadPipelineYAML(req.Pipeline); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "failed to load pipeline: "+err.Error())
 		return
 	}
@@ -264,9 +252,9 @@ func (s *Server) handleSubmitRun(w http.ResponseWriter, r *http.Request) {
 	opts := runOptionsFromSubmitRequest(req)
 
 	if req.FromStep != "" {
-		s.launchPipelineExecution(runID, req.Pipeline, req.Input, p, opts, req.FromStep)
+		s.launchPipelineExecution(runID, req.Pipeline, req.Input, opts, req.FromStep)
 	} else {
-		s.launchPipelineExecution(runID, req.Pipeline, req.Input, p, opts)
+		s.launchPipelineExecution(runID, req.Pipeline, req.Input, opts)
 	}
 
 	writeJSON(w, http.StatusCreated, SubmitRunResponse{
@@ -370,7 +358,7 @@ func (s *Server) handleGateApprove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	decision := &pipeline.GateDecision{
+	decision := &runner.WebUIGateDecision{
 		Choice: choice.Key,
 		Label:  choice.Label,
 		Text:   req.Text,

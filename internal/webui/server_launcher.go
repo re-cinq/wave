@@ -22,7 +22,7 @@ type RunOptions = runner.Options
 // This helper is shared by handleStartPipeline, handleRetryRun, handleResumeRun,
 // and handleForkRun. When fromStep is non-empty the subprocess resumes from
 // that step.
-func (s *Server) launchPipelineExecution(runID, pipelineName, input string, _ *pipeline.Pipeline, opts RunOptions, fromStep ...string) {
+func (s *Server) launchPipelineExecution(runID, pipelineName, input string, opts RunOptions, fromStep ...string) {
 	// Dry-run: handle in-process (instant, no subprocess needed).
 	if opts.DryRun {
 		if err := s.runtime.rwStore.UpdateRunStatus(runID, "completed", "dry run (validation only)", 0); err != nil {
@@ -89,7 +89,7 @@ func (s *Server) launchInProcess(runID, pipelineName, input string, opts RunOpti
 
 	var gateHandler pipeline.GateHandler
 	if s.realtime.gateRegistry != nil {
-		gateHandler = NewWebUIGateHandler(runID, s.realtime.gateRegistry)
+		gateHandler = runner.NewWebUIGateHandler(runID, s.realtime.gateRegistry)
 	}
 
 	cancel := runner.LaunchInProcess(runner.InProcessConfig{
