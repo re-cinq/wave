@@ -8,7 +8,7 @@
         <a href="/runs" class="back-link">&larr; Runs</a>
         {{if .Run.ParentRunID}}
         <a href="/runs/{{.Run.ParentRunID}}" class="back-link" style="font-size:0.72rem;" title="{{.Run.ParentRunID}}">
-            &larr; parent
+            {{- if eq .Run.RunKind "resume"}}&larr; resumed from{{else}}&larr; parent{{end}}
             {{- with .Run.ParentStepID}}<span style="color:var(--color-text-muted);"> &rsaquo; </span><code style="font-size:0.7rem;background:var(--color-bg-tertiary);padding:0 0.25rem;border-radius:2px;">{{.}}</code>{{end}}
             {{- if and (eq .Run.RunKind "iterate_child") .Run.IterateIndex .Run.IterateTotal}}
             <span style="color:var(--color-text-muted);"> &rsaquo; </span>
@@ -25,6 +25,17 @@
             <code style="font-size:0.62rem;color:var(--color-text-muted);font-weight:400;background:var(--color-bg-tertiary);padding:0.1rem 0.4rem;border-radius:3px;">{{.Run.RunID}}</code>
         </h1>
         {{if .PipelineDescription}}<p style="margin:0.1rem 0 0.3rem;font-size:0.8rem;color:var(--color-text-secondary);max-width:48rem;">{{.PipelineDescription}}</p>{{end}}
+        {{if .ResumeChildren}}
+        <div style="margin:0.25rem 0 0.4rem;display:flex;flex-wrap:wrap;gap:0.3rem;align-items:center;font-size:0.72rem;color:var(--color-text-secondary);">
+            <span style="color:var(--color-text-muted);">Resumed by:</span>
+            {{range .ResumeChildren}}
+            <a href="/runs/{{.RunID}}" class="badge badge-runkind badge-runkind-resume" style="text-decoration:none;font-size:0.68rem;" title="Resume run {{.RunID}} (from step {{.ParentStepID}}) — status: {{.Status}}">
+                resume {{if .ParentStepID}}&rsaquo; <code style="font-size:0.65rem;background:var(--color-bg-tertiary);padding:0 0.2rem;border-radius:2px;">{{.ParentStepID}}</code>{{end}}
+                <span class="badge {{statusClass .Status}}" style="font-size:0.62rem;margin-left:0.25rem;">{{statusLabel .Status}}</span>
+            </a>
+            {{end}}
+        </div>
+        {{end}}
     </div>
     <div class="actions">
         {{if eq .Run.Status "running"}}

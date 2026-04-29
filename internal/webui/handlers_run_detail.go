@@ -85,11 +85,18 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	linkedTitle, linkedState, linkedAuthor, linkedType, linkedNumber := s.enrichLinkedURL(r, runSummary.LinkedURL)
 	templateVars := s.buildTemplateVars(run.Input)
 
-	// Collect child runs for sub-pipeline steps
+	// Collect child runs for sub-pipeline steps and resume children (#1510).
+	// Resumes are kept in a separate slice so the template can render them as
+	// a "Resumed by" pill at the run header rather than under a step.
 	childRuns := make(map[string][]RunSummary)
+	var resumeChildren []RunSummary
 	if children, err := s.runtime.store.GetChildRuns(runID); err == nil {
 		for _, cr := range children {
 			summary := runToSummary(cr)
+			if cr.RunKind == state.RunKindResume {
+				resumeChildren = append(resumeChildren, summary)
+				continue
+			}
 			childRuns[cr.ParentStepID] = append(childRuns[cr.ParentStepID], summary)
 		}
 	}
@@ -139,6 +146,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		LinkedNumber        int
 		LinkedType          string
 		ChildRuns           map[string][]RunSummary
+		ResumeChildren      []RunSummary
 		TemplateVars        map[string]string
 		RunConfigItems      []struct{ Label, Value, Tooltip string }
 		RerunCommand        string
@@ -163,6 +171,7 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 		LinkedNumber:        linkedNumber,
 		LinkedType:          linkedType,
 		ChildRuns:           childRuns,
+		ResumeChildren:      resumeChildren,
 		TemplateVars:        templateVars,
 		RunConfigItems:      runConfigItems,
 		RerunCommand:        rerunCmd,

@@ -25,6 +25,8 @@ func runKindLabel(kind string) string {
 		return "branch"
 	case "loop_iteration":
 		return "loop"
+	case "resume":
+		return "resume"
 	case "top_level", "":
 		return ""
 	default:

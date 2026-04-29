@@ -354,6 +354,68 @@ func TestHandleAPIRunChildren(t *testing.T) {
 	}
 }
 
+// TestHandleAPIRunChildren_IncludesResumes verifies that resume children
+// are returned by the children endpoint alongside composition children, with
+// run_kind="resume" preserved in the projection. Issue #1510.
+func TestHandleAPIRunChildren_IncludesResumes(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	parentID, err := rwStore.CreateRun("impl-issue", "fix login bug")
+	if err != nil {
+		t.Fatalf("create parent: %v", err)
+	}
+	if err := rwStore.UpdateRunStatus(parentID, "failed", "step plan failed", 500); err != nil {
+		t.Fatalf("update parent status: %v", err)
+	}
+
+	resumeID, err := rwStore.CreateRun("impl-issue", "fix login bug")
+	if err != nil {
+		t.Fatalf("create resume: %v", err)
+	}
+	if err := rwStore.SetParentRun(resumeID, parentID, "plan"); err != nil {
+		t.Fatalf("set parent: %v", err)
+	}
+	if err := rwStore.SetRunComposition(resumeID, state.RunKindResume, "", "", nil, nil); err != nil {
+		t.Fatalf("set run kind: %v", err)
+	}
+	if err := rwStore.UpdateRunStatus(resumeID, "running", "", 200); err != nil {
+		t.Fatalf("update resume status: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/runs/"+parentID+"/children", nil)
+	req.SetPathValue("id", parentID)
+	rec := httptest.NewRecorder()
+	srv.handleAPIRunChildren(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		ParentRunID string       `json:"parent_run_id"`
+		Children    []RunSummary `json:"children"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Children) != 1 {
+		t.Fatalf("expected 1 child resume, got %d", len(resp.Children))
+	}
+	child := resp.Children[0]
+	if child.RunID != resumeID {
+		t.Errorf("child RunID = %q, want %q", child.RunID, resumeID)
+	}
+	if child.RunKind != state.RunKindResume {
+		t.Errorf("child RunKind = %q, want %q", child.RunKind, state.RunKindResume)
+	}
+	if child.ParentRunID != parentID {
+		t.Errorf("child ParentRunID = %q, want %q", child.ParentRunID, parentID)
+	}
+	if child.ParentStepID != "plan" {
+		t.Errorf("child ParentStepID = %q, want \"plan\"", child.ParentStepID)
+	}
+}
+
 // TestHandleAPIRunChildren_Missing returns 404 for unknown run IDs.
 func TestHandleAPIRunChildren_Missing(t *testing.T) {
 	srv, _ := testServer(t)

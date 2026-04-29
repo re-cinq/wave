@@ -176,6 +176,16 @@ func runResume(opts ResumeOptions, debug bool) error {
 		resumeRunID = pipeline.GenerateRunID(run.PipelineName, m.Runtime.PipelineIDHashLength)
 	}
 
+	// Link the resume run back to the failed parent so operators can navigate
+	// between them in /runs and the run detail pages (issue #1510). Best-effort:
+	// failures are logged but do not block execution.
+	if err := store.SetParentRun(resumeRunID, opts.RunID, fromStep); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to link resume run to parent: %v\n", err)
+	}
+	if err := store.SetRunComposition(resumeRunID, state.RunKindResume, "", "", nil, nil); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to set resume run kind: %v\n", err)
+	}
+
 	// Show what we are resuming.
 	if opts.Output.Format == OutputFormatAuto || opts.Output.Format == OutputFormatText {
 		fmt.Fprintf(os.Stderr, "\n  Resuming run %s\n", opts.RunID)
