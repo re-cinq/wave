@@ -281,7 +281,18 @@ func (e *DefaultPipelineExecutor) resolveStepResources(ctx context.Context, exec
 	if adapterDef != nil {
 		adapterTierModels = adapterDef.TierModels
 	}
-	resolvedModel := e.resolveModel(step, persona, &execution.Manifest.Runtime.Routing, resolvedPersona, adapterTierModels)
+	// Determine the current attempt number so resolveModelForAttempt can
+	// escalate the model tier on retries. AttemptContexts[step.ID] is
+	// populated by the retry loop after each failed attempt; absence
+	// means this is the first attempt. Rework targets (FailedStepID set)
+	// are separate steps with their own model — do not escalate them.
+	attempt := 1
+	execution.mu.Lock()
+	if ac := execution.AttemptContexts[step.ID]; ac != nil && ac.Attempt > 0 && ac.FailedStepID == "" {
+		attempt = ac.Attempt
+	}
+	execution.mu.Unlock()
+	resolvedModel := e.resolveModelForAttempt(step, persona, &execution.Manifest.Runtime.Routing, resolvedPersona, adapterTierModels, attempt)
 
 	// When no model was resolved, fall back to adapter's default_model
 	if resolvedModel == "" && adapterDef != nil && adapterDef.DefaultModel != "" {

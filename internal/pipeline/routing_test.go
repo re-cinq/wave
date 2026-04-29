@@ -501,6 +501,181 @@ func TestDefaultComplexityMap(t *testing.T) {
 	assert.Len(t, m, 3)
 }
 
+func TestEscalateTier(t *testing.T) {
+	tests := []struct {
+		name    string
+		tier    string
+		retries int
+		want    string
+	}{
+		{"first attempt no escalation cheapest", TierCheapest, 0, TierCheapest},
+		{"first attempt no escalation balanced", TierBalanced, 0, TierBalanced},
+		{"first attempt no escalation strongest", TierStrongest, 0, TierStrongest},
+		{"one retry cheapest -> balanced", TierCheapest, 1, TierBalanced},
+		{"two retries cheapest -> strongest", TierCheapest, 2, TierStrongest},
+		{"three retries cheapest stays at strongest", TierCheapest, 3, TierStrongest},
+		{"one retry balanced -> strongest", TierBalanced, 1, TierStrongest},
+		{"two retries balanced stays at strongest", TierBalanced, 2, TierStrongest},
+		{"strongest never escalates", TierStrongest, 1, TierStrongest},
+		{"strongest with many retries stays strongest", TierStrongest, 10, TierStrongest},
+		{"literal model name not escalated", "claude-opus-4", 1, "claude-opus-4"},
+		{"literal model name many retries", "gpt-4o-mini", 5, "gpt-4o-mini"},
+		{"empty tier returned unchanged", "", 1, ""},
+		{"negative retries treated as zero", TierCheapest, -1, TierCheapest},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := EscalateTier(tt.tier, tt.retries)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestResolveModelForAttempt_Escalates(t *testing.T) {
+	routing := &manifest.RoutingConfig{AutoRoute: true}
+
+	tests := []struct {
+		name        string
+		step        *Step
+		persona     *manifest.Persona
+		personaName string
+		attempt     int
+		want        string
+	}{
+		// Step model "cheapest": first attempt -> haiku, retry escalates.
+		{
+			name:        "step cheapest first attempt resolves to haiku",
+			step:        &Step{Model: TierCheapest},
+			persona:     &manifest.Persona{},
+			personaName: "any",
+			attempt:     1,
+			want:        "claude-haiku-4-5",
+		},
+		{
+			name:        "step cheapest retry 1 escalates to balanced (adapter default)",
+			step:        &Step{Model: TierCheapest},
+			persona:     &manifest.Persona{},
+			personaName: "any",
+			attempt:     2,
+			want:        "", // balanced resolves to "" (adapter default)
+		},
+		{
+			name:        "step cheapest retry 2 escalates to strongest",
+			step:        &Step{Model: TierCheapest},
+			persona:     &manifest.Persona{},
+			personaName: "any",
+			attempt:     3,
+			want:        "claude-opus-4",
+		},
+		{
+			name:        "step strongest retry stays strongest",
+			step:        &Step{Model: TierStrongest},
+			persona:     &manifest.Persona{},
+			personaName: "any",
+			attempt:     5,
+			want:        "claude-opus-4",
+		},
+		// Persona-pinned tier escalates the same way as step-pinned.
+		{
+			name:        "persona cheapest retry escalates to strongest",
+			step:        &Step{},
+			persona:     &manifest.Persona{Model: TierCheapest},
+			personaName: "any",
+			attempt:     3,
+			want:        "claude-opus-4",
+		},
+		// Auto-routed tier escalates.
+		{
+			name:        "auto-routed navigator (cheapest) retry escalates to strongest",
+			step:        &Step{},
+			persona:     &manifest.Persona{},
+			personaName: "navigator",
+			attempt:     3,
+			want:        "claude-opus-4",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := &DefaultPipelineExecutor{}
+			got := executor.resolveModelForAttempt(tt.step, tt.persona, routing, tt.personaName, nil, tt.attempt)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestResolveModelForAttempt_NoEscalateOptOut(t *testing.T) {
+	routing := &manifest.RoutingConfig{AutoRoute: true}
+	executor := &DefaultPipelineExecutor{}
+
+	// With NoEscalate=true, retries reuse the same tier.
+	step := &Step{
+		Model: TierCheapest,
+		Retry: RetryConfig{NoEscalate: true},
+	}
+	persona := &manifest.Persona{}
+
+	for _, attempt := range []int{1, 2, 3, 5} {
+		got := executor.resolveModelForAttempt(step, persona, routing, "any", nil, attempt)
+		assert.Equal(t, "claude-haiku-4-5", got, "attempt %d should not escalate when no_escalate=true", attempt)
+	}
+}
+
+func TestResolveModelForAttempt_LiteralModelNotEscalated(t *testing.T) {
+	routing := &manifest.RoutingConfig{AutoRoute: true}
+	executor := &DefaultPipelineExecutor{}
+
+	// Literal (non-tier) model name is preserved across retries.
+	step := &Step{Model: "claude-haiku-4-5"}
+	persona := &manifest.Persona{}
+
+	for _, attempt := range []int{1, 2, 3, 10} {
+		got := executor.resolveModelForAttempt(step, persona, routing, "any", nil, attempt)
+		assert.Equal(t, "claude-haiku-4-5", got, "attempt %d should preserve literal model", attempt)
+	}
+
+	// Same for persona-level literal.
+	step2 := &Step{}
+	persona2 := &manifest.Persona{Model: "gpt-4o-mini"}
+	for _, attempt := range []int{1, 2, 3} {
+		got := executor.resolveModelForAttempt(step2, persona2, routing, "any", nil, attempt)
+		assert.Equal(t, "gpt-4o-mini", got, "attempt %d should preserve persona literal", attempt)
+	}
+}
+
+func TestResolveModelForAttempt_BackwardCompatible(t *testing.T) {
+	// resolveModel (the old API) should behave identically to
+	// resolveModelForAttempt(attempt=1) — i.e. first attempt, no escalation.
+	routing := &manifest.RoutingConfig{AutoRoute: true}
+	executor := &DefaultPipelineExecutor{}
+
+	step := &Step{Model: TierCheapest}
+	persona := &manifest.Persona{}
+
+	got1 := executor.resolveModel(step, persona, routing, "any", nil)
+	got2 := executor.resolveModelForAttempt(step, persona, routing, "any", nil, 1)
+	assert.Equal(t, got1, got2)
+	assert.Equal(t, "claude-haiku-4-5", got1)
+}
+
+func TestResolveModelForAttempt_CLIOverrideTierEscalates(t *testing.T) {
+	routing := &manifest.RoutingConfig{AutoRoute: true}
+	executor := &DefaultPipelineExecutor{modelOverride: TierCheapest}
+
+	step := &Step{}
+	persona := &manifest.Persona{}
+
+	// CLI override "cheapest" escalates on retry.
+	got := executor.resolveModelForAttempt(step, persona, routing, "any", nil, 3)
+	assert.Equal(t, "claude-opus-4", got)
+
+	// CLI override that is a literal model is preserved.
+	executor2 := &DefaultPipelineExecutor{modelOverride: "claude-haiku-4-5"}
+	got2 := executor2.resolveModelForAttempt(step, persona, routing, "any", nil, 3)
+	assert.Equal(t, "claude-haiku-4-5", got2)
+}
+
 func TestAdjustTierForTaskComplexity(t *testing.T) {
 	tests := []struct {
 		name           string

@@ -117,3 +117,34 @@ func CheaperTier(a, b string) string {
 	}
 	return b
 }
+
+// EscalateTier returns the tier raised by `retries` steps along the
+// cost ladder cheapest -> balanced -> strongest. retries is the number
+// of prior failed attempts (0 means first attempt; the original tier is
+// returned unchanged). Once strongest is reached, further retries stay
+// at strongest. If `tier` is not a recognized tier (e.g. a literal model
+// name), it is returned unchanged — user-pinned exact models are not
+// auto-escalated.
+func EscalateTier(tier string, retries int) string {
+	if retries <= 0 {
+		return tier
+	}
+	rank := TierRank(tier)
+	if rank < 0 {
+		return tier
+	}
+	newRank := rank + retries
+	if newRank > TierRank(TierStrongest) {
+		newRank = TierRank(TierStrongest)
+	}
+	switch newRank {
+	case 0:
+		return TierCheapest
+	case 1:
+		return TierBalanced
+	case 2:
+		return TierStrongest
+	default:
+		return tier
+	}
+}
