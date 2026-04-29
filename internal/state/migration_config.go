@@ -2,9 +2,8 @@ package state
 
 import (
 	"fmt"
-	"os"
-	"strconv"
-	"strings"
+
+	"github.com/recinq/wave/internal/config"
 )
 
 // MigrationConfig controls migration behavior
@@ -22,38 +21,38 @@ type MigrationConfig struct {
 	MaxMigrationVersion int
 }
 
-// LoadMigrationConfigFromEnv loads migration configuration from environment variables
+// LoadMigrationConfigFromEnv loads migration configuration from environment variables.
+//
+// The four WAVE_MIGRATION_* env vars are read through internal/config so the
+// process-wide env-reader contract stays in one place. Boolean fields accept
+// "true", "1", or "yes" (case-insensitive); any other non-empty value is
+// treated as false. WAVE_MAX_MIGRATION_VERSION must parse as a positive
+// integer — malformed or non-positive values are silently ignored to preserve
+// historical behaviour while the parse error is surfaced via
+// config.MigrationEnv for callers that want to inspect it.
 func LoadMigrationConfigFromEnv() *MigrationConfig {
-	config := &MigrationConfig{
+	cfg := &MigrationConfig{
 		EnableMigrations:        true, // Default to enabled for new systems
 		AutoMigrate:             true, // Default to automatic migration
 		SkipMigrationValidation: false,
 		MaxMigrationVersion:     0, // No limit
 	}
 
-	// WAVE_MIGRATION_ENABLED - enable/disable migration system
-	if env := os.Getenv("WAVE_MIGRATION_ENABLED"); env != "" {
-		config.EnableMigrations = strings.ToLower(env) == "true"
+	envCfg := config.LoadMigrationEnv()
+	if envCfg.Enabled != nil {
+		cfg.EnableMigrations = *envCfg.Enabled
+	}
+	if envCfg.AutoMigrate != nil {
+		cfg.AutoMigrate = *envCfg.AutoMigrate
+	}
+	if envCfg.SkipValidation != nil {
+		cfg.SkipMigrationValidation = *envCfg.SkipValidation
+	}
+	if envCfg.MaxVersion != nil && *envCfg.MaxVersion > 0 {
+		cfg.MaxMigrationVersion = *envCfg.MaxVersion
 	}
 
-	// WAVE_AUTO_MIGRATE - enable/disable automatic migration on startup
-	if env := os.Getenv("WAVE_AUTO_MIGRATE"); env != "" {
-		config.AutoMigrate = strings.ToLower(env) == "true"
-	}
-
-	// WAVE_SKIP_MIGRATION_VALIDATION - skip checksum validation (dev only)
-	if env := os.Getenv("WAVE_SKIP_MIGRATION_VALIDATION"); env != "" {
-		config.SkipMigrationValidation = strings.ToLower(env) == "true"
-	}
-
-	// WAVE_MAX_MIGRATION_VERSION - limit migration version (for gradual rollout)
-	if env := os.Getenv("WAVE_MAX_MIGRATION_VERSION"); env != "" {
-		if version, err := strconv.Atoi(env); err == nil && version > 0 {
-			config.MaxMigrationVersion = version
-		}
-	}
-
-	return config
+	return cfg
 }
 
 // ShouldUseMigrations determines if the migration system should be used

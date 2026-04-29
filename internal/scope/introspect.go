@@ -3,10 +3,10 @@ package scope
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 
+	"github.com/recinq/wave/internal/config"
 	"github.com/recinq/wave/internal/forge"
 )
 
@@ -65,7 +65,7 @@ func (g *GitHubIntrospector) Introspect(envVar string) (*TokenInfo, error) {
 	info := &TokenInfo{EnvVar: envVar, TokenType: "unknown"}
 
 	// Check that the env var is set
-	if os.Getenv(envVar) == "" {
+	if !config.EnvPresent(envVar) {
 		info.Error = fmt.Errorf("environment variable %s is not set", envVar)
 		return info, nil
 	}
@@ -109,7 +109,7 @@ func (g *GitHubIntrospector) Introspect(envVar string) (*TokenInfo, error) {
 func (g *GitLabIntrospector) Introspect(envVar string) (*TokenInfo, error) {
 	info := &TokenInfo{EnvVar: envVar, TokenType: "unknown"}
 
-	if os.Getenv(envVar) == "" {
+	if !config.EnvPresent(envVar) {
 		info.Error = fmt.Errorf("environment variable %s is not set", envVar)
 		return info, nil
 	}
@@ -137,7 +137,7 @@ func (g *GitLabIntrospector) Introspect(envVar string) (*TokenInfo, error) {
 func (g *GiteaIntrospector) Introspect(envVar string) (*TokenInfo, error) {
 	info := &TokenInfo{EnvVar: envVar, TokenType: "unknown"}
 
-	if os.Getenv(envVar) == "" {
+	if !config.EnvPresent(envVar) {
 		info.Error = fmt.Errorf("environment variable %s is not set", envVar)
 		return info, nil
 	}

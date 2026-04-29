@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/recinq/wave/internal/config"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -123,8 +124,10 @@ func BuildDetachedArgs(opts Options, runID string) []string {
 // pass through — used by the webui server (it forwards GH_TOKEN/GITHUB_TOKEN
 // in addition to the base set).
 func BuildDetachEnv(extraVars ...string) []string {
-	path := os.Getenv("PATH")
-	home := os.Getenv("HOME")
+	// Read inherited PATH/HOME via internal/config so the detach contract is
+	// centralised with the other env-reader sites. Semantics are identical to
+	// a direct os.Getenv: empty string when the variable is unset.
+	home, path := config.SubprocessHomePath()
 	if home != "" {
 		toolBin := filepath.Join(home, ".local", "bin")
 		if !strings.Contains(path, toolBin) {
