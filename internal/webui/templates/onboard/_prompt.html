@@ -1,0 +1,17 @@
+{{define "templates/onboard/_prompt.html"}}
+<form class="chat-prompt-form" method="post" action="/onboard/{{.SessionID}}/answer">
+    <label class="chat-prompt-label">{{.Prompt.Prompt}}
+        {{if eq .Prompt.Kind "choice"}}
+        <select name="answer" class="chat-prompt-input">
+            {{range .Prompt.Choices}}<option value="{{.}}"{{if eq . $.Prompt.Default}} selected{{end}}>{{.}}</option>{{end}}
+        </select>
+        {{else}}
+        <input type="text" name="answer" class="chat-prompt-input" value="{{.Prompt.Default}}" autocomplete="off">
+        {{end}}
+    </label>
+    {{if .Prompt.HelpText}}<p class="chat-prompt-help">{{.Prompt.HelpText}}</p>{{end}}
+    <input type="hidden" name="prompt_id" value="{{.Prompt.ID}}">
+    <input type="hidden" name="csrf_token" value="{{csrfToken}}">
+    <button type="submit" class="btn btn-primary chat-prompt-submit">Send</button>
+</form>
+{{end}}

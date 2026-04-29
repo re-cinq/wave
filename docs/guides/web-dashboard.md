@@ -42,6 +42,10 @@ The dashboard is available at `http://127.0.0.1:8080` by default.
 - **Personas** — View configured personas and their permissions
 - **Pipelines** — Browse available pipeline definitions
 
+### Onboarding (`/onboard`)
+
+Browser-driven onboarding chats with the same `internal/onboarding.Service` the CLI uses. Hitting `GET /onboard` allocates a session and redirects to `/onboard/{sessionID}`; the page subscribes to `/onboard/{sessionID}/stream` (SSE) and surfaces conversation events as chat bubbles. When the agent asks a question (`PromptString` / `PromptChoice`), a form is rendered and `POST /onboard/{sessionID}/answer` (form-encoded `answer` + `prompt_id`) feeds the answer back into the blocked Service goroutine. Reload survives via `Last-Event-ID` ring-buffer replay; sessions are in-memory and tied to the `wave webui` process lifetime.
+
 ## Authentication
 
 When binding to localhost (default), no authentication is required. When binding to a non-localhost address, a token is required:

@@ -47,6 +47,7 @@ var pageTemplates = []string{
 	"templates/webhooks.html",
 	"templates/webhook_detail.html",
 	"templates/admin.html",
+	"templates/onboard/index.html",
 }
 
 // parseTemplates parses all embedded HTML templates using a clone-per-page
@@ -220,6 +221,32 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 	})
 	if err != nil {
 		return nil, fmt.Errorf("parsing partials: %w", err)
+	}
+
+	// Parse onboarding chat partials (templates/onboard/_*.html). The page
+	// template templates/onboard/index.html lives in pageTemplates and gets
+	// its own clone — partials need to be available on the shared base so
+	// the clone can reference them.
+	err = fs.WalkDir(templatesFS, "templates/onboard", func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		name := d.Name()
+		if !strings.HasPrefix(name, "_") {
+			return nil
+		}
+		data, readErr := templatesFS.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		_, parseErr := base.New(path).Parse(string(data))
+		return parseErr
+	})
+	if err != nil {
+		return nil, fmt.Errorf("parsing onboard partials: %w", err)
 	}
 
 	// Clone the base for each page template.

@@ -30,6 +30,10 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /prs", s.handlePRsPage)
 	mux.HandleFunc("GET /prs/{number}", s.handlePRDetailPage)
 	mux.HandleFunc("GET /health", s.handleHealthPage)
+	mux.HandleFunc("GET /onboard", s.handleOnboardPage)
+	mux.HandleFunc("GET /onboard/{id}", s.handleOnboardPage)
+	mux.HandleFunc("GET /onboard/{id}/stream", s.handleOnboardStream)
+	mux.HandleFunc("POST /onboard/{id}/answer", s.handleOnboardAnswer)
 	// Retros is optional — registered via build tag. See features_retros.go.
 	mux.HandleFunc("GET /compare", s.handleComparePage)
 	// Analytics and Webhooks are optional — registered via build tags.
