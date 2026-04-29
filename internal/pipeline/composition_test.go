@@ -803,3 +803,163 @@ func TestCompositionExecutor_Aggregate_NoRegistrationWithoutRunID(t *testing.T) 
 		t.Error("RegisterArtifact must be skipped when runID is empty")
 	}
 }
+
+func TestBuildExecutionPlan_MultipleParallelGroups(t *testing.T) {
+	// Simulate: wave compose --parallel A B -- C D -- E
+	// Expected: Stage 1 (parallel: A,B), Stage 2 (parallel: C,D), Stage 3 (sequential: E)
+
+	newPipeline := func(name string) *Pipeline {
+		return &Pipeline{
+			Metadata: PipelineMetadata{Name: name},
+			Steps: []Step{
+				{ID: "step1", Persona: "navigator", Exec: ExecConfig{Source: "do it"}},
+			},
+		}
+	}
+
+	var entries []ComposeEntry
+	for _, name := range []string{"A", "B", "C", "D", "E"} {
+		entries = append(entries, ComposeEntry{Name: name, Pipeline: newPipeline(name)})
+	}
+
+	args := []string{"A", "B", "--", "C", "D", "--", "E"}
+	plan := BuildExecutionPlan(entries, args)
+
+	if got, want := len(plan.Stages), 3; got != want {
+		t.Fatalf("stages: got %d, want %d", got, want)
+	}
+
+	// Stage 1: A, B — parallel
+	if got, want := len(plan.Stages[0].Pipelines), 2; got != want {
+		t.Errorf("stage 0 pipelines: got %d, want %d", got, want)
+	}
+	if !plan.Stages[0].Parallel {
+		t.Error("stage 0 should be parallel")
+	}
+	if name := plan.Stages[0].Pipelines[0].Metadata.Name; name != "A" {
+		t.Errorf("stage 0 pipeline 0: got %q, want A", name)
+	}
+	if name := plan.Stages[0].Pipelines[1].Metadata.Name; name != "B" {
+		t.Errorf("stage 0 pipeline 1: got %q, want B", name)
+	}
+
+	// Stage 2: C, D — parallel
+	if got, want := len(plan.Stages[1].Pipelines), 2; got != want {
+		t.Errorf("stage 1 pipelines: got %d, want %d", got, want)
+	}
+	if !plan.Stages[1].Parallel {
+		t.Error("stage 1 should be parallel")
+	}
+	if name := plan.Stages[1].Pipelines[0].Metadata.Name; name != "C" {
+		t.Errorf("stage 1 pipeline 0: got %q, want C", name)
+	}
+	if name := plan.Stages[1].Pipelines[1].Metadata.Name; name != "D" {
+		t.Errorf("stage 1 pipeline 1: got %q, want D", name)
+	}
+
+	// Stage 3: E — sequential (single pipeline)
+	if got, want := len(plan.Stages[2].Pipelines), 1; got != want {
+		t.Errorf("stage 2 pipelines: got %d, want %d", got, want)
+	}
+	if plan.Stages[2].Parallel {
+		t.Error("stage 2 with single pipeline should be sequential")
+	}
+	if name := plan.Stages[2].Pipelines[0].Metadata.Name; name != "E" {
+		t.Errorf("stage 2 pipeline 0: got %q, want E", name)
+	}
+}
+
+func TestBuildExecutionPlan_SingleGroupParallel(t *testing.T) {
+	// Simulate: wave compose --parallel A B C (no -- separators)
+	// Expected: Stage 1 (parallel: A,B,C)
+
+	newPipeline := func(name string) *Pipeline {
+		return &Pipeline{
+			Metadata: PipelineMetadata{Name: name},
+			Steps: []Step{
+				{ID: "step1", Persona: "navigator", Exec: ExecConfig{Source: "do it"}},
+			},
+		}
+	}
+
+	var entries []ComposeEntry
+	for _, name := range []string{"A", "B", "C"} {
+		entries = append(entries, ComposeEntry{Name: name, Pipeline: newPipeline(name)})
+	}
+
+	args := []string{"A", "B", "C"}
+	plan := BuildExecutionPlan(entries, args)
+
+	if got, want := len(plan.Stages), 1; got != want {
+		t.Fatalf("stages: got %d, want %d", got, want)
+	}
+	if got, want := len(plan.Stages[0].Pipelines), 3; got != want {
+		t.Errorf("stage 0 pipelines: got %d, want %d", got, want)
+	}
+	if !plan.Stages[0].Parallel {
+		t.Error("single multi-pipeline group should be parallel")
+	}
+}
+
+func TestBuildExecutionPlan_DropsUnknownNames(t *testing.T) {
+	// Names not present in entries are silently dropped.
+	newPipeline := func(name string) *Pipeline {
+		return &Pipeline{Metadata: PipelineMetadata{Name: name}}
+	}
+	entries := []ComposeEntry{
+		{Name: "A", Pipeline: newPipeline("A")},
+	}
+	plan := BuildExecutionPlan(entries, []string{"A", "ghost"})
+	if got, want := len(plan.Stages), 1; got != want {
+		t.Fatalf("stages: got %d, want %d", got, want)
+	}
+	if got, want := len(plan.Stages[0].Pipelines), 1; got != want {
+		t.Errorf("pipelines: got %d, want %d (ghost should be dropped)", got, want)
+	}
+	if plan.Stages[0].Parallel {
+		t.Error("single resolved pipeline must be sequential")
+	}
+}
+
+func TestValidateComposeSpec_PrefixesEntryName(t *testing.T) {
+	// A pipeline with a template ref to an unknown step should produce
+	// an error prefixed with the entry name.
+	bad := &Pipeline{
+		Metadata: PipelineMetadata{Name: "bad-pipeline"},
+		Steps: []Step{
+			{
+				ID:       "merge",
+				Aggregate: &AggregateConfig{From: "{{ unknown_step.output }}"},
+			},
+		},
+	}
+	good := &Pipeline{
+		Metadata: PipelineMetadata{Name: "good-pipeline"},
+		Steps: []Step{
+			{ID: "compute"},
+			{
+				ID:       "merge",
+				Aggregate: &AggregateConfig{From: "{{ compute.output }}"},
+			},
+		},
+	}
+
+	entries := []ComposeEntry{
+		{Name: "good", Pipeline: good},
+		{Name: "bad", Pipeline: bad},
+	}
+	errs := ValidateComposeSpec(entries)
+	if len(errs) != 1 {
+		t.Fatalf("errors: got %d (%v), want 1", len(errs), errs)
+	}
+	if got := errs[0]; len(got) < 5 || got[:5] != "[bad]" {
+		t.Errorf("error must be prefixed with entry name: got %q", errs[0])
+	}
+}
+
+func TestValidateComposeSpec_NilPipelineSkipped(t *testing.T) {
+	entries := []ComposeEntry{{Name: "nil-entry", Pipeline: nil}}
+	if errs := ValidateComposeSpec(entries); len(errs) != 0 {
+		t.Errorf("nil pipeline must be skipped, got %v", errs)
+	}
+}
