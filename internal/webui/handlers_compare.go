@@ -68,7 +68,7 @@ func (s *Server) handleComparePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	leftRun, err := s.store.GetRun(leftID)
+	leftRun, err := s.runtime.store.GetRun(leftID)
 	if err != nil {
 		s.renderComparePage(w, comparePageData{
 			ActivePage:   "runs",
@@ -79,7 +79,7 @@ func (s *Server) handleComparePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rightRun, err := s.store.GetRun(rightID)
+	rightRun, err := s.runtime.store.GetRun(rightID)
 	if err != nil {
 		s.renderComparePage(w, comparePageData{
 			ActivePage:   "runs",
@@ -136,7 +136,7 @@ func (s *Server) handleComparePage(w http.ResponseWriter, r *http.Request) {
 // renderComparePage renders the compare template with the given data.
 func (s *Server) renderComparePage(w http.ResponseWriter, data comparePageData) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	tmpl := s.templates["templates/compare.html"]
+	tmpl := s.assets.templates["templates/compare.html"]
 	if tmpl == nil {
 		http.Error(w, "compare template not found", http.StatusInternalServerError)
 		return
@@ -149,7 +149,7 @@ func (s *Server) renderComparePage(w http.ResponseWriter, data comparePageData) 
 
 // listRecentRuns fetches recent runs for the compare selector.
 func (s *Server) listRecentRuns() []RunSummary {
-	runs, err := s.store.ListRuns(state.ListRunsOptions{Limit: 50})
+	runs, err := s.runtime.store.ListRuns(state.ListRunsOptions{Limit: 50})
 	if err != nil {
 		log.Printf("[webui] compare: failed to list recent runs: %v", err)
 		return nil
@@ -171,13 +171,13 @@ func (s *Server) handleAPICompare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	leftRun, err := s.store.GetRun(leftID)
+	leftRun, err := s.runtime.store.GetRun(leftID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "left run not found")
 		return
 	}
 
-	rightRun, err := s.store.GetRun(rightID)
+	rightRun, err := s.runtime.store.GetRun(rightID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "right run not found")
 		return
@@ -406,7 +406,7 @@ func runDuration(r *state.RunRecord) time.Duration {
 
 // listSamePipelineRuns fetches recent runs of the same pipeline, excluding the two being compared.
 func (s *Server) listSamePipelineRuns(pipelineName, excludeLeft, excludeRight string) []RunSummary {
-	runs, err := s.store.ListRuns(state.ListRunsOptions{
+	runs, err := s.runtime.store.ListRuns(state.ListRunsOptions{
 		PipelineName: pipelineName,
 		Limit:        50,
 	})

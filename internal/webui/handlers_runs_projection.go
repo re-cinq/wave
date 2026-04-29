@@ -46,7 +46,7 @@ func (s *Server) enrichRunSummaries(summaries []RunSummary, runs []state.RunReco
 		}
 
 		// Count completed steps from event_log
-		events, err := s.store.GetEvents(runs[i].RunID, state.EventQueryOptions{Limit: 5000})
+		events, err := s.runtime.store.GetEvents(runs[i].RunID, state.EventQueryOptions{Limit: 5000})
 		if err != nil {
 			continue
 		}
@@ -149,7 +149,7 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 	}
 
 	// Get all events for this run
-	events, err := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 5000})
+	events, err := s.runtime.store.GetEvents(runID, state.EventQueryOptions{Limit: 5000})
 	if err != nil {
 		log.Printf("[webui] buildStepDetails: failed to get events for run %s: %v", runID, err)
 	}
@@ -394,15 +394,15 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 			}
 
 			// Populate failure class from step attempts
-			if sd.State == "failed" && s.store != nil {
-				if attempts, err := s.store.GetStepAttempts(runID, step.ID); err == nil && len(attempts) > 0 {
+			if sd.State == "failed" && s.runtime.store != nil {
+				if attempts, err := s.runtime.store.GetStepAttempts(runID, step.ID); err == nil && len(attempts) > 0 {
 					sd.FailureClass = attempts[len(attempts)-1].FailureClass
 				}
 			}
 
 			// Populate visit count for graph loop steps
-			if step.MaxVisits > 0 && s.store != nil {
-				if vc, err := s.store.GetStepVisitCount(runID, step.ID); err == nil {
+			if step.MaxVisits > 0 && s.runtime.store != nil {
+				if vc, err := s.runtime.store.GetStepVisitCount(runID, step.ID); err == nil {
 					sd.VisitCount = vc
 				}
 			}
@@ -410,7 +410,7 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 
 		// Look up failure class from step attempts for failed steps
 		if sd.State == "failed" {
-			attempts, attErr := s.store.GetStepAttempts(runID, step.ID)
+			attempts, attErr := s.runtime.store.GetStepAttempts(runID, step.ID)
 			if attErr != nil {
 				log.Printf("[webui] failed to get step attempts for run %s step %s: %v", runID, step.ID, attErr)
 			}
@@ -422,7 +422,7 @@ func (s *Server) buildStepDetails(runID, pipelineName string, runStatus ...strin
 			}
 		}
 
-		arts, artErr := s.store.GetArtifacts(runID, step.ID)
+		arts, artErr := s.runtime.store.GetArtifacts(runID, step.ID)
 		if artErr != nil {
 			log.Printf("[webui] failed to get artifacts for run %s step %s: %v", runID, step.ID, artErr)
 		}

@@ -19,7 +19,7 @@ func (s *Server) handleHealthPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/health.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/health.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -31,7 +31,7 @@ func (s *Server) handleAPIHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getHealthListData() HealthListResponse {
-	provider := health.NewDefaultDataProvider(s.manifest, s.store, ".agents/pipelines")
+	provider := health.NewDefaultDataProvider(s.runtime.manifest, s.runtime.store, ".agents/pipelines")
 
 	var checks []HealthCheckResult
 	for _, name := range provider.CheckNames() {

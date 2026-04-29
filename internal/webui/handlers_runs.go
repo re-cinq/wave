@@ -39,7 +39,7 @@ func (s *Server) handleAPIRuns(w http.ResponseWriter, r *http.Request) {
 		opts.BeforeRunID = cursor.RunID
 	}
 
-	runs, err := s.store.ListRuns(opts)
+	runs, err := s.runtime.store.ListRuns(opts)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to list runs")
 		return
@@ -80,12 +80,12 @@ func (s *Server) handleAPIRunChildren(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := s.store.GetRun(runID); err != nil {
+	if _, err := s.runtime.store.GetRun(runID); err != nil {
 		writeJSONError(w, http.StatusNotFound, "run not found")
 		return
 	}
 
-	children, err := s.store.GetChildRuns(runID)
+	children, err := s.runtime.store.GetChildRuns(runID)
 	if err != nil {
 		log.Printf("[webui] failed to get children for run %s: %v", runID, err)
 		writeJSONError(w, http.StatusInternalServerError, "failed to query children")
@@ -96,7 +96,7 @@ func (s *Server) handleAPIRunChildren(w http.ResponseWriter, r *http.Request) {
 		summaries[i] = runToSummary(c)
 	}
 
-	subtreeTokens, err := s.store.GetSubtreeTokens(runID)
+	subtreeTokens, err := s.runtime.store.GetSubtreeTokens(runID)
 	if err != nil {
 		log.Printf("[webui] failed to compute subtree tokens for run %s: %v", runID, err)
 		// Soft-fail: still return children, just without the rollup.
@@ -122,7 +122,7 @@ func (s *Server) handleAPIRunDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	run, err := s.store.GetRun(runID)
+	run, err := s.runtime.store.GetRun(runID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "run not found")
 		return
@@ -132,7 +132,7 @@ func (s *Server) handleAPIRunDetail(w http.ResponseWriter, r *http.Request) {
 	stepDetails := s.buildStepDetails(runID, run.PipelineName, run.Status)
 
 	// Get events
-	events, err := s.store.GetEvents(runID, state.EventQueryOptions{Limit: 5000})
+	events, err := s.runtime.store.GetEvents(runID, state.EventQueryOptions{Limit: 5000})
 	if err != nil {
 		log.Printf("[webui] failed to get events for run %s: %v", runID, err)
 	}
@@ -142,14 +142,14 @@ func (s *Server) handleAPIRunDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get all artifacts
-	allArts, err := s.store.GetArtifacts(runID, "")
+	allArts, err := s.runtime.store.GetArtifacts(runID, "")
 	if err != nil {
 		log.Printf("[webui] failed to get artifacts for run %s: %v", runID, err)
 	}
 	artSummaries := deduplicateArtifacts(allArts)
 
 	runSummary := runToSummary(*run)
-	if subtree, err := s.store.GetSubtreeTokens(runID); err == nil {
+	if subtree, err := s.runtime.store.GetSubtreeTokens(runID); err == nil {
 		runSummary.SubtreeTokens = subtree
 	}
 
@@ -192,7 +192,7 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		opts.BeforeRunID = cursor.RunID
 	}
 
-	runs, err := s.store.ListRuns(opts)
+	runs, err := s.runtime.store.ListRuns(opts)
 	if err != nil {
 		http.Error(w, "failed to list runs", http.StatusInternalServerError)
 		return
@@ -258,7 +258,7 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/runs.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/runs.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -267,7 +267,7 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 // of the runs page, then nests their child runs (running plus already-finished
 // children of running parents) underneath each parent.
 func (s *Server) collectRunningRuns(pipelineFilter string) []RunSummary {
-	runningRecs, err := s.store.ListRuns(state.ListRunsOptions{
+	runningRecs, err := s.runtime.store.ListRuns(state.ListRunsOptions{
 		Status:       "running",
 		PipelineName: pipelineFilter,
 		Limit:        0,
@@ -287,9 +287,9 @@ func (s *Server) collectRunningRuns(pipelineFilter string) []RunSummary {
 		runningRuns = append(runningRuns, runToSummary(rec))
 	}
 	// Also fetch completed/failed children of running parents from the full run list
-	if s.store != nil {
+	if s.runtime.store != nil {
 		for i := range runningRuns {
-			if children, err := s.store.GetChildRuns(runningRuns[i].RunID); err == nil {
+			if children, err := s.runtime.store.GetChildRuns(runningRuns[i].RunID); err == nil {
 				for _, ch := range children {
 					found := false
 					for _, existing := range childMap[runningRuns[i].RunID] {

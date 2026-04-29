@@ -15,7 +15,7 @@ import (
 // handleRetrosPage handles GET /retros - serves the HTML retrospective trends page.
 func (s *Server) handleRetrosPage(w http.ResponseWriter, r *http.Request) {
 	// Fetch recent retrospectives (last 20 for chart, up to 50 for list)
-	records, err := s.store.ListRetrospectives(state.ListRetrosOptions{
+	records, err := s.runtime.store.ListRetrospectives(state.ListRetrosOptions{
 		Limit: 50,
 	})
 	if err != nil {
@@ -23,7 +23,7 @@ func (s *Server) handleRetrosPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	storage := retro.NewStorage(".agents/retros", s.store)
+	storage := retro.NewStorage(".agents/retros", s.runtime.store)
 
 	// Build smoothness trend entries (last 20, reversed to chronological order for chart)
 	chartLimit := 20
@@ -162,7 +162,7 @@ func (s *Server) handleRetrosPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/retros.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/retros.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		log.Printf("[webui] template error rendering retros page: %v", err)
 		http.Error(w, "template error", http.StatusInternalServerError)
 	}

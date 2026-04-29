@@ -27,7 +27,7 @@ func (s *Server) handleExportRuns(w http.ResponseWriter, r *http.Request) {
 		Limit:        10000, // reasonable upper bound for export
 	}
 
-	runs, err := s.store.ListRuns(opts)
+	runs, err := s.runtime.store.ListRuns(opts)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to list runs")
 		return

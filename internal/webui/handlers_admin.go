@@ -19,7 +19,7 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/admin.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/admin.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -37,11 +37,11 @@ type adminConfigResponse struct {
 
 // handleAPIAdminConfig handles GET /api/admin/config.
 func (s *Server) handleAPIAdminConfig(w http.ResponseWriter, _ *http.Request) {
-	addr := fmt.Sprintf("%s:%d", s.bind, s.port)
+	addr := fmt.Sprintf("%s:%d", s.transport.bind, s.transport.port)
 
 	maxConcurrency := 5
-	if s.scheduler != nil {
-		maxConcurrency = s.scheduler.MaxConcurrency()
+	if s.runtime.scheduler != nil {
+		maxConcurrency = s.runtime.scheduler.MaxConcurrency()
 	}
 
 	binaries := map[string]string{}
@@ -54,8 +54,8 @@ func (s *Server) handleAPIAdminConfig(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	wsRoot := ".agents/workspaces"
-	if s.manifest != nil && s.manifest.Runtime.WorkspaceRoot != "" {
-		wsRoot = s.manifest.Runtime.WorkspaceRoot
+	if s.runtime.manifest != nil && s.runtime.manifest.Runtime.WorkspaceRoot != "" {
+		wsRoot = s.runtime.manifest.Runtime.WorkspaceRoot
 	}
 
 	resp := adminConfigResponse{
@@ -63,7 +63,7 @@ func (s *Server) handleAPIAdminConfig(w http.ResponseWriter, _ *http.Request) {
 		MaxConcurrency:  maxConcurrency,
 		AdapterBinaries: binaries,
 		WorkspaceRoot:   wsRoot,
-		AuthMode:        string(s.authMode),
+		AuthMode:        string(s.auth.authMode),
 	}
 
 	writeJSON(w, http.StatusOK, resp)
@@ -104,7 +104,7 @@ type emergencyStopResponse struct {
 
 // handleAPIEmergencyStop handles POST /api/admin/emergency-stop.
 func (s *Server) handleAPIEmergencyStop(w http.ResponseWriter, _ *http.Request) {
-	runs, err := s.store.GetRunningRuns()
+	runs, err := s.runtime.store.GetRunningRuns()
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to get running runs: "+err.Error())
 		return
@@ -114,12 +114,12 @@ func (s *Server) handleAPIEmergencyStop(w http.ResponseWriter, _ *http.Request) 
 	for _, run := range runs {
 		// Cancel the goroutine context if active
 		s.mu.Lock()
-		if cancelFn, ok := s.activeRuns[run.RunID]; ok {
+		if cancelFn, ok := s.realtime.activeRuns[run.RunID]; ok {
 			cancelFn()
 		}
 		s.mu.Unlock()
 
-		if err := s.rwStore.RequestCancellation(run.RunID, true); err != nil {
+		if err := s.runtime.rwStore.RequestCancellation(run.RunID, true); err != nil {
 			continue // best-effort: skip runs that fail to cancel
 		}
 		cancelledIDs = append(cancelledIDs, run.RunID)
@@ -150,7 +150,7 @@ func (s *Server) handleDisablePipeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.mu.Lock()
-	s.disabledPipelines[name] = true
+	s.realtime.disabledPipelines[name] = true
 	s.mu.Unlock()
 
 	writeJSON(w, http.StatusOK, pipelineToggleResponse{Name: name, Disabled: true})
@@ -165,7 +165,7 @@ func (s *Server) handleEnablePipeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.mu.Lock()
-	delete(s.disabledPipelines, name)
+	delete(s.realtime.disabledPipelines, name)
 	s.mu.Unlock()
 
 	writeJSON(w, http.StatusOK, pipelineToggleResponse{Name: name, Disabled: false})
@@ -175,7 +175,7 @@ func (s *Server) handleEnablePipeline(w http.ResponseWriter, r *http.Request) {
 func (s *Server) isPipelineDisabled(name string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.disabledPipelines[name]
+	return s.realtime.disabledPipelines[name]
 }
 
 // --- Audit Log ---
@@ -222,7 +222,7 @@ func (s *Server) handleAPIAdminAudit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	events, err := s.store.GetAuditEvents(auditEventStates, limit, offset)
+	events, err := s.runtime.store.GetAuditEvents(auditEventStates, limit, offset)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to query audit events: "+err.Error())
 		return
@@ -252,8 +252,8 @@ func (s *Server) handleAPIAdminAudit(w http.ResponseWriter, r *http.Request) {
 func (s *Server) getDisabledPipelineSet() map[string]bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	cp := make(map[string]bool, len(s.disabledPipelines))
-	for k, v := range s.disabledPipelines {
+	cp := make(map[string]bool, len(s.realtime.disabledPipelines))
+	for k, v := range s.realtime.disabledPipelines {
 		cp[k] = v
 	}
 	return cp

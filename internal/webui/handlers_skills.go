@@ -40,7 +40,7 @@ func (s *Server) handleSkillsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/skills.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/skills.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -322,11 +322,11 @@ func (s *Server) handleAPISkillRunInstall(w http.ResponseWriter, r *http.Request
 	// that pipeline-driven shellouts use. The webui historically called
 	// `exec.CommandContext("sh", "-c", ...)` directly, bypassing both.
 	cfg := sandbox.Config{}
-	if s.manifest != nil {
-		cfg.Backend = sandbox.SandboxBackendType(s.manifest.Runtime.Sandbox.ResolveBackend())
-		cfg.DockerImage = s.manifest.Runtime.Sandbox.DockerImage
-		cfg.AllowedDomains = s.manifest.Runtime.Sandbox.DefaultAllowedDomains
-		cfg.EnvPassthrough = s.manifest.Runtime.Sandbox.EnvPassthrough
+	if s.runtime.manifest != nil {
+		cfg.Backend = sandbox.SandboxBackendType(s.runtime.manifest.Runtime.Sandbox.ResolveBackend())
+		cfg.DockerImage = s.runtime.manifest.Runtime.Sandbox.DockerImage
+		cfg.AllowedDomains = s.runtime.manifest.Runtime.Sandbox.DefaultAllowedDomains
+		cfg.EnvPassthrough = s.runtime.manifest.Runtime.Sandbox.EnvPassthrough
 	}
 	out, err := sandbox.RunShell(ctx, installCmd, cfg)
 	if err != nil {
@@ -399,7 +399,7 @@ func (s *Server) handleSkillDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/skill_detail.html"].ExecuteTemplate(w, "templates/layout.html", detail); err != nil {
+	if err := s.assets.templates["templates/skill_detail.html"].ExecuteTemplate(w, "templates/layout.html", detail); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }

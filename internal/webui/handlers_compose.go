@@ -15,8 +15,8 @@ func (s *Server) handleComposePage(w http.ResponseWriter, r *http.Request) {
 	pipelines := getCompositionPipelines()
 
 	// Enrich with run counts
-	if s.store != nil {
-		allRuns, err := s.store.ListRuns(state.ListRunsOptions{Limit: 10000})
+	if s.runtime.store != nil {
+		allRuns, err := s.runtime.store.ListRuns(state.ListRunsOptions{Limit: 10000})
 		if err == nil {
 			counts := make(map[string]int)
 			for _, run := range allRuns {
@@ -37,7 +37,7 @@ func (s *Server) handleComposePage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/compose.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/compose.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }

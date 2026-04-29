@@ -25,7 +25,7 @@ type RunOptions = runner.Options
 func (s *Server) launchPipelineExecution(runID, pipelineName, input string, _ *pipeline.Pipeline, opts RunOptions, fromStep ...string) {
 	// Dry-run: handle in-process (instant, no subprocess needed).
 	if opts.DryRun {
-		if err := s.rwStore.UpdateRunStatus(runID, "completed", "dry run (validation only)", 0); err != nil {
+		if err := s.runtime.rwStore.UpdateRunStatus(runID, "completed", "dry run (validation only)", 0); err != nil {
 			log.Printf("Warning: failed to update run %s status for dry-run: %v", runID, err)
 		}
 		return
@@ -57,12 +57,12 @@ func (s *Server) spawnDetachedRun(runID, pipelineName, input string, opts RunOpt
 	opts.Output.Verbose = true
 
 	cfg := runner.DetachConfig{
-		WorkDir:  s.repoDir,
+		WorkDir:  s.runtime.repoDir,
 		ExtraEnv: []string{"GH_TOKEN", "GITHUB_TOKEN"},
 	}
 	// runner.Detach reuses the pre-created run row when opts.RunID exists
 	// in the store, so no extra coordination is needed.
-	if _, err := runner.Detach(opts, s.rwStore, 0, cfg); err != nil {
+	if _, err := runner.Detach(opts, s.runtime.rwStore, 0, cfg); err != nil {
 		return err
 	}
 	log.Printf("Pipeline %s (%s) launched as detached process", pipelineName, runID)
@@ -79,8 +79,8 @@ func (s *Server) launchInProcess(runID, pipelineName, input string, opts RunOpti
 	}
 
 	emitter := &event.DBLoggingEmitter{
-		Inner: s.broker,
-		Store: s.rwStore,
+		Inner: s.realtime.broker,
+		Store: s.runtime.rwStore,
 		RunID: runID,
 		OnError: func(rid string, err error) {
 			log.Printf("Warning: failed to log event for run %s: %v", rid, err)
@@ -88,33 +88,33 @@ func (s *Server) launchInProcess(runID, pipelineName, input string, opts RunOpti
 	}
 
 	var gateHandler pipeline.GateHandler
-	if s.gateRegistry != nil {
-		gateHandler = NewWebUIGateHandler(runID, s.gateRegistry)
+	if s.realtime.gateRegistry != nil {
+		gateHandler = NewWebUIGateHandler(runID, s.realtime.gateRegistry)
 	}
 
 	cancel := runner.LaunchInProcess(runner.InProcessConfig{
 		RunID:            runID,
 		PipelineName:     pipelineName,
 		Input:            input,
-		Manifest:         s.manifest,
-		Store:            s.rwStore,
+		Manifest:         s.runtime.manifest,
+		Store:            s.runtime.rwStore,
 		Emitter:          emitter,
-		WorkspaceManager: s.wsManager,
+		WorkspaceManager: s.runtime.wsManager,
 		GateHandler:      gateHandler,
 		FromStep:         resolvedFromStep,
 		Options:          opts,
 		OnComplete: func(string, error) {
 			// Invalidate issue/PR caches so fresh data shows after pipeline completion.
-			s.cache.InvalidatePrefix("issues:")
-			s.cache.InvalidatePrefix("prs:")
+			s.assets.cache.InvalidatePrefix("issues:")
+			s.assets.cache.InvalidatePrefix("prs:")
 
 			s.mu.Lock()
-			delete(s.activeRuns, runID)
+			delete(s.realtime.activeRuns, runID)
 			s.mu.Unlock()
 		},
 	})
 
 	s.mu.Lock()
-	s.activeRuns[runID] = cancel
+	s.realtime.activeRuns[runID] = cancel
 	s.mu.Unlock()
 }

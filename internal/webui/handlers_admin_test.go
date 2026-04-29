@@ -10,7 +10,7 @@ import (
 
 func TestHandleAPIAdminConfig(t *testing.T) {
 	srv, _ := testServer(t)
-	srv.scheduler = NewScheduler(3)
+	srv.runtime.scheduler = NewScheduler(3)
 
 	req := httptest.NewRequest("GET", "/api/admin/config", nil)
 	rec := httptest.NewRecorder()
@@ -52,7 +52,7 @@ func TestHandleAPIAdminConfig(t *testing.T) {
 
 func TestHandleAPIAdminConfig_NilScheduler(t *testing.T) {
 	srv, _ := testServer(t)
-	srv.scheduler = nil
+	srv.runtime.scheduler = nil
 
 	req := httptest.NewRequest("GET", "/api/admin/config", nil)
 	rec := httptest.NewRecorder()
@@ -168,7 +168,7 @@ func TestHandleAPIEmergencyStop_WithRunning(t *testing.T) {
 func TestHandleAdminPage(t *testing.T) {
 	srv, _ := testServer(t)
 	// Add admin template stub
-	srv.templates["templates/admin.html"] = testAdminTemplate(t)
+	srv.assets.templates["templates/admin.html"] = testAdminTemplate(t)
 
 	req := httptest.NewRequest("GET", "/admin", nil)
 	rec := httptest.NewRecorder()

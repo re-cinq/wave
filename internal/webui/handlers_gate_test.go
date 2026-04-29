@@ -137,7 +137,7 @@ func TestHandleGateApprove_MissingCSRFHeader(t *testing.T) {
 		Type:    "approval",
 		Choices: []pipeline.GateChoice{{Key: "a", Label: "Approve"}},
 	}
-	srv.gateRegistry.Register("run-123", "review", gate)
+	srv.realtime.gateRegistry.Register("run-123", "review", gate)
 
 	body, _ := json.Marshal(GateApproveRequest{Choice: "a"})
 	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/review/approve", bytes.NewReader(body))
@@ -163,7 +163,7 @@ func TestHandleGateApprove_Success(t *testing.T) {
 			{Key: "r", Label: "Reject", Target: "_fail"},
 		},
 	}
-	ch := srv.gateRegistry.Register("run-123", "review", gate)
+	ch := srv.realtime.gateRegistry.Register("run-123", "review", gate)
 
 	body, _ := json.Marshal(GateApproveRequest{Choice: "a"})
 	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/review/approve", bytes.NewReader(body))
@@ -219,7 +219,7 @@ func TestHandleGateApprove_NotFound(t *testing.T) {
 
 func TestHandleGateApprove_NoGateRegistry(t *testing.T) {
 	srv, _ := testServer(t)
-	srv.gateRegistry = nil // simulate uninitialized registry
+	srv.realtime.gateRegistry = nil // simulate uninitialized registry
 
 	body, _ := json.Marshal(GateApproveRequest{Choice: "a"})
 	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/review/approve", bytes.NewReader(body))
@@ -242,7 +242,7 @@ func TestHandleGateApprove_StepMismatch(t *testing.T) {
 		Type:    "approval",
 		Choices: []pipeline.GateChoice{{Key: "a", Label: "Approve"}},
 	}
-	srv.gateRegistry.Register("run-123", "review", gate)
+	srv.realtime.gateRegistry.Register("run-123", "review", gate)
 
 	body, _ := json.Marshal(GateApproveRequest{Choice: "a"})
 	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/wrong-step/approve", bytes.NewReader(body))
@@ -265,7 +265,7 @@ func TestHandleGateApprove_InvalidChoice(t *testing.T) {
 		Type:    "approval",
 		Choices: []pipeline.GateChoice{{Key: "a", Label: "Approve"}},
 	}
-	srv.gateRegistry.Register("run-123", "review", gate)
+	srv.realtime.gateRegistry.Register("run-123", "review", gate)
 
 	body, _ := json.Marshal(GateApproveRequest{Choice: "z"})
 	req := httptest.NewRequest("POST", "/api/runs/run-123/gates/review/approve", bytes.NewReader(body))

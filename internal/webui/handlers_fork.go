@@ -31,7 +31,7 @@ func (s *Server) handleForkRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	originalRun, err := s.store.GetRun(runID)
+	originalRun, err := s.runtime.store.GetRun(runID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "run not found")
 		return
@@ -48,7 +48,7 @@ func (s *Server) handleForkRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fm := pipeline.NewForkManager(s.rwStore)
+	fm := pipeline.NewForkManager(s.runtime.rwStore)
 	allowFailed := originalRun.Status != "completed"
 	newRunID, err := fm.Fork(runID, req.FromStep, p, allowFailed)
 	if err != nil {
@@ -65,7 +65,7 @@ func (s *Server) handleForkRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if resumeStep == "" {
-		if err := s.rwStore.UpdateRunStatus(newRunID, "completed", "", 0); err != nil {
+		if err := s.runtime.rwStore.UpdateRunStatus(newRunID, "completed", "", 0); err != nil {
 			log.Printf("Warning: failed to update forked run %s status: %v", newRunID, err)
 		}
 		writeJSON(w, http.StatusCreated, ForkRunResponse{
@@ -112,7 +112,7 @@ func (s *Server) handleRewindRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	run, err := s.store.GetRun(runID)
+	run, err := s.runtime.store.GetRun(runID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "run not found")
 		return
@@ -153,13 +153,13 @@ func (s *Server) handleRewindRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.rwStore.DeleteCheckpointsAfterStep(runID, rewindIndex); err != nil {
+	if err := s.runtime.rwStore.DeleteCheckpointsAfterStep(runID, rewindIndex); err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "rewind failed: "+err.Error())
 		return
 	}
 
 	rewindMsg := "rewound to step: " + req.ToStep
-	if err := s.rwStore.UpdateRunStatus(runID, "failed", rewindMsg, run.TotalTokens); err != nil {
+	if err := s.runtime.rwStore.UpdateRunStatus(runID, "failed", rewindMsg, run.TotalTokens); err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to update run status: "+err.Error())
 		return
 	}
@@ -180,12 +180,12 @@ func (s *Server) handleForkPoints(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := s.store.GetRun(runID); err != nil {
+	if _, err := s.runtime.store.GetRun(runID); err != nil {
 		writeJSONError(w, http.StatusNotFound, "run not found")
 		return
 	}
 
-	fm := pipeline.NewForkManager(s.store)
+	fm := pipeline.NewForkManager(s.runtime.store)
 	points, err := fm.ListForkPoints(runID)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to list fork points: "+err.Error())

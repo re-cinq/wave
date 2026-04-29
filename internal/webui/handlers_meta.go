@@ -5,8 +5,8 @@ import "net/http"
 // handleAPIAdapters handles GET /api/adapters — returns available adapter names.
 func (s *Server) handleAPIAdapters(w http.ResponseWriter, r *http.Request) {
 	var names []string
-	if s.manifest != nil {
-		for name := range s.manifest.Adapters {
+	if s.runtime.manifest != nil {
+		for name := range s.runtime.manifest.Adapters {
 			names = append(names, name)
 		}
 	}
@@ -29,8 +29,8 @@ func (s *Server) handleAPIModels(w http.ResponseWriter, r *http.Request) {
 	add("cheapest")
 	add("balanced")
 	add("strongest")
-	if s.manifest != nil {
-		for _, a := range s.manifest.Adapters {
+	if s.runtime.manifest != nil {
+		for _, a := range s.runtime.manifest.Adapters {
 			add(a.DefaultModel)
 			for _, m := range a.TierModels {
 				add(m)

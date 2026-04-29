@@ -26,7 +26,7 @@ func (s *Server) handlePersonasPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/personas.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/personas.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -39,12 +39,12 @@ func (s *Server) handlePersonaDetailPage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if s.manifest == nil || s.manifest.Personas == nil {
+	if s.runtime.manifest == nil || s.runtime.manifest.Personas == nil {
 		http.Error(w, "persona not found", http.StatusNotFound)
 		return
 	}
 
-	p, ok := s.manifest.Personas[name]
+	p, ok := s.runtime.manifest.Personas[name]
 	if !ok {
 		http.Error(w, "persona not found", http.StatusNotFound)
 		return
@@ -52,7 +52,7 @@ func (s *Server) handlePersonaDetailPage(w http.ResponseWriter, r *http.Request)
 
 	var prompt string
 	if p.SystemPromptFile != "" {
-		promptPath := p.GetSystemPromptPath(s.repoDir)
+		promptPath := p.GetSystemPromptPath(s.runtime.repoDir)
 		if data, err := os.ReadFile(promptPath); err == nil {
 			prompt = string(data)
 		}
@@ -103,22 +103,22 @@ func (s *Server) handlePersonaDetailPage(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/persona_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/persona_detail.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
 
 // getPersonaSummaries returns persona summaries from the manifest.
 func (s *Server) getPersonaSummaries() []PersonaSummary {
-	if s.manifest == nil || s.manifest.Personas == nil {
+	if s.runtime.manifest == nil || s.runtime.manifest.Personas == nil {
 		return nil
 	}
 
 	var personas []PersonaSummary
-	for name, p := range s.manifest.Personas {
+	for name, p := range s.runtime.manifest.Personas {
 		var prompt string
 		if p.SystemPromptFile != "" {
-			promptPath := p.GetSystemPromptPath(s.repoDir)
+			promptPath := p.GetSystemPromptPath(s.runtime.repoDir)
 			if data, err := os.ReadFile(promptPath); err == nil {
 				prompt = string(data)
 			}

@@ -79,7 +79,7 @@ func (s *Server) handleAnalyticsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates["templates/analytics.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/analytics.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
 		log.Printf("[webui] template error rendering analytics page: %v", err)
 		http.Error(w, "template error", http.StatusInternalServerError)
 	}
@@ -100,7 +100,7 @@ func (s *Server) buildTokenAnalytics() TokenAnalytics {
 	var analytics TokenAnalytics
 
 	// Fetch recent runs (up to 200 for aggregation)
-	runs, err := s.store.ListRuns(state.ListRunsOptions{Limit: 200})
+	runs, err := s.runtime.store.ListRuns(state.ListRunsOptions{Limit: 200})
 	if err != nil {
 		log.Printf("[webui] analytics: failed to list runs: %v", err)
 		return analytics
@@ -164,7 +164,7 @@ func (s *Server) buildTokenAnalytics() TokenAnalytics {
 	}
 
 	// Per-persona breakdown from performance metrics
-	metrics, err := s.store.GetRecentPerformanceHistory(state.PerformanceQueryOptions{
+	metrics, err := s.runtime.store.GetRecentPerformanceHistory(state.PerformanceQueryOptions{
 		Limit: 1000,
 	})
 	if err != nil {

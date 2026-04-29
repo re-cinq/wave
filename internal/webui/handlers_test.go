@@ -126,17 +126,27 @@ func testServer(t *testing.T) (*Server, state.StateStore) {
 	tmpl := testTemplates(t)
 
 	srv := &Server{
-		store:             roStore,
-		rwStore:           rwStore,
-		templates:         tmpl,
-		broker:            NewSSEBroker(),
-		bind:              "127.0.0.1",
-		port:              0,
-		activeRuns:        make(map[string]context.CancelFunc),
-		disabledPipelines: make(map[string]bool),
-		gateRegistry:      NewGateRegistry(),
-		csrfToken:         "test-csrf-token",
-		features:          NewFeatureRegistry(),
+		transport: serverTransport{
+			bind: "127.0.0.1",
+			port: 0,
+		},
+		auth: serverAuth{
+			csrfToken: "test-csrf-token",
+		},
+		runtime: serverRuntime{
+			store:   roStore,
+			rwStore: rwStore,
+		},
+		realtime: serverRealtime{
+			broker:            NewSSEBroker(),
+			gateRegistry:      NewGateRegistry(),
+			activeRuns:        make(map[string]context.CancelFunc),
+			disabledPipelines: make(map[string]bool),
+		},
+		assets: serverAssets{
+			templates: tmpl,
+			features:  NewFeatureRegistry(),
+		},
 	}
 
 	t.Cleanup(func() {
@@ -238,7 +248,7 @@ func TestHandleAPIRuns_Pagination(t *testing.T) {
 	// Verify all rows are visible through the read-only store before testing
 	// pagination. SQLite WAL mode can have brief visibility delays between
 	// separate connections.
-	runs, err := srv.store.ListRuns(state.ListRunsOptions{Limit: 50})
+	runs, err := srv.runtime.store.ListRuns(state.ListRunsOptions{Limit: 50})
 	if err != nil {
 		t.Fatalf("failed to verify test data: %v", err)
 	}
@@ -651,8 +661,8 @@ func (f *flusherRecorder) Flush() {}
 
 func TestHandleSSE_BackfillOnReconnect(t *testing.T) {
 	srv, rwStore := testServer(t)
-	go srv.broker.Start()
-	defer srv.broker.Stop()
+	go srv.realtime.broker.Start()
+	defer srv.realtime.broker.Stop()
 
 	runID, _ := rwStore.CreateRun("test-pipeline", "input")
 	if err := rwStore.UpdateRunStatus(runID, "running", "step1", 0); err != nil {
@@ -668,7 +678,7 @@ func TestHandleSSE_BackfillOnReconnect(t *testing.T) {
 	}
 
 	// Get the events to find their IDs
-	events, err := srv.store.GetEvents(runID, state.EventQueryOptions{})
+	events, err := srv.runtime.store.GetEvents(runID, state.EventQueryOptions{})
 	if err != nil {
 		t.Fatalf("failed to get events: %v", err)
 	}
@@ -1503,7 +1513,7 @@ steps:
 
 func TestHandlePersonasPage_NilManifest(t *testing.T) {
 	srv, _ := testServer(t)
-	// srv.manifest is nil by default from testServer
+	// srv.runtime.manifest is nil by default from testServer
 
 	req := httptest.NewRequest("GET", "/personas", nil)
 	rec := httptest.NewRecorder()
@@ -1521,7 +1531,7 @@ func TestHandlePersonasPage_NilManifest(t *testing.T) {
 func TestHandlePersonasPage_WithManifest(t *testing.T) {
 	srv, _ := testServer(t)
 
-	srv.manifest = &manifest.Manifest{
+	srv.runtime.manifest = &manifest.Manifest{
 		Personas: map[string]manifest.Persona{
 			"navigator": {
 				Description: "Guides the process",
@@ -1630,7 +1640,7 @@ steps:
 func TestHandleAPIPersonas_WithManifest(t *testing.T) {
 	srv, _ := testServer(t)
 
-	srv.manifest = &manifest.Manifest{
+	srv.runtime.manifest = &manifest.Manifest{
 		Personas: map[string]manifest.Persona{
 			"reviewer": {
 				Description: "Reviews code",
@@ -1840,9 +1850,13 @@ func TestHandleRunLogs_NotFound(t *testing.T) {
 func TestAuthMiddleware_JWTMode(t *testing.T) {
 	secret := "test-jwt-secret-key"
 	srv := &Server{
-		authMode:  AuthModeJWT,
-		jwtSecret: secret,
-		bind:      "0.0.0.0",
+		auth: serverAuth{
+			authMode:  AuthModeJWT,
+			jwtSecret: secret,
+		},
+		transport: serverTransport{
+			bind: "0.0.0.0",
+		},
 	}
 
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1893,8 +1907,12 @@ func TestAuthMiddleware_JWTMode(t *testing.T) {
 
 func TestAuthMiddleware_NoneMode(t *testing.T) {
 	srv := &Server{
-		authMode: AuthModeNone,
-		bind:     "0.0.0.0",
+		auth: serverAuth{
+			authMode: AuthModeNone,
+		},
+		transport: serverTransport{
+			bind: "0.0.0.0",
+		},
 	}
 
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

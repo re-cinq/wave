@@ -10,16 +10,16 @@ import (
 // applyMiddleware wraps the given handler with server middleware.
 func (s *Server) applyMiddleware(handler http.Handler) http.Handler {
 	h := handler
-	if s.csrfToken != "" {
+	if s.auth.csrfToken != "" {
 		h = s.csrfMiddleware(h)
 	}
 	h = securityHeaders(h)
 	h = s.loggingMiddleware(h)
 
 	// Apply auth middleware based on resolved auth mode
-	switch s.authMode {
+	switch s.auth.authMode {
 	case AuthModeBearer:
-		if s.token != "" && s.requiresAuth() {
+		if s.auth.token != "" && s.requiresAuth() {
 			h = s.bearerAuthMiddleware(h)
 		}
 	case AuthModeJWT:
@@ -30,7 +30,7 @@ func (s *Server) applyMiddleware(handler http.Handler) http.Handler {
 		// No auth
 	default:
 		// Backward compatibility: use bearer auth if token is set
-		if s.token != "" && s.requiresAuth() {
+		if s.auth.token != "" && s.requiresAuth() {
 			h = s.bearerAuthMiddleware(h)
 		}
 	}
@@ -55,13 +55,13 @@ func (s *Server) bearerAuthMiddleware(next http.Handler) http.Handler {
 
 		// Check Authorization header
 		auth := r.Header.Get("Authorization")
-		if auth == "Bearer "+s.token {
+		if auth == "Bearer "+s.auth.token {
 			next.ServeHTTP(w, r)
 			return
 		}
 
 		// Check query parameter as fallback (for SSE and browser access)
-		if r.URL.Query().Get("token") == s.token {
+		if r.URL.Query().Get("token") == s.auth.token {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -92,7 +92,7 @@ func (s *Server) jwtAuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		tokenStr := strings.TrimPrefix(auth, "Bearer ")
-		if _, err := ValidateJWT(tokenStr, s.jwtSecret); err != nil {
+		if _, err := ValidateJWT(tokenStr, s.auth.jwtSecret); err != nil {
 			http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
 			return
 		}
@@ -108,7 +108,7 @@ func (s *Server) csrfMiddleware(next http.Handler) http.Handler {
 		switch r.Method {
 		case http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch:
 			token := r.Header.Get("X-CSRF-Token")
-			if token == "" || token != s.csrfToken {
+			if token == "" || token != s.auth.csrfToken {
 				http.Error(w, "Forbidden: invalid CSRF token", http.StatusForbidden)
 				return
 			}

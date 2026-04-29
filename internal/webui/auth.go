@@ -8,7 +8,7 @@ import (
 
 // requiresAuth returns true if the server binding requires authentication.
 func (s *Server) requiresAuth() bool {
-	return s.bind != "127.0.0.1" && s.bind != "localhost" && s.bind != ""
+	return s.transport.bind != "127.0.0.1" && s.transport.bind != "localhost" && s.transport.bind != ""
 }
 
 // GenerateToken generates a random 32-byte hex token.

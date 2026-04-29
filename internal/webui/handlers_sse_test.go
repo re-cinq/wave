@@ -72,8 +72,8 @@ func TestMatchesRunID_SubstringNotPipelineID(t *testing.T) {
 // response headers: Content-Type, Cache-Control, and Connection.
 func TestHandleSSE_Headers(t *testing.T) {
 	srv, _ := testServer(t)
-	go srv.broker.Start()
-	defer srv.broker.Stop()
+	go srv.realtime.broker.Start()
+	defer srv.realtime.broker.Stop()
 
 	req := httptest.NewRequest("GET", "/api/runs/run-001/events", nil)
 	req.SetPathValue("id", "run-001")
@@ -126,8 +126,8 @@ func TestHandleSSE_MissingRunID(t *testing.T) {
 // when the client disconnects via context cancellation and does not block.
 func TestHandleSSE_ClientDisconnect(t *testing.T) {
 	srv, _ := testServer(t)
-	go srv.broker.Start()
-	defer srv.broker.Stop()
+	go srv.realtime.broker.Start()
+	defer srv.realtime.broker.Stop()
 
 	req := httptest.NewRequest("GET", "/api/runs/run-disconnect/events", nil)
 	req.SetPathValue("id", "run-disconnect")
@@ -165,8 +165,8 @@ func TestHandleSSE_ClientDisconnect(t *testing.T) {
 // an error. The handler should simply skip the backfill.
 func TestHandleSSE_InvalidLastEventID(t *testing.T) {
 	srv, _ := testServer(t)
-	go srv.broker.Start()
-	defer srv.broker.Stop()
+	go srv.realtime.broker.Start()
+	defer srv.realtime.broker.Stop()
 
 	req := httptest.NewRequest("GET", "/api/runs/run-invalid-id/events", nil)
 	req.SetPathValue("id", "run-invalid-id")
@@ -201,8 +201,8 @@ func TestHandleSSE_InvalidLastEventID(t *testing.T) {
 // receives the retry directive but no backfill events.
 func TestHandleSSE_NonExistentRunID(t *testing.T) {
 	srv, _ := testServer(t)
-	go srv.broker.Start()
-	defer srv.broker.Stop()
+	go srv.realtime.broker.Start()
+	defer srv.realtime.broker.Stop()
 
 	req := httptest.NewRequest("GET", "/api/runs/nonexistent-run-xyz/events", nil)
 	req.SetPathValue("id", "nonexistent-run-xyz")
@@ -239,13 +239,13 @@ func TestHandleSSE_NonExistentRunID(t *testing.T) {
 // does not leak.
 func TestHandleSSE_BrokerCleanupAfterDisconnect(t *testing.T) {
 	srv, _ := testServer(t)
-	go srv.broker.Start()
-	defer srv.broker.Stop()
+	go srv.realtime.broker.Start()
+	defer srv.realtime.broker.Stop()
 
 	// Record initial subscriber count.
-	srv.broker.mu.RLock()
-	initialCount := len(srv.broker.clients)
-	srv.broker.mu.RUnlock()
+	srv.realtime.broker.mu.RLock()
+	initialCount := len(srv.realtime.broker.clients)
+	srv.realtime.broker.mu.RUnlock()
 
 	req := httptest.NewRequest("GET", "/api/runs/run-cleanup/events", nil)
 	req.SetPathValue("id", "run-cleanup")
@@ -265,9 +265,9 @@ func TestHandleSSE_BrokerCleanupAfterDisconnect(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// Verify the subscriber was added.
-	srv.broker.mu.RLock()
-	duringCount := len(srv.broker.clients)
-	srv.broker.mu.RUnlock()
+	srv.realtime.broker.mu.RLock()
+	duringCount := len(srv.realtime.broker.clients)
+	srv.realtime.broker.mu.RUnlock()
 	if duringCount != initialCount+1 {
 		t.Errorf("expected %d subscribers during connection, got %d", initialCount+1, duringCount)
 	}
@@ -280,9 +280,9 @@ func TestHandleSSE_BrokerCleanupAfterDisconnect(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// Verify the subscriber was removed.
-	srv.broker.mu.RLock()
-	afterCount := len(srv.broker.clients)
-	srv.broker.mu.RUnlock()
+	srv.realtime.broker.mu.RLock()
+	afterCount := len(srv.realtime.broker.clients)
+	srv.realtime.broker.mu.RUnlock()
 	if afterCount != initialCount {
 		t.Errorf("expected %d subscribers after disconnect (cleanup), got %d", initialCount, afterCount)
 	}
@@ -293,8 +293,8 @@ func TestHandleSSE_BrokerCleanupAfterDisconnect(t *testing.T) {
 // but the value is not > 0, no backfill should occur.
 func TestHandleSSE_NegativeLastEventID(t *testing.T) {
 	srv, _ := testServer(t)
-	go srv.broker.Start()
-	defer srv.broker.Stop()
+	go srv.realtime.broker.Start()
+	defer srv.realtime.broker.Stop()
 
 	req := httptest.NewRequest("GET", "/api/runs/run-neg-id/events", nil)
 	req.SetPathValue("id", "run-neg-id")
@@ -328,8 +328,8 @@ func TestHandleSSE_NegativeLastEventID(t *testing.T) {
 // (as opposed to absent) is treated the same as no header.
 func TestHandleSSE_EmptyLastEventID(t *testing.T) {
 	srv, _ := testServer(t)
-	go srv.broker.Start()
-	defer srv.broker.Stop()
+	go srv.realtime.broker.Start()
+	defer srv.realtime.broker.Stop()
 
 	req := httptest.NewRequest("GET", "/api/runs/run-empty-id/events", nil)
 	req.SetPathValue("id", "run-empty-id")
@@ -359,8 +359,8 @@ func TestHandleSSE_EmptyLastEventID(t *testing.T) {
 // overflows int64 is handled gracefully (ParseInt fails, so no backfill).
 func TestHandleSSE_OverflowLastEventID(t *testing.T) {
 	srv, _ := testServer(t)
-	go srv.broker.Start()
-	defer srv.broker.Stop()
+	go srv.realtime.broker.Start()
+	defer srv.realtime.broker.Stop()
 
 	req := httptest.NewRequest("GET", "/api/runs/run-overflow/events", nil)
 	req.SetPathValue("id", "run-overflow")

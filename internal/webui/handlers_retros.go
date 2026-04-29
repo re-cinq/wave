@@ -33,7 +33,7 @@ func (s *Server) handleAPIRetros(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	records, err := s.store.ListRetrospectives(state.ListRetrosOptions{
+	records, err := s.runtime.store.ListRetrospectives(state.ListRetrosOptions{
 		PipelineName: pipeline,
 		SinceUnix:    sinceUnix,
 		Limit:        limit,
@@ -54,7 +54,7 @@ func (s *Server) handleAPIRetroDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	storage := retro.NewStorage(".agents/retros", s.store)
+	storage := retro.NewStorage(".agents/retros", s.runtime.store)
 	retro, err := storage.Load(id)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})

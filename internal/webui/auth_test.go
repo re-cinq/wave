@@ -53,7 +53,7 @@ func TestGenerateToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_ValidToken(t *testing.T) {
-	s := &Server{token: "test-token", bind: "0.0.0.0"}
+	s := &Server{auth: serverAuth{token: "test-token"}, transport: serverTransport{bind: "0.0.0.0"}}
 	handler := s.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -69,7 +69,7 @@ func TestAuthMiddleware_ValidToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_InvalidToken(t *testing.T) {
-	s := &Server{token: "test-token", bind: "0.0.0.0"}
+	s := &Server{auth: serverAuth{token: "test-token"}, transport: serverTransport{bind: "0.0.0.0"}}
 	handler := s.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -85,7 +85,7 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_NoToken(t *testing.T) {
-	s := &Server{token: "test-token", bind: "0.0.0.0"}
+	s := &Server{auth: serverAuth{token: "test-token"}, transport: serverTransport{bind: "0.0.0.0"}}
 	handler := s.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -100,7 +100,7 @@ func TestAuthMiddleware_NoToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_QueryToken(t *testing.T) {
-	s := &Server{token: "test-token", bind: "0.0.0.0"}
+	s := &Server{auth: serverAuth{token: "test-token"}, transport: serverTransport{bind: "0.0.0.0"}}
 	handler := s.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -115,7 +115,7 @@ func TestAuthMiddleware_QueryToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_StaticBypass(t *testing.T) {
-	s := &Server{token: "test-token", bind: "0.0.0.0"}
+	s := &Server{auth: serverAuth{token: "test-token"}, transport: serverTransport{bind: "0.0.0.0"}}
 	handler := s.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -134,7 +134,7 @@ func TestApplyMiddleware_NonLocalhostEnforcesAuth(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	s := &Server{token: "secret-token", bind: "0.0.0.0"}
+	s := &Server{auth: serverAuth{token: "secret-token"}, transport: serverTransport{bind: "0.0.0.0"}}
 	handler := s.applyMiddleware(inner)
 
 	// Request without token should be rejected
@@ -162,7 +162,7 @@ func TestApplyMiddleware_LocalhostSkipsAuth(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	s := &Server{token: "secret-token", bind: "127.0.0.1"}
+	s := &Server{auth: serverAuth{token: "secret-token"}, transport: serverTransport{bind: "127.0.0.1"}}
 	handler := s.applyMiddleware(inner)
 
 	// Request without token should succeed on localhost
@@ -187,7 +187,7 @@ func TestRequiresAuth(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		s := &Server{bind: tt.bind}
+		s := &Server{transport: serverTransport{bind: tt.bind}}
 		if got := s.requiresAuth(); got != tt.expected {
 			t.Errorf("requiresAuth() for bind %q = %v, want %v", tt.bind, got, tt.expected)
 		}
