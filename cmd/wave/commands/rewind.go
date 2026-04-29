@@ -89,13 +89,11 @@ func runRewind(opts RewindOptions) error {
 	}
 
 	// Load manifest to get pipeline topology
-	mp, err := loadManifestStrict(opts.Manifest)
-	if err != nil {
+	if _, err := loadManifestStrict(opts.Manifest); err != nil {
 		return err
 	}
-	m := *mp
 
-	p, err := loadPipeline(run.PipelineName, &m)
+	p, err := pipeline.LoadByName(run.PipelineName)
 	if err != nil {
 		return NewCLIError(CodePipelineNotFound,
 			fmt.Sprintf("pipeline %q not found", run.PipelineName),

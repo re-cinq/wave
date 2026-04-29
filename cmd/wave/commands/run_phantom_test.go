@@ -86,10 +86,10 @@ runtime:
 	// easily test the detached subprocess in integration tests
 
 	// Load the pipeline
-	m, err := loadManifest("wave.yaml")
+	_, err = loadManifest("wave.yaml")
 	require.NoError(t, err, "Failed to load manifest")
 
-	p, err := loadPipeline("test-pipeline", m)
+	p, err := pipeline.LoadByName("test-pipeline")
 	require.NoError(t, err, "Failed to load pipeline")
 
 	// Create a run ID (simulating what --detach does)

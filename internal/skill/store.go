@@ -68,6 +68,17 @@ type SkillSource struct {
 	Precedence int
 }
 
+// DefaultSources returns the canonical skill source ordering used by the
+// CLI run/resume paths: project-level "skills/" wins over installed
+// ".agents/skills/". Centralised so both call sites — and any future
+// caller (test fixtures, doctor, doc generation) — agree on the layout.
+func DefaultSources() []SkillSource {
+	return []SkillSource{
+		{Root: "skills", Precedence: 2},
+		{Root: ".agents/skills", Precedence: 1},
+	}
+}
+
 // DirectoryStore implements Store backed by filesystem directories.
 type DirectoryStore struct {
 	sources []SkillSource

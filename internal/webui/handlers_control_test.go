@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -1055,45 +1054,5 @@ func TestHandleSubmitRun_AllNewFieldsAccepted(t *testing.T) {
 	}
 }
 
-func TestIsHeartbeat(t *testing.T) {
-	tests := []struct {
-		name     string
-		ev       event.Event
-		expected bool
-	}{
-		{
-			name:     "empty progress event is heartbeat",
-			ev:       event.Event{State: "step_progress", Message: "", TokensUsed: 0, DurationMs: 0},
-			expected: true,
-		},
-		{
-			name:     "empty stream_activity is heartbeat",
-			ev:       event.Event{State: "stream_activity", Message: "", TokensUsed: 0, DurationMs: 0},
-			expected: true,
-		},
-		{
-			name:     "event with message is not heartbeat",
-			ev:       event.Event{State: "step_progress", Message: "processing", TokensUsed: 0, DurationMs: 0},
-			expected: false,
-		},
-		{
-			name:     "event with tokens is not heartbeat",
-			ev:       event.Event{State: "stream_activity", Message: "", TokensUsed: 100, DurationMs: 0},
-			expected: false,
-		},
-		{
-			name:     "non-progress event is not heartbeat",
-			ev:       event.Event{State: "step_completed", Message: "", TokensUsed: 0, DurationMs: 0},
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isHeartbeat(tt.ev)
-			if got != tt.expected {
-				t.Errorf("isHeartbeat() = %v, want %v", got, tt.expected)
-			}
-		})
-	}
-}
+// Heartbeat suppression for DBLoggingEmitter is covered in internal/event
+// tests; the webui no longer owns the helper.

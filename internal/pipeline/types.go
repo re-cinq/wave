@@ -115,6 +115,20 @@ func (p *Pipeline) EffectiveMaxStepVisits() int {
 	return 50
 }
 
+// HasApprovalGates returns true if any step in the pipeline has an approval
+// gate with interactive choices that would require human input.
+func (p *Pipeline) HasApprovalGates() bool {
+	if p == nil {
+		return false
+	}
+	for _, step := range p.Steps {
+		if step.Gate != nil && step.Gate.Type == "approval" && len(step.Gate.Choices) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 type PipelineMetadata struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description,omitempty"`

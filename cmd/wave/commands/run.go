@@ -18,7 +18,6 @@ import (
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
-	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/recovery"
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/retro"
@@ -249,7 +248,7 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 	m := *mp
 
-	p, err := loadPipeline(opts.Pipeline, &m)
+	p, err := pipeline.LoadByName(opts.Pipeline)
 	if err != nil {
 		// Pipeline not found — if interactive, try TUI with partial name as filter
 		if isInteractive() {
@@ -261,7 +260,7 @@ func runRun(opts RunOptions, debug bool) error {
 				return tuiErr
 			}
 			applySelection(&opts, sel, &debug)
-			p, err = loadPipeline(opts.Pipeline, &m)
+			p, err = pipeline.LoadByName(opts.Pipeline)
 			if err != nil {
 				return NewCLIError(CodePipelineNotFound,
 					fmt.Sprintf("pipeline '%s' not found", opts.Pipeline),
@@ -300,7 +299,7 @@ func runRun(opts RunOptions, debug bool) error {
 	// This reuses the same pattern as the TUI's pipeline_launcher.go.
 	if opts.Detach {
 		// Validate: if pipeline has approval gates with choices, --auto-approve is required
-		if !opts.AutoApprove && pipelineHasApprovalGates(p) {
+		if !opts.AutoApprove && p.HasApprovalGates() {
 			return NewCLIError(CodeInvalidArgs,
 				"--detach with approval gates requires --auto-approve",
 				"Add --auto-approve to auto-approve gates in detached mode, or remove --detach for interactive execution")
@@ -369,7 +368,7 @@ func runRun(opts RunOptions, debug bool) error {
 	// Wrap with DB logging so "wave logs <run-id>" returns full history for CLI runs.
 	var emitter event.EventEmitter = result.Emitter
 	if store != nil {
-		emitter = &dbLoggingEmitter{inner: result.Emitter, store: store, runID: runID}
+		emitter = &event.DBLoggingEmitter{Inner: result.Emitter, Store: store, RunID: runID}
 	}
 
 	// Initialize workspace manager under .agents/workspaces
@@ -448,21 +447,20 @@ func runRun(opts RunOptions, debug bool) error {
 		}
 	}
 	if opts.Mock {
+		// Route every adapter declared in the manifest through the mock runner.
+		// "mock" itself is always registered so pipelines that pin adapter: mock
+		// resolve correctly even when the manifest does not enumerate it.
 		registry.RegisterOverride("mock", runner)
-		registry.RegisterOverride("claude", runner)
-		registry.RegisterOverride("gemini", runner)
-		registry.RegisterOverride("opencode", runner)
-		registry.RegisterOverride("codex", runner)
+		for name := range m.Adapters {
+			registry.RegisterOverride(name, runner)
+		}
 	}
 	execOpts = append(execOpts, pipeline.WithRegistry(registry))
 
 	// Wire skill store so declared skills are provisioned into adapter workspaces.
-	// Pipeline skills are resolved from skills/ (project) and .agents/skills/ (installed),
-	// with project skills taking precedence.
-	skillStore := skill.NewDirectoryStore(
-		skill.SkillSource{Root: "skills", Precedence: 2},
-		skill.SkillSource{Root: ".agents/skills", Precedence: 1},
-	)
+	// Source ordering (project skills/ wins over installed .agents/skills/) is
+	// owned by the skill package — see skill.DefaultSources.
+	skillStore := skill.NewDirectoryStore(skill.DefaultSources()...)
 	execOpts = append(execOpts, pipeline.WithSkillStore(skillStore))
 	if opts.Adapter != "" {
 		execOpts = append(execOpts, pipeline.WithAdapterOverride(opts.Adapter))
@@ -490,7 +488,7 @@ func runRun(opts RunOptions, debug bool) error {
 			ContextWindow:      m.Runtime.Relay.ContextWindow,
 			CompactionTimeout:  m.Runtime.Timeouts.GetRelayCompaction(),
 		}
-		compactionAdapter := &relayCompactionAdapter{registry: registry, manifest: &m}
+		compactionAdapter := relay.NewAdapterCompactionRunner(registry, &m)
 		relayMon := relay.NewRelayMonitor(relayCfg, compactionAdapter)
 		execOpts = append(execOpts, pipeline.WithRelayMonitor(relayMon))
 	}
@@ -592,7 +590,7 @@ func runRun(opts RunOptions, debug bool) error {
 		// when heartbeatCancel fires (deferred just below this block).
 		heartbeatCtx, heartbeatCancel := context.WithCancel(context.Background())
 		defer heartbeatCancel()
-		go runHeartbeatLoop(heartbeatCtx, store, runID)
+		go state.RunHeartbeatLoop(heartbeatCtx, store, runID)
 	}
 
 	var execErr error
@@ -641,7 +639,7 @@ func runRun(opts RunOptions, debug bool) error {
 		// Extract preflight metadata when the error is a preflight failure
 		var preflightMeta *recovery.PreflightMetadata
 		if errClass == recovery.ClassPreflight {
-			preflightMeta = extractPreflightMetadata(cause)
+			preflightMeta = recovery.ExtractPreflightMetadata(cause)
 		}
 
 		block := recovery.BuildRecoveryBlock(recovery.RecoveryBlockOpts{
@@ -790,34 +788,6 @@ func resolveRunID(runIDOpt string, store state.StateStore, pipelineName, input s
 		return store.CreateRun(pipelineName, input)
 	}
 	return "", nil
-}
-
-func loadPipeline(name string, _ *manifest.Manifest) (*pipeline.Pipeline, error) {
-	candidates := []string{
-		".agents/pipelines/" + name + ".yaml",
-		".agents/pipelines/" + name,
-		name,
-	}
-
-	var pipelinePath string
-	for _, candidate := range candidates {
-		if _, err := os.Stat(candidate); err == nil {
-			pipelinePath = candidate
-			break
-		}
-	}
-
-	if pipelinePath == "" {
-		return nil, fmt.Errorf("pipeline '%s' not found (searched .agents/pipelines/)", name)
-	}
-
-	pipelineData, err := os.ReadFile(pipelinePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read pipeline file: %w", err)
-	}
-
-	loader := &pipeline.YAMLPipelineLoader{}
-	return loader.Unmarshal(pipelineData)
 }
 
 // isInteractive returns true when stdin is a TTY and interactive selection is possible.
@@ -981,136 +951,3 @@ func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.
 	return nil
 }
 
-// pipelineHasApprovalGates returns true if any step in the pipeline has an approval
-// gate with interactive choices that would require human input.
-func pipelineHasApprovalGates(p *pipeline.Pipeline) bool {
-	for _, step := range p.Steps {
-		if step.Gate != nil && step.Gate.Type == "approval" && len(step.Gate.Choices) > 0 {
-			return true
-		}
-	}
-	return false
-}
-
-// extractPreflightMetadata extracts missing skills and tools from preflight errors.
-// It walks the error chain using errors.As to find SkillError or ToolError types.
-func extractPreflightMetadata(err error) *recovery.PreflightMetadata {
-	if err == nil {
-		return nil
-	}
-
-	meta := &recovery.PreflightMetadata{}
-
-	var skillErr *preflight.SkillError
-	if errors.As(err, &skillErr) {
-		meta.MissingSkills = skillErr.MissingSkills
-	}
-
-	var toolErr *preflight.ToolError
-	if errors.As(err, &toolErr) {
-		meta.MissingTools = toolErr.MissingTools
-	}
-
-	// Return nil if no metadata was found
-	if len(meta.MissingSkills) == 0 && len(meta.MissingTools) == 0 {
-		return nil
-	}
-
-	return meta
-}
-
-// dbLoggingEmitter wraps an EventEmitter and also persists each event to the
-// state database so that "wave logs <run-id>" returns a complete history for
-// CLI-launched runs (mirrors the loggingEmitter used by the WebUI server).
-type dbLoggingEmitter struct {
-	inner event.EventEmitter
-	store state.StateStore
-	runID string
-}
-
-func (d *dbLoggingEmitter) Emit(ev event.Event) {
-	d.inner.Emit(ev)
-	// Skip empty heartbeat ticks — they carry no useful information.
-	// Keep stream_activity events that carry ToolName (Claude Code tool calls).
-	if ev.Message == "" && ev.ToolName == "" && (ev.State == "step_progress" || ev.State == "stream_activity") && ev.TokensUsed == 0 && ev.DurationMs == 0 {
-		return
-	}
-	// Compose message from ToolName+ToolTarget for stream_activity persistence.
-	msg := ev.Message
-	if msg == "" && ev.ToolName != "" {
-		msg = ev.ToolName + " " + ev.ToolTarget
-	}
-	// Use the event's PipelineID so child sub-pipeline events are logged under
-	// the child's run ID, not the parent's. Fall back to d.runID for events
-	// that don't carry a pipeline ID.
-	runID := ev.PipelineID
-	if runID == "" {
-		runID = d.runID
-	}
-	_ = d.store.LogEvent(runID, ev.StepID, ev.State, ev.Persona, msg, ev.TokensUsed, ev.DurationMs, ev.Model, ev.ConfiguredModel, ev.Adapter)
-}
-
-// relayCompactionAdapter bridges adapter.AdapterRunner to relay.CompactionAdapter.
-// It runs the summarizer via the adapter registry to compact conversation history.
-type relayCompactionAdapter struct {
-	registry *adapter.AdapterRegistry
-	manifest *manifest.Manifest
-}
-
-func (a *relayCompactionAdapter) RunCompaction(ctx context.Context, cfg relay.CompactionConfig) (string, error) {
-	prompt := cfg.CompactPrompt
-	if cfg.ChatHistory != "" {
-		prompt = fmt.Sprintf("%s\n\n---\n\nConversation history to summarize:\n%s", cfg.CompactPrompt, cfg.ChatHistory)
-	}
-
-	adapterName := ""
-	if a.manifest != nil {
-		if p := a.manifest.GetPersona("summarizer"); p != nil {
-			adapterName = p.Adapter
-		}
-		if adapterName == "" {
-			for name := range a.manifest.Adapters {
-				adapterName = name
-				break
-			}
-		}
-	}
-	if adapterName == "" {
-		adapterName = "claude"
-	}
-
-	compactionRunner := a.registry.Resolve(adapterName)
-	result, err := compactionRunner.Run(ctx, adapter.AdapterRunConfig{
-		Adapter:       adapterName,
-		Persona:       "summarizer",
-		WorkspacePath: cfg.WorkspacePath,
-		Prompt:        prompt,
-		SystemPrompt:  cfg.SystemPrompt,
-		Timeout:       cfg.Timeout,
-		OutputFormat:  "text",
-	})
-	if err != nil {
-		return "", fmt.Errorf("compaction adapter failed: %w", err)
-	}
-
-	return result.ResultContent, nil
-}
-
-// runHeartbeatLoop periodically refreshes pipeline_run.last_heartbeat for the
-// running pipeline. The reconciler reads this column to distinguish live runs
-// from runs whose owning process died without updating the DB.
-//
-// Cadence is 30s — well below state.HeartbeatStaleThreshold (90s) so two
-// missed beats are tolerated before reaping.
-func runHeartbeatLoop(ctx context.Context, store state.StateStore, runID string) {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			_ = store.UpdateRunHeartbeat(runID)
-		case <-ctx.Done():
-			return
-		}
-	}
-}
