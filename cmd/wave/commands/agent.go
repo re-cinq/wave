@@ -12,6 +12,7 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/persona"
 	"github.com/spf13/cobra"
 )
 
@@ -252,8 +253,8 @@ func loadManifestForAgent(manifestPath string) (*manifest.Manifest, error) {
 // compilePersonaToAgentMd resolves a persona by name and compiles it to agent
 // markdown. It reads the base protocol and persona system prompt from disk.
 func compilePersonaToAgentMd(name string, m *manifest.Manifest) (string, error) {
-	persona := m.GetPersona(name)
-	if persona == nil {
+	p := m.GetPersona(name)
+	if p == nil {
 		return "", NewCLIError(CodeInvalidArgs,
 			fmt.Sprintf("persona %q not found in manifest", name),
 			"Run 'wave agent list' to see available personas")
@@ -268,8 +269,8 @@ func compilePersonaToAgentMd(name string, m *manifest.Manifest) (string, error) 
 
 	// Load persona system prompt
 	var systemPrompt string
-	if persona.SystemPromptFile != "" {
-		promptPath := persona.GetSystemPromptPath(".")
+	if p.SystemPromptFile != "" {
+		promptPath := p.GetSystemPromptPath(".")
 		data, err := os.ReadFile(promptPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to read system prompt for persona %q from %s: %w", name, promptPath, err)
@@ -285,12 +286,12 @@ func compilePersonaToAgentMd(name string, m *manifest.Manifest) (string, error) 
 		}
 	}
 
-	// Map manifest.Persona to adapter.PersonaSpec to avoid import cycles in the
-	// adapter package (adapter must not import manifest).
-	spec := adapter.PersonaSpec{
-		Model:        persona.Model,
-		AllowedTools: persona.Permissions.AllowedTools,
-		DenyTools:    persona.Permissions.Deny,
+	// Map manifest.Persona to the neutral persona.Persona used by the agent
+	// compiler (internal/persona breaks the would-be adapter↔manifest cycle).
+	spec := persona.Persona{
+		Model:        p.Model,
+		AllowedTools: p.Permissions.AllowedTools,
+		DenyTools:    p.Permissions.Deny,
 	}
 
 	agentMd := adapter.PersonaToAgentMarkdown(
