@@ -141,6 +141,45 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 			}
 			return count
 		},
+		// hasCompositionChildren reports whether any composition (iterate /
+		// aggregate / branch / loop / sub-pipeline) child runs are attached.
+		// Resumes are excluded so the "Children" pill on /runs and the
+		// composition section on the run detail page can be rendered
+		// independently of the existing "Resumed by" pill (#1450 follow-up).
+		"hasCompositionChildren": func(children []RunSummary) bool {
+			for _, c := range children {
+				if isCompositionRunKind(c.RunKind) {
+					return true
+				}
+			}
+			return false
+		},
+		"countCompositionChildren": func(children []RunSummary) int {
+			count := 0
+			for _, c := range children {
+				if isCompositionRunKind(c.RunKind) {
+					count++
+				}
+			}
+			return count
+		},
+		// filterCompositionChildren returns only the composition children
+		// for use by the run-detail composition-children section.
+		"filterCompositionChildren": func(children []RunSummary) []RunSummary {
+			var out []RunSummary
+			for _, c := range children {
+				if isCompositionRunKind(c.RunKind) {
+					out = append(out, c)
+				}
+			}
+			return out
+		},
+		// groupChildrenByKind buckets children by run_kind so the run-detail
+		// page can render one section per kind ("Iterate children", etc.).
+		"groupChildrenByKind": groupChildrenByKind,
+		// runKindBreadcrumbLabel renders the parent breadcrumb arrow + text
+		// based on the child's run_kind ("← iterate parent", etc.).
+		"runKindBreadcrumbLabel": runKindBreadcrumbLabel,
 		"pluralize": func(n int, singular, plural string) string {
 			if n == 1 {
 				return singular

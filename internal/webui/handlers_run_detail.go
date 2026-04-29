@@ -85,11 +85,17 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	linkedTitle, linkedState, linkedAuthor, linkedType, linkedNumber := s.enrichLinkedURL(r, runSummary.LinkedURL)
 	templateVars := s.buildTemplateVars(run.Input)
 
-	// Collect child runs for sub-pipeline steps and resume children (#1510).
-	// Resumes are kept in a separate slice so the template can render them as
-	// a "Resumed by" pill at the run header rather than under a step.
+	// Collect child runs for sub-pipeline steps and resume / composition
+	// children (#1510, #1450 follow-up).
+	//
+	// Resume children render as a "Resumed by" pill at the header.
+	// Composition children (iterate / sub-pipeline / branch / loop /
+	// aggregate) render both inline under their parent step (childRuns map)
+	// AND in a header-level "Children" section grouped by run_kind so the
+	// parent <-> child link is discoverable from either direction.
 	childRuns := make(map[string][]RunSummary)
 	var resumeChildren []RunSummary
+	var compositionChildren []RunSummary
 	if children, err := s.runtime.store.GetChildRuns(runID); err == nil {
 		for _, cr := range children {
 			summary := runToSummary(cr)
@@ -97,7 +103,26 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 				resumeChildren = append(resumeChildren, summary)
 				continue
 			}
+			// Inline list under the originating parent step keeps the
+			// existing per-step widget working.
 			childRuns[cr.ParentStepID] = append(childRuns[cr.ParentStepID], summary)
+			// Header-level grouped section also surfaces every composition
+			// child regardless of which step launched it.
+			if isCompositionRunKind(cr.RunKind) {
+				compositionChildren = append(compositionChildren, summary)
+			}
+		}
+	}
+	compositionChildGroups := groupChildrenByKind(compositionChildren)
+
+	// Resolve the parent run summary so the breadcrumb can render kind-aware
+	// labels ("← iterate parent", "← branch parent", etc.) without re-querying
+	// in the template. Soft-fail: a missing parent simply means no breadcrumb.
+	var parentRun *RunSummary
+	if run.ParentRunID != "" {
+		if pr, err := s.runtime.store.GetRun(run.ParentRunID); err == nil && pr != nil {
+			ps := runToSummary(*pr)
+			parentRun = &ps
 		}
 	}
 
@@ -129,55 +154,59 @@ func (s *Server) handleRunDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		ActivePage          string
-		Run                 RunSummary
-		Steps               []StepDetail
-		Events              []EventSummary
-		PipelineDescription string
-		ArtifactGroups      []StepArtifactGroup
-		Adapters            []string
-		Models              []string
-		OutputSummary       string
-		OutputArtifacts     []ArtifactSummary
-		OutputStepID        string
-		LinkedTitle         string
-		LinkedState         string
-		LinkedAuthor        string
-		LinkedNumber        int
-		LinkedType          string
-		ChildRuns           map[string][]RunSummary
-		ResumeChildren      []RunSummary
-		TemplateVars        map[string]string
-		RunConfigItems      []struct{ Label, Value, Tooltip string }
-		RerunCommand        string
-		RunAdapter          string
-		RunModelTier        string
-		FailedStepID        string
+		ActivePage             string
+		Run                    RunSummary
+		Steps                  []StepDetail
+		Events                 []EventSummary
+		PipelineDescription    string
+		ArtifactGroups         []StepArtifactGroup
+		Adapters               []string
+		Models                 []string
+		OutputSummary          string
+		OutputArtifacts        []ArtifactSummary
+		OutputStepID           string
+		LinkedTitle            string
+		LinkedState            string
+		LinkedAuthor           string
+		LinkedNumber           int
+		LinkedType             string
+		ChildRuns              map[string][]RunSummary
+		ResumeChildren         []RunSummary
+		CompositionChildGroups []childRunGroup
+		ParentRun              *RunSummary
+		TemplateVars           map[string]string
+		RunConfigItems         []struct{ Label, Value, Tooltip string }
+		RerunCommand           string
+		RunAdapter             string
+		RunModelTier           string
+		FailedStepID           string
 	}{
-		ActivePage:          "runs",
-		Run:                 runSummary,
-		Steps:               stepDetails,
-		Events:              eventSummaries,
-		PipelineDescription: pipelineDescription,
-		ArtifactGroups:      artifactGroups,
-		Adapters:            uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return sd.Adapter })),
-		Models:              uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return friendlyModelFunc(sd.Model) })),
-		OutputSummary:       outputSummary,
-		OutputArtifacts:     outputArtifacts,
-		OutputStepID:        outputStepID,
-		LinkedTitle:         linkedTitle,
-		LinkedState:         linkedState,
-		LinkedAuthor:        linkedAuthor,
-		LinkedNumber:        linkedNumber,
-		LinkedType:          linkedType,
-		ChildRuns:           childRuns,
-		ResumeChildren:      resumeChildren,
-		TemplateVars:        templateVars,
-		RunConfigItems:      runConfigItems,
-		RerunCommand:        rerunCmd,
-		RunAdapter:          runAdapter,
-		RunModelTier:        runModelTier,
-		FailedStepID:        extractStepID(run.CurrentStep),
+		ActivePage:             "runs",
+		Run:                    runSummary,
+		Steps:                  stepDetails,
+		Events:                 eventSummaries,
+		PipelineDescription:    pipelineDescription,
+		ArtifactGroups:         artifactGroups,
+		Adapters:               uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return sd.Adapter })),
+		Models:                 uniqueStrings(collectStepField(stepDetails, func(sd StepDetail) string { return friendlyModelFunc(sd.Model) })),
+		OutputSummary:          outputSummary,
+		OutputArtifacts:        outputArtifacts,
+		OutputStepID:           outputStepID,
+		LinkedTitle:            linkedTitle,
+		LinkedState:            linkedState,
+		LinkedAuthor:           linkedAuthor,
+		LinkedNumber:           linkedNumber,
+		LinkedType:             linkedType,
+		ChildRuns:              childRuns,
+		ResumeChildren:         resumeChildren,
+		CompositionChildGroups: compositionChildGroups,
+		ParentRun:              parentRun,
+		TemplateVars:           templateVars,
+		RunConfigItems:         runConfigItems,
+		RerunCommand:           rerunCmd,
+		RunAdapter:             runAdapter,
+		RunModelTier:           runModelTier,
+		FailedStepID:           extractStepID(run.CurrentStep),
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

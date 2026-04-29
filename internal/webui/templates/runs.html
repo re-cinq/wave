@@ -104,6 +104,7 @@
                 {{if .InputPreview}}<span class="wr-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
                 {{if .RunKind}}{{if ne .RunKind "top_level"}}<span class="badge badge-runkind badge-runkind-{{.RunKind}}" style="font-size:0.62rem;" title="Launched by parent composition step or resume">{{runKindLabel .RunKind}}</span>{{end}}{{end}}
                 {{if hasResumeChildren .ChildRuns}}<span class="badge badge-runkind badge-runkind-resume" style="font-size:0.62rem;" title="This run was resumed — see nested resume run(s) below">resumed by {{countResumeChildren .ChildRuns}}</span>{{end}}
+                {{if hasCompositionChildren .ChildRuns}}<span class="badge badge-runkind badge-runkind-composition" style="font-size:0.62rem;" title="This run launched composition children (iterate / aggregate / branch / loop / sub-pipeline) — see nested rows below">{{countCompositionChildren .ChildRuns}} {{pluralize (countCompositionChildren .ChildRuns) "child" "children"}}</span>{{end}}
                 <span class="wr-right">
                     <span class="badge wr-status {{statusClass .Status}}">{{statusLabel .Status}}</span>
                     {{if .Duration}}<span class="wr-dur">{{.Duration}}</span>{{end}}

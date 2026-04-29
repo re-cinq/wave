@@ -239,9 +239,10 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 		// nestChildRuns only nests children whose parent is on the same page;
 		// anything else stays at top-level. That's the behaviour we want.
 	} else {
-		// Even when filtering at the DB level, pre-attach known resume children
-		// so the parent row carries a "Resumed by" indicator inline.
-		s.attachResumesToParents(allSummaries)
+		// Even when filtering at the DB level, pre-attach known children
+		// (resumes + composition children) so each parent row carries the
+		// appropriate "Resumed by" / "Children" indicator inline.
+		s.attachChildrenToParents(allSummaries)
 	}
 	summaries := nestChildRuns(allSummaries)
 
@@ -293,25 +294,45 @@ func (s *Server) handleRunsPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// attachResumesToParents fetches resume-kind children for each parent run
-// in the list and attaches them as ChildRuns. Used by /runs when
-// top_level_only=true to keep the main list clean while still surfacing the
-// "this run was resumed" indicator on the parent row. Issue #1510.
-func (s *Server) attachResumesToParents(parents []RunSummary) {
+// attachChildrenToParents fetches every direct child run (resumes plus
+// composition children — iterate, aggregate, branch, loop, sub-pipeline) for
+// each parent in the list and attaches them as ChildRuns. Generalises the
+// resume-only helper from #1548 so the /runs page can surface a
+// "Children: N" pill for composition parents alongside the existing
+// "resumed by" pill. Mirrors the resume pattern: the DB-level
+// top_level_only filter still keeps child rows out of the main list, this
+// helper just lets each parent row reference them. Issue #1450 follow-up.
+func (s *Server) attachChildrenToParents(parents []RunSummary) {
 	if s.runtime.store == nil {
 		return
 	}
 	for i := range parents {
-		// Only failed/cancelled runs can be resumed; skip the others.
-		if parents[i].Status != "failed" && parents[i].Status != "cancelled" {
-			continue
-		}
 		children, err := s.runtime.store.GetChildRuns(parents[i].RunID)
 		if err != nil {
 			continue
 		}
+		// Skip parents whose only "child" is a no-op resume that's also a
+		// running run already shown elsewhere — keep parity with the resume
+		// helper by matching its failed/cancelled gate for resume-only
+		// parents. For composition parents (any status), attach all kids.
+		hasComposition := false
 		for _, ch := range children {
-			if ch.RunKind != state.RunKindResume {
+			if ch.RunKind != "" && ch.RunKind != state.RunKindResume && ch.RunKind != state.RunKindTopLevel {
+				hasComposition = true
+				break
+			}
+		}
+		for _, ch := range children {
+			// Resume children only attach to failed/cancelled parents (the
+			// only states from which a resume can be launched).
+			if ch.RunKind == state.RunKindResume {
+				if parents[i].Status != "failed" && parents[i].Status != "cancelled" {
+					continue
+				}
+			} else if !hasComposition {
+				// Don't attach top-level / unset-kind children that aren't
+				// part of a composition fan-out — they'd be a forked run or
+				// something the caller has already handled.
 				continue
 			}
 			parents[i].ChildRuns = append(parents[i].ChildRuns, runToSummary(ch))

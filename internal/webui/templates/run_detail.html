@@ -7,8 +7,8 @@
     <div>
         <a href="/runs" class="back-link">&larr; Runs</a>
         {{if .Run.ParentRunID}}
-        <a href="/runs/{{.Run.ParentRunID}}" class="back-link" style="font-size:0.72rem;" title="{{.Run.ParentRunID}}">
-            {{- if eq .Run.RunKind "resume"}}&larr; resumed from{{else}}&larr; parent{{end}}
+        <a href="/runs/{{.Run.ParentRunID}}" class="back-link" style="font-size:0.72rem;" title="{{.Run.ParentRunID}}{{if .ParentRun}} ({{.ParentRun.PipelineName}}){{end}}">
+            &larr; {{runKindBreadcrumbLabel .Run.RunKind}}{{if .ParentRun}}: <span style="color:var(--color-text-secondary);">{{.ParentRun.PipelineName}}</span>{{end}}
             {{- with .Run.ParentStepID}}<span style="color:var(--color-text-muted);"> &rsaquo; </span><code style="font-size:0.7rem;background:var(--color-bg-tertiary);padding:0 0.25rem;border-radius:2px;">{{.}}</code>{{end}}
             {{- if and (eq .Run.RunKind "iterate_child") .Run.IterateIndex .Run.IterateTotal}}
             <span style="color:var(--color-text-muted);"> &rsaquo; </span>
@@ -33,6 +33,23 @@
                 resume {{if .ParentStepID}}&rsaquo; <code style="font-size:0.65rem;background:var(--color-bg-tertiary);padding:0 0.2rem;border-radius:2px;">{{.ParentStepID}}</code>{{end}}
                 <span class="badge {{statusClass .Status}}" style="font-size:0.62rem;margin-left:0.25rem;">{{statusLabel .Status}}</span>
             </a>
+            {{end}}
+        </div>
+        {{end}}
+        {{if .CompositionChildGroups}}
+        <div style="margin:0.25rem 0 0.4rem;display:flex;flex-direction:column;gap:0.25rem;font-size:0.72rem;color:var(--color-text-secondary);">
+            {{range .CompositionChildGroups}}
+            <div style="display:flex;flex-wrap:wrap;gap:0.3rem;align-items:center;">
+                <span style="color:var(--color-text-muted);">{{.Label}} {{pluralize (len .Children) "child" "children"}}:</span>
+                {{range .Children}}
+                <a href="/runs/{{.RunID}}" class="badge badge-runkind badge-runkind-{{.RunKind}}" style="text-decoration:none;font-size:0.68rem;" title="{{.PipelineName}} ({{.RunID}}) — launched from step {{.ParentStepID}} — status: {{.Status}}">
+                    {{.PipelineName}}
+                    {{if and (eq .RunKind "iterate_child") .IterateIndex .IterateTotal}}<span style="opacity:0.85;">{{addInt (deref .IterateIndex) 1}}/{{deref .IterateTotal}}</span>{{end}}
+                    {{if .ParentStepID}}<span style="color:var(--color-text-muted);">&rsaquo; <code style="font-size:0.62rem;background:var(--color-bg-tertiary);padding:0 0.2rem;border-radius:2px;">{{.ParentStepID}}</code></span>{{end}}
+                    <span class="badge {{statusClass .Status}}" style="font-size:0.62rem;margin-left:0.25rem;">{{statusLabel .Status}}</span>
+                </a>
+                {{end}}
+            </div>
             {{end}}
         </div>
         {{end}}

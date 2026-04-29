@@ -34,6 +34,102 @@ func runKindLabel(kind string) string {
 	}
 }
 
+// isCompositionRunKind reports whether the given run_kind value identifies a
+// composition child (iterate / aggregate / sub-pipeline / branch / loop) — i.e.
+// any non-resume child kind that should surface as a composition pill on the
+// parent run row and in the run-detail composition section. Resume and
+// top-level / empty kinds return false. Issue #1450 follow-up.
+func isCompositionRunKind(kind string) bool {
+	switch kind {
+	case "iterate_child", "sub_pipeline_child", "branch_arm", "loop_iteration":
+		return true
+	default:
+		return false
+	}
+}
+
+// runKindBreadcrumbLabel returns the parent-link breadcrumb text for a child
+// run with the given run_kind. Pattern is "<arrow> <kind> parent". The arrow
+// is rendered as the HTML entity "&larr;" already so the template just emits
+// the returned string; templates that use this helper must run it through
+// `safeHTML` if they need the entity rendered (we keep it as plain text so
+// templates can mix the entity in markup directly). Issue #1450 follow-up.
+func runKindBreadcrumbLabel(kind string) string {
+	switch kind {
+	case "resume":
+		return "resumed from"
+	case "iterate_child":
+		return "iterate parent"
+	case "sub_pipeline_child":
+		return "composition parent"
+	case "branch_arm":
+		return "branch parent"
+	case "loop_iteration":
+		return "loop parent"
+	case "top_level", "":
+		return "parent"
+	default:
+		// Forward-compatible fallback for future kinds.
+		return "composition parent"
+	}
+}
+
+// childRunGroup is one group of child runs of the same run_kind for rendering
+// the composition-children section on the run-detail page. Issue #1450
+// follow-up.
+type childRunGroup struct {
+	Kind     string
+	Label    string // short human label (e.g. "iterate", "branch")
+	Children []RunSummary
+}
+
+// groupChildrenByKind buckets the supplied child runs by run_kind, preserving
+// a stable display order so the run-detail page renders sections in a
+// predictable sequence: resume, sub_pipeline_child, iterate_child, branch_arm,
+// loop_iteration, then any unknown future kinds. Empty buckets are omitted.
+func groupChildrenByKind(children []RunSummary) []childRunGroup {
+	if len(children) == 0 {
+		return nil
+	}
+	order := []string{
+		"resume",
+		"sub_pipeline_child",
+		"iterate_child",
+		"branch_arm",
+		"loop_iteration",
+	}
+	known := make(map[string]bool, len(order))
+	for _, k := range order {
+		known[k] = true
+	}
+	buckets := make(map[string][]RunSummary)
+	var extras []string
+	for _, c := range children {
+		k := c.RunKind
+		if k == "top_level" || k == "" {
+			// Top-level/empty children shouldn't render in the composition
+			// section. Skip rather than guess.
+			continue
+		}
+		if _, ok := buckets[k]; !ok && !known[k] {
+			extras = append(extras, k)
+		}
+		buckets[k] = append(buckets[k], c)
+	}
+	groups := make([]childRunGroup, 0, len(buckets))
+	for _, k := range order {
+		if items, ok := buckets[k]; ok && len(items) > 0 {
+			groups = append(groups, childRunGroup{Kind: k, Label: runKindLabel(k), Children: items})
+		}
+	}
+	for _, k := range extras {
+		if items := buckets[k]; len(items) > 0 {
+			groups = append(groups, childRunGroup{Kind: k, Label: runKindLabel(k), Children: items})
+		}
+	}
+	return groups
+}
+
 // forgeIcon returns an inline SVG icon for a known forge name.
 // Unknown names return empty string (text-only fallback).
 func forgeIcon(name string) template.HTML {
