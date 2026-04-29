@@ -2,7 +2,8 @@ package display
 
 import (
 	"fmt"
-	"os"
+
+	"github.com/recinq/wave/internal/config"
 )
 
 // CapabilityDetector detects and manages terminal capabilities with caching.
@@ -75,9 +76,9 @@ func SelectColorPalette(colorMode string, asciiOnly bool) ColorPalette {
 		useColors = false
 	case "auto":
 		// Auto mode: use colors if supported and not disabled
-		useColors = DetectANSISupport() && os.Getenv("NO_COLOR") == ""
+		useColors = DetectANSISupport() && config.FromEnv().NoColor == ""
 	default:
-		useColors = DetectANSISupport() && os.Getenv("NO_COLOR") == ""
+		useColors = DetectANSISupport() && config.FromEnv().NoColor == ""
 	}
 
 	if !useColors {
@@ -114,7 +115,7 @@ func GetOptimalDisplayConfig() DisplayConfig {
 
 	// Determine color mode
 	colorMode := "auto"
-	if os.Getenv("NO_COLOR") != "" {
+	if config.FromEnv().NoColor != "" {
 		colorMode = "off"
 	}
 

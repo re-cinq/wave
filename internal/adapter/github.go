@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
+	"github.com/recinq/wave/internal/config"
 	"github.com/recinq/wave/internal/github"
 )
 
@@ -20,7 +20,7 @@ type GitHubAdapter struct {
 func NewGitHubAdapter(token string) *GitHubAdapter {
 	if token == "" {
 		// Try to get token from environment
-		token = os.Getenv("GITHUB_TOKEN")
+		token = config.FromEnv().GitHubToken
 	}
 
 	client := github.NewClient(github.ClientConfig{
