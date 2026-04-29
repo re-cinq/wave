@@ -117,6 +117,17 @@ const (
 	StateRetrying       = "retrying"
 	StateSkipped        = "skipped"
 	StateReworking      = "reworking"
+	// StateRejected is a terminal state distinct from StateFailed. It signals
+	// that a step (or run) was halted by an *intentional design rejection*: a
+	// contract with on_failure: rejected fired because the upstream
+	// assessment declared the work non-actionable (e.g. fetch-assess setting
+	// `implementable: false` because the issue is already implemented or
+	// superseded). Pipeline authors opt in to this signal via
+	// `on_failure: rejected` on the gating contract; downstream UIs render
+	// it with a distinct, non-red badge so operators don't conflate
+	// design rejections with runtime failures. See feat: distinguish
+	// design-rejection from runtime failure (issue tracking the UX gap).
+	StateRejected = "rejected"
 
 	// Progress tracking states
 	StateStepProgress       = "step_progress"       // Step is making progress (with percentage)

@@ -134,10 +134,10 @@ func (v *DAGValidator) ValidateDAG(p *Pipeline) error {
 			// Validate contract-level on_failure enum
 			if c.OnFailure != "" {
 				switch c.OnFailure {
-				case OnFailureFail, OnFailureSkip, OnFailureContinue, OnFailureRework, OnFailureWarn:
+				case OnFailureFail, OnFailureSkip, OnFailureContinue, OnFailureRework, OnFailureWarn, OnFailureRejected:
 					// valid
 				default:
-					return fmt.Errorf("step %q: agent_review contract has invalid on_failure value %q (must be fail, skip, continue, rework, or warn)",
+					return fmt.Errorf("step %q: agent_review contract has invalid on_failure value %q (must be fail, skip, continue, rework, warn, or rejected)",
 						step.ID, c.OnFailure)
 				}
 			}

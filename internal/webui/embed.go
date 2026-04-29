@@ -258,6 +258,10 @@ func statusIcon(status string) string {
 		return "●"
 	case "failed":
 		return "✕"
+	case "rejected":
+		// Bang glyph signals "stop, take a look" without the red-cross
+		// "this broke" connotation of failure. Used by run_row + run_detail.
+		return "!"
 	case "cancelled":
 		return "○"
 	case "pending":
@@ -278,6 +282,11 @@ func statusClass(status string) string {
 		return "status-running"
 	case "failed":
 		return "status-failed"
+	case "rejected":
+		// Rejected = design-rejection terminal state (e.g. fetch-assess
+		// reported `implementable: false`). Distinct from `failed` so the
+		// UI doesn't misrepresent a legitimate verdict as a runtime bug.
+		return "status-rejected"
 	case "cancelled":
 		return "status-cancelled"
 	case "pending":
@@ -300,6 +309,11 @@ func statusLabel(status string) string {
 	switch status {
 	case "completed_empty":
 		return "No Changes"
+	case "rejected":
+		// "rejected" alone reads ambiguously in tables — be explicit about
+		// the design-rejection meaning so operators don't confuse it with
+		// PR/issue rejection vocabulary.
+		return "rejected (no-op)"
 	default:
 		return status
 	}

@@ -5,11 +5,12 @@
             {{if eq .Status "running"}}<span class="spinner spinner-sm" aria-label="Running" role="status"></span>
             {{else if eq .Status "completed"}}<span class="status-check">&#10003;</span>
             {{else if eq .Status "failed"}}<span class="status-cross">&#10007;</span>
+            {{else if eq .Status "rejected"}}<span class="status-bang" aria-label="Design rejection — no implementable result">&#33;</span>
             {{else if eq .Status "cancelled"}}<span class="status-dash">&#9644;</span>
             {{else}}<span class="status-dot">&#9679;</span>
             {{end}}
         </span>
-        <span class="badge {{statusClass .Status}}">{{.Status}}</span>
+        <span class="badge {{statusClass .Status}}" title="{{if eq .Status "rejected"}}Pipeline halted because a contract reported the work is non-actionable (design rejection — not a runtime failure){{end}}">{{statusLabel .Status}}</span>
     </td>
     <td class="wrap">
         <div class="run-pipeline-name">

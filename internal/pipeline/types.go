@@ -23,6 +23,7 @@ const (
 	stateRetrying       = string(state.StateRetrying)
 	stateSkipped        = string(state.StateSkipped)
 	stateReworking      = string(state.StateReworking)
+	stateRejected       = string(state.StateRejected)
 )
 
 // OnFailure policy constants for contract and step failure handling.
@@ -33,6 +34,13 @@ const (
 	OnFailureRework   = "rework"
 	OnFailureWarn     = "warn"
 	OnFailureRetry    = "retry"
+	// OnFailureRejected marks a contract failure as an *intentional design
+	// rejection* rather than a runtime error. The pipeline halts and the run
+	// terminates in the dedicated `rejected` state (distinct from `failed`).
+	// Used by gating contracts where the upstream persona is expected to
+	// declare a no-op result (e.g. `implementable: false` in fetch-assess).
+	// CLI exits 0 and webui renders a non-red badge.
+	OnFailureRejected = "rejected"
 )
 
 // Fidelity constants control how much prior thread context a step receives.
