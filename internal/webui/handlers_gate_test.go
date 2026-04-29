@@ -7,15 +7,15 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/runner"
 )
 
 func TestGateRegistry_RegisterAndResolve(t *testing.T) {
 	g := NewGateRegistry()
 
-	gate := &pipeline.GateConfig{
+	gate := &runner.WebUIGate{
 		Type: "approval",
-		Choices: []pipeline.GateChoice{
+		Choices: []runner.WebUIGateChoice{
 			{Key: "a", Label: "Approve", Target: "next"},
 		},
 	}
@@ -30,7 +30,7 @@ func TestGateRegistry_RegisterAndResolve(t *testing.T) {
 	}
 
 	// Resolve with a decision
-	decision := &pipeline.GateDecision{Choice: "a", Label: "Approve", Target: "next"}
+	decision := &runner.WebUIGateDecision{Choice: "a", Label: "Approve", Target: "next"}
 	if err := g.Resolve("run1", decision); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -49,7 +49,7 @@ func TestGateRegistry_RegisterAndResolve(t *testing.T) {
 func TestGateRegistry_ResolveNonExistent(t *testing.T) {
 	g := NewGateRegistry()
 
-	decision := &pipeline.GateDecision{Choice: "a"}
+	decision := &runner.WebUIGateDecision{Choice: "a"}
 	err := g.Resolve("run1", decision)
 	if err == nil {
 		t.Error("expected error for non-existent gate")
@@ -58,13 +58,13 @@ func TestGateRegistry_ResolveNonExistent(t *testing.T) {
 
 func TestGateRegistry_DoubleResolve(t *testing.T) {
 	g := NewGateRegistry()
-	gate := &pipeline.GateConfig{
+	gate := &runner.WebUIGate{
 		Type:    "approval",
-		Choices: []pipeline.GateChoice{{Key: "a", Label: "Approve"}},
+		Choices: []runner.WebUIGateChoice{{Key: "a", Label: "Approve"}},
 	}
 	g.Register("run1", "step1", gate)
 
-	decision := &pipeline.GateDecision{Choice: "a", Label: "Approve"}
+	decision := &runner.WebUIGateDecision{Choice: "a", Label: "Approve"}
 	if err := g.Resolve("run1", decision); err != nil {
 		t.Fatalf("first resolve should succeed, got %v", err)
 	}
@@ -77,15 +77,15 @@ func TestGateRegistry_DoubleResolve(t *testing.T) {
 
 func TestGateRegistry_Remove(t *testing.T) {
 	g := NewGateRegistry()
-	gate := &pipeline.GateConfig{
+	gate := &runner.WebUIGate{
 		Type:    "approval",
-		Choices: []pipeline.GateChoice{{Key: "a", Label: "Approve"}},
+		Choices: []runner.WebUIGateChoice{{Key: "a", Label: "Approve"}},
 	}
 	g.Register("run1", "step1", gate)
 
 	g.Remove("run1")
 
-	decision := &pipeline.GateDecision{Choice: "a"}
+	decision := &runner.WebUIGateDecision{Choice: "a"}
 	err := g.Resolve("run1", decision)
 	if err == nil {
 		t.Error("resolve after remove should return error")
@@ -100,9 +100,9 @@ func TestGateRegistry_GetPending(t *testing.T) {
 		t.Error("expected nil for no pending gate")
 	}
 
-	gate := &pipeline.GateConfig{
+	gate := &runner.WebUIGate{
 		Type:    "approval",
-		Choices: []pipeline.GateChoice{{Key: "a", Label: "Approve"}},
+		Choices: []runner.WebUIGateChoice{{Key: "a", Label: "Approve"}},
 	}
 	g.Register("run1", "step1", gate)
 
@@ -122,7 +122,7 @@ func TestGateRegistry_GetPendingStepID(t *testing.T) {
 		t.Errorf("expected empty string for no pending gate, got %q", got)
 	}
 
-	gate := &pipeline.GateConfig{Type: "approval"}
+	gate := &runner.WebUIGate{Type: "approval"}
 	g.Register("run1", "review", gate)
 
 	if got := g.GetPendingStepID("run1"); got != "review" {
@@ -133,9 +133,9 @@ func TestGateRegistry_GetPendingStepID(t *testing.T) {
 func TestHandleGateApprove_MissingCSRFHeader(t *testing.T) {
 	srv, _ := testServer(t)
 
-	gate := &pipeline.GateConfig{
+	gate := &runner.WebUIGate{
 		Type:    "approval",
-		Choices: []pipeline.GateChoice{{Key: "a", Label: "Approve"}},
+		Choices: []runner.WebUIGateChoice{{Key: "a", Label: "Approve"}},
 	}
 	srv.realtime.gateRegistry.Register("run-123", "review", gate)
 
@@ -156,9 +156,9 @@ func TestHandleGateApprove_MissingCSRFHeader(t *testing.T) {
 func TestHandleGateApprove_Success(t *testing.T) {
 	srv, _ := testServer(t)
 
-	gate := &pipeline.GateConfig{
+	gate := &runner.WebUIGate{
 		Type: "approval",
-		Choices: []pipeline.GateChoice{
+		Choices: []runner.WebUIGateChoice{
 			{Key: "a", Label: "Approve", Target: "implement"},
 			{Key: "r", Label: "Reject", Target: "_fail"},
 		},
@@ -238,9 +238,9 @@ func TestHandleGateApprove_NoGateRegistry(t *testing.T) {
 func TestHandleGateApprove_StepMismatch(t *testing.T) {
 	srv, _ := testServer(t)
 
-	gate := &pipeline.GateConfig{
+	gate := &runner.WebUIGate{
 		Type:    "approval",
-		Choices: []pipeline.GateChoice{{Key: "a", Label: "Approve"}},
+		Choices: []runner.WebUIGateChoice{{Key: "a", Label: "Approve"}},
 	}
 	srv.realtime.gateRegistry.Register("run-123", "review", gate)
 
@@ -261,9 +261,9 @@ func TestHandleGateApprove_StepMismatch(t *testing.T) {
 func TestHandleGateApprove_InvalidChoice(t *testing.T) {
 	srv, _ := testServer(t)
 
-	gate := &pipeline.GateConfig{
+	gate := &runner.WebUIGate{
 		Type:    "approval",
-		Choices: []pipeline.GateChoice{{Key: "a", Label: "Approve"}},
+		Choices: []runner.WebUIGateChoice{{Key: "a", Label: "Approve"}},
 	}
 	srv.realtime.gateRegistry.Register("run-123", "review", gate)
 

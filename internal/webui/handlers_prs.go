@@ -496,8 +496,7 @@ func (s *Server) handleAPIStartFromPR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pl, err := loadPipelineYAML(req.PipelineName)
-	if err != nil {
+	if _, err := loadPipelineYAML(req.PipelineName); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "pipeline not found: "+req.PipelineName)
 		return
 	}
@@ -526,9 +525,9 @@ func (s *Server) handleAPIStartFromPR(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.FromStep != "" {
-		s.launchPipelineExecution(runID, req.PipelineName, req.PRURL, pl, opts, req.FromStep)
+		s.launchPipelineExecution(runID, req.PipelineName, req.PRURL, opts, req.FromStep)
 	} else {
-		s.launchPipelineExecution(runID, req.PipelineName, req.PRURL, pl, opts)
+		s.launchPipelineExecution(runID, req.PipelineName, req.PRURL, opts)
 	}
 
 	writeJSON(w, http.StatusCreated, StartPipelineResponse{

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/runner"
 )
 
@@ -42,26 +41,18 @@ func (s *Server) handleForkRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := loadPipelineYAML(originalRun.PipelineName)
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to load pipeline: "+err.Error())
-		return
-	}
-
-	fm := pipeline.NewForkManager(s.runtime.rwStore)
 	allowFailed := originalRun.Status != "completed"
-	newRunID, err := fm.Fork(runID, req.FromStep, p, allowFailed)
+	fc := runner.NewForkController(s.runtime.rwStore)
+	newRunID, err := fc.Fork(runID, req.FromStep, originalRun.PipelineName, allowFailed)
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, "fork failed: "+err.Error())
 		return
 	}
 
-	resumeStep := ""
-	for i, step := range p.Steps {
-		if step.ID == req.FromStep && i+1 < len(p.Steps) {
-			resumeStep = p.Steps[i+1].ID
-			break
-		}
+	resumeStep, err := fc.ResumeStepAfter(originalRun.PipelineName, req.FromStep)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to load pipeline: "+err.Error())
+		return
 	}
 
 	if resumeStep == "" {
@@ -79,7 +70,7 @@ func (s *Server) handleForkRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, p, runner.Options{}, resumeStep)
+	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, runner.Options{}, resumeStep)
 
 	writeJSON(w, http.StatusCreated, ForkRunResponse{
 		RunID:        newRunID,
@@ -123,37 +114,21 @@ func (s *Server) handleRewindRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := loadPipelineYAML(run.PipelineName)
+	plan, err := runner.NewForkController(s.runtime.rwStore).PlanRewind(run.PipelineName, req.ToStep)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to load pipeline: "+err.Error())
 		return
 	}
-
-	rewindIndex := -1
-	for i, step := range p.Steps {
-		if step.ID == req.ToStep {
-			rewindIndex = i
-			break
-		}
-	}
-	if rewindIndex == -1 {
+	if plan.StepIndex == -1 {
 		writeJSONError(w, http.StatusBadRequest, "step not found in pipeline: "+req.ToStep)
 		return
 	}
-
-	var stepsDeleted []string
-	for i, step := range p.Steps {
-		if i > rewindIndex {
-			stepsDeleted = append(stepsDeleted, step.ID)
-		}
-	}
-
-	if len(stepsDeleted) == 0 {
+	if len(plan.StepsDeleted) == 0 {
 		writeJSONError(w, http.StatusBadRequest, "nothing to rewind")
 		return
 	}
 
-	if err := s.runtime.rwStore.DeleteCheckpointsAfterStep(runID, rewindIndex); err != nil {
+	if err := s.runtime.rwStore.DeleteCheckpointsAfterStep(runID, plan.StepIndex); err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "rewind failed: "+err.Error())
 		return
 	}
@@ -167,7 +142,7 @@ func (s *Server) handleRewindRun(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, RewindRunResponse{
 		RunID:        runID,
 		ToStep:       req.ToStep,
-		StepsDeleted: stepsDeleted,
+		StepsDeleted: plan.StepsDeleted,
 		Status:       "failed",
 	})
 }
@@ -185,8 +160,7 @@ func (s *Server) handleForkPoints(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fm := pipeline.NewForkManager(s.runtime.store)
-	points, err := fm.ListForkPoints(runID)
+	points, err := runner.NewForkController(s.runtime.store).ListForkPoints(runID)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to list fork points: "+err.Error())
 		return
