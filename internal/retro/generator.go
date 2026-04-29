@@ -7,8 +7,24 @@ import (
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/state"
 )
+
+// runQuerier is the run/step subset of state.RunStore the collector needs.
+// Kept narrow so callers can pass any store that exposes these methods.
+type runQuerier interface {
+	GetRun(runID string) (*state.RunRecord, error)
+	GetStepAttempts(runID string, stepID string) ([]state.StepAttemptRecord, error)
+}
+
+// combinedStore composes a runQuerier with a *metrics.Store so the Collector
+// can satisfy its StateQuerier dependency without forcing callers to wire a
+// new aggregate type.
+type combinedStore struct {
+	runQuerier
+	*metrics.Store
+}
 
 // Generator orchestrates retrospective generation after pipeline runs.
 type Generator struct {
@@ -18,11 +34,14 @@ type Generator struct {
 	config    *manifest.RetrosConfig
 }
 
-// NewGenerator creates a Generator with all dependencies.
-func NewGenerator(store state.RunStore, runner adapter.AdapterRunner, retrosDir string, config *manifest.RetrosConfig) *Generator {
+// NewGenerator creates a Generator with all dependencies. The runStore
+// supplies run/step lookups; the metricsStore supplies performance-metric
+// reads and retrospective index writes (both tables migrated to
+// internal/metrics in #62).
+func NewGenerator(runStore runQuerier, metricsStore *metrics.Store, runner adapter.AdapterRunner, retrosDir string, config *manifest.RetrosConfig) *Generator {
 	g := &Generator{
-		collector: NewCollector(store),
-		storage:   NewStorage(retrosDir, store),
+		collector: NewCollector(combinedStore{runQuerier: runStore, Store: metricsStore}),
+		storage:   NewStorage(retrosDir, metricsStore),
 		config:    config,
 	}
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/state"
 	"github.com/spf13/cobra"
@@ -53,14 +54,15 @@ func runRetroView(runID string, narrate bool, jsonOutput bool) error {
 	}
 	defer store.Close()
 
-	storage := retro.NewStorage(".agents/retros", store)
+	mstore := metrics.NewStore(state.UnderlyingDB(store))
+	storage := retro.NewStorage(".agents/retros", mstore)
 
 	if narrate {
 		m, runner, err := loadManifestAndRunner()
 		if err != nil {
 			return err
 		}
-		gen := retro.NewGenerator(store, runner, ".agents/retros", &m.Runtime.Retros)
+		gen := retro.NewGenerator(store, mstore, runner, ".agents/retros", &m.Runtime.Retros)
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		defer cancel()
 		if err := gen.GenerateNarrativeSync(ctx, runID); err != nil {
@@ -179,7 +181,7 @@ func runRetroList(pipelineFilter, since string) error {
 	}
 	defer store.Close()
 
-	storage := retro.NewStorage(".agents/retros", store)
+	storage := retro.NewStorage(".agents/retros", metrics.NewStore(state.UnderlyingDB(store)))
 
 	var sinceTime time.Time
 	if since != "" {
@@ -241,7 +243,7 @@ func runRetroStats() error {
 	}
 	defer store.Close()
 
-	storage := retro.NewStorage(".agents/retros", store)
+	storage := retro.NewStorage(".agents/retros", metrics.NewStore(state.UnderlyingDB(store)))
 
 	records, err := storage.List("", time.Time{}, 1000)
 	if err != nil {

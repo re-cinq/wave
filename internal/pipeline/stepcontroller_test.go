@@ -29,19 +29,6 @@ func (m *mockStepStore) LogEvent(runID string, stepID string, st string, persona
 
 func (m *mockStepStore) Close() error { return nil }
 
-func (m *mockStepStore) SaveRetrospective(record *state.RetrospectiveRecord) error { return nil }
-func (m *mockStepStore) GetRetrospective(runID string) (*state.RetrospectiveRecord, error) {
-	return nil, nil
-}
-func (m *mockStepStore) ListRetrospectives(opts state.ListRetrosOptions) ([]state.RetrospectiveRecord, error) {
-	return nil, nil
-}
-func (m *mockStepStore) DeleteRetrospective(runID string) error { return nil }
-func (m *mockStepStore) UpdateRetrospectiveSmoothness(runID string, smoothness string) error {
-	return nil
-}
-func (m *mockStepStore) UpdateRetrospectiveStatus(runID string, status string) error { return nil }
-
 // ---------------------------------------------------------------------------
 // Helper to build a minimal ChatContext for tests.
 // ---------------------------------------------------------------------------

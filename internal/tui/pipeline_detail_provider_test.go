@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +21,7 @@ type detailMockStore struct {
 	baseStateStore
 	run          *state.RunRecord
 	runErr       error
-	metrics      []state.PerformanceMetricRecord
+	perfMetrics  []metrics.PerformanceMetricRecord
 	metricsErr   error
 	artifacts    []state.ArtifactRecord
 	artifactsErr error
@@ -30,8 +31,8 @@ func (m *detailMockStore) GetRun(string) (*state.RunRecord, error) {
 	return m.run, m.runErr
 }
 
-func (m *detailMockStore) GetPerformanceMetrics(string, string) ([]state.PerformanceMetricRecord, error) {
-	return m.metrics, m.metricsErr
+func (m *detailMockStore) GetPerformanceMetrics(string, string) ([]metrics.PerformanceMetricRecord, error) {
+	return m.perfMetrics, m.metricsErr
 }
 
 func (m *detailMockStore) GetArtifacts(string, string) ([]state.ArtifactRecord, error) {
@@ -138,7 +139,7 @@ func TestDefaultDetailDataProvider_FetchFinishedDetail_Completed(t *testing.T) {
 			StartedAt:    timeAt(10, 0),
 			CompletedAt:  completedAt,
 		},
-		metrics: []state.PerformanceMetricRecord{
+		perfMetrics: []metrics.PerformanceMetricRecord{
 			{
 				StepID:     "step1",
 				Persona:    "navigator",
@@ -203,7 +204,7 @@ func TestDefaultDetailDataProvider_FetchFinishedDetail_Failed(t *testing.T) {
 			CompletedAt:  completedAt,
 			ErrorMessage: "step2 contract validation failed",
 		},
-		metrics: []state.PerformanceMetricRecord{
+		perfMetrics: []metrics.PerformanceMetricRecord{
 			{
 				StepID:     "step1",
 				Persona:    "navigator",
@@ -243,7 +244,7 @@ func TestDefaultDetailDataProvider_FetchFinishedDetail_ZeroArtifacts(t *testing.
 			StartedAt:   timeAt(11, 0),
 			CompletedAt: completedAt,
 		},
-		metrics:   []state.PerformanceMetricRecord{},
+		perfMetrics: []metrics.PerformanceMetricRecord{},
 		artifacts: nil,
 	}
 
@@ -282,7 +283,7 @@ func TestDefaultDetailDataProvider_FetchFinishedDetail_WorkspacePath(t *testing.
 			StartedAt:    timeAt(10, 0),
 			CompletedAt:  completedAt,
 		},
-		metrics: []state.PerformanceMetricRecord{},
+		perfMetrics: []metrics.PerformanceMetricRecord{},
 	}
 
 	// Create the expected workspace directory.
@@ -308,7 +309,7 @@ func TestDefaultDetailDataProvider_FetchFinishedDetail_WorkspacePathMissing(t *t
 			StartedAt:    timeAt(10, 0),
 			CompletedAt:  completedAt,
 		},
-		metrics: []state.PerformanceMetricRecord{},
+		perfMetrics: []metrics.PerformanceMetricRecord{},
 	}
 
 	provider := NewDefaultDetailDataProvider(store, "")
@@ -330,7 +331,7 @@ func TestDefaultDetailDataProvider_FetchFinishedDetail_EmptyBranchGlob(t *testin
 			StartedAt:    timeAt(10, 0),
 			CompletedAt:  completedAt,
 		},
-		metrics: []state.PerformanceMetricRecord{},
+		perfMetrics: []metrics.PerformanceMetricRecord{},
 	}
 
 	// Create a worktree directory with any name.

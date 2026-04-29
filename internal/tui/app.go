@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/recinq/wave/internal/forge"
+	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/state"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -138,7 +139,11 @@ func RunTUI(deps LaunchDependencies) error {
 	// Build content providers from launch dependencies
 	cp := ContentProviders{}
 	if deps.Manifest != nil {
-		cp.PersonaProvider = NewDefaultPersonaDataProvider(deps.Manifest, deps.Store, deps.PipelinesDir)
+		var mstore *metrics.Store
+		if deps.Store != nil {
+			mstore = metrics.NewStore(state.UnderlyingDB(deps.Store))
+		}
+		cp.PersonaProvider = NewDefaultPersonaDataProvider(deps.Manifest, mstore, deps.PipelinesDir)
 	}
 	if deps.PipelinesDir != "" {
 		cp.ContractProvider = NewDefaultContractDataProvider(deps.PipelinesDir)
@@ -181,7 +186,7 @@ func RunTUI(deps LaunchDependencies) error {
 	var detailProvider DetailDataProvider
 	if deps.Store != nil {
 		pipelineProvider = NewDefaultPipelineDataProvider(deps.Store, deps.PipelinesDir)
-		detailProvider = NewDefaultDetailDataProvider(deps.Store, deps.PipelinesDir)
+		detailProvider = NewDefaultDetailDataProvider(NewDetailStore(deps.Store, metrics.NewStore(state.UnderlyingDB(deps.Store))), deps.PipelinesDir)
 	}
 
 	model := NewAppModel(metaProvider, pipelineProvider, detailProvider, deps, cp)

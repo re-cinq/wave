@@ -13,6 +13,7 @@ import (
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/hooks"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/retro"
@@ -48,6 +49,7 @@ type DefaultPipelineExecutor struct {
 	runner       adapter.AdapterRunner // Deprecated: use registry for per-step resolution
 	registry     *adapter.AdapterRegistry
 	store        state.StateStore
+	metrics      *metrics.Store
 	logger       audit.AuditLogger
 	wsManager    workspace.WorkspaceManager
 	relayMonitor *relay.RelayMonitor
@@ -127,7 +129,22 @@ func WithEmitter(e event.EventEmitter) ExecutorOption {
 }
 
 func WithStateStore(s state.StateStore) ExecutorOption {
-	return func(ex *DefaultPipelineExecutor) { ex.store = s }
+	return func(ex *DefaultPipelineExecutor) {
+		ex.store = s
+		// Auto-derive a metrics handle from the same connection so callers
+		// don't have to pass two stores. Test stubs that don't satisfy the
+		// concrete *stateStore type leave metrics nil — call sites guard for
+		// that already.
+		if db := state.UnderlyingDB(s); db != nil {
+			ex.metrics = metrics.NewStore(db)
+		}
+	}
+}
+
+// WithMetricsStore overrides the metrics handle. Useful for tests that drive
+// the executor with an explicit *metrics.Store backed by a temp DB.
+func WithMetricsStore(m *metrics.Store) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.metrics = m }
 }
 
 func WithAuditLogger(l audit.AuditLogger) ExecutorOption {

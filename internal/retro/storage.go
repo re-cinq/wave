@@ -7,14 +7,16 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/metrics"
 )
 
-// RetroIndexer is the subset of state.RunStore needed by Storage.
+// RetroIndexer is the index-store surface Storage needs. The retrospective
+// table moved to internal/metrics in issue #62; *metrics.Store satisfies this
+// interface implicitly.
 type RetroIndexer interface {
-	SaveRetrospective(record *state.RetrospectiveRecord) error
-	GetRetrospective(runID string) (*state.RetrospectiveRecord, error)
-	ListRetrospectives(opts state.ListRetrosOptions) ([]state.RetrospectiveRecord, error)
+	SaveRetrospective(record *metrics.RetrospectiveRecord) error
+	GetRetrospective(runID string) (*metrics.RetrospectiveRecord, error)
+	ListRetrospectives(opts metrics.ListRetrosOptions) ([]metrics.RetrospectiveRecord, error)
 	DeleteRetrospective(runID string) error
 	UpdateRetrospectiveSmoothness(runID string, smoothness string) error
 	UpdateRetrospectiveStatus(runID string, status string) error
@@ -58,7 +60,7 @@ func (s *Storage) Save(retro *Retrospective) error {
 		status = "complete"
 	}
 
-	record := &state.RetrospectiveRecord{
+	record := &metrics.RetrospectiveRecord{
 		RunID:        retro.RunID,
 		PipelineName: retro.Pipeline,
 		Smoothness:   smoothness,
@@ -114,8 +116,8 @@ func (s *Storage) Update(retro *Retrospective) error {
 }
 
 // List returns retrospective records matching the given filters.
-func (s *Storage) List(pipelineName string, since time.Time, limit int) ([]state.RetrospectiveRecord, error) {
-	opts := state.ListRetrosOptions{
+func (s *Storage) List(pipelineName string, since time.Time, limit int) ([]metrics.RetrospectiveRecord, error) {
+	opts := metrics.ListRetrosOptions{
 		PipelineName: pipelineName,
 		Limit:        limit,
 	}

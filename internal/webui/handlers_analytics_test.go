@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -132,7 +133,8 @@ func TestHandleAPIAnalyticsWithPersonaMetrics(t *testing.T) {
 
 	// Record performance metrics for different personas
 	now := time.Now()
-	_ = rwStore.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+	mstore := metrics.NewStore(state.UnderlyingDB(rwStore))
+	_ = mstore.RecordPerformanceMetric(&metrics.PerformanceMetricRecord{
 		RunID:        runID,
 		StepID:       "fetch",
 		PipelineName: "impl-issue",
@@ -141,7 +143,7 @@ func TestHandleAPIAnalyticsWithPersonaMetrics(t *testing.T) {
 		TokensUsed:   2000,
 		Success:      true,
 	})
-	_ = rwStore.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+	_ = mstore.RecordPerformanceMetric(&metrics.PerformanceMetricRecord{
 		RunID:        runID,
 		StepID:       "implement",
 		PipelineName: "impl-issue",

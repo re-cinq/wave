@@ -5,13 +5,16 @@ import (
 	"log"
 	"time"
 
+	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/state"
 )
 
-// StateQuerier is the subset of state.RunStore needed by the Collector.
+// StateQuerier is the persistence surface needed by the Collector. It spans
+// run lookup + step attempts (state.RunStore) and performance metrics, which
+// live in internal/metrics post-#62 extraction.
 type StateQuerier interface {
 	GetRun(runID string) (*state.RunRecord, error)
-	GetPerformanceMetrics(runID string, stepID string) ([]state.PerformanceMetricRecord, error)
+	GetPerformanceMetrics(runID string, stepID string) ([]metrics.PerformanceMetricRecord, error)
 	GetStepAttempts(runID string, stepID string) ([]state.StepAttemptRecord, error)
 }
 

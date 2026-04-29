@@ -78,13 +78,6 @@ type StateStore interface {
 	Close() error
 }
 
-// ListRetrosOptions specifies filters for listing retrospectives.
-type ListRetrosOptions struct {
-	PipelineName string
-	SinceUnix    int64
-	Limit        int
-}
-
 // runningRunsLister is the minimal store surface WaitForConcurrencySlot needs.
 type runningRunsLister interface {
 	GetRunningRuns() ([]RunRecord, error)
@@ -124,6 +117,18 @@ func (s *stateStore) now() time.Time {
 		return s.clock()
 	}
 	return time.Now()
+}
+
+// UnderlyingDB returns the *sql.DB handle backing the given StateStore, or
+// nil if the store is not the canonical sqlite-backed implementation (e.g. a
+// test mock). This is the seam used by adjacent packages — internal/metrics
+// in particular — that need to share the same connection pool without
+// importing internal/state's private types.
+func UnderlyingDB(s StateStore) *sql.DB {
+	if ss, ok := s.(*stateStore); ok {
+		return ss.db
+	}
+	return nil
 }
 
 func NewStateStore(dbPath string) (StateStore, error) {

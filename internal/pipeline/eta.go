@@ -4,11 +4,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/metrics"
 )
 
+// statsLookup is the minimal slice of *metrics.Store ETACalculator needs.
+// Defined locally so tests can stub it without spinning up a real DB.
+type statsLookup interface {
+	GetStepPerformanceStats(pipelineName string, stepID string, since time.Time) (*metrics.StepPerformanceStats, error)
+}
+
 // ETACalculator estimates remaining pipeline time using historical step durations
-// from the state store combined with actual durations from the current run.
+// from the metrics store combined with actual durations from the current run.
 // It is safe for concurrent use.
 type ETACalculator struct {
 	mu               sync.Mutex
@@ -19,9 +25,9 @@ type ETACalculator struct {
 }
 
 // NewETACalculator creates an ETACalculator by querying historical step performance
-// from the state store. If store is nil or no historical data exists, the calculator
+// from the metrics store. If store is nil or no historical data exists, the calculator
 // gracefully degrades — returning 0 for all estimates.
-func NewETACalculator(store state.RunStore, pipelineName string, stepIDs []string) *ETACalculator {
+func NewETACalculator(store statsLookup, pipelineName string, stepIDs []string) *ETACalculator {
 	calc := &ETACalculator{
 		historicalAvg:    make(map[string]int64, len(stepIDs)),
 		currentDurations: make(map[string]int64),

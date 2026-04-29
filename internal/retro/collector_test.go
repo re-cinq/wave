@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -12,7 +13,7 @@ import (
 type mockStateQuerier struct {
 	run      *state.RunRecord
 	runErr   error
-	metrics  []state.PerformanceMetricRecord
+	perfMetrics []metrics.PerformanceMetricRecord
 	metErr   error
 	attempts map[string][]state.StepAttemptRecord
 	attErr   error
@@ -25,11 +26,11 @@ func (m *mockStateQuerier) GetRun(runID string) (*state.RunRecord, error) {
 	return m.run, nil
 }
 
-func (m *mockStateQuerier) GetPerformanceMetrics(runID, stepID string) ([]state.PerformanceMetricRecord, error) {
+func (m *mockStateQuerier) GetPerformanceMetrics(runID, stepID string) ([]metrics.PerformanceMetricRecord, error) {
 	if m.metErr != nil {
 		return nil, m.metErr
 	}
-	return m.metrics, nil
+	return m.perfMetrics, nil
 }
 
 func (m *mockStateQuerier) GetStepAttempts(runID, stepID string) ([]state.StepAttemptRecord, error) {
@@ -63,7 +64,7 @@ func TestCollector_Collect(t *testing.T) {
 					StartedAt:    now,
 					CompletedAt:  &completed,
 				},
-				metrics: []state.PerformanceMetricRecord{
+				perfMetrics: []metrics.PerformanceMetricRecord{
 					{StepID: "plan", DurationMs: 30000, TokensUsed: 2000, FilesModified: 1, Success: true, Persona: "navigator"},
 					{StepID: "implement", DurationMs: 90000, TokensUsed: 3000, FilesModified: 5, Success: true, Persona: "craftsman"},
 				},
@@ -86,7 +87,7 @@ func TestCollector_Collect(t *testing.T) {
 					StartedAt:   now,
 					CompletedAt: &completed,
 				},
-				metrics: []state.PerformanceMetricRecord{
+				perfMetrics: []metrics.PerformanceMetricRecord{
 					{StepID: "implement", DurationMs: 60000, TokensUsed: 2000, Success: false, Persona: "craftsman"},
 					{StepID: "implement", DurationMs: 60000, TokensUsed: 2000, Success: true, Persona: "craftsman"},
 				},
@@ -110,7 +111,7 @@ func TestCollector_Collect(t *testing.T) {
 					StartedAt:   now,
 					CompletedAt: &completed,
 				},
-				metrics: []state.PerformanceMetricRecord{
+				perfMetrics: []metrics.PerformanceMetricRecord{
 					{StepID: "plan", DurationMs: 30000, TokensUsed: 2000, Success: true},
 					{StepID: "implement", DurationMs: 60000, TokensUsed: 3000, Success: false},
 				},
@@ -137,7 +138,7 @@ func TestCollector_Collect(t *testing.T) {
 					StartedAt:   now,
 					CompletedAt: &completed,
 				},
-				metrics:  nil,
+				perfMetrics: nil,
 				attempts: map[string][]state.StepAttemptRecord{},
 			},
 			wantSteps: 0,

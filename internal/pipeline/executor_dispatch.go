@@ -14,6 +14,7 @@ import (
 	"github.com/recinq/wave/internal/cost"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/hooks"
+	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
 )
@@ -145,9 +146,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		if e.logger != nil {
 			_ = e.logger.LogStepEnd(res.pipelineID, step.ID, stateFailed, time.Since(stepStart), 0, 0, 0, adapterErr.Error())
 		}
-		if e.store != nil {
+		if e.metrics != nil {
 			completedAt := time.Now()
-			e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+			_ = e.metrics.RecordPerformanceMetric(&metrics.PerformanceMetricRecord{
 				RunID:        res.pipelineID,
 				StepID:       step.ID,
 				PipelineName: execution.Status.PipelineName,
@@ -185,9 +186,9 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 		if e.logger != nil {
 			_ = e.logger.LogStepEnd(res.pipelineID, step.ID, stateFailed, time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, "rate limited: "+result.ResultContent)
 		}
-		if e.store != nil {
+		if e.metrics != nil {
 			completedAt := time.Now()
-			e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+			_ = e.metrics.RecordPerformanceMetric(&metrics.PerformanceMetricRecord{
 				RunID:        res.pipelineID,
 				StepID:       step.ID,
 				PipelineName: execution.Status.PipelineName,
@@ -784,9 +785,9 @@ func (e *DefaultPipelineExecutor) processAdapterResult(
 	}
 
 	// Record performance metric for TUI step breakdown
-	if e.store != nil {
+	if e.metrics != nil {
 		completedAt := time.Now()
-		e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+		_ = e.metrics.RecordPerformanceMetric(&metrics.PerformanceMetricRecord{
 			RunID:              pipelineID,
 			StepID:             step.ID,
 			PipelineName:       execution.Status.PipelineName,

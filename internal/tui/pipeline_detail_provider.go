@@ -7,6 +7,7 @@ import (
 	"time"
 
 	wgit "github.com/recinq/wave/internal/git"
+	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
 )
@@ -91,11 +92,14 @@ type DetailDataProvider interface {
 }
 
 // detailStore is the persistence surface needed by the detail provider:
-// run lookup + step performance/attempts (RunStore) plus event/artifact
-// retrieval (EventStore). Satisfied by the aggregate StateStore.
+// run lookup + step attempts (RunStore), event/artifact retrieval
+// (EventStore), and performance metrics (metrics.Store). The aggregate
+// StateStore satisfies the run/event halves; the metrics handle is wired
+// alongside it post-#62.
 type detailStore interface {
 	state.RunStore
 	state.EventStore
+	GetPerformanceMetrics(runID string, stepID string) ([]metrics.PerformanceMetricRecord, error)
 }
 
 // DefaultDetailDataProvider implements DetailDataProvider using state store and pipeline directory.
@@ -107,6 +111,21 @@ type DefaultDetailDataProvider struct {
 // NewDefaultDetailDataProvider creates a new provider.
 func NewDefaultDetailDataProvider(store detailStore, pipelinesDir string) *DefaultDetailDataProvider {
 	return &DefaultDetailDataProvider{store: store, pipelinesDir: pipelinesDir}
+}
+
+// detailStoreAdapter glues a state.StateStore to a *metrics.Store so the
+// composed surface satisfies detailStore. Useful for production callers that
+// hold both handles.
+type detailStoreAdapter struct {
+	state.StateStore
+	*metrics.Store
+}
+
+// NewDetailStore composes a state.StateStore and *metrics.Store into the
+// detail provider's persistence surface. Pass the result to
+// NewDefaultDetailDataProvider.
+func NewDetailStore(s state.StateStore, m *metrics.Store) detailStore {
+	return detailStoreAdapter{StateStore: s, Store: m}
 }
 
 // FetchAvailableDetail reads all YAML files from pipelinesDir, finds the pipeline with the

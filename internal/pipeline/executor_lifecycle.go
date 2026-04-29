@@ -80,7 +80,11 @@ func (e *DefaultPipelineExecutor) validatePipelineAndCreateContext(p *Pipeline, 
 	for i, step := range sortedSteps {
 		stepIDs[i] = step.ID
 	}
-	e.etaCalculator = NewETACalculator(e.store, p.Metadata.Name, stepIDs)
+	if e.metrics != nil {
+		e.etaCalculator = NewETACalculator(e.metrics, p.Metadata.Name, stepIDs)
+	} else {
+		e.etaCalculator = NewETACalculator(nil, p.Metadata.Name, stepIDs)
+	}
 
 	// Create pipeline context early so forge variables are available for preflight tool resolution
 	pipelineName := p.Metadata.Name

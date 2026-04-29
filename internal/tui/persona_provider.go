@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/pipeline"
-	"github.com/recinq/wave/internal/state"
 )
 
 // PersonaInfo is the TUI data projection for a persona.
@@ -34,15 +34,15 @@ type PersonaDataProvider interface {
 	FetchPersonaStats(name string) (*PersonaStats, error)
 }
 
-// DefaultPersonaDataProvider implements PersonaDataProvider using the manifest and state store.
+// DefaultPersonaDataProvider implements PersonaDataProvider using the manifest and metrics store.
 type DefaultPersonaDataProvider struct {
 	manifest     *manifest.Manifest
-	store        state.RunStore
+	store        *metrics.Store
 	pipelinesDir string
 }
 
 // NewDefaultPersonaDataProvider creates a new persona data provider.
-func NewDefaultPersonaDataProvider(m *manifest.Manifest, store state.RunStore, pipelinesDir string) *DefaultPersonaDataProvider {
+func NewDefaultPersonaDataProvider(m *manifest.Manifest, store *metrics.Store, pipelinesDir string) *DefaultPersonaDataProvider {
 	return &DefaultPersonaDataProvider{
 		manifest:     m,
 		store:        store,
@@ -97,7 +97,7 @@ func (p *DefaultPersonaDataProvider) FetchPersonaStats(name string) (*PersonaSta
 		return nil, nil
 	}
 
-	records, err := p.store.GetRecentPerformanceHistory(state.PerformanceQueryOptions{
+	records, err := p.store.GetRecentPerformanceHistory(metrics.PerformanceQueryOptions{
 		Persona: name,
 		Limit:   1000,
 	})

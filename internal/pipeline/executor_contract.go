@@ -14,6 +14,7 @@ import (
 	"github.com/recinq/wave/internal/contract"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/hooks"
+	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -176,9 +177,9 @@ func (e *DefaultPipelineExecutor) applyContractOnFailure(
 			e.logger.LogContractResult(pipelineID, step.ID, c.Type, "fail")
 			_ = e.logger.LogStepEnd(pipelineID, step.ID, stateFailed, time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, cErr.Error())
 		}
-		if e.store != nil {
+		if e.metrics != nil {
 			completedAt := time.Now()
-			e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+			_ = e.metrics.RecordPerformanceMetric(&metrics.PerformanceMetricRecord{
 				RunID:        pipelineID,
 				StepID:       step.ID,
 				PipelineName: execution.Status.PipelineName,
@@ -218,12 +219,12 @@ func (e *DefaultPipelineExecutor) applyContractOnFailure(
 			e.logger.LogContractResult(pipelineID, step.ID, c.Type, "rejected")
 			_ = e.logger.LogStepEnd(pipelineID, step.ID, stateRejected, time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, "design rejection: "+cErr.Error())
 		}
-		if e.store != nil {
+		if e.metrics != nil {
 			completedAt := time.Now()
 			// A rejection is not a runtime failure; treat it as a
 			// successful no-op for performance metrics so dashboards
 			// don't double-count it as a failure.
-			e.store.RecordPerformanceMetric(&state.PerformanceMetricRecord{
+			_ = e.metrics.RecordPerformanceMetric(&metrics.PerformanceMetricRecord{
 				RunID:        pipelineID,
 				StepID:       step.ID,
 				PipelineName: execution.Status.PipelineName,
