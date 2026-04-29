@@ -132,6 +132,23 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 		childOpts = append(childOpts, withSkillStore(e.skillStore))
 	}
 
+	// Issue #1551 — propagate the parent pipeline's already-produced
+	// artifacts into the child executor's crossPipelineArtifacts map so the
+	// child can resolve `inject_artifacts: [pipeline: <parent>, artifact:
+	// <name>]` references without `optional: true`. This makes the
+	// cross-pipeline ref form usable for sub-pipelines (composition
+	// primitives), matching the existing semantics for sequence-pipeline
+	// boundaries (see SequenceExecutor.recordPipelineOutputs).
+	//
+	// Scope is intentionally minimal: the child sees ONLY the direct
+	// parent's artifacts under the parent pipeline's metadata name. The
+	// parent's own crossPipelineArtifacts map (e.g. siblings in a sequence
+	// run) is NOT transitively forwarded — keeping grandparent → grandchild
+	// flow off-by-default.
+	if parentArtifacts := e.collectParentCrossPipelineArtifacts(execution); len(parentArtifacts) > 0 {
+		childOpts = append(childOpts, WithCrossPipelineArtifacts(parentArtifacts))
+	}
+
 	// Inject parent artifacts into child executor when config specifies injection.
 	//
 	// Two registration paths produce parent artifacts the child may inject:
@@ -1042,6 +1059,95 @@ type reQueueError struct {
 
 func (e *reQueueError) Error() string {
 	return fmt.Sprintf("gate routing: re-queued step %q and %d dependents", e.TargetStepID, len(e.ResetSteps)-1)
+}
+
+// collectParentCrossPipelineArtifacts builds a crossPipelineArtifacts map
+// scoped to the direct parent pipeline only. Issue #1551 — when a parent
+// pipeline launches a child sub-pipeline (iterate, aggregate, branch, loop,
+// or bare sub-pipeline call), the child needs the cross-pipeline ref form
+// `inject_artifacts: [pipeline: <parent>, artifact: <name>]` to resolve
+// against the parent's already-produced output_artifacts. Sequence
+// pipelines populate this map via SequenceExecutor.recordPipelineOutputs;
+// for sub-pipeline launches, we mirror that behaviour by reading the
+// parent's still-live ArtifactPaths map.
+//
+// The map is keyed by the parent's metadata name and contains every
+// output artifact (and pipeline_outputs alias) the parent has produced so
+// far. Missing files (step still pending, or artifact not yet written)
+// are silently skipped — the child's `optional` flag still governs
+// behaviour when an unresolved ref reaches the inject path.
+//
+// Scope is intentionally minimal: the parent's own crossPipelineArtifacts
+// map (e.g. siblings in a sequence) is NOT forwarded, so grandparent →
+// grandchild flow stays off-by-default. Callers that need transitive
+// flow can chain explicit refs in each layer.
+func (e *DefaultPipelineExecutor) collectParentCrossPipelineArtifacts(execution *PipelineExecution) map[string]map[string][]byte {
+	if execution == nil || execution.Pipeline == nil {
+		return nil
+	}
+	parentName := execution.Pipeline.Metadata.Name
+	if parentName == "" {
+		return nil
+	}
+
+	// Snapshot the parent's ArtifactPaths under the lock so we don't race
+	// with concurrent step writes (other branches of the parent DAG may
+	// still be running at sub-pipeline launch time).
+	execution.mu.Lock()
+	pathSnapshot := make(map[string]string, len(execution.ArtifactPaths))
+	for k, v := range execution.ArtifactPaths {
+		pathSnapshot[k] = v
+	}
+	execution.mu.Unlock()
+
+	outputs := make(map[string][]byte)
+
+	// Walk every step's declared output_artifacts. Match the registration
+	// key used by writeOutputArtifacts: "<stepID>:<artifactName>".
+	for _, step := range execution.Pipeline.Steps {
+		for _, art := range step.OutputArtifacts {
+			path, ok := pathSnapshot[step.ID+":"+art.Name]
+			if !ok || path == "" {
+				continue
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				// Log silently — the artifact may not be on disk yet
+				// (e.g. step still running, or path was pruned). The
+				// child's optional flag governs the missing-ref path.
+				continue
+			}
+			outputs[art.Name] = data
+		}
+	}
+
+	// Also expose pipeline_outputs aliases so authors can ref them by the
+	// alias name when that's the public surface. Mirrors
+	// SequenceExecutor.recordPipelineOutputs semantics.
+	for aliasName, po := range execution.Pipeline.PipelineOutputs {
+		path, ok := pathSnapshot[po.Step+":"+po.Artifact]
+		if !ok || path == "" {
+			continue
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		if po.Field != "" {
+			val, extractErr := ExtractJSONPath(data, "."+po.Field)
+			if extractErr == nil {
+				outputs[aliasName] = []byte(val)
+			}
+			continue
+		}
+		outputs[aliasName] = data
+	}
+
+	if len(outputs) == 0 {
+		return nil
+	}
+
+	return map[string]map[string][]byte{parentName: outputs}
 }
 
 // cleanupCompletedPipeline removes a completed or failed pipeline from in-memory storage
