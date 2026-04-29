@@ -47,6 +47,21 @@ steps:
     persona: implementer
     contexts: [execution, delivery]
     model: balanced
+    memory:
+      inject_artifacts:
+        # The parent pipeline (`ops-pr-respond`, step `fetch-pr`) produces
+        # `pr-context` and propagates it to this child via the `resolve-each`
+        # step's `config.inject: ["pr-context"]`. Declaring it here makes the
+        # contract explicit AND triggers the framework's auto-emitted
+        # `## Input Artifacts` prompt block, so the persona never has to
+        # hard-code the on-disk path. `optional: true` tolerates standalone
+        # runs of impl-finding (no parent injection): the contract is
+        # documented but a missing input is a controlled skip rather than a
+        # hard error.
+        - step: fetch-pr
+          artifact: pr-context
+          as: pr-context
+          optional: true
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -68,7 +83,9 @@ steps:
         You are the inner pipeline of `resolve-each` in `ops-pr-respond`. The
         parent pipeline has already:
 
-        1. Fetched the PR diff and head branch.
+        1. Fetched the PR diff and head branch (the `pr-context` input
+           artifact carries the head branch name, head SHA, changed-file list
+           and a path to the unified diff).
         2. Aggregated audit findings into a flat array.
         3. Triaged that array into actionable / deferred / rejected.
 
@@ -79,13 +96,15 @@ steps:
         pipeline saw. The PR head branch is NOT yet checked out — Step 2 fetches
         it and switches the worktree onto it before any edits or tests run.
 
-        The parent pipeline injects `pr-context` into `.agents/artifacts/pr-context`
-        (via the `resolve-each` step's `config.inject`). Read that file to learn
-        the PR head branch name. You must touch only the files implied by the
-        finding's `remediation` field. Other findings run in parallel in their
-        own worktrees — your edits cannot collide with theirs at the working-tree
-        level, but you must still keep the commit minimal so reviewers can
-        understand each fix in isolation.
+        The `pr-context` input artifact (declared in this step's
+        `memory.inject_artifacts`) carries the PR head branch name as its
+        `.branch` field. The framework places it in the workspace and tells
+        you where via the auto-emitted `## Input Artifacts` block above —
+        read it from that path. You must touch only the files implied by the
+        finding's `remediation` field. Other findings run in parallel in
+        their own worktrees — your edits cannot collide with theirs at the
+        working-tree level, but you must still keep the commit minimal so
+        reviewers can understand each fix in isolation.
 
         ## Requirements
 
@@ -108,21 +127,19 @@ steps:
         Your CWD is a per-child worktree currently on a throwaway branch
         (`{{ pipeline_id }}`). Before reading or editing files, switch onto the
         PR head branch so all subsequent edits, tests, and commits target the
-        right tree:
+        right tree.
 
-        ```bash
-        BRANCH=$(jq -r .branch .agents/artifacts/pr-context)
-        if [ -z "$BRANCH" ] || [ "$BRANCH" = "null" ]; then
-          echo "refusing to proceed: pr-context artifact missing .branch" >&2
-          exit 1
-        fi
-        if ! git remote get-url origin >/dev/null 2>&1; then
-          echo "refusing to proceed: no 'origin' remote configured in worktree" >&2
-          exit 1
-        fi
-        git fetch origin "$BRANCH"
-        git checkout -B "$BRANCH" "origin/$BRANCH"
-        ```
+        Read the `.branch` field from the `pr-context` input artifact (the
+        framework wrote it to the path listed in the `## Input Artifacts`
+        block above; use `jq -r .branch <that path>`). Capture the value into
+        a `BRANCH` shell variable, then run:
+
+        - `[ -n "$BRANCH" ] && [ "$BRANCH" != "null" ]` — refuse to proceed
+          if the artifact was missing or didn't contain a branch.
+        - `git remote get-url origin >/dev/null 2>&1` — refuse to proceed if
+          the worktree has no `origin` remote.
+        - `git fetch origin "$BRANCH"`
+        - `git checkout -B "$BRANCH" "origin/$BRANCH"`
 
         After this step the working tree mirrors `origin/<pr-branch>` and the
         throwaway branch label is repointed onto that tip — subsequent commits
@@ -164,24 +181,22 @@ steps:
         actually landed by comparing local SHA with the remote ref before
         reporting success.
 
-        ```bash
-        # $BRANCH was resolved in Step 2 from .agents/artifacts/pr-context.
-        # Re-resolve here in case this step runs in a fresh shell.
-        BRANCH=$(jq -r .branch .agents/artifacts/pr-context)
+        If `$BRANCH` is no longer in scope (fresh shell), re-derive it the
+        same way Step 2 did: read the `.branch` field from the `pr-context`
+        input artifact at the path the `## Input Artifacts` block named.
 
-        git add <file1> [<file2>...]
-        git commit -m "fix({{ '<finding-id>' }}): <one-line summary from remediation>"
-        SHA=$(git rev-parse HEAD)
-        git push origin HEAD:"$BRANCH"
+        Then:
 
-        # Verify the push landed on origin — fail loud if the SHA didn't reach
-        # the remote (e.g. push silently no-op'd, network drop, hooks rejected).
-        REMOTE_SHA=$(git ls-remote origin "$BRANCH" | awk '{print $1}')
-        if [ "$REMOTE_SHA" != "$SHA" ]; then
-          echo "push verification failed: local $SHA vs remote $REMOTE_SHA on $BRANCH" >&2
-          exit 1
-        fi
-        ```
+        - `git add <file1> [<file2>...]` — only the files you edited.
+        - `git commit -m "fix({{ '<finding-id>' }}): <one-line summary from remediation>"`
+        - `SHA=$(git rev-parse HEAD)`
+        - `git push origin HEAD:"$BRANCH"`
+
+        Verify the push landed on origin — fail loud if the SHA didn't reach
+        the remote (e.g. push silently no-op'd, network drop, hooks rejected):
+
+        - `REMOTE_SHA=$(git ls-remote origin "$BRANCH" | awk '{print $1}')`
+        - if `$REMOTE_SHA` != `$SHA`, exit non-zero with a diagnostic.
 
         Capture the commit SHA from `git rev-parse HEAD`.
 
@@ -220,11 +235,12 @@ steps:
         - Do NOT leave the working tree dirty after the commit.
         - Do NOT shell out to `{{ forge.cli_tool }} {{ forge.pr_command }} view`,
           `{{ forge.cli_tool }} {{ forge.pr_command }} diff`, or any other
-          PR-metadata fetch. The parent pipeline (`ops-pr-respond`) has already
-          written `.agents/artifacts/pr-context` with the head branch, head SHA,
-          and `diff_path`. That artifact is the authoritative source for PR
-          metadata in this step — re-fetching wastes tokens, slows the run, and
-          can race with concurrent siblings.
+          PR-metadata fetch. The `pr-context` input artifact already carries
+          the head branch, head SHA, and `diff_path` — read it from the path
+          the framework named in the `## Input Artifacts` block. That
+          artifact is the authoritative source for PR metadata in this step;
+          re-fetching wastes tokens, slows the run, and can race with
+          concurrent siblings.
 
         ## Quality bar
 
