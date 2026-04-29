@@ -423,7 +423,7 @@ New canonical schema (per ADR-010): `internal/contract/schemas/shared/work_item_
 
 | # | Title | Files |
 |---|---|---|
-| 1.1 | Onboarder agent + meta-pipeline | new `.agents/personas/onboarder.md`, new `internal/defaults/pipelines/onboard-project.yaml` (assess → propose → write `.agents/*` → smoke-test) |
+| 1.1 ✅ | Onboarder agent + meta-pipeline | `internal/defaults/personas/onboarder.{md,yaml}`, `internal/defaults/pipelines/onboard-project.yaml` (detect → propose → generate → finalize), `internal/defaults/contracts/detection.schema.json`, `internal/defaults/prompts/onboard/{detect,propose,generate,finalize}.md` |
 | 1.2 | Webui driver | new `internal/webui/handlers_onboard.go`, new templates `onboard/start.html`, `onboard/step.html`, SSE stream |
 | 1.3 | CLI driver | `cmd/wave/commands/init.go` — call `OnboardingService.StartSession` via CLI UI |
 | 1.4 | Entry-page branch | `internal/webui/routes.go` — `/` checks `IsOnboarded`, redirects appropriately |
