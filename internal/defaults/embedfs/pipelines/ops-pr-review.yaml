@@ -377,7 +377,7 @@ steps:
         source: .agents/output/quality-review.md
         model: cheapest
         token_budget: 0
-        timeout: 90s
+        timeout: 300s
         on_failure: continue
 
   - id: slop-review
