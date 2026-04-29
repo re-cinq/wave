@@ -53,11 +53,15 @@ type StepStateRecord struct {
 	VisitCount    int
 }
 
-// StateStore is the aggregate persistence surface combining every
-// domain-scoped store. New consumers should depend on the smallest narrow
-// interface that satisfies their call sites (RunStore, EventStore,
-// OntologyStore, WebhookStore, ChatStore). The aggregate is retained for
-// constructors and root-level orchestrators that span multiple domains.
+// StateStore is the aggregate persistence surface — the union of every
+// domain-scoped sub-interface (RunStore, EventStore, OntologyStore,
+// WebhookStore, ChatStore) plus Close.
+//
+// DEPRECATED for new code: consumers should depend on the smallest narrow
+// interface that satisfies their call sites. StateStore is retained as the
+// composed type returned by NewStateStore so root-level constructors can
+// dispatch domain handles, and so legacy multi-domain consumers continue to
+// compile until they can be narrowed.
 type StateStore interface {
 	RunStore
 	EventStore
@@ -66,128 +70,6 @@ type StateStore interface {
 	ChatStore
 
 	Close() error
-
-	// Run tracking (ops commands)
-	CreateRun(pipelineName string, input string) (string, error)
-	CreateRunWithLimit(pipelineName string, input string, maxConcurrent int) (string, error)
-	UpdateRunStatus(runID string, status string, currentStep string, tokens int) error
-	UpdateRunBranch(runID string, branch string) error
-	GetRun(runID string) (*RunRecord, error)
-	GetRunningRuns() ([]RunRecord, error)
-	ListRuns(opts ListRunsOptions) ([]RunRecord, error)
-	DeleteRun(runID string) error
-	GetMostRecentRunID() (string, error)
-	RunExists(runID string) (bool, error)
-	GetRunStatus(runID string) (string, error)
-	ListPipelineNamesByStatus(status string) ([]string, error)
-	BackfillRunTokens() (int64, error)
-
-	// Event logging
-	LogEvent(runID string, stepID string, state string, persona string, message string, tokens int, durationMs int64, model string, configuredModel string, adapter string) error
-	GetEvents(runID string, opts EventQueryOptions) ([]LogRecord, error)
-	GetEventAggregateStats(runID string) (*EventAggregateStats, error)
-
-	// Artifact tracking
-	RegisterArtifact(runID string, stepID string, name string, path string, artifactType string, sizeBytes int64) error
-	GetArtifacts(runID string, stepID string) ([]ArtifactRecord, error)
-
-	// Cancellation
-	RequestCancellation(runID string, force bool) error
-	CheckCancellation(runID string) (*CancellationRecord, error)
-	ClearCancellation(runID string) error
-
-	// Performance metrics (spec 018)
-	RecordPerformanceMetric(metric *PerformanceMetricRecord) error
-	GetPerformanceMetrics(runID string, stepID string) ([]PerformanceMetricRecord, error)
-	GetStepPerformanceStats(pipelineName string, stepID string, since time.Time) (*StepPerformanceStats, error)
-	GetRecentPerformanceHistory(opts PerformanceQueryOptions) ([]PerformanceMetricRecord, error)
-	CleanupOldPerformanceMetrics(olderThan time.Duration) (int, error)
-
-	// Progress tracking (spec 018 - Enhanced Progress Visualization)
-	SaveProgressSnapshot(runID string, stepID string, progress int, action string, etaMs int64, validationPhase string, compactionStats string) error
-	GetProgressSnapshots(runID string, stepID string, limit int) ([]ProgressSnapshotRecord, error)
-	UpdateStepProgress(runID string, stepID string, persona string, state string, progress int, action string, message string, etaMs int64, tokens int) error
-	GetStepProgress(stepID string) (*StepProgressRecord, error)
-	GetAllStepProgress(runID string) ([]StepProgressRecord, error)
-	UpdatePipelineProgress(runID string, totalSteps int, completedSteps int, currentStepIndex int, overallProgress int, etaMs int64) error
-	GetPipelineProgress(runID string) (*PipelineProgressRecord, error)
-	SaveArtifactMetadata(artifactID int64, runID string, stepID string, previewText string, mimeType string, encoding string, metadataJSON string) error
-	GetArtifactMetadata(artifactID int64) (*ArtifactMetadataRecord, error)
-
-	// Tags support
-	SetRunTags(runID string, tags []string) error
-	GetRunTags(runID string) ([]string, error)
-	AddRunTag(runID string, tag string) error
-	RemoveRunTag(runID string, tag string) error
-
-	// Process tracking (detached subprocess execution)
-	UpdateRunPID(runID string, pid int) error
-	// Liveness tracking — running processes call this periodically so the
-	// reconciler can flag zombies whose owning process died without
-	// updating the DB.
-	UpdateRunHeartbeat(runID string) error
-	ReapOrphans(staleAfter time.Duration) (int, error)
-
-	// Step attempt tracking (retry/recovery)
-	RecordStepAttempt(record *StepAttemptRecord) error
-	GetStepAttempts(runID string, stepID string) ([]StepAttemptRecord, error)
-
-	// Chat session tracking (bidirectional chat)
-	SaveChatSession(session *ChatSession) error
-	GetChatSession(sessionID string) (*ChatSession, error)
-	ListChatSessions(runID string) ([]ChatSession, error)
-
-	// Ontology usage tracking (decision lineage)
-	RecordOntologyUsage(runID, stepID, contextName string, invariantCount int, status string, contractPassed *bool) error
-	GetOntologyStats(contextName string) (*OntologyStats, error)
-	GetOntologyStatsAll() ([]OntologyStats, error)
-
-	// Checkpoint tracking (fork/rewind)
-	SaveCheckpoint(record *CheckpointRecord) error
-	GetCheckpoint(runID, stepID string) (*CheckpointRecord, error)
-	GetCheckpoints(runID string) ([]CheckpointRecord, error)
-	DeleteCheckpointsAfterStep(runID string, stepIndex int) error
-
-	// Fork lineage
-	CreateRunWithFork(pipelineName, input, forkedFromRunID string) (string, error)
-
-	// Parent-child run linkage
-	SetParentRun(childRunID, parentRunID, stepID string) error
-	SetRunComposition(childRunID, runKind, subPipelineRef, iterateMode string, iterateIndex, iterateTotal *int) error
-	GetChildRuns(parentRunID string) ([]RunRecord, error)
-	GetSubtreeTokens(rootRunID string) (int64, error)
-
-	// Retrospective tracking
-	SaveRetrospective(record *RetrospectiveRecord) error
-	GetRetrospective(runID string) (*RetrospectiveRecord, error)
-	ListRetrospectives(opts ListRetrosOptions) ([]RetrospectiveRecord, error)
-	DeleteRetrospective(runID string) error
-	UpdateRetrospectiveSmoothness(runID string, smoothness string) error
-	UpdateRetrospectiveStatus(runID string, status string) error
-
-	// Decision log (append-only structured decision tracking)
-	RecordDecision(record *DecisionRecord) error
-	GetDecisions(runID string) ([]*DecisionRecord, error)
-	GetDecisionsByStep(runID, stepID string) ([]*DecisionRecord, error)
-	GetDecisionsFiltered(runID string, opts DecisionQueryOptions) ([]*DecisionRecord, error)
-
-	// Audit log (cross-run event queries)
-	GetAuditEvents(states []string, limit, offset int) ([]LogRecord, error)
-
-	// Webhook management
-	CreateWebhook(webhook *Webhook) (int64, error)
-	ListWebhooks() ([]*Webhook, error)
-	GetWebhook(id int64) (*Webhook, error)
-	UpdateWebhook(webhook *Webhook) error
-	DeleteWebhook(id int64) error
-	RecordWebhookDelivery(delivery *WebhookDelivery) error
-	GetWebhookDeliveries(webhookID int64, limit int) ([]*WebhookDelivery, error)
-
-	// Orchestration decision tracking (task classification feedback loop)
-	RecordOrchestrationDecision(record *OrchestrationDecision) error
-	UpdateOrchestrationOutcome(runID string, outcome string, tokensUsed int, durationMs int64) error
-	GetOrchestrationStats(pipelineName string) (*OrchestrationStats, error)
-	ListOrchestrationDecisionSummary(limit int) ([]OrchestrationDecisionSummary, error)
 }
 
 // ListRetrosOptions specifies filters for listing retrospectives.
@@ -197,11 +79,16 @@ type ListRetrosOptions struct {
 	Limit        int
 }
 
+// runningRunsLister is the minimal store surface WaitForConcurrencySlot needs.
+type runningRunsLister interface {
+	GetRunningRuns() ([]RunRecord, error)
+}
+
 // WaitForConcurrencySlot polls GetRunningRuns until fewer than maxWorkers
 // pipelines are running. Returns nil when a slot is available, or ctx.Err()
 // if the context is cancelled. This is the single concurrency gate used by
 // CLI --detach, WebUI, and TUI launch paths.
-func WaitForConcurrencySlot(ctx context.Context, store StateStore, maxWorkers int, onWait func(running, max int)) error {
+func WaitForConcurrencySlot(ctx context.Context, store runningRunsLister, maxWorkers int, onWait func(running, max int)) error {
 	for {
 		running, err := store.GetRunningRuns()
 		if err != nil {

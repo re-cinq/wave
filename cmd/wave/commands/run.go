@@ -314,7 +314,9 @@ func runDetached(opts RunOptions, p *pipeline.Pipeline, m *manifest.Manifest) er
 // called so the run is visible in the dashboard.
 // Returns ("", nil) when neither source yields an ID; the caller should then
 // fall back to GenerateRunID.
-func resolveRunID(runIDOpt string, store state.StateStore, pipelineName, input string) (string, error) {
+func resolveRunID(runIDOpt string, store interface {
+	CreateRun(pipelineName string, input string) (string, error)
+}, pipelineName, input string) (string, error) {
 	if runIDOpt != "" {
 		return runIDOpt, nil
 	}

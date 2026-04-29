@@ -8,6 +8,7 @@ type EventStore interface {
 	// Event logging
 	LogEvent(runID string, stepID string, state string, persona string, message string, tokens int, durationMs int64, model string, configuredModel string, adapter string) error
 	GetEvents(runID string, opts EventQueryOptions) ([]LogRecord, error)
+	GetEventAggregateStats(runID string) (*EventAggregateStats, error)
 
 	// Audit log (cross-run event queries)
 	GetAuditEvents(states []string, limit, offset int) ([]LogRecord, error)

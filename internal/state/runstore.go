@@ -36,6 +36,11 @@ type RunStore interface {
 	GetRunningRuns() ([]RunRecord, error)
 	ListRuns(opts ListRunsOptions) ([]RunRecord, error)
 	DeleteRun(runID string) error
+	GetMostRecentRunID() (string, error)
+	RunExists(runID string) (bool, error)
+	GetRunStatus(runID string) (string, error)
+	ListPipelineNamesByStatus(status string) ([]string, error)
+	BackfillRunTokens() (int64, error)
 
 	// Cancellation
 	RequestCancellation(runID string, force bool) error
@@ -72,6 +77,7 @@ type RunStore interface {
 	RecordDecision(record *DecisionRecord) error
 	GetDecisions(runID string) ([]*DecisionRecord, error)
 	GetDecisionsByStep(runID, stepID string) ([]*DecisionRecord, error)
+	GetDecisionsFiltered(runID string, opts DecisionQueryOptions) ([]*DecisionRecord, error)
 
 	// Outcomes
 	RecordOutcome(runID, stepID, outcomeType, label, value, description string, metadata map[string]any) error

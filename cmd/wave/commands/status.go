@@ -141,8 +141,18 @@ func runRecordToStatusInfo(r *state.RunRecord) StatusRunInfo {
 	return info
 }
 
+// statusStore is the narrow surface the status command needs:
+// per-run lookups and the running/recent run listings used by the
+// table/JSON output paths.
+type statusStore interface {
+	GetRun(runID string) (*state.RunRecord, error)
+	GetRunningRuns() ([]state.RunRecord, error)
+	ListRuns(opts state.ListRunsOptions) ([]state.RunRecord, error)
+	UpdateRunStatus(runID string, status string, currentStep string, tokens int) error
+}
+
 // showRunDetails shows detailed status for a specific run.
-func showRunDetails(store state.StateStore, opts StatusOptions) error {
+func showRunDetails(store statusStore, opts StatusOptions) error {
 	record, err := store.GetRun(opts.RunID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -197,7 +207,7 @@ func showRunDetails(store state.StateStore, opts StatusOptions) error {
 }
 
 // showRunningRuns shows currently running pipelines.
-func showRunningRuns(store state.StateStore, opts StatusOptions) error {
+func showRunningRuns(store statusStore, opts StatusOptions) error {
 	records, err := store.GetRunningRuns()
 	if err != nil {
 		return err
@@ -228,7 +238,7 @@ func showRunningRuns(store state.StateStore, opts StatusOptions) error {
 }
 
 // showAllRuns shows recent pipelines.
-func showAllRuns(store state.StateStore, opts StatusOptions, limit int) error {
+func showAllRuns(store statusStore, opts StatusOptions, limit int) error {
 	records, err := store.ListRuns(state.ListRunsOptions{Limit: limit})
 	if err != nil {
 		return err

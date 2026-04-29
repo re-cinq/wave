@@ -14,6 +14,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// logsStore is the narrow persistence surface the logs command needs:
+// event lookup + per-run aggregate stats + run identity helpers. Defined
+// in the consumer package so logs.go binds to ISP-sized methods only.
+type logsStore interface {
+	GetMostRecentRunID() (string, error)
+	RunExists(runID string) (bool, error)
+	GetRunStatus(runID string) (string, error)
+	GetEvents(runID string, opts state.EventQueryOptions) ([]state.LogRecord, error)
+	GetEventAggregateStats(runID string) (*state.EventAggregateStats, error)
+}
+
 // LogsOptions holds options for the logs command.
 type LogsOptions struct {
 	RunID    string // Specific run (from args, default: most recent)
@@ -191,7 +202,7 @@ func recordsToEntries(records []state.LogRecord) []LogsEntry {
 }
 
 // runLogsOnce retrieves and displays logs once.
-func runLogsOnce(store state.StateStore, runID string, opts LogsOptions) error {
+func runLogsOnce(store logsStore, runID string, opts LogsOptions) error {
 	q, err := queryEventOptions(opts)
 	if err != nil {
 		return err
@@ -228,7 +239,7 @@ func runLogsOnce(store state.StateStore, runID string, opts LogsOptions) error {
 }
 
 // runLogsFollow streams logs in real-time.
-func runLogsFollow(store state.StateStore, runID string, opts LogsOptions) error {
+func runLogsFollow(store logsStore, runID string, opts LogsOptions) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -483,7 +494,7 @@ func runLogsTrace(opts LogsOptions) error {
 }
 
 // renderPerformanceSummary displays aggregated performance metrics for a run.
-func renderPerformanceSummary(store state.StateStore, runID string) {
+func renderPerformanceSummary(store logsStore, runID string) {
 	stats, err := store.GetEventAggregateStats(runID)
 	if err != nil || stats == nil || stats.TotalEvents == 0 {
 		return
