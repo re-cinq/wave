@@ -11,9 +11,10 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/classify"
+	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/pipeline"
-	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/skill"
+	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/workspace"
 	"github.com/spf13/cobra"
 )
@@ -194,6 +195,7 @@ func runDo(input string, opts DoOptions) error {
 
 	execOpts := []pipeline.ExecutorOption{
 		pipeline.WithEmitter(result.Emitter),
+		pipeline.WithOntologyService(ontology.NoOp{}),
 	}
 	if wsManager != nil {
 		execOpts = append(execOpts, pipeline.WithWorkspaceManager(wsManager))

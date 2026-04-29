@@ -312,17 +312,17 @@ type EdgeConfig struct {
 }
 
 type Step struct {
-	ID                  string           `yaml:"id"`
-	Persona             string           `yaml:"persona"`
-	Adapter             string           `yaml:"adapter,omitempty"` // Step-level adapter override (e.g., "codex", "gemini")
-	Model               string           `yaml:"model,omitempty"`   // Step-level model override: tier name (cheapest, balanced, strongest) or literal model ID
-	Dependencies        []string         `yaml:"dependencies,omitempty"`
+	ID           string   `yaml:"id"`
+	Persona      string   `yaml:"persona"`
+	Adapter      string   `yaml:"adapter,omitempty"` // Step-level adapter override (e.g., "codex", "gemini")
+	Model        string   `yaml:"model,omitempty"`   // Step-level model override: tier name (cheapest, balanced, strongest) or literal model ID
+	Dependencies []string `yaml:"dependencies,omitempty"`
 	// ResumeOriginalDeps preserves the pre-resume Dependencies list when
 	// createResumeSubpipeline strips deps that point at already-completed
 	// steps (needed to satisfy DAGValidator). The auto-injector reads
 	// this list as a fallback so it can still resolve upstream artifacts
 	// after resume. Not serialized.
-	ResumeOriginalDeps []string `yaml:"-" json:"-"`
+	ResumeOriginalDeps  []string         `yaml:"-" json:"-"`
 	TimeoutMinutes      int              `yaml:"timeout_minutes,omitempty"`
 	Optional            bool             `yaml:"optional,omitempty"`
 	Memory              MemoryConfig     `yaml:"memory"`
@@ -376,7 +376,6 @@ type Step struct {
 	Loop        *LoopConfig        `yaml:"loop,omitempty"`      // Feedback loops
 	Aggregate   *AggregateConfig   `yaml:"aggregate,omitempty"` // Output aggregation
 }
-
 
 // EffectiveFidelity returns the fidelity level for this step.
 // Defaults to "full" when thread is set, "fresh" when no thread.

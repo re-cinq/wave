@@ -11,11 +11,12 @@ import (
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/adapter/adaptertest"
+	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/pipeline"
-	"github.com/recinq/wave/internal/workspace"
 	"github.com/recinq/wave/internal/skill"
-	"gopkg.in/yaml.v3"
+	"github.com/recinq/wave/internal/workspace"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 type MetaOptions struct {
@@ -112,6 +113,7 @@ func runMeta(input string, opts MetaOptions) error {
 	// Create child executor for running generated pipelines
 	execOpts := []pipeline.ExecutorOption{
 		pipeline.WithEmitter(emitterResult.Emitter),
+		pipeline.WithOntologyService(ontology.NoOp{}),
 	}
 	if wsManager != nil {
 		execOpts = append(execOpts, pipeline.WithWorkspaceManager(wsManager))

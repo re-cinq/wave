@@ -8,6 +8,7 @@ import (
 
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/ontology"
 )
 
 // fixtureExecution constructs a PipelineExecution with a two-step pipeline:
@@ -58,7 +59,7 @@ func TestResolveDependencyArtifacts_InMemoryArtifactPaths(t *testing.T) {
 	})
 	exec.ArtifactPaths["fetch:pr-context"] = src
 
-	ex := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
+	ex := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
 	resolved, err := ex.ResolveDependencyArtifacts(exec, &exec.Pipeline.Steps[1])
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
@@ -86,7 +87,7 @@ func TestResolveDependencyArtifacts_ContextNamespacedFallback(t *testing.T) {
 	})
 	exec.Context.SetArtifactPath("fetch.merged-findings", src)
 
-	ex := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
+	ex := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
 	resolved, err := ex.ResolveDependencyArtifacts(exec, &exec.Pipeline.Steps[1])
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
@@ -114,7 +115,7 @@ func TestResolveDependencyArtifacts_FilesystemFallback(t *testing.T) {
 	})
 	exec.WorkspacePaths["fetch"] = depWorkspace
 
-	ex := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
+	ex := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
 	resolved, err := ex.ResolveDependencyArtifacts(exec, &exec.Pipeline.Steps[1])
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
@@ -135,7 +136,7 @@ func TestResolveDependencyArtifacts_RequiredMissingErrors(t *testing.T) {
 		{Name: "pr-context", Type: "json", Required: true},
 	})
 
-	ex := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
+	ex := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
 	_, err := ex.ResolveDependencyArtifacts(exec, &exec.Pipeline.Steps[1])
 	if err == nil {
 		t.Fatal("expected error for missing required artifact")
@@ -153,7 +154,7 @@ func TestResolveDependencyArtifacts_OptionalMissingNoError(t *testing.T) {
 		{Name: "pr-context", Type: "json", Required: false},
 	})
 
-	ex := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
+	ex := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
 	resolved, err := ex.ResolveDependencyArtifacts(exec, &exec.Pipeline.Steps[1])
 	if err != nil {
 		t.Fatalf("optional missing should not error; got: %v", err)
@@ -176,7 +177,7 @@ func TestInjectDependencyArtifacts_CanonicalAndAlias(t *testing.T) {
 	})
 	exec.ArtifactPaths["fetch:pr-context"] = src
 
-	ex := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
+	ex := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
 	canonicalMap, err := ex.injectDependencyArtifacts(exec, &exec.Pipeline.Steps[1], workspace)
 	if err != nil {
 		t.Fatalf("inject: %v", err)
@@ -223,7 +224,7 @@ func TestInjectDependencyArtifacts_NoDepsNoOp(t *testing.T) {
 		Status:         &PipelineStatus{ID: "test"},
 		Context:        NewPipelineContext("test", "t", "solo"),
 	}
-	ex := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
+	ex := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
 	if _, err := ex.injectDependencyArtifacts(exec, &exec.Pipeline.Steps[0], tmp); err != nil {
 		t.Fatalf("inject: %v", err)
 	}
@@ -281,7 +282,7 @@ func TestResolveDependencyArtifacts_ImplicitAggregateFallback(t *testing.T) {
 	exec := fixtureExecution(t, nil)
 	exec.ArtifactPaths["fetch:merged-findings"] = src
 
-	ex := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
+	ex := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithOntologyService(ontology.NoOp{}))
 	resolved, err := ex.ResolveDependencyArtifacts(exec, &exec.Pipeline.Steps[1])
 	if err != nil {
 		t.Fatalf("resolve: %v", err)

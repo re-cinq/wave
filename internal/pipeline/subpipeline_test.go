@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/fileutil"
+	"github.com/recinq/wave/internal/ontology"
 )
 
 func TestSubPipelineConfig_Validate(t *testing.T) {
@@ -523,7 +524,7 @@ func TestInjectSubPipelineArtifacts_DirectoryCopy(t *testing.T) {
 func TestAdapterOverride_PropagatedToChildExecutor(t *testing.T) {
 	// Regression test for #768: runNamedSubPipeline must propagate adapterOverride
 	// to child executors so that --adapter CLI flag applies to all sub-pipelines.
-	parent := NewDefaultPipelineExecutor(nil, WithAdapterOverride("opencode"))
+	parent := NewDefaultPipelineExecutor(nil, WithAdapterOverride("opencode"), WithOntologyService(ontology.NoOp{}))
 	if parent.adapterOverride != "opencode" {
 		t.Fatalf("parent adapterOverride = %q, want %q", parent.adapterOverride, "opencode")
 	}
@@ -534,7 +535,8 @@ func TestAdapterOverride_PropagatedToChildExecutor(t *testing.T) {
 		childOpts = append(childOpts, WithAdapterOverride(parent.adapterOverride))
 	}
 
-	child := NewDefaultPipelineExecutor(nil, childOpts...)
+	allOpts_child := append([]ExecutorOption{WithOntologyService(ontology.NoOp{})}, childOpts...)
+	child := NewDefaultPipelineExecutor(nil, allOpts_child...)
 	if child.adapterOverride != "opencode" {
 		t.Errorf("child adapterOverride = %q, want %q (should be inherited from parent)", child.adapterOverride, "opencode")
 	}
@@ -546,7 +548,9 @@ func TestParentEnv_PropagatedToChildExecutor(t *testing.T) {
 	parent := NewDefaultPipelineExecutor(nil, WithParentEnv(map[string]string{
 		"profile": "core",
 		"region":  "eu",
-	}))
+	}),
+		WithOntologyService(ontology.NoOp{}),
+	)
 	step := &Step{
 		ID:          "review",
 		SubPipeline: "ops-pr-review",
@@ -567,7 +571,7 @@ func TestParentEnv_PropagatedToChildExecutor(t *testing.T) {
 		merged[k] = v
 	}
 
-	child := NewDefaultPipelineExecutor(nil, WithParentEnv(merged))
+	child := NewDefaultPipelineExecutor(nil, WithParentEnv(merged), WithOntologyService(ontology.NoOp{}))
 	if got := child.parentEnv["profile"]; got != "full" {
 		t.Errorf("child env profile = %q, want %q (step overrides parent)", got, "full")
 	}
@@ -596,14 +600,15 @@ func TestParentEnv_SeededAsCustomVariables(t *testing.T) {
 
 func TestAdapterOverride_NotPropagatedWhenEmpty(t *testing.T) {
 	// When the parent has no adapterOverride, the child should not receive one.
-	parent := NewDefaultPipelineExecutor(nil)
+	parent := NewDefaultPipelineExecutor(nil, WithOntologyService(ontology.NoOp{}))
 
 	var childOpts []ExecutorOption
 	if parent.adapterOverride != "" {
 		childOpts = append(childOpts, WithAdapterOverride(parent.adapterOverride))
 	}
 
-	child := NewDefaultPipelineExecutor(nil, childOpts...)
+	allOpts_child := append([]ExecutorOption{WithOntologyService(ontology.NoOp{})}, childOpts...)
+	child := NewDefaultPipelineExecutor(nil, allOpts_child...)
 	if child.adapterOverride != "" {
 		t.Errorf("child adapterOverride = %q, want empty (no override on parent)", child.adapterOverride)
 	}

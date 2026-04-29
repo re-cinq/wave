@@ -9,6 +9,7 @@ import (
 
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/hooks"
+	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -55,6 +56,7 @@ func TestHooksFireAtCorrectLifecyclePoints(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 		withHookRunner(hr),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -148,6 +150,7 @@ func TestBlockingStepStartHookAbortsPipeline(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 		withHookRunner(hr),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -187,6 +190,7 @@ func TestNonBlockingHooksContinue(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 		withHookRunner(hr),
+		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()

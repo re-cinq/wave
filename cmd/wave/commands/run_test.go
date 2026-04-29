@@ -14,6 +14,7 @@ import (
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -90,6 +91,7 @@ func createTestExecutor(collector *testEventCollector) (*pipeline.DefaultPipelin
 
 	opts := []pipeline.ExecutorOption{
 		pipeline.WithEmitter(collector),
+		pipeline.WithOntologyService(ontology.NoOp{}),
 	}
 
 	executor := pipeline.NewDefaultPipelineExecutor(mockAdapter, opts...)

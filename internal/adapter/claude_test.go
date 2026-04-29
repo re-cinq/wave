@@ -38,7 +38,6 @@ func setupBaseProtocol(t *testing.T) {
 	})
 }
 
-
 func TestNoSettingsJSONWhenSandboxDisabled(t *testing.T) {
 	setupBaseProtocol(t)
 	adapter := NewClaudeAdapter()

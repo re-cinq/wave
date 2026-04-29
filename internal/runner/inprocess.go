@@ -9,6 +9,7 @@ import (
 	"github.com/recinq/wave/internal/audit"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
@@ -108,6 +109,7 @@ func LaunchInProcess(cfg InProcessConfig) context.CancelFunc {
 		pipeline.WithStateStore(cfg.Store),
 		pipeline.WithEmitter(cfg.Emitter),
 		pipeline.WithDebug(true),
+		pipeline.WithOntologyService(ontology.NoOp{}),
 	}
 	if cfg.WorkspaceManager != nil {
 		execOpts = append(execOpts, pipeline.WithWorkspaceManager(cfg.WorkspaceManager))

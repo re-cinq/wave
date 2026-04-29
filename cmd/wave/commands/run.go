@@ -17,13 +17,14 @@ import (
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/recovery"
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/runner"
-	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/skill"
+	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/suggest"
 	"github.com/recinq/wave/internal/tui"
 	"github.com/recinq/wave/internal/workspace"
@@ -413,11 +414,15 @@ func runRun(opts RunOptions, debug bool) error {
 		result.Emitter.SetDebugVerbosity(true)
 	}
 
-	// Build executor with all components
+	// Build executor with all components.
+	// Ontology defaults to NoOp; the executor auto-promotes to a real Service
+	// when the manifest declares ontology contexts. The explicit NoOp is
+	// required by NewDefaultPipelineExecutor to surface the dependency.
 	execOpts := []pipeline.ExecutorOption{
 		pipeline.WithEmitter(emitter),
 		pipeline.WithDebug(debug),
 		pipeline.WithRunID(runID),
+		pipeline.WithOntologyService(ontology.NoOp{}),
 	}
 	if debugTracer != nil {
 		execOpts = append(execOpts, pipeline.WithDebugTracer(debugTracer))
@@ -950,4 +955,3 @@ func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.
 	}
 	return nil
 }
-
