@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/recinq/wave/internal/defaults"
 	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/sandbox"
 	"github.com/recinq/wave/internal/skill"
 )
 
@@ -317,8 +317,18 @@ func (s *Server) handleAPISkillRunInstall(w http.ResponseWriter, r *http.Request
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "sh", "-c", installCmd)
-	out, err := cmd.CombinedOutput()
+	// Route the install command through internal/sandbox so it inherits
+	// the same backend policy (none/docker/bubblewrap) and audit log line
+	// that pipeline-driven shellouts use. The webui historically called
+	// `exec.CommandContext("sh", "-c", ...)` directly, bypassing both.
+	cfg := sandbox.Config{}
+	if s.manifest != nil {
+		cfg.Backend = sandbox.SandboxBackendType(s.manifest.Runtime.Sandbox.ResolveBackend())
+		cfg.DockerImage = s.manifest.Runtime.Sandbox.DockerImage
+		cfg.AllowedDomains = s.manifest.Runtime.Sandbox.DefaultAllowedDomains
+		cfg.EnvPassthrough = s.manifest.Runtime.Sandbox.EnvPassthrough
+	}
+	out, err := sandbox.RunShell(ctx, installCmd, cfg)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]interface{}{
 			"success": false,

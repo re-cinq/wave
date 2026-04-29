@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/recinq/wave/internal/forge"
+	wgit "github.com/recinq/wave/internal/git"
 	"github.com/recinq/wave/internal/manifest"
 )
 
@@ -30,33 +31,24 @@ type DefaultMetadataProvider struct {
 func (p *DefaultMetadataProvider) FetchGitState() (GitState, error) {
 	var state GitState
 
-	// Get current branch name.
-	out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	// Get current branch name via the centralized git helper.
+	branch, err := wgit.Branch()
 	if err != nil {
 		// Not a git repo or git not installed — return safe placeholders.
 		return GitState{Branch: "[no git]", CommitHash: "[no git]"}, nil
 	}
-	state.Branch = strings.TrimSpace(string(out))
+	state.Branch = branch
 
-	// Get abbreviated commit hash.
-	out, err = exec.Command("git", "rev-parse", "--short", "HEAD").Output()
-	if err == nil {
-		state.CommitHash = strings.TrimSpace(string(out))
+	if hash, err := wgit.ShortHash(); err == nil {
+		state.CommitHash = hash
 	}
 
-	// Check dirty status via porcelain output.
-	out, err = exec.Command("git", "status", "--porcelain").Output()
-	if err == nil {
-		state.IsDirty = len(strings.TrimSpace(string(out))) > 0
+	if dirty, err := wgit.IsDirty(); err == nil {
+		state.IsDirty = dirty
 	}
 
-	// Get the first remote name (usually "origin").
-	out, err = exec.Command("git", "remote").Output()
-	if err == nil {
-		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-		if len(lines) > 0 && lines[0] != "" {
-			state.RemoteName = lines[0]
-		}
+	if remote, err := wgit.FirstRemote(); err == nil {
+		state.RemoteName = remote
 	}
 
 	return state, nil

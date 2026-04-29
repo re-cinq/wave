@@ -3,10 +3,10 @@ package tui
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"time"
 
+	wgit "github.com/recinq/wave/internal/git"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
 )
@@ -272,10 +272,10 @@ func (d *DefaultDetailDataProvider) FetchFinishedDetail(runID string) (*Finished
 		}
 	}
 
-	// Check if the branch still exists.
+	// Check if the branch still exists via the centralized git helper.
 	if run.BranchName != "" {
-		cmd := exec.Command("git", "rev-parse", "--verify", run.BranchName)
-		if err := cmd.Run(); err != nil {
+		exists, vErr := wgit.VerifyRef(run.BranchName)
+		if vErr != nil || !exists {
 			detail.BranchDeleted = true
 		}
 	}
