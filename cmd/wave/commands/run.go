@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/huh"
+	"github.com/recinq/wave/internal/config"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/runner"
@@ -17,11 +18,12 @@ import (
 	"golang.org/x/term"
 )
 
-// RunOptions is aliased from internal/runner — the canonical struct lives
-// there so the webui launch path consumes the exact same fields without a
-// translation layer. The exhaustiveness test (TestDetachedArgsExhaustive)
-// also lives in internal/runner alongside the spec table it guards.
-type RunOptions = runner.Options
+// RunOptions is aliased from internal/config — the canonical struct lives
+// there (alongside the env snapshot) so the webui launch path consumes the
+// exact same fields without a translation layer. The exhaustiveness test
+// (TestDetachedArgsExhaustive) lives in internal/runner alongside the spec
+// table it guards.
+type RunOptions = config.RuntimeConfig
 
 func NewRunCmd() *cobra.Command {
 	var opts RunOptions

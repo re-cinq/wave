@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/recinq/wave/internal/config"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
@@ -17,7 +18,7 @@ import (
 // It spawns detached subprocesses via internal/runner so pipelines survive
 // TUI exit. The runner package owns the actual fork/exec dance, env filter,
 // log-file routing, and PID record — this type is purely the TUI-facing
-// adapter that translates LaunchConfig into runner.Options and emits
+// adapter that translates LaunchConfig into config.RuntimeConfig and emits
 // Bubble Tea messages on success/failure.
 type PipelineLauncher struct {
 	deps    LaunchDependencies
@@ -230,28 +231,28 @@ func (l *PipelineLauncher) Cleanup(_ string) {
 }
 
 // launchConfigToOptions translates the form-driven LaunchConfig into the
-// runner.Options surface. Known UI-level "extra flags" (--verbose, --debug,
-// --output text|json, --dry-run, --mock, --detach) are mapped onto typed
-// Options fields so the runner.BuildDetachedArgs spec table owns argv
-// shaping. Unknown flags are silently dropped — the form only exposes the
-// known set via DefaultFlags().
-func launchConfigToOptions(config LaunchConfig, runID string) runner.Options {
-	opts := runner.Options{
-		Pipeline:  config.PipelineName,
-		Input:     config.Input,
+// config.RuntimeConfig surface. Known UI-level "extra flags" (--verbose,
+// --debug, --output text|json, --dry-run, --mock, --detach) are mapped onto
+// typed RuntimeConfig fields so the runner.BuildDetachedArgs spec table owns
+// argv shaping. Unknown flags are silently dropped — the form only exposes
+// the known set via DefaultFlags().
+func launchConfigToOptions(lc LaunchConfig, runID string) config.RuntimeConfig {
+	opts := config.RuntimeConfig{
+		Pipeline:  lc.PipelineName,
+		Input:     lc.Input,
 		RunID:     runID,
-		Model:     config.ModelOverride,
-		Adapter:   config.Adapter,
-		Timeout:   config.Timeout,
-		FromStep:  config.FromStep,
-		Steps:     config.Steps,
-		Exclude:   config.Exclude,
-		OnFailure: config.OnFailure,
+		Model:     lc.ModelOverride,
+		Adapter:   lc.Adapter,
+		Timeout:   lc.Timeout,
+		FromStep:  lc.FromStep,
+		Steps:     lc.Steps,
+		Exclude:   lc.Exclude,
+		OnFailure: lc.OnFailure,
 	}
 
-	// Translate known UI-flag tokens into typed Options fields.
-	// "--output X" appears as a single space-joined token in config.Flags.
-	for _, f := range config.Flags {
+	// Translate known UI-flag tokens into typed RuntimeConfig fields.
+	// "--output X" appears as a single space-joined token in lc.Flags.
+	for _, f := range lc.Flags {
 		switch {
 		case f == "--verbose":
 			opts.Output.Verbose = true

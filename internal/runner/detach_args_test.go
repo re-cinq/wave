@@ -3,15 +3,18 @@ package runner
 import (
 	"reflect"
 	"testing"
+
+	"github.com/recinq/wave/internal/config"
 )
 
-// TestBuildDetachedArgsAllFlagsPresent constructs an Options value with every
-// non-zero field, runs the argv builder, and asserts that every flag declared
-// in DetachFlagSpecs appears in the produced argv. This is the regression
-// test for issue #1500 — Continuous, Source, MaxIterations, Delay, OnFailure,
-// and NoRetro were silently dropped from the detached subprocess invocation.
+// TestBuildDetachedArgsAllFlagsPresent constructs a RuntimeConfig value with
+// every non-zero field, runs the argv builder, and asserts that every flag
+// declared in DetachFlagSpecs appears in the produced argv. This is the
+// regression test for issue #1500 — Continuous, Source, MaxIterations, Delay,
+// OnFailure, and NoRetro were silently dropped from the detached subprocess
+// invocation.
 func TestBuildDetachedArgsAllFlagsPresent(t *testing.T) {
-	opts := Options{
+	opts := config.RuntimeConfig{
 		Pipeline:          "impl-issue",
 		Input:             "fix login bug",
 		FromStep:          "implement",
@@ -66,10 +69,10 @@ func TestBuildDetachedArgsAllFlagsPresent(t *testing.T) {
 	mustContainFlag(t, args, "--no-retro")
 }
 
-// TestBuildDetachedArgsZeroValuesOmitted asserts that a near-empty Options
-// (just pipeline + runID) does not emit conditional flags.
+// TestBuildDetachedArgsZeroValuesOmitted asserts that a near-empty
+// RuntimeConfig (just pipeline + runID) does not emit conditional flags.
 func TestBuildDetachedArgsZeroValuesOmitted(t *testing.T) {
-	opts := Options{Pipeline: "impl-issue", Manifest: "wave.yaml"}
+	opts := config.RuntimeConfig{Pipeline: "impl-issue", Manifest: "wave.yaml"}
 	args := BuildDetachedArgs(opts, "run-xyz")
 
 	mustContainPair(t, args, "--pipeline", "impl-issue")
@@ -78,31 +81,31 @@ func TestBuildDetachedArgsZeroValuesOmitted(t *testing.T) {
 	// None of the conditional flags should appear.
 	for _, spec := range DetachFlagSpecs {
 		if containsFlag(args, "--"+spec.flag) {
-			t.Errorf("zero-value Options still emitted --%s", spec.flag)
+			t.Errorf("zero-value RuntimeConfig still emitted --%s", spec.flag)
 		}
 	}
 	if containsFlag(args, "--verbose") {
-		t.Errorf("zero-value Options still emitted --verbose")
+		t.Errorf("zero-value RuntimeConfig still emitted --verbose")
 	}
 }
 
 // TestBuildDetachedArgsManifestDefaultOmitted verifies that a manifest set to
 // the default "wave.yaml" is not forwarded — matches the legacy behaviour.
 func TestBuildDetachedArgsManifestDefaultOmitted(t *testing.T) {
-	opts := Options{Pipeline: "p", Manifest: "wave.yaml"}
+	opts := config.RuntimeConfig{Pipeline: "p", Manifest: "wave.yaml"}
 	args := BuildDetachedArgs(opts, "rid")
 	if containsFlag(args, "--manifest") {
 		t.Errorf("default manifest 'wave.yaml' should not be forwarded; got %v", args)
 	}
 }
 
-// TestDetachedArgsExhaustive walks the Options struct via reflection and
-// asserts that every field is either:
+// TestDetachedArgsExhaustive walks the RuntimeConfig struct via reflection
+// and asserts that every field is either:
 //   - registered in DetachFlagSpecs by name, or
 //   - explicitly skipped via DetachFlagSkippedFields with a reason.
 //
-// This guards against future Options fields silently dropping out of the
-// detached subprocess invocation (the original bug in #1500).
+// This guards against future RuntimeConfig fields silently dropping out of
+// the detached subprocess invocation (the original bug in #1500).
 func TestDetachedArgsExhaustive(t *testing.T) {
 	registered := make(map[string]bool, len(DetachFlagSpecs))
 	for _, spec := range DetachFlagSpecs {
@@ -112,7 +115,7 @@ func TestDetachedArgsExhaustive(t *testing.T) {
 		registered[spec.field] = true
 	}
 
-	rt := reflect.TypeOf(Options{})
+	rt := reflect.TypeOf(config.RuntimeConfig{})
 	for i := 0; i < rt.NumField(); i++ {
 		name := rt.Field(i).Name
 		if registered[name] {
@@ -121,16 +124,16 @@ func TestDetachedArgsExhaustive(t *testing.T) {
 		if _, skipped := DetachFlagSkippedFields[name]; skipped {
 			continue
 		}
-		t.Errorf("Options field %q is neither registered in DetachFlagSpecs "+
+		t.Errorf("RuntimeConfig field %q is neither registered in DetachFlagSpecs "+
 			"nor listed in DetachFlagSkippedFields — add it to one of them so "+
 			"Detach forwards (or explicitly drops) the flag", name)
 	}
 
-	// Inverse check: skipped fields must actually exist on Options, so
+	// Inverse check: skipped fields must actually exist on RuntimeConfig, so
 	// stale entries surface as failures during refactors.
 	for name := range DetachFlagSkippedFields {
 		if _, ok := rt.FieldByName(name); !ok {
-			t.Errorf("DetachFlagSkippedFields references unknown Options field %q", name)
+			t.Errorf("DetachFlagSkippedFields references unknown RuntimeConfig field %q", name)
 		}
 	}
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/audit"
+	"github.com/recinq/wave/internal/config"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/ontology"
@@ -51,7 +52,7 @@ type InProcessConfig struct {
 	FromStep string
 
 	// Options carries the CLI-parity flags (model/adapter/timeout/filters etc.).
-	Options Options
+	Options config.RuntimeConfig
 
 	// OnComplete is invoked from the launched goroutine after the run finishes
 	// (success or failure). It runs after the run status update so callers can

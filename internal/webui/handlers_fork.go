@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/recinq/wave/internal/config"
 	"github.com/recinq/wave/internal/runner"
 )
 
@@ -70,7 +71,7 @@ func (s *Server) handleForkRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, runner.Options{}, resumeStep)
+	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, config.RuntimeConfig{}, resumeStep)
 
 	writeJSON(w, http.StatusCreated, ForkRunResponse{
 		RunID:        newRunID,

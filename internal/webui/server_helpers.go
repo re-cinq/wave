@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/recinq/wave/internal/config"
 	"github.com/recinq/wave/internal/pipeline"
-	"github.com/recinq/wave/internal/runner"
 )
 
 // validPipelineName matches safe pipeline names: alphanumeric, hyphens, underscores, dots.
@@ -49,10 +49,10 @@ func loadPipelineYAML(name string) (*pipeline.Pipeline, error) {
 }
 
 // runOptionsFromStartRequest projects an HTTP StartPipelineRequest onto the
-// shared runner.Options struct so the launch path is identical regardless of
-// which handler triggered the run.
-func runOptionsFromStartRequest(req StartPipelineRequest) runner.Options {
-	return runner.Options{
+// shared config.RuntimeConfig struct so the launch path is identical
+// regardless of which handler triggered the run.
+func runOptionsFromStartRequest(req StartPipelineRequest) config.RuntimeConfig {
+	return config.RuntimeConfig{
 		Model:             req.Model,
 		Adapter:           req.Adapter,
 		DryRun:            req.DryRun,
@@ -191,8 +191,8 @@ func classifyCompositionStep(step *pipeline.Step) CompositionStep {
 
 // runOptionsFromSubmitRequest mirrors runOptionsFromStartRequest for the
 // /api/runs submit endpoint.
-func runOptionsFromSubmitRequest(req SubmitRunRequest) runner.Options {
-	return runner.Options{
+func runOptionsFromSubmitRequest(req SubmitRunRequest) config.RuntimeConfig {
+	return config.RuntimeConfig{
 		Model:             req.Model,
 		Adapter:           req.Adapter,
 		DryRun:            req.DryRun,
