@@ -1,0 +1,1044 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Wave &mdash; agentic building blocks for software factories</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Newsreader:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" />
+  <style>
+    :root {
+      --bg: #0a0d12;
+      --bg-elev: #11151c;
+      --bg-2:   #161b24;
+      --border: #232a36;
+      --border-soft: #1a2029;
+      --text: #e9eef5;
+      --text-mute: #8a96a8;
+      --text-dim: #5c6675;
+      --accent: #76e6c5;
+      --accent-2: #ff8fb3;
+      --accent-3: #ffd66e;
+      --accent-4: #8aa9ff;
+      --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+      --serif: 'Newsreader', ui-serif, Charter, Cambria, Georgia, serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: var(--mono);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      letter-spacing: 0.005em;
+    }
+    a { color: inherit; text-decoration: none; }
+
+    /* Top nav */
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      padding: 22px 40px;
+      max-width: 1240px;
+      margin: 0 auto;
+      font-size: 13px;
+    }
+    .nav-brand {
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .wave-logo {
+      width: 24px; height: 24px;
+      flex-shrink: 0;
+      color: var(--text);
+    }
+    .wave-logo .ghost { opacity: 0.32; }
+    .dnode .wave-logo { width: 14px; height: 14px; color: var(--accent); }
+    .dnode.center .wave-logo { width: 16px; height: 16px; color: var(--accent); }
+    .nav-links { display: flex; gap: 26px; flex: 1; margin-left: 18px; }
+    .nav-links a {
+      color: var(--text-mute);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links a svg { width: 10px; height: 10px; opacity: 0.6; }
+    .nav-cta { display: flex; gap: 10px; }
+    .nav-cta a {
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text);
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .nav-cta a:hover { border-color: var(--text-mute); }
+    .nav-cta a.cta-solid { background: var(--text); color: var(--bg); border-color: var(--text); }
+    .nav-cta a.cta-solid:hover { background: #fff; border-color: #fff; }
+
+    /* Hero */
+    .hero {
+      padding: 64px 24px 80px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before, .hero::after {
+      content: ""; position: absolute; pointer-events: none; inset: 0;
+    }
+    .hero::before {
+      background:
+        radial-gradient(circle at 50% 0%, rgba(118, 230, 197, 0.08), transparent 55%),
+        radial-gradient(circle at 25% 30%, rgba(138, 169, 255, 0.06), transparent 50%),
+        radial-gradient(circle at 78% 35%, rgba(255, 143, 179, 0.06), transparent 50%);
+    }
+    .hero-pill {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 14px 6px 8px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-mute);
+      background: var(--bg-elev);
+      margin-bottom: 36px;
+    }
+    .hero-pill .pill-tag {
+      background: var(--accent);
+      color: var(--bg);
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+    .hero-pill svg { width: 12px; height: 12px; opacity: 0.7; }
+    .hero h1 {
+      position: relative;
+      font-family: var(--serif);
+      font-weight: 700;
+      font-size: clamp(48px, 7vw, 92px);
+      line-height: 0.98;
+      letter-spacing: -0.02em;
+      margin: 0 auto 28px;
+      max-width: 1000px;
+    }
+    .hero h1 .grad {
+      background: linear-gradient(92deg,
+        #76e6c5 0%,
+        #8aa9ff 28%,
+        #ffd66e 58%,
+        #ff8fb3 88%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero h1 em { font-style: italic; font-weight: 600; }
+    .hero p.sub {
+      position: relative;
+      font-family: var(--mono);
+      font-size: 16px;
+      color: var(--text-mute);
+      max-width: 580px;
+      margin: 0 auto 40px;
+      line-height: 1.7;
+    }
+    .hero-buttons {
+      position: relative;
+      display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 22px;
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      color: var(--text);
+      transition: border-color 0.15s, background 0.15s, transform 0.15s;
+      cursor: pointer;
+    }
+    .btn:hover { border-color: var(--text-mute); transform: translateY(-1px); }
+    .btn.solid {
+      background: var(--text);
+      color: var(--bg);
+      border-color: var(--text);
+    }
+    .btn.solid:hover { background: #fff; border-color: #fff; }
+    .btn svg { width: 12px; height: 12px; }
+
+    /* Trust bar */
+    .trust {
+      padding: 44px 24px 72px;
+      text-align: center;
+    }
+    .trust-label {
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 28px;
+    }
+    .trust-row {
+      display: flex; justify-content: center; gap: 56px;
+      flex-wrap: wrap;
+      align-items: center;
+      max-width: 1100px;
+      margin: 0 auto;
+      opacity: 0.7;
+    }
+    .trust-row span {
+      font-family: var(--mono);
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      display: inline-flex; align-items: center; gap: 8px;
+      color: var(--text-mute);
+    }
+    .trust-row svg { width: 22px; height: 22px; opacity: 0.85; }
+
+    /* Section */
+    section.sec {
+      padding: 80px 24px;
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+    .sec-eyebrow {
+      text-align: center;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+    .sec h2 {
+      font-family: var(--serif);
+      font-size: clamp(34px, 4vw, 52px);
+      line-height: 1.05;
+      letter-spacing: -0.018em;
+      text-align: center;
+      max-width: 900px;
+      margin: 0 auto 24px;
+      font-weight: 600;
+    }
+    .sec h2 em { font-style: italic; color: var(--accent); }
+    .sec h2 code, .sec h2 .codeword {
+      font-family: var(--mono);
+      font-size: 0.78em;
+      background: var(--bg-2);
+      padding: 4px 14px;
+      border-radius: 6px;
+      vertical-align: 4px;
+      color: var(--accent);
+    }
+    .sec p.lede {
+      text-align: center;
+      max-width: 660px;
+      margin: 0 auto 48px;
+      color: var(--text-mute);
+      font-size: 15px;
+      line-height: 1.75;
+    }
+
+    /* Run-now section */
+    .runnow {
+      text-align: center;
+      padding-top: 0;
+    }
+    .runnow .platforms {
+      display: flex; justify-content: center; gap: 28px;
+      margin-bottom: 30px;
+      color: var(--text-mute);
+    }
+    .runnow .platforms svg { width: 20px; height: 20px; }
+    .code-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 20px;
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      font-family: var(--mono);
+      font-size: 14px;
+      color: var(--text);
+    }
+    .code-chip .prompt { color: var(--text-mute); }
+    .code-chip .copy {
+      width: 26px; height: 26px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      color: var(--text-mute);
+    }
+    .code-chip .copy:hover { color: var(--text); border-color: var(--text-mute); }
+    .code-chip .copy svg { width: 12px; height: 12px; }
+
+    .setup-link {
+      display: block;
+      margin-top: 24px;
+      color: var(--text-mute);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .setup-link a { color: var(--text); border-bottom: 1px dashed var(--text-mute); padding-bottom: 1px; }
+
+    /* Card grid (4 product cards) */
+    .card-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    @media (max-width: 900px) { .card-grid { grid-template-columns: 1fr; } }
+    .pcard {
+      position: relative;
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px 28px 36px;
+      overflow: hidden;
+      transition: border-color 0.18s, transform 0.18s;
+    }
+    .pcard:hover { border-color: var(--text-mute); transform: translateY(-2px); }
+    .pcard-head {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 14px;
+    }
+    .pcard-eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-mute);
+    }
+    .pcard-arrow {
+      width: 28px; height: 28px;
+      border: 1px solid var(--border); border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--text-mute);
+      transition: color 0.18s, border-color 0.18s;
+    }
+    .pcard:hover .pcard-arrow { color: var(--text); border-color: var(--text-mute); }
+    .pcard-arrow svg { width: 14px; height: 14px; }
+    .pcard-title {
+      font-family: var(--serif);
+      font-size: 26px;
+      line-height: 1.15;
+      letter-spacing: -0.015em;
+      margin: 4px 0 28px;
+      font-weight: 600;
+      max-width: 380px;
+    }
+    .pcard-wide { grid-column: 1 / -1; }
+
+    /* Diagram — pure SVG */
+    .diagram {
+      position: relative;
+      height: 280px;
+      margin-top: 18px;
+      border: 1px dashed var(--border-soft);
+      border-radius: 10px;
+      background:
+        radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1.2px) 0 0 / 22px 22px,
+        radial-gradient(circle at 50% 55%, rgba(118,230,197,0.06), transparent 65%);
+      overflow: hidden;
+    }
+    .pcard-wide .diagram { height: 240px; }
+    .dgm { width: 100%; height: 100%; display: block; }
+    .dgm .box     { fill: var(--bg-2);   stroke: var(--border);   stroke-width: 1; }
+    .dgm .box-dim { fill: var(--bg);     stroke: var(--border-soft); stroke-width: 1; }
+    .dgm .box-hub { fill: var(--bg-elev); stroke: rgba(118,230,197,0.65); stroke-width: 1.4; }
+    .dgm .label    { font-family: var(--mono); font-size: 12px; fill: var(--text); }
+    .dgm .label-dim{ font-family: var(--mono); font-size: 11px; fill: var(--text-mute); }
+    .dgm .label-hub{ font-family: var(--mono); font-size: 12.5px; font-weight: 600; fill: var(--text); }
+    .dgm .ico     { stroke: var(--text-mute); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .dgm .connector {
+      stroke-width: 1.6;
+      stroke-dasharray: 4 5;
+      stroke-linecap: round;
+      fill: none;
+      animation: dash-flow 1.2s linear infinite;
+    }
+    .dgm .connector.in   { stroke: #8aa9ff; }
+    .dgm .connector.out  { stroke: #76e6c5; }
+    .dgm .connector.warn { stroke: #ffd66e; }
+    .dgm .connector.alt  { stroke: #ff8fb3; }
+    @keyframes dash-flow { to { stroke-dashoffset: -9; } }
+    .dgm .endpoint-halo { opacity: 0.25; transform-origin: center; transform-box: fill-box;
+                           animation: breathe 2s ease-in-out infinite; }
+    @keyframes breathe {
+      0%, 100% { transform: scale(1);   opacity: 0.18; }
+      50%      { transform: scale(1.5); opacity: 0.45; }
+    }
+    .dgm .hub-halo-out { fill: rgba(118,230,197,0.06); transform-origin: center; transform-box: fill-box;
+                          animation: hub-pulse 3.4s ease-in-out infinite; }
+    .dgm .hub-halo-mid { fill: rgba(118,230,197,0.12); }
+    @keyframes hub-pulse {
+      0%, 100% { opacity: 0.55; transform: scale(1); }
+      50%      { opacity: 1;    transform: scale(1.08); }
+    }
+
+    .dnode {
+      position: absolute;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 14px;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      white-space: nowrap;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.4);
+    }
+    .dnode svg { width: 13px; height: 13px; }
+    .dnode.dim { color: var(--text-mute); background: var(--bg); }
+
+    .dnode.center {
+      background:
+        radial-gradient(circle at 50% 50%,
+          rgba(118,230,197,0.28) 0%,
+          rgba(138,169,255,0.12) 50%,
+          var(--bg-elev) 100%);
+      border: 1.5px solid rgba(118,230,197,0.65);
+      padding: 14px 22px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      box-shadow:
+        0 0 0 6px rgba(118,230,197,0.05),
+        0 0 36px rgba(118,230,197,0.22),
+        0 0 0 1px rgba(255,143,179,0.10);
+      animation: hub-pulse 3.4s ease-in-out infinite;
+    }
+    .dnode.center .wave-logo { width: 18px; height: 18px; animation: hub-logo 6s linear infinite; }
+
+    @keyframes hub-pulse {
+      0%, 100% {
+        box-shadow:
+          0 0 0 6px rgba(118,230,197,0.05),
+          0 0 32px rgba(118,230,197,0.22),
+          0 0 0 1px rgba(255,143,179,0.10);
+      }
+      50% {
+        box-shadow:
+          0 0 0 10px rgba(118,230,197,0.10),
+          0 0 56px rgba(118,230,197,0.42),
+          0 0 0 1px rgba(255,143,179,0.20);
+      }
+    }
+    @keyframes hub-logo {
+      0%, 100% { color: var(--accent); }
+      50%      { color: var(--accent-2); }
+    }
+
+    .dline {
+      width: 100%; height: 100%;
+      top: 0; left: 0;
+      z-index: 1;
+    }
+    .dline path {
+      stroke-linecap: round;
+      stroke-width: 1.8;
+      stroke-dasharray: 4 5;
+      fill: none;
+      animation: flow 1.4s linear infinite;
+    }
+    @keyframes flow {
+      from { stroke-dashoffset: 0; }
+      to   { stroke-dashoffset: -18; }
+    }
+    .dline .endpoint {
+      fill: currentColor;
+      animation: breathe 2.2s ease-in-out infinite;
+      transform-origin: center;
+      transform-box: fill-box;
+    }
+    .dline .endpoint-core { fill: currentColor; }
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); opacity: 0.35; }
+      50%      { transform: scale(1.4); opacity: 0.7; }
+    }
+    .dnode { z-index: 2; }
+    .dnode.center { z-index: 3; }
+
+    /* SVG dashed connectors via absolute */
+    .dline {
+      position: absolute;
+      pointer-events: none;
+    }
+
+    /* Inline keyword highlight */
+    .kw { background: var(--bg-2); padding: 1px 8px; border-radius: 4px; color: var(--accent-3); }
+    .kw-pink { color: var(--accent-2); }
+    .kw-blue { color: var(--accent-4); }
+    .kw-green { color: var(--accent); }
+
+    /* Code section */
+    .codeblock {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 26px;
+      font-family: var(--mono);
+      font-size: 13.5px;
+      line-height: 1.7;
+      overflow-x: auto;
+    }
+    .codeblock .ln { color: var(--text-dim); margin-right: 18px; user-select: none; display: inline-block; width: 22px; text-align: right; }
+    .codeblock .cm { color: var(--text-dim); }
+    .codeblock .k  { color: var(--accent-4); }
+    .codeblock .s  { color: var(--accent-3); }
+    .codeblock .v  { color: var(--accent); }
+    .codeblock .h  { color: var(--accent-2); }
+
+    /* Lifecycle (left list + right code) */
+    .lifecycle {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 18px;
+      max-width: 1080px;
+      margin: 40px auto 0;
+    }
+    @media (max-width: 900px) { .lifecycle { grid-template-columns: 1fr; } }
+    .lifecycle-list { display: flex; flex-direction: column; gap: 10px; }
+    .lifecycle-item {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 22px;
+      display: flex; align-items: center; gap: 14px;
+      font-size: 13px;
+    }
+    .lifecycle-item .ico {
+      width: 28px; height: 28px;
+      border: 1px solid var(--border); border-radius: 8px;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+    .lifecycle-item .ico svg { width: 14px; height: 14px; }
+    .lifecycle-item strong { color: var(--accent); font-weight: 500; }
+
+    /* Bottom feature card */
+    .feature-card {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px 32px;
+      max-width: 1080px;
+      margin: 36px auto 0;
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 36px;
+      align-items: center;
+    }
+    @media (max-width: 900px) { .feature-card { grid-template-columns: 1fr; } }
+    .feature-card h3 {
+      font-family: var(--serif); font-size: 24px; line-height: 1.2; margin: 8px 0 16px; font-weight: 600;
+    }
+    .feature-card .explore {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--text); border-bottom: 1px solid var(--text-mute); padding-bottom: 2px;
+      white-space: nowrap;
+    }
+    .feature-card .explore svg { width: 12px; height: 12px; flex-shrink: 0; }
+    /* safety net: any svg not sized by a more specific rule defaults to 1em */
+    svg:not([width]):not([height]) { width: 1em; height: 1em; }
+    .feature-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px 24px;
+      font-size: 13px;
+    }
+    .feature-list span {
+      display: inline-flex; align-items: center; gap: 8px;
+      color: var(--text);
+    }
+    .feature-list span svg { width: 14px; height: 14px; color: var(--accent); flex-shrink: 0; }
+
+    /* Audit table */
+    .audit-card {
+      max-width: 980px;
+      margin: 24px auto 0;
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 26px;
+      font-family: var(--mono);
+      font-size: 13px;
+      overflow-x: auto;
+    }
+    .audit-comment { color: var(--text-dim); margin-bottom: 14px; font-size: 12.5px; }
+    .audit-table { width: 100%; border-collapse: collapse; }
+    .audit-table th .sub { color: var(--text-dim); font-weight: 400; font-size: 10px; letter-spacing: 0.04em; text-transform: none; display: inline-block; margin-top: 2px; }
+    .audit-table th {
+      text-align: left;
+      padding: 8px 14px;
+      font-weight: 500;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-mute);
+      border-bottom: 1px solid var(--border);
+    }
+    .audit-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-soft);
+      color: var(--text);
+    }
+    .audit-table tr:last-child td { border-bottom: none; }
+    .audit-table code {
+      background: var(--bg-2);
+      padding: 1px 6px;
+      border-radius: 3px;
+      color: var(--accent-2);
+      font-size: 12px;
+    }
+    .audit-flag { color: var(--accent-2); font-weight: 600; }
+    .audit-dash { color: var(--text-dim); }
+    .verdict-strong { color: var(--accent); font-weight: 600; }
+    .verdict-weigh  { color: var(--accent-3); font-weight: 600; }
+    .verdict-noise  { color: var(--text-mute); }
+
+    /* Final CTA */
+    .final-cta {
+      padding: 100px 24px 120px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .final-cta::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(circle at 50% 50%, rgba(118,230,197,0.08), transparent 60%);
+    }
+    .final-cta h2 {
+      position: relative;
+      font-family: var(--serif); font-size: clamp(42px, 5vw, 72px);
+      line-height: 1.04; margin: 0 auto 28px; max-width: 900px;
+      font-weight: 700; letter-spacing: -0.018em;
+    }
+    .final-cta h2 em { font-style: italic; color: var(--accent-2); }
+    .final-cta p {
+      position: relative;
+      color: var(--text-mute); max-width: 540px; margin: 0 auto 36px;
+      font-size: 15px;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 36px 24px;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    footer a { color: var(--text-mute); margin: 0 12px; }
+    footer a:hover { color: var(--text); }
+
+    .preview-banner {
+      background: var(--accent-3);
+      color: #1a1408;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      text-align: center;
+      padding: 6px 12px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="preview-banner">PREVIEW &middot; Mockup &middot; not connected to a backend</div>
+
+  <nav class="nav">
+    <span class="nav-brand"><svg class="wave-logo" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/><path class="ghost" d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14"/></svg>wave</span>
+    <div class="nav-links">
+      <a href="#">Product <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" /></svg></a>
+      <a href="#">Pipelines <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" /></svg></a>
+      <a href="#">Evolve <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9" /></svg></a>
+      <a href="#">Docs</a>
+      <a href="#">Blog</a>
+      <a href="#">Pricing</a>
+      <a href="#">Download</a>
+    </div>
+    <div class="nav-cta">
+      <a href="00-landing.html">Open bridge</a>
+      <a href="01-onboarding-session.html" class="cta-solid">Get started</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="hero-pill">
+      <span class="pill-tag">NEW</span>
+      Self-evolving pipelines
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
+    </div>
+    <h1>
+      All your <em>agents</em>.<br />
+      <span class="grad">One factory.</span>
+    </h1>
+    <p class="sub">
+      Wave gives you agentic building blocks for software factories. It scaffolds itself to your repo,
+      hides the orchestration, and gives you the bridge view &mdash; strong standards,
+      low-friction entry, and a clear sense of every agent in the fleet.
+    </p>
+    <div class="hero-buttons">
+      <a href="01-onboarding-session.html" class="btn solid">
+        Get started (for free)
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
+      </a>
+      <a href="#" class="btn">
+        Read the plan
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
+      </a>
+    </div>
+  </header>
+
+  <section class="trust">
+    <div class="trust-label">Works with the forges and models you already use</div>
+    <div class="trust-row">
+      <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.5-1.4-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2 1-.3 2-.4 3-.4s2 .1 3 .4c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6C20.6 21.8 24 17.3 24 12c0-6.6-5.4-12-12-12z" /></svg>GitHub</span>
+      <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7v10l10 5 10-5V7l-10-5zm0 2.3l7.5 3.7L12 11.7 4.5 8 12 4.3z" opacity="0.85" /></svg>Gitea</span>
+      <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6z" /></svg>Forgejo</span>
+      <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 4h20l-2 16H4L2 4zm6 4l1 8h6l1-8H8z" /></svg>Bitbucket</span>
+      <span><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9" opacity="0.6" /><circle cx="12" cy="12" r="4" /></svg>Anthropic</span>
+      <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 4l-3 5h6l-3-5zm-4 7l3 5 3-5H8z" /></svg>OpenAI</span>
+      <span><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>Gemini</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M12 3v18" /></svg>opencode</span>
+    </div>
+  </section>
+
+  <section class="sec runnow">
+    <h2>Try Wave on your repo. <em>Right now.</em></h2>
+    <div class="platforms">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 12.5c0-2.4 2-3.5 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.5-.2-2.9.9-3.6.9-.7 0-1.9-.9-3.1-.8-1.6 0-3.1.9-3.9 2.4-1.7 2.9-.4 7.2 1.2 9.5.8 1.1 1.7 2.4 3 2.3 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.1.8 1.3 0 2.1-1.1 2.9-2.3.9-1.3 1.3-2.6 1.3-2.6s-2.6-1-2.6-3.6zM14.5 4.7c.7-.8 1.1-1.9 1-3-.9 0-2 .6-2.7 1.4-.6.7-1.2 1.8-1 2.9 1 .1 2-.6 2.7-1.3z" /></svg>
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h8v8H3zM13 4h8v8h-8zM3 14h8v8H3zM13 14h8v8h-8z" /></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /></svg>
+      <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" /></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
+    </div>
+    <div class="code-chip">
+      <span class="prompt">$</span>
+      <span><span style="color: var(--accent);">curl</span> -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.sh | sh</span>
+      <span class="copy" title="copy">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+      </span>
+    </div>
+    <div class="setup-link"><a href="01-onboarding-session.html">Download and setup instructions &rarr;</a></div>
+  </section>
+
+  <section class="sec">
+    <h2>From <span class="codeword">issue</span> to <em>reviewed</em> PR.</h2>
+    <p class="lede">
+      No more pipeline picker, no more YAML wrangling, no more guessing which agent to spawn.
+      Wave maps your forge work items to the right pipeline, runs it, and watches the result.
+    </p>
+
+    <div class="card-grid">
+
+      <a href="01-onboarding-session.html" class="pcard">
+        <div class="pcard-head">
+          <span class="pcard-eyebrow">Onboarding</span>
+          <span class="pcard-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg></span>
+        </div>
+        <div class="pcard-title">Wave scaffolds itself<br />to your project</div>
+        <div class="diagram">
+          <svg class="dgm" width="100%" height="100%" viewBox="0 0 600 280" preserveAspectRatio="xMidYMid meet">
+            <!-- inputs -->
+            <rect class="box" x="80" y="20" width="147" height="36" rx="8"/><svg x="92" y="30" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l5-3 5 3v6l-5 3-5-3z"/><path d="M3 7l5 3v6"/><path d="M13 7l-5 3"/></svg><text class="label" text-anchor="start" x="116" y="42">package.json</text>
+
+            <rect class="box" x="400" y="20" width="132" height="36" rx="8"/><svg x="412" y="30" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h6l3 4-3 4-6-3z"/><path d="M5 11l3 3 3-1"/></svg><text class="label" text-anchor="start" x="436" y="42">biome.json</text>
+
+            <!-- hub -->
+            <circle class="hub-halo-out" cx="300" cy="140" r="48"/>
+            <circle class="hub-halo-mid" cx="300" cy="140" r="36"/>
+            <rect class="box-hub" x="240" y="119" width="120" height="42" rx="10"/>
+            <svg x="252" y="130" width="20" height="20" viewBox="0 0 28 28">
+              <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14" fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round"/>
+              <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round" opacity="0.32"/>
+            </svg>
+            <text class="label-hub" text-anchor="middle" x="313" y="146">onboarder</text>
+
+            <!-- outputs -->
+            <rect class="box" x="10" y="224" width="190" height="36" rx="8"/><svg x="22" y="234" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h5l1 1.5h6V12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg><text class="label" text-anchor="start" x="46" y="246" font-size="11.5">.agents/pipelines/</text>
+            <rect class="box" x="210" y="224" width="183" height="36" rx="8"/><svg x="222" y="234" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="6" r="2.5"/><path d="M3 13a5 5 0 0 1 10 0"/></svg><text class="label" text-anchor="start" x="246" y="246" font-size="11.5">.agents/personas/</text>
+            <rect class="box" x="403" y="224" width="187" height="36" rx="8"/><svg x="415" y="234" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2h7l3 3v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><polyline points="10 2 10 5 13 5"/><line x1="5" y1="9" x2="11" y2="9"/><line x1="5" y1="11.5" x2="11" y2="11.5"/></svg><text class="label" text-anchor="start" x="439" y="246" font-size="11.5">.agents/contracts/</text>
+
+            <!-- connectors: distributed ports on hub top (280, 320) and bottom (270, 300, 330) -->
+            <path class="connector in"  d="M153 62 V92 A8 8 0 0 0 161 100 H272 A8 8 0 0 1 280 108 V113"/>
+            <path class="connector in"  d="M466 62 V92 A8 8 0 0 1 458 100 H328 A8 8 0 0 0 320 108 V113"/>
+            <path class="connector alt" d="M270 167 V190 A8 8 0 0 1 262 198 H113 A8 8 0 0 0 105 206 V218"/>
+            <path class="connector alt" d="M300 167 V218"/>
+            <path class="connector alt" d="M330 167 V190 A8 8 0 0 0 338 198 H488 A8 8 0 0 1 496 206 V218"/>
+
+            <!-- endpoints -->
+            <circle class="endpoint-halo" cx="153" cy="62"  r="6" fill="#8aa9ff"/><circle cx="153" cy="62"  r="3" fill="#8aa9ff"/>
+            <circle class="endpoint-halo" cx="466" cy="62"  r="6" fill="#8aa9ff"/><circle cx="466" cy="62"  r="3" fill="#8aa9ff"/>
+            <circle class="endpoint-halo" cx="105" cy="218" r="6" fill="#ff8fb3"/><circle cx="105" cy="218" r="3" fill="#ff8fb3"/>
+            <circle class="endpoint-halo" cx="300" cy="218" r="6" fill="#ff8fb3"/><circle cx="300" cy="218" r="3" fill="#ff8fb3"/>
+            <circle class="endpoint-halo" cx="496" cy="218" r="6" fill="#ff8fb3"/><circle cx="496" cy="218" r="3" fill="#ff8fb3"/>
+          </svg>
+        </div>
+      </a>
+
+      <a href="03-work-item.html" class="pcard">
+        <div class="pcard-head">
+          <span class="pcard-eyebrow">Dispatch</span>
+          <span class="pcard-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg></span>
+        </div>
+        <div class="pcard-title">Click an issue,<br />get a PR</div>
+        <div class="diagram">
+          <svg class="dgm" width="100%" height="100%" viewBox="0 0 600 280" preserveAspectRatio="xMidYMid meet">
+            <!-- inputs -->
+            <rect class="box" x="80" y="20" width="120" height="36" rx="8"/><svg x="92" y="30" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/></svg><text class="label" text-anchor="start" x="116" y="42">issue #142</text>
+
+            <rect class="box-dim" x="400" y="20" width="170" height="36" rx="8"/><svg x="412" y="30" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5c6675" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8l5-5h6v6l-5 5z"/><circle cx="10" cy="6" r="1" fill="currentColor"/></svg><text class="label-dim" text-anchor="start" x="436" y="42">label: enhancement</text>
+
+            <!-- hub -->
+            <circle class="hub-halo-out" cx="300" cy="140" r="48"/>
+            <circle class="hub-halo-mid" cx="300" cy="140" r="36"/>
+            <rect class="box-hub" x="232" y="119" width="136" height="42" rx="10"/>
+            <svg x="244" y="130" width="20" height="20" viewBox="0 0 28 28">
+              <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14" fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round"/>
+              <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round" opacity="0.32"/>
+            </svg>
+            <text class="label-hub" text-anchor="middle" x="313" y="146">impl-issue</text>
+
+            <!-- outputs -->
+            <rect class="box" x="80" y="224" width="120" height="36" rx="8"/><svg x="92" y="234" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="1.8"/><circle cx="4" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><path d="M4 6v4"/><path d="M12 4h-2a2 2 0 0 0-2 2v4"/></svg><text class="label" text-anchor="start" x="116" y="246">PR !58</text>
+
+            <rect class="box-dim" x="400" y="224" width="170" height="36" rx="8"/><svg x="412" y="234" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5c6675" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M11 5.5H7a1.5 1.5 0 0 0 0 3h2a1.5 1.5 0 0 1 0 3H5"/><path d="M8 4v8"/></svg><text class="label-dim" text-anchor="start" x="436" y="246">budget cap $0.50</text>
+
+            <rect class="box-dim" x="240" y="224" width="120" height="36" rx="8" stroke-dasharray="3 3"/><svg x="252" y="234" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5c6675" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><polyline points="5.5 8 7.5 10 11 6.5"/></svg><text class="label-dim" text-anchor="start" x="276" y="246">review pass</text>
+
+            <!-- connectors: distributed ports on hub top (286, 314) and bottom (270, 300, 330) -->
+            <path class="connector in"  d="M140 62 V92 A8 8 0 0 0 148 100 H278 A8 8 0 0 1 286 108 V113"/>
+            <path class="connector warn" d="M485 62 V92 A8 8 0 0 1 477 100 H322 A8 8 0 0 0 314 108 V113"/>
+            <path class="connector out" d="M270 167 V190 A8 8 0 0 1 262 198 H148 A8 8 0 0 0 140 206 V218"/>
+            <path class="connector warn" d="M330 167 V190 A8 8 0 0 0 338 198 H477 A8 8 0 0 1 485 206 V218"/>
+            <path class="connector out" d="M300 167 V218"/>
+
+            <!-- endpoints -->
+            <circle class="endpoint-halo" cx="140" cy="62"  r="6" fill="#8aa9ff"/><circle cx="140" cy="62"  r="3" fill="#8aa9ff"/>
+            <circle class="endpoint-halo" cx="485" cy="62"  r="6" fill="#ffd66e"/><circle cx="485" cy="62"  r="3" fill="#ffd66e"/>
+            <circle class="endpoint-halo" cx="140" cy="218" r="6" fill="#76e6c5"/><circle cx="140" cy="218" r="3" fill="#76e6c5"/>
+            <circle class="endpoint-halo" cx="300" cy="218" r="6" fill="#76e6c5"/><circle cx="300" cy="218" r="3" fill="#76e6c5"/>
+            <circle class="endpoint-halo" cx="485" cy="218" r="6" fill="#ffd66e"/><circle cx="485" cy="218" r="3" fill="#ffd66e"/>
+          </svg>
+        </div>
+      </a>
+      <a href="00-landing.html" class="pcard">
+        <div class="pcard-head">
+          <span class="pcard-eyebrow">Bridge view</span>
+          <span class="pcard-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg></span>
+        </div>
+        <div class="pcard-title">Always something to discover, start, or compare</div>
+        <div class="diagram">
+          <svg class="dgm" width="100%" height="100%" viewBox="0 0 600 280" preserveAspectRatio="xMidYMid meet">
+            <!-- inputs -->
+            <rect class="box" x="80" y="20" width="120" height="36" rx="8"/><svg x="92" y="30" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8l5-1.5L9 1l1.5 5.5L15 8l-5 1.5L9 14l-1.5-5.5z"/></svg><text class="label" text-anchor="start" x="116" y="42">in flight</text>
+
+            <rect class="box" x="400" y="20" width="170" height="36" rx="8"/><svg x="412" y="30" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 9 6 13 14 4"/></svg><text class="label" text-anchor="start" x="436" y="42">recent landings</text>
+
+            <!-- hub -->
+            <circle class="hub-halo-out" cx="300" cy="140" r="48"/>
+            <circle class="hub-halo-mid" cx="300" cy="140" r="36"/>
+            <rect class="box-hub" x="252" y="119" width="96" height="42" rx="10"/>
+            <svg x="264" y="130" width="20" height="20" viewBox="0 0 28 28">
+              <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14" fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round"/>
+              <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" fill="none" stroke="#76e6c5" stroke-width="2.6" stroke-linecap="round" opacity="0.32"/>
+            </svg>
+            <text class="label-hub" text-anchor="middle" x="313" y="146">bridge</text>
+
+            <!-- outputs -->
+            <rect class="box" x="40" y="224" width="130" height="36" rx="8"/><svg x="52" y="234" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg><text class="label" text-anchor="start" x="76" y="246">discover</text>
+            <rect class="box" x="255" y="224" width="90" height="36" rx="8"/><svg x="267" y="234" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3.5 2.5 13 8 3.5 13.5"/></svg><text class="label" text-anchor="start" x="291" y="246">start</text>
+            <rect class="box" x="444" y="224" width="102" height="36" rx="8"/><svg x="456" y="234" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a96a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="2" x2="4" y2="14"/><line x1="12" y1="2" x2="12" y2="14"/><polyline points="6 5 4 3 2 5"/><polyline points="14 11 12 13 10 11"/></svg><text class="label" text-anchor="start" x="480" y="246">compare</text>
+
+            <!-- connectors: distributed ports on hub top (286, 314) and bottom (270, 300, 330) -->
+            <path class="connector in"  d="M140 62 V92 A8 8 0 0 0 148 100 H278 A8 8 0 0 1 286 108 V113"/>
+            <path class="connector in"  d="M485 62 V92 A8 8 0 0 1 477 100 H322 A8 8 0 0 0 314 108 V113"/>
+            <path class="connector out" d="M270 167 V190 A8 8 0 0 1 262 198 H113 A8 8 0 0 0 105 206 V218"/>
+            <path class="connector alt" d="M300 167 V218"/>
+            <path class="connector warn" d="M330 167 V190 A8 8 0 0 0 338 198 H487 A8 8 0 0 1 495 206 V218"/>
+
+            <!-- endpoints -->
+            <circle class="endpoint-halo" cx="140" cy="62"  r="6" fill="#8aa9ff"/><circle cx="140" cy="62"  r="3" fill="#8aa9ff"/>
+            <circle class="endpoint-halo" cx="485" cy="62"  r="6" fill="#8aa9ff"/><circle cx="485" cy="62"  r="3" fill="#8aa9ff"/>
+            <circle class="endpoint-halo" cx="105" cy="218" r="6" fill="#76e6c5"/><circle cx="105" cy="218" r="3" fill="#76e6c5"/>
+            <circle class="endpoint-halo" cx="300" cy="218" r="6" fill="#ff8fb3"/><circle cx="300" cy="218" r="3" fill="#ff8fb3"/>
+            <circle class="endpoint-halo" cx="495" cy="218" r="6" fill="#ffd66e"/><circle cx="495" cy="218" r="3" fill="#ffd66e"/>
+          </svg>
+        </div>
+      </a>
+
+    </div>
+  </section>
+
+  <section class="sec">
+    <p class="sec-eyebrow">strong standards, soft surface</p>
+    <h2><em>Wave building blocks</em> for agentic projects.</h2>
+    <p class="lede">
+      Composable, typed, contract-gated. Pipelines are durable building blocks &mdash;
+      generated for your stack, validated at load time, hot-swappable per project.
+    </p>
+
+    <div class="lifecycle">
+      <div class="lifecycle-list">
+        <div class="lifecycle-item">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg></span>
+          <span>Validate <strong>at load time</strong>, not at run time</span>
+        </div>
+        <div class="lifecycle-item">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg></span>
+          <span>Budget <strong>per step, per pipeline</strong></span>
+        </div>
+        <div class="lifecycle-item">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg></span>
+          <span>Contract every <strong>step output</strong> &mdash; JSON schema or test suite</span>
+        </div>
+        <div class="lifecycle-item">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg></span>
+          <span>Federated <strong>across forges</strong> &mdash; GitHub, Gitea, Forgejo</span>
+        </div>
+      </div>
+
+      <pre class="codeblock"><span class="cm">.agents/pipelines/impl-issue.yaml</span>
+<span class="ln">1</span><span class="k">kind</span>: <span class="s">WavePipeline</span>
+<span class="ln">2</span><span class="k">metadata</span>:
+<span class="ln">3</span>  <span class="k">name</span>: <span class="s">impl-issue</span>
+<span class="ln">4</span><span class="k">input</span>:
+<span class="ln">5</span>  <span class="k">type</span>: <span class="v">work_item_ref</span>   <span class="cm"># typed, validated</span>
+<span class="ln">6</span><span class="k">steps</span>:
+<span class="ln">7</span>  - <span class="k">id</span>: <span class="s">implement</span>
+<span class="ln">8</span>    <span class="k">persona</span>: <span class="v">craftsman</span>
+<span class="ln">9</span>    <span class="k">handover</span>:
+<span class="ln">10</span>      <span class="k">contract</span>:
+<span class="ln">11</span>        <span class="k">type</span>: <span class="v">test_suite</span>
+<span class="ln">12</span>        <span class="k">command</span>: <span class="s">"bun test &amp;&amp; bun typecheck"</span>
+<span class="ln">13</span>        <span class="k">on_failure</span>: <span class="h">rework</span>
+<span class="ln">14</span>        <span class="k">retry</span>: { <span class="k">max_attempts</span>: <span class="v">2</span> }</pre>
+    </div>
+
+    <div class="feature-card">
+      <div>
+        <p class="sec-eyebrow" style="text-align: left; margin-bottom: 8px;">Even more ways to keep agents honest</p>
+        <h3>Strong defaults you can shape, not fight.</h3>
+        <a href="#" class="explore">
+          Explore the full kit
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
+        </a>
+      </div>
+      <div class="feature-list">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>Agentic Pipeline Protocol (APP)</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>Failure taxonomy + circuit breaker</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>Sandboxed step execution</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>Multi-adapter fallback</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>Cost ledger + token split</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>Human-approve gates</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>Cron schedules + work-source bindings</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>Detached runs survive restart</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" style="padding-top: 40px;">
+    <p class="sec-eyebrow">Future</p>
+    <h2>Run pipelines <em>across models</em>. Cross-agreement is your reliability signal.</h2>
+    <p class="lede">
+      A security audit that fires on three providers and converges on the same finding carries
+      more weight than one model alone. We call it quasi-reliability through model diversity &mdash;
+      the kind of trust budget you'd give a three-person review board.
+    </p>
+
+    <div class="audit-card">
+      <div class="audit-comment"># Audit fan-out across three providers</div>
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th>finding</th>
+            <th>claude<br /><span class="sub">sonnet-4-6</span></th>
+            <th>opencode<br /><span class="sub">glm-5.1</span></th>
+            <th>gemini<br /><span class="sub">2.5-pro</span></th>
+            <th>verdict</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>SQL injection in <code>query.ts</code></td>
+            <td><span class="audit-flag">flag</span></td>
+            <td><span class="audit-flag">flag</span></td>
+            <td><span class="audit-flag">flag</span></td>
+            <td class="verdict-strong">3 / 3 &middot; strong</td>
+          </tr>
+          <tr>
+            <td>missing rate limit on <code>/api</code></td>
+            <td><span class="audit-flag">flag</span></td>
+            <td><span class="audit-flag">flag</span></td>
+            <td class="audit-dash">&mdash;</td>
+            <td class="verdict-weigh">2 / 3 &middot; weigh</td>
+          </tr>
+          <tr>
+            <td>weak entropy in token id</td>
+            <td><span class="audit-flag">flag</span></td>
+            <td class="audit-dash">&mdash;</td>
+            <td class="audit-dash">&mdash;</td>
+            <td class="verdict-noise">1 / 3 &middot; noise</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="final-cta">
+    <h2>Build the factory.<br /><em>Watch it ship.</em></h2>
+    <p>One Docker run. One streaming onboarding session. Then the bridge view, every day.</p>
+    <div class="hero-buttons">
+      <a href="01-onboarding-session.html" class="btn solid">
+        Start onboarding
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
+      </a>
+      <a href="00-landing.html" class="btn">
+        Open the bridge
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    <a href="index.html">mockups index</a>
+    <a href="00-landing.html">bridge</a>
+    <a href="01-onboarding-session.html">onboarding</a>
+    <a href="02-work-board.html">work board</a>
+    <a href="03-work-item.html">work item</a>
+    <a href="04-evolution-proposal.html">proposal</a>
+  </footer>
+
+</body>
+</html>

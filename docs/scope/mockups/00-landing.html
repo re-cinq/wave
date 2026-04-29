@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Wave &mdash; bridge view</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .hero {
+      padding: 32px 24px;
+      background:
+        radial-gradient(1100px 360px at 20% -10%, rgba(47, 129, 247, 0.18), transparent 60%),
+        radial-gradient(900px 320px at 90% 0%, rgba(163, 113, 247, 0.16), transparent 60%),
+        linear-gradient(180deg, #0d1117 0%, #0d1117 100%);
+      border-bottom: 1px solid var(--border);
+    }
+    .hero-grid {
+      max-width: 1280px; margin: 0 auto;
+      display: grid; grid-template-columns: 1.2fr 1fr; gap: 32px; align-items: end;
+    }
+    @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; } }
+    .hero-tag {
+      display: inline-block; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--accent); padding: 4px 10px; border: 1px solid var(--accent); border-radius: 12px;
+      background: var(--accent-soft); margin-bottom: 14px;
+    }
+    .hero-title {
+      font-size: 32px; line-height: 1.15; font-weight: 700; margin: 0 0 12px;
+    }
+    .hero-title em { font-style: normal; color: var(--purple); }
+    .hero-sub { color: var(--text-mute); font-size: 15px; max-width: 560px; line-height: 1.6; }
+    .hero-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 8px; }
+    .hero-stat {
+      background: rgba(22, 27, 34, 0.7); border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 14px; backdrop-filter: blur(8px);
+    }
+    .hero-stat-label { font-size: 11px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.06em; }
+    .hero-stat-value { font-size: 22px; font-weight: 600; margin-top: 2px; }
+    .hero-stat-trend { font-size: 12px; margin-top: 2px; color: var(--text-mute); }
+    .hero-stat-trend.up { color: var(--green); }
+    .hero-stat-trend.down { color: var(--red); }
+
+    .grid-three { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; }
+    @media (max-width: 1080px) { .grid-three { grid-template-columns: 1fr; } }
+    .grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 900px) { .grid-two { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px;
+    }
+    .panel h3 { margin: 0 0 12px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-mute); display: flex; align-items: center; gap: 8px; }
+    .panel h3 svg { width: 14px; height: 14px; }
+    .panel h3 .panel-meta { margin-left: auto; font-size: 11px; color: var(--text-dim); letter-spacing: 0; text-transform: none; }
+
+    .pulse {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+      box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.7);
+      animation: pulse 1.6s infinite;
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.6); }
+      100% { box-shadow: 0 0 0 12px rgba(63, 185, 80, 0); }
+    }
+
+    .activity { display: flex; flex-direction: column; gap: 10px; }
+    .activity-item {
+      display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center;
+      padding: 8px 10px; background: var(--bg); border: 1px solid var(--border-soft); border-radius: 6px;
+    }
+    .activity-icon { color: var(--text-mute); display: flex; align-items: center; }
+    .activity-icon svg { width: 16px; height: 16px; }
+    .activity-title { font-size: 13px; }
+    .activity-meta { color: var(--text-mute); font-size: 11px; margin-top: 2px; font-family: var(--mono); }
+    .activity-time { color: var(--text-dim); font-size: 11px; font-family: var(--mono); }
+
+    .compare-table {
+      font-size: 12px; width: 100%; border-collapse: collapse; margin-top: 4px;
+    }
+    .compare-table th, .compare-table td {
+      padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border-soft);
+    }
+    .compare-table th { color: var(--text-mute); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .compare-cell { font-family: var(--mono); }
+    .agree { color: var(--green); font-weight: 600; }
+    .disagree { color: var(--yellow); font-weight: 600; }
+
+    .quick-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .quick {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
+      background: var(--bg); cursor: pointer; text-align: left; color: var(--text);
+      font-size: 13px; text-decoration: none;
+    }
+    .quick:hover { border-color: var(--accent); text-decoration: none; }
+    .quick svg { width: 16px; height: 16px; color: var(--accent); flex-shrink: 0; }
+    .quick-desc { display: block; font-size: 11px; color: var(--text-mute); margin-top: 2px; }
+
+    .heat {
+      display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; margin-top: 4px;
+    }
+    .heat-cell { aspect-ratio: 1; border-radius: 2px; background: var(--border-soft); }
+    .heat-cell.l1 { background: rgba(47, 129, 247, 0.25); }
+    .heat-cell.l2 { background: rgba(47, 129, 247, 0.5); }
+    .heat-cell.l3 { background: rgba(47, 129, 247, 0.75); }
+    .heat-cell.l4 { background: var(--accent); }
+    .heat-legend { display: flex; gap: 8px; margin-top: 6px; align-items: center; font-size: 11px; color: var(--text-mute); }
+
+    .stream-feed {
+      font-family: var(--mono); font-size: 11.5px; max-height: 260px; overflow-y: auto;
+      background: var(--bg); border: 1px solid var(--border-soft); border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .stream-feed .row { display: grid; grid-template-columns: 70px auto 1fr; gap: 8px; padding: 2px 0; }
+    .stream-feed .t { color: var(--text-dim); }
+    .stream-feed .src { color: var(--purple); }
+    .stream-feed .src.b { color: var(--accent); }
+    .stream-feed .src.g { color: var(--green); }
+    .stream-feed .src.r { color: var(--red); }
+    .stream-feed .src.y { color: var(--yellow); }
+
+    .principles {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 24px;
+    }
+    @media (max-width: 900px) { .principles { grid-template-columns: 1fr; } }
+    .principle { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+    .principle-label { font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; }
+    .principle-title { font-size: 14px; font-weight: 600; margin: 4px 0 6px; }
+    .principle-body { font-size: 12.5px; color: var(--text-mute); line-height: 1.55; }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-brand">
+      <svg width="22" height="22" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/><path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" opacity="0.35"/></svg>
+      Wave
+    </div>
+    <div class="nav-links">
+      <a href="#" class="active">Bridge</a>
+      <a href="02-work-board.html">Work</a>
+      <a href="#">Schedules</a>
+      <a href="#">Proposals <span class="badge badge-yellow" style="font-size: 10px; padding: 1px 6px; margin-left: 2px;">2</span></a>
+      <a href="#">Runs</a>
+      <a href="#" style="color: var(--text-dim);">Admin</a>
+    </div>
+    <div class="nav-meta">
+      <span><span class="pulse" style="display: inline-block; vertical-align: middle; margin-right: 6px;"></span>3 in flight</span>
+      <span>code-crispies</span>
+      <span>git.librete.ch</span>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="hero-grid">
+      <div>
+        <span class="hero-tag">the agentic kit</span>
+        <h1 class="hero-title">Scaffold a <em>software factory</em>, then watch it build.</h1>
+        <p class="hero-sub">
+          Wave tailors itself to your repository, hides the orchestration, and gives you the bridge view.
+          Strong standards, low-friction entry, and a clear sense of what every agent in the fleet is doing.
+        </p>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <div class="hero-stat-label">In flight</div>
+          <div class="hero-stat-value">3</div>
+          <div class="hero-stat-trend">2 implement &middot; 1 review</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-label">Today</div>
+          <div class="hero-stat-value">17</div>
+          <div class="hero-stat-trend up">+4 vs yesterday</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-label">Spend</div>
+          <div class="hero-stat-value">$2.41</div>
+          <div class="hero-stat-trend">of $10.00 cap</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-label">Judge avg</div>
+          <div class="hero-stat-value">0.87</div>
+          <div class="hero-stat-trend down">&minus;0.04 7d</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <div class="grid-three" style="margin-bottom: 16px;">
+
+      <section class="panel">
+        <h3>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+          live activity
+          <span class="panel-meta">last 5 min</span>
+        </h3>
+        <div class="stream-feed">
+          <div class="row"><span class="t">14:22:04</span><span class="src g">impl-issue</span><span>step <code>verify</code> &mdash; bun test &middot; 142 tests passed in 8.4s</span></div>
+          <div class="row"><span class="t">14:22:01</span><span class="src">scope</span><span>step <code>decompose</code> &mdash; 5 child issues drafted</span></div>
+          <div class="row"><span class="t">14:21:58</span><span class="src b">pr-review</span><span>step <code>analyze</code> &mdash; 0 blocking, 3 suggestions</span></div>
+          <div class="row"><span class="t">14:21:50</span><span class="src y">pipeline-evolve</span><span>signal accumulated &mdash; 9 of 10 runs evaluated</span></div>
+          <div class="row"><span class="t">14:21:44</span><span class="src g">impl-issue</span><span>step <code>implement</code> &mdash; 12 files modified</span></div>
+          <div class="row"><span class="t">14:21:32</span><span class="src">scope</span><span>step <code>fetch</code> &mdash; issue #138 retrieved</span></div>
+          <div class="row"><span class="t">14:21:28</span><span class="src b">pr-review</span><span>step <code>fetch</code> &mdash; PR !58 retrieved</span></div>
+          <div class="row"><span class="t">14:21:14</span><span class="src g">impl-issue</span><span>contract <code>typecheck</code> &mdash; passed</span></div>
+          <div class="row"><span class="t">14:21:01</span><span class="src">scheduler</span><span>nightly auto-impl &mdash; armed for 02:00 (in 11h 39m)</span></div>
+          <div class="row"><span class="t">14:20:48</span><span class="src g">impl-issue</span><span>step <code>plan</code> &mdash; 4-step plan accepted</span></div>
+          <div class="row"><span class="t">14:20:32</span><span class="src r">impl-issue</span><span>contract <code>tests_pass</code> &mdash; rework triggered (1/2)</span></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
+          discover
+        </h3>
+        <div class="quick-grid">
+          <a href="02-work-board.html" class="quick">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /></svg>
+            <span>23 open work items <span class="quick-desc">issues + PRs</span></span>
+          </a>
+          <a href="#" class="quick">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20" /><path d="M2 12h20" /></svg>
+            <span>3 stale branches <span class="quick-desc">no activity 7d+</span></span>
+          </a>
+          <a href="#" class="quick">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+            <span>4 health hints <span class="quick-desc">lint + dep advisories</span></span>
+          </a>
+          <a href="#" class="quick">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+            <span>1 budget warning <span class="quick-desc">impl-issue trending high</span></span>
+          </a>
+        </div>
+
+        <h3 style="margin-top: 18px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
+          start
+        </h3>
+        <div class="quick-grid">
+          <a href="#" class="quick">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+            <span>Run on issue <span class="quick-desc">work-board picker</span></span>
+          </a>
+          <a href="#" class="quick">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+            <span>Schedule sweep <span class="quick-desc">nightly auto-impl</span></span>
+          </a>
+          <a href="#" class="quick">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+            <span>Audit security <span class="quick-desc">multi-model (preview)</span></span>
+          </a>
+          <a href="04-evolution-proposal.html" class="quick">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+            <span>Review proposals <span class="quick-desc">2 awaiting</span></span>
+          </a>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="3" x2="6" y2="15" /><circle cx="18" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M18 9a9 9 0 0 1-9 9" /></svg>
+          compare
+          <span class="panel-meta">multi-model run</span>
+        </h3>
+        <p style="font-size: 12px; color: var(--text-mute); margin: 0 0 8px;">
+          Audit run on PR !58, fan-out across three providers. Agreement = signal.
+        </p>
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>finding</th>
+              <th>claude</th>
+              <th>opencode</th>
+              <th>gemini</th>
+              <th>verdict</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>SQL injection in <code>query.ts</code></td>
+              <td class="compare-cell">flag</td>
+              <td class="compare-cell">flag</td>
+              <td class="compare-cell">flag</td>
+              <td><span class="agree">3 / 3</span></td>
+            </tr>
+            <tr>
+              <td>missing rate limit on <code>/api</code></td>
+              <td class="compare-cell">flag</td>
+              <td class="compare-cell">flag</td>
+              <td class="compare-cell">&mdash;</td>
+              <td><span class="disagree">2 / 3</span></td>
+            </tr>
+            <tr>
+              <td>weak entropy in token id</td>
+              <td class="compare-cell">flag</td>
+              <td class="compare-cell">&mdash;</td>
+              <td class="compare-cell">&mdash;</td>
+              <td><span class="badge badge-dim">1 / 3</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="font-size: 12px; color: var(--text-mute); margin-top: 10px;">
+          <a href="#">show full diff &amp; reasoning &rarr;</a>
+        </div>
+        <div style="margin-top: 14px; font-size: 11px; color: var(--text-dim); border-top: 1px dashed var(--border); padding-top: 10px;">
+          <strong style="color: var(--text-mute);">future:</strong> automatic cross-model verification on every security audit. Quasi-reliability through model diversity.
+        </div>
+      </section>
+
+    </div>
+
+    <div class="grid-two" style="margin-bottom: 16px;">
+
+      <section class="panel">
+        <h3>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
+          in flight
+          <span class="panel-meta">3 active</span>
+        </h3>
+        <div class="activity">
+          <div class="activity-item">
+            <div class="activity-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3" /></svg></div>
+            <div>
+              <div class="activity-title">impl-issue &middot; #142 column-type inference</div>
+              <div class="activity-meta">step 3/5 &middot; implement &middot; r/3a8c91 &middot; budget $0.18 / $0.50</div>
+            </div>
+            <span class="badge badge-blue">running</span>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3" /></svg></div>
+            <div>
+              <div class="activity-title">scope &middot; #138 plugin system epic</div>
+              <div class="activity-meta">step 2/3 &middot; decompose &middot; r/4d2c10</div>
+            </div>
+            <span class="badge badge-blue">running</span>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3" /></svg></div>
+            <div>
+              <div class="activity-title">pr-review &middot; !58 streaming refactor</div>
+              <div class="activity-meta">step 4/4 &middot; comment &middot; r/8e9f23</div>
+            </div>
+            <span class="badge badge-blue">running</span>
+          </div>
+          <div class="activity-item" style="opacity: 0.6;">
+            <div class="activity-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg></div>
+            <div>
+              <div class="activity-title">scheduled &middot; nightly auto-impl sweep</div>
+              <div class="activity-meta">fires in 11h 39m &middot; cron 0 2 * * * &middot; label:auto-impl</div>
+            </div>
+            <span class="badge badge-dim">queued</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.7 1 6.4 2.6L21 8" /><polyline points="21 3 21 8 16 8" /></svg>
+          rhythm
+          <span class="panel-meta">last 24h</span>
+        </h3>
+        <div class="heat">
+          <div class="heat-cell"></div>
+          <div class="heat-cell"></div>
+          <div class="heat-cell"></div>
+          <div class="heat-cell"></div>
+          <div class="heat-cell"></div>
+          <div class="heat-cell"></div>
+          <div class="heat-cell"></div>
+          <div class="heat-cell"></div>
+          <div class="heat-cell l1"></div>
+          <div class="heat-cell l2"></div>
+          <div class="heat-cell l4"></div>
+          <div class="heat-cell l3"></div>
+          <div class="heat-cell l2"></div>
+          <div class="heat-cell l1"></div>
+          <div class="heat-cell l3"></div>
+          <div class="heat-cell l4"></div>
+          <div class="heat-cell l4"></div>
+          <div class="heat-cell l3"></div>
+          <div class="heat-cell l2"></div>
+          <div class="heat-cell l1"></div>
+          <div class="heat-cell l2"></div>
+          <div class="heat-cell l3"></div>
+          <div class="heat-cell l1"></div>
+          <div class="heat-cell"></div>
+        </div>
+        <div class="heat-legend">
+          <span>00:00</span>
+          <span style="flex: 1;"></span>
+          <span>now</span>
+          <span style="flex: 1;"></span>
+          <span style="display: flex; gap: 2px; align-items: center;">less <span class="heat-cell" style="width: 10px; height: 10px;"></span> <span class="heat-cell l1" style="width: 10px; height: 10px;"></span> <span class="heat-cell l2" style="width: 10px; height: 10px;"></span> <span class="heat-cell l3" style="width: 10px; height: 10px;"></span> <span class="heat-cell l4" style="width: 10px; height: 10px;"></span> more</span>
+        </div>
+
+        <h3 style="margin-top: 18px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+          judge trend
+          <span class="panel-meta">last 30 runs &middot; impl-issue</span>
+        </h3>
+        <div style="font-family: var(--mono); font-size: 18px; color: var(--text);">
+          0.91 &rarr; 0.78 <span style="color: var(--red); font-size: 13px;">&minus;0.13</span>
+        </div>
+        <div style="font-size: 12px; color: var(--text-mute); margin-top: 6px;">
+          drift threshold crossed. proposal #7 awaiting your call.
+        </div>
+        <div style="margin-top: 10px;">
+          <a href="04-evolution-proposal.html" class="btn">Review proposal &rarr;</a>
+        </div>
+      </section>
+
+    </div>
+
+    <section class="panel" style="margin-bottom: 16px;">
+      <h3>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>
+        recent landings
+        <span class="panel-meta">today</span>
+      </h3>
+      <div class="list" style="border: none; border-radius: 0;">
+        <div class="list-row" style="grid-template-columns: 28px 1fr auto auto auto; padding: 10px 0;">
+          <div class="list-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="18" r="3" /><path d="M6 9v6" /><path d="M18 6h-3a3 3 0 0 0-3 3v9" /></svg></div>
+          <div>
+            <div class="list-title">PR !57 &mdash; fix Cargo.toml mis-detection</div>
+            <div class="list-meta"><span>impl-issue &middot; merged 38m ago</span></div>
+          </div>
+          <span class="badge badge-green">merged</span>
+          <span class="badge badge-dim">judge 0.94</span>
+          <a href="#" class="btn">View</a>
+        </div>
+        <div class="list-row" style="grid-template-columns: 28px 1fr auto auto auto; padding: 10px 0;">
+          <div class="list-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="18" r="3" /><path d="M6 9v6" /><path d="M18 6h-3a3 3 0 0 0-3 3v9" /></svg></div>
+          <div>
+            <div class="list-title">PR !56 &mdash; biome integration in CI</div>
+            <div class="list-meta"><span>impl-issue &middot; merged 2h ago</span></div>
+          </div>
+          <span class="badge badge-green">merged</span>
+          <span class="badge badge-dim">judge 0.89</span>
+          <a href="#" class="btn">View</a>
+        </div>
+        <div class="list-row" style="grid-template-columns: 28px 1fr auto auto auto; padding: 10px 0;">
+          <div class="list-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><polyline points="20 6 9 17 4 12" /></svg></div>
+          <div>
+            <div class="list-title">scope &middot; #135 monorepo extraction</div>
+            <div class="list-meta"><span>4 child issues filed &middot; 4h ago</span></div>
+          </div>
+          <span class="badge badge-blue">scoped</span>
+          <span class="badge badge-dim">$0.07</span>
+          <a href="#" class="btn">View</a>
+        </div>
+      </div>
+    </section>
+
+    <div class="principles">
+      <div class="principle">
+        <div class="principle-label">erhabenheit</div>
+        <div class="principle-title">A bridge view, not a dashboard.</div>
+        <div class="principle-body">You see fleet health, in-flight work, and recent landings at a glance. No hunting in nested menus.</div>
+      </div>
+      <div class="principle">
+        <div class="principle-label">kontrolle</div>
+        <div class="principle-title">Strong standards, soft surface.</div>
+        <div class="principle-body">Generated pipelines are APP-clean. Contracts gate every step. You approve evolutions; you can lock pipelines you've tuned.</div>
+      </div>
+      <div class="principle">
+        <div class="principle-label">weitsicht</div>
+        <div class="principle-title">Always something to start, discover, or compare.</div>
+        <div class="principle-body">Run pipelines in parallel across models. Agreement is your reliability signal. Drift triggers a proposal before failure does.</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 32px; text-align: center; color: var(--text-mute); font-size: 13px;">
+      <a href="index.html">&larr; index</a> &middot; <a href="01-onboarding-session.html">onboarding</a> &middot; <a href="02-work-board.html">work board</a> &middot; <a href="03-work-item.html">work item</a> &middot; <a href="04-evolution-proposal.html">proposal</a>
+    </div>
+  </div>
+</body>
+</html>
