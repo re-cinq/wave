@@ -14,6 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/recinq/wave/internal/config"
 	"github.com/recinq/wave/internal/manifest"
 )
 
@@ -91,7 +92,7 @@ func (v *llmJudgeValidator) Validate(cfg ContractConfig, workspacePath string) e
 	model := resolveLLMJudgeModel(cfg.Model)
 
 	// Try API key first, fall back to Claude CLI for OAuth environments
-	apiKey := os.Getenv("ANTHROPIC_API_KEY")
+	apiKey := config.FromEnv().AnthropicAPIKey
 	var judgeResp *JudgeResponse
 	if apiKey != "" {
 		judgeResp, err = v.callAPI(apiKey, model, systemPrompt, userPrompt)
