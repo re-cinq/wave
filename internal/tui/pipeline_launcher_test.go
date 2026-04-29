@@ -1,14 +1,11 @@
 package tui
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewPipelineLauncher_InitializesFields(t *testing.T) {
@@ -89,89 +86,82 @@ func TestTUIProgressEmitter_EmitProgress_NilProgram(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestBuildPassthroughEnv_MinimalEnv(t *testing.T) {
-	deps := LaunchDependencies{}
-	env := buildPassthroughEnv(deps)
+func TestLaunchConfigToOptions_TranslatesKnownFlags(t *testing.T) {
+	cfg := LaunchConfig{
+		PipelineName:  "impl-issue",
+		Input:         "fix bug",
+		ModelOverride: "haiku",
+		Adapter:       "claude",
+		Timeout:       30,
+		FromStep:      "implement",
+		Steps:         "plan,implement",
+		Exclude:       "create-pr",
+		OnFailure:     "skip",
+		Flags: []string{
+			"--verbose",
+			"--debug",
+			"--dry-run",
+			"--mock",
+			"--detach",
+			"--output text",
+		},
+	}
 
-	// Should always include HOME and PATH
-	assert.Contains(t, env, "HOME="+os.Getenv("HOME"))
-	assert.Contains(t, env, "PATH="+os.Getenv("PATH"))
-	assert.Len(t, env, 2)
+	opts := launchConfigToOptions(cfg, "run-xyz")
+
+	assert.Equal(t, "impl-issue", opts.Pipeline)
+	assert.Equal(t, "fix bug", opts.Input)
+	assert.Equal(t, "run-xyz", opts.RunID)
+	assert.Equal(t, "haiku", opts.Model)
+	assert.Equal(t, "claude", opts.Adapter)
+	assert.Equal(t, 30, opts.Timeout)
+	assert.Equal(t, "implement", opts.FromStep)
+	assert.Equal(t, "plan,implement", opts.Steps)
+	assert.Equal(t, "create-pr", opts.Exclude)
+	assert.Equal(t, "skip", opts.OnFailure)
+	assert.True(t, opts.Output.Verbose, "--verbose should map to Output.Verbose")
+	assert.True(t, opts.Output.Debug, "--debug should map to Output.Debug")
+	assert.True(t, opts.DryRun, "--dry-run should map to DryRun")
+	assert.True(t, opts.Mock, "--mock should map to Mock")
+	assert.Equal(t, "text", opts.Output.Format, "--output text should map to Output.Format")
+	// --detach is intentionally a no-op; the runner is producing the
+	// detached child, recursing would be wrong.
+	assert.False(t, opts.Detach, "--detach must not propagate into runner.Options.Detach")
 }
 
-func TestBuildPassthroughEnv_WithManifestPassthrough(t *testing.T) {
-	// Set a test env var to verify passthrough
-	t.Setenv("WAVE_TEST_VAR", "test-value")
+func TestLaunchConfigToOptions_EmptyFlagsLeaveDefaults(t *testing.T) {
+	cfg := LaunchConfig{PipelineName: "p"}
+	opts := launchConfigToOptions(cfg, "rid")
 
-	deps := LaunchDependencies{
-		Manifest: &manifest.Manifest{
-			Runtime: manifest.Runtime{
-				Sandbox: manifest.RuntimeSandbox{
-					EnvPassthrough: []string{"WAVE_TEST_VAR", "NONEXISTENT_VAR"},
-				},
+	assert.Equal(t, "p", opts.Pipeline)
+	assert.Equal(t, "rid", opts.RunID)
+	assert.False(t, opts.Output.Verbose)
+	assert.False(t, opts.Output.Debug)
+	assert.False(t, opts.DryRun)
+	assert.False(t, opts.Mock)
+	assert.Equal(t, "", opts.Output.Format)
+}
+
+func TestManifestEnvPassthrough_NilManifest(t *testing.T) {
+	out := manifestEnvPassthrough(nil)
+	assert.Nil(t, out)
+}
+
+func TestManifestEnvPassthrough_NoPassthrough(t *testing.T) {
+	m := &manifest.Manifest{}
+	out := manifestEnvPassthrough(m)
+	assert.Nil(t, out)
+}
+
+func TestManifestEnvPassthrough_ForwardsListedKeys(t *testing.T) {
+	m := &manifest.Manifest{
+		Runtime: manifest.Runtime{
+			Sandbox: manifest.RuntimeSandbox{
+				EnvPassthrough: []string{"GH_TOKEN", "GITHUB_TOKEN"},
 			},
 		},
 	}
-	env := buildPassthroughEnv(deps)
 
-	// Should include HOME, PATH, and the passthrough var
-	assert.Contains(t, env, "HOME="+os.Getenv("HOME"))
-	assert.Contains(t, env, "PATH="+os.Getenv("PATH"))
-	assert.Contains(t, env, "WAVE_TEST_VAR=test-value")
-	// NONEXISTENT_VAR should not be included since it's not set
-	assert.Len(t, env, 3)
-}
-
-func TestBuildPassthroughEnv_NilManifest(t *testing.T) {
-	deps := LaunchDependencies{
-		Manifest: nil,
-	}
-	env := buildPassthroughEnv(deps)
-	assert.Len(t, env, 2, "should only include HOME and PATH")
-}
-
-func TestOpenRunLog_CreatesDirectoryAndFile(t *testing.T) {
-	origDir, _ := os.Getwd()
-	tmpDir := t.TempDir()
-	require.NoError(t, os.Chdir(tmpDir))
-	t.Cleanup(func() { _ = os.Chdir(origDir) })
-
-	f, err := openRunLog("test-run-123")
-	require.NoError(t, err)
-	defer f.Close()
-
-	// Verify the directory was created
-	_, err = os.Stat(filepath.Join(".agents", "logs"))
-	assert.NoError(t, err)
-
-	// Verify the file was created
-	_, err = os.Stat(filepath.Join(".agents", "logs", "test-run-123.log"))
-	assert.NoError(t, err)
-
-	// Verify it's writable
-	_, err = f.WriteString("test output\n")
-	assert.NoError(t, err)
-}
-
-func TestOpenRunLog_AppendsToExisting(t *testing.T) {
-	origDir, _ := os.Getwd()
-	tmpDir := t.TempDir()
-	require.NoError(t, os.Chdir(tmpDir))
-	t.Cleanup(func() { _ = os.Chdir(origDir) })
-
-	// First write
-	f1, err := openRunLog("append-run")
-	require.NoError(t, err)
-	_, _ = f1.WriteString("first\n")
-	f1.Close()
-
-	// Second write (append)
-	f2, err := openRunLog("append-run")
-	require.NoError(t, err)
-	_, _ = f2.WriteString("second\n")
-	f2.Close()
-
-	content, err := os.ReadFile(filepath.Join(".agents", "logs", "append-run.log"))
-	require.NoError(t, err)
-	assert.Equal(t, "first\nsecond\n", string(content))
+	out := manifestEnvPassthrough(m)
+	assert.Equal(t, []string{"GH_TOKEN", "GITHUB_TOKEN"}, out)
 }

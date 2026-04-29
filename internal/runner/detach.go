@@ -165,6 +165,75 @@ type DetachConfig struct {
 	ExtraEnv []string
 }
 
+// PIDRecorder is the optional surface SpawnDetached uses to persist a
+// freshly-spawned subprocess PID for a run. The TUI and webui both supply a
+// state-store-backed implementation; foreground CLI callers can pass nil.
+type PIDRecorder interface {
+	UpdateRunPID(runID string, pid int) error
+}
+
+// SpawnDetached starts a fully-detached `wave <subcommand>` subprocess from
+// the supplied argv. It is the shared spawn primitive used by Detach (for
+// `wave run`) and by callers that drive other subcommands such as the TUI's
+// `wave compose` orchestration path.
+//
+// Behaviour mirrored from Detach:
+//   - argv[0] is the wave binary resolved via os.Executable() (with argv[0]
+//     fallback for tests and unusual environments).
+//   - Setsid is set so the child becomes its own session leader and survives
+//     the parent process exit.
+//   - cfg.WorkDir, cfg.LogsDir, and cfg.ExtraEnv are honoured exactly the
+//     same way as in Detach.
+//   - cmd.Stdout / cmd.Stderr are redirected to <logsDir>/<runID>.log.
+//   - On success the child PID is recorded via recorder (when non-nil) and
+//     cmd.Process.Release is called so the OS fully reparents the child.
+//
+// Callers are responsible for any pre-spawn coordination (run-id reservation,
+// status transitions) — SpawnDetached only owns the fork/exec dance.
+func SpawnDetached(args []string, runID string, recorder PIDRecorder, cfg DetachConfig) error {
+	waveBin, exeErr := os.Executable()
+	if exeErr != nil {
+		// Fall back to argv[0] for compatibility with tests / unusual envs.
+		waveBin = os.Args[0]
+	}
+
+	cmd := exec.Command(waveBin, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	cmd.Env = BuildDetachEnv(cfg.ExtraEnv...)
+	if cfg.WorkDir != "" {
+		cmd.Dir = cfg.WorkDir
+	}
+
+	logsDir := cfg.LogsDir
+	if logsDir == "" {
+		logsDir = filepath.Join(".agents", "logs")
+	}
+	if mkErr := os.MkdirAll(logsDir, 0o755); mkErr != nil {
+		return fmt.Errorf("failed to create logs directory: %w", mkErr)
+	}
+	logPath := filepath.Join(logsDir, runID+".log")
+	logFile, logErr := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if logErr != nil {
+		return fmt.Errorf("failed to create log file: %w", logErr)
+	}
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+
+	if startErr := cmd.Start(); startErr != nil {
+		logFile.Close()
+		return fmt.Errorf("failed to start detached subprocess: %w", startErr)
+	}
+
+	// The subprocess inherited the fd via fork; close our copy.
+	logFile.Close()
+
+	if recorder != nil {
+		_ = recorder.UpdateRunPID(runID, cmd.Process.Pid)
+	}
+	_ = cmd.Process.Release()
+	return nil
+}
+
 // Detach spawns a fully-detached `wave run` subprocess that survives the
 // parent process exit. The subprocess writes to the shared state DB so
 // `wave status`, `wave logs`, and the webui dashboard can all observe it.
@@ -235,46 +304,8 @@ func Detach(opts Options, store detachStore, maxConcurrentWorkers int, cfg Detac
 	// Build subprocess args: same flags minus --detach/-d, plus --run <runID>.
 	args := BuildDetachedArgs(opts, runID)
 
-	waveBin, exeErr := os.Executable()
-	if exeErr != nil {
-		// Fall back to argv[0] for compatibility with tests / unusual envs.
-		waveBin = os.Args[0]
+	if err := SpawnDetached(args, runID, store, cfg); err != nil {
+		return "", err
 	}
-
-	cmd := exec.Command(waveBin, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	cmd.Env = BuildDetachEnv(cfg.ExtraEnv...)
-	if cfg.WorkDir != "" {
-		cmd.Dir = cfg.WorkDir
-	}
-
-	// Redirect output to <logsDir>/<runID>.log
-	logsDir := cfg.LogsDir
-	if logsDir == "" {
-		logsDir = filepath.Join(".agents", "logs")
-	}
-	if mkErr := os.MkdirAll(logsDir, 0o755); mkErr != nil {
-		return "", fmt.Errorf("failed to create logs directory: %w", mkErr)
-	}
-	logPath := filepath.Join(logsDir, runID+".log")
-	logFile, logErr := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if logErr != nil {
-		return "", fmt.Errorf("failed to create log file: %w", logErr)
-	}
-	cmd.Stdout = logFile
-	cmd.Stderr = logFile
-
-	if startErr := cmd.Start(); startErr != nil {
-		logFile.Close()
-		return "", fmt.Errorf("failed to start detached pipeline: %w", startErr)
-	}
-
-	// Close the log file — the subprocess inherited the fd.
-	logFile.Close()
-
-	// Record PID and fully detach the subprocess.
-	_ = store.UpdateRunPID(runID, cmd.Process.Pid)
-	_ = cmd.Process.Release()
-
 	return runID, nil
 }
