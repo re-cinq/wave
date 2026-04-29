@@ -1,33 +1,18 @@
 package commands
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
-	"os/signal"
-	"strings"
 	"time"
 
 	"github.com/charmbracelet/huh"
-	"github.com/recinq/wave/internal/adapter"
-	"github.com/recinq/wave/internal/adapter/adaptertest"
-	"github.com/recinq/wave/internal/audit"
-	"github.com/recinq/wave/internal/continuous"
-	"github.com/recinq/wave/internal/display"
-	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
-	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/pipeline"
-	"github.com/recinq/wave/internal/recovery"
-	"github.com/recinq/wave/internal/relay"
-	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/runner"
-	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/suggest"
 	"github.com/recinq/wave/internal/tui"
-	"github.com/recinq/wave/internal/workspace"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -210,86 +195,19 @@ Model formats vary by adapter: claude uses "haiku"/"opus", opencode uses
 }
 
 func runRun(opts RunOptions, debug bool) error {
-	// Gate on onboarding completion — skip when --force is set
-	if !opts.Force {
-		if err := checkOnboarding(); err != nil {
-			return NewCLIError(CodeOnboardingRequired,
-				"onboarding not complete",
-				"Run 'wave init' to complete setup before running pipelines")
-		}
+	if err := validateFlags(opts); err != nil {
+		return err
 	}
 
-	// Validate mutual exclusion: --continuous and --from-step cannot be combined
-	if opts.Continuous && opts.FromStep != "" {
-		return NewCLIError(CodeInvalidArgs,
-			"--continuous and --from-step are mutually exclusive",
-			"Use --continuous for batch processing or --from-step for resuming a single run")
-	}
-
-	// Validate --continuous requires --source
-	if opts.Continuous && opts.Source == "" {
-		return NewCLIError(CodeInvalidArgs,
-			"--continuous requires --source",
-			"Specify a source URI, e.g., --source \"github:label=bug\" or --source \"file:queue.txt\"")
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := setupSignalHandling()
 	defer cancel()
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
-	go func() {
-		<-sigChan
-		cancel()
-	}()
-
-	mp, err := loadManifestStrict(opts.Manifest)
+	p, m, stepFilter, aborted, err := loadManifestAndPipeline(&opts, &debug)
 	if err != nil {
 		return err
 	}
-	m := *mp
-
-	p, err := pipeline.LoadByName(opts.Pipeline)
-	if err != nil {
-		// Pipeline not found — if interactive, try TUI with partial name as filter
-		if isInteractive() {
-			sel, tuiErr := tui.RunPipelineSelector(pipelinesDir(), opts.Pipeline)
-			if tuiErr != nil {
-				if errors.Is(tuiErr, huh.ErrUserAborted) {
-					return nil
-				}
-				return tuiErr
-			}
-			applySelection(&opts, sel, &debug)
-			p, err = pipeline.LoadByName(opts.Pipeline)
-			if err != nil {
-				return NewCLIError(CodePipelineNotFound,
-					fmt.Sprintf("pipeline '%s' not found", opts.Pipeline),
-					"Run 'wave list pipelines' to see available pipelines")
-			}
-		} else {
-			return NewCLIError(CodePipelineNotFound,
-				fmt.Sprintf("pipeline '%s' not found", opts.Pipeline),
-				"Run 'wave list pipelines' to see available pipelines")
-		}
-	}
-
-	// Warn on input/pipeline mismatch (non-blocking)
-	if opts.Input != "" {
-		if mismatch := suggest.CheckInputPipelineMismatch(opts.Input, opts.Pipeline); mismatch != nil {
-			fmt.Fprintf(os.Stderr, "  warning: %s\n", mismatch.SuggestedReason)
-		}
-	}
-
-	// Parse and validate step filter flags
-	stepFilter := pipeline.ParseStepFilter(opts.Steps, opts.Exclude)
-	if stepFilter != nil {
-		if err := stepFilter.Validate(p); err != nil {
-			return err
-		}
-		if err := stepFilter.ValidateCombinations(opts.FromStep); err != nil {
-			return err
-		}
+	if aborted {
+		return nil
 	}
 
 	if opts.DryRun {
@@ -308,435 +226,46 @@ func runRun(opts RunOptions, debug bool) error {
 		return runDetached(opts, p, &m)
 	}
 
-	// Resolve adapter — use mock if --mock or if no adapter binary found
-	var runner adapter.AdapterRunner
-	if opts.Mock {
-		runner = adaptertest.NewMockAdapter(
-			adaptertest.WithSimulatedDelay(5 * time.Second),
-		)
-	} else {
-		runner = adapter.ResolveAdapter("claude")
-	}
-
 	// Initialize state store under .agents/ — must happen before run ID generation
 	// so we can use CreateRun() to produce IDs visible to the dashboard.
-	stateDB := ".agents/state.db"
-	store, err := state.NewStateStore(stateDB)
-	if err != nil {
-		// Non-fatal: continue without state persistence
-		fmt.Fprintf(os.Stderr, "warning: state persistence disabled: %v\n", err)
-		store = nil
-	}
+	store := buildStateStore()
 	if store != nil {
 		defer store.Close()
 	}
 
-	// Auto-recover input when resuming without explicit --input
-	if opts.FromStep != "" && opts.Input == "" && store != nil {
-		if opts.RunID != "" {
-			if run, err := store.GetRun(opts.RunID); err == nil && run.Input != "" {
-				opts.Input = run.Input
-				fmt.Fprintf(os.Stderr, "  Resuming with input from run %s: %s\n", opts.RunID, truncateString(opts.Input, 80))
-			}
-		} else {
-			runs, err := store.ListRuns(state.ListRunsOptions{
-				PipelineName: p.Metadata.Name,
-				Limit:        1,
-			})
-			if err == nil && len(runs) > 0 && runs[0].Input != "" {
-				opts.Input = runs[0].Input
-				fmt.Fprintf(os.Stderr, "  Resuming with input from previous run: %s\n", truncateString(opts.Input, 80))
-			}
-		}
-	}
+	autoRecoverResumeInput(&opts, store, p)
 
-	// Generate run ID — use pre-created ID when --run is set (covers both the detach
-	// subprocess path and TUI subprocesses, regardless of whether --from-step is also set),
-	// or prefer CreateRun() so CLI runs appear in the dashboard.
-	// Falls back to GenerateRunID() if the state store is unavailable.
-	runID, resolveIDErr := resolveRunID(opts.RunID, store, p.Metadata.Name, opts.Input)
-	if resolveIDErr != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to create run record: %v\n", resolveIDErr)
-	}
-	if runID == "" {
-		runID = pipeline.GenerateRunID(p.Metadata.Name, m.Runtime.PipelineIDHashLength)
-	}
+	runID := resolveOrGenerateRunID(opts, store, p, &m)
 
-	// Initialize event emitter based on output format
-	result := CreateEmitter(opts.Output, runID, p.Metadata.Name, p.Steps, &m)
-	progressDisplay := result.Progress
-	defer result.Cleanup()
-	// Wrap with DB logging so "wave logs <run-id>" returns full history for CLI runs.
-	var emitter event.EventEmitter = result.Emitter
-	if store != nil {
-		emitter = &event.DBLoggingEmitter{Inner: result.Emitter, Store: store, RunID: runID}
-	}
-
-	// Initialize workspace manager under .agents/workspaces
-	wsRoot := m.Runtime.WorkspaceRoot
-	if wsRoot == "" {
-		wsRoot = ".agents/workspaces"
-	}
-	wsManager, err := workspace.NewWorkspaceManager(wsRoot)
+	res, err := buildExecutor(opts, &m, p, store, stepFilter, runID, debug)
 	if err != nil {
-		return fmt.Errorf("failed to create workspace manager: %w", err)
+		return err
 	}
-
-	// Initialize audit logger under .agents/traces/
-	var logger audit.AuditLogger
-	if m.Runtime.Audit.LogAllToolCalls {
-		traceDir := m.Runtime.Audit.LogDir
-		if traceDir == "" {
-			traceDir = ".agents/traces"
-		}
-		if l, err := audit.NewTraceLoggerWithDir(traceDir); err == nil {
-			logger = l
-			defer l.Close()
-		}
-	}
-
-	// Initialize debug tracer when --debug is set
-	var debugTracer *audit.DebugTracer
-	if debug {
-		traceDir := m.Runtime.Audit.LogDir
-		if traceDir == "" {
-			traceDir = ".agents/traces"
-		}
-		if dt, dtErr := audit.NewDebugTracer(traceDir, runID, audit.WithStderrMirror(true)); dtErr == nil {
-			debugTracer = dt
-			defer dt.Close()
-			fmt.Fprintf(os.Stderr, "  Debug trace: %s\n", dt.TracePath())
-		} else {
-			fmt.Fprintf(os.Stderr, "warning: failed to create debug tracer: %v\n", dtErr)
-		}
-
-		// Enable debug verbosity on the emitter for richer NDJSON output
-		result.Emitter.SetDebugVerbosity(true)
-	}
-
-	// Build executor with all components.
-	// Ontology defaults to NoOp; the executor auto-promotes to a real Service
-	// when the manifest declares ontology contexts. The explicit NoOp is
-	// required by NewDefaultPipelineExecutor to surface the dependency.
-	execOpts := []pipeline.ExecutorOption{
-		pipeline.WithEmitter(emitter),
-		pipeline.WithDebug(debug),
-		pipeline.WithRunID(runID),
-		pipeline.WithOntologyService(ontology.NoOp{}),
-	}
-	if debugTracer != nil {
-		execOpts = append(execOpts, pipeline.WithDebugTracer(debugTracer))
-	}
-	if wsManager != nil {
-		execOpts = append(execOpts, pipeline.WithWorkspaceManager(wsManager))
-	}
-	if store != nil {
-		execOpts = append(execOpts, pipeline.WithStateStore(store))
-	}
-	if logger != nil {
-		execOpts = append(execOpts, pipeline.WithAuditLogger(logger))
-	}
-	if opts.Timeout > 0 {
-		execOpts = append(execOpts, pipeline.WithStepTimeout(time.Duration(opts.Timeout)*time.Minute))
-	}
-	if opts.Model != "" {
-		execOpts = append(execOpts, pipeline.WithModelOverride(opts.Model))
-	}
-	if opts.ForceModel {
-		execOpts = append(execOpts, pipeline.WithForceModel(true))
-	}
-	registry := adapter.NewAdapterRegistry(nil)
-	for name, a := range m.Adapters {
-		if a.Binary != "" {
-			registry.SetBinary(name, a.Binary)
-		}
-	}
-	if opts.Mock {
-		// Route every adapter declared in the manifest through the mock runner.
-		// "mock" itself is always registered so pipelines that pin adapter: mock
-		// resolve correctly even when the manifest does not enumerate it.
-		registry.RegisterOverride("mock", runner)
-		for name := range m.Adapters {
-			registry.RegisterOverride(name, runner)
-		}
-	}
-	execOpts = append(execOpts, pipeline.WithRegistry(registry))
-
-	// Wire skill store so declared skills are provisioned into adapter workspaces.
-	// Source ordering (project skills/ wins over installed .agents/skills/) is
-	// owned by the skill package — see skill.DefaultSources.
-	skillStore := skill.NewDirectoryStore(skill.DefaultSources()...)
-	execOpts = append(execOpts, pipeline.WithSkillStore(skillStore))
-	if opts.Adapter != "" {
-		execOpts = append(execOpts, pipeline.WithAdapterOverride(opts.Adapter))
-	}
-	if opts.PreserveWorkspace {
-		execOpts = append(execOpts, pipeline.WithPreserveWorkspace(true))
-	}
-	if stepFilter != nil {
-		execOpts = append(execOpts, pipeline.WithStepFilter(stepFilter))
-	}
-	if opts.AutoApprove {
-		execOpts = append(execOpts, pipeline.WithAutoApprove(true))
-	}
-	if store != nil && !opts.NoRetro {
-		retroGen := retro.NewGenerator(store, runner, ".agents/retros", &m.Runtime.Retros)
-		execOpts = append(execOpts, pipeline.WithRetroGenerator(retroGen))
-	}
-
-	// Wire relay context compaction — prevents long-running steps from exhausting
-	// the Claude context window by summarizing conversation at a token threshold.
-	if m.Runtime.Relay.TokenThresholdPercent > 0 {
-		relayCfg := relay.RelayMonitorConfig{
-			DefaultThreshold:   m.Runtime.Relay.TokenThresholdPercent,
-			MinTokensToCompact: 1000,
-			ContextWindow:      m.Runtime.Relay.ContextWindow,
-			CompactionTimeout:  m.Runtime.Timeouts.GetRelayCompaction(),
-		}
-		compactionAdapter := relay.NewAdapterCompactionRunner(registry, &m)
-		relayMon := relay.NewRelayMonitor(relayCfg, compactionAdapter)
-		execOpts = append(execOpts, pipeline.WithRelayMonitor(relayMon))
-	}
-
-	executor := pipeline.NewDefaultPipelineExecutor(runner, execOpts...)
-
-	// Connect outcome tracker to progress display
-	if btpd, ok := progressDisplay.(*display.BubbleTeaProgressDisplay); ok {
-		btpd.SetOutcomeTracker(executor.GetOutcomeTracker())
-	}
+	defer res.Close()
+	executor := res.executor
+	emitter := res.emitter
+	wsRoot := res.wsRoot
+	runner := res.runner
+	execOpts := res.execOpts
 
 	if opts.Continuous {
-		// Parse source URI
-		srcCfg, err := continuous.ParseSourceURI(opts.Source)
-		if err != nil {
-			return fmt.Errorf("invalid --source: %w", err)
-		}
-		src, err := continuous.NewSourceFromConfig(srcCfg)
-		if err != nil {
-			return fmt.Errorf("failed to create source: %w", err)
-		}
-
-		// Parse delay
-		delay, err := time.ParseDuration(opts.Delay)
-		if err != nil {
-			return fmt.Errorf("invalid --delay %q: %w", opts.Delay, err)
-		}
-
-		contRunner := &continuous.Runner{
-			Source:        src,
-			PipelineName:  p.Metadata.Name,
-			OnFailure:     continuous.ParseFailurePolicy(opts.OnFailure),
-			MaxIterations: opts.MaxIterations,
-			Delay:         delay,
-			Emitter:       emitter,
-			ExecutorFactory: func(input string) continuous.ExecutorFunc {
-				return func(execCtx context.Context, execInput string) (string, error) {
-					// Create a new run ID for each iteration
-					var iterRunID string
-					if store != nil {
-						iterRunID, _ = store.CreateRun(p.Metadata.Name, execInput)
-					}
-					if iterRunID == "" {
-						iterRunID = pipeline.GenerateRunID(p.Metadata.Name, m.Runtime.PipelineIDHashLength)
-					}
-
-					// Create a fresh executor for this iteration
-					iterOpts := make([]pipeline.ExecutorOption, len(execOpts))
-					copy(iterOpts, execOpts)
-					iterOpts = append(iterOpts, pipeline.WithRunID(iterRunID))
-
-					iterExecutor := pipeline.NewDefaultPipelineExecutor(runner, iterOpts...)
-					execErr := iterExecutor.Execute(execCtx, p, &m, execInput)
-
-					// Update run status
-					if store != nil {
-						tokens := iterExecutor.GetTotalTokens()
-						if execErr != nil {
-							if updateErr := store.UpdateRunStatus(iterRunID, "failed", execErr.Error(), tokens); updateErr != nil {
-								fmt.Fprintf(os.Stderr, "warning: failed to update run status: %v\n", updateErr)
-							}
-						} else {
-							if updateErr := store.UpdateRunStatus(iterRunID, "completed", "", tokens); updateErr != nil {
-								fmt.Fprintf(os.Stderr, "warning: failed to update run status: %v\n", updateErr)
-							}
-						}
-					}
-
-					return iterRunID, execErr
-				}
-			},
-		}
-
-		summary, contErr := contRunner.Run(ctx)
-		if contErr != nil {
-			return fmt.Errorf("continuous run failed: %w", contErr)
-		}
-
-		// Print summary
-		if opts.Output.Format == OutputFormatAuto || opts.Output.Format == OutputFormatText {
-			fmt.Fprintf(os.Stderr, "\n  %s\n", summary.String())
-		}
-
-		// Exit code 1 if any failures
-		if summary.HasFailures() {
-			return fmt.Errorf("continuous run completed with %d failures", summary.Failed)
-		}
-		return nil
+		return runContinuous(ctx, opts, &m, p, store, runner, emitter, execOpts)
 	}
 
 	pipelineStart := time.Now()
-
-	// Transition run from pending → running so dashboards and wave status reflect active execution.
-	if store != nil {
-		_ = store.UpdateRunStatus(runID, "running", "", 0)
-		_ = store.UpdateRunHeartbeat(runID)
-		// Periodic heartbeat: lets the reconciler distinguish a live run from
-		// a parent process that died without updating the DB. Goroutine exits
-		// when heartbeatCancel fires (deferred just below this block).
-		heartbeatCtx, heartbeatCancel := context.WithCancel(context.Background())
-		defer heartbeatCancel()
-		go state.RunHeartbeatLoop(heartbeatCtx, store, runID)
-	}
-
-	var execErr error
-	if opts.FromStep != "" {
-		// Resume from specific step - uses ResumeWithValidation which handles artifacts.
-		// When --run is specified, pass the run ID so artifact paths resolve from
-		// that specific run's workspace instead of scanning for the most recent match.
-		if opts.RunID != "" {
-			execErr = executor.ResumeWithValidation(ctx, p, &m, opts.Input, opts.FromStep, opts.Force, opts.RunID)
-		} else {
-			execErr = executor.ResumeWithValidation(ctx, p, &m, opts.Input, opts.FromStep, opts.Force)
-		}
-	} else {
-		execErr = executor.Execute(ctx, p, &m, opts.Input)
-	}
-
-	// Update the pipeline_run record so the dashboard reflects final status
-	if store != nil {
-		tokens := executor.GetTotalTokens()
-		switch {
-		case ctx.Err() != nil:
-			_ = store.UpdateRunStatus(runID, "cancelled", "pipeline cancelled", tokens)
-			_ = store.ClearCancellation(runID)
-		case execErr != nil:
-			_ = store.UpdateRunStatus(runID, "failed", execErr.Error(), tokens)
-		default:
-			_ = store.UpdateRunStatus(runID, "completed", "", tokens)
-		}
-	}
+	execErr := runOnce(ctx, executor, opts, &m, p, store, runID)
 
 	if execErr != nil {
-		// Extract step ID from StepExecutionError when available; fall back gracefully
-		// so recovery hints are shown for all failure paths (including resume).
-		var (
-			stepErr *pipeline.StepExecutionError
-			stepID  string
-			cause   = execErr
-		)
-		if errors.As(execErr, &stepErr) {
-			stepID = stepErr.StepID
-			cause = stepErr.Err
-		}
-
-		errClass := recovery.ClassifyError(cause)
-
-		// Extract preflight metadata when the error is a preflight failure
-		var preflightMeta *recovery.PreflightMetadata
-		if errClass == recovery.ClassPreflight {
-			preflightMeta = recovery.ExtractPreflightMetadata(cause)
-		}
-
-		block := recovery.BuildRecoveryBlock(recovery.RecoveryBlockOpts{
-			PipelineName:  p.Metadata.Name,
-			Input:         opts.Input,
-			StepID:        stepID,
-			RunID:         runID,
-			WorkspaceRoot: wsRoot,
-			ErrClass:      errClass,
-			PreflightMeta: preflightMeta,
-		})
-
-		if opts.Output.Format == OutputFormatJSON {
-			// In JSON mode, emit recovery hints as structured data.
-			// The executor already emits a bare "failed" event; this enriched
-			// event carries the hints so consumers only need one event.
-			hints := make([]event.RecoveryHintJSON, len(block.Hints))
-			for i, h := range block.Hints {
-				hints[i] = event.RecoveryHintJSON{
-					Label:   h.Label,
-					Command: h.Command,
-					Type:    string(h.Type),
-				}
-			}
-			emitter.Emit(event.Event{
-				Timestamp:     time.Now(),
-				PipelineID:    runID,
-				StepID:        stepID,
-				State:         "recovery",
-				Message:       execErr.Error(),
-				RecoveryHints: hints,
-			})
-		} else {
-			// In text/auto/quiet modes, append recovery hints after the error
-			// line by embedding them in the returned error message.
-			hintBlock := recovery.FormatRecoveryBlock(block)
-			if hintBlock != "" {
-				return fmt.Errorf("pipeline execution failed: %w\n%s", execErr, hintBlock)
-			}
-		}
-		return fmt.Errorf("pipeline execution failed: %w", execErr)
+		return formatRecoveryError(execErr, opts, p, runID, wsRoot, emitter)
 	}
 
 	elapsed := time.Since(pipelineStart)
 
 	// Stop the TUI before printing post-run output to avoid terminal corruption.
 	// Cleanup is idempotent so the deferred call above becomes a no-op.
-	result.Cleanup()
+	res.Close()
 
-	// Show human summary only in auto/text modes — json and quiet stay clean
-	if opts.Output.Format == OutputFormatAuto || opts.Output.Format == OutputFormatText {
-		totalTokens := executor.GetTotalTokens()
-		if totalTokens > 0 {
-			fmt.Fprintf(os.Stderr, "\n  ✓ Pipeline '%s' completed successfully (%.1fs, %s tokens)\n",
-				p.Metadata.Name, elapsed.Seconds(), display.FormatTokenCount(totalTokens))
-		} else {
-			fmt.Fprintf(os.Stderr, "\n  ✓ Pipeline '%s' completed successfully (%.1fs)\n",
-				p.Metadata.Name, elapsed.Seconds())
-		}
-		// Build structured outcome summary from outcome tracker
-		tracker := executor.GetOutcomeTracker()
-		outcome := display.BuildOutcome(tracker, p.Metadata.Name, runID, true, elapsed, totalTokens, "", nil)
-		summary := display.RenderOutcomeSummary(outcome, opts.Output.Verbose, display.NewFormatter())
-		if summary != "" {
-			fmt.Fprint(os.Stderr, "\n")
-			lines := strings.Split(summary, "\n")
-			for _, line := range lines {
-				if line != "" {
-					fmt.Fprintf(os.Stderr, "  %s\n", line)
-				} else {
-					fmt.Fprint(os.Stderr, "\n")
-				}
-			}
-			fmt.Fprint(os.Stderr, "\n")
-		}
-	}
-
-	// For JSON output mode, emit structured outcomes in the final completion event
-	if opts.Output.Format == OutputFormatJSON {
-		tracker := executor.GetOutcomeTracker()
-		outcome := display.BuildOutcome(tracker, p.Metadata.Name, runID, true, elapsed, executor.GetTotalTokens(), "", nil)
-		outJSON := outcome.ToOutcomesJSON()
-		emitter.Emit(event.Event{
-			Timestamp:  time.Now(),
-			PipelineID: runID,
-			State:      "completed",
-			DurationMs: elapsed.Milliseconds(),
-			Message:    fmt.Sprintf("Pipeline '%s' completed", p.Metadata.Name),
-			Outcomes:   outJSON,
-		})
-	}
-
+	printSummary(opts, executor, p, runID, elapsed, emitter)
 	return nil
 }
 
@@ -843,115 +372,4 @@ func applySelection(opts *RunOptions, sel *tui.Selection, debug *bool) {
 	}
 }
 
-func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.StepFilter) error {
-	fmt.Fprintf(os.Stderr, "Dry run for pipeline: %s\n", p.Metadata.Name)
-	fmt.Fprintf(os.Stderr, "Description: %s\n", p.Metadata.Description)
-	fmt.Fprintf(os.Stderr, "Steps: %d\n\n", len(p.Steps))
-	fmt.Fprintf(os.Stderr, "Execution plan:\n")
 
-	for i, step := range p.Steps {
-		// Show [SKIP] or [RUN] status when a filter is active
-		status := ""
-		if filter != nil && filter.IsActive() {
-			if filter.ShouldRun(step.ID) {
-				status = " [RUN]"
-			} else {
-				status = " [SKIP]"
-			}
-		}
-		if step.SubPipeline != "" {
-			fmt.Fprintf(os.Stderr, "  %d. %s (pipeline: %s)%s\n", i+1, step.ID, step.SubPipeline, status)
-		} else {
-			fmt.Fprintf(os.Stderr, "  %d. %s (persona: %s)%s\n", i+1, step.ID, step.Persona, status)
-		}
-
-		if len(step.Dependencies) > 0 {
-			fmt.Fprintf(os.Stderr, "     Dependencies: %v\n", step.Dependencies)
-		}
-
-		persona := m.GetPersona(step.Persona)
-		if persona != nil {
-			fmt.Fprintf(os.Stderr, "     Adapter: %s  Temp: %.1f\n", persona.Adapter, persona.Temperature)
-			fmt.Fprintf(os.Stderr, "     System prompt: %s\n", persona.SystemPromptFile)
-			if len(persona.Permissions.AllowedTools) > 0 {
-				fmt.Fprintf(os.Stderr, "     Allowed tools: %v\n", persona.Permissions.AllowedTools)
-			}
-			if len(persona.Permissions.Deny) > 0 {
-				fmt.Fprintf(os.Stderr, "     Denied tools: %v\n", persona.Permissions.Deny)
-			}
-		}
-
-		if len(step.Workspace.Mount) > 0 {
-			for _, mount := range step.Workspace.Mount {
-				fmt.Fprintf(os.Stderr, "     Mount: %s → %s (%s)\n", mount.Source, mount.Target, mount.Mode)
-			}
-		}
-
-		fmt.Fprintf(os.Stderr, "     Workspace: .agents/workspaces/%s/%s/\n", p.Metadata.Name, step.ID)
-
-		if step.Memory.Strategy != "" {
-			fmt.Fprintf(os.Stderr, "     Memory: %s\n", step.Memory.Strategy)
-		}
-
-		if len(step.Memory.InjectArtifacts) > 0 {
-			for _, art := range step.Memory.InjectArtifacts {
-				fmt.Fprintf(os.Stderr, "     Inject: %s:%s as %s\n", art.Step, art.Artifact, art.As)
-			}
-		}
-
-		if len(step.OutputArtifacts) > 0 {
-			for _, art := range step.OutputArtifacts {
-				fmt.Fprintf(os.Stderr, "     Output: %s → %s (%s)\n", art.Name, art.Path, art.Type)
-			}
-		}
-
-		if step.Handover.Contract.Type != "" {
-			fmt.Fprintf(os.Stderr, "     Contract: %s", step.Handover.Contract.Type)
-			if step.Handover.Contract.OnFailure != "" {
-				fmt.Fprintf(os.Stderr, " (on_failure: %s, max_retries: %d)", step.Handover.Contract.OnFailure, step.Handover.Contract.MaxRetries)
-			}
-			fmt.Fprintln(os.Stderr)
-		}
-
-		fmt.Fprintln(os.Stderr)
-	}
-
-	// Show artifact warnings when a filter is active
-	if filter != nil && filter.IsActive() {
-		skippedSteps := make(map[string]bool)
-		for _, step := range p.Steps {
-			if !filter.ShouldRun(step.ID) {
-				skippedSteps[step.ID] = true
-			}
-		}
-		var warnings []string
-		for _, step := range p.Steps {
-			if !filter.ShouldRun(step.ID) {
-				continue
-			}
-			for _, dep := range step.Dependencies {
-				if skippedSteps[dep] {
-					warnings = append(warnings, fmt.Sprintf("  ⚠ Step %q depends on skipped step %q — ensure prior artifacts exist", step.ID, dep))
-				}
-			}
-		}
-		if len(warnings) > 0 {
-			fmt.Fprintln(os.Stderr, "Artifact warnings:")
-			for _, w := range warnings {
-				fmt.Fprintln(os.Stderr, w)
-			}
-			fmt.Fprintln(os.Stderr)
-		}
-	}
-
-	// Run composition validation and report findings.
-	validator := pipeline.NewDryRunValidator(pipelinesDir())
-	report := validator.Validate(p, m)
-	fmt.Fprint(os.Stderr, "\n")
-	fmt.Fprint(os.Stderr, report.Format())
-
-	if report.HasErrors() {
-		return fmt.Errorf("dry-run validation found %d error(s) — pipeline is not safe to execute", report.ErrorCount())
-	}
-	return nil
-}
