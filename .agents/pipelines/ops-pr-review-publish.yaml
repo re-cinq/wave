@@ -4,9 +4,9 @@ metadata:
   description: >-
     Internal building block. Formats the review verdict from a parent
     ops-pr-review run into a markdown PR comment and posts it via the forge
-    CLI. Reads .agents/output/review-verdict.json and
-    .agents/output/diff-analysis.json from the parent workspace. Not intended
-    for direct invocation — wired into ops-pr-review's profile-gated branch.
+    CLI. Consumes the parent's `verdict` and `diff` artifacts via
+    memory.inject_artifacts (cross-pipeline). Not intended for direct
+    invocation — wired into ops-pr-review's profile-gated branch.
   release: false
 
 skills:
@@ -32,6 +32,16 @@ steps:
   - id: publish
     persona: "{{ forge.type }}-commenter"
     model: cheapest
+    memory:
+      inject_artifacts:
+        - pipeline: ops-pr-review
+          artifact: verdict
+          as: review_verdict
+          type: json
+        - pipeline: ops-pr-review
+          artifact: diff
+          as: diff_analysis
+          type: json
     workspace:
       mount:
         - source: ./
@@ -50,20 +60,22 @@ steps:
 
         ## Context
 
-        The parent ops-pr-review pipeline has produced two output files you must read:
-        - `.agents/output/review-verdict.json`: The structured review verdict JSON
-          containing the overall verdict (APPROVE/REQUEST_CHANGES/COMMENT/REJECT),
-          finding arrays by severity, and positive notes.
-        - `.agents/output/diff-analysis.json`: The diff analysis JSON containing PR
-          metadata — especially the PR number needed for the comment command.
+        Two upstream artifacts from the parent ops-pr-review run are injected into
+        your workspace (paths are listed in the framework-provided "Input Artifacts"
+        block above):
+        - `review_verdict`: the structured review verdict JSON containing the overall
+          verdict (APPROVE/REQUEST_CHANGES/COMMENT/REJECT), finding arrays by
+          severity, and positive notes.
+        - `diff_analysis`: the diff analysis JSON containing PR metadata — especially
+          the PR number needed for the comment command.
 
-        Read BOTH files before composing the comment.
+        Read BOTH artifacts before composing the comment.
 
         ## Requirements
 
         ### Step 1: Extract PR Number
 
-        Read `.agents/output/diff-analysis.json` and extract the PR number from
+        Read the `diff_analysis` artifact and extract the PR number from
         `pr_metadata.number`. Parse the repository owner/name if needed for the
         comment command.
 
