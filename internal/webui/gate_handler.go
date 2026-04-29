@@ -2,11 +2,26 @@ package webui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/recinq/wave/internal/pipeline"
+)
+
+// Sentinel errors returned by GateRegistry.ResolveChoice so HTTP handlers can
+// map registry-layer outcomes onto status codes without leaking pipeline types
+// into the transport layer.
+var (
+	// ErrGateNotPending indicates no gate is currently pending for the run.
+	ErrGateNotPending = errors.New("no pending gate for run")
+	// ErrGateStepMismatch indicates the request's step does not match the
+	// step that registered the pending gate.
+	ErrGateStepMismatch = errors.New("step mismatch for pending gate")
+	// ErrGateInvalidChoice indicates the supplied choice key is not present
+	// in the pending gate's choice list.
+	ErrGateInvalidChoice = errors.New("invalid choice for pending gate")
 )
 
 // pendingGate holds the state for a gate that is waiting for a human decision
@@ -62,6 +77,49 @@ func (r *GateRegistry) Resolve(runID string, decision *pipeline.GateDecision) er
 	delete(r.pending, runID)
 	pg.Response <- decision
 	return nil
+}
+
+// ResolveChoice validates a human's choice against the pending gate for the
+// given run and resolves it. It is the transport-friendly wrapper around
+// Resolve: callers supply only string fields (choiceKey, text) and a stepID
+// for verification. The pipeline.GateDecision construction is hidden inside
+// the registry so HTTP handlers can stay free of internal/pipeline imports.
+//
+// Returns the resolved choice key and label on success. On failure returns
+// one of the sentinel errors (ErrGateNotPending, ErrGateStepMismatch,
+// ErrGateInvalidChoice) wrapped with extra context, or any error returned
+// by Resolve (e.g. double-resolve).
+func (r *GateRegistry) ResolveChoice(runID, stepID, choiceKey, text string) (string, string, error) {
+	pendingStepID := r.GetPendingStepID(runID)
+	if pendingStepID == "" {
+		// No pending gate at all.
+		return "", "", ErrGateNotPending
+	}
+	if stepID != "" && pendingStepID != stepID {
+		return "", "", fmt.Errorf("%w: pending step %q, request step %q", ErrGateStepMismatch, pendingStepID, stepID)
+	}
+
+	gate := r.GetPending(runID)
+	if gate == nil {
+		// Gate disappeared between GetPendingStepID and GetPending (race).
+		return "", "", ErrGateNotPending
+	}
+
+	choice := gate.FindChoiceByKey(choiceKey)
+	if choice == nil {
+		return "", "", fmt.Errorf("%w: %q", ErrGateInvalidChoice, choiceKey)
+	}
+
+	decision := &pipeline.GateDecision{
+		Choice: choice.Key,
+		Label:  choice.Label,
+		Text:   text,
+		Target: choice.Target,
+	}
+	if err := r.Resolve(runID, decision); err != nil {
+		return "", "", err
+	}
+	return choice.Key, choice.Label, nil
 }
 
 // GetPending returns the pending gate config for a run, or nil if none.

@@ -2,11 +2,11 @@ package webui
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/runner"
 	"github.com/recinq/wave/internal/state"
 )
@@ -351,41 +351,30 @@ func (s *Server) handleGateApprove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gate := s.realtime.gateRegistry.GetPending(runID)
-	if gate == nil {
-		writeJSONError(w, http.StatusNotFound, "no pending gate for this run")
-		return
-	}
-
-	pendingStepID := s.realtime.gateRegistry.GetPendingStepID(runID)
-	if pendingStepID != "" && pendingStepID != stepID {
-		writeJSONError(w, http.StatusConflict,
-			fmt.Sprintf("step mismatch: pending gate is for step %q, not %q", pendingStepID, stepID))
-		return
-	}
-
-	choice := gate.FindChoiceByKey(req.Choice)
-	if choice == nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid choice key: "+req.Choice)
-		return
-	}
-
-	decision := &pipeline.GateDecision{
-		Choice: choice.Key,
-		Label:  choice.Label,
-		Text:   req.Text,
-		Target: choice.Target,
-	}
-
-	if err := s.realtime.gateRegistry.Resolve(runID, decision); err != nil {
-		writeJSONError(w, http.StatusConflict, err.Error())
+	// Resolve the gate via the narrow controlGateRegistry interface. The
+	// registry hides pipeline.GateDecision construction so this transport
+	// layer stays free of pipeline imports.
+	var registry controlGateRegistry = s.realtime.gateRegistry
+	choiceKey, label, err := registry.ResolveChoice(runID, stepID, req.Choice, req.Text)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrGateNotPending):
+			writeJSONError(w, http.StatusNotFound, "no pending gate for this run")
+		case errors.Is(err, ErrGateStepMismatch):
+			writeJSONError(w, http.StatusConflict, err.Error())
+		case errors.Is(err, ErrGateInvalidChoice):
+			writeJSONError(w, http.StatusBadRequest, "invalid choice key: "+req.Choice)
+		default:
+			// Double-resolve and similar registry-level failures.
+			writeJSONError(w, http.StatusConflict, err.Error())
+		}
 		return
 	}
 
 	writeJSON(w, http.StatusOK, GateApproveResponse{
 		RunID:  runID,
 		StepID: stepID,
-		Choice: choice.Key,
-		Label:  choice.Label,
+		Choice: choiceKey,
+		Label:  label,
 	})
 }
