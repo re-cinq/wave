@@ -330,7 +330,7 @@ steps:
         quick snapshot of issue health across the repository.
     output_artifacts:
       - name: enhancement-summary
-        path: .agents/artifacts/enhancement-summary.md
+        path: .agents/output/enhancement-summary.md
         type: markdown
         required: true
     retry:
@@ -339,4 +339,4 @@ steps:
     handover:
       contract:
         type: non_empty_file
-        source: .agents/artifacts/enhancement-summary.md
+        source: .agents/output/enhancement-summary.md
