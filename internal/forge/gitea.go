@@ -196,7 +196,7 @@ type giteaComment struct {
 func convertGiteaIssue(gi *giteaIssue) *Issue {
 	labels := make([]Label, 0, len(gi.Labels))
 	for _, l := range gi.Labels {
-		labels = append(labels, Label{Name: l.Name, Color: l.Color})
+		labels = append(labels, Label(l))
 	}
 	assignees := make([]string, 0, len(gi.Assignees))
 	for _, a := range gi.Assignees {
@@ -222,7 +222,7 @@ func convertGiteaIssue(gi *giteaIssue) *Issue {
 func convertGiteaPR(p *giteaPR) *PullRequest {
 	labels := make([]Label, 0, len(p.Labels))
 	for _, l := range p.Labels {
-		labels = append(labels, Label{Name: l.Name, Color: l.Color})
+		labels = append(labels, Label(l))
 	}
 	state := p.State
 	if p.Merged {

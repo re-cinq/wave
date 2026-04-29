@@ -40,7 +40,7 @@ func TestGiteaClient_GetIssue(t *testing.T) {
 	srv := httptest.NewTLSServer(mux)
 	defer srv.Close()
 
-	c := giteaClientForTest(t, srv, "secret")
+	c := giteaClientForTest(t, srv)
 	got, err := c.GetIssue(context.Background(), "owner", "repo", 42)
 	require.NoError(t, err)
 	assert.Equal(t, 42, got.Number)
@@ -59,7 +59,7 @@ func TestGiteaClient_GetIssue_FlagsPR(t *testing.T) {
 	srv := httptest.NewTLSServer(mux)
 	defer srv.Close()
 
-	c := giteaClientForTest(t, srv, "secret")
+	c := giteaClientForTest(t, srv)
 	got, err := c.GetIssue(context.Background(), "owner", "repo", 7)
 	require.NoError(t, err)
 	assert.True(t, got.IsPR, "issue with non-nil pull_request must flag as PR")
@@ -75,7 +75,7 @@ func TestGiteaClient_ListIssues_QueryString(t *testing.T) {
 	srv := httptest.NewTLSServer(mux)
 	defer srv.Close()
 
-	c := giteaClientForTest(t, srv, "secret")
+	c := giteaClientForTest(t, srv)
 	_, err := c.ListIssues(context.Background(), "owner", "repo", ListIssuesOptions{
 		State: "open", Labels: []string{"bug", "p0"}, Sort: "updated", PerPage: 5, Page: 2,
 	})
@@ -104,7 +104,7 @@ func TestGiteaClient_GetPullRequest_MergedStateOverride(t *testing.T) {
 	srv := httptest.NewTLSServer(mux)
 	defer srv.Close()
 
-	c := giteaClientForTest(t, srv, "secret")
+	c := giteaClientForTest(t, srv)
 	got, err := c.GetPullRequest(context.Background(), "owner", "repo", 3)
 	require.NoError(t, err)
 	assert.Equal(t, "merged", got.State, "merged=true must override state=closed")
@@ -123,7 +123,7 @@ func TestGiteaClient_GetCommitChecks_StatusMapping(t *testing.T) {
 	srv := httptest.NewTLSServer(mux)
 	defer srv.Close()
 
-	c := giteaClientForTest(t, srv, "secret")
+	c := giteaClientForTest(t, srv)
 	got, err := c.GetCommitChecks(context.Background(), "owner", "repo", "abc")
 	require.NoError(t, err)
 	require.Len(t, got, 3)
@@ -143,7 +143,7 @@ func TestGiteaClient_CreatePullRequestReview_BodyShape(t *testing.T) {
 	srv := httptest.NewTLSServer(mux)
 	defer srv.Close()
 
-	c := giteaClientForTest(t, srv, "secret")
+	c := giteaClientForTest(t, srv)
 	require.NoError(t, c.CreatePullRequestReview(context.Background(), "owner", "repo", 1, "APPROVE", "lgtm"))
 	assert.Equal(t, "APPROVED", receivedPayload["event"], "APPROVE must map to APPROVED for Gitea")
 	assert.Equal(t, "lgtm", receivedPayload["body"])
@@ -157,7 +157,7 @@ func TestGiteaClient_NonOKReturnsError(t *testing.T) {
 	srv := httptest.NewTLSServer(mux)
 	defer srv.Close()
 
-	c := giteaClientForTest(t, srv, "secret")
+	c := giteaClientForTest(t, srv)
 	_, err := c.GetIssue(context.Background(), "owner", "repo", 9)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "500")
@@ -178,12 +178,12 @@ func TestClassifyHost_ForgejoHostsEnv(t *testing.T) {
 // giteaClientForTest builds a GiteaClient pointed at the supplied
 // httptest server. It strips the scheme, replaces baseURL with the
 // server's URL+/api/v1, and reuses the server's TLS config.
-func giteaClientForTest(t *testing.T, srv *httptest.Server, token string) *GiteaClient {
+func giteaClientForTest(t *testing.T, srv *httptest.Server) *GiteaClient {
 	t.Helper()
 	host := strings.TrimPrefix(srv.URL, "https://")
 	c, err := NewGiteaClient(GiteaConfig{
 		Host:      host,
-		Token:     token,
+		Token:     "secret",
 		ForgeType: ForgeGitea,
 	})
 	require.NoError(t, err)
