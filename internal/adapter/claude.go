@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/recinq/wave/internal/persona"
 	"github.com/recinq/wave/internal/timeouts"
 )
 
@@ -290,7 +291,7 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 	restrictions := buildRestrictionSection(cfg)
 
 	// Compile persona into a self-contained agent .md file with YAML frontmatter.
-	spec := PersonaSpec{
+	spec := persona.Persona{
 		Model:        cfg.Model,
 		AllowedTools: cfg.AllowedTools,
 		DenyTools:    cfg.DenyTools,
@@ -857,27 +858,14 @@ func buildRestrictionSection(cfg AdapterRunConfig) string {
 	return b.String()
 }
 
-// PersonaSpec holds the subset of persona configuration needed by the agent
-// compiler. It is intentionally decoupled from manifest.Persona to avoid an
-// import cycle (adapter → manifest → adapter).
+// PersonaSpec is a backward-compatible alias for persona.Persona.
 //
-// Callers that hold a manifest.Persona should map it with PersonaSpecFromManifest
-// (defined in the commands package where the manifest import is already present)
-// or build the struct directly.
-type PersonaSpec struct {
-	// Model is the Claude model identifier (e.g. "claude-opus-4") or tier alias
-	// (cheapest, balanced, strongest, resolved before this point by the executor).
-	// Leave empty to omit the frontmatter field and inherit the CLI default.
-	Model string
+// The agent compiler input type lives in internal/persona so it can be shared
+// by both internal/adapter and internal/manifest without forming an import
+// cycle. New code should reference persona.Persona directly.
+type PersonaSpec = persona.Persona
 
-	// AllowedTools is the list of tool names the agent may use.
-	AllowedTools []string
-
-	// DenyTools is the list of tool patterns the agent must not use.
-	DenyTools []string
-}
-
-// PersonaToAgentMarkdown compiles a PersonaSpec into a Claude Code agent .md
+// PersonaToAgentMarkdown compiles a persona.Persona into a Claude Code agent .md
 // file with YAML frontmatter. The generated file can be passed directly to
 // `claude --agent <path>` to run the persona in agent mode.
 //
@@ -890,30 +878,30 @@ type PersonaSpec struct {
 //  3. systemPrompt — the persona's role/responsibilities/constraints text
 //  4. contractSection — the auto-generated contract compliance section
 //  5. restrictions — the denied/allowed tools and network domain section
-func PersonaToAgentMarkdown(persona PersonaSpec, baseProtocol, ontologySection, systemPrompt, contractSection, restrictions string) string {
+func PersonaToAgentMarkdown(p persona.Persona, baseProtocol, ontologySection, systemPrompt, contractSection, restrictions string) string {
 	var b strings.Builder
 
 	// --- YAML frontmatter ---
 	b.WriteString("---\n")
 
-	if persona.Model != "" {
+	if p.Model != "" {
 		b.WriteString("model: ")
-		b.WriteString(persona.Model)
+		b.WriteString(p.Model)
 		b.WriteString("\n")
 	}
 
-	if len(persona.AllowedTools) > 0 {
+	if len(p.AllowedTools) > 0 {
 		b.WriteString("tools:\n")
-		for _, tool := range persona.AllowedTools {
+		for _, tool := range p.AllowedTools {
 			b.WriteString("  - ")
 			b.WriteString(tool)
 			b.WriteString("\n")
 		}
 	}
 
-	if len(persona.DenyTools) > 0 {
+	if len(p.DenyTools) > 0 {
 		b.WriteString("disallowedTools:\n")
-		for _, tool := range persona.DenyTools {
+		for _, tool := range p.DenyTools {
 			b.WriteString("  - ")
 			b.WriteString(tool)
 			b.WriteString("\n")
