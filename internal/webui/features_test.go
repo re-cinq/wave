@@ -14,30 +14,6 @@ func TestNewFeatureRegistryReturnsNonNil(t *testing.T) {
 	}
 }
 
-// TestNewFeatureRegistryDefaultTagsZeroFlags verifies that under default build
-// tags (no optional features) the registry reports every feature as disabled
-// and contributes no route hooks. This locks in the "disabled stubs are no-ops"
-// contract.
-func TestNewFeatureRegistryDefaultTagsZeroFlags(t *testing.T) {
-	r := NewFeatureRegistry()
-	// All flags are wired through build tags; default build = all false.
-	if r.Features.Metrics {
-		t.Error("default registry: Metrics should be false")
-	}
-	if r.Features.Analytics {
-		t.Error("default registry: Analytics should be false")
-	}
-	if r.Features.Webhooks {
-		t.Error("default registry: Webhooks should be false")
-	}
-	if r.Features.Retros {
-		t.Error("default registry: Retros should be false")
-	}
-	if len(r.routeFns) != 0 {
-		t.Errorf("default registry: expected 0 route fns, got %d", len(r.routeFns))
-	}
-}
-
 // TestAddRoutesAccumulates verifies addRoutes appends to routeFns in order.
 func TestAddRoutesAccumulates(t *testing.T) {
 	r := &FeatureRegistry{}

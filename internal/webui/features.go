@@ -33,6 +33,7 @@ func NewFeatureRegistry() *FeatureRegistry {
 	registerMetrics(r)
 	registerWebhooks(r)
 	registerRetros(r)
+	registerPreview(r)
 	return r
 }
 
