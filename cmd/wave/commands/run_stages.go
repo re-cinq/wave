@@ -24,6 +24,7 @@ import (
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/recovery"
 	"github.com/recinq/wave/internal/relay"
@@ -301,7 +302,7 @@ func buildExecutor(opts RunOptions, m *manifest.Manifest, p *pipeline.Pipeline, 
 		emitterResult.Emitter.SetDebugVerbosity(true)
 	}
 
-	execOpts := assembleExecutorOptions(opts, m, p, store, stepFilter, runID, debug, emitter, wsManager, logger, debugTracer, res.runner)
+	execOpts := assembleExecutorOptions(opts, m, store, stepFilter, runID, debug, emitter, wsManager, logger, debugTracer, res.runner)
 	res.execOpts = execOpts
 
 	executor := pipeline.NewDefaultPipelineExecutor(res.runner, execOpts...)
@@ -319,11 +320,12 @@ func buildExecutor(opts RunOptions, m *manifest.Manifest, p *pipeline.Pipeline, 
 // already-constructed dependencies. Split out from buildExecutor so the
 // option list — the part most likely to grow — has its own focused function
 // without the resource-bookkeeping noise.
-func assembleExecutorOptions(opts RunOptions, m *manifest.Manifest, p *pipeline.Pipeline, store state.StateStore, stepFilter *pipeline.StepFilter, runID string, debug bool, emitter event.EventEmitter, wsManager workspace.WorkspaceManager, logger audit.AuditLogger, debugTracer *audit.DebugTracer, runner adapter.AdapterRunner) []pipeline.ExecutorOption {
+func assembleExecutorOptions(opts RunOptions, m *manifest.Manifest, store state.StateStore, stepFilter *pipeline.StepFilter, runID string, debug bool, emitter event.EventEmitter, wsManager workspace.WorkspaceManager, logger audit.AuditLogger, debugTracer *audit.DebugTracer, runner adapter.AdapterRunner) []pipeline.ExecutorOption {
 	execOpts := []pipeline.ExecutorOption{
 		pipeline.WithEmitter(emitter),
 		pipeline.WithDebug(debug),
 		pipeline.WithRunID(runID),
+		pipeline.WithOntologyService(ontology.NoOp{}),
 	}
 	if debugTracer != nil {
 		execOpts = append(execOpts, pipeline.WithDebugTracer(debugTracer))
