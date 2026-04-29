@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/recinq/wave/internal/config"
 	"github.com/recinq/wave/internal/runner"
 	"github.com/recinq/wave/internal/state"
 )
@@ -137,7 +138,7 @@ func (s *Server) handleRetryRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, runner.Options{})
+	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, config.RuntimeConfig{})
 
 	writeJSON(w, http.StatusCreated, RetryRunResponse{
 		RunID:         newRunID,
@@ -204,7 +205,7 @@ func (s *Server) handleResumeRun(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("warning: failed to set resume run kind on %s: %v\n", newRunID, err)
 	}
 
-	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, runner.Options{}, req.FromStep)
+	s.launchPipelineExecution(newRunID, originalRun.PipelineName, originalRun.Input, config.RuntimeConfig{}, req.FromStep)
 
 	writeJSON(w, http.StatusCreated, ResumeRunResponse{
 		RunID:         newRunID,

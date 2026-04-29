@@ -1,20 +1,14 @@
-// Package runner is the single source of truth for launching pipeline runs —
-// either in-process (LaunchInProcess) or as a fully-detached subprocess
-// (Detach). It is shared by cmd/wave/commands and internal/webui so the two
-// paths produce identical runtime behaviour.
+package config
+
+// This file holds the per-run configuration snapshot that mirrors the
+// `wave run` CLI flag set. RuntimeConfig is consumed by both the foreground
+// CLI path (cmd/wave/commands) and the webui launch path (internal/webui)
+// so the two surfaces produce identical runtime behaviour.
 //
-// The package intentionally exposes a small surface:
-//
-//	Options       — every CLI-parity input (mirror of `wave run` flags)
-//	OutputConfig  — verbose/format selection for the run
-//	Detach        — spawn a `wave run` subprocess (Setsid + Process.Release)
-//	LaunchInProcess — wire up DefaultPipelineExecutor and run a goroutine
-//
-// The detach flag-spec table (DetachFlagSpecs / DetachFlagSkippedFields) lives
-// in detach.go and is exercised by TestDetachedArgsExhaustive — adding a new
-// Options field requires registering it (or explicitly skipping it) in that
-// table, otherwise the test fails.
-package runner
+// Lifting the struct into internal/config keeps it next to Env (the process
+// environment snapshot) so a single package owns runtime-configuration
+// types. A future EffectiveConfig will overlay manifest defaults with
+// RuntimeConfig and Env to produce the resolved view used by the executor.
 
 // Output format constants — the canonical set used by `wave run` and shared
 // with the cmd layer via type aliases.
@@ -35,12 +29,12 @@ type OutputConfig struct {
 	Debug   bool
 }
 
-// Options captures every CLI-parity input accepted by `wave run`. The cmd
-// layer aliases this type as RunOptions for backwards compatibility; the
-// webui layer constructs Options directly. Field order is preserved from the
-// original cmd RunOptions so the reflection-based exhaustiveness test keeps
-// its existing assumptions.
-type Options struct {
+// RuntimeConfig captures every CLI-parity input accepted by `wave run`. The
+// cmd layer aliases this type as RunOptions for local naming hygiene; the
+// webui layer constructs RuntimeConfig directly. Field order is preserved
+// from the original cmd RunOptions so the reflection-based exhaustiveness
+// test keeps its existing assumptions.
+type RuntimeConfig struct {
 	Pipeline          string
 	Input             string
 	DryRun            bool

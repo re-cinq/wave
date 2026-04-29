@@ -14,29 +14,29 @@ import (
 	"github.com/recinq/wave/internal/state"
 )
 
-// detachFlagSpec mirrors a single Options field into the argv of a detached
-// `wave run` subprocess. emit appends "--flag" or "--flag value" tokens to
-// args when the field warrants forwarding (skipping zero/default values).
-// Together DetachFlagSpecs forms the single source of truth for the argv
-// rebuilder. TestDetachedArgsExhaustive guards against new Options fields
-// being silently dropped — every field must be registered here or in
-// DetachFlagSkippedFields.
+// detachFlagSpec mirrors a single config.RuntimeConfig field into the argv
+// of a detached `wave run` subprocess. emit appends "--flag" or "--flag
+// value" tokens to args when the field warrants forwarding (skipping
+// zero/default values). Together DetachFlagSpecs forms the single source of
+// truth for the argv rebuilder. TestDetachedArgsExhaustive guards against
+// new RuntimeConfig fields being silently dropped — every field must be
+// registered here or in DetachFlagSkippedFields.
 type detachFlagSpec struct {
-	field string // Options struct field name (matched by exhaustiveness test)
+	field string // RuntimeConfig struct field name (matched by exhaustiveness test)
 	flag  string // CLI flag name without leading dashes
-	emit  func(opts Options, args []string) []string
+	emit  func(opts config.RuntimeConfig, args []string) []string
 }
 
-// FlagSpecField returns the Options field name registered with a spec.
+// FlagSpecField returns the RuntimeConfig field name registered with a spec.
 // Exposed so out-of-package tests can introspect the spec list.
 func (s detachFlagSpec) FlagSpecField() string { return s.field }
 
 // FlagSpecFlag returns the CLI flag (without leading dashes) for a spec.
 func (s detachFlagSpec) FlagSpecFlag() string { return s.flag }
 
-// DetachFlagSkippedFields lists Options fields that intentionally do NOT
-// flow through to the detached subprocess. Update this list (with a reason)
-// when adding a new field that should not be mirrored.
+// DetachFlagSkippedFields lists RuntimeConfig fields that intentionally do
+// NOT flow through to the detached subprocess. Update this list (with a
+// reason) when adding a new field that should not be mirrored.
 var DetachFlagSkippedFields = map[string]string{
 	"Pipeline": "always emitted explicitly as --pipeline before spec processing",
 	"RunID":    "always emitted explicitly as --run with the freshly created runID",
@@ -46,8 +46,8 @@ var DetachFlagSkippedFields = map[string]string{
 }
 
 // boolFlag emits "--<flag>" when get(o) is true.
-func boolFlag(field, flag string, get func(Options) bool) detachFlagSpec {
-	return detachFlagSpec{field: field, flag: flag, emit: func(o Options, a []string) []string {
+func boolFlag(field, flag string, get func(config.RuntimeConfig) bool) detachFlagSpec {
+	return detachFlagSpec{field: field, flag: flag, emit: func(o config.RuntimeConfig, a []string) []string {
 		if get(o) {
 			return append(a, "--"+flag)
 		}
@@ -56,8 +56,8 @@ func boolFlag(field, flag string, get func(Options) bool) detachFlagSpec {
 }
 
 // strFlag emits "--<flag> <value>" when get(o) is non-empty and not equal to skip.
-func strFlag(field, flag, skip string, get func(Options) string) detachFlagSpec {
-	return detachFlagSpec{field: field, flag: flag, emit: func(o Options, a []string) []string {
+func strFlag(field, flag, skip string, get func(config.RuntimeConfig) string) detachFlagSpec {
+	return detachFlagSpec{field: field, flag: flag, emit: func(o config.RuntimeConfig, a []string) []string {
 		v := get(o)
 		if v != "" && v != skip {
 			return append(a, "--"+flag, v)
@@ -67,8 +67,8 @@ func strFlag(field, flag, skip string, get func(Options) string) detachFlagSpec 
 }
 
 // intFlag emits "--<flag> <value>" when get(o) > 0.
-func intFlag(field, flag string, get func(Options) int) detachFlagSpec {
-	return detachFlagSpec{field: field, flag: flag, emit: func(o Options, a []string) []string {
+func intFlag(field, flag string, get func(config.RuntimeConfig) int) detachFlagSpec {
+	return detachFlagSpec{field: field, flag: flag, emit: func(o config.RuntimeConfig, a []string) []string {
 		if v := get(o); v > 0 {
 			return append(a, "--"+flag, fmt.Sprintf("%d", v))
 		}
@@ -79,32 +79,32 @@ func intFlag(field, flag string, get func(Options) int) detachFlagSpec {
 // DetachFlagSpecs is the single source of truth for argv mirroring.
 // Adding a new pass-through flag means adding ONE entry here.
 var DetachFlagSpecs = []detachFlagSpec{
-	strFlag("Input", "input", "", func(o Options) string { return o.Input }),
-	strFlag("FromStep", "from-step", "", func(o Options) string { return o.FromStep }),
-	boolFlag("Force", "force", func(o Options) bool { return o.Force }),
-	intFlag("Timeout", "timeout", func(o Options) int { return o.Timeout }),
-	strFlag("Manifest", "manifest", "wave.yaml", func(o Options) string { return o.Manifest }),
-	boolFlag("Mock", "mock", func(o Options) bool { return o.Mock }),
-	strFlag("Model", "model", "", func(o Options) string { return o.Model }),
-	strFlag("Adapter", "adapter", "", func(o Options) string { return o.Adapter }),
-	boolFlag("PreserveWorkspace", "preserve-workspace", func(o Options) bool { return o.PreserveWorkspace }),
-	strFlag("Steps", "steps", "", func(o Options) string { return o.Steps }),
-	strFlag("Exclude", "exclude", "", func(o Options) string { return o.Exclude }),
-	boolFlag("Continuous", "continuous", func(o Options) bool { return o.Continuous }),
-	strFlag("Source", "source", "", func(o Options) string { return o.Source }),
-	intFlag("MaxIterations", "max-iterations", func(o Options) int { return o.MaxIterations }),
-	strFlag("Delay", "delay", "0s", func(o Options) string { return o.Delay }),
-	strFlag("OnFailure", "on-failure", "halt", func(o Options) string { return o.OnFailure }),
-	boolFlag("AutoApprove", "auto-approve", func(o Options) bool { return o.AutoApprove }),
-	boolFlag("NoRetro", "no-retro", func(o Options) bool { return o.NoRetro }),
-	boolFlag("ForceModel", "force-model", func(o Options) bool { return o.ForceModel }),
+	strFlag("Input", "input", "", func(o config.RuntimeConfig) string { return o.Input }),
+	strFlag("FromStep", "from-step", "", func(o config.RuntimeConfig) string { return o.FromStep }),
+	boolFlag("Force", "force", func(o config.RuntimeConfig) bool { return o.Force }),
+	intFlag("Timeout", "timeout", func(o config.RuntimeConfig) int { return o.Timeout }),
+	strFlag("Manifest", "manifest", "wave.yaml", func(o config.RuntimeConfig) string { return o.Manifest }),
+	boolFlag("Mock", "mock", func(o config.RuntimeConfig) bool { return o.Mock }),
+	strFlag("Model", "model", "", func(o config.RuntimeConfig) string { return o.Model }),
+	strFlag("Adapter", "adapter", "", func(o config.RuntimeConfig) string { return o.Adapter }),
+	boolFlag("PreserveWorkspace", "preserve-workspace", func(o config.RuntimeConfig) bool { return o.PreserveWorkspace }),
+	strFlag("Steps", "steps", "", func(o config.RuntimeConfig) string { return o.Steps }),
+	strFlag("Exclude", "exclude", "", func(o config.RuntimeConfig) string { return o.Exclude }),
+	boolFlag("Continuous", "continuous", func(o config.RuntimeConfig) bool { return o.Continuous }),
+	strFlag("Source", "source", "", func(o config.RuntimeConfig) string { return o.Source }),
+	intFlag("MaxIterations", "max-iterations", func(o config.RuntimeConfig) int { return o.MaxIterations }),
+	strFlag("Delay", "delay", "0s", func(o config.RuntimeConfig) string { return o.Delay }),
+	strFlag("OnFailure", "on-failure", "halt", func(o config.RuntimeConfig) string { return o.OnFailure }),
+	boolFlag("AutoApprove", "auto-approve", func(o config.RuntimeConfig) bool { return o.AutoApprove }),
+	boolFlag("NoRetro", "no-retro", func(o config.RuntimeConfig) bool { return o.NoRetro }),
+	boolFlag("ForceModel", "force-model", func(o config.RuntimeConfig) bool { return o.ForceModel }),
 }
 
 // BuildDetachedArgs constructs argv for a detached `wave run` subprocess from
-// the parent Options plus the freshly created runID. Pipeline and run id
-// are always emitted; all other fields flow through DetachFlagSpecs so adding
-// a new pass-through flag requires editing exactly one spec list.
-func BuildDetachedArgs(opts Options, runID string) []string {
+// the parent RuntimeConfig plus the freshly created runID. Pipeline and run
+// id are always emitted; all other fields flow through DetachFlagSpecs so
+// adding a new pass-through flag requires editing exactly one spec list.
+func BuildDetachedArgs(opts config.RuntimeConfig, runID string) []string {
 	args := []string{"run", "--pipeline", opts.Pipeline, "--run", runID}
 	for _, spec := range DetachFlagSpecs {
 		args = spec.emit(opts, args)
@@ -254,7 +254,7 @@ type detachStore interface {
 
 // On success the returned runID is the canonical ID for the spawned run and
 // the subprocess has already been fully released (cmd.Process.Release).
-func Detach(opts Options, store detachStore, maxConcurrentWorkers int, cfg DetachConfig) (runID string, err error) {
+func Detach(opts config.RuntimeConfig, store detachStore, maxConcurrentWorkers int, cfg DetachConfig) (runID string, err error) {
 	if store == nil {
 		return "", fmt.Errorf("Detach: state store is required")
 	}

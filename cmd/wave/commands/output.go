@@ -7,28 +7,28 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/recinq/wave/internal/config"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
-	"github.com/recinq/wave/internal/runner"
 	"github.com/spf13/cobra"
 )
 
-// Output format constants — aliased from internal/runner to keep a single
+// Output format constants — aliased from internal/config to keep a single
 // source of truth shared with the webui launch path.
 const (
-	OutputFormatAuto  = runner.OutputFormatAuto
-	OutputFormatJSON  = runner.OutputFormatJSON
-	OutputFormatText  = runner.OutputFormatText
-	OutputFormatQuiet = runner.OutputFormatQuiet
+	OutputFormatAuto  = config.OutputFormatAuto
+	OutputFormatJSON  = config.OutputFormatJSON
+	OutputFormatText  = config.OutputFormatText
+	OutputFormatQuiet = config.OutputFormatQuiet
 )
 
-// OutputConfig is aliased from internal/runner so the cmd and webui layers
+// OutputConfig is aliased from internal/config so the cmd and webui layers
 // share an identical shape; cmd-only consumers continue to reference
 // commands.OutputConfig without churn.
-type OutputConfig = runner.OutputConfig
+type OutputConfig = config.OutputConfig
 
 // resolvedFlagsKey is the context key for storing ResolvedFlags.
 type resolvedFlagsKey struct{}

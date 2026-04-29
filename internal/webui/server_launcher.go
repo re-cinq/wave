@@ -3,16 +3,17 @@ package webui
 import (
 	"log"
 
+	"github.com/recinq/wave/internal/config"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/runner"
 )
 
 // RunOptions is the CLI-parity option set forwarded from the webui start
-// form to internal/runner. Aliased so webui handlers and request DTOs keep
-// their existing field names while sharing one canonical shape with the cmd
-// path.
-type RunOptions = runner.Options
+// form to internal/runner. Aliased to config.RuntimeConfig so webui handlers
+// and request DTOs keep their existing field names while sharing one
+// canonical shape with the cmd path.
+type RunOptions = config.RuntimeConfig
 
 // launchPipelineExecution starts pipeline execution as a detached subprocess
 // via internal/runner. The subprocess is fully independent of the server

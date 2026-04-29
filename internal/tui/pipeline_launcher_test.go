@@ -126,7 +126,7 @@ func TestLaunchConfigToOptions_TranslatesKnownFlags(t *testing.T) {
 	assert.Equal(t, "text", opts.Output.Format, "--output text should map to Output.Format")
 	// --detach is intentionally a no-op; the runner is producing the
 	// detached child, recursing would be wrong.
-	assert.False(t, opts.Detach, "--detach must not propagate into runner.Options.Detach")
+	assert.False(t, opts.Detach, "--detach must not propagate into config.RuntimeConfig.Detach")
 }
 
 func TestLaunchConfigToOptions_EmptyFlagsLeaveDefaults(t *testing.T) {
