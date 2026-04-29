@@ -24,7 +24,14 @@ var previewStaticFS embed.FS
 // previewTemplates holds parsed standalone HTML templates keyed by page name
 // (index, onboard, work, work_item, proposal). Each template includes the
 // shared "banner" partial parsed from _banner.html.
-var previewTemplates = parsePreviewTemplates()
+var (
+	previewTemplates map[string]*template.Template
+	previewLoadErr   error
+)
+
+func init() {
+	previewTemplates, previewLoadErr = parsePreviewTemplates()
+}
 
 // previewPages enumerates the (page-name, template-file) pairs registered
 // under /preview/*. Listed once so registration, parsing, and tests share a
@@ -40,27 +47,27 @@ var previewPages = []struct {
 	{"proposal", "proposal.html"},
 }
 
-func parsePreviewTemplates() map[string]*template.Template {
+func parsePreviewTemplates() (map[string]*template.Template, error) {
 	bannerData, err := previewTemplatesFS.ReadFile("templates/preview/_banner.html")
 	if err != nil {
-		panic(fmt.Sprintf("preview: read banner: %v", err))
+		return nil, fmt.Errorf("preview: read banner: %w", err)
 	}
 	out := make(map[string]*template.Template, len(previewPages))
 	for _, p := range previewPages {
 		t := template.New(p.name)
 		if _, err := t.Parse(string(bannerData)); err != nil {
-			panic(fmt.Sprintf("preview: parse banner for %s: %v", p.name, err))
+			return nil, fmt.Errorf("preview: parse banner for %s: %w", p.name, err)
 		}
 		pageData, err := previewTemplatesFS.ReadFile("templates/preview/" + p.file)
 		if err != nil {
-			panic(fmt.Sprintf("preview: read %s: %v", p.file, err))
+			return nil, fmt.Errorf("preview: read %s: %w", p.file, err)
 		}
 		if _, err := t.Parse(string(pageData)); err != nil {
-			panic(fmt.Sprintf("preview: parse %s: %v", p.file, err))
+			return nil, fmt.Errorf("preview: parse %s: %w", p.file, err)
 		}
 		out[p.name] = t
 	}
-	return out
+	return out, nil
 }
 
 func registerPreview(r *FeatureRegistry) {
@@ -75,6 +82,10 @@ func registerPreview(r *FeatureRegistry) {
 }
 
 func renderPreview(w http.ResponseWriter, name string, data any) {
+	if previewLoadErr != nil {
+		http.Error(w, "preview templates failed to load: "+previewLoadErr.Error(), http.StatusInternalServerError)
+		return
+	}
 	t, ok := previewTemplates[name]
 	if !ok {
 		http.Error(w, "preview template not found: "+name, http.StatusInternalServerError)
