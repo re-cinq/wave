@@ -62,30 +62,6 @@ func PrintMergeSuccess(out io.Writer, outputPath string) {
 	fmt.Fprintf(out, "\n")
 }
 
-// PrintWizardSuccess writes the success banner after the interactive wizard.
-func PrintWizardSuccess(out io.Writer, outputPath string, result *WizardResult) {
-	fmt.Fprintf(out, "\n")
-	fmt.Fprintf(out, "  Onboarding complete!\n")
-	fmt.Fprintf(out, "\n")
-	fmt.Fprintf(out, "  Configuration:\n")
-	fmt.Fprintf(out, "    %-20s %s\n", "Manifest:", outputPath)
-	fmt.Fprintf(out, "    %-20s %s\n", "Adapter:", result.Adapter)
-	if result.Model != "" {
-		fmt.Fprintf(out, "    %-20s %s\n", "Model:", result.Model)
-	}
-	if result.Language != "" {
-		fmt.Fprintf(out, "    %-20s %s\n", "Language:", result.Language)
-	}
-	if len(result.Pipelines) > 0 {
-		fmt.Fprintf(out, "    %-20s %d selected\n", "Pipelines:", len(result.Pipelines))
-	}
-	fmt.Fprintf(out, "\n")
-	fmt.Fprintf(out, "  Next steps:\n")
-	fmt.Fprintf(out, "    1. Run 'wave validate' to check configuration\n")
-	fmt.Fprintf(out, "    2. Run 'wave run' to select and execute a pipeline\n")
-	fmt.Fprintf(out, "\n")
-}
-
 // SuggestFirstRun prints a suggestion for what to run after init based on the
 // detected flavour.
 func SuggestFirstRun(w io.Writer, flavour *FlavourInfo) {

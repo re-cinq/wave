@@ -3,14 +3,11 @@ package commands
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/onboarding"
-	"github.com/recinq/wave/internal/tui"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -54,7 +51,7 @@ preserving your custom settings.`,
 	cmd.Flags().StringVar(&opts.Workspace, "workspace", ".agents/workspaces", "Workspace directory path")
 	cmd.Flags().StringVar(&opts.OutputPath, "manifest-path", "wave.yaml", "Output path for wave.yaml")
 	cmd.Flags().BoolVarP(&opts.Yes, "yes", "y", false, "Answer yes to all confirmation prompts")
-	cmd.Flags().BoolVar(&opts.Reconfigure, "reconfigure", false, "Re-run onboarding wizard with current settings as defaults")
+	cmd.Flags().BoolVar(&opts.Reconfigure, "reconfigure", false, "Re-run onboarding with current settings as defaults")
 
 	return cmd
 }
@@ -64,11 +61,6 @@ preserving your custom settings.`,
 func runInit(cmd *cobra.Command, opts InitOptions) error {
 	if opts.Reconfigure {
 		return runReconfigure(cmd, opts)
-	}
-
-	interactive := !opts.Yes && onboarding.IsInteractive()
-	if interactive && !opts.Force && !opts.Merge {
-		return runWizardInit(cmd, opts)
 	}
 
 	if err := onboarding.EnsureGitRepo(cmd.ErrOrStderr()); err != nil {
@@ -102,19 +94,29 @@ func runInit(cmd *cobra.Command, opts InitOptions) error {
 		}
 	}
 
-	assets, flavour, err := onboarding.Greenfield(onboarding.GreenfieldOpts{
+	return runService(cmd, opts)
+}
+
+// runService delegates the cold-start scaffold to the onboarding Service so
+// the CLI driver shares one code path with the webui driver. The interactive
+// path will gain an InteractiveService in issue 1.2; until then both
+// `--yes` and the default-interactive case route through BaselineService.
+func runService(cmd *cobra.Command, opts InitOptions) error {
+	svc := onboarding.NewBaselineService(cmd.ErrOrStderr())
+	sess, err := svc.StartSession(cmd.Context(), ".", onboarding.StartOptions{
 		Adapter:    opts.Adapter,
 		Workspace:  opts.Workspace,
 		OutputPath: opts.OutputPath,
 		All:        opts.All,
-		Stderr:     cmd.ErrOrStderr(),
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("onboarding: %w", err)
 	}
 
-	printInitSuccess(cmd, opts.OutputPath, assets)
-	suggestFirstRun(cmd.OutOrStdout(), flavour)
+	if sess.Assets != nil {
+		onboarding.PrintInitSuccess(cmd.OutOrStdout(), opts.OutputPath, sess.Assets)
+	}
+	onboarding.SuggestFirstRun(cmd.OutOrStdout(), sess.Flavour)
 	return nil
 }
 
@@ -160,28 +162,25 @@ func runMerge(cmd *cobra.Command, opts InitOptions, absOutputPath string) error 
 		return err
 	}
 
-	printMergeSuccess(cmd, opts.OutputPath)
+	onboarding.PrintMergeSuccess(cmd.OutOrStdout(), opts.OutputPath)
 	return nil
 }
 
-// --- Interactive prompts (stay in cmd: they touch cobra streams) ---
-
-func confirmOverwrite(cmd *cobra.Command, path string) (bool, error) {
-	if cmd.InOrStdin() == nil {
-		return false, nil
+// runReconfigure clears the onboarding sentinels and re-runs the baseline
+// service so the project picks up any new defaults. The legacy wizard prompt
+// flow is intentionally absent until issue 1.2 lands InteractiveService.
+func runReconfigure(cmd *cobra.Command, opts InitOptions) error {
+	if _, err := os.Stat(opts.OutputPath); err != nil {
+		return fmt.Errorf("cannot reconfigure: %s not found\nRun 'wave init' first", opts.OutputPath)
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "File %s already exists. Overwrite? [y/N]: ", path)
+	_ = onboarding.ClearOnboarding(".agents")
+	_ = onboarding.ClearSentinel(".")
 
-	reader := bufio.NewReader(cmd.InOrStdin())
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		return false, err
-	}
-
-	response = strings.ToLower(strings.TrimSpace(response))
-	return response == "y" || response == "yes", nil
+	return runService(cmd, opts)
 }
+
+// --- Interactive prompts (stay in cmd: they touch cobra streams) ---
 
 func confirmForceOverwrite(cmd *cobra.Command, path string) (bool, error) {
 	if cmd.InOrStdin() == nil {
@@ -224,140 +223,4 @@ func confirmMerge(cmd *cobra.Command, opts InitOptions) (bool, error) {
 
 	response = strings.ToLower(strings.TrimSpace(response))
 	return response == "y" || response == "yes", nil
-}
-
-// --- Wizard / reconfigure orchestration ---
-
-func runWizardInit(cmd *cobra.Command, opts InitOptions) error {
-	if err := onboarding.EnsureGitRepo(cmd.ErrOrStderr()); err != nil {
-		return err
-	}
-
-	fmt.Fprintln(cmd.OutOrStdout(), tui.WaveLogo())
-
-	var existing *manifest.Manifest
-	if data, err := os.ReadFile(opts.OutputPath); err == nil {
-		var m manifest.Manifest
-		if err := yaml.Unmarshal(data, &m); err == nil {
-			existing = &m
-		}
-	}
-
-	if existing != nil && !opts.Force {
-		confirmed, err := confirmOverwrite(cmd, opts.OutputPath)
-		if err != nil {
-			return fmt.Errorf("failed to read confirmation: %w", err)
-		}
-		if !confirmed {
-			return fmt.Errorf("aborted: %s already exists (use --force to overwrite or --merge to merge)", opts.OutputPath)
-		}
-	}
-
-	assets, err := onboarding.PrepareWizard(onboarding.WizardOpts{
-		Adapter:    opts.Adapter,
-		Workspace:  opts.Workspace,
-		OutputPath: opts.OutputPath,
-		All:        opts.All,
-		Existing:   existing,
-		Stderr:     cmd.ErrOrStderr(),
-	})
-	if err != nil {
-		return err
-	}
-
-	cfg := onboarding.WizardConfig{
-		WaveDir:        ".agents",
-		Interactive:    true,
-		Reconfigure:    false,
-		Existing:       existing,
-		All:            opts.All,
-		Adapter:        opts.Adapter,
-		Workspace:      opts.Workspace,
-		OutputPath:     opts.OutputPath,
-		PersonaConfigs: assets.PersonaConfigs,
-	}
-
-	result, err := onboarding.RunWizard(cfg)
-	if err != nil {
-		return fmt.Errorf("onboarding wizard failed: %w", err)
-	}
-
-	if len(result.Pipelines) > 0 {
-		if err := onboarding.RemoveDeselectedPipelines(".agents/pipelines", result.Pipelines); err != nil {
-			return fmt.Errorf("failed to remove deselected pipelines: %w", err)
-		}
-	}
-
-	if err := onboarding.CreateInitialCommit(cmd.ErrOrStderr(), opts.OutputPath); err != nil {
-		return err
-	}
-
-	printWizardSuccess(cmd, opts.OutputPath, result)
-	return nil
-}
-
-func runReconfigure(cmd *cobra.Command, opts InitOptions) error {
-	data, err := os.ReadFile(opts.OutputPath)
-	if err != nil {
-		return fmt.Errorf("cannot reconfigure: %s not found\nRun 'wave init' first", opts.OutputPath)
-	}
-
-	var existing manifest.Manifest
-	if err := yaml.Unmarshal(data, &existing); err != nil {
-		return fmt.Errorf("failed to parse existing manifest: %w", err)
-	}
-
-	_ = onboarding.ClearOnboarding(".agents")
-
-	interactive := !opts.Yes && onboarding.IsInteractive()
-
-	fmt.Fprintln(cmd.OutOrStdout(), tui.WaveLogo())
-
-	personaConfigs := make(map[string]manifest.Persona)
-	for name, p := range existing.Personas {
-		personaConfigs[name] = p
-	}
-
-	cfg := onboarding.WizardConfig{
-		WaveDir:        ".agents",
-		Interactive:    interactive,
-		Reconfigure:    true,
-		Existing:       &existing,
-		All:            opts.All,
-		Adapter:        opts.Adapter,
-		Workspace:      opts.Workspace,
-		OutputPath:     opts.OutputPath,
-		PersonaConfigs: personaConfigs,
-	}
-
-	result, err := onboarding.RunWizard(cfg)
-	if err != nil {
-		return fmt.Errorf("reconfiguration failed: %w", err)
-	}
-	if len(result.Pipelines) > 0 {
-		if err := onboarding.RemoveDeselectedPipelines(".agents/pipelines", result.Pipelines); err != nil {
-			return fmt.Errorf("failed to remove deselected pipelines: %w", err)
-		}
-	}
-
-	printWizardSuccess(cmd, opts.OutputPath, result)
-	return nil
-}
-
-// --- Output formatting wrappers (delegate to internal/onboarding) ---
-
-func printInitSuccess(cmd *cobra.Command, outputPath string, assets *onboarding.AssetSet) {
-	onboarding.PrintInitSuccess(cmd.OutOrStdout(), outputPath, assets)
-}
-
-func printMergeSuccess(cmd *cobra.Command, outputPath string) {
-	onboarding.PrintMergeSuccess(cmd.OutOrStdout(), outputPath)
-}
-
-func printWizardSuccess(cmd *cobra.Command, outputPath string, result *onboarding.WizardResult) {
-	onboarding.PrintWizardSuccess(cmd.OutOrStdout(), outputPath, result)
-}
-
-func suggestFirstRun(w io.Writer, flavour *onboarding.FlavourInfo) {
-	onboarding.SuggestFirstRun(w, flavour)
 }
