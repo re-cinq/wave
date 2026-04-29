@@ -9,6 +9,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -164,7 +165,8 @@ func (s *Server) buildTokenAnalytics() TokenAnalytics {
 	}
 
 	// Per-persona breakdown from performance metrics
-	metrics, err := s.runtime.store.GetRecentPerformanceHistory(state.PerformanceQueryOptions{
+	mstore := metrics.NewStore(state.UnderlyingDB(s.runtime.store))
+	perfMetrics, err := mstore.GetRecentPerformanceHistory(metrics.PerformanceQueryOptions{
 		Limit: 1000,
 	})
 	if err != nil {
@@ -172,7 +174,7 @@ func (s *Server) buildTokenAnalytics() TokenAnalytics {
 	} else {
 		personaTokens := make(map[string]int)
 		personaSteps := make(map[string]int)
-		for _, m := range metrics {
+		for _, m := range perfMetrics {
 			persona := resolveForgeVars(m.Persona)
 			if persona == "" {
 				continue

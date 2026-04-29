@@ -62,19 +62,6 @@ func (m *mockChatStore) ListRuns(opts state.ListRunsOptions) ([]state.RunRecord,
 
 func (m *mockChatStore) Close() error { return nil }
 
-func (m *mockChatStore) SaveRetrospective(record *state.RetrospectiveRecord) error { return nil }
-func (m *mockChatStore) GetRetrospective(runID string) (*state.RetrospectiveRecord, error) {
-	return nil, nil
-}
-func (m *mockChatStore) ListRetrospectives(opts state.ListRetrosOptions) ([]state.RetrospectiveRecord, error) {
-	return nil, nil
-}
-func (m *mockChatStore) DeleteRetrospective(runID string) error { return nil }
-func (m *mockChatStore) UpdateRetrospectiveSmoothness(runID string, smoothness string) error {
-	return nil
-}
-func (m *mockChatStore) UpdateRetrospectiveStatus(runID string, status string) error { return nil }
-
 func TestBuildChatContext(t *testing.T) {
 	now := time.Now()
 	completed := now.Add(5 * time.Minute)

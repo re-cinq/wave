@@ -4,11 +4,13 @@ import "time"
 
 // RunStore is the domain-scoped persistence surface for pipeline + step
 // lifecycle: runs, cancellation, tags, parent/child linkage, checkpoints,
-// retros, decisions, outcomes, orchestration decisions, performance metrics,
-// progress snapshots, step attempts, and visit counts.
+// decisions, outcomes, orchestration decisions, progress snapshots, step
+// attempts, and visit counts.
 //
 // Consumers that only touch run/step lifecycle data should depend on this
-// interface rather than the aggregate StateStore.
+// interface rather than the aggregate StateStore. Performance metric and
+// retrospective persistence live in the sibling internal/metrics package
+// — depend on *metrics.Store directly when you need them.
 type RunStore interface {
 	// Pipeline state
 	SavePipelineState(id string, status string, input string) error
@@ -65,14 +67,6 @@ type RunStore interface {
 	GetCheckpoints(runID string) ([]CheckpointRecord, error)
 	DeleteCheckpointsAfterStep(runID string, stepIndex int) error
 
-	// Retrospectives
-	SaveRetrospective(record *RetrospectiveRecord) error
-	GetRetrospective(runID string) (*RetrospectiveRecord, error)
-	ListRetrospectives(opts ListRetrosOptions) ([]RetrospectiveRecord, error)
-	DeleteRetrospective(runID string) error
-	UpdateRetrospectiveSmoothness(runID string, smoothness string) error
-	UpdateRetrospectiveStatus(runID string, status string) error
-
 	// Decision log
 	RecordDecision(record *DecisionRecord) error
 	GetDecisions(runID string) ([]*DecisionRecord, error)
@@ -89,13 +83,6 @@ type RunStore interface {
 	UpdateOrchestrationOutcome(runID string, outcome string, tokensUsed int, durationMs int64) error
 	GetOrchestrationStats(pipelineName string) (*OrchestrationStats, error)
 	ListOrchestrationDecisionSummary(limit int) ([]OrchestrationDecisionSummary, error)
-
-	// Performance metrics
-	RecordPerformanceMetric(metric *PerformanceMetricRecord) error
-	GetPerformanceMetrics(runID string, stepID string) ([]PerformanceMetricRecord, error)
-	GetStepPerformanceStats(pipelineName string, stepID string, since time.Time) (*StepPerformanceStats, error)
-	GetRecentPerformanceHistory(opts PerformanceQueryOptions) ([]PerformanceMetricRecord, error)
-	CleanupOldPerformanceMetrics(olderThan time.Duration) (int, error)
 
 	// Progress
 	SaveProgressSnapshot(runID string, stepID string, progress int, action string, etaMs int64, validationPhase string, compactionStats string) error

@@ -3,7 +3,6 @@ package state
 import (
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -233,39 +232,6 @@ func TestGetPipelineProgress_NotFound(t *testing.T) {
 	_, err := store.GetPipelineProgress("nonexistent-run")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
-}
-
-func TestCleanupOldPerformanceMetrics(t *testing.T) {
-	store, cleanup := setupTestStore(t)
-	defer cleanup()
-
-	runID, err := store.CreateRun("test-pipeline", "test input")
-	require.NoError(t, err)
-
-	now := time.Now()
-
-	// Record a performance metric to create some data to cleanup
-	metric := &PerformanceMetricRecord{
-		RunID:      runID,
-		StepID:     "step-1",
-		Persona:    "navigator",
-		StartedAt:  now,
-		DurationMs: 100,
-		Success:    true,
-	}
-	err = store.RecordPerformanceMetric(metric)
-	require.NoError(t, err)
-
-	// Cleanup with a very long duration (should delete nothing since metric is fresh)
-	deleted, err := store.CleanupOldPerformanceMetrics(24 * time.Hour * 365 * 100) // 100 years
-	require.NoError(t, err)
-	assert.Equal(t, 0, deleted, "nothing should be deleted with 100-year window")
-
-	// Cleanup with zero duration (should delete everything older than now)
-	deleted, err = store.CleanupOldPerformanceMetrics(0)
-	require.NoError(t, err)
-	// The metric was created just now, so it may or may not be deleted (timing-sensitive)
-	_ = deleted
 }
 
 func TestGetEvents_StepFilter(t *testing.T) {

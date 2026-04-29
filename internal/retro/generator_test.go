@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -32,13 +33,13 @@ func TestGenerator_Generate(t *testing.T) {
 				StartedAt:    now,
 				CompletedAt:  &completed,
 			},
-			metrics: []state.PerformanceMetricRecord{
+			perfMetrics: []metrics.PerformanceMetricRecord{
 				{StepID: "plan", DurationMs: 30000, TokensUsed: 1000, Success: true},
 			},
 			attempts: map[string][]state.StepAttemptRecord{},
 		},
 		mockRetroIndexer: mockRetroIndexer{
-			records: make(map[string]*state.RetrospectiveRecord),
+			records: make(map[string]*metrics.RetrospectiveRecord),
 		},
 	}
 
@@ -78,7 +79,7 @@ func TestGenerator_Generate_Disabled(t *testing.T) {
 			run: &state.RunRecord{RunID: "disabled-test"},
 		},
 		mockRetroIndexer: mockRetroIndexer{
-			records: make(map[string]*state.RetrospectiveRecord),
+			records: make(map[string]*metrics.RetrospectiveRecord),
 		},
 	}
 
@@ -115,11 +116,11 @@ func TestGenerator_GenerateNarrativeSync(t *testing.T) {
 				StartedAt:    now,
 				CompletedAt:  &completedAt,
 			},
-			metrics:  []state.PerformanceMetricRecord{},
+			perfMetrics:  []metrics.PerformanceMetricRecord{},
 			attempts: map[string][]state.StepAttemptRecord{},
 		},
 		mockRetroIndexer: mockRetroIndexer{
-			records: make(map[string]*state.RetrospectiveRecord),
+			records: make(map[string]*metrics.RetrospectiveRecord),
 		},
 	}
 

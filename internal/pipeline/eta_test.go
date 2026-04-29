@@ -5,35 +5,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/metrics"
 )
 
-// mockStoreForETA implements enough of state.StateStore for ETA testing.
+// mockStoreForETA satisfies the statsLookup surface NewETACalculator needs.
 // It returns preconfigured performance stats per step.
 type mockStoreForETA struct {
-	state.StateStore // embed interface to satisfy all methods (panics on unimplemented)
-	stats            map[string]*state.StepPerformanceStats
+	stats map[string]*metrics.StepPerformanceStats
 }
 
-func (m *mockStoreForETA) GetStepPerformanceStats(_ string, stepID string, _ time.Time) (*state.StepPerformanceStats, error) {
+func (m *mockStoreForETA) GetStepPerformanceStats(_ string, stepID string, _ time.Time) (*metrics.StepPerformanceStats, error) {
 	if s, ok := m.stats[stepID]; ok {
 		return s, nil
 	}
-	return &state.StepPerformanceStats{StepID: stepID}, nil
+	return &metrics.StepPerformanceStats{StepID: stepID}, nil
 }
-
-func (m *mockStoreForETA) SaveRetrospective(record *state.RetrospectiveRecord) error { return nil }
-func (m *mockStoreForETA) GetRetrospective(runID string) (*state.RetrospectiveRecord, error) {
-	return nil, nil
-}
-func (m *mockStoreForETA) ListRetrospectives(opts state.ListRetrosOptions) ([]state.RetrospectiveRecord, error) {
-	return nil, nil
-}
-func (m *mockStoreForETA) DeleteRetrospective(runID string) error { return nil }
-func (m *mockStoreForETA) UpdateRetrospectiveSmoothness(runID string, smoothness string) error {
-	return nil
-}
-func (m *mockStoreForETA) UpdateRetrospectiveStatus(runID string, status string) error { return nil }
 
 func TestETACalculator_NoHistory(t *testing.T) {
 	calc := NewETACalculator(nil, "test-pipeline", []string{"step-1", "step-2", "step-3"})
@@ -48,7 +34,7 @@ func TestETACalculator_NoHistory(t *testing.T) {
 
 func TestETACalculator_WithHistory(t *testing.T) {
 	store := &mockStoreForETA{
-		stats: map[string]*state.StepPerformanceStats{
+		stats: map[string]*metrics.StepPerformanceStats{
 			"step-1": {StepID: "step-1", AvgDurationMs: 10000},
 			"step-2": {StepID: "step-2", AvgDurationMs: 20000},
 			"step-3": {StepID: "step-3", AvgDurationMs: 30000},
@@ -70,7 +56,7 @@ func TestETACalculator_WithHistory(t *testing.T) {
 
 func TestETACalculator_StepCompletionReducesRemaining(t *testing.T) {
 	store := &mockStoreForETA{
-		stats: map[string]*state.StepPerformanceStats{
+		stats: map[string]*metrics.StepPerformanceStats{
 			"step-1": {StepID: "step-1", AvgDurationMs: 10000},
 			"step-2": {StepID: "step-2", AvgDurationMs: 20000},
 			"step-3": {StepID: "step-3", AvgDurationMs: 30000},
@@ -112,7 +98,7 @@ func TestETACalculator_StepCompletionReducesRemaining(t *testing.T) {
 func TestETACalculator_PartialHistory(t *testing.T) {
 	// Only step-2 has historical data
 	store := &mockStoreForETA{
-		stats: map[string]*state.StepPerformanceStats{
+		stats: map[string]*metrics.StepPerformanceStats{
 			"step-2": {StepID: "step-2", AvgDurationMs: 15000},
 		},
 	}
@@ -132,7 +118,7 @@ func TestETACalculator_PartialHistory(t *testing.T) {
 
 func TestETACalculator_SingleStep(t *testing.T) {
 	store := &mockStoreForETA{
-		stats: map[string]*state.StepPerformanceStats{
+		stats: map[string]*metrics.StepPerformanceStats{
 			"only-step": {StepID: "only-step", AvgDurationMs: 5000},
 		},
 	}
@@ -152,7 +138,7 @@ func TestETACalculator_SingleStep(t *testing.T) {
 
 func TestETACalculator_ConcurrentAccess(t *testing.T) {
 	store := &mockStoreForETA{
-		stats: map[string]*state.StepPerformanceStats{
+		stats: map[string]*metrics.StepPerformanceStats{
 			"step-1": {StepID: "step-1", AvgDurationMs: 10000},
 			"step-2": {StepID: "step-2", AvgDurationMs: 20000},
 			"step-3": {StepID: "step-3", AvgDurationMs: 30000},

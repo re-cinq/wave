@@ -58,19 +58,6 @@ func (b baseStateStore) CheckCancellation(string) (*state.CancellationRecord, er
 	return nil, nil
 }
 func (b baseStateStore) ClearCancellation(string) error { return nil }
-func (b baseStateStore) RecordPerformanceMetric(*state.PerformanceMetricRecord) error {
-	return nil
-}
-func (b baseStateStore) GetPerformanceMetrics(string, string) ([]state.PerformanceMetricRecord, error) {
-	return nil, nil
-}
-func (b baseStateStore) GetStepPerformanceStats(string, string, time.Time) (*state.StepPerformanceStats, error) {
-	return nil, nil
-}
-func (b baseStateStore) GetRecentPerformanceHistory(state.PerformanceQueryOptions) ([]state.PerformanceMetricRecord, error) {
-	return nil, nil
-}
-func (b baseStateStore) CleanupOldPerformanceMetrics(time.Duration) (int, error) { return 0, nil }
 func (b baseStateStore) SaveProgressSnapshot(string, string, int, string, int64, string, string) error {
 	return nil
 }
@@ -140,16 +127,6 @@ func (b baseStateStore) SetRunComposition(string, string, string, string, *int, 
 }
 func (b baseStateStore) GetSubtreeTokens(string) (int64, error) { return 0, nil }
 func (b baseStateStore) GetChildRuns(string) ([]state.RunRecord, error)     { return nil, nil }
-func (b baseStateStore) SaveRetrospective(*state.RetrospectiveRecord) error { return nil }
-func (b baseStateStore) GetRetrospective(string) (*state.RetrospectiveRecord, error) {
-	return nil, nil
-}
-func (b baseStateStore) ListRetrospectives(state.ListRetrosOptions) ([]state.RetrospectiveRecord, error) {
-	return nil, nil
-}
-func (b baseStateStore) DeleteRetrospective(string) error                     { return nil }
-func (b baseStateStore) UpdateRetrospectiveSmoothness(string, string) error   { return nil }
-func (b baseStateStore) UpdateRetrospectiveStatus(string, string) error       { return nil }
 func (b baseStateStore) RecordDecision(*state.DecisionRecord) error           { return nil }
 func (b baseStateStore) GetDecisions(string) ([]*state.DecisionRecord, error) { return nil, nil }
 func (b baseStateStore) GetDecisionsByStep(string, string) ([]*state.DecisionRecord, error) {

@@ -24,6 +24,7 @@ import (
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/recovery"
@@ -383,7 +384,8 @@ func assembleExecutorOptions(opts RunOptions, m *manifest.Manifest, store state.
 		execOpts = append(execOpts, pipeline.WithAutoApprove(true))
 	}
 	if store != nil && !opts.NoRetro {
-		retroGen := retro.NewGenerator(store, runner, ".agents/retros", &m.Runtime.Retros)
+		mstore := metrics.NewStore(state.UnderlyingDB(store))
+		retroGen := retro.NewGenerator(store, mstore, runner, ".agents/retros", &m.Runtime.Retros)
 		execOpts = append(execOpts, pipeline.WithRetroGenerator(retroGen))
 	}
 

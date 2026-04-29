@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/recinq/wave/internal/humanize"
+	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/state"
 )
@@ -15,7 +16,8 @@ import (
 // handleRetrosPage handles GET /retros - serves the HTML retrospective trends page.
 func (s *Server) handleRetrosPage(w http.ResponseWriter, r *http.Request) {
 	// Fetch recent retrospectives (last 20 for chart, up to 50 for list)
-	records, err := s.runtime.store.ListRetrospectives(state.ListRetrosOptions{
+	mstore := metrics.NewStore(state.UnderlyingDB(s.runtime.store))
+	records, err := mstore.ListRetrospectives(metrics.ListRetrosOptions{
 		Limit: 50,
 	})
 	if err != nil {
@@ -23,7 +25,7 @@ func (s *Server) handleRetrosPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	storage := retro.NewStorage(".agents/retros", s.runtime.store)
+	storage := retro.NewStorage(".agents/retros", mstore)
 
 	// Build smoothness trend entries (last 20, reversed to chronological order for chart)
 	chartLimit := 20

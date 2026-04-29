@@ -6,30 +6,30 @@ import (
 	"testing"
 	"time"
 
-	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/metrics"
 )
 
 // mockRetroIndexer implements RetroIndexer for testing.
 type mockRetroIndexer struct {
-	records      map[string]*state.RetrospectiveRecord
-	lastSaved    *state.RetrospectiveRecord
+	records      map[string]*metrics.RetrospectiveRecord
+	lastSaved    *metrics.RetrospectiveRecord
 	smoothUpdate string
 	statusUpdate string
 }
 
 func newMockIndexer() *mockRetroIndexer {
 	return &mockRetroIndexer{
-		records: make(map[string]*state.RetrospectiveRecord),
+		records: make(map[string]*metrics.RetrospectiveRecord),
 	}
 }
 
-func (m *mockRetroIndexer) SaveRetrospective(record *state.RetrospectiveRecord) error {
+func (m *mockRetroIndexer) SaveRetrospective(record *metrics.RetrospectiveRecord) error {
 	m.lastSaved = record
 	m.records[record.RunID] = record
 	return nil
 }
 
-func (m *mockRetroIndexer) GetRetrospective(runID string) (*state.RetrospectiveRecord, error) {
+func (m *mockRetroIndexer) GetRetrospective(runID string) (*metrics.RetrospectiveRecord, error) {
 	r, ok := m.records[runID]
 	if !ok {
 		return nil, os.ErrNotExist
@@ -37,8 +37,8 @@ func (m *mockRetroIndexer) GetRetrospective(runID string) (*state.RetrospectiveR
 	return r, nil
 }
 
-func (m *mockRetroIndexer) ListRetrospectives(opts state.ListRetrosOptions) ([]state.RetrospectiveRecord, error) {
-	var result []state.RetrospectiveRecord
+func (m *mockRetroIndexer) ListRetrospectives(opts metrics.ListRetrosOptions) ([]metrics.RetrospectiveRecord, error) {
+	var result []metrics.RetrospectiveRecord
 	for _, r := range m.records {
 		if opts.PipelineName != "" && r.PipelineName != opts.PipelineName {
 			continue

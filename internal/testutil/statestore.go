@@ -35,11 +35,6 @@ type MockStateStore struct {
 	requestCancellation          func(runID string, force bool) error
 	checkCancellation            func(runID string) (*state.CancellationRecord, error)
 	clearCancellation            func(runID string) error
-	recordPerformanceMetric      func(metric *state.PerformanceMetricRecord) error
-	getPerformanceMetrics        func(runID, stepID string) ([]state.PerformanceMetricRecord, error)
-	getStepPerformanceStats      func(pipelineName, stepID string, since time.Time) (*state.StepPerformanceStats, error)
-	getRecentPerformanceHistory  func(opts state.PerformanceQueryOptions) ([]state.PerformanceMetricRecord, error)
-	cleanupOldPerformanceMetrics func(olderThan time.Duration) (int, error)
 	saveProgressSnapshot         func(runID, stepID string, progress int, action string, etaMs int64, validationPhase, compactionStats string) error
 	getProgressSnapshots         func(runID, stepID string, limit int) ([]state.ProgressSnapshotRecord, error)
 	updateStepProgress           func(runID, stepID, persona, st string, progress int, action, message string, etaMs int64, tokens int) error
@@ -267,41 +262,6 @@ func (m *MockStateStore) ClearCancellation(runID string) error {
 		return m.clearCancellation(runID)
 	}
 	return nil
-}
-
-func (m *MockStateStore) RecordPerformanceMetric(metric *state.PerformanceMetricRecord) error {
-	if m.recordPerformanceMetric != nil {
-		return m.recordPerformanceMetric(metric)
-	}
-	return nil
-}
-
-func (m *MockStateStore) GetPerformanceMetrics(runID, stepID string) ([]state.PerformanceMetricRecord, error) {
-	if m.getPerformanceMetrics != nil {
-		return m.getPerformanceMetrics(runID, stepID)
-	}
-	return nil, nil
-}
-
-func (m *MockStateStore) GetStepPerformanceStats(pipelineName, stepID string, since time.Time) (*state.StepPerformanceStats, error) {
-	if m.getStepPerformanceStats != nil {
-		return m.getStepPerformanceStats(pipelineName, stepID, since)
-	}
-	return nil, nil
-}
-
-func (m *MockStateStore) GetRecentPerformanceHistory(opts state.PerformanceQueryOptions) ([]state.PerformanceMetricRecord, error) {
-	if m.getRecentPerformanceHistory != nil {
-		return m.getRecentPerformanceHistory(opts)
-	}
-	return nil, nil
-}
-
-func (m *MockStateStore) CleanupOldPerformanceMetrics(olderThan time.Duration) (int, error) {
-	if m.cleanupOldPerformanceMetrics != nil {
-		return m.cleanupOldPerformanceMetrics(olderThan)
-	}
-	return 0, nil
 }
 
 func (m *MockStateStore) SaveProgressSnapshot(runID, stepID string, progress int, action string, etaMs int64, validationPhase, compactionStats string) error {
@@ -535,30 +495,6 @@ func (m *MockStateStore) GetChildRuns(parentRunID string) ([]state.RunRecord, er
 		return m.getChildRuns(parentRunID)
 	}
 	return nil, nil
-}
-
-func (m *MockStateStore) SaveRetrospective(record *state.RetrospectiveRecord) error {
-	return nil
-}
-
-func (m *MockStateStore) GetRetrospective(runID string) (*state.RetrospectiveRecord, error) {
-	return nil, errors.New("not found")
-}
-
-func (m *MockStateStore) ListRetrospectives(opts state.ListRetrosOptions) ([]state.RetrospectiveRecord, error) {
-	return nil, nil
-}
-
-func (m *MockStateStore) DeleteRetrospective(runID string) error {
-	return nil
-}
-
-func (m *MockStateStore) UpdateRetrospectiveSmoothness(runID string, smoothness string) error {
-	return nil
-}
-
-func (m *MockStateStore) UpdateRetrospectiveStatus(runID string, status string) error {
-	return nil
 }
 
 func (m *MockStateStore) RecordDecision(record *state.DecisionRecord) error {

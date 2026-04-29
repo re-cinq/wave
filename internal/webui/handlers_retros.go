@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/state"
 )
@@ -33,7 +34,8 @@ func (s *Server) handleAPIRetros(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	records, err := s.runtime.store.ListRetrospectives(state.ListRetrosOptions{
+	mstore := metrics.NewStore(state.UnderlyingDB(s.runtime.store))
+	records, err := mstore.ListRetrospectives(metrics.ListRetrosOptions{
 		PipelineName: pipeline,
 		SinceUnix:    sinceUnix,
 		Limit:        limit,
@@ -54,7 +56,7 @@ func (s *Server) handleAPIRetroDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	storage := retro.NewStorage(".agents/retros", s.runtime.store)
+	storage := retro.NewStorage(".agents/retros", metrics.NewStore(state.UnderlyingDB(s.runtime.store)))
 	retro, err := storage.Load(id)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
