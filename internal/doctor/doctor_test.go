@@ -23,20 +23,10 @@ adapters:
     mode: headless
 runtime:
   workspace_root: .agents/workspaces
-ontology:
-  telos: "Test project purpose"
-  contexts:
-    - name: core
-      description: Core functionality
 `), 0644)
 
 	pipelinesDir := filepath.Join(tmp, "pipelines")
 	_ = os.MkdirAll(pipelinesDir, 0755)
-
-	// Create context skill so ontology check passes
-	skillDir := filepath.Join(tmp, "skills", "wave-ctx-core")
-	_ = os.MkdirAll(skillDir, 0755)
-	_ = os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# Core Context\n"), 0644)
 
 	report, err := RunChecks(context.Background(), Options{
 		ManifestPath: manifestPath,

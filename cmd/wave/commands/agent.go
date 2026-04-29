@@ -297,7 +297,6 @@ func compilePersonaToAgentMd(name string, m *manifest.Manifest) (string, error) 
 	agentMd := adapter.PersonaToAgentMarkdown(
 		spec,
 		string(baseProtocolData),
-		"", // no ontology section during static inspection
 		systemPrompt,
 		"", // no runtime contract section during static inspection
 		"", // no runtime restrictions section during static inspection

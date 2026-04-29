@@ -46,22 +46,7 @@ AI agents are especially prone to this failure mode. They optimize for the instr
 
 The fix is not "remember to check the user experience." Remembering is fragile. People forget. Agents don't read memos from prior sessions. The fix must be structural — embedded in the system itself.
 
-### 1. The Delivery Ontology
-
-Wave's ontology now contains a `delivery` context with invariants that every persona receives in every pipeline run:
-
-```yaml
-- name: delivery
-  invariants:
-    - "A feature is not done until shipped pipelines use it"
-    - "Validation means the user-facing product changed"
-    - "internal/defaults/pipelines/ must reflect all capabilities"
-    - "Every new executor capability requires at least one default pipeline demonstrating it"
-```
-
-This is not a comment. This is not a convention. This is an invariant injected into every agent's system prompt at runtime. The craftsman implementing a feature sees it. The reviewer evaluating a PR sees it. The navigator planning the work sees it. It is inescapable.
-
-### 2. The Validation Contract
+### 1. The Validation Contract
 
 Every implementation pipeline should end with a validation step that checks the user surface, not the code surface:
 
@@ -72,7 +57,7 @@ Every implementation pipeline should end with a validation step that checks the 
 
 If any answer is no, the contract fails and the pipeline loops back.
 
-### 3. The Adoption Checklist
+### 2. The Adoption Checklist
 
 Every issue that adds an executor capability must include adoption scope:
 
@@ -85,14 +70,7 @@ If the issue doesn't specify adoption, it's an engine task, not a feature. Label
 
 ## The Anti-Fragile Loop
 
-The incident itself created the fix. The failure to validate led to the `delivery` ontology context. The ontology context will prevent the next session from making the same mistake. The system got stronger from the failure.
-
-This is anti-fragility applied to process: every failure that reaches a user creates a structural constraint that prevents recurrence. Not a note. Not a memory. A constraint that compiles into the system prompt of every future agent.
-
-The hierarchy:
-1. **Memory** — an agent remembers. Fragile. Fades across sessions.
-2. **Documentation** — a human reads. Robust. Depends on attention.
-3. **Ontology invariant** — every agent is told. Anti-fragile. Structural.
+The incident itself created the fix. The failure to validate led to a validation contract pattern. Every failure that reaches a user creates a structural constraint that prevents recurrence — not a note, not a memory, but a check encoded in the pipeline.
 
 ## The Checklist
 
@@ -123,8 +101,7 @@ If yes, you shipped. If no, you didn't. Everything else is commentary.
 
 ### Implementation Pointers
 
-The three components described in this document map to these code locations:
+The components described in this document map to these code locations:
 
-- **Delivery ontology with invariants** — `internal/manifest/types.go` (`Ontology` struct, `RenderMarkdown()`)
 - **Validation contracts** — `internal/contract/contract.go` (`NewValidator`)
 - **Outcome gates** — `internal/pipeline/gate.go` (`Execute`)

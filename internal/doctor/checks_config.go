@@ -9,10 +9,6 @@ import (
 	"github.com/recinq/wave/internal/pipeline"
 )
 
-// checkOntology lives in checks_ontology.go. It is compiled unconditionally
-// — the ontology feature gate is enforced at the Service layer
-// (internal/ontology), not by build tags.
-
 func checkAdapterRegistry(m *manifest.Manifest) CheckResult {
 	if m == nil || len(m.Adapters) == 0 {
 		return CheckResult{

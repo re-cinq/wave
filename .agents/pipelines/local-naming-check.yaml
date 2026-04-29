@@ -9,7 +9,7 @@ metadata:
 
 input:
   source: cli
-  example: "internal/ontology"
+  example: "internal/manifest"
   schema:
     type: string
     description: "Package or directory to scan"
@@ -41,8 +41,8 @@ steps:
         2. Exported identifiers (start with capital) must be documented with a
            leading comment beginning with the identifier name.
         3. Package name must be a single lowercase word matching the directory.
-        4. No stuttering (e.g. `ontology.OntologyService` is wrong; should be
-           `ontology.Service`).
+        4. No stuttering (e.g. `manifest.ManifestLoader` is wrong; should be
+           `manifest.Loader`).
 
         Write a JSON file `findings.json` in the workspace root:
         {

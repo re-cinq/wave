@@ -25,7 +25,6 @@ import (
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/metrics"
-	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/recovery"
 	"github.com/recinq/wave/internal/relay"
@@ -326,7 +325,6 @@ func assembleExecutorOptions(opts RunOptions, m *manifest.Manifest, store state.
 		pipeline.WithEmitter(emitter),
 		pipeline.WithDebug(debug),
 		pipeline.WithRunID(runID),
-		pipeline.WithOntologyService(ontology.NoOp{}),
 	}
 	if debugTracer != nil {
 		execOpts = append(execOpts, pipeline.WithDebugTracer(debugTracer))

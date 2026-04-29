@@ -12,7 +12,6 @@ import (
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/adapter/adaptertest"
-	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -49,7 +48,7 @@ func TestCollectParentCrossPipelineArtifacts_PopulatesFromOutputArtifacts(t *tes
 		},
 	}
 
-	e := NewDefaultPipelineExecutor(nil, WithOntologyService(ontology.NoOp{}))
+	e := NewDefaultPipelineExecutor(nil)
 	got := e.collectParentCrossPipelineArtifacts(exec)
 
 	require.NotNil(t, got)
@@ -80,7 +79,7 @@ func TestCollectParentCrossPipelineArtifacts_SkipsMissing(t *testing.T) {
 		ArtifactPaths: map[string]string{},
 	}
 
-	e := NewDefaultPipelineExecutor(nil, WithOntologyService(ontology.NoOp{}))
+	e := NewDefaultPipelineExecutor(nil)
 	got := e.collectParentCrossPipelineArtifacts(exec)
 	assert.Nil(t, got, "no produced artifacts → nil map (not empty parent slot)")
 }
@@ -117,7 +116,7 @@ func TestCollectParentCrossPipelineArtifacts_HonorsPipelineOutputAlias(t *testin
 		},
 	}
 
-	e := NewDefaultPipelineExecutor(nil, WithOntologyService(ontology.NoOp{}))
+	e := NewDefaultPipelineExecutor(nil)
 	got := e.collectParentCrossPipelineArtifacts(exec)
 
 	require.NotNil(t, got)
@@ -166,7 +165,7 @@ func TestSubPipelineCrossPipelineInject_Resolves(t *testing.T) {
 		),
 	}
 
-	executor := NewDefaultPipelineExecutor(capAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capAdapter)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -266,7 +265,7 @@ func TestSubPipelineCrossPipelineInject_MissingNonOptionalErrors(t *testing.T) {
 		adaptertest.WithStdoutJSON(`{"status":"ok"}`),
 	)
 
-	executor := NewDefaultPipelineExecutor(capAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capAdapter)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -328,7 +327,7 @@ func TestSubPipelineCrossPipelineInject_OptionalSkips(t *testing.T) {
 		adaptertest.WithStdoutJSON(`{"status":"ok"}`),
 	)
 
-	executor := NewDefaultPipelineExecutor(capAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capAdapter)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -392,7 +391,6 @@ func TestSubPipelineCrossPipelineArtifacts_ScopeIsParentOnly(t *testing.T) {
 	require.NoError(t, os.WriteFile(parentArtPath, []byte(`"parent-bytes"`), 0644))
 
 	parent := NewDefaultPipelineExecutor(nil,
-		WithOntologyService(ontology.NoOp{}),
 		// Simulate that this parent itself was launched via a sequence —
 		// it carries grandparent's artifacts.
 		WithCrossPipelineArtifacts(map[string]map[string][]byte{
@@ -447,7 +445,7 @@ func TestSequencePipelineCrossArtifactsStillWork(t *testing.T) {
 	seq := NewSequenceExecutor(
 		func(opts ...ExecutorOption) *DefaultPipelineExecutor {
 			ex := NewDefaultPipelineExecutor(mockAdapter,
-				append([]ExecutorOption{WithOntologyService(ontology.NoOp{})}, opts...)...)
+				append([]ExecutorOption{}, opts...)...)
 			mu.Lock()
 			if ex.crossPipelineArtifacts != nil {
 				captured = append(captured, ex.crossPipelineArtifacts)

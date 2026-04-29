@@ -5,10 +5,9 @@ package state
 // removing a method on any interface without updating the concrete type will
 // fail the build at this site.
 var (
-	_ RunStore      = (*stateStore)(nil)
-	_ EventStore    = (*stateStore)(nil)
-	_ OntologyStore = (*stateStore)(nil)
-	_ WebhookStore  = (*stateStore)(nil)
-	_ ChatStore     = (*stateStore)(nil)
-	_ StateStore    = (*stateStore)(nil)
+	_ RunStore     = (*stateStore)(nil)
+	_ EventStore   = (*stateStore)(nil)
+	_ WebhookStore = (*stateStore)(nil)
+	_ ChatStore    = (*stateStore)(nil)
+	_ StateStore   = (*stateStore)(nil)
 )

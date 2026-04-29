@@ -116,21 +116,19 @@ func newSkillStore() *skill.DirectoryStore {
 
 func newSkillsListCmd() *cobra.Command {
 	var format string
-	var ontologyOnly bool
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List discovered skills",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSkillsList(cmd, format, ontologyOnly)
+			return runSkillsList(cmd, format)
 		},
 	}
 	cmd.Flags().StringVar(&format, "format", "table", "Output format: table, json")
-	cmd.Flags().BoolVar(&ontologyOnly, "ontology", false, "Show only ontology context skills (wave-ctx-*)")
 	return cmd
 }
 
-func runSkillsList(cmd *cobra.Command, format string, ontologyOnly bool) error {
+func runSkillsList(cmd *cobra.Command, format string) error {
 	format = ResolveFormat(cmd, format)
 
 	store := newSkillStore()
@@ -153,9 +151,6 @@ func runSkillsList(cmd *cobra.Command, format string, ontologyOnly bool) error {
 		Warnings: warnings,
 	}
 	for _, s := range skills {
-		if ontologyOnly && !strings.HasPrefix(s.Name, "wave-ctx-") {
-			continue
-		}
 		output.Skills = append(output.Skills, SkillListItem{
 			Name:        s.Name,
 			Description: s.Description,

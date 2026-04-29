@@ -60,9 +60,6 @@ func RunChecks(ctx context.Context, opts Options) (*Report, error) {
 	// 8b. Docker daemon (informational — many projects don't use Docker)
 	report.Results = append(report.Results, checkDockerDaemon(&opts))
 
-	// 9. Ontology health
-	report.Results = append(report.Results, checkOntology(&opts, m)...)
-
 	// 10. Adapter registry
 	report.Results = append(report.Results, checkAdapterRegistry(m))
 

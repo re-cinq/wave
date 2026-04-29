@@ -1258,13 +1258,11 @@ List discovered skills with the pipelines that reference them.
 ```bash
 wave skills list
 wave skills list --format json
-wave skills list --ontology          # only wave-ctx-* skills
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--format` | `table` | Output format: `table`, `json` |
-| `--ontology` | `false` | Show only ontology context skills (`wave-ctx-*`) |
 
 ### skills check
 

@@ -205,28 +205,6 @@ type ArtifactMetadataRecord struct {
 	IndexedAt    time.Time
 }
 
-// OntologyUsageRecord represents a single ontology context injection into a pipeline step.
-type OntologyUsageRecord struct {
-	ID             int64
-	RunID          string
-	StepID         string
-	ContextName    string
-	InvariantCount int
-	StepStatus     string // "success", "failed", "skipped"
-	ContractPassed *bool  // nil if contract not checked
-	CreatedAt      time.Time
-}
-
-// OntologyStats holds aggregated statistics for a single ontology context.
-type OntologyStats struct {
-	ContextName string
-	TotalRuns   int
-	Successes   int
-	Failures    int
-	SuccessRate float64
-	LastUsed    time.Time
-}
-
 // DecisionRecord holds an append-only decision log entry for a pipeline run.
 type DecisionRecord struct {
 	ID        int64

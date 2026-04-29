@@ -14,7 +14,6 @@ import (
 	"github.com/recinq/wave/internal/hooks"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/metrics"
-	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/skill"
@@ -112,14 +111,6 @@ type DefaultPipelineExecutor struct {
 	webhookRunner *hooks.WebhookRunner
 	// Task-level complexity from classifier (empty = no task-aware routing)
 	taskComplexity string
-	// Ontology service — bounded-context injection, staleness, lineage.
-	// Required at construction time: callers must supply via
-	// WithOntologyService (use ontology.NoOp{} to opt out explicitly). The
-	// constructor panics on nil so a forgotten dependency surfaces loudly
-	// instead of silently disabling lineage tracking. The Execute path may
-	// still promote a NoOp to a real service when the manifest declares
-	// ontology contexts.
-	ontology ontology.Service
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -269,14 +260,6 @@ func WithRetroGenerator(g *retro.Generator) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.retroGenerator = g }
 }
 
-// WithOntologyService injects a pre-constructed ontology Service. When not
-// set, Execute auto-constructs one from the manifest via
-// ontology.EnabledFromManifest — wiring the store, emitter, and audit sink
-// from this executor.
-func WithOntologyService(svc ontology.Service) ExecutorOption {
-	return func(ex *DefaultPipelineExecutor) { ex.ontology = svc }
-}
-
 // WithRegistry sets the adapter registry for per-step adapter resolution.
 func WithRegistry(r *adapter.AdapterRegistry) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.registry = r }
@@ -366,13 +349,6 @@ func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOp
 	for _, opt := range opts {
 		opt(ex)
 	}
-	// Ontology is a required dependency. Callers that don't need lineage
-	// tracking opt out explicitly via WithOntologyService(ontology.NoOp{}).
-	// All current call sites pass it explicitly; default keeps the executor
-	// constructable from tests that bypass the convention.
-	if ex.ontology == nil {
-		ex.ontology = ontology.NoOp{}
-	}
 	ex.outcomeTracker = state.NewOutcomeTracker("", ex.store)
 
 	// If no registry was provided via WithRegistry, wrap the single runner
@@ -411,7 +387,6 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		autoApprove:            e.autoApprove,
 		gateHandler:            e.gateHandler,
 		retroGenerator:         e.retroGenerator,
-		ontology:               e.ontology,
 	}
 	// Share parent security layer's collaborators so child sees identical
 	// path/sanitization config but with its own back-pointer.

@@ -183,10 +183,6 @@ func ValidateWithFile(m *Manifest, basePath, filePath string) []error {
 		errs = append(errs, personaErrs...)
 	}
 
-	if ontologyErrs := validateOntology(m.Ontology, filePath); len(ontologyErrs) > 0 {
-		errs = append(errs, ontologyErrs...)
-	}
-
 	if hookErrs := validateHooks(m.Hooks, filePath); len(hookErrs) > 0 {
 		errs = append(errs, hookErrs...)
 	}
@@ -405,10 +401,6 @@ func validatePersonasListWithFile(personas map[string]Persona, adapters map[stri
 	}
 	return errs
 }
-
-// validateOntology lives in parser_ontology.go — plain shape validation
-// (empty/duplicate names). Behavioral ontology logic lives in
-// internal/ontology.
 
 func Load(path string) (*Manifest, error) {
 	return NewLoader().Load(path)

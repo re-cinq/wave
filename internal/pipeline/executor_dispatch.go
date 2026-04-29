@@ -111,7 +111,7 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	})
 
 	// Iron Rule: estimate prompt size and check against context window
-	promptBytes := len(cfg.Prompt) + len(cfg.OntologySection)
+	promptBytes := len(cfg.Prompt)
 	if promptBytes > 0 && res.resolvedModel != "" {
 		ironStatus, ironMsg := cost.CheckIronRule(res.resolvedModel, promptBytes)
 		switch ironStatus {
@@ -411,8 +411,8 @@ func (e *DefaultPipelineExecutor) resolveStepResources(ctx context.Context, exec
 }
 
 // buildStepAdapterConfig assembles the adapter.AdapterRunConfig for a step.
-// It resolves timeout, system prompt, sandbox settings, skills, contract prompt,
-// and ontology section. It is Phase B of runStepExecution.
+// It resolves timeout, system prompt, sandbox settings, skills, and contract
+// prompt. It is Phase B of runStepExecution.
 func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, execution *PipelineExecution, step *Step, res *stepRunResources) (adapter.AdapterRunConfig, error) {
 	pipelineID := res.pipelineID
 	prompt := res.prompt
@@ -535,10 +535,6 @@ func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, exec
 		prompt = prompt + "\n\n" + contractPrompt
 	}
 
-	// Build ontology section from manifest for AGENTS.md injection.
-	// NoOp service returns "" when the feature is disabled.
-	ontologySection := e.ontology.BuildStepSection(pipelineID, step.ID, step.Contexts)
-
 	// Resolve effective tool permissions: step overlay ∪ persona ∪ adapter defaults.
 	// Step.Permissions can ADD tools (additive); persona-level deny rules still win
 	// because PermissionChecker enforces deny-first precedence.
@@ -564,7 +560,6 @@ func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, exec
 		DockerImage:         execution.Manifest.Runtime.Sandbox.GetDockerImage(),
 		SkillCommandsDir:    skillCommandsDir,
 		ResolvedSkills:      resolvedSkillRefs,
-		OntologySection:     ontologySection,
 		MaxConcurrentAgents: step.MaxConcurrentAgents,
 		OnStreamEvent: func(evt adapter.StreamEvent) {
 			// Reset the activity timer on ANY stream event so a thinking-only

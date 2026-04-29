@@ -270,22 +270,6 @@ wave do "add input validation to signup form"
 wave do "review for SQL injection" --persona auditor
 ```
 
-### Project Analysis
-
-```bash
-# Analyze project ontology and generate context skills
-wave analyze
-
-# AI-assisted deep analysis (extracts invariants, domain vocabulary)
-wave analyze --deep
-
-# Show orchestration decision provenance table
-wave analyze --decisions
-
-# Propose ontology updates from pipeline run history
-wave analyze --evolve
-```
-
 ### Benchmarking
 
 ```bash

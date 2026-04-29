@@ -19,9 +19,8 @@ type AuditLogger interface {
 	LogContractResult(pipelineID, stepID, contractType, result string) error
 	// LogEvent writes a generic trace line in the form
 	//   <timestamp> [KIND] <body>
-	// Used by bounded-context services (e.g. ontology) that want to
-	// participate in the audit trail without adding domain-specific methods
-	// to this interface.
+	// Used by services that want to participate in the audit trail without
+	// adding domain-specific methods to this interface.
 	LogEvent(kind, body string) error
 	Close() error
 }
@@ -121,8 +120,8 @@ func (l *TraceLogger) LogContractResult(pipelineID, stepID, contractType, result
 	return err
 }
 
-// LogEvent writes a generic trace line used by bounded-context services
-// (e.g. internal/ontology) that do not own a dedicated method on this type.
+// LogEvent writes a generic trace line used by services that do not own a
+// dedicated method on this type.
 // The body is expected to already be formatted as "key=value key=value ..."
 // or similar; it is emitted verbatim after scrubbing credentials.
 func (l *TraceLogger) LogEvent(kind, body string) error {

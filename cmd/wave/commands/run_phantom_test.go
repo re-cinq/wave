@@ -11,7 +11,6 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
-	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
 	"github.com/stretchr/testify/assert"
@@ -102,7 +101,6 @@ runtime:
 		adaptertest.NewMockAdapter(),
 		pipeline.WithRunID(runID),
 		pipeline.WithStateStore(store),
-		pipeline.WithOntologyService(ontology.NoOp{}),
 	)
 
 	// Now simulate ResumeFromStep with the run ID

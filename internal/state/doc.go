@@ -2,11 +2,11 @@
 // execution. It manages pipeline run records, step execution states, event
 // logs, and artifacts.
 //
-// The persistence surface is exposed as five domain-scoped interfaces —
+// The persistence surface is exposed as four domain-scoped interfaces —
 // RunStore (run + step lifecycle), EventStore (events + audit + artifacts),
-// OntologyStore (decision lineage), WebhookStore (webhook CRUD + delivery),
-// and ChatStore (bidirectional chat sessions) — plus an aggregate StateStore
-// that embeds all five and adds Close. Consumers should depend on the
+// WebhookStore (webhook CRUD + delivery), and ChatStore (bidirectional chat
+// sessions) — plus an aggregate StateStore that embeds all four and adds
+// Close. Consumers should depend on the
 // smallest interface that satisfies their call sites; the aggregate is
 // retained for constructors and root-level orchestrators that span domains.
 //

@@ -69,11 +69,6 @@ type AdapterRunConfig struct {
 	// Maximum concurrent sub-agents the persona may spawn (0 or 1 = no hint).
 	MaxConcurrentAgents int
 
-	// OntologySection is the rendered project ontology markdown injected between
-	// the base protocol and persona system prompt in the agent .md file.
-	// Built from manifest.Ontology.RenderMarkdown() by the executor.
-	OntologySection string
-
 	// OnStreamEvent is called for each real-time event during Claude Code execution.
 	// If nil, streaming events are silently ignored.
 	OnStreamEvent func(StreamEvent)

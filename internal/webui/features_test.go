@@ -30,9 +30,6 @@ func TestNewFeatureRegistryDefaultTagsZeroFlags(t *testing.T) {
 	if r.Features.Webhooks {
 		t.Error("default registry: Webhooks should be false")
 	}
-	if r.Features.Ontology {
-		t.Error("default registry: Ontology should be false")
-	}
 	if r.Features.Retros {
 		t.Error("default registry: Retros should be false")
 	}

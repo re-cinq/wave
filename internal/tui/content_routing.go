@@ -60,13 +60,6 @@ func (m ContentModel) handleAlternativeViewEnter() (ContentModel, tea.Cmd) {
 		if m.suggestDetail != nil {
 			m.suggestDetail.SetFocused(true)
 		}
-	case ViewOntology:
-		if m.ontologyList != nil {
-			m.ontologyList.SetFocused(false)
-		}
-		if m.ontologyDetail != nil {
-			m.ontologyDetail.SetFocused(true)
-		}
 	}
 
 	return m, func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneRight} }
@@ -128,13 +121,6 @@ func (m ContentModel) handleAlternativeViewEscape() (ContentModel, tea.Cmd) {
 		if m.suggestDetail != nil {
 			m.suggestDetail.SetFocused(false)
 		}
-	case ViewOntology:
-		if m.ontologyList != nil {
-			m.ontologyList.SetFocused(true)
-		}
-		if m.ontologyDetail != nil {
-			m.ontologyDetail.SetFocused(false)
-		}
 	}
 
 	return m, func() tea.Msg { return FocusChangedMsg{Pane: FocusPaneLeft} }
@@ -187,12 +173,6 @@ func (m ContentModel) routeToActiveList(msg tea.Msg) (ContentModel, tea.Cmd) {
 		if m.suggestList != nil {
 			var cmd tea.Cmd
 			*m.suggestList, cmd = m.suggestList.Update(msg)
-			return m, cmd
-		}
-	case ViewOntology:
-		if m.ontologyList != nil {
-			var cmd tea.Cmd
-			*m.ontologyList, cmd = m.ontologyList.Update(msg)
 			return m, cmd
 		}
 	}
@@ -251,12 +231,6 @@ func (m ContentModel) routeToActiveDetail(msg tea.Msg) (ContentModel, tea.Cmd) {
 		if m.suggestDetail != nil {
 			var cmd tea.Cmd
 			*m.suggestDetail, cmd = m.suggestDetail.Update(msg)
-			return m, cmd
-		}
-	case ViewOntology:
-		if m.ontologyDetail != nil {
-			var cmd tea.Cmd
-			*m.ontologyDetail, cmd = m.ontologyDetail.Update(msg)
 			return m, cmd
 		}
 	}

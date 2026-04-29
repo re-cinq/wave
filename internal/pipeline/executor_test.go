@@ -17,7 +17,6 @@ import (
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
-	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/testutil"
@@ -35,7 +34,6 @@ func TestStepOrdering(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -80,7 +78,6 @@ func TestComplexDAGOrdering(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -160,7 +157,6 @@ func TestParallelStepExecution(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(concurrentAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -239,7 +235,6 @@ func TestConcurrentStepFailure(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(failingConcurrentAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -282,7 +277,6 @@ func TestSingleStepBatchNoOverhead(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -326,7 +320,6 @@ func TestFailedStepAlwaysHasID(t *testing.T) {
 
 	_ = NewDefaultPipelineExecutor(failingAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -351,7 +344,7 @@ func TestFailedStepAlwaysHasID(t *testing.T) {
 			"step-b": failingAdapter,
 		},
 	}
-	executor := NewDefaultPipelineExecutor(stepAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(stepAdapter, WithEmitter(collector))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -394,7 +387,6 @@ func TestConcurrentStepWideFanOut(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(concurrentAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -477,7 +469,6 @@ func TestContractFailureRetry(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(retryAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -522,7 +513,6 @@ func TestContractFailureExhaustsRetries(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(failingAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -629,7 +619,6 @@ func TestProgressEventEmission(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -705,7 +694,6 @@ func TestProgressEventFields(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -750,7 +738,7 @@ func TestExecutorWithoutEmitter(t *testing.T) {
 	)
 
 	// Create executor without emitter
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -781,7 +769,6 @@ func TestGetStatus(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 		WithStateStore(mockStore),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -824,7 +811,6 @@ func TestDAGCycleDetection(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -855,7 +841,6 @@ func TestMissingDependency(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -885,7 +870,6 @@ func TestWorkspaceCreation(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -934,7 +918,7 @@ func TestEmptyResultContentDoesNotOverwriteArtifacts(t *testing.T) {
 	)
 
 	collector := testutil.NewEventCollector()
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
 
 	m := testutil.CreateTestManifest(tmpDir)
 
@@ -1024,7 +1008,6 @@ func TestMemoryCleanupAfterCompletion(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 		WithStateStore(mockStore),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -1073,7 +1056,6 @@ func TestMemoryCleanupAfterFailure(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 		WithStateStore(mockStore),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -1123,7 +1105,6 @@ func TestRegressionProductionIssues(t *testing.T) {
 		executor := NewDefaultPipelineExecutor(mockAdapter,
 			WithEmitter(collector),
 			WithStateStore(mockStore),
-			WithOntologyService(ontology.NoOp{}),
 		)
 
 		tmpDir := t.TempDir()
@@ -1166,7 +1147,7 @@ func TestRegressionProductionIssues(t *testing.T) {
 			adaptertest.WithStdoutJSON(`{"status": "success"}`),
 		)
 
-		executor := NewDefaultPipelineExecutor(mockAdapter, WithOntologyService(ontology.NoOp{}))
+		executor := NewDefaultPipelineExecutor(mockAdapter)
 
 		// Create execution without Context field (simulating the original bug)
 		tmpDir := t.TempDir()
@@ -1205,7 +1186,7 @@ func TestRegressionProductionIssues(t *testing.T) {
 			adaptertest.WithStdoutJSON(`{"status": "success"}`),
 		)
 
-		executor := NewDefaultPipelineExecutor(mockAdapter, WithOntologyService(ontology.NoOp{}))
+		executor := NewDefaultPipelineExecutor(mockAdapter)
 		matrixExecutor := NewMatrixExecutor(executor)
 
 		tmpDir := t.TempDir()
@@ -1262,7 +1243,7 @@ func TestNilStatusHandlingInTests(t *testing.T) {
 		adaptertest.WithFailure(errors.New("simulated failure")),
 	)
 
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -1317,7 +1298,7 @@ func TestWriteOutputArtifactsPreservesExistingFiles(t *testing.T) {
 	)
 
 	collector := testutil.NewEventCollector()
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
 
 	m := testutil.CreateTestManifest(tmpDir)
 
@@ -1362,7 +1343,7 @@ func TestCommandStepOutputArtifactsRegisteredForInjection(t *testing.T) {
 		adaptertest.WithTokensUsed(10),
 	)
 	collector := testutil.NewEventCollector()
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
 
 	m := testutil.CreateTestManifest(tmpDir)
 
@@ -1456,7 +1437,6 @@ func TestExecuteStep_NonZeroExitCode_EmitsWarning(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -1502,7 +1482,6 @@ func TestExecuteStep_NonZeroExitCode_ContinuesSubsequentSteps(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -1597,7 +1576,6 @@ func TestStreamActivityEventBridge(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(streamAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -1648,7 +1626,7 @@ func TestStreamActivityEventBridge(t *testing.T) {
 }
 
 func TestCreateStepWorkspace_Ref(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{}, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 	m := &manifest.Manifest{}
 	tmpDir := t.TempDir()
 
@@ -1673,7 +1651,7 @@ func TestCreateStepWorkspace_Ref(t *testing.T) {
 }
 
 func TestCreateStepWorkspace_RefMissing(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{}, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 	m := &manifest.Manifest{}
 
 	execution := &PipelineExecution{
@@ -1699,7 +1677,7 @@ func TestCreateStepWorkspace_SharedWorktree(t *testing.T) {
 	mockAdapter := adaptertest.NewMockAdapter(
 		adaptertest.WithStdoutJSON(`{"status": "success"}`),
 	)
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -1764,7 +1742,7 @@ func TestCreateStepWorkspace_DifferentBranches(t *testing.T) {
 	mockAdapter := adaptertest.NewMockAdapter(
 		adaptertest.WithStdoutJSON(`{"status": "success"}`),
 	)
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -1826,7 +1804,7 @@ func TestCleanupWorktrees_Dedup(t *testing.T) {
 	mockAdapter := adaptertest.NewMockAdapter(
 		adaptertest.WithStdoutJSON(`{"status": "success"}`),
 	)
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter)
 
 	sharedPath := "/tmp/shared-worktree"
 	repoRoot := "/tmp/test-repo"
@@ -1879,7 +1857,6 @@ func TestStdoutArtifactCapture(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -1934,7 +1911,6 @@ func TestStdoutArtifactSizeLimitEnforced(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -1976,7 +1952,6 @@ func TestStdoutArtifactWrittenToCorrectLocation(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -2023,7 +1998,6 @@ func TestMissingRequiredArtifactFailsBeforeStep(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -2072,7 +2046,6 @@ func TestOptionalMissingArtifactProceeds(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -2130,7 +2103,6 @@ func TestTypeMismatchFailsWithClearError(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -2182,7 +2154,6 @@ func TestTypeNotDeclaredSkipsValidation(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -2238,7 +2209,6 @@ func TestOutcomeExtractionRegistersDeliverables(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(outcomeAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -2305,7 +2275,6 @@ func TestOutcomeExtractionMissingFileWarns(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -2364,7 +2333,6 @@ func TestOutcomeExtractionPRType(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(outcomeAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -2418,7 +2386,7 @@ func TestOutcomeExtractionIssueType(t *testing.T) {
 		artifactJSON: issueJSON,
 	}
 
-	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector))
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
 
@@ -2460,7 +2428,7 @@ func TestOutcomeExtractionDeploymentType(t *testing.T) {
 		artifactJSON: deployJSON,
 	}
 
-	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector))
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
 
@@ -2503,7 +2471,7 @@ func TestOutcomeExtractionUnknownTypeFallsBackToURL(t *testing.T) {
 		artifactJSON: artifactJSON,
 	}
 
-	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector))
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
 
@@ -2540,7 +2508,7 @@ func TestOutcomeExtractionPathTraversal(t *testing.T) {
 		adaptertest.WithTokensUsed(100),
 	)
 
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
 
@@ -2586,7 +2554,7 @@ func TestOutcomeExtractionInvalidJSONPath(t *testing.T) {
 		artifactJSON: artifactJSON,
 	}
 
-	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(outcomeAdapter, WithEmitter(collector))
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
 
@@ -2697,7 +2665,6 @@ func TestOutcomeExtractionEmptyArrayFriendlyMessage(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(outcomeAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -2770,7 +2737,6 @@ func TestOutcomeExtractionNonEmptyArrayOOBStillEmitsWarning(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(outcomeAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -2860,14 +2826,14 @@ func (a *modelCapturingAdapter) getModel(stepID string) string {
 // TestWithModelOverrideOption verifies that the WithModelOverride option sets the field
 func TestWithModelOverrideOption(t *testing.T) {
 	mockAdapter := adaptertest.NewMockAdapter()
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithModelOverride("haiku"), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithModelOverride("haiku"))
 	assert.Equal(t, "haiku", executor.modelOverride)
 }
 
 // TestWithModelOverrideEmpty verifies that empty string override is not set
 func TestWithModelOverrideEmpty(t *testing.T) {
 	mockAdapter := adaptertest.NewMockAdapter()
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithModelOverride(""), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithModelOverride(""))
 	assert.Equal(t, "", executor.modelOverride)
 }
 
@@ -2911,7 +2877,6 @@ func TestModelOverridePrecedence(t *testing.T) {
 
 			var opts []ExecutorOption
 			opts = append(opts, WithEmitter(testutil.NewEventCollector()))
-			opts = append(opts, WithOntologyService(ontology.NoOp{}))
 			if tc.modelOverride != "" {
 				opts = append(opts, WithModelOverride(tc.modelOverride))
 			}
@@ -2961,7 +2926,7 @@ func TestModelOverridePrecedence(t *testing.T) {
 // TestModelOverrideInChildExecutor verifies that NewChildExecutor inherits modelOverride
 func TestModelOverrideInChildExecutor(t *testing.T) {
 	mockAdapter := adaptertest.NewMockAdapter()
-	parent := NewDefaultPipelineExecutor(mockAdapter, WithModelOverride("haiku"), WithOntologyService(ontology.NoOp{}))
+	parent := NewDefaultPipelineExecutor(mockAdapter, WithModelOverride("haiku"))
 
 	child := parent.NewChildExecutor()
 	assert.Equal(t, "haiku", child.modelOverride, "child executor should inherit modelOverride")
@@ -2976,7 +2941,6 @@ func TestModelOverrideIntegration(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(capturer,
 		WithEmitter(collector),
 		WithModelOverride("haiku"),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -3409,7 +3373,6 @@ func TestExecuteStep_RetryConfig_MaxAttempts(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
 		WithStateStore(store),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -3450,7 +3413,6 @@ func TestExecuteStep_RetryConfig_OnFailureSkip(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -3497,7 +3459,6 @@ func TestExecuteStep_RetryConfig_OnFailureContinue(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -3554,7 +3515,6 @@ func TestExecuteStep_AdaptPrompt_InjectsFailureContext(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -3606,7 +3566,7 @@ func TestStepTimeoutMinutes_OverridesManifestDefault(t *testing.T) {
 		),
 	}
 
-	executor := NewDefaultPipelineExecutor(capturingAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capturingAdapter)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -3647,7 +3607,6 @@ func TestStepTimeoutMinutes_OverridesCLITimeout(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(capturingAdapter,
 		WithStepTimeout(15*time.Minute), // CLI says 15 minutes,
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -3689,7 +3648,6 @@ func TestStepTimeoutMinutes_FallsBackToCLIWhenUnset(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(capturingAdapter,
 		WithStepTimeout(20*time.Minute), // CLI says 20 minutes,
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -3729,7 +3687,7 @@ func TestStepTimeoutMinutes_FallsBackToManifestWhenNoCLI(t *testing.T) {
 		),
 	}
 
-	executor := NewDefaultPipelineExecutor(capturingAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capturingAdapter)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -3768,7 +3726,7 @@ func TestMaxConcurrentAgents_FlowsToAdapterConfig(t *testing.T) {
 		),
 	}
 
-	executor := NewDefaultPipelineExecutor(capturingAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capturingAdapter)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -3806,7 +3764,7 @@ func TestMaxConcurrentAgents_ZeroWhenUnset(t *testing.T) {
 		),
 	}
 
-	executor := NewDefaultPipelineExecutor(capturingAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capturingAdapter)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -3851,7 +3809,7 @@ func TestStepTimeoutMinutes_PerStepDifferentTimeouts(t *testing.T) {
 		mu:          &mu,
 	}
 
-	executor := NewDefaultPipelineExecutor(wrappedAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(wrappedAdapter)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -3942,7 +3900,7 @@ func TestOptionalStep_FailsPipelineContinues(t *testing.T) {
 		},
 	}
 
-	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -3986,7 +3944,7 @@ func TestOptionalStep_SucceedsNormally(t *testing.T) {
 		adaptertest.WithStdoutJSON(`{"status": "ok"}`),
 	)
 
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -4022,7 +3980,7 @@ func TestOptionalStep_DefaultBehaviorPreserved(t *testing.T) {
 		adaptertest.WithFailure(errors.New("required step failed")),
 	)
 
-	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -4052,7 +4010,7 @@ func TestOptionalStep_WithRetries(t *testing.T) {
 	// Fails 5 times — more than max_attempts
 	failAdapter := newCountingFailAdapter(5, errors.New("transient failure"))
 
-	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -4111,7 +4069,7 @@ func TestOptionalStep_DependentSkipped(t *testing.T) {
 		},
 	}
 
-	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -4164,7 +4122,7 @@ func TestOptionalStep_TransitiveDependencySkip(t *testing.T) {
 		},
 	}
 
-	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -4209,7 +4167,7 @@ func TestOptionalStep_ExplicitOnFailurePrecedence(t *testing.T) {
 		adaptertest.WithFailure(errors.New("step failed")),
 	)
 
-	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(failAdapter, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -4261,7 +4219,6 @@ func TestOptionalStep_PipelineStatusCompleted(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(sa,
 		WithEmitter(collector),
 		WithStateStore(stateStore),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -4320,7 +4277,6 @@ func TestPreserveWorkspaceKeepsExistingContent(t *testing.T) {
 		WithEmitter(collector),
 		WithRunID(runID),
 		WithPreserveWorkspace(true),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	m := testutil.CreateTestManifest(tmpDir)
@@ -4373,7 +4329,6 @@ func TestDefaultBehaviorCleansWorkspace(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 		WithRunID(runID),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	m := testutil.CreateTestManifest(tmpDir)
@@ -4408,7 +4363,6 @@ func TestExecuteWithIncludeFilter(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 		WithStepFilter(filter),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -4445,7 +4399,6 @@ func TestExecuteWithExcludeFilter(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 		WithStepFilter(filter),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -4476,7 +4429,6 @@ func TestExecuteWithInvalidStepFilter(t *testing.T) {
 	filter := &StepFilter{Include: []string{"nonexistent"}}
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithStepFilter(filter),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -4508,7 +4460,6 @@ func TestExecuteWithNilFilter(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 		// No WithStepFilter — defaults to nil,
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -4572,7 +4523,6 @@ func TestExecuteStep_OnFailureRework_TriggersReworkStep(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -4647,7 +4597,6 @@ func TestExecuteStep_OnFailureRework_ReworkStepFailsPropagates(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -4709,7 +4658,6 @@ func TestExecuteStep_OnFailureRework_ExistingOnFailureBehaviorsUnchanged(t *test
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -4747,7 +4695,6 @@ func TestExecuteStep_OnFailureRework_FailureContextInjected(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -4818,7 +4765,6 @@ func TestExecuteStep_OnFailureRework_DownstreamStepsRun(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -4897,7 +4843,6 @@ func TestExecuteStep_OnFailureRework_ReworkOnlyNotScheduled(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -4952,7 +4897,6 @@ func TestExecuteWithoutSkillsField(t *testing.T) {
 		// No withSkillStore option — executor has nil skillStore
 		executor := NewDefaultPipelineExecutor(mockAdapter,
 			WithEmitter(collector),
-			WithOntologyService(ontology.NoOp{}),
 		)
 
 		tmpDir := t.TempDir()
@@ -4994,7 +4938,7 @@ func TestExecuteWithoutSkillsField(t *testing.T) {
 		// When the executor has no skill store, validateSkillRefs should
 		// return nil regardless of what skill references exist.
 		mockAdapter := adaptertest.NewMockAdapter()
-		executor := NewDefaultPipelineExecutor(mockAdapter, WithOntologyService(ontology.NoOp{}))
+		executor := NewDefaultPipelineExecutor(mockAdapter)
 
 		// Pipeline with skills references at all scopes
 		p := &Pipeline{
@@ -5026,7 +4970,6 @@ func TestExecuteWithoutSkillsField(t *testing.T) {
 		)
 		executor := NewDefaultPipelineExecutor(mockAdapter,
 			WithEmitter(collector),
-			WithOntologyService(ontology.NoOp{}),
 		)
 
 		tmpDir := t.TempDir()
@@ -5090,7 +5033,6 @@ func TestSkillProvisioningIntegration(t *testing.T) {
 
 		executor := NewDefaultPipelineExecutor(capturingAdapter,
 			withSkillStore(store),
-			WithOntologyService(ontology.NoOp{}),
 		)
 
 		tmpDir := t.TempDir()
@@ -5132,7 +5074,7 @@ func TestSkillProvisioningIntegration(t *testing.T) {
 			),
 		}
 
-		executor := NewDefaultPipelineExecutor(capturingAdapter, withSkillStore(store), WithOntologyService(ontology.NoOp{}))
+		executor := NewDefaultPipelineExecutor(capturingAdapter, withSkillStore(store))
 
 		tmpDir := t.TempDir()
 		m := testutil.CreateTestManifest(tmpDir)
@@ -5168,7 +5110,7 @@ func TestSkillProvisioningIntegration(t *testing.T) {
 			adaptertest.WithStdoutJSON(`{"status": "success"}`),
 			adaptertest.WithTokensUsed(100),
 		)
-		executor := NewDefaultPipelineExecutor(mockAdapter, withSkillStore(store), WithOntologyService(ontology.NoOp{}))
+		executor := NewDefaultPipelineExecutor(mockAdapter, withSkillStore(store))
 
 		tmpDir := t.TempDir()
 		m := testutil.CreateTestManifest(tmpDir)
@@ -5204,7 +5146,6 @@ func TestSkillProvisioningIntegration(t *testing.T) {
 
 		executor := NewDefaultPipelineExecutor(mockAdapter,
 			withSkillStore(store),
-			WithOntologyService(ontology.NoOp{}),
 		)
 
 		tmpDir := t.TempDir()
@@ -5253,7 +5194,7 @@ func TestTransitiveSkip_DiamondDependency(t *testing.T) {
 		},
 	}
 
-	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -5315,7 +5256,7 @@ func TestTransitiveSkip_IndependentPathsExecute(t *testing.T) {
 		},
 	}
 
-	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -5406,7 +5347,7 @@ func TestConcurrentBatchCancellation(t *testing.T) {
 		},
 	}
 
-	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(sa, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -5478,7 +5419,7 @@ func TestThreadSharing_TwoStepsSameThread(t *testing.T) {
 		adaptertest.WithTokensUsed(100),
 	)
 
-	executor := NewDefaultPipelineExecutor(capturing, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capturing)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -5522,7 +5463,7 @@ func TestThreadIsolation_DifferentThreads(t *testing.T) {
 		adaptertest.WithTokensUsed(100),
 	)
 
-	executor := NewDefaultPipelineExecutor(capturing, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capturing)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -5567,7 +5508,7 @@ func TestNoThread_FreshMemory(t *testing.T) {
 		adaptertest.WithTokensUsed(100),
 	)
 
-	executor := NewDefaultPipelineExecutor(capturing, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capturing)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -5609,7 +5550,7 @@ func TestThreadValidation_InvalidFidelity(t *testing.T) {
 		adaptertest.WithTokensUsed(100),
 	)
 
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -5648,7 +5589,6 @@ func TestExecutor_GateStep_AutoApprove(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 		WithAutoApprove(true),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -5723,7 +5663,6 @@ func TestExecutor_GateStep_Abort(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 		WithGateHandler(abortHandler),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -5828,7 +5767,6 @@ func TestExecutor_GateStep_ChoiceRouting_Revise(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(countingAdapter,
 		WithEmitter(collector),
 		WithGateHandler(reviseHandler),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -5883,7 +5821,6 @@ func TestExecutor_GateStep_TemplateVars(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 		WithAutoApprove(true),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -5942,7 +5879,6 @@ func TestExecuteStep_FailureClassification_Transient(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
 		WithStateStore(store),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -5996,7 +5932,6 @@ func TestExecuteStep_FailureClassification_Deterministic_SkipsRetry(t *testing.T
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
 		WithStateStore(store),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -6061,7 +5996,6 @@ func TestExecuteStep_CircuitBreaker_TripsOnRepeatedFailures(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(failAdapter,
 		WithEmitter(collector),
 		WithStateStore(store),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -6123,7 +6057,6 @@ func TestExecuteStep_FailureClassification_Canceled(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 		WithStateStore(store),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	tmpDir := t.TempDir()
@@ -6172,7 +6105,7 @@ func TestThreadedSteps_FreshFidelity(t *testing.T) {
 		),
 	}
 
-	executor := NewDefaultPipelineExecutor(capAdapter, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capAdapter)
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -6244,7 +6177,7 @@ func TestIterateInDAG_Sequential(t *testing.T) {
 		),
 	}
 
-	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -6310,7 +6243,7 @@ func TestIterateInDAG_Parallel(t *testing.T) {
 		),
 	}
 
-	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -6375,7 +6308,7 @@ func TestIterateInDAG_CollectsOutputs(t *testing.T) {
 		),
 	}
 
-	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -6461,7 +6394,7 @@ func TestIterateInDAG_Parallel_CollectsOutputs(t *testing.T) {
 		),
 	}
 
-	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -6537,7 +6470,7 @@ func TestIterateInDAG_OutputResolvesInAggregate(t *testing.T) {
 		),
 	}
 
-	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -6616,7 +6549,7 @@ func TestAggregateInDAG(t *testing.T) {
 		adaptertest.WithStdoutJSON(`{"status": "ok"}`),
 	)
 
-	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -6662,7 +6595,7 @@ func TestBranchInDAG(t *testing.T) {
 		),
 	}
 
-	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -6719,7 +6652,7 @@ func TestBranchInDAG_Skip(t *testing.T) {
 		),
 	}
 
-	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector), WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(capAdapter, WithEmitter(collector))
 
 	tmpDir := t.TempDir()
 	m := testutil.CreateTestManifest(tmpDir)
@@ -6765,7 +6698,6 @@ func TestRetryInjectsContractFailureContext(t *testing.T) {
 
 	executor := NewDefaultPipelineExecutor(capAdapter,
 		WithEmitter(collector),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	// Create a shell script that fails on the first call and succeeds on
@@ -6837,7 +6769,7 @@ fi
 // {{ steps.STEP_ID.artifacts.ARTIFACT_NAME.JSON_PATH }} is resolved from
 // execution.ArtifactPaths at workspace creation time.
 func TestResolveWorkspaceStepRefs_ArtifactsNamedField(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{}, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 
 	tmpDir := t.TempDir()
 
@@ -6866,7 +6798,7 @@ func TestResolveWorkspaceStepRefs_ArtifactsNamedField(t *testing.T) {
 // TestResolveWorkspaceStepRefs_Output verifies that
 // {{ steps.STEP_ID.output.JSON_FIELD }} is resolved from the first artifact.
 func TestResolveWorkspaceStepRefs_Output(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{}, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 
 	tmpDir := t.TempDir()
 	artFile := filepath.Join(tmpDir, "step-output.json")
@@ -6892,7 +6824,7 @@ func TestResolveWorkspaceStepRefs_Output(t *testing.T) {
 // TestResolveWorkspaceStepRefs_MissingStep verifies a clear error when the
 // referenced step artifact does not exist.
 func TestResolveWorkspaceStepRefs_MissingStep(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{}, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 
 	execution := &PipelineExecution{
 		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "ws-missing-test"}},
@@ -6913,7 +6845,7 @@ func TestResolveWorkspaceStepRefs_MissingStep(t *testing.T) {
 // TestResolveWorkspaceStepRefs_NoStepsRef verifies that non-steps templates
 // are passed through unchanged (they are resolved by ResolvePlaceholders later).
 func TestResolveWorkspaceStepRefs_NoStepsRef(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{}, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 
 	execution := &PipelineExecution{
 		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "ws-passthrough-test"}},
@@ -6939,7 +6871,7 @@ func TestResolveWorkspaceStepRefs_NoStepsRef(t *testing.T) {
 // the WorktreePaths cache (pre-populated to simulate a worktree that was
 // already created on the resolved branch).
 func TestCreateStepWorkspace_DeferredBranch(t *testing.T) {
-	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{}, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 
 	tmpDir := t.TempDir()
 
@@ -7010,20 +6942,18 @@ func newCapturingArtifactStore(cap *artifactCapture) *testutil.MockStateStore {
 // step-workspace paths pointed at the original run's tree.
 func TestWorkspaceRunIDFor(t *testing.T) {
 	t.Run("falls back to pipelineID when no override", func(t *testing.T) {
-		executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{}, WithOntologyService(ontology.NoOp{}))
+		executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 		assert.Equal(t, "runtime-id", executor.workspaceRunIDFor("runtime-id"))
 	})
 	t.Run("override wins when set", func(t *testing.T) {
 		executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{},
 			WithWorkspaceRunID("original-run"),
-			WithOntologyService(ontology.NoOp{}),
 		)
 		assert.Equal(t, "original-run", executor.workspaceRunIDFor("resume-run"))
 	})
 	t.Run("empty override defers to pipelineID", func(t *testing.T) {
 		executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{},
 			WithWorkspaceRunID(""),
-			WithOntologyService(ontology.NoOp{}),
 		)
 		assert.Equal(t, "fresh-run", executor.workspaceRunIDFor("fresh-run"))
 	})
@@ -7042,7 +6972,6 @@ func TestExecuteAggregateInDAG_RegistersArtifact(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{},
 		WithStateStore(store),
 		WithRunID("test-run-1"),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	pipelineCtx := NewPipelineContext("test-run-1", "test-pipeline", "merge-findings")
@@ -7086,7 +7015,7 @@ func TestExecuteAggregateInDAG_NoStore(t *testing.T) {
 	tmpDir := t.TempDir()
 	outputPath := filepath.Join(tmpDir, "out.json")
 
-	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{}, WithOntologyService(ontology.NoOp{}))
+	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{})
 
 	execution := &PipelineExecution{
 		Pipeline:       &Pipeline{Metadata: PipelineMetadata{Name: "p"}},
@@ -7130,7 +7059,6 @@ func TestCollectIterateOutputs_RegistersArtifact(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{},
 		WithStateStore(store),
 		WithRunID("iterate-run"),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	pipelineCtx := NewPipelineContext("iterate-run", "iterate-pipeline", "run-audits")
@@ -7176,7 +7104,6 @@ func TestCreateStepWorkspace_UsesEffectiveWorkspaceRunID(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(&adaptertest.MockAdapter{},
 		WithRunID("resume-run-2"),
 		WithWorkspaceRunID("original-run-1"),
-		WithOntologyService(ontology.NoOp{}),
 	)
 
 	execution := &PipelineExecution{

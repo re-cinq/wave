@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/event"
-	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/state"
 	"golang.org/x/sync/errgroup"
 )
@@ -250,16 +249,6 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 	} else if e.adapterOverride != "" {
 		// Propagate CLI --adapter flag to sub-pipelines
 		childOpts = append(childOpts, WithAdapterOverride(e.adapterOverride))
-	}
-
-	// Ontology is a required constructor dependency. Propagate the parent's
-	// service so the child shares the same lineage view; fall back to NoOp
-	// only as a last resort (parent ontology should never be nil after the
-	// constructor's required-arg check, but defend the boundary).
-	if e.ontology != nil {
-		childOpts = append(childOpts, WithOntologyService(e.ontology))
-	} else {
-		childOpts = append(childOpts, WithOntologyService(ontology.NoOp{}))
 	}
 
 	childExecutor := NewDefaultPipelineExecutor(e.runner, childOpts...)

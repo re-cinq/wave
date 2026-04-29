@@ -14,7 +14,6 @@ import (
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/hooks"
 	"github.com/recinq/wave/internal/manifest"
-	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/preflight"
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/scope"
@@ -267,35 +266,6 @@ func (e *DefaultPipelineExecutor) initPipelineExecution(
 	input string,
 ) (*PipelineExecution, context.Context, context.CancelFunc) {
 	pipelineID := setup.pipelineID
-
-	// Auto-wire the ontology service if the caller did not inject one. The
-	// real Service is active iff the manifest declares at least one
-	// ontology context; otherwise the NoOp keeps call sites cheap.
-	if _, isNoop := e.ontology.(ontology.NoOp); isNoop {
-		var auditSink ontology.AuditSink
-		if e.logger != nil {
-			auditSink = e.logger
-		}
-		e.ontology = ontology.New(
-			ontology.Config{Enabled: ontology.EnabledFromManifest(m)},
-			ontology.Deps{
-				Manifest:  m,
-				Store:     e.store,
-				Emitter:   e.emitter,
-				AuditSink: auditSink,
-			},
-		)
-	}
-
-	// Ontology staleness check: warn if ontology is older than latest commit.
-	if msg := e.ontology.CheckStaleness(); msg != "" {
-		e.emit(event.Event{
-			Timestamp:  time.Now(),
-			PipelineID: pipelineID,
-			State:      "warning",
-			Message:    msg,
-		})
-	}
 
 	// Start cancellation poller for cross-process cancel support.
 	// When another process (TUI, webui) writes a cancellation record to the DB,

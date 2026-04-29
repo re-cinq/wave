@@ -81,7 +81,6 @@ steps:
     persona: philosopher
     model: balanced
     thread: scope-audit
-    contexts: [delivery, quality, configuration]
     dependencies: [merge-findings]
     memory:
       inject_artifacts:
@@ -214,7 +213,6 @@ steps:
   - id: create-issues
     persona: craftsman
     model: balanced
-    contexts: [delivery]
     dependencies: [approve-scope]
     memory:
       inject_artifacts:

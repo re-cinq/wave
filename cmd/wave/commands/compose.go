@@ -13,7 +13,6 @@ import (
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
-	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/pipelinecatalog"
 	"github.com/recinq/wave/internal/skill"
@@ -285,7 +284,6 @@ func setupComposeRuntime(manifestPath string, mock bool, outputCfg OutputConfig,
 
 	baseOpts := []pipeline.ExecutorOption{
 		pipeline.WithDebug(debug),
-		pipeline.WithOntologyService(ontology.NoOp{}),
 	}
 	if wsManager != nil {
 		baseOpts = append(baseOpts, pipeline.WithWorkspaceManager(wsManager))

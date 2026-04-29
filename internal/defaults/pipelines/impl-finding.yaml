@@ -45,7 +45,6 @@ pipeline_outputs:
 steps:
   - id: apply-fix
     persona: implementer
-    contexts: [execution, delivery]
     model: balanced
     workspace:
       type: worktree

@@ -13,7 +13,6 @@ import (
 	"github.com/recinq/wave/internal/audit"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
-	"github.com/recinq/wave/internal/ontology"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/recovery"
 	"github.com/recinq/wave/internal/skill"
@@ -237,7 +236,6 @@ func runResume(opts ResumeOptions, debug bool) error {
 		pipeline.WithDebug(debug),
 		pipeline.WithRunID(resumeRunID),
 		pipeline.WithWorkspaceRunID(opts.RunID),
-		pipeline.WithOntologyService(ontology.NoOp{}),
 	}
 	if wsManager != nil {
 		execOpts = append(execOpts, pipeline.WithWorkspaceManager(wsManager))

@@ -18,7 +18,6 @@ type ContentProviders struct {
 	IssueProvider    IssueDataProvider
 	PRProvider       PRDataProvider
 	SuggestProvider  SuggestDataProvider
-	OntologyProvider OntologyDataProvider
 }
 
 // ContentModel is the main content area component composing a left pipeline list pane and a right detail pane.
@@ -48,8 +47,6 @@ type ContentModel struct {
 	prDetail       *PRDetailModel
 	suggestList    *SuggestListModel
 	suggestDetail  *SuggestDetailModel
-	ontologyList   *OntologyListModel
-	ontologyDetail *OntologyDetailModel
 
 	// Data providers for alternative views
 	personaProvider  PersonaDataProvider
@@ -59,7 +56,6 @@ type ContentModel struct {
 	issueProvider    IssueDataProvider
 	prProvider       PRDataProvider
 	suggestProvider  SuggestDataProvider
-	ontologyProvider OntologyDataProvider
 
 	// Compose mode (nil when inactive)
 	composing     bool
@@ -98,7 +94,6 @@ func NewContentModel(provider PipelineDataProvider, detailProvider DetailDataPro
 		m.issueProvider = p.IssueProvider
 		m.prProvider = p.PRProvider
 		m.suggestProvider = p.SuggestProvider
-		m.ontologyProvider = p.OntologyProvider
 	}
 
 	return m
@@ -136,8 +131,6 @@ func (m ContentModel) IsFiltering() bool {
 		return m.prList != nil && m.prList.filtering
 	case ViewSuggest:
 		return m.suggestList != nil && m.suggestList.filtering
-	case ViewOntology:
-		return m.ontologyList != nil && m.ontologyList.filtering
 	}
 	return false
 }
@@ -179,7 +172,6 @@ func (m *ContentModel) SetSize(w, h int) {
 	m.setSizeIssue(leftWidth, rightWidth, ch)
 	m.setSizePR(leftWidth, rightWidth, ch)
 	m.setSizeSuggest(leftWidth, rightWidth, ch)
-	m.setSizeOntology(leftWidth, rightWidth, ch)
 }
 
 // Update handles messages by forwarding to child components with focus-aware routing.
@@ -193,7 +185,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				return m, nil
 			}
 			// Decrement twice: once to undo the +1 in cycleView, once for the actual back
-			m.currentView = (m.currentView + 7) % 9 // net effect: -1 after cycleView adds +1
+			m.currentView = (m.currentView + 6) % 8 // net effect: -1 after cycleView adds +1
 			cmd := m.cycleView()
 			return m, cmd
 		}
@@ -300,9 +292,6 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	if mm, cmd, handled := m.updateSuggestMessage(msg); handled {
 		return mm, cmd
 	}
-	if mm, cmd, handled := m.updateOntologyMessage(msg); handled {
-		return mm, cmd
-	}
 	if mm, cmd, handled := m.updatePipelineMessage(msg); handled {
 		return mm, cmd
 	}
@@ -365,8 +354,6 @@ func (m ContentModel) View() string {
 		leftView, rightView = m.viewPR()
 	case ViewSuggest:
 		leftView, rightView = m.viewSuggest()
-	case ViewOntology:
-		leftView, rightView = m.viewOntology()
 	}
 
 	// Add top padding (blank line) for visual separation from status bar divider

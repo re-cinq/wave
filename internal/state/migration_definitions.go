@@ -563,5 +563,13 @@ ALTER TABLE pipeline_run DROP COLUMN iterate_mode;
 ALTER TABLE pipeline_run DROP COLUMN iterate_total;
 ALTER TABLE pipeline_run DROP COLUMN iterate_index;`,
 		},
+		{
+			Version:     28,
+			Description: "Drop ontology_usage table (feature removed)",
+			Up: `DROP INDEX IF EXISTS idx_ontology_usage_run;
+DROP INDEX IF EXISTS idx_ontology_usage_context;
+DROP TABLE IF EXISTS ontology_usage;`,
+			Down: "",
+		},
 	}
 }

@@ -9,7 +9,7 @@ metadata:
 
 input:
   source: cli
-  example: "internal/ontology/service.go:NewService"
+  example: "internal/manifest/parser.go:Load"
   schema:
     type: string
     description: "Path:FuncName — file path and function name to test"

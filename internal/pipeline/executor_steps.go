@@ -527,7 +527,6 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				if e.store != nil {
 					_ = e.store.SaveStepState(pipelineID, step.ID, state.StateRejected, err.Error())
 				}
-				e.recordStepOntologyUsage(execution, step, stateRejected)
 				return err
 			}
 
@@ -673,7 +672,6 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					State:      event.StateSkipped,
 					Message:    fmt.Sprintf("step skipped after %d failed attempts: %s", maxAttempts, err.Error()),
 				})
-				e.recordStepOntologyUsage(execution, step, "skipped")
 				return nil
 
 			case OnFailureContinue:
@@ -690,7 +688,6 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					State:      event.StateFailed,
 					Message:    fmt.Sprintf("step failed after %d attempts but pipeline continues: %s", maxAttempts, err.Error()),
 				})
-				e.recordStepOntologyUsage(execution, step, "failed")
 				return nil
 
 			case OnFailureRework:
@@ -715,7 +712,6 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 					e.hookRunner.RunHooks(ctx, stepFailedEvt)
 				}
 				e.fireWebhooks(ctx, stepFailedEvt)
-				e.recordStepOntologyUsage(execution, step, "failed")
 				return lastErr
 			}
 		}
@@ -777,25 +773,11 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		// Extract declared outcomes from step artifacts
 		e.processStepOutcomes(execution, step)
 
-		// Record ontology usage for decision lineage tracking
-		e.recordStepOntologyUsage(execution, step, "success")
 
 		return nil
 	}
 
 	return lastErr
-}
-
-// recordStepOntologyUsage is a thin adapter that projects the pipeline.Step
-// and PipelineExecution into the primitives the ontology.Service expects.
-// It keeps executor.go decoupled from the Service's call shape so future
-// Step/Execution refactors don't force ontology API changes.
-func (e *DefaultPipelineExecutor) recordStepOntologyUsage(execution *PipelineExecution, step *Step, stepStatus string) {
-	if e.ontology == nil {
-		return
-	}
-	hasContract := step.Handover.Contract.Type != ""
-	e.ontology.RecordUsage(execution.Status.ID, step.ID, step.Contexts, hasContract, stepStatus)
 }
 
 // executeReworkStep handles on_failure=rework: marks the failed step, builds failure context,

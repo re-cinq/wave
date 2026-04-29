@@ -5,7 +5,7 @@ metadata:
     Single-step audit sub-pipeline that reads event_log rows for an audit's
     cited baseline run and extracts behavioural patterns (orderings, gaps,
     bursts, missing terminal events). Used by audit-issue as one of the four
-    parallel evidence axes; ontology-aware hook into the run history.
+    parallel evidence axes; hook into the run history.
   category: composition
   release: false
 

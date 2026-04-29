@@ -54,9 +54,6 @@ type MockStateStore struct {
 	saveChatSession              func(session *state.ChatSession) error
 	getChatSession               func(sessionID string) (*state.ChatSession, error)
 	listChatSessions             func(runID string) ([]state.ChatSession, error)
-	recordOntologyUsage          func(runID, stepID, contextName string, invariantCount int, status string, contractPassed *bool) error
-	getOntologyStats             func(contextName string) (*state.OntologyStats, error)
-	getOntologyStatsAll          func() ([]state.OntologyStats, error)
 	saveStepVisitCount           func(pipelineID, stepID string, count int) error
 	getStepVisitCount            func(pipelineID, stepID string) (int, error)
 	setParentRun                 func(childRunID, parentRunID, stepID string) error
@@ -405,27 +402,6 @@ func (m *MockStateStore) ListChatSessions(runID string) ([]state.ChatSession, er
 	return nil, nil
 }
 
-func (m *MockStateStore) RecordOntologyUsage(runID, stepID, contextName string, invariantCount int, status string, contractPassed *bool) error {
-	if m.recordOntologyUsage != nil {
-		return m.recordOntologyUsage(runID, stepID, contextName, invariantCount, status, contractPassed)
-	}
-	return nil
-}
-
-func (m *MockStateStore) GetOntologyStats(contextName string) (*state.OntologyStats, error) {
-	if m.getOntologyStats != nil {
-		return m.getOntologyStats(contextName)
-	}
-	return &state.OntologyStats{ContextName: contextName}, nil
-}
-
-func (m *MockStateStore) GetOntologyStatsAll() ([]state.OntologyStats, error) {
-	if m.getOntologyStatsAll != nil {
-		return m.getOntologyStatsAll()
-	}
-	return nil, nil
-}
-
 func (m *MockStateStore) SaveStepVisitCount(pipelineID, stepID string, count int) error {
 	if m.saveStepVisitCount != nil {
 		return m.saveStepVisitCount(pipelineID, stepID, count)
@@ -616,10 +592,9 @@ func (m *MockStateStore) ListOrchestrationDecisionSummary(_ int) ([]state.Orches
 // state interface as well as the aggregate StateStore. These guard against
 // drift if a method is added to one of the narrow interfaces and missed here.
 var (
-	_ state.RunStore      = (*MockStateStore)(nil)
-	_ state.EventStore    = (*MockStateStore)(nil)
-	_ state.OntologyStore = (*MockStateStore)(nil)
-	_ state.WebhookStore  = (*MockStateStore)(nil)
-	_ state.ChatStore     = (*MockStateStore)(nil)
+	_ state.RunStore     = (*MockStateStore)(nil)
+	_ state.EventStore   = (*MockStateStore)(nil)
+	_ state.WebhookStore = (*MockStateStore)(nil)
+	_ state.ChatStore    = (*MockStateStore)(nil)
 	_ state.StateStore    = (*MockStateStore)(nil)
 )

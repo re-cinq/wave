@@ -2761,17 +2761,6 @@ details[open] > .section-toggle::before { transform: rotate(90deg); }
     }
 }
 
-/* Ontology collapsible contexts */
-.ontology-context { padding: 0; }
-.ontology-context[open] { padding: 1.25rem; }
-.ontology-context-summary {
-    cursor: pointer; padding: 1.25rem; list-style: none;
-    display: block;
-}
-.ontology-context-summary::-webkit-details-marker { display: none; }
-.ontology-context-summary::marker { display: none; content: ''; }
-.ontology-context[open] > .ontology-context-summary { padding-bottom: 0; }
-
 /* ═══════════════════════════════════════════════════════════════
    Wave Run Detail & Pipeline Shapes
    Shared component styles for run detail, pipeline detail, etc.

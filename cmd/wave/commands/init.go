@@ -191,7 +191,6 @@ func confirmForceOverwrite(cmd *cobra.Command, path string) (bool, error) {
 	fmt.Fprintf(cmd.ErrOrStderr(), "\n  WARNING: --force will overwrite %s\n", path)
 	fmt.Fprintf(cmd.ErrOrStderr(), "  This will REPLACE all custom settings including:\n")
 	fmt.Fprintf(cmd.ErrOrStderr(), "    - Custom personas and adapter configurations\n")
-	fmt.Fprintf(cmd.ErrOrStderr(), "    - Ontology section (telos, contexts, conventions)\n")
 	fmt.Fprintf(cmd.ErrOrStderr(), "    - Project metadata (name, description)\n")
 	fmt.Fprintf(cmd.ErrOrStderr(), "\n  Consider using 'wave init --merge' to preserve custom settings.\n\n")
 	fmt.Fprintf(cmd.OutOrStdout(), "Proceed with force overwrite? [y/N]: ")

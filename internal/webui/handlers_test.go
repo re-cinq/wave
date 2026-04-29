@@ -57,7 +57,6 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 		"templates/issues.html":         `<html><body><span class="filter">{{.FilterState}}</span>{{range .Issues}}<div>#{{.Number}} {{.Title}}</div>{{end}}{{if .Message}}<p>{{.Message}}</p>{{end}}</body></html>`,
 		"templates/prs.html":            `<html><body><span class="filter">{{.FilterState}}</span>{{range .PullRequests}}<div>#{{.Number}} {{.Title}}</div>{{end}}{{if .Message}}<p>{{.Message}}</p>{{end}}</body></html>`,
 		"templates/health.html":         `<html><body>{{range .Checks}}<div>{{.Name}}: {{.Status}}</div>{{end}}</body></html>`,
-		"templates/ontology.html":       `<html><body>{{if .HasOntology}}<div>{{.Telos}}</div>{{range .Contexts}}<div>{{.Name}}</div>{{end}}{{end}}</body></html>`,
 		"templates/notfound.html":       `<html><body>Page not found</body></html>`,
 		"templates/compare.html":        `<html><body><nav>nav</nav>{{if .Error}}<div class="alert alert-error">{{.Error}}</div>{{end}}{{if .ShowSelector}}<select id="compare-left-select" name="left"></select><select id="compare-right-select" name="right"></select>{{end}}{{if not .ShowSelector}}{{.Left.RunID}} vs {{.Right.RunID}}{{range .Rows}}<tr>{{.StepID}}</tr>{{end}}{{end}}</body></html>`,
 		"templates/analytics.html":      `<html><body><h1>Token Usage Analytics</h1><div>{{formatTokens .Analytics.TotalTokens}}</div><div>{{.Analytics.TotalRuns}} {{pluralize .Analytics.TotalRuns "run" "runs"}}</div></body></html>`,

@@ -161,8 +161,6 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 				return features.Features.Analytics
 			case "webhooks":
 				return features.Features.Webhooks
-			case "ontology":
-				return features.Features.Ontology
 			case "retros":
 				return features.Features.Retros
 			default:

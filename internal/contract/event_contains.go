@@ -8,7 +8,7 @@ import (
 // EventPattern defines an expected event in the step's event log.
 // State must match exactly; Contains is a substring match on the event message.
 type EventPattern struct {
-	State    string `json:"state"`              // Required: event state to match (e.g. "ontology_warn")
+	State    string `json:"state"`              // Required: event state to match (e.g. "step_failed")
 	Contains string `json:"contains,omitempty"` // Optional: substring that must appear in the event message
 }
 
