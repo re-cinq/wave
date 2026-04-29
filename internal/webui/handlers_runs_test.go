@@ -416,6 +416,284 @@ func TestHandleAPIRunChildren_IncludesResumes(t *testing.T) {
 	}
 }
 
+// TestHandleAPIRunChildren_IncludesCompositionChildren verifies that
+// composition children (iterate / sub-pipeline / branch / loop / aggregate)
+// are returned by the children endpoint with run_kind preserved in the
+// projection. Mirrors the resume case (#1510) for the composition shape so
+// the WebUI can render header-level "Children:" pills + parent breadcrumbs
+// the same way #1548 wired the resume linkage. Issue #1450 follow-up.
+func TestHandleAPIRunChildren_IncludesCompositionChildren(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	parentID, err := rwStore.CreateRun("ops-pr-respond", "https://github.com/x/y/pull/1")
+	if err != nil {
+		t.Fatalf("create parent: %v", err)
+	}
+	if err := rwStore.UpdateRunStatus(parentID, "running", "", 0); err != nil {
+		t.Fatalf("update parent status: %v", err)
+	}
+
+	// Iterate child A
+	idxA := 0
+	totalAB := 2
+	iterA, err := rwStore.CreateRun("impl-finding", "finding-a")
+	if err != nil {
+		t.Fatalf("create iter A: %v", err)
+	}
+	if err := rwStore.SetParentRun(iterA, parentID, "iterate-findings"); err != nil {
+		t.Fatalf("set parent A: %v", err)
+	}
+	if err := rwStore.SetRunComposition(iterA, state.RunKindIterateChild, "iterate-findings", "parallel", &idxA, &totalAB); err != nil {
+		t.Fatalf("set composition A: %v", err)
+	}
+	if err := rwStore.UpdateRunStatus(iterA, "completed", "", 1500); err != nil {
+		t.Fatalf("update iter A status: %v", err)
+	}
+
+	// Iterate child B (same parent step)
+	idxB := 1
+	iterB, err := rwStore.CreateRun("impl-finding", "finding-b")
+	if err != nil {
+		t.Fatalf("create iter B: %v", err)
+	}
+	if err := rwStore.SetParentRun(iterB, parentID, "iterate-findings"); err != nil {
+		t.Fatalf("set parent B: %v", err)
+	}
+	if err := rwStore.SetRunComposition(iterB, state.RunKindIterateChild, "iterate-findings", "parallel", &idxB, &totalAB); err != nil {
+		t.Fatalf("set composition B: %v", err)
+	}
+	if err := rwStore.UpdateRunStatus(iterB, "running", "", 700); err != nil {
+		t.Fatalf("update iter B status: %v", err)
+	}
+
+	// Sub-pipeline child (different kind, same parent)
+	subID, err := rwStore.CreateRun("audit-security", "module x")
+	if err != nil {
+		t.Fatalf("create sub: %v", err)
+	}
+	if err := rwStore.SetParentRun(subID, parentID, "audit-step"); err != nil {
+		t.Fatalf("set parent sub: %v", err)
+	}
+	if err := rwStore.SetRunComposition(subID, state.RunKindSubPipelineChild, "audit-security", "", nil, nil); err != nil {
+		t.Fatalf("set composition sub: %v", err)
+	}
+	if err := rwStore.UpdateRunStatus(subID, "completed", "", 2200); err != nil {
+		t.Fatalf("update sub status: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/runs/"+parentID+"/children", nil)
+	req.SetPathValue("id", parentID)
+	rec := httptest.NewRecorder()
+	srv.handleAPIRunChildren(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		ParentRunID   string       `json:"parent_run_id"`
+		Children      []RunSummary `json:"children"`
+		SubtreeTokens int64        `json:"subtree_tokens"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Children) != 3 {
+		t.Fatalf("expected 3 children, got %d", len(resp.Children))
+	}
+
+	// Index by RunID for kind-specific assertions.
+	byID := make(map[string]RunSummary, 3)
+	for _, c := range resp.Children {
+		byID[c.RunID] = c
+	}
+
+	if got := byID[iterA].RunKind; got != state.RunKindIterateChild {
+		t.Errorf("iterA RunKind = %q, want %q", got, state.RunKindIterateChild)
+	}
+	if got := byID[iterA].ParentStepID; got != "iterate-findings" {
+		t.Errorf("iterA ParentStepID = %q, want \"iterate-findings\"", got)
+	}
+	if byID[iterA].IterateIndex == nil || *byID[iterA].IterateIndex != 0 {
+		t.Errorf("iterA IterateIndex = %v, want 0", byID[iterA].IterateIndex)
+	}
+	if byID[iterA].IterateTotal == nil || *byID[iterA].IterateTotal != 2 {
+		t.Errorf("iterA IterateTotal = %v, want 2", byID[iterA].IterateTotal)
+	}
+	if got := byID[iterB].RunKind; got != state.RunKindIterateChild {
+		t.Errorf("iterB RunKind = %q, want %q", got, state.RunKindIterateChild)
+	}
+	if got := byID[subID].RunKind; got != state.RunKindSubPipelineChild {
+		t.Errorf("subID RunKind = %q, want %q", got, state.RunKindSubPipelineChild)
+	}
+
+	// Subtree tokens should sum parent + all children.
+	wantSubtree := int64(0 + 1500 + 700 + 2200)
+	if resp.SubtreeTokens != wantSubtree {
+		t.Errorf("subtree_tokens = %d, want %d", resp.SubtreeTokens, wantSubtree)
+	}
+}
+
+// TestHandleRunDetailPage_CompositionChildBreadcrumb verifies that a child
+// run's detail page renders a kind-aware parent breadcrumb ("← iterate
+// parent") and the parent pipeline name. Mirrors the resume breadcrumb test
+// approach for the composition shape. Issue #1450 follow-up.
+func TestHandleRunDetailPage_CompositionChildBreadcrumb(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	parentID, err := rwStore.CreateRun("ops-pr-respond", "https://github.com/x/y/pull/1")
+	if err != nil {
+		t.Fatalf("create parent: %v", err)
+	}
+	idx := 0
+	total := 2
+	childID, err := rwStore.CreateRun("impl-finding", "finding-a")
+	if err != nil {
+		t.Fatalf("create child: %v", err)
+	}
+	if err := rwStore.SetParentRun(childID, parentID, "iterate-findings"); err != nil {
+		t.Fatalf("set parent: %v", err)
+	}
+	if err := rwStore.SetRunComposition(childID, state.RunKindIterateChild, "iterate-findings", "parallel", &idx, &total); err != nil {
+		t.Fatalf("set composition: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/runs/"+childID, nil)
+	req.SetPathValue("id", childID)
+	rec := httptest.NewRecorder()
+	srv.handleRunDetailPage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	// Breadcrumb must use the iterate-specific label, not the legacy
+	// "parent" fallback that pre-dated #1450.
+	if !strings.Contains(body, "iterate parent") {
+		t.Errorf("expected 'iterate parent' breadcrumb label, got: %s", body)
+	}
+	// Breadcrumb must reference the parent pipeline name.
+	if !strings.Contains(body, "ops-pr-respond") {
+		t.Errorf("expected breadcrumb to reference parent pipeline 'ops-pr-respond'")
+	}
+	// Breadcrumb must link to the parent run detail page.
+	if !strings.Contains(body, `href="/runs/`+parentID+`"`) {
+		t.Errorf("expected link back to parent run %q", parentID)
+	}
+}
+
+// TestHandleRunDetailPage_CompositionParentLinksChildren verifies the inverse:
+// a parent run's detail page surfaces a header-level grouped "iterate
+// children:" section that links to each child detail page. Issue #1450
+// follow-up.
+func TestHandleRunDetailPage_CompositionParentLinksChildren(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	parentID, err := rwStore.CreateRun("ops-pr-respond", "https://github.com/x/y/pull/1")
+	if err != nil {
+		t.Fatalf("create parent: %v", err)
+	}
+	if err := rwStore.UpdateRunStatus(parentID, "completed", "", 1000); err != nil {
+		t.Fatalf("update parent: %v", err)
+	}
+
+	idx := 0
+	total := 1
+	childID, err := rwStore.CreateRun("impl-finding", "finding-a")
+	if err != nil {
+		t.Fatalf("create child: %v", err)
+	}
+	if err := rwStore.SetParentRun(childID, parentID, "iterate-findings"); err != nil {
+		t.Fatalf("set parent: %v", err)
+	}
+	if err := rwStore.SetRunComposition(childID, state.RunKindIterateChild, "iterate-findings", "parallel", &idx, &total); err != nil {
+		t.Fatalf("set composition: %v", err)
+	}
+	if err := rwStore.UpdateRunStatus(childID, "completed", "", 1500); err != nil {
+		t.Fatalf("update child: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/runs/"+parentID, nil)
+	req.SetPathValue("id", parentID)
+	rec := httptest.NewRecorder()
+	srv.handleRunDetailPage(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	// The composition-children section must reference the child kind.
+	if !strings.Contains(body, "iterate") {
+		t.Errorf("expected composition section label 'iterate', body: %s", body)
+	}
+	// And link to the child detail page.
+	if !strings.Contains(body, `href="/runs/`+childID+`"`) {
+		t.Errorf("expected link to composition child run %q", childID)
+	}
+}
+
+// TestHandleRunsPage_TopLevelOnlyHidesCompositionChildren verifies that the
+// /runs page default (top_level_only=true) excludes composition children from
+// the main list. Mirrors the existing resume-hidden behaviour for the
+// composition shape. Issue #1450 follow-up.
+func TestHandleRunsPage_TopLevelOnlyHidesCompositionChildren(t *testing.T) {
+	srv, rwStore := testServer(t)
+
+	parentID, err := rwStore.CreateRun("ops-pr-respond", "https://github.com/x/y/pull/1")
+	if err != nil {
+		t.Fatalf("create parent: %v", err)
+	}
+	if err := rwStore.UpdateRunStatus(parentID, "completed", "", 0); err != nil {
+		t.Fatalf("update parent: %v", err)
+	}
+
+	idx := 0
+	total := 1
+	childID, err := rwStore.CreateRun("impl-finding", "finding-a")
+	if err != nil {
+		t.Fatalf("create child: %v", err)
+	}
+	if err := rwStore.SetParentRun(childID, parentID, "iterate-findings"); err != nil {
+		t.Fatalf("set parent: %v", err)
+	}
+	if err := rwStore.SetRunComposition(childID, state.RunKindIterateChild, "iterate-findings", "parallel", &idx, &total); err != nil {
+		t.Fatalf("set composition: %v", err)
+	}
+	if err := rwStore.UpdateRunStatus(childID, "completed", "", 0); err != nil {
+		t.Fatalf("update child: %v", err)
+	}
+
+	// Default request — top_level_only=true.
+	req := httptest.NewRequest("GET", "/runs", nil)
+	rec := httptest.NewRecorder()
+	srv.handleRunsPage(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+	// Parent must be present, child must not be a top-level row.
+	if !strings.Contains(body, `href="/runs/`+parentID+`"`) {
+		t.Errorf("expected parent run %q in default /runs", parentID)
+	}
+	// The parent row should carry the composition-children pill since
+	// attachChildrenToParents pre-attached the iterate child.
+	if !strings.Contains(body, "children") && !strings.Contains(body, "child") {
+		t.Errorf("expected composition-children pill text on parent row, got: %s", body)
+	}
+
+	// Opt-in: top_level_only=false should expose the child as well.
+	reqOpen := httptest.NewRequest("GET", "/runs?top_level_only=false", nil)
+	recOpen := httptest.NewRecorder()
+	srv.handleRunsPage(recOpen, reqOpen)
+	if recOpen.Code != http.StatusOK {
+		t.Fatalf("expected 200 for top_level_only=false, got %d", recOpen.Code)
+	}
+	bodyOpen := recOpen.Body.String()
+	if !strings.Contains(bodyOpen, `href="/runs/`+childID+`"`) {
+		t.Errorf("expected child run %q to surface under top_level_only=false", childID)
+	}
+}
+
 // TestHandleAPIRunChildren_Missing returns 404 for unknown run IDs.
 func TestHandleAPIRunChildren_Missing(t *testing.T) {
 	srv, _ := testServer(t)

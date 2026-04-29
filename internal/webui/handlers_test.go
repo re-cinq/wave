@@ -39,10 +39,16 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 			}
 			return plural
 		},
+		"runKindLabel":             runKindLabel,
+		"runKindBreadcrumbLabel":   runKindBreadcrumbLabel,
+		"hasResumeChildren":        func(children []RunSummary) bool { for _, c := range children { if c.RunKind == "resume" { return true } }; return false },
+		"countResumeChildren":      func(children []RunSummary) int { n := 0; for _, c := range children { if c.RunKind == "resume" { n++ } }; return n },
+		"hasCompositionChildren":   func(children []RunSummary) bool { for _, c := range children { if isCompositionRunKind(c.RunKind) { return true } }; return false },
+		"countCompositionChildren": func(children []RunSummary) int { n := 0; for _, c := range children { if isCompositionRunKind(c.RunKind) { n++ } }; return n },
 	}
 	pages := map[string]string{
-		"templates/runs.html":           `<html><body><nav>{{if eq .ActivePage "runs"}}<a class="nav-link-active">Runs</a>{{end}}</nav><div class="rp-section"><span class="rp-badge">{{.RunningCount}}</span>{{if eq .RunningCount 0}}<div class="rp-empty"><a href="/pipelines">Start a pipeline</a></div>{{else}}{{range .RunningRuns}}<a href="/runs/{{.RunID}}" class="wr-run"><span>{{.PipelineName}}</span></a>{{end}}{{end}}</div>{{range .Runs}}<div>{{.RunID}}</div>{{end}}</body></html>`,
-		"templates/run_detail.html":     `<html><body><nav>{{if eq .ActivePage "runs"}}<a class="nav-link-active">Runs</a>{{end}}</nav><div>{{.Run.RunID}}</div></body></html>`,
+		"templates/runs.html":       `<html><body><nav>{{if eq .ActivePage "runs"}}<a class="nav-link-active">Runs</a>{{end}}</nav><div class="rp-section"><span class="rp-badge">{{.RunningCount}}</span>{{if eq .RunningCount 0}}<div class="rp-empty"><a href="/pipelines">Start a pipeline</a></div>{{else}}{{range .RunningRuns}}<a href="/runs/{{.RunID}}" class="wr-run"><span>{{.PipelineName}}</span></a>{{end}}{{end}}</div>{{range .Runs}}<a href="/runs/{{.RunID}}"><div>{{.RunID}}{{if hasCompositionChildren .ChildRuns}} <span class="badge-composition">{{countCompositionChildren .ChildRuns}} children</span>{{end}}{{if hasResumeChildren .ChildRuns}} <span class="badge-resume">resumed by {{countResumeChildren .ChildRuns}}</span>{{end}}</div></a>{{range .ChildRuns}}<a href="/runs/{{.RunID}}" class="child"><div>{{.RunID}}</div></a>{{end}}{{end}}</body></html>`,
+		"templates/run_detail.html": `<html><body><nav>{{if eq .ActivePage "runs"}}<a class="nav-link-active">Runs</a>{{end}}</nav>{{if .Run.ParentRunID}}<a href="/runs/{{.Run.ParentRunID}}" class="back-link">&larr; {{runKindBreadcrumbLabel .Run.RunKind}}{{if .ParentRun}}: {{.ParentRun.PipelineName}}{{end}}</a>{{end}}<div>{{.Run.RunID}}</div>{{range .CompositionChildGroups}}<section class="children-{{.Kind}}"><span>{{.Label}} children:</span>{{range .Children}}<a href="/runs/{{.RunID}}">{{.PipelineName}}</a>{{end}}</section>{{end}}</body></html>`,
 		"templates/personas.html":       `<html><body>{{range .Personas}}<div>{{.Name}}</div>{{end}}</body></html>`,
 		"templates/pipelines.html":      `<html><body>{{range .Pipelines}}<div>{{.Name}}</div>{{end}}</body></html>`,
 		"templates/contracts.html":      `<html><body>{{range .Contracts}}<div>{{.Name}}</div>{{end}}</body></html>`,
