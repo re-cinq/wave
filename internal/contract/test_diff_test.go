@@ -111,6 +111,52 @@ func TestTestDiff_HigherToleranceConfig(t *testing.T) {
 	}
 }
 
+func TestTestDiff_PythonConfig_DetectsDeletion(t *testing.T) {
+	dir := t.TempDir()
+	runGit(t, dir, "init", "-q")
+	writeFile(t, dir, "test_things.py", `def test_alpha():
+    assert True
+
+def test_beta():
+    assert True
+`)
+	runGit(t, dir, "add", "test_things.py")
+	runGit(t, dir, "commit", "-q", "-m", "init")
+	writeFile(t, dir, "test_things.py", `def test_alpha():
+    assert True
+`)
+	v := &testDiffValidator{}
+	cfg := ContractConfig{
+		Type:            "test_diff",
+		TestFilePattern: []string{"test_*.py", "*_test.py"},
+		TestFuncPattern: `^[ \t]*def[ \t]+test_\w+`,
+	}
+	if err := v.Validate(cfg, dir); err == nil {
+		t.Fatal("expected error for python net deletion, got nil")
+	}
+}
+
+func TestTestDiff_JavaScriptConfig_DetectsDeletion(t *testing.T) {
+	dir := t.TempDir()
+	runGit(t, dir, "init", "-q")
+	writeFile(t, dir, "x.test.ts", `it("alpha", () => {});
+it("beta", () => {});
+`)
+	runGit(t, dir, "add", "x.test.ts")
+	runGit(t, dir, "commit", "-q", "-m", "init")
+	writeFile(t, dir, "x.test.ts", `it("alpha", () => {});
+`)
+	v := &testDiffValidator{}
+	cfg := ContractConfig{
+		Type:            "test_diff",
+		TestFilePattern: []string{"*.test.ts", "*.test.js", "*.spec.ts", "*.spec.js"},
+		TestFuncPattern: `^[ \t]*(it|test)\(`,
+	}
+	if err := v.Validate(cfg, dir); err == nil {
+		t.Fatal("expected error for js net deletion, got nil")
+	}
+}
+
 func TestTestDiff_NoGitRepo_PassesSilently(t *testing.T) {
 	dir := t.TempDir()
 	v := &testDiffValidator{}

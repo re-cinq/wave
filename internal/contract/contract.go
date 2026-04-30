@@ -58,7 +58,10 @@ type ContractConfig struct {
 	MinFiles int      `json:"min_files,omitempty"  yaml:"min_files,omitempty"` // Minimum number of qualifying changed files required (default 1)
 
 	// test_diff contract fields — guards against persona deleting tests to satisfy "tests pass" gate.
-	MaxTestDeletions int `json:"max_test_deletions,omitempty" yaml:"max_test_deletions,omitempty"` // Max net `func Test*` deletions allowed (default 0)
+	// Language-agnostic: TestFilePattern + TestFuncPattern are configurable per project.
+	MaxTestDeletions int      `json:"max_test_deletions,omitempty" yaml:"max_test_deletions,omitempty"` // Max net test-fn deletions allowed (default 0)
+	TestFilePattern  []string `json:"test_file_pattern,omitempty"  yaml:"test_file_pattern,omitempty"`  // Pathspecs (e.g. ["*_test.go"], ["**/test_*.py"], ["**/*.test.ts"])
+	TestFuncPattern  string   `json:"test_func_pattern,omitempty"  yaml:"test_func_pattern,omitempty"`  // Regex matching one test declaration per line
 
 	// event_contains contract fields — validated by executor (needs event store access)
 	Events []EventPattern `json:"events,omitempty" yaml:"events,omitempty"` // Expected event patterns to match against the step's event log
