@@ -27,7 +27,6 @@ var pageTemplates = []string{
 	"templates/run_detail.html",
 	"templates/personas.html",
 	"templates/persona_detail.html",
-	"templates/pipelines.html",
 	"templates/pipeline_detail.html",
 	"templates/contracts.html",
 	"templates/contract_detail.html",
@@ -62,6 +61,7 @@ var standalonePageTemplates = []string{
 	"templates/proposals/list.html",
 	"templates/proposals/detail.html",
 	"templates/runs.html",
+	"templates/pipelines.html",
 }
 
 // parseTemplates parses all embedded HTML templates using a clone-per-page

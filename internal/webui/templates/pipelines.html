@@ -1,273 +1,274 @@
-{{define "title"}}Pipelines · Wave{{end}}
-{{define "content"}}
-<div class="wr-head">
-    <h1>Pipelines</h1>
-</div>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pipelines &mdash; Wave</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  {{if csrfToken}}<meta name="csrf-token" content="{{csrfToken}}">{{end}}
+</head>
+<body>
+  <nav class="w-nav">
+    <a href="/" class="w-nav-brand">
+      <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/>
+        <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" opacity="0.35"/>
+      </svg>
+      Wave
+    </a>
+    <div class="w-nav-links">
+      <a href="/work">Work</a>
+      <a href="/runs">Runs</a>
+      <a href="/pipelines" class="active">Pipelines</a>
+      <a href="/proposals">Proposals</a>
+      <a href="/issues">Issues</a>
+      <a href="/prs">PRs</a>
+      <a href="/onboard">Onboard</a>
+      <a href="/health" style="margin-left: auto;">Health</a>
+    </div>
+  </nav>
+
+  <div class="w-container">
+    <div class="w-page-header">
+      <h1 class="w-page-title">Pipelines</h1>
+    </div>
 
 {{if .Pipelines}}
 
-<!-- Category filters -->
-{{if .Categories}}
-<div class="wr-toolbar">
-    <div class="wr-filters">
-        <button class="wr-filter active" data-cat="" onclick="filterPipelines(this)">All</button>
-        {{range .Categories}}<button class="wr-filter" data-cat="{{.}}" onclick="filterPipelines(this)">{{.}}</button>{{end}}
+    <!-- Category filters -->
+    {{if .Categories}}
+    <div class="w-filterbar" style="border-radius: 8px; border-bottom: 1px solid var(--color-border);">
+      <div style="display: flex; gap: 6px;">
+        <button class="badge badge-blue pipeline-filter active" data-cat="" onclick="filterPipelines(this)" style="font-size: 12px; padding: 4px 10px; border: none; cursor: pointer; background: var(--color-link); color: white;">All</button>
+        {{range .Categories}}<button class="badge badge-dim pipeline-filter" data-cat="{{.}}" onclick="filterPipelines(this)" style="font-size: 12px; padding: 4px 10px; border: none; cursor: pointer;">{{.}}</button>{{end}}
+      </div>
+      <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+        <input type="text" id="pipeline-search" placeholder="Search pipelines..." style="background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); padding: 6px 10px; border-radius: 6px; font-size: 12px; width: 180px; font-family: inherit;" oninput="applyFilters()">
+        <span id="pipeline-count" style="font-size: 12px; color: var(--color-text-secondary);">{{len .Pipelines}} pipelines</span>
+      </div>
     </div>
-    <div class="wr-controls">
-        <input type="text" id="pipeline-search" class="wr-search" placeholder="Search pipelines..." oninput="applyFilters()">
-        <span class="wr-count" id="pipeline-count">{{len .Pipelines}} pipelines</span>
-    </div>
-</div>
-{{end}}
+    {{end}}
 
-<!-- Frequent pipelines section -->
-{{if .FrequentPipelines}}
-<div class="rp-section" id="fp-section">
-  <div class="rp-header rp-header-clickable" role="button" tabindex="0" aria-expanded="true"
-       onclick="toggleFrequentSection()"
-       onkeydown="if(event.key==='Enter'||event.key===' '){toggleFrequentSection();event.preventDefault()}">
-    <span class="rp-label">Most Frequent</span>
-    <span class="rp-badge" style="background:rgba(99,102,241,0.15);color:#a5b4fc;">{{len .FrequentPipelines}}</span>
-    <span class="rp-chevron">▾</span>
-  </div>
-  <div class="rp-body" style="padding:0;">
-    <div class="fp-list">
-    {{range .FrequentPipelines}}
-      <a href="/pipelines/{{.Name}}" class="fp-row" data-category="{{.Category}}" data-name="{{.Name}}">
-        <span class="fp-name">{{.Name}}</span>
-        {{if .Description}}<span class="wr-input">{{.Description}}</span>{{end}}
-        <span class="wr-right">
-          <span class="fp-stat">{{.RunCount}}</span>
-          <button class="btn btn-sm pl-run-btn" onclick="event.preventDefault();event.stopPropagation();showQuickStart('{{.Name}}')">run</button>
-        </span>
+    <!-- Frequent pipelines section -->
+    {{if .FrequentPipelines}}
+    <div id="fp-section" style="border: 1px solid var(--color-border); border-top: none; border-radius: 0 0 8px 8px; margin-bottom: 16px; overflow: hidden;">
+      <div style="display: flex; align-items: center; padding: 10px 16px; background: var(--color-bg-secondary); border-bottom: 1px solid var(--color-border-light); cursor: pointer;" role="button" tabindex="0" aria-expanded="true"
+           onclick="toggleFrequentSection()"
+           onkeydown="if(event.key==='Enter'||event.key===' '){toggleFrequentSection();event.preventDefault()}">
+        <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-secondary); font-weight: 600;">Most Frequent</span>
+        <span class="badge badge-blue" style="margin-left: 8px;">{{len .FrequentPipelines}}</span>
+        <span style="margin-left: 8px; color: var(--color-text-muted);">&darr;</span>
+      </div>
+      <div id="fp-section-body">
+        {{range .FrequentPipelines}}
+        <a href="/pipelines/{{.Name}}" class="fp-row" data-category="{{.Category}}" data-name="{{.Name}}" style="display: flex; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit;" onmouseover="this.style.background='var(--color-bg-tertiary)'" onmouseout="this.style.background=''">
+          <span style="font-weight: 500;">{{.Name}}</span>
+          {{if .Description}}<span style="color: var(--color-text-secondary); font-size: 12px; margin-left: 12px;">{{.Description}}</span>{{end}}
+          <span style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+            <span class="badge badge-dim">{{.RunCount}}</span>
+            <button class="w-btn" style="font-size: 11px; padding: 3px 10px;" onclick="event.preventDefault();event.stopPropagation();showQuickStart('{{.Name}}')">run</button>
+          </span>
+        </a>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+
+    <div class="w-list standalone" id="pipeline-list">
+    {{range .Pipelines}}
+      <a href="/pipelines/{{.Name}}" class="pipeline-card" data-category="{{.Category}}" data-runs="{{.RunCount}}" style="display: flex; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit;" onmouseover="this.style.background='var(--color-bg-tertiary)'" onmouseout="this.style.background=''">
+        <div style="width: 4px; border-radius: 2px; background: var(--color-link); flex-shrink: 0;"></div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-weight: 500;">{{.Name}}</span>
+            {{if .IsComposition}}<span class="badge badge-purple">composition</span>
+            {{else if .Category}}<span class="badge badge-blue">{{.Category}}</span>{{end}}
+            {{if .Disabled}}<span class="badge badge-dim">disabled</span>{{end}}
+          </div>
+          {{if .Description}}<div style="color: var(--color-text-secondary); font-size: 12px; margin-top: 2px;">{{.Description}}</div>{{end}}
+          <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px; font-size: 12px; color: var(--color-text-secondary);">
+            <span><b>{{.StepCount}}</b> steps</span>
+            {{if .RunCount}}<span><b>{{.RunCount}}</b> runs</span>{{end}}
+            {{range .Skills}}<span class="badge badge-dim" style="font-size: 10px;">{{.}}</span>{{end}}
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
+          {{if .RunCount}}<span style="font-size: 12px; color: var(--color-text-muted);">{{.RunCount}} runs</span>{{end}}
+          <button class="w-btn" style="font-size: 11px; padding: 3px 10px;" onclick="event.preventDefault();event.stopPropagation();showQuickStart('{{.Name}}')">run</button>
+        </div>
       </a>
     {{end}}
     </div>
-  </div>
-</div>
-{{end}}
-
-<div class="wr-list" id="pipeline-list">
-{{range .Pipelines}}
-    <a href="/pipelines/{{.Name}}" class="wr-run" data-category="{{.Category}}" data-runs="{{.RunCount}}">
-        <div class="wr-accent st-defined"></div>
-        <div class="wr-body">
-            <div class="wr-row1">
-                <span class="wr-name">{{.Name}}</span>
-                {{if .IsComposition}}<span class="badge badge-composition">composition</span>
-                {{else if .Category}}<span class="badge badge-category">{{.Category}}</span>{{end}}
-                {{if .Disabled}}<span class="badge badge-disabled">disabled</span>{{end}}
-            </div>
-            {{if .Description}}<div class="wr-row2"><span class="pl-desc">{{.Description}}</span></div>{{end}}
-            <div class="wr-row2">
-                <span class="pl-meta"><b>{{.StepCount}}</b> steps</span>
-                {{if .RunCount}}<span class="pl-meta"><b>{{.RunCount}}</b> runs</span>{{end}}
-                {{range .Skills}}<span class="badge badge-skill">{{.}}</span>{{end}}
-            </div>
-        </div>
-        <div class="wr-meta">
-            {{if .RunCount}}<span class="wr-date">{{.RunCount}} runs</span>{{end}}
-            <button class="btn btn-sm pl-run-btn" onclick="event.preventDefault();event.stopPropagation();showQuickStart('{{.Name}}')">run</button>
-        </div>
-    </a>
-{{end}}
-</div>
 {{else}}
-<div style="padding:2rem;text-align:center;color:var(--color-text-muted);font-size:0.85rem;">No pipelines found</div>
+    <div class="w-empty">
+      <h3>No pipelines found</h3>
+    </div>
 {{end}}
 
-<!-- Start dialog -->
-<dialog id="quickstart-dialog" class="w-dialog" aria-labelledby="quickstart-title">
-    <div class="w-dialog-head">
-        <h3 id="quickstart-title" style="margin:0;font-size:1rem;">Start: <code id="quickstart-name" style="font-size:0.85rem;"></code></h3>
-        <button class="w-dialog-close" onclick="hideQuickStart()" aria-label="Close">&times;</button>
-    </div>
-    <div class="w-dialog-body">
-        <div class="run-form-tier">
-            <div class="form-group">
-                <label for="qs-input">Input</label>
-                <textarea id="qs-input" rows="3" placeholder="Issue URL, feature description..."></textarea>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="qs-adapter">Adapter</label>
-                    <select id="qs-adapter"><option value="">Default</option></select>
-                </div>
-                <div class="form-group">
-                    <label for="qs-model">Model</label>
-                    <input type="text" id="qs-model" list="qs-model-list" placeholder="e.g. sonnet, haiku, cheapest">
-                    <datalist id="qs-model-list"></datalist>
-                </div>
-            </div>
+    <!-- Start dialog -->
+    <dialog id="quickstart-dialog" style="background: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: 8px; padding: 0; color: var(--color-text); max-width: 480px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--color-border);">
+        <h3 style="margin: 0; font-size: 14px;">Start: <code id="quickstart-name" style="font-size: 13px;"></code></h3>
+        <button onclick="hideQuickStart()" style="background: none; border: none; color: var(--color-text-secondary); font-size: 18px; cursor: pointer; padding: 4px 8px;" aria-label="Close">&times;</button>
+      </div>
+      <div style="padding: 16px;">
+        <div>
+          <label style="display: block; font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px;">Input</label>
+          <textarea id="qs-input" rows="3" placeholder="Issue URL, feature description..." style="width: 100%; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); padding: 8px 12px; border-radius: 6px; font-family: inherit; font-size: 13px; resize: vertical;"></textarea>
         </div>
-        <details class="run-form-tier-details">
-            <summary class="run-form-tier-summary">Advanced</summary>
-            <div class="run-form-tier">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="qs-from-step">Resume from step</label>
-                        <input type="text" id="qs-from-step" placeholder="e.g. implement">
-                    </div>
-                    <div class="form-group-checkbox">
-                        <label><input type="checkbox" id="qs-force"> Force</label>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group-checkbox">
-                        <label><input type="checkbox" id="qs-dry-run"> Dry run</label>
-                    </div>
-                    <div class="form-group-checkbox">
-                        <label><input type="checkbox" id="qs-detach" checked> Detach</label>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="qs-steps">Steps</label>
-                        <input type="text" id="qs-steps" placeholder="e.g. plan,implement">
-                    </div>
-                    <div class="form-group">
-                        <label for="qs-exclude">Exclude</label>
-                        <input type="text" id="qs-exclude" placeholder="e.g. retro,review">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="qs-timeout">Timeout (min)</label>
-                        <input type="number" id="qs-timeout" min="0" placeholder="0 = no limit">
-                    </div>
-                    <div class="form-group">
-                        <label for="qs-on-failure">On failure</label>
-                        <select id="qs-on-failure">
-                            <option value="">Default</option>
-                            <option value="halt">Halt</option>
-                            <option value="skip">Skip</option>
-                        </select>
-                    </div>
-                </div>
+        <div style="display: flex; gap: 12px; margin-top: 12px;">
+          <div style="flex: 1;">
+            <label style="display: block; font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px;">Adapter</label>
+            <select id="qs-adapter" style="width: 100%; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); padding: 6px 10px; border-radius: 6px; font-family: inherit; font-size: 13px;"><option value="">Default</option></select>
+          </div>
+          <div style="flex: 1;">
+            <label style="display: block; font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px;">Model</label>
+            <input type="text" id="qs-model" list="qs-model-list" placeholder="e.g. sonnet, haiku, cheapest" style="width: 100%; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); padding: 6px 10px; border-radius: 6px; font-family: inherit; font-size: 13px;">
+            <datalist id="qs-model-list"></datalist>
+          </div>
+        </div>
+        <details style="margin-top: 12px;">
+          <summary style="cursor: pointer; font-size: 12px; color: var(--color-text-secondary); padding: 4px 0;">Advanced</summary>
+          <div style="padding-top: 12px;">
+            <div style="display: flex; gap: 12px;">
+              <div style="flex: 1;">
+                <label style="display: block; font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px;">Resume from step</label>
+                <input type="text" id="qs-from-step" placeholder="e.g. implement" style="width: 100%; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); padding: 6px 10px; border-radius: 6px; font-family: inherit; font-size: 13px;">
+              </div>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; padding-top: 18px; color: var(--color-text-secondary); cursor: pointer;"><input type="checkbox" id="qs-force"> Force</label>
             </div>
+            <div style="display: flex; gap: 16px; margin-top: 8px;">
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-text-secondary); cursor: pointer;"><input type="checkbox" id="qs-dry-run"> Dry run</label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-text-secondary); cursor: pointer;"><input type="checkbox" id="qs-detach" checked> Detach</label>
+            </div>
+            <div style="display: flex; gap: 12px; margin-top: 8px;">
+              <div style="flex: 1;">
+                <label style="display: block; font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px;">Steps</label>
+                <input type="text" id="qs-steps" placeholder="e.g. plan,implement" style="width: 100%; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); padding: 6px 10px; border-radius: 6px; font-family: inherit; font-size: 13px;">
+              </div>
+              <div style="flex: 1;">
+                <label style="display: block; font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px;">Exclude</label>
+                <input type="text" id="qs-exclude" placeholder="e.g. retro,review" style="width: 100%; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); padding: 6px 10px; border-radius: 6px; font-family: inherit; font-size: 13px;">
+              </div>
+            </div>
+            <div style="display: flex; gap: 12px; margin-top: 8px;">
+              <div style="flex: 1;">
+                <label style="display: block; font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px;">Timeout (min)</label>
+                <input type="number" id="qs-timeout" min="0" placeholder="0 = no limit" style="width: 100%; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); padding: 6px 10px; border-radius: 6px; font-family: inherit; font-size: 13px;">
+              </div>
+              <div style="flex: 1;">
+                <label style="display: block; font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px;">On failure</label>
+                <select id="qs-on-failure" style="width: 100%; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); padding: 6px 10px; border-radius: 6px; font-family: inherit; font-size: 13px;">
+                  <option value="">Default</option>
+                  <option value="halt">Halt</option>
+                  <option value="skip">Skip</option>
+                </select>
+              </div>
+            </div>
+          </div>
         </details>
-    </div>
-    <div class="w-dialog-actions">
-        <button class="btn btn-sm" onclick="hideQuickStart()">Cancel</button>
-        <button class="btn btn-sm btn-primary" id="quickstart-submit" onclick="submitQuickStart()">Start Pipeline</button>
-    </div>
-</dialog>
-{{end}}
-{{define "scripts"}}
-<script>
-// Populate adapter dropdown on dialog open
-function populateAdapters(selectId) {
-    var sel = document.getElementById(selectId);
-    if (!sel) return;
-    fetch('/api/adapters').then(function(r){return r.json()}).then(function(d){
-        var adapters = d.adapters || [];
-        adapters.forEach(function(a){ var o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o); });
-    }).catch(function(){});
-}
+      </div>
+      <div style="display: flex; gap: 8px; justify-content: flex-end; padding: 0 16px 12px; border-top: 1px solid var(--color-border-light);">
+        <button class="w-btn" onclick="hideQuickStart()">Cancel</button>
+        <button class="w-btn w-btn-primary" id="quickstart-submit" onclick="submitQuickStart()">Start Pipeline</button>
+      </div>
+    </dialog>
+  </div>
 
-// Populate model datalist
-function populateModels(datalistId) {
-    var dl = document.getElementById(datalistId);
-    if (!dl || dl.children.length > 0) return;
-    fetch('/api/models').then(function(r){return r.json()}).then(function(d){
-        (d.models || []).forEach(function(m){ var o = document.createElement('option'); o.value = m; dl.appendChild(o); });
-    }).catch(function(){});
-}
+  <script src="/static/app.js"></script>
+  <script>
+  function populateAdapters(selectId) {
+      var sel = document.getElementById(selectId);
+      if (!sel) return;
+      fetch('/api/adapters').then(function(r){return r.json()}).then(function(d){
+          var adapters = d.adapters || [];
+          adapters.forEach(function(a){ var o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o); });
+      }).catch(function(){});
+  }
+  function populateModels(datalistId) {
+      var dl = document.getElementById(datalistId);
+      if (!dl || dl.children.length > 0) return;
+      fetch('/api/models').then(function(r){return r.json()}).then(function(d){
+          (d.models || []).forEach(function(m){ var o = document.createElement('option'); o.value = m; dl.appendChild(o); });
+      }).catch(function(){});
+  }
 
-// Category + text filtering
-function filterPipelines(btn) {
-    document.querySelectorAll('.wr-filter').forEach(function(f) { f.classList.remove('active'); });
-    btn.classList.add('active');
-    applyFilters();
-}
-function applyFilters() {
-    var cat = (document.querySelector('.wr-filter.active') || {}).dataset || {};
-    var activeCat = cat.cat || '';
-    var q = (document.getElementById('pipeline-search') || {}).value || '';
-    q = q.toLowerCase().trim();
-    var list = document.getElementById('pipeline-list');
-    if (!list) return;
-    var cards = Array.from(list.querySelectorAll('.wr-run'));
-    cards.sort(function(a, b) { var na = a.querySelector('.wr-name'); var nb = b.querySelector('.wr-name'); return (na?na.textContent:'').localeCompare(nb?nb.textContent:''); });
-    var visible = 0;
-    cards.forEach(function(card) {
-        list.appendChild(card);
-        var catMatch = !activeCat || card.dataset.category === activeCat;
-        var textMatch = !q || card.textContent.toLowerCase().indexOf(q) !== -1;
-        var show = catMatch && textMatch;
-        card.style.display = show ? '' : 'none';
-        if (show) visible++;
-    });
-    var countEl = document.getElementById('pipeline-count');
-    if (countEl) countEl.textContent = visible + ' pipeline' + (visible !== 1 ? 's' : '');
-    // Filter frequent section to match active category
-    var fpRows = document.querySelectorAll('.fp-row');
-    var fpVisible = 0;
-    fpRows.forEach(function(row) {
-        var name = row.dataset.name || '';
-        var rowCat = row.dataset.category || '';
-        var catMatch = !activeCat || rowCat === activeCat || name.startsWith(activeCat);
-        var textMatch = !q || row.textContent.toLowerCase().indexOf(q) !== -1;
-        var show = catMatch && textMatch && fpVisible < 5;
-        row.style.display = show ? '' : 'none';
-        if (catMatch && textMatch) fpVisible++;
-    });
-    var fpBadge = document.querySelector('#fp-section .rp-badge');
-    if (fpBadge) fpBadge.textContent = Math.min(fpVisible, 5);
-    var fpSection = document.getElementById('fp-section');
-    if (fpSection) fpSection.style.display = fpVisible > 0 ? '' : 'none';
-}
-document.addEventListener('DOMContentLoaded', function() { applyFilters(); });
+  function filterPipelines(btn) {
+      document.querySelectorAll('.pipeline-filter').forEach(function(f) {
+          f.classList.remove('active');
+          f.style.background = '';
+          f.style.color = '';
+      });
+      btn.classList.add('active');
+      applyFilters();
+  }
+  function applyFilters() {
+      var activeBtn = document.querySelector('.pipeline-filter.active');
+      var activeCat = activeBtn ? (activeBtn.dataset.cat || '') : '';
+      var q = (document.getElementById('pipeline-search') || {}).value || '';
+      q = q.toLowerCase().trim();
+      var list = document.getElementById('pipeline-list');
+      if (!list) return;
+      var cards = Array.from(list.querySelectorAll('.pipeline-card'));
+      cards.sort(function(a, b) { return (a.dataset.name||'').localeCompare(b.dataset.name||''); });
+      var visible = 0;
+      cards.forEach(function(card) { list.appendChild(card); var cm = !activeCat || card.dataset.category === activeCat; var tm = !q || card.textContent.toLowerCase().indexOf(q) !== -1; card.style.display = (cm && tm) ? '' : 'none'; if (cm && tm) visible++; });
+      var countEl = document.getElementById('pipeline-count');
+      if (countEl) countEl.textContent = visible + ' pipeline' + (visible !== 1 ? 's' : '');
+      var fpRows = document.querySelectorAll('.fp-row');
+      var fpVisible = 0;
+      fpRows.forEach(function(row) { var catMatch = !activeCat || row.dataset.category === activeCat || (row.dataset.name||'').startsWith(activeCat); var textMatch = !q || row.textContent.toLowerCase().indexOf(q) !== -1; row.style.display = (catMatch && textMatch && fpVisible < 5) ? '' : 'none'; if (catMatch && textMatch) fpVisible++; });
+      var fpBadge = document.querySelector('#fp-section .badge');
+      if (fpBadge) fpBadge.textContent = Math.min(fpVisible, 5);
+      document.getElementById('fp-section').style.display = fpVisible > 0 ? '' : 'none';
+  }
+  document.addEventListener('DOMContentLoaded', function() { applyFilters(); });
 
-// Frequent section collapse with localStorage persistence
-var FP_KEY = 'wave.fp.collapsed';
-function toggleFrequentSection() {
-    var section = document.getElementById('fp-section');
-    if (!section) return;
-    var header = section.querySelector('.rp-header');
-    var collapsed = section.classList.toggle('collapsed');
-    if (header) header.setAttribute('aria-expanded', String(!collapsed));
-    try { localStorage.setItem(FP_KEY, collapsed ? '1' : '0'); } catch(e) {}
-}
-(function(){
-    try {
-        if (localStorage.getItem(FP_KEY) === '1') {
-            var section = document.getElementById('fp-section');
-            var header = section && section.querySelector('.rp-header');
-            if (section) section.classList.add('collapsed');
-            if (header) header.setAttribute('aria-expanded', 'false');
-        }
-    } catch(e) {}
-})();
+  var FP_KEY = 'wave.fp.collapsed';
+  function toggleFrequentSection() {
+      var body = document.getElementById('fp-section-body');
+      var collapsed = body.style.display === 'none';
+      body.style.display = collapsed ? '' : 'none';
+      try { localStorage.setItem(FP_KEY, collapsed ? '0' : '1'); } catch(e) {}
+  }
+  (function(){
+      try { if (localStorage.getItem(FP_KEY) === '1') { document.getElementById('fp-section-body').style.display = 'none'; } } catch(e) {}
+  })();
 
-// Quickstart dialog
-var quickStartPipeline = '';
-function showQuickStart(name) {
-    quickStartPipeline = name;
-    document.getElementById('quickstart-name').textContent = name;
-    document.getElementById('qs-input').value = '';
-    document.getElementById('quickstart-dialog').showModal();
-    populateAdapters('qs-adapter');
-    populateModels('qs-model-list');
-    document.getElementById('qs-input').focus();
-}
-function hideQuickStart() { document.getElementById('quickstart-dialog').close(); quickStartPipeline = ''; }
-function submitQuickStart() {
-    if (!quickStartPipeline) return;
-    var input = document.getElementById('qs-input').value;
-    var btn = document.getElementById('quickstart-submit');
-    var body = {input: input || ''};
-    var opts = collectAdvancedOptions('qs');
-    Object.keys(opts).forEach(function(k) { body[k] = opts[k]; });
-    setButtonLoading(btn, true);
-    fetchJSON('/api/pipelines/' + encodeURIComponent(quickStartPipeline) + '/start', {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
-    }).then(function(data) {
-        if (body.dry_run && data.findings !== undefined) { showDryRunReport(data); setButtonLoading(btn, false); return; }
-        showToast('Started: ' + data.run_id, 'success', 3000);
-        setTimeout(function() { window.location.href = '/runs/' + data.run_id; }, 500);
-    }).catch(function() { setButtonLoading(btn, false); });
-}
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hideQuickStart(); });
-</script>
-{{end}}
+  var quickStartPipeline = '';
+  function showQuickStart(name) {
+      quickStartPipeline = name;
+      document.getElementById('quickstart-name').textContent = name;
+      document.getElementById('qs-input').value = '';
+      document.getElementById('quickstart-dialog').showModal();
+      populateAdapters('qs-adapter');
+      populateModels('qs-model-list');
+      document.getElementById('qs-input').focus();
+  }
+  function hideQuickStart() { document.getElementById('quickstart-dialog').close(); quickStartPipeline = ''; }
+  function submitQuickStart() {
+      if (!quickStartPipeline) return;
+      var input = document.getElementById('qs-input').value;
+      var btn = document.getElementById('quickstart-submit');
+      var body = {input: input || ''};
+      if (document.getElementById('qs-from-step').value) body.from_step = document.getElementById('qs-from-step').value;
+      if (document.getElementById('qs-force').checked) body.force = true;
+      if (document.getElementById('qs-dry-run').checked) body.dry_run = true;
+      if (document.getElementById('qs-detach').checked) body.detach = true;
+      if (document.getElementById('qs-steps').value) body.steps = document.getElementById('qs-steps').value;
+      if (document.getElementById('qs-exclude').value) body.exclude = document.getElementById('qs-exclude').value;
+      if (document.getElementById('qs-timeout').value) body.timeout = document.getElementById('qs-timeout').value;
+      if (document.getElementById('qs-on-failure').value) body.on_failure = document.getElementById('qs-on-failure').value;
+      btn.disabled = true; btn.textContent = 'Starting...';
+      fetch('/api/pipelines/' + encodeURIComponent(quickStartPipeline) + '/start', {
+          method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': (document.querySelector('meta[name="csrf-token"]')||{}).content||''}, body: JSON.stringify(body)
+      }).then(function(r){ return r.json(); }).then(function(data) {
+          if (body.dry_run && data.findings !== undefined) { alert('Dry run complete.\n\n' + JSON.stringify(data.findings, null, 2)); btn.disabled = false; btn.textContent = 'Start Pipeline'; return; }
+          window.location.href = '/runs/' + data.run_id;
+      }).catch(function() { btn.disabled = false; btn.textContent = 'Start Pipeline'; });
+  }
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hideQuickStart(); });
+  </script>
+</body>
+</html>
