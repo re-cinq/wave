@@ -28,13 +28,9 @@ var pageTemplates = []string{
 	"templates/persona_detail.html",
 	"templates/pipeline_detail.html",
 	"templates/contract_detail.html",
-	"templates/skills.html",
 	"templates/skill_detail.html",
-	"templates/compose.html",
 	"templates/issue_detail.html",
 	"templates/pr_detail.html",
-	"templates/analytics.html",
-	"templates/retros.html",
 	"templates/compare.html",
 	"templates/webhooks.html",
 	"templates/webhook_detail.html",
@@ -62,6 +58,10 @@ var standalonePageTemplates = []string{
 	"templates/contracts.html",
 	"templates/personas.html",
 	"templates/notfound.html",
+	"templates/analytics.html",
+	"templates/retros.html",
+	"templates/skills.html",
+	"templates/compose.html",
 }
 
 // parseTemplates parses all embedded HTML templates using a clone-per-page

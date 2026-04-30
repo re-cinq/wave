@@ -1,155 +1,179 @@
-{{define "title"}}Skills · Wave{{end}}
-{{define "content"}}
-<div class="w-head"><h1>Skills</h1></div>
-
-{{if .Installed}}
-<div class="wr-toolbar">
-    <div class="wr-controls">
-        <span style="font-size:0.72rem;color:var(--color-text-muted);">{{len .Installed}} installed</span>
-    </div>
-</div>
-<div class="wr-list">
-{{range .Installed}}
-    <a href="/skills/{{.Name}}" class="wr-run">
-        <div class="wr-accent st-completed"></div>
-        <div class="wr-body">
-            <div class="wr-row1">
-                <span class="wr-name">{{.Name}}</span>
-                <span class="badge" style="background:var(--color-completed);color:#fff;font-size:0.6rem;">installed</span>
-            </div>
-            {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);">{{.Description}}</span></div>{{end}}
-        </div>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Skills &mdash; Wave</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  {{if csrfToken}}<meta name="csrf-token" content="{{csrfToken}}">{{end}}
+</head>
+<body>
+  <nav class="w-nav">
+    <a href="/" class="w-nav-brand">
+      <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/>
+        <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" opacity="0.35"/>
+      </svg>
+      Wave
     </a>
-{{end}}
-</div>
-{{end}}
+    <div class="w-nav-links">
+      <a href="/work">Work</a>
+      <a href="/runs">Runs</a>
+      <a href="/pipelines">Pipelines</a>
+      <a href="/proposals">Proposals</a>
+      <a href="/issues">Issues</a>
+      <a href="/prs">PRs</a>
+      <a href="/onboard">Onboard</a>
+      <a href="/health" style="margin-left: auto;">Health</a>
+    </div>
+  </nav>
 
-{{if .Available}}
-<div class="wr-toolbar" style="{{if .Installed}}margin-top:1.5rem;{{end}}">
-    <div class="wr-controls">
-        <span style="font-size:0.72rem;color:var(--color-text-muted);">{{len .Available}} available</span>
+  <div class="w-container">
+    <div class="w-page-header">
+      <h1 class="w-page-title">Skills</h1>
     </div>
-</div>
-<div class="wr-list">
-{{range .Available}}
-    <div class="wr-run" id="skill-card-{{.Name}}" style="cursor:default;">
-        <div class="wr-accent st-defined"></div>
-        <div class="wr-body">
-            <div class="wr-row1">
-                <span class="wr-name">{{.Name}}</span>
-            </div>
-            {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);">{{.Description}}</span></div>{{end}}
-        </div>
-        <div class="wr-meta">
-            <button class="btn btn-primary btn-sm" onclick="installSkill('{{.Name}}')">Install</button>
-        </div>
-    </div>
-{{end}}
-</div>
-{{end}}
 
-{{if .Skills}}
-<div class="wr-toolbar" style="{{if or .Installed .Available}}margin-top:1.5rem;{{end}}">
-    <div class="wr-controls">
-        <span style="font-size:0.72rem;color:var(--color-text-muted);">{{len .Skills}} pipeline requirements</span>
+    {{if .Installed}}
+    <div class="w-filterbar" style="border-radius: 8px; border-bottom: 1px solid var(--color-border);">
+      <span style="font-size: 12px; color: var(--color-text-secondary);">{{len .Installed}} installed</span>
     </div>
-</div>
-<div class="wr-list">
-{{range .Skills}}
-    <a href="/skills/{{.Name}}" class="wr-run" id="req-card-{{.Name}}" onclick="event.stopPropagation();">
-        <div class="wr-accent st-defined"></div>
-        <div class="wr-body">
-            <div class="wr-row1">
-                <span class="wr-name">{{.Name}}</span>
-                {{if .InstallPkg}}<span class="badge badge-workspace" style="font-size:0.6rem;">{{.InstallPkg}}</span>{{end}}
-                {{if .InstallMethod}}<span class="badge" style="font-size:0.6rem;">via {{.InstallMethod}}</span>{{end}}
-            </div>
-            {{if .InstallSource}}
-            <div class="wr-row2">
-                <span style="color:var(--color-text-muted);font-size:0.72rem;">{{.InstallSource}}</span>
-            </div>
-            {{end}}
-            {{if .PipelineUsage}}
-            <div class="wr-row2" style="flex-wrap:wrap;gap:0.25rem;">
-                {{range .PipelineUsage}}<span class="badge badge-workspace" style="font-size:0.6rem;">{{.}}</span>{{end}}
-            </div>
-            {{end}}
+    <div class="w-list standalone">
+    {{range .Installed}}
+      <a href="/skills/{{.Name}}" class="run-card" style="display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit;" onmouseover="this.style.background='var(--color-bg-tertiary)'" onmouseout="this.style.background=''">
+        <div style="width: 4px; border-radius: 2px; background: var(--color-completed); flex-shrink: 0;"></div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-weight: 500;">{{.Name}}</span>
+            <span class="badge badge-green" style="font-size: 10px;">installed</span>
+          </div>
+          {{if .Description}}<div style="color: var(--color-text-secondary); font-size: 12px; margin-top: 2px;">{{.Description}}</div>{{end}}
+        </div>
+      </a>
+    {{end}}
+    </div>
+    {{end}}
+
+    {{if .Available}}
+    <div class="w-filterbar" style="border-radius: 8px; border-bottom: 1px solid var(--color-border);{{if .Installed}} margin-top: 16px;{{end}}">
+      <span style="font-size: 12px; color: var(--color-text-secondary);">{{len .Available}} available</span>
+    </div>
+    <div class="w-list standalone">
+    {{range .Available}}
+      <div class="run-card" id="skill-card-{{.Name}}" style="display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--color-border-light);">
+        <div style="width: 4px; border-radius: 2px; background: var(--color-link); flex-shrink: 0;"></div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-weight: 500;">{{.Name}}</span>
+          </div>
+          {{if .Description}}<div style="color: var(--color-text-secondary); font-size: 12px; margin-top: 2px;">{{.Description}}</div>{{end}}
+        </div>
+        <div style="flex-shrink: 0;">
+          <button class="w-btn w-btn-primary" style="font-size: 11px; padding: 3px 10px;" onclick="installSkill('{{.Name}}')">Install</button>
+        </div>
+      </div>
+    {{end}}
+    </div>
+    {{end}}
+
+    {{if .Skills}}
+    <div class="w-filterbar" style="border-radius: 8px; border-bottom: 1px solid var(--color-border);{{if or .Installed .Available}} margin-top: 16px;{{end}}">
+      <span style="font-size: 12px; color: var(--color-text-secondary);">{{len .Skills}} pipeline requirements</span>
+    </div>
+    <div class="w-list standalone">
+    {{range .Skills}}
+      <a href="/skills/{{.Name}}" class="run-card" id="req-card-{{.Name}}" style="display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit;" onmouseover="this.style.background='var(--color-bg-tertiary)'" onmouseout="this.style.background=''">
+        <div style="width: 4px; border-radius: 2px; background: var(--color-link); flex-shrink: 0;"></div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="font-weight: 500;">{{.Name}}</span>
+            {{if .InstallPkg}}<span class="badge badge-dim" style="font-size: 10px;">{{.InstallPkg}}</span>{{end}}
+            {{if .InstallMethod}}<span class="badge badge-dim" style="font-size: 10px;">via {{.InstallMethod}}</span>{{end}}
+          </div>
+          {{if .InstallSource}}<div style="color: var(--color-text-muted); font-size: 12px; margin-top: 2px;">{{.InstallSource}}</div>{{end}}
+          {{if .PipelineUsage}}
+          <div style="display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap;">
+            {{range .PipelineUsage}}<span class="badge badge-dim" style="font-size: 10px;">{{.}}</span>{{end}}
+          </div>
+          {{end}}
         </div>
         {{if .InstallCmd}}
-        <div class="wr-meta">
-            <button class="btn btn-primary btn-sm" onclick="event.preventDefault(); event.stopPropagation(); runInstallTool('{{.Name}}')">Install</button>
+        <div style="flex-shrink: 0;">
+          <button class="w-btn w-btn-primary" style="font-size: 11px; padding: 3px 10px;" onclick="event.preventDefault(); event.stopPropagation(); runInstallTool('{{.Name}}')">Install</button>
         </div>
         {{end}}
-    </a>
-{{end}}
-</div>
-{{end}}
+      </a>
+    {{end}}
+    </div>
+    {{end}}
 
-{{if and (not .Installed) (not .Available) (not .Skills)}}
-<div style="padding:2rem;text-align:center;color:var(--color-text-muted);">No skills found. Skills are declared in pipeline YAML files under <code>requires.skills</code>.</div>
-{{end}}
-{{end}}
-{{define "scripts"}}
-<script>
-function runInstallTool(name) {
-    var card = document.getElementById('req-card-' + name);
-    if (!card) return;
-    var btn = card.querySelector('button');
-    if (!btn) return;
-    btn.disabled = true;
-    btn.textContent = 'Installing...';
+    {{if and (not .Installed) (not .Available) (not .Skills)}}
+    <div class="w-empty">
+      <h3>No skills found</h3>
+      <p style="color: var(--color-text-secondary); font-size: 13px; margin-top: 4px;">Skills are declared in pipeline YAML files under <code style="background: var(--color-bg-secondary); padding: 2px 6px; border-radius: 4px;">requires.skills</code>.</p>
+    </div>
+    {{end}}
+  </div>
 
-    fetch('/api/skills/' + encodeURIComponent(name) + '/run-install', {
-        method: 'POST',
-        headers: {'X-CSRF-Token': getCSRFToken()}
-    })
-    .then(function(resp) { return resp.json(); })
-    .then(function(data) {
-        if (data.success) {
-            btn.textContent = 'Installed';
-            btn.classList.remove('btn-primary');
-            btn.style.background = 'var(--color-completed)';
-            btn.style.color = '#fff';
-        } else {
-            btn.textContent = 'Failed';
-            btn.disabled = false;
-            btn.title = data.error || 'unknown error';
-        }
-    })
-    .catch(function() {
-        btn.textContent = 'Error';
-        btn.disabled = false;
-    });
-}
-
-function installSkill(name) {
-    var card = document.getElementById('skill-card-' + name);
-    if (!card) return;
-    var btn = card.querySelector('button');
-    if (!btn) return;
-    btn.disabled = true;
-    btn.textContent = 'Installing...';
-
-    fetch('/api/skills/' + encodeURIComponent(name) + '/install', {
-        method: 'POST',
-        headers: {'X-CSRF-Token': getCSRFToken()}
-    })
-    .then(function(resp) { return resp.json(); })
-    .then(function(data) {
-        if (data.success) {
-            btn.textContent = 'Installed';
-            btn.classList.remove('btn-primary');
-            btn.style.background = 'var(--color-completed)';
-            btn.style.color = '#fff';
-        } else {
-            btn.textContent = 'Failed: ' + (data.error || 'unknown error');
-            btn.disabled = false;
-        }
-    })
-    .catch(function(err) {
-        btn.textContent = 'Error';
-        btn.disabled = false;
-    });
-}
-</script>
-{{end}}
+  <script src="/static/app.js"></script>
+  <script>
+  function runInstallTool(name) {
+      var card = document.getElementById('req-card-' + name);
+      if (!card) return;
+      var btn = card.querySelector('button');
+      if (!btn) return;
+      btn.disabled = true;
+      btn.textContent = 'Installing...';
+      fetch('/api/skills/' + encodeURIComponent(name) + '/run-install', {
+          method: 'POST',
+          headers: {'X-CSRF-Token': getCSRFToken()}
+      })
+      .then(function(resp) { return resp.json(); })
+      .then(function(data) {
+          if (data.success) {
+              btn.textContent = 'Installed';
+              btn.classList.remove('w-btn-primary');
+              btn.style.background = 'var(--color-completed)';
+              btn.style.color = '#fff';
+          } else {
+              btn.textContent = 'Failed';
+              btn.disabled = false;
+              btn.title = data.error || 'unknown error';
+          }
+      })
+      .catch(function() {
+          btn.textContent = 'Error';
+          btn.disabled = false;
+      });
+  }
+  function installSkill(name) {
+      var card = document.getElementById('skill-card-' + name);
+      if (!card) return;
+      var btn = card.querySelector('button');
+      if (!btn) return;
+      btn.disabled = true;
+      btn.textContent = 'Installing...';
+      fetch('/api/skills/' + encodeURIComponent(name) + '/install', {
+          method: 'POST',
+          headers: {'X-CSRF-Token': getCSRFToken()}
+      })
+      .then(function(resp) { return resp.json(); })
+      .then(function(data) {
+          if (data.success) {
+              btn.textContent = 'Installed';
+              btn.classList.remove('w-btn-primary');
+              btn.style.background = 'var(--color-completed)';
+              btn.style.color = '#fff';
+          } else {
+              btn.textContent = 'Failed: ' + (data.error || 'unknown error');
+              btn.disabled = false;
+          }
+      })
+      .catch(function(err) {
+          btn.textContent = 'Error';
+          btn.disabled = false;
+      });
+  }
+  </script>
+</body>
+</html>

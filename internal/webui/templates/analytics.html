@@ -1,95 +1,127 @@
-{{define "title"}}Analytics · Wave{{end}}
-{{define "content"}}
-<div class="page-header">
-    <h1>Token Usage Analytics</h1>
-    <div class="actions">
-        <span class="analytics-note">Estimated cost: ~80% input ($3/MTok) + ~20% output ($15/MTok)</span>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Analytics &mdash; Wave</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  {{if csrfToken}}<meta name="csrf-token" content="{{csrfToken}}">{{end}}
+</head>
+<body>
+  <nav class="w-nav">
+    <a href="/" class="w-nav-brand">
+      <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/>
+        <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" opacity="0.35"/>
+      </svg>
+      Wave
+    </a>
+    <div class="w-nav-links">
+      <a href="/work">Work</a>
+      <a href="/runs">Runs</a>
+      <a href="/pipelines">Pipelines</a>
+      <a href="/proposals">Proposals</a>
+      <a href="/issues">Issues</a>
+      <a href="/prs">PRs</a>
+      <a href="/onboard">Onboard</a>
+      <a href="/health" style="margin-left: auto;">Health</a>
     </div>
-</div>
+  </nav>
 
-<div class="analytics-summary">
-    <div class="analytics-stat-card">
+  <div class="w-container">
+    <div class="w-page-header">
+      <h1 class="w-page-title">Token Usage Analytics</h1>
+      <span style="font-size: 12px; color: var(--color-text-secondary);">Estimated cost: ~80% input ($3/MTok) + ~20% output ($15/MTok)</span>
+    </div>
+
+    <div class="analytics-summary">
+      <div class="analytics-stat-card">
         <div class="analytics-stat-label">This Week</div>
         <div class="analytics-stat-value">{{formatTokens .Analytics.TokensThisWeek}}</div>
         <div class="analytics-stat-sub">{{.Analytics.RunsThisWeek}} {{pluralize .Analytics.RunsThisWeek "run" "runs"}} &middot; {{.Analytics.EstCostThisWeek}}</div>
-    </div>
-    <div class="analytics-stat-card">
+      </div>
+      <div class="analytics-stat-card">
         <div class="analytics-stat-label">This Month</div>
         <div class="analytics-stat-value">{{formatTokens .Analytics.TokensThisMonth}}</div>
         <div class="analytics-stat-sub">{{.Analytics.RunsThisMonth}} {{pluralize .Analytics.RunsThisMonth "run" "runs"}} &middot; {{.Analytics.EstCostThisMonth}}</div>
-    </div>
-    <div class="analytics-stat-card">
+      </div>
+      <div class="analytics-stat-card">
         <div class="analytics-stat-label">All Time (last 200 runs)</div>
         <div class="analytics-stat-value">{{formatTokens .Analytics.TotalTokens}}</div>
         <div class="analytics-stat-sub">{{.Analytics.TotalRuns}} {{pluralize .Analytics.TotalRuns "run" "runs"}}</div>
+      </div>
     </div>
-</div>
 
-<div class="analytics-grid">
-    <div class="analytics-panel">
+    <div class="analytics-grid">
+      <div class="analytics-panel">
         <h3>Tokens per Recent Run</h3>
         {{if .Analytics.RecentRuns}}
         <div class="analytics-bar-chart">
-            {{range .Analytics.RecentRuns}}
-            <a href="/runs/{{.RunID}}" class="analytics-bar-col" title="{{.PipelineName}} — {{formatTokens .Tokens}} tokens — {{.StartedAt}}">
-                <div class="analytics-bar analytics-bar-{{.Status}}" style="height: {{.Pct}}%;"></div>
-                <div class="analytics-bar-label">{{.StartedAt}}</div>
-            </a>
-            {{end}}
+          {{range .Analytics.RecentRuns}}
+          <a href="/runs/{{.RunID}}" class="analytics-bar-col" title="{{.PipelineName}} — {{formatTokens .Tokens}} tokens — {{.StartedAt}}">
+            <div class="analytics-bar analytics-bar-{{.Status}}" style="height: {{.Pct}}%;"></div>
+            <div class="analytics-bar-label">{{.StartedAt}}</div>
+          </a>
+          {{end}}
         </div>
         <div class="analytics-legend">
-            <span class="analytics-legend-item"><span class="analytics-legend-dot analytics-bar-completed"></span> Completed</span>
-            <span class="analytics-legend-item"><span class="analytics-legend-dot analytics-bar-running"></span> Running</span>
-            <span class="analytics-legend-item"><span class="analytics-legend-dot analytics-bar-failed"></span> Failed</span>
-            <span class="analytics-legend-item"><span class="analytics-legend-dot analytics-bar-cancelled"></span> Cancelled</span>
+          <span class="analytics-legend-item"><span class="analytics-legend-dot analytics-bar-completed"></span> Completed</span>
+          <span class="analytics-legend-item"><span class="analytics-legend-dot analytics-bar-running"></span> Running</span>
+          <span class="analytics-legend-item"><span class="analytics-legend-dot analytics-bar-failed"></span> Failed</span>
+          <span class="analytics-legend-item"><span class="analytics-legend-dot analytics-bar-cancelled"></span> Cancelled</span>
         </div>
         {{else}}
-        <div class="empty-state"><p>No run data available.</p></div>
+        <div class="w-empty"><p>No run data available.</p></div>
         {{end}}
-    </div>
+      </div>
 
-    <div class="analytics-panel">
+      <div class="analytics-panel">
         <h3>Top Pipelines (by avg tokens)</h3>
         {{if .Analytics.TopPipelines}}
         <div class="analytics-rank-list">
-            {{range .Analytics.TopPipelines}}
-            <div class="analytics-rank-item">
-                <div class="analytics-rank-header">
-                    <span class="analytics-rank-name">{{.Name}}</span>
-                    <span class="analytics-rank-value">{{formatTokens .AvgTokens}} avg</span>
-                </div>
-                <div class="analytics-rank-bar-bg">
-                    <div class="analytics-rank-bar" style="width: {{.Pct}}%;"></div>
-                </div>
-                <div class="analytics-rank-meta">{{.RunCount}} {{pluralize .RunCount "run" "runs"}} &middot; {{formatTokens .TotalTokens}} total</div>
+          {{range .Analytics.TopPipelines}}
+          <div class="analytics-rank-item">
+            <div class="analytics-rank-header">
+              <span class="analytics-rank-name">{{.Name}}</span>
+              <span class="analytics-rank-value">{{formatTokens .AvgTokens}} avg</span>
             </div>
-            {{end}}
+            <div class="analytics-rank-bar-bg">
+              <div class="analytics-rank-bar" style="width: {{.Pct}}%;"></div>
+            </div>
+            <div class="analytics-rank-meta">{{.RunCount}} {{pluralize .RunCount "run" "runs"}} &middot; {{formatTokens .TotalTokens}} total</div>
+          </div>
+          {{end}}
         </div>
         {{else}}
-        <div class="empty-state"><p>No pipeline data available.</p></div>
+        <div class="w-empty"><p>No pipeline data available.</p></div>
         {{end}}
-    </div>
+      </div>
 
-    <div class="analytics-panel">
+      <div class="analytics-panel">
         <h3>Top Personas (by total tokens)</h3>
         {{if .Analytics.TopPersonas}}
         <div class="analytics-rank-list">
-            {{range .Analytics.TopPersonas}}
-            <div class="analytics-rank-item">
-                <div class="analytics-rank-header">
-                    <span class="analytics-rank-name">{{.Name}}</span>
-                    <span class="analytics-rank-value">{{formatTokens .TotalTokens}}</span>
-                </div>
-                <div class="analytics-rank-bar-bg">
-                    <div class="analytics-rank-bar analytics-rank-bar-persona" style="width: {{.Pct}}%;"></div>
-                </div>
-                <div class="analytics-rank-meta">{{.StepCount}} {{pluralize .StepCount "step" "steps"}} &middot; {{formatTokens .AvgTokens}} avg &middot; est. {{.EstCost}}</div>
+          {{range .Analytics.TopPersonas}}
+          <div class="analytics-rank-item">
+            <div class="analytics-rank-header">
+              <span class="analytics-rank-name">{{.Name}}</span>
+              <span class="analytics-rank-value">{{formatTokens .TotalTokens}}</span>
             </div>
-            {{end}}
+            <div class="analytics-rank-bar-bg">
+              <div class="analytics-rank-bar analytics-rank-bar-persona" style="width: {{.Pct}}%;"></div>
+            </div>
+            <div class="analytics-rank-meta">{{.StepCount}} {{pluralize .StepCount "step" "steps"}} &middot; {{formatTokens .AvgTokens}} avg &middot; est. {{.EstCost}}</div>
+          </div>
+          {{end}}
         </div>
         {{else}}
-        <div class="empty-state"><p>No persona performance data available.</p></div>
+        <div class="w-empty"><p>No persona performance data available.</p></div>
         {{end}}
+      </div>
     </div>
-</div>
-{{end}}
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
