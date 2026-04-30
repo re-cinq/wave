@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"strings"
+
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/contract"
 	"github.com/recinq/wave/internal/state"
@@ -210,6 +212,162 @@ func TestPipelineEvalHook_StoreErrorIsNonFatal(t *testing.T) {
 	require.NoError(t, err, "RecordEval failure must not bubble up to pipeline result")
 
 	assert.GreaterOrEqual(t, store.calls, 1, "RecordEval should have been attempted")
+}
+
+// stubEvolutionTrigger is a deterministic EvolutionTrigger for testing
+// the executor emission path.
+type stubEvolutionTrigger struct {
+	fire   bool
+	reason string
+	err    error
+	calls  int
+}
+
+func (s *stubEvolutionTrigger) ShouldEvolve(_ string) (bool, string, error) {
+	s.calls++
+	return s.fire, s.reason, s.err
+}
+
+// TestEvolutionTrigger_FireEmitsEvent verifies recordPipelineEval emits
+// "evolution_proposed" with the trigger's reason in Message.
+func TestEvolutionTrigger_FireEmitsEvent(t *testing.T) {
+	store := newTestSQLiteStore(t)
+	collector := testutil.NewEventCollector()
+	trigger := &stubEvolutionTrigger{fire: true, reason: "drift: -20%"}
+
+	mock := adaptertest.NewMockAdapter(adaptertest.WithStdoutJSON(`{"status":"ok"}`))
+	executor := NewDefaultPipelineExecutor(mock,
+		WithStateStore(store),
+		WithEmitter(collector),
+		WithEvolutionTrigger(trigger),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "evol-fire-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	require.NoError(t, executor.Execute(ctx, p, m, "in"))
+
+	assert.GreaterOrEqual(t, trigger.calls, 1, "trigger should be consulted")
+	assert.True(t, collector.HasEventWithState("evolution_proposed"),
+		"firing trigger should emit evolution_proposed event")
+
+	// Verify reason is carried in Message.
+	var found bool
+	for _, e := range collector.GetEvents() {
+		if e.State == "evolution_proposed" {
+			found = true
+			assert.Contains(t, e.Message, "evol-fire-test")
+			assert.Contains(t, e.Message, "drift: -20%")
+		}
+	}
+	require.True(t, found, "evolution_proposed event must exist")
+}
+
+// TestEvolutionTrigger_NoFireNoEvent: trigger returns (false, ...) →
+// no evolution_proposed event.
+func TestEvolutionTrigger_NoFireNoEvent(t *testing.T) {
+	store := newTestSQLiteStore(t)
+	collector := testutil.NewEventCollector()
+	trigger := &stubEvolutionTrigger{fire: false}
+
+	mock := adaptertest.NewMockAdapter(adaptertest.WithStdoutJSON(`{"status":"ok"}`))
+	executor := NewDefaultPipelineExecutor(mock,
+		WithStateStore(store),
+		WithEmitter(collector),
+		WithEvolutionTrigger(trigger),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "evol-nofire-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+		},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	require.NoError(t, executor.Execute(ctx, p, m, "in"))
+
+	assert.GreaterOrEqual(t, trigger.calls, 1, "trigger should be consulted")
+	assert.False(t, collector.HasEventWithState("evolution_proposed"),
+		"non-firing trigger must not emit evolution_proposed")
+}
+
+// TestEvolutionTrigger_ErrorWarnsButDoesNotEmit: trigger returns error →
+// warning event, no evolution_proposed.
+func TestEvolutionTrigger_ErrorWarnsButDoesNotEmit(t *testing.T) {
+	store := newTestSQLiteStore(t)
+	collector := testutil.NewEventCollector()
+	trigger := &stubEvolutionTrigger{err: errors.New("trigger boom")}
+
+	mock := adaptertest.NewMockAdapter(adaptertest.WithStdoutJSON(`{"status":"ok"}`))
+	executor := NewDefaultPipelineExecutor(mock,
+		WithStateStore(store),
+		WithEmitter(collector),
+		WithEvolutionTrigger(trigger),
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "evol-err-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+		},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	require.NoError(t, executor.Execute(ctx, p, m, "in"))
+
+	assert.False(t, collector.HasEventWithState("evolution_proposed"),
+		"erroring trigger must not emit evolution_proposed")
+
+	// Confirm a warning carrying the error message was emitted.
+	var sawWarn bool
+	for _, e := range collector.GetEvents() {
+		if e.State == "warning" && strings.Contains(e.Message, "evolution trigger") {
+			sawWarn = true
+		}
+	}
+	assert.True(t, sawWarn, "trigger error should produce a warning event")
+}
+
+// TestEvolutionTrigger_NilNoPanic: nil trigger → no emission, no panic.
+func TestEvolutionTrigger_NilNoPanic(t *testing.T) {
+	store := newTestSQLiteStore(t)
+	collector := testutil.NewEventCollector()
+
+	mock := adaptertest.NewMockAdapter(adaptertest.WithStdoutJSON(`{"status":"ok"}`))
+	executor := NewDefaultPipelineExecutor(mock,
+		WithStateStore(store),
+		WithEmitter(collector),
+		// no WithEvolutionTrigger
+	)
+
+	tmpDir := t.TempDir()
+	m := testutil.CreateTestManifest(tmpDir)
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "evol-nil-test"},
+		Steps: []Step{
+			{ID: "step-a", Persona: "navigator", Exec: ExecConfig{Source: "A"}},
+		},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	require.NoError(t, executor.Execute(ctx, p, m, "in"))
+
+	assert.False(t, collector.HasEventWithState("evolution_proposed"),
+		"nil trigger must not emit evolution_proposed")
 }
 
 // TestPipelineEvalHook_DuplicateInsertSwallowed verifies that resume safety:

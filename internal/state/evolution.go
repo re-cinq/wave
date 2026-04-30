@@ -79,6 +79,7 @@ type EvolutionStore interface {
 	DecideProposal(id int64, status EvolutionProposalStatus, decidedBy string) error
 	GetProposal(id int64) (*EvolutionProposalRecord, error)
 	ListProposalsByStatus(status EvolutionProposalStatus, limit int) ([]EvolutionProposalRecord, error)
+	LastProposalAt(pipelineName string) (time.Time, bool, error)
 }
 
 // RecordEval inserts a row into pipeline_eval. The (pipeline_name, run_id)
@@ -389,6 +390,27 @@ func (s *stateStore) ListProposalsByStatus(status EvolutionProposalStatus, limit
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// LastProposalAt returns the proposed_at timestamp of the most recent
+// evolution_proposal row for pipelineName, regardless of status. The bool
+// reports whether any row exists; on (false, nil) the time return is zero.
+// Phase 3.3 trigger heuristics use this to anchor "since last evolution"
+// windows.
+func (s *stateStore) LastProposalAt(pipelineName string) (time.Time, bool, error) {
+	var ts int64
+	row := s.db.QueryRow(
+		`SELECT proposed_at FROM evolution_proposal
+		 WHERE pipeline_name = ? ORDER BY proposed_at DESC LIMIT 1`,
+		pipelineName,
+	)
+	if err := row.Scan(&ts); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return time.Time{}, false, nil
+		}
+		return time.Time{}, false, err
+	}
+	return time.Unix(ts, 0), true, nil
 }
 
 func scanProposal(row *sql.Row) (*EvolutionProposalRecord, error) {

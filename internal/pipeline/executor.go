@@ -117,6 +117,10 @@ type DefaultPipelineExecutor struct {
 	// recordPipelineEval into a state.PipelineEvalRecord at run finalize.
 	// See internal/pipeline/executor_eval.go (issue #1606).
 	evalCollectors map[string]*contract.SignalSet
+	// evolutionTrigger is consulted after RecordEval succeeds; when it
+	// fires, recordPipelineEval emits an "evolution_proposed" advisory
+	// event. Nil = trigger disabled. See executor_eval.go (issue #1612).
+	evolutionTrigger EvolutionTrigger
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -271,6 +275,12 @@ func WithRegistry(r *adapter.AdapterRegistry) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.registry = r }
 }
 
+// WithEvolutionTrigger installs the Phase 3.3 trigger consulted after each
+// successful RecordEval. Nil leaves the trigger disabled (no emission).
+func WithEvolutionTrigger(t EvolutionTrigger) ExecutorOption {
+	return func(ex *DefaultPipelineExecutor) { ex.evolutionTrigger = t }
+}
+
 // workspaceRunIDFor returns the run ID used to compute step workspace paths.
 // When WithWorkspaceRunID has been set (resume), the override wins so the
 // resumed executor reads from the original run's workspace tree. Otherwise it
@@ -395,6 +405,7 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		gateHandler:            e.gateHandler,
 		retroGenerator:         e.retroGenerator,
 		evalCollectors:         make(map[string]*contract.SignalSet),
+		evolutionTrigger:       e.evolutionTrigger,
 	}
 	// Share parent security layer's collaborators so child sees identical
 	// path/sanitization config but with its own back-pointer.

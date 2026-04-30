@@ -23,6 +23,7 @@ import (
 	"github.com/recinq/wave/internal/continuous"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/evolution"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/pipeline"
@@ -413,6 +414,18 @@ func assembleExecutorOptions(opts RunOptions, m *manifest.Manifest, store state.
 		relayMon = relay.NewRelayMonitor(relayCfg, compactionAdapter)
 	}
 
+	var evolutionTrigger pipeline.EvolutionTrigger
+	if evolStore, ok := store.(state.EvolutionStore); ok && evolStore != nil {
+		var override *manifest.EvolutionYAML
+		if m != nil {
+			override = m.Evolution
+		}
+		cfg := evolutionConfigFromManifest(override)
+		if cfg.Enabled {
+			evolutionTrigger = evolution.NewService(evolStore, cfg)
+		}
+	}
+
 	return runner.BuildExecutorOptions(runner.ExecutorBuildConfig{
 		RunID:            runID,
 		Manifest:         m,
@@ -428,8 +441,28 @@ func assembleExecutorOptions(opts RunOptions, m *manifest.Manifest, store state.
 		RelayMonitor:     relayMon,
 		SkillStore:       skillStore,
 		StepFilter:       stepFilter,
+		EvolutionTrigger: evolutionTrigger,
 		Debug:            debug,
 	})
+}
+
+// evolutionConfigFromManifest converts the manifest YAML override (which may
+// be nil) into an evolution.Config. Defaults apply when the override is nil
+// or sets the field to its zero value.
+func evolutionConfigFromManifest(o *manifest.EvolutionYAML) evolution.Config {
+	if o == nil {
+		return evolution.DefaultConfig()
+	}
+	overrides := evolution.YAMLOverrides{
+		Enabled:           o.Enabled,
+		EveryNWindow:      o.EveryNWindow,
+		EveryNJudgeDrop:   o.EveryNJudgeDrop,
+		DriftWindow:       o.DriftWindow,
+		DriftPassDrop:     o.DriftPassDrop,
+		RetryWindow:       o.RetryWindow,
+		RetryAvgThreshold: o.RetryAvgThreshold,
+	}
+	return overrides.Apply()
 }
 
 // runOnce executes the pipeline a single time. It transitions the run from

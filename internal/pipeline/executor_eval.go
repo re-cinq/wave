@@ -27,6 +27,17 @@ import (
 	"github.com/recinq/wave/internal/state"
 )
 
+// EvolutionTrigger decides whether a pipeline's accumulated eval rows merit
+// firing pipeline-evolve. Defined consumer-side so tests can stub the
+// executor's trigger field without depending on internal/evolution.
+//
+// ShouldEvolve is consulted from recordPipelineEval after RecordEval
+// succeeds. A true return causes an advisory "evolution_proposed" event
+// to be emitted; errors are logged as warnings and never fail the run.
+type EvolutionTrigger interface {
+	ShouldEvolve(pipelineName string) (bool, string, error)
+}
+
 // signalSetFor returns (creating if needed) the per-run SignalSet on the
 // executor. Safe for concurrent calls from parallel step goroutines.
 func (e *DefaultPipelineExecutor) signalSetFor(runID string) *contract.SignalSet {
@@ -148,7 +159,44 @@ func (e *DefaultPipelineExecutor) recordPipelineEval(execution *PipelineExecutio
 			State:      "warning",
 			Message:    fmt.Sprintf("eval signal: RecordEval failed: %v", err),
 		})
+		return
 	}
+
+	// Phase 3.3: consult the evolution trigger now that the row has landed.
+	// Best-effort — errors warn, never block finalize.
+	e.maybeEmitEvolutionProposed(runID, pipelineName)
+}
+
+// maybeEmitEvolutionProposed runs the configured EvolutionTrigger (if any)
+// and emits an advisory event when ShouldEvolve fires. Trigger errors emit
+// a warning but never bubble up. Nil trigger is a no-op.
+func (e *DefaultPipelineExecutor) maybeEmitEvolutionProposed(runID, pipelineName string) {
+	if e.evolutionTrigger == nil {
+		return
+	}
+	fire, reason, err := e.evolutionTrigger.ShouldEvolve(pipelineName)
+	if err != nil {
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: runID,
+			State:      "warning",
+			Message:    fmt.Sprintf("evolution trigger: %v", err),
+		})
+		return
+	}
+	if !fire {
+		return
+	}
+	msg := pipelineName
+	if reason != "" {
+		msg = fmt.Sprintf("%s: %s", pipelineName, reason)
+	}
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: runID,
+		State:      "evolution_proposed",
+		Message:    msg,
+	})
 }
 
 // isContractFailure reports whether err originates from the contract validator

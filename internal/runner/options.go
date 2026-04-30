@@ -59,10 +59,11 @@ type ExecutorBuildConfig struct {
 	MockOverride  bool
 
 	// CLI extras — webui leaves these nil.
-	RetroGenerator *retro.Generator
-	RelayMonitor   *relay.RelayMonitor
-	SkillStore     skill.Store
-	StepFilter     *pipeline.StepFilter
+	RetroGenerator   *retro.Generator
+	RelayMonitor     *relay.RelayMonitor
+	SkillStore       skill.Store
+	StepFilter       *pipeline.StepFilter
+	EvolutionTrigger pipeline.EvolutionTrigger
 
 	// Debug toggles WithDebug(true). LaunchInProcess hardcodes this; the CLI
 	// threads its --debug flag through.
@@ -167,6 +168,9 @@ func BuildExecutorOptions(cfg ExecutorBuildConfig) []pipeline.ExecutorOption {
 	}
 	if cfg.RelayMonitor != nil {
 		opts = append(opts, pipeline.WithRelayMonitor(cfg.RelayMonitor))
+	}
+	if cfg.EvolutionTrigger != nil {
+		opts = append(opts, pipeline.WithEvolutionTrigger(cfg.EvolutionTrigger))
 	}
 
 	return opts
