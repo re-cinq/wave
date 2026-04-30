@@ -1,0 +1,119 @@
+{{define "title"}}Proposal #{{.Proposal.ID}} · Wave{{end}}
+{{define "content"}}
+<div style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 8px;">
+    <a href="/proposals">Proposals</a> &rsaquo; <span>#{{.Proposal.ID}}</span>
+</div>
+
+<div class="page-header" style="align-items: flex-start;">
+    <div>
+        <h1>{{.Proposal.Reason}}</h1>
+        <div style="display: flex; gap: 12px; align-items: center; margin-top: 6px; flex-wrap: wrap;">
+            <span class="badge {{proposalStatusBadgeClass .Proposal.Status}}">{{.Proposal.Status}}</span>
+            <span>pipeline: <code>{{.Proposal.PipelineName}}</code></span>
+            <span>v{{.Proposal.VersionBefore}} &rarr; v{{.Proposal.VersionAfter}}</span>
+            <span>proposed {{formatTime .Proposal.ProposedAt}}</span>
+            {{if .Proposal.DecidedAt}}
+            <span>decided {{formatTime .Proposal.DecidedAt}} by <code>{{.Proposal.DecidedBy}}</code></span>
+            {{end}}
+        </div>
+    </div>
+    {{if eq .Proposal.Status "proposed"}}
+    <div style="display: flex; gap: 8px;">
+        <button id="approve-btn" class="btn btn-success">Approve &amp; activate</button>
+        <button id="reject-btn" class="btn btn-danger">Reject</button>
+    </div>
+    {{end}}
+</div>
+
+<div id="action-result" style="margin: 12px 0;"></div>
+
+<div class="card" style="margin-bottom: 1rem;">
+    <h3>Diff</h3>
+    {{if .DiffMissing}}
+    <p style="color: var(--color-text-muted);">No diff path recorded for this proposal.</p>
+    {{else if .DiffError}}
+    <p style="color: var(--color-failed);">{{.DiffError}}</p>
+    {{else if .DiffLines}}
+    <pre style="margin: 0; padding: 12px; background: var(--color-bg-secondary); border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.4;">{{range .DiffLines}}<span class="{{.Class}}">{{.Text}}</span>
+{{end}}</pre>
+    {{else}}
+    <p style="color: var(--color-text-muted);">Diff is empty.</p>
+    {{end}}
+</div>
+
+{{if .SignalSummary}}
+<div class="card" style="margin-bottom: 1rem;">
+    <h3>Signal summary</h3>
+    <pre style="margin: 0; padding: 12px; background: var(--color-bg-secondary); border-radius: 4px; overflow-x: auto; font-size: 12px;">{{.SignalSummary}}</pre>
+</div>
+{{end}}
+
+<style>
+.diff-line-add { display: block; background: rgba(63, 185, 80, 0.12); }
+.diff-line-del { display: block; background: rgba(248, 81, 73, 0.12); }
+.diff-line-ctx { display: block; }
+.diff-line-hunk { display: block; color: var(--color-text-muted); font-style: italic; }
+.diff-line-meta { display: block; color: var(--color-text-muted); font-weight: 600; }
+</style>
+{{end}}
+
+{{define "scripts"}}
+{{if eq .Proposal.Status "proposed"}}
+<script>
+(function() {
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    var csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+    var resultBox = document.getElementById('action-result');
+    var pid = {{.Proposal.ID}};
+
+    function setResult(html, kind) {
+        resultBox.className = 'alert alert-' + (kind || 'info');
+        resultBox.innerHTML = html;
+    }
+
+    function decide(action, body) {
+        var url = '/proposals/' + pid + '/' + action;
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-Token': csrfToken,
+                'Content-Type': 'application/json',
+                'X-Wave-User': 'webui'
+            },
+            body: body ? JSON.stringify(body) : null
+        }).then(function(r) {
+            return r.json().then(function(data) {
+                return { status: r.status, data: data };
+            });
+        }).then(function(res) {
+            if (res.status >= 200 && res.status < 300) {
+                if (action === 'approve') {
+                    setResult('Approved. New active version: v' + res.data.new_version + '. Reload to see updated status.', 'success');
+                } else {
+                    setResult('Rejected. Reload to see updated status.', 'success');
+                }
+                document.getElementById('approve-btn').disabled = true;
+                document.getElementById('reject-btn').disabled = true;
+            } else {
+                setResult('Error: ' + (res.data.error || 'request failed (HTTP ' + res.status + ')'), 'error');
+            }
+        }).catch(function(err) {
+            setResult('Network error: ' + err.message, 'error');
+        });
+    }
+
+    var approveBtn = document.getElementById('approve-btn');
+    var rejectBtn = document.getElementById('reject-btn');
+    if (approveBtn) approveBtn.addEventListener('click', function() {
+        if (!window.confirm('Approve this proposal and activate the new pipeline version?')) return;
+        decide('approve', null);
+    });
+    if (rejectBtn) rejectBtn.addEventListener('click', function() {
+        var reason = window.prompt('Rejection reason (optional):', '');
+        if (reason === null) return;
+        decide('reject', { reason: reason });
+    });
+})();
+</script>
+{{end}}
+{{end}}

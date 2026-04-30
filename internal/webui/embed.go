@@ -48,6 +48,8 @@ var pageTemplates = []string{
 	"templates/webhook_detail.html",
 	"templates/admin.html",
 	"templates/onboard/index.html",
+	"templates/proposals/list.html",
+	"templates/proposals/detail.html",
 }
 
 // standalonePageTemplates is the list of templates that do NOT extend
@@ -198,7 +200,8 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 			}
 			return plural
 		},
-		"joinStrings": strings.Join,
+		"joinStrings":              strings.Join,
+		"proposalStatusBadgeClass": proposalStatusBadgeClass,
 	}
 	for _, fm := range extraFuncs {
 		for k, v := range fm {
