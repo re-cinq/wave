@@ -115,6 +115,6 @@ func (s *Server) handleNotFound(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 	tmpl := s.assets.templates["templates/notfound.html"]
 	if tmpl != nil {
-		_ = tmpl.ExecuteTemplate(w, "templates/layout.html", nil)
+		_ = tmpl.Execute(w, nil)
 	}
 }

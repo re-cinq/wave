@@ -25,10 +25,8 @@ var templatesFS embed.FS
 // "content", and "scripts" blocks without colliding.
 var pageTemplates = []string{
 	"templates/run_detail.html",
-	"templates/personas.html",
 	"templates/persona_detail.html",
 	"templates/pipeline_detail.html",
-	"templates/contracts.html",
 	"templates/contract_detail.html",
 	"templates/skills.html",
 	"templates/skill_detail.html",
@@ -37,7 +35,6 @@ var pageTemplates = []string{
 	"templates/pr_detail.html",
 	"templates/analytics.html",
 	"templates/retros.html",
-	"templates/notfound.html",
 	"templates/compare.html",
 	"templates/webhooks.html",
 	"templates/webhook_detail.html",
@@ -62,6 +59,9 @@ var standalonePageTemplates = []string{
 	"templates/issues.html",
 	"templates/prs.html",
 	"templates/health.html",
+	"templates/contracts.html",
+	"templates/personas.html",
+	"templates/notfound.html",
 }
 
 // parseTemplates parses all embedded HTML templates using a clone-per-page

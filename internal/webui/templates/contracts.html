@@ -1,43 +1,79 @@
-{{define "title"}}Contracts · Wave{{end}}
-{{define "content"}}
-<div class="w-head"><h1>Contracts</h1></div>
-
-{{if .Contracts}}
-<div class="wr-toolbar">
-    <div class="wr-controls">
-        <input type="text" id="contract-search" class="wr-search" placeholder="Search contracts..." oninput="filterItems(this.value)">
-        <span class="wr-count">{{len .Contracts}} contracts</span>
-    </div>
-</div>
-<div class="wr-list">
-{{range .Contracts}}
-    <a href="/contracts/{{.Name}}" class="wr-run">
-        <div class="wr-accent st-defined"></div>
-        <div class="wr-body">
-            <div class="wr-row1">
-                <span class="wr-name">{{.Name}}</span>
-                {{if .Title}}<span class="ct-title">{{.Title}}</span>{{end}}
-            </div>
-            {{if .Description}}<div class="wr-row2"><span class="ct-desc">{{.Description}}</span></div>{{end}}
-        </div>
-        <div class="wr-meta">
-            <span class="wr-date ct-file">{{.Filename}}</span>
-        </div>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Contracts &mdash; Wave</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  {{if csrfToken}}<meta name="csrf-token" content="{{csrfToken}}">{{end}}
+</head>
+<body>
+  <nav class="w-nav">
+    <a href="/" class="w-nav-brand">
+      <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/>
+        <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" opacity="0.35"/>
+      </svg>
+      Wave
     </a>
-{{end}}
-</div>
-{{else}}
-<div class="wr-empty">No contracts found. Add schemas to <code>.agents/contracts/</code></div>
-{{end}}
-{{end}}
-{{define "scripts"}}
-<script>
-function filterItems(query) {
-    var q = query.toLowerCase().trim();
-    document.querySelectorAll('.wr-list > a.wr-run').forEach(function(card) {
-        if (!q) { card.style.display = ''; return; }
-        card.style.display = card.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
-    });
-}
-</script>
-{{end}}
+    <div class="w-nav-links">
+      <a href="/work">Work</a>
+      <a href="/runs">Runs</a>
+      <a href="/pipelines">Pipelines</a>
+      <a href="/proposals">Proposals</a>
+      <a href="/issues">Issues</a>
+      <a href="/prs">PRs</a>
+      <a href="/onboard">Onboard</a>
+      <a href="/health" style="margin-left: auto;">Health</a>
+    </div>
+  </nav>
+
+  <div class="w-container">
+    <div class="w-page-header">
+      <h1 class="w-page-title">Contracts</h1>
+    </div>
+
+  {{if .Contracts}}
+    <div class="w-filterbar" style="border-radius: 8px; border-bottom: 1px solid var(--color-border);">
+      <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+        <input type="text" id="contract-search" placeholder="Search contracts..." style="background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text-secondary); padding: 6px 10px; border-radius: 6px; font-size: 12px; width: 180px; font-family: inherit;" oninput="filterItems(this.value)">
+        <span style="font-size: 12px; color: var(--color-text-secondary);">{{len .Contracts}} contracts</span>
+      </div>
+    </div>
+
+    <div class="w-list standalone" id="contract-list">
+    {{range .Contracts}}
+      <a href="/contracts/{{.Name}}" class="run-card" style="display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit;" onmouseover="this.style.background='var(--color-bg-tertiary)'" onmouseout="this.style.background=''">
+        <div style="width: 4px; border-radius: 2px; background: var(--color-link); flex-shrink: 0;"></div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-weight: 500;">{{.Name}}</span>
+            {{if .Title}}<span style="color: var(--color-text-secondary); font-size: 12px;">{{.Title}}</span>{{end}}
+          </div>
+          {{if .Description}}<div style="color: var(--color-text-secondary); font-size: 12px; margin-top: 2px;">{{.Description}}</div>{{end}}
+        </div>
+        <span style="font-size: 12px; color: var(--color-text-muted); flex-shrink: 0;">{{.Filename}}</span>
+      </a>
+    {{end}}
+    </div>
+  {{else}}
+    <div class="w-empty">
+      <h3>No contracts found</h3>
+      <p style="color: var(--color-text-secondary); font-size: 13px; margin-top: 4px;">Add schemas to <code style="background: var(--color-bg-secondary); padding: 2px 6px; border-radius: 4px;">.agents/contracts/</code></p>
+    </div>
+  {{end}}
+  </div>
+
+  <script src="/static/app.js"></script>
+  <script>
+  function filterItems(query) {
+      var q = query.toLowerCase().trim();
+      document.querySelectorAll('#contract-list > a.run-card').forEach(function(card) {
+          if (!q) { card.style.display = ''; return; }
+          card.style.display = card.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+      });
+  }
+  </script>
+</body>
+</html>
