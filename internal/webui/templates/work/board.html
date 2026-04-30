@@ -4,32 +4,16 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Work board &mdash; Wave</title>
+  <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/tailwind.css" />
 </head>
-<body class="bg-slate-50 text-slate-900 antialiased">
-  <nav class="bg-white border-b border-slate-200">
-    <div class="max-w-6xl mx-auto px-6 py-3 flex items-center gap-6">
-      <a href="/work" class="flex items-center gap-2 font-semibold">
-        <svg width="22" height="22" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
-          <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/>
-          <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" opacity="0.35"/>
-        </svg>
-        Wave
-      </a>
-      <div class="flex items-center gap-4 text-sm">
-        <a href="/work" class="text-slate-900 font-medium border-b-2 border-slate-900 pb-3 -mb-3">Work</a>
-        <a href="/runs" class="text-slate-600 hover:text-slate-900">Runs</a>
-        <a href="/pipelines" class="text-slate-600 hover:text-slate-900">Pipelines</a>
-        <a href="/issues" class="text-slate-600 hover:text-slate-900">Issues</a>
-        <a href="/prs" class="text-slate-600 hover:text-slate-900">PRs</a>
-      </div>
-    </div>
-  </nav>
+<body class="bg-surface text-txt antialiased">
+  {{template "partials/nav" .}}
 
   <main class="max-w-6xl mx-auto px-6 py-8">
     <header class="mb-8">
       <h1 class="text-2xl font-semibold tracking-tight">Work</h1>
-      <p class="text-sm text-slate-600 mt-1">
+      <p class="text-sm text-txt-secondary mt-1">
         Worksource bindings and recent matches across connected forges.
       </p>
     </header>
@@ -37,13 +21,13 @@
     <section class="mb-10">
       <div class="flex items-baseline justify-between mb-3">
         <h2 class="text-lg font-semibold">Bindings</h2>
-        <span class="text-xs text-slate-500">{{len .Bindings}} configured</span>
+        <span class="text-xs text-txt-muted">{{len .Bindings}} configured</span>
       </div>
 
       {{if .HasBindings}}
-      <div class="bg-white border border-slate-200 rounded-lg overflow-hidden">
+      <div class="bg-surface-secondary border border-edge rounded-lg overflow-hidden">
         <table class="w-full text-sm">
-          <thead class="bg-slate-50 border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+          <thead class="bg-surface-tertiary border-b border-edge text-left text-xs uppercase tracking-wide text-txt-muted">
             <tr>
               <th class="px-4 py-2 font-medium">Status</th>
               <th class="px-4 py-2 font-medium">Forge</th>
@@ -55,26 +39,26 @@
           </thead>
           <tbody>
             {{range .Bindings}}
-            <tr class="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+            <tr class="border-b border-edge last:border-0 hover:bg-surface-tertiary">
               <td class="px-4 py-3">
                 {{if .Active}}
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-state-completed-bg text-state-completed text-xs font-medium">
                   <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                   active
                 </span>
                 {{else}}
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">inactive</span>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-tertiary text-txt-secondary text-xs font-medium">inactive</span>
                 {{end}}
               </td>
               <td class="px-4 py-3 font-mono text-xs">{{.Forge}}</td>
               <td class="px-4 py-3 font-mono text-xs">{{.RepoPattern}}</td>
               <td class="px-4 py-3 font-medium">{{.PipelineName}}</td>
-              <td class="px-4 py-3 text-xs text-slate-600">{{.TriggerLabel}}</td>
-              <td class="px-4 py-3 text-xs text-slate-600">
+              <td class="px-4 py-3 text-xs text-txt-secondary">{{.TriggerLabel}}</td>
+              <td class="px-4 py-3 text-xs text-txt-secondary">
                 {{if .LabelFilter}}
-                  {{range .LabelFilter}}<span class="inline-block px-1.5 py-0.5 mr-1 rounded bg-slate-100 text-slate-700 font-mono">{{.}}</span>{{end}}
+                  {{range .LabelFilter}}<span class="inline-block px-1.5 py-0.5 mr-1 rounded bg-surface-tertiary text-txt font-mono">{{.}}</span>{{end}}
                 {{else}}
-                  <span class="text-slate-400">&mdash;</span>
+                  <span class="text-txt-muted">&mdash;</span>
                 {{end}}
               </td>
             </tr>
@@ -83,18 +67,18 @@
         </table>
       </div>
       {{else}}
-      <div class="bg-white border border-dashed border-slate-300 rounded-lg p-10 text-center">
-        <svg class="w-10 h-10 text-slate-300 mx-auto mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <div class="bg-surface-secondary border border-dashed border-edge rounded-lg p-10 text-center">
+        <svg class="w-10 h-10 text-txt-muted mx-auto mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <rect x="3" y="3" width="18" height="18" rx="2"/>
           <line x1="3" y1="9" x2="21" y2="9"/>
           <line x1="9" y1="21" x2="9" y2="9"/>
         </svg>
-        <h3 class="text-base font-medium text-slate-900">No bindings yet</h3>
-        <p class="text-sm text-slate-600 mt-1 max-w-md mx-auto">
+        <h3 class="text-base font-medium">No bindings yet</h3>
+        <p class="text-sm text-txt-secondary mt-1 max-w-md mx-auto">
           Bindings connect a forge repo to a Wave pipeline so incoming issues
           and PRs trigger the right work. Configure one to get started.
         </p>
-        <p class="text-xs text-slate-500 mt-3">
+        <p class="text-xs text-txt-muted mt-3">
           A bindings UI ships in a future iteration; create them via the API
           or <code class="font-mono">wave</code> CLI for now.
         </p>
@@ -105,28 +89,28 @@
     <section>
       <div class="flex items-baseline justify-between mb-3">
         <h2 class="text-lg font-semibold">Recent matches</h2>
-        <span class="text-xs text-slate-500">runs of pipelines that match a binding</span>
+        <span class="text-xs text-txt-muted">runs of pipelines that match a binding</span>
       </div>
 
       {{if .RecentRuns}}
-      <ul class="bg-white border border-slate-200 rounded-lg divide-y divide-slate-100">
+      <ul class="bg-surface-secondary border border-edge rounded-lg divide-y divide-edge">
         {{range .RecentRuns}}
-        <li class="px-4 py-3 hover:bg-slate-50">
-          <a href="/runs/{{.RunID}}" class="flex items-center justify-between gap-4">
+        <li class="px-4 py-3 hover:bg-surface-tertiary">
+          <a href="/runs/{{.RunID}}" class="flex items-center justify-between gap-4 text-txt no-underline hover:underline">
             <div class="min-w-0">
               <div class="font-medium truncate">{{.PipelineName}}</div>
-              <div class="text-xs text-slate-500 mt-0.5">
+              <div class="text-xs text-txt-muted mt-0.5">
                 <span class="font-mono">{{.RunID}}</span>
                 {{if .Input}}&middot; <span class="truncate">{{.Input}}</span>{{end}}
               </div>
             </div>
-            <span class="text-xs text-slate-500 whitespace-nowrap">{{.Status}}</span>
+            <span class="text-xs text-txt-muted whitespace-nowrap">{{.Status}}</span>
           </a>
         </li>
         {{end}}
       </ul>
       {{else}}
-      <div class="bg-white border border-slate-200 rounded-lg p-6 text-center text-sm text-slate-500">
+      <div class="bg-surface-secondary border border-edge rounded-lg p-6 text-center text-sm text-txt-muted">
         No recent runs match the configured bindings.
       </div>
       {{end}}

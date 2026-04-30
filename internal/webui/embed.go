@@ -283,7 +283,8 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 
 	// Standalone pages are NOT cloned from the layout-bearing base — they
 	// render their own <html> shell so Tailwind utility classes don't
-	// collide with the project stylesheet.
+	// collide with the project stylesheet. They still get access to shared
+	// partials (templates/partials/*) for template composition.
 	for _, page := range standalonePageTemplates {
 		data, readErr := templatesFS.ReadFile(page)
 		if readErr != nil {
@@ -293,10 +294,34 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		if parseErr != nil {
 			return nil, fmt.Errorf("parsing %s: %w", page, parseErr)
 		}
+		// Parse partials into each standalone template so {{template "partials/..."}} works.
+		if err := parsePartialsInto(t); err != nil {
+			return nil, fmt.Errorf("parsing partials for standalone %s: %w", page, err)
+		}
 		pages[page] = t
 	}
 
 	return pages, nil
+}
+
+// parsePartialsInto walks templates/partials/ and parses every file into the
+// given template. This lets standalone pages (which don't share the layout
+// base) still use {{template "partials/..."}} blocks.
+func parsePartialsInto(t *template.Template) error {
+	return fs.WalkDir(templatesFS, "templates/partials", func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		data, err := templatesFS.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		_, err = t.New(path).Parse(string(data))
+		return err
+	})
 }
 
 // staticHandler returns an http.Handler that serves embedded static files.

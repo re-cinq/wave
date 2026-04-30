@@ -26,10 +26,11 @@ func TestEmbeddedTailwindCSSPresent(t *testing.T) {
 		t.Error("static/tailwind.css missing Tailwind `--tw-` custom properties — file may not be a real Tailwind build")
 	}
 
-	// `bg-slate-50` is referenced by templates/work/board.html and
-	// templates/work/detail.html, so a successful content scan must emit it.
-	if !strings.Contains(css, "bg-slate-50") {
-		t.Error("static/tailwind.css missing `bg-slate-50` utility — content scan likely broken")
+	// `bg-surface` is a custom color token defined in tailwind.config.js and
+	// referenced by consolidated templates. Its presence confirms the config
+	// customizations are picked up by the content scan.
+	if !strings.Contains(css, "bg-surface") {
+		t.Error("static/tailwind.css missing `bg-surface` custom color utility — content scan likely broken")
 	}
 }
 
