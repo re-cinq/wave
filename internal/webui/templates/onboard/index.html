@@ -1,170 +1,205 @@
-{{define "title"}}Onboard · Wave{{end}}
-{{define "content"}}
-<div class="onboard-shell" data-session-id="{{.SessionID}}">
-    <header class="onboard-head">
-        <h1>Onboarding</h1>
-        <p class="onboard-sub">Walk through project detection, manifest scaffolding, and initial commit. Your answers stream to the onboarder agent over Server-Sent Events; reload preserves the conversation.</p>
-        <p class="onboard-status" id="onboard-status">Connecting…</p>
-    </header>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Onboard &mdash; Wave</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <nav class="w-nav">
+    <a href="/" class="w-nav-brand">
+      <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/>
+        <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" opacity="0.35"/>
+      </svg>
+      Wave
+    </a>
+    <div class="w-nav-links">
+      <a href="/work">Work</a>
+      <a href="/runs">Runs</a>
+      <a href="/pipelines">Pipelines</a>
+      <a href="/proposals">Proposals</a>
+      <a href="/issues">Issues</a>
+      <a href="/prs">PRs</a>
+      <a href="/onboard" class="active">Onboard</a>
+      <a href="/health" style="margin-left: auto;">Health</a>
+    </div>
+  </nav>
 
-    <section class="onboard-conversation" id="onboard-conversation" role="log" aria-live="polite" aria-atomic="false"></section>
+  <div class="w-container">
+    <div class="onboard-shell" data-session-id="{{.SessionID}}">
+      <div class="w-page-header">
+        <div>
+          <h1 class="w-page-title">Setting up Wave for this project</h1>
+          <div class="w-page-sub">
+            An agent is inspecting your repo and tailoring pipelines, personas, and prompts to it.
+            Answer questions when prompted.
+          </div>
+        </div>
+      </div>
 
-    <footer class="onboard-prompt-zone" id="onboard-prompt-zone" hidden></footer>
-</div>
-{{end}}
-{{define "scripts"}}
-<script>
-(function() {
-    var shell = document.querySelector('.onboard-shell');
-    if (!shell) return;
-    var sessionID = shell.getAttribute('data-session-id');
-    var conv = document.getElementById('onboard-conversation');
-    var promptZone = document.getElementById('onboard-prompt-zone');
-    var statusEl = document.getElementById('onboard-status');
+      <p class="w-page-sub" style="margin-top: -12px; margin-bottom: 20px;" id="onboard-status">Connecting&hellip;</p>
 
-    function csrfToken() {
-        var meta = document.querySelector('meta[name="csrf-token"]');
-        return meta ? meta.getAttribute('content') : '';
-    }
+      <section class="onboard-conversation" id="onboard-conversation" role="log" aria-live="polite" aria-atomic="false"></section>
 
-    function appendMessage(kind, text, stepID) {
-        var div = document.createElement('div');
-        div.className = 'chat-msg chat-msg-' + (kind || 'info');
-        if (stepID) {
-            var step = document.createElement('span');
-            step.className = 'chat-msg-step';
-            step.textContent = stepID;
-            div.appendChild(step);
-        }
-        var body = document.createElement('span');
-        body.className = 'chat-msg-body';
-        body.textContent = text;
-        div.appendChild(body);
-        conv.appendChild(div);
-        conv.scrollTop = conv.scrollHeight;
-    }
+      <footer class="onboard-prompt-zone" id="onboard-prompt-zone" hidden></footer>
+    </div>
+  </div>
 
-    function renderPrompt(payload) {
-        promptZone.hidden = false;
-        promptZone.innerHTML = '';
+  <script>
+  (function() {
+      var shell = document.querySelector('.onboard-shell');
+      if (!shell) return;
+      var sessionID = shell.getAttribute('data-session-id');
+      var conv = document.getElementById('onboard-conversation');
+      var promptZone = document.getElementById('onboard-prompt-zone');
+      var statusEl = document.getElementById('onboard-status');
 
-        var form = document.createElement('form');
-        form.className = 'chat-prompt-form';
-        form.setAttribute('method', 'post');
-        form.setAttribute('action', '/onboard/' + sessionID + '/answer');
+      function csrfToken() {
+          var meta = document.querySelector('meta[name="csrf-token"]');
+          return meta ? meta.getAttribute('content') : '';
+      }
 
-        var label = document.createElement('label');
-        label.className = 'chat-prompt-label';
-        label.textContent = payload.prompt || 'Answer';
-        form.appendChild(label);
+      function appendMessage(kind, text, stepID) {
+          var div = document.createElement('div');
+          div.className = 'chat-msg chat-msg-' + (kind || 'info');
+          if (stepID) {
+              var step = document.createElement('span');
+              step.className = 'chat-msg-step';
+              step.textContent = stepID;
+              div.appendChild(step);
+          }
+          var body = document.createElement('span');
+          body.className = 'chat-msg-body';
+          body.textContent = text;
+          div.appendChild(body);
+          conv.appendChild(div);
+          conv.scrollTop = conv.scrollHeight;
+      }
 
-        if (payload.help_text) {
-            var help = document.createElement('p');
-            help.className = 'chat-prompt-help';
-            help.textContent = payload.help_text;
-            form.appendChild(help);
-        }
+      function renderPrompt(payload) {
+          promptZone.hidden = false;
+          promptZone.innerHTML = '';
 
-        var input;
-        if (payload.kind === 'choice' && Array.isArray(payload.choices) && payload.choices.length) {
-            input = document.createElement('select');
-            input.name = 'answer';
-            input.className = 'chat-prompt-input';
-            for (var i = 0; i < payload.choices.length; i++) {
-                var opt = document.createElement('option');
-                opt.value = payload.choices[i];
-                opt.textContent = payload.choices[i];
-                if (payload.choices[i] === payload['default']) opt.selected = true;
-                input.appendChild(opt);
-            }
-        } else {
-            input = document.createElement('input');
-            input.type = 'text';
-            input.name = 'answer';
-            input.className = 'chat-prompt-input';
-            input.value = payload['default'] || '';
-            input.autocomplete = 'off';
-        }
-        label.appendChild(input);
+          var form = document.createElement('form');
+          form.className = 'chat-prompt-form';
+          form.setAttribute('method', 'post');
+          form.setAttribute('action', '/onboard/' + sessionID + '/answer');
 
-        var promptIDInput = document.createElement('input');
-        promptIDInput.type = 'hidden';
-        promptIDInput.name = 'prompt_id';
-        promptIDInput.value = payload.id || '';
-        form.appendChild(promptIDInput);
+          var label = document.createElement('label');
+          label.className = 'chat-prompt-label';
+          label.textContent = payload.prompt || 'Answer';
+          form.appendChild(label);
 
-        var submit = document.createElement('button');
-        submit.type = 'submit';
-        submit.className = 'btn btn-primary chat-prompt-submit';
-        submit.textContent = 'Send';
-        form.appendChild(submit);
+          if (payload.help_text) {
+              var help = document.createElement('p');
+              help.className = 'chat-prompt-help';
+              help.textContent = payload.help_text;
+              form.appendChild(help);
+          }
 
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            submit.disabled = true;
-            var data = new URLSearchParams();
-            data.append('answer', input.value);
-            data.append('prompt_id', promptIDInput.value);
-            fetch(form.action, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-CSRF-Token': csrfToken()
-                },
-                body: data.toString()
-            }).then(function(resp) {
-                if (!resp.ok) {
-                    submit.disabled = false;
-                    appendMessage('warning', 'Answer rejected: HTTP ' + resp.status);
-                    return;
-                }
-                appendMessage('user', input.value || '(default)');
-                promptZone.hidden = true;
-                promptZone.innerHTML = '';
-            }).catch(function(err) {
-                submit.disabled = false;
-                appendMessage('warning', 'Answer failed: ' + err);
-            });
-        });
+          var input;
+          if (payload.kind === 'choice' && Array.isArray(payload.choices) && payload.choices.length) {
+              input = document.createElement('select');
+              input.name = 'answer';
+              input.className = 'chat-prompt-input';
+              for (var i = 0; i < payload.choices.length; i++) {
+                  var opt = document.createElement('option');
+                  opt.value = payload.choices[i];
+                  opt.textContent = payload.choices[i];
+                  if (payload.choices[i] === payload['default']) opt.selected = true;
+                  input.appendChild(opt);
+              }
+          } else {
+              input = document.createElement('input');
+              input.type = 'text';
+              input.name = 'answer';
+              input.className = 'chat-prompt-input';
+              input.value = payload['default'] || '';
+              input.autocomplete = 'off';
+          }
+          label.appendChild(input);
 
-        promptZone.appendChild(form);
-        if (input.focus) input.focus();
-    }
+          var promptIDInput = document.createElement('input');
+          promptIDInput.type = 'hidden';
+          promptIDInput.name = 'prompt_id';
+          promptIDInput.value = payload.id || '';
+          form.appendChild(promptIDInput);
 
-    var es = new EventSource('/onboard/' + sessionID + '/stream');
-    es.addEventListener('open', function() {
-        statusEl.textContent = 'Connected';
-    });
-    es.addEventListener('message', function(e) {
-        try {
-            var p = JSON.parse(e.data);
-            appendMessage(p.kind, p.message, p.step_id);
-        } catch (_) {
-            appendMessage('info', e.data);
-        }
-    });
-    es.addEventListener('prompt', function(e) {
-        try { renderPrompt(JSON.parse(e.data)); } catch (_) {}
-    });
-    es.addEventListener('status', function(e) {
-        try {
-            var p = JSON.parse(e.data);
-            statusEl.textContent = 'Status: ' + (p.status || 'running');
-        } catch (_) {}
-    });
-    es.addEventListener('done', function() {
-        statusEl.textContent = 'Done';
-        promptZone.hidden = true;
-        promptZone.innerHTML = '';
-        es.close();
-    });
-    es.addEventListener('error', function(e) {
-        try {
-            var p = JSON.parse(e.data || '{}');
-            if (p.error) appendMessage('error', p.error);
-        } catch (_) {}
-        statusEl.textContent = 'Disconnected — reconnecting…';
-    });
-})();
-</script>
-{{end}}
+          var submit = document.createElement('button');
+          submit.type = 'submit';
+          submit.className = 'btn btn-primary chat-prompt-submit';
+          submit.textContent = 'Send';
+          form.appendChild(submit);
+
+          form.addEventListener('submit', function(e) {
+              e.preventDefault();
+              submit.disabled = true;
+              var data = new URLSearchParams();
+              data.append('answer', input.value);
+              data.append('prompt_id', promptIDInput.value);
+              fetch(form.action, {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/x-www-form-urlencoded',
+                      'X-CSRF-Token': csrfToken()
+                  },
+                  body: data.toString()
+              }).then(function(resp) {
+                  if (!resp.ok) {
+                      submit.disabled = false;
+                      appendMessage('warning', 'Answer rejected: HTTP ' + resp.status);
+                      return;
+                  }
+                  appendMessage('user', input.value || '(default)');
+                  promptZone.hidden = true;
+                  promptZone.innerHTML = '';
+              }).catch(function(err) {
+                  submit.disabled = false;
+                  appendMessage('warning', 'Answer failed: ' + err);
+              });
+          });
+
+          promptZone.appendChild(form);
+          if (input.focus) input.focus();
+      }
+
+      var es = new EventSource('/onboard/' + sessionID + '/stream');
+      es.addEventListener('open', function() {
+          statusEl.textContent = 'Connected';
+      });
+      es.addEventListener('message', function(e) {
+          try {
+              var p = JSON.parse(e.data);
+              appendMessage(p.kind, p.message, p.step_id);
+          } catch (_) {
+              appendMessage('info', e.data);
+          }
+      });
+      es.addEventListener('prompt', function(e) {
+          try { renderPrompt(JSON.parse(e.data)); } catch (_) {}
+      });
+      es.addEventListener('status', function(e) {
+          try {
+              var p = JSON.parse(e.data);
+              statusEl.textContent = 'Status: ' + (p.status || 'running');
+          } catch (_) {}
+      });
+      es.addEventListener('done', function() {
+          statusEl.textContent = 'Done';
+          promptZone.hidden = true;
+          promptZone.innerHTML = '';
+          es.close();
+      });
+      es.addEventListener('error', function(e) {
+          try {
+              var p = JSON.parse(e.data || '{}');
+              if (p.error) appendMessage('error', p.error);
+          } catch (_) {}
+          statusEl.textContent = 'Disconnected \u2014 reconnecting\u2026';
+      });
+  })();
+  </script>
+</body>
+</html>

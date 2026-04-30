@@ -430,7 +430,7 @@ func (s *Server) handleOnboardPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "template missing", http.StatusInternalServerError)
 		return
 	}
-	if err := tmpl.ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := tmpl.Execute(w, data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }

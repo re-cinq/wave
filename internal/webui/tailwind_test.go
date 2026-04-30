@@ -34,9 +34,9 @@ func TestEmbeddedTailwindCSSPresent(t *testing.T) {
 	}
 }
 
-// TestStandaloneTemplatesUseEmbeddedTailwind asserts that the standalone
-// pages do not regress to the Tailwind CDN script tag.
-func TestStandaloneTemplatesUseEmbeddedTailwind(t *testing.T) {
+// TestStandaloneTemplatesUseDesignSystem asserts that standalone pages link
+// the production stylesheet and do not regress to the Tailwind CDN.
+func TestStandaloneTemplatesUseDesignSystem(t *testing.T) {
 	for _, path := range standalonePageTemplates {
 		data, err := templatesFS.ReadFile(path)
 		if err != nil {
@@ -44,10 +44,10 @@ func TestStandaloneTemplatesUseEmbeddedTailwind(t *testing.T) {
 		}
 		body := string(data)
 		if strings.Contains(body, "cdn.tailwindcss.com") {
-			t.Errorf("%s still references cdn.tailwindcss.com — must use /static/tailwind.css", path)
+			t.Errorf("%s still references cdn.tailwindcss.com — use /static/style.css design system", path)
 		}
-		if !strings.Contains(body, "/static/tailwind.css") {
-			t.Errorf("%s does not link /static/tailwind.css", path)
+		if !strings.Contains(body, "/static/style.css") {
+			t.Errorf("%s does not link /static/style.css — standalone pages must use the design system", path)
 		}
 	}
 }
