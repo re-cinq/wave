@@ -54,7 +54,9 @@ var pageTemplates = []string{
 // templates/layout.html. They render fully self-contained pages — typically
 // to avoid Tailwind utility-class collisions with the project stylesheet.
 // Each entry is parsed into its own root template and merged into the
-// returned page map alongside the layout-clone pages.
+// returned page map alongside the layout-clone pages. The Tailwind utility
+// classes referenced by these templates are served from the vendored,
+// embedded /static/tailwind.css (compiled via `make tailwind`).
 var standalonePageTemplates = []string{
 	"templates/work/board.html",
 	"templates/work/detail.html",
@@ -277,8 +279,8 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 	}
 
 	// Standalone pages are NOT cloned from the layout-bearing base — they
-	// render their own <html> shell so Tailwind CDN classes don't collide
-	// with the project stylesheet.
+	// render their own <html> shell so Tailwind utility classes don't
+	// collide with the project stylesheet.
 	for _, page := range standalonePageTemplates {
 		data, readErr := templatesFS.ReadFile(page)
 		if readErr != nil {
