@@ -115,7 +115,7 @@ func (s *Server) handleProposalsPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "template missing: proposals/list.html", http.StatusInternalServerError)
 		return
 	}
-	if err := tmpl.ExecuteTemplate(w, "templates/layout.html", view); err != nil {
+	if err := tmpl.Execute(w, view); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -166,7 +166,7 @@ func (s *Server) handleProposalDetailPage(w http.ResponseWriter, r *http.Request
 		http.Error(w, "template missing: proposals/detail.html", http.StatusInternalServerError)
 		return
 	}
-	if err := tmpl.ExecuteTemplate(w, "templates/layout.html", view); err != nil {
+	if err := tmpl.Execute(w, view); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }

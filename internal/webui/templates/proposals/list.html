@@ -1,68 +1,91 @@
-{{define "title"}}Proposals · Wave{{end}}
-{{define "content"}}
-<div class="page-header">
-    <h1>Evolution Proposals</h1>
-    <p style="color: var(--color-text-muted); margin-top: 4px;">
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Proposals &mdash; Wave</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  {{if csrfToken}}<meta name="csrf-token" content="{{csrfToken}}">{{end}}
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/tailwind.css" />
+</head>
+<body class="bg-surface text-txt antialiased">
+  {{template "partials/nav" .}}
+
+  <main class="max-w-7xl mx-auto px-6 py-8">
+    <header class="mb-6">
+      <h1 class="text-2xl font-semibold tracking-tight">Evolution Proposals</h1>
+      <p class="text-sm text-txt-secondary mt-1">
         Approve or reject pipeline-evolve proposals. Approval activates a new
         <code>pipeline_version</code> row; subsequent runs use the new yaml.
-    </p>
-</div>
+      </p>
+    </header>
 
-<div class="card" style="margin-bottom: 1rem;">
-    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <a href="/proposals?status=proposed"
-           class="badge {{if eq .Filter "proposed"}}badge-yellow{{else}}badge-neutral{{end}}">
-            Proposed ({{index .Counts "proposed"}})
-        </a>
-        <a href="/proposals?status=approved"
-           class="badge {{if eq .Filter "approved"}}badge-green{{else}}badge-neutral{{end}}">
-            Approved ({{index .Counts "approved"}})
-        </a>
-        <a href="/proposals?status=rejected"
-           class="badge {{if eq .Filter "rejected"}}badge-red{{else}}badge-neutral{{end}}">
-            Rejected ({{index .Counts "rejected"}})
-        </a>
-        <a href="/proposals?status=superseded"
-           class="badge {{if eq .Filter "superseded"}}badge-gray{{else}}badge-neutral{{end}}">
-            Superseded ({{index .Counts "superseded"}})
-        </a>
+    <div class="flex gap-2 flex-wrap mb-6">
+      <a href="/proposals?status=proposed"
+         class="px-3 py-1.5 rounded-full text-xs font-medium no-underline
+                {{if eq .Filter "proposed"}}bg-wave-warning text-surface{{else}}bg-surface-tertiary text-txt-secondary hover:bg-edge{{end}}">
+        Proposed ({{index .Counts "proposed"}})
+      </a>
+      <a href="/proposals?status=approved"
+         class="px-3 py-1.5 rounded-full text-xs font-medium no-underline
+                {{if eq .Filter "approved"}}bg-state-completed-bg text-state-completed{{else}}bg-surface-tertiary text-txt-secondary hover:bg-edge{{end}}">
+        Approved ({{index .Counts "approved"}})
+      </a>
+      <a href="/proposals?status=rejected"
+         class="px-3 py-1.5 rounded-full text-xs font-medium no-underline
+                {{if eq .Filter "rejected"}}bg-state-failed-bg text-state-failed{{else}}bg-surface-tertiary text-txt-secondary hover:bg-edge{{end}}">
+        Rejected ({{index .Counts "rejected"}})
+      </a>
+      <a href="/proposals?status=superseded"
+         class="px-3 py-1.5 rounded-full text-xs font-medium no-underline
+                {{if eq .Filter "superseded"}}bg-surface-tertiary text-txt-secondary{{else}}bg-surface-tertiary text-txt-secondary hover:bg-edge{{end}}">
+        Superseded ({{index .Counts "superseded"}})
+      </a>
     </div>
-</div>
 
-<div class="card">
     {{if .Proposals}}
-    <table class="table">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Pipeline</th>
-                <th>Versions</th>
-                <th>Reason</th>
-                <th>Status</th>
-                <th>Proposed</th>
-                <th>Decided</th>
-            </tr>
+    <div class="bg-surface-secondary border border-edge rounded-lg overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-surface-tertiary border-b border-edge text-left text-xs uppercase tracking-wide text-txt-muted">
+          <tr>
+            <th class="px-4 py-2 font-medium">#</th>
+            <th class="px-4 py-2 font-medium">Pipeline</th>
+            <th class="px-4 py-2 font-medium">Versions</th>
+            <th class="px-4 py-2 font-medium">Reason</th>
+            <th class="px-4 py-2 font-medium">Status</th>
+            <th class="px-4 py-2 font-medium">Proposed</th>
+            <th class="px-4 py-2 font-medium">Decided</th>
+          </tr>
         </thead>
         <tbody>
-            {{range .Proposals}}
-            <tr>
-                <td><a href="/proposals/{{.ID}}">#{{.ID}}</a></td>
-                <td><code>{{.PipelineName}}</code></td>
-                <td>v{{.VersionBefore}} &rarr; v{{.VersionAfter}}</td>
-                <td>{{.Reason}}</td>
-                <td><span class="badge {{proposalStatusBadgeClass .Status}}">{{.Status}}</span></td>
-                <td>{{formatTime .ProposedAt}}</td>
-                <td>
-                    {{if .DecidedAt}}{{formatTime .DecidedAt}}{{if .DecidedBy}}<br><small>{{.DecidedBy}}</small>{{end}}{{else}}&mdash;{{end}}
-                </td>
-            </tr>
-            {{end}}
+          {{range .Proposals}}
+          <tr class="border-b border-edge last:border-0 hover:bg-surface-tertiary">
+            <td class="px-4 py-3"><a href="/proposals/{{.ID}}" class="hover:underline">{{.ID}}</a></td>
+            <td class="px-4 py-3 font-mono text-xs">{{.PipelineName}}</td>
+            <td class="px-4 py-3 text-xs text-txt-secondary">v{{.VersionBefore}} &rarr; v{{.VersionAfter}}</td>
+            <td class="px-4 py-3 text-txt-secondary">{{.Reason}}</td>
+            <td class="px-4 py-3">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{proposalStatusBadgeClass .Status}}">
+                {{.Status}}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-xs text-txt-muted">{{formatTime .ProposedAt}}</td>
+            <td class="px-4 py-3 text-xs text-txt-muted">
+              {{if .DecidedAt}}{{formatTime .DecidedAt}}{{if .DecidedBy}}<br><small>{{.DecidedBy}}</small>{{end}}{{else}}&mdash;{{end}}
+            </td>
+          </tr>
+          {{end}}
         </tbody>
-    </table>
+      </table>
+    </div>
     {{else}}
-    <p style="color: var(--color-text-muted); padding: 1rem;">
-        No proposals with status <code>{{.Filter}}</code>.
-    </p>
+    <div class="bg-surface-secondary border border-edge rounded-lg p-6 text-center text-sm text-txt-muted">
+      No proposals with status <code>{{.Filter}}</code>.
+    </div>
     {{end}}
-</div>
-{{end}}
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
