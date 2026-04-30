@@ -49,7 +49,7 @@ pipeline_outputs:
 steps:
   - id: fetch-assess
     persona: implementer
-    model: cheapest
+    model: balanced
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"
@@ -236,7 +236,7 @@ steps:
         - type: agent_review
           persona: navigator
           criteria_path: .agents/contracts/impl-review-criteria.md
-          model: cheapest
+          model: balanced
           token_budget: 0
           timeout: 300s
           context:

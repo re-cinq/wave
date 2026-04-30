@@ -15,6 +15,7 @@
         # Common packages for all shells
         commonPackages = with pkgs; [
           go
+          golangci-lint  # CI lint parity (forbidigo, etc.); match v2.x in .github/workflows/lint.yml
           gh
           git
 	  tea

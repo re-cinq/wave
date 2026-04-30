@@ -36,7 +36,7 @@ pipeline_outputs:
 steps:
   - id: scan
     persona: navigator
-    model: cheapest
+    model: balanced
     workspace:
       mount:
         - source: ./
@@ -116,7 +116,7 @@ steps:
         persona: navigator
         criteria_path: .agents/contracts/quality-review-criteria.md
         source: .agents/output/tests-report.md
-        model: cheapest
+        model: balanced
         token_budget: 0
         timeout: 300s
         on_failure: warn
