@@ -48,8 +48,6 @@ var pageTemplates = []string{
 	"templates/webhook_detail.html",
 	"templates/admin.html",
 	"templates/onboard/index.html",
-	"templates/proposals/list.html",
-	"templates/proposals/detail.html",
 }
 
 // standalonePageTemplates is the list of templates that do NOT extend
@@ -62,6 +60,8 @@ var pageTemplates = []string{
 var standalonePageTemplates = []string{
 	"templates/work/board.html",
 	"templates/work/detail.html",
+	"templates/proposals/list.html",
+	"templates/proposals/detail.html",
 }
 
 // parseTemplates parses all embedded HTML templates using a clone-per-page
