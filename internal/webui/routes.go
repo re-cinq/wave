@@ -74,6 +74,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/runs/{id}/events", s.handleSSE)
 	mux.HandleFunc("GET /api/issues", s.handleAPIIssues)
 	mux.HandleFunc("POST /api/issues/start", s.handleAPIStartFromIssue)
+	mux.HandleFunc("POST /work/{forge}/{owner}/{repo}/{number}/dispatch", s.handleWorkDispatch)
 	mux.HandleFunc("GET /api/prs", s.handleAPIPRs)
 	mux.HandleFunc("POST /api/prs/{number}/review", s.handlePRReview)
 	mux.HandleFunc("POST /api/prs/start", s.handleAPIStartFromPR)
