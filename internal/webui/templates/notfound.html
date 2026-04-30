@@ -1,13 +1,46 @@
-{{define "title"}}Not Found · Wave{{end}}
-{{define "content"}}
-<div class="empty-state empty-state-404">
-    <div class="empty-state-icon empty-state-icon-lg">404</div>
-    <p><strong>Page not found</strong></p>
-    <p>The page you requested does not exist or has been moved.</p>
-    <div class="empty-state-action">
-        <button class="btn" onclick="window.history.back()">Go Back</button>
-        <a href="/runs" class="btn btn-primary">Go to Runs</a>
-        <a href="/pipelines" class="btn">View Pipelines</a>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Not Found &mdash; Wave</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+</head>
+<body>
+  <nav class="w-nav">
+    <a href="/" class="w-nav-brand">
+      <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/>
+        <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" opacity="0.35"/>
+      </svg>
+      Wave
+    </a>
+    <div class="w-nav-links">
+      <a href="/work">Work</a>
+      <a href="/runs">Runs</a>
+      <a href="/pipelines">Pipelines</a>
+      <a href="/proposals">Proposals</a>
+      <a href="/issues">Issues</a>
+      <a href="/prs">PRs</a>
+      <a href="/onboard">Onboard</a>
+      <a href="/health" style="margin-left: auto;">Health</a>
     </div>
-</div>
-{{end}}
+  </nav>
+
+  <div class="w-container">
+    <div class="w-empty" style="padding: 80px 20px;">
+      <h2 style="font-size: 64px; font-weight: 700; color: var(--color-text-muted); margin-bottom: 8px;">404</h2>
+      <h3 style="margin-bottom: 4px;">Page not found</h3>
+      <p style="color: var(--color-text-secondary); font-size: 13px; margin-bottom: 24px;">The page you requested does not exist or has been moved.</p>
+      <div style="display: flex; gap: 8px;">
+        <button class="w-btn" onclick="window.history.back()">Go Back</button>
+        <a href="/runs" class="w-btn w-btn-primary" style="text-decoration: none;">Go to Runs</a>
+        <a href="/pipelines" class="w-btn" style="text-decoration: none;">View Pipelines</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

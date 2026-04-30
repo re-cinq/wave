@@ -1,90 +1,135 @@
-{{define "title"}}Issues · Wave{{end}}
-{{define "content"}}
-<div class="wr-head">
-    <h1>Issues</h1>
-</div>
-
-<div class="wr-toolbar">
-    <div class="wr-filters">
-        <a href="/issues?state=open" class="wr-filter{{if eq .FilterState "open"}} active{{end}}">Open</a>
-        <a href="/issues?state=closed" class="wr-filter{{if eq .FilterState "closed"}} active{{end}}">Closed</a>
-        <a href="/issues?state=all" class="wr-filter{{if eq .FilterState "all"}} active{{end}}">All</a>
-    </div>
-    <div class="wr-controls">
-        <input type="text" id="issue-search" class="wr-search" placeholder="Search issues..." oninput="filterItems(this.value)">
-        <span class="wr-count">
-            {{if .TotalOpen}}<b>{{.TotalOpen}}</b> open{{end}}
-            {{if .TotalClosed}} · <b>{{.TotalClosed}}</b> closed{{end}}
-        </span>
-    </div>
-</div>
-
-{{if .Message}}
-<div class="issue-message">{{.Message}}</div>
-{{else if .Issues}}
-<div class="wr-list">
-{{range .Issues}}
-    <a href="/issues/{{.Number}}" class="wr-run">
-        <div class="wr-accent {{if .LastStatus}}st-{{.LastStatus}}{{else}}st-pending{{end}}"></div>
-        <div class="wr-body">
-            <div class="wr-row1">
-                <span class="wr-name">#{{.Number}} {{.Title}}</span>
-                {{if eq .State "open"}}<span class="badge badge-issue-open">open</span>
-                {{else}}<span class="badge badge-issue-closed">closed</span>{{end}}
-            </div>
-            <div class="wr-row2">
-                <span>{{.Author}}</span>
-                {{if .RunCount}}<span><b>{{.RunCount}}</b> runs</span>{{end}}
-                {{if .TotalTokens}}<span><b>{{formatTokensShort .TotalTokens}}</b> tok</span>{{end}}
-                {{if .Comments}}<span><b>{{.Comments}}</b> {{if eq .Comments 1}}comment{{else}}comments{{end}}</span>{{end}}
-                {{range .Labels}}<span class="badge badge-label"{{if .Color}} style="background:#{{.Color}}22;color:#{{.Color}};"{{end}}>{{.Name}}</span>{{end}}
-            </div>
-        </div>
-        <div class="wr-meta">
-            <span class="wr-date">{{.CreatedAt}}</span>
-        </div>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Issues &mdash; Wave</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  {{if csrfToken}}<meta name="csrf-token" content="{{csrfToken}}">{{end}}
+</head>
+<body>
+  <nav class="w-nav">
+    <a href="/" class="w-nav-brand">
+      <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/>
+        <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" opacity="0.35"/>
+      </svg>
+      Wave
     </a>
-{{end}}
-</div>
-{{if .HasMore}}
-<div class="wr-loading" id="wr-loader" data-next="/issues?state={{.FilterState}}&page={{add .Page 1}}">
-    <span class="wr-loading-spinner"></span><span class="wr-loading-text">Loading more...</span>
-</div>
-{{end}}
-{{else}}
-<div class="issue-empty">No issues found</div>
-{{end}}
-{{end}}
-{{define "scripts"}}
-<script>
-function filterItems(query) {
-    var q = query.toLowerCase().trim();
-    document.querySelectorAll('.wr-list > a.wr-run').forEach(function(card) {
-        if (!q) { card.style.display = ''; return; }
-        card.style.display = card.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
-    });
-}
-(function(){
-    var loader=document.getElementById('wr-loader');
-    if(!loader)return;
-    var list=document.querySelector('.wr-list');
-    if(!list)return;
-    var loading=false;var nextUrl=loader.dataset.next;
-    function loadMore(){
-        if(loading||!nextUrl)return;
-        loading=true;loader.classList.add('active');
-        fetch(nextUrl).then(function(r){return r.text()}).then(function(html){
-            var doc=new DOMParser().parseFromString(html,'text/html');
-            doc.querySelectorAll('.wr-list > *').forEach(function(el){list.appendChild(el.cloneNode(true));});
-            var nl=doc.getElementById('wr-loader');
-            if(nl){nextUrl=nl.dataset.next;loading=false;loader.classList.remove('active');
-                if(loader.getBoundingClientRect().top<window.innerHeight+300)loadMore();
-            }
-            else{loader.remove();}
-        }).catch(function(){loader.classList.remove('active');loading=false;});
-    }
-    window.addEventListener('scroll',function(){if(loader.getBoundingClientRect().top<window.innerHeight+300)loadMore();});
-    setTimeout(function(){if(loader.getBoundingClientRect().top<window.innerHeight+300)loadMore();},100);
-})();
-</script>
-{{end}}
+    <div class="w-nav-links">
+      <a href="/work">Work</a>
+      <a href="/runs">Runs</a>
+      <a href="/pipelines">Pipelines</a>
+      <a href="/proposals">Proposals</a>
+      <a href="/issues" class="active">Issues</a>
+      <a href="/prs">PRs</a>
+      <a href="/onboard">Onboard</a>
+      <a href="/health" style="margin-left: auto;">Health</a>
+    </div>
+  </nav>
+
+  <div class="w-container">
+    <div class="w-page-header">
+      <h1 class="w-page-title">Issues</h1>
+    </div>
+
+    <div class="w-filterbar" style="border-radius: 8px; border-bottom: 1px solid var(--color-border);">
+      <a href="/issues?state=open" class="badge {{if eq .FilterState "open"}}badge-green{{else}}badge-dim{{end}}" style="font-size: 12px; padding: 4px 10px; text-decoration: none; cursor: pointer;">Open</a>
+      <a href="/issues?state=closed" class="badge {{if eq .FilterState "closed"}}badge-dim{{else}}badge-dim{{end}}" style="font-size: 12px; padding: 4px 10px; text-decoration: none; cursor: pointer;">Closed</a>
+      <a href="/issues?state=all" class="badge {{if eq .FilterState "all"}}badge-blue{{else}}badge-dim{{end}}" style="font-size: 12px; padding: 4px 10px; text-decoration: none; cursor: pointer;">All</a>
+      <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+        <input type="text" id="issue-search" placeholder="Search issues..." style="background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text-secondary); padding: 6px 10px; border-radius: 6px; font-size: 12px; width: 180px; font-family: inherit;" oninput="filterItems(this.value)">
+        <span style="font-size: 12px; color: var(--color-text-secondary);">
+          {{if .TotalOpen}}<b>{{.TotalOpen}}</b> open{{end}}
+          {{if .TotalClosed}} &middot; <b>{{.TotalClosed}}</b> closed{{end}}
+        </span>
+      </div>
+    </div>
+
+  {{if .Message}}
+    <div class="w-empty">
+      <p>{{.Message}}</p>
+    </div>
+  {{else if .Issues}}
+    <div class="w-list standalone" id="issue-list">
+    {{range .Issues}}
+      <a href="/issues/{{.Number}}" class="run-card" style="display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit;" onmouseover="this.style.background='var(--color-bg-tertiary)'" onmouseout="this.style.background=''">
+        <div class="run-accent st-{{if .LastStatus}}{{.LastStatus}}{{else}}pending{{end}}" style="width: 4px; border-radius: 2px; flex-shrink: 0;"></div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+            <span style="font-weight: 500;">#{{.Number}} {{.Title}}</span>
+            {{if eq .State "open"}}<span class="badge badge-green" style="font-size: 10px;">open</span>
+            {{else}}<span class="badge badge-dim" style="font-size: 10px;">closed</span>{{end}}
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px; font-size: 12px; color: var(--color-text-secondary); flex-wrap: wrap;">
+            <span>{{.Author}}</span>
+            {{if .RunCount}}<span><b>{{.RunCount}}</b> runs</span>{{end}}
+            {{if .TotalTokens}}<span><b>{{formatTokensShort .TotalTokens}}</b> tok</span>{{end}}
+            {{if .Comments}}<span><b>{{.Comments}}</b> {{if eq .Comments 1}}comment{{else}}comments{{end}}</span>{{end}}
+            {{range .Labels}}<span class="badge badge-dim" style="font-size: 10px;{{if .Color}} background:#{{.Color}}22;color:#{{.Color}};{{end}}">{{.Name}}</span>{{end}}
+            <span style="margin-left: auto;">{{.CreatedAt}}</span>
+          </div>
+        </div>
+      </a>
+    {{end}}
+    </div>
+    {{if .HasMore}}
+    <div id="wr-loader" data-next="/issues?state={{.FilterState}}&page={{add .Page 1}}" style="text-align: center; padding: 16px; color: var(--color-text-secondary); font-size: 13px;">
+      <span style="display: inline-block; width: 14px; height: 14px; border: 2px solid var(--color-border); border-top-color: var(--color-link); border-radius: 50%; animation: spin 0.6s linear infinite;"></span>
+      <span style="margin-left: 8px;">Loading more...</span>
+    </div>
+    {{end}}
+  {{else}}
+    <div class="w-empty">
+      <h3>No issues found</h3>
+    </div>
+  {{end}}
+  </div>
+
+  <script src="/static/app.js"></script>
+  <script>
+  function filterItems(query) {
+      var q = query.toLowerCase().trim();
+      document.querySelectorAll('#issue-list > a.run-card').forEach(function(card) {
+          if (!q) { card.style.display = ''; return; }
+          card.style.display = card.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+      });
+  }
+  (function(){
+      var loader=document.getElementById('wr-loader');
+      if(!loader)return;
+      var list=document.querySelector('#issue-list');
+      if(!list)return;
+      var loading=false;var nextUrl=loader.dataset.next;
+      function loadMore(){
+          if(loading||!nextUrl)return;
+          loading=true;loader.style.opacity='0.5';
+          fetch(nextUrl).then(function(r){return r.text()}).then(function(html){
+              var doc=new DOMParser().parseFromString(html,'text/html');
+              doc.querySelectorAll('#issue-list > *').forEach(function(el){list.appendChild(el.cloneNode(true));});
+              var nl=doc.getElementById('wr-loader');
+              if(nl){nextUrl=nl.dataset.next;loading=false;loader.style.opacity='1';
+                  if(loader.getBoundingClientRect().top<window.innerHeight+300)loadMore();
+              }
+              else{loader.remove();}
+          }).catch(function(){loader.style.opacity='1';loading=false;});
+      }
+      window.addEventListener('scroll',function(){if(loader.getBoundingClientRect().top<window.innerHeight+300)loadMore();});
+      setTimeout(function(){if(loader.getBoundingClientRect().top<window.innerHeight+300)loadMore();},100);
+  })();
+  </script>
+
+  <style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .run-accent.st-completed { background: var(--color-completed); }
+  .run-accent.st-running { background: var(--color-running); }
+  .run-accent.st-failed { background: var(--color-failed); }
+  .run-accent.st-rejected { background: var(--color-pending); }
+  .run-accent.st-cancelled { background: var(--color-cancelled); }
+  .run-accent.st-pending { background: var(--color-pending); }
+  .run-accent.st-completed_empty { background: var(--color-completed-empty); }
+  .run-accent.st-skipped { background: var(--color-text-muted); }
+  </style>
+</body>
+</html>
