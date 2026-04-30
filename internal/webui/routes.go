@@ -41,6 +41,12 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	// See features_analytics.go and features_webhooks.go.
 	mux.HandleFunc("GET /admin", s.handleAdminPage)
 
+	// Evolution proposal approval gate (#1613)
+	mux.HandleFunc("GET /proposals", s.handleProposalsPage)
+	mux.HandleFunc("GET /proposals/{id}", s.handleProposalDetailPage)
+	mux.HandleFunc("POST /proposals/{id}/approve", s.handleProposalApprove)
+	mux.HandleFunc("POST /proposals/{id}/reject", s.handleProposalReject)
+
 	// API endpoints (JSON)
 	mux.HandleFunc("GET /api/runs", s.handleAPIRuns)
 	mux.HandleFunc("GET /api/runs/export", s.handleExportRuns)
