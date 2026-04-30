@@ -24,7 +24,6 @@ var templatesFS embed.FS
 // base (layout + partials) so that each page can independently define "title",
 // "content", and "scripts" blocks without colliding.
 var pageTemplates = []string{
-	"templates/runs.html",
 	"templates/run_detail.html",
 	"templates/personas.html",
 	"templates/persona_detail.html",
@@ -62,6 +61,7 @@ var standalonePageTemplates = []string{
 	"templates/onboard/index.html",
 	"templates/proposals/list.html",
 	"templates/proposals/detail.html",
+	"templates/runs.html",
 }
 
 // parseTemplates parses all embedded HTML templates using a clone-per-page

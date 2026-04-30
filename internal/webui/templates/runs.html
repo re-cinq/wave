@@ -1,85 +1,169 @@
-{{define "title"}}Runs · Wave{{end}}
-{{define "content"}}
-
-<div class="wr-head">
-    <h1>Runs</h1>
-</div>
-
-<!-- Filters bar -->
-<div class="wr-toolbar">
-    <div class="wr-filters">
-        <a href="/runs?status=all" class="wr-filter{{if eq .FilterStatus "all"}} active{{end}}">All</a>
-        <a href="/runs?status=completed" class="wr-filter{{if eq .FilterStatus "completed"}} active{{end}}">Completed</a>
-        <a href="/runs?status=completed_empty" class="wr-filter{{if eq .FilterStatus "completed_empty"}} active{{end}}">No Changes</a>
-        <a href="/runs?status=failed" class="wr-filter{{if eq .FilterStatus "failed"}} active{{end}}">Failed</a>
-        <a href="/runs?status=cancelled" class="wr-filter{{if eq .FilterStatus "cancelled"}} active{{end}}">Cancelled</a>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Runs &mdash; Wave</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  {{if csrfToken}}<meta name="csrf-token" content="{{csrfToken}}">{{end}}
+</head>
+<body>
+  <nav class="w-nav">
+    <a href="/" class="w-nav-brand">
+      <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/>
+        <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" opacity="0.35"/>
+      </svg>
+      Wave
+    </a>
+    <div class="w-nav-links">
+      <a href="/work">Work</a>
+      <a href="/runs" class="active">Runs</a>
+      <a href="/pipelines">Pipelines</a>
+      <a href="/proposals">Proposals</a>
+      <a href="/issues">Issues</a>
+      <a href="/prs">PRs</a>
+      <a href="/onboard">Onboard</a>
+      <a href="/health" style="margin-left: auto;">Health</a>
     </div>
-    <div class="wr-controls">
-        <input type="text" id="run-search" placeholder="Search runs..." style="padding:0.2rem 0.4rem;border-radius:4px;font-size:0.72rem;color:var(--color-text-secondary);border:1px solid var(--color-border);background:var(--color-bg-tertiary);font-family:var(--font-sans);width:180px;" oninput="filterRuns(this.value)">
+  </nav>
+
+  <div class="w-container">
+    <div class="w-page-header">
+      <h1 class="w-page-title">Runs</h1>
+    </div>
+
+    <!-- Filters bar -->
+    <div class="w-filterbar" style="border-radius: 8px; border-bottom: 1px solid var(--color-border);">
+      <a href="/runs?status=all" class="badge {{if eq .FilterStatus "all"}}badge-blue{{else}}badge-dim{{end}}" style="font-size: 12px; padding: 4px 10px; text-decoration: none; cursor: pointer;">All</a>
+      <a href="/runs?status=completed" class="badge {{if eq .FilterStatus "completed"}}badge-green{{else}}badge-dim{{end}}" style="font-size: 12px; padding: 4px 10px; text-decoration: none; cursor: pointer;">Completed</a>
+      <a href="/runs?status=completed_empty" class="badge {{if eq .FilterStatus "completed_empty"}}badge-yellow{{else}}badge-dim{{end}}" style="font-size: 12px; padding: 4px 10px; text-decoration: none; cursor: pointer;">No Changes</a>
+      <a href="/runs?status=failed" class="badge {{if eq .FilterStatus "failed"}}badge-red{{else}}badge-dim{{end}}" style="font-size: 12px; padding: 4px 10px; text-decoration: none; cursor: pointer;">Failed</a>
+      <a href="/runs?status=cancelled" class="badge {{if eq .FilterStatus "cancelled"}}badge-dim{{else}}badge-dim{{end}}" style="font-size: 12px; padding: 4px 10px; text-decoration: none; cursor: pointer;">Cancelled</a>
+      <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+        <input type="text" id="run-search" placeholder="Search runs..." style="background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text-secondary); padding: 6px 10px; border-radius: 6px; font-size: 12px; width: 180px; font-family: inherit;" oninput="filterRuns(this.value)">
         {{if .Pipelines}}
-        <select class="wr-select" onchange="location.href='/runs{{if .FilterStatus}}?status={{.FilterStatus}}{{else}}?{{end}}&pipeline='+this.value">
-            <option value="">All pipelines</option>
-            {{range .Pipelines}}
-            <option value="{{.}}"{{if $.FilterPipeline}}{{if eq $.FilterPipeline .}} selected{{end}}{{end}}>{{.}}</option>
-            {{end}}
+        <select onchange="location.href='/runs{{if .FilterStatus}}?status={{.FilterStatus}}{{else}}?{{end}}&pipeline='+this.value" style="background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); padding: 6px 10px; border-radius: 6px; font-size: 12px; font-family: inherit;">
+          <option value="">All pipelines</option>
+          {{range .Pipelines}}
+          <option value="{{.}}"{{if $.FilterPipeline}}{{if eq $.FilterPipeline .}} selected{{end}}{{end}}>{{.}}</option>
+          {{end}}
         </select>
         {{end}}
-        <a href="/runs?{{if ne .FilterStatus "all"}}status={{.FilterStatus}}&{{end}}{{if .FilterPipeline}}pipeline={{.FilterPipeline}}&{{end}}top_level_only={{if .TopLevelOnly}}false{{else}}true{{end}}" class="wr-filter" title="Toggle whether resume + composition children appear in the list">{{if .TopLevelOnly}}Show children{{else}}Hide children{{end}}</a>
+        <a href="/runs?{{if ne .FilterStatus "all"}}status={{.FilterStatus}}&{{end}}{{if .FilterPipeline}}pipeline={{.FilterPipeline}}&{{end}}top_level_only={{if .TopLevelOnly}}false{{else}}true{{end}}" class="badge badge-dim" style="font-size: 11px; padding: 4px 10px; text-decoration: none; cursor: pointer;" title="Toggle whether resume + composition children appear in the list">{{if .TopLevelOnly}}Show children{{else}}Hide children{{end}}</a>
+      </div>
     </div>
-</div>
 
-<!-- Running pipelines section -->
-<div class="rp-section">
-  <div class="rp-header{{if gt .RunningCount 0}} rp-header-clickable{{end}}"
-       {{if gt .RunningCount 0}}role="button" tabindex="0" aria-expanded="true" aria-controls="rp-section-body"
-       onclick="toggleRunningSection()"
-       onkeydown="if(event.key==='Enter'||event.key===' '){toggleRunningSection();event.preventDefault()}"{{end}}>
-    <span class="rp-label">Running</span>
-    <span class="rp-badge">{{.RunningCount}}</span>
-    {{if gt .RunningCount 0}}<span class="rp-chevron">▾</span>{{end}}
-  </div>
-  <div id="rp-section-body" class="rp-body">
-    {{if eq .RunningCount 0}}
-    <div class="rp-empty">
-      <p>No pipelines running</p>
-      <a href="/pipelines" class="rp-cta">Start a pipeline →</a>
+    <!-- Running pipelines section -->
+    <div style="border: 1px solid var(--color-border); border-top: none; border-radius: 0 0 8px 8px; margin-bottom: 16px; overflow: hidden;">
+      <div style="display: flex; align-items: center; padding: 10px 16px; background: var(--color-bg-secondary); border-bottom: 1px solid var(--color-border-light); cursor: default;"
+           {{if gt .RunningCount 0}}style="cursor: pointer;" role="button" tabindex="0" aria-expanded="true" aria-controls="rp-section-body"
+           onclick="toggleRunningSection()"
+           onkeydown="if(event.key==='Enter'||event.key===' '){toggleRunningSection();event.preventDefault()}"{{end}}>
+        <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-secondary); font-weight: 600;">Running</span>
+        <span class="badge badge-blue" style="margin-left: 8px;">{{.RunningCount}}</span>
+        {{if gt .RunningCount 0}}<span style="margin-left: 8px; color: var(--color-text-muted);">&darr;</span>{{end}}
+      </div>
+      <div id="rp-section-body">
+        {{if eq .RunningCount 0}}
+        <div style="padding: 24px; text-align: center; color: var(--color-text-secondary); font-size: 13px;">
+          <p style="margin: 0 0 8px;">No pipelines running</p>
+          <a href="/pipelines" style="color: var(--color-link);">Start a pipeline &rarr;</a>
+        </div>
+        {{else}}
+        <div id="rp-runs-list">
+        {{range .RunningRuns}}
+          <a href="/runs/{{.RunID}}" class="run-card" style="display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit;" onmouseover="this.style.background='var(--color-bg-tertiary)'" onmouseout="this.style.background=''">
+            <div style="width: 4px; border-radius: 2px; background: var(--color-running); flex-shrink: 0;"></div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <span style="font-weight: 500;">{{.PipelineName}}</span>
+                {{if .InputPreview}}<span style="color: var(--color-text-secondary); font-size: 12px;">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
+                <span style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
+                  <span class="badge {{statusClass .Status}}">{{statusLabel .Status}}</span>
+                  {{if .Duration}}<span style="font-size: 12px; color: var(--color-text-secondary);">{{.Duration}}</span>{{end}}
+                </span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px; font-size: 12px; color: var(--color-text-secondary);">
+                {{if gt .StepsTotal 0}}<span>{{.StepsCompleted}}/{{.StepsTotal}}</span>{{end}}
+                {{range .Models}}<span class="badge badge-model {{modelTierClass .}}" style="font-size: 10px;">{{friendlyModel .}}</span>{{end}}
+                {{if .TotalTokens}}<span>{{formatTokens .TotalTokens}}</span>{{end}}
+                <span style="margin-left: auto;">{{.FormattedStartedAt}}</span>
+              </div>
+            </div>
+          </a>
+          {{if .ChildRuns}}
+          <div style="padding-left: 20px;">
+          {{range .ChildRuns}}
+            <a href="/runs/{{.RunID}}" class="run-card" style="display: flex; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit;" onmouseover="this.style.background='var(--color-bg-tertiary)'" onmouseout="this.style.background=''">
+              <div style="width: 4px; border-radius: 2px; background: var(--color-running); flex-shrink: 0;"></div>
+              <div style="flex: 1; min-width: 0;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                  <span style="font-weight: 500;">{{.PipelineName}}</span>
+                  <span style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
+                    <span class="badge {{statusClass .Status}}">{{statusLabel .Status}}</span>
+                    {{if .Duration}}<span style="font-size: 12px; color: var(--color-text-secondary);">{{.Duration}}</span>{{end}}
+                  </span>
+                </div>
+              </div>
+            </a>
+          {{end}}
+          </div>
+          {{end}}
+        {{end}}
+        </div>
+        {{end}}
+      </div>
     </div>
-    {{else}}
-    <div class="rp-runs">
-    {{range .RunningRuns}}
-      <a href="/runs/{{.RunID}}" class="wr-run">
-        <div class="wr-accent st-{{.Status}}"></div>
-        <div class="wr-body">
-          <div class="wr-row1">
-            <span class="wr-name">{{.PipelineName}}</span>
-            {{if .InputPreview}}<span class="wr-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
-            <span class="wr-right">
-              <span class="badge wr-status {{statusClass .Status}}">{{statusLabel .Status}}</span>
-              {{if .Duration}}<span class="wr-dur">{{.Duration}}</span>{{end}}
+
+    <!-- Run list -->
+    <div class="w-list standalone" id="run-list" style="border-radius: 8px;">
+    {{if .Runs}}
+    {{range .Runs}}
+      <a href="/runs/{{.RunID}}" class="run-card" style="display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit;" onmouseover="this.style.background='var(--color-bg-tertiary)'" onmouseout="this.style.background=''">
+        <div class="run-accent st-{{.Status}}" style="width: 4px; border-radius: 2px; flex-shrink: 0;"></div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+            <span style="font-weight: 500;">{{.PipelineName}}</span>
+            {{if .InputPreview}}<span style="color: var(--color-text-secondary); font-size: 12px;">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
+            {{if .RunKind}}{{if ne .RunKind "top_level"}}<span class="badge badge-dim" style="font-size: 10px;" title="Launched by parent composition step or resume">{{runKindLabel .RunKind}}</span>{{end}}{{end}}
+            {{if hasResumeChildren .ChildRuns}}<span class="badge badge-dim" style="font-size: 10px;" title="This run was resumed">resumed by {{countResumeChildren .ChildRuns}}</span>{{end}}
+            {{if hasCompositionChildren .ChildRuns}}<span class="badge badge-dim" style="font-size: 10px;" title="Composition children">{{countCompositionChildren .ChildRuns}} {{pluralize (countCompositionChildren .ChildRuns) "child" "children"}}</span>{{end}}
+            <span style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
+              <span class="badge {{statusClass .Status}}">{{statusLabel .Status}}</span>
+              {{if .Duration}}<span style="font-size: 12px; color: var(--color-text-secondary);">{{.Duration}}</span>{{end}}
             </span>
           </div>
-          <div class="wr-row2">
-            {{if gt .StepsTotal 0}}<span>{{.StepsCompleted}}/{{.StepsTotal}}</span>{{end}}
-            {{range .Models}}<span class="badge badge-model {{modelTierClass .}}">{{friendlyModel .}}</span>{{end}}
-            {{if .TotalTokens}}<span>{{formatTokens .TotalTokens}}</span>{{end}}
-            <span class="wr-right">
-              <span class="wr-date">{{.FormattedStartedAt}}</span>
-            </span>
+          <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px; font-size: 12px; color: var(--color-text-secondary); flex-wrap: wrap;">
+            {{if gt .StepsTotal 0}}<span>{{.StepsCompleted}}/{{.StepsTotal}} steps</span>{{end}}
+            {{if .TotalTokens}}<span>{{formatTokens .TotalTokens}} tok</span>{{end}}
+            {{range .Models}}<span class="badge badge-model {{modelTierClass .}}" style="font-size: 10px;">{{friendlyModel .}}</span>{{end}}
+            {{range .Adapters}}<span class="badge badge-dim" style="font-size: 10px;">{{.}}</span>{{end}}
+            {{if .BranchName}}<span style="font-size: 11px; color: var(--color-text-secondary);">&#9741; {{.BranchName}}</span>{{end}}
+            <span style="margin-left: auto;">{{.FormattedStartedAt}}</span>
           </div>
         </div>
       </a>
+
       {{if .ChildRuns}}
-      <div class="wr-child">
+      <div style="padding-left: 20px;">
       {{range .ChildRuns}}
-        <a href="/runs/{{.RunID}}" class="wr-run">
-          <div class="wr-accent st-{{.Status}}"></div>
-          <div class="wr-body">
-            <div class="wr-row1">
-              <span class="wr-name">{{.PipelineName}}</span>
-              <span class="wr-right">
-                <span class="badge wr-status {{statusClass .Status}}">{{statusLabel .Status}}</span>
-                {{if .Duration}}<span class="wr-dur">{{.Duration}}</span>{{end}}
+        <a href="/runs/{{.RunID}}" class="run-card" style="display: flex; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit;" onmouseover="this.style.background='var(--color-bg-tertiary)'" onmouseout="this.style.background=''">
+          <div class="run-accent st-{{.Status}}" style="width: 4px; border-radius: 2px; flex-shrink: 0;"></div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+              <span style="font-weight: 500;">{{.PipelineName}}</span>
+              {{if .InputPreview}}<span style="color: var(--color-text-secondary); font-size: 12px;">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
+              <span style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
+                <span class="badge {{statusClass .Status}}">{{statusLabel .Status}}</span>
+                {{if .Duration}}<span style="font-size: 12px; color: var(--color-text-secondary);">{{.Duration}}</span>{{end}}
               </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px; font-size: 12px; color: var(--color-text-secondary);">
+              {{if gt .StepsTotal 0}}<span>{{.StepsCompleted}}/{{.StepsTotal}}</span>{{end}}
+              {{range .Models}}<span class="badge badge-model {{modelTierClass .}}" style="font-size: 10px;">{{friendlyModel .}}</span>{{end}}
+              <span style="margin-left: auto;">{{.FormattedStartedAt}}</span>
             </div>
           </div>
         </a>
@@ -87,145 +171,92 @@
       </div>
       {{end}}
     {{end}}
+    {{else}}
+    <div style="padding: 40px 20px; text-align: center; color: var(--color-text-secondary); font-size: 13px;">
+      No runs found{{if .FilterStatus}} with status "{{.FilterStatus}}"{{end}}{{if .FilterPipeline}} for pipeline "{{.FilterPipeline}}"{{end}}
+    </div>
+    {{end}}
+    </div>
+
+    {{if .HasMore}}
+    <div id="wr-loader" data-next="/runs?cursor={{.NextCursor}}{{if .FilterStatus}}&status={{.FilterStatus}}{{end}}{{if .FilterPipeline}}&pipeline={{.FilterPipeline}}{{end}}" style="text-align: center; padding: 16px; color: var(--color-text-secondary); font-size: 13px;">
+      <span style="display: inline-block; width: 14px; height: 14px; border: 2px solid var(--color-border); border-top-color: var(--color-link); border-radius: 50%; animation: spin 0.6s linear infinite;"></span>
+      <span style="margin-left: 8px;">Loading more...</span>
     </div>
     {{end}}
   </div>
-</div>
 
-<!-- Run list -->
-<div class="wr-list" id="run-list">
-{{if .Runs}}
-{{range .Runs}}
-    <a href="/runs/{{.RunID}}" class="wr-run">
-        <div class="wr-accent st-{{.Status}}"></div>
-        <div class="wr-body">
-            <div class="wr-row1">
-                <span class="wr-name">{{.PipelineName}}</span>
-                {{if .InputPreview}}<span class="wr-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
-                {{if .RunKind}}{{if ne .RunKind "top_level"}}<span class="badge badge-runkind badge-runkind-{{.RunKind}}" style="font-size:0.62rem;" title="Launched by parent composition step or resume">{{runKindLabel .RunKind}}</span>{{end}}{{end}}
-                {{if hasResumeChildren .ChildRuns}}<span class="badge badge-runkind badge-runkind-resume" style="font-size:0.62rem;" title="This run was resumed — see nested resume run(s) below">resumed by {{countResumeChildren .ChildRuns}}</span>{{end}}
-                {{if hasCompositionChildren .ChildRuns}}<span class="badge badge-runkind badge-runkind-composition" style="font-size:0.62rem;" title="This run launched composition children (iterate / aggregate / branch / loop / sub-pipeline) — see nested rows below">{{countCompositionChildren .ChildRuns}} {{pluralize (countCompositionChildren .ChildRuns) "child" "children"}}</span>{{end}}
-                <span class="wr-right">
-                    <span class="badge wr-status {{statusClass .Status}}">{{statusLabel .Status}}</span>
-                    {{if .Duration}}<span class="wr-dur">{{.Duration}}</span>{{end}}
-                </span>
-            </div>
-            <div class="wr-row2">
-                {{if gt .StepsTotal 0}}<span>{{.StepsCompleted}}/{{.StepsTotal}} steps</span>{{end}}
-                {{if .TotalTokens}}<span>{{formatTokens .TotalTokens}} tok</span>{{end}}
-                {{range .Models}}<span class="badge badge-model {{modelTierClass .}}">{{friendlyModel .}}</span>{{end}}
-                {{range .Adapters}}<span class="badge badge-adapter">{{.}}</span>{{end}}
-                {{if .BranchName}}<span style="font-size:0.68rem;color:var(--color-text-secondary);">&#9741; {{.BranchName}}</span>{{end}}
-                <span class="wr-right">
-                    <span class="wr-date">{{.FormattedStartedAt}}</span>
-                </span>
-            </div>
-        </div>
-    </a>
+  <script src="/static/app.js"></script>
+  <script>
+  var RP_KEY = 'wave.rp.collapsed';
+  function toggleRunningSection() {
+      var section = document.querySelector('[aria-controls="rp-section-body"]').parentElement;
+      var body = document.getElementById('rp-section-body');
+      var collapsed = body.style.display === 'none';
+      body.style.display = collapsed ? '' : 'none';
+      try { localStorage.setItem(RP_KEY, collapsed ? '0' : '1'); } catch(e) {}
+  }
+  (function(){
+      try {
+          if (localStorage.getItem(RP_KEY) === '0') {
+              var body = document.getElementById('rp-section-body');
+              if (body) body.style.display = 'none';
+          }
+      } catch(e) {}
+  })();
+  function filterRuns(query) {
+      var q = query.toLowerCase().trim();
+      document.querySelectorAll('#run-list > a.run-card, #run-list > div > a.run-card').forEach(function(card) {
+          if (!q) { card.style.display = ''; return; }
+          card.style.display = card.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+      });
+  }
+  (function(){
+      var loader=document.getElementById('wr-loader');
+      if(!loader)return;
+      var list=document.querySelector('#run-list');
+      if(!list)return;
+      var loading=false;
+      var nextUrl=loader.dataset.next;
+      function loadMore(){
+          if(loading||!nextUrl)return;
+          loading=true;
+          loader.style.opacity='0.5';
+          fetch(nextUrl).then(function(r){return r.text()}).then(function(html){
+              var doc=new DOMParser().parseFromString(html,'text/html');
+              doc.querySelectorAll('#run-list > *').forEach(function(el){
+                  list.appendChild(el.cloneNode(true));
+              });
+              var newLoader=doc.getElementById('wr-loader');
+              if(newLoader){
+                  nextUrl=newLoader.dataset.next;
+                  loading=false;
+                  loader.style.opacity='1';
+                  if(loader.getBoundingClientRect().top<window.innerHeight+300) loadMore();
+              } else {
+                  loader.remove();
+              }
+          }).catch(function(){loader.style.opacity='1';loading=false;});
+      }
+      window.addEventListener('scroll',function(){
+          if(loader.getBoundingClientRect().top<window.innerHeight+300) loadMore();
+      });
+      setTimeout(function(){
+          if(loader.getBoundingClientRect().top<window.innerHeight+300) loadMore();
+      },100);
+  })();
+  </script>
 
-    {{if .ChildRuns}}
-    <div class="wr-child">
-    {{range .ChildRuns}}
-        <a href="/runs/{{.RunID}}" class="wr-run">
-            <div class="wr-accent st-{{.Status}}"></div>
-            <div class="wr-body">
-                <div class="wr-row1">
-                    <span class="wr-name">{{.PipelineName}}</span>
-                    {{if .InputPreview}}<span class="wr-input">{{richInput .InputPreview .LinkedURL}}</span>{{end}}
-                    <span class="wr-right">
-                        <span class="badge wr-status {{statusClass .Status}}">{{statusLabel .Status}}</span>
-                        {{if .Duration}}<span class="wr-dur">{{.Duration}}</span>{{end}}
-                    </span>
-                </div>
-                <div class="wr-row2">
-                    {{if gt .StepsTotal 0}}<span>{{.StepsCompleted}}/{{.StepsTotal}}</span>{{end}}
-                    {{range .Models}}<span class="badge badge-model {{modelTierClass .}}">{{friendlyModel .}}</span>{{end}}
-                    <span class="wr-right">
-                        <span class="wr-date">{{.FormattedStartedAt}}</span>
-                    </span>
-                </div>
-            </div>
-        </a>
-    {{end}}
-    </div>
-    {{end}}
-{{end}}
-{{else}}
-<div class="wr-empty">No runs found{{if .FilterStatus}} with status "{{.FilterStatus}}"{{end}}{{if .FilterPipeline}} for pipeline "{{.FilterPipeline}}"{{end}}</div>
-{{end}}
-</div>
-
-{{if .HasMore}}
-<div class="wr-loading" id="wr-loader" data-next="/runs?cursor={{.NextCursor}}{{if .FilterStatus}}&status={{.FilterStatus}}{{end}}{{if .FilterPipeline}}&pipeline={{.FilterPipeline}}{{end}}">
-    <span class="wr-loading-spinner"></span>
-    <span class="wr-loading-text">Loading more...</span>
-</div>
-{{end}}
-
-{{end}}
-{{define "scripts"}}
-<script>
-var RP_KEY = 'wave.rp.collapsed';
-function toggleRunningSection() {
-    var section = document.querySelector('.rp-section');
-    var header = section.querySelector('.rp-header');
-    var collapsed = section.classList.toggle('collapsed');
-    header.setAttribute('aria-expanded', String(!collapsed));
-    try { localStorage.setItem(RP_KEY, collapsed ? '1' : '0'); } catch(e) {}
-}
-(function(){
-    try {
-        if (localStorage.getItem(RP_KEY) === '1') {
-            var section = document.querySelector('.rp-section');
-            var header = section && section.querySelector('.rp-header');
-            if (section) { section.classList.add('collapsed'); }
-            if (header) { header.setAttribute('aria-expanded', 'false'); }
-        }
-    } catch(e) {}
-})();
-// Client-side search filter for run cards
-function filterRuns(query) {
-    var q = query.toLowerCase().trim();
-    document.querySelectorAll('#run-list > a.wr-run, #run-list > .wr-child').forEach(function(card) {
-        if (!q) { card.style.display = ''; return; }
-        card.style.display = card.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
-    });
-}
-(function(){
-    var loader=document.getElementById('wr-loader');
-    if(!loader)return;
-    var list=document.querySelector('.wr-list');
-    if(!list)return;
-    var loading=false;
-    var nextUrl=loader.dataset.next;
-
-    function loadMore(){
-        if(loading||!nextUrl)return;
-        loading=true;
-        loader.classList.add('active');
-        fetch(nextUrl).then(function(r){return r.text()}).then(function(html){
-            var doc=new DOMParser().parseFromString(html,'text/html');
-            doc.querySelectorAll('.wr-list > *').forEach(function(el){
-                list.appendChild(el.cloneNode(true));
-            });
-            var newLoader=doc.getElementById('wr-loader');
-            if(newLoader){
-                nextUrl=newLoader.dataset.next;
-                loading=false;
-                loader.classList.remove('active');
-                // Re-check: if viewport still not overflowing, load next batch
-                if(loader.getBoundingClientRect().top<window.innerHeight+300) loadMore();
-            } else {
-                loader.remove();
-            }
-        }).catch(function(){loader.classList.remove('active');loading=false;});
-    }
-    window.addEventListener('scroll',function(){
-        if(loader.getBoundingClientRect().top<window.innerHeight+300) loadMore();
-    });
-    setTimeout(function(){
-        if(loader.getBoundingClientRect().top<window.innerHeight+300) loadMore();
-    },100);
-})();
-</script>
-{{end}}
+  <style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .run-accent.st-completed { background: var(--color-completed); }
+  .run-accent.st-running { background: var(--color-running); }
+  .run-accent.st-failed { background: var(--color-failed); }
+  .run-accent.st-rejected { background: var(--color-pending); }
+  .run-accent.st-cancelled { background: var(--color-cancelled); }
+  .run-accent.st-pending { background: var(--color-pending); }
+  .run-accent.st-completed_empty { background: var(--color-completed-empty); }
+  .run-accent.st-skipped { background: var(--color-text-muted); }
+  </style>
+</body>
+</html>
