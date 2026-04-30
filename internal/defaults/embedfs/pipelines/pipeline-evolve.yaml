@@ -52,7 +52,6 @@ steps:
   - id: gather-eval
     type: command
     script: |
-      set -o pipefail
       mkdir -p .agents/output
 
       PIPELINE='{{ input }}'
@@ -122,7 +121,7 @@ steps:
   # produces a structured findings JSON. Schema-gated by evolution-findings.
   - id: analyze
     persona: navigator
-    model: cheapest
+    model: balanced
     dependencies: [gather-eval]
     memory:
       inject_artifacts:
@@ -423,7 +422,6 @@ steps:
     type: command
     dependencies: [propose]
     script: |
-      set -o pipefail
       mkdir -p .agents/output
 
       OUT=.agents/output/record-status.json
