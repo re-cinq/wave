@@ -1,0 +1,54 @@
+{{define "partials/nav"}}
+<nav class="bg-surface-secondary border-b border-edge sticky top-0 z-10">
+  <div class="max-w-7xl mx-auto px-6 py-3 flex items-center gap-6">
+    <a href="/" class="flex items-center gap-2 font-semibold text-txt hover:opacity-80 no-underline">
+      <svg class="w-5 h-5" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/>
+        <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" opacity="0.35"/>
+      </svg>
+      Wave
+    </a>
+    <div class="flex items-center gap-1 text-sm">
+      <a href="/work"
+         class="px-3 py-1.5 rounded-md transition-colors no-underline
+                {{if eq .ActivePage "work"}}bg-surface-tertiary text-txt font-medium{{else}}text-txt-secondary hover:text-txt hover:bg-surface-tertiary{{end}}">
+        Work
+      </a>
+      <a href="/runs"
+         class="px-3 py-1.5 rounded-md transition-colors no-underline
+                {{if eq .ActivePage "runs"}}bg-surface-tertiary text-txt font-medium{{else}}text-txt-secondary hover:text-txt hover:bg-surface-tertiary{{end}}">
+        Runs
+      </a>
+      <a href="/pipelines"
+         class="px-3 py-1.5 rounded-md transition-colors no-underline
+                {{if eq .ActivePage "pipelines"}}bg-surface-tertiary text-txt font-medium{{else}}text-txt-secondary hover:text-txt hover:bg-surface-tertiary{{end}}">
+        Pipelines
+      </a>
+      <a href="/proposals"
+         class="px-3 py-1.5 rounded-md transition-colors no-underline
+                {{if eq .ActivePage "proposals"}}bg-surface-tertiary text-txt font-medium{{else}}text-txt-secondary hover:text-txt hover:bg-surface-tertiary{{end}}">
+        Proposals
+      </a>
+      <a href="/issues"
+         class="px-3 py-1.5 rounded-md transition-colors no-underline
+                {{if eq .ActivePage "issues"}}bg-surface-tertiary text-txt font-medium{{else}}text-txt-secondary hover:text-txt hover:bg-surface-tertiary{{end}}">
+        Issues
+      </a>
+      <a href="/prs"
+         class="px-3 py-1.5 rounded-md transition-colors no-underline
+                {{if eq .ActivePage "prs"}}bg-surface-tertiary text-txt font-medium{{else}}text-txt-secondary hover:text-txt hover:bg-surface-tertiary{{end}}">
+        PRs
+      </a>
+      <a href="/onboard"
+         class="px-3 py-1.5 rounded-md transition-colors no-underline
+                {{if eq .ActivePage "onboard"}}bg-surface-tertiary text-txt font-medium{{else}}text-txt-secondary hover:text-txt hover:bg-surface-tertiary{{end}}">
+        Onboard
+      </a>
+      <a href="/health"
+         class="px-3 py-1.5 rounded-md transition-colors no-underline text-txt-muted hover:text-txt hover:bg-surface-tertiary">
+        Health
+      </a>
+    </div>
+  </div>
+</nav>
+{{end}}
