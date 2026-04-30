@@ -283,7 +283,7 @@ steps:
   - id: commit
     persona: craftsman
     thread: bootstrap
-    model: cheapest
+    model: balanced
     dependencies: [scaffold, assess]
     workspace:
       type: worktree

@@ -49,7 +49,7 @@ input:
 steps:
   - id: fetch-assess
     persona: implementer
-    model: cheapest
+    model: balanced
     workspace:
       type: worktree
       branch: "{{ pipeline_id }}"

@@ -54,7 +54,7 @@ steps:
   # ─── Phase 1: Diff analysis ───────────────────────────────────────────────
   - id: diff-analysis
     persona: navigator
-    model: cheapest
+    model: balanced
     workspace:
       mount:
         - source: ./
@@ -256,7 +256,7 @@ steps:
       contract:
         type: llm_judge
         source: .agents/output/security-review.md
-        model: cheapest
+        model: balanced
         criteria:
           - "Identifies injection vulnerabilities (SQL, command, XSS) if present in the diff"
           - "Checks for hardcoded credentials or secrets"
@@ -375,7 +375,7 @@ steps:
         persona: navigator
         criteria_path: .agents/contracts/quality-review-criteria.md
         source: .agents/output/quality-review.md
-        model: cheapest
+        model: balanced
         token_budget: 0
         timeout: 300s
         on_failure: continue
