@@ -162,6 +162,9 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 			_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, execErr.Error())
 		}
 
+		// EvalSignal hook (issue #1606): command-step terminal failure.
+		e.recordStepEval(execution, step, stateFailed, execErr, duration)
+
 		// Audit log: step end with failure
 		exitCode := -1
 		if cmd.ProcessState != nil {
@@ -190,6 +193,9 @@ func (e *DefaultPipelineExecutor) executeCommandStep(ctx context.Context, execut
 	if e.store != nil {
 		_ = e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
 	}
+
+	// EvalSignal hook (issue #1606): command-step terminal success.
+	e.recordStepEval(execution, step, stateCompleted, nil, duration)
 
 	// Audit log: step end with success
 	exitCode := 0
@@ -419,6 +425,7 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 	e.fireWebhooks(ctx, stepStartEvt)
 
 	maxAttempts := step.Retry.EffectiveMaxAttempts()
+	stepStartTime := time.Now()
 
 	var lastErr error
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
@@ -427,6 +434,9 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 			if ctx.Err() != nil {
 				return fmt.Errorf("context cancelled, skipping retry: %w", lastErr)
 			}
+			// EvalSignal hook (issue #1606): each retry attempt increments the
+			// run-level retry counter persisted in pipeline_eval.retry_count.
+			e.recordStepRetry(execution)
 			execution.mu.Lock()
 			execution.States[step.ID] = stateRetrying
 			execution.mu.Unlock()
@@ -665,6 +675,10 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				if e.store != nil {
 					_ = e.store.SaveStepState(pipelineID, step.ID, state.StateSkipped, err.Error())
 				}
+				// EvalSignal hook (issue #1606): on_failure: skip suppresses
+				// the failure for downstream scheduling but still represents a
+				// run-level negative observation worth aggregating.
+				e.recordStepEval(execution, step, stateFailed, err, time.Since(stepStartTime))
 				e.emit(event.Event{
 					Timestamp:  time.Now(),
 					PipelineID: pipelineID,
@@ -681,6 +695,8 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				if e.store != nil {
 					_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
 				}
+				// EvalSignal hook (issue #1606): step terminally failed.
+				e.recordStepEval(execution, step, stateFailed, err, time.Since(stepStartTime))
 				e.emit(event.Event{
 					Timestamp:  time.Now(),
 					PipelineID: pipelineID,
@@ -700,6 +716,8 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 				if e.store != nil {
 					_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
 				}
+				// EvalSignal hook (issue #1606): step terminally failed.
+				e.recordStepEval(execution, step, stateFailed, err, time.Since(stepStartTime))
 				// Run step_failed hooks and webhooks (non-blocking by default)
 				stepFailedEvt := hooks.HookEvent{
 					Type:       hooks.EventStepFailed,
@@ -741,6 +759,9 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		if e.store != nil {
 			_ = e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
 		}
+
+		// EvalSignal hook (issue #1606): step terminally succeeded.
+		e.recordStepEval(execution, step, stateCompleted, nil, time.Since(stepStartTime))
 
 		// Record checkpoint for fork/rewind support
 		if e.store != nil {

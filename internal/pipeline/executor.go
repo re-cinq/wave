@@ -8,6 +8,7 @@ import (
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/audit"
+	"github.com/recinq/wave/internal/contract"
 	"github.com/recinq/wave/internal/cost"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/forge"
@@ -111,6 +112,11 @@ type DefaultPipelineExecutor struct {
 	webhookRunner *hooks.WebhookRunner
 	// Task-level complexity from classifier (empty = no task-aware routing)
 	taskComplexity string
+	// Per-run EvalSignal collectors keyed by run ID. Populated by
+	// recordStepEval on terminal step transitions; drained by
+	// recordPipelineEval into a state.PipelineEvalRecord at run finalize.
+	// See internal/pipeline/executor_eval.go (issue #1606).
+	evalCollectors map[string]*contract.SignalSet
 }
 
 type ExecutorOption func(*DefaultPipelineExecutor)
@@ -343,8 +349,9 @@ type pipelineSetup struct {
 
 func NewDefaultPipelineExecutor(runner adapter.AdapterRunner, opts ...ExecutorOption) *DefaultPipelineExecutor {
 	ex := &DefaultPipelineExecutor{
-		runner:    runner,
-		pipelines: make(map[string]*PipelineExecution),
+		runner:         runner,
+		pipelines:      make(map[string]*PipelineExecution),
+		evalCollectors: make(map[string]*contract.SignalSet),
 	}
 	for _, opt := range opts {
 		opt(ex)
@@ -387,6 +394,7 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		autoApprove:            e.autoApprove,
 		gateHandler:            e.gateHandler,
 		retroGenerator:         e.retroGenerator,
+		evalCollectors:         make(map[string]*contract.SignalSet),
 	}
 	// Share parent security layer's collaborators so child sees identical
 	// path/sanitization config but with its own back-pointer.
@@ -624,9 +632,11 @@ func (e *DefaultPipelineExecutor) GetStatus(pipelineID string) (*PipelineStatus,
 // cleanupWorktrees removes any git worktrees created during pipeline execution.
 func (e *DefaultPipelineExecutor) cleanupCompletedPipeline(pipelineID string) {
 	e.mu.Lock()
-	defer e.mu.Unlock()
-
 	delete(e.pipelines, pipelineID)
+	if e.evalCollectors != nil {
+		delete(e.evalCollectors, pipelineID)
+	}
+	e.mu.Unlock()
 }
 
 // ResumeWithValidation resumes a pipeline with full validation and error handling.

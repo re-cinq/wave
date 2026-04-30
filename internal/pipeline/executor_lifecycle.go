@@ -537,6 +537,8 @@ func (e *DefaultPipelineExecutor) runSchedulingLoop(ctx context.Context, executi
 				if e.retroGenerator != nil {
 					e.retroGenerator.Generate(pipelineID, execution.Pipeline.Metadata.Name)
 				}
+				// EvalSignal hook (issue #1606): rejection is a terminal state.
+				e.recordPipelineEval(execution)
 				e.cleanupCompletedPipeline(pipelineID)
 				return 0, &StepExecutionError{StepID: rejectedStepID, Err: err}
 			}
@@ -574,6 +576,8 @@ func (e *DefaultPipelineExecutor) runSchedulingLoop(ctx context.Context, executi
 			if e.retroGenerator != nil {
 				e.retroGenerator.Generate(pipelineID, execution.Pipeline.Metadata.Name)
 			}
+			// EvalSignal hook (issue #1606): failure is a terminal state.
+			e.recordPipelineEval(execution)
 			e.cleanupCompletedPipeline(pipelineID)
 			return 0, &StepExecutionError{StepID: failedStepID, Err: err}
 		}
@@ -639,6 +643,9 @@ func (e *DefaultPipelineExecutor) finalizePipelineExecution(_ context.Context, e
 		if e.store != nil {
 			_ = e.store.SavePipelineState(pipelineID, stateFailed, input)
 		}
+		// EvalSignal hook (issue #1606): persist run-level signals before
+		// terminal hooks fire and before in-memory state is dropped.
+		e.recordPipelineEval(execution)
 		// Run run_failed hooks with detached context (non-blocking by default).
 		e.runTerminalHooks(hooks.HookEvent{
 			Type:       hooks.EventRunFailed,
@@ -669,6 +676,9 @@ func (e *DefaultPipelineExecutor) finalizePipelineExecution(_ context.Context, e
 		if e.store != nil {
 			_ = e.store.SavePipelineState(pipelineID, pipelineState, input)
 		}
+		// EvalSignal hook (issue #1606): persist run-level signals before
+		// terminal hooks fire and before in-memory state is dropped.
+		e.recordPipelineEval(execution)
 		// Run run_completed hooks with detached context (non-blocking by default).
 		e.runTerminalHooks(hooks.HookEvent{
 			Type:       hooks.EventRunCompleted,
