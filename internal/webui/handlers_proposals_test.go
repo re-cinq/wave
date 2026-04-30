@@ -264,3 +264,62 @@ func TestParseDiffLines_Classes(t *testing.T) {
 		}
 	}
 }
+
+func TestHandleProposalRollback_FlipsToPrior(t *testing.T) {
+	srv, rw := proposalsTestServer(t)
+	for _, v := range []int{1, 2, 3} {
+		active := v == 3
+		if err := rw.CreatePipelineVersion(state.PipelineVersionRecord{
+			PipelineName: "impl-issue", Version: v,
+			SHA256: "sha-" + strconv.Itoa(v), YAMLPath: "v" + strconv.Itoa(v) + ".yaml",
+			Active: active,
+		}); err != nil {
+			t.Fatalf("CreatePipelineVersion(v%d): %v", v, err)
+		}
+	}
+
+	req := httptest.NewRequest("POST", "/pipelines/impl-issue/rollback", nil)
+	req.SetPathValue("pipelineName", "impl-issue")
+	rec := httptest.NewRecorder()
+	srv.handleProposalRollback(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	_ = json.NewDecoder(rec.Body).Decode(&body)
+	if body["now_active"] != float64(2) {
+		t.Errorf("expected now_active=2, got %v", body["now_active"])
+	}
+	active, _ := rw.GetActiveVersion("impl-issue")
+	if active == nil || active.Version != 2 {
+		t.Errorf("expected active v2, got %+v", active)
+	}
+}
+
+func TestHandleProposalRollback_NoActive(t *testing.T) {
+	srv, _ := proposalsTestServer(t)
+	req := httptest.NewRequest("POST", "/pipelines/ghost/rollback", nil)
+	req.SetPathValue("pipelineName", "ghost")
+	rec := httptest.NewRecorder()
+	srv.handleProposalRollback(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rec.Code)
+	}
+}
+
+func TestHandleProposalRollback_NoPrior(t *testing.T) {
+	srv, rw := proposalsTestServer(t)
+	if err := rw.CreatePipelineVersion(state.PipelineVersionRecord{
+		PipelineName: "impl-issue", Version: 1, SHA256: "s", YAMLPath: "v1.yaml", Active: true,
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	req := httptest.NewRequest("POST", "/pipelines/impl-issue/rollback", nil)
+	req.SetPathValue("pipelineName", "impl-issue")
+	rec := httptest.NewRecorder()
+	srv.handleProposalRollback(rec, req)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}

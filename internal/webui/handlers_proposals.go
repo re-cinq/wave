@@ -52,13 +52,13 @@ type diffLine struct {
 
 // proposalDecisionResponse is the JSON body returned by approve/reject.
 type proposalDecisionResponse struct {
-	ID            int64  `json:"id"`
-	Status        string `json:"status"`
-	NewVersion    int    `json:"new_version,omitempty"`
-	NewYAMLPath   string `json:"new_yaml_path,omitempty"`
-	NewSHA256     string `json:"new_sha256,omitempty"`
-	DecidedBy     string `json:"decided_by,omitempty"`
-	Activated     bool   `json:"activated,omitempty"`
+	ID          int64  `json:"id"`
+	Status      string `json:"status"`
+	NewVersion  int    `json:"new_version,omitempty"`
+	NewYAMLPath string `json:"new_yaml_path,omitempty"`
+	NewSHA256   string `json:"new_sha256,omitempty"`
+	DecidedBy   string `json:"decided_by,omitempty"`
+	Activated   bool   `json:"activated,omitempty"`
 }
 
 // handleProposalsPage handles GET /proposals.
@@ -257,6 +257,51 @@ func (s *Server) handleProposalReject(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleProposalRollback handles POST /pipelines/{pipelineName}/rollback.
+// Flips activation to the prior pipeline_version, an emergency rollback
+// for an approved evolution that misbehaves in production.
+func (s *Server) handleProposalRollback(w http.ResponseWriter, r *http.Request) {
+	store := s.proposalStore()
+	if store == nil {
+		writeJSONError(w, http.StatusInternalServerError, "evolution store unavailable")
+		return
+	}
+	pipelineName := strings.TrimSpace(r.PathValue("pipelineName"))
+	if pipelineName == "" {
+		writeJSONError(w, http.StatusBadRequest, "missing pipeline name")
+		return
+	}
+
+	prior, current, err := proposals.PriorVersion(store, pipelineName)
+	if err != nil {
+		switch {
+		case errors.Is(err, proposals.ErrNoActiveVersion):
+			writeJSONError(w, http.StatusNotFound, err.Error())
+		case errors.Is(err, proposals.ErrNoPriorVersion):
+			writeJSONError(w, http.StatusConflict, err.Error())
+		default:
+			writeJSONError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+	if err := store.ActivateVersion(pipelineName, prior.Version); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "activate prior: "+err.Error())
+		return
+	}
+
+	decidedBy := strings.TrimSpace(r.Header.Get("X-Wave-User"))
+	if decidedBy == "" {
+		decidedBy = "webui"
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"pipeline_name":    pipelineName,
+		"rolled_back_from": current.Version,
+		"now_active":       prior.Version,
+		"yaml_path":        prior.YAMLPath,
+		"decided_by":       decidedBy,
+	})
+}
+
 // proposalStore returns the read-write evolution store, preferring the rwStore
 // (which permits writes) over the read-only store. Tests that wire only an
 // rwStore still work because both fields hold the same handle in production.
@@ -338,4 +383,3 @@ func proposalStatusBadgeClass(status string) string {
 		return "badge-neutral"
 	}
 }
-

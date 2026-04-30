@@ -46,6 +46,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /proposals/{id}", s.handleProposalDetailPage)
 	mux.HandleFunc("POST /proposals/{id}/approve", s.handleProposalApprove)
 	mux.HandleFunc("POST /proposals/{id}/reject", s.handleProposalReject)
+	mux.HandleFunc("POST /pipelines/{pipelineName}/rollback", s.handleProposalRollback)
 
 	// API endpoints (JSON)
 	mux.HandleFunc("GET /api/runs", s.handleAPIRuns)
