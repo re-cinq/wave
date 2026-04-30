@@ -32,6 +32,7 @@ The next 'wave run <pipeline>' picks up the new yaml.`,
 	cmd.AddCommand(newProposalsShowCmd())
 	cmd.AddCommand(newProposalsApproveCmd())
 	cmd.AddCommand(newProposalsRejectCmd())
+	cmd.AddCommand(newProposalsRollbackCmd())
 
 	return cmd
 }
@@ -92,6 +93,54 @@ func newProposalsRejectCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&reason, "reason", "", "Rejection reason (recorded in decided_by)")
 	return cmd
+}
+
+func newProposalsRollbackCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rollback <pipeline_name>",
+		Short: "Activate the previous pipeline version (auto-rollback)",
+		Long: `Find the active pipeline_version and flip activation to the
+prior version (highest version_id below the active one). Useful when an
+approved evolution misbehaves in production. Fails when no prior version
+exists.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return runProposalsRollback(strings.TrimSpace(args[0]))
+		},
+	}
+	return cmd
+}
+
+func runProposalsRollback(pipelineName string) error {
+	if pipelineName == "" {
+		return NewCLIError(CodeInvalidArgs, "pipeline name required", "")
+	}
+	store, err := openProposalStore()
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	prior, current, err := proposals.PriorVersion(store, pipelineName)
+	if err != nil {
+		switch {
+		case errors.Is(err, proposals.ErrNoActiveVersion):
+			return NewCLIError(CodeValidationFailed, err.Error(),
+				"No active pipeline_version row found; nothing to roll back")
+		case errors.Is(err, proposals.ErrNoPriorVersion):
+			return NewCLIError(CodeValidationFailed, err.Error(),
+				"Active version is the first one; cannot roll back further")
+		default:
+			return NewCLIError(CodeInternalError, err.Error(), "").WithCause(err)
+		}
+	}
+	if err := store.ActivateVersion(pipelineName, prior.Version); err != nil {
+		return NewCLIError(CodeInternalError,
+			fmt.Sprintf("activate v%d: %s", prior.Version, err), "").WithCause(err)
+	}
+	fmt.Printf("Rolled back %s: v%d -> v%d (%s)\n",
+		pipelineName, current.Version, prior.Version, prior.YAMLPath)
+	return nil
 }
 
 func openProposalStore() (state.StateStore, error) {
