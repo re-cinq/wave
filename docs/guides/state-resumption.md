@@ -123,6 +123,7 @@ Recovery hints:
 | Failure Mode | What Happens | Recovery |
 |-------------|-------------|----------|
 | **Contract validation** | Step output doesn't match schema. Step is marked failed. | Fix the issue, then `--from-step <step>` to retry. Use `--force` to skip contract checks. |
+| **Rework (test guard)** | `test_diff` or `test_count_baseline` detects test deletion/regression. Step re-executes automatically. | The rework loop retries the step up to `max_attempts`. If test count drops, the implementer must restore tests. |
 | **Adapter crash** | LLM CLI process exits unexpectedly. Step is marked failed. | `--from-step <step>` to retry with a fresh adapter invocation. |
 | **Missing artifact** | A required input artifact from a prior step is missing. | Re-run the upstream step that produces the artifact, then resume. |
 | **Timeout** | Step exceeds its configured timeout. | Increase timeout in manifest or simplify the prompt, then resume. |
