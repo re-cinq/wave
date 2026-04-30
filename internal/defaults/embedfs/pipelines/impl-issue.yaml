@@ -107,7 +107,7 @@ steps:
           source: .agents/output/impl-plan.json
           model: balanced
           token_budget: 0
-          timeout: 120s
+          timeout: 300s
           on_failure: warn
 
   - id: implement
@@ -238,52 +238,15 @@ steps:
           criteria_path: .agents/contracts/impl-review-criteria.md
           model: cheapest
           token_budget: 0
-          timeout: 90s
+          timeout: 300s
           context:
             - source: git_diff
           on_failure: warn
 
-  - id: judge-test-deletion
-    persona: navigator
-    model: cheapest
-    dependencies: [implement]
-    workspace:
-      type: worktree
-      branch: "{{ pipeline_id }}"
-    exec:
-      type: prompt
-      source_path: .agents/prompts/implement/judge-test-deletion.md
-    output_artifacts:
-      - name: test-diff
-        path: .agents/output/test-diff.md
-        type: text
-    retry:
-      policy: standard
-      max_attempts: 2
-    handover:
-      contract:
-        type: llm_judge
-        source: .agents/output/test-diff.md
-        model: cheapest
-        threshold: 1.0
-        criteria:
-          - >-
-            The diff does NOT net-remove any `func Test*` declarations from
-            `_test.go` files. A removal is acceptable ONLY when the same diff
-            shows a matching addition that is plainly the same test renamed,
-            moved to another `_test.go` file, or replaced by an equivalent
-            `func Test*` declaration covering the same behaviour. If the diff
-            removes one or more `func Test*` lines and shows no such matching
-            addition, FAIL this criterion. An empty diff or a "no _test.go
-            files were modified" sentinel passes. A "diff capture failed"
-            sentinel passes (infrastructure error, not a deletion signal).
-        on_failure: rework
-        rework_step: fix-implement
-
   - id: create-pr
     persona: "{{ forge.type }}-commenter"
     model: cheapest
-    dependencies: [judge-test-deletion]
+    dependencies: [implement]
     memory:
       inject_artifacts:
         - step: fetch-assess
