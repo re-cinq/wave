@@ -132,7 +132,12 @@ func (v *Validator) ValidatePersonas(personas map[string][]string) (*ValidationR
 			// Resolve abstract scope to platform-specific scopes
 			required, err := v.resolver.Resolve(ts)
 			if err != nil {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("persona %q: scope resolution for %q: %v", name, scopeStr, err))
+				result.Violations = append(result.Violations, ScopeViolation{
+					PersonaName:  name,
+					MissingScope: scopeStr,
+					EnvVar:       envVar,
+					Hint:         fmt.Sprintf("scope validation not supported for forge %q; %v", v.forgeInfo.Type, err),
+				})
 				continue
 			}
 
@@ -147,9 +152,18 @@ func (v *Validator) ValidatePersonas(personas map[string][]string) (*ValidationR
 				tokenCache[envVar] = tokenInfo
 			}
 
-			// If introspection had an error, warn and skip validation for this scope
+			// If introspection had an error, emit a ScopeViolation instead of warning
 			if tokenInfo.Error != nil {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("persona %q: token %s introspection: %v", name, envVar, tokenInfo.Error))
+				hint := fmt.Sprintf("token introspection failed: %v", tokenInfo.Error)
+				if tokenInfo.TokenType == "fine-grained" {
+					hint = "fine-grained PATs cannot be introspected; recreate as classic PAT or use --skip-scope-check"
+				}
+				result.Violations = append(result.Violations, ScopeViolation{
+					PersonaName:  name,
+					MissingScope: scopeStr,
+					EnvVar:       envVar,
+					Hint:         hint,
+				})
 				continue
 			}
 

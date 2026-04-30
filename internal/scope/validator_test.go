@@ -140,12 +140,18 @@ func TestValidatePersonas_IntrospectionFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// Introspection failure should produce a warning, not a violation
-	if result.HasViolations() {
-		t.Error("expected no violations when introspection fails (should warn)")
+	// Introspection failure should now produce a violation, not just a warning
+	if !result.HasViolations() {
+		t.Fatal("expected violation when introspection fails")
 	}
-	if len(result.Warnings) == 0 {
-		t.Error("expected warning for introspection failure")
+	found := false
+	for _, violation := range result.Violations {
+		if violation.PersonaName == "navigator" && violation.EnvVar == "GH_TOKEN" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected violation for navigator persona with GH_TOKEN")
 	}
 }
 
@@ -211,5 +217,74 @@ func TestValidatePersonas_EnvPassthroughMissing(t *testing.T) {
 	}
 	if !found {
 		t.Error("expected violation mentioning GH_TOKEN env_passthrough")
+	}
+}
+
+func TestValidatePersonas_BitbucketForgeViolation(t *testing.T) {
+	resolver := NewResolver(forge.ForgeBitbucket)
+	introspector := &mockIntrospector{
+		results: map[string]*TokenInfo{
+			"BITBUCKET_TOKEN": {EnvVar: "BITBUCKET_TOKEN", Scopes: []string{"repo"}, TokenType: "classic"},
+		},
+	}
+	v := NewValidator(resolver, introspector, forge.ForgeInfo{Type: forge.ForgeBitbucket}, []string{"BITBUCKET_TOKEN"})
+
+	personas := map[string][]string{
+		"navigator": {"issues:read@BITBUCKET_TOKEN"},
+	}
+
+	result, err := v.ValidatePersonas(personas)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Bitbucket should produce a violation, not just a warning
+	if !result.HasViolations() {
+		t.Fatal("expected violation for unsupported Bitbucket forge")
+	}
+	found := false
+	for _, violation := range result.Violations {
+		if violation.PersonaName == "navigator" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected violation for navigator persona on Bitbucket")
+	}
+}
+
+func TestValidatePersonas_FineGrainedPATHint(t *testing.T) {
+	resolver := NewResolver(forge.ForgeGitHub)
+	introspector := &mockIntrospector{
+		results: map[string]*TokenInfo{
+			"GH_TOKEN": {
+				EnvVar:    "GH_TOKEN",
+				TokenType: "fine-grained",
+				Error:     fmt.Errorf("fine-grained PAT detected; scope introspection not available via headers"),
+			},
+		},
+	}
+	v := NewValidator(resolver, introspector, forge.ForgeInfo{Type: forge.ForgeGitHub}, []string{"GH_TOKEN"})
+
+	personas := map[string][]string{
+		"navigator": {"issues:read"},
+	}
+
+	result, err := v.ValidatePersonas(personas)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.HasViolations() {
+		t.Fatal("expected violation for fine-grained PAT")
+	}
+	found := false
+	for _, violation := range result.Violations {
+		if violation.PersonaName == "navigator" &&
+			violation.EnvVar == "GH_TOKEN" &&
+			violation.Hint == "fine-grained PATs cannot be introspected; recreate as classic PAT or use --skip-scope-check" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected violation with fine-grained PAT remediation hint, got: %+v", result.Violations)
 	}
 }
