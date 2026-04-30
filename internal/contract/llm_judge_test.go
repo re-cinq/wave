@@ -430,6 +430,117 @@ func TestResolveLLMJudgeModel(t *testing.T) {
 	}
 }
 
+// TestLLMJudge_TestDeletionGate covers the three diff shapes the
+// judge-test-deletion pipeline step must distinguish: deletion-only
+// (FAIL), addition-only (PASS), and replacement (PASS). The judge LLM is
+// stubbed via the mock Anthropic server; this test asserts that the
+// contract wiring around the judge responds correctly to each verdict.
+func TestLLMJudge_TestDeletionGate(t *testing.T) {
+	criterion := "The diff does NOT net-remove any `func Test*` declarations from `_test.go` files without a matching replacement."
+
+	cases := []struct {
+		name      string
+		diff      string
+		judgePass bool
+		reasoning string
+		wantErr   bool
+	}{
+		{
+			name: "deletion-only diff fails the gate",
+			diff: "# Test file diff\n\n```diff\n" +
+				"--- a/pkg/foo/foo_test.go\n+++ b/pkg/foo/foo_test.go\n@@ -10,5 +10,0 @@\n" +
+				"-func TestFoo(t *testing.T) {\n-\t// ...\n-}\n```\n",
+			judgePass: false,
+			reasoning: "diff removes func TestFoo with no matching addition",
+			wantErr:   true,
+		},
+		{
+			name: "addition-only diff passes the gate",
+			diff: "# Test file diff\n\n```diff\n" +
+				"--- a/pkg/foo/foo_test.go\n+++ b/pkg/foo/foo_test.go\n@@ -0,0 +10,5 @@\n" +
+				"+func TestNewBehaviour(t *testing.T) {\n+\t// ...\n+}\n```\n",
+			judgePass: true,
+			reasoning: "diff only adds new test declarations",
+			wantErr:   false,
+		},
+		{
+			name: "replacement (delete + add) passes the gate",
+			diff: "# Test file diff\n\n```diff\n" +
+				"--- a/pkg/foo/foo_test.go\n+++ b/pkg/foo/foo_test.go\n@@ -10,5 +10,5 @@\n" +
+				"-func TestOldName(t *testing.T) {\n+func TestNewName(t *testing.T) {\n" +
+				"\t// same body\n}\n```\n",
+			judgePass: true,
+			reasoning: "removed func TestOldName replaced by func TestNewName in same diff",
+			wantErr:   false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			judgeResp := JudgeResponse{
+				CriteriaResults: []CriterionResult{
+					{Criterion: criterion, Pass: tc.judgePass, Reasoning: tc.reasoning},
+				},
+				OverallPass: tc.judgePass,
+				Score:       boolToScore(tc.judgePass),
+				Summary:     tc.reasoning,
+			}
+
+			server := newMockAnthropicServer(t, judgeResp)
+			defer server.Close()
+
+			origURL := anthropicAPIURL
+			anthropicAPIURL = server.URL
+			defer func() { anthropicAPIURL = origURL }()
+
+			workspacePath := t.TempDir()
+			outDir := filepath.Join(workspacePath, ".agents", "output")
+			if err := os.MkdirAll(outDir, 0o755); err != nil {
+				t.Fatalf("mkdir: %v", err)
+			}
+			diffPath := filepath.Join(outDir, "test-diff.md")
+			if err := os.WriteFile(diffPath, []byte(tc.diff), 0o644); err != nil {
+				t.Fatalf("write diff: %v", err)
+			}
+			t.Setenv("ANTHROPIC_API_KEY", "test-key")
+
+			cfg := ContractConfig{
+				Type:      "llm_judge",
+				Source:    ".agents/output/test-diff.md",
+				Criteria:  []string{criterion},
+				Threshold: 1.0,
+			}
+
+			v := &llmJudgeValidator{}
+			err := v.Validate(cfg, workspacePath)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected ValidationError for %s, got nil", tc.name)
+				}
+				validErr, ok := err.(*ValidationError)
+				if !ok {
+					t.Fatalf("expected *ValidationError, got %T", err)
+				}
+				if validErr.ContractType != "llm_judge" {
+					t.Errorf("expected contract type llm_judge, got %s", validErr.ContractType)
+				}
+				if !strings.Contains(validErr.Error(), "FAIL") {
+					t.Errorf("expected FAIL marker in error details, got: %s", validErr.Error())
+				}
+			} else if err != nil {
+				t.Fatalf("expected pass for %s, got error: %v", tc.name, err)
+			}
+		})
+	}
+}
+
+func boolToScore(pass bool) float64 {
+	if pass {
+		return 1.0
+	}
+	return 0.0
+}
+
 func TestExtractJSON(t *testing.T) {
 	tests := []struct {
 		name  string
