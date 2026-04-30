@@ -50,6 +50,16 @@ var pageTemplates = []string{
 	"templates/onboard/index.html",
 }
 
+// standalonePageTemplates is the list of templates that do NOT extend
+// templates/layout.html. They render fully self-contained pages — typically
+// to avoid Tailwind utility-class collisions with the project stylesheet.
+// Each entry is parsed into its own root template and merged into the
+// returned page map alongside the layout-clone pages.
+var standalonePageTemplates = []string{
+	"templates/work/board.html",
+	"templates/work/detail.html",
+}
+
 // parseTemplates parses all embedded HTML templates using a clone-per-page
 // strategy. The layout and partials form a shared base; each page template is
 // parsed into its own clone so that block overrides (title, content, scripts)
@@ -250,7 +260,7 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 	}
 
 	// Clone the base for each page template.
-	pages := make(map[string]*template.Template, len(pageTemplates))
+	pages := make(map[string]*template.Template, len(pageTemplates)+len(standalonePageTemplates))
 	for _, page := range pageTemplates {
 		clone, cloneErr := base.Clone()
 		if cloneErr != nil {
@@ -264,6 +274,21 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 			return nil, fmt.Errorf("parsing %s: %w", page, parseErr)
 		}
 		pages[page] = clone
+	}
+
+	// Standalone pages are NOT cloned from the layout-bearing base — they
+	// render their own <html> shell so Tailwind CDN classes don't collide
+	// with the project stylesheet.
+	for _, page := range standalonePageTemplates {
+		data, readErr := templatesFS.ReadFile(page)
+		if readErr != nil {
+			return nil, fmt.Errorf("reading %s: %w", page, readErr)
+		}
+		t, parseErr := template.New(page).Funcs(funcMap).Parse(string(data))
+		if parseErr != nil {
+			return nil, fmt.Errorf("parsing %s: %w", page, parseErr)
+		}
+		pages[page] = t
 	}
 
 	return pages, nil

@@ -24,6 +24,7 @@ import (
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/onboarding"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/worksource"
 	"github.com/recinq/wave/internal/workspace"
 )
 
@@ -68,6 +69,7 @@ type serverRuntime struct {
 	repoSlug    string // "owner/repo"
 	repoDir     string // git repository root directory
 	scheduler   *Scheduler
+	worksource  worksource.Service
 }
 
 // serverRealtime groups the realtime/eventing collaborators: SSE broker,
@@ -246,6 +248,7 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 			repoSlug:    repoSlug,
 			repoDir:     repoDir,
 			scheduler:   NewScheduler(cfg.MaxConcurrent),
+			worksource:  worksource.NewService(rwStore),
 		},
 		realtime: serverRealtime{
 			broker:            NewSSEBroker(),

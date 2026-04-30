@@ -16,6 +16,7 @@ import (
 	"github.com/recinq/wave/internal/humanize"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/worksource"
 )
 
 // testTemplates creates minimal stub templates for handler tests.
@@ -66,6 +67,30 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 	result := make(map[string]*template.Template, len(pages))
 	for name, body := range pages {
 		tmpl := template.Must(template.New("templates/layout.html").Funcs(funcMap).Parse(body))
+		result[name] = tmpl
+	}
+	// Standalone /work templates use Execute (not ExecuteTemplate("layout"))
+	// in production. Mirror that here with a single root template per page so
+	// the round-trip tests can assert on rendered fields.
+	standalones := map[string]string{
+		"templates/work/board.html": `<!doctype html><html><body>` +
+			`<nav><a href="/work">Work</a></nav>` +
+			`<h1>Work</h1>` +
+			`{{if .HasBindings}}<table>{{range .Bindings}}<tr><td>{{.PipelineName}}</td><td>{{.TriggerLabel}}</td><td>{{.RepoPattern}}</td><td>{{.StatusLabel}}</td></tr>{{end}}</table>` +
+			`{{else}}<div class="empty">No bindings yet</div>{{end}}` +
+			`<section><h2>Recent matches</h2>{{if .RecentRuns}}<ul>{{range .RecentRuns}}<li>{{.PipelineName}} {{.RunID}}</li>{{end}}</ul>{{else}}<p>No recent runs match the configured bindings.</p>{{end}}</section>` +
+			`</body></html>`,
+		"templates/work/detail.html": `<!doctype html><html><body>` +
+			`<h1>{{if .Title}}{{.Title}}{{else}}Work item #{{.NumberStr}}{{end}}</h1>` +
+			`<div class="coords">{{.Forge}} / {{.RepoSlug}} #{{.NumberStr}}</div>` +
+			`{{if .Labels}}<div class="labels">{{range .Labels}}<span>{{.}}</span>{{end}}</div>{{end}}` +
+			`<button disabled title="Dispatch wiring lands in #2.4">Run on this issue</button>` +
+			`<section><h2>Matched bindings</h2>{{if .MatchedBindings}}<table>{{range .MatchedBindings}}<tr><td>{{.PipelineName}}</td><td>{{.TriggerLabel}}</td></tr>{{end}}</table>{{else}}<p>No bindings match this work item.</p>{{end}}</section>` +
+			`<section><h2>Recent runs</h2>{{if .RecentRuns}}<ul>{{range .RecentRuns}}<li>{{.PipelineName}} {{.RunID}}</li>{{end}}</ul>{{else}}<p>No recent runs.</p>{{end}}</section>` +
+			`</body></html>`,
+	}
+	for name, body := range standalones {
+		tmpl := template.Must(template.New(name).Funcs(funcMap).Parse(body))
 		result[name] = tmpl
 	}
 	return result
@@ -139,8 +164,9 @@ func testServer(t *testing.T) (*Server, state.StateStore) {
 			csrfToken: "test-csrf-token",
 		},
 		runtime: serverRuntime{
-			store:   roStore,
-			rwStore: rwStore,
+			store:      roStore,
+			rwStore:    rwStore,
+			worksource: worksource.NewService(rwStore),
 		},
 		realtime: serverRealtime{
 			broker:            NewSSEBroker(),
