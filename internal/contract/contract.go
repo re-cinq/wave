@@ -57,6 +57,12 @@ type ContractConfig struct {
 	Exclude  []string `json:"exclude,omitempty"    yaml:"exclude,omitempty"`   // Glob patterns for files to exclude
 	MinFiles int      `json:"min_files,omitempty"  yaml:"min_files,omitempty"` // Minimum number of qualifying changed files required (default 1)
 
+	// test_diff contract fields — guards against persona deleting tests to satisfy "tests pass" gate.
+	// Language-agnostic: TestFilePattern + TestFuncPattern are configurable per project.
+	MaxTestDeletions int      `json:"max_test_deletions,omitempty" yaml:"max_test_deletions,omitempty"` // Max net test-fn deletions allowed (default 0)
+	TestFilePattern  []string `json:"test_file_pattern,omitempty"  yaml:"test_file_pattern,omitempty"`  // Pathspecs (e.g. ["*_test.go"], ["**/test_*.py"], ["**/*.test.ts"])
+	TestFuncPattern  string   `json:"test_func_pattern,omitempty"  yaml:"test_func_pattern,omitempty"`  // Regex matching one test declaration per line
+
 	// event_contains contract fields — validated by executor (needs event store access)
 	Events []EventPattern `json:"events,omitempty" yaml:"events,omitempty"` // Expected event patterns to match against the step's event log
 
@@ -122,6 +128,8 @@ func NewValidator(cfg ContractConfig) ContractValidator {
 		return &llmJudgeValidator{}
 	case "source_diff":
 		return &sourceDiffValidator{}
+	case "test_diff":
+		return &testDiffValidator{}
 	case "agent_review":
 		// agent_review requires an adapter runner — NewValidator returns nil.
 		// The executor uses ValidateWithRunner() instead for this type.
