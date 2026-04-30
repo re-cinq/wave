@@ -7,29 +7,44 @@
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   {{if csrfToken}}<meta name="csrf-token" content="{{csrfToken}}">{{end}}
   <link rel="stylesheet" href="/static/style.css">
-  <link rel="stylesheet" href="/static/tailwind.css" />
   <script src="https://cdn.jsdelivr.net/npm/marked@15.0.7/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.5/dist/purify.min.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/styles/github-dark.min.css">
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
 </head>
-<body class="bg-surface text-txt antialiased">
-  {{template "partials/nav" .}}
+<body>
+  <nav class="w-nav">
+    <a href="/" class="w-nav-brand">
+      <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/>
+        <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" opacity="0.35"/>
+      </svg>
+      Wave
+    </a>
+    <div class="w-nav-links">
+      <a href="/work">Work</a>
+      <a href="/runs">Runs</a>
+      <a href="/pipelines">Pipelines</a>
+      <a href="/proposals" class="active">Proposals</a>
+      <a href="/issues">Issues</a>
+      <a href="/prs">PRs</a>
+      <a href="/onboard">Onboard</a>
+      <a href="/health" style="margin-left: auto;">Health</a>
+    </div>
+  </nav>
 
-  <main class="max-w-7xl mx-auto px-6 py-8">
-    <nav class="text-xs text-txt-muted mb-4">
-      <a href="/proposals" class="hover:text-txt">Proposals</a>
-      <span class="mx-1">&rsaquo;</span>
+  <div class="w-container">
+    <div class="w-breadcrumb">
+      <a href="/proposals">Proposals</a>
+      <span style="margin: 0 4px;">&rsaquo;</span>
       <span>#{{.Proposal.ID}}</span>
-    </nav>
+    </div>
 
-    <header class="flex items-start justify-between gap-6 mb-6">
-      <div class="min-w-0">
-        <h1 class="text-xl font-semibold tracking-tight">{{.Proposal.Reason}}</h1>
-        <div class="flex flex-wrap items-center gap-3 mt-2 text-sm text-txt-secondary">
-          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{proposalStatusBadgeClass .Proposal.Status}}">
-            {{.Proposal.Status}}
-          </span>
+    <div class="w-page-header align-start">
+      <div style="min-width: 0;">
+        <h1 class="w-page-title">{{.Proposal.Reason}}</h1>
+        <div class="w-page-sub" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+          <span class="badge {{proposalStatusBadgeClass .Proposal.Status}}">{{.Proposal.Status}}</span>
           <span>pipeline: <code>{{.Proposal.PipelineName}}</code></span>
           <span>v{{.Proposal.VersionBefore}} &rarr; v{{.Proposal.VersionAfter}}</span>
           <span>proposed {{formatTime .Proposal.ProposedAt}}</span>
@@ -39,40 +54,36 @@
         </div>
       </div>
       {{if eq .Proposal.Status "proposed"}}
-      <div class="flex gap-2 shrink-0">
-        <button id="approve-btn" class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-state-completed text-surface text-sm font-medium cursor-pointer">
-          Approve &amp; activate
-        </button>
-        <button id="reject-btn" class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-state-failed text-txt text-sm font-medium cursor-pointer">
-          Reject
-        </button>
+      <div style="display: flex; gap: 8px; flex-shrink: 0;">
+        <button id="approve-btn" class="w-btn w-btn-success">Approve &amp; activate</button>
+        <button id="reject-btn" class="w-btn w-btn-danger">Reject</button>
       </div>
       {{end}}
-    </header>
+    </div>
 
-    <div id="action-result" class="mb-4"></div>
+    <div id="action-result" style="margin-bottom: 16px;"></div>
 
-    <section class="bg-surface-secondary border border-edge rounded-lg p-4 mb-6">
-      <h3 class="text-sm font-semibold text-txt-muted uppercase tracking-wide mb-3">Diff</h3>
+    <section class="card" style="margin-bottom: 16px;">
+      <h3 style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-secondary); font-weight: 600; margin: 0 0 12px;">Diff</h3>
       {{if .DiffMissing}}
-      <p class="text-sm text-txt-muted">No diff path recorded for this proposal.</p>
+      <p style="font-size: 13px; color: var(--color-text-secondary);">No diff path recorded for this proposal.</p>
       {{else if .DiffError}}
-      <p class="text-sm text-state-failed">{{.DiffError}}</p>
+      <p style="font-size: 13px; color: var(--color-failed);">{{.DiffError}}</p>
       {{else if .DiffLines}}
-      <pre class="text-xs leading-relaxed p-3 bg-surface rounded-md overflow-x-auto border border-edge">{{range .DiffLines}}<span class="{{.Class}}">{{.Text}}</span>
+      <pre class="w-diff-block">{{range .DiffLines}}<span class="{{.Class}}">{{.Text}}</span>
 {{end}}</pre>
       {{else}}
-      <p class="text-sm text-txt-muted">Diff is empty.</p>
+      <p style="font-size: 13px; color: var(--color-text-secondary);">Diff is empty.</p>
       {{end}}
     </section>
 
     {{if .SignalSummary}}
-    <section class="bg-surface-secondary border border-edge rounded-lg p-4">
-      <h3 class="text-sm font-semibold text-txt-muted uppercase tracking-wide mb-3">Signal summary</h3>
-      <pre class="text-xs leading-relaxed p-3 bg-surface rounded-md overflow-x-auto border border-edge">{{.SignalSummary}}</pre>
+    <section class="card">
+      <h3 style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-secondary); font-weight: 600; margin: 0 0 12px;">Signal summary</h3>
+      <pre class="w-diff-block">{{.SignalSummary}}</pre>
     </section>
     {{end}}
-  </main>
+  </div>
 
   <script src="/static/app.js"></script>
   <script>
@@ -84,7 +95,19 @@
       var pid = {{.Proposal.ID}};
 
       function setResult(html, kind) {
-          resultBox.className = 'mb-4 p-3 rounded-md text-sm border ' + (kind === 'success' ? 'bg-state-completed-bg border-state-completed text-state-completed' : 'bg-state-failed-bg border-state-failed text-state-failed');
+          resultBox.style.padding = '10px 12px';
+          resultBox.style.borderRadius = '6px';
+          resultBox.style.fontSize = '13px';
+          resultBox.style.border = '1px solid';
+          if (kind === 'success') {
+              resultBox.style.background = 'var(--color-completed-bg)';
+              resultBox.style.borderColor = 'var(--color-completed)';
+              resultBox.style.color = 'var(--color-completed)';
+          } else {
+              resultBox.style.background = 'var(--color-failed-bg)';
+              resultBox.style.borderColor = 'var(--color-failed)';
+              resultBox.style.color = 'var(--color-failed)';
+          }
           resultBox.innerHTML = html;
       }
 
@@ -133,13 +156,5 @@
   })();
   {{end}}
   </script>
-
-  <style>
-  .diff-line-add { display: block; background: rgba(63, 185, 80, 0.12); }
-  .diff-line-del { display: block; background: rgba(248, 81, 73, 0.12); }
-  .diff-line-ctx { display: block; }
-  .diff-line-hunk { display: block; color: var(--color-text-muted); font-style: italic; }
-  .diff-line-meta { display: block; color: var(--color-text-muted); font-weight: 600; }
-  </style>
 </body>
 </html>

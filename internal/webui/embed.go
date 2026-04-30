@@ -47,7 +47,6 @@ var pageTemplates = []string{
 	"templates/webhooks.html",
 	"templates/webhook_detail.html",
 	"templates/admin.html",
-	"templates/onboard/index.html",
 }
 
 // standalonePageTemplates is the list of templates that do NOT extend
@@ -60,6 +59,7 @@ var pageTemplates = []string{
 var standalonePageTemplates = []string{
 	"templates/work/board.html",
 	"templates/work/detail.html",
+	"templates/onboard/index.html",
 	"templates/proposals/list.html",
 	"templates/proposals/detail.html",
 }
@@ -238,10 +238,8 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 		return nil, fmt.Errorf("parsing partials: %w", err)
 	}
 
-	// Parse onboarding chat partials (templates/onboard/_*.html). The page
-	// template templates/onboard/index.html lives in pageTemplates and gets
-	// its own clone — partials need to be available on the shared base so
-	// the clone can reference them.
+	// Parse onboarding chat partials (templates/onboard/_*.html). These are
+	// shared partials used by the standalone onboard page template.
 	err = fs.WalkDir(templatesFS, "templates/onboard", func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
