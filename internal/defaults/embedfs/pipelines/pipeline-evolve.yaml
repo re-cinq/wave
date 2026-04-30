@@ -1,0 +1,538 @@
+kind: WavePipeline
+metadata:
+  name: pipeline-evolve
+  description: >-
+    Meta-pipeline that ingests pipeline_eval history for a target pipeline,
+    classifies recurring failure signal, and proposes an improved v+1 (yaml +
+    persona prompt diffs) via LLM. Records the candidate as a 'proposed' row
+    in evolution_proposal so a human gate can approve, reject, or supersede
+    before activation. Closes the self-evolution loop initiated by the
+    EvalSignal hook (Phase 3 of epic #1565).
+  category: composition
+  release: false
+
+skills:
+  - "{{ project.skill }}"
+
+input:
+  source: cli
+  type: string
+  example: "impl-issue"
+  schema:
+    type: string
+    description: "Target pipeline name (e.g. impl-issue, audit-security). Empty input is rejected."
+
+chat_context:
+  artifact_summaries:
+    - eval-rollup
+    - findings
+    - proposal-summary
+    - record-status
+  suggested_questions:
+    - "Which failure classes recur most often for this pipeline?"
+    - "What changed between the active YAML and the proposed v+1?"
+    - "What proposal_id was recorded?"
+  focus_areas:
+    - "Recurring failure classes and judge score trends"
+    - "Specific YAML / persona-prompt diffs being proposed"
+    - "Insufficient-data short-circuit when no eval rows exist"
+
+pipeline_outputs:
+  proposal:
+    step: record
+    artifact: record-status
+    type: string
+
+# ─── Step 1: gather-eval ────────────────────────────────────────────────────
+# Pull pipeline_eval rows for the target pipeline directly from .agents/state.db.
+# Mirrors the audit-db-trace precedent (sqlite3 + jq, graceful fallback when the
+# DB is missing). Empty input is rejected up-front so downstream steps never run
+# on a meaningless target.
+steps:
+  - id: gather-eval
+    type: command
+    script: |
+      mkdir -p .agents/output
+
+      PIPELINE='{{ input }}'
+      TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      OUT=.agents/output/eval-rollup.json
+
+      if [ -z "$PIPELINE" ]; then
+        echo "pipeline-evolve: empty input; target pipeline name required" >&2
+        exit 1
+      fi
+
+      # Locate the project root by walking up from the workspace CWD looking
+      # for wave.yaml. Wave projects always have a manifest at the root, so
+      # this is a stable anchor independent of workspace nesting depth.
+      find_project_root() {
+        d="$PWD"
+        while [ "$d" != "/" ]; do
+          if [ -f "$d/wave.yaml" ] || [ -f "$d/wave.yml" ]; then
+            printf '%s\n' "$d"
+            return 0
+          fi
+          d=$(dirname "$d")
+        done
+        printf '%s\n' "$PWD"
+      }
+      ROOT=$(find_project_root)
+      DB="$ROOT/.agents/state.db"
+
+      if [ ! -f "$DB" ]; then
+        jq -n \
+          --arg pipeline "$PIPELINE" \
+          --arg ts "$TS" \
+          '{pipeline_name:$pipeline, sample_size:0, status:"insufficient_data", rows:[], note:"No .agents/state.db on disk; gather-eval skipped.", captured_at:$ts}' \
+          > "$OUT"
+        exit 0
+      fi
+
+      # Pull the most recent 50 eval rows for the target pipeline. Use a
+      # positional parameter to dodge SQL-injection in the pipeline name.
+      ROWS=$(sqlite3 -json "$DB" \
+        "SELECT pipeline_name, run_id, judge_score, contract_pass, retry_count, failure_class, human_override, duration_ms, cost_dollars, recorded_at FROM pipeline_eval WHERE pipeline_name = '$PIPELINE' ORDER BY recorded_at DESC LIMIT 50" 2>/dev/null || true)
+      if [ -z "$ROWS" ]; then ROWS="[]"; fi
+
+      COUNT=$(printf '%s' "$ROWS" | jq 'length')
+      if [ "$COUNT" -eq 0 ]; then
+        STATUS="insufficient_data"
+      else
+        STATUS="ready"
+      fi
+
+      jq -n \
+        --arg pipeline "$PIPELINE" \
+        --arg status "$STATUS" \
+        --arg ts "$TS" \
+        --argjson rows "$ROWS" \
+        --argjson size "$COUNT" \
+        '{pipeline_name:$pipeline, sample_size:$size, status:$status, rows:$rows, captured_at:$ts}' \
+        > "$OUT"
+    output_artifacts:
+      - name: eval-rollup
+        path: .agents/output/eval-rollup.json
+        type: json
+        required: true
+
+  # ─── Step 2: analyze ──────────────────────────────────────────────────────
+  # Navigator (read-only, low-temp) classifies recurring failure classes and
+  # produces a structured findings JSON. Schema-gated by evolution-findings.
+  - id: analyze
+    persona: navigator
+    model: balanced
+    dependencies: [gather-eval]
+    memory:
+      inject_artifacts:
+        - step: gather-eval
+          artifact: eval-rollup
+          as: eval_rollup
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Classify recurring failure signal in the injected `eval_rollup` artifact
+        and emit a structured findings JSON that summarises the analysis. The
+        downstream `propose` step will read your findings to draft an improved
+        v+1 of the target pipeline, so be precise and stable: identical inputs
+        must produce identical outputs.
+
+        Target pipeline: `{{ input }}`
+
+        ## Context
+
+        - The injected `eval_rollup` artifact contains:
+          - `pipeline_name`, `sample_size`, `status` (ready | insufficient_data),
+            `captured_at`, and `rows` — at most the last 50 pipeline_eval rows.
+          - Each row: `pipeline_name`, `run_id`, `judge_score` (nullable float),
+            `contract_pass` (nullable bool), `retry_count` (nullable int),
+            `failure_class` (nullable string), `human_override` (nullable bool),
+            `duration_ms`, `cost_dollars`, `recorded_at` (unix seconds).
+
+        - The pipeline source files live in the read-only project mount under
+          `internal/defaults/embedfs/pipelines/` and `.agents/pipelines/`. You
+          may inspect them to ground your symptom labels in real step IDs, but
+          do NOT modify any file in this step.
+
+        ## Requirements
+
+        ### Step 1 — Handle empty / insufficient data
+
+        If `eval_rollup.status == "insufficient_data"` OR `sample_size == 0`:
+        write a findings JSON with `status: "insufficient_data"`, an empty
+        `failure_classes` array, and zero metrics. Do not invent symptoms.
+        The downstream `record` step will short-circuit on this status.
+
+        ### Step 2 — Aggregate metrics
+
+        For the rows present:
+
+        - `judge_score_median`: median of non-null `judge_score` values, or null
+          when no row has a score.
+        - `contract_pass_rate`: count(contract_pass=true) / count(non-null
+          contract_pass), or null when no row has the field set.
+        - `retry_count_avg`: arithmetic mean of `retry_count` across rows that
+          have it set, or null otherwise.
+
+        ### Step 3 — Classify failure classes
+
+        Group rows by `failure_class` (skip rows where the field is null or
+        empty). Sort by count descending and keep the top 10. For each:
+
+        - `class`: the failure_class label as recorded.
+        - `count`: how many runs in the sample carried it.
+        - `share`: count / sample_size, rounded to 4 decimal places.
+
+        ### Step 4 — Recurring symptoms
+
+        Produce 1–5 short natural-language symptom labels that describe what
+        is going wrong, grounded in the failure_class distribution and judge
+        score trend. Each symptom is a single sentence under 120 characters.
+        Examples (do not copy verbatim — derive from the data):
+
+        - "Judge score regressed below 0.7 across the last 12 runs"
+        - "contract_validation_failed dominates failures after retry"
+
+        Skip this section if `status == "insufficient_data"`.
+
+        ### Step 5 — Write the findings JSON
+
+        Write to the output path declared in `output_artifacts`:
+        `.agents/output/evolution-findings.json`
+
+        The JSON must conform to `.agents/contracts/evolution-findings.schema.json`
+        with at least: `pipeline_name`, `sample_size`, `status`,
+        `failure_classes` (array, may be empty), and `captured_at` (RFC3339
+        timestamp).
+
+        ## Constraints and Anti-patterns
+
+        - DO NOT fabricate failure classes or symptoms not supported by the
+          rows. The downstream `propose` step trusts your output verbatim.
+        - DO NOT include more than 10 entries in `failure_classes`.
+        - DO NOT exceed 1500 bytes for the entire JSON file. The summary is
+          stored in the DB as `signal_summary` and must stay compact.
+        - DO NOT modify any file outside the declared output artifact path.
+
+        ## Quality Bar
+
+        A good findings JSON is deterministic for identical inputs, captures
+        the dominant failure modes faithfully, and stays small enough to
+        embed verbatim in the `evolution_proposal` row. A bad findings JSON
+        invents symptoms, misses the dominant class, or exceeds the size cap.
+    output_artifacts:
+      - name: findings
+        path: .agents/output/evolution-findings.json
+        type: json
+        required: true
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .agents/output/evolution-findings.json
+        schema_path: .agents/contracts/evolution-findings.schema.json
+        must_pass: true
+        on_failure: warn
+
+  # ─── Step 3: propose ──────────────────────────────────────────────────────
+  # Craftsman drafts the v+1 candidate yaml + a unified prompt diff + a
+  # structured proposal-summary.json that record/ingests verbatim.
+  - id: propose
+    persona: craftsman
+    model: balanced
+    dependencies: [analyze]
+    memory:
+      inject_artifacts:
+        - step: gather-eval
+          artifact: eval-rollup
+          as: eval_rollup
+        - step: analyze
+          artifact: findings
+          as: findings
+    workspace:
+      mount:
+        - source: ./
+          target: /project
+          mode: readonly
+    exec:
+      type: prompt
+      source: |
+        ## Objective
+
+        Draft the next iteration of the target pipeline (`{{ input }}`) based on
+        the injected `findings` summary. Produce three artifacts:
+
+        1. A candidate v+1 YAML (full pipeline file, not a diff).
+        2. A unified `prompt.diff` over any persona prompt files you would
+           change, plus the YAML diff.
+        3. A `proposal-summary.json` that conforms to
+           `.agents/contracts/evolution-proposal.schema.json` and summarises
+           what you changed and why. The `record` step will copy
+           `signal_summary` from this JSON verbatim into the
+           `evolution_proposal` table.
+
+        ## Context
+
+        - The injected `findings` artifact carries the structured analysis
+          (failure classes, judge score median, recurring symptoms,
+          sample_size, status).
+        - The injected `eval_rollup` carries the raw rows for reference.
+        - The active pipeline yaml lives at one of:
+          - `internal/defaults/embedfs/pipelines/{{ input }}.yaml` (embedded default), or
+          - `.agents/pipelines/{{ input }}.yaml` (project override).
+        - Persona prompts live under `internal/defaults/embedfs/personas/`.
+        - You have a read-only project mount; persona-side write tools may
+          still create your output files, but DO NOT git-add or commit.
+
+        ## Requirements
+
+        ### Step 0 — Insufficient-data short-circuit
+
+        If `findings.status == "insufficient_data"` OR
+        `findings.sample_size == 0`:
+
+        - Skip the YAML/diff drafting.
+        - Write a minimal `proposal-summary.json` with
+          `version_before = 0`, `version_after = 1`,
+          `reason = "insufficient evaluation data; no proposal generated"`,
+          `signal_summary = { sample_size: 0, failure_classes: [] }`,
+          and set `candidate_yaml_path` and `diff_path` to empty strings.
+
+        The `record` step will see the empty paths and skip the DB insert.
+        Stop here.
+
+        ### Step 1 — Read the active YAML
+
+        Locate and read the active pipeline YAML for `{{ input }}` from the
+        embedded defaults or the project override. If neither exists, treat
+        the active version as 0 and the candidate as the first concrete
+        version (v1).
+
+        ### Step 2 — Draft the candidate
+
+        Write the candidate to:
+
+        ```
+        .agents/output/evolution/<pipeline>.next.yaml
+        ```
+
+        where `<pipeline>` is `{{ input }}`. The candidate is a *complete*
+        pipeline YAML, not a fragment. Keep the same `metadata.name`. Keep
+        the pipeline default-agnostic (no language-specific commands).
+
+        Your edits must be *targeted*: address the dominant failure class(es)
+        named in `findings`. Do not stylistic-rewrite untouched steps.
+
+        ### Step 3 — Write a unified diff
+
+        Write a unified diff (the kind `git diff` emits or `diff -u` produces)
+        spanning every file you would change — including persona prompt files
+        if your proposal edits them. Path:
+
+        ```
+        .agents/output/evolution/prompt.diff
+        ```
+
+        Use repo-relative paths inside the diff headers (e.g.
+        `--- a/internal/defaults/embedfs/pipelines/{{ input }}.yaml`).
+
+        ### Step 4 — Write proposal-summary.json
+
+        Write to:
+
+        ```
+        .agents/output/evolution/proposal-summary.json
+        ```
+
+        Required fields (match `evolution-proposal.schema.json`):
+
+        - `pipeline_name`: the target pipeline name.
+        - `candidate_yaml_path`: absolute or repo-relative path to the
+          candidate yaml you wrote in Step 2.
+        - `diff_path`: absolute or repo-relative path to the diff in Step 3.
+        - `reason`: one-paragraph rationale, plain English. Must reference
+          at least one failure class from `findings`.
+        - `signal_summary`: compact JSON object copying `sample_size`,
+          `failure_classes` (top 5 only), `judge_score_median`,
+          `contract_pass_rate`, and `recurring_symptoms` verbatim from
+          `findings`. Keep this under 1500 bytes when serialized.
+        - `version_before`: the active version. Treat 0 as "no recorded
+          active version".
+        - `version_after`: `version_before + 1`.
+        - Optionally: `prompt_changes` — a list of `{ persona, summary }`
+          entries describing persona prompt edits (informational only; the
+          diff is canonical).
+
+        ## Constraints and Anti-patterns
+
+        - DO NOT modify the active yaml file in-place. Write the candidate
+          to the `.agents/output/evolution/` directory only.
+        - DO NOT git-add, git-commit, or git-push from this step. The
+          proposal is opaque to git until a reviewer approves.
+        - DO NOT emit a candidate yaml that introduces project-specific
+          (Go, npm, etc.) commands or hard-codes a forge. Stay
+          default-agnostic — use `{{ project.* }}` and `{{ forge.* }}`.
+        - DO NOT exceed 1500 bytes in `signal_summary` after JSON
+          serialization. The DB stores it verbatim.
+
+        ## Quality Bar
+
+        A good proposal cites a specific failure class in `reason`, edits
+        only the steps implicated by that class, keeps the `signal_summary`
+        compact, and produces a syntactically valid YAML candidate that the
+        loader could parse. A bad proposal rewrites everything stylistically,
+        ignores the dominant failure class, or emits an invalid YAML.
+    output_artifacts:
+      - name: proposal-summary
+        path: .agents/output/evolution/proposal-summary.json
+        type: json
+        required: true
+      - name: candidate-yaml
+        path: .agents/output/evolution/{{ input }}.next.yaml
+        type: yaml
+        required: false
+      - name: prompt-diff
+        path: .agents/output/evolution/prompt.diff
+        type: text
+        required: false
+    retry:
+      policy: standard
+      max_attempts: 2
+    handover:
+      contract:
+        type: json_schema
+        source: .agents/output/evolution/proposal-summary.json
+        schema_path: .agents/contracts/evolution-proposal.schema.json
+        must_pass: true
+        on_failure: fail
+
+  # ─── Step 4: record ───────────────────────────────────────────────────────
+  # INSERT into evolution_proposal as 'proposed'. Empty/insufficient-data path
+  # short-circuits to status=skipped so the DB never grows noise rows.
+  - id: record
+    type: command
+    dependencies: [propose]
+    script: |
+      mkdir -p .agents/output
+
+      OUT=.agents/output/record-status.json
+      TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      PIPELINE='{{ input }}'
+
+      if [ -z "$PIPELINE" ]; then
+        echo "record: empty input; target pipeline name required" >&2
+        exit 1
+      fi
+
+      # Resolve the propose-step inputs via the WAVE_DEP_* contract. Falls
+      # back to the canonical injection path when WAVE_DEP_PROPOSE_* is not
+      # populated (older runtimes).
+      SUMMARY="${WAVE_DEP_PROPOSE_PROPOSAL_SUMMARY:-.agents/artifacts/propose/proposal-summary}"
+      if [ ! -f "$SUMMARY" ]; then
+        echo "record: missing proposal-summary at $SUMMARY" >&2
+        exit 1
+      fi
+
+      # Locate the project root by walking up from CWD looking for wave.yaml.
+      find_project_root() {
+        d="$PWD"
+        while [ "$d" != "/" ]; do
+          if [ -f "$d/wave.yaml" ] || [ -f "$d/wave.yml" ]; then
+            printf '%s\n' "$d"
+            return 0
+          fi
+          d=$(dirname "$d")
+        done
+        printf '%s\n' "$PWD"
+      }
+      ROOT=$(find_project_root)
+      DB="$ROOT/.agents/state.db"
+
+      VERSION_BEFORE=$(jq -r '.version_before // 0' "$SUMMARY")
+      VERSION_AFTER=$(jq -r '.version_after // 1' "$SUMMARY")
+      DIFF_PATH=$(jq -r '.diff_path // ""' "$SUMMARY")
+      REASON=$(jq -r '.reason // ""' "$SUMMARY")
+      SIGNAL_SUMMARY=$(jq -c '.signal_summary // {}' "$SUMMARY")
+
+      # Insufficient-data short-circuit: when propose emitted empty paths
+      # because the analyze step had no data to work with, skip the INSERT
+      # and emit a record-status.json with status=skipped.
+      if [ -z "$DIFF_PATH" ] || [ -z "$REASON" ] || [ ! -f "$DB" ]; then
+        REASON_MSG="skipped"
+        if [ ! -f "$DB" ]; then
+          REASON_MSG="no_state_db"
+        elif [ -z "$DIFF_PATH" ]; then
+          REASON_MSG="insufficient_data"
+        fi
+        jq -n \
+          --arg pipeline "$PIPELINE" \
+          --arg status "skipped" \
+          --arg reason "$REASON_MSG" \
+          --arg ts "$TS" \
+          '{pipeline_name:$pipeline, status:$status, skip_reason:$reason, proposal_id:null, recorded_at:$ts}' \
+          > "$OUT"
+        exit 0
+      fi
+
+      # Stage the diff under .agents/output/evolution/<pipeline_id>/ at the
+      # project root so the recorded diff_path survives workspace cleanup.
+      STABLE_DIR="$ROOT/.agents/output/evolution/${PIPELINE}"
+      mkdir -p "$STABLE_DIR"
+
+      DIFF_BASENAME=$(basename "$DIFF_PATH")
+      STABLE_DIFF="$STABLE_DIR/${DIFF_BASENAME}"
+      if [ -f "$DIFF_PATH" ]; then
+        cp -f "$DIFF_PATH" "$STABLE_DIFF"
+      fi
+      # Always copy the proposal-summary alongside for auditability.
+      cp -f "$SUMMARY" "$STABLE_DIR/proposal-summary.json"
+
+      # SQL-escape every untrusted string by doubling single quotes. SQLite
+      # parses `''` inside a literal as a single quote, so this is the
+      # canonical defense against injection here.
+      sql_escape() {
+        printf '%s' "$1" | sed "s/'/''/g"
+      }
+      ESC_PIPELINE=$(sql_escape "$PIPELINE")
+      ESC_DIFF=$(sql_escape "$STABLE_DIFF")
+      ESC_REASON=$(sql_escape "$REASON")
+      ESC_SIGNAL=$(sql_escape "$SIGNAL_SUMMARY")
+
+      PROPOSED_AT=$(date -u +%s)
+
+      PROPOSAL_ID=$(sqlite3 "$DB" "INSERT INTO evolution_proposal (pipeline_name, version_before, version_after, diff_path, reason, signal_summary, status, proposed_at) VALUES ('$ESC_PIPELINE', $VERSION_BEFORE, $VERSION_AFTER, '$ESC_DIFF', '$ESC_REASON', '$ESC_SIGNAL', 'proposed', $PROPOSED_AT); SELECT last_insert_rowid();")
+
+      if [ -z "$PROPOSAL_ID" ]; then
+        echo "record: failed to insert evolution_proposal row" >&2
+        jq -n \
+          --arg pipeline "$PIPELINE" \
+          --arg ts "$TS" \
+          '{pipeline_name:$pipeline, status:"failed", proposal_id:null, recorded_at:$ts}' \
+          > "$OUT"
+        exit 1
+      fi
+
+      jq -n \
+        --arg pipeline "$PIPELINE" \
+        --arg status "proposed" \
+        --argjson id "$PROPOSAL_ID" \
+        --arg diff "$STABLE_DIFF" \
+        --argjson vb "$VERSION_BEFORE" \
+        --argjson va "$VERSION_AFTER" \
+        --arg ts "$TS" \
+        '{pipeline_name:$pipeline, status:$status, proposal_id:$id, diff_path:$diff, version_before:$vb, version_after:$va, recorded_at:$ts}' \
+        > "$OUT"
+    output_artifacts:
+      - name: record-status
+        path: .agents/output/record-status.json
+        type: json
+        required: true

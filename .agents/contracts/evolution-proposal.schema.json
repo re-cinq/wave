@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Evolution Proposal",
+  "description": "Output from the propose step of pipeline-evolve: pointers to candidate yaml/diff plus a structured rationale that gets written verbatim into evolution_proposal.signal_summary.",
+  "type": "object",
+  "required": [
+    "pipeline_name",
+    "candidate_yaml_path",
+    "diff_path",
+    "reason",
+    "signal_summary",
+    "version_before",
+    "version_after"
+  ],
+  "properties": {
+    "pipeline_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Target pipeline name; mirrors the pipeline-evolve input"
+    },
+    "candidate_yaml_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the proposed v+1 yaml file inside the workspace (e.g. .agents/output/evolution/<run_id>/<pipeline>.next.yaml)"
+    },
+    "diff_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to a unified diff (yaml + persona prompt changes). Stored verbatim in evolution_proposal.diff_path."
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One-paragraph human-readable rationale; stored in evolution_proposal.reason"
+    },
+    "signal_summary": {
+      "type": "object",
+      "description": "Compact JSON summarizing the analyze findings; serialized verbatim into evolution_proposal.signal_summary",
+      "required": ["sample_size", "failure_classes"],
+      "properties": {
+        "sample_size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "judge_score_median": {
+          "type": ["number", "null"]
+        },
+        "contract_pass_rate": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "failure_classes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["class", "count"],
+            "properties": {
+              "class": { "type": "string", "minLength": 1 },
+              "count": { "type": "integer", "minimum": 1 }
+            }
+          }
+        },
+        "recurring_symptoms": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "version_before": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Active version at proposal time; 0 if no row in pipeline_version"
+    },
+    "version_after": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Proposed next version, typically version_before + 1"
+    },
+    "prompt_changes": {
+      "type": "array",
+      "description": "Optional list of persona prompt edits suggested by the proposal (informational; the diff_path is the canonical artifact)",
+      "items": {
+        "type": "object",
+        "required": ["persona", "summary"],
+        "properties": {
+          "persona": { "type": "string", "minLength": 1 },
+          "summary": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

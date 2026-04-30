@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Evolution Findings",
+  "description": "Output from the analyze step of pipeline-evolve: classified failure signal aggregated from pipeline_eval rows for a target pipeline.",
+  "type": "object",
+  "required": ["pipeline_name", "sample_size", "failure_classes", "status"],
+  "properties": {
+    "pipeline_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Target pipeline whose history was analyzed"
+    },
+    "sample_size": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of pipeline_eval rows considered"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["analyzed", "insufficient_data"],
+      "description": "analyzed when at least one row was present; insufficient_data when no eval rows were available"
+    },
+    "judge_score_median": {
+      "type": ["number", "null"],
+      "description": "Median judge_score across the sample, or null if no scored runs"
+    },
+    "contract_pass_rate": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Fraction of runs where contract_pass=true"
+    },
+    "retry_count_avg": {
+      "type": ["number", "null"],
+      "description": "Mean retry count across the sample"
+    },
+    "failure_classes": {
+      "type": "array",
+      "description": "Top recurring failure classes with counts, capped to top 10",
+      "items": {
+        "type": "object",
+        "required": ["class", "count"],
+        "properties": {
+          "class": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Failure class label as recorded in pipeline_eval.failure_class"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Number of occurrences in the sample"
+          },
+          "share": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Fraction of sample attributable to this class"
+          }
+        }
+      }
+    },
+    "recurring_symptoms": {
+      "type": "array",
+      "description": "Free-form natural-language symptom labels extracted by the analyzer",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "captured_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wall-clock time when analysis ran"
+    }
+  }
+}
