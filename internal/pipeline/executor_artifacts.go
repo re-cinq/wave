@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -575,37 +576,48 @@ func (e *DefaultPipelineExecutor) warnOnUnexpectedArtifacts(execution *PipelineE
 		declared[filepath.Clean(art.Path)] = true
 	}
 
-	var unexpected []string
-	_ = filepath.WalkDir(workspacePath, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		rel, relErr := filepath.Rel(workspacePath, path)
-		if relErr != nil || rel == "." {
-			return nil
-		}
-		// Prune Wave-internal and project-mount subtrees, plus the .claude/
-		// directory where Claude Code drops per-skill slash-command files
-		// (.claude/commands/<skill>.md) on every subprocess startup. Those
-		// files are tooling state, not artifacts the persona produced.
-		if d.IsDir() {
-			switch rel {
-			case ".agents", ".claude", "project", ".git", "node_modules", "vendor":
-				return filepath.SkipDir
+	// Workspaces of type `worktree` contain a full checkout of the project,
+	// so a naive WalkDir flags every existing file as "unexpected". Use
+	// `git status --porcelain` to enumerate only files the step actually
+	// created or modified relative to the worktree HEAD. Falls back to a
+	// pruned WalkDir for non-git workspaces (mount/basic).
+	unexpected := changedFilesViaGit(workspacePath)
+	if unexpected == nil {
+		_ = filepath.WalkDir(workspacePath, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return nil
 			}
+			rel, relErr := filepath.Rel(workspacePath, path)
+			if relErr != nil || rel == "." {
+				return nil
+			}
+			if d.IsDir() {
+				switch rel {
+				case ".agents", ".claude", "project", ".git", "node_modules", "vendor":
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			base := filepath.Base(rel)
+			if strings.HasPrefix(base, ".") || base == "AGENTS.md" || base == "CLAUDE.md" {
+				return nil
+			}
+			if declared[filepath.Clean(rel)] {
+				return nil
+			}
+			unexpected = append(unexpected, rel)
 			return nil
+		})
+	} else {
+		// Filter declared paths from the git-reported list.
+		filtered := unexpected[:0]
+		for _, p := range unexpected {
+			if !declared[filepath.Clean(p)] {
+				filtered = append(filtered, p)
+			}
 		}
-		// Ignore hidden files at any depth and the standard AGENTS.md drop.
-		base := filepath.Base(rel)
-		if strings.HasPrefix(base, ".") || base == "AGENTS.md" || base == "CLAUDE.md" {
-			return nil
-		}
-		if declared[filepath.Clean(rel)] {
-			return nil
-		}
-		unexpected = append(unexpected, rel)
-		return nil
-	})
+		unexpected = filtered
+	}
 
 	if len(unexpected) == 0 {
 		return
@@ -622,6 +634,73 @@ func (e *DefaultPipelineExecutor) warnOnUnexpectedArtifacts(execution *PipelineE
 		State:      "warning",
 		Message:    fmt.Sprintf("step wrote %d file(s) outside declared output_artifacts paths: %s", len(unexpected), strings.Join(preview, ", ")),
 	})
+}
+
+// changedFilesViaGit returns paths reported by `git status --porcelain` from
+// the given workspace dir, or nil if the workspace is not a git tree (caller
+// then falls back to WalkDir). Pruning of tooling state (.agents/, .claude/,
+// AGENTS.md/CLAUDE.md, hidden files) matches the WalkDir branch so warnings
+// stay consistent across workspace types.
+func changedFilesViaGit(workspacePath string) []string {
+	gitDir := filepath.Join(workspacePath, ".git")
+	if _, err := os.Stat(gitDir); err != nil {
+		return nil
+	}
+	cmd := exec.Command("git", "-C", workspacePath, "status", "--porcelain", "--untracked-files=all")
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	var files []string
+	for _, line := range strings.Split(string(out), "\n") {
+		if len(line) < 4 {
+			continue
+		}
+		// porcelain format: XY <space> <path>; rename pairs use ` -> `.
+		path := strings.TrimSpace(line[3:])
+		if idx := strings.Index(path, " -> "); idx >= 0 {
+			path = path[idx+4:]
+		}
+		path = strings.Trim(path, `"`)
+		if path == "" {
+			continue
+		}
+		// Same prune list as WalkDir branch.
+		first := path
+		if i := strings.Index(path, "/"); i >= 0 {
+			first = path[:i]
+		}
+		if isPrunedTopLevel(first) {
+			continue
+		}
+		base := filepath.Base(path)
+		if strings.HasPrefix(base, ".") || base == "AGENTS.md" || base == "CLAUDE.md" {
+			continue
+		}
+		files = append(files, path)
+	}
+	return files
+}
+
+// isPrunedTopLevel reports whether the top-level directory or file name is a
+// dependency/cache/tooling-state artifact never normally tracked in git. The
+// list is conservative — only entries that are essentially never intentionally
+// committed to a repo. Build-output names (dist, build, out, bin, obj) are NOT
+// pruned because some projects do commit them.
+func isPrunedTopLevel(name string) bool {
+	switch name {
+	// Wave-internal state + project mount.
+	case ".agents", ".claude", "project", ".git":
+		return true
+	// Dependency dirs (universally gitignored).
+	case "node_modules", "vendor", "target":
+		return true
+	// Tooling/cache state (universally gitignored).
+	case "__pycache__", ".venv", "venv", ".tox", ".pytest_cache", ".bundle",
+		".cache", ".gradle", ".mvn", ".next", ".nuxt", ".turbo":
+		return true
+	}
+	return false
 }
 
 // parseStallTimeout parses the stall timeout from the manifest runtime config.
