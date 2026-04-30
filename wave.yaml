@@ -454,3 +454,12 @@ runtime:
         warn_at: 25.0
     routing:
         auto_route: true
+# Evolution trigger thresholds (Phase 3.3 / issue #1612). Defaults shown — uncomment to override.
+# evolution:
+#     enabled: true              # master switch (default: true)
+#     every_n_window: 10         # rows per half-window for judge-score median compare
+#     every_n_judge_drop: 0.1    # min median judge_score drop to fire every-N
+#     drift_window: 20           # rows for contract_pass drift heuristic
+#     drift_pass_drop: 0.15      # min absolute pass-rate drop to fire drift
+#     retry_window: 10           # rows for retry-rate heuristic
+#     retry_avg_threshold: 2.0   # avg retry_count over retry_window to fire retry-rate

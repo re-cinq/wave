@@ -131,6 +131,56 @@ func TestProposal_CreateDecideList(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestLastProposalAt_EmptyStore(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	ts, ok, err := store.LastProposalAt("ghost")
+	require.NoError(t, err)
+	assert.False(t, ok, "no rows → ok=false")
+	assert.True(t, ts.IsZero(), "no rows → zero time")
+}
+
+func TestLastProposalAt_SingleProposal(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	want := time.Unix(time.Now().Unix(), 0) // truncate to second precision (column is int64 seconds)
+	_, err := store.CreateProposal(EvolutionProposalRecord{
+		PipelineName:  "p",
+		VersionBefore: 1,
+		VersionAfter:  2,
+		DiffPath:      "x",
+		Reason:        "y",
+		ProposedAt:    want,
+	})
+	require.NoError(t, err)
+	got, ok, err := store.LastProposalAt("p")
+	require.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, want.Unix(), got.Unix())
+}
+
+func TestLastProposalAt_ReturnsMostRecent(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+	older := time.Unix(1_700_000_000, 0)
+	newer := time.Unix(1_700_000_500, 0)
+	for _, ts := range []time.Time{older, newer} {
+		_, err := store.CreateProposal(EvolutionProposalRecord{
+			PipelineName:  "p",
+			VersionBefore: 1,
+			VersionAfter:  2,
+			DiffPath:      "x",
+			Reason:        "y",
+			ProposedAt:    ts,
+		})
+		require.NoError(t, err)
+	}
+	got, ok, err := store.LastProposalAt("p")
+	require.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, newer.Unix(), got.Unix())
+}
+
 func TestProposal_DecideRejectsProposedTransition(t *testing.T) {
 	store, cleanup := setupTestStore(t)
 	defer cleanup()

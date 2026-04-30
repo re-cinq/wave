@@ -41,9 +41,26 @@ type Manifest struct {
 	Skills     []string                 `yaml:"skills,omitempty"`
 	Hooks      []hooks.LifecycleHookDef `yaml:"hooks,omitempty"`
 	Runtime    Runtime                  `yaml:"runtime"`
+	Evolution  *EvolutionYAML           `yaml:"evolution,omitempty"`
 
 	// RootDir is the directory containing wave.yaml. Set by the loader.
 	RootDir string `yaml:"-"`
+}
+
+// EvolutionYAML is the operator-facing override for the Phase 3.3 trigger
+// thresholds. Field names mirror evolution.Config; zero values fall back to
+// the compiled-in defaults so partial overrides keep the rest sane.
+//
+// Conversion to evolution.Config happens at the executor wiring layer to
+// avoid an import cycle between manifest and evolution.
+type EvolutionYAML struct {
+	Enabled           *bool   `yaml:"enabled,omitempty"`
+	EveryNWindow      int     `yaml:"every_n_window,omitempty"`
+	EveryNJudgeDrop   float64 `yaml:"every_n_judge_drop,omitempty"`
+	DriftWindow       int     `yaml:"drift_window,omitempty"`
+	DriftPassDrop     float64 `yaml:"drift_pass_drop,omitempty"`
+	RetryWindow       int     `yaml:"retry_window,omitempty"`
+	RetryAvgThreshold float64 `yaml:"retry_avg_threshold,omitempty"`
 }
 
 type Metadata struct {
