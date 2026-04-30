@@ -67,6 +67,7 @@ type serverRuntime struct {
 	wsManager   workspace.WorkspaceManager
 	forgeClient forge.Client
 	repoSlug    string // "owner/repo"
+	forgeHost   string // hostname of the forge (e.g. "github.com")
 	repoDir     string // git repository root directory
 	scheduler   *Scheduler
 	worksource  worksource.Service
@@ -246,6 +247,7 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 			wsManager:   wsManager,
 			forgeClient: forgeClient,
 			repoSlug:    repoSlug,
+			forgeHost:   forgeInfo.Host,
 			repoDir:     repoDir,
 			scheduler:   NewScheduler(cfg.MaxConcurrent),
 			worksource:  worksource.NewService(rwStore),
