@@ -38,13 +38,9 @@ func dispatchTestServer(t *testing.T) (*Server, state.StateStore) {
 
 // seedBinding inserts a worksource binding directly into the state store. It
 // returns the new binding id.
-func seedBinding(t *testing.T, store state.WorksourceStore, pipelineName string, labels []string) int64 {
+func seedBinding(t *testing.T, store state.WorksourceStore, pipelineName string) int64 {
 	t.Helper()
-	selector := "{}"
-	if len(labels) > 0 {
-		raw, _ := json.Marshal(map[string]any{"labels": labels})
-		selector = string(raw)
-	}
+	const selector = "{}"
 	id, err := store.CreateBinding(state.WorksourceBindingRecord{
 		Forge:        "github",
 		Repo:         "re-cinq/wave",
@@ -112,7 +108,7 @@ func TestHandleWorkDispatch_NoMatch_409(t *testing.T) {
 
 func TestHandleWorkDispatch_SingleMatch_RedirectAndRunRow(t *testing.T) {
 	srv, store := dispatchTestServer(t)
-	seedBinding(t, store, "impl-issue", nil)
+	seedBinding(t, store, "impl-issue")
 
 	req := newDispatchRequest(t, "1595", url.Values{})
 	rec := httptest.NewRecorder()
@@ -160,8 +156,8 @@ func TestHandleWorkDispatch_SingleMatch_RedirectAndRunRow(t *testing.T) {
 
 func TestHandleWorkDispatch_MultiMatch_NoPipeline_400(t *testing.T) {
 	srv, store := dispatchTestServer(t)
-	seedBinding(t, store, "impl-issue", nil)
-	seedBinding(t, store, "research", nil)
+	seedBinding(t, store, "impl-issue")
+	seedBinding(t, store, "research")
 
 	req := newDispatchRequest(t, "1595", url.Values{})
 	rec := httptest.NewRecorder()
@@ -177,8 +173,8 @@ func TestHandleWorkDispatch_MultiMatch_NoPipeline_400(t *testing.T) {
 
 func TestHandleWorkDispatch_MultiMatch_ValidPipeline_Redirect(t *testing.T) {
 	srv, store := dispatchTestServer(t)
-	seedBinding(t, store, "impl-issue", nil)
-	seedBinding(t, store, "research", nil)
+	seedBinding(t, store, "impl-issue")
+	seedBinding(t, store, "research")
 
 	body := url.Values{"pipeline": []string{"research"}}
 	req := newDispatchRequest(t, "1595", body)
@@ -200,8 +196,8 @@ func TestHandleWorkDispatch_MultiMatch_ValidPipeline_Redirect(t *testing.T) {
 
 func TestHandleWorkDispatch_MultiMatch_BogusPipeline_400(t *testing.T) {
 	srv, store := dispatchTestServer(t)
-	seedBinding(t, store, "impl-issue", nil)
-	seedBinding(t, store, "research", nil)
+	seedBinding(t, store, "impl-issue")
+	seedBinding(t, store, "research")
 
 	body := url.Values{"pipeline": []string{"definitely-not-real"}}
 	req := newDispatchRequest(t, "1595", body)
