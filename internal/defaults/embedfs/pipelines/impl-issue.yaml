@@ -233,6 +233,11 @@ steps:
           command: "{{ project.contract_test_command }}"
           must_pass: true
           on_failure: fail
+        - type: test_diff
+          on_failure: rework
+        - type: test_count_baseline
+          base_ref: HEAD~1
+          on_failure: rework
         - type: agent_review
           persona: navigator
           criteria_path: .agents/contracts/impl-review-criteria.md
