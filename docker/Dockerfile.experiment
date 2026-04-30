@@ -1,0 +1,71 @@
+# syntax=docker/dockerfile:1.7
+
+# Reproducible Wave experiment VM — clones a target project via tea, runs
+# wave init + onboard-project, exposes the webui on :8080. Used for the
+# Phase 4 end-to-end smoke described in
+# docs/scope/codecrispies-walkthrough.md.
+
+# ---------- Stage 1: build wave from source ----------
+FROM golang:1.22-bookworm AS wave-build
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+COPY . .
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=1 go build -tags=webui_preview -o /out/wave ./cmd/wave
+
+# ---------- Stage 2: tea CLI (gitea/forgejo client) ----------
+FROM debian:bookworm-slim AS tea-fetch
+ARG TEA_VERSION=0.11.1
+ARG TEA_ARCH=amd64
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl \
+ && rm -rf /var/lib/apt/lists/* \
+ && curl -fsSL "https://gitea.com/gitea/tea/releases/download/v${TEA_VERSION}/tea-${TEA_VERSION}-linux-${TEA_ARCH}" \
+      -o /out/tea \
+ && chmod +x /out/tea
+
+# ---------- Stage 3: runtime image ----------
+FROM node:22-bookworm-slim AS runtime
+
+ARG WAVE_USER=wave
+ARG WAVE_UID=1000
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    HOME=/home/${WAVE_USER} \
+    WAVE_HOME=/home/${WAVE_USER} \
+    PATH=/usr/local/bin:/usr/bin:/bin:/home/${WAVE_USER}/.local/bin
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      git \
+      gh \
+      curl \
+      jq \
+      sqlite3 \
+      ca-certificates \
+      bash \
+      tini \
+ && rm -rf /var/lib/apt/lists/* \
+ && useradd --create-home --uid "${WAVE_UID}" --shell /bin/bash "${WAVE_USER}"
+
+# Claude Code CLI ships via npm.
+RUN npm install -g @anthropic-ai/claude-code \
+ && npm cache clean --force
+
+COPY --from=wave-build /out/wave /usr/local/bin/wave
+COPY --from=tea-fetch  /out/tea  /usr/local/bin/tea
+
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+USER ${WAVE_USER}
+WORKDIR /work
+EXPOSE 8080
+
+# tini reaps orphaned subprocesses (claude-code, wave runs).
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]

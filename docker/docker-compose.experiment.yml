@@ -1,0 +1,52 @@
+# Reproducible Wave experiment VM compose. Boots wave + claude-code + tea
+# against a target repo and exposes the webui on :8080.
+#
+# Usage:
+#   cp docker/.env.experiment.example docker/.env.experiment
+#   $EDITOR docker/.env.experiment   # set tokens, target host/owner/repo
+#   docker compose -f docker/docker-compose.experiment.yml \
+#                  --env-file docker/.env.experiment up --build
+#
+# After boot, browse http://localhost:8080 — the entry redirect goes to
+# /onboard on first run (no sentinel) or /work afterwards.
+
+services:
+  wave:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.experiment
+    image: wave-experiment:latest
+    container_name: wave-experiment
+    init: true
+    environment:
+      WAVE_PROJECT_HOST: "${WAVE_PROJECT_HOST}"
+      WAVE_PROJECT_OWNER: "${WAVE_PROJECT_OWNER}"
+      WAVE_PROJECT_REPO: "${WAVE_PROJECT_REPO}"
+      WAVE_PROJECT_TOKEN: "${WAVE_PROJECT_TOKEN}"
+      WAVE_ADAPTER: "${WAVE_ADAPTER:-claude}"
+      WAVE_MODEL: "${WAVE_MODEL:-balanced}"
+      WAVE_PORT: "8080"
+      # Anthropic API auth — claude-code reads this. Rotate via .env.experiment.
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+    ports:
+      - "${WAVE_HOST_PORT:-8080}:8080"
+    volumes:
+      # /work survives container rebuilds; the project clone + wave.yaml +
+      # .agents/state.db live here.
+      - wave-work:/work
+      # claude-code OAuth + tea login state. Mounting a host dir here lets
+      # `claude /login` happen once and persist across `docker compose up`.
+      - wave-config:/home/wave/.config
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+volumes:
+  wave-work:
+    name: wave-experiment-work
+  wave-config:
+    name: wave-experiment-config

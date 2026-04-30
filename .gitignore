@@ -55,3 +55,4 @@ integration.test
 
 # Tailwind CLI binary cache (downloaded by `make tailwind`)
 tools/
+docker/.env.experiment
