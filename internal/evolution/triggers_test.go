@@ -202,7 +202,9 @@ func TestContractPassDrift_FiresOnDrop(t *testing.T) {
 	for i := range prior {
 		prior[i] = row(now.Add(-time.Duration(20+i)*time.Second), nil, ptrBool(true), nil)
 	}
-	all := append(recent, prior...)
+	all := make([]state.PipelineEvalRecord, 0, len(recent)+len(prior))
+	all = append(all, recent...)
+	all = append(all, prior...)
 	svc := NewService(&fakeStore{evals: all}, cfg)
 	fire, reason, err := svc.ShouldEvolve("p")
 	if err != nil {
