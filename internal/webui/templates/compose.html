@@ -1,127 +1,158 @@
-{{define "title"}}Compose · Wave{{end}}
-{{define "content"}}
-<div class="wr-head">
-    <h1>Composition Pipelines</h1>
-</div>
-
-{{if .Pipelines}}
-<div class="wr-toolbar">
-    <div class="wr-controls">
-        <span style="font-size:0.72rem;color:var(--color-text-muted);">{{len .Pipelines}} pipelines</span>
-    </div>
-</div>
-<div class="wr-list">
-{{range .Pipelines}}
-    <a href="/pipelines/{{.Name}}" class="wr-run" data-category="{{.Category}}">
-        <div class="wr-accent st-defined" style="border-left-color:#8b5cf6;"></div>
-        <div class="wr-body">
-            <div class="wr-row1">
-                <span class="wr-name">{{.Name}}</span>
-                {{if and .Category (ne .Category "composition")}}<span class="badge" style="font-size:0.65rem;background:rgba(139,92,246,0.12);color:#c4b5fd;">{{.Category}}</span>{{end}}
-                <span class="badge" style="font-size:0.65rem;background:rgba(99,102,241,0.12);color:#a5b4fc;">composition</span>
-            </div>
-            {{if .Description}}<div class="wr-row2"><span style="color:var(--color-text-secondary);font-size:0.78rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:48rem;">{{.Description}}</span></div>{{end}}
-            <div class="wr-row2" style="margin-top:0.15rem;">
-                <span style="color:var(--color-text-muted);font-size:0.72rem;"><b>{{.StepCount}}</b> steps</span>
-                {{if .RunCount}}<span style="color:var(--color-text-muted);font-size:0.72rem;"><b>{{.RunCount}}</b> runs</span>{{end}}
-                {{if .Steps}}
-                <span style="color:var(--color-text-muted);font-size:0.68rem;font-family:var(--font-mono);display:flex;align-items:center;gap:0.15rem;">
-                {{range $i, $step := .Steps}}{{if $i}}<span style="color:var(--color-border);">&#8594;</span>{{end}}<span style="background:var(--color-bg-tertiary);padding:0.05rem 0.3rem;border-radius:3px;">{{$step.ID}}</span>{{end}}
-                </span>
-                {{end}}
-                {{range .Skills}}<span class="badge" style="font-size:0.65rem;background:rgba(34,211,238,0.1);color:#67e8f9;">{{.}}</span>{{end}}
-            </div>
-        </div>
-        <div class="wr-meta" style="display:flex;flex-direction:row;gap:0.4rem;align-items:center;">
-            <button class="btn btn-sm" onclick="event.preventDefault();event.stopPropagation();showComposeRun('{{.Name}}')" style="font-size:0.68rem;padding:0.15rem 0.45rem;">Start</button>
-        </div>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Compose &mdash; Wave</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  {{if csrfToken}}<meta name="csrf-token" content="{{csrfToken}}">{{end}}
+</head>
+<body>
+  <nav class="w-nav">
+    <a href="/" class="w-nav-brand">
+      <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/>
+        <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" opacity="0.35"/>
+      </svg>
+      Wave
     </a>
-{{end}}
-</div>
+    <div class="w-nav-links">
+      <a href="/work">Work</a>
+      <a href="/runs">Runs</a>
+      <a href="/pipelines">Pipelines</a>
+      <a href="/proposals">Proposals</a>
+      <a href="/issues">Issues</a>
+      <a href="/prs">PRs</a>
+      <a href="/onboard">Onboard</a>
+      <a href="/health" style="margin-left: auto;">Health</a>
+    </div>
+  </nav>
 
-<!-- Run dialog (synced with pipeline overview w-dialog pattern) -->
-<dialog id="compose-run-dialog" class="w-dialog" aria-labelledby="compose-run-title">
-    <div class="w-dialog-head">
-        <h3 id="compose-run-title" style="margin:0;font-size:1rem;">Start: <code id="compose-run-name" style="font-size:0.85rem;"></code></h3>
-        <button class="w-dialog-close" onclick="closeComposeRun()" aria-label="Close">&times;</button>
+  <div class="w-container">
+    <div class="w-page-header">
+      <h1 class="w-page-title">Composition Pipelines</h1>
     </div>
-    <div class="w-dialog-body">
-        <div class="form-group">
-            <label for="compose-input" style="font-size:0.78rem;color:var(--color-text-secondary);display:block;margin-bottom:0.2rem;">Input</label>
-            <textarea id="compose-input" rows="3" placeholder="Issue URL, feature description..." style="width:100%;padding:0.4rem 0.5rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-family:var(--font-sans);font-size:0.82rem;resize:vertical;"></textarea>
+
+  {{if .Pipelines}}
+    <div class="w-filterbar" style="border-radius: 8px; border-bottom: 1px solid var(--color-border);">
+      <span style="font-size: 12px; color: var(--color-text-secondary);">{{len .Pipelines}} pipelines</span>
+    </div>
+    <div class="w-list standalone">
+    {{range .Pipelines}}
+      <a href="/pipelines/{{.Name}}" class="run-card" data-category="{{.Category}}" style="display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit;" onmouseover="this.style.background='var(--color-bg-tertiary)'" onmouseout="this.style.background=''">
+        <div style="width: 4px; border-radius: 2px; background: #8b5cf6; flex-shrink: 0;"></div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="font-weight: 500;">{{.Name}}</span>
+            {{if and .Category (ne .Category "composition")}}<span class="badge badge-purple" style="font-size: 10px;">{{.Category}}</span>{{end}}
+            <span class="badge" style="font-size: 10px; background: rgba(99,102,241,0.12); color: #a5b4fc;">composition</span>
+          </div>
+          {{if .Description}}<div style="color: var(--color-text-secondary); font-size: 12px; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{{.Description}}</div>{{end}}
+          <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px; font-size: 12px; color: var(--color-text-secondary); flex-wrap: wrap;">
+            <span><b>{{.StepCount}}</b> steps</span>
+            {{if .RunCount}}<span><b>{{.RunCount}}</b> runs</span>{{end}}
+            {{if .Steps}}
+            <span style="display: flex; align-items: center; gap: 2px; font-family: monospace; font-size: 11px;">
+            {{range $i, $step := .Steps}}{{if $i}}<span style="color: var(--color-border);">&#8594;</span>{{end}}<span style="background: var(--color-bg-tertiary); padding: 1px 6px; border-radius: 3px;">{{$step.ID}}</span>{{end}}
+            </span>
+            {{end}}
+            {{range .Skills}}<span class="badge badge-dim" style="font-size: 10px;">{{.}}</span>{{end}}
+          </div>
         </div>
-        <details class="advanced-options" style="margin-top:0.4rem;">
-            <summary style="font-size:0.78rem;color:var(--color-text-muted);cursor:pointer;">Advanced options</summary>
-            <div style="padding-top:0.4rem;display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;">
-                <div class="form-group">
-                    <label for="compose-adapter" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Adapter</label>
-                    <select id="compose-adapter" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
-                        <option value="">Default</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="compose-model" style="font-size:0.72rem;color:var(--color-text-muted);display:block;margin-bottom:0.15rem;">Model</label>
-                    <select id="compose-model" style="width:100%;padding:0.2rem 0.3rem;border-radius:var(--radius-sm);border:1px solid var(--color-border);background:var(--color-bg-tertiary);color:var(--color-text);font-size:0.78rem;">
-                        <option value="">Default</option>
-                        <option value="cheapest">Cheapest</option>
-                        <option value="fastest">Fastest</option>
-                        <option value="strongest">Strongest</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="checkbox-label" style="font-size:0.78rem;color:var(--color-text-secondary);display:flex;align-items:center;gap:0.3rem;padding-top:0.3rem;"><input type="checkbox" id="compose-dry-run"> Dry Run</label>
-                </div>
+        <div style="flex-shrink: 0;">
+          <button class="w-btn" style="font-size: 11px; padding: 3px 10px;" onclick="event.preventDefault();event.stopPropagation();showComposeRun('{{.Name}}')">Start</button>
+        </div>
+      </a>
+    {{end}}
+    </div>
+
+    <dialog id="compose-run-dialog" style="background: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: 8px; padding: 0; color: var(--color-text); max-width: 480px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--color-border);">
+        <h3 style="margin: 0; font-size: 14px;">Start: <code id="compose-run-name" style="font-size: 13px;"></code></h3>
+        <button onclick="closeComposeRun()" style="background: none; border: none; color: var(--color-text-secondary); font-size: 18px; cursor: pointer; padding: 4px 8px;" aria-label="Close">&times;</button>
+      </div>
+      <div style="padding: 16px;">
+        <div>
+          <label style="display: block; font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px;">Input</label>
+          <textarea id="compose-input" rows="3" placeholder="Issue URL, feature description..." style="width: 100%; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); padding: 8px 12px; border-radius: 6px; font-family: inherit; font-size: 13px; resize: vertical;"></textarea>
+        </div>
+        <details style="margin-top: 12px;">
+          <summary style="cursor: pointer; font-size: 12px; color: var(--color-text-secondary); padding: 4px 0;">Advanced options</summary>
+          <div style="padding-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="display: block; font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px;">Adapter</label>
+              <select id="compose-adapter" style="width: 100%; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); padding: 6px 10px; border-radius: 6px; font-family: inherit; font-size: 13px;">
+                <option value="">Default</option>
+              </select>
             </div>
+            <div>
+              <label style="display: block; font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px;">Model</label>
+              <select id="compose-model" style="width: 100%; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); padding: 6px 10px; border-radius: 6px; font-family: inherit; font-size: 13px;">
+                <option value="">Default</option>
+                <option value="cheapest">Cheapest</option>
+                <option value="fastest">Fastest</option>
+                <option value="strongest">Strongest</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; padding-top: 12px; color: var(--color-text-secondary); cursor: pointer;"><input type="checkbox" id="compose-dry-run"> Dry Run</label>
+            </div>
+          </div>
         </details>
+      </div>
+      <div style="display: flex; gap: 8px; justify-content: flex-end; padding: 0 16px 12px; border-top: 1px solid var(--color-border-light);">
+        <button class="w-btn" onclick="closeComposeRun()">Cancel</button>
+        <button class="w-btn w-btn-primary" id="compose-submit" onclick="submitComposeRun()">Start Pipeline</button>
+      </div>
+    </dialog>
+  {{else}}
+    <div class="w-empty" style="padding: 60px 20px;">
+      <h3>No composition pipelines</h3>
+      <p style="color: var(--color-text-secondary); font-size: 13px; margin-top: 4px;">Composition pipelines use primitives like <code style="background: var(--color-bg-secondary); padding: 2px 6px; border-radius: 4px;">iterate</code>, <code style="background: var(--color-bg-secondary); padding: 2px 6px; border-radius: 4px;">branch</code>, <code style="background: var(--color-bg-secondary); padding: 2px 6px; border-radius: 4px;">gate</code>, <code style="background: var(--color-bg-secondary); padding: 2px 6px; border-radius: 4px;">loop</code>, and <code style="background: var(--color-bg-secondary); padding: 2px 6px; border-radius: 4px;">aggregate</code>.</p>
     </div>
-    <div class="w-dialog-actions">
-        <button class="btn btn-sm" onclick="closeComposeRun()">Cancel</button>
-        <button class="btn btn-sm btn-primary" id="compose-submit" onclick="submitComposeRun()">Start Pipeline</button>
-    </div>
-</dialog>
-<script>
-var composePipeline = '';
-function populateAdapters(selectId) {
-    var sel = document.getElementById(selectId);
-    if (!sel) return;
-    fetch('/api/adapters').then(function(r){return r.json()}).then(function(d){
-        var adapters = d.adapters || [];
-        adapters.forEach(function(a){ var o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o); });
-    }).catch(function(){});
-}
-function showComposeRun(name) {
-    composePipeline = name;
-    document.getElementById('compose-run-name').textContent = name;
-    document.getElementById('compose-input').value = '';
-    document.getElementById('compose-run-dialog').showModal();
-    populateAdapters('compose-adapter');
-    document.getElementById('compose-input').focus();
-}
-function closeComposeRun() { document.getElementById('compose-run-dialog').close(); composePipeline = ''; }
-function submitComposeRun() {
-    if (!composePipeline) return;
-    var input = document.getElementById('compose-input').value;
-    var btn = document.getElementById('compose-submit');
-    var body = {input: input || ''};
-    var opts = collectAdvancedOptions('compose');
-    Object.keys(opts).forEach(function(k) { body[k] = opts[k]; });
-    setButtonLoading(btn, true);
-    fetchJSON('/api/pipelines/' + encodeURIComponent(composePipeline) + '/start', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body)
-    }).then(function(d) {
-        closeComposeRun();
-        if (d.run_id) window.location.href = '/runs/' + d.run_id;
-        else showToast('Pipeline started', 'success');
-    }).catch(function() {}).finally(function() { setButtonLoading(btn, false); });
-}
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeComposeRun(); });
-</script>
-{{else}}
-<div style="padding:2rem;text-align:center;color:var(--color-text-muted);font-size:0.85rem;">
-    <p style="margin-bottom:0.5rem;"><strong>No composition pipelines</strong></p>
-    <p style="font-size:0.78rem;">Composition pipelines use primitives like <code>iterate</code>, <code>branch</code>, <code>gate</code>, <code>loop</code>, and <code>aggregate</code>.</p>
-</div>
-{{end}}
-{{end}}
+  {{end}}
+  </div>
+
+  <script src="/static/app.js"></script>
+  <script>
+  var composePipeline = '';
+  function populateAdapters(selectId) {
+      var sel = document.getElementById(selectId);
+      if (!sel) return;
+      fetch('/api/adapters').then(function(r){return r.json()}).then(function(d){
+          var adapters = d.adapters || [];
+          adapters.forEach(function(a){ var o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o); });
+      }).catch(function(){});
+  }
+  function showComposeRun(name) {
+      composePipeline = name;
+      document.getElementById('compose-run-name').textContent = name;
+      document.getElementById('compose-input').value = '';
+      document.getElementById('compose-run-dialog').showModal();
+      populateAdapters('compose-adapter');
+      document.getElementById('compose-input').focus();
+  }
+  function closeComposeRun() { document.getElementById('compose-run-dialog').close(); composePipeline = ''; }
+  function submitComposeRun() {
+      if (!composePipeline) return;
+      var input = document.getElementById('compose-input').value;
+      var btn = document.getElementById('compose-submit');
+      var body = {input: input || ''};
+      var opts = collectAdvancedOptions('compose');
+      Object.keys(opts).forEach(function(k) { body[k] = opts[k]; });
+      setButtonLoading(btn, true);
+      fetchJSON('/api/pipelines/' + encodeURIComponent(composePipeline) + '/start', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(body)
+      }).then(function(d) {
+          closeComposeRun();
+          if (d.run_id) window.location.href = '/runs/' + d.run_id;
+          else showToast('Pipeline started', 'success');
+      }).catch(function() {}).finally(function() { setButtonLoading(btn, false); });
+  }
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeComposeRun(); });
+  </script>
+</body>
+</html>

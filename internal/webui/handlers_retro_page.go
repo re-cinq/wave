@@ -164,7 +164,7 @@ func (s *Server) handleRetrosPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.assets.templates["templates/retros.html"].ExecuteTemplate(w, "templates/layout.html", data); err != nil {
+	if err := s.assets.templates["templates/retros.html"].Execute(w, data); err != nil {
 		log.Printf("[webui] template error rendering retros page: %v", err)
 		http.Error(w, "template error", http.StatusInternalServerError)
 	}
