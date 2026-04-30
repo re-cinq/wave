@@ -26,7 +26,7 @@ type testDiffValidator struct{}
 
 const (
 	defaultTestFilePathspec = "*_test.go"
-	defaultTestFuncPattern  = `^[ \t]*func[ \t]+(Test|Example|Benchmark|Fuzz)[A-Za-z0-9_]*\b`
+	defaultTestFuncPattern  = `(?m)^[ \t]*func[ \t]+(Test|Example|Benchmark|Fuzz)[A-Za-z0-9_]*\b`
 )
 
 func (v *testDiffValidator) Validate(cfg ContractConfig, workspacePath string) error {

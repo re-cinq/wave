@@ -26,6 +26,8 @@ type Project struct {
 	BuildCommand        string                   `yaml:"build_command,omitempty"`
 	FormatCommand       string                   `yaml:"format_command,omitempty"`
 	SourceGlob          string                   `yaml:"source_glob,omitempty"`
+	TestFilePattern     []string                 `yaml:"test_file_pattern,omitempty"` // test_diff / test_count_baseline pathspecs (#1583, #1584)
+	TestFuncPattern     string                   `yaml:"test_func_pattern,omitempty"` // test_diff / test_count_baseline regex (#1583, #1584)
 	Skill               string                   `yaml:"skill,omitempty"`
 	Services            map[string]ServiceConfig `yaml:"services,omitempty"`
 }

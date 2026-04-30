@@ -14,6 +14,12 @@ project:
     lint_command: "go vet ./..."
     build_command: "go build ./..."
     source_glob: "*.go"
+    # test_diff / test_count_baseline contracts (#1583, #1584): how to
+    # spot test declarations in this codebase. Defaults already match
+    # Go, but make it explicit so non-Go projects know the knobs.
+    test_file_pattern:
+        - "*_test.go"
+    test_func_pattern: '(?m)^[ \t]*func[ \t]+(Test|Example|Benchmark|Fuzz)[A-Za-z0-9_]*\b'
 adapters:
     claude:
         binary: claude

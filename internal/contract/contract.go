@@ -63,6 +63,9 @@ type ContractConfig struct {
 	TestFilePattern  []string `json:"test_file_pattern,omitempty"  yaml:"test_file_pattern,omitempty"`  // Pathspecs (e.g. ["*_test.go"], ["**/test_*.py"], ["**/*.test.ts"])
 	TestFuncPattern  string   `json:"test_func_pattern,omitempty"  yaml:"test_func_pattern,omitempty"`  // Regex matching one test declaration per line
 
+	// test_count_baseline contract fields — post-commit defense-in-depth alongside test_diff.
+	BaseRef string `json:"base_ref,omitempty" yaml:"base_ref,omitempty"` // Git ref to compare HEAD against (default HEAD~1)
+
 	// event_contains contract fields — validated by executor (needs event store access)
 	Events []EventPattern `json:"events,omitempty" yaml:"events,omitempty"` // Expected event patterns to match against the step's event log
 
@@ -130,6 +133,8 @@ func NewValidator(cfg ContractConfig) ContractValidator {
 		return &sourceDiffValidator{}
 	case "test_diff":
 		return &testDiffValidator{}
+	case "test_count_baseline":
+		return &testCountBaselineValidator{}
 	case "agent_review":
 		// agent_review requires an adapter runner — NewValidator returns nil.
 		// The executor uses ValidateWithRunner() instead for this type.
