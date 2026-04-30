@@ -623,6 +623,9 @@ func (m *MockStateStore) ListProposalsByStatus(_ state.EvolutionProposalStatus, 
 func (m *MockStateStore) LastProposalAt(_ string) (time.Time, bool, error) {
 	return time.Time{}, false, nil
 }
+func (m *MockStateStore) ApproveProposalAndActivate(_ int64, _ string, _ state.PipelineVersionRecord) error {
+	return nil
+}
 
 // WorksourceStore stubs (epic #1565 PRE-5).
 func (m *MockStateStore) CreateBinding(_ state.WorksourceBindingRecord) (int64, error) {

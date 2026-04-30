@@ -80,6 +80,12 @@ type EvolutionStore interface {
 	GetProposal(id int64) (*EvolutionProposalRecord, error)
 	ListProposalsByStatus(status EvolutionProposalStatus, limit int) ([]EvolutionProposalRecord, error)
 	LastProposalAt(pipelineName string) (time.Time, bool, error)
+
+	// ApproveProposalAndActivate atomically marks a proposal approved AND inserts
+	// the new pipeline_version row (with active=true, deactivating priors). Both
+	// effects commit together or roll back together — the caller cannot end up
+	// in a half-state where the proposal is approved but no version row exists.
+	ApproveProposalAndActivate(proposalID int64, decidedBy string, version PipelineVersionRecord) error
 }
 
 // RecordEval inserts a row into pipeline_eval. The (pipeline_name, run_id)
@@ -182,14 +188,26 @@ func (s *stateStore) CreatePipelineVersion(rec PipelineVersionRecord) error {
 	if rec.PipelineName == "" || rec.SHA256 == "" || rec.YAMLPath == "" {
 		return errors.New("CreatePipelineVersion: pipeline_name, sha256, yaml_path required")
 	}
-	if rec.CreatedAt.IsZero() {
-		rec.CreatedAt = time.Now()
-	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
+	if err := insertPipelineVersionTx(tx, &rec); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// insertPipelineVersionTx writes a pipeline_version row inside the supplied
+// transaction. When rec.Active is true, all other rows for the same
+// pipeline_name are deactivated first. Shared by CreatePipelineVersion and
+// ApproveProposalAndActivate so the schema-touching SQL lives in one place.
+// Mutates rec.CreatedAt when zero.
+func insertPipelineVersionTx(tx *sql.Tx, rec *PipelineVersionRecord) error {
+	if rec.CreatedAt.IsZero() {
+		rec.CreatedAt = time.Now()
+	}
 	if rec.Active {
 		if _, err := tx.Exec(
 			`UPDATE pipeline_version SET active = 0 WHERE pipeline_name = ?`,
@@ -205,7 +223,7 @@ func (s *stateStore) CreatePipelineVersion(rec PipelineVersionRecord) error {
 	); err != nil {
 		return err
 	}
-	return tx.Commit()
+	return nil
 }
 
 // ActivateVersion flips the active flag to the requested version, deactivating
@@ -309,6 +327,39 @@ func (s *stateStore) CreateProposal(rec EvolutionProposalRecord) (int64, error) 
 		return 0, err
 	}
 	return res.LastInsertId()
+}
+
+// ApproveProposalAndActivate wraps the proposal-decide and version-create
+// effects in a single transaction so the cross-table coupling never lands in
+// a half-state. On any error the tx rolls back, leaving the proposal in
+// `proposed` status and no new version row.
+func (s *stateStore) ApproveProposalAndActivate(proposalID int64, decidedBy string, rec PipelineVersionRecord) error {
+	if rec.PipelineName == "" || rec.SHA256 == "" || rec.YAMLPath == "" {
+		return errors.New("ApproveProposalAndActivate: pipeline_name, sha256, yaml_path required")
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if err := insertPipelineVersionTx(tx, &rec); err != nil {
+		return err
+	}
+	res, err := tx.Exec(
+		`UPDATE evolution_proposal
+		 SET status = ?, decided_at = ?, decided_by = ?
+		 WHERE id = ? AND status = 'proposed'`,
+		string(ProposalApproved), time.Now().Unix(), decidedBy, proposalID,
+	)
+	if err != nil {
+		return fmt.Errorf("decide proposal: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("ApproveProposalAndActivate: proposal %d not in 'proposed' state", proposalID)
+	}
+	return tx.Commit()
 }
 
 // DecideProposal updates a proposal to a terminal status and records who

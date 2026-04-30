@@ -58,22 +58,22 @@ func Approve(store state.EvolutionStore, rec *state.EvolutionProposalRecord, dec
 		nextVersion = versions[0].Version + 1
 	}
 
-	if err := store.DecideProposal(rec.ID, state.ProposalApproved, decidedBy); err != nil {
-		return nil, ErrAlreadyDecided
-	}
-
-	createErr := store.CreatePipelineVersion(state.PipelineVersionRecord{
+	err = store.ApproveProposalAndActivate(rec.ID, decidedBy, state.PipelineVersionRecord{
 		PipelineName: rec.PipelineName,
 		Version:      nextVersion,
 		SHA256:       sha,
 		YAMLPath:     yamlPath,
 		Active:       true,
 	})
-	if createErr != nil {
-		if strings.Contains(strings.ToLower(createErr.Error()), "unique") {
+	if err != nil {
+		msg := strings.ToLower(err.Error())
+		if strings.Contains(msg, "not in 'proposed'") {
+			return nil, ErrAlreadyDecided
+		}
+		if strings.Contains(msg, "unique") {
 			return nil, ErrVersionConflict
 		}
-		return nil, fmt.Errorf("create version: %w", createErr)
+		return nil, fmt.Errorf("approve and activate: %w", err)
 	}
 
 	return &ApproveResult{

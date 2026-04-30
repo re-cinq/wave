@@ -192,6 +192,9 @@ func (b baseStateStore) ListProposalsByStatus(state.EvolutionProposalStatus, int
 func (b baseStateStore) LastProposalAt(string) (time.Time, bool, error) {
 	return time.Time{}, false, nil
 }
+func (b baseStateStore) ApproveProposalAndActivate(int64, string, state.PipelineVersionRecord) error {
+	return nil
+}
 
 // WorksourceStore stubs (epic #1565 PRE-5).
 func (b baseStateStore) CreateBinding(state.WorksourceBindingRecord) (int64, error) { return 0, nil }
