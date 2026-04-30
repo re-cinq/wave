@@ -73,8 +73,7 @@ func (v *testDiffValidator) Validate(cfg ContractConfig, workspacePath string) e
 
 	net := removed - added
 	if net > max {
-		return fmt.Errorf("test_diff: net %d test declaration(s) removed (max allowed %d) — "+
-			"removed=%d added=%d. Persona must replace deleted tests, not net-delete them.",
+		return fmt.Errorf("test_diff: net %d test declaration(s) removed (max allowed %d, removed=%d added=%d); persona must replace deleted tests, not net-delete them",
 			net, max, removed, added)
 	}
 	return nil
