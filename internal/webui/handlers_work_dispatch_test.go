@@ -38,7 +38,7 @@ func dispatchTestServer(t *testing.T) (*Server, state.StateStore) {
 
 // seedBinding inserts a worksource binding directly into the state store. It
 // returns the new binding id.
-func seedBinding(t *testing.T, store state.WorksourceStore, repoPattern, pipelineName string, labels []string) int64 {
+func seedBinding(t *testing.T, store state.WorksourceStore, pipelineName string, labels []string) int64 {
 	t.Helper()
 	selector := "{}"
 	if len(labels) > 0 {
@@ -47,7 +47,7 @@ func seedBinding(t *testing.T, store state.WorksourceStore, repoPattern, pipelin
 	}
 	id, err := store.CreateBinding(state.WorksourceBindingRecord{
 		Forge:        "github",
-		Repo:         repoPattern,
+		Repo:         "re-cinq/wave",
 		Selector:     selector,
 		PipelineName: pipelineName,
 		Trigger:      state.TriggerOnDemand,
@@ -59,9 +59,13 @@ func seedBinding(t *testing.T, store state.WorksourceStore, repoPattern, pipelin
 	return id
 }
 
-func newDispatchRequest(t *testing.T, owner, repo, number string, body url.Values) *http.Request {
+func newDispatchRequest(t *testing.T, number string, body url.Values) *http.Request {
 	t.Helper()
-	const forge = "github"
+	const (
+		forge = "github"
+		owner = "re-cinq"
+		repo  = "wave"
+	)
 	target := "/work/" + forge + "/" + owner + "/" + repo + "/" + number + "/dispatch"
 	r := httptest.NewRequest(http.MethodPost, target, strings.NewReader(body.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -97,7 +101,7 @@ func compileSharedWorkItemRef(t *testing.T) *jsonschema.Schema {
 func TestHandleWorkDispatch_NoMatch_409(t *testing.T) {
 	srv, _ := dispatchTestServer(t)
 
-	req := newDispatchRequest(t, "re-cinq", "wave", "1595", url.Values{})
+	req := newDispatchRequest(t, "1595", url.Values{})
 	rec := httptest.NewRecorder()
 	srv.handleWorkDispatch(rec, req)
 
@@ -108,9 +112,9 @@ func TestHandleWorkDispatch_NoMatch_409(t *testing.T) {
 
 func TestHandleWorkDispatch_SingleMatch_RedirectAndRunRow(t *testing.T) {
 	srv, store := dispatchTestServer(t)
-	seedBinding(t, store, "re-cinq/wave", "impl-issue", nil)
+	seedBinding(t, store, "impl-issue", nil)
 
-	req := newDispatchRequest(t, "re-cinq", "wave", "1595", url.Values{})
+	req := newDispatchRequest(t, "1595", url.Values{})
 	rec := httptest.NewRecorder()
 	srv.handleWorkDispatch(rec, req)
 
@@ -156,10 +160,10 @@ func TestHandleWorkDispatch_SingleMatch_RedirectAndRunRow(t *testing.T) {
 
 func TestHandleWorkDispatch_MultiMatch_NoPipeline_400(t *testing.T) {
 	srv, store := dispatchTestServer(t)
-	seedBinding(t, store, "re-cinq/wave", "impl-issue", nil)
-	seedBinding(t, store, "re-cinq/wave", "research", nil)
+	seedBinding(t, store, "impl-issue", nil)
+	seedBinding(t, store, "research", nil)
 
-	req := newDispatchRequest(t, "re-cinq", "wave", "1595", url.Values{})
+	req := newDispatchRequest(t, "1595", url.Values{})
 	rec := httptest.NewRecorder()
 	srv.handleWorkDispatch(rec, req)
 
@@ -173,11 +177,11 @@ func TestHandleWorkDispatch_MultiMatch_NoPipeline_400(t *testing.T) {
 
 func TestHandleWorkDispatch_MultiMatch_ValidPipeline_Redirect(t *testing.T) {
 	srv, store := dispatchTestServer(t)
-	seedBinding(t, store, "re-cinq/wave", "impl-issue", nil)
-	seedBinding(t, store, "re-cinq/wave", "research", nil)
+	seedBinding(t, store, "impl-issue", nil)
+	seedBinding(t, store, "research", nil)
 
 	body := url.Values{"pipeline": []string{"research"}}
-	req := newDispatchRequest(t, "re-cinq", "wave", "1595", body)
+	req := newDispatchRequest(t, "1595", body)
 	rec := httptest.NewRecorder()
 	srv.handleWorkDispatch(rec, req)
 
@@ -196,11 +200,11 @@ func TestHandleWorkDispatch_MultiMatch_ValidPipeline_Redirect(t *testing.T) {
 
 func TestHandleWorkDispatch_MultiMatch_BogusPipeline_400(t *testing.T) {
 	srv, store := dispatchTestServer(t)
-	seedBinding(t, store, "re-cinq/wave", "impl-issue", nil)
-	seedBinding(t, store, "re-cinq/wave", "research", nil)
+	seedBinding(t, store, "impl-issue", nil)
+	seedBinding(t, store, "research", nil)
 
 	body := url.Values{"pipeline": []string{"definitely-not-real"}}
-	req := newDispatchRequest(t, "re-cinq", "wave", "1595", body)
+	req := newDispatchRequest(t, "1595", body)
 	rec := httptest.NewRecorder()
 	srv.handleWorkDispatch(rec, req)
 
@@ -212,7 +216,7 @@ func TestHandleWorkDispatch_MultiMatch_BogusPipeline_400(t *testing.T) {
 func TestHandleWorkDispatch_MalformedNumber_400(t *testing.T) {
 	srv, _ := dispatchTestServer(t)
 
-	req := newDispatchRequest(t, "re-cinq", "wave", "abc", url.Values{})
+	req := newDispatchRequest(t, "abc", url.Values{})
 	rec := httptest.NewRecorder()
 	srv.handleWorkDispatch(rec, req)
 
