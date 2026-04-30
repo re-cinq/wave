@@ -27,10 +27,12 @@ var previewStaticFS embed.FS
 var (
 	previewTemplates map[string]*template.Template
 	previewLoadErr   error
+	previewServices  *previewServiceRegistry
 )
 
 func init() {
 	previewTemplates, previewLoadErr = parsePreviewTemplates()
+	previewServices = defaultPreviewServices()
 }
 
 // previewPages enumerates the (page-name, template-file) pairs registered
@@ -98,23 +100,48 @@ func renderPreview(w http.ResponseWriter, name string, data any) {
 }
 
 func handlePreviewIndex(w http.ResponseWriter, _ *http.Request) {
-	renderPreview(w, "index", landingFixture)
+	view, err := previewServices.Landing.Landing()
+	if err != nil {
+		http.Error(w, "preview landing: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	renderPreview(w, "index", view)
 }
 
 func handlePreviewOnboard(w http.ResponseWriter, _ *http.Request) {
-	renderPreview(w, "onboard", onboardFixture)
+	view, err := previewServices.Onboard.Onboard()
+	if err != nil {
+		http.Error(w, "preview onboard: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	renderPreview(w, "onboard", view)
 }
 
 func handlePreviewWork(w http.ResponseWriter, _ *http.Request) {
-	renderPreview(w, "work", workFixture)
+	view, err := previewServices.Work.Work()
+	if err != nil {
+		http.Error(w, "preview work: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	renderPreview(w, "work", view)
 }
 
 func handlePreviewWorkItem(w http.ResponseWriter, _ *http.Request) {
-	renderPreview(w, "work_item", workItemFixture)
+	view, err := previewServices.WorkItem.WorkItem()
+	if err != nil {
+		http.Error(w, "preview work-item: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	renderPreview(w, "work_item", view)
 }
 
 func handlePreviewProposal(w http.ResponseWriter, _ *http.Request) {
-	renderPreview(w, "proposal", proposalFixture)
+	view, err := previewServices.Proposal.Proposal()
+	if err != nil {
+		http.Error(w, "preview proposal: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	renderPreview(w, "proposal", view)
 }
 
 func handlePreviewCSS(w http.ResponseWriter, _ *http.Request) {
