@@ -389,20 +389,12 @@ See PRE-5. Five new tables; ~10 new `StateStore` methods. Zero existing column c
 
 New canonical schema (per ADR-010): `internal/contract/schemas/shared/work_item_ref.json` — generalizes `issue_ref` / `pr_ref` for forge-agnostic work items.
 
-```json
-{
-  "type": "object",
-  "required": ["forge", "repo", "kind", "id"],
-  "properties": {
-    "forge": { "enum": ["github", "gitea", "gitlab", "bitbucket"] },
-    "repo": { "type": "string" },        // owner/name
-    "kind": { "enum": ["issue", "pr", "task"] },
-    "id": { "type": "string" },
-    "title": { "type": "string" },
-    "url": { "type": "string", "format": "uri" }
-  }
-}
-```
+The shipped shape is canonicalized in [`internal/contract/schemas/shared/work_item_ref.json`](../../internal/contract/schemas/shared/work_item_ref.json). It diverged from the earlier draft below:
+
+- `source` (not `forge`) discriminates entries — enum extended with `schedule` and `manual` so non-forge work items fit cleanly.
+- `forge_host`, `owner`, `repo` replace the combined `repo: "owner/name"` string and are conditionally required (`if/then` on `source`) only for forge entries.
+- `number` (integer) supersedes the polymorphic `id` and `kind` fields. Issue-vs-PR distinction lives in the `state` enum (`open | closed | merged`) and the URL itself, not a separate type tag.
+- `state` and `created_at` are required; `labels` is an optional array of strings.
 
 ---
 
@@ -432,7 +424,7 @@ New canonical schema (per ADR-010): `internal/contract/schemas/shared/work_item_
 
 | # | Title | Files |
 |---|---|---|
-| 2.1 | `work_item_ref` shared schema | `internal/contract/schemas/shared/work_item_ref.json` + registry |
+| 2.1 ✅ | `work_item_ref` shared schema | `internal/contract/schemas/shared/work_item_ref.json` + registry |
 | 2.2 | WorkSourceService + bindings | `internal/service/worksource.go`, `internal/worksource/`, table CRUD |
 | 2.3 | Webui `/work` board + detail | new templates, handlers; replaces dashboard as default landing |
 | 2.4 | "Run on this issue" button | binding lookup → `ExecutorService.Run` |

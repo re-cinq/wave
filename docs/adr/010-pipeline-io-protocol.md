@@ -9,7 +9,7 @@ Accepted (Phase 1 — load-time validation live; pipeline migration ongoing)
 ## Implementation Status
 
 Landed:
-- Eight canonical schemas in `internal/contract/schemas/shared/*.json` (`issue_ref`, `pr_ref`, `scope_result`, `plan_ref`, `findings_report`, `workspace_ref`, `spec_ref`, `branch_ref`).
+- Nine canonical schemas in `internal/contract/schemas/shared/*.json` (`issue_ref`, `pr_ref`, `scope_result`, `plan_ref`, `findings_report`, `workspace_ref`, `spec_ref`, `branch_ref`, `work_item_ref`).
 - Registry: `internal/contract/schemas/registry.go` (+ test).
 - Typed I/O fields: `InputConfig.Type` (`internal/pipeline/types.go:138`) and `PipelineOutput.Type` (`types.go:725`); both expose `EffectiveType()` defaulting to `"string"`.
 - Load-time validation: `ValidatePipelineIOTypes` and `TypedWiringCheck` in `internal/pipeline/iotypes.go` (~216 LOC), wired into the loader at `dag.go:42` and `dag.go:52`.
@@ -63,7 +63,7 @@ Introduce a **typed I/O protocol** with four pieces:
    `internal/contract/schemas/shared/*.json`, embedded into the Wave
    binary via `go:embed`. Each file's basename is the type name
    (`issue_ref`, `pr_ref`, `branch_ref`, `spec_ref`, `findings_report`,
-   `plan_ref`, `workspace_ref`, `scope_result`). A pipeline's type
+   `plan_ref`, `workspace_ref`, `scope_result`, `work_item_ref`). A pipeline's type
    annotation must resolve against this registry or the sentinel
    `string`.
 
@@ -193,7 +193,7 @@ on input/output, load-time validation.
 ## Implementation Notes
 
 Files created:
-- `internal/contract/schemas/shared/*.json` (8 canonical schemas)
+- `internal/contract/schemas/shared/*.json` (9 canonical schemas)
 - `internal/contract/schemas/shared/registry.go` (+ test)
 - `internal/pipeline/iotypes.go` (+ test)
 - `docs/adr/010-pipeline-io-protocol.md` (this file)
@@ -255,3 +255,9 @@ by design — they exercise specific executor paths and need free shape.
   decide whether to wire shared types into the runtime contract path.
 - No deep `field`-extraction on `pipeline_outputs` with type
   narrowing. The existing `field:` hint stays as-is.
+
+## Schema additions
+
+| Date | Type | Issue / PR | Notes |
+|---|---|---|---|
+| 2026-04-30 | `work_item_ref` | #1590 (Epic #1565 Phase 2.1) | Canonical work-source dispatch shape; `source` enum (`github`, `gitea`, `gitlab`, `bitbucket`, `schedule`, `manual`) discriminates forge vs non-forge entries. Forge sources require `forge_host`, `owner`, `repo` via `if/then`; `number` stays optional even for forge sources to accommodate numberless work items. Not mirrored to `.agents/contracts/` — that registry holds step-output contracts, not shared pipeline-I/O types. |

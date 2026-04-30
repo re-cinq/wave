@@ -14,6 +14,7 @@ func TestRegistryContainsCanonicalTypes(t *testing.T) {
 		"findings_report",
 		"plan_ref",
 		"workspace_ref",
+		"work_item_ref",
 	}
 	for _, name := range expected {
 		data, ok := Lookup(name)
@@ -63,8 +64,8 @@ func TestUnknownType(t *testing.T) {
 
 func TestNamesSorted(t *testing.T) {
 	names := Names()
-	if len(names) < 7 {
-		t.Errorf("Names() returned %d entries, want at least 7", len(names))
+	if len(names) < 8 {
+		t.Errorf("Names() returned %d entries, want at least 8", len(names))
 	}
 	for i := 1; i < len(names); i++ {
 		if names[i-1] >= names[i] {
