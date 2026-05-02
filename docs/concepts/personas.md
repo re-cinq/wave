@@ -313,6 +313,8 @@ personas:
 
 Token scopes enforce **least-privilege API access** per persona. During preflight, Wave validates that the active forge token satisfies each persona's declared scopes before pipeline execution begins. This catches misconfigured credentials early rather than failing mid-pipeline.
 
+Introspection failures (including fine-grained GitHub PATs, which lack readable scope headers) produce violations with remediation hints. Set `WAVE_SKIP_SCOPE_CHECK=1` to bypass scope validation when introspection is unavailable.
+
 ### Permission Hierarchy
 
 Permissions are hierarchical: `admin` satisfies `write`, which satisfies `read`. Canonical resources include `issues`, `pulls`, `repos`, `actions`, and `packages`.

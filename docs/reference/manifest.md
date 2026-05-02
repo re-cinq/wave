@@ -251,6 +251,12 @@ If `token_scopes` is omitted for a persona, scope validation is skipped for that
 
 Unknown resources produce warnings (not errors) to allow forward-compatible scope declarations.
 
+**Introspection failures** (network errors, API errors) produce violations that block execution — the persona explicitly declared required scopes and those cannot be verified.
+
+**Fine-grained GitHub PATs** lack the `X-OAuth-Scopes` response header used for introspection. Wave surfaces a violation with a remediation hint. Recreate the token as a classic PAT, or set `WAVE_SKIP_SCOPE_CHECK=1` to bypass scope validation for environments where introspection is unavailable.
+
+**Unsupported forges** (e.g. Bitbucket) produce violations for each declared scope. Set `WAVE_SKIP_SCOPE_CHECK=1` to bypass.
+
 Key sources: `internal/scope/scope.go`, `internal/scope/validator.go`, `internal/scope/resolver.go`
 
 ### Temperature Guidelines
