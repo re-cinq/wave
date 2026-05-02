@@ -93,6 +93,13 @@ func testTemplates(t *testing.T) map[string]*template.Template {
 		tmpl := template.Must(template.New(name).Funcs(funcMap).Parse(body))
 		result[name] = tmpl
 	}
+	// bridge.html is a standalone page (uses partials/nav, not layout.html).
+	// Provide a minimal stub so handleBridge can be invoked in tests.
+	result["templates/bridge.html"] = template.Must(
+		template.New("templates/bridge.html").Funcs(funcMap).Parse(
+			`<!doctype html><html><body>{{template "partials/nav" .}}<p>Bridge</p></body></html>`,
+		),
+	)
 	return result
 }
 

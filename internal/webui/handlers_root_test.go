@@ -1,6 +1,7 @@
 package webui
 
 import (
+	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,30 +11,48 @@ import (
 	"github.com/recinq/wave/internal/onboarding"
 )
 
+// minimalBridgeTemplates returns a template map with a stub bridge.html so
+// handleBridge can be called without the full template set.
+func minimalBridgeTemplates() map[string]*template.Template {
+	m := map[string]*template.Template{}
+	m["templates/bridge.html"] = template.Must(
+		template.New("templates/bridge.html").Parse(`<!doctype html><html><body><p>Bridge</p></body></html>`),
+	)
+	return m
+}
+
 // TestHandleRoot drives Server.handleRoot directly via httptest, asserting
 // that GET / branches on the presence of .agents/.onboarding-done under the
-// configured repoDir.
+// configured repoDir. When sentinel is present, renders bridge (200).
+// When sentinel is missing, redirects to /onboard.
 func TestHandleRoot(t *testing.T) {
 	tests := []struct {
-		name           string
-		writeSentinel  bool
-		wantLocation   string
-		repoDirOverlay func(t *testing.T, dir string) string
+		name          string
+		writeSentinel bool
+		wantCode      int
+		wantLocation  string
+		repoDir       string
+		// repoDirOverlay, when non-nil, runs before each test to override the
+		// repoDir. Returns the repoDir to use (empty = use tmp dir directly).
+		repoDirOverlay func(t *testing.T, tmp string) string
 	}{
 		{
-			name:          "sentinel present redirects to /work",
+			name:          "sentinel present renders bridge",
 			writeSentinel: true,
-			wantLocation:  "/work",
+			wantCode:     http.StatusOK,
+			wantLocation: "",
 		},
 		{
 			name:          "sentinel missing redirects to /onboard",
 			writeSentinel: false,
-			wantLocation:  "/onboard",
+			wantCode:     http.StatusFound,
+			wantLocation: "/onboard",
 		},
 		{
 			name:          "empty repoDir treated as cwd and missing sentinel",
 			writeSentinel: false,
-			wantLocation:  "/onboard",
+			wantCode:     http.StatusFound,
+			wantLocation: "/onboard",
 			repoDirOverlay: func(t *testing.T, _ string) string {
 				t.Helper()
 				cwd := t.TempDir()
@@ -69,20 +88,20 @@ func TestHandleRoot(t *testing.T) {
 
 			srv := &Server{
 				runtime: serverRuntime{repoDir: repoDir},
+				assets:  serverAssets{templates: minimalBridgeTemplates()},
 			}
 
 			req := httptest.NewRequest("GET", "/", nil)
 			rec := httptest.NewRecorder()
 			srv.handleRoot(rec, req)
 
-			if rec.Code != http.StatusFound {
-				t.Fatalf("expected 302, got %d", rec.Code)
+			if rec.Code != tc.wantCode {
+				t.Fatalf("expected %d, got %d", tc.wantCode, rec.Code)
 			}
-			if got := rec.Header().Get("Location"); got != tc.wantLocation {
-				t.Fatalf("Location: want %q, got %q", tc.wantLocation, got)
-			}
-			if rec.Header().Get("Location") == "/runs" {
-				t.Fatalf("legacy /runs redirect leaked through handleRoot")
+			if tc.wantLocation != "" {
+				if got := rec.Header().Get("Location"); got != tc.wantLocation {
+					t.Fatalf("Location: want %q, got %q", tc.wantLocation, got)
+				}
 			}
 		})
 	}
