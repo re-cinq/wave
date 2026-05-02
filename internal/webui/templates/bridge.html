@@ -8,76 +8,382 @@
   <title>Bridge &mdash; Wave</title>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <style>
+    .bridge-hero {
+      padding: 32px 24px;
+      background:
+        radial-gradient(1100px 360px at 20% -10%, rgba(47, 129, 247, 0.18), transparent 60%),
+        radial-gradient(900px 320px at 90% 0%, rgba(163, 113, 247, 0.16), transparent 60%),
+        linear-gradient(180deg, #0d1117 0%, #0d1117 100%);
+      border-bottom: 1px solid var(--color-border, #30363d);
+      margin-bottom: 24px;
+    }
+    .bridge-hero-grid {
+      max-width: 1280px; margin: 0 auto;
+      display: grid; grid-template-columns: 1.2fr 1fr; gap: 32px; align-items: end;
+    }
+    @media (max-width: 900px) { .bridge-hero-grid { grid-template-columns: 1fr; } }
+    .bridge-hero-tag {
+      display: inline-block; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--color-accent, #58a6ff); padding: 4px 10px; border: 1px solid var(--color-accent, #58a6ff); border-radius: 12px;
+      margin-bottom: 14px;
+    }
+    .bridge-hero-title {
+      font-size: 32px; line-height: 1.15; font-weight: 700; margin: 0 0 12px;
+      color: var(--color-text, #e6edf3);
+    }
+    .bridge-hero-title em { font-style: normal; color: #a371f7; }
+    .bridge-hero-sub { color: var(--color-text-muted, #8b949e); font-size: 15px; max-width: 560px; line-height: 1.6; }
+    .bridge-hero-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 8px; }
+    .bridge-hero-stat {
+      background: rgba(22, 27, 34, 0.7); border: 1px solid var(--color-border, #30363d); border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .bridge-hero-stat-label { font-size: 11px; color: var(--color-text-muted, #8b949e); text-transform: uppercase; letter-spacing: 0.06em; }
+    .bridge-hero-stat-value { font-size: 22px; font-weight: 600; margin-top: 2px; color: var(--color-text, #e6edf3); }
+    .bridge-hero-stat-trend { font-size: 12px; margin-top: 2px; color: var(--color-text-muted, #8b949e); }
+    .bridge-hero-stat-trend.up { color: var(--color-success, #3fb950); }
+    .bridge-hero-stat-trend.down { color: var(--color-failed, #f85149); }
+
+    .bridge-grid-three { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    @media (max-width: 1080px) { .bridge-grid-three { grid-template-columns: 1fr; } }
+    .bridge-grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    @media (max-width: 900px) { .bridge-grid-two { grid-template-columns: 1fr; } }
+
+    .bridge-panel {
+      background: var(--color-bg-secondary, #161b22); border: 1px solid var(--color-border, #30363d); border-radius: 8px; padding: 16px 18px;
+    }
+    .bridge-panel h3 { margin: 0 0 12px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-text-muted, #8b949e); display: flex; align-items: center; gap: 8px; }
+    .bridge-panel h3 svg { width: 14px; height: 14px; }
+    .bridge-panel h3 .bridge-meta { margin-left: auto; font-size: 11px; color: var(--color-text-dim, #6e7681); letter-spacing: 0; text-transform: none; }
+
+    .bridge-stream-feed {
+      font-family: var(--font-mono, monospace); font-size: 11.5px; max-height: 260px; overflow-y: auto;
+      background: var(--color-bg, #0d1117); border: 1px solid var(--color-border-light, #21262d); border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .bridge-stream-feed .row { display: grid; grid-template-columns: 70px auto 1fr; gap: 8px; padding: 2px 0; }
+    .bridge-stream-feed .t { color: var(--color-text-dim, #6e7681); }
+    .bridge-stream-feed .src { color: #a371f7; }
+    .bridge-stream-feed .src.b { color: var(--color-accent, #58a6ff); }
+    .bridge-stream-feed .src.g { color: var(--color-success, #3fb950); }
+    .bridge-stream-feed .src.r { color: var(--color-failed, #f85149); }
+    .bridge-stream-feed .src.y { color: #d29922; }
+
+    .bridge-quick-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .bridge-quick {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border: 1px solid var(--color-border, #30363d); border-radius: 6px;
+      background: var(--color-bg, #0d1117); cursor: pointer; text-align: left; color: var(--color-text, #e6edf3);
+      font-size: 13px; text-decoration: none;
+    }
+    .bridge-quick:hover { border-color: var(--color-accent, #58a6ff); text-decoration: none; }
+    .bridge-quick svg { width: 16px; height: 16px; color: var(--color-accent, #58a6ff); flex-shrink: 0; }
+    .bridge-quick-desc { display: block; font-size: 11px; color: var(--color-text-muted, #8b949e); margin-top: 2px; }
+
+    .bridge-compare-table { font-size: 12px; width: 100%; border-collapse: collapse; margin-top: 4px; }
+    .bridge-compare-table th, .bridge-compare-table td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--color-border-light, #21262d); }
+    .bridge-compare-table th { color: var(--color-text-muted, #8b949e); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .bridge-compare-cell { font-family: var(--font-mono, monospace); }
+    .bridge-agree { color: var(--color-success, #3fb950); font-weight: 600; }
+    .bridge-disagree { color: #d29922; font-weight: 600; }
+
+    .bridge-activity { display: flex; flex-direction: column; gap: 10px; }
+    .bridge-activity-item {
+      display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center;
+      padding: 8px 10px; background: var(--color-bg, #0d1117); border: 1px solid var(--color-border-light, #21262d); border-radius: 6px;
+    }
+    .bridge-activity-icon { color: var(--color-text-muted, #8b949e); display: flex; align-items: center; }
+    .bridge-activity-icon svg { width: 16px; height: 16px; }
+    .bridge-activity-title { font-size: 13px; }
+    .bridge-activity-meta { color: var(--color-text-muted, #8b949e); font-size: 11px; margin-top: 2px; font-family: var(--font-mono, monospace); }
+    .bridge-activity-time { color: var(--color-text-dim, #6e7681); font-size: 11px; font-family: var(--font-mono, monospace); }
+
+    .bridge-heat { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; margin-top: 4px; }
+    .bridge-heat-cell { aspect-ratio: 1; border-radius: 2px; background: var(--color-border-light, #21262d); }
+    .bridge-heat-cell.l1 { background: rgba(47, 129, 247, 0.25); }
+    .bridge-heat-cell.l2 { background: rgba(47, 129, 247, 0.5); }
+    .bridge-heat-cell.l3 { background: rgba(47, 129, 247, 0.75); }
+    .bridge-heat-cell.l4 { background: var(--color-accent, #58a6ff); }
+    .bridge-heat-legend { display: flex; gap: 8px; margin-top: 6px; align-items: center; font-size: 11px; color: var(--color-text-muted, #8b949e); }
+
+    .bridge-list-row { display: grid; grid-template-columns: 28px 1fr auto auto auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--color-border-light, #21262d); }
+    .bridge-list-row:last-child { border-bottom: none; }
+    .bridge-list-icon { color: var(--color-text-muted, #8b949e); display: flex; align-items: center; }
+    .bridge-list-icon svg { width: 16px; height: 16px; }
+    .bridge-list-title { font-size: 13px; font-weight: 500; }
+    .bridge-list-meta { font-size: 11px; color: var(--color-text-muted, #8b949e); margin-top: 2px; font-family: var(--font-mono, monospace); }
+    .bridge-list-title span { font-weight: 400; color: var(--color-text-muted, #8b949e); }
+
+    .bridge-principles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 24px; }
+    @media (max-width: 900px) { .bridge-principles { grid-template-columns: 1fr; } }
+    .bridge-principle { background: var(--color-bg-secondary, #161b22); border: 1px solid var(--color-border, #30363d); border-radius: 8px; padding: 14px 16px; }
+    .bridge-principle-label { font-size: 11px; color: var(--color-accent, #58a6ff); text-transform: uppercase; letter-spacing: 0.08em; }
+    .bridge-principle-title { font-size: 14px; font-weight: 600; margin: 4px 0 6px; }
+    .bridge-principle-body { font-size: 12.5px; color: var(--color-text-muted, #8b949e); line-height: 1.55; }
+
+    .bridge-nav-meta { display: flex; gap: 16px; align-items: center; font-size: 12px; color: var(--color-text-muted, #8b949e); }
+    .bridge-pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--color-success, #3fb950); vertical-align: middle; margin-right: 6px; }
+
+    @keyframes bridge-pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.6); }
+      100% { box-shadow: 0 0 0 12px rgba(63, 185, 80, 0); }
+    }
+    .bridge-pulse { animation: bridge-pulse 1.6s infinite; }
+  </style>
 </head>
 <body>
 {{template "partials/nav" .}}
 
-<div class="w-container">
-  <div class="w-page-header">
+{{/* Hero section */}}
+<div class="bridge-hero">
+  <div class="bridge-hero-grid">
     <div>
-      <h1 class="w-page-title">Bridge</h1>
-      <div class="w-page-sub">Fleet at a glance.</div>
+      <span class="bridge-hero-tag">the agentic kit</span>
+      <h1 class="bridge-hero-title">Scaffold a <em>software factory</em>, then watch it build.</h1>
+      <p class="bridge-hero-sub">
+        Wave tailors itself to your repository, hides the orchestration, and gives you the bridge view.
+        Strong standards, low-friction entry, and a clear sense of what every agent in the fleet is doing.
+      </p>
+    </div>
+    <div class="bridge-hero-stats">
+      <div class="bridge-hero-stat">
+        <div class="bridge-hero-stat-label">In flight</div>
+        <div class="bridge-hero-stat-value">{{.RunningCount}}</div>
+        <div class="bridge-hero-stat-trend">
+          {{range .InFlightStats}}{{.Count}} {{.Label}}{{if ne (len $.InFlightStats) 1}}{{end}}{{end}}
+        </div>
+      </div>
+      <div class="bridge-hero-stat">
+        <div class="bridge-hero-stat-label">Today</div>
+        <div class="bridge-hero-stat-value">{{.CompletedToday}}</div>
+        {{if .CompletedToday}}<div class="bridge-hero-stat-trend up">runs completed</div>{{end}}
+      </div>
+      <div class="bridge-hero-stat">
+        <div class="bridge-hero-stat-label">Spend</div>
+        <div class="bridge-hero-stat-value">{{.Spend}}</div>
+        <div class="bridge-hero-stat-trend">of {{.BudgetCap}} cap</div>
+      </div>
+      <div class="bridge-hero-stat">
+        <div class="bridge-hero-stat-label">Judge avg</div>
+        <div class="bridge-hero-stat-value">{{.JudgeAvg}}</div>
+        {{if .JudgeTrend}}<div class="bridge-hero-stat-trend down">{{.JudgeTrend}} &minus;7d</div>{{end}}
+      </div>
     </div>
   </div>
+</div>
 
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
-    <div class="card" style="padding: 20px;">
-      <div style="font-size: 12px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px;">Running</div>
-      <div style="font-size: 32px; font-weight: 700;">{{.RunningCount}}</div>
-    </div>
-    <div class="card" style="padding: 20px;">
-      <div style="font-size: 12px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px;">Completed Today</div>
-      <div style="font-size: 32px; font-weight: 700;">{{.CompletedToday}}</div>
-    </div>
-    <div class="card" style="padding: 20px;">
-      <div style="font-size: 12px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px;">Active Bindings</div>
-      <div style="font-size: 32px; font-weight: 700;">{{.ActiveBindings}}</div>
-    </div>
-    <div class="card" style="padding: 20px;">
-      <div style="font-size: 12px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px;">Proposals</div>
-      <div style="font-size: 32px; font-weight: 700;">{{.ProposalCount}}</div>
-    </div>
-  </div>
+<div class="w-container">
 
-  {{if .RunningRuns}}
-  <section style="margin-bottom: 24px;">
-    <h2 style="font-size: 15px; font-weight: 600; margin: 0 0 12px;">In-flight runs</h2>
-    <div class="w-list standalone">
+{{/* Three-column: live activity, discover+start, compare */}}
+<div class="bridge-grid-three">
+
+  {{/* Live activity stream */}}
+  <section class="bridge-panel">
+    <h3>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      live activity
+      <span class="bridge-meta">last 5 min</span>
+    </h3>
+    <div class="bridge-stream-feed" id="activity-stream">
+      {{if .ActivityStream}}
+        {{range .ActivityStream}}
+        <div class="row"><span class="t">{{.Time}}</span><span class="src {{.SourceClass}}">{{.Source}}</span><span>{{.Message}}</span></div>
+        {{end}}
+      {{else}}
+        <div class="row"><span class="t">&mdash;</span><span class="src">wave</span><span>waiting for activity&hellip;</span></div>
+      {{end}}
+    </div>
+  </section>
+
+  {{/* Discover + Start */}}
+  <section class="bridge-panel">
+    <h3>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      discover
+    </h3>
+    <div class="bridge-quick-grid">
+      <a href="/work" class="bridge-quick">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+        <span>{{.OpenWorkItems}} open work items <span class="bridge-quick-desc">issues + PRs</span></span>
+      </a>
+      <a href="#" class="bridge-quick">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
+        <span>{{.StaleBranches}} stale branches <span class="bridge-quick-desc">no activity 7d+</span></span>
+      </a>
+      <a href="/health" class="bridge-quick">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span>{{.HealthHints}} health hints <span class="bridge-quick-desc">lint + dep advisories</span></span>
+      </a>
+      {{if .BudgetWarning}}
+      <a href="#" class="bridge-quick" style="border-color: #d29922;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>budget warning <span class="bridge-quick-desc">spend trending high</span></span>
+      </a>
+      {{end}}
+    </div>
+
+    <h3 style="margin-top: 18px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      start
+    </h3>
+    <div class="bridge-quick-grid">
+      <a href="/work" class="bridge-quick">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span>Run on issue <span class="bridge-quick-desc">work-board picker</span></span>
+      </a>
+      <a href="#" class="bridge-quick">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>Schedule sweep <span class="bridge-quick-desc">nightly auto-impl</span></span>
+      </a>
+      <a href="#" class="bridge-quick">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span>Audit security <span class="bridge-quick-desc">multi-model (preview)</span></span>
+      </a>
+      <a href="/proposals" class="bridge-quick">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Review proposals <span class="bridge-quick-desc">{{.PendingProposalCount}} awaiting</span></span>
+      </a>
+    </div>
+  </section>
+
+  {{/* Multi-model compare — placeholder for future */}}
+  <section class="bridge-panel">
+    <h3>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+      compare
+      <span class="bridge-meta">multi-model run</span>
+    </h3>
+    <p style="font-size: 12px; color: var(--color-text-muted, #8b949e); margin: 0 0 8px;">
+      Multi-model comparison is available once you run an audit with multiple adapters. Run your first cross-model audit to populate this panel.
+    </p>
+    <table class="bridge-compare-table">
+      <thead>
+        <tr>
+          <th>finding</th>
+          <th>claude</th>
+          <th>opencode</th>
+          <th>verdict</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td colspan="4" style="color: var(--color-text-dim, #6e7681); text-align: center; padding: 16px 0;">No comparison data yet</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="font-size: 12px; color: var(--color-text-muted, #8b949e); margin-top: 10px;">
+      <a href="#">Run cross-model audit &rarr;</a>
+    </div>
+  </section>
+
+</div>
+
+{{/* Two-column: in-flight activity, rhythm heatmap + judge trend */}}
+<div class="bridge-grid-two">
+
+  <section class="bridge-panel">
+    <h3>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      in flight
+      <span class="bridge-meta">{{len .RunningRuns}} active</span>
+    </h3>
+    <div class="bridge-activity">
       {{range .RunningRuns}}
-      <a href="/runs/{{.RunID}}" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit;" onmouseover="this.style.background='var(--color-bg-tertiary)'" onmouseout="this.style.background=''">
-        <div style="min-width: 0;">
-          <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{.PipelineName}}</div>
-          <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">
-            <span style="font-family: var(--font-mono);">{{.RunID}}</span>
-            {{if .Input}}&middot; <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{.Input}}</span>{{end}}
-          </div>
+      <div class="bridge-activity-item">
+        <div class="bridge-activity-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
-        <span class="badge badge-blue" style="white-space: nowrap;">running</span>
-      </a>
+        <div>
+          <div class="bridge-activity-title">{{.PipelineName}}{{if .Input}} &middot; {{.Input}}{{end}}</div>
+          <div class="bridge-activity-meta">r/{{shortRunID .RunID}}{{if .CurrentStep}} &middot; step {{.CurrentStep}}{{end}}</div>
+        </div>
+        <span class="badge badge-blue">running</span>
+      </div>
+      {{else}}
+      <div style="color: var(--color-text-dim, #6e7681); font-size: 13px; padding: 12px 0;">No runs in flight</div>
       {{end}}
     </div>
   </section>
-  {{end}}
 
-  {{if .RecentRuns}}
-  <section>
-    <h2 style="font-size: 15px; font-weight: 600; margin: 0 0 12px;">Recent runs</h2>
-    <div class="w-list standalone">
-      {{range .RecentRuns}}
-      <a href="/runs/{{.RunID}}" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit;" onmouseover="this.style.background='var(--color-bg-tertiary)'" onmouseout="this.style.background=''">
-        <div style="min-width: 0;">
-          <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{.PipelineName}}</div>
-          <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">
-            <span style="font-family: var(--font-mono);">{{.RunID}}</span>
-            {{if .Input}}&middot; <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{.Input}}</span>{{end}}
-          </div>
-        </div>
-        <span style="font-size: 12px; color: var(--color-text-muted); white-space: nowrap;">{{.Status}}</span>
-      </a>
+  <section class="bridge-panel">
+    <h3>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.7 1 6.4 2.6L21 8"/><polyline points="21 3 21 8 16 8"/></svg>
+      rhythm
+      <span class="bridge-meta">last 24h</span>
+    </h3>
+    <div class="bridge-heat">
+      {{range $i, $v := .Heatmap}}
+      <div class="bridge-heat-cell{{if gt $v 0}} l{{$v}}{{end}}"></div>
       {{end}}
     </div>
+    <div class="bridge-heat-legend">
+      <span>00:00</span>
+      <span style="flex: 1;"></span>
+      <span>now</span>
+      <span style="flex: 1;"></span>
+      <span style="display: flex; gap: 2px; align-items: center; font-size: 11px; color: var(--color-text-muted, #8b949e);">less <span class="bridge-heat-cell" style="width: 10px; height: 10px;"></span> <span class="bridge-heat-cell l1" style="width: 10px; height: 10px;"></span> <span class="bridge-heat-cell l2" style="width: 10px; height: 10px;"></span> <span class="bridge-heat-cell l3" style="width: 10px; height: 10px;"></span> <span class="bridge-heat-cell l4" style="width: 10px; height: 10px;"></span> more</span>
+    </div>
+
+    <h3 style="margin-top: 18px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      judge trend
+      <span class="bridge-meta">last 30 runs &middot; impl-issue</span>
+    </h3>
+    <div style="font-family: var(--font-mono, monospace); font-size: 18px; color: var(--color-text, #e6edf3);">
+      {{.JudgeAvg}}{{if .JudgeTrend}} &rarr; {{.JudgeTrend}}<span style="color: var(--color-failed, #f85149); font-size: 13px;">{{.JudgeTrend}}</span>{{end}}
+    </div>
+    <div style="font-size: 12px; color: var(--color-text-muted, #8b949e); margin-top: 6px;">
+      {{if .JudgeTrend}}drift detected &mdash; proposal awaiting{{else}}insufficient data for trend{{end}}
+    </div>
   </section>
+
+</div>
+
+{{/* Recent landings */}}
+{{if .RecentLandings}}
+<section class="bridge-panel" style="margin-bottom: 16px;">
+  <h3>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+    recent landings
+    <span class="bridge-meta">today</span>
+  </h3>
+  {{range .RecentLandings}}
+  <div class="bridge-list-row">
+    <div class="bridge-list-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div>
+      <div class="bridge-list-title">{{.PipelineName}}{{if .Input}} &mdash; {{.Input}}{{end}}</div>
+      <div class="bridge-list-meta">r/{{shortRunID .RunID}}{{if .CompletedAt}} &middot; {{formatTime .CompletedAt}}{{end}}</div>
+    </div>
+    <span class="badge badge-green">{{.Status}}</span>
+    <span class="badge badge-dim">judge &mdash;</span>
+    <a href="/runs/{{.RunID}}" class="w-btn w-btn-small">View</a>
+  </div>
   {{end}}
+</section>
+{{end}}
+
+{{/* Principles */}}
+<div class="bridge-principles">
+  <div class="bridge-principle">
+    <div class="bridge-principle-label">erhabenheit</div>
+    <div class="bridge-principle-title">A bridge view, not a dashboard.</div>
+    <div class="bridge-principle-body">You see fleet health, in-flight work, and recent landings at a glance. No hunting in nested menus.</div>
+  </div>
+  <div class="bridge-principle">
+    <div class="bridge-principle-label">kontrolle</div>
+    <div class="bridge-principle-title">Strong standards, soft surface.</div>
+    <div class="bridge-principle-body">Generated pipelines are APP-clean. Contracts gate every step. You approve evolutions; you can lock pipelines you've tuned.</div>
+  </div>
+  <div class="bridge-principle">
+    <div class="bridge-principle-label">weitsicht</div>
+    <div class="bridge-principle-title">Always something to start, discover, or compare.</div>
+    <div class="bridge-principle-body">Run pipelines in parallel across models. Agreement is your reliability signal. Drift triggers a proposal before failure does.</div>
+  </div>
+</div>
+
 </div>
 </body>
 </html>
