@@ -62,7 +62,7 @@ metadata:
     name: wave
 personas:
     auditor:
-        adapter: ""
+        adapter: claude
         description: Security review and quality assurance
         permissions:
             allowed_tools:
@@ -71,7 +71,7 @@ personas:
         system_prompt_file: .agents/personas/auditor.md
         temperature: 0.1
     craftsman:
-        adapter: ""
+        adapter: claude
         description: Code implementation and testing
         permissions:
             allowed_tools:
@@ -80,7 +80,7 @@ personas:
         system_prompt_file: .agents/personas/craftsman.md
         temperature: 0.7
     github-analyst:
-        adapter: ""
+        adapter: claude
         description: GitHub issue analysis and scanning
         permissions:
             allowed_tools:
@@ -89,7 +89,7 @@ personas:
         system_prompt_file: .agents/personas/github-analyst.md
         temperature: 0.1
     github-commenter:
-        adapter: ""
+        adapter: claude
         description: Posts comments on GitHub issues and pull requests, creates PRs
         permissions:
             allowed_tools:
@@ -98,7 +98,7 @@ personas:
         system_prompt_file: .agents/personas/github-commenter.md
         temperature: 0.2
     github-scoper:
-        adapter: ""
+        adapter: claude
         description: GitHub epic analysis, decomposition, and sub-issue creation
         permissions:
             allowed_tools:
@@ -107,7 +107,7 @@ personas:
         system_prompt_file: .agents/personas/github-scoper.md
         temperature: 0.1
     implementer:
-        adapter: ""
+        adapter: claude
         description: Execution specialist for code changes and structured output
         permissions:
             allowed_tools:
@@ -116,7 +116,7 @@ personas:
         system_prompt_file: .agents/personas/implementer.md
         temperature: 0.3
     navigator:
-        adapter: ""
+        adapter: claude
         description: Read-only codebase exploration and analysis
         permissions:
             allowed_tools:
@@ -125,7 +125,7 @@ personas:
         system_prompt_file: .agents/personas/navigator.md
         temperature: 0.1
     onboarder:
-        adapter: ""
+        adapter: claude
         description: Project introspection and .agents/* overlay generation
         permissions:
             allowed_tools:
@@ -134,7 +134,7 @@ personas:
         system_prompt_file: .agents/personas/onboarder.md
         temperature: 0.4
     philosopher:
-        adapter: ""
+        adapter: claude
         description: Architecture design and specification
         permissions:
             allowed_tools:
@@ -143,7 +143,7 @@ personas:
         system_prompt_file: .agents/personas/philosopher.md
         temperature: 0.3
     planner:
-        adapter: ""
+        adapter: claude
         description: Task breakdown and planning
         permissions:
             allowed_tools:
@@ -152,7 +152,7 @@ personas:
         system_prompt_file: .agents/personas/planner.md
         temperature: 0.2
     provocateur:
-        adapter: ""
+        adapter: claude
         description: Creative challenger for divergent thinking and complexity hunting
         permissions:
             allowed_tools:
@@ -161,7 +161,7 @@ personas:
         system_prompt_file: .agents/personas/provocateur.md
         temperature: 0.8
     researcher:
-        adapter: ""
+        adapter: claude
         description: Deep codebase research and analysis
         permissions:
             allowed_tools:
@@ -170,7 +170,7 @@ personas:
         system_prompt_file: .agents/personas/researcher.md
         temperature: 0.1
     reviewer:
-        adapter: ""
+        adapter: claude
         description: Code review and quality checks
         permissions:
             allowed_tools:
@@ -179,7 +179,7 @@ personas:
         system_prompt_file: .agents/personas/reviewer.md
         temperature: 0.1
     summarizer:
-        adapter: ""
+        adapter: claude
         description: Context compaction for relay handoffs
         permissions:
             allowed_tools:
@@ -188,7 +188,7 @@ personas:
         system_prompt_file: .agents/personas/summarizer.md
         temperature: 0
     synthesizer:
-        adapter: ""
+        adapter: claude
         description: Structured synthesis of analysis findings into actionable JSON proposals
         permissions:
             allowed_tools:
@@ -197,7 +197,7 @@ personas:
         system_prompt_file: .agents/personas/synthesizer.md
         temperature: 0.2
     validator:
-        adapter: ""
+        adapter: claude
         description: Skeptical analysis and verification of findings against source code
         permissions:
             allowed_tools:
@@ -215,16 +215,6 @@ project:
     source_glob: '*.go'
     test_command: go test ./...
 runtime:
-    sandbox:
-        enabled: true
-        backend: none  # host-side execution for claude adapter
-        env_passthrough:
-            - ANTHROPIC_BASE_URL
-            - ANTHROPIC_AUTH_TOKEN
-            - ANTHROPIC_MODEL
-            - ANTHROPIC_DEFAULT_SONNET_MODEL
-            - ANTHROPIC_DEFAULT_OPUS_MODEL
-            - ANTHROPIC_DEFAULT_HAIKU_MODEL
     audit:
         log_all_file_operations: false
         log_all_tool_calls: true
