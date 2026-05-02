@@ -3255,6 +3255,9 @@ body > .main-content > .card:last-of-type:has(h2) { display: none !important; }
 .fp-name { font-size: 0.8rem; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
 .fp-stat { font-size: 0.68rem; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
 
+/* Pipeline list card */
+.pipeline-card { display: flex; }
+
 /* ── Issues page ── */
 .badge-issue-open   { font-size: 0.6rem; background: var(--color-completed-bg); color: var(--color-completed); }
 .badge-issue-closed { font-size: 0.6rem; background: rgba(139,92,246,0.12); color: #c4b5fd; }
