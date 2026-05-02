@@ -39,14 +39,51 @@
         </div>
       </div>
       <div>
+        {{if not .MatchedBindings}}
         <button type="button" disabled
-                title="Dispatch wiring lands in #2.4"
+                title="No binding matches this work item"
                 style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; background: var(--color-bg-tertiary); color: var(--color-text-muted); cursor: not-allowed; font-size: 13px; font-weight: 500; border: 1px solid var(--color-border);">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          Run on this issue
+          No binding
         </button>
-        <p style="font-size: 11px; color: var(--color-text-muted); margin-top: 4px; text-align: right;">disabled &mdash; wires up in #2.4</p>
+        {{else if eq (len .MatchedBindings) 1}}
+        <form method="POST" action="/work/{{.Forge}}/{{.Owner}}/{{.Repo}}/{{.NumberStr}}/dispatch" id="dispatch-form" style="display: inline;">
+          <input type="hidden" name="csrf_token" value="{{$.csrfToken}}">
+          <button type="submit"
+                  style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; background: var(--color-btn-primary); color: var(--color-btn-text); cursor: pointer; font-size: 13px; font-weight: 500; border: 1px solid var(--color-border);">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Run {{with index .MatchedBindings 0}}{{.PipelineName}}{{end}}
+          </button>
+        </form>
+        {{else}}
+        <form method="POST" action="/work/{{.Forge}}/{{.Owner}}/{{.Repo}}/{{.NumberStr}}/dispatch" id="dispatch-form-multi" style="display: flex; gap: 8px; align-items: center;">
+          <input type="hidden" name="csrf_token" value="{{$.csrfToken}}">
+          <select name="pipeline" style="background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); padding: 6px 10px; border-radius: 6px; font-size: 13px; font-family: inherit;">
+            {{range .MatchedBindings}}<option value="{{.PipelineName}}">{{.PipelineName}}</option>{{end}}
+          </select>
+          <button type="submit"
+                  style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; background: var(--color-btn-primary); color: var(--color-btn-text); cursor: pointer; font-size: 13px; font-weight: 500; border: 1px solid var(--color-border);">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Run
+          </button>
+        </form>
+        {{end}}
       </div>
+      <script>
+        document.querySelectorAll('form[id^="dispatch-form"]').forEach(function(form) {
+          form.addEventListener('submit', function(e) {
+            var csrf = form.querySelector('[name="csrf_token"]').value;
+            if (csrf) {
+              var xhr = new XMLHttpRequest();
+              xhr.open('POST', form.action, true);
+              xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+              xhr.setRequestHeader('X-CSRF-Token', csrf);
+              xhr.send(new URLSearchParams(new FormData(form)));
+              e.preventDefault();
+            }
+          });
+        });
+      </script>
     </div>
 
     {{if not .ItemAvailable}}
