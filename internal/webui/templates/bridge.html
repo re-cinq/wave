@@ -131,6 +131,26 @@
     }
     .bridge-pulse { animation: bridge-pulse 1.6s infinite; }
   </style>
+<script>
+    (function() {
+      var stream = document.getElementById('activity-stream');
+      if (!stream) return;
+      var es = new EventSource('/api/bridge/stream');
+      es.addEventListener('activity', function(e) {
+        var d = JSON.parse(e.data);
+        var row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML = '<span class="t">' + d.time + '</span><span class="src ' + d.sourceClass + '">' + d.source + '</span><span>' + d.message + '</span>';
+        stream.appendChild(row);
+        // Keep only last 20 rows
+        while (stream.children.length > 20) {
+          stream.removeChild(stream.firstChild);
+        }
+        stream.scrollTop = stream.scrollHeight;
+      });
+      es.onerror = function() { /* silently reconnect */ };
+    })();
+  </script>
 </head>
 <body>
 {{template "partials/nav" .}}

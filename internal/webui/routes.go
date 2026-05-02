@@ -50,6 +50,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 
 	// API endpoints (JSON)
 	mux.HandleFunc("GET /api/runs", s.handleAPIRuns)
+	mux.HandleFunc("GET /api/bridge/stream", s.handleBridgeActivitySSE)
 	mux.HandleFunc("GET /api/runs/export", s.handleExportRuns)
 	mux.HandleFunc("POST /api/runs", s.handleSubmitRun)
 	mux.HandleFunc("GET /api/pipelines", s.handleAPIPipelines)
