@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -62,10 +62,10 @@
       </div>
       <div id="fp-section-body">
         {{range .FrequentPipelines}}
-        <a href="/pipelines/{{.Name}}" class="fp-row" data-category="{{.Category}}" data-name="{{.Name}}" style="display: flex; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit;" onmouseover="this.style.background='var(--color-bg-tertiary)'" onmouseout="this.style.background=''">
-          <span style="font-weight: 500;">{{.Name}}</span>
-          {{if .Description}}<span style="color: var(--color-text-secondary); font-size: 12px; margin-left: 12px;">{{.Description}}</span>{{end}}
-          <span style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+        <a href="/pipelines/{{.Name}}" class="fp-row" data-category="{{.Category}}" data-name="{{.Name}}" style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit;" onmouseover="this.style.background='var(--color-bg-tertiary)'" onmouseout="this.style.background=''">
+          <span style="font-weight: 500; flex-shrink: 0;">{{.Name}}</span>
+          {{if .Description}}<span style="color: var(--color-text-secondary); font-size: 12px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{.Description}}</span>{{end}}
+          <span style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
             <span class="badge badge-dim">{{.RunCount}}</span>
             <button class="w-btn" style="font-size: 11px; padding: 3px 10px;" onclick="event.preventDefault();event.stopPropagation();showQuickStart('{{.Name}}')">run</button>
           </span>

@@ -37,12 +37,14 @@ pipeline_outputs:
 steps:
   - id: scan
     persona: navigator
-    model: cheapest
+    model: balanced
     workspace:
       mount:
         - source: ./
           target: /project
           mode: readonly
+          # Narrow mount to PR scope when invoked from ops-pr-respond
+          # (#1453). Soft-fallback to full tree on standalone runs.
           subset_from: fetch-pr.pr-context.changed_files
     exec:
       type: prompt
@@ -114,7 +116,7 @@ steps:
         persona: navigator
         criteria_path: .agents/contracts/quality-review-criteria.md
         source: .agents/output/architecture-report.md
-        model: cheapest
+        model: balanced
         token_budget: 0
-        timeout: 90s
+        timeout: 300s
         on_failure: warn

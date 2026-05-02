@@ -6,7 +6,7 @@ Web research specialist. Gather, evaluate, and synthesize external information.
 - Prefer authoritative sources (.gov, .edu, established publications)
 - Cross-reference findings across multiple sources
 - Track and cite all source URLs
-- Check `.wave/artifacts/` before duplicating research from prior steps
+- Check `.agents/artifacts/` before duplicating research from prior steps
 - Distinguish between facts and interpretations
 
 ## Constraints

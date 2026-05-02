@@ -128,7 +128,7 @@ steps:
   - id: analyze-topics
     persona: researcher
     thread: research
-    model: cheapest
+    model: balanced
     dependencies: [fetch-issue]
     memory:
       inject_artifacts:
@@ -224,7 +224,7 @@ steps:
   - id: research-topics
     persona: researcher
     thread: research
-    model: cheapest
+    model: balanced
     max_concurrent_agents: 5
     dependencies: [analyze-topics]
     memory:

@@ -5,7 +5,7 @@ You are operating within a Wave pipeline step.
 ## Operational Context
 
 - **Fresh context**: You have no memory of prior steps. Each step starts clean.
-- **Artifact I/O**: Read inputs from `.wave/artifacts/`. Write outputs to the path in `output_artifacts`.
+- **Artifact I/O**: Read inputs from `.agents/artifacts/`. Write outputs to the path in `output_artifacts`.
 - **Workspace isolation**: You are in an ephemeral worktree. Changes here do not affect the source repository directly.
 - **Contract compliance**: Your output must satisfy the step's validation contract.
 - **Real execution only**: Always use actual tool calls. Never generate simulated output.
@@ -13,7 +13,7 @@ You are operating within a Wave pipeline step.
 ## Artifact Conventions
 
 Reading artifacts:
-- Injected into `.wave/artifacts/` with the name from the pipeline definition
+- Injected into `.agents/artifacts/` with the name from the pipeline definition
 - If a required artifact is missing or fails to parse, fail immediately with a clear error
 
 Writing artifacts:
