@@ -62,6 +62,7 @@ var standalonePageTemplates = []string{
 	"templates/retros.html",
 	"templates/skills.html",
 	"templates/compose.html",
+	"templates/bridge.html",
 }
 
 // parseTemplates parses all embedded HTML templates using a clone-per-page

@@ -1,0 +1,72 @@
+{{define "title"}}Bridge &mdash; Wave{{end}}
+{{define "content"}}
+{{template "partials/nav" .}}
+
+<div class="w-container">
+  <div class="w-page-header">
+    <div>
+      <h1 class="w-page-title">Bridge</h1>
+      <div class="w-page-sub">Fleet at a glance.</div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    <div class="card" style="padding: 20px;">
+      <div style="font-size: 12px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px;">Running</div>
+      <div style="font-size: 32px; font-weight: 700;">{{.RunningCount}}</div>
+    </div>
+    <div class="card" style="padding: 20px;">
+      <div style="font-size: 12px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px;">Completed Today</div>
+      <div style="font-size: 32px; font-weight: 700;">{{.CompletedToday}}</div>
+    </div>
+    <div class="card" style="padding: 20px;">
+      <div style="font-size: 12px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px;">Active Bindings</div>
+      <div style="font-size: 32px; font-weight: 700;">{{.ActiveBindings}}</div>
+    </div>
+    <div class="card" style="padding: 20px;">
+      <div style="font-size: 12px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px;">Proposals</div>
+      <div style="font-size: 32px; font-weight: 700;">{{.ProposalCount}}</div>
+    </div>
+  </div>
+
+  {{if .RunningRuns}}
+  <section style="margin-bottom: 24px;">
+    <h2 style="font-size: 15px; font-weight: 600; margin: 0 0 12px;">In-flight runs</h2>
+    <div class="w-list standalone">
+      {{range .RunningRuns}}
+      <a href="/runs/{{.RunID}}" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit;" onmouseover="this.style.background='var(--color-bg-tertiary)'" onmouseout="this.style.background=''">
+        <div style="min-width: 0;">
+          <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{.PipelineName}}</div>
+          <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">
+            <span style="font-family: var(--font-mono);">{{.RunID}}</span>
+            {{if .Input}}&middot; <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{.Input}}</span>{{end}}
+          </div>
+        </div>
+        <span class="badge badge-blue" style="white-space: nowrap;">running</span>
+      </a>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+
+  {{if .RecentRuns}}
+  <section>
+    <h2 style="font-size: 15px; font-weight: 600; margin: 0 0 12px;">Recent runs</h2>
+    <div class="w-list standalone">
+      {{range .RecentRuns}}
+      <a href="/runs/{{.RunID}}" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--color-border-light); text-decoration: none; color: inherit;" onmouseover="this.style.background='var(--color-bg-tertiary)'" onmouseout="this.style.background=''">
+        <div style="min-width: 0;">
+          <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{.PipelineName}}</div>
+          <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">
+            <span style="font-family: var(--font-mono);">{{.RunID}}</span>
+            {{if .Input}}&middot; <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{.Input}}</span>{{end}}
+          </div>
+        </div>
+        <span style="font-size: 12px; color: var(--color-text-muted); white-space: nowrap;">{{.Status}}</span>
+      </a>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+</div>
+{{end}}
