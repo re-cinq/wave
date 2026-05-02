@@ -1,25 +1,3 @@
-apiVersion: v1
-kind: WaveManifest
-metadata:
-    description: A Wave multi-agent project
-    name: wave-project
-    forge: github
-project:
-    language: go
-    test_command: "go test ./..."
-    # Disable gpgsign for test-suite sub-commits (e.g. worktree tests that
-    # call `git commit`). A broken user gpg/keyboxd config must not fail
-    # the test suite.
-    contract_test_command: "env GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null go test ./..."
-    lint_command: "go vet ./..."
-    build_command: "go build ./..."
-    source_glob: "*.go"
-    # test_diff / test_count_baseline contracts (#1583, #1584): how to
-    # spot test declarations in this codebase. Defaults already match
-    # Go, but make it explicit so non-Go projects know the knobs.
-    test_file_pattern:
-        - "*_test.go"
-    test_func_pattern: '(?m)^[ \t]*func[ \t]+(Test|Example|Benchmark|Fuzz)[A-Za-z0-9_]*\b'
 adapters:
     claude:
         binary: claude
@@ -27,20 +5,36 @@ adapters:
         default_permissions:
             allowed_tools:
                 - Read
+                - Write
+                - Edit
                 - Bash
             deny: []
         mode: headless
         output_format: json
         project_files:
-            - CLAUDE.md
             - AGENTS.md
-            - .claude/settings.json
+    codex:
+        binary: codex
+        default_model: o3
+        default_permissions:
+            allowed_tools:
+                - Read
+                - Write
+                - Edit
+                - Bash
+            deny: []
+        mode: headless
+        output_format: json
+        project_files:
+            - AGENTS.md
     gemini:
         binary: gemini
         default_model: gemini-2.5-flash-lite
         default_permissions:
             allowed_tools:
                 - Read
+                - Write
+                - Edit
                 - Bash
             deny: []
         mode: headless
@@ -49,384 +43,193 @@ adapters:
             - AGENTS.md
     opencode:
         binary: opencode
-        default_model: opencode/big-pickle
-        tier_models:
-            cheapest: default
-            balanced: default
-            strongest: default
+        default_model: zai-coding-plan/glm-5-turbo
         default_permissions:
             allowed_tools:
                 - Read
+                - Write
+                - Edit
                 - Bash
             deny: []
         mode: headless
         output_format: json
         project_files:
             - AGENTS.md
-    opencode-qwen:
-        binary: opencode-patched
-        default_model: ollama/qwen3.5:27b
-        tier_models:
-            cheapest: ollama/qwen3.5:27b
-            balanced: ollama/qwen3.5:27b
-            strongest: ollama/qwen3.5:27b
-        default_permissions:
-            allowed_tools:
-                - Read
-                - Bash
-            deny: []
-        mode: headless
-        output_format: json
-        project_files:
-            - AGENTS.md
-    opencode-glm:
-        binary: opencode-patched
-        default_model: ollama/glm-4.7-flash
-        tier_models:
-            cheapest: ollama/glm-4.7-flash
-            balanced: ollama/glm-4.7-flash
-            strongest: ollama/glm-4.7-flash
-        default_permissions:
-            allowed_tools:
-                - Read
-                - Bash
-            deny: []
-        mode: headless
-        output_format: json
-        project_files:
-            - AGENTS.md
+apiVersion: v1
+kind: WaveManifest
+metadata:
+    description: A Wave multi-agent project
+    name: wave
 personas:
     auditor:
-        adapter: claude
+        adapter: ""
         description: Security review and quality assurance
-        #temperature: 0.1
         permissions:
             allowed_tools:
-                - "*"
+                - '*'
             deny: []
         system_prompt_file: .agents/personas/auditor.md
+        temperature: 0.1
     craftsman:
-        adapter: claude
+        adapter: ""
         description: Code implementation and testing
-        #temperature: 0.3
         permissions:
             allowed_tools:
-                - "*"
+                - '*'
             deny: []
         system_prompt_file: .agents/personas/craftsman.md
-    debugger:
-        adapter: claude
-        description: Systematic issue diagnosis and root cause analysis
-        #temperature: 0.2
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/debugger.md
-    navigator:
-        adapter: claude
-        description: Read-only codebase exploration and analysis
-        #temperature: 0.3
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/navigator.md
-    philosopher:
-        adapter: claude
-        description: Architecture design and specification
-        #temperature: 0.7
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/philosopher.md
-    planner:
-        adapter: claude
-        description: Task breakdown and project planning
-        #temperature: 0.3
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/planner.md
-    summarizer:
-        adapter: claude
-        description: Context compaction for relay handoffs
-        #temperature: 0.2
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/summarizer.md
-    webui-capturer:
-        adapter: claude
-        description: Browser-driven WebUI screenshot capture via the chromedp adapter
-        #temperature: 0.0
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/webui-capturer.md
+        temperature: 0.7
     github-analyst:
-        adapter: claude
-        description: GitHub issue analysis and quality assessment
-        #temperature: 0.3
-        token_scopes:
-            - issues:read
-            - pulls:read
-            - repos:read
+        adapter: ""
+        description: GitHub issue analysis and scanning
         permissions:
             allowed_tools:
-                - "*"
+                - '*'
             deny: []
         system_prompt_file: .agents/personas/github-analyst.md
-    github-enhancer:
-        adapter: claude
-        description: GitHub issue enhancement and improvement
-        #temperature: 0.5
-        token_scopes:
-            - issues:write
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/github-enhancer.md
-    github-scoper:
-        adapter: claude
-        description: GitHub epic decomposition into child issues
-        #temperature: 0.3
-        token_scopes:
-            - issues:write
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/github-scoper.md
-    implementer:
-        adapter: claude
-        description: Code execution and artifact generation for pipeline steps
-        #temperature: 0.3
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/implementer.md
-    reviewer:
-        adapter: claude
-        description: Quality review, validation, and assessment
-        #temperature: 0.3
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/reviewer.md
-    researcher:
-        adapter: claude
-        description: Web research and information synthesis
-        #temperature: 0.5
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/researcher.md
+        temperature: 0.1
     github-commenter:
-        adapter: claude
-        description: Post comments on GitHub issues and pull requests, create PRs
-        #temperature: 0.3
-        token_scopes:
-            - issues:write
-            - pulls:write
+        adapter: ""
+        description: Posts comments on GitHub issues and pull requests, creates PRs
         permissions:
             allowed_tools:
-                - "*"
+                - '*'
             deny: []
         system_prompt_file: .agents/personas/github-commenter.md
-    gitlab-analyst:
-        adapter: claude
-        description: GitLab issue analysis and quality assessment
-        #temperature: 0.3
-        token_scopes:
-            - issues:read
-            - pulls:read
-            - repos:read
+        temperature: 0.2
+    github-scoper:
+        adapter: ""
+        description: GitHub epic analysis, decomposition, and sub-issue creation
         permissions:
             allowed_tools:
-                - "*"
+                - '*'
             deny: []
-        system_prompt_file: .agents/personas/gitlab-analyst.md
-    gitlab-enhancer:
-        adapter: claude
-        description: GitLab issue enhancement and improvement
-        #temperature: 0.5
-        token_scopes:
-            - issues:write
+        system_prompt_file: .agents/personas/github-scoper.md
+        temperature: 0.1
+    implementer:
+        adapter: ""
+        description: Execution specialist for code changes and structured output
         permissions:
             allowed_tools:
-                - "*"
+                - '*'
             deny: []
-        system_prompt_file: .agents/personas/gitlab-enhancer.md
-    gitlab-scoper:
-        adapter: claude
-        description: GitLab epic decomposition into child issues
-        #temperature: 0.3
-        token_scopes:
-            - issues:write
+        system_prompt_file: .agents/personas/implementer.md
+        temperature: 0.3
+    navigator:
+        adapter: ""
+        description: Read-only codebase exploration and analysis
         permissions:
             allowed_tools:
-                - "*"
+                - '*'
             deny: []
-        system_prompt_file: .agents/personas/gitlab-scoper.md
-    gitlab-commenter:
-        adapter: claude
-        description: Post comments on GitLab issues and merge requests
-        #temperature: 0.3
-        token_scopes:
-            - issues:write
-            - pulls:write
+        system_prompt_file: .agents/personas/navigator.md
+        temperature: 0.1
+    onboarder:
+        adapter: ""
+        description: Project introspection and .agents/* overlay generation
         permissions:
             allowed_tools:
-                - "*"
+                - '*'
             deny: []
-        system_prompt_file: .agents/personas/gitlab-commenter.md
-    gitea-analyst:
-        adapter: claude
-        description: Gitea issue analysis and quality assessment
-        #temperature: 0.3
-        token_scopes:
-            - issues:read
-            - pulls:read
-            - repos:read
+        system_prompt_file: .agents/personas/onboarder.md
+        temperature: 0.4
+    philosopher:
+        adapter: ""
+        description: Architecture design and specification
         permissions:
             allowed_tools:
-                - "*"
+                - '*'
             deny: []
-        system_prompt_file: .agents/personas/gitea-analyst.md
-    gitea-enhancer:
-        adapter: claude
-        description: Gitea issue enhancement and improvement
-        #temperature: 0.5
-        token_scopes:
-            - issues:write
+        system_prompt_file: .agents/personas/philosopher.md
+        temperature: 0.3
+    planner:
+        adapter: ""
+        description: Task breakdown and planning
         permissions:
             allowed_tools:
-                - "*"
+                - '*'
             deny: []
-        system_prompt_file: .agents/personas/gitea-enhancer.md
-    gitea-scoper:
-        adapter: claude
-        description: Gitea epic decomposition into child issues
-        #temperature: 0.3
-        token_scopes:
-            - issues:write
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/gitea-scoper.md
-    gitea-commenter:
-        adapter: claude
-        description: Post comments on Gitea issues and pull requests
-        #temperature: 0.3
-        token_scopes:
-            - issues:write
-            - pulls:write
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/gitea-commenter.md
-
-    bitbucket-analyst:
-        adapter: claude
-        description: Bitbucket issue analysis and quality assessment
-        #temperature: 0.3
-        token_scopes:
-            - issues:read
-            - pulls:read
-            - repos:read
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/bitbucket-analyst.md
-    bitbucket-enhancer:
-        adapter: claude
-        description: Bitbucket issue enhancement and improvement
-        #temperature: 0.5
-        token_scopes:
-            - issues:write
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/bitbucket-enhancer.md
-    bitbucket-scoper:
-        adapter: claude
-        description: Bitbucket epic decomposition into child issues
-        #temperature: 0.3
-        token_scopes:
-            - issues:write
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/bitbucket-scoper.md
-    bitbucket-commenter:
-        adapter: claude
-        description: Post comments on Bitbucket issues and pull requests, create PRs
-        #temperature: 0.3
-        token_scopes:
-            - issues:write
-            - pulls:write
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/bitbucket-commenter.md
-    supervisor:
-        adapter: claude
-        description: Work quality and process quality evaluation
-        #temperature: 0.2
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/supervisor.md
-    validator:
-        adapter: claude
-        description: Skeptical analysis and verification of findings against source code
-        #temperature: 0.1
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/validator.md
-    synthesizer:
-        adapter: claude
-        description: Structured synthesis of analysis findings into actionable JSON proposals
-        #temperature: 0.2
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/synthesizer.md
+        system_prompt_file: .agents/personas/planner.md
+        temperature: 0.2
     provocateur:
-        adapter: claude
+        adapter: ""
         description: Creative challenger for divergent thinking and complexity hunting
-        #temperature: 0.8
         permissions:
             allowed_tools:
-                - "*"
+                - '*'
             deny: []
         system_prompt_file: .agents/personas/provocateur.md
+        temperature: 0.8
+    researcher:
+        adapter: ""
+        description: Deep codebase research and analysis
+        permissions:
+            allowed_tools:
+                - '*'
+            deny: []
+        system_prompt_file: .agents/personas/researcher.md
+        temperature: 0.1
+    reviewer:
+        adapter: ""
+        description: Code review and quality checks
+        permissions:
+            allowed_tools:
+                - '*'
+            deny: []
+        system_prompt_file: .agents/personas/reviewer.md
+        temperature: 0.1
+    summarizer:
+        adapter: ""
+        description: Context compaction for relay handoffs
+        permissions:
+            allowed_tools:
+                - '*'
+            deny: []
+        system_prompt_file: .agents/personas/summarizer.md
+        temperature: 0
+    synthesizer:
+        adapter: ""
+        description: Structured synthesis of analysis findings into actionable JSON proposals
+        permissions:
+            allowed_tools:
+                - '*'
+            deny: []
+        system_prompt_file: .agents/personas/synthesizer.md
+        temperature: 0.2
+    validator:
+        adapter: ""
+        description: Skeptical analysis and verification of findings against source code
+        permissions:
+            allowed_tools:
+                - '*'
+            deny: []
+        system_prompt_file: .agents/personas/validator.md
+        temperature: 0.1
+project:
+    build_command: go build ./...
+    flavour: go
+    format_command: gofmt -l .
+    language: go
+    lint_command: go vet ./...
+    skill: golang
+    source_glob: '*.go'
+    test_command: go test ./...
 runtime:
+    sandbox:
+        enabled: true
+        backend: none  # host-side execution for claude adapter
+        env_passthrough:
+            - ANTHROPIC_BASE_URL
+            - ANTHROPIC_AUTH_TOKEN
+            - ANTHROPIC_MODEL
+            - ANTHROPIC_DEFAULT_SONNET_MODEL
+            - ANTHROPIC_DEFAULT_OPUS_MODEL
+            - ANTHROPIC_DEFAULT_HAIKU_MODEL
     audit:
         log_all_file_operations: false
         log_all_tool_calls: true
         log_dir: .agents/traces/
-    default_timeout_minutes: 90
-    stall_timeout: 10m
+    default_timeout_minutes: 30
     max_concurrent_workers: 5
     meta_pipeline:
         max_depth: 2
@@ -436,36 +239,4 @@ runtime:
     relay:
         strategy: summarize_to_checkpoint
         token_threshold_percent: 80
-    timeouts:
-        step_default_minutes: 15
-        relay_compaction_minutes: 5
-        meta_default_minutes: 30
-        skill_install_seconds: 120
-        skill_cli_seconds: 120
-        skill_http_seconds: 120
-        skill_http_header_seconds: 30
-        skill_publish_seconds: 30
-        process_grace_seconds: 3
-        stdout_drain_seconds: 1
-        gate_approval_hours: 24
-        gate_poll_interval_seconds: 30
-        gate_poll_timeout_minutes: 30
-        git_command_seconds: 30
-        forge_api_seconds: 15
-        retry_max_delay_seconds: 60
     workspace_root: .agents/workspaces
-    cost:
-        enabled: true
-        budget_ceiling: 50.0
-        warn_at: 25.0
-    routing:
-        auto_route: true
-# Evolution trigger thresholds (Phase 3.3 / issue #1612). Defaults shown — uncomment to override.
-# evolution:
-#     enabled: true              # master switch (default: true)
-#     every_n_window: 10         # rows per half-window for judge-score median compare
-#     every_n_judge_drop: 0.1    # min median judge_score drop to fire every-N
-#     drift_window: 20           # rows for contract_pass drift heuristic
-#     drift_pass_drop: 0.15      # min absolute pass-rate drop to fire drift
-#     retry_window: 10           # rows for retry-rate heuristic
-#     retry_avg_threshold: 2.0   # avg retry_count over retry_window to fire retry-rate

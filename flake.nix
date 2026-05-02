@@ -303,6 +303,41 @@ WAVE_BASHRC
               echo ""
             '';
           };
+
+          # Dev shell with Anthropic credentials for claude adapter pipelines.
+          # Sources .env (gitignored) so ANTHROPIC_* vars reach wave subprocesses.
+          claude-with-creds = pkgs.mkShell {
+            buildInputs = commonPackages ++ [ benchFetchScript ];
+            shellHook = ''
+              echo ""
+              echo "  ╦ ╦╔═╗╦  ╦╔═╗  CLAUDE-WITH-CREDS"
+              echo "  ║║║╠═╣╚╗╔╝║╣  "
+              echo "  ╚╩╝╩ ╩ ╚╝ ╚═╝  (no sandbox, credentials active)"
+              echo ""
+
+              # Source .env for ANTHROPIC_* vars (gitignored — not committed)
+              if [ -f .env ]; then
+                set -a
+                source .env
+                set +a
+                echo "  Loaded ANTHROPIC_* from .env"
+              else
+                echo "  ⚠  .env not found — ANTHROPIC_* vars not set"
+              fi
+
+              export GIT_SSH_COMMAND="ssh -F ~/.ssh/config"
+
+              if command -v gh &>/dev/null && gh auth status &>/dev/null 2>&1; then
+                export GH_TOKEN=$(gh auth token 2>/dev/null)
+              fi
+
+              if [ -n "$ANTHROPIC_AUTH_TOKEN" ]; then
+                echo "  ✓  ANTHROPIC_AUTH_TOKEN set"
+              fi
+
+              echo ""
+            '';
+          };
         };
       }
     );
