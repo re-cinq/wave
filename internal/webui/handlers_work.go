@@ -37,6 +37,12 @@ type WorkBoardData struct {
 	Bindings    []WorkBindingRow
 	RecentRuns  []RunSummary
 	HasBindings bool
+
+	// Filter state for filterbar
+	FilterForge    string
+	FilterPipeline string
+	FilterTrigger  string
+	FilterSearch   string
 }
 
 // WorkItemDetailData backs templates/work/detail.html.
@@ -94,6 +100,11 @@ func (s *Server) handleWorkBoard(w http.ResponseWriter, r *http.Request) {
 		Bindings:    rows,
 		RecentRuns:  recent,
 		HasBindings: len(rows) > 0,
+
+		FilterForge:    r.URL.Query().Get("forge"),
+		FilterPipeline: r.URL.Query().Get("pipeline"),
+		FilterTrigger:  r.URL.Query().Get("trigger"),
+		FilterSearch:   r.URL.Query().Get("q"),
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

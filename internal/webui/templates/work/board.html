@@ -19,6 +19,34 @@
       </div>
     </div>
 
+    <!-- Filter bar -->
+    <div class="w-filterbar" style="border-radius: 8px;">
+      <select onchange="location.href='/work?forge='+this.value+'&pipeline={{.FilterPipeline}}&trigger={{.FilterTrigger}}&q={{.FilterSearch}}'">
+        <option value="">All forges</option>
+        <option value="github" {{if eq .FilterForge "github"}}selected{{end}}>github</option>
+        <option value="gitea" {{if eq .FilterForge "gitea"}}selected{{end}}>gitea</option>
+        <option value="codeberg" {{if eq .FilterForge "codeberg"}}selected{{end}}>codeberg</option>
+      </select>
+      <select onchange="location.href='/work?forge={{.FilterForge}}&pipeline='+this.value+'&trigger={{.FilterTrigger}}&q={{.FilterSearch}}'">
+        <option value="">All pipelines</option>
+        <option value="impl-issue" {{if eq .FilterPipeline "impl-issue"}}selected{{end}}>impl-issue</option>
+        <option value="impl-finding" {{if eq .FilterPipeline "impl-finding"}}selected{{end}}>impl-finding</option>
+        <option value="ops-hello-world" {{if eq .FilterPipeline "ops-hello-world"}}selected{{end}}>ops-hello-world</option>
+        <option value="audit-security" {{if eq .FilterPipeline "audit-security"}}selected{{end}}>audit-security</option>
+        <option value="plan-research" {{if eq .FilterPipeline "plan-research"}}selected{{end}}>plan-research</option>
+      </select>
+      <select onchange="location.href='/work?forge={{.FilterForge}}&pipeline={{.FilterPipeline}}&trigger='+this.value+'&q={{.FilterSearch}}'">
+        <option value="">All triggers</option>
+        <option value="on_open" {{if eq .FilterTrigger "on_open"}}selected{{end}}>On open</option>
+        <option value="on_label" {{if eq .FilterTrigger "on_label"}}selected{{end}}>On label</option>
+        <option value="on_demand" {{if eq .FilterTrigger "on_demand"}}selected{{end}}>On demand</option>
+        <option value="scheduled" {{if eq .FilterTrigger "scheduled"}}selected{{end}}>Scheduled</option>
+      </select>
+      <input type="search" placeholder="Search bindings..." value="{{.FilterSearch}}"
+        onkeydown="if(event.key==='Enter')location.href='/work?forge={{.FilterForge}}&pipeline={{.FilterPipeline}}&trigger={{.FilterTrigger}}&q='+this.value"
+        style="background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); padding: 6px 10px; border-radius: 6px; font-size: 13px; font-family: inherit; flex: 1; min-width: 140px;">
+    </div>
+
     <section style="margin-bottom: 24px;">
       <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px;">
         <h2 style="font-size: 15px; font-weight: 600; margin: 0;">Bindings</h2>
