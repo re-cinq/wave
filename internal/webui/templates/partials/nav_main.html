@@ -1,54 +1,45 @@
 {{define "partials/nav"}}
-<nav class="bg-surface-secondary border-b border-edge sticky top-0 z-10">
-  <div class="max-w-7xl mx-auto px-6 py-3 flex items-center gap-6">
-    <a href="/" class="flex items-center gap-2 font-semibold text-txt hover:opacity-80 no-underline">
-      <svg class="w-5 h-5" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
-        <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/>
-        <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" opacity="0.35"/>
-      </svg>
-      Wave
+<nav class="w-nav">
+  <a href="/" class="w-nav-brand">
+    <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
+      <path d="M2 14 C6 6, 10 6, 14 14 C18 22, 22 22, 26 14"/>
+      <path d="M2 14 C6 22, 10 22, 14 14 C18 6, 22 6, 26 14" opacity="0.35"/>
+    </svg>
+    Wave
+  </a>
+  <div class="w-nav-links">
+    <a href="/work"{{if eq .ActivePage "work"}} class="active"{{end}}>
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Work
     </a>
-    <div class="flex items-center gap-1 text-sm">
-      <a href="/work"
-         class="px-3 py-1.5 rounded-md transition-colors no-underline
-                {{if eq .ActivePage "work"}}bg-surface-tertiary text-txt font-medium{{else}}text-txt-secondary hover:text-txt hover:bg-surface-tertiary{{end}}">
-        Work
-      </a>
-      <a href="/runs"
-         class="px-3 py-1.5 rounded-md transition-colors no-underline
-                {{if eq .ActivePage "runs"}}bg-surface-tertiary text-txt font-medium{{else}}text-txt-secondary hover:text-txt hover:bg-surface-tertiary{{end}}">
-        Runs
-      </a>
-      <a href="/pipelines"
-         class="px-3 py-1.5 rounded-md transition-colors no-underline
-                {{if eq .ActivePage "pipelines"}}bg-surface-tertiary text-txt font-medium{{else}}text-txt-secondary hover:text-txt hover:bg-surface-tertiary{{end}}">
-        Pipelines
-      </a>
-      <a href="/proposals"
-         class="px-3 py-1.5 rounded-md transition-colors no-underline
-                {{if eq .ActivePage "proposals"}}bg-surface-tertiary text-txt font-medium{{else}}text-txt-secondary hover:text-txt hover:bg-surface-tertiary{{end}}">
-        Proposals
-      </a>
-      <a href="/issues"
-         class="px-3 py-1.5 rounded-md transition-colors no-underline
-                {{if eq .ActivePage "issues"}}bg-surface-tertiary text-txt font-medium{{else}}text-txt-secondary hover:text-txt hover:bg-surface-tertiary{{end}}">
-        Issues
-      </a>
-      <a href="/prs"
-         class="px-3 py-1.5 rounded-md transition-colors no-underline
-                {{if eq .ActivePage "prs"}}bg-surface-tertiary text-txt font-medium{{else}}text-txt-secondary hover:text-txt hover:bg-surface-tertiary{{end}}">
-        PRs
-      </a>
-      <a href="/onboard"
-         class="px-3 py-1.5 rounded-md transition-colors no-underline
-                {{if eq .ActivePage "onboard"}}bg-surface-tertiary text-txt font-medium{{else}}text-txt-secondary hover:text-txt hover:bg-surface-tertiary{{end}}">
-        Onboard
-      </a>
-      <a href="/health"
-         class="px-3 py-1.5 rounded-md transition-colors no-underline text-txt-muted hover:text-txt hover:bg-surface-tertiary">
-        Health
-      </a>
-    </div>
+    <a href="/runs"{{if eq .ActivePage "runs"}} class="active"{{end}}>
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Runs
+    </a>
+    <a href="/pipelines"{{if eq .ActivePage "pipelines"}} class="active"{{end}}>
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Pipelines
+    </a>
+    <a href="/proposals"{{if eq .ActivePage "proposals"}} class="active"{{end}}>
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Proposals
+    </a>
+    <a href="/issues"{{if eq .ActivePage "issues"}} class="active"{{end}}>
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Issues
+    </a>
+    <a href="/prs"{{if eq .ActivePage "prs"}} class="active"{{end}}>
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v6"/><path d="M18 6h-3a3 3 0 0 0-3 3v9"/></svg>
+      PRs
+    </a>
+    <a href="/onboard"{{if eq .ActivePage "onboard"}} class="active"{{end}}>
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      Onboard
+    </a>
+    <a href="/health" style="margin-left: auto;"{{if eq .ActivePage "health"}} class="active"{{end}}>
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      Health
+    </a>
   </div>
 </nav>
 {{end}}
