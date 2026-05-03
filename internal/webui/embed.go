@@ -24,6 +24,7 @@ var templatesFS embed.FS
 // base (layout + partials) so that each page can independently define "title",
 // "content", and "scripts" blocks without colliding.
 var pageTemplates = []string{
+	"templates/bridge.html",
 	"templates/run_detail.html",
 	"templates/persona_detail.html",
 	"templates/pipeline_detail.html",

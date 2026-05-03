@@ -33,7 +33,8 @@ type WorkBindingRow struct {
 
 // WorkBoardData backs templates/work/board.html.
 type WorkBoardData struct {
-	ActivePage  string
+	ActivePage            string
+	PendingProposalCount int
 	Bindings    []WorkBindingRow
 	RecentRuns  []RunSummary
 	HasBindings bool
