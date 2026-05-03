@@ -15,8 +15,13 @@ import (
 // handleBridge can be called without the full template set.
 func minimalBridgeTemplates() map[string]*template.Template {
 	m := map[string]*template.Template{}
+	// The bridge handler calls ExecuteTemplate(w, "templates/layout.html", data),
+	// so the stub must include a layout template that wraps the content block.
 	m["templates/bridge.html"] = template.Must(
-		template.New("templates/bridge.html").Parse(`<!doctype html><html><body><p>Bridge</p></body></html>`),
+		template.New("base").Parse(`{{define "templates/layout.html"}}<!doctype html>
+<html><head><title>{{block "title" .}}Bridge{{end}}</title></head>
+<body>{{block "content" .}}{{end}}</body>
+</html>{{end}}`),
 	)
 	return m
 }
