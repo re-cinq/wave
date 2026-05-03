@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -135,6 +136,36 @@ func parseTemplates(extraFuncs ...template.FuncMap) (map[string]*template.Templa
 				return 0
 			}
 			return *p
+		},
+		"pendingCount": func(n int) int {
+			if n < 0 {
+				return 0
+			}
+			return n
+		},
+		"getPendingCount": func(data interface{}) int {
+			// Use reflection to safely get PendingProposalCount from any struct.
+			// Returns 0 if field missing or not an int.
+			v := reflect.ValueOf(data)
+			if v.Kind() != reflect.Ptr {
+				return 0
+			}
+			v = v.Elem()
+			if v.Kind() != reflect.Struct {
+				return 0
+			}
+			f := v.FieldByName("PendingProposalCount")
+			if !f.IsValid() {
+				return 0
+			}
+			if f.Kind() != reflect.Int {
+				return 0
+			}
+			n := int(f.Int())
+			if n < 0 {
+				return 0
+			}
+			return n
 		},
 		"subtreeIsLarger": func(r RunSummary) bool {
 			return r.SubtreeTokens > int64(r.TotalTokens)

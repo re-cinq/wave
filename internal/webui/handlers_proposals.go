@@ -15,10 +15,11 @@ import (
 
 // proposalListView is the template payload for the proposals list page.
 type proposalListView struct {
-	ActivePage string
-	Filter     string
-	Counts     map[string]int
-	Proposals  []proposalRow
+	ActivePage           string
+	Filter               string
+	Counts               map[string]int
+	Proposals            []proposalRow
+	PendingProposalCount int
 }
 
 // proposalRow is one entry in the proposals list table.
@@ -36,12 +37,13 @@ type proposalRow struct {
 
 // proposalDetailView is the template payload for the proposal detail page.
 type proposalDetailView struct {
-	ActivePage    string
-	Proposal      proposalRow
-	DiffLines     []diffLine
-	DiffMissing   bool
-	DiffError     string
-	SignalSummary string
+	ActivePage           string
+	Proposal             proposalRow
+	DiffLines            []diffLine
+	DiffMissing          bool
+	DiffError            string
+	SignalSummary        string
+	PendingProposalCount int
 }
 
 // diffLine is one row of a unified diff with a class for line type.
@@ -108,6 +110,9 @@ func (s *Server) handleProposalsPage(w http.ResponseWriter, r *http.Request) {
 		Counts:     counts,
 		Proposals:  rows,
 	}
+	if recs, err := store.ListProposalsByStatus(state.ProposalProposed, 0); err == nil {
+		view.PendingProposalCount = len(recs)
+	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl := s.assets.templates["templates/proposals/list.html"]
@@ -147,6 +152,9 @@ func (s *Server) handleProposalDetailPage(w http.ResponseWriter, r *http.Request
 		ActivePage:    "proposals",
 		Proposal:      recordToRow(*rec),
 		SignalSummary: rec.SignalSummary,
+	}
+	if recs, err := store.ListProposalsByStatus(state.ProposalProposed, 0); err == nil {
+		view.PendingProposalCount = len(recs)
 	}
 
 	if rec.DiffPath == "" {
