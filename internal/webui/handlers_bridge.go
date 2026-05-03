@@ -13,6 +13,12 @@ import (
 type BridgeData struct {
 	ActivePage string
 
+	// Nav meta (exposed so nav partial can read them)
+	InFlightCount       int
+	PendingProposalCount int
+	RepoName            string
+	ForgeHost           string
+
 	// Hero stats
 	RunningCount    int
 	ImplCount       int // running impl-issue pipelines
@@ -33,9 +39,6 @@ type BridgeData struct {
 	StaleBranches   int
 	HealthHints     int
 	BudgetWarning   bool
-
-	// Proposals
-	PendingProposalCount int
 
 	// Heatmap (24 cells for last 24h, each 0-4 activity level)
 	Heatmap [24]int
@@ -150,25 +153,28 @@ func (s *Server) handleBridge(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := BridgeData{
-		ActivePage:         "bridge",
-		RunningCount:       runningCount,
-		ImplCount:          implCount,
-		ReviewCount:        reviewCount,
-		CompletedToday:     completedToday,
-		Spend:              "$0.00",   // TODO: wire from run cost tracking when available
-		BudgetCap:          "$10.00",  // TODO: wire from config
-		JudgeAvg:           "—",       // TODO: compute from run verdict aggregates
-		JudgeTrend:         "",        // TODO: compute from 7d trend
-		InFlightStats:      inFlightStats,
-		RunningRuns:        runningRuns,
-		RecentLandings:     recentLandings,
-		OpenWorkItems:      openWorkItems,
-		StaleBranches:      0,         // TODO: wire from forge client
-		HealthHints:        0,         // TODO: wire from health checks
-		BudgetWarning:      false,     // TODO: compare spend vs cap
+		ActivePage:           "bridge",
+		InFlightCount:        runningCount,
 		PendingProposalCount: pendingProposals,
-		Heatmap:            heatmap,
-		ActivityStream:     []ActivityEvent{}, // SSE-powered live stream
+		RepoName:             s.runtime.repoSlug,
+		ForgeHost:            s.runtime.forgeHost,
+		RunningCount:         runningCount,
+		ImplCount:            implCount,
+		ReviewCount:          reviewCount,
+		CompletedToday:       completedToday,
+		Spend:                "$0.00",   // TODO: wire from run cost tracking when available
+		BudgetCap:            "$10.00",  // TODO: wire from config
+		JudgeAvg:             "—",       // TODO: compute from run verdict aggregates
+		JudgeTrend:           "",        // TODO: compute from 7d trend
+		InFlightStats:        inFlightStats,
+		RunningRuns:          runningRuns,
+		RecentLandings:       recentLandings,
+		OpenWorkItems:        openWorkItems,
+		StaleBranches:        0,         // TODO: wire from forge client
+		HealthHints:          0,         // TODO: wire from health checks
+		BudgetWarning:        false,     // TODO: compare spend vs cap
+		Heatmap:              heatmap,
+		ActivityStream:       []ActivityEvent{}, // SSE-powered live stream
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

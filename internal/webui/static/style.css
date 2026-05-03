@@ -3850,3 +3850,8 @@ pre.w-diff-block {
 .w-empty svg { width: 40px; height: 40px; margin: 0 auto 12px; opacity: 0.4; }
 .w-empty h3 { font-size: 15px; font-weight: 500; margin: 0 0 4px; color: var(--color-text); }
 .w-empty p { font-size: 13px; margin: 0; max-width: 400px; margin-left: auto; margin-right: auto; }
+
+/* Bridge — pulsing indicator for in-flight count */
+@keyframes bridge-pulse { 0% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.6); } 100% { box-shadow: 0 0 0 8px rgba(63, 185, 80, 0); } }
+
+.bridge-pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--color-success, #3fb950); vertical-align: middle; margin-right: 4px; animation: bridge-pulse 1.6s infinite; }
