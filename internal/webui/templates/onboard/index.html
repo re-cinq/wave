@@ -5,6 +5,78 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Onboard &mdash; Wave</title>
   <link rel="stylesheet" href="/static/style.css">
+  <style>
+    /* Stepper progress bar */
+    .onboard-stepper {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: var(--color-text-muted, #8b949e);
+      margin-bottom: 16px;
+      padding: 10px 14px;
+      background: var(--color-bg-secondary, #161b22);
+      border: 1px solid var(--color-border, #30363d);
+      border-radius: 8px;
+    }
+    .onboard-stepper .step-pip {
+      display: flex; align-items: center; gap: 4px;
+    }
+    .onboard-stepper .step-pip.done { color: var(--color-success, #3fb950); }
+    .onboard-stepper .step-pip.active { color: var(--color-accent, #58a6ff); font-weight: 600; }
+    .onboard-stepper .step-sep { color: var(--color-border, #30363d); }
+    .onboard-stepper .run-badge, .onboard-stepper .model-badge {
+      font-size: 10px; padding: 1px 6px;
+      background: var(--color-bg, #0d1117);
+      border: 1px solid var(--color-border-light, #21262d);
+      border-radius: 10px; font-family: var(--font-mono, monospace);
+      color: var(--color-text-dim, #6e7681);
+    }
+
+    /* Rich chat messages */
+    .chat-msg { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--color-border-light, #21262d); }
+    .chat-msg-avatar { width: 28px; height: 28px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--color-text-muted, #8b949e); }
+    .chat-msg-avatar svg { width: 16px; height: 16px; }
+    .chat-msg-body { flex: 1; min-width: 0; }
+    .chat-msg-from { font-size: 11px; color: var(--color-text-muted, #8b949e); margin-bottom: 4px; font-weight: 500; }
+    .chat-msg-from .badge { font-size: 10px; padding: 1px 5px; border-radius: 8px; margin-left: 4px; }
+    .chat-msg-from .badge-purple { background: rgba(163,113,247,0.2); color: #a371f7; }
+    .chat-msg-from .badge-blue { background: rgba(88,166,255,0.15); color: #58a6ff; }
+    .chat-msg-content { font-size: 13px; line-height: 1.55; color: var(--color-text, #e6edf3); }
+    .chat-msg-content p { margin: 0 0 8px; }
+    .chat-msg-content ul { margin: 4px 0 8px; padding-left: 20px; }
+    .chat-msg-content code { font-family: var(--font-mono, monospace); font-size: 12px; background: var(--color-bg, #0d1117); padding: 1px 5px; border-radius: 4px; }
+    .chat-msg-content strong { font-weight: 600; }
+
+    /* User message */
+    .chat-msg-user { flex-direction: row-reverse; }
+    .chat-msg-user .chat-msg-body { text-align: right; }
+
+    /* Prompt message — styled as question */
+    .chat-msg-prompt .chat-msg-avatar { color: var(--color-accent, #58a6ff); }
+
+    /* File-writing stream block */
+    .chat-stream {
+      font-family: var(--font-mono, monospace); font-size: 11px;
+      background: var(--color-bg, #0d1117); border: 1px solid var(--color-border-light, #21262d);
+      border-radius: 6px; padding: 8px 10px; margin-top: 8px;
+      max-height: 160px; overflow-y: auto;
+    }
+    .chat-stream-line { display: block; padding: 1px 0; color: var(--color-text-muted, #8b949e); }
+    .chat-stream-line.g { color: var(--color-success, #3fb950); }
+    .chat-stream-line.r { color: var(--color-failed, #f85149); }
+    .chat-stream-line.y { color: #d29922; }
+    .chat-stream-line.b { color: var(--color-accent, #58a6ff); }
+
+    /* Choice grid for radio/checkbox prompts */
+    .choice-grid { display: grid; gap: 8px; margin-top: 10px; }
+    .choice-grid label {
+      display: flex; flex-direction: column; gap: 2px;
+      padding: 10px 12px; border: 1px solid var(--color-border, #30363d);
+      border-radius: 6px; cursor: pointer; font-size: 13px;
+      background: var(--color-bg, #0d1117);
+    }
+    .choice-grid label:hover { border-color: var(--color-accent, #58a6ff); }
+    .choice-grid input[type="radio"], .choice-grid input[type="checkbox"] { margin-right: 8px; }
+    .choice-grid .choice-desc { font-size: 11px; color: var(--color-text-muted, #8b949e); margin-top: 2px; }
+  </style>
 </head>
 <body>
   {{template "partials/nav" .}}
@@ -19,7 +91,20 @@
             Answer questions when prompted.
           </div>
         </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-ghost" onclick="window.location='/onboard/{{.SessionID}}/restart'">
+            <svg class="icon" style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/></svg>
+            Restart
+          </button>
+          <button class="btn btn-ghost" onclick="window.location='/onboard/{{.SessionID}}/abort'">
+            <svg class="icon" style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12"/></svg>
+            Abort
+          </button>
+        </div>
       </div>
+
+      {{/* Stepper — populated by SSE 'stepper' events */}}
+      <div class="onboard-stepper" id="onboard-stepper"></div>
 
       <p class="w-page-sub" style="margin-top: -12px; margin-bottom: 20px;" id="onboard-status">Connecting&hellip;</p>
 
@@ -37,25 +122,126 @@
       var conv = document.getElementById('onboard-conversation');
       var promptZone = document.getElementById('onboard-prompt-zone');
       var statusEl = document.getElementById('onboard-status');
+      var stepperEl = document.getElementById('onboard-stepper');
+
+      // Stepper step names (5 steps)
+      var stepNames = ['detect', 'inspect', 'propose', 'scaffold', 'smoke-test', 'commit'];
+      var currentStep = -1;
 
       function csrfToken() {
           var meta = document.querySelector('meta[name="csrf-token"]');
           return meta ? meta.getAttribute('content') : '';
       }
 
-      function appendMessage(kind, text, stepID) {
+      // avatarSVG returns an inline SVG string for a message kind.
+      function avatarSVG(kind) {
+          if (kind === 'agent') {
+              return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11.5a3 3 0 1 0 6 0V8a3 3 0 1 0-6 0z"/><path d="M5 19a7 7 0 0 1 14 0"/></svg>';
+          }
+          if (kind === 'system') {
+              return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+          }
+          if (kind === 'prompt') {
+              return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+          }
+          if (kind === 'user') {
+              return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+          }
+          return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>';
+      }
+
+      // badgeHTML returns a badge span for a given text and class.
+      function badgeHTML(text, cls) {
+          return '<span class="badge ' + cls + '">' + text + '</span>';
+      }
+
+      function renderStepper(step, runID, model) {
+          var html = '';
+          for (var i = 0; i < stepNames.length; i++) {
+              var cls = 'step-pip';
+              if (i < step) cls += ' done';
+              else if (i === step) cls += ' active';
+              var check = (i < step) ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width:12px;height:12px;"><polyline points="20 6 9 17 4 12"/></svg>' : '';
+              html += '<span class="' + cls + '">' + check + stepNames[i] + '</span>';
+              if (i < stepNames.length - 1) html += '<span class="step-sep">&rarr;</span>';
+          }
+          if (runID) html += ' <span class="run-badge">run ' + runID + '</span>';
+          if (model) html += ' <span class="model-badge">' + model + '</span>';
+          stepperEl.innerHTML = html;
+      }
+
+      function appendMessage(kind, text, extras) {
+          extras = extras || {};
           var div = document.createElement('div');
           div.className = 'chat-msg chat-msg-' + (kind || 'info');
-          if (stepID) {
-              var step = document.createElement('span');
-              step.className = 'chat-msg-step';
-              step.textContent = stepID;
-              div.appendChild(step);
-          }
-          var body = document.createElement('span');
+
+          // Avatar
+          var avatar = document.createElement('div');
+          avatar.className = 'chat-msg-avatar';
+          avatar.innerHTML = avatarSVG(kind);
+          div.appendChild(avatar);
+
+          // Body
+          var body = document.createElement('div');
           body.className = 'chat-msg-body';
-          body.textContent = text;
+
+          // From line
+          var from = document.createElement('div');
+          from.className = 'chat-msg-from';
+          switch(kind) {
+              case 'agent':
+                  from.innerHTML = 'onboarder' + badgeHTML('agent', 'badge-purple');
+                  if (extras.stepLabel) from.innerHTML += badgeHTML(extras.stepLabel, 'badge-blue');
+                  break;
+              case 'system':
+                  from.innerHTML = 'session started' + (extras.runID ? ' ' + badgeHTML('run ' + extras.runID, 'badge-blue') : '') + (extras.model ? ' ' + badgeHTML(extras.model, 'badge-blue') : '');
+                  break;
+              case 'prompt':
+                  from.innerHTML = 'your input needed';
+                  break;
+              case 'user':
+                  from.innerHTML = 'you';
+                  break;
+              default:
+                  from.innerHTML = kind || 'info';
+          }
+          body.appendChild(from);
+
+          // Content
+          var content = document.createElement('div');
+          content.className = 'chat-msg-content';
+          if (extras.streamLines) {
+              // Stream block for file-writing output
+              var stream = document.createElement('div');
+              stream.className = 'chat-stream';
+              extras.streamLines.forEach(function(line) {
+                  var span = document.createElement('span');
+                  span.className = 'chat-stream-line ' + (line.cls || '');
+                  span.textContent = line.text;
+                  stream.appendChild(span);
+              });
+              content.appendChild(stream);
+          } else {
+              // Escape and render newlines as <br>, wrap code in <code>
+              var lines = (text || '').split('\n');
+              lines.forEach(function(line, i) {
+                  if (i > 0) content.appendChild(document.createElement('br'));
+                  // Inline code
+                  var parts = line.split(/(`[^`]+`)/g);
+                  parts.forEach(function(p) {
+                      if (p.startsWith('`') && p.endsWith('`')) {
+                          var code = document.createElement('code');
+                          code.textContent = p.slice(1, -1);
+                          content.appendChild(code);
+                      } else {
+                          content.appendChild(document.createTextNode(p));
+                      }
+                  });
+              });
+          }
+          body.appendChild(content);
           div.appendChild(body);
+
           conv.appendChild(div);
           conv.scrollTop = conv.scrollHeight;
       }
@@ -82,17 +268,50 @@
           }
 
           var input;
-          if (payload.kind === 'choice' && Array.isArray(payload.choices) && payload.choices.length) {
-              input = document.createElement('select');
-              input.name = 'answer';
-              input.className = 'chat-prompt-input';
+          if ((payload.kind === 'choice' || payload.kind === 'radio') && Array.isArray(payload.choices) && payload.choices.length) {
+              var grid = document.createElement('div');
+              grid.className = 'choice-grid';
               for (var i = 0; i < payload.choices.length; i++) {
-                  var opt = document.createElement('option');
-                  opt.value = payload.choices[i];
-                  opt.textContent = payload.choices[i];
-                  if (payload.choices[i] === payload['default']) opt.selected = true;
-                  input.appendChild(opt);
+                  var choice = payload.choices[i];
+                  var item = document.createElement('label');
+                  var radio = document.createElement('input');
+                  radio.type = 'radio';
+                  radio.name = 'answer';
+                  radio.value = choice.value !== undefined ? choice.value : choice;
+                  if (payload['default'] === (choice.value !== undefined ? choice.value : choice)) radio.checked = true;
+                  var text = document.createElement('strong');
+                  text.textContent = choice.label !== undefined ? choice.label : choice;
+                  var desc = document.createElement('span');
+                  desc.className = 'choice-desc';
+                  desc.textContent = choice.desc || '';
+                  item.appendChild(radio);
+                  item.appendChild(text);
+                  item.appendChild(desc);
+                  grid.appendChild(item);
               }
+              label.appendChild(grid);
+          } else if (payload.kind === 'checkbox' && Array.isArray(payload.choices) && payload.choices.length) {
+              var grid = document.createElement('div');
+              grid.className = 'choice-grid';
+              for (var j = 0; j < payload.choices.length; j++) {
+                  var c = payload.choices[j];
+                  var item = document.createElement('label');
+                  var cb = document.createElement('input');
+                  cb.type = 'checkbox';
+                  cb.name = 'answer';
+                  cb.value = c.value !== undefined ? c.value : c;
+                  if (c.checked) cb.checked = true;
+                  var text = document.createElement('strong');
+                  text.textContent = c.label !== undefined ? c.label : c;
+                  var desc = document.createElement('span');
+                  desc.className = 'choice-desc';
+                  desc.textContent = c.desc || '';
+                  item.appendChild(cb);
+                  item.appendChild(text);
+                  item.appendChild(desc);
+                  grid.appendChild(item);
+              }
+              label.appendChild(grid);
           } else {
               input = document.createElement('input');
               input.type = 'text';
@@ -100,8 +319,8 @@
               input.className = 'chat-prompt-input';
               input.value = payload['default'] || '';
               input.autocomplete = 'off';
+              label.appendChild(input);
           }
-          label.appendChild(input);
 
           var promptIDInput = document.createElement('input');
           promptIDInput.type = 'hidden';
@@ -119,7 +338,16 @@
               e.preventDefault();
               submit.disabled = true;
               var data = new URLSearchParams();
-              data.append('answer', input.value);
+              // For checkbox, collect all checked values
+              if (payload.kind === 'checkbox') {
+                  var cbs = form.querySelectorAll('input[type="checkbox"]:checked');
+                  var vals = [];
+                  for (var k = 0; k < cbs.length; k++) vals.push(cbs[k].value);
+                  data.append('answer', vals.join(','));
+              } else {
+                  var val = form.querySelector('input[name="answer"]:not([type="checkbox"]), select[name="answer"]');
+                  data.append('answer', val ? val.value : '');
+              }
               data.append('prompt_id', promptIDInput.value);
               fetch(form.action, {
                   method: 'POST',
@@ -134,7 +362,7 @@
                       appendMessage('warning', 'Answer rejected: HTTP ' + resp.status);
                       return;
                   }
-                  appendMessage('user', input.value || '(default)');
+                  appendMessage('user', input ? input.value || '(default)' : 'selection made');
                   promptZone.hidden = true;
                   promptZone.innerHTML = '';
               }).catch(function(err) {
@@ -144,7 +372,7 @@
           });
 
           promptZone.appendChild(form);
-          if (input.focus) input.focus();
+          if (input && input.focus) input.focus();
       }
 
       var es = new EventSource('/onboard/' + sessionID + '/stream');
@@ -154,7 +382,12 @@
       es.addEventListener('message', function(e) {
           try {
               var p = JSON.parse(e.data);
-              appendMessage(p.kind, p.message, p.step_id);
+              var extras = {};
+              if (p.run_id) extras.runID = p.run_id;
+              if (p.model) extras.model = p.model;
+              if (p.step) extras.stepLabel = p.step;
+              if (p.stream_lines) extras.streamLines = p.stream_lines;
+              appendMessage(p.kind, p.message, extras);
           } catch (_) {
               appendMessage('info', e.data);
           }
@@ -166,6 +399,12 @@
           try {
               var p = JSON.parse(e.data);
               statusEl.textContent = 'Status: ' + (p.status || 'running');
+          } catch (_) {}
+      });
+      es.addEventListener('stepper', function(e) {
+          try {
+              var p = JSON.parse(e.data);
+              renderStepper(p.step, p.run_id, p.model);
           } catch (_) {}
       });
       es.addEventListener('done', function() {
