@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -325,7 +326,28 @@ func runDetached(opts RunOptions, p *pipeline.Pipeline, m *manifest.Manifest) er
 		return err
 	}
 
-	fmt.Fprintf(os.Stderr, "  Pipeline '%s' launched (detached)\n", p.Metadata.Name)
+	return printDetachedLaunch(opts.Output.Format, p.Metadata.Name, runID)
+}
+
+// DetachedLaunchResult is the stable machine-readable acknowledgement emitted
+// after Wave has reserved the run ID and released the detached subprocess.
+type DetachedLaunchResult struct {
+	RunID        string `json:"run_id"`
+	PipelineName string `json:"pipeline_name"`
+	Status       string `json:"status"`
+	Detached     bool   `json:"detached"`
+}
+
+func printDetachedLaunch(format, pipelineName, runID string) error {
+	if format == OutputFormatJSON {
+		return json.NewEncoder(os.Stdout).Encode(DetachedLaunchResult{
+			RunID: runID, PipelineName: pipelineName, Status: "running", Detached: true,
+		})
+	}
+	if format == OutputFormatQuiet {
+		return nil
+	}
+	fmt.Fprintf(os.Stderr, "  Pipeline '%s' launched (detached)\n", pipelineName)
 	fmt.Fprintf(os.Stderr, "  Run ID:  %s\n", runID)
 	fmt.Fprintf(os.Stderr, "  Logs:    wave logs %s\n", runID)
 	fmt.Fprintf(os.Stderr, "  Cancel:  wave cancel %s\n", runID)
@@ -399,5 +421,3 @@ func applySelection(opts *RunOptions, sel *tui.Selection, debug *bool) {
 		}
 	}
 }
-
-
