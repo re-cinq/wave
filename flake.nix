@@ -147,6 +147,10 @@
             # Writable: notesium notes directory
             --bind "$HOME/notes" "$HOME/notes"
 
+            # Writable: GPG keyring + agent socket (commit signing)
+            --bind "$HOME/.gnupg" "$HOME/.gnupg"
+            --bind-try "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/gnupg" "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/gnupg"
+
             # Shared /tmp — Nix store and tooling needs it; still process-isolated via namespaces
             --bind /tmp /tmp
 
@@ -177,6 +181,7 @@
             --setenv PATH "$PATH"
             --setenv TERM "''${TERM:-xterm}"
             --setenv SANDBOX_ACTIVE 1
+            --setenv GPG_TTY "''${GPG_TTY:-}"
             --chdir "$PROJECT_DIR"
           )
 

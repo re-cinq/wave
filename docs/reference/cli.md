@@ -181,6 +181,16 @@ wave run --detach impl-issue -- "https://github.com/org/repo/issues/42"
 This is the same mechanism the TUI uses internally — the subprocess runs in its own session group
 (`setsid`), so killing the parent terminal has no effect on the pipeline.
 
+For structured callers, add `--output json`. Wave writes one acknowledgement to stdout
+after reserving the run ID and releasing the child process:
+
+```json
+{"run_id":"impl-issue-20260317-...","pipeline_name":"impl-issue","status":"running","detached":true}
+```
+
+This acknowledgement means the detached process was launched. Observe the durable run
+state with `wave status --format json -- <run-id>`; it does not mean the pipeline finished.
+
 ---
 
 ## wave do
