@@ -11,6 +11,7 @@ Reference for all environment variables that control Wave behavior, and the cred
 | `WAVE_MIGRATION_ENABLED` | `bool` | `true` | Enable the database migration system. |
 | `WAVE_AUTO_MIGRATE` | `bool` | `true` | Automatically apply pending migrations on startup. |
 | `WAVE_SKIP_MIGRATION_VALIDATION` | `bool` | `false` | Skip migration checksum validation (development only). |
+| `WAVE_SKIP_SCOPE_CHECK` | `bool` | `false` | Bypass token scope validation entirely. Use for fine-grained PATs (GitHub), unsupported forges, or air-gapped environments where token introspection is unavailable. |
 | `WAVE_MAX_MIGRATION_VERSION` | `int` | `0` | Limit migrations to this version (0 = unlimited). Useful for gradual rollout. |
 | `NO_COLOR` | `string` | _(unset)_ | Disable colored output. Any non-empty value disables color. Follows the [NO_COLOR](https://no-color.org) standard. |
 

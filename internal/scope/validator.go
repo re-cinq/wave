@@ -2,6 +2,7 @@ package scope
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/recinq/wave/internal/forge"
@@ -82,12 +83,35 @@ func defaultTokenEnvVar(ft forge.ForgeType) string {
 // ValidatePersonas checks all personas' scope requirements against active tokens.
 // The personas argument maps persona name to its token_scopes slice.
 // Returns all violations aggregated (FR-006).
+// Set WAVE_SKIP_SCOPE_CHECK=1 to bypass all scope validation (fine-grained PATs, air-gapped envs).
 func (v *Validator) ValidatePersonas(personas map[string][]string) (*ValidationResult, error) {
 	result := &ValidationResult{}
 
-	// If no introspector available (unknown forge), warn and skip
+	if os.Getenv("WAVE_SKIP_SCOPE_CHECK") != "" {
+		result.Warnings = append(result.Warnings, "WAVE_SKIP_SCOPE_CHECK set; token scope validation bypassed")
+		return result, nil
+	}
+
+	// If no introspector available (unsupported forge), emit violations per declared scope
 	if v.introspector == nil {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("no token introspector available for forge type %q; skipping scope validation", v.forgeInfo.Type))
+		for name, tokenScopes := range personas {
+			for _, scopeStr := range tokenScopes {
+				ts, _, err := Parse(scopeStr)
+				if err != nil {
+					continue
+				}
+				envVar := ts.EnvVar
+				if envVar == "" {
+					envVar = defaultTokenEnvVar(v.forgeInfo.Type)
+				}
+				result.Violations = append(result.Violations, ScopeViolation{
+					PersonaName:  name,
+					MissingScope: scopeStr,
+					EnvVar:       envVar,
+					Hint:         fmt.Sprintf("token scope validation not supported for forge %q; set WAVE_SKIP_SCOPE_CHECK=1 to bypass", v.forgeInfo.Type),
+				})
+			}
+		}
 		return result, nil
 	}
 
@@ -132,7 +156,12 @@ func (v *Validator) ValidatePersonas(personas map[string][]string) (*ValidationR
 			// Resolve abstract scope to platform-specific scopes
 			required, err := v.resolver.Resolve(ts)
 			if err != nil {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("persona %q: scope resolution for %q: %v", name, scopeStr, err))
+				result.Violations = append(result.Violations, ScopeViolation{
+					PersonaName:  name,
+					MissingScope: scopeStr,
+					EnvVar:       envVar,
+					Hint:         fmt.Sprintf("scope validation not supported for forge %q; %v", v.forgeInfo.Type, err),
+				})
 				continue
 			}
 
@@ -147,9 +176,18 @@ func (v *Validator) ValidatePersonas(personas map[string][]string) (*ValidationR
 				tokenCache[envVar] = tokenInfo
 			}
 
-			// If introspection had an error, warn and skip validation for this scope
+			// If introspection had an error, emit a ScopeViolation instead of warning
 			if tokenInfo.Error != nil {
-				result.Warnings = append(result.Warnings, fmt.Sprintf("persona %q: token %s introspection: %v", name, envVar, tokenInfo.Error))
+				hint := fmt.Sprintf("token introspection failed: %v", tokenInfo.Error)
+				if tokenInfo.TokenType == "fine-grained" {
+					hint = "fine-grained PATs cannot be introspected; recreate as classic PAT or set WAVE_SKIP_SCOPE_CHECK=1 to bypass"
+				}
+				result.Violations = append(result.Violations, ScopeViolation{
+					PersonaName:  name,
+					MissingScope: scopeStr,
+					EnvVar:       envVar,
+					Hint:         hint,
+				})
 				continue
 			}
 
