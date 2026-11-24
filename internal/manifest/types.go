@@ -66,6 +66,7 @@ type Adapter struct {
 	// TierModels maps complexity tiers to model identifiers for auto-routing.
 	// Tiers: "cheapest" (cost-optimized), "balanced" (quality/cost), "strongest" (capability-optimized).
 	// If not set, falls back to routing.complexity_map, then adapter default_model.
+	// The built-in Claude tier defaults apply only to the claude adapter.
 	TierModels map[string]string `yaml:"tier_models,omitempty"`
 }
 

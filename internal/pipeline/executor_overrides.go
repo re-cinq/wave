@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/manifest"
@@ -103,7 +104,8 @@ func (e *DefaultPipelineExecutor) resolveModelForAttempt(step *Step, persona *ma
 
 // resolveTierModel checks if a model string is a tier name (cheapest/balanced/strongest)
 // and resolves it to an actual model via:
-//  1. Adapter-specific tier_models (highest priority)
+//  1. Adapter-specific tier_models (highest priority). A tier present with
+//     an empty value resolves to "" so the adapter's default_model applies.
 //  2. Global routing complexity_map
 //
 // Returns (resolved model, true) if input is a tier name, or ("", false) if it's a literal model.
@@ -111,16 +113,38 @@ func resolveTierModel(model string, routing *manifest.RoutingConfig, adapterTier
 	switch model {
 	case TierCheapest, TierBalanced, TierStrongest:
 		// Priority 1: adapter-specific tier_models
-		if adapterTierModels != nil {
-			if m, ok := adapterTierModels[model]; ok && m != "" {
-				return m, true
-			}
+		if m, ok := adapterTierModels[model]; ok {
+			return m, true
 		}
 		// Priority 2: global routing complexity_map
 		return routing.ResolveComplexityModel(model), true
 	default:
 		return "", false
 	}
+}
+
+// effectiveTierModels returns the tier-to-model map used for the resolved
+// adapter. Explicit adapter tier_models always win. The built-in tier
+// defaults (manifest.DefaultComplexityMap) are Claude model IDs, so for any
+// other adapter without tier_models each tier maps to the user's
+// routing.complexity_map entry, or to "" so the adapter's default_model is
+// used instead of handing e.g. "claude-haiku-4-5" to opencode.
+func effectiveTierModels(adapterName string, adapterDef *manifest.Adapter, routing *manifest.RoutingConfig) map[string]string {
+	if adapterDef != nil && len(adapterDef.TierModels) > 0 {
+		return adapterDef.TierModels
+	}
+	if strings.EqualFold(adapterName, "claude") {
+		return nil
+	}
+	tiers := make(map[string]string, 3)
+	for _, tier := range []string{TierCheapest, TierBalanced, TierStrongest} {
+		model := ""
+		if routing != nil {
+			model = routing.ComplexityMap[tier]
+		}
+		tiers[tier] = model
+	}
+	return tiers
 }
 
 // recordDecision records a structured decision to the state store.

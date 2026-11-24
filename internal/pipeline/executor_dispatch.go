@@ -278,10 +278,7 @@ func (e *DefaultPipelineExecutor) resolveStepResources(ctx context.Context, exec
 		}
 	}
 
-	var adapterTierModels map[string]string
-	if adapterDef != nil {
-		adapterTierModels = adapterDef.TierModels
-	}
+	adapterTierModels := effectiveTierModels(resolvedAdapterName, adapterDef, &execution.Manifest.Runtime.Routing)
 	// Determine the current attempt number so resolveModelForAttempt can
 	// escalate the model tier on retries. AttemptContexts[step.ID] is
 	// populated by the retry loop after each failed attempt; absence

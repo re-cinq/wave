@@ -3214,6 +3214,37 @@ func TestResolveTierModel(t *testing.T) {
 	}
 }
 
+func TestEffectiveTierModels(t *testing.T) {
+	userMap := &manifest.RoutingConfig{ComplexityMap: map[string]string{"cheapest": "local/small"}}
+
+	tests := []struct {
+		name       string
+		adapter    string
+		def        *manifest.Adapter
+		routing    *manifest.RoutingConfig
+		tier       string
+		want       string
+		wantIsTier bool
+	}{
+		{"claude keeps builtin defaults", "claude", &manifest.Adapter{}, nil, "cheapest", "claude-haiku-4-5", true},
+		{"opencode without tier_models uses adapter default", "opencode", &manifest.Adapter{DefaultModel: "llama-swap/qwen"}, nil, "cheapest", "", true},
+		{"opencode strongest uses adapter default", "opencode", &manifest.Adapter{}, nil, "strongest", "", true},
+		{"opencode honours user complexity_map", "opencode", &manifest.Adapter{}, userMap, "cheapest", "local/small", true},
+		{"opencode tier missing from user map uses adapter default", "opencode", &manifest.Adapter{}, userMap, "strongest", "", true},
+		{"explicit tier_models win", "opencode", &manifest.Adapter{TierModels: map[string]string{"cheapest": "ollama/tiny"}}, userMap, "cheapest", "ollama/tiny", true},
+		{"literal model is not a tier", "opencode", &manifest.Adapter{}, nil, "ollama/qwen", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tiers := effectiveTierModels(tt.adapter, tt.def, tt.routing)
+			got, isTier := resolveTierModel(tt.tier, tt.routing, tiers)
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantIsTier, isTier)
+		})
+	}
+}
+
 // cancellableMockStore embeds testutil.MockStateStore and adds configurable CheckCancellation.
 type cancellableMockStore struct {
 	testutil.MockStateStore
