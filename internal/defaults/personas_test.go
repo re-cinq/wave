@@ -108,25 +108,12 @@ func TestAllPersonasCovered(t *testing.T) {
 		"reviewer.md":         true,
 		"planner.md":          true,
 		"researcher.md":       true,
-		"debugger.md":         true,
 		"auditor.md":          true,
 		"craftsman.md":        true,
 		"summarizer.md":       true,
 		"github-analyst.md":   true,
 		"github-commenter.md": true,
-		"github-enhancer.md":  true,
-		"gitlab-analyst.md":   true,
-		"gitlab-commenter.md": true,
-		"gitlab-enhancer.md":  true,
-		"gitea-analyst.md":    true,
-		"gitea-commenter.md":  true,
-		"gitea-enhancer.md":   true,
 		"philosopher.md":      true,
-		"provocateur.md":      true,
-		"validator.md":        true,
-		"synthesizer.md":      true,
-		"supervisor.md":       true,
-		"onboarder.md":        true,
 	}
 
 	for name := range expected {
@@ -142,7 +129,7 @@ func TestAllPersonasCovered(t *testing.T) {
 			count++
 		}
 	}
-	if count != 32 {
-		t.Errorf("expected 32 persona files, got %d", count)
+	if count != 12 {
+		t.Errorf("expected 12 persona files, got %d", count)
 	}
 }

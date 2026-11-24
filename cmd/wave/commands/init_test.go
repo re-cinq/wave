@@ -1257,8 +1257,8 @@ func TestInitTransitivePersonaFiltering(t *testing.T) {
 	allPersonas, ok := allManifest["personas"].(map[string]interface{})
 	require.True(t, ok)
 
-	_, hasSupervisorAll := allPersonas["supervisor"]
-	assert.True(t, hasSupervisorAll, "supervisor should be present with --all flag")
+	_, hasSupervisorAll := allPersonas["auditor"]
+	assert.True(t, hasSupervisorAll, "auditor should be present with --all flag")
 
 	// --all should have more or equal personas than filtered
 	assert.GreaterOrEqual(t, len(allPersonas), len(personas),
