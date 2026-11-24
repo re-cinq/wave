@@ -7,14 +7,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/charmbracelet/huh"
 	"github.com/recinq/wave/internal/config"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/runner"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/suggest"
-	"github.com/recinq/wave/internal/tui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -82,38 +80,14 @@ Model formats vary by adapter: claude uses "haiku"/"opus", opencode uses
 			if opts.Pipeline == "" && opts.Input != "" {
 				suggested := suggestPipelineFromInput(opts.Input)
 				if suggested != "" {
-					if isInteractive() {
-						sel, err := tui.RunPipelineSelector(pipelinesDir(), suggested)
-						if err != nil {
-							if errors.Is(err, huh.ErrUserAborted) {
-								return nil
-							}
-							return err
-						}
-						applySelection(&opts, sel, &debug)
-					} else {
-						// Non-interactive: auto-select the first suggestion
-						opts.Pipeline = suggested
-						inputType := suggest.ClassifyInput(opts.Input)
-						fmt.Fprintf(os.Stderr, "  Auto-selected pipeline %q for %s input\n", suggested, inputType)
-					}
+					opts.Pipeline = suggested
+					inputType := suggest.ClassifyInput(opts.Input)
+					fmt.Fprintf(os.Stderr, "  Auto-selected pipeline %q for %s input\n", suggested, inputType)
 				}
 			}
 
-			// If still no pipeline, fall back to interactive selector or error
 			if opts.Pipeline == "" {
-				if isInteractive() {
-					sel, err := tui.RunPipelineSelector(pipelinesDir(), "")
-					if err != nil {
-						if errors.Is(err, huh.ErrUserAborted) {
-							return nil
-						}
-						return err
-					}
-					applySelection(&opts, sel, &debug)
-				} else {
-					return fmt.Errorf("pipeline name is required (use positional arg or --pipeline flag)")
-				}
+				return fmt.Errorf("pipeline name is required (use positional arg or --pipeline flag)")
 			}
 
 			if err := ValidateOutputFormat(opts.Output.Format); err != nil {
@@ -398,26 +372,3 @@ func pipelinesDir() string {
 	return ".agents/pipelines"
 }
 
-// applySelection maps a TUI selection back to RunOptions.
-func applySelection(opts *RunOptions, sel *tui.Selection, debug *bool) {
-	opts.Pipeline = sel.Pipeline
-	if sel.Input != "" {
-		opts.Input = sel.Input
-	}
-	for _, flag := range sel.Flags {
-		switch flag {
-		case "--verbose":
-			opts.Output.Verbose = true
-		case "--output json":
-			opts.Output.Format = OutputFormatJSON
-		case "--output text":
-			opts.Output.Format = OutputFormatText
-		case "--dry-run":
-			opts.DryRun = true
-		case "--mock":
-			opts.Mock = true
-		case "--debug":
-			*debug = true
-		}
-	}
-}

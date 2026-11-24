@@ -3,19 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
-
-	"context"
 
 	"github.com/recinq/wave/cmd/wave/commands"
-	"github.com/recinq/wave/internal/doctor"
-	"github.com/recinq/wave/internal/manifest"
-	"github.com/recinq/wave/internal/state"
-	"github.com/recinq/wave/internal/suggest"
-	"github.com/recinq/wave/internal/tui"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -56,69 +46,6 @@ var rootCmd = &cobra.Command{
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if shouldLaunchTUI(cmd) {
-			deps := tui.LaunchDependencies{}
-
-			// Attempt to load manifest for pipeline launching
-			manifestPath, _ := cmd.Root().PersistentFlags().GetString("manifest")
-			if manifestPath == "" {
-				manifestPath = "wave.yaml"
-			}
-			data, err := os.ReadFile(manifestPath)
-			if err == nil {
-				var m manifest.Manifest
-				if yamlErr := yaml.Unmarshal(data, &m); yamlErr == nil {
-					deps.Manifest = &m
-				}
-			}
-
-			// Attempt to open state store
-			store, err := state.NewStateStore(".agents/state.db")
-			if err == nil {
-				deps.Store = store
-				defer store.Close()
-			}
-
-			// Determine pipelines directory (default .agents/pipelines)
-			deps.PipelinesDir = ".agents/pipelines"
-
-			// Wire suggest provider (constructed here to avoid import cycle tui→doctor→onboarding→tui)
-			pipelinesDir := deps.PipelinesDir
-			deps.SuggestProvider = &tui.FuncSuggestDataProvider{
-				Fn: func() (*tui.SuggestProposal, error) {
-					report, err := doctor.RunChecks(context.Background(), doctor.Options{
-						PipelinesDir: pipelinesDir,
-						SkipCodebase: false,
-					})
-					if err != nil {
-						return nil, err
-					}
-					proposal, err := suggest.Suggest(suggest.EngineOptions{
-						Report:       report,
-						PipelinesDir: pipelinesDir,
-						Limit:        10,
-					})
-					if err != nil {
-						return nil, err
-					}
-					// Convert suggest types to TUI types to avoid import cycle
-					result := &tui.SuggestProposal{Rationale: proposal.Rationale}
-					for _, p := range proposal.Pipelines {
-						result.Pipelines = append(result.Pipelines, tui.SuggestProposedPipeline{
-							Name:     p.Name,
-							Reason:   p.Reason,
-							Input:    p.Input,
-							Priority: p.Priority,
-							Type:     p.Type,
-							Sequence: p.Sequence,
-						})
-					}
-					return result, nil
-				},
-			}
-
-			return tui.RunTUI(deps)
-		}
 		return cmd.Help()
 	},
 }
@@ -149,10 +76,6 @@ func init() {
 	rootCmd.AddCommand(commands.NewReapCmd())
 	rootCmd.AddCommand(commands.NewArtifactsCmd())
 	rootCmd.AddCommand(commands.NewMigrateCmd())
-	rootCmd.AddCommand(commands.NewServeCmd())
-	rootCmd.AddCommand(commands.NewReapCmd())
-	rootCmd.AddCommand(commands.NewChatCmd())
-	rootCmd.AddCommand(commands.NewComposeCmd())
 	rootCmd.AddCommand(commands.NewDoctorCmd())
 	rootCmd.AddCommand(commands.NewSuggestCmd())
 	rootCmd.AddCommand(commands.NewSkillsCmd())
@@ -168,41 +91,6 @@ func init() {
 	rootCmd.AddCommand(commands.NewCleanupCmd())
 	rootCmd.AddCommand(commands.NewMergeCmd())
 	rootCmd.AddCommand(commands.NewProposalsCmd())
-}
-
-// shouldLaunchTUI determines whether to launch the Bubble Tea TUI.
-func shouldLaunchTUI(cmd *cobra.Command) bool {
-	noTUI, _ := cmd.Root().PersistentFlags().GetBool("no-tui")
-	if noTUI {
-		return false
-	}
-
-	// --json and --quiet suppress TUI
-	jsonFlag, _ := cmd.Root().PersistentFlags().GetBool("json")
-	if jsonFlag {
-		return false
-	}
-	quietFlag, _ := cmd.Root().PersistentFlags().GetBool("quiet")
-	if quietFlag {
-		return false
-	}
-
-	// Check WAVE_FORCE_TTY override
-	if forceTTY := os.Getenv("WAVE_FORCE_TTY"); forceTTY != "" {
-		switch strings.ToLower(forceTTY) {
-		case "1", "true":
-			return true
-		case "0", "false":
-			return false
-		}
-	}
-
-	// TERM=dumb means non-ANSI terminal
-	if os.Getenv("TERM") == "dumb" {
-		return false
-	}
-
-	return term.IsTerminal(int(os.Stdout.Fd()))
 }
 
 func main() {

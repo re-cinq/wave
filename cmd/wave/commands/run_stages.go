@@ -16,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/huh"
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/audit"
@@ -34,7 +33,6 @@ import (
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/suggest"
-	"github.com/recinq/wave/internal/tui"
 	"github.com/recinq/wave/internal/workspace"
 )
 
@@ -109,27 +107,9 @@ func loadManifestAndPipeline(opts *RunOptions, debug *bool) (*pipeline.Pipeline,
 
 	p, err := pipeline.LoadByName(opts.Pipeline)
 	if err != nil {
-		// Pipeline not found — if interactive, try TUI with partial name as filter
-		if isInteractive() {
-			sel, tuiErr := tui.RunPipelineSelector(pipelinesDir(), opts.Pipeline)
-			if tuiErr != nil {
-				if errors.Is(tuiErr, huh.ErrUserAborted) {
-					return nil, m, nil, true, nil
-				}
-				return nil, m, nil, false, tuiErr
-			}
-			applySelection(opts, sel, debug)
-			p, err = pipeline.LoadByName(opts.Pipeline)
-			if err != nil {
-				return nil, m, nil, false, NewCLIError(CodePipelineNotFound,
-					fmt.Sprintf("pipeline '%s' not found", opts.Pipeline),
-					"Run 'wave list pipelines' to see available pipelines")
-			}
-		} else {
-			return nil, m, nil, false, NewCLIError(CodePipelineNotFound,
-				fmt.Sprintf("pipeline '%s' not found", opts.Pipeline),
-				"Run 'wave list pipelines' to see available pipelines")
-		}
+		return nil, m, nil, false, NewCLIError(CodePipelineNotFound,
+			fmt.Sprintf("pipeline '%s' not found", opts.Pipeline),
+			"Run 'wave list pipelines' to see available pipelines")
 	}
 
 	// Warn on input/pipeline mismatch (non-blocking)
