@@ -1,6 +1,0 @@
-description: "Creative challenger for divergent thinking and complexity hunting"
-temperature: 0.8
-permissions:
-  allowed_tools:
-    - "*"
-  deny: []

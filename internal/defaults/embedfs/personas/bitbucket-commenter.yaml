@@ -1,6 +1,0 @@
-description: "Posts comments on Bitbucket issues"
-temperature: 0.2
-permissions:
-  allowed_tools:
-    - "*"
-  deny: []

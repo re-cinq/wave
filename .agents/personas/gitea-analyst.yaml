@@ -1,6 +1,0 @@
-description: "Gitea issue analysis and scanning"
-temperature: 0.1
-permissions:
-  allowed_tools:
-    - "*"
-  deny: []
