@@ -11,6 +11,9 @@ import (
 // PhaseSkipValidator validates that pipeline phases are not skipped
 type PhaseSkipValidator struct {
 	prototypePhasesOrder []string
+	// WorkspaceRoot is the manifest's runtime.workspace_root; empty means
+	// the default .agents/workspaces.
+	WorkspaceRoot string
 }
 
 // NewPhaseSkipValidator creates a new phase skip validator
@@ -79,7 +82,10 @@ func (v *PhaseSkipValidator) validateGenericStepSequence(p *Pipeline, fromStep s
 		return nil
 	}
 
-	wsRoot := ".agents/workspaces"
+	wsRoot := v.WorkspaceRoot
+	if wsRoot == "" {
+		wsRoot = ".agents/workspaces"
+	}
 
 	// Collect run directories for this pipeline
 	runDirs, _ := filepath.Glob(filepath.Join(wsRoot, p.Metadata.Name+"-*"))

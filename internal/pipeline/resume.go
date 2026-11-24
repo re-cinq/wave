@@ -57,7 +57,11 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 	}
 
 	if !force {
-		// Phase skip validation - ensure prerequisites are completed
+		// Phase skip validation - ensure prerequisites are completed. Look
+		// for prior runs where this project keeps its workspaces.
+		if m != nil {
+			r.validator.WorkspaceRoot = m.Runtime.WorkspaceRoot
+		}
 		if err := r.validator.ValidatePhaseSequence(p, fromStep); err != nil {
 			return r.errors.FormatPhaseFailureError(fromStep, err, p.Metadata.Name)
 		}

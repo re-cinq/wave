@@ -1393,9 +1393,10 @@ func TestResumeNonPrototypePipeline(t *testing.T) {
 		},
 	}
 
-	// Create workspace for fetch-assess and plan to simulate prior completion
+	// Create workspace for fetch-assess and plan to simulate prior completion,
+	// under the manifest's workspace root where the executor writes them.
 	for _, stepID := range []string{"fetch-assess", "plan"} {
-		wsDir := filepath.Join(tmpDir, ".agents/workspaces/impl-issue-20260316-000000-abcd", stepID)
+		wsDir := filepath.Join(m.Runtime.WorkspaceRoot, "impl-issue-20260316-000000-abcd", stepID)
 		if err := os.MkdirAll(wsDir, 0755); err != nil {
 			t.Fatal(err)
 		}
