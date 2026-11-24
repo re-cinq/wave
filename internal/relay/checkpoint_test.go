@@ -108,7 +108,7 @@ This should also be ignored.
 		t.Run(tc.name, func(t *testing.T) {
 			workspacePath := t.TempDir()
 			checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
-			err := writeTestCheckpoint(checkpointPath, []byte(tc.content), 0644)
+			err := writeTestCheckpoint(checkpointPath, []byte(tc.content))
 			if err != nil {
 				t.Fatalf("failed to write test checkpoint: %v", err)
 			}
@@ -216,7 +216,7 @@ Some decision
 		t.Run(tc.name, func(t *testing.T) {
 			workspacePath := t.TempDir()
 			checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
-			err := writeTestCheckpoint(checkpointPath, []byte(tc.content), 0644)
+			err := writeTestCheckpoint(checkpointPath, []byte(tc.content))
 			if err != nil {
 				t.Fatalf("failed to write test checkpoint: %v", err)
 			}
@@ -304,7 +304,7 @@ Third decision
 		t.Run(tc.name, func(t *testing.T) {
 			workspacePath := t.TempDir()
 			checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
-			err := writeTestCheckpoint(checkpointPath, []byte(tc.content), 0644)
+			err := writeTestCheckpoint(checkpointPath, []byte(tc.content))
 			if err != nil {
 				t.Fatalf("failed to write test checkpoint: %v", err)
 			}
@@ -353,9 +353,9 @@ func findSubstring(s, substr string) bool {
 
 // writeTestCheckpoint writes a checkpoint file, creating the .agents/ parent
 // that CheckpointFilename lives in.
-func writeTestCheckpoint(path string, data []byte, perm os.FileMode) error {
+func writeTestCheckpoint(path string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, perm)
+	return os.WriteFile(path, data, 0644)
 }

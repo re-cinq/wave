@@ -111,22 +111,22 @@ func (s *subprocessRunner) RunTask(ctx context.Context, task BenchTask, cfg RunC
 		LogPath:   filepath.Join(taskDir, "run.log"),
 	}
 	start := time.Now()
-	fail := func(status BenchStatus, format string, args ...any) (*BenchResult, error) {
+	fail := func(status BenchStatus, format string, args ...any) *BenchResult {
 		result.DurationMs = time.Since(start).Milliseconds()
 		result.Status = status
 		result.Error = fmt.Sprintf(format, args...)
-		return result, nil
+		return result
 	}
 
 	if task.Repo == "" || task.BaseCommit == "" {
-		return fail(StatusError, "task has no repo/base_commit")
+		return fail(StatusError, "task has no repo/base_commit"), nil
 	}
 	if _, err := s.cache.EnsureCloned(ctx, task.Repo, task.BaseCommit); err != nil {
-		return fail(StatusError, "clone repo %s: %v", task.Repo, err)
+		return fail(StatusError, "clone repo %s: %v", task.Repo, err), nil
 	}
 	worktreePath := filepath.Join(taskDir, "src")
 	if err := s.cache.PrepareWorktree(ctx, task.Repo, task.BaseCommit, worktreePath); err != nil {
-		return fail(StatusError, "prepare worktree: %v", err)
+		return fail(StatusError, "prepare worktree: %v", err), nil
 	}
 	if !cfg.KeepWorkspaces {
 		defer func() {
@@ -150,10 +150,10 @@ func (s *subprocessRunner) RunTask(ctx context.Context, task BenchTask, cfg RunC
 	result.DurationMs = time.Since(start).Milliseconds()
 
 	if runErr != nil {
-		return fail(StatusError, "execution failed: %v", runErr)
+		return fail(StatusError, "execution failed: %v", runErr), nil
 	}
 	if patch == "" {
-		return fail(StatusError, "solver produced no patch")
+		return fail(StatusError, "solver produced no patch"), nil
 	}
 
 	if task.TestCommand == "" {
@@ -164,11 +164,11 @@ func (s *subprocessRunner) RunTask(ctx context.Context, task BenchTask, cfg RunC
 	// Local verification: hidden tests go in only now, after the solve.
 	if task.TestPatch != "" {
 		if err := applyPatch(ctx, worktreePath, task.TestPatch); err != nil {
-			return fail(StatusError, "apply test patch: %v", err)
+			return fail(StatusError, "apply test patch: %v", err), nil
 		}
 	}
 	if out := runTestCommand(ctx, worktreePath, task.TestCommand); out != nil {
-		return fail(StatusFail, "test verification failed: %s", out)
+		return fail(StatusFail, "test verification failed: %s", out), nil
 	}
 	result.Status = StatusPass
 	return result, nil

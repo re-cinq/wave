@@ -195,7 +195,7 @@ func BenchmarkAdapterRunnerWrapper_RunCompaction(b *testing.B) {
 func writeBenchCheckpoint(b *testing.B, workspacePath, content string) {
 	b.Helper()
 	checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
-	if err := writeTestCheckpoint(checkpointPath, []byte(content), 0644); err != nil {
+	if err := writeTestCheckpoint(checkpointPath, []byte(content)); err != nil {
 		b.Fatalf("failed to write test checkpoint: %v", err)
 	}
 }

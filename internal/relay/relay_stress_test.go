@@ -134,7 +134,7 @@ func TestParseCheckpoint_LargeCheckpoints(t *testing.T) {
 `, summary, strings.Join(decisions, "\n"))
 
 			checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
-			if err := writeTestCheckpoint(checkpointPath, []byte(checkpointContent), 0644); err != nil {
+			if err := writeTestCheckpoint(checkpointPath, []byte(checkpointContent)); err != nil {
 				t.Fatalf("failed to write large checkpoint: %v", err)
 			}
 
@@ -182,7 +182,7 @@ func TestInjectCheckpointPrompt_LargeCheckpoints(t *testing.T) {
 `, strings.Join(summaryLines, "\n"), strings.Join(decisions, "\n"))
 
 	checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
-	if err := writeTestCheckpoint(checkpointPath, []byte(checkpointContent), 0644); err != nil {
+	if err := writeTestCheckpoint(checkpointPath, []byte(checkpointContent)); err != nil {
 		t.Fatalf("failed to write large checkpoint: %v", err)
 	}
 

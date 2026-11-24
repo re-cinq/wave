@@ -192,7 +192,7 @@ Decision for concurrent testing
 `
 
 	checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
-	if err := writeTestCheckpoint(checkpointPath, []byte(checkpointContent), 0644); err != nil {
+	if err := writeTestCheckpoint(checkpointPath, []byte(checkpointContent)); err != nil {
 		t.Fatalf("failed to write test checkpoint: %v", err)
 	}
 

@@ -437,7 +437,7 @@ But no proper ## sections.
 		t.Run(tc.name, func(t *testing.T) {
 			workspacePath := t.TempDir()
 			checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
-			err := writeTestCheckpoint(checkpointPath, []byte(tc.content), 0644)
+			err := writeTestCheckpoint(checkpointPath, []byte(tc.content))
 			if err != nil {
 				t.Fatalf("failed to write test checkpoint: %v", err)
 			}

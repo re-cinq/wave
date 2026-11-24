@@ -159,7 +159,7 @@ Decision 2
 *Generated at test 1
 Decision*
 `
-	_ = writeTestCheckpoint(filepath.Join(workspacePath, CheckpointFilename), []byte(checkpointContent), 0644)
+	_ = writeTestCheckpoint(filepath.Join(workspacePath, CheckpointFilename), []byte(checkpointContent))
 
 	checkpoint, err := ParseCheckpoint(workspacePath)
 	if err != nil {
@@ -188,7 +188,7 @@ Decision 1
 ---
 *Generated at test*
 `
-	_ = writeTestCheckpoint(filepath.Join(workspacePath, CheckpointFilename), []byte(checkpointContent), 0644)
+	_ = writeTestCheckpoint(filepath.Join(workspacePath, CheckpointFilename), []byte(checkpointContent))
 
 	prompt, err := InjectCheckpointPrompt(workspacePath)
 	if err != nil {
