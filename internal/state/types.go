@@ -16,13 +16,13 @@ type RunRecord struct {
 	CompletedAt     *time.Time
 	CancelledAt     *time.Time
 	ErrorMessage    string
-	Tags            []string // Tags for categorization and filtering
-	BranchName      string   // Worktree branch for this run
-	PID             int      // OS process ID of the detached executor (0 = unknown/in-process)
+	Tags            []string  // Tags for categorization and filtering
+	BranchName      string    // Worktree branch for this run
+	PID             int       // OS process ID of the detached executor (0 = unknown/in-process)
 	LastHeartbeat   time.Time // Last liveness ping written by the running pipeline (zero = never reported)
-	ParentRunID     string   // Parent pipeline run ID (empty for top-level runs)
-	ParentStepID    string   // Step ID in parent pipeline that launched this child run
-	ForkedFromRunID string   // Run ID this was forked from (empty if not a fork)
+	ParentRunID     string    // Parent pipeline run ID (empty for top-level runs)
+	ParentStepID    string    // Step ID in parent pipeline that launched this child run
+	ForkedFromRunID string    // Run ID this was forked from (empty if not a fork)
 
 	// Composition metadata (issue #1450). Set when a parent composition
 	// step (iterate, aggregate, sub_pipeline, branch, loop) launches

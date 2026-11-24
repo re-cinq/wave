@@ -479,4 +479,3 @@ func TestSequencePipelineCrossArtifactsStillWork(t *testing.T) {
 	assert.Contains(t, captured[0], "upstream")
 	assert.Equal(t, []byte(`{"r":"ok"}`), captured[0]["upstream"]["report.json"])
 }
-

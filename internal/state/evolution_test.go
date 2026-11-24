@@ -102,12 +102,12 @@ func TestProposal_CreateDecideList(t *testing.T) {
 	defer cleanup()
 
 	id, err := store.CreateProposal(EvolutionProposalRecord{
-		PipelineName:   "p",
-		VersionBefore:  1,
-		VersionAfter:   2,
-		DiffPath:       ".agents/proposals/1.diff",
-		Reason:         "judge_score below 0.80 over 10 runs",
-		SignalSummary:  `{"avg_judge":0.72}`,
+		PipelineName:  "p",
+		VersionBefore: 1,
+		VersionAfter:  2,
+		DiffPath:      ".agents/proposals/1.diff",
+		Reason:        "judge_score below 0.80 over 10 runs",
+		SignalSummary: `{"avg_judge":0.72}`,
 	})
 	require.NoError(t, err)
 	require.NotZero(t, id)

@@ -142,11 +142,11 @@ type rowScanner interface {
 
 func scanScheduleRow(row rowScanner) (*ScheduleRecord, error) {
 	var (
-		r          ScheduleRecord
-		inputRef   sql.NullString
-		nextFire   sql.NullInt64
-		lastRunID  sql.NullString
-		createdAt  int64
+		r         ScheduleRecord
+		inputRef  sql.NullString
+		nextFire  sql.NullInt64
+		lastRunID sql.NullString
+		createdAt int64
 	)
 	if err := row.Scan(&r.ID, &r.PipelineName, &r.CronExpr, &inputRef, &r.Active,
 		&nextFire, &lastRunID, &createdAt); err != nil {

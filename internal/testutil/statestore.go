@@ -15,49 +15,49 @@ type MockStateStore struct {
 	mu sync.RWMutex
 
 	// Overridable method implementations
-	savePipelineState            func(id, status, input string) error
-	saveStepState                func(pipelineID, stepID string, st state.StepState, errMsg string) error
-	getPipelineState             func(id string) (*state.PipelineStateRecord, error)
-	getStepStates                func(pipelineID string) ([]state.StepStateRecord, error)
-	listRecentPipelines          func(limit int) ([]state.PipelineStateRecord, error)
-	close                        func() error
-	createRun                    func(pipelineName, input string) (string, error)
-	updateRunStatus              func(runID, status, currentStep string, tokens int) error
-	updateRunBranch              func(runID, branch string) error
-	getRun                       func(runID string) (*state.RunRecord, error)
-	getRunningRuns               func() ([]state.RunRecord, error)
-	listRuns                     func(opts state.ListRunsOptions) ([]state.RunRecord, error)
-	deleteRun                    func(runID string) error
-	logEvent                     func(runID, stepID, st, persona, message string, tokens int, durationMs int64) error
-	getEvents                    func(runID string, opts state.EventQueryOptions) ([]state.LogRecord, error)
-	registerArtifact             func(runID, stepID, name, path, artifactType string, sizeBytes int64) error
-	getArtifacts                 func(runID, stepID string) ([]state.ArtifactRecord, error)
-	requestCancellation          func(runID string, force bool) error
-	checkCancellation            func(runID string) (*state.CancellationRecord, error)
-	clearCancellation            func(runID string) error
-	saveProgressSnapshot         func(runID, stepID string, progress int, action string, etaMs int64, validationPhase, compactionStats string) error
-	getProgressSnapshots         func(runID, stepID string, limit int) ([]state.ProgressSnapshotRecord, error)
-	updateStepProgress           func(runID, stepID, persona, st string, progress int, action, message string, etaMs int64, tokens int) error
-	getStepProgress              func(stepID string) (*state.StepProgressRecord, error)
-	getAllStepProgress           func(runID string) ([]state.StepProgressRecord, error)
-	updatePipelineProgress       func(runID string, totalSteps, completedSteps, currentStepIndex, overallProgress int, etaMs int64) error
-	getPipelineProgress          func(runID string) (*state.PipelineProgressRecord, error)
-	saveArtifactMetadata         func(artifactID int64, runID, stepID, previewText, mimeType, encoding, metadataJSON string) error
-	getArtifactMetadata          func(artifactID int64) (*state.ArtifactMetadataRecord, error)
-	setRunTags                   func(runID string, tags []string) error
-	getRunTags                   func(runID string) ([]string, error)
-	addRunTag                    func(runID, tag string) error
-	removeRunTag                 func(runID, tag string) error
-	updateRunPID                 func(runID string, pid int) error
-	recordStepAttempt            func(record *state.StepAttemptRecord) error
-	getStepAttempts              func(runID, stepID string) ([]state.StepAttemptRecord, error)
-	saveChatSession              func(session *state.ChatSession) error
-	getChatSession               func(sessionID string) (*state.ChatSession, error)
-	listChatSessions             func(runID string) ([]state.ChatSession, error)
-	saveStepVisitCount           func(pipelineID, stepID string, count int) error
-	getStepVisitCount            func(pipelineID, stepID string) (int, error)
-	setParentRun                 func(childRunID, parentRunID, stepID string) error
-	getChildRuns                 func(parentRunID string) ([]state.RunRecord, error)
+	savePipelineState      func(id, status, input string) error
+	saveStepState          func(pipelineID, stepID string, st state.StepState, errMsg string) error
+	getPipelineState       func(id string) (*state.PipelineStateRecord, error)
+	getStepStates          func(pipelineID string) ([]state.StepStateRecord, error)
+	listRecentPipelines    func(limit int) ([]state.PipelineStateRecord, error)
+	close                  func() error
+	createRun              func(pipelineName, input string) (string, error)
+	updateRunStatus        func(runID, status, currentStep string, tokens int) error
+	updateRunBranch        func(runID, branch string) error
+	getRun                 func(runID string) (*state.RunRecord, error)
+	getRunningRuns         func() ([]state.RunRecord, error)
+	listRuns               func(opts state.ListRunsOptions) ([]state.RunRecord, error)
+	deleteRun              func(runID string) error
+	logEvent               func(runID, stepID, st, persona, message string, tokens int, durationMs int64) error
+	getEvents              func(runID string, opts state.EventQueryOptions) ([]state.LogRecord, error)
+	registerArtifact       func(runID, stepID, name, path, artifactType string, sizeBytes int64) error
+	getArtifacts           func(runID, stepID string) ([]state.ArtifactRecord, error)
+	requestCancellation    func(runID string, force bool) error
+	checkCancellation      func(runID string) (*state.CancellationRecord, error)
+	clearCancellation      func(runID string) error
+	saveProgressSnapshot   func(runID, stepID string, progress int, action string, etaMs int64, validationPhase, compactionStats string) error
+	getProgressSnapshots   func(runID, stepID string, limit int) ([]state.ProgressSnapshotRecord, error)
+	updateStepProgress     func(runID, stepID, persona, st string, progress int, action, message string, etaMs int64, tokens int) error
+	getStepProgress        func(stepID string) (*state.StepProgressRecord, error)
+	getAllStepProgress     func(runID string) ([]state.StepProgressRecord, error)
+	updatePipelineProgress func(runID string, totalSteps, completedSteps, currentStepIndex, overallProgress int, etaMs int64) error
+	getPipelineProgress    func(runID string) (*state.PipelineProgressRecord, error)
+	saveArtifactMetadata   func(artifactID int64, runID, stepID, previewText, mimeType, encoding, metadataJSON string) error
+	getArtifactMetadata    func(artifactID int64) (*state.ArtifactMetadataRecord, error)
+	setRunTags             func(runID string, tags []string) error
+	getRunTags             func(runID string) ([]string, error)
+	addRunTag              func(runID, tag string) error
+	removeRunTag           func(runID, tag string) error
+	updateRunPID           func(runID string, pid int) error
+	recordStepAttempt      func(record *state.StepAttemptRecord) error
+	getStepAttempts        func(runID, stepID string) ([]state.StepAttemptRecord, error)
+	saveChatSession        func(session *state.ChatSession) error
+	getChatSession         func(sessionID string) (*state.ChatSession, error)
+	listChatSessions       func(runID string) ([]state.ChatSession, error)
+	saveStepVisitCount     func(pipelineID, stepID string, count int) error
+	getStepVisitCount      func(pipelineID, stepID string) (int, error)
+	setParentRun           func(childRunID, parentRunID, stepID string) error
+	getChildRuns           func(parentRunID string) ([]state.RunRecord, error)
 
 	deleteCheckpointsAfterStep func(runID string, stepIndex int) error
 	createRunWithLimit         func(pipelineName, input string, maxConcurrent int) (string, error)

@@ -50,17 +50,17 @@ const (
 // EvolutionProposalRecord is one row from evolution_proposal. The diff lives
 // on disk at DiffPath; the SignalSummary is opaque JSON the producer chose.
 type EvolutionProposalRecord struct {
-	ID             int64
-	PipelineName   string
-	VersionBefore  int
-	VersionAfter   int
-	DiffPath       string
-	Reason         string
-	SignalSummary  string
-	Status         EvolutionProposalStatus
-	ProposedAt     time.Time
-	DecidedAt      *time.Time
-	DecidedBy      string
+	ID            int64
+	PipelineName  string
+	VersionBefore int
+	VersionAfter  int
+	DiffPath      string
+	Reason        string
+	SignalSummary string
+	Status        EvolutionProposalStatus
+	ProposedAt    time.Time
+	DecidedAt     *time.Time
+	DecidedBy     string
 }
 
 // EvolutionStore is the domain-scoped persistence surface for the evolution

@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/contract"
 	"github.com/recinq/wave/internal/state"

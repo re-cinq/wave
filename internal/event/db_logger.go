@@ -26,10 +26,10 @@ type LogErrorFunc func(runID string, err error)
 // sub-pipeline events are logged under the child's run ID; RunID is used as
 // the fallback when PipelineID is empty.
 type DBLoggingEmitter struct {
-	Inner    EventEmitter
-	Store    EventLogger
-	RunID    string
-	OnError  LogErrorFunc // optional; nil silently swallows LogEvent errors
+	Inner   EventEmitter
+	Store   EventLogger
+	RunID   string
+	OnError LogErrorFunc // optional; nil silently swallows LogEvent errors
 }
 
 // Emit forwards the event to the wrapped emitter and persists it (when

@@ -2150,7 +2150,6 @@ func TestRecordStepAttempt_NilCompletedAt(t *testing.T) {
 	assert.Nil(t, attempts[0].CompletedAt)
 }
 
-
 // =============================================================================
 // Progress Snapshot Tests
 // =============================================================================

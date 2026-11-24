@@ -11,12 +11,12 @@ import (
 
 // mockStateQuerier implements StateQuerier for testing.
 type mockStateQuerier struct {
-	run      *state.RunRecord
-	runErr   error
+	run         *state.RunRecord
+	runErr      error
 	perfMetrics []metrics.PerformanceMetricRecord
-	metErr   error
-	attempts map[string][]state.StepAttemptRecord
-	attErr   error
+	metErr      error
+	attempts    map[string][]state.StepAttemptRecord
+	attErr      error
 }
 
 func (m *mockStateQuerier) GetRun(runID string) (*state.RunRecord, error) {
@@ -139,7 +139,7 @@ func TestCollector_Collect(t *testing.T) {
 					CompletedAt: &completed,
 				},
 				perfMetrics: nil,
-				attempts: map[string][]state.StepAttemptRecord{},
+				attempts:    map[string][]state.StepAttemptRecord{},
 			},
 			wantSteps: 0,
 		},

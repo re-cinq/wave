@@ -794,7 +794,6 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		// Extract declared outcomes from step artifacts
 		e.processStepOutcomes(execution, step)
 
-
 		return nil
 	}
 

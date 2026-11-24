@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/state"
 )
 
 func TestBuildOutcome_BranchAndPR(t *testing.T) {

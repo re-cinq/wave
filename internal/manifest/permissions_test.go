@@ -537,13 +537,13 @@ func TestPersonaPermission_ToolPatternParsing(t *testing.T) {
 
 	// Verify the pattern structure in reviewer permissions
 	expectedAllowPatterns := map[string]bool{
-		"Read":                       true,
-		"Glob":                       true,
-		"Grep":                       true,
+		"Read":                         true,
+		"Glob":                         true,
+		"Grep":                         true,
 		"Write(.agents/artifact.json)": true,
 		"Write(.agents/artifacts/*)":   true,
-		"Bash(go test*)":             true,
-		"Bash(npm test*)":            true,
+		"Bash(go test*)":               true,
+		"Bash(npm test*)":              true,
 	}
 
 	for _, tool := range reviewer.Permissions.AllowedTools {
