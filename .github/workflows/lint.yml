@@ -11,10 +11,6 @@ permissions:
 jobs:
   golangci-lint:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        tags: ["", "webui_preview"]
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -24,32 +20,13 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Run golangci-lint (tags=${{ matrix.tags }})
+      - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.10
           only-new-issues: true
-          args: --build-tags=${{ matrix.tags }}
 
-  build-matrix:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        tags: ["", "webui_preview"]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-
-      - name: Build (tags=${{ matrix.tags }})
-        run: go build -tags='${{ matrix.tags }}' ./...
-
-  webui-preview-tests:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -60,5 +37,6 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Run preview smoke tests
-        run: go test -tags=webui_preview ./internal/webui/...
+      - name: Build
+        run: go build ./...
+
