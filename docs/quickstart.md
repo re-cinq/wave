@@ -12,83 +12,42 @@ Verify installation:
 wave --version
 ```
 
-## 2. Choose Your AI Adapter
+## 2. Install an Adapter
 
-Wave executes AI workflows through CLI adapters. Choose one of the supported options:
+Wave runs every step through an AI coding CLI. `wave init` supports two:
 
-### Claude Code (Default)
-
-Claude Code is the recommended adapter for Wave, providing the best integration and capabilities.
+| Adapter | Default model (all tiers) | Install |
+|---------|---------------------------|---------|
+| Claude Code (`claude`) | `sonnet` | `npm install -g @anthropic-ai/claude-code` |
+| Codex (`codex`) | `gpt-6.2-sol` | `npm install -g @openai/codex` or `brew install --cask codex` |
 
 ```bash
-# Install Claude Code CLI
+# Claude Code
 npm install -g @anthropic-ai/claude-code
-
-# Verify installation
 claude --version
+
+# or Codex
+npm install -g @openai/codex
+codex --version
 ```
 
 ::: tip Don't have Node.js?
 Install via [nvm](https://github.com/nvm-sh/nvm) (macOS/Linux) or download from [nodejs.org](https://nodejs.org/) (all platforms).
 :::
 
-### OpenCode (Alternative)
-
-OpenCode provides an open-source alternative with support for multiple LLM providers.
-
-```bash
-# Install OpenCode
-go install github.com/opencode-ai/opencode@latest
-
-# Or via Homebrew (macOS/Linux)
-brew install opencode
-
-# Verify installation
-opencode --version
-```
-
-### Ollama (Local Models)
-
-Run models locally with no API key required.
-
-```bash
-# Install Ollama
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Pull a model
-ollama pull llama3.1
-
-# Verify installation
-ollama --version
-```
-
-### Using a Non-Default Adapter
-
-The onboarding wizard (`wave init`) lets you select your adapter interactively. You can also type a custom adapter binary name if yours isn't listed.
-
-The selected model is set at the **persona level** in `wave.yaml`:
-
-```yaml
-personas:
-  navigator:
-    adapter: claude
-    model: opus
-```
-
-See [Adapters Reference](/reference/adapters) for complete configuration options.
-
-## 3. Set Your API Key
-
-```bash
-export ANTHROPIC_API_KEY="your-api-key"
-```
-
-::: tip Don't have an API key?
-Get one at [console.anthropic.com](https://console.anthropic.com/). Free tier available for testing.
+::: info Other adapters
+Wave also ships OpenCode and Gemini adapters, but `wave init` does not set them up and local models are not recommended for real runs yet. See [Adapters Reference](/reference/adapters) to add one to `wave.yaml` by hand.
 :::
 
+## 3. Sign In
+
+Start the CLI once and sign in:
+
+- **Claude Code:** run `claude` and log in, or export `ANTHROPIC_API_KEY`.
+- **Codex:** run `codex` and choose "Sign in with ChatGPT", or set up an API key.
+
 ::: warning API Key Security
-Never commit your API key to version control. Add `ANTHROPIC_API_KEY` to your shell profile (`~/.bashrc`, `~/.zshrc`) or use a secrets manager.
+Never commit API keys to version control. Keep them in your shell profile or a secrets manager.
 :::
 
 ## 4. Initialize Your Project
@@ -98,10 +57,38 @@ cd /path/to/your-project
 wave init
 ```
 
+In a terminal, `wave init` asks:
+
+1. Whether to create a git repository, if there is none (Wave runs each step in a git worktree)
+2. The adapter: `claude` or `codex` (the first one found on `PATH` is the default)
+3. The model, pinned for every complexity tier (`sonnet` for claude, `gpt-6.2-sol` for codex)
+4. Any test, lint or build command it could not detect from your project files
+
+Pass `--yes` to accept every default, or answer through flags:
+
+```bash
+wave init --yes --adapter codex
+wave init --adapter claude --model sonnet --test-command "make test"
+```
+
 This creates:
-- `wave.yaml` - Project manifest
-- `.agents/personas/` - AI agent definitions
-- `.agents/pipelines/` - Ready-to-run pipelines
+- `wave.yaml` - Project manifest (one adapter, project commands, metadata)
+- `.agents/personas/`, `.agents/pipelines/`, `.agents/contracts/`, `.agents/prompts/` - Ready-to-run defaults
+- `AGENTS.md` - Project instructions copied into every agent workspace (only if missing)
+- `CLAUDE.md` - Imports `AGENTS.md` for Claude Code (claude adapter, only if missing)
+- `.gitignore` entries for Wave's runtime state (`.agents/workspaces/`, `.agents/state.db*`, ...)
+
+To change adapter or model later, keeping your customisations:
+
+```bash
+wave init --reconfigure --adapter codex --model gpt-6.2-sol
+```
+
+Check the setup:
+
+```bash
+wave doctor
+```
 
 ::: tip Don't have a codebase?
 Wave works great for self-analysis:
@@ -154,33 +141,19 @@ wave run ops-hello-world "testing Wave" -o text
 
 ## Troubleshooting
 
-::: danger ANTHROPIC_API_KEY not set
-**Error:** `Error: ANTHROPIC_API_KEY environment variable is not set`
+::: danger Adapter not installed
+**Error:** `adapter binary not found on PATH: claude`
 
-**Solution:** Set your API key before running Wave:
+**Solution:** `wave run` checks the adapter before any step starts. Install the adapter CLI (see step 2), run with the other adapter (`--adapter codex`), or switch the project:
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
-```
-
-Or add it permanently to your shell profile:
-```bash
-echo 'export ANTHROPIC_API_KEY="your-key"' >> ~/.bashrc
-source ~/.bashrc
+wave init --reconfigure --adapter codex
 ```
 :::
 
-::: danger Claude Code not installed
-**Error:** `Error: adapter 'claude' not found. Is Claude Code CLI installed?`
+::: danger Not signed in
+**Symptom:** the first step fails with an authentication error from the adapter.
 
-**Solution:** Install the Claude Code CLI:
-```bash
-npm install -g @anthropic-ai/claude-code
-```
-
-Verify it's in your PATH:
-```bash
-which claude  # Should show the installation path
-```
+**Solution:** run `claude` or `codex` once and sign in (see step 3).
 :::
 
 ::: danger Permission denied errors
@@ -258,8 +231,8 @@ wave meta "analyze the error handling in this codebase" --dry-run
 # List available pipelines
 wave list pipelines
 
-# Check pipeline status
-wave status
+# Check pipeline status (running pipelines; --all for recent runs)
+wave status --all
 
 # View artifacts from last run
 wave artifacts
@@ -267,8 +240,9 @@ wave artifacts
 # View logs
 wave logs
 
-# Validate configuration
+# Validate configuration and check adapters, git and tools
 wave validate
+wave doctor
 
 # Clean up workspaces
 wave clean

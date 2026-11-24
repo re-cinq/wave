@@ -9,30 +9,34 @@ cd your-project
 wave init
 ```
 
-The interactive wizard guides you through adapter selection and pipeline configuration. On success, you'll see:
+In a terminal, init asks for the adapter (`claude` or `codex`; the first one found on `PATH` is the default), the model (pinned for every tier: `sonnet` for claude, `gpt-6.2-sol` for codex) and any test/lint/build command it could not detect. Use `--yes` to accept the defaults, or pass `--adapter`, `--model`, `--test-command`, `--lint-command` and `--build-command`. On success, you'll see something like:
 
 ```
-  ╦ ╦╔═╗╦  ╦╔═╗
-  ║║║╠═╣╚╗╔╝║╣
-  ╚╩╝╩ ╩ ╚╝ ╚═╝
-  Multi-Agent Pipeline Orchestrator
-
   Project initialized successfully!
 
+  Adapter: claude (model sonnet for every tier)
+
   Created:
-    wave.yaml                Main manifest
-    .agents/personas/          5 persona archetypes
-    .agents/pipelines/         12 pipelines
-    .agents/contracts/         4 JSON schema validators
-    .agents/prompts/           8 prompt templates
+    wave.yaml                  Main manifest
+    .agents/personas/          12 personas
+    .agents/pipelines/         9 pipelines
+    .agents/contracts/         17 contracts
+    .agents/prompts/           5 prompt templates
     .agents/workspaces/        Ephemeral workspace root
     .agents/traces/            Audit log directory
+    AGENTS.md                  Project instructions copied into every agent workspace
+    CLAUDE.md                  Imports AGENTS.md for Claude Code
+    .gitignore                 Ignores Wave runtime state
+
+  Pipelines: audit-architecture, audit-security, impl-issue, ops-hello-world, ops-parallel-audit, ops-pr-review, plan-research, plan-scope, plan-task
 
   Next steps:
     1. Run 'wave validate' to check configuration
     2. Run 'wave run ops-hello-world "test"' to verify setup
     3. Run 'wave run plan-task "your feature"' to plan a task
 ```
+
+If init cannot detect your test, lint or build command it says so under "Missing project commands". Set them in the `project:` block of `wave.yaml` or run `wave doctor --optimize`.
 
 ## 2. Review Configuration
 
@@ -44,9 +48,20 @@ metadata:
   name: my-project
   description: "Example project"
 
+project:
+  language: go
+  test_command: go test ./...
+  lint_command: go vet ./...
+  build_command: go build ./...
+
 adapters:
   claude:
     binary: claude
+    default_model: sonnet
+    tier_models:
+      cheapest: sonnet
+      balanced: sonnet
+      strongest: sonnet
     mode: headless
     output_format: json
 
@@ -70,11 +85,12 @@ runtime:
 wave validate
 ```
 
-Expected output:
-```
-✓ Manifest validation passed
-✓ All persona system prompt files exist
-✓ Adapter binaries found on PATH
+It prints `Validation successful`, preceded by any warnings.
+
+For a broader health check (git, adapter binaries, forge, tools) run:
+
+```bash
+wave doctor
 ```
 
 ## 4. Run First Pipeline
@@ -99,7 +115,7 @@ wave run ops-hello-world "testing Wave" -o text
 
 ## 5. Check Results
 
-Artifacts are saved in `.agents/workspaces/<pipeline-id>/<step-id>/`. Each step produces its own workspace.
+Artifacts are saved in `.agents/workspaces/<pipeline>-<run-id>/<step-id>/`. Each step produces its own workspace.
 
 ## Quick Commands
 
