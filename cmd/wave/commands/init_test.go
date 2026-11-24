@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -750,24 +749,19 @@ func TestInitFilePermissions(t *testing.T) {
 	}
 }
 
-// TestInitWithBinaryAvailable tests init when wave binary is available for validation.
-func TestInitWithBinaryAvailable(t *testing.T) {
-	// Skip if wave binary is not in PATH (this is an integration test)
-	_, err := exec.LookPath("wave")
-	if err != nil {
-		t.Skip("wave binary not in PATH, skipping integration test")
-	}
-
+// TestInitThenValidateAll tests that a freshly initialised project passes
+// `wave validate --all` using the validate command under test (not whatever
+// `wave` binary happens to be on PATH).
+func TestInitThenValidateAll(t *testing.T) {
 	env := newTestEnv(t)
 	defer env.cleanup()
 
-	_, _, err = executeInitCmd()
+	_, _, err := executeInitCmd()
 	require.NoError(t, err)
 
-	// Run actual wave validate command
-	cmd := exec.Command("wave", "validate", "--manifest", "wave.yaml")
-	output, err := cmd.CombinedOutput()
-	assert.NoError(t, err, "wave validate should pass: %s", string(output))
+	cmd := NewValidateCmd()
+	cmd.SetArgs([]string{"--manifest", "wave.yaml", "--all"})
+	assert.NoError(t, cmd.Execute(), "wave validate --all should pass on a fresh init")
 }
 
 // TestInitManifestStructure tests the complete structure of the generated manifest.
