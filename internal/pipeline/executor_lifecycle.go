@@ -896,6 +896,8 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 			if cErr := e.validateStepContracts(ctx, execution, step, contractDir, nil, execution.Status.ID, "", time.Now(), adapterResult); cErr != nil {
 				return result, cErr
 			}
+			e.trackStepDeliverables(execution, step)
+			e.processStepOutcomes(execution, step)
 			return result, nil
 		}
 

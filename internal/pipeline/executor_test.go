@@ -7220,3 +7220,35 @@ func TestExecuteStep_RejectedInputFailsStep(t *testing.T) {
 	assert.Contains(t, err.Error(), "prompt-injection filter")
 	assert.Empty(t, capturing.getLastConfig().Prompt, "the adapter must not run on a rejected input")
 }
+
+// TestCommandStepOutputArtifactsReportedAsDeliverables verifies that files a
+// command step declares in output_artifacts show up in the run's outcomes,
+// like persona-step outputs do. `wave bench` reads its patch from there.
+func TestCommandStepOutputArtifactsReportedAsDeliverables(t *testing.T) {
+	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter(), WithEmitter(testutil.NewEventCollector()))
+	m := testutil.CreateTestManifest(t.TempDir())
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "command-deliverable-test"},
+		Steps: []Step{{
+			ID:     "patch",
+			Type:   StepTypeCommand,
+			Script: `mkdir -p .agents/output && echo diff > .agents/output/model.patch`,
+			OutputArtifacts: []ArtifactDef{
+				{Name: "patch", Path: ".agents/output/model.patch", Type: "text"},
+			},
+		}},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	require.NoError(t, executor.Execute(ctx, p, m, "x"))
+
+	var found bool
+	for _, rec := range executor.GetOutcomeTracker().GetByStep("patch") {
+		if rec.Label == "patch" && strings.HasSuffix(rec.Value, filepath.Join(".agents", "output", "model.patch")) {
+			found = true
+		}
+	}
+	assert.True(t, found, "command-step output artifact should be a deliverable")
+}

@@ -401,6 +401,10 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 		if cErr := e.validateStepContracts(ctx, execution, step, contractDir, nil, pipelineID, "", time.Now(), adapterResult); cErr != nil {
 			return cErr
 		}
+		// Report command-step outputs as deliverables like persona steps do;
+		// otherwise they are missing from the run's outcomes.
+		e.trackStepDeliverables(execution, step)
+		e.processStepOutcomes(execution, step)
 		return nil
 	}
 
