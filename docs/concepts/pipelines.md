@@ -421,7 +421,7 @@ steps:
         label: "Pull Request"
 ```
 
-Supported outcome types: `pr`, `issue`, `url`, `deployment`. See [Outcomes](/concepts/outcomes) for array extraction, field reference, and advanced examples.
+Supported outcome types: `pr`, `issue`, `url`, `deployment`. See Outcomes for array extraction, field reference, and advanced examples.
 
 ## Running Pipelines
 
@@ -537,8 +537,8 @@ steps:
 ## Next Steps
 
 - [Personas](/concepts/personas) - Configure the AI agents that run in each step
-- [Outcomes](/concepts/outcomes) - Extract structured results from pipelines
+- Outcomes - Extract structured results from pipelines
 - [Contracts](/concepts/contracts) - Validate step outputs before handover
 - [Artifacts](/concepts/artifacts) - Deep dive into artifact passing
-- [Pipeline Configuration Guide](/guides/pipeline-configuration) - Step-by-step configuration guide
+- [Pipeline Configuration Guide](/guide/pipeline-configuration) - Step-by-step configuration guide
 - [Pipeline Schema Reference](/reference/pipeline-schema) - Complete field reference

@@ -148,7 +148,7 @@ steps:
 | `until` | no | Template condition for early exit |
 | `steps` | no | Sub-steps executed per iteration |
 
-Loops also work with graph-mode edges for more flexible control flow. See [Graph Loops](/guide/graph-loops).
+Loops also work with graph-mode edges for more flexible control flow. See Graph Loops.
 
 ## Aggregate
 
@@ -238,5 +238,5 @@ steps:
 ## See Also
 
 - [Pipeline Schema: Composition](/reference/pipeline-schema#iterate) - Field reference
-- [Graph Loops](/guide/graph-loops) - Edge-based loops and conditional routing
-- [Pipeline Outputs](/guide/pipeline-outputs) - Exposing results for parent pipelines
+- Graph Loops - Edge-based loops and conditional routing
+- Pipeline Outputs - Exposing results for parent pipelines

@@ -168,14 +168,6 @@ wave run impl-issue -- "https://github.com/org/repo/issues/42"
 
 ```bash
 wave doctor          # Shows detected forge type and status
-wave run wave-test-forge -- "validate"  # Full smoke test
-```
-
-### Check credentials (WebUI)
-
-```bash
-wave serve --port 8080
-# Open http://localhost:8080/admin → Credential Status section
 ```
 
 ### Check from CLI
@@ -198,7 +190,7 @@ curl -u "username:$BITBUCKET_TOKEN" https://api.bitbucket.org/2.0/user
 
 ### "persona unknown-commenter not found"
 
-Wave generates forge-specific personas during `wave init` (e.g., `github-commenter`, `gitea-commenter`). If the wrong forge was detected:
+Wave generates forge-specific personas during `wave init` (e.g., `github-commenter`; only the GitHub personas ship by default). If the wrong forge was detected:
 
 ```bash
 wave init --merge    # Re-detects forge and updates personas

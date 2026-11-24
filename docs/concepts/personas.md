@@ -23,38 +23,18 @@ personas:
 
 ## Built-in Personas
 
-Wave includes **30 built-in personas** designed for secure, specialized execution. The following table highlights four core personas commonly used in pipelines:
+`wave init` installs 12 personas: navigator, planner, philosopher, craftsman, implementer,
+reviewer, auditor, researcher, summarizer, and the GitHub triplet github-analyst,
+github-commenter, github-scoper. See the [Personas Guide](/guide/personas).
 
-<script setup>
-const builtInPersonas = [
-  {
-    persona: 'navigator',
-    description: 'Read-only codebase explorer, produces navigation context and analysis',
-    permissions: { read: 'allow', write: 'deny', execute: 'deny', network: 'deny' }
-  },
-  {
-    persona: 'auditor',
-    description: 'Security and code review with go vet and npm audit',
-    permissions: { read: 'allow', write: 'deny', execute: 'conditional', network: 'deny' }
-  },
-  {
-    persona: 'implementer',
-    description: 'Code generation and modification with full tool access',
-    permissions: { read: 'allow', write: 'allow', execute: 'allow', network: 'deny' }
-  },
-  {
-    persona: 'craftsman',
-    description: 'Full implementation and testing with broad tool access',
-    permissions: { read: 'allow', write: 'allow', execute: 'allow', network: 'deny' }
-  }
-]
-</script>
-
-<PermissionMatrix :personas="builtInPersonas" :showLegend="true" />
+::: warning Shipped permissions
+Every shipped persona runs with `allowed_tools: ["*"]` and `deny: []`. The scoped examples on
+this page show what you can configure, not what ships by default.
+:::
 
 ### Navigator
 
-The Navigator is a read-only codebase explorer. It produces navigation context without modifying any files.
+The Navigator explores the codebase and produces navigation context. The example below scopes it to read-only tools.
 
 ```yaml
 personas:
@@ -317,7 +297,7 @@ Token scopes enforce **least-privilege API access** per persona. During prefligh
 
 Permissions are hierarchical: `admin` satisfies `write`, which satisfies `read`. Canonical resources include `issues`, `pulls`, `repos`, `actions`, and `packages`.
 
-For full scope format details, environment variable routing, and preflight validation behavior, see the [Manifest Reference — Token Scopes](/reference/manifest#token-scopes).
+For full scope format details, environment variable routing, and preflight validation behavior, see the [Manifest Reference - Token Scopes](/reference/manifest-schema#token-scopes).
 
 Key sources: `internal/scope/scope.go`, `internal/scope/validator.go`, `internal/scope/resolver.go`
 
@@ -358,10 +338,10 @@ pipelines:
 
 ## Next Steps
 
-> **Complete persona list:** Run `wave list personas` to see all 30 built-in personas with their permissions, or browse the definitions in [`wave.yaml`](../../wave.yaml).
+> **Complete persona list:** Run `wave list personas` to see the personas configured in your `wave.yaml`.
 
-- [Custom Personas Guide](/guides/custom-personas) - Create specialized personas for your workflows
+- [Custom Personas Guide](/guide/custom-personas) - Create specialized personas for your workflows
 - [Pipelines](/concepts/pipelines) - Use personas in multi-step workflows
 - [Contracts](/concepts/contracts) - Validate persona outputs
 - [Workspaces](/concepts/workspaces) - Understand workspace isolation
-- [Manifest Reference](/reference/manifest) - Complete persona configuration options
+- [Manifest Reference](/reference/manifest-schema) - Complete persona configuration options

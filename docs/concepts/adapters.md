@@ -238,7 +238,7 @@ adapters:
     output_format: json
 ```
 
-See the [Custom Adapter Example](/examples/custom-adapter) for a complete walkthrough.
+See the Custom Adapter Example for a complete walkthrough.
 
 ## Manifest-to-Adapter Projection
 
@@ -268,4 +268,3 @@ See [Environment & Credentials](/reference/environment) for details.
 
 - [Manifest Schema — Adapter Fields](/reference/manifest-schema#adapter) — complete field reference
 - [Personas](/concepts/personas) — how personas bind to adapters
-- [Custom Adapter Example](/examples/custom-adapter) — writing your own adapter

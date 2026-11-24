@@ -15,7 +15,7 @@ Wave provides defense-in-depth isolation for AI agent sessions through two compl
 nix develop
 
 # Everything you run inside is sandboxed:
-wave run impl-speckit "add user authentication"
+wave run impl-issue "https://github.com/org/repo/issues/42"
 ```
 
 ## Nix Dev Shell (Outer Sandbox)
@@ -89,79 +89,6 @@ The sandbox inherits the Nix-provided environment (no `--clearenv`), which inclu
 - `SANDBOX_ACTIVE=1` (set inside sandbox)
 - `ANTHROPIC_API_KEY` (if set before `nix develop`)
 - `GH_TOKEN` (if set, or derived from `gh auth token`)
-
-## Docker Sandbox Backend
-
-In addition to the Nix + bubblewrap outer sandbox, Wave supports a **Docker-based sandbox backend** for isolating adapter subprocesses inside containers. This is useful when bubblewrap is unavailable (e.g., macOS, CI runners without user namespace support) or when you need container-level isolation for individual pipeline steps.
-
-### How It Works
-
-Wave wraps each adapter subprocess in a `docker run` command with security-hardened defaults:
-
-| Protection | Detail |
-|------------|--------|
-| Read-only root filesystem | `--read-only` prevents writes outside bind mounts |
-| Temporary directories | `/tmp`, `/var/run`, `/home/wave` mounted as `tmpfs` |
-| All capabilities dropped | `--cap-drop=ALL` removes all Linux capabilities |
-| No privilege escalation | `--security-opt=no-new-privileges` |
-| Network disabled | `--network=none` by default |
-| UID/GID mapping | Runs as the host user, not root |
-| Auto-cleanup | `--rm` removes the container on exit |
-
-Workspace, artifact, and output directories are bind-mounted into the container. The adapter binary itself is mounted read-only.
-
-### Configuration
-
-Set the sandbox backend in your manifest:
-
-```yaml
-runtime:
-  sandbox:
-    backend: docker              # Options: none, docker, bubblewrap
-    docker_image: ubuntu:24.04   # Base image (default: ubuntu:24.04)
-    env_passthrough:
-      - ANTHROPIC_API_KEY
-      - GH_TOKEN
-```
-
-### Automatic Detection
-
-Wave's sandbox factory (`internal/sandbox/factory.go`) selects the backend based on the `runtime.sandbox.backend` field:
-
-| Value | Behavior |
-|-------|----------|
-| `none` (or empty) | No sandbox wrapping — adapter runs directly |
-| `docker` | Docker container isolation (requires `docker` on PATH and a running daemon) |
-| `bubblewrap` | Handled by the Nix flake dev shell, not this package |
-
-### Validation
-
-Wave validates the Docker backend during preflight:
-
-```bash
-wave doctor
-```
-
-If the Docker daemon is not running, you will see:
-
-```
-docker daemon not available
-  Hint: Start Docker with: systemctl start docker (Linux) or open Docker Desktop (macOS/Windows)
-```
-
-### When to Use Docker vs Bubblewrap
-
-| Scenario | Recommended Backend |
-|----------|-------------------|
-| Linux with Nix | `bubblewrap` (via `nix develop`) |
-| macOS | `docker` (bwrap requires kernel namespaces not on Darwin) |
-| CI/CD runners | `docker` (commonly available, no namespace requirements) |
-| Local development without Nix | `docker` |
-| Debugging sandbox issues | `none` (or `nix develop .#yolo`) |
-
-Key sources: `internal/sandbox/docker.go`, `internal/sandbox/factory.go`, `internal/sandbox/types.go`
-
----
 
 ## Manifest-Driven Adapter Config
 
@@ -253,7 +180,6 @@ From innermost to outermost:
 | `CLAUDE.md` restrictions | Model is told what it can/cannot do | Prompt-level (advisory) |
 | `settings.json` permissions | Allow/deny rules enforced by Claude Code | Claude Code runtime |
 | Claude Code sandbox | Bubblewrap/Seatbelt restricts Bash commands | OS-level (Bash only) |
-| Docker container sandbox | Read-only container, cap-drop=ALL, network=none, no-new-privileges | Container-level (alternative to Nix bwrap) |
 | Nix dev shell sandbox | Bubblewrap restricts the entire session | OS-level (everything) |
 | Manifest | Single source of truth for all above | Wave configuration |
 

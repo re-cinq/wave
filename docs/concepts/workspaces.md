@@ -173,4 +173,4 @@ ls .agents/workspaces/<pipeline-id>/__wt_*/output/
 
 - [Pipeline Schema — WorkspaceConfig](/reference/pipeline-schema#workspace-configuration) — field reference
 - [Pipelines](/concepts/pipelines) — how workspaces fit into the execution model
-- [State & Resumption](/guides/state-resumption) — workspace persistence across resumes
+- [State & Resumption](/guide/state-resumption) - workspace persistence across resumes

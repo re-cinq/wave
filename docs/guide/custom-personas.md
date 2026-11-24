@@ -446,4 +446,4 @@ If persona execution times out:
 - [Personas Concept](/concepts/personas) - Understand the permission model in depth
 - [Pipelines](/concepts/pipelines) - Use personas in multi-step workflows
 - [Contracts](/concepts/contracts) - Validate persona outputs
-- [Audit Logging](/guides/audit-logging) - Monitor persona actions
+- Audit Logging - Monitor persona actions

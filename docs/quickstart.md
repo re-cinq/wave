@@ -119,7 +119,7 @@ wave run ops-hello-world "testing Wave"
 
 ### Expected Output
 
-With the default TUI mode you'll see a progress bar and spinners. To see text output, use `-o text`:
+By default you see a progress display. To see plain text output, use `-o text`:
 
 ```bash
 wave run ops-hello-world "testing Wave" -o text
@@ -246,10 +246,10 @@ Run a code review on your project:
 wave run ops-pr-review "review the main module"
 ```
 
-Or run an ad-hoc task without a pipeline file:
+Or generate a pipeline for a task none of the shipped ones fit:
 
 ```bash
-wave do "analyze the error handling in this codebase"
+wave meta "analyze the error handling in this codebase" --dry-run
 ```
 
 ## Quick Commands
@@ -283,12 +283,12 @@ For isolated development with filesystem and environment protection:
 nix develop
 ```
 
-This enters a bubblewrap sandbox where the filesystem is read-only except for the project directory, and the home directory (`~/.ssh`, `~/.aws`, etc.) is hidden. See [Sandbox Setup Guide](/guides/sandbox-setup) for details.
+This enters a bubblewrap sandbox where the filesystem is read-only except for the project directory, and the home directory (`~/.ssh`, `~/.aws`, etc.) is hidden. See [Sandbox Setup Guide](/guide/sandbox-setup) for details.
 
 ## Next Steps
 
-- [Sandbox Setup](/guides/sandbox-setup) - Isolate AI agent sessions
-- [Use Cases](/use-cases/) - Find pipelines for code review, documentation, and tests
+- [Sandbox Setup](/guide/sandbox-setup) - Isolate AI agent sessions
+- Use Cases - Find pipelines for code review, documentation, and tests
 - [Concepts: Pipelines](/concepts/pipelines) - Understand pipeline structure
 - [Concepts: Personas](/concepts/personas) - Learn about AI agent roles
 - [CLI Reference](/reference/cli) - Complete command documentation

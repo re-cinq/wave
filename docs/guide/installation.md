@@ -153,4 +153,4 @@ rm -rf ~/.wave
 ## Next Steps
 
 - [Quick Start](/guide/quick-start) - Get running in 60 seconds
-- [Pipeline Configuration](/guides/pipeline-configuration) - Configure your first pipeline
+- [Pipeline Configuration](/guide/pipeline-configuration) - Configure your first pipeline
