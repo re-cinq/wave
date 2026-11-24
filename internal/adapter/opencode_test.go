@@ -173,6 +173,25 @@ func TestParseOpenCodeStreamLine_ToolEvent(t *testing.T) {
 	}
 }
 
+// TestParseOpenCodeStreamLine_ToolUseEvent covers the event shape emitted by
+// current opencode builds: type "tool_use" with arguments in part.state.input.
+func TestParseOpenCodeStreamLine_ToolUseEvent(t *testing.T) {
+	line := []byte(`{"type":"tool_use","sessionID":"s1","part":{"id":"p1","type":"tool","callID":"c1","tool":"write","state":{"status":"completed","input":{"content":"hello","filePath":"/ws/greeting.txt"},"output":"Wrote file successfully."}}}`)
+	evt, ok := parseOpenCodeStreamLine(line)
+	if !ok {
+		t.Fatal("expected ok=true for tool_use event")
+	}
+	if evt.Type != "tool_use" {
+		t.Errorf("Type = %q, want %q", evt.Type, "tool_use")
+	}
+	if evt.ToolName != "write" {
+		t.Errorf("ToolName = %q, want %q", evt.ToolName, "write")
+	}
+	if evt.ToolInput != "/ws/greeting.txt" {
+		t.Errorf("ToolInput = %q, want %q", evt.ToolInput, "/ws/greeting.txt")
+	}
+}
+
 func TestParseOpenCodeStreamLine_ToolEventMissingToolName(t *testing.T) {
 	line := []byte(`{"type":"tool","sessionID":"s1","part":{"id":"p1","sessionID":"s1","messageID":"m1","type":"tool"}}`)
 	_, ok := parseOpenCodeStreamLine(line)

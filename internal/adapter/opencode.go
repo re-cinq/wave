@@ -173,13 +173,18 @@ func parseOpenCodeStreamLine(line []byte) (StreamEvent, bool) {
 					}
 					return StreamEvent{}, false
 
-				case "tool", "tool_call":
+				case "tool", "tool_call", "tool_use":
+					// opencode >= 1.x emits "tool_use" with the arguments under
+					// part.state.input as an object; older builds sent
+					// part.input as a plain string.
 					var evt struct {
 						Part struct {
-							Type  string `json:"type"`
-							Tool  string `json:"tool"`
-							Input string `json:"input"`
-							Name  string `json:"name"`
+							Tool  string          `json:"tool"`
+							Name  string          `json:"name"`
+							Input json.RawMessage `json:"input"`
+							State struct {
+								Input json.RawMessage `json:"input"`
+							} `json:"state"`
 						} `json:"part"`
 					}
 					if err := json.Unmarshal(line, &evt); err == nil {
@@ -188,7 +193,12 @@ func parseOpenCodeStreamLine(line []byte) (StreamEvent, bool) {
 							toolName = evt.Part.Name
 						}
 						if toolName != "" {
-							input := evt.Part.Input
+							var input string
+							if len(evt.Part.State.Input) > 0 {
+								input = extractToolTarget(toolName, evt.Part.State.Input)
+							} else if err := json.Unmarshal(evt.Part.Input, &input); err != nil {
+								input = extractToolTarget(toolName, evt.Part.Input)
+							}
 							if len(input) > 100 {
 								input = input[:100]
 							}

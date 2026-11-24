@@ -702,7 +702,8 @@ func extractToolTarget(toolName string, input json.RawMessage) string {
 		return extractTodoSummary(fields["todos"])
 	default:
 		// Generic heuristic: check common field names in priority order
-		for _, field := range []string{"file_path", "url", "pattern", "command", "query", "notebook_path"} {
+		// filePath is opencode's spelling of file_path.
+		for _, field := range []string{"file_path", "filePath", "url", "pattern", "command", "query", "notebook_path"} {
 			if val := jsonString(fields[field]); val != "" {
 				return val
 			}
