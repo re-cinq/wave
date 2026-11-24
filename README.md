@@ -15,7 +15,8 @@ runs services from manifests. Every handoff between agents is checked by a typed
   Wave validates output outside the model before the next step starts, and retries or reworks the
   step with the validation error fed back.
 - **Pipelines on demand.** `wave meta "<task>"` drafts a new pipeline plus its contracts when none
-  of the shipped ones fit. Failed runs resume from the failed step instead of starting over.
+  of the shipped ones fit. `wave meta --from-run <id>` regenerates it from a failed run's
+  definition and contract errors; failed runs can also resume from the failed step.
 - **Adapter-agnostic.** Wraps the Claude Code, Codex, Gemini and OpenCode CLIs as subprocesses.
   Switching a persona to another adapter is one field.
 
@@ -102,6 +103,7 @@ wave resume <run-id> --from-step verify  # or at a step you pick
 ```bash
 wave meta "add a caching layer" --dry-run           # show the generated pipeline
 wave meta "add a caching layer" --save cache.yaml   # keep it for reuse
+wave meta --from-run <run-id>                       # adapt a pipeline after a failed run
 wave pipeline create --template ops-hello-world     # scaffold from a shipped pipeline
 ```
 
@@ -122,7 +124,7 @@ wave pipeline create --template ops-hello-world     # scaffold from a shipped pi
 ## Compared with scripting subagents in Claude Code
 
 Where Wave helps: workflows live as declarative YAML in git; contracts are enforced by the
-orchestrator, not by the model; runs persist in SQLite and resume, fork or rewind; the same
+orchestrator, not by the model; runs persist in SQLite and resume; the same
 pipeline runs on another adapter; every step gets an isolated worktree.
 
 Where it does not: one more binary and a manifest to set up; per-step subprocess startup; steps are
