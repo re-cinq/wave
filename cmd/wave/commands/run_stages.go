@@ -64,14 +64,10 @@ func setupSignalHandling() (context.Context, context.CancelFunc) {
 	return ctx, cancel
 }
 
-// loadManifestAndPipeline loads the manifest, resolves the pipeline (falling
-// back to the interactive selector when the named pipeline is missing in TTY
-// mode), warns on input/pipeline mismatches, and validates step filter flags.
-//
-// Mutates opts (and debug) when the user picks a different pipeline through
-// the TUI, so both are taken by pointer. Returns aborted=true when the user
-// cancelled the selector — the caller should exit cleanly without an error.
-func loadManifestAndPipeline(opts *RunOptions, debug *bool) (*pipeline.Pipeline, manifest.Manifest, *pipeline.StepFilter, bool, error) {
+// loadManifestAndPipeline loads the manifest (falling back to the embedded
+// bootstrap manifest for bootstrap pipelines), resolves the named pipeline,
+// and validates step filter flags.
+func loadManifestAndPipeline(opts *RunOptions) (*pipeline.Pipeline, manifest.Manifest, *pipeline.StepFilter, error) {
 	mp, err := loadManifestStrict(opts.Manifest)
 	if err != nil {
 		// Bootstrap pipelines may run without a pre-existing manifest — they
@@ -80,17 +76,17 @@ func loadManifestAndPipeline(opts *RunOptions, debug *bool) (*pipeline.Pipeline,
 		if bootstrapPipelines[opts.Pipeline] && os.IsNotExist(errors.Unwrap(err)) {
 			mp, err = loadDefaultBootstrapManifest()
 			if err != nil {
-				return nil, manifest.Manifest{}, nil, false, err
+				return nil, manifest.Manifest{}, nil, err
 			}
 		} else {
-			return nil, manifest.Manifest{}, nil, false, err
+			return nil, manifest.Manifest{}, nil, err
 		}
 	}
 	m := *mp
 
 	p, err := pipeline.LoadByName(opts.Pipeline)
 	if err != nil {
-		return nil, m, nil, false, NewCLIError(CodePipelineNotFound,
+		return nil, m, nil, NewCLIError(CodePipelineNotFound,
 			fmt.Sprintf("pipeline '%s' not found", opts.Pipeline),
 			"Run 'wave list pipelines' to see available pipelines")
 	}
@@ -99,14 +95,14 @@ func loadManifestAndPipeline(opts *RunOptions, debug *bool) (*pipeline.Pipeline,
 	stepFilter := pipeline.ParseStepFilter(opts.Steps, opts.Exclude)
 	if stepFilter != nil {
 		if err := stepFilter.Validate(p); err != nil {
-			return nil, m, nil, false, err
+			return nil, m, nil, err
 		}
 		if err := stepFilter.ValidateCombinations(opts.FromStep); err != nil {
-			return nil, m, nil, false, err
+			return nil, m, nil, err
 		}
 	}
 
-	return p, m, stepFilter, false, nil
+	return p, m, stepFilter, nil
 }
 
 // buildStateStore opens the SQLite-backed state store under `.agents/state.db`.

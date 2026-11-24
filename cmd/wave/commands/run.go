@@ -148,12 +148,9 @@ func runRun(opts RunOptions, debug bool) error {
 	ctx, cancel := setupSignalHandling()
 	defer cancel()
 
-	p, m, stepFilter, aborted, err := loadManifestAndPipeline(&opts, &debug)
+	p, m, stepFilter, err := loadManifestAndPipeline(&opts)
 	if err != nil {
 		return err
-	}
-	if aborted {
-		return nil
 	}
 
 	if opts.DryRun {
