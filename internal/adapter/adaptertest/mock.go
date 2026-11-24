@@ -100,6 +100,13 @@ func (m *MockAdapter) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*a
 
 	stdout := m.Config.StdoutJSON
 	if stdout == "" {
+		// A json_schema contract injects its schema into the prompt: answer
+		// with a document that satisfies it so mock runs pass the contract.
+		if schema := extractPromptSchema(cfg.Prompt); schema != nil {
+			stdout, _ = schemaInstanceJSON(schema)
+		}
+	}
+	if stdout == "" {
 		stdout = generateRealisticOutput(cfg)
 	}
 
