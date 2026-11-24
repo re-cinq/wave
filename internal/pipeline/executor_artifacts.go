@@ -17,7 +17,11 @@ import (
 	"github.com/recinq/wave/internal/skill"
 )
 
-func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, step *Step) string {
+// buildStepPrompt assembles the step prompt. It returns an error when the
+// pipeline input is rejected by the prompt-injection filter: running the step
+// on a placeholder instead would spend a full agent run on a task it cannot
+// see and report it as completed.
+func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, step *Step) (string, error) {
 	// Handle slash_command exec type
 	if step.Exec.Type == "slash_command" && step.Exec.Command != "" {
 		args := step.Exec.Args
@@ -30,7 +34,7 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 				args = strings.ReplaceAll(args, pattern, execution.Input)
 			}
 		}
-		return skill.FormatSkillCommandPrompt(step.Exec.Command, args)
+		return skill.FormatSkillCommandPrompt(step.Exec.Command, args), nil
 	}
 
 	prompt := step.Exec.Source
@@ -79,22 +83,26 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 				security.SeverityCritical,
 				true,
 			)
-			// In strict mode, this would cause the step to fail
-			// For now, we'll use empty input to prevent the injection
-			sanitizedInput = "[INPUT SANITIZED FOR SECURITY]"
-		} else {
-			// Log sanitization details
-			if sanitizationRecord.ChangesDetected {
-				e.sec.securityLogger.LogViolation(
-					string(security.ViolationPromptInjection),
-					string(security.SourceUserInput),
-					fmt.Sprintf("User input sanitized for step %s (risk score: %d)", step.ID, sanitizationRecord.RiskScore),
-					security.SeverityMedium,
-					false,
-				)
-			}
-			sanitizedInput = tmpInput
+			return "", fmt.Errorf("pipeline input rejected by the prompt-injection filter: %w", sanitizeErr)
 		}
+		// Log sanitization details
+		if sanitizationRecord.ChangesDetected {
+			e.sec.securityLogger.LogViolation(
+				string(security.ViolationPromptInjection),
+				string(security.SourceUserInput),
+				fmt.Sprintf("User input sanitized for step %s (risk score: %d)", step.ID, sanitizationRecord.RiskScore),
+				security.SeverityMedium,
+				false,
+			)
+			e.emit(event.Event{
+				Timestamp:  time.Now(),
+				PipelineID: execution.Status.ID,
+				StepID:     step.ID,
+				State:      "warning",
+				Message:    fmt.Sprintf("pipeline input was modified before reaching the agent (%s): %d of %d bytes kept", strings.Join(sanitizationRecord.SanitizationRules, ", "), sanitizationRecord.SanitizedLength, sanitizationRecord.OriginalLength),
+			})
+		}
+		sanitizedInput = tmpInput
 	} else {
 		// No input provided - use empty string
 		sanitizedInput = ""
@@ -227,7 +235,7 @@ func (e *DefaultPipelineExecutor) buildStepPrompt(execution *PipelineExecution, 
 		prompt = sb.String()
 	}
 
-	return prompt
+	return prompt, nil
 }
 
 func (e *DefaultPipelineExecutor) injectArtifacts(execution *PipelineExecution, step *Step, workspacePath string) error {
