@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 )
 
@@ -53,6 +54,9 @@ func (a *CodexAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterR
 	cmd := exec.CommandContext(ctx, a.codexPath, args...)
 	cmd.Dir = workspacePath
 	cmd.Env = BuildCuratedEnvironment(cfg)
+	// Prompt goes via stdin (`codex exec -`), same reason as the claude
+	// adapter: large prompts overflow ARG_MAX as argv.
+	cmd.Stdin = strings.NewReader(cfg.Prompt)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pgid: 0}
 
 	stdoutPipe, err := cmd.StdoutPipe()
@@ -121,124 +125,137 @@ func (a *CodexAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunConf
 	return nil
 }
 
+// buildArgs builds a non-interactive `codex exec` invocation that streams
+// JSONL events on stdout. The bare `codex [PROMPT]` form starts the TUI and
+// cannot run headless.
+//
+// Approvals and the codex sandbox are bypassed the same way the claude
+// adapter passes --dangerously-skip-permissions: Wave owns isolation
+// (ephemeral worktree, curated env, outer sandbox), and the codex sandbox
+// would block git writes to the worktree's common dir and network access
+// needed by forge personas.
 func (a *CodexAdapter) buildArgs(cfg AdapterRunConfig) []string {
-	args := []string{"--full-auto"}
+	args := []string{
+		"exec",
+		"--json",
+		"--skip-git-repo-check",
+		"--ephemeral",
+		"--color", "never",
+		"--dangerously-bypass-approvals-and-sandbox",
+	}
 
 	if cfg.Model != "" {
 		args = append(args, "--model", cfg.Model)
 	}
 
-	if cfg.Prompt != "" {
-		args = append(args, cfg.Prompt)
-	}
+	// Read the prompt from stdin.
+	args = append(args, "-")
 
 	return args
 }
 
+// codexEvent is one JSONL line emitted by `codex exec --json`.
+type codexEvent struct {
+	Type string `json:"type"`
+	Item struct {
+		Type             string `json:"type"`
+		Text             string `json:"text"`
+		Command          string `json:"command"`
+		AggregatedOutput string `json:"aggregated_output"`
+		Status           string `json:"status"`
+	} `json:"item"`
+	Usage struct {
+		InputTokens  int `json:"input_tokens"`
+		OutputTokens int `json:"output_tokens"`
+	} `json:"usage"`
+	Error struct {
+		Message string `json:"message"`
+	} `json:"error"`
+	Message string `json:"message"`
+}
+
+func decodeCodexEvent(line []byte) (codexEvent, bool) {
+	var evt codexEvent
+	line = bytes.TrimSpace(line)
+	if len(line) == 0 || line[0] != '{' {
+		return evt, false
+	}
+	if err := json.Unmarshal(line, &evt); err != nil || evt.Type == "" {
+		return evt, false
+	}
+	return evt, true
+}
+
+// parseOutput folds the JSONL event stream into an AdapterResult: token
+// usage is summed over turn.completed events, the last agent_message is the
+// result content, and turn.failed / error events become the failure reason.
 func (a *CodexAdapter) parseOutput(output string) *AdapterResult {
 	result := &AdapterResult{}
+	var failure string
 
-	lines := bytes.Split([]byte(output), []byte("\n"))
-	for _, line := range lines {
-		line = bytes.TrimSpace(line)
-		if len(line) == 0 {
+	for _, line := range bytes.Split([]byte(output), []byte("\n")) {
+		evt, ok := decodeCodexEvent(line)
+		if !ok {
 			continue
 		}
-		var obj map[string]json.RawMessage
-		if err := json.Unmarshal(line, &obj); err != nil {
-			continue
-		}
-
-		var eventType string
-		if raw, ok := obj["type"]; ok {
-			_ = json.Unmarshal(raw, &eventType)
-		}
-
-		if eventType == "result" || eventType == "message" {
-			var resultEvt struct {
-				Usage struct {
-					InputTokens  int `json:"input_tokens"`
-					OutputTokens int `json:"output_tokens"`
-				} `json:"usage"`
-				Content string `json:"content"`
+		switch evt.Type {
+		case "item.completed":
+			if evt.Item.Type == "agent_message" && evt.Item.Text != "" {
+				result.ResultContent = evt.Item.Text
 			}
-			if err := json.Unmarshal(line, &resultEvt); err == nil {
-				if resultEvt.Usage.InputTokens > 0 {
-					result.TokensIn = resultEvt.Usage.InputTokens
-				}
-				if resultEvt.Usage.OutputTokens > 0 {
-					result.TokensOut = resultEvt.Usage.OutputTokens
-				}
-				result.TokensUsed = result.TokensIn + result.TokensOut
-				if resultEvt.Content != "" {
-					result.ResultContent = resultEvt.Content
-				}
+		case "turn.completed":
+			result.TokensIn += evt.Usage.InputTokens
+			result.TokensOut += evt.Usage.OutputTokens
+		case "turn.failed":
+			failure = evt.Error.Message
+		case "error":
+			if evt.Message != "" {
+				failure = evt.Message
 			}
+		}
+	}
+	result.TokensUsed = result.TokensIn + result.TokensOut
+
+	if failure != "" {
+		result.FailureReason = ClassifyFailure("", failure, nil)
+		if result.ResultContent == "" {
+			result.ResultContent = failure
 		}
 	}
 
 	return result
 }
 
-// parseCodexStreamLine parses a single NDJSON line from Codex output.
+// parseCodexStreamLine maps a single `codex exec --json` line to a StreamEvent.
 func parseCodexStreamLine(line []byte) (StreamEvent, bool) {
-	line = bytes.TrimSpace(line)
-	if len(line) == 0 {
+	evt, ok := decodeCodexEvent(line)
+	if !ok {
 		return StreamEvent{}, false
 	}
 
-	var obj map[string]json.RawMessage
-	if err := json.Unmarshal(line, &obj); err != nil {
-		return StreamEvent{}, false
-	}
-
-	var eventType string
-	if raw, ok := obj["type"]; ok {
-		if err := json.Unmarshal(raw, &eventType); err != nil {
-			return StreamEvent{}, false
+	switch evt.Type {
+	case "item.started":
+		if evt.Item.Type == "command_execution" {
+			return StreamEvent{Type: "tool_use", ToolName: "Bash", ToolInput: truncate(evt.Item.Command, 100)}, true
 		}
-	}
-
-	switch eventType {
-	case "function_call":
-		var fc struct {
-			Name      string `json:"name"`
-			Arguments string `json:"arguments"`
-		}
-		if err := json.Unmarshal(line, &fc); err == nil && fc.Name != "" {
-			input := fc.Arguments
-			if len(input) > 100 {
-				input = input[:100]
+	case "item.completed":
+		switch evt.Item.Type {
+		case "agent_message":
+			if evt.Item.Text != "" {
+				return StreamEvent{Type: "text", Content: truncate(evt.Item.Text, 200)}, true
 			}
-			return StreamEvent{Type: "tool_use", ToolName: fc.Name, ToolInput: input}, true
+		case "command_execution":
+			return StreamEvent{Type: "tool_result", ToolName: "Bash", Content: truncate(evt.Item.AggregatedOutput, 200)}, true
 		}
-	case "message":
-		var msg struct {
-			Content string `json:"content"`
-		}
-		if err := json.Unmarshal(line, &msg); err == nil && msg.Content != "" {
-			text := msg.Content
-			if len(text) > 200 {
-				text = text[:200]
-			}
-			return StreamEvent{Type: "text", Content: text}, true
-		}
-	case "result":
-		var res struct {
-			Usage struct {
-				InputTokens  int `json:"input_tokens"`
-				OutputTokens int `json:"output_tokens"`
-			} `json:"usage"`
-			Content string `json:"content"`
-		}
-		if err := json.Unmarshal(line, &res); err == nil {
-			return StreamEvent{
-				Type:      "result",
-				TokensIn:  res.Usage.InputTokens,
-				TokensOut: res.Usage.OutputTokens,
-				Content:   res.Content,
-			}, true
-		}
+	case "turn.completed":
+		return StreamEvent{
+			Type:      "result",
+			Subtype:   "success",
+			TokensIn:  evt.Usage.InputTokens,
+			TokensOut: evt.Usage.OutputTokens,
+		}, true
+	case "turn.failed":
+		return StreamEvent{Type: "result", Subtype: "error_during_execution", Content: evt.Error.Message}, true
 	}
 
 	return StreamEvent{}, false
@@ -254,4 +271,12 @@ func classifyCodexFailure(exitCode int) string {
 	default:
 		return "general_error"
 	}
+}
+
+// truncate shortens s to at most n bytes for stream event summaries.
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n]
 }
