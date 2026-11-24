@@ -46,16 +46,6 @@ nfpms:
     formats:
       - deb
 
-homebrew_casks:
-  - name: wave
-    repository:
-      owner: re-cinq
-      name: homebrew-tap
-    description: "Multi-agent pipeline orchestrator"
-    homepage: "https://github.com/re-cinq/wave"
-    # TODO: change to "auto" once re-cinq/homebrew-tap repo is created
-    skip_upload: true
-
 changelog:
   sort: asc
   filters:
