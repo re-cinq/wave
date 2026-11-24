@@ -12,9 +12,7 @@ import (
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/runner"
 	"github.com/recinq/wave/internal/state"
-	"github.com/recinq/wave/internal/suggest"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 // RunOptions is aliased from internal/config — the canonical struct lives
@@ -63,28 +61,6 @@ Model formats vary by adapter: claude uses "haiku"/"opus", opencode uses
 
 			opts.Output = GetOutputConfig(cmd)
 			debug, _ := cmd.Flags().GetBool("debug")
-
-			// Smart input routing: when only one positional arg is given and
-			// it doesn't look like a pipeline name, treat it as input and
-			// auto-suggest a pipeline.
-			if opts.Pipeline != "" && opts.Input == "" && len(args) == 1 {
-				inputType := suggest.ClassifyInput(opts.Pipeline)
-				if inputType != suggest.InputTypeFreeText {
-					// The "pipeline" arg is actually input — reclassify
-					opts.Input = opts.Pipeline
-					opts.Pipeline = ""
-				}
-			}
-
-			// If no pipeline specified, try smart routing from input type
-			if opts.Pipeline == "" && opts.Input != "" {
-				suggested := suggestPipelineFromInput(opts.Input)
-				if suggested != "" {
-					opts.Pipeline = suggested
-					inputType := suggest.ClassifyInput(opts.Input)
-					fmt.Fprintf(os.Stderr, "  Auto-selected pipeline %q for %s input\n", suggested, inputType)
-				}
-			}
 
 			if opts.Pipeline == "" {
 				return fmt.Errorf("pipeline name is required (use positional arg or --pipeline flag)")
@@ -333,25 +309,6 @@ func resolveRunID(runIDOpt string, store interface {
 		return store.CreateRun(pipelineName, input)
 	}
 	return "", nil
-}
-
-// isInteractive returns true when stdin is a TTY and interactive selection is possible.
-func isInteractive() bool {
-	if v := os.Getenv("WAVE_FORCE_TTY"); v != "" {
-		return v == "1" || v == "true"
-	}
-	return term.IsTerminal(int(os.Stdin.Fd()))
-}
-
-// suggestPipelineFromInput classifies the input and returns the best pipeline
-// suggestion. Returns empty string if no suggestion is available.
-func suggestPipelineFromInput(input string) string {
-	inputType := suggest.ClassifyInput(input)
-	suggestions := suggest.SuggestPipelineForInput(inputType)
-	if len(suggestions) == 0 {
-		return ""
-	}
-	return suggestions[0]
 }
 
 // pipelinesDir returns the default pipeline directory.

@@ -30,7 +30,6 @@ import (
 	"github.com/recinq/wave/internal/runner"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
-	"github.com/recinq/wave/internal/suggest"
 	"github.com/recinq/wave/internal/workspace"
 )
 
@@ -94,13 +93,6 @@ func loadManifestAndPipeline(opts *RunOptions, debug *bool) (*pipeline.Pipeline,
 		return nil, m, nil, false, NewCLIError(CodePipelineNotFound,
 			fmt.Sprintf("pipeline '%s' not found", opts.Pipeline),
 			"Run 'wave list pipelines' to see available pipelines")
-	}
-
-	// Warn on input/pipeline mismatch (non-blocking)
-	if opts.Input != "" {
-		if mismatch := suggest.CheckInputPipelineMismatch(opts.Input, opts.Pipeline); mismatch != nil {
-			fmt.Fprintf(os.Stderr, "  warning: %s\n", mismatch.SuggestedReason)
-		}
 	}
 
 	// Parse and validate step filter flags
