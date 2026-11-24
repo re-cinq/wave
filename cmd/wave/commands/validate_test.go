@@ -913,6 +913,12 @@ func TestResolveForgeTemplate(t *testing.T) {
 			fi:       forge.ForgeInfo{Type: forge.ForgeUnknown},
 			expected: []string{"github-analyst", "gitlab-analyst", "gitea-analyst", "bitbucket-analyst"},
 		},
+		{
+			name:     "local forge (no remote) expands to all 4 variants",
+			persona:  "{{ forge.type }}-analyst",
+			fi:       forge.ForgeInfo{Type: forge.ForgeLocal},
+			expected: []string{"github-analyst", "gitlab-analyst", "gitea-analyst", "bitbucket-analyst"},
+		},
 	}
 
 	for _, tt := range tests {

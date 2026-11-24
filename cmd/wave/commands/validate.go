@@ -30,6 +30,8 @@ func NewValidateCmd() *cobra.Command {
 		Long: `Validate the wave.yaml manifest and project structure.
 Checks manifest syntax, references, and system dependencies.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
+			cmd.SilenceErrors = true
 			opts.Verbose, _ = cmd.Root().PersistentFlags().GetBool("verbose")
 			return runValidate(opts)
 		},
@@ -303,12 +305,14 @@ func resolveForgeTemplate(persona string, fi forge.ForgeInfo) []string {
 	if !strings.Contains(persona, "{{ forge.type }}") && !strings.Contains(persona, "{{forge.type}}") {
 		return []string{persona}
 	}
-	if fi.Type != forge.ForgeUnknown {
+	// Local or undetected forge (no remote yet): the persona is chosen once a
+	// forge remote exists, so accept any shipped forge variant.
+	if fi.Type != forge.ForgeUnknown && fi.Type != forge.ForgeLocal && fi.Type != "" {
 		resolved := strings.ReplaceAll(persona, "{{ forge.type }}", string(fi.Type))
 		resolved = strings.ReplaceAll(resolved, "{{forge.type}}", string(fi.Type))
 		return []string{resolved}
 	}
-	// Unknown forge: expand to all variants
+	// Unknown or local forge: expand to all variants
 	var results []string
 	for _, ft := range []string{"github", "gitlab", "gitea", "bitbucket"} {
 		resolved := strings.ReplaceAll(persona, "{{ forge.type }}", ft)
