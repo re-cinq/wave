@@ -59,8 +59,9 @@ type SkillDoctorOutput struct {
 // NewSkillsCmd creates the top-level wave skills command.
 func NewSkillsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "skills",
-		Short: "Skill lifecycle management",
+		Use:    "skills",
+		Hidden: true,
+		Short:  "Skill lifecycle management",
 		Long: `Manage SKILL.md files discovered across project and user directories.
 
 Subcommands:

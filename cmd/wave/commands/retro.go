@@ -19,8 +19,9 @@ import (
 // NewRetroCmd creates the wave retro command with subcommands.
 func NewRetroCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "retro [run-id]",
-		Short: "View and manage run retrospectives",
+		Use:    "retro [run-id]",
+		Hidden: true,
+		Short:  "View and manage run retrospectives",
 		Long: `View, list, and generate retrospectives for pipeline runs.
 Retrospectives combine quantitative metrics with optional LLM-powered
 narrative analysis to identify friction points and learnings.`,

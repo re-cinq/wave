@@ -27,8 +27,9 @@ func NewMergeCmd() *cobra.Command {
 	var opts MergeOptions
 
 	cmd := &cobra.Command{
-		Use:   "merge <PR-URL-or-number>",
-		Short: "Merge a pull request using forge CLI with API fallback",
+		Use:    "merge <PR-URL-or-number>",
+		Hidden: true,
+		Short:  "Merge a pull request using forge CLI with API fallback",
 		Long: `Merge a pull request by number or URL. Detects the forge type
 (GitHub, GitLab, Gitea, Forgejo, Codeberg) and uses the appropriate CLI tool.
 Falls back to raw API calls when CLI merge fails.
