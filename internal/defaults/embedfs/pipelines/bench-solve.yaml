@@ -1,0 +1,65 @@
+kind: WavePipeline
+metadata:
+  name: bench-solve
+  description: >-
+    Solve a single SWE-bench task with a minimal, focused code change and emit
+    the change as a unified diff. Used by `wave bench run`, which runs it in a
+    fresh checkout of the task repository at the task's base commit. Not
+    intended for production use.
+  release: false
+
+input:
+  source: cli
+  type: string
+  schema:
+    type: string
+    description: "Problem statement describing the bug or feature to implement"
+
+pipeline_outputs:
+  patch:
+    step: patch
+    artifact: patch
+    type: string
+
+steps:
+  - id: solve
+    persona: craftsman
+    model: strongest
+    workspace:
+      type: worktree
+      branch: "{{ pipeline_id }}"
+    exec:
+      type: prompt
+      source_path: .agents/prompts/bench/solve.md
+    retry:
+      policy: standard
+      max_attempts: 2
+
+  # Collect the solver's edits as a diff against the base commit. Files Wave
+  # and the adapters write into the worktree, and Python test litter, are
+  # excluded so the patch applies cleanly in the SWE-bench harness.
+  - id: patch
+    type: command
+    dependencies: [solve]
+    workspace:
+      ref: solve
+    script: |
+      set -eu
+      mkdir -p .agents/output
+      git add -A -- . \
+        ':(exclude).agents' ':(exclude).claude' ':(exclude).codex' \
+        ':(exclude).gemini' ':(exclude).opencode' ':(exclude)wave.yaml' \
+        ':(exclude)AGENTS.md' ':(exclude)CLAUDE.md' ':(exclude)CODEX.md' \
+        ':(exclude)GEMINI.md' ':(exclude,glob)**/__pycache__/**' \
+        ':(exclude,glob)**/*.pyc' ':(exclude,glob)**/.pytest_cache/**' \
+        ':(exclude,glob)**/*.egg-info/**'
+      git diff --cached HEAD > .agents/output/model.patch
+    output_artifacts:
+      - name: patch
+        path: .agents/output/model.patch
+        type: text
+    handover:
+      contract:
+        type: non_empty_file
+        source: .agents/output/model.patch
+        on_failure: fail

@@ -67,6 +67,7 @@ Key source files: `internal/pipeline/executor.go`, `internal/adapter/claude.go`,
 internal/
 ├── adapter/      # Subprocess execution and adapter management
 ├── audit/        # Audit logging and credential scrubbing
+├── bench/        # SWE-bench runner, harness import and run comparison (`wave bench`)
 ├── checks/       # Shared host-capability probes for preflight and doctor
 ├── config/       # Process-wide environment variable reads
 ├── contract/     # Output validation (JSON, TypeScript, test suites)
@@ -202,6 +203,7 @@ Shipped fleet (v0.300): 9 default pipelines under `internal/defaults/embedfs/pip
 | Parallel audit | `ops-parallel-audit` | Run multiple audits in parallel and aggregate |
 | Smoke: hello world | `ops-hello-world` | Baseline smoke test |
 | Anything else | `wave meta "<task>"` | Generate a pipeline on demand |
+| SWE-bench run | `bench-solve` | Only via `wave bench run`; `release: false`, installed by `wave init --all` |
 
 ### PR Review-Then-Merge Protocol
 

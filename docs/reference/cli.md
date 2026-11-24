@@ -26,6 +26,7 @@ Wave CLI commands for pipeline orchestration.
 | `wave rewind` | Rewind a run to an earlier checkpoint |
 | `wave skills` | Discover, validate, install, and diagnose SKILL.md files |
 | `wave migrate` | Database migrations |
+| `wave bench` | Run SWE-bench tasks through a pipeline and compare runs |
 
 ---
 
@@ -664,6 +665,63 @@ Rolling back to version 3...
 
 Rollback complete. Current version: 3
 ```
+
+---
+
+## wave bench
+
+Run a pipeline against SWE-bench tasks (JSONL in the SWE-bench dataset format), export the patches as SWE-bench predictions, import the official harness verdicts and compare runs.
+
+Each task gets a fresh worktree of its repository at `base_commit` under `--work-dir`; Wave runs `wave init --all` there, then `wave run <pipeline> --json -- <problem_statement>`. The pipeline must declare an output artifact named `patch` containing the diff of its changes. The shipped `bench-solve` pipeline (installed by `wave init --all`) solves in a worktree and emits that diff. The task's `test_patch` is never shown to the solver.
+
+Tasks without a `test_cmd` (all SWE-bench tasks) end as `patched`, which never counts as a pass. Resolution comes from the official harness:
+
+```bash
+wave bench run --dataset swe-bench-lite.jsonl --pipeline bench-solve \
+  --adapter codex --model gpt-6.2-sol --limit 10 --concurrency 3 --timeout 3600 \
+  --results-path codex.json --predictions-path codex.preds.jsonl
+
+python -m swebench.harness.run_evaluation -d SWE-bench/SWE-bench_Lite \
+  -p codex.preds.jsonl -id codex-r1
+
+wave bench report --results codex.json \
+  --harness-report wave-bench-solve-codex-gpt-6.2-sol.codex-r1.json --out codex.evaluated.json
+wave bench compare --base claude.evaluated.json --compare codex.evaluated.json
+wave bench list                     # datasets in .agents/bench/datasets/
+```
+
+### bench run
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--dataset` | | JSONL dataset (absolute, or relative to `--datasets-dir`) (required) |
+| `--pipeline` | | Pipeline to run per task (required unless `--mode claude`) |
+| `--adapter` | | Adapter for `wave init` and `wave run` |
+| `--model` | | Model forced onto every step (`--force-model`) |
+| `--mode` | `wave` | `wave`, or `claude` to run `claude -p` directly as a baseline |
+| `--limit` / `--offset` | `0` | Select a slice of the dataset |
+| `--concurrency` | `1` | Tasks run in parallel |
+| `--timeout` | `0` | Per-task timeout in seconds |
+| `--work-dir` | `.agents/bench/workspaces` | Task worktrees, run logs and the bare-clone repo cache |
+| `--keep-workspaces` | `false` | Keep task worktrees for post-mortems |
+| `--results-path` | | Write the JSON results |
+| `--predictions-path` | | Write SWE-bench predictions (one line per task, empty `model_patch` when none) |
+| `--model-name` | label or `<mode>-<pipeline>-<adapter>-<model>` | `model_name_or_path` in predictions |
+| `--label` | | Run label |
+
+Exits non-zero when any task errored. Each result records `log_path`, the captured `wave run` output.
+
+### bench report
+
+| Flag | Description |
+|------|-------------|
+| `--results` | Results file from `bench run` (required) |
+| `--harness-report` | Harness summary (`<model>.<run_id>.json`): resolved -> `pass`, unresolved or empty patch -> `fail`, harness error or not evaluated -> `error` |
+| `--out` | Write the evaluated results |
+
+### bench compare
+
+`--base` and `--compare` take two results files and list tasks that improved, regressed or stayed the same.
 
 ---
 
