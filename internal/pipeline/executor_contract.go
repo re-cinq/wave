@@ -76,8 +76,12 @@ func (e *DefaultPipelineExecutor) validateStepContracts(
 		}
 	}
 
+	// softFailed counts contracts in the final round that failed but were let
+	// through by on_failure: warn/continue. They must not be reported as passed.
+	softFailed := 0
 	for round := 0; round <= maxRounds; round++ {
 		reworkTriggered := false
+		softFailed = 0
 
 		for _, c := range contracts {
 			cErr := e.runSingleContract(ctx, execution, step, c, workspacePath, stepRunner, artifactPaths, pipelineID, resolvedPersona, stepStart, result)
@@ -85,7 +89,10 @@ func (e *DefaultPipelineExecutor) validateStepContracts(
 				continue
 			}
 
-			reworkTriggered, policyErr := e.applyContractOnFailure(
+			// Assign (not :=) so the round loop below sees the rework and
+			// re-validates every contract against the reworked output.
+			var policyErr error
+			reworkTriggered, policyErr = e.applyContractOnFailure(
 				ctx, execution, step, c, cErr,
 				round, maxRounds, convergenceTracker,
 				pipelineID, resolvedPersona, stepStart, result, workspacePath,
@@ -99,6 +106,7 @@ func (e *DefaultPipelineExecutor) validateStepContracts(
 			if reworkTriggered {
 				break
 			}
+			softFailed++
 		}
 
 		if !reworkTriggered {
@@ -106,6 +114,17 @@ func (e *DefaultPipelineExecutor) validateStepContracts(
 			break
 		}
 		// Rework completed — re-run all contracts in next round
+	}
+
+	if softFailed > 0 {
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      "contract_soft_failure",
+			Message:    fmt.Sprintf("%d of %d contract(s) failed; step continued because of on_failure policy", softFailed, len(contracts)),
+		})
+		return nil
 	}
 
 	// Emit overall contract_passed if we get here without returning an error
