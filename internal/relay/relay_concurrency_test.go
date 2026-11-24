@@ -3,6 +3,7 @@ package relay
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -116,7 +117,7 @@ func TestRelayMonitor_ConcurrentCompaction(t *testing.T) {
 			}
 
 			// Verify checkpoint file was created
-			checkpointPath := workspacePath + "/checkpoint.md"
+			checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
 			if _, statErr := os.Stat(checkpointPath); os.IsNotExist(statErr) {
 				t.Errorf("goroutine %d: checkpoint file was not created", goroutineID)
 			}
@@ -190,8 +191,8 @@ Decision for concurrent testing
 *Generated at concurrent test*
 `
 
-	checkpointPath := workspacePath + "/checkpoint.md"
-	if err := os.WriteFile(checkpointPath, []byte(checkpointContent), 0644); err != nil {
+	checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
+	if err := writeTestCheckpoint(checkpointPath, []byte(checkpointContent), 0644); err != nil {
 		t.Fatalf("failed to write test checkpoint: %v", err)
 	}
 

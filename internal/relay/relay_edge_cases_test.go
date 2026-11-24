@@ -235,7 +235,7 @@ func TestRelayMonitor_Compact_EdgeCases(t *testing.T) {
 		}
 
 		// Verify checkpoint was created
-		checkpointPath := filepath.Join(workspacePath, "checkpoint.md")
+		checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
 		if _, err := os.Stat(checkpointPath); os.IsNotExist(err) {
 			t.Error("checkpoint file should be created in special workspace path")
 		}
@@ -437,7 +437,7 @@ But no proper ## sections.
 		t.Run(tc.name, func(t *testing.T) {
 			workspacePath := t.TempDir()
 			checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
-			err := os.WriteFile(checkpointPath, []byte(tc.content), 0644)
+			err := writeTestCheckpoint(checkpointPath, []byte(tc.content), 0644)
 			if err != nil {
 				t.Fatalf("failed to write test checkpoint: %v", err)
 			}
