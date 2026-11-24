@@ -154,7 +154,7 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 
 	if opts.DryRun {
-		return performDryRun(p, &m, stepFilter)
+		return performDryRun(p, &m, stepFilter, opts.Adapter)
 	}
 
 	// Detached mode: re-exec ourselves as a detached subprocess and return immediately.
