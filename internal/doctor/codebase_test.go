@@ -104,6 +104,10 @@ func TestAnalyzeCodebase_WithMockServer(t *testing.T) {
 		t.Fatal("expected non-nil result")
 	}
 
+	if !result.ForgeAPI {
+		t.Error("ForgeAPI should be true when PRs and issues were fetched")
+	}
+
 	// PRs
 	if result.PRs.Open != 3 {
 		t.Errorf("PRs.Open = %d, want 3", result.PRs.Open)
@@ -158,5 +162,20 @@ func TestAnalyzeCIStatus_AllPassing(t *testing.T) {
 	}
 	if ci.Failures != 0 {
 		t.Errorf("CI.Failures = %d, want 0", ci.Failures)
+	}
+}
+
+// TestAnalyzeCodebase_NoClientMarksCountsUnknown guards against doctor
+// printing "PRs: 0 open" when it never queried the forge.
+func TestAnalyzeCodebase_NoClientMarksCountsUnknown(t *testing.T) {
+	result, err := AnalyzeCodebase(context.Background(), CodebaseOptions{
+		ForgeInfo: forge.ForgeInfo{Type: forge.ForgeGitHub, Owner: "test", Repo: "repo"},
+		RunGHCmd:  func(args ...string) ([]byte, error) { return []byte("[]"), nil },
+	})
+	if err != nil || result == nil {
+		t.Fatalf("AnalyzeCodebase = %v, %v", result, err)
+	}
+	if result.ForgeAPI {
+		t.Error("ForgeAPI must be false without a forge client")
 	}
 }

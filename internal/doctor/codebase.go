@@ -13,9 +13,12 @@ import (
 
 // CodebaseHealth aggregates forge-API-sourced codebase metrics.
 type CodebaseHealth struct {
-	PRs    PRSummary    `json:"prs"`
-	Issues IssueSummary `json:"issues"`
-	CI     CIStatus     `json:"ci"`
+	// ForgeAPI reports whether PRs and Issues were fetched; when false
+	// their zero counts mean "unknown", not "none".
+	ForgeAPI bool         `json:"forge_api"`
+	PRs      PRSummary    `json:"prs"`
+	Issues   IssueSummary `json:"issues"`
+	CI       CIStatus     `json:"ci"`
 }
 
 // PRSummary summarizes open pull request state.
@@ -74,12 +77,14 @@ func AnalyzeCodebase(ctx context.Context, opts CodebaseOptions) (*CodebaseHealth
 	health := &CodebaseHealth{}
 
 	if opts.ForgeClient != nil {
+		health.ForgeAPI = true
 		prs, err := opts.ForgeClient.ListPullRequests(ctx, opts.ForgeInfo.Owner, opts.ForgeInfo.Repo, forge.ListPullRequestsOptions{
 			State:   "open",
 			PerPage: 100,
 		})
 		if err != nil {
 			log.Printf("[doctor] failed to list pull requests: %v", err)
+			health.ForgeAPI = false
 		} else {
 			health.PRs = analyzePRs(prs, opts.now())
 		}
@@ -90,6 +95,7 @@ func AnalyzeCodebase(ctx context.Context, opts CodebaseOptions) (*CodebaseHealth
 		})
 		if err != nil {
 			log.Printf("[doctor] failed to list issues: %v", err)
+			health.ForgeAPI = false
 		} else {
 			health.Issues = analyzeIssues(ctx, issues, opts.ForgeClient)
 		}
