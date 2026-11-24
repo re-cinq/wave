@@ -50,11 +50,6 @@ type RuntimeConfig struct {
 	PreserveWorkspace bool
 	Steps             string // Comma-separated step names to include (--steps)
 	Exclude           string // Comma-separated step names to exclude (-x/--exclude)
-	Continuous        bool   // --continuous flag
-	Source            string // --source URI for work item discovery
-	MaxIterations     int    // --max-iterations cap
-	Delay             string // --delay between iterations
-	OnFailure         string // --on-failure halt|skip
 	Detach            bool   // --detach flag for background execution
 	AutoApprove       bool   // --auto-approve flag for skipping approval gates
 	NoRetro           bool   // --no-retro flag to skip retrospective generation

@@ -314,8 +314,6 @@ func ResolveAdapterWithBinary(adapterName, binary string) AdapterRunner {
 		return NewCodexAdapter()
 	case name == "gemini":
 		return NewGeminiAdapter()
-	case name == "browser":
-		return NewBrowserAdapter()
 	default:
 		return NewProcessGroupRunner()
 	}

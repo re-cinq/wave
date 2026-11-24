@@ -21,7 +21,6 @@ func TestResolveAdapter_AllCases(t *testing.T) {
 		{"opencode", "opencode", "*adapter.OpenCodeAdapter"},
 		{"codex", "codex", "*adapter.CodexAdapter"},
 		{"gemini", "gemini", "*adapter.GeminiAdapter"},
-		{"browser", "browser", "*adapter.BrowserAdapter"},
 		{"default", "unknown-adapter", "*adapter.ProcessGroupRunner"},
 		{"empty string", "", "*adapter.ProcessGroupRunner"},
 	}
@@ -47,7 +46,6 @@ func TestResolveAdapter_CaseInsensitive(t *testing.T) {
 		{"OPENCODE", "*adapter.OpenCodeAdapter"},
 		{"CODEX", "*adapter.CodexAdapter"},
 		{"Gemini", "*adapter.GeminiAdapter"},
-		{"BROWSER", "*adapter.BrowserAdapter"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {

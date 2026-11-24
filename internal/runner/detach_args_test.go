@@ -28,11 +28,6 @@ func TestBuildDetachedArgsAllFlagsPresent(t *testing.T) {
 		PreserveWorkspace: true,
 		Steps:             "plan,implement",
 		Exclude:           "create-pr",
-		Continuous:        true,
-		Source:            "github:label=bug",
-		MaxIterations:     7,
-		Delay:             "30s",
-		OnFailure:         "skip",
 		AutoApprove:       true,
 		NoRetro:           true,
 	}
@@ -61,11 +56,6 @@ func TestBuildDetachedArgsAllFlagsPresent(t *testing.T) {
 
 	// Spot-check the six fields explicitly named in the bug report all
 	// appear with their expected values.
-	mustContainFlag(t, args, "--continuous")
-	mustContainPair(t, args, "--source", "github:label=bug")
-	mustContainPair(t, args, "--max-iterations", "7")
-	mustContainPair(t, args, "--delay", "30s")
-	mustContainPair(t, args, "--on-failure", "skip")
 	mustContainFlag(t, args, "--no-retro")
 }
 

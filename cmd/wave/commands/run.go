@@ -115,19 +115,13 @@ Model formats vary by adapter: claude uses "haiku"/"opus", opencode uses
 	cmd.Flags().BoolVar(&opts.PreserveWorkspace, "preserve-workspace", false, "Preserve workspace from previous run (for debugging)")
 	cmd.Flags().StringVar(&opts.Steps, "steps", "", "Run only the named steps (comma-separated)")
 	cmd.Flags().StringVarP(&opts.Exclude, "exclude", "x", "", "Skip the named steps (comma-separated)")
-	cmd.Flags().BoolVar(&opts.Continuous, "continuous", false, "Run pipeline in continuous mode, iterating over work items from --source")
-	cmd.Flags().StringVar(&opts.Source, "source", "", "Work item source URI (e.g., github:label=bug, file:queue.txt)")
-	cmd.Flags().IntVar(&opts.MaxIterations, "max-iterations", 0, "Maximum number of iterations (0 = unlimited)")
-	cmd.Flags().StringVar(&opts.Delay, "delay", "0s", "Delay between iterations (e.g., 5s, 1m)")
-	cmd.Flags().StringVar(&opts.OnFailure, "on-failure", "halt", "Failure policy: halt (default) or skip")
 	cmd.Flags().BoolVar(&opts.Detach, "detach", false, "Run pipeline as a detached background process")
 	cmd.Flags().BoolVar(&opts.AutoApprove, "auto-approve", false, "Auto-approve all approval gates using default choices (required for --detach with gates)")
 	cmd.Flags().BoolVar(&opts.NoRetro, "no-retro", false, "Skip retrospective generation for this run")
 
 	// Group flags by tier for organized --help output
 	essentialFlags := []string{"pipeline", "input", "model", "adapter"}
-	executionFlags := []string{"from-step", "force", "dry-run", "timeout", "steps", "exclude", "on-failure", "detach"}
-	continuousFlags := []string{"continuous", "source", "max-iterations", "delay"}
+	executionFlags := []string{"from-step", "force", "dry-run", "timeout", "steps", "exclude", "detach"}
 	devDebugFlags := []string{"mock", "preserve-workspace", "auto-approve", "no-retro", "force-model", "run", "manifest"}
 
 	cmd.SetUsageFunc(func(c *cobra.Command) error {
@@ -155,7 +149,6 @@ Model formats vary by adapter: claude uses "haiku"/"opus", opencode uses
 
 		printFlagGroup("Essential", essentialFlags)
 		printFlagGroup("Execution", executionFlags)
-		printFlagGroup("Continuous", continuousFlags)
 		printFlagGroup("Dev/Debug", devDebugFlags)
 
 		// Print inherited persistent flags so parent flags (--verbose, --debug, etc.) appear
@@ -221,12 +214,6 @@ func runRun(opts RunOptions, debug bool) error {
 	defer res.Close()
 	emitter := res.emitter
 	wsRoot := res.wsRoot
-	adapterRunner := res.runner
-	execOpts := res.execOpts
-
-	if opts.Continuous {
-		return runContinuous(ctx, opts, &m, p, store, adapterRunner, emitter, execOpts)
-	}
 
 	pipelineStart := time.Now()
 	executor, execErr := runOnce(ctx, res, opts)
@@ -371,4 +358,3 @@ func suggestPipelineFromInput(input string) string {
 func pipelinesDir() string {
 	return ".agents/pipelines"
 }
-

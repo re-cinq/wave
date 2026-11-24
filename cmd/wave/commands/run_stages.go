@@ -3,7 +3,7 @@ package commands
 // Stage helpers extracted from runRun. Each function corresponds to one
 // phase of pipeline execution (flag validation, signal wiring, manifest +
 // pipeline loading, state-store init, executor build, single-run vs
-// continuous dispatch, recovery formatting, post-run summary). runRun in
+// recovery formatting, post-run summary). runRun in
 // run.go is now a thin orchestrator that calls these in order; behaviour
 // is unchanged versus the pre-split version.
 
@@ -19,7 +19,6 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/audit"
-	"github.com/recinq/wave/internal/continuous"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/evolution"
@@ -48,20 +47,6 @@ func validateFlags(opts RunOptions) error {
 				"onboarding not complete",
 				"Run 'wave init' to complete setup before running pipelines")
 		}
-	}
-
-	// Validate mutual exclusion: --continuous and --from-step cannot be combined
-	if opts.Continuous && opts.FromStep != "" {
-		return NewCLIError(CodeInvalidArgs,
-			"--continuous and --from-step are mutually exclusive",
-			"Use --continuous for batch processing or --from-step for resuming a single run")
-	}
-
-	// Validate --continuous requires --source
-	if opts.Continuous && opts.Source == "" {
-		return NewCLIError(CodeInvalidArgs,
-			"--continuous requires --source",
-			"Specify a source URI, e.g., --source \"github:label=bug\" or --source \"file:queue.txt\"")
 	}
 
 	return nil
@@ -192,15 +177,15 @@ func resolveOrGenerateRunID(opts RunOptions, store state.StateStore, p *pipeline
 
 // runResources bundles every component the runRun execution path needs after
 // the executor is wired (executor, emitter, adapter runner, workspace root,
-// raw execOpts so continuous mode can clone them per iteration). Close runs
+// raw execOpts). Close runs
 // the cleanups for emitter, audit logger, and debug tracer in reverse order
 // so the caller can defer a single Close() instead of tracking each.
 type runResources struct {
-	emitter     event.EventEmitter
-	emitterAux  *EmitterResult
-	wsRoot      string
-	runner      adapter.AdapterRunner
-	execOpts    []pipeline.ExecutorOption
+	emitter    event.EventEmitter
+	emitterAux *EmitterResult
+	wsRoot     string
+	runner     adapter.AdapterRunner
+	execOpts   []pipeline.ExecutorOption
 	// Foreground carries the resolved ForegroundConfig for runOnce. The
 	// executor is built lazily inside runner.LaunchForeground rather than
 	// here so the CLI no longer reaches into pipeline.NewDefaultPipelineExecutor
@@ -465,89 +450,6 @@ func runOnce(ctx context.Context, res *runResources, opts RunOptions) (*pipeline
 	}
 	result := runner.LaunchForeground(ctx, cfg)
 	return result.Executor, result.ExecErr
-}
-
-// runContinuous drives the --continuous batch loop. Each work item from the
-// configured source spawns a fresh executor that clones execOpts and pins a
-// new run ID, so iterations stay independent in the dashboard. Returns
-// non-nil when the loop itself fails or any iteration fails (with a count).
-func runContinuous(ctx context.Context, opts RunOptions, m *manifest.Manifest, p *pipeline.Pipeline, store state.StateStore, runner adapter.AdapterRunner, emitter event.EventEmitter, execOpts []pipeline.ExecutorOption) error {
-	// Parse source URI
-	srcCfg, err := continuous.ParseSourceURI(opts.Source)
-	if err != nil {
-		return fmt.Errorf("invalid --source: %w", err)
-	}
-	src, err := continuous.NewSourceFromConfig(srcCfg)
-	if err != nil {
-		return fmt.Errorf("failed to create source: %w", err)
-	}
-
-	// Parse delay
-	delay, err := time.ParseDuration(opts.Delay)
-	if err != nil {
-		return fmt.Errorf("invalid --delay %q: %w", opts.Delay, err)
-	}
-
-	contRunner := &continuous.Runner{
-		Source:        src,
-		PipelineName:  p.Metadata.Name,
-		OnFailure:     continuous.ParseFailurePolicy(opts.OnFailure),
-		MaxIterations: opts.MaxIterations,
-		Delay:         delay,
-		Emitter:       emitter,
-		ExecutorFactory: func(input string) continuous.ExecutorFunc {
-			return func(execCtx context.Context, execInput string) (string, error) {
-				// Create a new run ID for each iteration
-				var iterRunID string
-				if store != nil {
-					iterRunID, _ = store.CreateRun(p.Metadata.Name, execInput)
-				}
-				if iterRunID == "" {
-					iterRunID = pipeline.GenerateRunID(p.Metadata.Name, m.Runtime.PipelineIDHashLength)
-				}
-
-				// Create a fresh executor for this iteration
-				iterOpts := make([]pipeline.ExecutorOption, len(execOpts))
-				copy(iterOpts, execOpts)
-				iterOpts = append(iterOpts, pipeline.WithRunID(iterRunID))
-
-				iterExecutor := pipeline.NewDefaultPipelineExecutor(runner, iterOpts...)
-				execErr := iterExecutor.Execute(execCtx, p, m, execInput)
-
-				// Update run status
-				if store != nil {
-					tokens := iterExecutor.GetTotalTokens()
-					if execErr != nil {
-						if updateErr := store.UpdateRunStatus(iterRunID, "failed", execErr.Error(), tokens); updateErr != nil {
-							fmt.Fprintf(os.Stderr, "warning: failed to update run status: %v\n", updateErr)
-						}
-					} else {
-						if updateErr := store.UpdateRunStatus(iterRunID, "completed", "", tokens); updateErr != nil {
-							fmt.Fprintf(os.Stderr, "warning: failed to update run status: %v\n", updateErr)
-						}
-					}
-				}
-
-				return iterRunID, execErr
-			}
-		},
-	}
-
-	summary, contErr := contRunner.Run(ctx)
-	if contErr != nil {
-		return fmt.Errorf("continuous run failed: %w", contErr)
-	}
-
-	// Print summary
-	if opts.Output.Format == OutputFormatAuto || opts.Output.Format == OutputFormatText {
-		fmt.Fprintf(os.Stderr, "\n  %s\n", summary.String())
-	}
-
-	// Exit code 1 if any failures
-	if summary.HasFailures() {
-		return fmt.Errorf("continuous run completed with %d failures", summary.Failed)
-	}
-	return nil
 }
 
 // formatRecoveryError classifies execErr, builds a recovery hint block, and
