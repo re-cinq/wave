@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -32,10 +33,19 @@ func NewNarrator(runner adapter.AdapterRunner, model string) *Narrator {
 func (n *Narrator) Narrate(ctx context.Context, runID string, pipeline string, quant *QuantitativeData) (*Narrative, error) {
 	prompt := n.buildPrompt(runID, pipeline, quant)
 
+	// Every adapter refuses to run without a workspace, and the narrator
+	// needs no files, so give it a throwaway directory.
+	workspace, err := os.MkdirTemp("", "wave-retro-")
+	if err != nil {
+		return nil, fmt.Errorf("narrator workspace: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(workspace) }()
+
 	cfg := adapter.AdapterRunConfig{
-		Prompt:  prompt,
-		Model:   n.model,
-		Timeout: n.timeout,
+		Prompt:        prompt,
+		Model:         n.model,
+		Timeout:       n.timeout,
+		WorkspacePath: workspace,
 	}
 
 	result, err := n.runner.Run(ctx, cfg)
