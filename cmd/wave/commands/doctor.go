@@ -457,21 +457,33 @@ func renderDoctorText(report *doctor.Report) {
 	}
 
 	if report.ForgeInfo != nil {
-		fmt.Fprintf(os.Stdout, "\nForge: %s (%s)\n", report.ForgeInfo.Type, report.ForgeInfo.Slug())
+		fmt.Fprintf(os.Stdout, "\n%s\n", forgeFooter(string(report.ForgeInfo.Type), report.ForgeInfo.Slug()))
 	}
 
 	if report.Codebase != nil {
 		cb := report.Codebase
 		fmt.Fprintln(os.Stdout, "\nCodebase:")
-		if cb.ForgeAPI {
+		switch {
+		case cb.ForgeAPI:
 			fmt.Fprintf(os.Stdout, "  PRs: %d open, %d needs review, %d stale\n",
 				cb.PRs.Open, cb.PRs.NeedsReview, cb.PRs.Stale)
 			fmt.Fprintf(os.Stdout, "  Issues: %d open, %d poor quality, %d unassigned\n",
 				cb.Issues.Open, cb.Issues.PoorQuality, cb.Issues.Unassigned)
-		} else {
+		case cb.ForgeAPIError != "":
+			fmt.Fprintf(os.Stdout, "  PRs, Issues: unknown (forge API request failed: %s)\n", cb.ForgeAPIError)
+		default:
 			fmt.Fprintln(os.Stdout, "  PRs, Issues: unknown (no forge API token; set GH_TOKEN or run 'gh auth login')")
 		}
 		fmt.Fprintf(os.Stdout, "  CI: %s (%d recent runs, %d failures)\n",
 			cb.CI.Status, cb.CI.RecentRuns, cb.CI.Failures)
 	}
+}
+
+// forgeFooter renders the "Forge:" line, omitting the slug when there is
+// none (local repositories used to print "Forge: local ()").
+func forgeFooter(forgeType, slug string) string {
+	if slug == "" {
+		return fmt.Sprintf("Forge: %s", forgeType)
+	}
+	return fmt.Sprintf("Forge: %s (%s)", forgeType, slug)
 }

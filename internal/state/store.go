@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/recinq/wave/internal/event"
@@ -242,7 +243,9 @@ func initializeWithMigrations(db *sql.DB, config *MigrationConfig) error {
 				}
 			}
 		} else {
-			// Fresh database - apply all migrations
+			// Fresh database - apply all migrations silently: creating the
+			// schema on the first run is not something the user acts on.
+			migrationManager.progress = io.Discard
 			maxVersion := config.GetMaxVersion()
 			if err := migrationManager.MigrateUp(allMigrations, maxVersion); err != nil {
 				return fmt.Errorf("failed to apply initial migrations: %w", err)

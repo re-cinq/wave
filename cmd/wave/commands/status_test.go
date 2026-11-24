@@ -489,3 +489,14 @@ func TestReconcileZombies_DeadPIDReaped(t *testing.T) {
 	reaped := state.ReconcileZombies(h.store, 0)
 	assert.Equal(t, 1, reaped, "dead PID should be reaped")
 }
+
+// Piped output (`wave status --all | less`) must not contain raw ANSI codes.
+func TestStatusCmd_NoColorWhenPiped(t *testing.T) {
+	orig := stdoutIsTerminal
+	defer func() { stdoutIsTerminal = orig }()
+	stdoutIsTerminal = func() bool { return false }
+	assert.Equal(t, "", conditionalColor("\033[32m"))
+	stdoutIsTerminal = func() bool { return true }
+	t.Setenv("NO_COLOR", "")
+	assert.Equal(t, "\033[32m", conditionalColor("\033[32m"))
+}

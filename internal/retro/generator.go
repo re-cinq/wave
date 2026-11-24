@@ -81,7 +81,8 @@ func (g *Generator) Generate(runID string, pipelineName string) {
 		return
 	}
 
-	log.Printf("[retro] quantitative retrospective saved for run %s", runID)
+	// Success is silent: a raw log line here used to land in the middle of
+	// the user's run output.
 
 	// Phase 2: Narrative generation (asynchronous, non-blocking)
 	if g.narrator != nil {

@@ -285,39 +285,67 @@ func BuildPersonaManifest(configs map[string]manifest.Persona, adapter string) m
 	return result
 }
 
+// ManifestOptions feeds BuildManifest.
+type ManifestOptions struct {
+	// Adapter is the single adapter written into adapters: and used by every
+	// persona. Empty defaults to claude.
+	Adapter string
+	// Model pins adapters.<Adapter>.default_model and every tier in
+	// tier_models. Empty uses DefaultModelFor(Adapter).
+	Model string
+	// Workspace is runtime.workspace_root.
+	Workspace string
+	// Project is attached as the project: block when non-empty.
+	Project map[string]interface{}
+	// PersonaConfigs are the personas written to the manifest.
+	PersonaConfigs map[string]manifest.Persona
+}
+
 // BuildDefaultManifest returns a fresh wave.yaml manifest as a generic map,
-// suitable for marshalling. The project map (typically derived from FlavourInfo)
-// is attached only when non-nil.
+// suitable for marshalling. It is BuildManifest with the adapter's default
+// model.
 func BuildDefaultManifest(adapter, workspace string, project map[string]interface{}, personaConfigs map[string]manifest.Persona) map[string]interface{} {
-	adapterProjectFiles := map[string][]string{
-		"claude":   {"AGENTS.md"},
-		"opencode": {"AGENTS.md"},
-		"gemini":   {"AGENTS.md"},
-		"codex":    {"AGENTS.md"},
+	return BuildManifest(ManifestOptions{
+		Adapter:        adapter,
+		Workspace:      workspace,
+		Project:        project,
+		PersonaConfigs: personaConfigs,
+	})
+}
+
+// BuildManifest returns a fresh wave.yaml manifest as a generic map. Only the
+// selected adapter is written, so `wave doctor` does not fail on adapters the
+// user never asked for, and its model is pinned for every complexity tier so
+// shipped pipelines (which use tier names) never resolve to an outdated
+// built-in default.
+func BuildManifest(o ManifestOptions) map[string]interface{} {
+	adapter := o.Adapter
+	if adapter == "" {
+		adapter = "claude"
+	}
+	model := o.Model
+	if model == "" {
+		model = DefaultModelFor(adapter)
 	}
 
-	adapterDefaults := map[string]string{
-		"claude":   "sonnet",
-		"opencode": "zai-coding-plan/glm-5-turbo",
-		"gemini":   "gemini-2.5-flash-lite",
-		"codex":    "o3",
+	entry := map[string]interface{}{
+		"binary":        adapter,
+		"mode":          "headless",
+		"output_format": "json",
+		"project_files": []string{"AGENTS.md"},
+		"default_permissions": map[string]interface{}{
+			"allowed_tools": []string{"Read", "Write", "Edit", "Bash"},
+			"deny":          []string{},
+		},
 	}
-
-	adapters := map[string]interface{}{}
-	for name, projectFiles := range adapterProjectFiles {
-		entry := map[string]interface{}{
-			"binary":        name,
-			"default_model": adapterDefaults[name],
-			"mode":          "headless",
-			"output_format": "json",
-			"project_files": projectFiles,
-			"default_permissions": map[string]interface{}{
-				"allowed_tools": []string{"Read", "Write", "Edit", "Bash"},
-				"deny":          []string{},
-			},
-		}
-		adapters[name] = entry
+	if model != "" {
+		entry["default_model"] = model
+		entry["tier_models"] = TierModelsFor(model)
 	}
+	adapters := map[string]interface{}{adapter: entry}
+	workspace := o.Workspace
+	project := o.Project
+	personaConfigs := o.PersonaConfigs
 
 	m := map[string]interface{}{
 		"apiVersion": "v1",
@@ -350,7 +378,7 @@ func BuildDefaultManifest(adapter, workspace string, project map[string]interfac
 		},
 	}
 
-	if project != nil {
+	if len(project) > 0 {
 		m["project"] = project
 	}
 

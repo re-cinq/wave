@@ -35,15 +35,17 @@ and detached execution (--detach) for background runs that survive shell exit.
 The --model flag overrides the adapter model for all steps in the run,
 including any per-persona model pinning in wave.yaml.
 
-The --adapter flag selects the LLM backend (claude, opencode, gemini, codex).
-Model formats vary by adapter: claude uses "haiku"/"opus", opencode uses
-"provider/model", gemini uses "gemini-2.0-pro", codex uses "gpt-4o".`,
+The --adapter flag selects the LLM backend (claude or codex; opencode and
+gemini also work when configured in wave.yaml). Model formats vary by
+adapter: claude uses short names or full IDs ("sonnet"), codex uses OpenAI
+model IDs ("gpt-6.2-sol"), opencode uses "provider/model", gemini uses plain
+names.`,
 		Example: `  wave run ops-pr-review "Review the authentication changes"
   wave run --pipeline impl-speckit --input "add user auth"
   wave run impl-issue --dry-run
   wave run migrate --from-step validate
-  wave run my-pipeline --model haiku
-  wave run my-pipeline --adapter opencode --model openai/gpt-4o
+  wave run my-pipeline --model sonnet
+  wave run my-pipeline --adapter codex --model gpt-6.2-sol
   wave run my-pipeline --preserve-workspace
   wave run --steps clarify,plan impl-speckit
   wave run -x implement,create-pr impl-speckit
@@ -82,12 +84,12 @@ Model formats vary by adapter: claude uses "haiku"/"opus", opencode uses
 	cmd.Flags().StringVar(&opts.FromStep, "from-step", "", "Start execution from specific step")
 	cmd.Flags().BoolVar(&opts.Force, "force", false, "Skip validation checks when using --from-step")
 	cmd.Flags().IntVar(&opts.Timeout, "timeout", 0, "Timeout in minutes (overrides manifest)")
-	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
+	cmd.Flags().StringVarP(&opts.Manifest, "manifest", "m", "wave.yaml", "Path to manifest file")
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
 	cmd.Flags().StringVar(&opts.RunID, "run", "", "Resume from a specific run (uses that run's input)")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Model for this run — tier name (cheapest/balanced/strongest) or literal (haiku/opus). Takes the cheaper of CLI and step tiers unless --force-model is set.")
 	cmd.Flags().BoolVar(&opts.ForceModel, "force-model", false, "Force --model on all steps, ignoring per-step and per-persona model tiers")
-	cmd.Flags().StringVar(&opts.Adapter, "adapter", "", "Override adapter for this run (e.g. claude, gemini, opencode, codex)")
+	cmd.Flags().StringVar(&opts.Adapter, "adapter", "", "Override adapter for this run (e.g. claude, codex)")
 	cmd.Flags().BoolVar(&opts.PreserveWorkspace, "preserve-workspace", false, "Preserve workspace from previous run (for debugging)")
 	cmd.Flags().StringVar(&opts.Steps, "steps", "", "Run only the named steps (comma-separated)")
 	cmd.Flags().StringVarP(&opts.Exclude, "exclude", "x", "", "Skip the named steps (comma-separated)")
@@ -155,6 +157,12 @@ func runRun(opts RunOptions, debug bool) error {
 
 	if opts.DryRun {
 		return performDryRun(p, &m, stepFilter, opts.Adapter)
+	}
+
+	if !opts.Mock {
+		if err := checkRunAdapters(p, &m, opts.Adapter); err != nil {
+			return err
+		}
 	}
 
 	// Detached mode: re-exec ourselves as a detached subprocess and return immediately.

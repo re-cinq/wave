@@ -40,3 +40,11 @@ func TestAllSubcommands_ShowPersistentFlags(t *testing.T) {
 		})
 	}
 }
+
+// Runtime errors are rendered once by main; cobra must not print the error
+// a second time or dump the usage block.
+func TestRootSilencesCobraErrorOutput(t *testing.T) {
+	if !rootCmd.SilenceUsage || !rootCmd.SilenceErrors {
+		t.Fatalf("rootCmd must set SilenceUsage and SilenceErrors (got %v, %v)", rootCmd.SilenceUsage, rootCmd.SilenceErrors)
+	}
+}

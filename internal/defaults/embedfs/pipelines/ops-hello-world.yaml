@@ -3,7 +3,8 @@ metadata:
   name: ops-hello-world
   description: >-
     Minimal smoke-test pipeline that validates Wave's core execution loop.
-    A single step writes a greeting file, validated by a non_empty_file contract.
+    Two steps: greet writes a greeting file (non_empty_file contract), then
+    verify checks it and writes a result validated by a json_schema contract.
   release: true
 
 input:

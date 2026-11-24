@@ -70,6 +70,11 @@ type StartOptions struct {
 	// Adapter is the default LLM adapter recorded in the generated
 	// manifest. CLI's --adapter flag and the webui form populate this.
 	Adapter string
+	// Model pins the adapter's default_model and tier_models. Empty uses
+	// DefaultModelFor(Adapter).
+	Model string
+	// Commands supplies or overrides the detected project commands.
+	Commands ProjectCommands
 	// Workspace is the workspace root recorded in the manifest's runtime
 	// section (e.g. ".agents/workspaces").
 	Workspace string
@@ -124,6 +129,8 @@ type Session struct {
 	// AssetSet is the discovered assets the manifest was built from.
 	// Nil until the session reaches SessionRunning.
 	Assets *AssetSet
+	// Result is the full scaffold result. Nil until the session is done.
+	Result *GreenfieldResult
 }
 
 // Status is a snapshot returned by Service.Status. Currently mirrors the

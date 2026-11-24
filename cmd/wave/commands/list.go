@@ -109,7 +109,7 @@ For 'list runs', additional flags are available:
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
+	cmd.Flags().StringVarP(&opts.Manifest, "manifest", "m", "wave.yaml", "Path to manifest file")
 	cmd.Flags().StringVar(&opts.Format, "format", "table", "Output format (table, json)")
 
 	cmd.Flags().IntVar(&listRunsLimit, "limit", 10, "Maximum number of runs to show (for 'list runs')")

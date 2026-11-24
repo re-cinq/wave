@@ -31,6 +31,9 @@ func newTestEnv(t *testing.T) *testEnv {
 	origDir, err := os.Getwd()
 	require.NoError(t, err, "failed to get current directory")
 
+	// Keep init non-interactive unless a test opts in with WAVE_FORCE_TTY=1.
+	t.Setenv("WAVE_FORCE_TTY", "0")
+
 	tmpDir := t.TempDir()
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err, "failed to change to temp directory")
@@ -51,7 +54,7 @@ func (e *testEnv) cleanup() {
 }
 
 // executeInitCmd runs the init command with given arguments and returns output/error.
-func executeInitCmd(args ...string) (stdout, stderr string, err error) { //nolint:unparam // kept for interface/future use
+func executeInitCmd(args ...string) (stdout, stderr string, err error) {
 	cmd := NewInitCmd()
 
 	var outBuf, errBuf bytes.Buffer
@@ -285,9 +288,9 @@ runtime:
 	_, hasCustom := adapters["custom-llm"]
 	assert.True(t, hasCustom, "custom adapter should be preserved")
 
-	// Default adapter added
+	// Merge keeps the adapter the project uses: no unrequested adapters
 	_, hasClaude := adapters["claude"]
-	assert.True(t, hasClaude, "default claude adapter should be added")
+	assert.False(t, hasClaude, "merge must not add adapters the project does not use")
 
 	// Custom persona preserved
 	personas, ok := manifest["personas"].(map[string]interface{})
@@ -350,9 +353,9 @@ runtime:
 	_, hasCustomAdapter := adapters["custom-adapter"]
 	assert.True(t, hasCustomAdapter, "custom adapter should be preserved")
 
-	// Check default adapter is added
+	// Merge keeps the adapter the project uses: no unrequested adapters
 	_, hasClaudeAdapter := adapters["claude"]
-	assert.True(t, hasClaudeAdapter, "default claude adapter should be added")
+	assert.False(t, hasClaudeAdapter, "merge must not add adapters the project does not use")
 
 	// Check custom persona is preserved
 	personas, ok := manifest["personas"].(map[string]interface{})
@@ -503,8 +506,9 @@ func TestInitAdapterFlag(t *testing.T) {
 	env := newTestEnv(t)
 	defer env.cleanup()
 
-	_, _, err := executeInitCmd("--adapter", "opencode")
+	stdout, _, err := executeInitCmd("--adapter", "codex")
 	require.NoError(t, err)
+	assert.Contains(t, stdout, "Adapter: codex (model gpt-6.2-sol for every tier)")
 
 	manifest, err := readYAML("wave.yaml")
 	require.NoError(t, err)
@@ -512,8 +516,51 @@ func TestInitAdapterFlag(t *testing.T) {
 	adapters, ok := manifest["adapters"].(map[string]interface{})
 	require.True(t, ok)
 
-	_, hasOpencode := adapters["opencode"]
-	assert.True(t, hasOpencode, "opencode adapter should be present")
+	// Only the selected adapter is written, pinned to gpt-6.2-sol for every
+	// tier (regression: codex defaulted to o3 and all four adapters were
+	// written, so wave doctor failed on a fresh project).
+	require.Len(t, adapters, 1, "only the selected adapter should be written")
+	codex, ok := adapters["codex"].(map[string]interface{})
+	require.True(t, ok, "codex adapter should be present")
+	assert.Equal(t, "gpt-6.2-sol", codex["default_model"])
+	assert.Equal(t, map[string]interface{}{
+		"cheapest": "gpt-6.2-sol", "balanced": "gpt-6.2-sol", "strongest": "gpt-6.2-sol",
+	}, codex["tier_models"])
+
+	personas := manifest["personas"].(map[string]interface{})
+	for name, p := range personas {
+		assert.Equal(t, "codex", p.(map[string]interface{})["adapter"], "persona %s", name)
+	}
+}
+
+// TestInitRejectsUnsupportedAdapter: init only scaffolds claude or codex;
+// local/third-party adapters must not be written silently.
+func TestInitRejectsUnsupportedAdapter(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	for _, a := range []string{"bogus", "opencode", "gemini"} {
+		_, _, err := executeInitCmd("--adapter", a, "--yes")
+		require.Error(t, err, a)
+		assert.Contains(t, err.Error(), "unsupported adapter")
+		assert.False(t, fileExists("wave.yaml"), "no manifest for %s", a)
+	}
+}
+
+// TestInitModelFlag pins the given model for every tier of the adapter.
+func TestInitModelFlag(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+
+	_, _, err := executeInitCmd("--adapter", "claude", "--model", "claude-sonnet-4-5", "--yes")
+	require.NoError(t, err)
+
+	manifest, err := readYAML("wave.yaml")
+	require.NoError(t, err)
+	claude := manifest["adapters"].(map[string]interface{})["claude"].(map[string]interface{})
+	assert.Equal(t, "claude-sonnet-4-5", claude["default_model"])
+	assert.Equal(t, "claude-sonnet-4-5", claude["tier_models"].(map[string]interface{})["cheapest"])
+	assert.Equal(t, "claude-sonnet-4-5", claude["tier_models"].(map[string]interface{})["strongest"])
 }
 
 // TestInitOutputValidatesWithWaveValidate tests that init output passes wave validate.
@@ -1036,12 +1083,12 @@ func TestDetectProject(t *testing.T) {
 			name: "bun project",
 			files: map[string]string{
 				"bun.lockb":     "",
-				"package.json":  "{}",
+				"package.json":  `{"scripts":{"test":"t","lint":"l","build":"b"}}`,
 				"tsconfig.json": "{}",
 			},
 			wantLanguage: "typescript",
-			wantTestCmd:  "bun test",
-			wantLintCmd:  "bun lint",
+			wantTestCmd:  "bun run test",
+			wantLintCmd:  "bun run lint",
 			wantBuildCmd: "bun run build",
 		},
 		{
@@ -1059,7 +1106,7 @@ func TestDetectProject(t *testing.T) {
 		{
 			name: "typescript node project",
 			files: map[string]string{
-				"package.json":  "{}",
+				"package.json":  `{"scripts":{"test":"t","lint":"l","build":"b"}}`,
 				"tsconfig.json": "{}",
 			},
 			wantLanguage: "typescript",
@@ -1070,7 +1117,7 @@ func TestDetectProject(t *testing.T) {
 		{
 			name: "javascript node project",
 			files: map[string]string{
-				"package.json": "{}",
+				"package.json": `{"scripts":{"test":"t","lint":"l","build":"b"}}`,
 			},
 			wantLanguage: "javascript",
 			wantTestCmd:  "npm test",
@@ -1079,7 +1126,7 @@ func TestDetectProject(t *testing.T) {
 		{
 			name: "pnpm project",
 			files: map[string]string{
-				"package.json":   "{}",
+				"package.json":   `{"scripts":{"test":"t","lint":"l","build":"b"}}`,
 				"pnpm-lock.yaml": "",
 				"tsconfig.json":  "{}",
 			},
@@ -1090,7 +1137,7 @@ func TestDetectProject(t *testing.T) {
 		{
 			name: "yarn project",
 			files: map[string]string{
-				"package.json": "{}",
+				"package.json": `{"scripts":{"test":"t","lint":"l","build":"b"}}`,
 				"yarn.lock":    "",
 			},
 			wantLanguage: "javascript",

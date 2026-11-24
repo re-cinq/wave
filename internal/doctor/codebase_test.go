@@ -179,3 +179,29 @@ func TestAnalyzeCodebase_NoClientMarksCountsUnknown(t *testing.T) {
 		t.Error("ForgeAPI must be false without a forge client")
 	}
 }
+
+// A failing forge request is reported in the result instead of a raw log
+// line, so doctor does not blame a missing token for e.g. a 404.
+func TestAnalyzeCodebase_ForgeErrorIsReported(t *testing.T) {
+	server := httptest.NewServer(http.NotFoundHandler())
+	defer server.Close()
+	client := github.NewClient(github.ClientConfig{BaseURL: server.URL, Token: "test-token"})
+	forgeClient, err := forge.NewGitHubClient(client)
+	if err != nil {
+		t.Fatalf("NewGitHubClient: %v", err)
+	}
+	result, err := AnalyzeCodebase(context.Background(), CodebaseOptions{
+		ForgeInfo:   forge.ForgeInfo{Type: forge.ForgeGitHub, Owner: "acme", Repo: "missing"},
+		ForgeClient: forgeClient,
+		RunGHCmd:    func(args ...string) ([]byte, error) { return []byte("[]"), nil },
+	})
+	if err != nil || result == nil {
+		t.Fatalf("AnalyzeCodebase = %v, %v", result, err)
+	}
+	if result.ForgeAPI {
+		t.Error("ForgeAPI must be false when the request failed")
+	}
+	if result.ForgeAPIError == "" {
+		t.Error("ForgeAPIError must carry the request failure")
+	}
+}

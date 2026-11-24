@@ -62,7 +62,7 @@ Use --list to see available fork points (completed steps with checkpoints).`,
 	cmd.Flags().BoolVar(&opts.AllowFailed, "allow-failed", false, "Allow forking non-completed (failed/cancelled) runs")
 	cmd.Flags().StringVar(&opts.Input, "input", "", "Override input for the forked run")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for the forked run")
-	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
+	cmd.Flags().StringVarP(&opts.Manifest, "manifest", "m", "wave.yaml", "Path to manifest file")
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
 
 	return cmd

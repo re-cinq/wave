@@ -701,3 +701,22 @@ func TestSourceGlobForLanguage(t *testing.T) {
 		}
 	}
 }
+
+// A TypeScript project with as many .js as .ts files must not be flipped to
+// javascript right after `wave init` configured it as typescript.
+func TestOptimize_LanguageTieKeepsConfigured(t *testing.T) {
+	profile := &ProjectProfile{
+		Languages: []LanguageInfo{
+			{Name: "JavaScript", Extensions: []string{".js", ".jsx"}, FileCount: 1, Percentage: 50},
+			{Name: "TypeScript", Extensions: []string{".ts", ".tsx"}, FileCount: 1, Percentage: 50},
+		},
+	}
+	current := &manifest.Project{Language: "typescript", SourceGlob: "*.{js,jsx,ts,tsx}"}
+
+	result := Optimize(profile, current, nil, nil)
+	for _, c := range result.ProjectChanges {
+		if c.Field == "project.language" || c.Field == "project.source_glob" {
+			t.Errorf("unexpected change on tie: %s %q -> %q", c.Field, c.Current, c.Proposed)
+		}
+	}
+}

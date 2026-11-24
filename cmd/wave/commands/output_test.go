@@ -347,3 +347,25 @@ func TestResolveFormat_OutputTextMapsToTable(t *testing.T) {
 	result := ResolveFormat(root, "json")
 	assert.Equal(t, "table", result)
 }
+
+// `wave init --output config.yaml` used to be accepted silently and write
+// wave.yaml; unknown output formats must be rejected.
+func TestResolveOutputConfig_RejectsUnknownFormat(t *testing.T) {
+	root := &cobra.Command{Use: "wave"}
+	root.PersistentFlags().Bool("json", false, "")
+	root.PersistentFlags().Bool("quiet", false, "")
+	root.PersistentFlags().Bool("no-color", false, "")
+	root.PersistentFlags().StringP("output", "o", "auto", "")
+	root.PersistentFlags().BoolP("verbose", "v", false, "")
+	root.PersistentFlags().BoolP("debug", "d", false, "")
+	root.PersistentFlags().Bool("no-tui", false, "")
+
+	_ = root.PersistentFlags().Set("output", "config.yaml")
+
+	_, err := ResolveOutputConfig(root)
+	require.Error(t, err)
+	var cliErr *CLIError
+	require.ErrorAs(t, err, &cliErr)
+	assert.Equal(t, CodeInvalidArgs, cliErr.Code)
+	assert.Contains(t, cliErr.Message+cliErr.Suggestion, "--manifest-path")
+}

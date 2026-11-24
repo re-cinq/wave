@@ -1,8 +1,10 @@
 package onboarding
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // FlavourInfo holds detected project flavour metadata.
@@ -572,6 +574,9 @@ func DetectFlavour(dir string) *FlavourInfo {
 				if markerExists(dir, "tsconfig.json") {
 					info.Language = "typescript"
 				}
+				refineNodeCommands(dir, &info)
+			case "python":
+				refinePythonCommands(dir, &info)
 			}
 
 			return &info
@@ -593,4 +598,69 @@ func matchesRule(dir string, rule FlavourRule) bool {
 		}
 	}
 	return true
+}
+
+// refineNodeCommands replaces the template commands of a Node/Bun flavour
+// with the scripts package.json actually defines, so init never writes a
+// command such as `npm run format` for a script that does not exist. When
+// package.json cannot be parsed the template is kept.
+func refineNodeCommands(dir string, info *FlavourInfo) {
+	data, err := os.ReadFile(filepath.Join(dir, "package.json"))
+	if err != nil {
+		return
+	}
+	var pkg struct {
+		Scripts map[string]string `json:"scripts"`
+	}
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return
+	}
+
+	run := func(script string) string {
+		switch info.Flavour {
+		case "node-yarn":
+			return "yarn " + script
+		case "node-pnpm":
+			return "pnpm " + script
+		case "bun":
+			return "bun run " + script
+		default:
+			if script == "test" {
+				return "npm test"
+			}
+			return "npm run " + script
+		}
+	}
+	pick := func(names ...string) string {
+		for _, n := range names {
+			if _, ok := pkg.Scripts[n]; ok {
+				return run(n)
+			}
+		}
+		return ""
+	}
+
+	info.TestCommand = pick("test")
+	if info.TestCommand == "" && info.Flavour == "bun" {
+		info.TestCommand = "bun test" // bun ships a test runner
+	}
+	info.LintCommand = pick("lint")
+	info.BuildCommand = pick("build")
+	info.FormatCommand = pick("format:check", "format")
+}
+
+// refinePythonCommands only keeps ruff-based lint/format commands when the
+// project actually configures ruff.
+func refinePythonCommands(dir string, info *FlavourInfo) {
+	usesRuff := markerExists(dir, "ruff.toml") || markerExists(dir, ".ruff.toml")
+	if !usesRuff {
+		if data, err := os.ReadFile(filepath.Join(dir, "pyproject.toml")); err == nil {
+			content := string(data)
+			usesRuff = strings.Contains(content, "[tool.ruff") || strings.Contains(content, "\"ruff")
+		}
+	}
+	if !usesRuff {
+		info.LintCommand = ""
+		info.FormatCommand = ""
+	}
 }
