@@ -72,15 +72,16 @@ func ClassifyFailure(subtype string, resultContent string, ctxErr error) string 
 	if subtype == "error_max_turns" {
 		return FailureReasonContextExhaustion
 	}
-	if strings.Contains(strings.ToLower(resultContent), "prompt is too long") {
+	lower := strings.ToLower(resultContent)
+	if strings.Contains(lower, "prompt is too long") ||
+		strings.Contains(lower, "context size has been exceeded") {
 		return FailureReasonContextExhaustion
 	}
-	lowerContent := strings.ToLower(resultContent)
-	if strings.Contains(lowerContent, "you've hit your limit") ||
-		strings.Contains(lowerContent, "rate limit exceeded") ||
-		strings.Contains(lowerContent, "rate limit reached") ||
-		strings.Contains(lowerContent, "rate limited") ||
-		strings.Contains(lowerContent, "too many requests") {
+	if strings.Contains(lower, "you've hit your limit") ||
+		strings.Contains(lower, "rate limit exceeded") ||
+		strings.Contains(lower, "rate limit reached") ||
+		strings.Contains(lower, "rate limited") ||
+		strings.Contains(lower, "too many requests") {
 		return FailureReasonRateLimit
 	}
 	return FailureReasonGeneralError

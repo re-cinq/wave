@@ -457,6 +457,9 @@ type parseOutputResult struct {
 	Artifacts     []string
 	ResultContent string
 	Subtype       string // Result event subtype: "success", "error_max_turns", "error_during_execution"
+	// ErrorMessage is set when the CLI reported a terminal error in its event
+	// stream while still exiting 0 (opencode does this).
+	ErrorMessage string
 }
 
 func (a *ClaudeAdapter) parseOutput(data []byte) parseOutputResult {
