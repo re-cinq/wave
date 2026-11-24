@@ -659,7 +659,9 @@ func changedFilesViaGit(workspacePath string) []string {
 	if err != nil {
 		return nil
 	}
-	var files []string
+	// Non-nil even when nothing changed: nil tells the caller this is not a
+	// git tree, and its WalkDir fallback would flag the whole checkout.
+	files := []string{}
 	for _, line := range strings.Split(string(out), "\n") {
 		if len(line) < 4 {
 			continue
