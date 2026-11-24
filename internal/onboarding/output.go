@@ -66,7 +66,7 @@ func PrintMergeSuccess(out io.Writer, outputPath string) {
 // detected flavour.
 func SuggestFirstRun(w io.Writer, flavour *FlavourInfo) {
 	if flavour == nil || flavour.SourceGlob == "" {
-		fmt.Fprintf(w, "  Suggestion: Run 'wave run ops-bootstrap' to scaffold your project\n")
+		fmt.Fprintf(w, "  Suggestion: Run 'wave meta \"<task>\"' to generate a pipeline for your project\n")
 		return
 	}
 

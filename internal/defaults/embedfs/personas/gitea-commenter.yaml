@@ -1,6 +1,0 @@
-description: "Posts comments on Gitea issues and pull requests"
-temperature: 0.2
-permissions:
-  allowed_tools:
-    - "*"
-  deny: []

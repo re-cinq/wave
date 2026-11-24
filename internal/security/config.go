@@ -76,7 +76,7 @@ func DefaultSecurityConfig() *SecurityConfig {
 			PromptInjectionPatterns: []string{
 				`(?i)ignore.*previous.*instructions?`,
 				`(?i)system.*prompt`,
-				`(?i)you.*are.*now`,
+				`(?i)\byou\s+are\s+now\b`,
 				`(?i)disregard.*above`,
 				`(?i)forget.*instructions?`,
 				`(?i)new.*instructions?`,

@@ -785,3 +785,30 @@ func TestStatus_String(t *testing.T) {
 		}
 	}
 }
+
+// TestRunChecks_BuildsForgeClient verifies that RunChecks creates the forge
+// client through NewForgeClient when none is given, so codebase counts come
+// from the forge instead of defaulting to zero.
+func TestRunChecks_BuildsForgeClient(t *testing.T) {
+	tmp := t.TempDir()
+	manifestPath := filepath.Join(tmp, "wave.yaml")
+	_ = os.WriteFile(manifestPath, []byte("apiVersion: v1\nkind: WaveManifest\nmetadata:\n  name: t\nadapters:\n  claude:\n    binary: echo\n    mode: headless\nruntime:\n  workspace_root: .agents/workspaces\n"), 0644)
+	fi := forge.ForgeInfo{Type: forge.ForgeGitHub, Host: "github.com", Owner: "test", Repo: "repo", CLITool: "gh"}
+
+	var built forge.ForgeInfo
+	_, err := RunChecks(context.Background(), Options{
+		ManifestPath:   manifestPath,
+		WaveDir:        tmp,
+		PipelinesDir:   filepath.Join(tmp, "pipelines"),
+		LookPath:       func(file string) (string, error) { return "/usr/bin/" + file, nil },
+		RunCmd:         func(name string, args ...string) error { return nil },
+		DetectForge:    func() (forge.ForgeInfo, error) { return fi, nil },
+		NewForgeClient: func(info forge.ForgeInfo) (forge.Client, error) { built = info; return nil, nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if built.Slug() != "test/repo" {
+		t.Errorf("NewForgeClient called with %+v, want the detected forge", built)
+	}
+}

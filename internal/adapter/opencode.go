@@ -50,13 +50,32 @@ func (a *OpenCodeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapt
 	}
 
 	args := a.buildArgs(cfg)
-	return runSubprocess(ctx, a.opencodePath, args, workspacePath, cfg, parseOpenCodeStreamLine, a.parseOutput)
+	var errMsg string
+	parse := func(data []byte) parseOutputResult {
+		parsed := a.parseOutput(data)
+		errMsg = parsed.ErrorMessage
+		return parsed
+	}
+	result, err := runSubprocess(ctx, a.opencodePath, args, workspacePath, cfg, parseOpenCodeStreamLine, parse)
+	if err != nil {
+		return nil, err
+	}
+	// opencode exits 0 even when the session aborts (unknown model, context
+	// overflow, provider errors) and only reports it as an "error" event.
+	// Treat that as a failed run so contracts and retries see it.
+	if errMsg != "" {
+		subtype := "error_during_execution"
+		return nil, NewStepError(ClassifyFailure(subtype, errMsg, nil), fmt.Errorf("opencode: %s", errMsg), result.TokensUsed, subtype)
+	}
+	return result, nil
 }
 
 func (a *OpenCodeAdapter) parseOutput(data []byte) parseOutputResult {
 	var tokens int
 	var resultContent string
 	var subtype string
+	var errorMessage string
+	var lastText string
 
 	lines := bytes.Split(data, []byte("\n"))
 	for _, line := range lines {
@@ -73,6 +92,26 @@ func (a *OpenCodeAdapter) parseOutput(data []byte) parseOutputResult {
 		var eventType string
 		if raw, ok := obj["type"]; ok {
 			_ = json.Unmarshal(raw, &eventType)
+		}
+
+		if eventType == "error" {
+			var evt struct {
+				Error struct {
+					Name string `json:"name"`
+					Data struct {
+						Message string `json:"message"`
+					} `json:"data"`
+				} `json:"error"`
+			}
+			if err := json.Unmarshal(line, &evt); err == nil {
+				errorMessage = strings.Trim(evt.Error.Data.Message, `"`)
+				if errorMessage == "" {
+					errorMessage = evt.Error.Name
+				}
+				if errorMessage == "" {
+					errorMessage = "unknown error"
+				}
+			}
 		}
 
 		if eventType == "step_finish" {
@@ -113,7 +152,9 @@ func (a *OpenCodeAdapter) parseOutput(data []byte) parseOutputResult {
 			}
 		}
 
-		if eventType == "text" && resultContent == "" {
+		// Keep the last text part: models narrate before tool calls ("I'll
+		// look at X first"), and only the final message is the answer.
+		if eventType == "text" {
 			var evt struct {
 				Part struct {
 					Text string `json:"text"`
@@ -127,12 +168,16 @@ func (a *OpenCodeAdapter) parseOutput(data []byte) parseOutputResult {
 			}
 			if err := json.Unmarshal(line, &evt); err == nil {
 				if evt.Part.Text != "" {
-					resultContent = evt.Part.Text
+					lastText = evt.Part.Text
 				} else if len(evt.Message.Content) > 0 && evt.Message.Content[0].Text != "" {
-					resultContent = evt.Message.Content[0].Text
+					lastText = evt.Message.Content[0].Text
 				}
 			}
 		}
+	}
+
+	if resultContent == "" {
+		resultContent = lastText
 	}
 
 	if tokens == 0 {
@@ -143,6 +188,7 @@ func (a *OpenCodeAdapter) parseOutput(data []byte) parseOutputResult {
 		Tokens:        tokens,
 		ResultContent: resultContent,
 		Subtype:       subtype,
+		ErrorMessage:  errorMessage,
 	}
 }
 
@@ -173,13 +219,18 @@ func parseOpenCodeStreamLine(line []byte) (StreamEvent, bool) {
 					}
 					return StreamEvent{}, false
 
-				case "tool", "tool_call":
+				case "tool", "tool_call", "tool_use":
+					// opencode >= 1.x emits "tool_use" with the arguments under
+					// part.state.input as an object; older builds sent
+					// part.input as a plain string.
 					var evt struct {
 						Part struct {
-							Type  string `json:"type"`
-							Tool  string `json:"tool"`
-							Input string `json:"input"`
-							Name  string `json:"name"`
+							Tool  string          `json:"tool"`
+							Name  string          `json:"name"`
+							Input json.RawMessage `json:"input"`
+							State struct {
+								Input json.RawMessage `json:"input"`
+							} `json:"state"`
 						} `json:"part"`
 					}
 					if err := json.Unmarshal(line, &evt); err == nil {
@@ -188,7 +239,12 @@ func parseOpenCodeStreamLine(line []byte) (StreamEvent, bool) {
 							toolName = evt.Part.Name
 						}
 						if toolName != "" {
-							input := evt.Part.Input
+							var input string
+							if len(evt.Part.State.Input) > 0 {
+								input = extractToolTarget(toolName, evt.Part.State.Input)
+							} else if err := json.Unmarshal(evt.Part.Input, &input); err != nil {
+								input = extractToolTarget(toolName, evt.Part.Input)
+							}
 							if len(input) > 100 {
 								input = input[:100]
 							}
@@ -314,8 +370,6 @@ func ResolveAdapterWithBinary(adapterName, binary string) AdapterRunner {
 		return NewCodexAdapter()
 	case name == "gemini":
 		return NewGeminiAdapter()
-	case name == "browser":
-		return NewBrowserAdapter()
 	default:
 		return NewProcessGroupRunner()
 	}

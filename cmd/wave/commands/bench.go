@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/bench"
@@ -44,32 +45,44 @@ Subcommands:
 
 func newBenchRunCmd() *cobra.Command {
 	var (
-		dataset        string
-		pipeline       string
-		mode           string
-		label          string
-		limit          int
-		timeout        int
-		concurrency    int
-		offset         int
-		outputPath     string
-		datasetsDir    string
-		keepWorkspaces bool
+		dataset         string
+		pipeline        string
+		mode            string
+		adapterName     string
+		model           string
+		label           string
+		limit           int
+		timeout         int
+		concurrency     int
+		offset          int
+		outputPath      string
+		predictionsPath string
+		modelName       string
+		datasetsDir     string
+		workDir         string
+		keepWorkspaces  bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run a pipeline against benchmark tasks",
-		Long: `Execute a Wave pipeline against each task in a JSONL benchmark dataset.
-Results are written to a JSON file. Use --concurrency to run tasks in parallel.
+		Long: `Execute a Wave pipeline against each task in a JSONL benchmark dataset
+(SWE-bench format). Each task gets a fresh worktree of its repository at the
+base commit; the pipeline must declare an output artifact named "patch" with
+the diff of its changes. The task's test patch is never shown to the solver.
+
+Tasks without a test_cmd (all SWE-bench tasks) end as "patched", not "pass":
+write --predictions-path, evaluate it with the official SWE-bench harness and
+import the verdicts with 'wave bench report --harness-report'.
 
 Use --mode to select execution mode:
   wave    Run tasks through a Wave pipeline (default)
-  claude  Run tasks through standalone Claude Code`,
-		Example: `  wave bench run --dataset swe-bench-lite.jsonl --pipeline bench-solve
-  wave bench run --dataset tasks.jsonl --pipeline bench-solve --limit 10
-  wave bench run --dataset tasks.jsonl --mode claude --label baseline-v1
-  wave bench run --dataset tasks.jsonl --pipeline bench-solve --results-path results.json`,
+  claude  Run tasks through standalone Claude Code (baseline)`,
+		Example: `  wave bench run --dataset swe-bench-lite.jsonl --pipeline bench-solve --limit 10
+  wave bench run --dataset tasks.jsonl --pipeline bench-solve --adapter codex --model gpt-6.2-sol
+  wave bench run --dataset tasks.jsonl --pipeline bench-solve --adapter claude --model sonnet \
+    --results-path results.json --predictions-path predictions.jsonl
+  wave bench run --dataset tasks.jsonl --mode claude --label baseline-v1`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			cmd.SilenceErrors = true
@@ -86,14 +99,13 @@ Use --mode to select execution mode:
 			if pipeline == "" && mode != bench.ModeClaude {
 				return NewCLIError(CodeInvalidArgs, "--pipeline is required (unless --mode=claude)", "Specify a pipeline with --pipeline <name>")
 			}
+			if mode == bench.ModeClaude && adapterName != "" && adapterName != "claude" {
+				return NewCLIError(CodeInvalidArgs, "--adapter cannot be combined with --mode=claude", "Drop --adapter or use --mode wave")
+			}
 
 			// Resolve dataset path
 			datasetPath := dataset
 			if !filepath.IsAbs(datasetPath) {
-				// Check in datasets directory first
-				if datasetsDir == "" {
-					datasetsDir = ".agents/bench/datasets"
-				}
 				candidate := filepath.Join(datasetsDir, datasetPath)
 				if _, err := os.Stat(candidate); err == nil {
 					datasetPath = candidate
@@ -110,10 +122,12 @@ Use --mode to select execution mode:
 			cfg := bench.RunConfig{
 				Pipeline:       pipeline,
 				Mode:           mode,
+				Adapter:        adapterName,
+				Model:          model,
 				RunLabel:       label,
 				Limit:          limit,
 				DatasetPath:    datasetPath,
-				WorkDir:        ".agents/bench/workspaces",
+				WorkDir:        workDir,
 				KeepWorkspaces: keepWorkspaces,
 				Concurrency:    concurrency,
 				Offset:         offset,
@@ -125,40 +139,41 @@ Use --mode to select execution mode:
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer stop()
 
-			cacheDir := filepath.Join(".agents/bench/workspaces", "repos")
-			runner := bench.NewSubprocessRunner(cacheDir)
+			runner := bench.NewSubprocessRunner(filepath.Join(workDir, "repos"))
 			report, err := bench.RunBenchmark(ctx, tasks, cfg, runner)
 			if err != nil && report == nil {
 				return NewCLIError(CodeInternalError, fmt.Sprintf("benchmark failed: %s", err), "Check adapter availability and task configuration").WithCause(err)
 			}
 
-			// Determine output format
-			format := ResolveFormat(cmd, "text")
-			outputCfg := GetOutputConfig(cmd)
-			if outputCfg.Format == OutputFormatJSON {
-				format = "json"
-			}
+			format := benchFormat(cmd)
 
-			// Write results file if requested
 			if outputPath != "" {
 				if err := writeReportFile(report, outputPath); err != nil {
 					return NewCLIError(CodeInternalError, fmt.Sprintf("write results: %s", err), "Check write permissions for the output path").WithCause(err)
 				}
 				fmt.Fprintf(os.Stderr, "Results written to %s\n", outputPath)
 			}
+			if predictionsPath != "" {
+				name := modelName
+				if name == "" {
+					name = defaultModelName(report)
+				}
+				if err := bench.WritePredictions(predictionsPath, bench.Predictions(report, name)); err != nil {
+					return NewCLIError(CodeInternalError, fmt.Sprintf("write predictions: %s", err), "Check write permissions for the predictions path").WithCause(err)
+				}
+				fmt.Fprintf(os.Stderr, "SWE-bench predictions written to %s\n", predictionsPath)
+			}
 
-			switch format {
-			case "json":
-				return renderBenchReportJSON(report)
-			default:
+			if format == "json" {
+				if err := renderBenchReportJSON(report); err != nil {
+					return err
+				}
+			} else {
 				renderBenchReportText(report)
 			}
 
 			if report.Errors > 0 {
-				os.Exit(2)
-			}
-			if report.Failed > 0 {
-				os.Exit(1)
+				return NewCLIError(CodeInternalError, fmt.Sprintf("%d of %d task(s) errored", report.Errors, report.Total), "Inspect each task's log_path in the results file")
 			}
 			return nil
 		},
@@ -167,11 +182,16 @@ Use --mode to select execution mode:
 	cmd.Flags().StringVar(&dataset, "dataset", "", "Path to JSONL dataset file")
 	cmd.Flags().StringVar(&pipeline, "pipeline", "", "Pipeline name to execute per task")
 	cmd.Flags().StringVar(&mode, "mode", "", "Execution mode: wave (default) or claude")
+	cmd.Flags().StringVar(&adapterName, "adapter", "", "Adapter passed to 'wave init' and 'wave run' (e.g. claude, codex)")
+	cmd.Flags().StringVar(&model, "model", "", "Model forced onto every step (claude mode: passed to claude --model)")
 	cmd.Flags().StringVar(&label, "label", "", "Human-readable label for this run")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum number of tasks to run (0 = all)")
 	cmd.Flags().IntVar(&timeout, "timeout", 0, "Per-task timeout in seconds (0 = no limit)")
 	cmd.Flags().StringVar(&outputPath, "results-path", "", "Path to write JSON results file")
+	cmd.Flags().StringVar(&predictionsPath, "predictions-path", "", "Path to write SWE-bench predictions (JSONL) for the official harness")
+	cmd.Flags().StringVar(&modelName, "model-name", "", "model_name_or_path for predictions (default: label or wave-<pipeline>-<adapter>-<model>)")
 	cmd.Flags().StringVar(&datasetsDir, "datasets-dir", ".agents/bench/datasets", "Directory to search for dataset files")
+	cmd.Flags().StringVar(&workDir, "work-dir", ".agents/bench/workspaces", "Directory for task worktrees, logs and the repo cache")
 	cmd.Flags().BoolVar(&keepWorkspaces, "keep-workspaces", false, "Preserve task worktrees after completion")
 	cmd.Flags().IntVar(&concurrency, "concurrency", 1, "Number of tasks to run in parallel")
 	cmd.Flags().IntVar(&offset, "offset", 0, "Skip the first N tasks in the dataset")
@@ -179,14 +199,42 @@ Use --mode to select execution mode:
 	return cmd
 }
 
+// defaultModelName builds a model_name_or_path for SWE-bench predictions.
+func defaultModelName(r *bench.BenchReport) string {
+	if r.RunLabel != "" {
+		return r.RunLabel
+	}
+	parts := []string{r.Mode}
+	for _, p := range []string{r.Pipeline, r.Adapter, r.Model} {
+		if p != "" {
+			parts = append(parts, p)
+		}
+	}
+	return strings.Join(parts, "-")
+}
+
+func benchFormat(cmd *cobra.Command) string {
+	format := ResolveFormat(cmd, "text")
+	if GetOutputConfig(cmd).Format == OutputFormatJSON {
+		format = "json"
+	}
+	return format
+}
+
 func newBenchReportCmd() *cobra.Command {
-	var resultsPath string
+	var resultsPath, harnessReport, outPath string
 
 	cmd := &cobra.Command{
 		Use:   "report",
 		Short: "Generate a summary from benchmark results",
-		Long:  `Read a JSON results file from a previous bench run and display a summary.`,
+		Long: `Read a JSON results file from a previous bench run and display a summary.
+
+With --harness-report, per-task verdicts from the official SWE-bench harness
+summary (<model>.<run_id>.json) are applied first: resolved -> pass,
+unresolved or empty patch -> fail, harness error or not evaluated -> error.
+Use --out to save the evaluated results for 'wave bench compare'.`,
 		Example: `  wave bench report --results results.json
+  wave bench report --results results.json --harness-report wave.r1.json --out evaluated.json
   wave bench report --results results.json --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
@@ -196,36 +244,35 @@ func newBenchReportCmd() *cobra.Command {
 				return NewCLIError(CodeInvalidArgs, "--results is required", "Specify a results file with --results <path>")
 			}
 
-			data, err := os.ReadFile(resultsPath)
+			report, err := loadReportFile(resultsPath)
 			if err != nil {
-				return NewCLIError(CodeDatasetError, fmt.Sprintf("read results file: %s", err), "Check that the results file exists and is readable").WithCause(err)
+				return NewCLIError(CodeDatasetError, err.Error(), "Check that the results file exists and is valid JSON").WithCause(err)
 			}
 
-			var report bench.BenchReport
-			if err := json.Unmarshal(data, &report); err != nil {
-				return NewCLIError(CodeDatasetError, fmt.Sprintf("parse results file: %s", err), "The results file is not valid JSON").WithCause(err)
+			if harnessReport != "" {
+				hr, err := bench.LoadHarnessReport(harnessReport)
+				if err != nil {
+					return NewCLIError(CodeDatasetError, err.Error(), "Pass the summary JSON written by swebench.harness.run_evaluation").WithCause(err)
+				}
+				bench.ApplyHarnessReport(report, hr, filepath.Base(harnessReport))
+			}
+			if outPath != "" {
+				if err := writeReportFile(report, outPath); err != nil {
+					return NewCLIError(CodeInternalError, fmt.Sprintf("write results: %s", err), "Check write permissions for the output path").WithCause(err)
+				}
 			}
 
-			// Recalculate in case the file was hand-edited
-			report.Tally()
-
-			format := ResolveFormat(cmd, "text")
-			outputCfg := GetOutputConfig(cmd)
-			if outputCfg.Format == OutputFormatJSON {
-				format = "json"
+			if benchFormat(cmd) == "json" {
+				return renderBenchReportJSON(report)
 			}
-
-			switch format {
-			case "json":
-				return renderBenchReportJSON(&report)
-			default:
-				renderBenchReportText(&report)
-			}
+			renderBenchReportText(report)
 			return nil
 		},
 	}
 
 	cmd.Flags().StringVar(&resultsPath, "results", "", "Path to JSON results file")
+	cmd.Flags().StringVar(&harnessReport, "harness-report", "", "SWE-bench harness summary report to take verdicts from")
+	cmd.Flags().StringVar(&outPath, "out", "", "Write the (evaluated) results to this path")
 
 	return cmd
 }
@@ -249,7 +296,7 @@ func newBenchListCmd() *cobra.Command {
 
 			datasets, err := bench.ListDatasets(datasetsDir)
 			if err != nil {
-				// Directory doesn't exist — not an error, just empty
+				// Directory doesn't exist - not an error, just empty
 				if errors.Is(err, os.ErrNotExist) {
 					fmt.Fprintln(os.Stderr, "No datasets directory found. Create .agents/bench/datasets/ and add .jsonl files.")
 					return nil
@@ -262,13 +309,7 @@ func newBenchListCmd() *cobra.Command {
 				return nil
 			}
 
-			format := ResolveFormat(cmd, "text")
-			outputCfg := GetOutputConfig(cmd)
-			if outputCfg.Format == OutputFormatJSON {
-				format = "json"
-			}
-
-			switch format {
+			switch benchFormat(cmd) {
 			case "json":
 				enc := json.NewEncoder(os.Stdout)
 				enc.SetIndent("", "  ")
@@ -324,13 +365,7 @@ Identifies tasks that improved, regressed, or stayed the same.`,
 
 			cr := bench.Compare(baseReport, compReport)
 
-			format := ResolveFormat(cmd, "text")
-			outputCfg := GetOutputConfig(cmd)
-			if outputCfg.Format == OutputFormatJSON {
-				format = "json"
-			}
-
-			switch format {
+			switch benchFormat(cmd) {
 			case "json":
 				return renderCompareReportJSON(cr)
 			default:
@@ -383,14 +418,25 @@ func renderBenchReportText(report *bench.BenchReport) {
 	if report.Mode != "" {
 		fmt.Fprintf(os.Stdout, "Mode:    %s\n", report.Mode)
 	}
+	if report.Adapter != "" || report.Model != "" {
+		fmt.Fprintf(os.Stdout, "Adapter: %s %s\n", report.Adapter, report.Model)
+	}
 	if report.RunLabel != "" {
 		fmt.Fprintf(os.Stdout, "Label:   %s\n", report.RunLabel)
 	}
-	fmt.Fprintln(os.Stdout, "─────────────────────────────────────")
+	evaluation := report.Evaluation
+	if evaluation == "" {
+		evaluation = "none (pass rate counts verified tasks only)"
+	}
+	fmt.Fprintf(os.Stdout, "Verdicts: %s\n", evaluation)
+	fmt.Fprintln(os.Stdout, "-------------------------------------")
 	fmt.Fprintf(os.Stdout, "Total:     %d\n", report.Total)
 	fmt.Fprintf(os.Stdout, "Passed:    %d\n", report.Passed)
 	fmt.Fprintf(os.Stdout, "Failed:    %d\n", report.Failed)
 	fmt.Fprintf(os.Stdout, "Errors:    %d\n", report.Errors)
+	if report.Patched > 0 {
+		fmt.Fprintf(os.Stdout, "Patched:   %d (not yet evaluated)\n", report.Patched)
+	}
 	fmt.Fprintf(os.Stdout, "Pass rate: %.1f%%\n", report.PassRate*100)
 	if report.DurationMs > 0 {
 		fmt.Fprintf(os.Stdout, "Duration:  %s\n", time.Duration(report.DurationMs)*time.Millisecond)
@@ -418,7 +464,7 @@ func renderCompareReportJSON(cr *bench.CompareReport) error {
 func renderCompareReportText(cr *bench.CompareReport) {
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintf(os.Stdout, "Comparison: %s vs %s\n", describeRef(cr.Base), describeRef(cr.Compare))
-	fmt.Fprintln(os.Stdout, "─────────────────────────────────────")
+	fmt.Fprintln(os.Stdout, "-------------------------------------")
 	fmt.Fprintf(os.Stdout, "Base pass rate:    %.1f%% (%d/%d)\n", cr.Base.PassRate*100, cr.Base.Passed, cr.Base.Total)
 	fmt.Fprintf(os.Stdout, "Compare pass rate: %.1f%% (%d/%d)\n", cr.Compare.PassRate*100, cr.Compare.Passed, cr.Compare.Total)
 	sign := "+"
@@ -445,10 +491,10 @@ func renderCompareReportText(cr *bench.CompareReport) {
 			continue
 		}
 		if !hasChanges {
-			fmt.Fprintf(os.Stdout, "%-40s %-12s %-8s → %-8s\n", "TASK", "CHANGE", "BASE", "COMPARE")
+			fmt.Fprintf(os.Stdout, "%-40s %-12s %-8s -> %-8s\n", "TASK", "CHANGE", "BASE", "COMPARE")
 			hasChanges = true
 		}
-		fmt.Fprintf(os.Stdout, "%-40s %-12s %-8s → %-8s\n", d.TaskID, d.Change, d.BaseStatus, d.CompStatus)
+		fmt.Fprintf(os.Stdout, "%-40s %-12s %-8s -> %-8s\n", d.TaskID, d.Change, d.BaseStatus, d.CompStatus)
 	}
 }
 

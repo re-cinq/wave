@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -104,9 +105,14 @@ func TestRelayMonitor_Compact(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	checkpointPath := workspacePath + "/checkpoint.md"
+	checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
 	if _, err := os.Stat(checkpointPath); os.IsNotExist(err) {
 		t.Error("checkpoint file was not created")
+	}
+	// In a worktree workspace the root is the project tree: the checkpoint
+	// must stay in Wave's .agents/ directory, not become a project file.
+	if _, err := os.Stat(filepath.Join(workspacePath, "checkpoint.md")); !os.IsNotExist(err) {
+		t.Error("checkpoint must not be written to the workspace root")
 	}
 }
 
@@ -153,7 +159,7 @@ Decision 2
 *Generated at test 1
 Decision*
 `
-	_ = os.WriteFile(workspacePath+"/checkpoint.md", []byte(checkpointContent), 0644)
+	_ = writeTestCheckpoint(filepath.Join(workspacePath, CheckpointFilename), []byte(checkpointContent))
 
 	checkpoint, err := ParseCheckpoint(workspacePath)
 	if err != nil {
@@ -182,7 +188,7 @@ Decision 1
 ---
 *Generated at test*
 `
-	_ = os.WriteFile(workspacePath+"/checkpoint.md", []byte(checkpointContent), 0644)
+	_ = writeTestCheckpoint(filepath.Join(workspacePath, CheckpointFilename), []byte(checkpointContent))
 
 	prompt, err := InjectCheckpointPrompt(workspacePath)
 	if err != nil {
@@ -512,7 +518,7 @@ func TestRelayMonitor_Compact_SummarizerFailure(t *testing.T) {
 			}
 
 			// Verify checkpoint was not written on failure
-			checkpointPath := workspacePath + "/checkpoint.md"
+			checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
 			if _, err := os.Stat(checkpointPath); !os.IsNotExist(err) {
 				t.Error("checkpoint should not be written on adapter failure")
 			}
@@ -612,7 +618,7 @@ func TestRelayMonitor_Compact_EmptyCompactionResult(t *testing.T) {
 	}
 
 	// Checkpoint should still be written, just with empty summary
-	checkpointPath := workspacePath + "/checkpoint.md"
+	checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
 	if _, err := os.Stat(checkpointPath); os.IsNotExist(err) {
 		t.Error("checkpoint should be written even with empty compaction result")
 	}

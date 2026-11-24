@@ -17,7 +17,7 @@ The proposed onboarding-as-session experiment (see
 [`docs/scope/onboarding-as-session-plan.md`](../scope/onboarding-as-session-plan.md))
 flips this model: the user thinks in **work items** (issues, PRs, scheduled tasks).
 Pipelines are an implementation detail — durable, evolved on a schedule, picked just-in-time
-by binding rules. UI mockups in [`docs/scope/mockups/`](../scope/mockups/) explored the new
+by binding rules. UI mockups (since removed from the repo) explored the new
 shape. Walking the mockups through the `code-crispies` example walkthrough surfaced a set of
 substantive UX decisions that should be captured before any code lands, because the
 service-layer refactor in PRE-1..6 of the plan is shaped by these decisions.

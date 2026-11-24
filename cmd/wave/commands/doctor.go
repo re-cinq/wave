@@ -77,9 +77,10 @@ Exit codes:
 			manifestPath, _ := cmd.Root().PersistentFlags().GetString("manifest")
 
 			report, err := doctor.RunChecks(context.Background(), doctor.Options{
-				ManifestPath: manifestPath,
-				Fix:          fixFlag,
-				SkipCodebase: skipCodebase,
+				ManifestPath:   manifestPath,
+				Fix:            fixFlag,
+				SkipCodebase:   skipCodebase,
+				NewForgeClient: forge.NewClient,
 			})
 			if err != nil {
 				return NewCLIError(CodeInternalError, fmt.Sprintf("doctor check failed: %s", err), "A health check encountered an unexpected error").WithCause(err)
@@ -462,10 +463,14 @@ func renderDoctorText(report *doctor.Report) {
 	if report.Codebase != nil {
 		cb := report.Codebase
 		fmt.Fprintln(os.Stdout, "\nCodebase:")
-		fmt.Fprintf(os.Stdout, "  PRs: %d open, %d needs review, %d stale\n",
-			cb.PRs.Open, cb.PRs.NeedsReview, cb.PRs.Stale)
-		fmt.Fprintf(os.Stdout, "  Issues: %d open, %d poor quality, %d unassigned\n",
-			cb.Issues.Open, cb.Issues.PoorQuality, cb.Issues.Unassigned)
+		if cb.ForgeAPI {
+			fmt.Fprintf(os.Stdout, "  PRs: %d open, %d needs review, %d stale\n",
+				cb.PRs.Open, cb.PRs.NeedsReview, cb.PRs.Stale)
+			fmt.Fprintf(os.Stdout, "  Issues: %d open, %d poor quality, %d unassigned\n",
+				cb.Issues.Open, cb.Issues.PoorQuality, cb.Issues.Unassigned)
+		} else {
+			fmt.Fprintln(os.Stdout, "  PRs, Issues: unknown (no forge API token; set GH_TOKEN or run 'gh auth login')")
+		}
 		fmt.Fprintf(os.Stdout, "  CI: %s (%d recent runs, %d failures)\n",
 			cb.CI.Status, cb.CI.RecentRuns, cb.CI.Failures)
 	}

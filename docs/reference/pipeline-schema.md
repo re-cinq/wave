@@ -359,7 +359,7 @@ output_artifacts:
 
 ## Outcomes
 
-Outcomes extract structured results from step artifacts into the pipeline output summary. Use outcomes to surface PR URLs, issue links, deployment URLs, or other key results. See the [Outcomes Guide](/guide/outcomes) for patterns.
+Outcomes extract structured results from step artifacts into the pipeline output summary. Use outcomes to surface PR URLs, issue links, deployment URLs, or other key results. See the Outcomes Guide for patterns.
 
 ```yaml
 outcomes:
@@ -678,7 +678,7 @@ validation:
 
 ## Threads
 
-Steps sharing the same `thread` value participate in a conversation thread. Each step receives transcripts from prior steps in the same thread, enabling multi-step reasoning chains. See the [Threads Guide](/guide/threads) for patterns.
+Steps sharing the same `thread` value participate in a conversation thread. Each step receives transcripts from prior steps in the same thread, enabling multi-step reasoning chains. See the Threads Guide for patterns.
 
 <div v-pre>
 
@@ -732,7 +732,7 @@ steps:
 
 ## Edges
 
-Edges define conditional routing between steps in graph-mode pipelines. Use edges to create loops, branching, and conditional execution. See the [Graph Loops Guide](/guide/graph-loops) for patterns.
+Edges define conditional routing between steps in graph-mode pipelines. Use edges to create loops, branching, and conditional execution. See the Graph Loops Guide for patterns.
 
 ```yaml
 steps:
@@ -1219,7 +1219,7 @@ A list of skill names that the pipeline uses. Wave validates these are available
 | `check` | Command to verify the skill is available |
 | `commands_glob` | Glob pattern for skill command files |
 
-See the [Skill Authoring Guide](/guide/skills) for creating custom skills.
+See the Skill Authoring Guide for creating custom skills.
 
 ---
 
@@ -1398,16 +1398,16 @@ steps:
 ## Next Steps
 
 - [Pipelines](/concepts/pipelines) - Pipeline concepts
-- [Graph Loops](/guide/graph-loops) - Conditional routing and feedback loops
+- Graph Loops - Conditional routing and feedback loops
 - [Human Gates](/guide/human-gates) - Approval and polling gates
-- [Threads](/guide/threads) - Thread continuity and fidelity levels
+- Threads - Thread continuity and fidelity levels
 - [Composition](/guide/composition) - Sub-pipelines, iterate, branch, loop, aggregate
-- [Pipeline Outputs](/guide/pipeline-outputs) - Named output aliases for composability
-- [Outcomes](/guide/outcomes) - Deliverable extraction from pipelines
-- [Chat Context](/guide/chat-context) - Post-pipeline chat experience
+- Pipeline Outputs - Named output aliases for composability
+- Outcomes - Deliverable extraction from pipelines
+- Chat Context - Post-pipeline chat experience
 - [Model Routing](/guide/model-routing) - Model tier selection
-- [Skills](/guide/skills) - Skill authoring and configuration
-- [Outcomes](/concepts/outcomes) - Extracting structured results from pipelines
+- Skills - Skill authoring and configuration
+- Outcomes - Extracting structured results from pipelines
 - [Contracts](/concepts/contracts) - Output validation
 - [Contract Types](/reference/contract-types) - All contract options
-- [Manifest Reference](/reference/manifest) - Project configuration
+- [Manifest Reference](/reference/manifest-schema) - Project configuration

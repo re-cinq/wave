@@ -116,8 +116,8 @@ func TestGenerator_GenerateNarrativeSync(t *testing.T) {
 				StartedAt:    now,
 				CompletedAt:  &completedAt,
 			},
-			perfMetrics:  []metrics.PerformanceMetricRecord{},
-			attempts: map[string][]state.StepAttemptRecord{},
+			perfMetrics: []metrics.PerformanceMetricRecord{},
+			attempts:    map[string][]state.StepAttemptRecord{},
 		},
 		mockRetroIndexer: mockRetroIndexer{
 			records: make(map[string]*metrics.RetrospectiveRecord),

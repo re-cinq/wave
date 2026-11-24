@@ -24,8 +24,9 @@ func NewRewindCmd() *cobra.Command {
 	var opts RewindOptions
 
 	cmd := &cobra.Command{
-		Use:   "rewind <run-id>",
-		Short: "Rewind a run to an earlier checkpoint",
+		Use:    "rewind <run-id>",
+		Hidden: true,
+		Short:  "Rewind a run to an earlier checkpoint",
 		Long: `Reset a run's state to an earlier checkpoint (destructive).
 
 This deletes all state for steps after the rewind point, including step

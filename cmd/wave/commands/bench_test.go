@@ -173,7 +173,7 @@ func TestBenchListCmd_MissingDir(t *testing.T) {
 	cmd := NewBenchCmd()
 	cmd.SetArgs([]string{"list", "--datasets-dir", "/nonexistent/dir"})
 	err := cmd.Execute()
-	// Should not error — just prints "no datasets" message
+	// Should not error - just prints "no datasets" message
 	if err != nil {
 		t.Fatalf("list should handle missing dir gracefully: %v", err)
 	}
@@ -196,5 +196,43 @@ func writeJSON(t *testing.T, path string, v any) {
 	}
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestBenchReportCmd_HarnessReport(t *testing.T) {
+	dir := t.TempDir()
+	results := bench.BenchReport{Pipeline: "bench-solve", Results: []bench.BenchResult{
+		{TaskID: "a", Status: bench.StatusPatched},
+		{TaskID: "b", Status: bench.StatusPatched},
+	}}
+	results.Tally()
+	resultsPath := filepath.Join(dir, "results.json")
+	writeJSON(t, resultsPath, results)
+	harnessPath := filepath.Join(dir, "wave.r1.json")
+	writeJSON(t, harnessPath, map[string]any{"resolved_ids": []string{"a"}, "unresolved_ids": []string{"b"}})
+	outPath := filepath.Join(dir, "evaluated.json")
+
+	cmd := NewBenchCmd()
+	cmd.SetArgs([]string{"report", "--results", resultsPath, "--harness-report", harnessPath, "--out", outPath})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("report failed: %v", err)
+	}
+	got, err := loadReportFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Passed != 1 || got.Failed != 1 || got.Evaluation != "swe-bench harness: wave.r1.json" {
+		t.Errorf("evaluated report = passed %d failed %d evaluation %q", got.Passed, got.Failed, got.Evaluation)
+	}
+}
+
+func TestDefaultModelName(t *testing.T) {
+	r := &bench.BenchReport{Mode: "wave", Pipeline: "bench-solve", Adapter: "codex", Model: "gpt-6.2-sol"}
+	if got := defaultModelName(r); got != "wave-bench-solve-codex-gpt-6.2-sol" {
+		t.Errorf("defaultModelName = %q", got)
+	}
+	r.RunLabel = "r1"
+	if got := defaultModelName(r); got != "r1" {
+		t.Errorf("defaultModelName with label = %q", got)
 	}
 }

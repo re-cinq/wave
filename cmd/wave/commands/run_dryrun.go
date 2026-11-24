@@ -17,7 +17,9 @@ import (
 	"github.com/recinq/wave/internal/pipeline"
 )
 
-func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.StepFilter) error {
+// adapterOverride is the --adapter flag; it wins over step and persona
+// adapters at run time, so the plan shows it too.
+func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.StepFilter, adapterOverride string) error {
 	fmt.Fprintf(os.Stderr, "Dry run for pipeline: %s\n", p.Metadata.Name)
 	fmt.Fprintf(os.Stderr, "Description: %s\n", p.Metadata.Description)
 	fmt.Fprintf(os.Stderr, "Steps: %d\n\n", len(p.Steps))
@@ -45,7 +47,14 @@ func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.
 
 		persona := m.GetPersona(step.Persona)
 		if persona != nil {
-			fmt.Fprintf(os.Stderr, "     Adapter: %s  Temp: %.1f\n", persona.Adapter, persona.Temperature)
+			adapterName := persona.Adapter
+			if step.Adapter != "" {
+				adapterName = step.Adapter
+			}
+			if adapterOverride != "" {
+				adapterName = adapterOverride
+			}
+			fmt.Fprintf(os.Stderr, "     Adapter: %s  Temp: %.1f\n", adapterName, persona.Temperature)
 			fmt.Fprintf(os.Stderr, "     System prompt: %s\n", persona.SystemPromptFile)
 			if len(persona.Permissions.AllowedTools) > 0 {
 				fmt.Fprintf(os.Stderr, "     Allowed tools: %v\n", persona.Permissions.AllowedTools)

@@ -35,57 +35,9 @@ adapters:
             - CLAUDE.md
             - AGENTS.md
             - .claude/settings.json
-    gemini:
-        binary: gemini
-        default_model: gemini-2.5-flash-lite
-        default_permissions:
-            allowed_tools:
-                - Read
-                - Bash
-            deny: []
-        mode: headless
-        output_format: json
-        project_files:
-            - AGENTS.md
-    opencode:
-        binary: opencode
-        default_model: opencode/big-pickle
-        tier_models:
-            cheapest: default
-            balanced: default
-            strongest: default
-        default_permissions:
-            allowed_tools:
-                - Read
-                - Bash
-            deny: []
-        mode: headless
-        output_format: json
-        project_files:
-            - AGENTS.md
-    opencode-qwen:
-        binary: opencode-patched
-        default_model: ollama/qwen3.5:27b
-        tier_models:
-            cheapest: ollama/qwen3.5:27b
-            balanced: ollama/qwen3.5:27b
-            strongest: ollama/qwen3.5:27b
-        default_permissions:
-            allowed_tools:
-                - Read
-                - Bash
-            deny: []
-        mode: headless
-        output_format: json
-        project_files:
-            - AGENTS.md
-    opencode-glm:
-        binary: opencode-patched
-        default_model: ollama/glm-4.7-flash
-        tier_models:
-            cheapest: ollama/glm-4.7-flash
-            balanced: ollama/glm-4.7-flash
-            strongest: ollama/glm-4.7-flash
+    codex:
+        binary: codex
+        default_model: gpt-6.2-sol
         default_permissions:
             allowed_tools:
                 - Read
@@ -114,15 +66,6 @@ personas:
                 - "*"
             deny: []
         system_prompt_file: .agents/personas/craftsman.md
-    debugger:
-        adapter: claude
-        description: Systematic issue diagnosis and root cause analysis
-        #temperature: 0.2
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/debugger.md
     navigator:
         adapter: claude
         description: Read-only codebase exploration and analysis
@@ -159,15 +102,6 @@ personas:
                 - "*"
             deny: []
         system_prompt_file: .agents/personas/summarizer.md
-    webui-capturer:
-        adapter: claude
-        description: Browser-driven WebUI screenshot capture via the chromedp adapter
-        #temperature: 0.0
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/webui-capturer.md
     github-analyst:
         adapter: claude
         description: GitHub issue analysis and quality assessment
@@ -181,17 +115,6 @@ personas:
                 - "*"
             deny: []
         system_prompt_file: .agents/personas/github-analyst.md
-    github-enhancer:
-        adapter: claude
-        description: GitHub issue enhancement and improvement
-        #temperature: 0.5
-        token_scopes:
-            - issues:write
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/github-enhancer.md
     github-scoper:
         adapter: claude
         description: GitHub epic decomposition into child issues
@@ -242,184 +165,6 @@ personas:
                 - "*"
             deny: []
         system_prompt_file: .agents/personas/github-commenter.md
-    gitlab-analyst:
-        adapter: claude
-        description: GitLab issue analysis and quality assessment
-        #temperature: 0.3
-        token_scopes:
-            - issues:read
-            - pulls:read
-            - repos:read
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/gitlab-analyst.md
-    gitlab-enhancer:
-        adapter: claude
-        description: GitLab issue enhancement and improvement
-        #temperature: 0.5
-        token_scopes:
-            - issues:write
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/gitlab-enhancer.md
-    gitlab-scoper:
-        adapter: claude
-        description: GitLab epic decomposition into child issues
-        #temperature: 0.3
-        token_scopes:
-            - issues:write
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/gitlab-scoper.md
-    gitlab-commenter:
-        adapter: claude
-        description: Post comments on GitLab issues and merge requests
-        #temperature: 0.3
-        token_scopes:
-            - issues:write
-            - pulls:write
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/gitlab-commenter.md
-    gitea-analyst:
-        adapter: claude
-        description: Gitea issue analysis and quality assessment
-        #temperature: 0.3
-        token_scopes:
-            - issues:read
-            - pulls:read
-            - repos:read
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/gitea-analyst.md
-    gitea-enhancer:
-        adapter: claude
-        description: Gitea issue enhancement and improvement
-        #temperature: 0.5
-        token_scopes:
-            - issues:write
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/gitea-enhancer.md
-    gitea-scoper:
-        adapter: claude
-        description: Gitea epic decomposition into child issues
-        #temperature: 0.3
-        token_scopes:
-            - issues:write
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/gitea-scoper.md
-    gitea-commenter:
-        adapter: claude
-        description: Post comments on Gitea issues and pull requests
-        #temperature: 0.3
-        token_scopes:
-            - issues:write
-            - pulls:write
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/gitea-commenter.md
-
-    bitbucket-analyst:
-        adapter: claude
-        description: Bitbucket issue analysis and quality assessment
-        #temperature: 0.3
-        token_scopes:
-            - issues:read
-            - pulls:read
-            - repos:read
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/bitbucket-analyst.md
-    bitbucket-enhancer:
-        adapter: claude
-        description: Bitbucket issue enhancement and improvement
-        #temperature: 0.5
-        token_scopes:
-            - issues:write
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/bitbucket-enhancer.md
-    bitbucket-scoper:
-        adapter: claude
-        description: Bitbucket epic decomposition into child issues
-        #temperature: 0.3
-        token_scopes:
-            - issues:write
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/bitbucket-scoper.md
-    bitbucket-commenter:
-        adapter: claude
-        description: Post comments on Bitbucket issues and pull requests, create PRs
-        #temperature: 0.3
-        token_scopes:
-            - issues:write
-            - pulls:write
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/bitbucket-commenter.md
-    supervisor:
-        adapter: claude
-        description: Work quality and process quality evaluation
-        #temperature: 0.2
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/supervisor.md
-    validator:
-        adapter: claude
-        description: Skeptical analysis and verification of findings against source code
-        #temperature: 0.1
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/validator.md
-    synthesizer:
-        adapter: claude
-        description: Structured synthesis of analysis findings into actionable JSON proposals
-        #temperature: 0.2
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/synthesizer.md
-    provocateur:
-        adapter: claude
-        description: Creative challenger for divergent thinking and complexity hunting
-        #temperature: 0.8
-        permissions:
-            allowed_tools:
-                - "*"
-            deny: []
-        system_prompt_file: .agents/personas/provocateur.md
 runtime:
     audit:
         log_all_file_operations: false

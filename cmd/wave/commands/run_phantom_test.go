@@ -8,7 +8,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
@@ -27,20 +26,24 @@ func TestPhantomRunRecords_DetachWithFromStep(t *testing.T) {
 
 	// Create a simple test pipeline
 	testPipeline := `
-apiVersion: wave.recinq.dev/v1
-kind: Pipeline
+kind: WavePipeline
 metadata:
   name: test-pipeline
   description: Test pipeline for phantom run records
 input:
-  source: test input
+  source: cli
 steps:
   - id: step1
     persona: researcher
-    description: First test step
+    exec:
+      type: prompt
+      source: First test step
   - id: step2
     persona: researcher
-    description: Second test step
+    dependencies: [step1]
+    exec:
+      type: prompt
+      source: Second test step
 `
 
 	// Create the .wave directory and test pipeline
@@ -86,7 +89,7 @@ runtime:
 	// easily test the detached subprocess in integration tests
 
 	// Load the pipeline
-	_, err = loadManifest("wave.yaml")
+	m, err := loadManifest("wave.yaml")
 	require.NoError(t, err, "Failed to load manifest")
 
 	p, err := pipeline.LoadByName("test-pipeline")

@@ -66,12 +66,10 @@ Key source files: `internal/pipeline/executor.go`, `internal/adapter/claude.go`,
 ```
 internal/
 ├── adapter/      # Subprocess execution and adapter management
-├── attention/    # Attention classifier driving dashboard notification badges
 ├── audit/        # Audit logging and credential scrubbing
-├── bench/        # SWE-bench benchmarking and comparison
+├── bench/        # SWE-bench runner, harness import and run comparison (`wave bench`)
 ├── checks/       # Shared host-capability probes for preflight and doctor
-├── classify/     # Issue domain/complexity classification and pipeline selection
-├── continuous/   # Continuous pipeline execution
+├── config/       # Process-wide environment variable reads
 ├── contract/     # Output validation (JSON, TypeScript, test suites)
 ├── cost/         # Cost ledger, iron rule enforcement, model pricing
 ├── defaults/     # Embedded default personas, pipelines, and contracts
@@ -82,28 +80,32 @@ internal/
 ├── forge/        # Git forge/hosting platform detection (GitHub, GitLab, Gitea, Forgejo, Codeberg, Bitbucket, local)
 ├── github/       # GitHub API integration for issue enhancement
 ├── hooks/        # Lifecycle hooks and webhook delivery runner
+├── httpx/        # Shared HTTP client wrapper
 ├── humanize/     # Human-readable formatting helpers (durations, counts, sizes)
+├── listing/      # Domain logic for `wave list` commands
 ├── manifest/     # Configuration loading and validation
+├── metrics/      # Pipeline performance metrics persistence and queries
 ├── onboarding/   # Interactive wave init flow (monorepo-aware, Docker compose, flavour detection)
 ├── pathfmt/      # Path formatting and normalization utilities
+├── persona/      # Neutral persona type used by the agent compiler
 ├── pipeline/     # Pipeline execution, step management, model routing, decision logging
+├── pipelinecatalog/ # Pipeline metadata discovery from YAML files
 ├── preflight/    # Pipeline dependency validation and auto-install
 ├── recovery/     # Pipeline recovery hints and error guidance
+├── redact/       # Canonical credential redaction
 ├── relay/        # Context compaction and summarization
 ├── retro/        # Run retrospective generation
+├── runner/       # Single entry point for launching pipeline runs
 ├── sandbox/      # Docker and bubblewrap sandbox backends
 ├── scope/        # Persona token scope parsing and validation
 ├── security/     # Security validation and sanitization
 ├── skill/        # Skill discovery, provisioning, and command management
 ├── state/        # SQLite persistence, outcome tracking, webhooks, decision log
-├── suggest/      # Pipeline suggestion engine
 ├── testutil/     # Shared test helpers (event collectors, state mocks, manifest fixtures)
 ├── timeouts/     # Default timeout constants (leaf package, breaks import cycles)
 ├── tools/        # Shared CLI tool availability checks
-├── tui/          # Bubble Tea terminal UI
-├── webui/        # Web operations dashboard (runs, pipelines, webhooks, admin, analytics)
-├── worktree/     # Git worktree lifecycle for isolated workspaces
-└── workspace/    # Ephemeral workspace management
+├── workspace/    # Ephemeral workspace management
+└── worktree/     # Git worktree lifecycle for isolated workspaces
 
 cmd/wave/         # CLI command structure
 tests/            # Test coverage
@@ -187,42 +189,21 @@ When acting as the **core orchestrator** (the Claude instance steering Wave pipe
 
 ### Pipeline Selection
 
-Fleet after the 2026-04 WLP (ADR-011) consolidation + ops-pr-respond showcase: 39 pipelines under `.agents/pipelines/` (28 default-embedded under `internal/defaults/pipelines/`). All shipped pipelines satisfy the 7 WLP rules (typed I/O, explicit output types, deterministic contracts, canonical artifact paths, sub-pipeline composition, iterate over typed collections, input_ref.from field navigation).
+Shipped fleet (v0.300): 9 default pipelines under `internal/defaults/embedfs/pipelines/`. For anything else, generate a pipeline on demand with `wave meta`.
 
-| Issue complexity | Pipeline | When to use |
-|-----------------|----------|-------------|
-| Bug fix, small tweak | `impl-issue` | Single-file or few-file changes, clear scope |
-| Medium feature | `impl-issue` | Well-scoped feature with clear acceptance criteria |
-| Complex feature | `impl-speckit` | Multi-component changes, needs spec → plan → tasks → impl |
-| Architecture change | `impl-speckit` | Touches 5+ files, needs design discussion |
-| Divergent-convergent simplification | `impl-recinq` | Double Diamond code simplification |
-| Epic runner | `ops-epic-runner` | Scope an epic and sequentially implement every child |
-| Feature inception (scope + research + impl + review) | `inception-feature` | End-to-end feature delivery composed from core blocks |
-| Bug inception | `inception-bugfix` | End-to-end bug triage + fix + review |
-| Doc inception | `inception-doc` | End-to-end doc fix composition |
-| Audit inception | `inception-audit` | Triage + merge of multiple audit passes |
-| Hardening inception (Wave self) | `inception-harden` | Release-hardening for Wave itself; not shipped in defaults (composes wave-* self-evolution sub-pipelines) |
-| Code quality | `audit-duplicates`, `audit-tests`, `audit-architecture` | Analysis passes feeding findings_report |
-| Dead code / docs | `audit-dead-code-scan`, `audit-doc-scan` | Single-step scans used as Lego blocks |
-| Security | `audit-security`, `wave-security-audit` | Security scanning (any project / Wave itself) |
-| PR review | `ops-pr-review` | **Always** run before merging any PR; close the loop with `ops-pr-respond` when fixes are wanted |
-| PR review-to-resolution | `ops-pr-respond` | Six-axis parallel review → triage → per-finding fix (sub-pipeline `impl-finding`) → verify → structured PR comment with finding-→-SHA mapping. Showcase pipeline that exercises most Wave primitives (composition, parallel iterate, aggregate, loop, json_schema, agent_review, test_suite); branch primitive is documented in spec but deferred — see spec.md. |
-| Per-finding fix block | `impl-finding` | Sub-pipeline used by `ops-pr-respond` to apply one triaged finding on a PR head branch |
-| Audit-only issue (analysis → doc + screenshots + follow-ups + PR) | `audit-issue` | Pick this instead of `impl-issue` whenever the issue's deliverable is analysis (file:line tables, annotated screenshots, runtime examples) and the result should be a checked-in audit doc plus auto-filed follow-up issues, not a code-→-PR delivery. Composition mirror of `ops-pr-respond` for the audit shape: fetch-issue → 4-axis parallel evidence (webui screenshots, code walk, db trace, event trace) → aggregate → enumerate-gaps → per-gap deepdive (`gap-analyze` sub-pipeline) → synthesize with agent_review against `audit-doc-criteria.md` → file-each-followup (iterate.serial, `gh issue create`) → create-pr. Deliverables: `docs/<slug>-audit.md` with inlined screenshots, one filed follow-up issue per high/critical gap (URLs in `followup-refs.json`), and a PR linking the doc to the follow-ups. |
-| Per-gap deepdive block | `gap-analyze` | Sub-pipeline used by `audit-issue` to refine severity and draft a typed `followup-spec` for one gap. Analog of `impl-finding` for the audit shape. |
-| Audit evidence axes (sub-pipelines) | `audit-webui-shots`, `audit-code-walk`, `audit-db-trace`, `audit-event-trace` | Single-step evidence-axis pipelines composed by `audit-issue`. Run any standalone for ad-hoc inspection (e.g. `wave run audit-code-walk --input "internal/webui/composition.go:520"`). |
-| Wave evolution | `wave-audit`, `wave-scope-audit`, `wave-test-hardening` | Self-evolution of Wave |
-| Wave validation | `wave-validate`, `wave-smoke-gates`, `wave-smoke-contracts` | Smoke tests for gates + contracts |
-| Epic decomposition | `plan-scope` | Decompose an epic into child issues |
-| Issue research | `plan-research` | Research an issue and post findings |
+| Task | Pipeline | When to use |
+|------|----------|-------------|
+| Bug fix, small or medium feature | `impl-issue` | Well-scoped issue with clear acceptance criteria |
+| PR review | `ops-pr-review` | **Always** run before merging any PR |
 | Task planning | `plan-task` | Break down a scoped task |
-| Greenfield scaffolding | `ops-bootstrap` | Cold-start onboarding for a new project |
-| PR review core | `ops-pr-review-core` | Core review block composed by wrappers |
-| Issue quality | `ops-issue-quality` | Quality triage of an issue |
+| Issue research | `plan-research` | Research an issue and post findings |
+| Epic decomposition | `plan-scope` | Decompose an epic into child issues |
+| Security | `audit-security` | Security scanning |
+| Architecture | `audit-architecture` | Architecture analysis pass |
 | Parallel audit | `ops-parallel-audit` | Run multiple audits in parallel and aggregate |
 | Smoke: hello world | `ops-hello-world` | Baseline smoke test |
-| Doc explain | `doc-explain` | Produce an explanatory document |
-| Doc onboard | `doc-onboard` | Produce onboarding documentation |
+| Anything else | `wave meta "<task>"` | Generate a pipeline on demand |
+| SWE-bench run | `bench-solve` | Only via `wave bench run`; `release: false`, installed by `wave init --all` |
 
 ### PR Review-Then-Merge Protocol
 
@@ -254,7 +235,7 @@ Before launching a pipeline for an issue:
 |----------|--------|----------|
 | **close** | Already implemented, superseded, or duplicate | Close with comment |
 | **implement** | Well-scoped, single-PR implementation | `impl-issue` |
-| **impl-speckit** | Complex, needs spec → plan → tasks → implement | `impl-speckit` |
+| **plan** | Complex, needs a plan first | `plan-task`, then `impl-issue` |
 | **defer** | Needs design discussion, experiment, or blocked | Leave open |
 
 ### Monitoring

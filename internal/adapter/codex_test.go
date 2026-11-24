@@ -8,6 +8,7 @@ import (
 
 func TestCodexAdapter_BuildArgs(t *testing.T) {
 	a := NewCodexAdapter()
+	base := []string{"exec", "--json", "--skip-git-repo-check", "--ephemeral", "--color", "never", "--dangerously-bypass-approvals-and-sandbox"}
 
 	tests := []struct {
 		name string
@@ -15,67 +16,62 @@ func TestCodexAdapter_BuildArgs(t *testing.T) {
 		want []string
 	}{
 		{
-			name: "basic prompt",
+			name: "prompt is read from stdin, never argv",
 			cfg:  AdapterRunConfig{Prompt: "implement the feature"},
-			want: []string{"--full-auto", "implement the feature"},
+			want: append(append([]string{}, base...), "-"),
 		},
 		{
 			name: "with model",
-			cfg:  AdapterRunConfig{Prompt: "fix the bug", Model: "gpt-4o"},
-			want: []string{"--full-auto", "--model", "gpt-4o", "fix the bug"},
-		},
-		{
-			name: "no prompt",
-			cfg:  AdapterRunConfig{},
-			want: []string{"--full-auto"},
+			cfg:  AdapterRunConfig{Prompt: "fix the bug", Model: "gpt-6.2-sol"},
+			want: append(append([]string{}, base...), "--model", "gpt-6.2-sol", "-"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			args := a.buildArgs(tt.cfg)
-			assert.Equal(t, tt.want, args)
+			assert.Equal(t, tt.want, a.buildArgs(tt.cfg))
 		})
 	}
 }
 
+// codexTranscript is a trimmed real `codex exec --json` stream (codex-cli 0.171.0).
+const codexTranscript = `{"type":"thread.started","thread_id":"01a20f61"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I'll run echo hi."}}
+{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"zsh -lc 'echo hi'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"zsh -lc 'echo hi'","aggregated_output":"hi\n","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"DONE"}}
+{"type":"turn.completed","usage":{"input_tokens":35144,"cached_input_tokens":31232,"output_tokens":41}}
+`
+
 func TestCodexAdapter_ParseOutput(t *testing.T) {
 	a := NewCodexAdapter()
 
-	tests := []struct {
-		name        string
-		output      string
-		wantIn      int
-		wantOut     int
-		wantContent string
-	}{
-		{
-			name:   "empty output",
-			output: "",
-		},
-		{
-			name:        "result event with tokens",
-			output:      `{"type":"result","usage":{"input_tokens":100,"output_tokens":50},"content":"done"}`,
-			wantIn:      100,
-			wantOut:     50,
-			wantContent: "done",
-		},
-		{
-			name:   "non-json output",
-			output: "plain text output",
-		},
-	}
+	t.Run("empty output", func(t *testing.T) {
+		r := a.parseOutput("")
+		assert.Zero(t, r.TokensUsed)
+		assert.Empty(t, r.FailureReason)
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := a.parseOutput(tt.output)
-			assert.Equal(t, tt.wantIn, result.TokensIn)
-			assert.Equal(t, tt.wantOut, result.TokensOut)
-			if tt.wantContent != "" {
-				assert.Equal(t, tt.wantContent, result.ResultContent)
-			}
-		})
-	}
+	t.Run("real transcript", func(t *testing.T) {
+		r := a.parseOutput(codexTranscript)
+		assert.Equal(t, 35144, r.TokensIn)
+		assert.Equal(t, 41, r.TokensOut)
+		assert.Equal(t, 35185, r.TokensUsed)
+		assert.Equal(t, "DONE", r.ResultContent, "last agent_message is the result")
+		assert.Empty(t, r.FailureReason)
+	})
+
+	t.Run("turn failed", func(t *testing.T) {
+		r := a.parseOutput(`{"type":"turn.failed","error":{"message":"Rate limit reached for model"}}`)
+		assert.Equal(t, FailureReasonRateLimit, r.FailureReason)
+		assert.Equal(t, "Rate limit reached for model", r.ResultContent)
+	})
+
+	t.Run("non-json output", func(t *testing.T) {
+		r := a.parseOutput("plain text output")
+		assert.Zero(t, r.TokensUsed)
+	})
 }
 
 func TestParseCodexStreamLine(t *testing.T) {
@@ -86,22 +82,27 @@ func TestParseCodexStreamLine(t *testing.T) {
 		wantEvt StreamEvent
 	}{
 		{
-			name:    "function_call event",
-			line:    `{"type":"function_call","name":"ReadFile","arguments":"/tmp/foo"}`,
+			name:    "command started",
+			line:    `{"type":"item.started","item":{"type":"command_execution","command":"go test ./..."}}`,
 			wantOK:  true,
-			wantEvt: StreamEvent{Type: "tool_use", ToolName: "ReadFile", ToolInput: "/tmp/foo"},
+			wantEvt: StreamEvent{Type: "tool_use", ToolName: "Bash", ToolInput: "go test ./..."},
 		},
 		{
-			name:    "message event",
-			line:    `{"type":"message","content":"analyzing code"}`,
+			name:    "agent message",
+			line:    `{"type":"item.completed","item":{"type":"agent_message","text":"analyzing code"}}`,
 			wantOK:  true,
 			wantEvt: StreamEvent{Type: "text", Content: "analyzing code"},
 		},
 		{
-			name:    "result event",
-			line:    `{"type":"result","usage":{"input_tokens":100,"output_tokens":50},"content":"ok"}`,
+			name:    "turn completed",
+			line:    `{"type":"turn.completed","usage":{"input_tokens":100,"output_tokens":50}}`,
 			wantOK:  true,
-			wantEvt: StreamEvent{Type: "result", TokensIn: 100, TokensOut: 50, Content: "ok"},
+			wantEvt: StreamEvent{Type: "result", Subtype: "success", TokensIn: 100, TokensOut: 50},
+		},
+		{
+			name:   "thread started is not surfaced",
+			line:   `{"type":"thread.started","thread_id":"x"}`,
+			wantOK: false,
 		},
 		{
 			name:   "empty line",
@@ -113,11 +114,6 @@ func TestParseCodexStreamLine(t *testing.T) {
 			line:   "not json",
 			wantOK: false,
 		},
-		{
-			name:   "unknown type",
-			line:   `{"type":"unknown"}`,
-			wantOK: false,
-		},
 	}
 
 	for _, tt := range tests {
@@ -125,8 +121,7 @@ func TestParseCodexStreamLine(t *testing.T) {
 			evt, ok := parseCodexStreamLine([]byte(tt.line))
 			assert.Equal(t, tt.wantOK, ok)
 			if ok {
-				assert.Equal(t, tt.wantEvt.Type, evt.Type)
-				assert.Equal(t, tt.wantEvt.ToolName, evt.ToolName)
+				assert.Equal(t, tt.wantEvt, evt)
 			}
 		})
 	}

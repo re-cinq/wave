@@ -3,7 +3,7 @@ package commands
 // Stage helpers extracted from runRun. Each function corresponds to one
 // phase of pipeline execution (flag validation, signal wiring, manifest +
 // pipeline loading, state-store init, executor build, single-run vs
-// continuous dispatch, recovery formatting, post-run summary). runRun in
+// recovery formatting, post-run summary). runRun in
 // run.go is now a thin orchestrator that calls these in order; behaviour
 // is unchanged versus the pre-split version.
 
@@ -16,14 +16,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/huh"
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/audit"
-	"github.com/recinq/wave/internal/continuous"
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/event"
-	"github.com/recinq/wave/internal/evolution"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/pipeline"
@@ -33,8 +30,6 @@ import (
 	"github.com/recinq/wave/internal/runner"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
-	"github.com/recinq/wave/internal/suggest"
-	"github.com/recinq/wave/internal/tui"
 	"github.com/recinq/wave/internal/workspace"
 )
 
@@ -50,20 +45,6 @@ func validateFlags(opts RunOptions) error {
 				"onboarding not complete",
 				"Run 'wave init' to complete setup before running pipelines")
 		}
-	}
-
-	// Validate mutual exclusion: --continuous and --from-step cannot be combined
-	if opts.Continuous && opts.FromStep != "" {
-		return NewCLIError(CodeInvalidArgs,
-			"--continuous and --from-step are mutually exclusive",
-			"Use --continuous for batch processing or --from-step for resuming a single run")
-	}
-
-	// Validate --continuous requires --source
-	if opts.Continuous && opts.Source == "" {
-		return NewCLIError(CodeInvalidArgs,
-			"--continuous requires --source",
-			"Specify a source URI, e.g., --source \"github:label=bug\" or --source \"file:queue.txt\"")
 	}
 
 	return nil
@@ -83,14 +64,10 @@ func setupSignalHandling() (context.Context, context.CancelFunc) {
 	return ctx, cancel
 }
 
-// loadManifestAndPipeline loads the manifest, resolves the pipeline (falling
-// back to the interactive selector when the named pipeline is missing in TTY
-// mode), warns on input/pipeline mismatches, and validates step filter flags.
-//
-// Mutates opts (and debug) when the user picks a different pipeline through
-// the TUI, so both are taken by pointer. Returns aborted=true when the user
-// cancelled the selector — the caller should exit cleanly without an error.
-func loadManifestAndPipeline(opts *RunOptions, debug *bool) (*pipeline.Pipeline, manifest.Manifest, *pipeline.StepFilter, bool, error) {
+// loadManifestAndPipeline loads the manifest (falling back to the embedded
+// bootstrap manifest for bootstrap pipelines), resolves the named pipeline,
+// and validates step filter flags.
+func loadManifestAndPipeline(opts *RunOptions) (*pipeline.Pipeline, manifest.Manifest, *pipeline.StepFilter, error) {
 	mp, err := loadManifestStrict(opts.Manifest)
 	if err != nil {
 		// Bootstrap pipelines may run without a pre-existing manifest — they
@@ -99,58 +76,33 @@ func loadManifestAndPipeline(opts *RunOptions, debug *bool) (*pipeline.Pipeline,
 		if bootstrapPipelines[opts.Pipeline] && os.IsNotExist(errors.Unwrap(err)) {
 			mp, err = loadDefaultBootstrapManifest()
 			if err != nil {
-				return nil, manifest.Manifest{}, nil, false, err
+				return nil, manifest.Manifest{}, nil, err
 			}
 		} else {
-			return nil, manifest.Manifest{}, nil, false, err
+			return nil, manifest.Manifest{}, nil, err
 		}
 	}
 	m := *mp
 
 	p, err := pipeline.LoadByName(opts.Pipeline)
 	if err != nil {
-		// Pipeline not found — if interactive, try TUI with partial name as filter
-		if isInteractive() {
-			sel, tuiErr := tui.RunPipelineSelector(pipelinesDir(), opts.Pipeline)
-			if tuiErr != nil {
-				if errors.Is(tuiErr, huh.ErrUserAborted) {
-					return nil, m, nil, true, nil
-				}
-				return nil, m, nil, false, tuiErr
-			}
-			applySelection(opts, sel, debug)
-			p, err = pipeline.LoadByName(opts.Pipeline)
-			if err != nil {
-				return nil, m, nil, false, NewCLIError(CodePipelineNotFound,
-					fmt.Sprintf("pipeline '%s' not found", opts.Pipeline),
-					"Run 'wave list pipelines' to see available pipelines")
-			}
-		} else {
-			return nil, m, nil, false, NewCLIError(CodePipelineNotFound,
-				fmt.Sprintf("pipeline '%s' not found", opts.Pipeline),
-				"Run 'wave list pipelines' to see available pipelines")
-		}
-	}
-
-	// Warn on input/pipeline mismatch (non-blocking)
-	if opts.Input != "" {
-		if mismatch := suggest.CheckInputPipelineMismatch(opts.Input, opts.Pipeline); mismatch != nil {
-			fmt.Fprintf(os.Stderr, "  warning: %s\n", mismatch.SuggestedReason)
-		}
+		return nil, m, nil, NewCLIError(CodePipelineNotFound,
+			fmt.Sprintf("pipeline '%s' not found", opts.Pipeline),
+			"Run 'wave list pipelines' to see available pipelines")
 	}
 
 	// Parse and validate step filter flags
 	stepFilter := pipeline.ParseStepFilter(opts.Steps, opts.Exclude)
 	if stepFilter != nil {
 		if err := stepFilter.Validate(p); err != nil {
-			return nil, m, nil, false, err
+			return nil, m, nil, err
 		}
 		if err := stepFilter.ValidateCombinations(opts.FromStep); err != nil {
-			return nil, m, nil, false, err
+			return nil, m, nil, err
 		}
 	}
 
-	return p, m, stepFilter, false, nil
+	return p, m, stepFilter, nil
 }
 
 // buildStateStore opens the SQLite-backed state store under `.agents/state.db`.
@@ -212,15 +164,15 @@ func resolveOrGenerateRunID(opts RunOptions, store state.StateStore, p *pipeline
 
 // runResources bundles every component the runRun execution path needs after
 // the executor is wired (executor, emitter, adapter runner, workspace root,
-// raw execOpts so continuous mode can clone them per iteration). Close runs
+// raw execOpts). Close runs
 // the cleanups for emitter, audit logger, and debug tracer in reverse order
 // so the caller can defer a single Close() instead of tracking each.
 type runResources struct {
-	emitter     event.EventEmitter
-	emitterAux  *EmitterResult
-	wsRoot      string
-	runner      adapter.AdapterRunner
-	execOpts    []pipeline.ExecutorOption
+	emitter    event.EventEmitter
+	emitterAux *EmitterResult
+	wsRoot     string
+	runner     adapter.AdapterRunner
+	execOpts   []pipeline.ExecutorOption
 	// Foreground carries the resolved ForegroundConfig for runOnce. The
 	// executor is built lazily inside runner.LaunchForeground rather than
 	// here so the CLI no longer reaches into pipeline.NewDefaultPipelineExecutor
@@ -414,18 +366,6 @@ func assembleExecutorOptions(opts RunOptions, m *manifest.Manifest, store state.
 		relayMon = relay.NewRelayMonitor(relayCfg, compactionAdapter)
 	}
 
-	var evolutionTrigger pipeline.EvolutionTrigger
-	if evolStore, ok := store.(state.EvolutionStore); ok && evolStore != nil {
-		var override *manifest.EvolutionYAML
-		if m != nil {
-			override = m.Evolution
-		}
-		cfg := evolutionConfigFromManifest(override)
-		if cfg.Enabled {
-			evolutionTrigger = evolution.NewService(evolStore, cfg)
-		}
-	}
-
 	return runner.BuildExecutorOptions(runner.ExecutorBuildConfig{
 		RunID:            runID,
 		Manifest:         m,
@@ -441,28 +381,8 @@ func assembleExecutorOptions(opts RunOptions, m *manifest.Manifest, store state.
 		RelayMonitor:     relayMon,
 		SkillStore:       skillStore,
 		StepFilter:       stepFilter,
-		EvolutionTrigger: evolutionTrigger,
 		Debug:            debug,
 	})
-}
-
-// evolutionConfigFromManifest converts the manifest YAML override (which may
-// be nil) into an evolution.Config. Defaults apply when the override is nil
-// or sets the field to its zero value.
-func evolutionConfigFromManifest(o *manifest.EvolutionYAML) evolution.Config {
-	if o == nil {
-		return evolution.DefaultConfig()
-	}
-	overrides := evolution.YAMLOverrides{
-		Enabled:           o.Enabled,
-		EveryNWindow:      o.EveryNWindow,
-		EveryNJudgeDrop:   o.EveryNJudgeDrop,
-		DriftWindow:       o.DriftWindow,
-		DriftPassDrop:     o.DriftPassDrop,
-		RetryWindow:       o.RetryWindow,
-		RetryAvgThreshold: o.RetryAvgThreshold,
-	}
-	return overrides.Apply()
 }
 
 // runOnce executes the pipeline a single time. It transitions the run from
@@ -485,89 +405,6 @@ func runOnce(ctx context.Context, res *runResources, opts RunOptions) (*pipeline
 	}
 	result := runner.LaunchForeground(ctx, cfg)
 	return result.Executor, result.ExecErr
-}
-
-// runContinuous drives the --continuous batch loop. Each work item from the
-// configured source spawns a fresh executor that clones execOpts and pins a
-// new run ID, so iterations stay independent in the dashboard. Returns
-// non-nil when the loop itself fails or any iteration fails (with a count).
-func runContinuous(ctx context.Context, opts RunOptions, m *manifest.Manifest, p *pipeline.Pipeline, store state.StateStore, runner adapter.AdapterRunner, emitter event.EventEmitter, execOpts []pipeline.ExecutorOption) error {
-	// Parse source URI
-	srcCfg, err := continuous.ParseSourceURI(opts.Source)
-	if err != nil {
-		return fmt.Errorf("invalid --source: %w", err)
-	}
-	src, err := continuous.NewSourceFromConfig(srcCfg)
-	if err != nil {
-		return fmt.Errorf("failed to create source: %w", err)
-	}
-
-	// Parse delay
-	delay, err := time.ParseDuration(opts.Delay)
-	if err != nil {
-		return fmt.Errorf("invalid --delay %q: %w", opts.Delay, err)
-	}
-
-	contRunner := &continuous.Runner{
-		Source:        src,
-		PipelineName:  p.Metadata.Name,
-		OnFailure:     continuous.ParseFailurePolicy(opts.OnFailure),
-		MaxIterations: opts.MaxIterations,
-		Delay:         delay,
-		Emitter:       emitter,
-		ExecutorFactory: func(input string) continuous.ExecutorFunc {
-			return func(execCtx context.Context, execInput string) (string, error) {
-				// Create a new run ID for each iteration
-				var iterRunID string
-				if store != nil {
-					iterRunID, _ = store.CreateRun(p.Metadata.Name, execInput)
-				}
-				if iterRunID == "" {
-					iterRunID = pipeline.GenerateRunID(p.Metadata.Name, m.Runtime.PipelineIDHashLength)
-				}
-
-				// Create a fresh executor for this iteration
-				iterOpts := make([]pipeline.ExecutorOption, len(execOpts))
-				copy(iterOpts, execOpts)
-				iterOpts = append(iterOpts, pipeline.WithRunID(iterRunID))
-
-				iterExecutor := pipeline.NewDefaultPipelineExecutor(runner, iterOpts...)
-				execErr := iterExecutor.Execute(execCtx, p, m, execInput)
-
-				// Update run status
-				if store != nil {
-					tokens := iterExecutor.GetTotalTokens()
-					if execErr != nil {
-						if updateErr := store.UpdateRunStatus(iterRunID, "failed", execErr.Error(), tokens); updateErr != nil {
-							fmt.Fprintf(os.Stderr, "warning: failed to update run status: %v\n", updateErr)
-						}
-					} else {
-						if updateErr := store.UpdateRunStatus(iterRunID, "completed", "", tokens); updateErr != nil {
-							fmt.Fprintf(os.Stderr, "warning: failed to update run status: %v\n", updateErr)
-						}
-					}
-				}
-
-				return iterRunID, execErr
-			}
-		},
-	}
-
-	summary, contErr := contRunner.Run(ctx)
-	if contErr != nil {
-		return fmt.Errorf("continuous run failed: %w", contErr)
-	}
-
-	// Print summary
-	if opts.Output.Format == OutputFormatAuto || opts.Output.Format == OutputFormatText {
-		fmt.Fprintf(os.Stderr, "\n  %s\n", summary.String())
-	}
-
-	// Exit code 1 if any failures
-	if summary.HasFailures() {
-		return fmt.Errorf("continuous run completed with %d failures", summary.Failed)
-	}
-	return nil
 }
 
 // formatRecoveryError classifies execErr, builds a recovery hint block, and

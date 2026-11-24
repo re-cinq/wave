@@ -42,6 +42,11 @@ func RunChecks(ctx context.Context, opts Options) (*Report, error) {
 
 	// 6. Codebase health (forge API)
 	if !opts.SkipCodebase && fi.Type != forge.ForgeUnknown {
+		if opts.ForgeClient == nil && opts.NewForgeClient != nil {
+			if c, err := opts.NewForgeClient(fi); err == nil && c != nil {
+				opts.ForgeClient = c
+			}
+		}
 		codebase, err := AnalyzeCodebase(ctx, CodebaseOptions{
 			ForgeInfo:   fi,
 			ForgeClient: opts.ForgeClient,

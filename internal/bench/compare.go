@@ -78,7 +78,7 @@ func Compare(base, comp *BenchReport) *CompareReport {
 			diff.CompStatus = cs
 			report.Summary.Regressed++
 		default:
-			// Both non-pass but different (e.g. fail→error) — treat as unchanged.
+			// Both non-pass but different (e.g. fail->error) - treat as unchanged.
 			diff.Change = "unchanged"
 			diff.BaseStatus = bs
 			diff.CompStatus = cs

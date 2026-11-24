@@ -40,6 +40,7 @@ type MetaPipelineExecutor struct {
 	totalTokensUsed  int
 	parentPipelineID string
 	mockMode         bool
+	failureContext   string
 }
 
 // MetaExecutorOption configures the MetaPipelineExecutor.
@@ -69,6 +70,16 @@ func WithChildExecutor(ex PipelineExecutor) MetaExecutorOption {
 func WithMockMode() MetaExecutorOption {
 	return func(e *MetaPipelineExecutor) { e.mockMode = true }
 }
+
+// WithFailureContext feeds a previous failed attempt (its pipeline YAML and
+// the errors it produced) into the philosopher prompt so the regenerated
+// pipeline can avoid the same failure.
+func WithFailureContext(ctx string) MetaExecutorOption {
+	return func(e *MetaPipelineExecutor) { e.failureContext = ctx }
+}
+
+// FailureContext returns the previous-attempt context, if any.
+func (e *MetaPipelineExecutor) FailureContext() string { return e.failureContext }
 
 // NewMetaPipelineExecutor creates a new meta-pipeline executor.
 func NewMetaPipelineExecutor(runner adapter.AdapterRunner, opts ...MetaExecutorOption) *MetaPipelineExecutor {
@@ -290,6 +301,9 @@ func (e *MetaPipelineExecutor) invokePhilosopherWithSchemas(ctx context.Context,
 	}
 
 	prompt := buildPhilosopherPrompt(task, e.currentDepth)
+	if e.failureContext != "" {
+		prompt += buildFailureContextSection(e.failureContext)
+	}
 
 	// Create isolated workspace for meta pipeline to avoid overwriting project CLAUDE.md
 	metaWorkspace := filepath.Join(".agents", "workspaces", "meta-philosopher")
@@ -454,6 +468,15 @@ func fixTrailingCommas(content string) string {
 	content = strings.ReplaceAll(content, ",]", "]")
 
 	return content
+}
+
+// buildFailureContextSection renders a previous failed attempt as an extra
+// prompt section for the philosopher.
+func buildFailureContextSection(failure string) string {
+	return "\n\n## Previous Attempt Failed\n\n" +
+		"A previous pipeline for this task failed. Its definition and the errors it produced follow. " +
+		"Design a new pipeline that avoids these failures: fix the steps, personas, prompts or contracts " +
+		"that caused them instead of repeating the same design.\n\n" + failure + "\n"
 }
 
 // buildPhilosopherPrompt creates the prompt for the philosopher to generate a pipeline.

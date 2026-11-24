@@ -8,17 +8,14 @@ Wave CLI commands for pipeline orchestration.
 |---------|---------|
 | `wave init` | Initialize a new project |
 | `wave run` | Execute a pipeline |
-| `wave do` | Run an ad-hoc task |
 | `wave status` | Check pipeline status |
 | `wave logs` | View execution logs |
 | `wave cancel` | Cancel running pipeline |
-| `wave chat` | Interactive analysis of pipeline runs |
 | `wave artifacts` | List and export artifacts |
 | `wave list` | List adapters, runs, pipelines, personas, contracts |
 | `wave validate` | Validate configuration |
 | `wave clean` | Clean up workspaces |
 | `wave cleanup` | Remove orphaned worktrees from .agents/workspaces/ |
-| `wave compose` | Validate and execute pipeline sequences |
 | `wave decisions` | Show decision log for a pipeline run |
 | `wave doctor` | Diagnose project configuration and health |
 | `wave fork` | Fork a run from a checkpoint |
@@ -28,11 +25,8 @@ Wave CLI commands for pipeline orchestration.
 | `wave retro` | View and manage run retrospectives |
 | `wave rewind` | Rewind a run to an earlier checkpoint |
 | `wave skills` | Discover, validate, install, and diagnose SKILL.md files |
-| `wave proposals` | Manage evolution proposals (list, show, approve, reject, rollback) |
-| `wave suggest` | Suggest impactful pipeline runs |
-| `wave serve` | Start the web dashboard server |
 | `wave migrate` | Database migrations |
-| `wave bench` | Run and analyze SWE-bench benchmarks |
+| `wave bench` | Run SWE-bench tasks through a pipeline and compare runs |
 
 ---
 
@@ -121,16 +115,7 @@ Flags are organized into four tiers by usage frequency.
 | `--on-failure` | Failure policy: halt (default) or skip |
 | `--detach` | Run as detached background process |
 
-#### Continuous (Tier 3)
-
-| Flag | Description |
-|------|-------------|
-| `--continuous` | Run in continuous mode |
-| `--source` | Work item source URI |
-| `--max-iterations` | Maximum iterations (0 = unlimited) |
-| `--delay` | Delay between iterations (e.g., 5s, 1m) |
-
-#### Dev/Debug (Tier 4)
+#### Dev/Debug (Tier 3)
 
 | Flag | Description |
 |------|-------------|
@@ -145,10 +130,10 @@ Flags are organized into four tiers by usage frequency.
 ### Examples
 
 ```bash
-wave run impl-hotfix --dry-run                 # Preview without executing
-wave run impl-speckit --from-step implement    # Start from step (auto-recovers input)
-wave run impl-speckit --from-step implement --force  # Skip validation for --from-step
-wave run impl-recinq --from-step report --run impl-recinq-20260219-fa19  # Recover input from specific run
+wave run plan-task --dry-run                 # Preview without executing
+wave run impl-issue --from-step implement    # Start from step (auto-recovers input)
+wave run impl-issue --from-step implement --force  # Skip validation for --from-step
+wave run plan-research --from-step synthesize-report --run plan-research-20260219-fa19  # Recover input from specific run
 wave run migrate --timeout 60                  # Custom timeout (minutes)
 wave run test --mock                           # Use mock adapter for testing
 wave run build -o json                         # NDJSON output to stdout (pipe-friendly)
@@ -157,12 +142,11 @@ wave run review -o text -v                     # Plain text with real-time tool 
 wave run check -o quiet                        # Only final result to stderr
 wave run build --model haiku                   # Override adapter model for this run
 wave run impl-issue --adapter opencode --model "zai-coding-plan/glm-5-turbo"  # Override adapter and model
-wave run ops-debug --preserve-workspace        # Preserve workspace from previous run (for debugging)
+wave run audit-security --preserve-workspace        # Preserve workspace from previous run (for debugging)
 wave run --detach impl-issue "fix login bug"   # Detach: run in background, survive shell exit
 wave run impl-issue --steps fetch,implement    # Run only specific steps
 wave run impl-issue -x validate               # Skip the validate step
 wave run impl-issue --on-failure skip          # Continue on step failure
-wave run impl-issue --continuous --source "https://github.com/org/repo/issues" --delay 5m  # Continuous mode
 ```
 
 ### Detached Mode
@@ -178,7 +162,7 @@ wave run --detach impl-issue -- "https://github.com/org/repo/issues/42"
 # → Cancel:  wave cancel impl-issue-20260317-...
 ```
 
-This is the same mechanism the TUI uses internally — the subprocess runs in its own session group
+The subprocess runs in its own session group
 (`setsid`), so killing the parent terminal has no effect on the pipeline.
 
 For structured callers, add `--output json`. Wave writes one acknowledgement to stdout
@@ -190,35 +174,6 @@ after reserving the run ID and releasing the child process:
 
 This acknowledgement means the detached process was launched. Observe the durable run
 state with `wave status --format json -- <run-id>`; it does not mean the pipeline finished.
-
----
-
-## wave do
-
-Run an ad-hoc task without a pipeline file.
-
-```bash
-wave do "fix the typo in README.md"
-```
-
-**Output:**
-```
-[run-xyz789] Generated 2-step pipeline: navigate -> execute
-[run-xyz789] Step: navigate (navigator) - started
-[run-xyz789] Step: navigate (navigator) - completed (23s)
-[run-xyz789] Step: execute (craftsman) - started
-[run-xyz789] Step: execute (craftsman) - completed (1m05s)
-[run-xyz789] Task completed in 1m28s
-```
-
-### Options
-
-```bash
-wave do "audit auth" --persona auditor         # Use specific persona
-wave do "test" --dry-run                       # Preview only
-wave do "deploy" --mock                        # Use mock adapter for testing
-wave do "audit" --model opus                   # Override adapter model for this run
-```
 
 ---
 
@@ -277,7 +232,7 @@ wave status
 ```
 RUN_ID          PIPELINE      STATUS     STEP        ELAPSED    TOKENS
 run-abc123      ops-pr-review   running    review      2m15s      12k
-run-xyz789      impl-hotfix        completed  -           5m23s      28k
+run-xyz789      plan-task        completed  -           5m23s      28k
 ```
 
 ### Detailed Status
@@ -508,7 +463,7 @@ Recent Pipeline Runs
 ────────────────────────────────────────────────────────────────────────────────
   RUN_ID                    PIPELINE          STATUS        STARTED             DURATION
   run-abc123                ops-pr-review       completed     2026-02-03 14:30    5m23s
-  run-xyz789                impl-hotfix            failed        2026-02-03 09:30    2m15s
+  run-xyz789                plan-task            failed        2026-02-03 09:30    2m15s
 ```
 
 ### Pipelines
@@ -526,9 +481,9 @@ Pipelines
     Automated code review workflow
     ○ analyze → review → report → notify
 
-  impl-speckit [5 steps]
-    Feature development pipeline
-    ○ navigate → specify → plan → implement → validate
+  impl-issue [5 steps]
+    End-to-end GitHub issue implementation
+    o fetch-assess -> plan -> implement -> fix-implement -> create-pr
 ```
 
 ### Personas
@@ -562,13 +517,13 @@ wave list contracts
 Contracts
 ────────────────────────────────────────────────────────────
 
-  navigation [json-schema]
+  issue-assessment [json-schema]
     used by:
-      • impl-speckit → navigate (navigator)
+      * impl-issue -> fetch-assess (implementer)
 
-  specification [json-schema]
+  issue-impl-plan [json-schema]
     used by:
-      • impl-speckit → specify (philosopher)
+      * impl-issue -> plan (implementer)
 
   validation-report [json-schema]
     (unused)
@@ -579,7 +534,7 @@ Contracts
 ```bash
 wave list runs --run-status failed       # Filter by status
 wave list runs --limit 20                # Show more runs
-wave list runs --run-pipeline impl-hotfix     # Filter by pipeline
+wave list runs --run-pipeline plan-task     # Filter by pipeline
 wave list --format json                  # JSON output
 ```
 
@@ -616,7 +571,7 @@ Validation failed with 2 errors.
 
 ```bash
 wave validate -v                     # Show all checks (global --verbose flag)
-wave validate --pipeline impl-hotfix.yaml # Validate specific pipeline
+wave validate --pipeline plan-task.yaml # Validate specific pipeline
 ```
 
 ---
@@ -633,7 +588,7 @@ wave clean --dry-run
 ```
 Would delete:
   .agents/workspaces/run-abc123/  (ops-pr-review, 145 MB)
-  .agents/workspaces/run-xyz789/  (impl-hotfix, 23 MB)
+  .agents/workspaces/run-xyz789/  (plan-task, 23 MB)
 Total: 168 MB across 2 runs
 
 Run without --dry-run to delete.
@@ -649,246 +604,6 @@ wave clean --keep-last 5             # Keep 5 most recent
 wave clean --force                   # Skip confirmation
 wave clean --dry-run                 # Preview what would be deleted
 wave clean --quiet                   # Suppress output for scripting
-```
-
----
-
-## wave serve
-
-Start the web dashboard server. Provides real-time pipeline monitoring, execution control, DAG visualization, and artifact browsing through a web interface.
-
-> **Note:** `wave serve` requires the `webui` build tag. Install with `go install -tags webui` or use a release binary that includes the web UI.
-
-```bash
-wave serve
-```
-
-**Output:**
-```
-Starting Wave dashboard on http://127.0.0.1:8080
-```
-
-### Options
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--port` | `8080` | Port to listen on |
-| `--bind` | `127.0.0.1` | Address to bind to |
-| `--token` | `""` | Authentication token (required for non-localhost binding) |
-| `--db` | `.agents/state.db` | Path to state database |
-| `--manifest` | `wave.yaml` | Path to manifest file |
-
-### Authentication
-
-When binding to a non-localhost address (`--bind 0.0.0.0`), authentication is required. The token can be provided via:
-
-1. `--token` flag
-2. `WAVE_SERVE_TOKEN` environment variable
-3. Auto-generated (printed to stderr on startup)
-
-```bash
-# Local development (no auth required)
-wave serve
-
-# Custom port
-wave serve --port 9090
-
-# Expose on all interfaces with explicit token
-wave serve --bind 0.0.0.0 --token mysecret
-
-# Use custom database path
-wave serve --db .agents/state.db
-```
-
----
-
-
-## wave compose
-
-Validate artifact compatibility between adjacent pipelines in a sequence and optionally execute them in order.
-
-```bash
-wave compose impl-speckit wave-evolve wave-review
-```
-
-**Output:**
-```
-Validating pipeline sequence: impl-speckit → wave-evolve → wave-review
-  impl-speckit → wave-evolve: compatible (3 artifacts)
-  wave-evolve → wave-review: compatible (2 artifacts)
-
-Executing pipeline sequence...
-[run-abc123] impl-speckit completed (2m15s)
-[run-def456] wave-evolve completed (3m42s)
-[run-ghi789] wave-review completed (1m08s)
-
-Sequence completed in 7m05s
-```
-
-### Options
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--validate-only` | `false` | Check compatibility without executing |
-| `--input` | `""` | Input data passed to every pipeline in the sequence |
-| `--mock` | `false` | Use mock adapter (for testing) |
-| `--parallel` | `false` | Enable parallel execution (use `--` to separate stages) |
-| `--fail-fast` | `true` | Stop on first failure |
-
-```bash
-# Validate without executing
-wave compose impl-speckit wave-evolve --validate-only
-
-# Pass input to all pipelines
-wave compose pipeline-a pipeline-b --input "build feature X"
-
-# Parallel execution with stage separator
-wave compose --parallel A B -- C
-
-# Use mock adapter for testing
-wave compose impl-speckit wave-evolve --mock
-```
-
----
-
-## wave doctor
-
-Run diagnostic checks on Wave project configuration, tools, and environment.
-
-```bash
-wave doctor
-```
-
-**Output:**
-```
-Wave Doctor
-────────────────────────────────────────
-  ✓ Manifest valid
-  ✓ Adapters configured
-  ✓ Personas resolved
-  ⚠ 2 pipelines reference missing contracts
-
-Checks: 12 passed, 1 warning, 0 errors
-```
-
-### Options
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--fix` | `false` | Auto-install missing dependencies where possible |
-| `--optimize` | `false` | Scan project and propose `wave.yaml` improvements |
-| `--dry-run` | `false` | Show proposed changes without writing (requires `--optimize`) |
-| `--skip-ai` | `false` | Skip AI-powered analysis, deterministic scan only (requires `--optimize`) |
-| `--skip-codebase` | `false` | Skip forge API codebase analysis |
-| `--yes`, `-y` | `false` | Accept all proposed changes without confirmation (requires `--optimize`) |
-| `--json` | `false` | Output in JSON format |
-
-```bash
-# Auto-fix issues
-wave doctor --fix
-
-# Propose manifest optimizations
-wave doctor --optimize
-
-# Preview optimizations without applying
-wave doctor --optimize --dry-run
-
-# Non-interactive optimization
-wave doctor --optimize --yes
-
-# JSON output for scripting
-wave doctor --json
-```
-
-### Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | All checks passed |
-| 1 | Warnings detected (non-blocking) |
-| 2 | Errors detected (action required) |
-
----
-
-## wave suggest
-
-Analyze codebase health and suggest pipeline runs that would be most impactful.
-
-```bash
-wave suggest
-```
-
-**Output:**
-```
-Suggested pipelines:
-
-  1. [P1] wave-test-hardening
-     Reason: Test coverage below threshold in internal/pipeline/
-     Input:  internal/pipeline/
-
-  2. [P2] wave-security-audit
-     Reason: 3 packages have no input validation
-     Input:  internal/adapter/ internal/workspace/
-
-  3. [P3] wave-evolve
-     Reason: 5 TODOs found in production code
-```
-
-### Options
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--limit` | `5` | Maximum number of suggestions |
-| `--dry-run` | `false` | Show what would be suggested without executing |
-| `--json` | `false` | Output in JSON format |
-
-```bash
-# Limit suggestions
-wave suggest --limit 3
-
-# JSON output
-wave suggest --json
-
-# Preview mode
-wave suggest --dry-run
-```
-
----
-
-## wave chat
-
-Interactive analysis and exploration of pipeline runs. Opens a conversational session where you can investigate step outputs, artifacts, and execution details.
-
-```bash
-wave chat run-abc123
-```
-
-### Options
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--step` | `""` | Focus context on a specific step |
-| `--model` | `sonnet` | Model to use for the chat session |
-| `--list` | `false` | List recent runs |
-| `--continue` | `""` | Continue work in a step's workspace (read-write) |
-| `--rewrite` | `""` | Re-execute a step with modified prompt |
-| `--extend` | `""` | Add supplementary instructions to a step |
-
-```bash
-# List recent runs
-wave chat --list
-
-# Chat about a specific step
-wave chat run-abc123 --step implement
-
-# Continue working in a step's workspace
-wave chat run-abc123 --continue implement
-
-# Re-execute a step with a new prompt
-wave chat run-abc123 --rewrite implement
-
-# Add supplementary instructions to a step
-wave chat run-abc123 --extend implement
 ```
 
 ---
@@ -953,101 +668,60 @@ Rollback complete. Current version: 3
 
 ---
 
-## TUI Guided Workflow
-
-When launched without `--no-tui`, Wave provides an interactive terminal UI with a guided workflow that progresses through four phases:
-
-### Phases
-
-| Phase | View | Description |
-|-------|------|-------------|
-| **Health** | Health checks | Infrastructure health checks run automatically on startup |
-| **Proposals** | Suggest view | Shows recommended pipeline runs based on codebase analysis |
-| **Fleet** | Pipelines view | Monitors active pipeline runs and their step progress |
-| **Attached** | Live output | Shows real-time output from a running pipeline step |
-
-### Phase Progression
-
-1. **Health** — Runs automatically on startup. If all checks pass, transitions to Proposals after a brief delay. If errors are detected, the user can choose to continue or address issues first.
-2. **Proposals** — Displays pipeline suggestions from `wave suggest`. Press Tab to switch to Fleet view.
-3. **Fleet** — Shows active runs. Press Tab to switch back to Proposals. Select a run to attach.
-4. **Attached** — Shows live output from the selected pipeline. Tab is blocked during attachment. Detaching returns to Fleet view.
-
-### Key Bindings
-
-| Key | Action |
-|-----|--------|
-| Tab | Toggle between Proposals and Fleet views |
-| Enter | Select/attach to a pipeline run |
-| Esc | Detach from live output (returns to Fleet) |
-| q | Quit |
-
-To disable the TUI and use plain text output, pass `--no-tui` or `-o text`.
-
-Key source: `internal/tui/content.go`
-
----
-
 ## wave bench
 
-Run and analyze SWE-bench benchmarks. Compare Wave pipeline performance against standalone Claude Code.
+Run a pipeline against SWE-bench tasks (JSONL in the SWE-bench dataset format), export the patches as SWE-bench predictions, import the official harness verdicts and compare runs.
+
+Each task gets a fresh worktree of its repository at `base_commit` under `--work-dir`; Wave runs `wave init --all` there, then `wave run <pipeline> --json -- <problem_statement>`. The pipeline must declare an output artifact named `patch` containing the diff of its changes. The shipped `bench-solve` pipeline (installed by `wave init --all`) solves in a worktree and emits that diff. The task's `test_patch` is never shown to the solver.
+
+Tasks without a `test_cmd` (all SWE-bench tasks) end as `patched`, which never counts as a pass. Resolution comes from the official harness:
+
+```bash
+wave bench run --dataset swe-bench-lite.jsonl --pipeline bench-solve \
+  --adapter codex --model gpt-6.2-sol --limit 10 --concurrency 3 --timeout 3600 \
+  --results-path codex.json --predictions-path codex.preds.jsonl
+
+python -m swebench.harness.run_evaluation -d SWE-bench/SWE-bench_Lite \
+  -p codex.preds.jsonl -id codex-r1
+
+wave bench report --results codex.json \
+  --harness-report wave-bench-solve-codex-gpt-6.2-sol.codex-r1.json --out codex.evaluated.json
+wave bench compare --base claude.evaluated.json --compare codex.evaluated.json
+wave bench list                     # datasets in .agents/bench/datasets/
+```
 
 ### bench run
 
-Execute a pipeline against each task in a JSONL benchmark dataset.
-
-```bash
-wave bench run --dataset swe-bench-lite.jsonl --pipeline bench-solve
-wave bench run --dataset tasks.jsonl --pipeline bench-solve --limit 10
-wave bench run --dataset tasks.jsonl --mode claude --label baseline-v1
-wave bench run --dataset tasks.jsonl --pipeline bench-solve --results-path results.json
-```
-
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--dataset` | | Path to JSONL dataset file (required) |
-| `--pipeline` | | Pipeline name to execute per task (required unless `--mode=claude`) |
-| `--mode` | `wave` | Execution mode: `wave` or `claude` |
-| `--label` | | Human-readable label for this run |
-| `--limit` | `0` | Maximum number of tasks to run (0 = all) |
-| `--timeout` | `0` | Per-task timeout in seconds (0 = no limit) |
-| `--concurrency` | `1` | Number of tasks to run in parallel |
-| `--offset` | `0` | Skip the first N tasks in the dataset |
-| `--results-path` | | Path to write JSON results file |
-| `--datasets-dir` | `.agents/bench/datasets` | Directory to search for dataset files |
-| `--keep-workspaces` | `false` | Preserve task worktrees after completion |
+| `--dataset` | | JSONL dataset (absolute, or relative to `--datasets-dir`) (required) |
+| `--pipeline` | | Pipeline to run per task (required unless `--mode claude`) |
+| `--adapter` | | Adapter for `wave init` and `wave run` |
+| `--model` | | Model forced onto every step (`--force-model`) |
+| `--mode` | `wave` | `wave`, or `claude` to run `claude -p` directly as a baseline |
+| `--limit` / `--offset` | `0` | Select a slice of the dataset |
+| `--concurrency` | `1` | Tasks run in parallel |
+| `--timeout` | `0` | Per-task timeout in seconds |
+| `--work-dir` | `.agents/bench/workspaces` | Task worktrees, run logs and the bare-clone repo cache |
+| `--keep-workspaces` | `false` | Keep task worktrees for post-mortems |
+| `--results-path` | | Write the JSON results |
+| `--predictions-path` | | Write SWE-bench predictions (one line per task, empty `model_patch` when none) |
+| `--model-name` | label or `<mode>-<pipeline>-<adapter>-<model>` | `model_name_or_path` in predictions |
+| `--label` | | Run label |
+
+Exits non-zero when any task errored. Each result records `log_path`, the captured `wave run` output.
 
 ### bench report
 
-Generate a summary from a previous benchmark run's results file.
-
-```bash
-wave bench report --results results.json
-wave bench report --results results.json --json
-```
+| Flag | Description |
+|------|-------------|
+| `--results` | Results file from `bench run` (required) |
+| `--harness-report` | Harness summary (`<model>.<run_id>.json`): resolved -> `pass`, unresolved or empty patch -> `fail`, harness error or not evaluated -> `error` |
+| `--out` | Write the evaluated results |
 
 ### bench compare
 
-Compare two benchmark result files to show per-task differences.
-
-```bash
-wave bench compare --base baseline.json --compare wave-run.json
-wave bench compare --base baseline.json --compare wave-run.json --json
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--base` | | Path to base/baseline results JSON (required) |
-| `--compare` | | Path to comparison results JSON (required) |
-
-### bench list
-
-List available benchmark datasets in the datasets directory.
-
-```bash
-wave bench list
-wave bench list --datasets-dir ./my-datasets
-```
+`--base` and `--compare` take two results files and list tasks that improved, regressed or stayed the same.
 
 ---
 
@@ -1325,33 +999,6 @@ All commands support:
 | `--json` | | Output in JSON format (equivalent to `--output json`) |
 | `--quiet` | `-q` | Suppress non-essential output (equivalent to `--output quiet`) |
 | `--no-color` | | Disable colored output |
-| `--no-tui` | | Disable TUI and use text output |
-
----
-
-## proposals
-
-Manage evolution proposals generated by `pipeline-evolve`.
-
-```bash
-wave proposals list [--status proposed|approved|rejected|superseded] [--format text|json]
-wave proposals show <id> [--format text|json]
-wave proposals approve <id> [--reason "..."]
-wave proposals reject <id> [--reason "..."]
-```
-
-Proposals are created when the evolution loop detects pipeline improvement opportunities (drift signals, retry-rate patterns, eval-score thresholds). Approving a proposal creates a new `pipeline_version` row and activates it — the next `wave run` picks up the evolved YAML.
-
-| Subcommand | Description |
-|-----------|-------------|
-| `list` | List proposals, default filter: `--status proposed` |
-| `show <id>` | Display proposal details, reason, and eval signal summary |
-| `approve <id>` | Activate the proposed pipeline version |
-| `reject <id>` | Mark proposal as rejected |
-
-### Web UI
-
-The `/proposals` page in the web dashboard provides the same approve/reject workflow with diff preview. Proposal rollback (revert to prior version) is available via the web UI rollback button.
 
 ---
 
@@ -1369,4 +1016,4 @@ The `/proposals` page in the web dashboard provides the same approve/reject work
 
 - [Quick Start](/guide/quick-start) - Run your first pipeline
 - [Pipelines](/concepts/pipelines) - Define multi-step workflows
-- [Manifest Reference](/reference/manifest) - Configuration options
+- [Manifest Reference](/reference/manifest-schema) - Configuration options

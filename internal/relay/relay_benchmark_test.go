@@ -2,7 +2,7 @@ package relay
 
 import (
 	"context"
-	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -89,7 +89,7 @@ Simple decision
 ---
 *Generated at test*
 `
-	writeTestCheckpoint(b, workspacePath, checkpointContent)
+	writeBenchCheckpoint(b, workspacePath, checkpointContent)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -117,7 +117,7 @@ func BenchmarkParseCheckpoint_Large(b *testing.B) {
 ---
 *Generated at test*
 `
-	writeTestCheckpoint(b, workspacePath, checkpointContent)
+	writeBenchCheckpoint(b, workspacePath, checkpointContent)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -140,7 +140,7 @@ Decision about deployment
 ---
 *Generated at benchmark test*
 `
-	writeTestCheckpoint(b, workspacePath, checkpointContent)
+	writeBenchCheckpoint(b, workspacePath, checkpointContent)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -192,10 +192,10 @@ func BenchmarkAdapterRunnerWrapper_RunCompaction(b *testing.B) {
 }
 
 // Helper function for benchmarks
-func writeTestCheckpoint(b *testing.B, workspacePath, content string) {
+func writeBenchCheckpoint(b *testing.B, workspacePath, content string) {
 	b.Helper()
-	checkpointPath := workspacePath + "/checkpoint.md"
-	if err := os.WriteFile(checkpointPath, []byte(content), 0644); err != nil {
+	checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
+	if err := writeTestCheckpoint(checkpointPath, []byte(content)); err != nil {
 		b.Fatalf("failed to write test checkpoint: %v", err)
 	}
 }

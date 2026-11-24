@@ -6,10 +6,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -58,115 +54,6 @@ func (r *concurrentMockRegistry) CreateRunner(name string) AdapterRunner {
 		return m
 	}
 	return &concurrentMockRunner{}
-}
-
-// =============================================================================
-// Integration Tests for Adapter Package
-// =============================================================================
-
-// TestAdapterIntegration_FullWorkflow tests a complete adapter workflow
-func TestAdapterIntegration_FullWorkflow(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
-	}
-
-	tempDir := t.TempDir()
-
-	// Test with ProcessGroupRunner
-	t.Run("ProcessGroupRunner", func(t *testing.T) {
-		runner := NewProcessGroupRunner()
-		ctx := context.Background()
-
-		// Step 1: Create a test file
-		testFile := filepath.Join(tempDir, "test-input.txt")
-		if err := os.WriteFile(testFile, []byte("hello integration test"), 0644); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
-
-		// Step 2: Run cat command to read the file
-		cfg := AdapterRunConfig{
-			Adapter:       "cat",
-			Persona:       "test-reader",
-			WorkspacePath: tempDir,
-			Prompt:        testFile,
-			Timeout:       10 * time.Second,
-			Env:           []string{"TEST_MODE=integration"},
-		}
-
-		result, err := runner.Run(ctx, cfg)
-		if err != nil {
-			t.Fatalf("adapter run failed: %v", err)
-		}
-
-		// Step 3: Verify results
-		if result.ExitCode != 0 {
-			t.Errorf("expected exit code 0, got: %d", result.ExitCode)
-		}
-
-		data, err := io.ReadAll(result.Stdout)
-		if err != nil {
-			t.Fatalf("failed to read output: %v", err)
-		}
-
-		if !strings.Contains(string(data), "hello integration test") {
-			t.Errorf("output missing expected content: %s", string(data))
-		}
-
-		if result.TokensUsed <= 0 {
-			t.Errorf("expected positive token count, got: %d", result.TokensUsed)
-		}
-	})
-
-	// Test with ClaudeAdapter workspace preparation
-	t.Run("ClaudeAdapter_WorkspacePreparation", func(t *testing.T) {
-		adapter := NewClaudeAdapter()
-		workspacePath := filepath.Join(tempDir, "claude-workspace")
-
-		if err := os.MkdirAll(workspacePath, 0755); err != nil {
-			t.Fatalf("failed to create workspace: %v", err)
-		}
-
-		cfg := AdapterRunConfig{
-			Persona:      "integration-test",
-			SystemPrompt: "You are an integration test assistant.",
-			Temperature:  0.8,
-			AllowedTools: []string{"Read", "Write", "Edit", "Bash"},
-			DenyTools:    []string{"Bash(rm -rf*)"},
-		}
-
-		err := adapter.prepareWorkspace(workspacePath, cfg)
-		if err != nil {
-			t.Fatalf("workspace preparation failed: %v", err)
-		}
-
-		// Verify .claude directory
-		claudeDir := filepath.Join(workspacePath, ".claude")
-		if _, err := os.Stat(claudeDir); os.IsNotExist(err) {
-			t.Error(".claude directory not created")
-		}
-
-		// Verify settings.json
-		settingsPath := filepath.Join(claudeDir, "settings.json")
-		settingsData, err := os.ReadFile(settingsPath)
-		if err != nil {
-			t.Errorf("failed to read settings.json: %v", err)
-		}
-
-		if !strings.Contains(string(settingsData), `"model"`) {
-			t.Error("settings.json missing model configuration")
-		}
-
-		// Verify CLAUDE.md
-		claudeMdPath := filepath.Join(workspacePath, "CLAUDE.md")
-		claudeMdData, err := os.ReadFile(claudeMdPath)
-		if err != nil {
-			t.Errorf("failed to read CLAUDE.md: %v", err)
-		}
-
-		if !strings.Contains(string(claudeMdData), "integration test assistant") {
-			t.Error("CLAUDE.md missing system prompt")
-		}
-	})
 }
 
 // TestAdapterIntegration_ConcurrentAccess tests concurrent adapter usage
@@ -312,72 +199,6 @@ func TestAdapterIntegration_PermissionEnforcement(t *testing.T) {
 					t.Errorf("operation %d: %s(%s) - expected allowed=%v, got allowed=%v (error: %v)",
 						i+1, op.tool, op.arg, op.shouldAllow, allowed, err)
 				}
-			}
-		})
-	}
-}
-
-// TestAdapterIntegration_ClaudeAdapterArgs tests Claude adapter argument building
-func TestAdapterIntegration_ClaudeAdapterArgs(t *testing.T) {
-	adapter := NewClaudeAdapter()
-
-	testCases := []struct {
-		name   string
-		config AdapterRunConfig
-		verify func([]string) error
-	}{
-		{
-			name: "basic_prompt",
-			config: AdapterRunConfig{
-				Prompt: "Hello, Claude!",
-			},
-			verify: func(args []string) error {
-				if !contains(args, "Hello, Claude!") {
-					return fmt.Errorf("prompt not found in args: %v", args)
-				}
-				return nil
-			},
-		},
-		{
-			name: "with_allowed_tools",
-			config: AdapterRunConfig{
-				Prompt:       "Test with tools",
-				AllowedTools: []string{"Read", "Write", "Edit"},
-			},
-			verify: func(args []string) error {
-				if !contains(args, "--allowedTools") {
-					return fmt.Errorf("--allowedTools flag not found")
-				}
-				idx := indexOf(args, "--allowedTools")
-				if idx == -1 || idx+1 >= len(args) {
-					return fmt.Errorf("--allowedTools value not found")
-				}
-				expectedTools := "Read,Write,Edit"
-				if args[idx+1] != expectedTools {
-					return fmt.Errorf("expected tools %q, got %q", expectedTools, args[idx+1])
-				}
-				return nil
-			},
-		},
-		{
-			name: "output_format",
-			config: AdapterRunConfig{
-				Prompt: "Format test",
-			},
-			verify: func(args []string) error {
-				if !contains(args, "--output-format") || !contains(args, "stream-json") {
-					return fmt.Errorf("output format not set correctly: %v", args)
-				}
-				return nil
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			args := adapter.buildArgs(tc.config)
-			if err := tc.verify(args); err != nil {
-				t.Error(err)
 			}
 		})
 	}

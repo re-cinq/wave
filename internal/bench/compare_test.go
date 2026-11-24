@@ -122,9 +122,9 @@ func TestCompare(t *testing.T) {
 					{TaskID: "t4", Status: StatusFail},
 				},
 			},
-			wantImproved: 1, // t2: fail→pass
-			wantRegress:  1, // t4: pass→fail
-			wantUnchange: 2, // t1: pass→pass, t3: error→fail (both non-pass)
+			wantImproved: 1, // t2: fail->pass
+			wantRegress:  1, // t4: pass->fail
+			wantUnchange: 2, // t1: pass->pass, t3: error->fail (both non-pass)
 			wantDelta:    0.25,
 		},
 	}

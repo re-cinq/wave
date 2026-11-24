@@ -1,6 +1,0 @@
-description: "Skeptical analysis and verification of findings against source code"
-temperature: 0.1
-permissions:
-  allowed_tools:
-    - "*"
-  deny: []

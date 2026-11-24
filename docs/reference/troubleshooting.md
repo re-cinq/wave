@@ -102,7 +102,7 @@ Review `dependencies` arrays and remove cycles. Use `wave validate` to detect is
 {"error":"Write(src/main.go) blocked by persona 'navigator'"}
 ```
 
-Use the correct persona - navigator is read-only, use craftsman for writes.
+The persona's `permissions.deny` list blocks this tool. Use a persona that allows it, or adjust the persona in `wave.yaml`.
 
 **Hook blocked operation:**
 Check and fix the hook script:

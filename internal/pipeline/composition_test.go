@@ -928,7 +928,7 @@ func TestValidateComposeSpec_PrefixesEntryName(t *testing.T) {
 		Metadata: PipelineMetadata{Name: "bad-pipeline"},
 		Steps: []Step{
 			{
-				ID:       "merge",
+				ID:        "merge",
 				Aggregate: &AggregateConfig{From: "{{ unknown_step.output }}"},
 			},
 		},
@@ -938,7 +938,7 @@ func TestValidateComposeSpec_PrefixesEntryName(t *testing.T) {
 		Steps: []Step{
 			{ID: "compute"},
 			{
-				ID:       "merge",
+				ID:        "merge",
 				Aggregate: &AggregateConfig{From: "{{ compute.output }}"},
 			},
 		},

@@ -62,6 +62,10 @@ type Options struct {
 
 	// ForgeClient is the forge API client for codebase analysis.
 	ForgeClient forge.Client
+	// NewForgeClient builds ForgeClient from the detected forge when it is
+	// nil (the CLI passes forge.NewClient). Without a client, PR and issue
+	// counts are unknown rather than zero.
+	NewForgeClient func(forge.ForgeInfo) (forge.Client, error)
 
 	// LookPath overrides exec.LookPath for testing.
 	LookPath func(file string) (string, error)

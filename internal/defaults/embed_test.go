@@ -19,8 +19,8 @@ func TestGetReleasePipelines_ReturnsSubset(t *testing.T) {
 		t.Fatalf("GetReleasePipelines() error: %v", err)
 	}
 
-	if len(release) >= len(all) {
-		t.Errorf("release set (%d) should be a strict subset of all pipelines (%d)", len(release), len(all))
+	if len(release) > len(all) {
+		t.Errorf("release set (%d) should be a subset of all pipelines (%d)", len(release), len(all))
 	}
 
 	for name := range release {
@@ -34,8 +34,8 @@ func TestReleasePipelineNames_ReturnsSubset(t *testing.T) {
 	allNames := PipelineNames()
 	releaseNames := ReleasePipelineNames()
 
-	if len(releaseNames) >= len(allNames) {
-		t.Errorf("release names (%d) should be a strict subset of all pipeline names (%d)", len(releaseNames), len(allNames))
+	if len(releaseNames) > len(allNames) {
+		t.Errorf("release names (%d) should be a subset of all pipeline names (%d)", len(releaseNames), len(allNames))
 	}
 
 	allSet := make(map[string]bool, len(allNames))
@@ -106,11 +106,7 @@ func TestGetReleasePipelines_KnownReleasePipelines(t *testing.T) {
 	// and .agents/output/consolidation-map.md).
 	expected := []string{
 		"audit-security.yaml",
-		"doc-explain.yaml",
-		"doc-onboard.yaml",
 		"impl-issue.yaml",
-		"impl-recinq.yaml",
-		"impl-speckit.yaml",
 		"ops-pr-review.yaml",
 		"plan-research.yaml",
 		"plan-scope.yaml",
@@ -154,13 +150,13 @@ func TestGetPersonaConfigs_ReturnsAllPersonas(t *testing.T) {
 		t.Fatalf("GetPersonaConfigs() error: %v", err)
 	}
 
-	// Should have exactly 32 persona configs (all .md files minus base-protocol)
-	if len(configs) != 32 {
-		t.Errorf("expected 32 persona configs, got %d", len(configs))
+	// Should have exactly 12 persona configs (all .md files minus base-protocol)
+	if len(configs) != 12 {
+		t.Errorf("expected 12 persona configs, got %d", len(configs))
 	}
 
 	// Verify a few known personas exist
-	expected := []string{"navigator", "craftsman", "summarizer", "implementer", "github-analyst", "gitea-analyst", "gitlab-analyst", "bitbucket-analyst", "github-scoper", "gitea-scoper", "gitlab-scoper", "bitbucket-scoper"}
+	expected := []string{"navigator", "craftsman", "summarizer", "implementer", "github-analyst", "github-scoper", "github-commenter"}
 	for _, name := range expected {
 		if _, ok := configs[name]; !ok {
 			t.Errorf("expected persona config %q not found", name)
@@ -207,23 +203,9 @@ func TestGetPersonaConfigs_ModelOverrides(t *testing.T) {
 	}
 }
 
-func TestGetSkillTemplates_ReturnsAllTemplates(t *testing.T) {
-	templates := GetSkillTemplates()
-
-	expected := []string{"gh-cli", "docker", "testing", "security", "docs", "react", "tailwind", "terraform"}
-	if len(templates) != len(expected) {
-		t.Errorf("expected %d skill templates, got %d", len(expected), len(templates))
-	}
-
-	for _, name := range expected {
-		data, ok := templates[name]
-		if !ok {
-			t.Errorf("expected skill template %q not found", name)
-			continue
-		}
-		if len(data) == 0 {
-			t.Errorf("skill template %q has empty content", name)
-		}
+func TestGetSkillTemplates_NoneShipped(t *testing.T) {
+	if templates := GetSkillTemplates(); len(templates) != 0 {
+		t.Errorf("expected no shipped skill templates, got %d", len(templates))
 	}
 }
 
@@ -254,10 +236,6 @@ func TestGetSkillTemplates_ValidSKILLMD(t *testing.T) {
 
 func TestSkillTemplateNames_ReturnsSortedList(t *testing.T) {
 	names := SkillTemplateNames()
-
-	if len(names) == 0 {
-		t.Fatal("expected at least one skill template name")
-	}
 
 	// Verify sorted order
 	for i := 1; i < len(names); i++ {

@@ -296,5 +296,3 @@ cat .agents/traces/<pipeline-id>.jsonl | jq 'select(.type == "contract_failure")
 
 ## See Also
 
-- [Validation Philosophy](validation.md) — Why contracts exist and how they fit the V&V model
-- [V&V Paradigm Guide](vv-paradigm.md) — Unified three-layer verification and validation model

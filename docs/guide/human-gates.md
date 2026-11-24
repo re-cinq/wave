@@ -85,11 +85,8 @@ Polls the most recent CI run for the branch. Resolves when all checks pass or ar
 
 ## Interaction Channels
 
-Gates work across all Wave interfaces:
+Gates are answered in the CLI:
 - **CLI**: Keyboard shortcuts (`[A] Approve / [R] Revise / [Q] Abort`)
-- **TUI**: Bubble Tea modal with selection
-- **WebUI**: Button panel with freeform text input
-- **API**: `POST /api/runs/:id/gates/:step/approve`
 
 ## Auto-Approve for CI
 

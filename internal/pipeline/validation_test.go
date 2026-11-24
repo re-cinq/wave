@@ -623,3 +623,28 @@ func TestValidateGenericStepSequence_CompositionAndWorktree(t *testing.T) {
 		t.Fatalf("expected resume to validate (composition + worktree priors should be skipped), got: %v", err)
 	}
 }
+
+// TestValidatePhaseSequence_UsesManifestWorkspaceRoot guards against resume
+// looking for prior runs only under .agents/workspaces when the manifest's
+// runtime.workspace_root points elsewhere.
+func TestValidatePhaseSequence_UsesManifestWorkspaceRoot(t *testing.T) {
+	root := t.TempDir()
+	for _, step := range []string{"step1"} {
+		if err := os.MkdirAll(filepath.Join(root, "custom-root-20260101-000000-abcd", step), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "custom-root"},
+		Steps:    []Step{{ID: "step1"}, {ID: "step2", Dependencies: []string{"step1"}}},
+	}
+
+	v := NewPhaseSkipValidator()
+	if err := v.ValidatePhaseSequence(p, "step2"); err == nil {
+		t.Fatal("without the workspace root the prior run must not be found")
+	}
+	v.WorkspaceRoot = root
+	if err := v.ValidatePhaseSequence(p, "step2"); err != nil {
+		t.Fatalf("prior run under the manifest workspace root not found: %v", err)
+	}
+}

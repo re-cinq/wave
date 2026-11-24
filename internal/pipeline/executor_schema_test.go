@@ -842,7 +842,8 @@ func TestBuildStepPrompt_NoSchemaInjection(t *testing.T) {
 		},
 	}
 
-	prompt := executor.buildStepPrompt(execution, step)
+	prompt, err := executor.buildStepPrompt(execution, step)
+	require.NoError(t, err)
 
 	// Schema injection is no longer in buildStepPrompt
 	assert.NotContains(t, prompt, "OUTPUT REQUIREMENTS:")

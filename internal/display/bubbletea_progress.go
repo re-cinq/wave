@@ -14,34 +14,34 @@ import (
 
 // BubbleTeaProgressDisplay implements ProgressEmitter using bubbletea for proper terminal handling.
 type BubbleTeaProgressDisplay struct {
-	mu                 sync.Mutex
-	program            *tea.Program
-	model              *ProgressModel
-	ctx                context.Context
-	cancel             context.CancelFunc
-	pipelineID         string
-	pipelineName       string
-	totalSteps         int
-	steps              map[string]*StepStatus
-	stepOrder          []string
-	stepDurations      map[string]int64     // Track step durations in milliseconds
-	stepTokens         map[string]int       // Track per-step token counts
-	stepModels         map[string]string    // Track per-step model names
-	stepAdapters       map[string]string    // Track per-step adapter types
-	stepTemperatures   map[string]float64   // Track per-step temperature settings
-	stepTokensIn       map[string]int       // Track per-step input tokens
-	stepTokensOut      map[string]int       // Track per-step output tokens
-	stepStartTimes     map[string]time.Time // Track when each step started
-	startTime          time.Time
-	enabled            bool
-	verbose            bool
-	outcomeTracker     *state.OutcomeTracker
-	currentStepID      string                   // Track primary running step (first in order)
-	stepToolActivity   map[string][2]string     // stepID -> [toolName, toolTarget] per-step
-	lastToolName       string                   // Most recent tool name (global fallback)
-	lastToolTarget     string                   // Most recent tool target (global fallback)
-	handoverInfo       map[string]*HandoverInfo // Per-step handover metadata
-	estimatedTimeMs    int64                    // Latest ETA from pipeline events
+	mu               sync.Mutex
+	program          *tea.Program
+	model            *ProgressModel
+	ctx              context.Context
+	cancel           context.CancelFunc
+	pipelineID       string
+	pipelineName     string
+	totalSteps       int
+	steps            map[string]*StepStatus
+	stepOrder        []string
+	stepDurations    map[string]int64     // Track step durations in milliseconds
+	stepTokens       map[string]int       // Track per-step token counts
+	stepModels       map[string]string    // Track per-step model names
+	stepAdapters     map[string]string    // Track per-step adapter types
+	stepTemperatures map[string]float64   // Track per-step temperature settings
+	stepTokensIn     map[string]int       // Track per-step input tokens
+	stepTokensOut    map[string]int       // Track per-step output tokens
+	stepStartTimes   map[string]time.Time // Track when each step started
+	startTime        time.Time
+	enabled          bool
+	verbose          bool
+	outcomeTracker   *state.OutcomeTracker
+	currentStepID    string                   // Track primary running step (first in order)
+	stepToolActivity map[string][2]string     // stepID -> [toolName, toolTarget] per-step
+	lastToolName     string                   // Most recent tool name (global fallback)
+	lastToolTarget   string                   // Most recent tool target (global fallback)
+	handoverInfo     map[string]*HandoverInfo // Per-step handover metadata
+	estimatedTimeMs  int64                    // Latest ETA from pipeline events
 }
 
 // NewBubbleTeaProgressDisplay creates a new bubbletea-based progress display.
@@ -85,29 +85,29 @@ func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int
 	model := NewProgressModel(initialCtx)
 
 	display := &BubbleTeaProgressDisplay{
-		ctx:                ctx,
-		cancel:             cancel,
-		pipelineID:         pipelineID,
-		pipelineName:       pipelineName,
-		totalSteps:         totalSteps,
-		steps:              make(map[string]*StepStatus),
-		stepOrder:          make([]string, 0, totalSteps),
-		stepDurations:      make(map[string]int64),
-		stepTokens:         make(map[string]int),
-		stepModels:         make(map[string]string),
-		stepAdapters:       make(map[string]string),
-		stepTemperatures:   make(map[string]float64),
-		stepTokensIn:       make(map[string]int),
-		stepTokensOut:      make(map[string]int),
-		stepStartTimes:     make(map[string]time.Time),
-		stepToolActivity:   make(map[string][2]string),
-		handoverInfo:       make(map[string]*HandoverInfo),
-		startTime:          time.Now(),
-		enabled:            true,
-		verbose:            isVerbose,
-		model:              model,
-		outcomeTracker:     tracker,
-		currentStepID:      "",
+		ctx:              ctx,
+		cancel:           cancel,
+		pipelineID:       pipelineID,
+		pipelineName:     pipelineName,
+		totalSteps:       totalSteps,
+		steps:            make(map[string]*StepStatus),
+		stepOrder:        make([]string, 0, totalSteps),
+		stepDurations:    make(map[string]int64),
+		stepTokens:       make(map[string]int),
+		stepModels:       make(map[string]string),
+		stepAdapters:     make(map[string]string),
+		stepTemperatures: make(map[string]float64),
+		stepTokensIn:     make(map[string]int),
+		stepTokensOut:    make(map[string]int),
+		stepStartTimes:   make(map[string]time.Time),
+		stepToolActivity: make(map[string][2]string),
+		handoverInfo:     make(map[string]*HandoverInfo),
+		startTime:        time.Now(),
+		enabled:          true,
+		verbose:          isVerbose,
+		model:            model,
+		outcomeTracker:   tracker,
+		currentStepID:    "",
 	}
 
 	// Create the bubbletea program (no alt screen to avoid terminal corruption)

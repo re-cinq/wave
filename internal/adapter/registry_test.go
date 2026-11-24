@@ -32,7 +32,6 @@ func TestAdapterRegistry_ResolveKnownAdapters(t *testing.T) {
 		{"codex", "codex", "*adapter.CodexAdapter"},
 		{"gemini", "gemini", "*adapter.GeminiAdapter"},
 		{"opencode", "opencode", "*adapter.OpenCodeAdapter"},
-		{"browser", "browser", "*adapter.BrowserAdapter"},
 		{"unknown defaults to ProcessGroupRunner", "unknown", "*adapter.ProcessGroupRunner"},
 	}
 

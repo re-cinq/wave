@@ -62,12 +62,18 @@ Make the change:
 
 ### 5. Verify the Fix (prove it works)
 
-Run the project's test suite to confirm:
+Run the relevant tests if the project's dependencies are available in this environment:
 - The previously-failing test (if mentioned) now passes
-- All other existing tests continue to pass
+- Other tests of the code you touched continue to pass
 - No new warnings or errors are introduced
 
-If tests fail after your change, re-read the problem statement, re-examine your fix, and iterate. Do not move on until all tests pass.
+If the test environment is missing, you may create a throwaway virtual environment outside the repository (for example under `/tmp`). Never install packages into the system or user site-packages, and never leave environment or cache directories inside the repository. If the tests cannot be run at all, verify the fix by reasoning through the code paths and a minimal reproduction script that you delete afterwards.
+
+If tests fail after your change, re-read the problem statement, re-examine your fix, and iterate.
+
+### 6. Leave the Change in the Working Tree
+
+Do not commit, stash, or reset. The change is collected from the working tree after you finish; anything committed or stashed is lost. Remove any scratch files you created.
 
 ## Constraints and Anti-patterns
 

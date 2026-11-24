@@ -162,6 +162,9 @@ func (m *RelayMonitor) Compact(ctx context.Context, chatHistory string, systemPr
 *Generated at checkpoint - previous context preserved*
 `, compacted)
 
+	if err := os.MkdirAll(filepath.Dir(checkpointPath), 0755); err != nil {
+		return "", fmt.Errorf("failed to write checkpoint: %w", err)
+	}
 	if err := os.WriteFile(checkpointPath, []byte(checkpointContent), 0644); err != nil {
 		return "", fmt.Errorf("failed to write checkpoint: %w", err)
 	}

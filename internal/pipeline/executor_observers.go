@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/hooks"
+	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -97,7 +99,7 @@ func (e *DefaultPipelineExecutor) checkRelayCompaction(ctx context.Context, exec
 		PipelineID: pipelineID,
 		StepID:     step.ID,
 		State:      "compacted",
-		Message:    fmt.Sprintf("Checkpoint written to %s/checkpoint.md (%d chars)", workspacePath, len(summary)),
+		Message:    fmt.Sprintf("Checkpoint written to %s (%d chars)", filepath.Join(workspacePath, relay.CheckpointFilename), len(summary)),
 	})
 
 	if e.logger != nil {

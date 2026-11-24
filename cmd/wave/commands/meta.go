@@ -6,13 +6,16 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/adapter/adaptertest"
+	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/skill"
+	"github.com/recinq/wave/internal/state"
 	"github.com/recinq/wave/internal/workspace"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -25,6 +28,7 @@ type MetaOptions struct {
 	DryRun   bool
 	Output   OutputConfig
 	Model    string
+	FromRun  string
 }
 
 func NewMetaCmd() *cobra.Command {
@@ -46,8 +50,16 @@ Examples:
   wave meta "add caching layer" --dry-run
 
   # Save the generated pipeline for later use
-  wave meta "add monitoring" --save monitoring-pipeline.yaml`,
-		Args: cobra.MinimumNArgs(1),
+  wave meta "add monitoring" --save monitoring-pipeline.yaml
+
+  # Regenerate a pipeline from a failed run (uses the run's input as the task)
+  wave meta --from-run <run-id>`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if opts.FromRun == "" && len(args) == 0 {
+				return fmt.Errorf("requires a task description or --from-run <run-id>")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.Output = GetOutputConfig(cmd)
 			if err := ValidateOutputFormat(opts.Output.Format); err != nil {
@@ -62,6 +74,7 @@ Examples:
 	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Show generated pipeline without executing")
+	cmd.Flags().StringVar(&opts.FromRun, "from-run", "", "Regenerate from a failed run: feed its pipeline and errors to the generator")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for this run (e.g. haiku, opus)")
 
 	return cmd
@@ -85,17 +98,36 @@ func runMeta(input string, opts MetaOptions) error {
 		cancel()
 	}()
 
+	var failureContext string
+	if opts.FromRun != "" {
+		task, fc, err := loadFailureContext(".agents/state.db", opts.FromRun)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(input) == "" {
+			input = task
+		}
+		failureContext = fc
+		if opts.Output.Format == OutputFormatAuto || opts.Output.Format == OutputFormatText {
+			fmt.Fprintf(os.Stderr, "Regenerating from failed run %s (%d error line(s), pipeline definition %s)\n",
+				opts.FromRun, strings.Count(fc, "\n- "), map[bool]string{true: "included", false: "not found"}[strings.Contains(fc, "### Pipeline definition")])
+			if opts.Output.Verbose {
+				fmt.Fprintf(os.Stderr, "\n%s\n", fc)
+			}
+		}
+	}
+
 	// Resolve adapter
 	var runner adapter.AdapterRunner
 	if opts.Mock {
 		runner = adaptertest.NewMockAdapter()
 	} else {
-		var adapterName string
-		for name := range m.Adapters {
-			adapterName = name
-			break
+		adapterName := metaAdapterName(&m)
+		binary := ""
+		if a, ok := m.Adapters[adapterName]; ok {
+			binary = a.Binary
 		}
-		runner = adapter.ResolveAdapter(adapterName)
+		runner = adapter.ResolveAdapterWithBinary(adapterName, binary)
 	}
 
 	// Create emitter (no steps known yet for meta - generated dynamically)
@@ -129,6 +161,9 @@ func runMeta(input string, opts MetaOptions) error {
 	}
 	if opts.Mock {
 		metaOpts = append(metaOpts, pipeline.WithMockMode())
+	}
+	if failureContext != "" {
+		metaOpts = append(metaOpts, pipeline.WithFailureContext(failureContext))
 	}
 	metaExecutor := pipeline.NewMetaPipelineExecutor(runner, metaOpts...)
 
@@ -191,6 +226,72 @@ func runMeta(input string, opts MetaOptions) error {
 		fmt.Fprintf(os.Stderr, "  Total steps: %d, Total tokens: %d\n", result.TotalSteps, result.TotalTokens)
 	}
 	return nil
+}
+
+// metaAdapterName picks the adapter for the generator deterministically: the
+// philosopher persona's adapter, else the alphabetically first adapter.
+func metaAdapterName(m *manifest.Manifest) string {
+	if p := m.GetPersona("philosopher"); p != nil && p.Adapter != "" {
+		return p.Adapter
+	}
+	names := make([]string, 0, len(m.Adapters))
+	for name := range m.Adapters {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	if len(names) == 0 {
+		return ""
+	}
+	return names[0]
+}
+
+// loadFailureContext reads a failed run from the state DB and returns its
+// original input plus a prompt section describing the pipeline that ran and
+// the errors it produced.
+func loadFailureContext(dbPath, runID string) (string, string, error) {
+	store, err := state.NewStateStore(dbPath)
+	if err != nil {
+		return "", "", NewCLIError(CodeStateDBError, fmt.Sprintf("failed to open state database: %s", err), "Run from the project root that contains .agents/state.db").WithCause(err)
+	}
+	defer store.Close()
+
+	run, err := store.GetRun(runID)
+	if err != nil || run == nil {
+		return "", "", NewCLIError(CodeRunNotFound, fmt.Sprintf("run %q not found", runID), "Run 'wave list runs' to see recent runs")
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Run: %s\nPipeline: %s\nStatus: %s\n", run.RunID, run.PipelineName, run.Status)
+	if run.ErrorMessage != "" {
+		fmt.Fprintf(&b, "Run error: %s\n", run.ErrorMessage)
+	}
+
+	if p, err := pipeline.LoadByName(run.PipelineName); err == nil {
+		if data, err := yaml.Marshal(p); err == nil {
+			fmt.Fprintf(&b, "\n### Pipeline definition\n\n```yaml\n%s```\n", data)
+		}
+	}
+
+	events, err := store.GetEvents(runID, state.EventQueryOptions{TailLimit: 500})
+	if err == nil {
+		wroteHeader := false
+		for _, ev := range events {
+			msg := strings.TrimSpace(ev.Message)
+			if msg == "" || !strings.Contains(ev.State, "fail") {
+				continue
+			}
+			if !wroteHeader {
+				b.WriteString("\n### Errors\n\n")
+				wroteHeader = true
+			}
+			if ev.StepID != "" {
+				fmt.Fprintf(&b, "- step %s [%s]: %s\n", ev.StepID, ev.State, msg)
+			} else {
+				fmt.Fprintf(&b, "- [%s]: %s\n", ev.State, msg)
+			}
+		}
+	}
+	return run.Input, b.String(), nil
 }
 
 func saveMetaPipeline(p *pipeline.Pipeline, savePath string) error {

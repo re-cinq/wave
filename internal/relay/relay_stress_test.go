@@ -3,7 +3,7 @@ package relay
 import (
 	"context"
 	"fmt"
-	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -133,8 +133,8 @@ func TestParseCheckpoint_LargeCheckpoints(t *testing.T) {
 *Generated at stress test*
 `, summary, strings.Join(decisions, "\n"))
 
-			checkpointPath := workspacePath + "/checkpoint.md"
-			if err := os.WriteFile(checkpointPath, []byte(checkpointContent), 0644); err != nil {
+			checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
+			if err := writeTestCheckpoint(checkpointPath, []byte(checkpointContent)); err != nil {
 				t.Fatalf("failed to write large checkpoint: %v", err)
 			}
 
@@ -181,8 +181,8 @@ func TestInjectCheckpointPrompt_LargeCheckpoints(t *testing.T) {
 *Generated at large checkpoint test*
 `, strings.Join(summaryLines, "\n"), strings.Join(decisions, "\n"))
 
-	checkpointPath := workspacePath + "/checkpoint.md"
-	if err := os.WriteFile(checkpointPath, []byte(checkpointContent), 0644); err != nil {
+	checkpointPath := filepath.Join(workspacePath, CheckpointFilename)
+	if err := writeTestCheckpoint(checkpointPath, []byte(checkpointContent)); err != nil {
 		t.Fatalf("failed to write large checkpoint: %v", err)
 	}
 

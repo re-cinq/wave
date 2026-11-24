@@ -105,11 +105,11 @@ type Event struct {
 type SessionStatus string
 
 const (
-	SessionPending  SessionStatus = "pending"
-	SessionRunning  SessionStatus = "running"
-	SessionDone     SessionStatus = "done"
-	SessionAborted  SessionStatus = "aborted"
-	SessionFailed   SessionStatus = "failed"
+	SessionPending SessionStatus = "pending"
+	SessionRunning SessionStatus = "running"
+	SessionDone    SessionStatus = "done"
+	SessionAborted SessionStatus = "aborted"
+	SessionFailed  SessionStatus = "failed"
 )
 
 // Session is the in-flight onboarding handle returned by StartSession.

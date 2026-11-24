@@ -2,11 +2,13 @@ package adapter
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -170,6 +172,25 @@ func TestParseOpenCodeStreamLine_ToolEvent(t *testing.T) {
 	}
 	if evt.ToolInput != "internal/pipeline/executor.go" {
 		t.Errorf("ToolInput = %q, want %q", evt.ToolInput, "internal/pipeline/executor.go")
+	}
+}
+
+// TestParseOpenCodeStreamLine_ToolUseEvent covers the event shape emitted by
+// current opencode builds: type "tool_use" with arguments in part.state.input.
+func TestParseOpenCodeStreamLine_ToolUseEvent(t *testing.T) {
+	line := []byte(`{"type":"tool_use","sessionID":"s1","part":{"id":"p1","type":"tool","callID":"c1","tool":"write","state":{"status":"completed","input":{"content":"hello","filePath":"/ws/greeting.txt"},"output":"Wrote file successfully."}}}`)
+	evt, ok := parseOpenCodeStreamLine(line)
+	if !ok {
+		t.Fatal("expected ok=true for tool_use event")
+	}
+	if evt.Type != "tool_use" {
+		t.Errorf("Type = %q, want %q", evt.Type, "tool_use")
+	}
+	if evt.ToolName != "write" {
+		t.Errorf("ToolName = %q, want %q", evt.ToolName, "write")
+	}
+	if evt.ToolInput != "/ws/greeting.txt" {
+		t.Errorf("ToolInput = %q, want %q", evt.ToolInput, "/ws/greeting.txt")
 	}
 }
 
@@ -383,5 +404,45 @@ func TestOpenCodeRun_FullOutputCapturedForArtifactExtraction(t *testing.T) {
 	got := buf.String()
 	if !bytes.Contains([]byte(got), []byte(wantContent)) {
 		t.Errorf("result.Stdout does not contain expected content\ngot:  %q\nwant: %q", got, wantContent)
+	}
+}
+
+// TestOpenCodeRun_ErrorEventFailsRun covers opencode exiting 0 after a
+// terminal session error. Observed against a local llama.cpp model whose
+// context overflowed: the step was reported successful with no output.
+func TestOpenCodeRun_ErrorEventFailsRun(t *testing.T) {
+	ndjson := `{"type":"step_start","sessionID":"s1","part":{"type":"step-start"}}
+{"type":"error","sessionID":"s1","error":{"name":"UnknownError","data":{"message":"\"Context size has been exceeded.\""}}}`
+	fakePath := writeFakeOpencode(t, fmt.Sprintf(`printf '%%s\n' '%s'`, ndjson))
+
+	a := &OpenCodeAdapter{opencodePath: fakePath}
+	result, err := a.Run(t.Context(), AdapterRunConfig{WorkspacePath: t.TempDir()})
+	if err == nil {
+		t.Fatalf("expected an error, got result %+v", result)
+	}
+	var stepErr *StepError
+	if !errors.As(err, &stepErr) {
+		t.Fatalf("expected *StepError, got %T: %v", err, err)
+	}
+	if stepErr.FailureReason != FailureReasonContextExhaustion {
+		t.Errorf("FailureReason = %q, want %q", stepErr.FailureReason, FailureReasonContextExhaustion)
+	}
+	if !strings.Contains(err.Error(), "Context size has been exceeded.") {
+		t.Errorf("error %q should carry the opencode message", err.Error())
+	}
+}
+
+// TestOpenCodeParseOutput_LastTextWins verifies that the final assistant text,
+// not the narration before the first tool call, becomes the result content.
+func TestOpenCodeParseOutput_LastTextWins(t *testing.T) {
+	data := []byte(`{"type":"text","part":{"type":"text","text":"I'll explore the codebase first."}}
+{"type":"tool_use","part":{"type":"tool","tool":"grep","state":{"input":{"pattern":"x"}}}}
+{"type":"text","part":{"type":"text","text":"{\"plan\":[]}"}}`)
+	got := (&OpenCodeAdapter{}).parseOutput(data)
+	if got.ResultContent != `{"plan":[]}` {
+		t.Errorf("ResultContent = %q, want the last text part", got.ResultContent)
+	}
+	if got.ErrorMessage != "" {
+		t.Errorf("ErrorMessage = %q, want empty", got.ErrorMessage)
 	}
 }

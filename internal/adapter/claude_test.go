@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 const testBaseProtocol = `# Wave Agent Protocol
@@ -1978,13 +1980,33 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 		}
 	})
 
+	t.Run("wildcard allow omits tools and special names are quoted", func(t *testing.T) {
+		p := PersonaSpec{AllowedTools: []string{"*", "Read"}, DenyTools: []string{"*Secret", "Bash(rm -rf: x)"}}
+		out := PersonaToAgentMarkdown(p, "", "", "", "")
+		front := out[4 : strings.Index(out[4:], "---\n")+4]
+		var fm map[string]any
+		if err := yaml.Unmarshal([]byte(front), &fm); err != nil {
+			t.Fatalf("frontmatter is not valid YAML: %v\n%s", err, front)
+		}
+		if _, ok := fm["tools"]; ok {
+			t.Errorf("tools should be omitted for a wildcard allow list: %v", fm["tools"])
+		}
+		deny, _ := fm["disallowedTools"].([]any)
+		if len(deny) != 2 || deny[0] != "*Secret" || deny[1] != "Bash(rm -rf: x)" {
+			t.Errorf("disallowedTools = %v", fm["disallowedTools"])
+		}
+		if fm["name"] != "wave-agent" {
+			t.Errorf("name = %v, want wave-agent", fm["name"])
+		}
+	})
+
 	t.Run("empty persona produces minimal valid frontmatter", func(t *testing.T) {
 		p := PersonaSpec{}
 		out := PersonaToAgentMarkdown(p, "", "", "", "")
 		if !strings.HasPrefix(out, "---\n") {
 			t.Error("output must start with ---")
 		}
-		if !strings.Contains(out, "---\npermissionMode: bypassPermissions\n---\n") {
+		if !strings.Contains(out, "---\nname: wave-agent\ndescription: Wave pipeline step persona\npermissionMode: bypassPermissions\n---\n") {
 			t.Errorf("minimal frontmatter not found in output:\n%s", out)
 		}
 	})
@@ -2055,8 +2077,10 @@ func TestBuildArgsAgentMode(t *testing.T) {
 	for i, arg := range args {
 		if arg == "--agent" && i+1 < len(args) {
 			hasAgent = true
-			if args[i+1] != agentFilePath {
-				t.Errorf("--agent value = %q, want %q", args[i+1], agentFilePath)
+			// Claude Code resolves --agent by name; a path is rejected
+			// with "agent not found".
+			if args[i+1] != agentName {
+				t.Errorf("--agent value = %q, want %q", args[i+1], agentName)
 			}
 		}
 	}

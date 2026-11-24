@@ -83,7 +83,7 @@ Expected output:
 wave run ops-hello-world "testing Wave"
 ```
 
-The default TUI shows a progress bar and spinners. For text output, use `-o text`:
+The default output shows a progress display. For text output, use `-o text`:
 
 ```bash
 wave run ops-hello-world "testing Wave" -o text
@@ -104,11 +104,11 @@ Artifacts are saved in `.agents/workspaces/<pipeline-id>/<step-id>/`. Each step 
 ## Quick Commands
 
 ```bash
-# Ad-hoc task (no full pipeline)
-wave do "fix typo in README"
+# Generate a pipeline for a one-off task
+wave meta "fix typo in README" --dry-run
 
 # Resume from a specific step
-wave run impl-speckit --from-step implement
+wave run impl-issue --from-step implement
 
 # Clean up workspaces
 wave clean

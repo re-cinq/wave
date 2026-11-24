@@ -17,8 +17,8 @@ type ContractConfig struct {
 	Validate    bool     `json:"validate,omitempty"      yaml:"validate,omitempty"`
 	Command     string   `json:"command,omitempty"       yaml:"command,omitempty"`
 	CommandArgs []string `json:"commandArgs,omitempty"   yaml:"command_args,omitempty"`
-	Dir         string   `json:"dir,omitempty"           yaml:"dir,omitempty"`        // Working directory: "project_root", absolute path, or empty for workspace
-	MustPass    bool     `json:"must_pass,omitempty"     yaml:"must_pass,omitempty"`  // Determines if validation failure blocks pipeline
+	Dir         string   `json:"dir,omitempty"           yaml:"dir,omitempty"`       // Working directory: "project_root", absolute path, or empty for workspace
+	MustPass    bool     `json:"must_pass,omitempty"     yaml:"must_pass,omitempty"` // Determines if validation failure blocks pipeline
 	MaxRetries  int      `json:"maxRetries,omitempty"    yaml:"max_retries,omitempty"`
 
 	// Progressive validation settings
@@ -70,8 +70,8 @@ type ContractConfig struct {
 	Events []EventPattern `json:"events,omitempty" yaml:"events,omitempty"` // Expected event patterns to match against the step's event log
 
 	// spec_derived_test contract fields
-	SpecArtifact       string `json:"spec_artifact,omitempty"        yaml:"spec_artifact,omitempty"`        // Path to the specification artifact file
-	TestPersona        string `json:"test_persona,omitempty"         yaml:"test_persona,omitempty"`         // Persona that generates tests (must differ from implementer)
+	SpecArtifact       string `json:"spec_artifact,omitempty"        yaml:"spec_artifact,omitempty"`       // Path to the specification artifact file
+	TestPersona        string `json:"test_persona,omitempty"         yaml:"test_persona,omitempty"`        // Persona that generates tests (must differ from implementer)
 	ImplementationStep string `json:"implementation_step,omitempty"  yaml:"implementation_step,omitempty"` // Step ID of the implementation to validate
 }
 

@@ -85,7 +85,7 @@ func TestEventLine_LiveTUI_AllStates(t *testing.T) {
 		"step_progress_action":  {StepID: "s", State: event.StateStepProgress, CurrentAction: "thinking"},
 		"step_progress_tokens":  {StepID: "s", State: event.StateStepProgress, TokensIn: 100, TokensOut: 50},
 		"step_progress_pct":     {StepID: "s", State: event.StateStepProgress, Progress: 50},
-		"step_progress_beat":   {StepID: "s", State: event.StateStepProgress},
+		"step_progress_beat":    {StepID: "s", State: event.StateStepProgress},
 		"eta_with":              {StepID: "s", State: event.StateETAUpdated, EstimatedTimeMs: 30000},
 		"eta_calc":              {StepID: "s", State: event.StateETAUpdated},
 		"compaction":            {StepID: "s", State: event.StateCompactionProgress},

@@ -9,9 +9,9 @@ import (
 // inherited from the former internal/webui/redact.go.
 func TestRedact_PrecisePatterns(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		secret  string // substring that must NOT appear in the output
+		name   string
+		input  string
+		secret string // substring that must NOT appear in the output
 	}{
 		{"AWS access key", "key=AKIAIOSFODNN7EXAMPLE", "AKIAIOSFODNN7EXAMPLE"},
 		{"AWS secret key", "aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "wJalrXUtnFEMI"},

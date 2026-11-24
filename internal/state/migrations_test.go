@@ -668,11 +668,11 @@ func TestMigration24_BackfillRunTokens(t *testing.T) {
 		tokens int
 	}{
 		{"zero-completed", 10},
-		{"zero-completed", 20},  // sums to 30
-		{"zero-completed", 0},   // ignored by tokens_used > 0 guard
-		{"zero-failed", 7},      // sums to 7
+		{"zero-completed", 20},    // sums to 30
+		{"zero-completed", 0},     // ignored by tokens_used > 0 guard
+		{"zero-failed", 7},        // sums to 7
 		{"nonzero-completed", 99}, // would total 99 but row should stay at 5
-		{"zero-running", 42},    // would total 42 but status excludes it
+		{"zero-running", 42},      // would total 42 but status excludes it
 	}
 	for _, e := range events {
 		_, err = db.Exec(

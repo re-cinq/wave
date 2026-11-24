@@ -182,7 +182,7 @@ func (wm *workspaceManager) InjectArtifacts(workspacePath string, refs []Artifac
 var skipDirs = map[string]bool{
 	"node_modules":  true,
 	".git":          true,
-	".agents":         true,
+	".agents":       true,
 	".claude":       true,
 	"vendor":        true,
 	"__pycache__":   true,

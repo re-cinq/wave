@@ -55,15 +55,14 @@ type ExecutorBuildConfig struct {
 	// In mock mode the CLI sets this to a MockAdapter and also wants every
 	// manifest-declared adapter rerouted through it; pass MockOverride=true
 	// to enable that fan-out.
-	Runner        adapter.AdapterRunner
-	MockOverride  bool
+	Runner       adapter.AdapterRunner
+	MockOverride bool
 
 	// CLI extras — webui leaves these nil.
-	RetroGenerator   *retro.Generator
-	RelayMonitor     *relay.RelayMonitor
-	SkillStore       skill.Store
-	StepFilter       *pipeline.StepFilter
-	EvolutionTrigger pipeline.EvolutionTrigger
+	RetroGenerator *retro.Generator
+	RelayMonitor   *relay.RelayMonitor
+	SkillStore     skill.Store
+	StepFilter     *pipeline.StepFilter
 
 	// Debug toggles WithDebug(true). LaunchInProcess hardcodes this; the CLI
 	// threads its --debug flag through.
@@ -168,9 +167,6 @@ func BuildExecutorOptions(cfg ExecutorBuildConfig) []pipeline.ExecutorOption {
 	}
 	if cfg.RelayMonitor != nil {
 		opts = append(opts, pipeline.WithRelayMonitor(cfg.RelayMonitor))
-	}
-	if cfg.EvolutionTrigger != nil {
-		opts = append(opts, pipeline.WithEvolutionTrigger(cfg.EvolutionTrigger))
 	}
 
 	return opts

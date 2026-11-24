@@ -132,7 +132,6 @@ func SkillTemplateNames() []string {
 	return names
 }
 
-
 // PersonaNames returns a list of all persona filenames.
 func PersonaNames() []string {
 	personas, _ := GetPersonas()

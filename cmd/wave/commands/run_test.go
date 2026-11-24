@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/adapter/adaptertest"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
@@ -202,7 +201,7 @@ func TestRunDryRunOutput(t *testing.T) {
 	}
 
 	output, err := captureStderr(func() error {
-		return performDryRun(p, m, nil)
+		return performDryRun(p, m, nil, "")
 	})
 
 	assert.NoError(t, err)
@@ -224,6 +223,14 @@ func TestRunDryRunOutput(t *testing.T) {
 	assert.Contains(t, output, "Inject: step1:analysis as analysis.md")
 	assert.Contains(t, output, "Output: code")
 	assert.Contains(t, output, "Workspace: .agents/workspaces/")
+
+	// --adapter overrides persona adapters at run time; the plan must say so.
+	output, err = captureStderr(func() error {
+		return performDryRun(p, m, nil, "codex")
+	})
+	assert.NoError(t, err)
+	assert.Contains(t, output, "Adapter: codex")
+	assert.NotContains(t, output, "Adapter: claude")
 }
 
 // TestRunWithNonExistentPipeline tests error handling for non-existent pipelines (T045)
@@ -418,7 +425,7 @@ func TestDryRunShowsAllStepDetails(t *testing.T) {
 	}
 
 	output, err := captureStderr(func() error {
-		return performDryRun(p, m, nil)
+		return performDryRun(p, m, nil, "")
 	})
 
 	assert.NoError(t, err)

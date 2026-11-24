@@ -17,6 +17,11 @@ type mockAdapterRunner struct {
 }
 
 func (m *mockAdapterRunner) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
+	// Real adapters refuse to run without a workspace; mirror that so the
+	// narrator cannot regress to passing an empty WorkspacePath.
+	if cfg.WorkspacePath == "" {
+		return nil, fmt.Errorf("WorkspacePath is required")
+	}
 	if m.err != nil {
 		return nil, m.err
 	}

@@ -166,10 +166,23 @@ func (e *DefaultPipelineExecutor) runStepExecution(ctx context.Context, executio
 	// Warn on non-zero exit code — adapter process may have crashed, but
 	// work may still have been completed (e.g. Claude Code JS error after
 	// tool calls finished). Let contract validation decide the outcome.
+	// A run that also produced no result and no token usage never reached the
+	// model (bad flags, unknown agent, auth error); without a contract nothing
+	// else would catch that, so the step fails instead of passing silently.
 	if result.ExitCode != 0 {
 		msg := fmt.Sprintf("adapter exited with code %d", result.ExitCode)
 		if result.FailureReason != "" {
 			msg += ": " + result.FailureReason
+		}
+		if result.StderrTail != "" {
+			msg += "\nstderr: " + result.StderrTail
+		}
+		noWork := result.ResultContent == "" && result.TokensIn == 0 && result.TokensOut == 0
+		if noWork && len(step.Handover.EffectiveContracts()) == 0 {
+			if e.logger != nil {
+				_ = e.logger.LogStepEnd(res.pipelineID, step.ID, stateFailed, time.Since(stepStart), result.ExitCode, 0, result.TokensUsed, msg)
+			}
+			return fmt.Errorf("%s (no output, and the step has no contract to validate it)", msg)
 		}
 		e.emit(event.Event{
 			Timestamp:  time.Now(),
@@ -278,10 +291,7 @@ func (e *DefaultPipelineExecutor) resolveStepResources(ctx context.Context, exec
 		}
 	}
 
-	var adapterTierModels map[string]string
-	if adapterDef != nil {
-		adapterTierModels = adapterDef.TierModels
-	}
+	adapterTierModels := effectiveTierModels(resolvedAdapterName, adapterDef, &execution.Manifest.Runtime.Routing)
 	// Determine the current attempt number so resolveModelForAttempt can
 	// escalate the model tier on retries. AttemptContexts[step.ID] is
 	// populated by the retry loop after each failed attempt; absence
@@ -391,7 +401,10 @@ func (e *DefaultPipelineExecutor) resolveStepResources(ctx context.Context, exec
 		_ = e.logger.LogStepStartWithAdapter(pipelineID, step.ID, resolvedPersona, resolvedAdapterName, resolvedModel, artifactNames)
 	}
 
-	prompt := e.buildStepPrompt(execution, step)
+	prompt, err := e.buildStepPrompt(execution, step)
+	if err != nil {
+		return nil, err
+	}
 	if e.logger != nil {
 		_ = e.logger.LogToolCall(pipelineID, step.ID, "adapter.Run", fmt.Sprintf("persona=%s prompt_len=%d", resolvedPersona, len(prompt)))
 	}

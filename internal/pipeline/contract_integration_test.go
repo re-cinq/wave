@@ -923,6 +923,137 @@ func TestContractIntegration_SoftFailureContinues(t *testing.T) {
 	assert.True(t, hasSoftFailure, "Should emit contract_soft_failure event")
 }
 
+// TestContractIntegration_WarnFailureIsNotReportedAsPassed guards against a
+// failed contract with on_failure: warn being summarised as "contract_passed",
+// which made the CLI print "contract ... valid" for an artifact that did not
+// parse.
+func TestContractIntegration_WarnFailureIsNotReportedAsPassed(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	schemaDir := filepath.Join(tmpDir, ".agents", "contracts")
+	require.NoError(t, os.MkdirAll(schemaDir, 0755))
+	schemaPath := filepath.Join(schemaDir, "warn-schema.json")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(`{"type": "object", "required": ["plan"]}`), 0644))
+
+	mockAdapter := newContractTestArtifactWritingAdapter(map[string]string{
+		"warn-step": `I could not find the artifacts, so here is some prose instead.`,
+	})
+
+	collector := testutil.NewEventCollector()
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "warn-fail-test"},
+		Steps: []Step{
+			{
+				ID:      "warn-step",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "Generate output"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "output", Path: ".agents/artifact.json"},
+				},
+				Handover: HandoverConfig{
+					Contract: ContractConfig{
+						Type:       "json_schema",
+						SchemaPath: schemaPath,
+						OnFailure:  OnFailureWarn,
+					},
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	require.NoError(t, executor.Execute(ctx, p, m, "test"), "on_failure: warn lets the pipeline continue")
+
+	var lastContractState string
+	for _, e := range collector.GetEvents() {
+		if e.StepID != "warn-step" {
+			continue
+		}
+		assert.NotEqual(t, "contract_passed", e.State, "a failed contract must not be reported as passed")
+		if strings.HasPrefix(e.State, "contract_") {
+			lastContractState = e.State
+		}
+	}
+	assert.Equal(t, "contract_soft_failure", lastContractState)
+}
+
+// TestContractIntegration_ReworkRevalidatesContracts verifies that after a
+// contract-level rework step runs, the contracts are validated again. A rework
+// that does not fix the artifact must fail the step instead of being reported
+// as passed.
+func TestContractIntegration_ReworkRevalidatesContracts(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	schemaDir := filepath.Join(tmpDir, ".agents", "contracts")
+	require.NoError(t, os.MkdirAll(schemaDir, 0755))
+	schemaPath := filepath.Join(schemaDir, "rework-schema.json")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(`{"type": "object", "required": ["plan"]}`), 0644))
+
+	mockAdapter := newContractTestArtifactWritingAdapter(map[string]string{
+		"main-step":   `{"other": "value"}`,
+		"rework-step": `{"still": "wrong"}`,
+	})
+
+	collector := testutil.NewEventCollector()
+	executor := NewDefaultPipelineExecutor(mockAdapter, WithEmitter(collector))
+	m := testutil.CreateTestManifest(tmpDir)
+
+	p := &Pipeline{
+		Metadata: PipelineMetadata{Name: "rework-revalidate-test"},
+		Steps: []Step{
+			{
+				ID:      "main-step",
+				Persona: "navigator",
+				Exec:    ExecConfig{Source: "Generate output"},
+				OutputArtifacts: []ArtifactDef{
+					{Name: "output", Path: ".agents/artifact.json"},
+				},
+				Handover: HandoverConfig{
+					Contract: ContractConfig{
+						Type:       "json_schema",
+						SchemaPath: schemaPath,
+						OnFailure:  OnFailureRework,
+						ReworkStep: "rework-step",
+						MaxRetries: 1,
+					},
+				},
+			},
+			{
+				ID:         "rework-step",
+				Persona:    "navigator",
+				ReworkOnly: true,
+				Exec:       ExecConfig{Source: "Fix output"},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err := executor.Execute(ctx, p, m, "test")
+	require.Error(t, err, "a rework that leaves the contract failing must fail the step")
+
+	var reworked, passed bool
+	for _, e := range collector.GetEvents() {
+		if e.StepID != "main-step" {
+			continue
+		}
+		switch e.State {
+		case "reworking":
+			reworked = true
+		case "contract_passed":
+			passed = true
+		}
+	}
+	assert.True(t, reworked, "the rework step should have run")
+	assert.False(t, passed, "the contract must not be reported as passed")
+}
+
 // ============================================================================
 // Test 6: Input Template Replacement
 // ============================================================================

@@ -91,3 +91,14 @@ func TestBenchStatus_Values(t *testing.T) {
 		t.Errorf("StatusError = %q, want %q", StatusError, "error")
 	}
 }
+
+func TestBenchReport_TallyPatchedIsNotPass(t *testing.T) {
+	r := &BenchReport{Results: []BenchResult{
+		{TaskID: "a", Status: StatusPatched},
+		{TaskID: "b", Status: StatusPass},
+	}}
+	r.Tally()
+	if r.Patched != 1 || r.Passed != 1 || r.PassRate != 0.5 {
+		t.Errorf("Patched=%d Passed=%d PassRate=%f, want 1, 1, 0.5", r.Patched, r.Passed, r.PassRate)
+	}
+}

@@ -28,8 +28,9 @@ func NewForkCmd() *cobra.Command {
 	var opts ForkOptions
 
 	cmd := &cobra.Command{
-		Use:   "fork <run-id>",
-		Short: "Fork a run from a checkpoint",
+		Use:    "fork <run-id>",
+		Hidden: true,
+		Short:  "Fork a run from a checkpoint",
 		Long: `Create a new independent run branching from a specific step of an existing run.
 
 The forked run copies artifacts and workspace state from all steps up to the

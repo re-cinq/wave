@@ -421,4 +421,3 @@ func FormatTokenCount(tokens int) string {
 	}
 	return fmt.Sprintf("%.1fB", float64(tokens)/1_000_000_000.0)
 }
-

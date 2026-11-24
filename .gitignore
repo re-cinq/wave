@@ -53,5 +53,3 @@ node_modules/
 integration.test
 .env
 
-# Tailwind CLI binary cache (downloaded by `make tailwind`)
-tools/

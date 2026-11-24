@@ -30,7 +30,7 @@ var promptsFS embed.FS
 //go:embed schemas/*.json
 var schemasFS embed.FS
 
-//go:embed skills/*/SKILL.md
+// skillsFS is empty: no skill templates ship by default.
 var skillsFS embed.FS
 
 // PersonaConfigsFS exposes the embedded persona yaml configs for callers that
