@@ -84,6 +84,21 @@ type AdapterResult struct {
 	ResultContent string // Extracted content from the adapter response
 	FailureReason string // Classification: "timeout", "context_exhaustion", "general_error"
 	Subtype       string // Result event subtype from Claude Code NDJSON
+	// StderrTail is the end of the CLI's stderr, kept so a failed run can be
+	// diagnosed without --debug.
+	StderrTail string
+}
+
+// stderrTailBytes caps AdapterResult.StderrTail.
+const stderrTailBytes = 2048
+
+// tailString returns at most the last n bytes of s, trimmed.
+func tailString(s string, n int) string {
+	s = strings.TrimSpace(s)
+	if len(s) > n {
+		s = "..." + s[len(s)-n:]
+	}
+	return s
 }
 
 type ProcessGroupRunner struct{}

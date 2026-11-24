@@ -63,6 +63,8 @@ func (a *CodexAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterR
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
 
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start codex: %w", err)
@@ -110,6 +112,7 @@ func (a *CodexAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*AdapterR
 		}
 	}
 	result.Stdout = bytes.NewReader(stdoutBuf.Bytes())
+	result.StderrTail = tailString(stderrBuf.String(), stderrTailBytes)
 
 	return result, nil
 }

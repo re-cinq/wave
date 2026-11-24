@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -176,6 +177,7 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 	result.TokensOut = parsed.TokensOut
 	result.Artifacts = parsed.Artifacts
 	result.Subtype = parsed.Subtype
+	result.StderrTail = tailString(stderrBuf.String(), stderrTailBytes)
 
 	// Classify failure for non-zero exit codes with context exhaustion indicators
 	if result.ExitCode != 0 || parsed.Subtype == "error_max_turns" || parsed.Subtype == "error_during_execution" {
@@ -205,10 +207,16 @@ func (a *ClaudeAdapter) Run(ctx context.Context, cfg AdapterRunConfig) (*Adapter
 	return result, nil
 }
 
+// agentName is the name of the compiled persona agent. Claude Code's --agent
+// flag selects an agent by name (it does not accept a file path), so the agent
+// file is written to the project agents directory where Claude Code discovers
+// it, and its frontmatter carries the matching name.
+const agentName = "wave-agent"
+
 // agentFilePath is the workspace-relative path for the self-contained agent .md
 // file. It lives inside .claude/ so it stays out of the project root and is
 // excluded by the standard .gitignore rule.
-const agentFilePath = ".claude/wave-agent.md"
+const agentFilePath = ".claude/agents/" + agentName + ".md"
 
 func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunConfig) error {
 	settingsDir := filepath.Join(workspacePath, ".claude")
@@ -321,6 +329,9 @@ func (a *ClaudeAdapter) prepareWorkspace(workspacePath string, cfg AdapterRunCon
 		restrictions,
 	)
 	agentMdPath := filepath.Join(workspacePath, agentFilePath)
+	if err := os.MkdirAll(filepath.Dir(agentMdPath), 0755); err != nil {
+		return fmt.Errorf("failed to create agents directory: %w", err)
+	}
 	if err := os.WriteFile(agentMdPath, []byte(agentMd), 0644); err != nil {
 		return fmt.Errorf("failed to write agent .md: %w", err)
 	}
@@ -429,9 +440,9 @@ func getenvDefault(key, fallback string) string {
 func (a *ClaudeAdapter) buildArgs() []string {
 	args := []string{"-p"}
 
-	// Agent mode: pass --agent pointing to the compiled persona .md file.
+	// Agent mode: select the compiled persona agent by name (see agentName).
 	// Model, permissions, and tools are embedded in the agent frontmatter.
-	args = append(args, "--agent", agentFilePath)
+	args = append(args, "--agent", agentName)
 
 	args = append(args, "--output-format", "stream-json")
 	args = append(args, "--verbose")
@@ -901,7 +912,11 @@ func PersonaToAgentMarkdown(p persona.Persona, baseProtocol, systemPrompt, contr
 	var b strings.Builder
 
 	// --- YAML frontmatter ---
+	// name and description are required for Claude Code to load the file as
+	// an agent; without them --agent reports the agent as not found.
 	b.WriteString("---\n")
+	b.WriteString("name: " + agentName + "\n")
+	b.WriteString("description: Wave pipeline step persona\n")
 
 	if p.Model != "" {
 		b.WriteString("model: ")
@@ -909,11 +924,13 @@ func PersonaToAgentMarkdown(p persona.Persona, baseProtocol, systemPrompt, contr
 		b.WriteString("\n")
 	}
 
-	if len(p.AllowedTools) > 0 {
+	// A "*" allow entry means every tool; omitting tools inherits all of
+	// them, whereas a literal "*" would be a YAML alias and break the file.
+	if len(p.AllowedTools) > 0 && !slices.Contains(p.AllowedTools, "*") {
 		b.WriteString("tools:\n")
 		for _, tool := range p.AllowedTools {
 			b.WriteString("  - ")
-			b.WriteString(tool)
+			b.WriteString(yamlScalar(tool))
 			b.WriteString("\n")
 		}
 	}
@@ -922,7 +939,7 @@ func PersonaToAgentMarkdown(p persona.Persona, baseProtocol, systemPrompt, contr
 		b.WriteString("disallowedTools:\n")
 		for _, tool := range p.DenyTools {
 			b.WriteString("  - ")
-			b.WriteString(tool)
+			b.WriteString(yamlScalar(tool))
 			b.WriteString("\n")
 		}
 	}
@@ -950,4 +967,17 @@ func PersonaToAgentMarkdown(p persona.Persona, baseProtocol, systemPrompt, contr
 	}
 
 	return b.String()
+}
+
+// yamlScalar returns s as a YAML scalar, double-quoting it when a plain
+// scalar would be misparsed (leading indicator characters such as "*" or
+// "&", or embedded ": " / " #").
+func yamlScalar(s string) string {
+	if s == "" || strings.ContainsAny(s[:1], "*&!|>'\"%@`[]{},#?-:") ||
+		strings.Contains(s, ": ") || strings.Contains(s, " #") ||
+		strings.TrimSpace(s) != s {
+		q, _ := json.Marshal(s)
+		return string(q)
+	}
+	return s
 }
