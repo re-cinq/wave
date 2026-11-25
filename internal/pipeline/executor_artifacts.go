@@ -938,5 +938,3 @@ func (e *DefaultPipelineExecutor) registerOutcome(stepID, outcomeType, label, va
 		e.outcomeTracker.AddURL(stepID, label, value, desc)
 	}
 }
-
-// GetOutcomesSummary returns the formatted outcome summary for the completed pipeline.

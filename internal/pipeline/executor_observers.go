@@ -133,14 +133,3 @@ func (a *webhookStoreAdapter) RecordWebhookDeliveryResult(d *hooks.WebhookDelive
 		Error:          d.Error,
 	})
 }
-
-// resolveWorkspaceStepRefs resolves {{ steps.<step-id>.artifacts.<artifact-name>.<json-path> }}
-// and {{ steps.<step-id>.output.<field> }} references in a workspace config field.
-// This is called just before workspace creation so that branch/base fields can reference
-// outputs from prior steps (e.g. a PR's headRefName fetched by a preceding step).
-//
-// Supported patterns:
-//   - {{ steps.STEP_ID.artifacts.ARTIFACT_NAME.json.path }} — read a JSON field from a named artifact
-//   - {{ steps.STEP_ID.output.json.path }} — read a JSON field from the first artifact of the step
-//
-// Returns an error if a referenced step/artifact does not exist or the JSON path fails.

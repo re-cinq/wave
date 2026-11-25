@@ -18,8 +18,6 @@ var (
 	reJavascriptURL = regexp.MustCompile(`(?i)javascript:\s*[^'"]*`)
 )
 
-// key: string (absolute path) → value: string (content)
-
 // InputSanitizer sanitizes user input for security
 type InputSanitizer struct {
 	config               SecurityConfig

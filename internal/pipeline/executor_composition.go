@@ -1142,6 +1142,3 @@ func (e *DefaultPipelineExecutor) collectParentCrossPipelineArtifacts(execution 
 
 	return map[string]map[string][]byte{parentName: outputs}
 }
-
-// cleanupCompletedPipeline removes a completed or failed pipeline from in-memory storage
-// to prevent memory leaks. This is safe to call because completed pipeline status

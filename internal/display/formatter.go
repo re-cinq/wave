@@ -20,16 +20,10 @@ func NewFormatter() *Formatter {
 	}
 }
 
-// ANSI Control Sequences
-
-// Text Formatting
-
 // Bold formats text as bold.
 func (f *Formatter) Bold(text string) string {
 	return f.codec.Bold(text)
 }
-
-// Color Formatting
 
 // Primary wraps text in primary color (cyan).
 func (f *Formatter) Primary(text string) string {
@@ -60,16 +54,6 @@ func (f *Formatter) Muted(text string) string {
 func (f *Formatter) Colorize(text string, colorCode string) string {
 	return f.codec.Colorize(text, colorCode)
 }
-
-// Progress Bar Formatting
-
-// Table Formatting
-
-// Box Formatting
-
-// List Formatting
-
-// Horizontal Rule
 
 // =============================================================================
 // Package-level Helper Functions

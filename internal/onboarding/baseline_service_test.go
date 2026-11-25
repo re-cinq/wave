@@ -1,9 +1,6 @@
 package onboarding
 
 import (
-	"context"
-	"io"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -47,23 +44,4 @@ type captureUI struct {
 func (c *captureUI) Notify(e Event) error {
 	c.events = append(c.events, e)
 	return nil
-}
-
-func TestBaselineService_StartSession_NotifiesUI(t *testing.T) {
-	t.Skip("StartSession invokes Greenfield which needs a git repo + asset embed; covered by integration tests in cmd/wave")
-
-	dir := t.TempDir()
-	svc := NewBaselineService(io.Discard)
-	ui := &captureUI{}
-
-	sess, err := svc.StartSession(context.Background(), dir, StartOptions{
-		Adapter:    "claude",
-		Workspace:  ".agents/workspaces",
-		OutputPath: filepath.Join(dir, "wave.yaml"),
-		UI:         ui,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, sess)
-	assert.Equal(t, SessionDone, sess.Status)
-	assert.GreaterOrEqual(t, len(ui.events), 2)
 }

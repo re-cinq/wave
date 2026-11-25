@@ -604,5 +604,3 @@ func (e *DefaultPipelineExecutor) ResumeWithValidation(ctx context.Context, p *P
 	manager := NewResumeManager(e)
 	return manager.ResumeFromStep(ctx, p, m, input, fromStep, force, priorRunID...)
 }
-
-// fireWebhooks sends an event to all matching dynamic webhooks (non-blocking).

@@ -495,9 +495,3 @@ func resolveCommandWorkDir(workspacePath string, step *Step) string {
 
 	return workspacePath
 }
-
-// executeCompositionStep handles steps that reference sub-pipelines (via the
-// `pipeline:` field) rather than executing a persona directly. It loads the
-// referenced pipeline YAML, resolves the step's input template, and delegates
-// execution to a fresh DefaultPipelineExecutor instance.
-// can be retrieved from persistent storage via GetStatus.

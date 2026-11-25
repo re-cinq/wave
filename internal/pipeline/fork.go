@@ -212,5 +212,3 @@ func splitPath(path string) []string {
 	}
 	return parts
 }
-
-// copyFile is defined in subpipeline.go (shared by both fork and sub-pipeline composition).

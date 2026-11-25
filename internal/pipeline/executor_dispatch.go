@@ -797,7 +797,3 @@ func (e *DefaultPipelineExecutor) processAdapterResult(
 
 	return nil
 }
-
-// isWorktreeClean checks whether a worktree workspace has uncommitted or
-// unstaged changes. Returns true when the worktree is identical to its HEAD
-// (zero diff) — meaning the agent produced no code changes.

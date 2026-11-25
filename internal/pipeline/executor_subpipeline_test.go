@@ -239,8 +239,7 @@ steps:
 }
 
 func TestRunNamedSubPipeline_EnvExtractAndStopCondition(t *testing.T) {
-	// The child writes {{ env.greeting }} into its artifact and sets a
-	// custom variable the parent's stop condition checks.
+	// The child writes the merged {{ env.* }} values into its artifact.
 	m := subPipelineFixture(t, map[string]string{"child": `kind: WavePipeline
 metadata:
   name: child

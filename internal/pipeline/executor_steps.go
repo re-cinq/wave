@@ -1029,11 +1029,3 @@ func (e *DefaultPipelineExecutor) executeReworkStep(ctx context.Context, executi
 
 	return nil
 }
-
-// validateStepContracts runs all contracts in EffectiveContracts() order.
-// Each contract gets its own on_failure policy. When agent_review contracts fail
-// with on_failure: rework, feedback is written as artifact and the rework step is
-// executed; afterward all contracts re-run from the beginning (bounded by max_retries).
-//
-// Backward compatibility: a step with only the singular 'contract' field behaves
-// identically to a single-element 'contracts' list — same events, tracing, and pass/fail.
