@@ -1,10 +1,12 @@
 package pipeline
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 )
 
@@ -99,12 +101,31 @@ func (r *DryRunReport) Format() string {
 //   - Contract schema paths: schema files exist on disk
 type DryRunValidator struct {
 	pipelinesDir string
+	// forgeInfo resolves `{{ forge.type }}` persona references. When nil it
+	// is detected from the git remotes (honouring metadata.forge), exactly as
+	// the executor does at run time.
+	forgeInfo *forge.ForgeInfo
 }
 
 // NewDryRunValidator creates a DryRunValidator that looks for sub-pipelines in
 // the given directory (e.g. ".agents/pipelines").
 func NewDryRunValidator(pipelinesDir string) *DryRunValidator {
 	return &DryRunValidator{pipelinesDir: pipelinesDir}
+}
+
+// WithForge pins the forge used to resolve `{{ forge.type }}` persona
+// references instead of detecting it from the git remotes.
+func (v *DryRunValidator) WithForge(fi forge.ForgeInfo) *DryRunValidator {
+	v.forgeInfo = &fi
+	return v
+}
+
+func (v *DryRunValidator) resolveForge(m *manifest.Manifest) forge.ForgeInfo {
+	if v.forgeInfo == nil {
+		fi := forge.DetectFromGitRemotesWithOverride(m.Metadata.Forge)
+		v.forgeInfo = &fi
+	}
+	return *v.forgeInfo
 }
 
 // Validate runs all checks against the pipeline and returns a DryRunReport.
@@ -252,13 +273,46 @@ func (v *DryRunValidator) validatePersonaRef(step *Step, m *manifest.Manifest, r
 	if m == nil {
 		return
 	}
-	persona := m.GetPersona(step.Persona)
+	// Resolve `{{ forge.type }}` the same way `wave validate` does: a detected
+	// forge yields the one persona the executor will use; without a remote
+	// every shipped forge variant is a candidate.
+	var fi forge.ForgeInfo
+	if forge.IsForgeTemplatedPersona(step.Persona) {
+		fi = v.resolveForge(m)
+	}
+	var persona *manifest.Persona
+	personaName := step.Persona
+	candidates := forge.ResolvePersonaCandidates(step.Persona, fi)
+	for _, c := range candidates {
+		if p := m.GetPersona(c); p != nil {
+			persona, personaName = p, c
+			break
+		}
+	}
 	if persona == nil {
+		if len(candidates) > 1 && fi.Type == forge.ForgeLocal {
+			// No forge remote: wave init installs no forge personas and the
+			// executor's forge preflight blocks the step, so this is not a
+			// composition error.
+			report.Findings = append(report.Findings, ValidationFinding{
+				Severity: SeverityWarning,
+				StepID:   step.ID,
+				Field:    "persona",
+				Message: fmt.Sprintf("persona %q needs a forge remote (no %s persona in manifest); add a remote and re-run 'wave init --reconfigure', or set metadata.forge",
+					step.Persona, strings.Join(candidates, "/")),
+			})
+			return
+		}
+		msg := fmt.Sprintf("persona %q not found in manifest", step.Persona)
+		if len(candidates) == 1 && candidates[0] != step.Persona {
+			msg = fmt.Sprintf("persona %q (resolved from %q for forge %s) not found in manifest; run 'wave init --merge' to install the forge personas",
+				candidates[0], step.Persona, fi.Type)
+		}
 		report.Findings = append(report.Findings, ValidationFinding{
 			Severity: SeverityError,
 			StepID:   step.ID,
 			Field:    "persona",
-			Message:  fmt.Sprintf("persona %q not found in manifest", step.Persona),
+			Message:  msg,
 		})
 		return
 	}
@@ -267,7 +321,7 @@ func (v *DryRunValidator) validatePersonaRef(step *Step, m *manifest.Manifest, r
 			Severity: SeverityError,
 			StepID:   step.ID,
 			Field:    "persona",
-			Message:  fmt.Sprintf("persona %q references unknown adapter %q", step.Persona, persona.Adapter),
+			Message:  fmt.Sprintf("persona %q references unknown adapter %q", personaName, persona.Adapter),
 		})
 	}
 }
@@ -326,7 +380,7 @@ func (v *DryRunValidator) validateExecConfig(step *Step, report *DryRunReport) {
 
 func (v *DryRunValidator) validateInjectArtifacts(
 	step *Step,
-	_ *Pipeline,
+	p *Pipeline,
 	stepArtifacts map[string]map[string]bool,
 	report *DryRunReport,
 ) {
@@ -376,8 +430,10 @@ func (v *DryRunValidator) validateInjectArtifacts(
 			})
 		}
 
-		// Check that the dependency is listed so the executor orders steps correctly.
-		if !hasDependency(step, ref.Step) {
+		// Check that the source step runs first so the executor orders steps
+		// correctly. A transitive dependency is enough: the DAG is executed in
+		// topological order.
+		if !dependsOn(p, step, ref.Step) {
 			report.Findings = append(report.Findings, ValidationFinding{
 				Severity: SeverityWarning,
 				StepID:   step.ID,
@@ -547,14 +603,26 @@ func (v *DryRunValidator) validateIterate(step *Step, report *DryRunReport) {
 			Message:  fmt.Sprintf("unknown iterate mode %q (valid: sequential, parallel)", iter.Mode),
 		})
 	}
-	if step.SubPipeline == "" {
+	switch {
+	case step.SubPipeline == "":
 		report.Findings = append(report.Findings, ValidationFinding{
 			Severity: SeverityError,
 			StepID:   step.ID,
 			Field:    "pipeline",
 			Message:  "iterate step must specify a pipeline to run per item",
 		})
-	} else {
+	case strings.Contains(step.SubPipeline, "{{"):
+		// A templated pipeline name ("{{ item }}") is resolved per item. When
+		// iterate.over is a literal JSON array of names, check each one;
+		// otherwise the names are only known at run time.
+		var items []string
+		if strings.Contains(step.SubPipeline, "item") && json.Unmarshal([]byte(iter.Over), &items) == nil {
+			for _, item := range items {
+				name := strings.NewReplacer("{{ item }}", item, "{{item}}", item).Replace(step.SubPipeline)
+				v.validateSubPipeline(step, name, "pipeline (iterate)", report)
+			}
+		}
+	default:
 		v.validateSubPipeline(step, step.SubPipeline, "pipeline (iterate)", report)
 	}
 }
@@ -805,6 +873,38 @@ func buildStepArtifactMap(p *Pipeline) map[string]map[string]bool {
 }
 
 // hasDependency checks whether targetID is listed in step.Dependencies.
+// dependsOn reports whether step depends on targetID directly or through
+// any chain of dependencies in p.
+func dependsOn(p *Pipeline, step *Step, targetID string) bool {
+	if hasDependency(step, targetID) {
+		return true
+	}
+	if p == nil {
+		return false
+	}
+	byID := make(map[string]*Step, len(p.Steps))
+	for i := range p.Steps {
+		byID[p.Steps[i].ID] = &p.Steps[i]
+	}
+	seen := map[string]bool{}
+	queue := append([]string(nil), step.Dependencies...)
+	for len(queue) > 0 {
+		id := queue[0]
+		queue = queue[1:]
+		if id == targetID {
+			return true
+		}
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		if dep, ok := byID[id]; ok {
+			queue = append(queue, dep.Dependencies...)
+		}
+	}
+	return false
+}
+
 func hasDependency(step *Step, targetID string) bool {
 	for _, d := range step.Dependencies {
 		if d == targetID {

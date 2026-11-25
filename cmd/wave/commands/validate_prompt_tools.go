@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 )
@@ -280,14 +281,8 @@ func appendUnique(slice []string, s string) []string {
 // (github, gitlab, gitea, bitbucket). The first persona that resolves wins;
 // if none do we return nil so the caller can skip silently.
 func resolvePersonaForStep(step pipeline.Step, m *manifest.Manifest) *manifest.Persona {
-	name := step.Persona
-	if !strings.Contains(name, "{{") {
-		return m.GetPersona(name)
-	}
-	for _, ft := range []string{"github", "gitlab", "gitea", "bitbucket"} {
-		expanded := strings.ReplaceAll(name, "{{ forge.type }}", ft)
-		expanded = strings.ReplaceAll(expanded, "{{forge.type}}", ft)
-		if p := m.GetPersona(expanded); p != nil {
+	for _, name := range forge.ResolvePersonaCandidates(step.Persona, forge.ForgeInfo{}) {
+		if p := m.GetPersona(name); p != nil {
 			return p
 		}
 	}

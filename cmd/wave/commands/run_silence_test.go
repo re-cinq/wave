@@ -20,6 +20,9 @@ func TestRunCmdSilencesUsageOnPipelineError(t *testing.T) {
 	manifestPath := filepath.Join(tmpDir, "wave.yaml")
 	err := os.WriteFile(manifestPath, []byte("metadata:\n  name: test\nadapters:\n  claude:\n    binary: claude\n    mode: headless\n"), 0644)
 	require.NoError(t, err)
+	// runRun enters the manifest's directory; t.Chdir restores the working
+	// directory when the test ends.
+	t.Chdir(tmpDir)
 
 	// Ensure non-interactive mode (no TTY prompts).
 	t.Setenv("WAVE_FORCE_TTY", "0")

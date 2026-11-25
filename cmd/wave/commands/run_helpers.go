@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
 	"github.com/recinq/wave/internal/defaults"
@@ -211,22 +212,77 @@ var bootstrapPipelines = map[string]bool{
 	"ops-bootstrap":   true,
 }
 
+// enterManifestDir makes the directory holding the manifest the working
+// directory when --manifest points into another directory. `wave init -m
+// <dir>/wave.yaml` lays the whole project (.agents/, AGENTS.md, state) out
+// next to the manifest, and pipelines, contracts, workspaces and the state DB
+// are all resolved relative to the working directory, so
+// `wave run <p> -m cfg/wave.yaml` from the repository root runs the project in
+// cfg/. *manifestPath is rewritten to stay valid after the change. A missing
+// manifest is left alone so the caller reports it as before.
+func enterManifestDir(manifestPath *string) error {
+	dir := filepath.Dir(*manifestPath)
+	if dir == "." {
+		return nil
+	}
+	if _, err := os.Stat(*manifestPath); err != nil {
+		return nil
+	}
+	if err := os.Chdir(dir); err != nil {
+		return fmt.Errorf("enter manifest directory %s: %w", dir, err)
+	}
+	*manifestPath = filepath.Base(*manifestPath)
+	return nil
+}
+
+// EnterManifestDirForCommand applies enterManifestDir to the --manifest flag
+// of cmd (local or inherited) so every command, not only run, treats
+// `-m <dir>/wave.yaml` as "the project in <dir>". It is called from the root
+// command's PersistentPreRunE. init is skipped: there -m names the file to
+// create, and init lays the project out next to it itself.
+func EnterManifestDirForCommand(cmd *cobra.Command) error {
+	if cmd.Name() == "init" {
+		return nil
+	}
+	f := cmd.Flags().Lookup("manifest")
+	if f == nil {
+		return nil
+	}
+	mp := f.Value.String()
+	before := mp
+	if err := enterManifestDir(&mp); err != nil {
+		return err
+	}
+	if mp != before {
+		return cmd.Flags().Set("manifest", mp)
+	}
+	return nil
+}
+
 // checkOnboarding verifies that onboarding has been completed.
 // It returns an error if onboarding is incomplete, directing the user to run 'wave init'.
-// Existing projects that have a wave.yaml but no .onboarded marker are grandfathered in.
+// The gate passes when the onboarding sentinel exists under ./.agents or under
+// the .agents directory next to manifestPath, or when the manifest itself
+// exists (projects set up before the sentinel was introduced are grandfathered
+// in). Looking at the manifest's directory is what makes
+// `wave run <p> -m cfg/wave.yaml` work from the repository root.
 // Bootstrap pipelines bypass the gate entirely.
-func checkOnboarding(pipelineName string) error {
+func checkOnboarding(pipelineName, manifestPath string) error {
 	if bootstrapPipelines[pipelineName] {
 		return nil
 	}
+	if manifestPath == "" {
+		manifestPath = "wave.yaml"
+	}
 
-	if onboarding.IsOnboarded(".agents") {
+	if onboarding.IsOnboarded(".agents") ||
+		onboarding.IsOnboarded(filepath.Join(filepath.Dir(manifestPath), ".agents")) {
 		return nil
 	}
 
-	// Grandfather existing projects: if wave.yaml exists but no .onboarded marker,
-	// assume the project was set up before onboarding was introduced.
-	if _, err := os.Stat("wave.yaml"); err == nil {
+	// Grandfather existing projects: if the manifest exists but no .onboarded
+	// marker, assume the project was set up before onboarding was introduced.
+	if _, err := os.Stat(manifestPath); err == nil {
 		return nil
 	}
 

@@ -143,6 +143,9 @@ names.`,
 }
 
 func runRun(opts RunOptions, debug bool) error {
+	if err := enterManifestDir(&opts.Manifest); err != nil {
+		return err
+	}
 	if err := validateFlags(opts); err != nil {
 		return err
 	}

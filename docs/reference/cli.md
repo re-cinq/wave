@@ -76,7 +76,7 @@ When `wave.yaml` already exists, `wave init` merges missing defaults (pipelines,
 
 Forge personas (`github-analyst`, `github-commenter`, `github-scoper`) and their prompts are only written when the repository has a matching forge remote, or with `--all`. In a repository without a remote they are left out; add the remote and run `wave init --merge` to install them.
 
-When `--manifest-path` (or the global `-m`) points into another directory, that directory becomes the project root, and init does not warn that it is below the git repository root.
+When `--manifest-path` (or the global `-m`) points into another directory, that directory becomes the project root, and init does not warn that it is below the git repository root. Every other command treats `-m <dir>/wave.yaml` the same way and runs in `<dir>`, so `wave run impl-issue -m cfg/wave.yaml` from the repository root uses `cfg/.agents/` and its state.
 
 ### Options
 
@@ -157,11 +157,10 @@ Flags are organized into four tiers by usage frequency.
 |------|-------------|
 | `--from-step` | Start execution from specific step |
 | `--force` | Skip validation checks when using --from-step |
-| `--dry-run` | Show the execution plan without running: per step the resolved adapter and model (after `--adapter`, `--model`, `--force-model`, tier routing and `default_model`), the workspace path under `runtime.workspace_root` (worktree branch or shared `workspace.ref` where set) and retry attempts |
+| `--dry-run` | Show the execution plan without running: per step the resolved adapter and model (after `--adapter`, `--model`, `--force-model`, tier routing and `default_model`), the workspace path under `runtime.workspace_root` (worktree branch or shared `workspace.ref` where set) and retry attempts. `{{ forge.type }}` personas are resolved against the detected forge (or `metadata.forge`); without a forge remote a missing forge persona is a warning, not an error |
 | `--timeout` | Timeout in minutes (0 = no timeout) |
 | `--steps` | Run only named steps (comma-separated) |
 | `-x, --exclude` | Skip named steps (comma-separated) |
-| `--on-failure` | Failure policy: halt (default) or skip |
 | `--detach` | Run as detached background process |
 
 #### Dev/Debug (Tier 3)
@@ -1040,7 +1039,7 @@ All commands support:
 |------|-------|-------------|
 | `--help` | `-h` | Show help |
 | `--version` | | Show version |
-| `--manifest` | `-m` | Path to manifest file (default: wave.yaml) |
+| `--manifest` | `-m` | Path to manifest file (default: wave.yaml). In another directory, the command runs in that directory |
 | `--debug` | `-d` | Enable debug mode |
 | `--output` | `-o` | Output format: auto, json, text, quiet (default: auto) |
 | `--verbose` | `-v` | Include real-time tool activity |

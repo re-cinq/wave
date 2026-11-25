@@ -117,7 +117,7 @@ func runValidate(opts ValidateOptions) error {
 	}
 
 	// Detect forge for template resolution
-	forgeInfo, _ := forge.DetectFromGitRemotes()
+	forgeInfo := forge.DetectFromGitRemotesWithOverride(m.Metadata.Forge)
 
 	warnPromptTools := promptToolWarnEnabled(opts)
 
@@ -299,29 +299,6 @@ func isCompositionStep(step pipeline.Step) bool {
 	return step.SubPipeline != "" || step.Branch != nil || step.Gate != nil || step.Loop != nil || step.Aggregate != nil
 }
 
-// resolveForgeTemplate expands {{ forge.type }} in a persona name using the detected forge.
-// Returns all possible expansions if forge is unknown.
-func resolveForgeTemplate(persona string, fi forge.ForgeInfo) []string {
-	if !strings.Contains(persona, "{{ forge.type }}") && !strings.Contains(persona, "{{forge.type}}") {
-		return []string{persona}
-	}
-	// Local or undetected forge (no remote yet): the persona is chosen once a
-	// forge remote exists, so accept any shipped forge variant.
-	if fi.Type != forge.ForgeUnknown && fi.Type != forge.ForgeLocal && fi.Type != "" {
-		resolved := strings.ReplaceAll(persona, "{{ forge.type }}", string(fi.Type))
-		resolved = strings.ReplaceAll(resolved, "{{forge.type}}", string(fi.Type))
-		return []string{resolved}
-	}
-	// Unknown or local forge: expand to all variants
-	var results []string
-	for _, ft := range []string{"github", "gitlab", "gitea", "bitbucket"} {
-		resolved := strings.ReplaceAll(persona, "{{ forge.type }}", ft)
-		resolved = strings.ReplaceAll(resolved, "{{forge.type}}", ft)
-		results = append(results, resolved)
-	}
-	return results
-}
-
 // validatePipelineFull performs comprehensive validation of a pipeline against the manifest.
 // Returns a list of error strings (empty = valid).
 func validatePipelineFull(pipelineName string, m *manifest.Manifest, fi forge.ForgeInfo) []string {
@@ -362,7 +339,7 @@ func validatePipelineFull(pipelineName string, m *manifest.Manifest, fi forge.Fo
 				errs = append(errs, fmt.Sprintf("step '%s' has no persona (and is not a composition step)", step.ID))
 			} else {
 				// Resolve forge templates and check at least one variant exists in manifest
-				candidates := resolveForgeTemplate(step.Persona, fi)
+				candidates := forge.ResolvePersonaCandidates(step.Persona, fi)
 				found := false
 				for _, c := range candidates {
 					if m.GetPersona(c) != nil {

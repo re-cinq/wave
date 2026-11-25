@@ -40,7 +40,7 @@ func validateFlags(opts RunOptions) error {
 	// Gate on onboarding completion — skip when --force is set, or when the
 	// pipeline is a bootstrap pipeline (which exists to prime the project).
 	if !opts.Force {
-		if err := checkOnboarding(opts.Pipeline); err != nil {
+		if err := checkOnboarding(opts.Pipeline, opts.Manifest); err != nil {
 			return NewCLIError(CodeOnboardingRequired,
 				"onboarding not complete",
 				"Run 'wave init' to complete setup before running pipelines")

@@ -22,7 +22,14 @@ func stateFile(waveDir string) string {
 // IsOnboarded checks whether onboarding has been completed by reading
 // the state file from waveDir. Returns false if the file is missing,
 // unreadable, or contains invalid data.
+//
+// The sentinel written by `wave init` (SentinelFile, .agents/.onboarding-done)
+// counts as well: it is the marker every current init path writes, while the
+// JSON state file is only read for projects initialised by older releases.
 func IsOnboarded(waveDir string) bool {
+	if _, err := os.Stat(filepath.Join(waveDir, filepath.Base(SentinelFile))); err == nil {
+		return true
+	}
 	data, err := os.ReadFile(stateFile(waveDir))
 	if err != nil {
 		return false

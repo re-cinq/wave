@@ -56,6 +56,15 @@ func TestIsOnboarded(t *testing.T) {
 			},
 			expected: true,
 		},
+		{
+			// wave init writes .agents/.onboarding-done (SentinelFile), never
+			// the legacy JSON state file; the run gate must accept it.
+			name: "returns true when the wave init sentinel exists",
+			setup: func(t *testing.T, dir string) {
+				require.NoError(t, MarkDoneAt(filepath.Dir(dir)))
+			},
+			expected: true,
+		},
 	}
 
 	for _, tt := range tests {
