@@ -304,21 +304,7 @@ func (e *DefaultPipelineExecutor) resolveStepResources(ctx context.Context, exec
 	}
 	execution.mu.Unlock()
 	resolvedModel := e.resolveModelForAttempt(step, persona, &execution.Manifest.Runtime.Routing, resolvedPersona, adapterTierModels, attempt)
-
-	// When no model was resolved, fall back to adapter's default_model
-	if resolvedModel == "" && adapterDef != nil && adapterDef.DefaultModel != "" {
-		resolvedModel = adapterDef.DefaultModel
-	}
-
-	// When resolved adapter differs from persona's adapter and no explicit model was set,
-	// fall back to the target adapter's default model (avoids cross-ecosystem model IDs)
-	if resolvedAdapterName != persona.Adapter && e.modelOverride == "" && step.Model == "" {
-		if adapterDef != nil && adapterDef.DefaultModel != "" {
-			resolvedModel = adapterDef.DefaultModel
-		} else {
-			resolvedModel = ""
-		}
-	}
+	resolvedModel = e.applyAdapterDefaultModel(resolvedModel, step, persona, resolvedAdapterName, adapterDef)
 
 	// Determine the configured (pre-resolution) model for provenance tracking
 	configuredModel := step.Model

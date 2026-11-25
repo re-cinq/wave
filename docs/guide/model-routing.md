@@ -74,7 +74,7 @@ steps:
 
 | Priority | Source | Scope | Example |
 |----------|--------|-------|---------|
-| 1 | CLI `--adapter` flag | Entire run | `wave run impl-issue --adapter opencode` |
+| 1 | CLI `--adapter` flag | Entire run | `wave run impl-issue --adapter codex` |
 | 2 | Step-level `adapter:` | Single step | `adapter: codex` in pipeline YAML |
 | 3 | Persona-level `adapter:` | Steps using that persona | `adapter: claude` in persona definition |
 | 4 | Adapter default | Steps with no override | Falls back to first configured adapter |

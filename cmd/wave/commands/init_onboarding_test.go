@@ -297,6 +297,30 @@ func TestInitWarnsInSubdirectory(t *testing.T) {
 	assert.Contains(t, stderr, "subdirectory of the git repository")
 }
 
+// Regression: 'wave init -m cfg/wave.yaml' inside a repository warned that
+// cfg is a subdirectory of the repository, although the user chose it.
+func TestInitNoSubdirectoryWarningForExplicitManifestDir(t *testing.T) {
+	env := newTestEnv(t)
+	defer env.cleanup()
+	gitOut(t, "init", "-q")
+
+	root := &cobra.Command{Use: "wave"}
+	root.PersistentFlags().StringP("manifest", "m", "wave.yaml", "")
+	root.AddCommand(NewInitCmd())
+	var errBuf bytes.Buffer
+	root.SetOut(&bytes.Buffer{})
+	root.SetErr(&errBuf)
+	root.SetArgs([]string{"init", "-m", "cfg/wave.yaml", "-y"})
+	require.NoError(t, root.Execute())
+	assert.True(t, fileExists(filepath.Join("cfg", "wave.yaml")))
+	assert.NotContains(t, errBuf.String(), "subdirectory of the git repository")
+
+	// Same for --manifest-path.
+	_, stderr, err := executeInitCmd("--manifest-path", "other/wave.yaml", "--yes")
+	require.NoError(t, err)
+	assert.NotContains(t, stderr, "subdirectory of the git repository")
+}
+
 // The banner counts personas from the manifest, not prompt files.
 func TestInitBannerPersonaCount(t *testing.T) {
 	env := newTestEnv(t)

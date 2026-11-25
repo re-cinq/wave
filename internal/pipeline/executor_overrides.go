@@ -169,3 +169,49 @@ func (e *DefaultPipelineExecutor) recordDecision(runID, stepID, category, decisi
 		Context:   contextJSON,
 	})
 }
+
+// applyAdapterDefaultModel applies the adapter default_model fallbacks to a
+// model resolved by resolveModelForAttempt: an empty model falls back to the
+// adapter's default_model, and when the resolved adapter differs from the
+// persona's adapter without an explicit --model or step model, the target
+// adapter's default_model replaces the persona model (avoids handing a
+// cross-ecosystem model ID to the wrong CLI).
+func (e *DefaultPipelineExecutor) applyAdapterDefaultModel(model string, step *Step, persona *manifest.Persona, adapterName string, adapterDef *manifest.Adapter) string {
+	if model == "" && adapterDef != nil && adapterDef.DefaultModel != "" {
+		model = adapterDef.DefaultModel
+	}
+	if adapterName != persona.Adapter && e.modelOverride == "" && step.Model == "" {
+		if adapterDef != nil && adapterDef.DefaultModel != "" {
+			model = adapterDef.DefaultModel
+		} else {
+			model = ""
+		}
+	}
+	return model
+}
+
+// StepPlan is the adapter and model a step resolves to on its first attempt.
+type StepPlan struct {
+	Adapter string
+	Model   string // empty means the adapter CLI picks its own default
+}
+
+// PlanStep resolves the adapter and model a step would dispatch with on its
+// first attempt, using the same resolution chain as the executor (CLI
+// --adapter/--model/--force-model, step, persona, tier routing, adapter
+// default_model). Used by `wave run --dry-run` so the plan matches the run.
+func PlanStep(m *manifest.Manifest, step *Step, persona *manifest.Persona, adapterOverride, modelOverride string, forceModel bool) StepPlan {
+	e := &DefaultPipelineExecutor{adapterOverride: adapterOverride, modelOverride: modelOverride, forceModel: forceModel}
+	adapterName := persona.Adapter
+	if step.Adapter != "" {
+		adapterName = step.Adapter
+	}
+	if adapterOverride != "" {
+		adapterName = adapterOverride
+	}
+	adapterDef := m.GetAdapter(adapterName)
+	tiers := effectiveTierModels(adapterName, adapterDef, &m.Runtime.Routing)
+	model := e.resolveModelForAttempt(step, persona, &m.Runtime.Routing, step.Persona, tiers, 1)
+	model = e.applyAdapterDefaultModel(model, step, persona, adapterName, adapterDef)
+	return StepPlan{Adapter: adapterName, Model: model}
+}

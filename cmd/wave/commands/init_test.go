@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/recinq/wave/internal/defaults"
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/onboarding"
 	"github.com/spf13/cobra"
@@ -983,10 +985,105 @@ func TestInitPersonasNeverExcluded(t *testing.T) {
 	allPersonas, err := defaults.GetPersonas()
 	require.NoError(t, err)
 
+	// Every forge-independent persona is written regardless of release
+	// filtering; forge personas need a matching remote (see
+	// TestInitForgePersonasNeedMatchingRemote).
+	want := 0
+	for name := range allPersonas {
+		if !onboarding.IsForgePersona(strings.TrimSuffix(name, ".md")) {
+			want++
+		}
+	}
 	entries, err := os.ReadDir(".agents/personas")
 	require.NoError(t, err)
-	assert.Equal(t, len(allPersonas), len(entries),
-		"all personas should be present regardless of release filtering")
+	assert.Equal(t, want, len(entries),
+		"all forge-independent personas should be present regardless of release filtering")
+}
+
+// Regression: github-analyst/-commenter/-scoper personas and their prompts
+// were written into projects with no git remote. They must only appear with
+// a matching forge remote, or with --all.
+func TestInitForgePersonasNeedMatchingRemote(t *testing.T) {
+	forgeFiles := func(t *testing.T) []string {
+		t.Helper()
+		var out []string
+		entries, err := os.ReadDir(".agents/personas")
+		require.NoError(t, err)
+		for _, e := range entries {
+			if onboarding.IsForgePersona(e.Name()) {
+				out = append(out, e.Name())
+			}
+		}
+		return out
+	}
+	forgeManifestPersonas := func(t *testing.T) []string {
+		t.Helper()
+		data, err := os.ReadFile("wave.yaml")
+		require.NoError(t, err)
+		var m struct {
+			Personas map[string]interface{} `yaml:"personas"`
+		}
+		require.NoError(t, yaml.Unmarshal(data, &m))
+		var out []string
+		for name := range m.Personas {
+			if onboarding.IsForgePersona(name) {
+				out = append(out, name)
+			}
+		}
+		return out
+	}
+	gitInit := func(t *testing.T, remote string) {
+		t.Helper()
+		require.NoError(t, exec.Command("git", "init", "-q").Run())
+		if remote != "" {
+			require.NoError(t, exec.Command("git", "remote", "add", "origin", remote).Run())
+		}
+	}
+
+	t.Run("no remote", func(t *testing.T) {
+		env := newTestEnv(t)
+		defer env.cleanup()
+		gitInit(t, "")
+		_, _, err := executeInitCmd()
+		require.NoError(t, err)
+		assert.Empty(t, forgeFiles(t))
+		assert.Empty(t, forgeManifestPersonas(t))
+	})
+
+	t.Run("no remote, merge", func(t *testing.T) {
+		env := newTestEnv(t)
+		defer env.cleanup()
+		gitInit(t, "")
+		_, _, err := executeInitCmd()
+		require.NoError(t, err)
+		_, _, err = executeInitCmd("--merge", "--yes")
+		require.NoError(t, err)
+		assert.Empty(t, forgeFiles(t))
+		assert.Empty(t, forgeManifestPersonas(t))
+	})
+
+	t.Run("github remote", func(t *testing.T) {
+		env := newTestEnv(t)
+		defer env.cleanup()
+		gitInit(t, "https://github.com/org/repo.git")
+		_, _, err := executeInitCmd()
+		require.NoError(t, err)
+		files := forgeFiles(t)
+		assert.NotEmpty(t, files)
+		for _, f := range files {
+			assert.True(t, strings.HasPrefix(f, "github-"), "unexpected forge persona %s", f)
+		}
+		assert.Contains(t, forgeManifestPersonas(t), "github-analyst")
+	})
+
+	t.Run("no remote, --all", func(t *testing.T) {
+		env := newTestEnv(t)
+		defer env.cleanup()
+		gitInit(t, "")
+		_, _, err := executeInitCmd("--all")
+		require.NoError(t, err)
+		assert.Contains(t, forgeFiles(t), "github-analyst.md")
+	})
 }
 
 // TestInitAllMergeCompose tests that --all and --merge compose naturally.
@@ -1421,6 +1518,8 @@ func TestComputeChangeSummary(t *testing.T) {
 			cmd := NewInitCmd()
 			assets, err := onboarding.LoadAssets(cmd.ErrOrStderr(), onboarding.AssetOptions{})
 			require.NoError(t, err)
+			// The temp dir has no git remote; init scopes assets the same way.
+			onboarding.ScopeAssetsToForge(assets, forge.ForgeLocal, false)
 
 			tc.setup(t, assets)
 

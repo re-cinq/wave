@@ -170,10 +170,10 @@ func runOptimize(cmd *cobra.Command, opts optimizeOpts) error {
 	}
 
 	// 4. Discover available pipeline names
-	pipelineNames := discoverPipelineNames(".agents/pipelines")
+	pipelineInfos := discoverPipelines(".agents/pipelines")
 
 	// 5. Run optimization
-	result := doctor.Optimize(profile, m.Project, fiPtr, pipelineNames)
+	result := doctor.Optimize(profile, m.Project, fiPtr, pipelineInfos)
 
 	// 6. Render result
 	if format == "json" {
@@ -226,15 +226,17 @@ func formatScanSummary(profile *doctor.ProjectProfile) string {
 	return "scan complete"
 }
 
-// discoverPipelineNames reads .yaml/.yml filenames from the pipelines directory
-// and returns them as pipeline names (extension stripped).
-func discoverPipelineNames(pipelinesDir string) []string {
+// discoverPipelines reads .yaml/.yml files from the pipelines directory and
+// returns their names (extension stripped) plus whether each references
+// forge template variables, so forge-bound pipelines are not called
+// forge-independent in a repository without a remote.
+func discoverPipelines(pipelinesDir string) []doctor.PipelineInfo {
 	entries, err := os.ReadDir(pipelinesDir)
 	if err != nil {
 		return nil
 	}
 
-	var names []string
+	var infos []doctor.PipelineInfo
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -244,11 +246,16 @@ func discoverPipelineNames(pipelinesDir string) []string {
 			continue
 		}
 		name := strings.TrimSuffix(entry.Name(), ext)
-		if name != "" {
-			names = append(names, name)
+		if name == "" {
+			continue
 		}
+		content, err := os.ReadFile(filepath.Join(pipelinesDir, entry.Name()))
+		if err != nil {
+			continue
+		}
+		infos = append(infos, doctor.PipelineInfo{Name: name, UsesForge: doctor.UsesForgeTemplate(content)})
 	}
-	return names
+	return infos
 }
 
 // promptConfirm shows the prompt and reads a Y/n response.

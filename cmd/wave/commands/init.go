@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/onboarding"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -33,6 +33,10 @@ type InitOptions struct {
 	// displayPath is the manifest path as the user gave it, for messages;
 	// OutputPath is relative to the project root init works in.
 	displayPath string
+	// explicitDir is true when the manifest path names another directory
+	// (e.g. -m cfg/wave.yaml): the user chose the project root, so init
+	// does not warn that it is below the git repository root.
+	explicitDir bool
 }
 
 // NewInitCmd constructs the `wave init` cobra command.
@@ -110,6 +114,7 @@ func runInit(cmd *cobra.Command, opts InitOptions) error {
 		}
 		defer func() { _ = os.Chdir(prev) }()
 		opts.OutputPath = filepath.Base(opts.OutputPath)
+		opts.explicitDir = true
 	}
 
 	if opts.Adapter != "" {
@@ -184,7 +189,9 @@ func runService(cmd *cobra.Command, opts InitOptions) error {
 	if err := onboarding.EnsureGitRepo(stderr); err != nil {
 		return err
 	}
-	warnIfSubdirectory(stderr)
+	if !opts.explicitDir {
+		warnIfSubdirectory(stderr)
+	}
 
 	adapter, model, err := chooseAdapterAndModel(p, interactive, opts.Adapter, opts.Model, "", "")
 	if err != nil {
@@ -314,20 +321,27 @@ func warnIfSubdirectory(w io.Writer) {
 }
 
 // warnIfAdapterMissing tells the user when the chosen adapter binary is not
-// installed, so the first `wave run` does not fail mid-step.
+// installed, so the first `wave run` does not fail mid-step. It only points
+// at other adapters that are actually installed.
 func warnIfAdapterMissing(w io.Writer, adapter string) {
-	if _, err := exec.LookPath(adapter); err == nil {
+	if _, err := lookPath(adapter); err == nil {
 		return
 	}
-	fmt.Fprintf(w, "  Warning: adapter binary %q not found on PATH. Install it before 'wave run', or re-run init with --adapter %s.\n",
-		adapter, otherAdapter(adapter))
-}
-
-func otherAdapter(adapter string) string {
-	if adapter == "codex" {
-		return "claude"
+	var alts []string
+	for _, a := range onboarding.SupportedInitAdapters() {
+		if a == adapter {
+			continue
+		}
+		if _, err := lookPath(a); err == nil {
+			alts = append(alts, "--adapter "+a)
+		}
 	}
-	return "codex"
+	if len(alts) == 0 {
+		fmt.Fprintf(w, "  Warning: adapter binary %q not found on PATH. Install it before 'wave run'.\n", adapter)
+		return
+	}
+	fmt.Fprintf(w, "  Warning: adapter binary %q not found on PATH. Install it before 'wave run', or re-run init with %s.\n",
+		adapter, strings.Join(alts, " or "))
 }
 
 func runMerge(cmd *cobra.Command, opts InitOptions, absOutputPath string) error {
@@ -359,6 +373,8 @@ func runMerge(cmd *cobra.Command, opts InitOptions, absOutputPath string) error 
 	if err != nil {
 		return err
 	}
+	forgeInfo, _ := forge.DetectFromGitRemotes()
+	onboarding.ScopeAssetsToForge(assets, forgeInfo.Type, opts.All)
 
 	defaultManifest := onboarding.BuildManifest(onboarding.ManifestOptions{
 		Adapter:        adapter,
@@ -438,6 +454,8 @@ func runReconfigure(cmd *cobra.Command, opts InitOptions) error {
 	if err != nil {
 		return err
 	}
+	forgeInfo, _ := forge.DetectFromGitRemotes()
+	onboarding.ScopeAssetsToForge(assets, forgeInfo.Type, opts.All)
 	defaults := onboarding.BuildManifest(onboarding.ManifestOptions{
 		Adapter:        adapter,
 		Model:          model,

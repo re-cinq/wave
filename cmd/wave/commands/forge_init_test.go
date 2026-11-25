@@ -157,10 +157,11 @@ func TestCrossForgeInit(t *testing.T) {
 					}
 				}
 			} else {
-				// For local/unknown forges, no filtering is applied — all personas
-				// are returned (there's no forge prefix to filter on).
-				assert.Equal(t, len(personaConfigs), len(filteredPersonas),
-					"local forge should return all personas unfiltered")
+				// Without a remote no forge persona can work, so none survive.
+				for name := range filteredPersonas {
+					assert.False(t, isForgeSpecific(name),
+						"local forge should drop forge persona %q", name)
+				}
 			}
 
 			// Generic personas (no forge prefix) should always survive filtering.

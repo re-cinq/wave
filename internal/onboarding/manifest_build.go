@@ -201,10 +201,22 @@ func FilterTransitiveDeps(warnW io.Writer, pipelines, allContracts, allPrompts m
 
 // FilterPersonasByForge filters persona configs to only include personas
 // matching the detected forge type. Personas without a known forge prefix are
-// always included.
+// always included. A repository without a remote (ForgeLocal) gets no forge
+// personas at all: they only work against a forge. An unrecognized remote
+// host (ForgeUnknown) keeps every variant, since metadata.forge in wave.yaml
+// can still name the forge.
 func FilterPersonasByForge(configs map[string]manifest.Persona, ft forge.ForgeType) map[string]manifest.Persona {
 	if ft == forge.ForgeUnknown {
 		return configs
+	}
+	if ft == forge.ForgeLocal || ft == "" {
+		result := make(map[string]manifest.Persona, len(configs))
+		for name, cfg := range configs {
+			if !IsForgePersona(name) {
+				result[name] = cfg
+			}
+		}
+		return result
 	}
 
 	prefix, ok := ForgeTypeToPrefix[ft]
@@ -226,6 +238,28 @@ func FilterPersonasByForge(configs map[string]manifest.Persona, ft forge.ForgeTy
 		}
 	}
 	return result
+}
+
+// IsForgePersona reports whether a persona name carries a forge prefix
+// (github-, gitlab-, bitbucket-, gitea-).
+func IsForgePersona(name string) bool {
+	for _, fp := range KnownForgePrefixes {
+		if strings.HasPrefix(name, fp) {
+			return true
+		}
+	}
+	return false
+}
+
+// ScopeAssetsToForge drops forge personas (configs and their system prompt
+// files) that do not match the detected forge, unless all is set (wave init
+// --all installs every asset).
+func ScopeAssetsToForge(assets *AssetSet, ft forge.ForgeType, all bool) {
+	if assets == nil || all {
+		return
+	}
+	assets.PersonaConfigs = FilterPersonasByForge(assets.PersonaConfigs, ft)
+	assets.Personas = PersonaFilesFor(assets.Personas, assets.PersonaConfigs)
 }
 
 // FlavourToProjectMap converts a FlavourInfo into the map[string]interface{}

@@ -201,7 +201,7 @@ func TestRunDryRunOutput(t *testing.T) {
 	}
 
 	output, err := captureStderr(func() error {
-		return performDryRun(p, m, nil, "")
+		return performDryRun(p, m, nil, RunOptions{})
 	})
 
 	assert.NoError(t, err)
@@ -226,7 +226,7 @@ func TestRunDryRunOutput(t *testing.T) {
 
 	// --adapter overrides persona adapters at run time; the plan must say so.
 	output, err = captureStderr(func() error {
-		return performDryRun(p, m, nil, "codex")
+		return performDryRun(p, m, nil, RunOptions{Adapter: "codex"})
 	})
 	assert.NoError(t, err)
 	assert.Contains(t, output, "Adapter: codex")
@@ -425,7 +425,7 @@ func TestDryRunShowsAllStepDetails(t *testing.T) {
 	}
 
 	output, err := captureStderr(func() error {
-		return performDryRun(p, m, nil, "")
+		return performDryRun(p, m, nil, RunOptions{})
 	})
 
 	assert.NoError(t, err)

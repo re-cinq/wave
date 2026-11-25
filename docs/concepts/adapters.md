@@ -151,7 +151,7 @@ pipelines:
 **CLI flag override** — override all adapter selection at runtime:
 
 ```bash
-wave run my-pipeline --adapter opencode --model "zai-coding-plan/glm-5-turbo"
+wave run my-pipeline --adapter codex --model gpt-6.2-sol
 ```
 
 For OpenCode personas, the `model` field uses a `provider/model` identifier format — the string is split on the first `/` to derive the provider and model name. If `model` is omitted for an OpenCode persona, it defaults to `anthropic/claude-sonnet-4-20250514`.

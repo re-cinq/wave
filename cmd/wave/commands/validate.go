@@ -370,6 +370,12 @@ func validatePipelineFull(pipelineName string, m *manifest.Manifest, fi forge.Fo
 						break
 					}
 				}
+				// Without a remote, wave init installs no forge personas: the
+				// step needs a forge to run at all (run preflight reports
+				// that), so a missing forge-typed persona is not an error.
+				if !found && fi.Type == forge.ForgeLocal && len(candidates) > 1 {
+					found = true
+				}
 				if !found {
 					errs = append(errs, fmt.Sprintf("step '%s' persona '%s' not found in manifest", step.ID, step.Persona))
 				}

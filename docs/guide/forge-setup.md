@@ -190,10 +190,10 @@ curl -u "username:$BITBUCKET_TOKEN" https://api.bitbucket.org/2.0/user
 
 ### "persona unknown-commenter not found"
 
-Wave generates forge-specific personas during `wave init` (e.g., `github-commenter`; only the GitHub personas ship by default). If the wrong forge was detected:
+Wave generates forge-specific personas during `wave init` (e.g., `github-commenter`; only the GitHub personas ship by default), and only when the repository has a matching forge remote. Without a remote no forge personas are written (use `wave init --all` to install them anyway). If the remote was added later or the wrong forge was detected:
 
 ```bash
-wave init --merge    # Re-detects forge and updates personas
+wave init --merge    # Re-detects forge and adds the matching personas
 ```
 
 ### "forge.cli_tool is empty"
