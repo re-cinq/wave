@@ -323,12 +323,6 @@ func (s *Store) ListRetrospectives(opts ListRetrosOptions) ([]RetrospectiveRecor
 	return records, nil
 }
 
-// DeleteRetrospective removes a retrospective record by run ID.
-func (s *Store) DeleteRetrospective(runID string) error {
-	_, err := s.db.Exec("DELETE FROM retrospective WHERE run_id = ?", runID)
-	return err
-}
-
 // UpdateRetrospectiveSmoothness updates the smoothness rating for a retrospective.
 func (s *Store) UpdateRetrospectiveSmoothness(runID string, smoothness string) error {
 	_, err := s.db.Exec("UPDATE retrospective SET smoothness = ? WHERE run_id = ?", smoothness, runID)

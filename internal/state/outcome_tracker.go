@@ -3,7 +3,6 @@ package state
 import (
 	"fmt"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 )
@@ -170,24 +169,6 @@ func (t *OutcomeTracker) Count() int {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	return len(t.outcomes)
-}
-
-// FormatSummary returns the human-readable end-of-run summary block.
-func (t *OutcomeTracker) FormatSummary() string {
-	outcomes := t.GetAll()
-	if len(outcomes) == 0 {
-		return ""
-	}
-	prefix := "Artifacts"
-	if hasNerdFont() {
-		prefix = "📦 Artifacts"
-	}
-	lines := make([]string, 0, len(outcomes)+1)
-	lines = append(lines, fmt.Sprintf("%s (%d):", prefix, len(outcomes)))
-	for _, r := range outcomes {
-		lines = append(lines, fmt.Sprintf("   %s", r.String()))
-	}
-	return strings.Join(lines, "\n")
 }
 
 // FormatByStep returns the per-step rendering used by progress displays.

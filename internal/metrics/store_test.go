@@ -356,21 +356,4 @@ func TestRetrospective(t *testing.T) {
 		assert.Equal(t, "complete", got.Status)
 	})
 
-	t.Run("delete", func(t *testing.T) {
-		store, cleanup := setupTestStore(t)
-		defer cleanup()
-
-		now := time.Now().Truncate(time.Second)
-		require.NoError(t, store.SaveRetrospective(&RetrospectiveRecord{
-			RunID:        "run-del",
-			PipelineName: "pipe",
-			Status:       "complete",
-			CreatedAt:    now,
-		}))
-
-		require.NoError(t, store.DeleteRetrospective("run-del"))
-
-		_, err := store.GetRetrospective("run-del")
-		require.Error(t, err)
-	})
 }

@@ -39,39 +39,6 @@ func TestBasicProgressDisplay(t *testing.T) {
 	}
 }
 
-func TestFormatStepDuration(t *testing.T) {
-	tests := []struct {
-		name     string
-		duration time.Duration
-		want     string
-	}{
-		{
-			name:     "milliseconds",
-			duration: 500 * time.Millisecond,
-			want:     "500ms",
-		},
-		{
-			name:     "seconds",
-			duration: 5 * time.Second,
-			want:     "5s",
-		},
-		{
-			name:     "minutes and seconds",
-			duration: 90 * time.Second,
-			want:     "1m 30s",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := formatStepDuration(tt.duration)
-			if got != tt.want {
-				t.Errorf("formatStepDuration(%v) = %v, want %v", tt.duration, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestBasicProgressDisplay_HandoverMetadata_VerboseMode(t *testing.T) {
 	var buf bytes.Buffer
 	bpd := NewBasicProgressDisplayWithVerbose(true)

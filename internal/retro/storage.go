@@ -17,7 +17,6 @@ type RetroIndexer interface {
 	SaveRetrospective(record *metrics.RetrospectiveRecord) error
 	GetRetrospective(runID string) (*metrics.RetrospectiveRecord, error)
 	ListRetrospectives(opts metrics.ListRetrosOptions) ([]metrics.RetrospectiveRecord, error)
-	DeleteRetrospective(runID string) error
 	UpdateRetrospectiveSmoothness(runID string, smoothness string) error
 	UpdateRetrospectiveStatus(runID string, status string) error
 }

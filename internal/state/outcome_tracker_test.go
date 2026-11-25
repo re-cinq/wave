@@ -140,35 +140,6 @@ func TestOutcomeTrackerCount(t *testing.T) {
 	assert.Equal(t, 2, tracker.Count())
 }
 
-func TestOutcomeTrackerFormatSummary(t *testing.T) {
-	t.Setenv("NERD_FONT", "")
-	t.Setenv("TERM", "dumb")
-	t.Setenv("TERMINAL_EMULATOR", "")
-
-	t.Run("empty", func(t *testing.T) {
-		tracker := NewOutcomeTracker("p", nil)
-		assert.Equal(t, "", tracker.FormatSummary())
-	})
-
-	t.Run("populated", func(t *testing.T) {
-		tracker := NewOutcomeTracker("p", nil)
-		tracker.AddFile("s1", "output", "/tmp/output.json", "the output")
-		tracker.AddURL("s1", "link", "https://example.com", "a link")
-
-		summary := tracker.FormatSummary()
-		assert.Contains(t, summary, "Artifacts (2):")
-		assert.Contains(t, summary, "output.json")
-		assert.Contains(t, summary, "https://example.com")
-	})
-
-	t.Run("nerd font prefix", func(t *testing.T) {
-		t.Setenv("NERD_FONT", "1")
-		tracker := NewOutcomeTracker("p", nil)
-		tracker.AddFile("s1", "f", "/tmp/f.txt", "d")
-		assert.Contains(t, tracker.FormatSummary(), "\U0001f4e6 Artifacts")
-	})
-}
-
 func TestOutcomeTrackerFormatByStep(t *testing.T) {
 	tracker := NewOutcomeTracker("p", nil)
 	now := time.Now()

@@ -130,21 +130,6 @@ type Repository struct {
 	PushedAt        time.Time `json:"pushed_at"`
 }
 
-// Reference represents a git reference
-type Reference struct {
-	Ref    string    `json:"ref"`
-	NodeID string    `json:"node_id"`
-	URL    string    `json:"url"`
-	Object RefObject `json:"object"`
-}
-
-// RefObject represents the object a reference points to
-type RefObject struct {
-	Type string `json:"type"`
-	SHA  string `json:"sha"`
-	URL  string `json:"url"`
-}
-
 // ListIssuesOptions specifies options for listing issues
 type ListIssuesOptions struct {
 	State     string     // open, closed, all
@@ -163,26 +148,6 @@ type ListPullRequestsOptions struct {
 	Direction string // asc, desc
 	PerPage   int    // Results per page (max 100)
 	Page      int    // Page number
-}
-
-// IssueUpdate represents fields that can be updated on an issue
-type IssueUpdate struct {
-	Title     *string   `json:"title,omitempty"`
-	Body      *string   `json:"body,omitempty"`
-	State     *string   `json:"state,omitempty"`
-	Labels    *[]string `json:"labels,omitempty"`
-	Assignees *[]string `json:"assignees,omitempty"`
-	Milestone *int      `json:"milestone,omitempty"`
-}
-
-// CreatePullRequestRequest represents a request to create a pull request
-type CreatePullRequestRequest struct {
-	Title               string `json:"title"`
-	Body                string `json:"body,omitempty"`
-	Head                string `json:"head"` // branch name
-	Base                string `json:"base"` // target branch
-	MaintainerCanModify *bool  `json:"maintainer_can_modify,omitempty"`
-	Draft               *bool  `json:"draft,omitempty"`
 }
 
 // PullRequestCommit represents a commit on a pull request.
@@ -204,19 +169,6 @@ type PullRequestCommitAuthor struct {
 	Name  string    `json:"name"`
 	Email string    `json:"email"`
 	Date  time.Time `json:"date"`
-}
-
-// RateLimitStatus represents GitHub API rate limit information
-type RateLimitStatus struct {
-	Limit     int   `json:"limit"`
-	Remaining int   `json:"remaining"`
-	Reset     int64 `json:"reset"` // Unix timestamp
-	Used      int   `json:"used"`
-}
-
-// ResetTime returns the rate limit reset time
-func (r *RateLimitStatus) ResetTime() time.Time {
-	return time.Unix(r.Reset, 0)
 }
 
 // APIError represents a GitHub API error response

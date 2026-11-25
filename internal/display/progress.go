@@ -244,59 +244,6 @@ func (qpd *QuietProgressDisplay) EmitProgress(ev event.Event) error {
 	return nil
 }
 
-// formatStepDuration formats a duration for display.
-func formatStepDuration(d time.Duration) string {
-	if d < time.Second {
-		return fmt.Sprintf("%dms", d.Milliseconds())
-	}
-	if d < time.Minute {
-		return fmt.Sprintf("%ds", int(d.Seconds()))
-	}
-	minutes := int(d.Minutes())
-	seconds := int(d.Seconds()) % 60
-	return fmt.Sprintf("%dm %ds", minutes, seconds)
-}
-
-// UpdateStepStatus updates the status of a specific step in the context.
-func (ctx *PipelineContext) UpdateStepStatus(stepID string, state ProgressState) {
-	if ctx.StepStatuses == nil {
-		ctx.StepStatuses = make(map[string]ProgressState)
-	}
-	if ctx.StepDurations == nil {
-		ctx.StepDurations = make(map[string]int64)
-	}
-
-	oldState := ctx.StepStatuses[stepID]
-	ctx.StepStatuses[stepID] = state
-
-	// Update counters based on state transitions
-	switch state {
-	case StateCompleted:
-		if oldState != StateCompleted {
-			ctx.CompletedSteps++
-		}
-	case StateFailed:
-		if oldState != StateFailed {
-			ctx.FailedSteps++
-		}
-	case StateSkipped:
-		if oldState != StateSkipped {
-			ctx.SkippedSteps++
-		}
-	case StateRunning:
-		ctx.CurrentStepID = stepID
-		ctx.CurrentStepStart = time.Now().UnixNano()
-	}
-}
-
-// UpdateStepDuration stores the duration for a completed step.
-func (ctx *PipelineContext) UpdateStepDuration(stepID string, durationMs int64) {
-	if ctx.StepDurations == nil {
-		ctx.StepDurations = make(map[string]int64)
-	}
-	ctx.StepDurations[stepID] = durationMs
-}
-
 // HasErrors returns true if any steps have failed.
 func (ctx *PipelineContext) HasErrors() bool {
 	return ctx.FailedSteps > 0 || ctx.Error != ""

@@ -19,18 +19,11 @@ const (
 	StepDefault      = 30 * time.Minute
 	RelayCompaction  = 15 * time.Minute
 	MetaDefault      = 60 * time.Minute
-	SkillInstall     = 5 * time.Minute
-	SkillCLI         = 5 * time.Minute
-	SkillHTTP        = 5 * time.Minute
-	SkillHTTPHeader  = 60 * time.Second
-	SkillPublish     = 60 * time.Second
 	ProcessGrace     = 3 * time.Second
 	StdoutDrain      = 1 * time.Second
 	GateApproval     = 24 * time.Hour
 	GatePollInterval = 30 * time.Second
 	GatePollTimeout  = 60 * time.Minute
-	GitCommand       = 90 * time.Second
 	ForgeAPI         = 60 * time.Second
-	ForgeAPIList     = 90 * time.Second
 	RetryMaxDelay    = 60 * time.Second
 )
