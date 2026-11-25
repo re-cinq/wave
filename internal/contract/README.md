@@ -8,18 +8,16 @@ The Wave contract system provides deterministic output guarantees for AI-powered
 
 Files are organized **by contract type**: each type owns its validate, recover,
 and judge code. Operation-grouped helpers live next to the type they belong to.
-Cross-cutting infrastructure (dispatcher, retry, formatter) sits at the root.
+Cross-cutting infrastructure (dispatcher, formatter) sits at the root.
 
 ```
 contract/
 ├── contract.go                    # Dispatcher + ContractConfig (cross-cutting)
-├── retry_strategy.go              # Adaptive retry with failure classification (cross-cutting)
 ├── validation_error_formatter.go  # Shared error rendering (cross-cutting)
 ├── doc.go                         # Package docs
 │
 ├── jsonschema.go                  # JSON Schema validator
 ├── jsonschema_recovery.go         # JSON recovery from non-conformant output
-├── jsonschema_cleaner.go          # JSON extraction / cleaning helpers
 ├── jsonschema_wrapper.go          # Error-wrapper detection for JSON payloads
 ├── jsonschema_input.go            # Input-artifact validation (depends on jsonschema/v6)
 │
@@ -28,7 +26,6 @@ contract/
 ├── typescript.go                  # TypeScript interface validator
 ├── testsuite.go                   # Test suite executor
 ├── source_diff.go                 # Source-diff validator
-├── spec_derived.go                # Spec-derived validator
 ├── non_empty_file.go              # Non-empty-file validator
 ├── event_contains.go              # Event-contains validator
 ├── agent_review.go                # Agent-review validator
@@ -73,32 +70,7 @@ type QualityGate interface {
 - `ContentCompletenessGate` - Checks content quality
 - `VerificationGate` - Runs automated verification (NEW)
 
-### 3. Retry Strategy
-
-Adaptive retry with intelligent failure classification:
-
-```go
-type RetryStrategy interface {
-    ShouldRetry(attempt int, err error) bool
-    GetRetryDelay(attempt int) time.Duration
-    GenerateRepairPrompt(err error, attempt int) string
-}
-```
-
-**Features:**
-- Automatic failure classification
-- Targeted repair prompts
-- Exponential backoff with jitter
-- Failure type tracking
-
-**Failure Types:**
-- `schema_mismatch` - Wrong types or missing fields
-- `format_error` - Invalid syntax
-- `missing_content` - Incomplete content
-- `quality_gate` - Failed quality checks
-- `structure` - Incorrect document structure
-
-### 4. Format Validation (NEW)
+### 3. Format Validation (NEW)
 
 Ensures outputs are production-ready:
 
@@ -121,7 +93,7 @@ err := validator.Validate(cfg, workspacePath)
 - Format compliance (conventional commits, etc.)
 - Cross-reference validation
 
-### 5. Verification Framework (NEW)
+### 4. Verification Framework (NEW)
 
 Automated verification of generated outputs:
 
@@ -137,7 +109,7 @@ violations, err := gate.Check(workspacePath, config)
 - `cross_reference` - Validate issue/PR references
 - `file_existence` - Ensure required files exist
 
-### 6. Rollback Manager (NEW)
+### 5. Rollback Manager (NEW)
 
 State management for failed pipelines:
 
@@ -176,19 +148,6 @@ cfg := contract.ContractConfig{
 }
 
 err := contract.Validate(cfg, workspacePath)
-```
-
-### With Retry
-
-```go
-cfg.MaxRetries = 3
-result, err := contract.ValidateWithAdaptiveRetry(cfg, workspacePath)
-
-if result.Success {
-    fmt.Printf("Passed after %d attempts\n", result.Attempts)
-} else {
-    fmt.Printf("Failed: %v\n", result.FinalError)
-}
 ```
 
 ### With Quality Gates
@@ -319,12 +278,6 @@ filesystem for schema paths:
 // Validate a single input artifact (schemaContent is already loaded + sanitized)
 err := contract.ValidateInputArtifactContent("findings", schemaContent, artifactPath)
 
-// Validate multiple input artifacts
-configs := []contract.InputArtifactConfig{
-    {Name: "scan_findings", SchemaContent: findingsSchema, Type: "findings", Path: scanPath},
-    {Name: "raw_findings", SchemaContent: reviewSchema, Type: "findings", Path: reviewPath},
-}
-results, err := contract.ValidateInputArtifacts(configs, workspacePath)
 ```
 
 ### Pipeline YAML Configuration

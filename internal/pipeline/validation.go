@@ -164,7 +164,8 @@ func (v *PhaseSkipValidator) validatePhaseCompletion(phase, workspacePath string
 		return fmt.Errorf("contract validation artifact missing")
 	}
 
-	// Check phase-specific artifacts
+	// Check phase-specific artifacts. "implement" is the last phase, so it
+	// is never a prerequisite and needs no case here.
 	switch phase {
 	case "spec":
 		specPath := filepath.Join(workspacePath, "spec.md")
@@ -184,11 +185,6 @@ func (v *PhaseSkipValidator) validatePhaseCompletion(phase, workspacePath string
 		interfacesPath := filepath.Join(workspacePath, "interfaces.md")
 		if _, err := os.Stat(interfacesPath); os.IsNotExist(err) {
 			return fmt.Errorf("interfaces.md artifact missing")
-		}
-	case "implement":
-		planPath := filepath.Join(workspacePath, "implementation-plan.md")
-		if _, err := os.Stat(planPath); os.IsNotExist(err) {
-			return fmt.Errorf("implementation-plan.md artifact missing")
 		}
 	}
 
