@@ -217,7 +217,7 @@ func TestRenderOutcomeSummary_DefaultMode(t *testing.T) {
 	outcome := BuildOutcome(tracker, "test-pipeline", "run-123", true, 30*time.Second, 5000, "", nil)
 
 	// Use ANSI-disabled formatter for predictable output
-	formatter := NewFormatterWithConfig("off", true)
+	formatter := plainFormatter()
 	result := RenderOutcomeSummary(outcome, false, formatter)
 
 	if !strings.Contains(result, "Outcomes") {
@@ -242,7 +242,7 @@ func TestRenderOutcomeSummary_VerboseMode(t *testing.T) {
 
 	outcome := BuildOutcome(tracker, "test-pipeline", "run-123", true, 30*time.Second, 5000, "", nil)
 
-	formatter := NewFormatterWithConfig("off", true)
+	formatter := plainFormatter()
 	result := RenderOutcomeSummary(outcome, true, formatter)
 
 	if !strings.Contains(result, "artifacts produced") {
@@ -260,7 +260,7 @@ func TestRenderOutcomeSummary_EmptyOutcome(t *testing.T) {
 		Success:      true,
 	}
 
-	formatter := NewFormatterWithConfig("off", true)
+	formatter := plainFormatter()
 	result := RenderOutcomeSummary(outcome, false, formatter)
 
 	// FR-008: empty outcome categories should not appear
@@ -273,7 +273,7 @@ func TestRenderOutcomeSummary_EmptyOutcome(t *testing.T) {
 }
 
 func TestRenderOutcomeSummary_Nil(t *testing.T) {
-	result := RenderOutcomeSummary(nil, false, NewFormatterWithConfig("off", true))
+	result := RenderOutcomeSummary(nil, false, plainFormatter())
 	if result != "" {
 		t.Errorf("expected empty string for nil outcome, got %q", result)
 	}
@@ -286,7 +286,7 @@ func TestRenderOutcomeSummary_PushError(t *testing.T) {
 
 	outcome := BuildOutcome(tracker, "test-pipeline", "run-123", true, 5*time.Second, 500, "", nil)
 
-	formatter := NewFormatterWithConfig("off", true)
+	formatter := plainFormatter()
 	result := RenderOutcomeSummary(outcome, false, formatter)
 
 	if !strings.Contains(result, "push failed") {
@@ -302,7 +302,7 @@ func TestRenderOutcomeSummary_NonTTYNoANSI(t *testing.T) {
 	outcome := BuildOutcome(tracker, "test-pipeline", "run-123", true, 5*time.Second, 500, "", nil)
 
 	// Create a formatter with ANSI disabled
-	formatter := NewFormatterWithConfig("off", true)
+	formatter := plainFormatter()
 	result := RenderOutcomeSummary(outcome, false, formatter)
 
 	// SC-006: output should have no ANSI escape codes
@@ -317,7 +317,7 @@ func TestRenderOutcomeSummary_NextSteps(t *testing.T) {
 
 	outcome := BuildOutcome(tracker, "test-pipeline", "run-123", true, 5*time.Second, 500, "/ws/test", nil)
 
-	formatter := NewFormatterWithConfig("off", true)
+	formatter := plainFormatter()
 	result := RenderOutcomeSummary(outcome, false, formatter)
 
 	if !strings.Contains(result, "Next Steps") {
@@ -403,7 +403,7 @@ func TestFilterArtifacts_DeduplicatesByPath(t *testing.T) {
 		t.Errorf("expected 1 deduplicated artifact, got %d", outcome.ArtifactCount)
 	}
 
-	formatter := NewFormatterWithConfig("off", true)
+	formatter := plainFormatter()
 	result := RenderOutcomeSummary(outcome, false, formatter)
 
 	if strings.Contains(result, "4 artifacts produced") {
@@ -429,5 +429,14 @@ func TestEventOutcomesField(t *testing.T) {
 	}
 	if e.Outcomes.Branch != "feat/test" {
 		t.Errorf("expected Branch=%q, got %q", "feat/test", e.Outcomes.Branch)
+	}
+}
+
+// plainFormatter returns a Formatter with colour and Unicode styling
+// disabled so rendered output can be compared as plain text.
+func plainFormatter() *Formatter {
+	return &Formatter{
+		codec:   NewANSICodecWithConfig("off", true),
+		charSet: GetUnicodeCharSet(),
 	}
 }

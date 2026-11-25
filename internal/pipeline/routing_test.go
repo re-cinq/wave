@@ -387,7 +387,7 @@ func TestResolveModelWithAutoRouting(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			executor := &DefaultPipelineExecutor{modelOverride: tt.override}
-			got := executor.resolveModel(tt.step, tt.persona, tt.routing, tt.personaName, nil)
+			got := executor.resolveModelForAttempt(tt.step, tt.persona, tt.routing, tt.personaName, nil, 1)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -653,7 +653,7 @@ func TestResolveModelForAttempt_BackwardCompatible(t *testing.T) {
 	step := &Step{Model: TierCheapest}
 	persona := &manifest.Persona{}
 
-	got1 := executor.resolveModel(step, persona, routing, "any", nil)
+	got1 := executor.resolveModelForAttempt(step, persona, routing, "any", nil, 1)
 	got2 := executor.resolveModelForAttempt(step, persona, routing, "any", nil, 1)
 	assert.Equal(t, got1, got2)
 	assert.Equal(t, "claude-haiku-4-5", got1)

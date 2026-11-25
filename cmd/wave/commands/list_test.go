@@ -1098,27 +1098,6 @@ func TestListRunsCmd_TableHeader(t *testing.T) {
 	assert.Contains(t, stdout, "DURATION")
 }
 
-// Test formatDuration function
-func TestFormatDuration(t *testing.T) {
-	tests := []struct {
-		duration time.Duration
-		expected string
-	}{
-		{500 * time.Millisecond, "500ms"},
-		{5 * time.Second, "5.0s"},
-		{90 * time.Second, "1m30s"},
-		{65 * time.Minute, "1h5m"},
-		{2*time.Hour + 30*time.Minute, "2h30m"},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.expected, func(t *testing.T) {
-			result := formatDuration(tc.duration)
-			assert.Equal(t, tc.expected, result)
-		})
-	}
-}
-
 // Test list runs via main list command with "runs" argument
 func TestListCmd_RunsFilter(t *testing.T) {
 	h := newListTestHelper(t)

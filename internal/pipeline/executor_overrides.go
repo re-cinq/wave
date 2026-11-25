@@ -9,17 +9,6 @@ import (
 	"github.com/recinq/wave/internal/state"
 )
 
-// resolveModel is a thin wrapper preserved for test ergonomics; production
-// dispatch goes through resolveModelForAttempt so the retry tier escalation
-// path is exercised. The nolint:unparam directive silences the linter
-// noticing that adapterTierModels is always nil in test callers — the
-// parameter is part of the wider tier-resolution API and must stay.
-//
-//nolint:unparam // test-only helper; production callers use resolveModelForAttempt directly.
-func (e *DefaultPipelineExecutor) resolveModel(step *Step, persona *manifest.Persona, routing *manifest.RoutingConfig, personaName string, adapterTierModels map[string]string) string {
-	return e.resolveModelForAttempt(step, persona, routing, personaName, adapterTierModels, 1)
-}
-
 // resolveModelForAttempt is the retry-aware variant of resolveModel. When
 // attempt > 1 and the step's RetryConfig does not set NoEscalate, any
 // tier-named source (cheapest/balanced/strongest) is escalated by

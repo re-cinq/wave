@@ -101,28 +101,6 @@ func (m *Manager) Create(worktreePath, branch, base string) error {
 	return nil
 }
 
-// Remove removes a git worktree at the given path.
-func (m *Manager) Remove(worktreePath string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if worktreePath == "" {
-		return fmt.Errorf("worktree path cannot be empty")
-	}
-
-	// Try normal removal first
-	cmd := exec.Command("git", "-C", m.repoRoot, "worktree", "remove", worktreePath)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		// Try force removal if normal fails (dirty worktree)
-		forceCmd := exec.Command("git", "-C", m.repoRoot, "worktree", "remove", "--force", worktreePath)
-		if forceOut, forceErr := forceCmd.CombinedOutput(); forceErr != nil {
-			return fmt.Errorf("git worktree remove failed: %w\nnormal output: %s\nforce output: %s", forceErr, string(out), string(forceOut))
-		}
-	}
-
-	return nil
-}
-
 // RepoRoot returns the repository root path.
 func (m *Manager) RepoRoot() string {
 	return m.repoRoot

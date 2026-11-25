@@ -387,20 +387,6 @@ func (c *ConcurrencyValidator) ReleaseWorkspaceLock(pipelineID string) {
 	}
 }
 
-// IsWorkspaceInUse checks if a workspace is currently in use
-func (c *ConcurrencyValidator) IsWorkspaceInUse(workspaceID string) bool {
-	return c.workspaceLocks[workspaceID]
-}
-
-// GetRunningPipelines returns a list of currently running pipelines
-func (c *ConcurrencyValidator) GetRunningPipelines() map[string]string {
-	result := make(map[string]string)
-	for pipelineID, workspaceID := range c.runningPipelines {
-		result[pipelineID] = workspaceID
-	}
-	return result
-}
-
 // ValidateThreadFields validates thread and fidelity fields across all pipeline steps.
 // Returns a list of validation errors (empty if valid).
 func ValidateThreadFields(p *Pipeline) []error {

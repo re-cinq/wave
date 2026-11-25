@@ -1,7 +1,6 @@
 package state
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"io"
@@ -79,35 +78,6 @@ type StateStore interface {
 	ScheduleStore
 
 	Close() error
-}
-
-// runningRunsLister is the minimal store surface WaitForConcurrencySlot needs.
-type runningRunsLister interface {
-	GetRunningRuns() ([]RunRecord, error)
-}
-
-// WaitForConcurrencySlot polls GetRunningRuns until fewer than maxWorkers
-// pipelines are running. Returns nil when a slot is available, or ctx.Err()
-// if the context is cancelled. This is the single concurrency gate used by
-// CLI --detach, WebUI, and TUI launch paths.
-func WaitForConcurrencySlot(ctx context.Context, store runningRunsLister, maxWorkers int, onWait func(running, max int)) error {
-	for {
-		running, err := store.GetRunningRuns()
-		if err != nil {
-			return nil // can't check, proceed optimistically
-		}
-		if len(running) < maxWorkers {
-			return nil
-		}
-		if onWait != nil {
-			onWait(len(running), maxWorkers)
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(5 * time.Second):
-		}
-	}
 }
 
 type stateStore struct {

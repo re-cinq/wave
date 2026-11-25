@@ -66,7 +66,7 @@ func TestNewManager_NotARepo(t *testing.T) {
 	}
 }
 
-func TestCreateAndRemove(t *testing.T) {
+func TestCreate(t *testing.T) {
 	dir := initTestRepo(t)
 	mgr, err := NewManager(dir)
 	if err != nil {
@@ -97,15 +97,6 @@ func TestCreateAndRemove(t *testing.T) {
 		t.Errorf("expected branch 'test-branch', got %q", branch)
 	}
 
-	// Remove worktree
-	if err := mgr.Remove(worktreePath); err != nil {
-		t.Fatalf("Remove failed: %v", err)
-	}
-
-	// Verify worktree is gone
-	if _, err := os.Stat(worktreePath); !os.IsNotExist(err) {
-		t.Error("expected worktree directory to be removed")
-	}
 }
 
 func TestCreateExistingBranch(t *testing.T) {
@@ -129,7 +120,6 @@ func TestCreateExistingBranch(t *testing.T) {
 	}
 
 	// Cleanup
-	_ = mgr.Remove(worktreePath)
 }
 
 func TestCreateWithBase(t *testing.T) {
@@ -166,7 +156,6 @@ func TestCreateWithBase(t *testing.T) {
 	}
 
 	// Cleanup
-	_ = mgr.Remove(worktreePath)
 }
 
 func TestCreateDetachedWithBase(t *testing.T) {
@@ -233,7 +222,6 @@ func TestCreateDetachedWithBase(t *testing.T) {
 	}
 
 	// Cleanup
-	_ = mgr.Remove(worktreePath)
 }
 
 func TestCreate_EmptyPath(t *testing.T) {
@@ -261,41 +249,6 @@ func TestCreate_EmptyBranch(t *testing.T) {
 	}
 	if err.Error() != "branch name or base ref is required" {
 		t.Fatalf("unexpected error message: %v", err)
-	}
-}
-
-func TestRemove_EmptyPath(t *testing.T) {
-	dir := initTestRepo(t)
-	mgr, err := NewManager(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := mgr.Remove(""); err == nil {
-		t.Fatal("expected error for empty path")
-	}
-}
-
-func TestRemoveDirtyWorktree(t *testing.T) {
-	dir := initTestRepo(t)
-	mgr, err := NewManager(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	worktreePath := filepath.Join(t.TempDir(), "dirty-wt")
-	if err := mgr.Create(worktreePath, "dirty-branch", ""); err != nil {
-		t.Fatal(err)
-	}
-
-	// Make the worktree dirty
-	if err := os.WriteFile(filepath.Join(worktreePath, "dirty-file.txt"), []byte("dirty"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Force removal should still work
-	if err := mgr.Remove(worktreePath); err != nil {
-		t.Fatalf("Remove failed for dirty worktree: %v", err)
 	}
 }
 
@@ -328,10 +281,5 @@ func TestConcurrentWorktreeCreation(t *testing.T) {
 
 	for err := range errCh {
 		t.Errorf("concurrent create failed: %v", err)
-	}
-
-	// Cleanup
-	for _, p := range paths {
-		_ = mgr.Remove(p)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/recinq/wave/internal/persona"
 	"gopkg.in/yaml.v3"
 )
 
@@ -1863,7 +1864,7 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 	restrictions := "\n\n---\n\n## Restrictions\n\nDenied tools: Edit(*)"
 
 	t.Run("frontmatter includes model when set", func(t *testing.T) {
-		p := PersonaSpec{Model: "claude-opus-4-5"}
+		p := persona.Persona{Model: "claude-opus-4-5"}
 		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, contractSection, restrictions)
 		if !strings.HasPrefix(out, "---\n") {
 			t.Error("output should start with YAML frontmatter delimiter ---")
@@ -1874,7 +1875,7 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 	})
 
 	t.Run("frontmatter omits model when empty", func(t *testing.T) {
-		p := PersonaSpec{}
+		p := persona.Persona{}
 		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, "", "")
 		if strings.Contains(out, "model:") {
 			t.Error("frontmatter should not contain model field when persona has no model")
@@ -1882,7 +1883,7 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 	})
 
 	t.Run("frontmatter includes tools list", func(t *testing.T) {
-		p := PersonaSpec{AllowedTools: []string{"Read", "Glob", "Grep"}}
+		p := persona.Persona{AllowedTools: []string{"Read", "Glob", "Grep"}}
 		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, "", "")
 		if !strings.Contains(out, "tools:\n") {
 			t.Error("frontmatter should contain tools section")
@@ -1896,7 +1897,7 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 	})
 
 	t.Run("frontmatter includes disallowedTools", func(t *testing.T) {
-		p := PersonaSpec{DenyTools: []string{"Edit(*)", "Bash(git commit*)"}}
+		p := persona.Persona{DenyTools: []string{"Edit(*)", "Bash(git commit*)"}}
 		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, "", "")
 		if !strings.Contains(out, "disallowedTools:\n") {
 			t.Error("frontmatter should contain disallowedTools section")
@@ -1907,7 +1908,7 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 	})
 
 	t.Run("permissionMode is always bypassPermissions", func(t *testing.T) {
-		p := PersonaSpec{}
+		p := persona.Persona{}
 		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, "", "")
 		if !strings.Contains(out, "permissionMode: bypassPermissions\n") {
 			t.Error("frontmatter should always include permissionMode: bypassPermissions")
@@ -1915,7 +1916,7 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 	})
 
 	t.Run("body contains base protocol", func(t *testing.T) {
-		p := PersonaSpec{}
+		p := persona.Persona{}
 		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, "", "")
 		if !strings.Contains(out, baseProtocol) {
 			t.Error("body should contain base protocol text")
@@ -1923,7 +1924,7 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 	})
 
 	t.Run("body contains system prompt", func(t *testing.T) {
-		p := PersonaSpec{}
+		p := persona.Persona{}
 		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, "", "")
 		if !strings.Contains(out, systemPrompt) {
 			t.Error("body should contain system prompt")
@@ -1931,7 +1932,7 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 	})
 
 	t.Run("body contains contract section when provided", func(t *testing.T) {
-		p := PersonaSpec{}
+		p := persona.Persona{}
 		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, contractSection, "")
 		if !strings.Contains(out, contractSection) {
 			t.Error("body should contain contract section")
@@ -1939,7 +1940,7 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 	})
 
 	t.Run("body omits contract section when empty", func(t *testing.T) {
-		p := PersonaSpec{}
+		p := persona.Persona{}
 		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, "", "")
 		if strings.Contains(out, "## Contract") {
 			t.Error("body should not contain contract section when empty")
@@ -1947,7 +1948,7 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 	})
 
 	t.Run("body contains restrictions when provided", func(t *testing.T) {
-		p := PersonaSpec{}
+		p := persona.Persona{}
 		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, "", restrictions)
 		if !strings.Contains(out, restrictions) {
 			t.Error("body should contain restrictions section")
@@ -1955,7 +1956,7 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 	})
 
 	t.Run("section ordering: base protocol before system prompt before contract", func(t *testing.T) {
-		p := PersonaSpec{}
+		p := persona.Persona{}
 		out := PersonaToAgentMarkdown(p, baseProtocol, systemPrompt, contractSection, "")
 		baseIdx := strings.Index(out, "Wave Agent Protocol")
 		promptIdx := strings.Index(out, "# Navigator")
@@ -1969,7 +1970,7 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 	})
 
 	t.Run("tools are passed through without normalization", func(t *testing.T) {
-		p := PersonaSpec{AllowedTools: []string{"Write", "Write(.agents/output/*)"}}
+		p := persona.Persona{AllowedTools: []string{"Write", "Write(.agents/output/*)"}}
 		out := PersonaToAgentMarkdown(p, "", "", "", "")
 		// Both bare Write and scoped Write should appear (no subsumption)
 		if !strings.Contains(out, "  - Write\n") {
@@ -1981,7 +1982,7 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 	})
 
 	t.Run("wildcard allow omits tools and special names are quoted", func(t *testing.T) {
-		p := PersonaSpec{AllowedTools: []string{"*", "Read"}, DenyTools: []string{"*Secret", "Bash(rm -rf: x)"}}
+		p := persona.Persona{AllowedTools: []string{"*", "Read"}, DenyTools: []string{"*Secret", "Bash(rm -rf: x)"}}
 		out := PersonaToAgentMarkdown(p, "", "", "", "")
 		front := out[4 : strings.Index(out[4:], "---\n")+4]
 		var fm map[string]any
@@ -2001,7 +2002,7 @@ func TestPersonaToAgentMarkdown(t *testing.T) {
 	})
 
 	t.Run("empty persona produces minimal valid frontmatter", func(t *testing.T) {
-		p := PersonaSpec{}
+		p := persona.Persona{}
 		out := PersonaToAgentMarkdown(p, "", "", "", "")
 		if !strings.HasPrefix(out, "---\n") {
 			t.Error("output must start with ---")
@@ -2167,7 +2168,7 @@ func TestTodoWriteNoDuplication(t *testing.T) {
 
 // T031: Verify agent frontmatter omits tools/disallowedTools when lists are empty
 func TestEmptyToolLists(t *testing.T) {
-	p := PersonaSpec{}
+	p := persona.Persona{}
 	out := PersonaToAgentMarkdown(p, "", "", "", "")
 
 	if strings.Contains(out, "tools:") {

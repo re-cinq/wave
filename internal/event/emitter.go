@@ -136,34 +136,10 @@ const (
 	StateCompactionProgress = "compaction_progress" // Context compaction in progress
 	StateStreamActivity     = "stream_activity"     // Real-time tool activity from Claude Code
 
-	// Sequence lifecycle states (pipeline composition)
-	StateSequenceStarted   = "sequence_started"   // Sequence execution begun
-	StateSequenceProgress  = "sequence_progress"  // Individual pipeline within sequence starting
-	StateSequenceCompleted = "sequence_completed" // All pipelines in sequence completed
-	StateSequenceFailed    = "sequence_failed"    // Sequence stopped due to pipeline failure
-
-	// Parallel execution states
-	StateParallelStageStarted   = "parallel_stage_started"   // Parallel stage begun
-	StateParallelStageCompleted = "parallel_stage_completed" // Parallel stage finished
-	StateParallelStageFailed    = "parallel_stage_failed"    // Parallel stage had failures
-
-	// Composition primitive states
-	StateIterationStarted   = "iteration_started"   // Iterate step begun
 	StateIterationProgress  = "iteration_progress"  // Individual item processing
 	StateIterationCompleted = "iteration_completed" // All items processed
-	StateBranchEvaluated    = "branch_evaluated"    // Branch condition resolved
 	StateGateWaiting        = "gate_waiting"        // Gate step blocking
 	StateGateResolved       = "gate_resolved"       // Gate condition met
-	StateLoopIteration      = "loop_iteration"      // Loop iteration started
-	StateLoopCompleted      = "loop_completed"      // Loop terminated
-	StateAggregateCompleted = "aggregate_completed" // Aggregation finished
-
-	// Continuous loop states
-	StateLoopStart             = "loop_start"
-	StateLoopIterationStart    = "loop_iteration_start"
-	StateLoopIterationComplete = "loop_iteration_complete"
-	StateLoopIterationFailed   = "loop_iteration_failed"
-	StateLoopSummary           = "loop_summary"
 
 	// Hook lifecycle states
 	StateHookStarted = "hook_started" // Hook execution begun
@@ -209,16 +185,6 @@ func NewNDJSONEmitter() *NDJSONEmitter {
 		encoder:         json.NewEncoder(os.Stdout),
 		suppressJSON:    false,
 		progressEmitter: nil,
-	}
-}
-
-// NewNDJSONEmitterWithProgress creates an emitter with dual-stream support.
-// NDJSON events go to stdout, enhanced progress visualization goes to stderr.
-func NewNDJSONEmitterWithProgress(progressEmitter ProgressEmitter) *NDJSONEmitter {
-	return &NDJSONEmitter{
-		encoder:         json.NewEncoder(os.Stdout),
-		suppressJSON:    false,
-		progressEmitter: progressEmitter,
 	}
 }
 

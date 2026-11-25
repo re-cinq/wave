@@ -133,36 +133,6 @@ func TestProvision_Empty(t *testing.T) {
 	}
 }
 
-func TestProvisionAll(t *testing.T) {
-	repoRoot := setupTestRepo(t)
-	workspace := t.TempDir()
-
-	skills := map[string]SkillConfig{
-		"speckit": {Check: "true"},
-		"bmad":    {Check: "true"},
-	}
-
-	p := NewProvisioner(skills, repoRoot)
-	if err := p.ProvisionAll(workspace); err != nil {
-		t.Fatalf("ProvisionAll failed: %v", err)
-	}
-
-	commandsDir := filepath.Join(workspace, ".claude", "commands")
-	entries, err := os.ReadDir(commandsDir)
-	if err != nil {
-		t.Fatalf("failed to read commands dir: %v", err)
-	}
-
-	// Should have speckit.specify.md, speckit.plan.md, and bmad.init.md
-	if len(entries) != 3 {
-		names := make([]string, len(entries))
-		for i, e := range entries {
-			names[i] = e.Name()
-		}
-		t.Fatalf("expected 3 files, got %d: %v", len(entries), names)
-	}
-}
-
 func TestDiscoverCommands(t *testing.T) {
 	repoRoot := setupTestRepo(t)
 

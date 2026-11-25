@@ -199,50 +199,6 @@ func TestRecoveryLevel_StrategyCounts(t *testing.T) {
 	}
 }
 
-func TestFormatRecoveryReport(t *testing.T) {
-	tests := []struct {
-		name     string
-		result   RecoveryResult
-		contains []string
-	}{
-		{
-			name: "successful recovery",
-			result: RecoveryResult{
-				OriginalInput: `{"key": "value",}`,
-				RecoveredJSON: `{"key": "value"}`,
-				IsValid:       true,
-				AppliedFixes:  []string{"removed_trailing_commas"},
-				Warnings:      []string{},
-				RecoveryLevel: ConservativeRecovery,
-			},
-			contains: []string{"Successfully recovered", "Fixes Applied", "trailing_commas"},
-		},
-		{
-			name: "failed recovery with warnings",
-			result: RecoveryResult{
-				OriginalInput: "garbage",
-				RecoveredJSON: "garbage",
-				IsValid:       false,
-				AppliedFixes:  []string{},
-				Warnings:      []string{"some_warning"},
-				RecoveryLevel: AggressiveRecovery,
-			},
-			contains: []string{"Failed to recover", "Warnings", "some_warning"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			report := tt.result.FormatRecoveryReport()
-			for _, s := range tt.contains {
-				if !strings.Contains(report, s) {
-					t.Errorf("report should contain %q, got:\n%s", s, report)
-				}
-			}
-		})
-	}
-}
-
 func TestIsStructurallyComplete(t *testing.T) {
 	tests := []struct {
 		name  string

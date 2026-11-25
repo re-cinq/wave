@@ -13,10 +13,10 @@ import (
 
 func TestGateExecutor_Approval_Auto(t *testing.T) {
 	emitter := testutil.NewEventCollector()
-	gate := NewGateExecutor(emitter, nil, nil)
+	gate := NewGateExecutorWithHandler(emitter, nil, nil, nil)
 
 	ctx := context.Background()
-	err := gate.Execute(ctx, &GateConfig{Type: "approval", Auto: true}, nil)
+	err := runGate(gate, ctx, &GateConfig{Type: "approval", Auto: true})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -28,11 +28,11 @@ func TestGateExecutor_Approval_Auto(t *testing.T) {
 
 func TestGateExecutor_Timer(t *testing.T) {
 	emitter := testutil.NewEventCollector()
-	gate := NewGateExecutor(emitter, nil, nil)
+	gate := NewGateExecutorWithHandler(emitter, nil, nil, nil)
 
 	ctx := context.Background()
 	start := time.Now()
-	err := gate.Execute(ctx, &GateConfig{Type: "timer", Timeout: "100ms"}, nil)
+	err := runGate(gate, ctx, &GateConfig{Type: "timer", Timeout: "100ms"})
 	elapsed := time.Since(start)
 
 	if err != nil {
@@ -48,27 +48,27 @@ func TestGateExecutor_Timer(t *testing.T) {
 }
 
 func TestGateExecutor_Timer_MissingTimeout(t *testing.T) {
-	gate := NewGateExecutor(nil, nil, nil)
+	gate := NewGateExecutorWithHandler(nil, nil, nil, nil)
 
 	ctx := context.Background()
-	err := gate.Execute(ctx, &GateConfig{Type: "timer"}, nil)
+	err := runGate(gate, ctx, &GateConfig{Type: "timer"})
 	if err == nil {
 		t.Fatal("expected error for timer without timeout")
 	}
 }
 
 func TestGateExecutor_Approval_Timeout(t *testing.T) {
-	gate := NewGateExecutor(nil, nil, nil)
+	gate := NewGateExecutorWithHandler(nil, nil, nil, nil)
 
 	ctx := context.Background()
-	err := gate.Execute(ctx, &GateConfig{Type: "approval", Timeout: "50ms"}, nil)
+	err := runGate(gate, ctx, &GateConfig{Type: "approval", Timeout: "50ms"})
 	if err == nil {
 		t.Fatal("expected timeout error")
 	}
 }
 
 func TestGateExecutor_Approval_ContextCancel(t *testing.T) {
-	gate := NewGateExecutor(nil, nil, nil)
+	gate := NewGateExecutorWithHandler(nil, nil, nil, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -76,7 +76,7 @@ func TestGateExecutor_Approval_ContextCancel(t *testing.T) {
 		cancel()
 	}()
 
-	err := gate.Execute(ctx, &GateConfig{Type: "approval"}, nil)
+	err := runGate(gate, ctx, &GateConfig{Type: "approval"})
 	if err == nil {
 		t.Fatal("expected context cancellation error")
 	}
@@ -84,10 +84,10 @@ func TestGateExecutor_Approval_ContextCancel(t *testing.T) {
 
 func TestGateExecutor_PollGate_Auto(t *testing.T) {
 	emitter := testutil.NewEventCollector()
-	gate := NewGateExecutor(emitter, nil, nil)
+	gate := NewGateExecutorWithHandler(emitter, nil, nil, nil)
 
 	ctx := context.Background()
-	err := gate.Execute(ctx, &GateConfig{Type: "pr_merge", Auto: true}, nil)
+	err := runGate(gate, ctx, &GateConfig{Type: "pr_merge", Auto: true})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -98,20 +98,20 @@ func TestGateExecutor_PollGate_Auto(t *testing.T) {
 }
 
 func TestGateExecutor_UnknownType(t *testing.T) {
-	gate := NewGateExecutor(nil, nil, nil)
+	gate := NewGateExecutorWithHandler(nil, nil, nil, nil)
 
 	ctx := context.Background()
-	err := gate.Execute(ctx, &GateConfig{Type: "unknown"}, nil)
+	err := runGate(gate, ctx, &GateConfig{Type: "unknown"})
 	if err == nil {
 		t.Fatal("expected error for unknown gate type")
 	}
 }
 
 func TestGateExecutor_NilConfig(t *testing.T) {
-	gate := NewGateExecutor(nil, nil, nil)
+	gate := NewGateExecutorWithHandler(nil, nil, nil, nil)
 
 	ctx := context.Background()
-	err := gate.Execute(ctx, nil, nil)
+	err := runGate(gate, ctx, nil)
 	if err == nil {
 		t.Fatal("expected error for nil config")
 	}
@@ -119,7 +119,7 @@ func TestGateExecutor_NilConfig(t *testing.T) {
 
 // newTestGateExecutor builds a GateExecutor with an injected commandRunner for testing.
 func newTestGateExecutor(emitter event.EventEmitter, runner commandRunner) *GateExecutor {
-	g := NewGateExecutor(emitter, nil, nil)
+	g := NewGateExecutorWithHandler(emitter, nil, nil, nil)
 	g.runner = runner
 	return g
 }
@@ -130,9 +130,9 @@ func TestGateExecutor_PRMerge_Auto(t *testing.T) {
 	emitter := testutil.NewEventCollector()
 	g := newTestGateExecutor(emitter, nil) // runner never called for Auto
 
-	err := g.Execute(context.Background(), &GateConfig{
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "pr_merge", Auto: true, PRNumber: 42, Repo: "owner/repo",
-	}, nil)
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -146,9 +146,9 @@ func TestGateExecutor_PRMerge_MissingPRNumber(t *testing.T) {
 		return nil, fmt.Errorf("should not be called")
 	})
 
-	err := g.Execute(context.Background(), &GateConfig{
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "pr_merge", Repo: "owner/repo", Interval: "10ms", Timeout: "50ms",
-	}, nil)
+	})
 	if err == nil {
 		t.Fatal("expected error for missing pr_number")
 	}
@@ -167,10 +167,10 @@ func TestGateExecutor_PRMerge_Merged(t *testing.T) {
 	}
 
 	g := newTestGateExecutor(emitter, runner)
-	err := g.Execute(context.Background(), &GateConfig{
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "pr_merge", PRNumber: 42, Repo: "owner/repo",
 		Interval: "10ms", Timeout: "2s",
-	}, nil)
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -188,10 +188,10 @@ func TestGateExecutor_PRMerge_ClosedWithoutMerge(t *testing.T) {
 	}
 
 	g := newTestGateExecutor(nil, runner)
-	err := g.Execute(context.Background(), &GateConfig{
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "pr_merge", PRNumber: 7, Repo: "owner/repo",
 		Interval: "10ms", Timeout: "2s",
-	}, nil)
+	})
 	if err == nil {
 		t.Fatal("expected failure when PR closed without merge")
 	}
@@ -213,10 +213,10 @@ func TestGateExecutor_PRMerge_StillOpen_ThenMerged(t *testing.T) {
 	}
 
 	g := newTestGateExecutor(emitter, runner)
-	err := g.Execute(context.Background(), &GateConfig{
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "pr_merge", PRNumber: 99, Repo: "owner/repo",
 		Interval: "10ms", Timeout: "2s",
-	}, nil)
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -234,10 +234,10 @@ func TestGateExecutor_PRMerge_Timeout(t *testing.T) {
 	}
 
 	g := newTestGateExecutor(nil, runner)
-	err := g.Execute(context.Background(), &GateConfig{
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "pr_merge", PRNumber: 1, Repo: "owner/repo",
 		Interval: "10ms", Timeout: "80ms",
-	}, nil)
+	})
 	if err == nil {
 		t.Fatal("expected timeout error")
 	}
@@ -258,10 +258,10 @@ func TestGateExecutor_PRMerge_ContextCancel(t *testing.T) {
 		cancel()
 	}()
 
-	err := g.Execute(ctx, &GateConfig{
+	err := runGate(g, ctx, &GateConfig{
 		Type: "pr_merge", PRNumber: 1, Repo: "owner/repo",
 		Interval: "10ms", Timeout: "5s",
-	}, nil)
+	})
 	if err == nil {
 		t.Fatal("expected context cancellation")
 	}
@@ -280,10 +280,10 @@ func TestGateExecutor_PRMerge_CLIError_Retries(t *testing.T) {
 	}
 
 	g := newTestGateExecutor(emitter, runner)
-	err := g.Execute(context.Background(), &GateConfig{
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "pr_merge", PRNumber: 5, Repo: "owner/repo",
 		Interval: "10ms", Timeout: "2s",
-	}, nil)
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -293,22 +293,22 @@ func TestGateExecutor_PRMerge_CLIError_Retries(t *testing.T) {
 }
 
 func TestGateExecutor_PRMerge_InvalidInterval(t *testing.T) {
-	g := NewGateExecutor(nil, nil, nil)
-	err := g.Execute(context.Background(), &GateConfig{
+	g := NewGateExecutorWithHandler(nil, nil, nil, nil)
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "pr_merge", PRNumber: 1, Repo: "owner/repo",
 		Interval: "not-a-duration",
-	}, nil)
+	})
 	if err == nil {
 		t.Fatal("expected error for invalid interval")
 	}
 }
 
 func TestGateExecutor_PRMerge_InvalidTimeout(t *testing.T) {
-	g := NewGateExecutor(nil, nil, nil)
-	err := g.Execute(context.Background(), &GateConfig{
+	g := NewGateExecutorWithHandler(nil, nil, nil, nil)
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "pr_merge", PRNumber: 1, Repo: "owner/repo",
 		Timeout: "not-a-duration",
-	}, nil)
+	})
 	if err == nil {
 		t.Fatal("expected error for invalid timeout")
 	}
@@ -320,9 +320,9 @@ func TestGateExecutor_CIPass_Auto(t *testing.T) {
 	emitter := testutil.NewEventCollector()
 	g := newTestGateExecutor(emitter, nil)
 
-	err := g.Execute(context.Background(), &GateConfig{
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "ci_pass", Auto: true, Repo: "owner/repo", Branch: "main",
-	}, nil)
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -339,10 +339,10 @@ func TestGateExecutor_CIPass_Success(t *testing.T) {
 	}
 
 	g := newTestGateExecutor(emitter, runner)
-	err := g.Execute(context.Background(), &GateConfig{
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "ci_pass", Branch: "feat/my-feature", Repo: "owner/repo",
 		Interval: "10ms", Timeout: "2s",
-	}, nil)
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -357,10 +357,10 @@ func TestGateExecutor_CIPass_Failure(t *testing.T) {
 	}
 
 	g := newTestGateExecutor(nil, runner)
-	err := g.Execute(context.Background(), &GateConfig{
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "ci_pass", Branch: "feat/my-feature", Repo: "owner/repo",
 		Interval: "10ms", Timeout: "2s",
-	}, nil)
+	})
 	if err == nil {
 		t.Fatal("expected failure when CI fails")
 	}
@@ -375,10 +375,10 @@ func TestGateExecutor_CIPass_Cancelled(t *testing.T) {
 	}
 
 	g := newTestGateExecutor(nil, runner)
-	err := g.Execute(context.Background(), &GateConfig{
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "ci_pass", Branch: "feat/my-feature", Repo: "owner/repo",
 		Interval: "10ms", Timeout: "2s",
-	}, nil)
+	})
 	if err == nil {
 		t.Fatal("expected failure for cancelled CI")
 	}
@@ -392,10 +392,10 @@ func TestGateExecutor_CIPass_Skipped_TreatedAsPass(t *testing.T) {
 	}
 
 	g := newTestGateExecutor(emitter, runner)
-	err := g.Execute(context.Background(), &GateConfig{
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "ci_pass", Branch: "main", Repo: "owner/repo",
 		Interval: "10ms", Timeout: "2s",
-	}, nil)
+	})
 	if err != nil {
 		t.Fatalf("skipped conclusion should be treated as pass, got error: %v", err)
 	}
@@ -417,10 +417,10 @@ func TestGateExecutor_CIPass_InProgress_ThenSuccess(t *testing.T) {
 	}
 
 	g := newTestGateExecutor(emitter, runner)
-	err := g.Execute(context.Background(), &GateConfig{
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "ci_pass", Branch: "main", Repo: "owner/repo",
 		Interval: "10ms", Timeout: "2s",
-	}, nil)
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -445,10 +445,10 @@ func TestGateExecutor_CIPass_NoRuns_ThenSuccess(t *testing.T) {
 	}
 
 	g := newTestGateExecutor(emitter, runner)
-	err := g.Execute(context.Background(), &GateConfig{
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "ci_pass", Branch: "main", Repo: "owner/repo",
 		Interval: "10ms", Timeout: "2s",
-	}, nil)
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -463,10 +463,10 @@ func TestGateExecutor_CIPass_Timeout(t *testing.T) {
 	}
 
 	g := newTestGateExecutor(nil, runner)
-	err := g.Execute(context.Background(), &GateConfig{
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "ci_pass", Branch: "main", Repo: "owner/repo",
 		Interval: "10ms", Timeout: "80ms",
-	}, nil)
+	})
 	if err == nil {
 		t.Fatal("expected timeout error")
 	}
@@ -487,10 +487,10 @@ func TestGateExecutor_CIPass_ContextCancel(t *testing.T) {
 		cancel()
 	}()
 
-	err := g.Execute(ctx, &GateConfig{
+	err := runGate(g, ctx, &GateConfig{
 		Type: "ci_pass", Branch: "main", Repo: "owner/repo",
 		Interval: "10ms", Timeout: "5s",
-	}, nil)
+	})
 	if err == nil {
 		t.Fatal("expected context cancellation")
 	}
@@ -509,10 +509,10 @@ func TestGateExecutor_CIPass_CLIError_Retries(t *testing.T) {
 	}
 
 	g := newTestGateExecutor(emitter, runner)
-	err := g.Execute(context.Background(), &GateConfig{
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "ci_pass", Branch: "main", Repo: "owner/repo",
 		Interval: "10ms", Timeout: "2s",
-	}, nil)
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -534,10 +534,10 @@ func TestGateExecutor_CIPass_InvalidJSON_Retries(t *testing.T) {
 	}
 
 	g := newTestGateExecutor(emitter, runner)
-	err := g.Execute(context.Background(), &GateConfig{
+	err := runGate(g, context.Background(), &GateConfig{
 		Type: "ci_pass", Branch: "main", Repo: "owner/repo",
 		Interval: "10ms", Timeout: "2s",
-	}, nil)
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -629,7 +629,7 @@ func TestGateExecutor_Approval_WithChoices_AutoApproveHandler(t *testing.T) {
 func TestGateExecutor_Approval_WithChoices_NoHandler_TimeoutDefault(t *testing.T) {
 	emitter := testutil.NewEventCollector()
 	// No handler, but has choices with default — should use default on timeout
-	gate := NewGateExecutor(emitter, nil, nil)
+	gate := NewGateExecutorWithHandler(emitter, nil, nil, nil)
 
 	config := &GateConfig{
 		Type:    "approval",
@@ -658,7 +658,7 @@ func TestGateExecutor_Approval_WithChoices_NoHandler_TimeoutDefault(t *testing.T
 func TestGateExecutor_Approval_LegacyAutoApprove_StillWorks(t *testing.T) {
 	// Legacy gate: Auto=true, no choices — should auto-approve as before
 	emitter := testutil.NewEventCollector()
-	gate := NewGateExecutor(emitter, nil, nil)
+	gate := NewGateExecutorWithHandler(emitter, nil, nil, nil)
 
 	decision, err := gate.ExecuteWithDecision(context.Background(), &GateConfig{
 		Type: "approval",
@@ -741,4 +741,11 @@ func TestGateExecutor_Approval_HandlerError(t *testing.T) {
 	if !strings.Contains(err.Error(), "user cancelled") {
 		t.Errorf("expected 'user cancelled' in error, got: %v", err)
 	}
+}
+
+// runGate executes a gate and discards the decision, for tests that only
+// assert on the error outcome.
+func runGate(g *GateExecutor, ctx context.Context, gate *GateConfig) error {
+	_, err := g.ExecuteWithDecision(ctx, gate, nil)
+	return err
 }

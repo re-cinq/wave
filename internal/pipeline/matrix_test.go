@@ -2045,9 +2045,6 @@ func TestTierContext_NewAndBasicOperations(t *testing.T) {
 	tc := NewTierContext()
 
 	// Empty context
-	if _, ok := tc.GetBranch("nonexistent"); ok {
-		t.Error("Expected GetBranch to return false for empty context")
-	}
 	branches, err := tc.ResolveBranch([]string{"a", "b"})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -2056,14 +2053,8 @@ func TestTierContext_NewAndBasicOperations(t *testing.T) {
 		t.Errorf("Expected 0 branches from empty context, got %d", len(branches))
 	}
 
-	// Set and get
-	tc.SetBranch("item-a", "feature/a")
-	branch, ok := tc.GetBranch("item-a")
-	if !ok || branch != "feature/a" {
-		t.Errorf("Expected 'feature/a', got %q (ok=%v)", branch, ok)
-	}
-
 	// Multiple branches
+	tc.SetBranch("item-a", "feature/a")
 	tc.SetBranch("item-b", "feature/b")
 	tc.SetBranch("item-c", "feature/c")
 

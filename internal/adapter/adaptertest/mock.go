@@ -605,51 +605,6 @@ func extractArtifactNames(stdout string) []string {
 	return nil
 }
 
-type MockAdapterRegistry struct {
-	mu       sync.RWMutex
-	adapters map[string]*MockAdapter
-}
-
-func NewMockAdapterRegistry() *MockAdapterRegistry {
-	return &MockAdapterRegistry{
-		adapters: make(map[string]*MockAdapter),
-	}
-}
-
-func (r *MockAdapterRegistry) Register(name string, mockAdapter *MockAdapter) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.adapters[name] = mockAdapter
-}
-
-func (r *MockAdapterRegistry) Get(name string) *MockAdapter {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.adapters[name]
-}
-
-func (r *MockAdapterRegistry) CreateRunner(name string) adapter.AdapterRunner {
-	_ = r.Get(name)
-	return &registeredRunner{
-		registry: r,
-		name:     name,
-	}
-}
-
-type registeredRunner struct {
-	registry *MockAdapterRegistry
-	name     string
-}
-
-func (r *registeredRunner) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
-	mockAdapter := r.registry.Get(r.name)
-	if mockAdapter == nil {
-		mockAdapter = NewMockAdapter()
-	}
-	cfg.Adapter = r.name
-	return mockAdapter.Run(ctx, cfg)
-}
-
 type SlowReader struct {
 	data      []byte
 	readPos   int

@@ -46,12 +46,6 @@ func (fi ForgeInfo) Slug() string {
 	return ""
 }
 
-// Detect classifies a remote URL into a ForgeInfo.
-// Supports SSH (git@host:owner/repo.git) and HTTPS (https://host/owner/repo.git) formats.
-func Detect(remoteURL string) ForgeInfo {
-	return DetectWithOverride(remoteURL, "")
-}
-
 // DetectWithOverride classifies a remote URL into a ForgeInfo, using the
 // manifest forge override if non-empty. The override value should be a valid
 // ForgeType string (e.g. "github", "gitlab", "gitea", "forgejo", "codeberg",
@@ -164,26 +158,6 @@ func pickFetchRemoteURL(gitRemoteOutput string) string {
 		return originURL
 	}
 	return fallbackURL
-}
-
-// FilterPipelinesByForge returns pipeline names that match the given forge's
-// prefix convention. Pipelines without a forge prefix are always included.
-// For ForgeLocal, only pipelines with no forge prefix or the "local-" prefix
-// are included — forge-specific pipelines (gh-, gl-, bb-, gt-, cb-) are excluded.
-func FilterPipelinesByForge(ft ForgeType, names []string) []string {
-	_, prefix, _, _ := forgeMetadata(ft)
-	if prefix == "" {
-		return names
-	}
-
-	var result []string
-	for _, name := range names {
-		// Include pipelines that match the forge prefix or have no forge prefix
-		if strings.HasPrefix(name, prefix+"-") || !hasForgePrefix(name) {
-			result = append(result, name)
-		}
-	}
-	return result
 }
 
 // parseRemoteURL extracts host, owner, and repo from SSH or HTTPS remote URLs.
@@ -407,17 +381,6 @@ func hostInEnvList(host, envKey string) bool {
 	}
 	for _, h := range strings.Split(v, ",") {
 		if strings.EqualFold(strings.TrimSpace(h), host) {
-			return true
-		}
-	}
-	return false
-}
-
-// hasForgePrefix checks if a pipeline name starts with any known forge prefix.
-func hasForgePrefix(name string) bool {
-	prefixes := []string{"gh-", "gl-", "bb-", "gt-", "local-"}
-	for _, p := range prefixes {
-		if strings.HasPrefix(name, p) {
 			return true
 		}
 	}

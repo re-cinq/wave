@@ -52,50 +52,6 @@ type TerminalCapabilities struct {
 	ColorScheme       string // "light" or "dark"
 }
 
-// StepProgress tracks progress information for a single pipeline step.
-type StepProgress struct {
-	StepID        string
-	Name          string
-	State         ProgressState
-	Persona       string
-	Message       string
-	Progress      int // 0-100 percentage
-	CurrentAction string
-	Artifacts     []string
-	StartTime     int64  // Unix nanoseconds
-	EndTime       *int64 // Unix nanoseconds (null if not finished)
-	Error         string
-	TokensUsed    int
-	DurationMs    int64
-}
-
-// PipelineProgress tracks overall pipeline execution progress.
-type PipelineProgress struct {
-	PipelineID     string
-	PipelineName   string
-	State          ProgressState
-	TotalSteps     int
-	CompletedSteps int
-	CurrentStep    int
-	Progress       int // 0-100 percentage
-	Steps          map[string]*StepProgress
-	StartTime      int64  // Unix nanoseconds
-	EndTime        *int64 // Unix nanoseconds (null if not finished)
-	Message        string
-	Error          string
-}
-
-// DisplayConfig holds configuration for progress display.
-type DisplayConfig struct {
-	Enabled          bool
-	RefreshRate      int    // Updates per second (default: 10, range: 1-60)
-	ColorMode        string // "auto", "on", "off" - control color usage
-	ColorTheme       string // "default", "dark", "light", "high_contrast"
-	AsciiOnly        bool   // Use ASCII-only characters (no Unicode)
-	VerboseOutput    bool   // Enable verbose output
-	AnimationEnabled bool   // Enable/disable animations
-}
-
 // ColorScheme provides color mappings for different terminal types.
 var DefaultColorScheme = ColorPalette{
 	Primary:    "\033[36m", // Standard cyan
@@ -116,55 +72,6 @@ var AsciiOnlyColorScheme = ColorPalette{
 	Muted:      "",
 	Background: "",
 	Reset:      "",
-}
-
-// DarkColorScheme optimized for dark terminal backgrounds.
-var DarkColorScheme = ColorPalette{
-	Primary:    "\033[36m", // Cyan
-	Success:    "\033[32m", // Green
-	Warning:    "\033[33m", // Yellow
-	Error:      "\033[31m", // Red
-	Muted:      "\033[90m", // Bright black/gray
-	Background: "\033[40m", // Black background
-	Reset:      "\033[0m",  // Reset
-}
-
-// LightColorScheme optimized for light terminal backgrounds.
-var LightColorScheme = ColorPalette{
-	Primary:    "\033[34m", // Blue (more readable on light)
-	Success:    "\033[32m", // Green
-	Warning:    "\033[33m", // Yellow
-	Error:      "\033[31m", // Red
-	Muted:      "\033[37m", // White/light gray
-	Background: "\033[47m", // White background
-	Reset:      "\033[0m",  // Reset
-}
-
-// HighContrastColorScheme for accessibility.
-var HighContrastColorScheme = ColorPalette{
-	Primary:    "\033[1;36m", // Bold cyan
-	Success:    "\033[1;32m", // Bold green
-	Warning:    "\033[1;33m", // Bold yellow
-	Error:      "\033[1;31m", // Bold red
-	Muted:      "\033[1;37m", // Bold white
-	Background: "\033[40m",   // Black background
-	Reset:      "\033[0m",    // Reset
-}
-
-// GetColorSchemeByName returns the appropriate color scheme based on theme name.
-func GetColorSchemeByName(theme string) ColorPalette {
-	switch theme {
-	case "dark":
-		return DarkColorScheme
-	case "light":
-		return LightColorScheme
-	case "high_contrast":
-		return HighContrastColorScheme
-	case "default":
-		return DefaultColorScheme
-	default:
-		return DefaultColorScheme
-	}
 }
 
 // HandoverInfo holds per-step handover metadata for verbose display.
@@ -259,43 +166,4 @@ type PipelineContext struct {
 	// Additional context
 	Message string
 	Error   string
-}
-
-// DefaultDisplayConfig returns a display configuration with sensible defaults.
-func DefaultDisplayConfig() DisplayConfig {
-	return DisplayConfig{
-		Enabled:          true,
-		RefreshRate:      10, // 10 updates per second
-		ColorMode:        "auto",
-		ColorTheme:       "default",
-		AsciiOnly:        false,
-		VerboseOutput:    false,
-		AnimationEnabled: true,
-	}
-}
-
-// Validate checks the configuration for invalid values and corrects them.
-func (dc *DisplayConfig) Validate() {
-	// Refresh rate must be between 1 and 60
-	if dc.RefreshRate < 1 {
-		dc.RefreshRate = 1
-	} else if dc.RefreshRate > 60 {
-		dc.RefreshRate = 60
-	}
-
-	// Validate color mode
-	if dc.ColorMode != "auto" && dc.ColorMode != "on" && dc.ColorMode != "off" {
-		dc.ColorMode = "auto"
-	}
-
-	// Validate color theme
-	validThemes := map[string]bool{
-		"default":       true,
-		"dark":          true,
-		"light":         true,
-		"high_contrast": true,
-	}
-	if !validThemes[dc.ColorTheme] {
-		dc.ColorTheme = "default"
-	}
 }

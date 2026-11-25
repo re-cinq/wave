@@ -1,7 +1,6 @@
 package security
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 )
@@ -69,38 +68,6 @@ func TestNewPromptInjectionError(t *testing.T) {
 	}
 }
 
-func TestNewInvalidPersonaError(t *testing.T) {
-	available := []string{"navigator", "implementer", "reviewer"}
-	err := NewInvalidPersonaError("hacker", available)
-
-	if err.Type != string(ViolationInvalidPersona) {
-		t.Errorf("Type = %q, want %q", err.Type, string(ViolationInvalidPersona))
-	}
-	if !strings.Contains(err.Message, "hacker") {
-		t.Errorf("Message should mention requested persona, got: %s", err.Message)
-	}
-	if !err.Retryable {
-		t.Error("invalid persona should be retryable")
-	}
-	if count, ok := err.Details["available_count"]; !ok || count != 3 {
-		t.Errorf("Details available_count = %v, want 3", count)
-	}
-}
-
-func TestNewMalformedJSONError(t *testing.T) {
-	err := NewMalformedJSONError("trailing comma at line 5")
-
-	if err.Type != string(ViolationMalformedJSON) {
-		t.Errorf("Type = %q, want %q", err.Type, string(ViolationMalformedJSON))
-	}
-	if !strings.Contains(err.Message, "trailing comma") {
-		t.Errorf("Message should contain the issue description, got: %s", err.Message)
-	}
-	if !err.Retryable {
-		t.Error("malformed JSON should be retryable")
-	}
-}
-
 func TestNewInputValidationError(t *testing.T) {
 	err := NewInputValidationError("schema_content", "exceeds size limit of 1048576 bytes")
 
@@ -118,54 +85,5 @@ func TestNewInputValidationError(t *testing.T) {
 	}
 	if reason, ok := err.Details["reason"]; !ok || reason != "exceeds size limit of 1048576 bytes" {
 		t.Errorf("Details reason = %v", reason)
-	}
-}
-
-func TestNewConfigurationError(t *testing.T) {
-	err := NewConfigurationError("max_input_length", "must be positive")
-
-	if err.Type != "configuration_error" {
-		t.Errorf("Type = %q, want 'configuration_error'", err.Type)
-	}
-	if !strings.Contains(err.Message, "max_input_length") {
-		t.Errorf("Message should mention setting, got: %s", err.Message)
-	}
-	if err.Retryable {
-		t.Error("configuration error should not be retryable")
-	}
-	if err.IsRetryable() {
-		t.Error("IsRetryable() should return false for configuration error")
-	}
-}
-
-func TestIsSecurityError(t *testing.T) {
-	tests := []struct {
-		name string
-		err  error
-		want bool
-	}{
-		{"security error", NewMalformedJSONError("test"), true},
-		{"path traversal error", NewPathTraversalError("/etc", nil), true},
-		{"regular error", fmt.Errorf("a regular error"), false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := IsSecurityError(tt.err)
-			if got != tt.want {
-				t.Errorf("IsSecurityError() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestGetSecurityError(t *testing.T) {
-	secErr := NewMalformedJSONError("test")
-	extracted, ok := GetSecurityError(secErr)
-	if !ok {
-		t.Error("GetSecurityError should return true for SecurityValidationError")
-	}
-	if extracted.Type != string(ViolationMalformedJSON) {
-		t.Errorf("extracted Type = %q, want %q", extracted.Type, string(ViolationMalformedJSON))
 	}
 }

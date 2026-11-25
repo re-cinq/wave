@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -410,7 +411,7 @@ func TestInitCreatesPipelineFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	// Default init (without --all) should only create release pipelines
-	releasePipelines := defaults.ReleasePipelineNames()
+	releasePipelines := releasePipelineNames(t)
 	require.NotEmpty(t, releasePipelines, "there should be at least one release pipeline")
 
 	for _, pipeline := range releasePipelines {
@@ -779,7 +780,7 @@ func TestInitFilePermissions(t *testing.T) {
 	require.NoError(t, err)
 
 	// Use release pipelines and their contracts for permission checks
-	releasePipelines := defaults.ReleasePipelineNames()
+	releasePipelines := releasePipelineNames(t)
 	require.NotEmpty(t, releasePipelines)
 
 	files := []string{
@@ -2104,249 +2105,16 @@ steps:
 	assert.False(t, hasUnrelated, "unrelated persona should not be included")
 }
 
-// TestMergeTypedManifestsPreservesCustomPersonas tests that custom personas are preserved.
-func TestMergeTypedManifestsPreservesCustomPersonas(t *testing.T) {
-	existing := &manifest.Manifest{
-		APIVersion: "v1",
-		Kind:       "WaveManifest",
-		Metadata:   manifest.Metadata{Name: "my-project"},
-		Personas: map[string]manifest.Persona{
-			"custom-agent": {
-				Adapter:          "claude",
-				SystemPromptFile: ".agents/personas/custom.md",
-				Temperature:      0.9,
-			},
-			"navigator": {
-				Adapter:          "claude",
-				SystemPromptFile: ".agents/personas/navigator.md",
-				Temperature:      0.5,
-				Model:            "custom-model",
-			},
-		},
+// releasePipelineNames returns the sorted filenames of the embedded
+// pipelines marked metadata.release: true.
+func releasePipelineNames(t *testing.T) []string {
+	t.Helper()
+	pipelines, err := defaults.GetReleasePipelines()
+	require.NoError(t, err)
+	names := make([]string, 0, len(pipelines))
+	for name := range pipelines {
+		names = append(names, name)
 	}
-
-	generated := &manifest.Manifest{
-		APIVersion: "v1",
-		Kind:       "WaveManifest",
-		Metadata:   manifest.Metadata{Name: "wave-project"},
-		Personas: map[string]manifest.Persona{
-			"navigator": {
-				Adapter:          "claude",
-				SystemPromptFile: ".agents/personas/navigator.md",
-				Temperature:      0.3,
-			},
-			"craftsman": {
-				Adapter:          "claude",
-				SystemPromptFile: ".agents/personas/craftsman.md",
-				Temperature:      0.2,
-			},
-		},
-	}
-
-	result := onboarding.MergeTypedManifests(existing, generated)
-
-	// Custom persona preserved
-	customAgent, hasCustom := result.Personas["custom-agent"]
-	assert.True(t, hasCustom, "custom persona should be preserved")
-	assert.Equal(t, 0.9, customAgent.Temperature, "custom persona temperature preserved")
-
-	// Existing navigator overrides generated (user's customization wins)
-	nav, hasNav := result.Personas["navigator"]
-	assert.True(t, hasNav)
-	assert.Equal(t, 0.5, nav.Temperature, "existing persona should override generated")
-	assert.Equal(t, "custom-model", nav.Model, "existing model should be preserved")
-
-	// New default persona added
-	_, hasCraftsman := result.Personas["craftsman"]
-	assert.True(t, hasCraftsman, "new default persona should be added")
-}
-
-// TestMergeTypedManifestsPreservesAdapters tests that custom adapters are preserved.
-func TestMergeTypedManifestsPreservesAdapters(t *testing.T) {
-	existing := &manifest.Manifest{
-		APIVersion: "v1",
-		Kind:       "WaveManifest",
-		Metadata:   manifest.Metadata{Name: "test"},
-		Adapters: map[string]manifest.Adapter{
-			"custom-llm": {
-				Binary: "custom-llm",
-				Mode:   "interactive",
-			},
-		},
-	}
-
-	generated := &manifest.Manifest{
-		APIVersion: "v1",
-		Kind:       "WaveManifest",
-		Metadata:   manifest.Metadata{Name: "wave-project"},
-		Adapters: map[string]manifest.Adapter{
-			"claude": {
-				Binary:       "claude",
-				Mode:         "headless",
-				OutputFormat: "json",
-			},
-		},
-	}
-
-	result := onboarding.MergeTypedManifests(existing, generated)
-
-	// Custom adapter preserved
-	_, hasCustom := result.Adapters["custom-llm"]
-	assert.True(t, hasCustom, "custom adapter should be preserved")
-
-	// Default adapter added
-	_, hasClaude := result.Adapters["claude"]
-	assert.True(t, hasClaude, "default adapter should be added")
-}
-
-// TestMergeTypedManifestsUpdatesInfrastructure tests that apiVersion, kind, and runtime are updated.
-func TestMergeTypedManifestsUpdatesInfrastructure(t *testing.T) {
-	existing := &manifest.Manifest{
-		APIVersion: "v0",
-		Kind:       "OldKind",
-		Metadata:   manifest.Metadata{Name: "test"},
-		Runtime: manifest.Runtime{
-			WorkspaceRoot:        ".agents/workspaces",
-			MaxConcurrentWorkers: 2,
-		},
-	}
-
-	generated := &manifest.Manifest{
-		APIVersion: "v1",
-		Kind:       "WaveManifest",
-		Metadata:   manifest.Metadata{Name: "wave-project"},
-		Runtime: manifest.Runtime{
-			WorkspaceRoot:        ".agents/workspaces",
-			MaxConcurrentWorkers: 5,
-			DefaultTimeoutMin:    30,
-		},
-	}
-
-	result := onboarding.MergeTypedManifests(existing, generated)
-
-	// Infrastructure updated from generated
-	assert.Equal(t, "v1", result.APIVersion, "apiVersion should be updated from generated")
-	assert.Equal(t, "WaveManifest", result.Kind, "kind should be updated from generated")
-	assert.Equal(t, 5, result.Runtime.MaxConcurrentWorkers, "runtime should be updated from generated")
-	assert.Equal(t, 30, result.Runtime.DefaultTimeoutMin, "runtime timeout should come from generated")
-}
-
-// TestMergeTypedManifestsPreservesMetadata tests that metadata is preserved from existing.
-func TestMergeTypedManifestsPreservesMetadata(t *testing.T) {
-	existing := &manifest.Manifest{
-		APIVersion: "v1",
-		Kind:       "WaveManifest",
-		Metadata: manifest.Metadata{
-			Name:        "my-project",
-			Description: "My custom description",
-			Repo:        "https://github.com/me/my-project",
-			Forge:       "github",
-		},
-	}
-
-	generated := &manifest.Manifest{
-		APIVersion: "v1",
-		Kind:       "WaveManifest",
-		Metadata: manifest.Metadata{
-			Name:        "wave-project",
-			Description: "A Wave multi-agent project",
-		},
-	}
-
-	result := onboarding.MergeTypedManifests(existing, generated)
-
-	assert.Equal(t, "my-project", result.Metadata.Name, "name should be preserved from existing")
-	assert.Equal(t, "My custom description", result.Metadata.Description, "description should be preserved")
-	assert.Equal(t, "https://github.com/me/my-project", result.Metadata.Repo, "repo should be preserved")
-	assert.Equal(t, "github", result.Metadata.Forge, "forge should be preserved")
-}
-
-// TestMergeTypedManifestsEmptyExisting tests merge with a minimal existing manifest.
-func TestMergeTypedManifestsEmptyExisting(t *testing.T) {
-	existing := &manifest.Manifest{
-		APIVersion: "v1",
-		Kind:       "WaveManifest",
-		Metadata:   manifest.Metadata{Name: ""},
-	}
-
-	generated := &manifest.Manifest{
-		APIVersion: "v1",
-		Kind:       "WaveManifest",
-		Metadata: manifest.Metadata{
-			Name:        "wave-project",
-			Description: "A Wave multi-agent project",
-		},
-		Adapters: map[string]manifest.Adapter{
-			"claude": {Binary: "claude", Mode: "headless"},
-		},
-		Personas: map[string]manifest.Persona{
-			"navigator": {Adapter: "claude"},
-		},
-		Runtime: manifest.Runtime{
-			WorkspaceRoot:        ".agents/workspaces",
-			MaxConcurrentWorkers: 5,
-		},
-	}
-
-	result := onboarding.MergeTypedManifests(existing, generated)
-
-	// When existing is empty, generated values are used
-	assert.Equal(t, "wave-project", result.Metadata.Name, "generated name used when existing is empty")
-	assert.Equal(t, "A Wave multi-agent project", result.Metadata.Description, "generated description used")
-	assert.Len(t, result.Adapters, 1, "generated adapters used")
-	assert.Len(t, result.Personas, 1, "generated personas used")
-}
-
-// TestMergeTypedManifestsPreservesProject tests that project config is preserved.
-func TestMergeTypedManifestsPreservesProject(t *testing.T) {
-	existing := &manifest.Manifest{
-		APIVersion: "v1",
-		Kind:       "WaveManifest",
-		Metadata:   manifest.Metadata{Name: "test"},
-		Project: &manifest.Project{
-			Language:    "go",
-			TestCommand: "go test ./...",
-			LintCommand: "golangci-lint run",
-		},
-	}
-
-	generated := &manifest.Manifest{
-		APIVersion: "v1",
-		Kind:       "WaveManifest",
-		Metadata:   manifest.Metadata{Name: "wave-project"},
-		Project: &manifest.Project{
-			Language:    "go",
-			TestCommand: "go test ./...",
-		},
-	}
-
-	result := onboarding.MergeTypedManifests(existing, generated)
-
-	require.NotNil(t, result.Project)
-	assert.Equal(t, "go", result.Project.Language)
-	assert.Equal(t, "golangci-lint run", result.Project.LintCommand, "existing lint command preserved")
-}
-
-// TestMergeTypedManifestsMergesSkills tests that skills are merged and deduplicated.
-func TestMergeTypedManifestsMergesSkills(t *testing.T) {
-	existing := &manifest.Manifest{
-		APIVersion: "v1",
-		Kind:       "WaveManifest",
-		Metadata:   manifest.Metadata{Name: "test"},
-		Skills:     []string{"skill-a", "skill-b"},
-	}
-
-	generated := &manifest.Manifest{
-		APIVersion: "v1",
-		Kind:       "WaveManifest",
-		Metadata:   manifest.Metadata{Name: "wave-project"},
-		Skills:     []string{"skill-b", "skill-c"},
-	}
-
-	result := onboarding.MergeTypedManifests(existing, generated)
-
-	assert.Len(t, result.Skills, 3, "skills should be merged and deduplicated")
-	assert.Contains(t, result.Skills, "skill-a")
-	assert.Contains(t, result.Skills, "skill-b")
-	assert.Contains(t, result.Skills, "skill-c")
+	sort.Strings(names)
+	return names
 }

@@ -2,11 +2,7 @@ package forge
 
 import (
 	"context"
-	"errors"
 )
-
-// ErrNotSupported is returned by stub implementations for unsupported forges.
-var ErrNotSupported = errors.New("forge type not yet supported")
 
 // Client is the interface for forge issue/PR operations.
 type Client interface {

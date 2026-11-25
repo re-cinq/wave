@@ -496,45 +496,6 @@ func resolveCommandWorkDir(workspacePath string, step *Step) string {
 	return workspacePath
 }
 
-func (e *DefaultPipelineExecutor) cleanupWorktrees(execution *PipelineExecution, pipelineID string) {
-	cleaned := map[string]bool{}
-	for key, repoRoot := range execution.WorkspacePaths {
-		if !strings.HasSuffix(key, "__worktree_repo_root") {
-			continue
-		}
-		stepID := strings.TrimSuffix(key, "__worktree_repo_root")
-		wsPath := execution.WorkspacePaths[stepID]
-		if wsPath == "" {
-			continue
-		}
-		// Skip already-cleaned paths (shared worktrees used by multiple steps)
-		if cleaned[wsPath] {
-			continue
-		}
-		cleaned[wsPath] = true
-		mgr, err := worktree.NewManager(repoRoot)
-		if err != nil {
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     stepID,
-				State:      "warning",
-				Message:    fmt.Sprintf("worktree cleanup skipped: %v", err),
-			})
-			continue
-		}
-		if err := mgr.Remove(wsPath); err != nil {
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     stepID,
-				State:      "warning",
-				Message:    fmt.Sprintf("worktree cleanup failed: %v", err),
-			})
-		}
-	}
-}
-
 // executeCompositionStep handles steps that reference sub-pipelines (via the
 // `pipeline:` field) rather than executing a persona directly. It loads the
 // referenced pipeline YAML, resolves the step's input template, and delegates

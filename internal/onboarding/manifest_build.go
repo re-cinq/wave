@@ -3,7 +3,6 @@ package onboarding
 import (
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 
 	"github.com/recinq/wave/internal/defaults"
@@ -460,90 +459,6 @@ func mergeMapsRecursive(defaults, existing map[string]interface{}) map[string]in
 		} else {
 			result[k] = v
 		}
-	}
-
-	return result
-}
-
-// MergeTypedManifests merges a generated manifest into an existing one,
-// preserving custom settings from the existing manifest while updating
-// infrastructure defaults from the generated manifest.
-//
-// Preservation rules:
-//   - Custom personas (not in generated) are preserved
-//   - Custom adapter configurations are preserved
-//   - Metadata.Name is preserved if already set
-//   - Metadata.Description is preserved if already set
-//   - apiVersion, kind, and runtime settings are updated from generated
-func MergeTypedManifests(existing, generated *manifest.Manifest) *manifest.Manifest {
-	result := &manifest.Manifest{}
-
-	result.APIVersion = generated.APIVersion
-	result.Kind = generated.Kind
-
-	result.Metadata = generated.Metadata
-	if existing.Metadata.Name != "" {
-		result.Metadata.Name = existing.Metadata.Name
-	}
-	if existing.Metadata.Description != "" {
-		result.Metadata.Description = existing.Metadata.Description
-	}
-	if existing.Metadata.Repo != "" {
-		result.Metadata.Repo = existing.Metadata.Repo
-	}
-	if existing.Metadata.Forge != "" {
-		result.Metadata.Forge = existing.Metadata.Forge
-	}
-
-	result.Adapters = make(map[string]manifest.Adapter)
-	for name, adapter := range generated.Adapters {
-		result.Adapters[name] = adapter
-	}
-	for name, adapter := range existing.Adapters {
-		result.Adapters[name] = adapter
-	}
-
-	result.Personas = make(map[string]manifest.Persona)
-	for name, persona := range generated.Personas {
-		result.Personas[name] = persona
-	}
-	for name, persona := range existing.Personas {
-		result.Personas[name] = persona
-	}
-
-	if existing.Project != nil {
-		result.Project = existing.Project
-	} else {
-		result.Project = generated.Project
-	}
-
-	result.Runtime = generated.Runtime
-
-	if existing.Server != nil {
-		result.Server = existing.Server
-	} else {
-		result.Server = generated.Server
-	}
-
-	skillSet := make(map[string]bool)
-	for _, s := range generated.Skills {
-		skillSet[s] = true
-	}
-	for _, s := range existing.Skills {
-		skillSet[s] = true
-	}
-	if len(skillSet) > 0 {
-		result.Skills = make([]string, 0, len(skillSet))
-		for s := range skillSet {
-			result.Skills = append(result.Skills, s)
-		}
-		sort.Strings(result.Skills)
-	}
-
-	if len(existing.Hooks) > 0 {
-		result.Hooks = existing.Hooks
-	} else {
-		result.Hooks = generated.Hooks
 	}
 
 	return result

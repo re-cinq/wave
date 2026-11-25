@@ -14,21 +14,6 @@ type Spinner struct {
 	running  bool
 	stopChan chan struct{}
 	ticker   *time.Ticker
-	charSet  UnicodeCharSet
-}
-
-// NewSpinner creates a new spinner with the specified animation type.
-func NewSpinner(animType AnimationType) *Spinner {
-	charSet := GetUnicodeCharSet()
-	frames := getAnimationFrames(animType, charSet)
-
-	return &Spinner{
-		frames:   frames,
-		current:  0,
-		animType: animType,
-		running:  false,
-		charSet:  charSet,
-	}
 }
 
 // Start begins the spinner animation.
@@ -94,66 +79,4 @@ func (s *Spinner) IsRunning() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.running
-}
-
-// getAnimationFrames returns the animation frames for a given type.
-func getAnimationFrames(animType AnimationType, charSet UnicodeCharSet) []string {
-	switch animType {
-	case AnimationDots:
-		return []string{".", "..", "...", "...."}
-
-	case AnimationSpinner:
-		// Use Unicode spinner from charset
-		if charSet.Spinner[0] != "" {
-			return []string{
-				charSet.Spinner[0],
-				charSet.Spinner[1],
-				charSet.Spinner[2],
-				charSet.Spinner[3],
-			}
-		}
-		// ASCII fallback
-		return []string{"|", "/", "-", "\\"}
-
-	case AnimationLine:
-		if DetectUnicodeSupport() {
-			return []string{"⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈"}
-		}
-		return []string{"-", "\\", "|", "/"}
-
-	case AnimationBars:
-		if DetectUnicodeSupport() {
-			return []string{"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█", "▇", "▆", "▅", "▄", "▃", "▂"}
-		}
-		return []string{"=", "==", "===", "====", "====="}
-
-	case AnimationClock:
-		if DetectUnicodeSupport() {
-			return []string{"🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚", "🕛"}
-		}
-		return []string{"|", "/", "-", "\\"}
-
-	case AnimationBouncingBar:
-		if DetectUnicodeSupport() {
-			return []string{
-				"[=   ]",
-				"[ =  ]",
-				"[  = ]",
-				"[   =]",
-				"[  = ]",
-				"[ =  ]",
-			}
-		}
-		return []string{
-			"[>   ]",
-			"[ >  ]",
-			"[  > ]",
-			"[   >]",
-			"[  < ]",
-			"[ <  ]",
-		}
-
-	default:
-		return []string{"|", "/", "-", "\\"}
-	}
 }

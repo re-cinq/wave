@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/listing"
@@ -54,10 +53,6 @@ var (
 // value and broke machine readability (clig.dev). Kept as a function to avoid
 // churn at call sites.
 func printLogo() {}
-
-// formatDuration is a thin alias preserved so existing in-package tests keep
-// compiling. New code should call listing.FormatDuration.
-func formatDuration(d time.Duration) string { return listing.FormatDuration(d) }
 
 // NewListCmd returns the root `wave list` cobra command.
 func NewListCmd() *cobra.Command {

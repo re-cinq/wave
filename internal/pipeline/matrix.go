@@ -50,12 +50,6 @@ func (tc *TierContext) SetBranch(itemID, branch string) {
 	tc.outputBranches[itemID] = branch
 }
 
-// GetBranch returns the output branch for an item, if available.
-func (tc *TierContext) GetBranch(itemID string) (string, bool) {
-	branch, ok := tc.outputBranches[itemID]
-	return branch, ok
-}
-
 // ResolveBranch returns the parent branches for a given list of dependency item IDs.
 func (tc *TierContext) ResolveBranch(deps []string) ([]string, error) {
 	var branches []string
@@ -638,13 +632,6 @@ func (m *MatrixExecutor) emit(ev event.Event) {
 	if m.executor.emitter != nil {
 		m.executor.emitter.Emit(ev)
 	}
-}
-
-// MatrixWorkerContext holds context information for a matrix worker.
-type MatrixWorkerContext struct {
-	Index         int
-	Item          interface{}
-	WorkspacePath string
 }
 
 // matrixWorkerFunc is the signature for a function that executes a single matrix item.

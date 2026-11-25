@@ -27,24 +27,6 @@ type InputArtifactConfig struct {
 	Path          string // Path to the artifact file
 }
 
-// ValidateInputArtifacts validates all input artifacts against their schemas.
-// Returns a list of validation results and an error if any required validations failed.
-func ValidateInputArtifacts(configs []InputArtifactConfig, workspacePath string) ([]InputValidationResult, error) {
-	results := make([]InputValidationResult, 0, len(configs))
-
-	for _, cfg := range configs {
-		result := validateSingleInputArtifact(cfg, workspacePath)
-		results = append(results, result)
-
-		// Fail fast on validation errors
-		if !result.Passed && result.Error != nil {
-			return results, result.Error
-		}
-	}
-
-	return results, nil
-}
-
 // validateSingleInputArtifact validates a single input artifact.
 func validateSingleInputArtifact(cfg InputArtifactConfig, workspacePath string) InputValidationResult {
 	result := InputValidationResult{

@@ -9,184 +9,8 @@ import (
 	"github.com/recinq/wave/internal/event"
 )
 
-func TestProgressBar(t *testing.T) {
-	tests := []struct {
-		name    string
-		total   int
-		current int
-		width   int
-		wantLen int // Approximate length (may vary with unicode)
-	}{
-		{
-			name:    "empty progress",
-			total:   100,
-			current: 0,
-			width:   20,
-			wantLen: 20, // Just the bar itself
-		},
-		{
-			name:    "half progress",
-			total:   100,
-			current: 50,
-			width:   20,
-			wantLen: 20,
-		},
-		{
-			name:    "full progress",
-			total:   100,
-			current: 100,
-			width:   20,
-			wantLen: 20,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			pb := NewProgressBar(tt.total, tt.width)
-			pb.SetProgress(tt.current)
-			result := pb.Render()
-
-			// Verify we got some output
-			if len(result) == 0 {
-				t.Error("Expected non-empty progress bar")
-			}
-
-			// Verify it contains brackets
-			if !strings.Contains(result, "[") || !strings.Contains(result, "]") {
-				t.Errorf("Expected progress bar to contain brackets, got: %s", result)
-			}
-
-			// Verify percentage appears
-			if !strings.Contains(result, "%") {
-				t.Errorf("Expected progress bar to contain percentage, got: %s", result)
-			}
-		})
-	}
-}
-
-func TestStepStatus(t *testing.T) {
-	tests := []struct {
-		name       string
-		state      ProgressState
-		wantIcon   bool
-		wantStatus bool
-	}{
-		{
-			name:       "not started",
-			state:      StateNotStarted,
-			wantIcon:   true,
-			wantStatus: true,
-		},
-		{
-			name:       "running",
-			state:      StateRunning,
-			wantIcon:   true,
-			wantStatus: true,
-		},
-		{
-			name:       "completed",
-			state:      StateCompleted,
-			wantIcon:   true,
-			wantStatus: true,
-		},
-		{
-			name:       "failed",
-			state:      StateFailed,
-			wantIcon:   true,
-			wantStatus: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ss := NewStepStatus("test-step", "Test Step", "test-persona")
-			ss.UpdateState(tt.state)
-
-			result := ss.Render()
-
-			// Verify we got some output
-			if len(result) == 0 {
-				t.Error("Expected non-empty step status")
-			}
-
-			// Verify step name appears
-			if !strings.Contains(result, "Test Step") {
-				t.Errorf("Expected step status to contain step name, got: %s", result)
-			}
-		})
-	}
-}
-
-func TestStepStatusStateTransitions(t *testing.T) {
-	ss := NewStepStatus("test-step", "Test Step", "test-persona")
-
-	// Initial state
-	if ss.State != StateNotStarted {
-		t.Errorf("Expected initial state to be NotStarted, got %v", ss.State)
-	}
-
-	// Transition to running
-	ss.UpdateState(StateRunning)
-	if ss.State != StateRunning {
-		t.Errorf("Expected state to be Running, got %v", ss.State)
-	}
-
-	// Check that StartTime is set
-	if ss.StartTime.IsZero() {
-		t.Error("Expected StartTime to be set when transitioning to Running")
-	}
-
-	// Transition to completed
-	time.Sleep(10 * time.Millisecond) // Small delay to ensure elapsed time
-	ss.UpdateState(StateCompleted)
-	if ss.State != StateCompleted {
-		t.Errorf("Expected state to be Completed, got %v", ss.State)
-	}
-
-	// Check that EndTime is set
-	if ss.EndTime == nil {
-		t.Error("Expected EndTime to be set when transitioning to Completed")
-	}
-
-	// Check that ElapsedMs is calculated
-	if ss.ElapsedMs <= 0 {
-		t.Errorf("Expected ElapsedMs to be positive, got %d", ss.ElapsedMs)
-	}
-}
-
-func TestProgressDisplay(t *testing.T) {
-	pd := NewProgressDisplay("test-pipeline", "Test Pipeline", 3)
-
-	// Add steps
-	pd.AddStep("step1", "Step 1", "persona1")
-	pd.AddStep("step2", "Step 2", "persona2")
-	pd.AddStep("step3", "Step 3", "persona3")
-
-	// Verify steps are registered
-	if len(pd.steps) != 3 {
-		t.Errorf("Expected 3 steps, got %d", len(pd.steps))
-	}
-
-	// Update step state
-	pd.UpdateStep("step1", StateRunning, "Executing", 50)
-	if pd.steps["step1"].State != StateRunning {
-		t.Errorf("Expected step1 to be Running, got %v", pd.steps["step1"].State)
-	}
-
-	// Complete step
-	pd.UpdateStep("step1", StateCompleted, "Done", 100)
-	if pd.steps["step1"].State != StateCompleted {
-		t.Errorf("Expected step1 to be Completed, got %v", pd.steps["step1"].State)
-	}
-
-	// Verify overall progress bar is updated
-	if pd.overallBar.current != 1 {
-		t.Errorf("Expected overall progress to be 1, got %d", pd.overallBar.current)
-	}
-}
-
 func TestBasicProgressDisplay(t *testing.T) {
-	bpd := NewBasicProgressDisplay()
+	bpd := NewBasicProgressDisplayWithVerbose(false)
 
 	// Create test events
 	events := []event.Event{
@@ -212,33 +36,6 @@ func TestBasicProgressDisplay(t *testing.T) {
 		if err := bpd.EmitProgress(ev); err != nil {
 			t.Errorf("EmitProgress failed: %v", err)
 		}
-	}
-}
-
-func TestSpinner(t *testing.T) {
-	spinner := NewSpinner(AnimationSpinner)
-
-	// Initial state
-	if spinner.IsRunning() {
-		t.Error("Expected spinner to not be running initially")
-	}
-
-	// Start spinner
-	spinner.Start()
-	if !spinner.IsRunning() {
-		t.Error("Expected spinner to be running after Start()")
-	}
-
-	// Get current frame
-	frame := spinner.Current()
-	if frame == "" {
-		t.Error("Expected non-empty spinner frame")
-	}
-
-	// Stop spinner
-	spinner.Stop()
-	if spinner.IsRunning() {
-		t.Error("Expected spinner to not be running after Stop()")
 	}
 }
 
@@ -272,112 +69,6 @@ func TestFormatStepDuration(t *testing.T) {
 				t.Errorf("formatStepDuration(%v) = %v, want %v", tt.duration, got, tt.want)
 			}
 		})
-	}
-}
-
-func TestBubbleTeaToPipelineContext_StepPersonas(t *testing.T) {
-	// We can't easily test BubbleTeaProgressDisplay.toPipelineContext() directly
-	// because it requires a TTY. Instead, test that ProgressDisplay.toPipelineContext()
-	// populates StepPersonas correctly.
-	pd := NewProgressDisplay("test-pipeline", "Test Pipeline", 2)
-	pd.AddStep("s1", "step-1", "navigator")
-	pd.AddStep("s2", "step-2", "implementer")
-
-	pd.mu.Lock()
-	ctx := pd.toPipelineContext()
-	pd.mu.Unlock()
-
-	if ctx.StepPersonas == nil {
-		t.Fatal("StepPersonas should not be nil")
-	}
-	if ctx.StepPersonas["s1"] != "navigator" {
-		t.Errorf("StepPersonas[s1] = %q, want %q", ctx.StepPersonas["s1"], "navigator")
-	}
-	if ctx.StepPersonas["s2"] != "implementer" {
-		t.Errorf("StepPersonas[s2] = %q, want %q", ctx.StepPersonas["s2"], "implementer")
-	}
-}
-
-func TestProgressDisplay_ToPipelineContext_StepOrder(t *testing.T) {
-	pd := NewProgressDisplay("test-pipeline", "Test Pipeline", 3)
-	pd.AddStep("alpha", "Alpha Step", "p1")
-	pd.AddStep("beta", "Beta Step", "p2")
-	pd.AddStep("gamma", "Gamma Step", "p3")
-
-	pd.mu.Lock()
-	ctx := pd.toPipelineContext()
-	pd.mu.Unlock()
-
-	if len(ctx.StepOrder) != 3 {
-		t.Fatalf("StepOrder length = %d, want 3", len(ctx.StepOrder))
-	}
-	if ctx.StepOrder[0] != "alpha" || ctx.StepOrder[1] != "beta" || ctx.StepOrder[2] != "gamma" {
-		t.Errorf("StepOrder = %v, want [alpha, beta, gamma]", ctx.StepOrder)
-	}
-}
-
-func TestCreatePipelineContext_WithPersonas(t *testing.T) {
-	personas := map[string]string{
-		"step-1": "navigator",
-		"step-2": "implementer",
-	}
-	ctx := CreatePipelineContext("wave.yaml", "test", "/tmp", 2, []string{"step-1", "step-2"}, personas)
-
-	if ctx.StepPersonas == nil {
-		t.Fatal("StepPersonas should not be nil")
-	}
-	if ctx.StepPersonas["step-1"] != "navigator" {
-		t.Errorf("StepPersonas[step-1] = %q, want %q", ctx.StepPersonas["step-1"], "navigator")
-	}
-	if ctx.StepPersonas["step-2"] != "implementer" {
-		t.Errorf("StepPersonas[step-2] = %q, want %q", ctx.StepPersonas["step-2"], "implementer")
-	}
-
-	// Also verify StepOrder is populated
-	if len(ctx.StepOrder) != 2 {
-		t.Fatalf("StepOrder length = %d, want 2", len(ctx.StepOrder))
-	}
-	if ctx.StepOrder[0] != "step-1" || ctx.StepOrder[1] != "step-2" {
-		t.Errorf("StepOrder = %v, want [step-1, step-2]", ctx.StepOrder)
-	}
-}
-
-func TestProgressDisplay_PersonaRefreshFromEvent(t *testing.T) {
-	pd := NewProgressDisplay("test-pipeline", "Test Pipeline", 2)
-	pd.AddStep("gather", "gather", "{{ forge.type }}-analyst")
-	pd.AddStep("apply", "apply", "{{ forge.type }}-enhancer")
-
-	// Verify initial persona is the unresolved template
-	if pd.steps["gather"].Persona != "{{ forge.type }}-analyst" {
-		t.Fatalf("initial persona = %q, want %q", pd.steps["gather"].Persona, "{{ forge.type }}-analyst")
-	}
-
-	// Emit a running event with the resolved persona
-	if err := pd.EmitProgress(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: "test-pipeline",
-		StepID:     "gather",
-		State:      "running",
-		Persona:    "github-analyst",
-	}); err != nil {
-		t.Fatalf("EmitProgress failed: %v", err)
-	}
-
-	pd.mu.Lock()
-	persona := pd.steps["gather"].Persona
-	pd.mu.Unlock()
-
-	if persona != "github-analyst" {
-		t.Errorf("persona after running event = %q, want %q", persona, "github-analyst")
-	}
-
-	// Verify toPipelineContext reflects the resolved persona
-	pd.mu.Lock()
-	ctx := pd.toPipelineContext()
-	pd.mu.Unlock()
-
-	if ctx.StepPersonas["gather"] != "github-analyst" {
-		t.Errorf("StepPersonas[gather] = %q, want %q", ctx.StepPersonas["gather"], "github-analyst")
 	}
 }
 
@@ -470,7 +161,7 @@ func TestBasicProgressDisplay_HandoverMetadata_VerboseMode(t *testing.T) {
 
 func TestBasicProgressDisplay_HandoverMetadata_NonVerboseMode(t *testing.T) {
 	var buf bytes.Buffer
-	bpd := NewBasicProgressDisplay() // non-verbose
+	bpd := NewBasicProgressDisplayWithVerbose(false) // non-verbose
 	bpd.writer = &buf
 
 	now := time.Now()
@@ -713,7 +404,7 @@ func TestBasicProgressDisplay_HandoverLineFormat(t *testing.T) {
 
 func TestBasicProgressDisplay_RetryingEvent(t *testing.T) {
 	var buf bytes.Buffer
-	bpd := NewBasicProgressDisplay()
+	bpd := NewBasicProgressDisplayWithVerbose(false)
 	bpd.writer = &buf
 
 	now := time.Now()

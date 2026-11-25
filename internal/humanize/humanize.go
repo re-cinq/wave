@@ -6,17 +6,7 @@ package humanize
 
 import (
 	"fmt"
-	"time"
 )
-
-// Duration formats a time.Duration as a short human-readable string.
-// Returns "-" for the zero duration.
-func Duration(d time.Duration) string {
-	if d == 0 {
-		return "-"
-	}
-	return formatTotalSeconds(int(d.Seconds()))
-}
 
 // DurationMs formats a duration given in milliseconds as a short
 // human-readable string. Returns "-" for zero or negative input,
@@ -29,19 +19,6 @@ func DurationMs(ms int64) string {
 		return "<1s"
 	}
 	return formatTotalSeconds(int(ms / 1000))
-}
-
-// DurationSeconds formats a duration given in seconds as a short
-// human-readable string. Returns "-" for zero or negative input,
-// "<1s" for sub-second values.
-func DurationSeconds(s float64) string {
-	if s <= 0 {
-		return "-"
-	}
-	if s < 1 {
-		return "<1s"
-	}
-	return formatTotalSeconds(int(s))
 }
 
 // formatTotalSeconds renders a second count as the canonical short form:
@@ -58,38 +35,4 @@ func formatTotalSeconds(totalSeconds int) string {
 		return fmt.Sprintf("%dh%dm", hours, minutes)
 	}
 	return fmt.Sprintf("%dm%ds", minutes, seconds)
-}
-
-// TokenCount formats an integer token count as a short human-readable string
-// (e.g. "1k", "45k", "1.5M"). Returns "-" for zero.
-func TokenCount(n int) string {
-	if n == 0 {
-		return "-"
-	}
-	if n < 1000 {
-		return fmt.Sprintf("%d", n)
-	}
-	if n < 1_000_000 {
-		return fmt.Sprintf("%dk", n/1000)
-	}
-	return fmt.Sprintf("%.1fM", float64(n)/1_000_000.0)
-}
-
-// FileSize formats a byte count as a short human-readable string
-// (e.g. "512 B", "2.0 KB", "1.5 MB"). Returns "-" for zero.
-func FileSize(bytes int64) string {
-	if bytes == 0 {
-		return "-"
-	}
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	units := []string{"KB", "MB", "GB", "TB", "PB"}
-	return fmt.Sprintf("%.1f %s", float64(bytes)/float64(div), units[exp])
 }

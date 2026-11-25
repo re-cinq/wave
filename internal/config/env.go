@@ -87,30 +87,12 @@ func FromEnv() Env {
 	}
 }
 
-// Lookup returns the value of an environment variable by name. It exists for
-// sites that probe env keys dynamically (introspection, credential surface
-// detection) where a typed snapshot field cannot be pre-declared.
-//
-// Prefer reading fields from Env where the key is known statically.
-func Lookup(key string) string {
-	return os.Getenv(key)
-}
-
 // EnvPresent reports whether the named environment variable is set to a
 // non-empty value. Use for presence-only probes (e.g. token introspection
 // preconditions, admin credential surface detection) where the value itself
 // is not consumed at the call site.
 func EnvPresent(key string) bool {
 	return os.Getenv(key) != ""
-}
-
-// HomeOr returns the HOME value or the supplied fallback if HOME is unset.
-// Convenience for subprocess env construction.
-func (e Env) HomeOr(fallback string) string {
-	if e.Home != "" {
-		return e.Home
-	}
-	return fallback
 }
 
 // TermOr returns TERM or the supplied fallback. Used by hook env construction

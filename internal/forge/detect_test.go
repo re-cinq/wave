@@ -230,7 +230,7 @@ func TestDetect(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Detect(tt.url)
+			got := DetectWithOverride(tt.url, "")
 			if got.Type != tt.wantType {
 				t.Errorf("Type = %q, want %q", got.Type, tt.wantType)
 			}
@@ -296,93 +296,6 @@ func TestForgeInfo_Slug(t *testing.T) {
 	}
 }
 
-func TestFilterPipelinesByForge(t *testing.T) {
-	pipelines := []string{
-		"gh-implement",
-		"gh-review",
-		"gl-deploy",
-		"bb-build",
-		"gt-test",
-		"gt-sync",
-		"speckit-flow",
-		"wave-evolve",
-		"debug",
-	}
-
-	tests := []struct {
-		name      string
-		forgeType ForgeType
-		want      []string
-	}{
-		{
-			name:      "GitHub forge filters to gh- and generic",
-			forgeType: ForgeGitHub,
-			want:      []string{"gh-implement", "gh-review", "speckit-flow", "wave-evolve", "debug"},
-		},
-		{
-			name:      "GitLab forge filters to gl- and generic",
-			forgeType: ForgeGitLab,
-			want:      []string{"gl-deploy", "speckit-flow", "wave-evolve", "debug"},
-		},
-		{
-			name:      "Bitbucket forge filters to bb- and generic",
-			forgeType: ForgeBitbucket,
-			want:      []string{"bb-build", "speckit-flow", "wave-evolve", "debug"},
-		},
-		{
-			name:      "Gitea forge filters to gt- and generic",
-			forgeType: ForgeGitea,
-			want:      []string{"gt-test", "gt-sync", "speckit-flow", "wave-evolve", "debug"},
-		},
-		{
-			name:      "Codeberg forge filters to gt- and generic",
-			forgeType: ForgeCodeberg,
-			want:      []string{"gt-test", "gt-sync", "speckit-flow", "wave-evolve", "debug"},
-		},
-		{
-			name:      "Unknown forge returns all",
-			forgeType: ForgeUnknown,
-			want:      pipelines,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := FilterPipelinesByForge(tt.forgeType, pipelines)
-			if len(got) != len(tt.want) {
-				t.Fatalf("got %d pipelines, want %d: %v vs %v", len(got), len(tt.want), got, tt.want)
-			}
-			for i, name := range got {
-				if name != tt.want[i] {
-					t.Errorf("pipeline[%d] = %q, want %q", i, name, tt.want[i])
-				}
-			}
-		})
-	}
-}
-
-func TestFilterPipelinesByForge_EmptyInput(t *testing.T) {
-	got := FilterPipelinesByForge(ForgeGitHub, nil)
-	if got != nil {
-		t.Errorf("expected nil for empty input, got %v", got)
-	}
-
-	got = FilterPipelinesByForge(ForgeGitHub, []string{})
-	if got != nil {
-		t.Errorf("expected nil for empty slice, got %v", got)
-	}
-}
-
-func TestFilterPipelinesByForge_NoPrefixedPipelines(t *testing.T) {
-	generic := []string{"speckit-flow", "wave-evolve", "debug", "deploy"}
-	for _, ft := range []ForgeType{ForgeGitHub, ForgeGitLab, ForgeBitbucket, ForgeGitea, ForgeCodeberg} {
-		got := FilterPipelinesByForge(ft, generic)
-		if len(got) != len(generic) {
-			t.Errorf("forge %s: got %d pipelines, want %d (all generic should be returned)", ft, len(got), len(generic))
-		}
-	}
-}
-
 func TestDetect_SubdomainVariants(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -418,7 +331,7 @@ func TestDetect_SubdomainVariants(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Detect(tt.url)
+			got := DetectWithOverride(tt.url, "")
 			if got.Type != tt.wantType {
 				t.Errorf("Type = %q, want %q", got.Type, tt.wantType)
 			}
@@ -432,7 +345,7 @@ func TestDetect_SSHWithPort(t *testing.T) {
 	// SSH URLs with port: ssh://git@github.com:2222/org/repo.git
 	// The port in the URL causes the host to include ":2222", so
 	// classifyHost won't match "github.com" — this is a known limitation.
-	info := Detect("ssh://git@github.com:2222/org/repo.git")
+	info := DetectWithOverride("ssh://git@github.com:2222/org/repo.git", "")
 	// Host includes port, so forge detection falls back to unknown
 	if info.Type != ForgeUnknown {
 		t.Errorf("Type = %q, want %q (port in host breaks suffix matching)", info.Type, ForgeUnknown)
@@ -456,7 +369,7 @@ func TestForgeInfo_Slug_AllForges(t *testing.T) {
 	}
 
 	for _, url := range urls {
-		info := Detect(url)
+		info := DetectWithOverride(url, "")
 		slug := info.Slug()
 		if slug != "owner/repo" {
 			t.Errorf("Detect(%q).Slug() = %q, want %q", url, slug, "owner/repo")
@@ -812,44 +725,12 @@ func TestManifestForgeOverride(t *testing.T) {
 func TestDetect_ForgejoHostname(t *testing.T) {
 	disableProbing(t)
 
-	info := Detect("https://forgejo.example.com/user/repo.git")
+	info := DetectWithOverride("https://forgejo.example.com/user/repo.git", "")
 	if info.Type != ForgeForgejo {
 		t.Errorf("Type = %q, want %q", info.Type, ForgeForgejo)
 	}
 	if info.CLITool != "tea" {
 		t.Errorf("CLITool = %q, want %q", info.CLITool, "tea")
-	}
-}
-
-// TestFilterPipelinesByForge_Forgejo verifies that Forgejo uses the same
-// pipeline prefix as Gitea (gt-).
-func TestFilterPipelinesByForge_Forgejo(t *testing.T) {
-	pipelines := []string{"gh-implement", "gt-test", "speckit-flow"}
-	got := FilterPipelinesByForge(ForgeForgejo, pipelines)
-	want := []string{"gt-test", "speckit-flow"}
-	if len(got) != len(want) {
-		t.Fatalf("got %d pipelines, want %d: %v vs %v", len(got), len(want), got, want)
-	}
-	for i, name := range got {
-		if name != want[i] {
-			t.Errorf("pipeline[%d] = %q, want %q", i, name, want[i])
-		}
-	}
-}
-
-// TestFilterPipelinesByForge_Codeberg verifies that Codeberg uses its own
-// pipeline prefix (gt-), same as Gitea/Forgejo.
-func TestFilterPipelinesByForge_Codeberg(t *testing.T) {
-	pipelines := []string{"gh-implement", "gl-review", "gt-test", "gt-sync", "speckit-flow"}
-	got := FilterPipelinesByForge(ForgeCodeberg, pipelines)
-	want := []string{"gt-test", "gt-sync", "speckit-flow"}
-	if len(got) != len(want) {
-		t.Fatalf("got %d pipelines, want %d: %v vs %v", len(got), len(want), got, want)
-	}
-	for i, name := range got {
-		if name != want[i] {
-			t.Errorf("pipeline[%d] = %q, want %q", i, name, want[i])
-		}
 	}
 }
 
@@ -911,45 +792,6 @@ func TestDetectWithOverride_LocalCaseInsensitive(t *testing.T) {
 				t.Errorf("DetectWithOverride with override %q: Type = %q, want %q", override, got.Type, ForgeLocal)
 			}
 		})
-	}
-}
-
-// TestFilterPipelinesByForge_Local verifies that ForgeLocal includes only
-// local-prefixed and non-forge-prefixed pipelines, excluding forge-specific ones.
-func TestFilterPipelinesByForge_Local(t *testing.T) {
-	pipelines := []string{
-		"gh-implement",
-		"gh-review",
-		"gl-deploy",
-		"bb-build",
-		"gt-test",
-		"gt-sync",
-		"local-validate",
-		"local-lint",
-		"speckit-flow",
-		"wave-evolve",
-		"debug",
-	}
-
-	got := FilterPipelinesByForge(ForgeLocal, pipelines)
-	want := []string{"local-validate", "local-lint", "speckit-flow", "wave-evolve", "debug"}
-	if len(got) != len(want) {
-		t.Fatalf("got %d pipelines, want %d: %v vs %v", len(got), len(want), got, want)
-	}
-	for i, name := range got {
-		if name != want[i] {
-			t.Errorf("pipeline[%d] = %q, want %q", i, name, want[i])
-		}
-	}
-}
-
-// TestFilterPipelinesByForge_LocalNoForgePrefix verifies that ForgeLocal
-// includes all generic pipelines when no forge-prefixed pipelines exist.
-func TestFilterPipelinesByForge_LocalNoForgePrefix(t *testing.T) {
-	generic := []string{"speckit-flow", "wave-evolve", "debug", "deploy"}
-	got := FilterPipelinesByForge(ForgeLocal, generic)
-	if len(got) != len(generic) {
-		t.Errorf("got %d pipelines, want %d (all generic should be returned)", len(got), len(generic))
 	}
 }
 
@@ -1039,15 +881,5 @@ func TestPickFetchRemoteURL(t *testing.T) {
 				t.Errorf("pickFetchRemoteURL() = %q, want %q", got, tt.wantURL)
 			}
 		})
-	}
-}
-
-// TestHasForgePrefix_Local verifies that "local-" is recognized as a forge prefix.
-func TestHasForgePrefix_Local(t *testing.T) {
-	if !hasForgePrefix("local-validate") {
-		t.Error("hasForgePrefix(\"local-validate\") = false, want true")
-	}
-	if hasForgePrefix("localhost-something") {
-		t.Error("hasForgePrefix(\"localhost-something\") = true, want false (no exact 'local-' prefix)")
 	}
 }

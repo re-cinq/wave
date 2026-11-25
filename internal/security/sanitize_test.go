@@ -1,6 +1,7 @@
 package security
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -453,7 +454,8 @@ func TestSanitizeInput_StrictMode(t *testing.T) {
 				t.Errorf("SanitizeInput(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
 			}
 			if tt.wantErr && err != nil {
-				if !IsSecurityError(err) {
+				var secErr *SecurityValidationError
+				if !errors.As(err, &secErr) {
 					t.Errorf("expected SecurityValidationError, got %T", err)
 				}
 			}

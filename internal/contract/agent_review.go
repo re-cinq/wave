@@ -64,16 +64,6 @@ func newAgentReviewValidator(runner adapter.AdapterRunner, manifest interface{})
 	return &agentReviewValidator{runner: runner, manifest: manifest}
 }
 
-// Validate implements ContractValidator. For agent_review, this is a no-op —
-// callers must use ValidateWithRunner instead, which provides the runner context.
-func (v *agentReviewValidator) Validate(_ ContractConfig, _ string) error {
-	return &ValidationError{
-		ContractType: "agent_review",
-		Message:      "agent_review contracts require an adapter runner — use ValidateWithRunner()",
-		Retryable:    false,
-	}
-}
-
 // RunReview executes the agent review and returns structured feedback.
 func (v *agentReviewValidator) RunReview(cfg ContractConfig, workspacePath string) (*ReviewFeedback, error) {
 	// Load review criteria from file

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -35,12 +34,6 @@ func NewBaselineService(stderr io.Writer) *BaselineService {
 		sessions: make(map[string]*Session),
 		stderr:   stderr,
 	}
-}
-
-// IsOnboarded reports whether the project at projectDir has the sentinel.
-// Empty projectDir defaults to ".".
-func (s *BaselineService) IsOnboarded(projectDir string) bool {
-	return IsOnboardedAt(projectDir)
 }
 
 // StartSession runs the non-interactive Greenfield path synchronously and
@@ -106,41 +99,6 @@ func (s *BaselineService) StartSession(ctx context.Context, projectDir string, o
 	return sess, nil
 }
 
-// Resume returns the existing session for the supplied id. The baseline
-// service runs synchronously so Resume only ever returns a snapshot of an
-// already-terminal session — it never reanimates a paused flow.
-func (s *BaselineService) Resume(ctx context.Context, sessionID string) (*Session, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	sess, ok := s.sessions[sessionID]
-	if !ok {
-		return nil, errors.New("session not found")
-	}
-	return sess, nil
-}
-
-// Status returns a Status snapshot for the supplied session id.
-func (s *BaselineService) Status(sessionID string) (*Status, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	sess, ok := s.sessions[sessionID]
-	if !ok {
-		return nil, errors.New("session not found")
-	}
-	return &Status{
-		SessionID: sess.ID,
-		Status:    sess.Status,
-		UpdatedAt: time.Now(),
-	}, nil
-}
-
-// MarkDone delegates to the package-level helper. Exposed on the interface
-// so drivers that don't share the BaselineService instance can still write
-// the sentinel via the same code path.
-func (s *BaselineService) MarkDone(projectDir string) error {
-	return MarkDoneAt(projectDir)
-}
-
 func (s *BaselineService) markStatus(id string, status SessionStatus) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -160,6 +118,3 @@ func newSessionID() (string, error) {
 	}
 	return hex.EncodeToString(b[:]), nil
 }
-
-// Compile-time assertion: BaselineService satisfies Service.
-var _ Service = (*BaselineService)(nil)

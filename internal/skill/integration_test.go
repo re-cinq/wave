@@ -9,8 +9,8 @@ import (
 
 // T017: TestSkillLifecycle_FileAdapter — SC-003, US6-1, US6-2
 // End-to-end test: create temp dir with valid SKILL.md, install via FileAdapter
-// into real DirectoryStore, List to verify appears, ProvisionFromStore to workspace,
-// verify SKILL.md body content, Delete, verify gone.
+// into real DirectoryStore, List to verify appears,
+// Delete, verify gone.
 func TestSkillLifecycle_FileAdapter(t *testing.T) {
 	// Create a source skill directory with valid SKILL.md
 	srcDir := t.TempDir()
@@ -52,25 +52,6 @@ func TestSkillLifecycle_FileAdapter(t *testing.T) {
 	}
 	if skills[0].Name != "lifecycle-skill" {
 		t.Errorf("listed skill name = %q, want %q", skills[0].Name, "lifecycle-skill")
-	}
-
-	// ProvisionFromStore to workspace
-	workspace := t.TempDir()
-	infos, err := ProvisionFromStore(store, workspace, []string{"lifecycle-skill"})
-	if err != nil {
-		t.Fatalf("ProvisionFromStore() error = %v", err)
-	}
-	if len(infos) != 1 {
-		t.Fatalf("expected 1 info, got %d", len(infos))
-	}
-
-	// Verify SKILL.md body content matches original (ProvisionFromStore writes Body only)
-	data, err := os.ReadFile(filepath.Join(workspace, ".agents", "skills", "lifecycle-skill", "SKILL.md"))
-	if err != nil {
-		t.Fatalf("failed to read provisioned SKILL.md: %v", err)
-	}
-	if string(data) != bodyContent {
-		t.Errorf("provisioned SKILL.md content mismatch:\ngot:  %q\nwant: %q", string(data), bodyContent)
 	}
 
 	// Delete

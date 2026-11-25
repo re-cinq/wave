@@ -14,9 +14,9 @@ import (
 func compileWorkItemRefSchema(t *testing.T) *jsonschema.Schema {
 	t.Helper()
 
-	raw, ok := Lookup("work_item_ref")
-	if !ok {
-		t.Fatal("Lookup(\"work_item_ref\") = !ok")
+	raw, err := schemasFS.ReadFile("work_item_ref.json")
+	if err != nil {
+		t.Fatalf("read embedded work_item_ref schema: %v", err)
 	}
 
 	var schemaDoc any

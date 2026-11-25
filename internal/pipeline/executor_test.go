@@ -1800,42 +1800,6 @@ func TestCreateStepWorkspace_DifferentBranches(t *testing.T) {
 	assert.NotEqual(t, pathA, pathB, "Different branches should get different worktree paths")
 }
 
-func TestCleanupWorktrees_Dedup(t *testing.T) {
-	// Test that shared worktree paths are only cleaned up once
-	mockAdapter := adaptertest.NewMockAdapter(
-		adaptertest.WithStdoutJSON(`{"status": "success"}`),
-	)
-	executor := NewDefaultPipelineExecutor(mockAdapter)
-
-	sharedPath := "/tmp/shared-worktree"
-	repoRoot := "/tmp/test-repo"
-
-	execution := &PipelineExecution{
-		Pipeline:      &Pipeline{Metadata: PipelineMetadata{Name: "dedup-test"}},
-		States:        make(map[string]string),
-		Results:       make(map[string]map[string]interface{}),
-		ArtifactPaths: make(map[string]string),
-		WorkspacePaths: map[string]string{
-			"step1":                     sharedPath,
-			"step1__worktree_repo_root": repoRoot,
-			"step2":                     sharedPath,
-			"step2__worktree_repo_root": repoRoot,
-			"step3":                     sharedPath,
-			"step3__worktree_repo_root": repoRoot,
-		},
-		WorktreePaths: make(map[string]*WorktreeInfo),
-		Input:         "test",
-		Status:        &PipelineStatus{ID: "dedup-test", PipelineName: "dedup-test"},
-	}
-
-	// cleanupWorktrees should not panic even though all steps share the same path
-	// It will try to create a worktree manager for a non-existent repo root,
-	// but the important thing is it only attempts cleanup once per unique path
-	assert.NotPanics(t, func() {
-		executor.cleanupWorktrees(execution, "dedup-test")
-	}, "Cleanup should not panic with shared worktree paths")
-}
-
 // getExecutorPipeline is a helper function to access the internal pipelines map for testing
 func getExecutorPipeline(executor PipelineExecutor, pipelineID string) (*PipelineExecution, bool) {
 	if defaultExec, ok := executor.(*DefaultPipelineExecutor); ok {
@@ -2997,16 +2961,16 @@ func TestResolveModelMethod(t *testing.T) {
 
 	// Persona with no model — use override
 	p1 := &manifest.Persona{Model: ""}
-	assert.Equal(t, "haiku", executor.resolveModel(nil, p1, nil, "navigator", nil))
+	assert.Equal(t, "haiku", executor.resolveModelForAttempt(nil, p1, nil, "navigator", nil, 1))
 
 	// Persona with pinned model — CLI override still wins
 	p2 := &manifest.Persona{Model: "opus"}
-	assert.Equal(t, "haiku", executor.resolveModel(nil, p2, nil, "navigator", nil))
+	assert.Equal(t, "haiku", executor.resolveModelForAttempt(nil, p2, nil, "navigator", nil, 1))
 
 	// No override, no persona model — empty
 	executor2 := &DefaultPipelineExecutor{modelOverride: ""}
 	p3 := &manifest.Persona{Model: ""}
-	assert.Equal(t, "", executor2.resolveModel(nil, p3, nil, "navigator", nil))
+	assert.Equal(t, "", executor2.resolveModelForAttempt(nil, p3, nil, "navigator", nil, 1))
 }
 
 func TestResolveModel_ForceModelEmpty(t *testing.T) {
@@ -3014,7 +2978,7 @@ func TestResolveModel_ForceModelEmpty(t *testing.T) {
 	executor := &DefaultPipelineExecutor{forceModel: true, modelOverride: ""}
 	persona := &manifest.Persona{Model: "opus"}
 
-	got := executor.resolveModel(nil, persona, nil, "craftsman", nil)
+	got := executor.resolveModelForAttempt(nil, persona, nil, "craftsman", nil, 1)
 	// forceModel with empty override does NOT return early — falls through
 	// persona model "opus" is not a tier, so returned as-is
 	assert.Equal(t, "opus", got)
@@ -3024,7 +2988,7 @@ func TestResolveModel_ForceModelWithValue(t *testing.T) {
 	executor := &DefaultPipelineExecutor{forceModel: true, modelOverride: "claude-haiku-4-5"}
 	persona := &manifest.Persona{Model: "opus"}
 
-	got := executor.resolveModel(nil, persona, nil, "craftsman", nil)
+	got := executor.resolveModelForAttempt(nil, persona, nil, "craftsman", nil, 1)
 	assert.Equal(t, "claude-haiku-4-5", got)
 }
 
@@ -3034,7 +2998,7 @@ func TestResolveModel_StepModelBalancedTier(t *testing.T) {
 	persona := &manifest.Persona{}
 	step := &Step{Model: "balanced"}
 
-	got := executor.resolveModel(step, persona, nil, "test", nil)
+	got := executor.resolveModelForAttempt(step, persona, nil, "test", nil, 1)
 	// resolveTierModel("balanced", nil, nil) → routing.ResolveComplexityModel("balanced") → ""
 	// isTier=true, so returns ""
 	assert.Equal(t, "", got)
@@ -3045,7 +3009,7 @@ func TestResolveModel_StepModelCheapestTier(t *testing.T) {
 	persona := &manifest.Persona{}
 	step := &Step{Model: "cheapest"}
 
-	got := executor.resolveModel(step, persona, nil, "test", nil)
+	got := executor.resolveModelForAttempt(step, persona, nil, "test", nil, 1)
 	assert.Equal(t, "claude-haiku-4-5", got)
 }
 
@@ -3054,7 +3018,7 @@ func TestResolveModel_StepModelStrongestTier(t *testing.T) {
 	persona := &manifest.Persona{}
 	step := &Step{Model: "strongest"}
 
-	got := executor.resolveModel(step, persona, nil, "test", nil)
+	got := executor.resolveModelForAttempt(step, persona, nil, "test", nil, 1)
 	assert.Equal(t, "claude-opus-4", got)
 }
 
@@ -3063,7 +3027,7 @@ func TestResolveModel_StepModelLiteral(t *testing.T) {
 	persona := &manifest.Persona{}
 	step := &Step{Model: "claude-sonnet-4"}
 
-	got := executor.resolveModel(step, persona, nil, "test", nil)
+	got := executor.resolveModelForAttempt(step, persona, nil, "test", nil, 1)
 	assert.Equal(t, "claude-sonnet-4", got)
 }
 
@@ -3071,7 +3035,7 @@ func TestResolveModel_PersonaModelTier(t *testing.T) {
 	executor := &DefaultPipelineExecutor{}
 	persona := &manifest.Persona{Model: "cheapest"}
 
-	got := executor.resolveModel(nil, persona, nil, "navigator", nil)
+	got := executor.resolveModelForAttempt(nil, persona, nil, "navigator", nil, 1)
 	assert.Equal(t, "claude-haiku-4-5", got)
 }
 
@@ -3082,7 +3046,7 @@ func TestResolveModel_AutoRoute_BalancedReturnsEmpty(t *testing.T) {
 	step := &Step{ID: "generic-step"}
 	routing := &manifest.RoutingConfig{AutoRoute: true}
 
-	got := executor.resolveModel(step, persona, routing, "generic", nil)
+	got := executor.resolveModelForAttempt(step, persona, routing, "generic", nil, 1)
 	// ClassifyStepComplexity returns "balanced" for generic persona
 	// routing.ResolveComplexityModel("balanced") returns "" (balanced maps to empty)
 	// model == "" → falls through, returns ""
@@ -3095,7 +3059,7 @@ func TestResolveModel_AutoRoute_CheapestReturnsModel(t *testing.T) {
 	step := &Step{ID: "navigate", Type: StepTypeCommand}
 	routing := &manifest.RoutingConfig{AutoRoute: true}
 
-	got := executor.resolveModel(step, persona, routing, "navigator", nil)
+	got := executor.resolveModelForAttempt(step, persona, routing, "navigator", nil, 1)
 	// ClassifyStepComplexity: step type "command" → cheapest
 	// routing.ResolveComplexityModel("cheapest") → "claude-haiku-4-5"
 	assert.Equal(t, "claude-haiku-4-5", got)
@@ -3107,7 +3071,7 @@ func TestResolveModel_CLITierVsStepTier_CheaperWins(t *testing.T) {
 	persona := &manifest.Persona{}
 	step := &Step{Model: "strongest"}
 
-	got := executor.resolveModel(step, persona, nil, "test", nil)
+	got := executor.resolveModelForAttempt(step, persona, nil, "test", nil, 1)
 	// Both are tiers, CheaperTier("cheapest","strongest") → "cheapest"
 	// resolveTierModel("cheapest", nil, nil) → "claude-haiku-4-5"
 	assert.Equal(t, "claude-haiku-4-5", got)
@@ -3120,7 +3084,7 @@ func TestResolveModel_CLITierVsStepTier_BalancedResolvesEmpty(t *testing.T) {
 	persona := &manifest.Persona{}
 	step := &Step{Model: "strongest"}
 
-	got := executor.resolveModel(step, persona, nil, "test", nil)
+	got := executor.resolveModelForAttempt(step, persona, nil, "test", nil, 1)
 	// CheaperTier("balanced","strongest") → "balanced"
 	// resolveTierModel("balanced", nil, nil) → "", isTier=true
 	assert.Equal(t, "", got)
@@ -3132,7 +3096,7 @@ func TestResolveModel_CLILiteralOverridesStepTier(t *testing.T) {
 	persona := &manifest.Persona{}
 	step := &Step{Model: "strongest"}
 
-	got := executor.resolveModel(step, persona, nil, "test", nil)
+	got := executor.resolveModelForAttempt(step, persona, nil, "test", nil, 1)
 	// TierRank("claude-sonnet-4") = -1 (not a tier), so CLI literal wins
 	assert.Equal(t, "claude-sonnet-4", got)
 }

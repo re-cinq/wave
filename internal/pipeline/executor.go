@@ -138,12 +138,6 @@ func WithStateStore(s state.StateStore) ExecutorOption {
 	}
 }
 
-// WithMetricsStore overrides the metrics handle. Useful for tests that drive
-// the executor with an explicit *metrics.Store backed by a temp DB.
-func WithMetricsStore(m *metrics.Store) ExecutorOption {
-	return func(ex *DefaultPipelineExecutor) { ex.metrics = m }
-}
-
 func WithAuditLogger(l audit.AuditLogger) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.logger = l }
 }
@@ -182,13 +176,6 @@ func WithStepTimeout(d time.Duration) ExecutorOption {
 
 func WithModelOverride(model string) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.modelOverride = model }
-}
-
-// WithTaskComplexity sets the task-level complexity from the classifier.
-// When set, it adjusts model routing: simple tasks cap at balanced,
-// complex/architectural tasks floor at balanced.
-func WithTaskComplexity(complexity string) ExecutorOption {
-	return func(ex *DefaultPipelineExecutor) { ex.taskComplexity = complexity }
 }
 
 func WithForceModel(force bool) ExecutorOption {

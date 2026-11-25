@@ -87,37 +87,6 @@ func TestValidateInputArtifactContent_InvalidSchema(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to parse schema")
 }
 
-func TestValidateInputArtifacts_Multiple(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create artifacts directory
-	artifactsDir := filepath.Join(tmpDir, ".agents", "artifacts")
-	require.NoError(t, os.MkdirAll(artifactsDir, 0755))
-
-	err := os.WriteFile(filepath.Join(artifactsDir, "artifact1"), []byte(`{"id": 1}`), 0644)
-	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(artifactsDir, "artifact2"), []byte(`{"id": 2}`), 0644)
-	require.NoError(t, err)
-
-	idSchema := `{
-		"$schema": "http://json-schema.org/draft-07/schema#",
-		"type": "object",
-		"required": ["id"],
-		"properties": { "id": {"type": "integer"} }
-	}`
-
-	configs := []InputArtifactConfig{
-		{Name: "artifact1", SchemaContent: idSchema},
-		{Name: "artifact2", SchemaContent: idSchema},
-	}
-
-	results, err := ValidateInputArtifacts(configs, tmpDir)
-	assert.NoError(t, err)
-	assert.Len(t, results, 2)
-	assert.True(t, results[0].Passed)
-	assert.True(t, results[1].Passed)
-}
-
 func TestValidateInputArtifactContent_SharedFindingsSchema(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -239,34 +208,4 @@ func TestValidateInputArtifactContent_SharedReviewVerdictSchema(t *testing.T) {
 
 	err = ValidateInputArtifactContent("verdict", schemaContent, artifactPath)
 	assert.Error(t, err, "invalid verdict enum value should fail validation")
-}
-
-func TestValidateInputArtifacts_FailsOnFirstError(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create artifacts directory
-	artifactsDir := filepath.Join(tmpDir, ".agents", "artifacts")
-	require.NoError(t, os.MkdirAll(artifactsDir, 0755))
-
-	err := os.WriteFile(filepath.Join(artifactsDir, "valid"), []byte(`{"id": 1}`), 0644)
-	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(artifactsDir, "invalid"), []byte(`{"id": "not a number"}`), 0644)
-	require.NoError(t, err)
-
-	idSchema := `{
-		"$schema": "http://json-schema.org/draft-07/schema#",
-		"type": "object",
-		"required": ["id"],
-		"properties": { "id": {"type": "integer"} }
-	}`
-
-	configs := []InputArtifactConfig{
-		{Name: "invalid", SchemaContent: idSchema},
-		{Name: "valid", SchemaContent: idSchema},
-	}
-
-	results, err := ValidateInputArtifacts(configs, tmpDir)
-	assert.Error(t, err)
-	assert.Len(t, results, 1)
-	assert.False(t, results[0].Passed)
 }

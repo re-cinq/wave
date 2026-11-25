@@ -559,10 +559,6 @@ func (m *MockStateStore) GetOutcomesByValue(outcomeType, value string) ([]state.
 
 // Functional options for overriding specific methods.
 
-func WithSavePipelineState(fn func(id, status, input string) error) MockStateStoreOption {
-	return func(m *MockStateStore) { m.savePipelineState = fn }
-}
-
 func WithCreateRun(fn func(pipelineName, input string) (string, error)) MockStateStoreOption {
 	return func(m *MockStateStore) { m.createRun = fn }
 }
