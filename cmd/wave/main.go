@@ -33,6 +33,12 @@ var rootCmd = &cobra.Command{
 		}
 		commands.StoreResolvedFlags(cmd, rf)
 
+		// -m <dir>/wave.yaml selects the project in <dir>: Wave resolves
+		// .agents/ and the state DB relative to the working directory.
+		if err := commands.EnterManifestDirForCommand(cmd); err != nil {
+			return err
+		}
+
 		// --no-color sets NO_COLOR env var for downstream code
 		if rf.Output.NoColor {
 			_ = os.Setenv("NO_COLOR", "1")

@@ -881,54 +881,6 @@ steps:
 	assert.Contains(t, err.Error(), "non-existent step", "error should mention non-existent step dependency")
 }
 
-// Test resolveForgeTemplate with known forge, unknown forge, and no template
-func TestResolveForgeTemplate(t *testing.T) {
-	tests := []struct {
-		name     string
-		persona  string
-		fi       forge.ForgeInfo
-		expected []string
-	}{
-		{
-			name:     "no template returns persona unchanged",
-			persona:  "navigator",
-			fi:       forge.ForgeInfo{Type: forge.ForgeGitHub},
-			expected: []string{"navigator"},
-		},
-		{
-			name:     "known forge resolves spaced template",
-			persona:  "{{ forge.type }}-analyst",
-			fi:       forge.ForgeInfo{Type: forge.ForgeGitHub},
-			expected: []string{"github-analyst"},
-		},
-		{
-			name:     "known forge resolves compact template",
-			persona:  "{{forge.type}}-analyst",
-			fi:       forge.ForgeInfo{Type: forge.ForgeGitLab},
-			expected: []string{"gitlab-analyst"},
-		},
-		{
-			name:     "unknown forge expands to all 4 variants",
-			persona:  "{{ forge.type }}-analyst",
-			fi:       forge.ForgeInfo{Type: forge.ForgeUnknown},
-			expected: []string{"github-analyst", "gitlab-analyst", "gitea-analyst", "bitbucket-analyst"},
-		},
-		{
-			name:     "local forge (no remote) expands to all 4 variants",
-			persona:  "{{ forge.type }}-analyst",
-			fi:       forge.ForgeInfo{Type: forge.ForgeLocal},
-			expected: []string{"github-analyst", "gitlab-analyst", "gitea-analyst", "bitbucket-analyst"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := resolveForgeTemplate(tt.persona, tt.fi)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
 // Test isCompositionStep with different step types
 func TestIsCompositionStep(t *testing.T) {
 	tests := []struct {

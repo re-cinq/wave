@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 )
 
@@ -90,6 +92,46 @@ func TestDryRunValidator_MissingPersona(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected persona-not-found error on step navigate, got:\n%s", report.Format())
+	}
+}
+
+// TestDryRunValidator_ForgeTemplatedPersona covers `{{ forge.type }}`
+// persona references (impl-issue's "{{ forge.type }}-commenter"), which the
+// dry-run used to look up literally and always reject.
+func TestDryRunValidator_ForgeTemplatedPersona(t *testing.T) {
+	withCommenter := func() *manifest.Manifest {
+		m := buildManifestWithPersonas()
+		m.Personas["github-commenter"] = manifest.Persona{Adapter: "claude", SystemPromptFile: "github-commenter.md"}
+		return m
+	}
+	tests := []struct {
+		name        string
+		fi          forge.ForgeInfo
+		m           *manifest.Manifest
+		wantErr     bool
+		wantWarning bool
+	}{
+		{name: "github remote resolves to installed persona", fi: forge.ForgeInfo{Type: forge.ForgeGitHub}, m: withCommenter()},
+		{name: "gitlab remote without gitlab persona is an error", fi: forge.ForgeInfo{Type: forge.ForgeGitLab}, m: withCommenter(), wantErr: true},
+		{name: "no remote accepts any installed variant", fi: forge.ForgeInfo{Type: forge.ForgeLocal}, m: withCommenter()},
+		{name: "no remote and no forge personas warns", fi: forge.ForgeInfo{Type: forge.ForgeLocal}, m: buildManifestWithPersonas(), wantWarning: true},
+		{name: "unrecognised remote and no forge personas is an error", fi: forge.ForgeInfo{Type: forge.ForgeUnknown}, m: buildManifestWithPersonas(), wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := buildSimplePipeline()
+			p.Steps[1].Persona = "{{ forge.type }}-commenter"
+			report := NewDryRunValidator(".agents/pipelines").WithForge(tt.fi).Validate(p, tt.m)
+			if report.HasErrors() != tt.wantErr {
+				t.Fatalf("HasErrors() = %v, want %v:\n%s", report.HasErrors(), tt.wantErr, report.Format())
+			}
+			if tt.fi.Type == forge.ForgeGitLab && !strings.Contains(report.Format(), `"gitlab-commenter"`) {
+				t.Fatalf("error must name the resolved persona:\n%s", report.Format())
+			}
+			if (report.WarningCount() > 0) != tt.wantWarning {
+				t.Fatalf("warnings = %d, want warning %v:\n%s", report.WarningCount(), tt.wantWarning, report.Format())
+			}
+		})
 	}
 }
 
@@ -795,4 +837,56 @@ func TestDryRun_SubPipelineConfig(t *testing.T) {
 			t.Error("expected error for unbalanced stop_condition template")
 		}
 	})
+}
+
+// TestDryRunValidator_IterateTemplatedPipeline covers ops-parallel-audit's
+// `pipeline: "{{ item }}"`, which the dry-run used to look up literally.
+func TestDryRunValidator_IterateTemplatedPipeline(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "audit-security.yaml"), []byte("kind: WavePipeline\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	build := func(over string) *Pipeline {
+		return &Pipeline{
+			Kind:     "WavePipeline",
+			Metadata: PipelineMetadata{Name: "test"},
+			Steps: []Step{{
+				ID:          "run-audits",
+				SubPipeline: "{{ item }}",
+				Iterate:     &IterateConfig{Over: over, Mode: "parallel"},
+			}},
+		}
+	}
+
+	if r := NewDryRunValidator(dir).Validate(build(`["audit-security"]`), nil); r.HasErrors() {
+		t.Fatalf("literal list of installed pipelines must pass:\n%s", r.Format())
+	}
+	if r := NewDryRunValidator(dir).Validate(build("{{ input }}"), nil); r.HasErrors() {
+		t.Fatalf("runtime-determined items must not be checked:\n%s", r.Format())
+	}
+	r := NewDryRunValidator(dir).Validate(build(`["audit-security", "audit-missing"]`), nil)
+	if r.ErrorCount() != 1 || !strings.Contains(r.Format(), `"audit-missing"`) {
+		t.Fatalf("expected exactly one error for the missing item pipeline:\n%s", r.Format())
+	}
+}
+
+// TestDryRunValidator_InjectArtifactTransitiveDependency: injecting from a
+// step reached through another dependency is ordered correctly and must not
+// warn (impl-issue's create-pr injects from fetch-assess via implement).
+func TestDryRunValidator_InjectArtifactTransitiveDependency(t *testing.T) {
+	p := buildSimplePipeline()
+	p.Steps = append(p.Steps, Step{
+		ID:           "publish",
+		Persona:      "navigator",
+		Dependencies: []string{"implement"},
+		Memory: MemoryConfig{
+			Strategy:        "fresh",
+			InjectArtifacts: []ArtifactRef{{Step: "navigate", Artifact: "analysis", As: "analysis"}},
+		},
+		Exec: ExecConfig{Type: "prompt", Source: "Publish"},
+	})
+	r := NewDryRunValidator(".agents/pipelines").Validate(p, buildManifestWithPersonas())
+	if r.WarningCount() != 0 || r.HasErrors() {
+		t.Fatalf("expected no findings for a transitive dependency:\n%s", r.Format())
+	}
 }
