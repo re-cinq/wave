@@ -36,6 +36,8 @@ adapters:
 
 When `auto_route: true` is enabled, Wave uses these tier mappings to select models automatically.
 
+`wave init` pins every tier to one model so the shipped pipelines (which use tier names) run on exactly the model you chose: `sonnet` for claude, `gpt-6.2-sol` for codex. Without `tier_models`, claude falls back to the built-in map (`cheapest` -> `claude-haiku-4-5`, `strongest` -> `claude-opus-4`) and other adapters fall back to `default_model`. Change the pin with `wave init --reconfigure --model <id>` or edit `tier_models` directly.
+
 ## Auto-Routing
 
 Enable automatic model selection based on step complexity:
@@ -98,7 +100,7 @@ adapters:
 Use `--adapter <name>` to override the adapter for all steps in a run:
 
 ```bash
-wave run ops-hello-world --adapter opencode --model "zai-coding-plan/glm-5-turbo"
+wave run ops-hello-world --adapter codex --model gpt-6.2-sol
 ```
 
 Override per step in pipeline YAML:
@@ -106,7 +108,7 @@ Override per step in pipeline YAML:
 ```yaml
 - id: implement
   adapter: codex              # use OpenAI Codex for this step
-  model: gpt-4o
+  model: gpt-6.2-sol
 ```
 
 ### Model Format Differences
@@ -115,10 +117,10 @@ Each adapter uses a different model identifier format:
 
 | Adapter | Format | Examples |
 |---------|--------|---------|
-| claude | Short names | `sonnet`, `haiku`, `opus` |
+| claude | Short names | `sonnet` (default written by `wave init`), `haiku`, `opus` |
 | opencode | `provider/model` | `zai-coding-plan/glm-5-turbo`, `anthropic/claude-sonnet-4-20250514` |
 | gemini | Plain names | `gemini-2.0-pro`, `gemini-2.5-flash` |
-| codex | OpenAI identifiers | `gpt-4o`, `o3` |
+| codex | OpenAI identifiers | `gpt-6.2-sol` (default written by `wave init`) |
 
 ## Fallback Chains
 

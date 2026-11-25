@@ -54,7 +54,7 @@ WARNING: This operation is destructive and cannot be undone.`,
 
 	cmd.Flags().StringVar(&opts.ToStep, "to-step", "", "Rewind to after this step (required)")
 	cmd.Flags().BoolVar(&opts.Confirm, "confirm", false, "Skip confirmation prompt")
-	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
+	cmd.Flags().StringVarP(&opts.Manifest, "manifest", "m", "wave.yaml", "Path to manifest file")
 
 	return cmd
 }

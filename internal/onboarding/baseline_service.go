@@ -78,11 +78,13 @@ func (s *BaselineService) StartSession(ctx context.Context, projectDir string, o
 
 	_ = ui.Notify(Event{Kind: "info", Message: "starting non-interactive baseline onboarding"})
 
-	assets, flavour, err := Greenfield(GreenfieldOpts{
+	res, err := Greenfield(GreenfieldOpts{
 		Adapter:    opts.Adapter,
+		Model:      opts.Model,
 		Workspace:  opts.Workspace,
 		OutputPath: opts.OutputPath,
 		All:        opts.All,
+		Commands:   opts.Commands,
 		Stderr:     s.stderr,
 	})
 	if err != nil {
@@ -90,8 +92,9 @@ func (s *BaselineService) StartSession(ctx context.Context, projectDir string, o
 		return sess, fmt.Errorf("greenfield scaffold: %w", err)
 	}
 
-	sess.Flavour = flavour
-	sess.Assets = assets
+	sess.Flavour = res.Flavour
+	sess.Assets = res.Assets
+	sess.Result = res
 
 	if err := MarkDoneAt(projectDir); err != nil {
 		s.markStatus(id, SessionFailed)

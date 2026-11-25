@@ -37,7 +37,7 @@ Checks manifest syntax, references, and system dependencies.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.ManifestPath, "manifest", "wave.yaml", "Path to manifest file")
+	cmd.Flags().StringVarP(&opts.ManifestPath, "manifest", "m", "wave.yaml", "Path to manifest file")
 	cmd.Flags().StringVar(&opts.Pipeline, "pipeline", "", "Specific pipeline to validate")
 	cmd.Flags().BoolVar(&opts.All, "all", false, "Validate all pipelines in .agents/pipelines/")
 	cmd.Flags().BoolVar(&opts.PromptToolsWarn, "prompt-tools-warn", false,

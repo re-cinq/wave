@@ -69,7 +69,7 @@ With a run-id argument, shows decisions for that specific run.`,
 	cmd.Flags().StringVar(&opts.Step, "step", "", "Filter by step ID")
 	cmd.Flags().StringVar(&opts.Category, "category", "", "Filter by category (model_routing, retry, contract, budget, composition)")
 	cmd.Flags().StringVar(&opts.Format, "format", "text", "Output format (text, json)")
-	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
+	cmd.Flags().StringVarP(&opts.Manifest, "manifest", "m", "wave.yaml", "Path to manifest file")
 
 	return cmd
 }

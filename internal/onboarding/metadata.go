@@ -75,6 +75,11 @@ func ExtractProjectMetadata(dir string) ProjectMetadata {
 		meta.Name = parseREADME(dir)
 	}
 
+	// Fall back to the README's first paragraph for the description
+	if meta.Description == "" {
+		meta.Description = parseREADMEDescription(dir)
+	}
+
 	// Final fallback: use directory name
 	if meta.Name == "" {
 		meta.Name = filepath.Base(dir)
@@ -110,32 +115,40 @@ func extractGoMod(content string) ProjectMetadata {
 	return ProjectMetadata{}
 }
 
-// extractCargoToml parses a Cargo.toml file and extracts the package name from
-// the [package] section.
+// extractCargoToml parses a Cargo.toml file and extracts the package name and
+// description from the [package] section.
 func extractCargoToml(content string) ProjectMetadata {
-	inPackage := false
+	return extractTomlSection(content, "[package]")
+}
+
+// extractTomlSection reads name and description string values from the given
+// TOML section header.
+func extractTomlSection(content, header string) ProjectMetadata {
+	var meta ProjectMetadata
+	inSection := false
 	for _, line := range strings.Split(content, "\n") {
 		trimmed := strings.TrimSpace(line)
-		if trimmed == "[package]" {
-			inPackage = true
+		if trimmed == header {
+			inSection = true
 			continue
 		}
-		if inPackage && strings.HasPrefix(trimmed, "[") {
-			// Entered a new section — stop looking.
+		if inSection && strings.HasPrefix(trimmed, "[") {
 			break
 		}
-		if !inPackage {
+		if !inSection {
 			continue
 		}
-		if !strings.HasPrefix(trimmed, "name") {
-			continue
+		if meta.Name == "" && strings.HasPrefix(trimmed, "name") {
+			meta.Name = extractTomlStringValue(trimmed, "name")
 		}
-		name := extractTomlStringValue(trimmed, "name")
-		if name != "" {
-			return ProjectMetadata{Name: name}
+		if meta.Description == "" && strings.HasPrefix(trimmed, "description") {
+			meta.Description = extractTomlStringValue(trimmed, "description")
 		}
 	}
-	return ProjectMetadata{}
+	if meta.Name == "" {
+		return ProjectMetadata{}
+	}
+	return meta
 }
 
 // extractPackageJSON parses a package.json file and extracts the name and
@@ -152,30 +165,9 @@ func extractPackageJSON(content string) ProjectMetadata {
 }
 
 // extractPyprojectToml parses a pyproject.toml file and extracts the package
-// name from the [project] section.
+// name and description from the [project] section.
 func extractPyprojectToml(content string) ProjectMetadata {
-	inProject := false
-	for _, line := range strings.Split(content, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "[project]" {
-			inProject = true
-			continue
-		}
-		if inProject && strings.HasPrefix(trimmed, "[") {
-			break
-		}
-		if !inProject {
-			continue
-		}
-		if !strings.HasPrefix(trimmed, "name") {
-			continue
-		}
-		name := extractTomlStringValue(trimmed, "name")
-		if name != "" {
-			return ProjectMetadata{Name: name}
-		}
-	}
-	return ProjectMetadata{}
+	return extractTomlSection(content, "[project]")
 }
 
 // extractComposerJSON parses a composer.json file and extracts the name and
@@ -512,4 +504,35 @@ func extractTomlStringValue(line, key string) string {
 		return ""
 	}
 	return rest[:end]
+}
+
+// parseREADMEDescription returns the first prose paragraph of README.md
+// (the first non-heading, non-badge line after the title), trimmed to one
+// line. Returns "" when none is found.
+func parseREADMEDescription(dir string) string {
+	for _, name := range []string{"README.md", "readme.md", "Readme.md"} {
+		data, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			continue
+		}
+		inFence := false
+		for _, line := range strings.Split(string(data), "\n") {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "```") {
+				inFence = !inFence
+				continue
+			}
+			if inFence || trimmed == "" || strings.HasPrefix(trimmed, "#") ||
+				strings.HasPrefix(trimmed, "[!") || strings.HasPrefix(trimmed, "![") ||
+				strings.HasPrefix(trimmed, "<") || isRSTUnderline(trimmed) {
+				continue
+			}
+			if len(trimmed) > 200 {
+				trimmed = trimmed[:200]
+			}
+			return trimmed
+		}
+		return ""
+	}
+	return ""
 }

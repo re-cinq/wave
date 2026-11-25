@@ -10,6 +10,7 @@ import (
 	"github.com/recinq/wave/internal/display"
 	"github.com/recinq/wave/internal/state"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 // StatusOptions holds options for the status command.
@@ -41,10 +42,14 @@ type StatusRunInfo struct {
 	Error       string `json:"error,omitempty"`
 }
 
-// conditionalColor returns the ANSI color code if NO_COLOR is not set,
-// or an empty string when colors are disabled.
+// stdoutIsTerminal reports whether stdout is a terminal; swappable in tests.
+var stdoutIsTerminal = func() bool { return term.IsTerminal(int(os.Stdout.Fd())) }
+
+// conditionalColor returns the ANSI color code when stdout is a terminal and
+// NO_COLOR is not set, or an empty string otherwise (piped output must not
+// carry raw escape codes).
 func conditionalColor(code string) string {
-	if os.Getenv("NO_COLOR") != "" {
+	if os.Getenv("NO_COLOR") != "" || !stdoutIsTerminal() {
 		return ""
 	}
 	return code
@@ -80,7 +85,7 @@ Examples:
 
 	cmd.Flags().BoolVar(&opts.All, "all", false, "Show all recent pipelines (default 10)")
 	cmd.Flags().StringVar(&opts.Format, "format", "table", "Output format (table, json)")
-	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
+	cmd.Flags().StringVarP(&opts.Manifest, "manifest", "m", "wave.yaml", "Path to manifest file")
 
 	return cmd
 }

@@ -53,6 +53,12 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.SetVersionTemplate("wave version {{.Version}}\n")
 
+	// main renders every error once via RenderTextError/RenderJSONError;
+	// cobra must neither print it again nor dump the usage block for
+	// runtime errors (flag errors carry their own --help hint).
+	rootCmd.SilenceUsage = true
+	rootCmd.SilenceErrors = true
+
 	rootCmd.PersistentFlags().StringP("manifest", "m", "wave.yaml", "Path to manifest file")
 	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug mode")
 	rootCmd.PersistentFlags().StringP("output", "o", "auto", "Output format: auto, json, text, quiet")

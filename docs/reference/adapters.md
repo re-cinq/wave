@@ -1,12 +1,12 @@
 # Adapters Reference
 
-Adapters wrap LLM CLI tools for subprocess invocation. Wave ships with support for Claude Code, OpenCode, Gemini Code, and Codex.
+Adapters wrap LLM CLI tools for subprocess invocation. Wave ships with support for Claude Code, OpenCode, Gemini Code, and Codex. `wave init` sets up Claude Code (`sonnet`) or Codex (`gpt-6.2-sol`); OpenCode and Gemini must be added to `wave.yaml` by hand and are lightly tested.
 
 ## Adapter Selection
 
 Wave uses a 4-tier precedence system to determine which adapter a step runs with (strongest to weakest):
 
-1. **CLI `--adapter` flag** — e.g., `wave run my-pipeline --adapter opencode` overrides all steps
+1. **CLI `--adapter` flag** - e.g., `wave run my-pipeline --adapter codex` overrides all steps
 2. **Step-level `adapter:`** — specified per step in pipeline YAML
 3. **Persona-level `adapter:`** — set on the persona in `wave.yaml`
 4. **Adapter default** — from the adapter definition in `wave.yaml`
@@ -195,12 +195,17 @@ gemini --model gemini-2.0-pro --yolo --output-format stream-json -p "prompt"
 
 ## Codex Adapter
 
-Adapter for the OpenAI Codex CLI (`codex`).
+Adapter for the OpenAI Codex CLI (`codex`). Install with `npm install -g @openai/codex` (or `brew install --cask codex`), then run `codex` once to sign in. `wave init --adapter codex` writes this block:
 
 ```yaml
 adapters:
   codex:
     binary: codex
+    default_model: gpt-6.2-sol
+    tier_models:
+      cheapest: gpt-6.2-sol
+      balanced: gpt-6.2-sol
+      strongest: gpt-6.2-sol
     mode: headless
     output_format: json
     project_files:
@@ -226,8 +231,10 @@ Codex supports both **plain model names** for OpenAI models and `provider/model`
 
 | Model | Description |
 |-------|-------------|
-| `openai/gpt-4o` | OpenAI GPT-4o (explicit provider) |
-| `gpt-4o` | OpenAI GPT-4o (plain, inferred as OpenAI) |
+| `gpt-6.2-sol` | Default written by `wave init` (plain, inferred as OpenAI) |
+| `openai/gpt-6.2-sol` | Same model with an explicit provider |
+
+Shipped pipelines use the tier names `cheapest`, `balanced` and `strongest`. On codex they resolve through `tier_models`; without `tier_models` every tier falls back to `default_model`.
 
 ### Workspace Setup
 
@@ -433,9 +440,9 @@ steps:
 ### CLI Overrides
 
 ```bash
-wave run my-pipeline --adapter opencode                    # Override all steps to use opencode
-wave run my-pipeline --adapter opencode --model "zai-coding-plan/glm-5-turbo"  # Override adapter + model
-wave run my-pipeline --model "gemini-2.0-pro"              # Override model only (persona's adapter stays)
+wave run my-pipeline --adapter codex                       # Override all steps to use codex
+wave run my-pipeline --adapter codex --model gpt-6.2-sol   # Override adapter + model
+wave run my-pipeline --model sonnet                        # Override model only (persona's adapter stays)
 ```
 
 ---
@@ -489,7 +496,7 @@ Model format varies by adapter:
 | claude | Short names or full IDs | `sonnet`, `haiku`, `claude-opus-4-5-20251101` |
 | opencode | `provider/model` for multi-provider, or short names | `zai-coding-plan/glm-5-turbo`, `openai/gpt-4o`, `anthropic/claude-sonnet-4-20250514` |
 | gemini | Plain model names | `gemini-2.0-pro`, `gemini-3-flash-preview` |
-| codex | `provider/model` or plain names | `openai/gpt-4o` |
+| codex | Plain OpenAI names or `provider/model` | `gpt-6.2-sol`, `openai/gpt-6.2-sol` |
 
 ---
 

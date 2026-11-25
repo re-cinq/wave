@@ -30,7 +30,7 @@ curl -fsSL https://raw.githubusercontent.com/re-cinq/wave/main/scripts/install.s
 cd your-project
 wave init                              # writes wave.yaml and .agents/
 wave run ops-hello-world "testing Wave"
-wave status                            # last runs and their state
+wave status --all                      # recent runs and their state
 ```
 
 ## The three objects
@@ -132,7 +132,7 @@ headless, so you cannot steer mid-step; agents share files (artifacts), not in-m
 
 ## Status and limits
 
-- Pre-1.0. Expect breaking changes between releases.
+- v1.x. Breaking changes bump the major version.
 - The Claude Code adapter is exercised heavily; Codex, Gemini and OpenCode adapters exist but are
   lightly tested.
 - Shipped personas run with full tool access (`allowed_tools: ["*"]`). Permission scoping is

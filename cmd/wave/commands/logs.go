@@ -93,7 +93,7 @@ With a run-id argument, shows logs for that specific run.`,
 	cmd.Flags().StringVar(&opts.Since, "since", "", "Filter by time (e.g., \"10m\", \"1h\")")
 	cmd.Flags().StringVar(&opts.Level, "level", "all", "Log level: all, info, error")
 	cmd.Flags().StringVar(&opts.Format, "format", "text", "Output format (text, json)")
-	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
+	cmd.Flags().StringVarP(&opts.Manifest, "manifest", "m", "wave.yaml", "Path to manifest file")
 	cmd.Flags().BoolVar(&opts.Trace, "trace", false, "Show structured debug trace events (requires a --debug run)")
 
 	return cmd

@@ -58,6 +58,14 @@ func ResolveOutputConfig(cmd *cobra.Command) (*ResolvedFlags, error) {
 	verbose, _ := flags.GetBool("verbose")
 	noColor, _ := flags.GetBool("no-color")
 
+	switch outputVal {
+	case OutputFormatAuto, OutputFormatJSON, OutputFormatText, OutputFormatQuiet:
+	default:
+		return nil, NewCLIError(CodeInvalidArgs,
+			fmt.Sprintf("invalid --output %q: must be one of auto, json, text, quiet", outputVal),
+			"--output/-o selects the output format; to choose where wave init writes the manifest use --manifest-path")
+	}
+
 	// Detect conflicts: --json + --output non-json
 	if jsonFlag && outputFlag && outputVal != OutputFormatJSON {
 		return nil, NewCLIError(CodeFlagConflict,

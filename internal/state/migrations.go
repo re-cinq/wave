@@ -3,6 +3,7 @@ package state
 import (
 	"database/sql"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -21,11 +22,13 @@ type Migration struct {
 // MigrationManager handles database schema migrations
 type MigrationManager struct {
 	db *sql.DB
+	// progress receives one "Applying migration N" line per migration.
+	progress io.Writer
 }
 
 // NewMigrationManager creates a new migration manager
 func NewMigrationManager(db *sql.DB) *MigrationManager {
-	return &MigrationManager{db: db}
+	return &MigrationManager{db: db, progress: os.Stderr}
 }
 
 // InitializeMigrationTable creates the migration tracking table if it doesn't exist
@@ -231,7 +234,9 @@ func (m *MigrationManager) MigrateUp(allMigrations []Migration, targetVersion in
 			break
 		}
 
-		fmt.Fprintf(os.Stderr, "Applying migration %d: %s\n", migration.Version, migration.Description)
+		if m.progress != nil {
+			fmt.Fprintf(m.progress, "Applying migration %d: %s\n", migration.Version, migration.Description)
+		}
 		err := m.ApplyMigration(migration)
 		if err != nil {
 			return err

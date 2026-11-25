@@ -72,7 +72,7 @@ matching the behaviour of 'wave run --force'.`,
 	cmd.Flags().StringVar(&opts.FromStep, "from-step", "", "Resume from this specific step (default: auto-detect failed step)")
 	cmd.Flags().BoolVar(&opts.Force, "force", false, "Skip validation checks (phase sequence, stale artifacts)")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Override adapter model for this run (e.g. haiku, opus)")
-	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
+	cmd.Flags().StringVarP(&opts.Manifest, "manifest", "m", "wave.yaml", "Path to manifest file")
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
 
 	return cmd

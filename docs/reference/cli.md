@@ -38,29 +38,72 @@ Initialize a new Wave project.
 wave init
 ```
 
+In an interactive terminal init asks:
+
+1. Whether to `git init` (only when the directory is not in a git repository; Wave runs every step in a git worktree)
+2. The adapter: `claude` or `codex` (default: the first one found on `PATH`, else `claude`)
+3. The model, pinned for every complexity tier (default: `sonnet` for claude, `gpt-6.2-sol` for codex)
+4. Each test, lint or build command it could not detect from the project files
+
+With `--yes`, or when stdin is not a terminal, every question takes its default. Flags always win over questions.
+
+It writes `wave.yaml` (one adapter, the `project:` block, metadata from your manifest/README and git remote), the `.agents/` tree, `AGENTS.md` and, for the claude adapter, a `CLAUDE.md` containing `@AGENTS.md` (each only if missing), and adds Wave's runtime paths to `.gitignore`. If the repository has no commits yet, it creates an initial commit with these files.
+
 **Output:**
 ```
-Created wave.yaml
-Created .agents/personas/navigator.md
-Created .agents/personas/craftsman.md
-Created .agents/personas/summarizer.md
-Created .agents/pipelines/default.yaml
+  Project initialized successfully!
 
-Project initialized. Run 'wave validate' to check configuration.
+  Adapter: codex (model gpt-6.2-sol for every tier)
+
+  Created:
+    wave.yaml                  Main manifest
+    .agents/personas/          12 personas
+    .agents/pipelines/         9 pipelines
+    .agents/contracts/         17 contracts
+    .agents/prompts/           5 prompt templates
+    .agents/workspaces/        Ephemeral workspace root
+    .agents/traces/            Audit log directory
+    AGENTS.md                  Project instructions copied into every agent workspace
+    .gitignore                 Ignores Wave runtime state
+
+  Next steps:
+    1. Run 'wave validate' to check configuration
+    2. Run 'wave run ops-hello-world "test"' to verify setup
+    3. Run 'wave run plan-task "your feature"' to plan a task
 ```
+
+When `wave.yaml` already exists, `wave init` merges missing defaults (pipelines, personas, settings) and keeps everything you changed.
 
 ### Options
 
 ```bash
-wave init --adapter opencode    # Use different adapter
-wave init --force               # Overwrite existing files
-wave init --merge               # Merge into existing config
-wave init --reconfigure         # Re-run onboarding wizard with current settings as defaults
-wave init --all                 # Include all pipelines regardless of release status
-wave init --workspace ./ws      # Custom workspace directory path
-wave init --output config.yaml  # Custom output path for wave.yaml
-wave init -y                    # Answer yes to all confirmation prompts
+wave init --adapter codex             # claude or codex
+wave init --model gpt-6.2-sol         # Model for every tier of the adapter
+wave init --test-command "make test"  # Also --lint-command, --build-command
+wave init --merge                     # Merge defaults into existing config
+wave init --reconfigure               # Change adapter/model/commands, keep customisations (writes wave.yaml.bak)
+wave init --force                     # Regenerate from scratch (asks unless --yes)
+wave init --all                       # Include all pipelines regardless of release status
+wave init --workspace ./ws            # Custom workspace directory path
+wave init --manifest-path cfg/wave.yaml  # Custom output path (the global -m works too)
+wave init -y                          # Accept all defaults and confirm all prompts
 ```
+
+Other adapters (OpenCode, Gemini) are not set up by `wave init`; add them to `wave.yaml` by hand, see [Adapters Reference](/reference/adapters).
+
+---
+
+## wave doctor
+
+Check project health: manifest, git, adapter binaries, forge detection, tools, skills.
+
+```bash
+wave doctor                  # Exit code 2 when a check fails
+wave doctor --optimize       # Propose project: settings from a codebase scan
+wave doctor --optimize --dry-run
+```
+
+Run it right after `wave init`; a fresh project passes when the chosen adapter is installed.
 
 ---
 
@@ -100,7 +143,7 @@ Flags are organized into four tiers by usage frequency.
 | `--pipeline` | Pipeline name to run |
 | `--input` | Input data for the pipeline |
 | `--model` | Model override (tier name or literal) |
-| `--adapter` | Override adapter (claude, gemini, opencode, codex) |
+| `--adapter` | Override adapter (claude, codex; opencode/gemini when configured) |
 
 #### Execution (Tier 2)
 

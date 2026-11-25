@@ -71,7 +71,7 @@ Examples:
 	}
 
 	cmd.Flags().StringVar(&opts.Save, "save", "", "Save generated pipeline YAML to path")
-	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
+	cmd.Flags().StringVarP(&opts.Manifest, "manifest", "m", "wave.yaml", "Path to manifest file")
 	cmd.Flags().BoolVar(&opts.Mock, "mock", false, "Use mock adapter (for testing)")
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Show generated pipeline without executing")
 	cmd.Flags().StringVar(&opts.FromRun, "from-run", "", "Regenerate from a failed run: feed its pipeline and errors to the generator")

@@ -25,7 +25,7 @@ type ClaudeAdapter struct {
 }
 
 func NewClaudeAdapter() *ClaudeAdapter {
-	path := "/usr/local/bin/claude"
+	path := "claude"
 	if p, err := exec.LookPath("claude"); err == nil {
 		path = p
 	}

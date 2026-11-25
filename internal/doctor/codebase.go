@@ -3,7 +3,7 @@ package doctor
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"fmt"
 	"os/exec"
 	"time"
 
@@ -15,10 +15,13 @@ import (
 type CodebaseHealth struct {
 	// ForgeAPI reports whether PRs and Issues were fetched; when false
 	// their zero counts mean "unknown", not "none".
-	ForgeAPI bool         `json:"forge_api"`
-	PRs      PRSummary    `json:"prs"`
-	Issues   IssueSummary `json:"issues"`
-	CI       CIStatus     `json:"ci"`
+	ForgeAPI bool `json:"forge_api"`
+	// ForgeAPIError is the first forge API error, when a client was
+	// available but a request failed (e.g. the repository does not exist).
+	ForgeAPIError string       `json:"forge_api_error,omitempty"`
+	PRs           PRSummary    `json:"prs"`
+	Issues        IssueSummary `json:"issues"`
+	CI            CIStatus     `json:"ci"`
 }
 
 // PRSummary summarizes open pull request state.
@@ -83,8 +86,8 @@ func AnalyzeCodebase(ctx context.Context, opts CodebaseOptions) (*CodebaseHealth
 			PerPage: 100,
 		})
 		if err != nil {
-			log.Printf("[doctor] failed to list pull requests: %v", err)
 			health.ForgeAPI = false
+			health.ForgeAPIError = fmt.Sprintf("listing pull requests: %v", err)
 		} else {
 			health.PRs = analyzePRs(prs, opts.now())
 		}
@@ -94,8 +97,10 @@ func AnalyzeCodebase(ctx context.Context, opts CodebaseOptions) (*CodebaseHealth
 			PerPage: 100,
 		})
 		if err != nil {
-			log.Printf("[doctor] failed to list issues: %v", err)
 			health.ForgeAPI = false
+			if health.ForgeAPIError == "" {
+				health.ForgeAPIError = fmt.Sprintf("listing issues: %v", err)
+			}
 		} else {
 			health.Issues = analyzeIssues(ctx, issues, opts.ForgeClient)
 		}

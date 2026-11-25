@@ -76,7 +76,7 @@ Use --format json for machine-readable output.`,
 	cmd.Flags().StringVar(&opts.Step, "step", "", "Filter to specific step ID")
 	cmd.Flags().StringVar(&opts.Export, "export", "", "Export artifacts to specified directory")
 	cmd.Flags().StringVar(&opts.Format, "format", "table", "Output format (table, json)")
-	cmd.Flags().StringVar(&opts.Manifest, "manifest", "wave.yaml", "Path to manifest file")
+	cmd.Flags().StringVarP(&opts.Manifest, "manifest", "m", "wave.yaml", "Path to manifest file")
 
 	return cmd
 }

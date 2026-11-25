@@ -107,6 +107,9 @@ func optimizeLanguage(result *OptimizeResult, profile *ProjectProfile, current *
 	if current.Language != "" && strings.EqualFold(current.Language, primary) {
 		return
 	}
+	if languageTiesPrimary(profile, current.Language) {
+		return
+	}
 
 	if current.Language == "" {
 		result.ProjectChanges = append(result.ProjectChanges, ConfigChange{
@@ -127,6 +130,26 @@ func optimizeLanguage(result *OptimizeResult, profile *ProjectProfile, current *
 		Reason:   fmt.Sprintf("detected primary language %q (%.0f%% of files) differs from configured %q", primary, profile.Languages[0].Percentage, current.Language),
 		Source:   "profile",
 	})
+}
+
+// languageTiesPrimary reports whether lang is detected with as many files as
+// the top-ranked language, so preferring the other one would be arbitrary.
+func languageTiesPrimary(profile *ProjectProfile, lang string) bool {
+	if lang == "" || len(profile.Languages) == 0 {
+		return false
+	}
+	top := 0
+	for _, l := range profile.Languages {
+		if l.FileCount > top {
+			top = l.FileCount
+		}
+	}
+	for _, l := range profile.Languages {
+		if strings.EqualFold(l.Name, lang) && l.FileCount == top {
+			return true
+		}
+	}
+	return false
 }
 
 // optimizeTestCommand proposes the best test command.
@@ -238,6 +261,12 @@ func optimizeSourceGlob(result *OptimizeResult, profile *ProjectProfile, current
 
 	proposed := sourceGlobForLanguage(profile.Languages[0])
 	if proposed == "" {
+		return
+	}
+	// A configured glob for a language that ties the detected primary (e.g.
+	// a TypeScript project with as many .js as .ts files) is not wrong;
+	// rewriting it would contradict what `wave init` just wrote.
+	if current.SourceGlob != "" && languageTiesPrimary(profile, current.Language) {
 		return
 	}
 
