@@ -73,124 +73,143 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 	execCtx, cancel := subPipelineTimeout(ctx, step.Config)
 	defer cancel()
 
-	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: pipelineID,
-		StepID:     step.ID,
-		State:      event.StateRunning,
-		Message:    fmt.Sprintf("composition: loading sub-pipeline %q", pipelineName),
-	})
+	e.emitComposition(pipelineID, step.ID, event.StateRunning, fmt.Sprintf("composition: loading sub-pipeline %q", pipelineName))
 
 	// Load the sub-pipeline from disk
 	loader := &YAMLPipelineLoader{}
-	subPipelinePath := filepath.Join(".agents", "pipelines", pipelineName+".yaml")
-	subPipeline, err := loader.Load(subPipelinePath)
+	subPipeline, err := loader.Load(filepath.Join(".agents", "pipelines", pipelineName+".yaml"))
 	if err != nil {
-		execution.mu.Lock()
-		execution.States[step.ID] = stateFailed
-		execution.mu.Unlock()
-		if e.store != nil {
-			_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
-		}
+		e.markCompositionStepFailed(execution, step.ID, err.Error())
 		return fmt.Errorf("failed to load sub-pipeline %q: %w", pipelineName, err)
 	}
 
-	// Build executor options for the child pipeline, inheriting configuration
-	// from the parent but generating a fresh run ID.
-	childOpts := []ExecutorOption{
-		WithDebug(e.debug),
+	childOpts, err := e.subPipelineChildOptions(execution, step)
+	if err != nil {
+		return err
 	}
-	if e.emitter != nil {
-		childOpts = append(childOpts, WithEmitter(e.emitter))
+
+	// Propagate max_cycles to child pipeline's loop config
+	if step.Config != nil && step.Config.MaxCycles > 0 {
+		for i := range subPipeline.Steps {
+			if subPipeline.Steps[i].Loop != nil && subPipeline.Steps[i].Loop.MaxIterations == 0 {
+				subPipeline.Steps[i].Loop.MaxIterations = step.Config.MaxCycles
+			}
+		}
 	}
+
+	// Create a run record for the child pipeline so it appears in the dashboard.
+	// Link to parent immediately so the WebUI can nest it from the start.
 	if e.store != nil {
-		childOpts = append(childOpts, WithStateStore(e.store))
+		childRunID := e.createRunID(pipelineName, 4, input)
+		childOpts = append(childOpts, WithRunID(childRunID))
+		_ = e.store.SetParentRun(childRunID, pipelineID, step.ID)
+		// Issue #1450: record composition metadata so iterate progress
+		// + run-kind chips render without re-deriving from event_log.
+		_ = e.store.SetRunComposition(childRunID, info.effectiveKind(), pipelineName, info.iterateMode, info.iterateIndex, info.iterateTotal)
 	}
-	if e.modelOverride != "" {
-		childOpts = append(childOpts, WithModelOverride(e.modelOverride))
-	}
-	if e.adapterOverride != "" {
+
+	childOpts = append(childOpts, WithRegistry(e.registry))
+
+	// Propagate step-level adapter override to child sub-pipeline
+	if step.Adapter != "" {
+		childOpts = append(childOpts, WithAdapterOverride(step.Adapter))
+	} else if e.adapterOverride != "" {
+		// Propagate CLI --adapter flag to sub-pipelines
 		childOpts = append(childOpts, WithAdapterOverride(e.adapterOverride))
 	}
-	if e.stepTimeoutOverride > 0 {
-		childOpts = append(childOpts, WithStepTimeout(e.stepTimeoutOverride))
+
+	childExecutor := NewDefaultPipelineExecutor(e.runner, childOpts...)
+
+	// Mark child run as running in the dashboard
+	childRunID := childExecutor.runID
+	trackChild := e.store != nil && childRunID != ""
+	if trackChild {
+		_ = e.store.UpdateRunStatus(childRunID, "running", "", 0)
 	}
-	if e.debugTracer != nil {
-		childOpts = append(childOpts, WithDebugTracer(e.debugTracer))
+
+	e.emitComposition(pipelineID, step.ID, event.StateRunning, fmt.Sprintf("composition: executing sub-pipeline %q", pipelineName))
+
+	if err := childExecutor.Execute(execCtx, subPipeline, execution.Manifest, input); err != nil {
+		// Link parent-child state and update status even on failure
+		if trackChild {
+			_ = e.store.SetParentRun(childRunID, pipelineID, step.ID)
+			_ = e.store.UpdateRunStatus(childRunID, "failed", err.Error(), childExecutor.GetTotalTokens())
+		}
+		e.markCompositionStepFailed(execution, step.ID, err.Error())
+		return fmt.Errorf("sub-pipeline %q failed: %w", pipelineName, err)
 	}
-	if e.logger != nil {
-		childOpts = append(childOpts, WithAuditLogger(e.logger))
+
+	// Link parent-child state and mark completed
+	if trackChild {
+		_ = e.store.SetParentRun(childRunID, pipelineID, step.ID)
+		_ = e.store.UpdateRunStatus(childRunID, "completed", "", childExecutor.GetTotalTokens())
+
+		// Propagate child's worktree branch to parent so the diff endpoint works
+		if childRun, err := e.store.GetRun(childRunID); err == nil && childRun.BranchName != "" {
+			_ = e.store.UpdateRunBranch(pipelineID, childRun.BranchName)
+		}
 	}
-	if e.wsManager != nil {
-		childOpts = append(childOpts, WithWorkspaceManager(e.wsManager))
+
+	if childExec := childExecutor.LastExecution(); childExec != nil {
+		if err := absorbChildExecution(execution, step, pipelineName, childExec); err != nil {
+			return err
+		}
 	}
-	if e.relayMonitor != nil {
-		childOpts = append(childOpts, WithRelayMonitor(e.relayMonitor))
+
+	execution.mu.Lock()
+	execution.States[step.ID] = stateCompleted
+	execution.mu.Unlock()
+	if e.store != nil {
+		_ = e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
 	}
-	if e.skillStore != nil {
-		childOpts = append(childOpts, withSkillStore(e.skillStore))
+
+	e.emitComposition(pipelineID, step.ID, event.StateCompleted, fmt.Sprintf("composition: sub-pipeline %q completed", pipelineName))
+	return nil
+}
+
+func (e *DefaultPipelineExecutor) emitComposition(pipelineID, stepID, st, message string) {
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     stepID,
+		State:      st,
+		Message:    message,
+	})
+}
+
+// markCompositionStepFailed records a failed composition step in memory and
+// in the state store.
+func (e *DefaultPipelineExecutor) markCompositionStepFailed(execution *PipelineExecution, stepID, errMsg string) {
+	execution.mu.Lock()
+	execution.States[stepID] = stateFailed
+	execution.mu.Unlock()
+	if e.store != nil {
+		_ = e.store.SaveStepState(execution.Status.ID, stepID, state.StateFailed, errMsg)
 	}
+}
+
+// subPipelineChildOptions builds the executor options for a child pipeline:
+// the parent's configuration (with a fresh run ID added later by the
+// caller), the parent's artifacts, the merged env and the parent workspace.
+func (e *DefaultPipelineExecutor) subPipelineChildOptions(execution *PipelineExecution, step *Step) ([]ExecutorOption, error) {
+	childOpts := e.inheritedChildOptions()
 
 	// Issue #1551 — propagate the parent pipeline's already-produced
 	// artifacts into the child executor's crossPipelineArtifacts map so the
 	// child can resolve `inject_artifacts: [pipeline: <parent>, artifact:
-	// <name>]` references without `optional: true`. This makes the
-	// cross-pipeline ref form usable for sub-pipelines (composition
-	// primitives), matching the existing semantics for sequence-pipeline
-	// boundaries (see SequenceExecutor.recordPipelineOutputs).
+	// <name>]` references without `optional: true`.
 	//
 	// Scope is intentionally minimal: the child sees ONLY the direct
 	// parent's artifacts under the parent pipeline's metadata name. The
-	// parent's own crossPipelineArtifacts map (e.g. siblings in a sequence
-	// run) is NOT transitively forwarded — keeping grandparent → grandchild
-	// flow off-by-default.
+	// parent's own crossPipelineArtifacts map is NOT transitively forwarded,
+	// keeping grandparent -> grandchild flow off-by-default.
 	if parentArtifacts := e.collectParentCrossPipelineArtifacts(execution); len(parentArtifacts) > 0 {
 		childOpts = append(childOpts, WithCrossPipelineArtifacts(parentArtifacts))
 	}
 
-	// Inject parent artifacts into child executor when config specifies injection.
-	//
-	// Two registration paths produce parent artifacts the child may inject:
-	//   - Persona/command step outputs land in execution.ArtifactPaths under
-	//     keys of the form "<step.ID>:<artifact.Name>" (executor.go:4460,4472).
-	//   - Composition aggregate/iterate outputs ALSO call
-	//     execution.Context.SetArtifactPath(<artifact.Name>) so they show up
-	//     in the bare-name namespace used by templating.
-	// The lookup walks the bare-name space first (the natural author-facing
-	// API), then falls back to the dep-scoped ArtifactPaths map keyed by
-	// "<dep>:<name>" for any declared step dependency. Without this fallback,
-	// injecting a persona-step output (e.g. fetch-pr/pr-context) into a
-	// downstream iterate step fails with "artifact … not found in parent
-	// context for sub-pipeline injection" even though the artifact exists.
-	// Auto-derived parent artifact paths from declared step.Dependencies
-	// (issue #1452). Every upstream artifact a composition step depends
-	// on becomes visible to its child sub-pipeline as
-	// {{ artifacts.<name> }} without an explicit step.Config.Inject
-	// entry. Explicit Inject still works and overrides on conflict.
-	parentPaths := make(map[string]string)
-	if autoResolved, err := e.ResolveDependencyArtifacts(execution, step); err == nil {
-		for _, art := range autoResolved {
-			parentPaths[art.Name] = art.Path
-		}
-	}
-	if step.Config != nil && len(step.Config.Inject) > 0 {
-		for _, name := range step.Config.Inject {
-			path := execution.Context.GetArtifactPath(name)
-			if path == "" {
-				execution.mu.Lock()
-				for _, dep := range step.Dependencies {
-					if p, ok := execution.ArtifactPaths[dep+":"+name]; ok {
-						path = p
-						break
-					}
-				}
-				execution.mu.Unlock()
-			}
-			if path == "" {
-				return fmt.Errorf("artifact %q not found in parent context for sub-pipeline injection", name)
-			}
-			parentPaths[name] = path
-		}
+	parentPaths, err := e.subPipelineParentPaths(execution, step)
+	if err != nil {
+		return nil, err
 	}
 	if len(parentPaths) > 0 {
 		childOpts = append(childOpts, WithParentArtifactPaths(parentPaths))
@@ -199,7 +218,7 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 	// Propagate env: inherit parent's env first, then overlay step.Config.Env.
 	// Result is seeded into the child executor's PipelineContext as
 	// {{ env.<key> }} variables.
-	stepEnv := map[string]string{}
+	var stepEnv map[string]string
 	if step.Config != nil {
 		stepEnv = step.Config.Env
 	}
@@ -221,151 +240,136 @@ func (e *DefaultPipelineExecutor) runNamedSubPipeline(ctx context.Context, execu
 	}
 	execution.mu.Unlock()
 
-	// Propagate max_cycles to child pipeline's loop config
-	if step.Config != nil && step.Config.MaxCycles > 0 {
-		for i := range subPipeline.Steps {
-			if subPipeline.Steps[i].Loop != nil && subPipeline.Steps[i].Loop.MaxIterations == 0 {
-				subPipeline.Steps[i].Loop.MaxIterations = step.Config.MaxCycles
-			}
-		}
-	}
+	return childOpts, nil
+}
 
-	// Create a run record for the child pipeline so it appears in the dashboard.
-	// Link to parent immediately so the WebUI can nest it from the start.
+// inheritedChildOptions returns the executor options a child pipeline
+// inherits from its parent executor.
+func (e *DefaultPipelineExecutor) inheritedChildOptions() []ExecutorOption {
+	opts := []ExecutorOption{WithDebug(e.debug)}
+	if e.emitter != nil {
+		opts = append(opts, WithEmitter(e.emitter))
+	}
 	if e.store != nil {
-		childRunID := e.createRunID(pipelineName, 4, input)
-		childOpts = append(childOpts, WithRunID(childRunID))
-		_ = e.store.SetParentRun(childRunID, pipelineID, step.ID)
-		// Issue #1450 — record composition metadata so iterate progress
-		// + run-kind chips render without re-deriving from event_log.
-		_ = e.store.SetRunComposition(childRunID, info.effectiveKind(), pipelineName, info.iterateMode, info.iterateIndex, info.iterateTotal)
+		opts = append(opts, WithStateStore(e.store))
 	}
-
-	childOpts = append(childOpts, WithRegistry(e.registry))
-
-	// Propagate step-level adapter override to child sub-pipeline
-	if step.Adapter != "" {
-		childOpts = append(childOpts, WithAdapterOverride(step.Adapter))
-	} else if e.adapterOverride != "" {
-		// Propagate CLI --adapter flag to sub-pipelines
-		childOpts = append(childOpts, WithAdapterOverride(e.adapterOverride))
+	if e.modelOverride != "" {
+		opts = append(opts, WithModelOverride(e.modelOverride))
 	}
-
-	childExecutor := NewDefaultPipelineExecutor(e.runner, childOpts...)
-
-	// Mark child run as running in the dashboard
-	childRunID := childExecutor.runID
-	if e.store != nil && childRunID != "" {
-		_ = e.store.UpdateRunStatus(childRunID, "running", "", 0)
+	if e.adapterOverride != "" {
+		opts = append(opts, WithAdapterOverride(e.adapterOverride))
 	}
-
-	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: pipelineID,
-		StepID:     step.ID,
-		State:      event.StateRunning,
-		Message:    fmt.Sprintf("composition: executing sub-pipeline %q", pipelineName),
-	})
-
-	if err := childExecutor.Execute(execCtx, subPipeline, execution.Manifest, input); err != nil {
-		// Link parent-child state and update status even on failure
-		if e.store != nil && childRunID != "" {
-			_ = e.store.SetParentRun(childRunID, pipelineID, step.ID)
-			_ = e.store.UpdateRunStatus(childRunID, "failed", err.Error(), childExecutor.GetTotalTokens())
-		}
-		execution.mu.Lock()
-		execution.States[step.ID] = stateFailed
-		execution.mu.Unlock()
-		if e.store != nil {
-			_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
-		}
-		return fmt.Errorf("sub-pipeline %q failed: %w", pipelineName, err)
+	if e.stepTimeoutOverride > 0 {
+		opts = append(opts, WithStepTimeout(e.stepTimeoutOverride))
 	}
+	if e.debugTracer != nil {
+		opts = append(opts, WithDebugTracer(e.debugTracer))
+	}
+	if e.logger != nil {
+		opts = append(opts, WithAuditLogger(e.logger))
+	}
+	if e.wsManager != nil {
+		opts = append(opts, WithWorkspaceManager(e.wsManager))
+	}
+	if e.relayMonitor != nil {
+		opts = append(opts, WithRelayMonitor(e.relayMonitor))
+	}
+	if e.skillStore != nil {
+		opts = append(opts, withSkillStore(e.skillStore))
+	}
+	return opts
+}
 
-	// Link parent-child state and mark completed
-	if e.store != nil && childRunID != "" {
-		_ = e.store.SetParentRun(childRunID, pipelineID, step.ID)
-		_ = e.store.UpdateRunStatus(childRunID, "completed", "", childExecutor.GetTotalTokens())
-
-		// Propagate child's worktree branch to parent so the diff endpoint works
-		if childRun, err := e.store.GetRun(childRunID); err == nil && childRun.BranchName != "" {
-			_ = e.store.UpdateRunBranch(pipelineID, childRun.BranchName)
+// subPipelineParentPaths resolves the parent artifact paths a child
+// sub-pipeline sees as {{ artifacts.<name> }}.
+//
+// Every upstream artifact of a declared step dependency is included
+// automatically (issue #1452). Explicit step.Config.Inject names are then
+// looked up in the bare-name context namespace (composition outputs), falling
+// back to the dep-scoped "<dep>:<name>" ArtifactPaths keys that persona and
+// command step outputs land under; explicit entries override on conflict.
+func (e *DefaultPipelineExecutor) subPipelineParentPaths(execution *PipelineExecution, step *Step) (map[string]string, error) {
+	parentPaths := make(map[string]string)
+	if autoResolved, err := e.ResolveDependencyArtifacts(execution, step); err == nil {
+		for _, art := range autoResolved {
+			parentPaths[art.Name] = art.Path
 		}
 	}
-
-	// Extract child artifacts and merge context variables
-	childExec := childExecutor.LastExecution()
-	if childExec != nil {
-		if step.Config != nil {
-			// Determine parent workspace for artifact extraction
-			parentWorkspace := "."
+	if step.Config == nil {
+		return parentPaths, nil
+	}
+	for _, name := range step.Config.Inject {
+		path := execution.Context.GetArtifactPath(name)
+		if path == "" {
 			execution.mu.Lock()
-			if ws, ok := execution.WorkspacePaths[step.ID]; ok && ws != "" {
-				parentWorkspace = ws
+			for _, dep := range step.Dependencies {
+				if p, ok := execution.ArtifactPaths[dep+":"+name]; ok {
+					path = p
+					break
+				}
 			}
 			execution.mu.Unlock()
-
-			if len(step.Config.Extract) > 0 {
-				if err := extractSubPipelineArtifacts(step.Config, childExec.Context, pipelineName, execution.Context, parentWorkspace); err != nil {
-					return fmt.Errorf("failed to extract sub-pipeline artifacts: %w", err)
-				}
-			}
-
-			// Evaluate stop condition if configured
-			if step.Config.StopCondition != "" {
-				if evaluateStopCondition(step.Config.StopCondition, childExec.Context) {
-					execution.Context.SetCustomVariable("sub_pipeline_stop", "true")
-				}
-			}
 		}
-
-		// Merge child context variables into parent (last-writer-wins)
-		execution.Context.MergeFrom(childExec.Context, pipelineName)
-
-		// Propagate child execution-level artifact paths into the parent context
-		// so that iterate steps can collect outputs from all child sub-pipelines.
-		childExec.mu.Lock()
-		childArtifacts := make(map[string]string, len(childExec.ArtifactPaths))
-		for k, v := range childExec.ArtifactPaths {
-			childArtifacts[k] = v
+		if path == "" {
+			return nil, fmt.Errorf("artifact %q not found in parent context for sub-pipeline injection", name)
 		}
-		childExec.mu.Unlock()
+		parentPaths[name] = path
+	}
+	return parentPaths, nil
+}
 
+// absorbChildExecution pulls a finished child's results into the parent:
+// extracted artifacts, the stop condition, context variables and the child's
+// artifact paths.
+func absorbChildExecution(execution *PipelineExecution, step *Step, pipelineName string, childExec *PipelineExecution) error {
+	if step.Config != nil {
+		// Determine parent workspace for artifact extraction
+		parentWorkspace := "."
 		execution.mu.Lock()
-		for key, path := range childArtifacts {
-			// Namespaced key for iterate/aggregate: "audit-security.scan:findings"
-			nsKey := pipelineName + "." + key
-			execution.Context.SetArtifactPath(nsKey, path)
-
-			// Register under composition step ID so injectArtifacts can find
-			// "audit-security:findings" when a persona step references this
-			// sub-pipeline's output. Only for bare sub-pipeline steps (not
-			// iterate/aggregate which have their own output collection).
-			if step.Iterate == nil && step.Aggregate == nil {
-				if _, artName, ok := strings.Cut(key, ":"); ok {
-					parentKey := step.ID + ":" + artName
-					execution.ArtifactPaths[parentKey] = path
-				}
-			}
+		if ws, ok := execution.WorkspacePaths[step.ID]; ok && ws != "" {
+			parentWorkspace = ws
 		}
 		execution.mu.Unlock()
+
+		if len(step.Config.Extract) > 0 {
+			if err := extractSubPipelineArtifacts(step.Config, childExec.Context, pipelineName, execution.Context, parentWorkspace); err != nil {
+				return fmt.Errorf("failed to extract sub-pipeline artifacts: %w", err)
+			}
+		}
+
+		if step.Config.StopCondition != "" && evaluateStopCondition(step.Config.StopCondition, childExec.Context) {
+			execution.Context.SetCustomVariable("sub_pipeline_stop", "true")
+		}
 	}
+
+	// Merge child context variables into parent (last-writer-wins)
+	execution.Context.MergeFrom(childExec.Context, pipelineName)
+
+	// Propagate child execution-level artifact paths into the parent context
+	// so that iterate steps can collect outputs from all child sub-pipelines.
+	childExec.mu.Lock()
+	childArtifacts := make(map[string]string, len(childExec.ArtifactPaths))
+	for k, v := range childExec.ArtifactPaths {
+		childArtifacts[k] = v
+	}
+	childExec.mu.Unlock()
 
 	execution.mu.Lock()
-	execution.States[step.ID] = stateCompleted
-	execution.mu.Unlock()
-	if e.store != nil {
-		_ = e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
+	defer execution.mu.Unlock()
+	for key, path := range childArtifacts {
+		// Namespaced key for iterate/aggregate: "audit-security.scan:findings"
+		execution.Context.SetArtifactPath(pipelineName+"."+key, path)
+
+		// Register under composition step ID so injectArtifacts can find
+		// "audit-security:findings" when a persona step references this
+		// sub-pipeline's output. Only for bare sub-pipeline steps (not
+		// iterate/aggregate which have their own output collection).
+		if step.Iterate == nil && step.Aggregate == nil {
+			if _, artName, ok := strings.Cut(key, ":"); ok {
+				execution.ArtifactPaths[step.ID+":"+artName] = path
+			}
+		}
 	}
-
-	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: pipelineID,
-		StepID:     step.ID,
-		State:      event.StateCompleted,
-		Message:    fmt.Sprintf("composition: sub-pipeline %q completed", pipelineName),
-	})
-
 	return nil
 }
 

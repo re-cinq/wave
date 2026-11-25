@@ -236,223 +236,30 @@ func (m *ProgressModel) renderCurrentStep() string {
 			state = StateNotStarted
 		}
 
-		// Look up persona for this step
-		persona := ""
-		if m.ctx.StepPersonas != nil {
-			persona = m.ctx.StepPersonas[stepID]
+		label := stepID
+		if persona := m.ctx.StepPersonas[stepID]; persona != "" {
+			label += fmt.Sprintf(" (%s)", persona)
 		}
 
 		switch state {
 		case StateCompleted:
-			// Completed: checkmark stepID (persona) [model] (duration, tokens)
-			durationText := "0.0s"
-			if m.ctx.StepDurations != nil {
-				if durationMs, exists := m.ctx.StepDurations[stepID]; exists {
-					durationText = fmt.Sprintf("%.1fs", float64(durationMs)/1000.0)
-				}
-			}
-			stepLine := fmt.Sprintf("✓ %s", stepID)
-			if persona != "" {
-				stepLine += fmt.Sprintf(" (%s)", persona)
-			}
-			// Show model info for completed steps
-			if m.ctx.StepModels != nil {
-				if model, ok := m.ctx.StepModels[stepID]; ok && model != "" {
-					stepLine += fmt.Sprintf(" [%s]", model)
-				}
-			}
-			// Append tokens alongside duration if available
-			switch {
-			case m.ctx.StepTokensIn != nil:
-				tIn := m.ctx.StepTokensIn[stepID]
-				tOut := m.ctx.StepTokensOut[stepID]
-				switch {
-				case tIn > 0 || tOut > 0:
-					stepLine += fmt.Sprintf(" (%s, %s in / %s out)", durationText, FormatTokenCount(tIn), FormatTokenCount(tOut))
-				case m.ctx.StepTokens != nil:
-					if tokens, ok := m.ctx.StepTokens[stepID]; ok && tokens > 0 {
-						stepLine += fmt.Sprintf(" (%s, %s tokens)", durationText, FormatTokenCount(tokens))
-					} else {
-						stepLine += fmt.Sprintf(" (%s)", durationText)
-					}
-				default:
-					stepLine += fmt.Sprintf(" (%s)", durationText)
-				}
-			case m.ctx.StepTokens != nil:
-				if tokens, ok := m.ctx.StepTokens[stepID]; ok && tokens > 0 {
-					stepLine += fmt.Sprintf(" (%s, %s tokens)", durationText, FormatTokenCount(tokens))
-				} else {
-					stepLine += fmt.Sprintf(" (%s)", durationText)
-				}
-			default:
-				stepLine += fmt.Sprintf(" (%s)", durationText)
-			}
-			stepLine = lipgloss.NewStyle().Foreground(colorSuccess).Bold(true).Render(stepLine)
-			steps = append(steps, stepLine)
-
-			// Collect all metadata lines (deliverables + handover) for tree formatting
-			var metadataLines []string
-
-			// Deliverables
-			if m.ctx.DeliverablesByStep != nil {
-				if stepDeliverables, exists := m.ctx.DeliverablesByStep[stepID]; exists {
-					metadataLines = append(metadataLines, stepDeliverables...)
-				}
-			}
-
-			// Handover metadata (verbose mode only)
-			if m.ctx.Verbose && m.ctx.HandoversByStep != nil {
-				if info, exists := m.ctx.HandoversByStep[stepID]; exists {
-					// Artifact lines
-					for _, path := range info.ArtifactPaths {
-						metadataLines = append(metadataLines, fmt.Sprintf("artifact: %s (written)", pathfmt.FileURI(path)))
-					}
-					// Contract line
-					if info.ContractStatus != "" {
-						status := "✓ valid"
-						switch info.ContractStatus {
-						case "failed":
-							status = "✗ failed"
-						case "soft_failure":
-							status = "⚠ soft failure"
-						}
-						schema := info.ContractSchema
-						if schema == "" {
-							schema = "contract"
-						}
-						metadataLines = append(metadataLines, fmt.Sprintf("contract: %s %s", schema, status))
-					}
-					// Handover target line
-					if info.TargetStep != "" {
-						metadataLines = append(metadataLines, fmt.Sprintf("handover → %s", info.TargetStep))
-					}
-				}
-			}
-
-			// Render all metadata lines with correct tree connectors
-			for i, line := range metadataLines {
-				connector := "├─"
-				if i == len(metadataLines)-1 {
-					connector = "└─"
-				}
-				metaLine := fmt.Sprintf("   %s %s", connector, line)
-				metaLine = lipgloss.NewStyle().Foreground(colorMuted).Render(metaLine)
-				steps = append(steps, metaLine)
-			}
-
+			steps = append(steps, m.renderCompletedStep(stepID, label)...)
 		case StateRunning:
-			// Running: spinner stepID (persona) [model via adapter] (elapsed) bullet action
-			spinners := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-			now := time.Now().UnixMilli()
-			frame := (now / 80) % int64(len(spinners))
-			icon := spinners[frame]
-
-			stepLine := fmt.Sprintf("%s %s", icon, stepID)
-			if persona != "" {
-				stepLine += fmt.Sprintf(" (%s)", persona)
-			}
-			// Show model/adapter info for running steps
-			if m.ctx.StepModels != nil {
-				if model, ok := m.ctx.StepModels[stepID]; ok && model != "" {
-					modelInfo := model
-					if m.ctx.StepAdapters != nil {
-						if adpt, ok := m.ctx.StepAdapters[stepID]; ok && adpt != "" {
-							modelInfo += " via " + adpt
-						}
-					}
-					stepLine += fmt.Sprintf(" [%s]", modelInfo)
-				}
-			}
-			// Per-step timing: use StepStartTimes if available, fall back to CurrentStepStart
-			var stepElapsed time.Duration
-			if m.ctx.StepStartTimes != nil {
-				if startNano, ok := m.ctx.StepStartTimes[stepID]; ok {
-					stepElapsed = time.Since(time.Unix(0, startNano))
-				}
-			}
-			if stepElapsed == 0 {
-				stepStart := time.Unix(0, m.ctx.CurrentStepStart)
-				stepElapsed = time.Since(stepStart)
-			}
-			stepLine += fmt.Sprintf(" (%s)", formatElapsed(stepElapsed))
-
-			if m.ctx.CurrentAction != "" && stepID == m.ctx.CurrentStepID {
-				stepLine += fmt.Sprintf(" • %s", m.ctx.CurrentAction)
-			}
-
-			stepLine = lipgloss.NewStyle().Foreground(colorPrimary).Render(stepLine)
-			steps = append(steps, stepLine)
-
-			// Show per-step tool activity when available, fall back to global
-			toolName := ""
-			toolTarget := ""
-			if m.ctx.StepToolActivity != nil {
-				if ta, ok := m.ctx.StepToolActivity[stepID]; ok {
-					toolName = ta[0]
-					toolTarget = ta[1]
-				}
-			}
-			if toolName == "" && stepID == m.ctx.CurrentStepID {
-				toolName = m.ctx.LastToolName
-				toolTarget = m.ctx.LastToolTarget
-			}
-			if toolName != "" {
-				overhead := 6 + len(toolName)
-				termWidth := getTerminalWidth()
-				maxTarget := termWidth - overhead
-				if maxTarget < 20 {
-					maxTarget = 20
-				}
-				target := toolTarget
-				if len(target) > maxTarget {
-					target = target[:maxTarget-3] + "..."
-				}
-				toolLine := fmt.Sprintf("   %s → %s", toolName, target)
-				toolLine = lipgloss.NewStyle().Foreground(colorMuted).Render(toolLine)
-				steps = append(steps, toolLine)
-			}
-
+			steps = append(steps, m.renderRunningStep(stepID, label)...)
 		case StateFailed:
 			// Failed: cross stepID (persona) (duration)
-			stepLine := fmt.Sprintf("✗ %s", stepID)
-			if persona != "" {
-				stepLine += fmt.Sprintf(" (%s)", persona)
+			stepLine := "\u2717 " + label
+			if durationMs, exists := m.ctx.StepDurations[stepID]; exists {
+				stepLine += fmt.Sprintf(" (%.1fs)", float64(durationMs)/1000.0)
 			}
-			if m.ctx.StepDurations != nil {
-				if durationMs, exists := m.ctx.StepDurations[stepID]; exists {
-					durationText := fmt.Sprintf("%.1fs", float64(durationMs)/1000.0)
-					stepLine += fmt.Sprintf(" (%s)", durationText)
-				}
-			}
-			stepLine = lipgloss.NewStyle().Foreground(colorError).Render(stepLine)
-			steps = append(steps, stepLine)
-
+			steps = append(steps, lipgloss.NewStyle().Foreground(colorError).Render(stepLine))
 		case StateSkipped:
-			// Skipped: dash stepID (persona)
-			stepLine := fmt.Sprintf("— %s", stepID)
-			if persona != "" {
-				stepLine += fmt.Sprintf(" (%s)", persona)
-			}
-			stepLine = lipgloss.NewStyle().Foreground(colorMuted).Render(stepLine)
-			steps = append(steps, stepLine)
-
+			steps = append(steps, mutedLine("\u2014 "+label))
 		case StateCancelled:
-			// Cancelled: circled asterisk stepID (persona)
-			stepLine := fmt.Sprintf("⊛ %s", stepID)
-			if persona != "" {
-				stepLine += fmt.Sprintf(" (%s)", persona)
-			}
-			stepLine = lipgloss.NewStyle().Foreground(colorMuted).Render(stepLine)
-			steps = append(steps, stepLine)
-
+			steps = append(steps, mutedLine("\u229b "+label))
 		default:
-			// Not started (pending): circle stepID (persona)
-			stepLine := fmt.Sprintf("○ %s", stepID)
-			if persona != "" {
-				stepLine += fmt.Sprintf(" (%s)", persona)
-			}
-			stepLine = lipgloss.NewStyle().Foreground(colorMuted).Render(stepLine)
-			steps = append(steps, stepLine)
+			// Not started (pending)
+			steps = append(steps, mutedLine("\u25cb "+label))
 		}
 	}
 
@@ -461,6 +268,143 @@ func (m *ProgressModel) renderCurrentStep() string {
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, steps...)
+}
+
+func mutedLine(s string) string {
+	return lipgloss.NewStyle().Foreground(colorMuted).Render(s)
+}
+
+// renderCompletedStep renders "checkmark stepID (persona) [model] (duration,
+// tokens)" followed by the deliverable and handover metadata tree.
+func (m *ProgressModel) renderCompletedStep(stepID, label string) []string {
+	durationText := "0.0s"
+	if durationMs, exists := m.ctx.StepDurations[stepID]; exists {
+		durationText = fmt.Sprintf("%.1fs", float64(durationMs)/1000.0)
+	}
+	stepLine := "\u2713 " + label
+	if model := m.ctx.StepModels[stepID]; model != "" {
+		stepLine += fmt.Sprintf(" [%s]", model)
+	}
+	stepLine += " (" + durationText + m.completedTokenSuffix(stepID) + ")"
+	lines := []string{lipgloss.NewStyle().Foreground(colorSuccess).Bold(true).Render(stepLine)}
+
+	metadataLines := append([]string(nil), m.ctx.DeliverablesByStep[stepID]...)
+	if m.ctx.Verbose {
+		if info, exists := m.ctx.HandoversByStep[stepID]; exists {
+			metadataLines = append(metadataLines, handoverMetadataLines(info)...)
+		}
+	}
+
+	// Render all metadata lines with correct tree connectors
+	for i, line := range metadataLines {
+		connector := "\u251c\u2500"
+		if i == len(metadataLines)-1 {
+			connector = "\u2514\u2500"
+		}
+		lines = append(lines, mutedLine(fmt.Sprintf("   %s %s", connector, line)))
+	}
+	return lines
+}
+
+// completedTokenSuffix returns ", <in> in / <out> out" or ", <n> tokens" for
+// a completed step, preferring the input/output split, or "" when no token
+// counts were recorded.
+func (m *ProgressModel) completedTokenSuffix(stepID string) string {
+	if m.ctx.StepTokensIn != nil {
+		tIn := m.ctx.StepTokensIn[stepID]
+		tOut := m.ctx.StepTokensOut[stepID]
+		if tIn > 0 || tOut > 0 {
+			return fmt.Sprintf(", %s in / %s out", FormatTokenCount(tIn), FormatTokenCount(tOut))
+		}
+	}
+	if tokens := m.ctx.StepTokens[stepID]; tokens > 0 {
+		return fmt.Sprintf(", %s tokens", FormatTokenCount(tokens))
+	}
+	return ""
+}
+
+// handoverMetadataLines lists the artifacts, contract result and handover
+// target of a completed step (verbose mode).
+func handoverMetadataLines(info *HandoverInfo) []string {
+	var lines []string
+	for _, path := range info.ArtifactPaths {
+		lines = append(lines, fmt.Sprintf("artifact: %s (written)", pathfmt.FileURI(path)))
+	}
+	if info.ContractStatus != "" {
+		status := "\u2713 valid"
+		switch info.ContractStatus {
+		case "failed":
+			status = "\u2717 failed"
+		case "soft_failure":
+			status = "\u26a0 soft failure"
+		}
+		schema := info.ContractSchema
+		if schema == "" {
+			schema = "contract"
+		}
+		lines = append(lines, fmt.Sprintf("contract: %s %s", schema, status))
+	}
+	if info.TargetStep != "" {
+		lines = append(lines, fmt.Sprintf("handover \u2192 %s", info.TargetStep))
+	}
+	return lines
+}
+
+// renderRunningStep renders "spinner stepID (persona) [model via adapter]
+// (elapsed) bullet action" plus the step's latest tool activity.
+func (m *ProgressModel) renderRunningStep(stepID, label string) []string {
+	spinners := []string{"\u280b", "\u2819", "\u2839", "\u2838", "\u283c", "\u2834", "\u2826", "\u2827", "\u2807", "\u280f"}
+	frame := (time.Now().UnixMilli() / 80) % int64(len(spinners))
+
+	stepLine := spinners[frame] + " " + label
+	if model := m.ctx.StepModels[stepID]; model != "" {
+		modelInfo := model
+		if adpt := m.ctx.StepAdapters[stepID]; adpt != "" {
+			modelInfo += " via " + adpt
+		}
+		stepLine += fmt.Sprintf(" [%s]", modelInfo)
+	}
+
+	// Per-step timing: use StepStartTimes if available, fall back to CurrentStepStart
+	var stepElapsed time.Duration
+	if startNano, ok := m.ctx.StepStartTimes[stepID]; ok {
+		stepElapsed = time.Since(time.Unix(0, startNano))
+	}
+	if stepElapsed == 0 {
+		stepElapsed = time.Since(time.Unix(0, m.ctx.CurrentStepStart))
+	}
+	stepLine += fmt.Sprintf(" (%s)", formatElapsed(stepElapsed))
+
+	if m.ctx.CurrentAction != "" && stepID == m.ctx.CurrentStepID {
+		stepLine += fmt.Sprintf(" \u2022 %s", m.ctx.CurrentAction)
+	}
+	lines := []string{lipgloss.NewStyle().Foreground(colorPrimary).Render(stepLine)}
+
+	if toolLine := m.runningToolLine(stepID); toolLine != "" {
+		lines = append(lines, mutedLine(toolLine))
+	}
+	return lines
+}
+
+// runningToolLine returns "   tool -> target" for the step's latest tool
+// call (falling back to the global activity for the current step), with the
+// target truncated to the terminal width, or "" when there is none.
+func (m *ProgressModel) runningToolLine(stepID string) string {
+	toolName, toolTarget := "", ""
+	if ta, ok := m.ctx.StepToolActivity[stepID]; ok {
+		toolName, toolTarget = ta[0], ta[1]
+	}
+	if toolName == "" && stepID == m.ctx.CurrentStepID {
+		toolName, toolTarget = m.ctx.LastToolName, m.ctx.LastToolTarget
+	}
+	if toolName == "" {
+		return ""
+	}
+	maxTarget := max(getTerminalWidth()-(6+len(toolName)), 20)
+	if len(toolTarget) > maxTarget {
+		toolTarget = toolTarget[:maxTarget-3] + "..."
+	}
+	return fmt.Sprintf("   %s \u2192 %s", toolName, toolTarget)
 }
 
 // tickCmd returns a command that ticks every 33ms for 30 FPS smooth updates (matching spinner rate)
