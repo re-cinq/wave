@@ -52,7 +52,7 @@ func resolveGitRoot() (string, error) {
 
 func NewWorkspaceManager(baseDir string) (WorkspaceManager, error) {
 	if baseDir == "" {
-		baseDir = ".agents/workspaces"
+		baseDir = DefaultRoot()
 	}
 	if !filepath.IsAbs(baseDir) {
 		root, err := resolveGitRoot()
@@ -98,6 +98,7 @@ func (wm *workspaceManager) Create(cfg WorkspaceConfig, templateVars map[string]
 	if err := os.MkdirAll(workspacePath, 0755); err != nil {
 		return "", fmt.Errorf("failed to create workspace directory: %w", err)
 	}
+	_ = MarkRunDir(filepath.Join(wm.baseDir, pipelineID))
 
 	for _, mount := range cfg.Mount {
 		if mount.Source == "" || mount.Target == "" {

@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/recinq/wave/internal/workspace"
 )
 
 // RunMode controls whether tasks run through Wave pipelines or standalone Claude.
@@ -130,6 +132,10 @@ func (s *subprocessRunner) RunTask(ctx context.Context, task BenchTask, cfg RunC
 	}
 	if !cfg.KeepWorkspaces {
 		defer func() {
+			// Wave keeps step workspaces outside the project checkout, in
+			// a per-project dir under the user cache dir; drop it with the
+			// task worktree (RemoveWorktree prunes their git entries).
+			_ = os.RemoveAll(workspace.DefaultRootFor(worktreePath))
 			// Use a fresh context: the task context may already be cancelled.
 			_ = s.cache.RemoveWorktree(context.Background(), task.Repo, worktreePath)
 		}()

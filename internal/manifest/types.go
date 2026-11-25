@@ -142,7 +142,10 @@ func (c *RetrosConfig) GetNarrateModel() string {
 }
 
 type Runtime struct {
-	WorkspaceRoot        string                 `yaml:"workspace_root"`
+	// WorkspaceRoot overrides where step workspaces and worktrees are
+	// created. Empty means the per-project default under the user cache dir
+	// (see workspace.DefaultRoot), outside the project checkout.
+	WorkspaceRoot        string                 `yaml:"workspace_root,omitempty"`
 	MaxConcurrentWorkers int                    `yaml:"max_concurrent_workers,omitempty"`
 	DefaultTimeoutMin    int                    `yaml:"default_timeout_minutes,omitempty"`
 	PipelineIDHashLength int                    `yaml:"pipeline_id_hash_length,omitempty"`

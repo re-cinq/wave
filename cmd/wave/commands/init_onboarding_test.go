@@ -194,7 +194,8 @@ func TestInitInstructionFilesGitignoreAndCommit(t *testing.T) {
 
 	gi, err := os.ReadFile(".gitignore")
 	require.NoError(t, err)
-	for _, e := range []string{".agents/workspaces/", ".agents/state.db*", ".agents/traces/"} {
+	assert.NotContains(t, string(gi), ".agents/workspaces/", "workspaces default to outside the checkout")
+	for _, e := range []string{".agents/state.db*", ".agents/traces/"} {
 		assert.Contains(t, string(gi), e+"\n")
 	}
 	assert.Contains(t, stdout, "AGENTS.md")

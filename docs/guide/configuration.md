@@ -31,7 +31,7 @@ personas:                  # Required
     hooks: {}               # Optional - Pre/Post hooks
 
 runtime:                    # Required
-  workspace_root: string         # Optional - Default ".agents/workspaces"
+  workspace_root: string         # Optional - Default: per-project dir under the user cache dir
   max_concurrent_workers: int   # Optional - Default 5
   default_timeout_minutes: int   # Optional - Default 5
   relay: {}                   # Optional - Relay config

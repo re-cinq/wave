@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/workspace"
 )
 
 // BubbleTeaProgressDisplay implements ProgressEmitter using bubbletea for proper terminal handling.
@@ -42,6 +43,7 @@ type BubbleTeaProgressDisplay struct {
 	lastToolTarget   string                   // Most recent tool target (global fallback)
 	handoverInfo     map[string]*HandoverInfo // Per-step handover metadata
 	estimatedTimeMs  int64                    // Latest ETA from pipeline events
+	workspacePath    string                   // Workspace root shown to the user
 }
 
 // NewBubbleTeaProgressDisplay creates a new bubbletea-based progress display.
@@ -75,7 +77,7 @@ func NewBubbleTeaProgressDisplay(pipelineID, pipelineName string, totalSteps int
 		ElapsedTimeMs:     0,
 		EstimatedTimeMs:   0,
 		ManifestPath:      "wave.yaml",
-		WorkspacePath:     ".agents/workspaces",
+		WorkspacePath:     workspace.DefaultRoot(),
 		CurrentAction:     "",
 		CurrentStepName:   "",
 		PipelineStartTime: time.Now().UnixNano(),
@@ -545,7 +547,7 @@ func (btpd *BubbleTeaProgressDisplay) toPipelineContext() *PipelineContext {
 		EstimatedTimeMs:    btpd.estimatedTimeMs,
 		AverageStepTimeMs:  btpd.averageStepTimeMs(),
 		ManifestPath:       "wave.yaml",
-		WorkspacePath:      ".agents/workspaces",
+		WorkspacePath:      btpd.workspaceRoot(),
 		CurrentAction:      "",
 		CurrentStepName:    currentStepID,
 		PipelineStartTime:  btpd.startTime.UnixNano(),
@@ -570,4 +572,21 @@ func (btpd *BubbleTeaProgressDisplay) averageStepTimeMs() int64 {
 		total += dur
 	}
 	return total / int64(len(btpd.stepDurations))
+}
+
+// SetWorkspaceRoot sets the workspace root reported in the progress
+// context (the manifest's resolved runtime.workspace_root).
+func (btpd *BubbleTeaProgressDisplay) SetWorkspaceRoot(root string) {
+	btpd.mu.Lock()
+	defer btpd.mu.Unlock()
+	btpd.workspacePath = root
+}
+
+// workspaceRoot returns the configured workspace root, or the default
+// per-project root when none was set. Callers hold btpd.mu or own btpd.
+func (btpd *BubbleTeaProgressDisplay) workspaceRoot() string {
+	if btpd.workspacePath != "" {
+		return btpd.workspacePath
+	}
+	return workspace.DefaultRoot()
 }

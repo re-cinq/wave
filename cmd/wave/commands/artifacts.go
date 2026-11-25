@@ -101,7 +101,7 @@ func runArtifacts(opts ArtifactsOptions) error {
 
 	// Handle export if requested
 	if opts.Export != "" {
-		return exportArtifacts(artifacts, opts.Export)
+		return exportArtifacts(artifacts, opts.Export, manifestWorkspaceRoot(opts.Manifest))
 	}
 
 	// Output based on format
@@ -165,7 +165,7 @@ func collectArtifacts(opts ArtifactsOptions) ([]ArtifactOutput, string, error) {
 // scanWorkspaceArtifacts scans the workspace directories for artifacts
 func scanWorkspaceArtifacts(opts ArtifactsOptions) ([]ArtifactOutput, string, error) {
 	var artifacts []ArtifactOutput
-	wsDir := ".agents/workspaces"
+	wsDir := manifestWorkspaceRoot(opts.Manifest)
 
 	// If no workspaces directory, return empty
 	if _, err := os.Stat(wsDir); os.IsNotExist(err) {
@@ -359,8 +359,9 @@ func outputArtifactsJSON(runID string, artifacts []ArtifactOutput) error {
 	return nil
 }
 
-// exportArtifacts copies artifacts to the specified directory
-func exportArtifacts(artifacts []ArtifactOutput, exportDir string) error {
+// exportArtifacts copies artifacts to the specified directory. Only files
+// under wsRoot (the project's workspace root) are exported.
+func exportArtifacts(artifacts []ArtifactOutput, exportDir, wsRoot string) error {
 	// Create export directory if it doesn't exist
 	if err := os.MkdirAll(exportDir, 0755); err != nil {
 		return fmt.Errorf("failed to create export directory: %w", err)
@@ -411,7 +412,7 @@ func exportArtifacts(artifacts []ArtifactOutput, exportDir string) error {
 			warnings = append(warnings, fmt.Sprintf("invalid artifact path %s: %v", a.Name, err))
 			continue
 		}
-		workspaceAbs, _ := filepath.Abs(".agents/workspaces")
+		workspaceAbs, _ := filepath.Abs(wsRoot)
 		if !strings.HasPrefix(absPath, workspaceAbs+string(filepath.Separator)) && !strings.HasPrefix(absPath, workspaceAbs) {
 			warnings = append(warnings, fmt.Sprintf("artifact path outside workspace: %s", a.Name))
 			continue

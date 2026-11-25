@@ -135,10 +135,10 @@ func runMeta(input string, opts MetaOptions) error {
 	defer emitterResult.Cleanup()
 
 	// Set up workspace manager
-	wsRoot := m.Runtime.WorkspaceRoot
-	if wsRoot == "" {
-		wsRoot = ".agents/workspaces"
+	if err := checkRunWorkspaceRoot(m.Runtime.WorkspaceRoot, ""); err != nil {
+		return err
 	}
+	wsRoot := workspace.ResolveRoot(m.Runtime.WorkspaceRoot)
 	wsManager, _ := workspace.NewWorkspaceManager(wsRoot)
 
 	// Create child executor for running generated pipelines
@@ -193,7 +193,7 @@ func runMeta(input string, opts MetaOptions) error {
 			}
 			fmt.Printf("  %d. %s [%s]%s\n", i+1, step.ID, step.Persona, deps)
 		}
-		fmt.Printf("\nWorkspace: .agents/workspaces/meta/\n")
+		fmt.Printf("\nWorkspace: %s\n", filepath.Join(wsRoot, "meta")+"/")
 		return nil
 	}
 

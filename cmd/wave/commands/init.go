@@ -81,7 +81,7 @@ of an existing project (a backup is written to <manifest>.bak), or
 	cmd.Flags().BoolVar(&opts.All, "all", false, "Include all pipelines regardless of release status")
 	cmd.Flags().StringVar(&opts.Adapter, "adapter", "", "Adapter to use: claude or codex (default: first one found on PATH, else claude)")
 	cmd.Flags().StringVar(&opts.Model, "model", "", "Model for the adapter, pinned for every tier (default: sonnet for claude, gpt-6.2-sol for codex)")
-	cmd.Flags().StringVar(&opts.Workspace, "workspace", ".agents/workspaces", "Workspace directory path")
+	cmd.Flags().StringVar(&opts.Workspace, "workspace", "", "Workspace root written as runtime.workspace_root (default: unset, a per-project directory under the user cache dir, outside the checkout)")
 	cmd.Flags().StringVar(&opts.OutputPath, "manifest-path", "wave.yaml", "Output path for wave.yaml (the global --manifest/-m is honoured too)")
 	cmd.Flags().BoolVarP(&opts.Yes, "yes", "y", false, "Answer every question with its default and confirm all prompts")
 	cmd.Flags().BoolVar(&opts.Reconfigure, "reconfigure", false, "Change adapter, model or project commands of an existing project, keeping customisations")

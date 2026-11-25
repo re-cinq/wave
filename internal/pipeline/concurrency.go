@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/event"
+	"github.com/recinq/wave/internal/workspace"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -195,18 +196,16 @@ func (c *ConcurrencyExecutor) executeAgent(ctx context.Context, execution *Pipel
 // createAgentWorkspace creates an isolated workspace for a concurrent agent.
 func (c *ConcurrencyExecutor) createAgentWorkspace(execution *PipelineExecution, step *Step, agentIndex int) (string, error) {
 	pipelineID := execution.Status.ID
-	wsRoot := execution.Manifest.Runtime.WorkspaceRoot
-	if wsRoot == "" {
-		wsRoot = ".agents/workspaces"
-	}
+	wsRoot := workspace.ResolveRoot(execution.Manifest.Runtime.WorkspaceRoot)
 
-	// Create agent-specific workspace under .agents/workspaces/<pipeline>/<step>/agent_<index>/.
+	// Create agent-specific workspace under <workspace_root>/<pipeline>/<step>/agent_<index>/.
 	// Use the executor's workspace run ID override so resume reuses the
 	// original run's workspace tree; falls back to pipelineID for fresh runs.
 	wsPath := filepath.Join(wsRoot, c.executor.workspaceRunIDFor(pipelineID), step.ID, fmt.Sprintf("agent_%d", agentIndex))
 	if err := os.MkdirAll(wsPath, 0755); err != nil {
 		return "", err
 	}
+	_ = workspace.MarkRunDir(filepath.Join(wsRoot, c.executor.workspaceRunIDFor(pipelineID)))
 
 	return wsPath, nil
 }

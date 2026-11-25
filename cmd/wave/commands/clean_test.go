@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/recinq/wave/internal/workspace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -32,6 +33,11 @@ func newCleanTestEnv(t *testing.T) *cleanTestEnv {
 	tmpDir := t.TempDir()
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err, "failed to change to temp directory")
+
+	// The fixtures below live in .agents/workspaces, so point the manifest
+	// there; TestCleanDefaultRoot covers the unconfigured default.
+	err = os.WriteFile("wave.yaml", []byte("runtime:\n  workspace_root: .agents/workspaces\n"), 0644)
+	require.NoError(t, err, "failed to write wave.yaml")
 
 	return &cleanTestEnv{
 		t:          t,
@@ -210,6 +216,41 @@ func TestCleanRemovesAllWorkspaces(t *testing.T) {
 	assert.False(t, env.workspaceExists("pipeline-1"))
 	assert.False(t, env.workspaceExists("pipeline-2"))
 	assert.False(t, env.workspaceExists("pipeline-3"))
+}
+
+// Without runtime.workspace_root, clean targets the per-project default root
+// outside the checkout, and --all also sweeps the legacy in-checkout root.
+func TestCleanDefaultRoot(t *testing.T) {
+	env := newCleanTestEnv(t)
+	defer env.cleanup()
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	require.NoError(t, os.Remove("wave.yaml"))
+
+	root := workspace.DefaultRoot()
+	require.NotContains(t, root, env.rootDir, "default root must be outside the project")
+	for _, name := range []string{"run-a", "run-b"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(root, name), 0755))
+		require.NoError(t, workspace.MarkRunDir(filepath.Join(root, name)))
+	}
+	// A directory Wave did not create (no run marker) is never touched.
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "foreign"), 0755))
+	env.createWorkspace("legacy-run", time.Now())
+
+	_, err := executeCleanCmdCapturingStdout("--pipeline", "run-a", "--force")
+	require.NoError(t, err)
+	assert.NoDirExists(t, filepath.Join(root, "run-a"))
+	assert.DirExists(t, filepath.Join(root, "run-b"))
+
+	_, err = executeCleanCmdCapturingStdout("--pipeline", "foreign", "--force")
+	require.NoError(t, err)
+	assert.DirExists(t, filepath.Join(root, "foreign"), "--pipeline only removes Wave run dirs")
+
+	_, err = executeCleanCmdCapturingStdout("--all", "--force")
+	require.NoError(t, err)
+	assert.NoDirExists(t, filepath.Join(root, "run-b"))
+	assert.DirExists(t, root, "the root itself is never removed")
+	assert.DirExists(t, filepath.Join(root, "foreign"))
+	assert.False(t, env.workspaceExists("legacy-run"), "legacy .agents/workspaces is swept too")
 }
 
 // T091: Test clean specific pipeline workspace

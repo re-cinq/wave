@@ -22,6 +22,9 @@ type CleanOptions struct {
 	OlderThan string
 	Status    string
 	Quiet     bool
+	// Manifest is the manifest whose runtime.workspace_root is honoured;
+	// empty means wave.yaml.
+	Manifest string
 }
 
 func NewCleanCmd() *cobra.Command {
@@ -38,6 +41,7 @@ Use --older-than to remove workspaces older than a specified duration (e.g., "7d
 Use --status to only clean workspaces for pipelines with a given status (completed, failed).
 Use --quiet to suppress output for scripting (clean exit when nothing to clean).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			opts.Manifest, _ = cmd.Root().PersistentFlags().GetString("manifest")
 			return runClean(opts)
 		},
 	}
@@ -178,20 +182,42 @@ func validateCleanOptions(opts CleanOptions) (time.Duration, error) {
 // collectCleanTargets returns the paths runClean should remove for the given
 // options. Filtered cleanups (--keep-last, --older-than, --status) only touch
 // workspaces; a bare --all also removes state.db, traces and retros.
+//
+// Only run directories Wave created are ever workspace targets (see
+// workspace.OwnedRunDir): never the workspace root itself, never anything
+// outside it, never the project. A workspace root that equals or contains
+// the project is refused outright.
 func collectCleanTargets(opts CleanOptions, olderThan time.Duration) ([]string, error) {
-	const wsDir = ".agents/workspaces"
+	wsDir := manifestWorkspaceRoot(opts.Manifest)
+	project := manifestProjectDir(opts.Manifest)
+	if err := workspace.CheckRoot(wsDir, project); err != nil {
+		return nil, unsafeRootError(err)
+	}
 
 	if opts.All || opts.OlderThan != "" || opts.Status != "" {
 		if opts.KeepLast < 0 && opts.OlderThan == "" && opts.Status == "" {
-			// --all without filters: remove everything
-			return []string{
+			// --all without filters: remove everything, including
+			// workspaces left in the checkout by older versions.
+			targets := []string{
 				".agents/state.db",
 				".agents/traces",
-				".agents/workspaces",
 				".agents/retros",
-			}, nil
+			}
+			roots, link := workspaceRootsToSweep(opts.Manifest)
+			for _, root := range roots {
+				if workspace.CheckRoot(root, project) != nil {
+					continue
+				}
+				targets = append(targets, workspace.OwnedRunDirs(root, project)...)
+			}
+			if link != "" {
+				// A symlinked .agents/workspaces: remove the link only,
+				// never anything in its target.
+				targets = append(targets, link)
+			}
+			return targets, nil
 		}
-		return filteredWorkspaceTargets(opts, wsDir, olderThan)
+		return filteredWorkspaceTargets(opts, wsDir, project, olderThan)
 	}
 
 	if opts.Pipeline != "" {
@@ -199,14 +225,21 @@ func collectCleanTargets(opts CleanOptions, olderThan time.Duration) ([]string, 
 		if strings.Contains(opts.Pipeline, "..") || filepath.IsAbs(opts.Pipeline) || strings.ContainsAny(opts.Pipeline, `/\`) {
 			return nil, NewCLIError(CodeSecurityViolation, fmt.Sprintf("invalid pipeline name: %s", opts.Pipeline), "Pipeline names must not contain path separators or '..' sequences")
 		}
-		return []string{filepath.Join(".agents", "workspaces", opts.Pipeline)}, nil
+		if opts.Pipeline == "." {
+			return nil, NewCLIError(CodeSecurityViolation, fmt.Sprintf("invalid pipeline name: %s", opts.Pipeline), "Pass a run ID listed by 'wave list runs'")
+		}
+		target := filepath.Join(wsDir, opts.Pipeline)
+		if !workspace.OwnedRunDir(wsDir, target, project) {
+			return nil, nil // not a Wave run directory: nothing to clean
+		}
+		return []string{target}, nil
 	}
 	return nil, nil
 }
 
 // filteredWorkspaceTargets applies --older-than, --status and --keep-last to
 // the workspaces under wsDir and returns the paths to remove.
-func filteredWorkspaceTargets(opts CleanOptions, wsDir string, olderThan time.Duration) ([]string, error) {
+func filteredWorkspaceTargets(opts CleanOptions, wsDir, project string, olderThan time.Duration) ([]string, error) {
 	var statusWorkspaces map[string]bool
 	if opts.Status != "" {
 		var err error
@@ -216,9 +249,9 @@ func filteredWorkspaceTargets(opts CleanOptions, wsDir string, olderThan time.Du
 		}
 	}
 
-	workspaces, err := workspace.ListWorkspacesSortedByTime(wsDir)
+	workspaces, err := ownedWorkspacesSortedByTime(wsDir, project)
 	if err != nil {
-		return nil, NewCLIError(CodeInternalError, fmt.Sprintf("failed to list workspaces: %s", err), "Check .agents/workspaces directory permissions").WithCause(err)
+		return nil, NewCLIError(CodeInternalError, fmt.Sprintf("failed to list workspaces: %s", err), fmt.Sprintf("Check %s directory permissions", wsDir)).WithCause(err)
 	}
 
 	cutoffTime := time.Now().Add(-olderThan)
@@ -235,8 +268,7 @@ func filteredWorkspaceTargets(opts CleanOptions, wsDir string, olderThan time.Du
 
 	// Apply keep-last (only if --all is also specified)
 	if opts.KeepLast >= 0 && opts.All {
-		allWorkspaces, _ := workspace.ListWorkspacesSortedByTime(wsDir)
-		keepSet := newestWorkspaceNames(allWorkspaces, opts.KeepLast)
+		keepSet := newestWorkspaceNames(workspaces, opts.KeepLast)
 		var filtered []workspace.WorkspaceInfo
 		for _, ws := range candidates {
 			if !keepSet[ws.Name] {
@@ -251,6 +283,22 @@ func filteredWorkspaceTargets(opts CleanOptions, wsDir string, olderThan time.Du
 		targets = append(targets, ws.Path)
 	}
 	return targets, nil
+}
+
+// ownedWorkspacesSortedByTime lists the run directories under wsDir that
+// Wave created (workspace.OwnedRunDir), oldest first.
+func ownedWorkspacesSortedByTime(wsDir, project string) ([]workspace.WorkspaceInfo, error) {
+	all, err := workspace.ListWorkspacesSortedByTime(wsDir)
+	if err != nil {
+		return nil, err
+	}
+	owned := all[:0]
+	for _, ws := range all {
+		if workspace.OwnedRunDir(wsDir, ws.Path, project) {
+			owned = append(owned, ws)
+		}
+	}
+	return owned, nil
 }
 
 // newestWorkspaceNames returns the names of the keep most recent workspaces
@@ -271,7 +319,7 @@ func newestWorkspaceNames(workspaces []workspace.WorkspaceInfo, keep int) map[st
 func existingPaths(targets []string) []string {
 	var existing []string
 	for _, target := range targets {
-		if _, err := os.Stat(target); err == nil {
+		if _, err := os.Lstat(target); err == nil {
 			existing = append(existing, target)
 		}
 	}

@@ -10,7 +10,7 @@ import (
 )
 
 func TestPhaseSkipValidator(t *testing.T) {
-	validator := NewPhaseSkipValidator()
+	validator := newLegacyPhaseSkipValidator()
 
 	// Create a test prototype pipeline
 	pipeline := &Pipeline{
@@ -173,7 +173,7 @@ func TestPhaseSkipValidator(t *testing.T) {
 }
 
 func TestStaleArtifactDetector(t *testing.T) {
-	detector := NewStaleArtifactDetector()
+	detector := newLegacyStaleArtifactDetector()
 
 	pipeline := &Pipeline{
 		Metadata: PipelineMetadata{Name: "prototype"},
@@ -327,7 +327,6 @@ func TestErrorMessageProvider(t *testing.T) {
 				"Phase 'spec' failed",
 				"craftsman persona has write permissions",
 				"wave run prototype --from-step spec",
-				"Workspace: .agents/workspaces/prototype/spec",
 			},
 		},
 		{
@@ -544,7 +543,7 @@ func TestValidateGenericStepSequence_CompositionAndWorktree(t *testing.T) {
 	runDir := filepath.Join(tmpDir, ".agents/workspaces/audit-issue-20260428-111246-6a7d")
 	_ = os.MkdirAll(filepath.Join(runDir, "fetch-issue"), 0755)
 
-	v := NewPhaseSkipValidator()
+	v := newLegacyPhaseSkipValidator()
 	if err := v.ValidatePhaseSequence(pipeline, "create-pr"); err != nil {
 		t.Fatalf("expected resume to validate (composition + worktree priors should be skipped), got: %v", err)
 	}
@@ -565,7 +564,7 @@ func TestValidatePhaseSequence_UsesManifestWorkspaceRoot(t *testing.T) {
 		Steps:    []Step{{ID: "step1"}, {ID: "step2", Dependencies: []string{"step1"}}},
 	}
 
-	v := NewPhaseSkipValidator()
+	v := newLegacyPhaseSkipValidator()
 	if err := v.ValidatePhaseSequence(p, "step2"); err == nil {
 		t.Fatal("without the workspace root the prior run must not be found")
 	}

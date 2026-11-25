@@ -11,6 +11,7 @@ import (
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/workspace"
 )
 
 // ResumeManager handles pipeline resumption from specific steps
@@ -20,6 +21,9 @@ type ResumeManager struct {
 	detector    *StaleArtifactDetector
 	concurrency *ConcurrencyValidator
 	errors      *ErrorMessageProvider
+	// workspaceRoot is the manifest's runtime.workspace_root; empty means
+	// the default per-project root (see workspace.DefaultRoot).
+	workspaceRoot string
 }
 
 // NewResumeManager creates a new resume manager with all validation components
@@ -56,12 +60,15 @@ func (r *ResumeManager) ResumeFromStep(ctx context.Context, p *Pipeline, m *mani
 			fromStep, p.Metadata.Name, r.getAvailableSteps(p))
 	}
 
+	// Look for prior runs where this project keeps its workspaces.
+	if m != nil && m.Runtime.WorkspaceRoot != "" {
+		r.workspaceRoot = m.Runtime.WorkspaceRoot
+		r.validator.WorkspaceRoot = m.Runtime.WorkspaceRoot
+		r.detector.WorkspaceRoot = m.Runtime.WorkspaceRoot
+	}
+
 	if !force {
-		// Phase skip validation - ensure prerequisites are completed. Look
-		// for prior runs where this project keeps its workspaces.
-		if m != nil {
-			r.validator.WorkspaceRoot = m.Runtime.WorkspaceRoot
-		}
+		// Phase skip validation - ensure prerequisites are completed.
 		if err := r.validator.ValidatePhaseSequence(p, fromStep); err != nil {
 			return r.errors.FormatPhaseFailureError(fromStep, err, p.Metadata.Name)
 		}
@@ -287,7 +294,7 @@ func (r *ResumeManager) loadResumeState(p *Pipeline, fromStep string, priorRunID
 		ReworkTransitions: make(map[string]string),
 	}
 
-	wsRoot := ".agents/workspaces"
+	wsRoot := workspace.ResolveRoot(r.workspaceRoot)
 
 	var runDirs []string
 

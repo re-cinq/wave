@@ -482,18 +482,16 @@ func (m *MatrixExecutor) executeWorker(ctx context.Context, execution *PipelineE
 // createWorkerWorkspace creates an isolated workspace for a matrix worker.
 func (m *MatrixExecutor) createWorkerWorkspace(execution *PipelineExecution, step *Step, itemIndex int) (string, error) {
 	pipelineID := execution.Status.ID
-	wsRoot := execution.Manifest.Runtime.WorkspaceRoot
-	if wsRoot == "" {
-		wsRoot = ".agents/workspaces"
-	}
+	wsRoot := workspace.ResolveRoot(execution.Manifest.Runtime.WorkspaceRoot)
 
-	// Create worker-specific workspace under .agents/workspaces/<pipeline>/<step>/worker_<index>/.
+	// Create worker-specific workspace under <workspace_root>/<pipeline>/<step>/worker_<index>/.
 	// Use the executor's workspace run ID override so resume reuses the
 	// original run's workspace tree; falls back to pipelineID for fresh runs.
 	wsPath := filepath.Join(wsRoot, m.executor.workspaceRunIDFor(pipelineID), step.ID, fmt.Sprintf("worker_%d", itemIndex))
 	if err := os.MkdirAll(wsPath, 0755); err != nil {
 		return "", err
 	}
+	_ = workspace.MarkRunDir(filepath.Join(wsRoot, m.executor.workspaceRunIDFor(pipelineID)))
 
 	// If step has mounts, copy them to worker workspace
 	if m.executor.wsManager != nil && len(step.Workspace.Mount) > 0 {

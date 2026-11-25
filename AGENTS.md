@@ -29,7 +29,7 @@ Never argue about whether something is your responsibility.
 
 Each pipeline is a **topologically-sorted DAG** of steps. For every step:
 
-1. **Workspace creation** — an ephemeral worktree is created under `.agents/workspaces/<pipeline>/<step>/`. Steps can share workspaces via `workspace.ref`. Mounts support readonly/readwrite modes
+1. **Workspace creation** - an ephemeral worktree is created under `<workspace_root>/<pipeline>/<step>/` (default: a per-project dir under the user cache dir, outside the checkout). Steps can share workspaces via `workspace.ref`. Mounts support readonly/readwrite modes
 2. **Artifact injection** — outputs from prior steps are injected into `.agents/artifacts/` before execution begins. The system validates existence, enforces optional/required semantics, and checks schemas if `ref.SchemaPath` is specified
 3. **Runtime CLAUDE.md assembly** — a per-step CLAUDE.md is generated from four layers:
    - Base protocol preamble (`.agents/personas/base-protocol.md`)

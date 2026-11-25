@@ -24,16 +24,16 @@ steps:
 
 That's it. No mount configurations, no path mapping, no `cd` hacks. The step runs in your actual repository with full git capabilities.
 
-### Workspaces Live Where Your Code Lives
+### Workspaces Live Outside Your Checkout
 
-The worktree is created inside your project at `.agents/workspaces/` — not in some detached `/tmp` folder or a central orchestration directory somewhere else on your machine. Your pipeline workspaces are part of your repo's directory tree, right next to the code they operate on. One `ls` and you see everything.
+By default the worktree is created in a per-project directory under your user cache dir (`$XDG_CACHE_HOME/wave/workspaces/<project>-<hash>/`, usually `~/.cache/wave/workspaces/...` on Linux), not inside the project checkout. A worktree nested inside the checkout lets agents walk up into the parent checkout and edit it instead of the step's worktree; keeping workspaces outside rules that out. Set `runtime.workspace_root` to put them somewhere else.
 
 ### One Branch, One Worktree
 
 When multiple steps specify the same branch, they **share the same worktree**. Changes made by one step are immediately visible to the next.
 
 ```
-.agents/workspaces/my-pipeline/__wt_my-pipeline/
+<workspace_root>/my-pipeline/__wt_my-pipeline/
 ├── .git              ← pointer to main repo's .git/worktrees/
 ├── src/              ← your full source tree
 ├── go.mod
@@ -136,15 +136,15 @@ Mount workspaces create an isolated directory structure under `.agents/workspace
 ```yaml
 # In wave.yaml
 runtime:
-  workspace_root: .agents/workspaces    # Default
+  workspace_root: /srv/wave-workspaces   # Optional override
 ```
 
 </div>
 
-All workspaces are created under this root. The directory structure is:
+When `workspace_root` is unset, Wave uses `<user cache dir>/wave/workspaces/<project>-<hash>/`, outside the checkout. A relative value is resolved against the project directory, so `.agents/workspaces` restores the old in-checkout location. All workspaces are created under this root. The directory structure is:
 
 ```
-.agents/workspaces/
+<workspace_root>/
 └── <pipeline-id>/
     ├── __wt_<branch>/       ← worktree workspace (shared across steps)
     ├── <step-id>/           ← mount workspace (per step)
@@ -157,16 +157,16 @@ Worktree workspaces are cleaned up when a pipeline completes. To inspect them, p
 
 ```bash
 # Find the workspace while pipeline is running
-ls .agents/workspaces/<pipeline-id>/
+ls <workspace_root>/<pipeline-id>/
 
 # Inspect what the agent saw
-cat .agents/workspaces/<pipeline-id>/__wt_*/CLAUDE.md
+cat <workspace_root>/<pipeline-id>/__wt_*/CLAUDE.md
 
 # Check injected artifacts
-ls .agents/workspaces/<pipeline-id>/__wt_*/artifacts/
+ls <workspace_root>/<pipeline-id>/__wt_*/artifacts/
 
 # Look at step output
-ls .agents/workspaces/<pipeline-id>/__wt_*/output/
+ls <workspace_root>/<pipeline-id>/__wt_*/output/
 ```
 
 ## Further Reading

@@ -67,9 +67,6 @@ func Greenfield(o GreenfieldOpts) (*GreenfieldResult, error) {
 		model = DefaultModelFor(adapter)
 	}
 	workspace := o.Workspace
-	if workspace == "" {
-		workspace = ".agents/workspaces"
-	}
 
 	if err := EnsureWaveDirs(waveDirsFor(workspace)); err != nil {
 		return nil, err
@@ -175,16 +172,14 @@ func Greenfield(o GreenfieldOpts) (*GreenfieldResult, error) {
 	}, nil
 }
 
-// waveDirsFor returns DefaultWaveDirs with the workspace directory replaced
-// by the configured workspace root, so --workspace creates the directory the
-// manifest points at instead of .agents/workspaces.
+// waveDirsFor returns DefaultWaveDirs plus the configured workspace root, so
+// --workspace creates the directory the manifest points at. Without
+// --workspace the default root lives outside the checkout and is created on
+// first run.
 func waveDirsFor(workspace string) []string {
-	dirs := make([]string, 0, len(DefaultWaveDirs))
-	for _, d := range DefaultWaveDirs {
-		if d == ".agents/workspaces" {
-			d = workspace
-		}
-		dirs = append(dirs, d)
+	dirs := append([]string{}, DefaultWaveDirs...)
+	if workspace != "" {
+		dirs = append(dirs, workspace)
 	}
 	return dirs
 }

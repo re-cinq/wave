@@ -20,7 +20,7 @@ import (
 
 func TestResumeManager_LoadResumeState(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
-	manager := NewResumeManager(executor)
+	manager := newLegacyResumeManager(executor)
 
 	pipeline := &Pipeline{
 		Metadata: PipelineMetadata{Name: "prototype"},
@@ -170,7 +170,7 @@ func TestResumeManager_LoadResumeState(t *testing.T) {
 
 func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
-	manager := NewResumeManager(executor)
+	manager := newLegacyResumeManager(executor)
 
 	pipeline := &Pipeline{
 		Metadata: PipelineMetadata{Name: "gh-refresh"},
@@ -339,7 +339,7 @@ func TestResumeManager_LoadResumeState_HashSuffixedRunDirs(t *testing.T) {
 
 func TestResumeManager_CreateResumeSubpipeline(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
-	manager := NewResumeManager(executor)
+	manager := newLegacyResumeManager(executor)
 
 	pipeline := &Pipeline{
 		Kind: "WavePipeline",
@@ -410,7 +410,7 @@ func TestResumeManager_CreateResumeSubpipeline(t *testing.T) {
 
 func TestCreateResumeSubpipelineStripsPriorDependencies(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
-	manager := NewResumeManager(executor)
+	manager := newLegacyResumeManager(executor)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "issue-research"},
@@ -446,7 +446,7 @@ func TestCreateResumeSubpipelineStripsPriorDependencies(t *testing.T) {
 
 func TestLoadResumeState_WithPriorRunID(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
-	manager := NewResumeManager(executor)
+	manager := newLegacyResumeManager(executor)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "speckit-flow"},
@@ -663,7 +663,7 @@ func TestLoadResumeState_LoadsFailureContext(t *testing.T) {
 	}
 	executor.store = store
 
-	manager := NewResumeManager(executor)
+	manager := newLegacyResumeManager(executor)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "speckit-flow"},
@@ -710,7 +710,7 @@ func TestLoadResumeState_NoFailureContextWithoutStore(t *testing.T) {
 	mockAdapter := adaptertest.NewMockAdapter()
 	executor := NewDefaultPipelineExecutor(mockAdapter)
 	// No store set — executor.store is nil
-	manager := NewResumeManager(executor)
+	manager := newLegacyResumeManager(executor)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "test-pipeline"},
@@ -752,7 +752,7 @@ func TestLoadResumeState_NoFailureContextWhenStepSucceeded(t *testing.T) {
 		},
 	}
 	executor.store = store
-	manager := NewResumeManager(executor)
+	manager := newLegacyResumeManager(executor)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "test-pipeline"},
@@ -800,7 +800,7 @@ func TestResumeFromStepWithForceSkipsValidation(t *testing.T) {
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter)
-	manager := NewResumeManager(executor)
+	manager := newLegacyResumeManager(executor)
 
 	m := &manifest.Manifest{
 		Metadata: manifest.Metadata{Name: "test-project"},
@@ -891,7 +891,7 @@ func TestResumeWithExcludeFilter(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	manager := NewResumeManager(executor)
+	manager := newLegacyResumeManager(executor)
 	_ = manager.ResumeFromStep(ctx, p, m, "test", "step-b", true)
 	// The execution itself may fail (mock adapter etc.) but the filter should
 	// have removed step-c from the execution plan
@@ -921,7 +921,7 @@ func TestExecuteResumedPipeline_ReturnsStepExecutionError(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(mockAdapter,
 		WithEmitter(collector),
 	)
-	manager := NewResumeManager(executor)
+	manager := newLegacyResumeManager(executor)
 
 	m := testutil.CreateTestManifest(tmpDir)
 
@@ -989,7 +989,7 @@ func TestResumeNonPrototypePipeline(t *testing.T) {
 	)
 
 	executor := NewDefaultPipelineExecutor(mockAdapter)
-	manager := NewResumeManager(executor)
+	manager := newLegacyResumeManager(executor)
 
 	m := testutil.CreateTestManifest(tmpDir)
 
@@ -1036,7 +1036,7 @@ func TestResumeNonPrototype_NoRunStateFails(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
-	manager := NewResumeManager(executor)
+	manager := newLegacyResumeManager(executor)
 
 	p := &Pipeline{
 		Metadata: PipelineMetadata{Name: "impl-issue"},
@@ -1047,7 +1047,7 @@ func TestResumeNonPrototype_NoRunStateFails(t *testing.T) {
 		},
 	}
 
-	validator := NewPhaseSkipValidator()
+	validator := newLegacyPhaseSkipValidator()
 
 	// No workspaces exist — should fail validation
 	err := validator.ValidatePhaseSequence(p, "implement")
@@ -1175,7 +1175,7 @@ func TestResumeFromStep_ReusesExecutorRunID(t *testing.T) {
 		WithRunID("preset-run-id"),
 		WithStateStore(store),
 	)
-	manager := NewResumeManager(executor)
+	manager := newLegacyResumeManager(executor)
 
 	m := testutil.CreateTestManifest(tmpDir)
 
@@ -1226,7 +1226,7 @@ func initGitRepo(t *testing.T, dir string) {
 
 func TestResumeFromStep_InjectsForgeVariables(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
-	manager := NewResumeManager(executor)
+	manager := newLegacyResumeManager(executor)
 
 	tempDir := t.TempDir()
 	origDir, _ := os.Getwd()
@@ -1283,7 +1283,7 @@ func TestResumeFromStep_InjectsForgeVariables(t *testing.T) {
 
 func TestResumeFromStep_ReusesWorktree(t *testing.T) {
 	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
-	manager := NewResumeManager(executor)
+	manager := newLegacyResumeManager(executor)
 
 	tempDir := t.TempDir()
 	origDir, _ := os.Getwd()
@@ -1358,7 +1358,7 @@ func TestResumeFromStep_ReusesWorktree(t *testing.T) {
 func TestResumeManager_IntegrationWithStaleDetection(t *testing.T) {
 	// Test integration between resume functionality and stale artifact detection
 	executor := NewDefaultPipelineExecutor(adaptertest.NewMockAdapter())
-	manager := NewResumeManager(executor)
+	manager := newLegacyResumeManager(executor)
 
 	pipeline := &Pipeline{
 		Metadata: PipelineMetadata{Name: "prototype"},

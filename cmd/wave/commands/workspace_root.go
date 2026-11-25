@@ -1,0 +1,104 @@
+package commands
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/recinq/wave/internal/workspace"
+	"gopkg.in/yaml.v3"
+)
+
+// manifestWorkspaceRoot resolves the workspace root for the project whose
+// manifest is at manifestPath: runtime.workspace_root when set, otherwise the
+// per-project default outside the checkout. The manifest is read leniently
+// so housekeeping commands keep working when it is missing or invalid.
+func manifestWorkspaceRoot(manifestPath string) string {
+	if manifestPath == "" {
+		manifestPath = "wave.yaml"
+	}
+	var m struct {
+		Runtime struct {
+			WorkspaceRoot string `yaml:"workspace_root"`
+		} `yaml:"runtime"`
+	}
+	if data, err := os.ReadFile(manifestPath); err == nil {
+		_ = yaml.Unmarshal(data, &m)
+	}
+	return workspace.ResolveRoot(m.Runtime.WorkspaceRoot)
+}
+
+// workspaceRootsToSweep returns the resolved workspace root plus the legacy
+// in-checkout root (.agents/workspaces) when that is a different directory,
+// so cleanup also reaches workspaces created by older Wave versions.
+//
+// When .agents or .agents/workspaces is a symlink the legacy root is not
+// swept at all: its target is not Wave's. If .agents/workspaces itself is
+// the link, link is its path so the caller can remove just the link.
+func workspaceRootsToSweep(manifestPath string) (roots []string, link string) {
+	project := manifestProjectDir(manifestPath)
+	legacy := filepath.Join(project, workspace.LegacyRoot)
+	symlinked := workspace.LegacyRootIsSymlink(project)
+	root := manifestWorkspaceRoot(manifestPath)
+	for _, r := range []string{root, legacy} {
+		if samePath(r, legacy) && symlinked {
+			continue
+		}
+		if len(roots) > 0 && samePath(r, roots[0]) {
+			continue
+		}
+		roots = append(roots, r)
+	}
+	if symlinked {
+		agents, err := os.Lstat(filepath.Join(project, ".agents"))
+		if err == nil && agents.Mode()&os.ModeSymlink == 0 {
+			link = legacy
+		}
+	}
+	return roots, link
+}
+
+// samePath reports whether a and b name the same directory after making
+// both absolute.
+func samePath(a, b string) bool {
+	absA, errA := filepath.Abs(a)
+	absB, errB := filepath.Abs(b)
+	if errA != nil || errB != nil {
+		return a == b
+	}
+	return absA == absB
+}
+
+// manifestProjectDir returns the project directory for manifestPath: the
+// directory holding the manifest.
+func manifestProjectDir(manifestPath string) string {
+	if manifestPath == "" {
+		manifestPath = "wave.yaml"
+	}
+	dir, err := filepath.Abs(filepath.Dir(manifestPath))
+	if err != nil {
+		return "."
+	}
+	return dir
+}
+
+// unsafeRootError is the CLI error for a workspace root that equals or
+// contains the project.
+func unsafeRootError(err error) error {
+	return NewCLIError(CodeSecurityViolation, fmt.Sprintf("refusing to touch workspaces: %s", err),
+		"Point runtime.workspace_root at a dedicated directory outside the project, or remove it to use the default")
+}
+
+// checkRunWorkspaceRoot refuses to run with a runtime.workspace_root that
+// equals or contains the project: run directories are created and removed
+// below it.
+func checkRunWorkspaceRoot(configured, manifestPath string) error {
+	if configured == "" {
+		return nil
+	}
+	if err := workspace.CheckRoot(configured, manifestProjectDir(manifestPath)); err != nil {
+		return NewCLIError(CodeValidationFailed, fmt.Sprintf("refusing to run: runtime.workspace_root: %s", err),
+			"Point runtime.workspace_root at a dedicated directory outside the project, or remove it to use the default")
+	}
+	return nil
+}

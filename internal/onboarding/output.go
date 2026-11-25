@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	wsroot "github.com/recinq/wave/internal/workspace"
 )
 
 // ValidateHint returns the `wave validate` invocation for outputPath,
@@ -25,10 +27,6 @@ func PrintInitSuccess(out io.Writer, outputPath, workspace string, res *Greenfie
 		pipelineNames = append(pipelineNames, strings.TrimSuffix(name, ".yaml"))
 	}
 	sort.Strings(pipelineNames)
-	if workspace == "" {
-		workspace = ".agents/workspaces"
-	}
-	ws := strings.TrimSuffix(workspace, "/") + "/"
 
 	fmt.Fprintf(out, "\n")
 	fmt.Fprintf(out, "  ╦ ╦╔═╗╦  ╦╔═╗\n")
@@ -49,7 +47,9 @@ func PrintInitSuccess(out io.Writer, outputPath, workspace string, res *Greenfie
 	fmt.Fprintf(out, "    %-26s %d pipelines\n", ".agents/pipelines/", len(assets.Pipelines))
 	fmt.Fprintf(out, "    %-26s %d contracts\n", ".agents/contracts/", len(assets.Contracts))
 	fmt.Fprintf(out, "    %-26s %d prompt templates\n", ".agents/prompts/", len(assets.Prompts))
-	fmt.Fprintf(out, "    %-26s Ephemeral workspace root\n", ws)
+	if workspace != "" {
+		fmt.Fprintf(out, "    %-26s Ephemeral workspace root\n", strings.TrimSuffix(workspace, "/")+"/")
+	}
 	fmt.Fprintf(out, "    %-26s Audit log directory\n", ".agents/traces/")
 	for _, f := range res.InstructionFiles {
 		desc := "Project instructions copied into every agent workspace"
@@ -66,6 +66,9 @@ func PrintInitSuccess(out io.Writer, outputPath, workspace string, res *Greenfie
 	}
 	fmt.Fprintf(out, "\n")
 	fmt.Fprintf(out, "  Pipelines: %s\n", strings.Join(pipelineNames, ", "))
+	if workspace == "" {
+		fmt.Fprintf(out, "  Workspaces: %s/ (outside the checkout; set runtime.workspace_root to move them)\n", wsroot.DefaultRoot())
+	}
 	fmt.Fprintf(out, "\n")
 
 	if missing := MissingProjectCommands(res.Project); len(missing) > 0 {

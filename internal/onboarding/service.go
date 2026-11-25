@@ -42,7 +42,8 @@ type StartOptions struct {
 	// Commands supplies or overrides the detected project commands.
 	Commands ProjectCommands
 	// Workspace is the workspace root recorded in the manifest's runtime
-	// section (e.g. ".agents/workspaces").
+	// section. Empty leaves runtime.workspace_root unset (per-project
+	// default outside the checkout).
 	Workspace string
 	// OutputPath is where the wave.yaml manifest will be written.
 	OutputPath string

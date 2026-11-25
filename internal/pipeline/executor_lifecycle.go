@@ -18,6 +18,7 @@ import (
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/scope"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/workspace"
 )
 
 func (e *DefaultPipelineExecutor) validatePipelineAndCreateContext(p *Pipeline, m *manifest.Manifest, input string) (*pipelineSetup, error) {
@@ -370,10 +371,7 @@ func (e *DefaultPipelineExecutor) setupPipelineRun(ctx context.Context, executio
 	})
 
 	// Ensure workspace root exists and is clean for this pipeline run
-	wsRoot := m.Runtime.WorkspaceRoot
-	if wsRoot == "" {
-		wsRoot = ".agents/workspaces"
-	}
+	wsRoot := workspace.ResolveRoot(m.Runtime.WorkspaceRoot)
 	pipelineWsPath := filepath.Join(wsRoot, pipelineID)
 	// Clean previous run artifacts to ensure fresh state (unless --preserve-workspace is set)
 	if e.preserveWorkspace {
@@ -396,6 +394,8 @@ func (e *DefaultPipelineExecutor) setupPipelineRun(ctx context.Context, executio
 	if err := os.MkdirAll(pipelineWsPath, 0755); err != nil {
 		return fmt.Errorf("failed to create workspace: %w", err)
 	}
+	// Mark the run dir so clean/cleanup know Wave created it.
+	_ = workspace.MarkRunDir(pipelineWsPath)
 
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
@@ -849,10 +849,7 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 	}
 
 	// Ensure workspace root exists
-	wsRoot := m.Runtime.WorkspaceRoot
-	if wsRoot == "" {
-		wsRoot = ".agents/workspaces"
-	}
+	wsRoot := workspace.ResolveRoot(m.Runtime.WorkspaceRoot)
 	pipelineWsPath := filepath.Join(wsRoot, pipelineID)
 	if !e.preserveWorkspace {
 		_ = os.RemoveAll(pipelineWsPath)
@@ -860,6 +857,8 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 	if err := os.MkdirAll(pipelineWsPath, 0755); err != nil {
 		return fmt.Errorf("failed to create workspace: %w", err)
 	}
+	// Mark the run dir so clean/cleanup know Wave created it.
+	_ = workspace.MarkRunDir(pipelineWsPath)
 
 	// Create and run graph walker
 	gw := NewGraphWalker(p)

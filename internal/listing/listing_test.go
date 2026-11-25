@@ -264,7 +264,7 @@ personas:
 
 func TestListRuns_NoStateNoWorkspaces(t *testing.T) {
 	chdirToTemp(t)
-	runs, err := ListRuns(RunsOptions{Limit: 10})
+	runs, err := ListRuns(RunsOptions{Limit: 10, WorkspaceRoot: ".agents/workspaces"})
 	require.NoError(t, err)
 	assert.Nil(t, runs)
 }
@@ -273,7 +273,7 @@ func TestListRuns_WorkspaceFallback(t *testing.T) {
 	chdirToTemp(t)
 	writeFile(t, ".agents/workspaces/run-one/marker.txt", "x")
 	writeFile(t, ".agents/workspaces/run-two/marker.txt", "y")
-	runs, err := ListRuns(RunsOptions{Limit: 10})
+	runs, err := ListRuns(RunsOptions{Limit: 10, WorkspaceRoot: ".agents/workspaces"})
 	require.NoError(t, err)
 	assert.Len(t, runs, 2)
 }
@@ -282,7 +282,7 @@ func TestListRuns_WorkspaceFallback_PipelineFilter(t *testing.T) {
 	chdirToTemp(t)
 	writeFile(t, ".agents/workspaces/target/marker.txt", "x")
 	writeFile(t, ".agents/workspaces/other/marker.txt", "y")
-	runs, err := ListRuns(RunsOptions{Limit: 10, Pipeline: "target"})
+	runs, err := ListRuns(RunsOptions{Limit: 10, Pipeline: "target", WorkspaceRoot: ".agents/workspaces"})
 	require.NoError(t, err)
 	require.Len(t, runs, 1)
 	assert.Equal(t, "target", runs[0].RunID)

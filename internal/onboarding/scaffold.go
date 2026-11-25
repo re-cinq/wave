@@ -18,7 +18,6 @@ var DefaultWaveDirs = []string{
 	".agents/contracts",
 	".agents/prompts",
 	".agents/traces",
-	".agents/workspaces",
 }
 
 // EnsureWaveDirs creates the standard .agents directory tree.
