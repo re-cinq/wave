@@ -19,19 +19,7 @@ func TestTimeoutsGetters(t *testing.T) {
 		{"StepDefault", (*Timeouts).GetStepDefault, func(t *Timeouts, v int) { t.StepDefaultMin = v }, timeouts.StepDefault},
 		{"RelayCompaction", (*Timeouts).GetRelayCompaction, func(t *Timeouts, v int) { t.RelayCompactionMin = v }, timeouts.RelayCompaction},
 		{"MetaDefault", (*Timeouts).GetMetaDefault, func(t *Timeouts, v int) { t.MetaDefaultMin = v }, timeouts.MetaDefault},
-		{"SkillInstall", (*Timeouts).GetSkillInstall, func(t *Timeouts, v int) { t.SkillInstallSec = v }, timeouts.SkillInstall},
-		{"SkillCLI", (*Timeouts).GetSkillCLI, func(t *Timeouts, v int) { t.SkillCLISec = v }, timeouts.SkillCLI},
-		{"SkillHTTP", (*Timeouts).GetSkillHTTP, func(t *Timeouts, v int) { t.SkillHTTPSec = v }, timeouts.SkillHTTP},
-		{"SkillHTTPHeader", (*Timeouts).GetSkillHTTPHeader, func(t *Timeouts, v int) { t.SkillHTTPHeaderSec = v }, timeouts.SkillHTTPHeader},
-		{"SkillPublish", (*Timeouts).GetSkillPublish, func(t *Timeouts, v int) { t.SkillPublishSec = v }, timeouts.SkillPublish},
-		{"ProcessGrace", (*Timeouts).GetProcessGrace, func(t *Timeouts, v int) { t.ProcessGraceSec = v }, timeouts.ProcessGrace},
-		{"StdoutDrain", (*Timeouts).GetStdoutDrain, func(t *Timeouts, v int) { t.StdoutDrainSec = v }, timeouts.StdoutDrain},
 		{"GateApproval", (*Timeouts).GetGateApproval, func(t *Timeouts, v int) { t.GateApprovalHours = v }, timeouts.GateApproval},
-		{"GatePollInterval", (*Timeouts).GetGatePollInterval, func(t *Timeouts, v int) { t.GatePollIntervalSec = v }, timeouts.GatePollInterval},
-		{"GatePollTimeout", (*Timeouts).GetGatePollTimeout, func(t *Timeouts, v int) { t.GatePollTimeoutMin = v }, timeouts.GatePollTimeout},
-		{"GitCommand", (*Timeouts).GetGitCommand, func(t *Timeouts, v int) { t.GitCommandSec = v }, timeouts.GitCommand},
-		{"ForgeAPI", (*Timeouts).GetForgeAPI, func(t *Timeouts, v int) { t.ForgeAPISec = v }, timeouts.ForgeAPI},
-		{"RetryMaxDelay", (*Timeouts).GetRetryMaxDelay, func(t *Timeouts, v int) { t.RetryMaxDelaySec = v }, timeouts.RetryMaxDelay},
 	}
 
 	for _, g := range getters {

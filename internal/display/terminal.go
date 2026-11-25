@@ -2,11 +2,8 @@ package display
 
 import (
 	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"sync"
-	"syscall"
 
 	"golang.org/x/term"
 )
@@ -33,11 +30,6 @@ func (ti *TerminalInfo) GetWidth() int {
 	return ti.capabilities.Width
 }
 
-// GetHeight returns the terminal height in rows.
-func (ti *TerminalInfo) GetHeight() int {
-	return ti.capabilities.Height
-}
-
 // SupportsANSI returns true if terminal supports ANSI escape sequences.
 func (ti *TerminalInfo) SupportsANSI() bool {
 	return ti.capabilities.SupportsANSI
@@ -58,24 +50,9 @@ func (ti *TerminalInfo) SupportsUnicode() bool {
 	return ti.capabilities.SupportsUnicode
 }
 
-// SupportsAlternateBuffer returns true if terminal supports alternate screen buffer.
-func (ti *TerminalInfo) SupportsAlternateBuffer() bool {
-	return ti.capabilities.SupportsAlternate
-}
-
 // HasMouseSupport returns true if terminal supports mouse input.
 func (ti *TerminalInfo) HasMouseSupport() bool {
 	return ti.capabilities.HasMouseSupport
-}
-
-// GetColorScheme returns the detected color scheme ("light" or "dark").
-func (ti *TerminalInfo) GetColorScheme() string {
-	return ti.capabilities.ColorScheme
-}
-
-// Capabilities returns the full TerminalCapabilities structure.
-func (ti *TerminalInfo) Capabilities() *TerminalCapabilities {
-	return ti.capabilities
 }
 
 // detectCapabilities detects terminal capabilities by checking environment
@@ -141,12 +118,6 @@ func getTerminalHeight() int {
 // Exported wrapper for use by display-related code in other packages.
 func GetTerminalWidth() int {
 	return getTerminalWidth()
-}
-
-// GetTerminalHeight returns the current terminal height.
-// Exported wrapper for use by display-related code in other packages.
-func GetTerminalHeight() int {
-	return getTerminalHeight()
 }
 
 // checkANSISupport checks if terminal supports ANSI escape sequences.
@@ -334,129 +305,4 @@ func isCI() bool {
 	}
 
 	return false
-}
-
-// ResizeHandler manages terminal window resize events.
-type ResizeHandler struct {
-	mu            sync.RWMutex
-	callbacks     []func(width, height int)
-	stopChan      chan struct{}
-	signalChan    chan os.Signal
-	currentWidth  int
-	currentHeight int
-	running       bool
-}
-
-// NewResizeHandler creates a new resize handler.
-func NewResizeHandler() *ResizeHandler {
-	width, height := getTerminalWidth(), getTerminalHeight()
-	return &ResizeHandler{
-		callbacks:     make([]func(width, height int), 0),
-		stopChan:      make(chan struct{}),
-		signalChan:    make(chan os.Signal, 1),
-		currentWidth:  width,
-		currentHeight: height,
-		running:       false,
-	}
-}
-
-// OnResize registers a callback to be called when terminal is resized.
-func (rh *ResizeHandler) OnResize(callback func(width, height int)) {
-	rh.mu.Lock()
-	defer rh.mu.Unlock()
-	rh.callbacks = append(rh.callbacks, callback)
-}
-
-// Start begins listening for resize events.
-func (rh *ResizeHandler) Start() {
-	rh.mu.Lock()
-	if rh.running {
-		rh.mu.Unlock()
-		return
-	}
-	rh.running = true
-	rh.mu.Unlock()
-
-	// Register for SIGWINCH (window change signal)
-	signal.Notify(rh.signalChan, syscall.SIGWINCH)
-
-	go rh.handleResizeEvents()
-}
-
-// Stop stops listening for resize events.
-func (rh *ResizeHandler) Stop() {
-	rh.mu.Lock()
-	defer rh.mu.Unlock()
-
-	if !rh.running {
-		return
-	}
-
-	rh.running = false
-	signal.Stop(rh.signalChan)
-	close(rh.stopChan)
-}
-
-// GetCurrentSize returns the current terminal size.
-func (rh *ResizeHandler) GetCurrentSize() (width, height int) {
-	rh.mu.RLock()
-	defer rh.mu.RUnlock()
-	return rh.currentWidth, rh.currentHeight
-}
-
-// handleResizeEvents processes resize signals and invokes callbacks.
-func (rh *ResizeHandler) handleResizeEvents() {
-	for {
-		select {
-		case <-rh.signalChan:
-			// Get new terminal size
-			width := getTerminalWidth()
-			height := getTerminalHeight()
-
-			rh.mu.Lock()
-			// Only trigger callbacks if size actually changed
-			if width != rh.currentWidth || height != rh.currentHeight {
-				rh.currentWidth = width
-				rh.currentHeight = height
-
-				// Invoke all callbacks
-				for _, callback := range rh.callbacks {
-					if callback != nil {
-						// Run callback in goroutine to avoid blocking
-						go callback(width, height)
-					}
-				}
-			}
-			rh.mu.Unlock()
-
-		case <-rh.stopChan:
-			return
-		}
-	}
-}
-
-// RefreshSize manually updates the current size without waiting for a signal.
-// Useful for checking size on demand.
-func (rh *ResizeHandler) RefreshSize() (width, height int) {
-	width = getTerminalWidth()
-	height = getTerminalHeight()
-
-	rh.mu.Lock()
-	changed := width != rh.currentWidth || height != rh.currentHeight
-	rh.currentWidth = width
-	rh.currentHeight = height
-	rh.mu.Unlock()
-
-	// If size changed, trigger callbacks
-	if changed {
-		rh.mu.RLock()
-		for _, callback := range rh.callbacks {
-			if callback != nil {
-				go callback(width, height)
-			}
-		}
-		rh.mu.RUnlock()
-	}
-
-	return width, height
 }

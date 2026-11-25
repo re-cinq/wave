@@ -67,49 +67,6 @@ func TestIsOnboarded(t *testing.T) {
 	}
 }
 
-func TestMarkOnboarded(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), ".agents")
-
-	err := MarkOnboarded(dir)
-	require.NoError(t, err)
-
-	// Verify file exists
-	data, err := os.ReadFile(filepath.Join(dir, ".onboarded"))
-	require.NoError(t, err)
-
-	var state State
-	require.NoError(t, json.Unmarshal(data, &state))
-	assert.True(t, state.Completed)
-	assert.Equal(t, 1, state.Version)
-	assert.False(t, state.CompletedAt.IsZero())
-}
-
-func TestMarkOnboardedRoundTrip(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), ".agents")
-
-	// Mark as onboarded
-	require.NoError(t, MarkOnboarded(dir))
-	assert.True(t, IsOnboarded(dir))
-
-	// Read state
-	state, err := ReadState(dir)
-	require.NoError(t, err)
-	require.NotNil(t, state)
-	assert.True(t, state.Completed)
-	assert.Equal(t, 1, state.Version)
-}
-
-func TestClearOnboarding(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), ".agents")
-
-	// Mark then clear
-	require.NoError(t, MarkOnboarded(dir))
-	assert.True(t, IsOnboarded(dir))
-
-	require.NoError(t, ClearOnboarding(dir))
-	assert.False(t, IsOnboarded(dir))
-}
-
 func TestClearOnboardingMissingFile(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), ".agents")
 
@@ -118,51 +75,23 @@ func TestClearOnboardingMissingFile(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestReadState(t *testing.T) {
-	tests := []struct {
-		name      string
-		setup     func(t *testing.T, dir string)
-		expectNil bool
-		expectErr bool
-	}{
-		{
-			name:      "returns nil for missing file",
-			setup:     func(t *testing.T, dir string) {},
-			expectNil: true,
-		},
-		{
-			name: "returns error for corrupt file",
-			setup: func(t *testing.T, dir string) {
-				require.NoError(t, os.MkdirAll(dir, 0755))
-				require.NoError(t, os.WriteFile(filepath.Join(dir, ".onboarded"), []byte("{invalid"), 0644))
-			},
-			expectErr: true,
-		},
-		{
-			name: "returns state for valid file",
-			setup: func(t *testing.T, dir string) {
-				require.NoError(t, MarkOnboarded(dir))
-			},
-		},
-	}
+func TestClearOnboardingRemovesState(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), ".agents")
+	require.NoError(t, os.MkdirAll(dir, 0755))
+	data, err := json.Marshal(State{Completed: true, Version: 1})
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".onboarded"), data, 0644))
+	require.True(t, IsOnboarded(dir))
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			dir := filepath.Join(t.TempDir(), ".agents")
-			tt.setup(t, dir)
+	require.NoError(t, ClearOnboarding(dir))
+	assert.False(t, IsOnboarded(dir))
+	assert.NoFileExists(t, filepath.Join(dir, ".onboarded"))
+}
 
-			state, err := ReadState(dir)
-			if tt.expectErr {
-				assert.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-			if tt.expectNil {
-				assert.Nil(t, state)
-			} else {
-				require.NotNil(t, state)
-				assert.True(t, state.Completed)
-			}
-		})
-	}
+func TestClearOnboardingReportsRemoveFailure(t *testing.T) {
+	// A non-empty directory in place of the state file cannot be removed.
+	dir := filepath.Join(t.TempDir(), ".agents")
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".onboarded", "child"), 0755))
+
+	assert.Error(t, ClearOnboarding(dir))
 }

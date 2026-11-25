@@ -51,14 +51,6 @@ func BenchmarkFormatTokenCount_Large(b *testing.B) {
 	}
 }
 
-func BenchmarkFormatter_ProgressBar(b *testing.B) {
-	f := NewFormatter()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		f.ProgressBar(50, 40)
-	}
-}
-
 func BenchmarkFormatter_Bold(b *testing.B) {
 	f := NewFormatter()
 	text := "sample text"
@@ -78,71 +70,6 @@ func BenchmarkFormatter_Colorize(b *testing.B) {
 	}
 }
 
-func BenchmarkFormatter_Truncate(b *testing.B) {
-	f := NewFormatter()
-	text := "this is a very long piece of text that will be truncated"
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		f.Truncate(text, 20)
-	}
-}
-
-func BenchmarkFormatter_Wrap(b *testing.B) {
-	f := NewFormatter()
-	text := "this is a longer piece of text that needs to be wrapped across multiple lines"
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		f.Wrap(text, 20)
-	}
-}
-
-func BenchmarkFormatter_Box(b *testing.B) {
-	f := NewFormatter()
-	content := "Box content\nWith multiple lines"
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		f.Box(content, "Title", 40)
-	}
-}
-
-func BenchmarkFormatter_TableRow(b *testing.B) {
-	f := NewFormatter()
-	columns := []string{"Column1", "Column2", "Column3"}
-	widths := []int{15, 15, 15}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		f.TableRow(columns, widths)
-	}
-}
-
-func BenchmarkSpinner_Current(b *testing.B) {
-	spinner := NewSpinner(AnimationSpinner)
-	spinner.Start()
-	defer spinner.Stop()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		spinner.Current()
-	}
-}
-
-func BenchmarkProgressBar_Render(b *testing.B) {
-	pb := NewProgressBar(100, 40)
-	pb.SetProgress(50)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		pb.Render()
-	}
-}
-
-func BenchmarkStepStatus_Render(b *testing.B) {
-	ss := NewStepStatus("step-1", "Test Step", "developer")
-	ss.UpdateState(StateRunning)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		ss.Render()
-	}
-}
-
 func BenchmarkANSICodec_Colorize(b *testing.B) {
 	codec := NewANSICodec()
 	text := "sample text"
@@ -156,47 +83,5 @@ func BenchmarkANSICodec_Colorize(b *testing.B) {
 func BenchmarkGetUnicodeCharSet(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		GetUnicodeCharSet()
-	}
-}
-
-func BenchmarkTerminalColorContext_FormatState(b *testing.B) {
-	tcc := NewTerminalColorContext()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		tcc.FormatState(StateRunning)
-	}
-}
-
-func BenchmarkTerminalColorContext_GetStateIcon(b *testing.B) {
-	tcc := NewTerminalColorContext()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		tcc.GetStateIcon(StateCompleted)
-	}
-}
-
-func BenchmarkGetColorSchemeByName(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		GetColorSchemeByName("dark")
-	}
-}
-
-func BenchmarkDisplayConfig_Validate(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		config := DisplayConfig{
-			RefreshRate:      0,
-			ColorMode:        "invalid",
-			ColorTheme:       "unknown",
-			AnimationEnabled: true,
-		}
-		config.Validate()
-	}
-}
-
-func BenchmarkResizeHandler_GetCurrentSize(b *testing.B) {
-	rh := NewResizeHandler()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		rh.GetCurrentSize()
 	}
 }

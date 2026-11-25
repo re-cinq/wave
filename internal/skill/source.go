@@ -5,17 +5,11 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-
-	"github.com/recinq/wave/internal/timeouts"
 )
 
 // Timeout constants — re-exported from manifest.Timeouts for backward compatibility.
 // Configure via runtime.timeouts in wave.yaml.
-var (
-	CLITimeout        = timeouts.SkillCLI
-	HTTPTimeout       = timeouts.SkillHTTP
-	HTTPHeaderTimeout = timeouts.SkillHTTPHeader
-)
+var ()
 
 // SourceAdapter handles installation of skills from a specific source type.
 type SourceAdapter interface {
@@ -29,13 +23,6 @@ type InstallResult struct {
 	Warnings []string
 }
 
-// SourceReference represents a parsed source string.
-type SourceReference struct {
-	Prefix    string
-	Reference string
-	Raw       string
-}
-
 // DependencyError indicates a required CLI tool is not installed.
 type DependencyError struct {
 	Binary       string
@@ -44,12 +31,6 @@ type DependencyError struct {
 
 func (e *DependencyError) Error() string {
 	return fmt.Sprintf("required tool %q not found: install with: %s", e.Binary, e.Instructions)
-}
-
-// CLIDependency describes an external CLI tool required by an adapter.
-type CLIDependency struct {
-	Binary       string
-	Instructions string
 }
 
 // SourceRouter dispatches source strings to the appropriate adapter.

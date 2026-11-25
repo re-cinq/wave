@@ -180,60 +180,6 @@ steps:
 	}
 }
 
-// StepInput wiring resolution at runtime: resolveStepInput should pull the
-// raw JSON from c.tmplCtx.StepOutputs[srcStep] when InputRef.From is set.
-func TestResolveStepInput_FromWiring(t *testing.T) {
-	ctx := NewTemplateContext("parent-input", "/tmp")
-	ctx.SetStepOutput("scope", []byte(`{"child_issues":[{"number":42}]}`))
-	c := &CompositionExecutor{tmplCtx: ctx}
-
-	step := &Step{
-		ID:          "implement",
-		SubPipeline: "impl-issue",
-		InputRef:    &StepInput{From: "scope.child_issues"},
-	}
-	got, err := c.resolveStepInput(step)
-	if err != nil {
-		t.Fatalf("resolveStepInput: %v", err)
-	}
-	want := `{"child_issues":[{"number":42}]}`
-	if got != want {
-		t.Errorf("resolveStepInput from-wiring = %q, want %q", got, want)
-	}
-}
-
-func TestResolveStepInput_LiteralWiring(t *testing.T) {
-	ctx := NewTemplateContext("parent-input", "/tmp")
-	c := &CompositionExecutor{tmplCtx: ctx}
-
-	step := &Step{
-		ID:          "s",
-		SubPipeline: "child",
-		InputRef:    &StepInput{Literal: "re-cinq/wave 99"},
-	}
-	got, err := c.resolveStepInput(step)
-	if err != nil {
-		t.Fatalf("resolveStepInput: %v", err)
-	}
-	if got != "re-cinq/wave 99" {
-		t.Errorf("literal wiring = %q, want %q", got, "re-cinq/wave 99")
-	}
-}
-
-// Legacy string-template fallback still works when InputRef is absent.
-func TestResolveStepInput_LegacyStringFallback(t *testing.T) {
-	ctx := NewTemplateContext("legacy-input", "/tmp")
-	c := &CompositionExecutor{tmplCtx: ctx}
-	step := &Step{ID: "s", SubInput: "{{ input }}"}
-	got, err := c.resolveStepInput(step)
-	if err != nil {
-		t.Fatalf("resolveStepInput: %v", err)
-	}
-	if got != "legacy-input" {
-		t.Errorf("legacy fallback = %q, want %q", got, "legacy-input")
-	}
-}
-
 // --- Wave Lego Protocol (ADR-011) load-time checks ---
 
 func TestCollectWLPLoadErrors_RetryOnContract(t *testing.T) {

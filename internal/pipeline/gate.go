@@ -33,16 +33,6 @@ type GateExecutor struct {
 	handler  GateHandler // interactive handler for approval gates with choices
 }
 
-// NewGateExecutor creates a gate executor.
-func NewGateExecutor(emitter event.EventEmitter, store state.RunStore, timeouts *manifest.Timeouts) *GateExecutor {
-	return &GateExecutor{
-		emitterMixin: emitterMixin{emitter: emitter},
-		store:        store,
-		runner:       defaultCommandRunner,
-		timeouts:     timeouts,
-	}
-}
-
 // NewGateExecutorWithHandler creates a gate executor with an interactive handler.
 func NewGateExecutorWithHandler(emitter event.EventEmitter, store state.RunStore, timeouts *manifest.Timeouts, handler GateHandler) *GateExecutor {
 	return &GateExecutor{
@@ -52,14 +42,6 @@ func NewGateExecutorWithHandler(emitter event.EventEmitter, store state.RunStore
 		timeouts:     timeouts,
 		handler:      handler,
 	}
-}
-
-// Execute blocks until the gate condition is met, times out, or context is cancelled.
-// For approval gates with choices, it returns a *GateDecision; for other gate types
-// it returns nil. The decision is accessible via the second return value.
-func (g *GateExecutor) Execute(ctx context.Context, gate *GateConfig, tmplCtx *TemplateContext) error {
-	_, err := g.ExecuteWithDecision(ctx, gate, tmplCtx)
-	return err
 }
 
 // ExecuteWithDecision is like Execute but also returns the gate decision for approval gates.

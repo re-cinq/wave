@@ -2,7 +2,6 @@ package manifest
 
 import (
 	"fmt"
-	"os"
 
 	"gopkg.in/yaml.v3"
 )
@@ -22,14 +21,4 @@ func LoadPipelineHeader(data []byte) (*PipelineHeader, error) {
 		return nil, fmt.Errorf("parse pipeline header: %w", err)
 	}
 	return &header, nil
-}
-
-// LoadPipelineHeaderFile reads the file at path and parses its metadata
-// header. See LoadPipelineHeader for semantics.
-func LoadPipelineHeaderFile(path string) (*PipelineHeader, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read pipeline file %s: %w", path, err)
-	}
-	return LoadPipelineHeader(data)
 }

@@ -2,9 +2,7 @@ package state
 
 import (
 	"fmt"
-	"path/filepath"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 )
@@ -103,16 +101,6 @@ func (t *OutcomeTracker) AddDeployment(stepID, name, deployURL, description stri
 	t.Add(&OutcomeRecord{Type: OutcomeTypeDeployment, Label: name, Value: deployURL, Description: description, StepID: stepID})
 }
 
-// AddLog records a log file outcome.
-func (t *OutcomeTracker) AddLog(stepID, name, logPath, description string) {
-	t.Add(&OutcomeRecord{Type: OutcomeTypeLog, Label: name, Value: logPath, Description: description, StepID: stepID})
-}
-
-// AddContract records a contract artifact outcome.
-func (t *OutcomeTracker) AddContract(stepID, name, contractPath, description string) {
-	t.Add(&OutcomeRecord{Type: OutcomeTypeContract, Label: name, Value: contractPath, Description: description, StepID: stepID})
-}
-
 // AddArtifact records a generic pipeline-produced artifact.
 func (t *OutcomeTracker) AddArtifact(stepID, name, artifactPath, description string) {
 	t.Add(&OutcomeRecord{Type: OutcomeTypeArtifact, Label: name, Value: artifactPath, Description: description, StepID: stepID})
@@ -183,24 +171,6 @@ func (t *OutcomeTracker) Count() int {
 	return len(t.outcomes)
 }
 
-// FormatSummary returns the human-readable end-of-run summary block.
-func (t *OutcomeTracker) FormatSummary() string {
-	outcomes := t.GetAll()
-	if len(outcomes) == 0 {
-		return ""
-	}
-	prefix := "Artifacts"
-	if hasNerdFont() {
-		prefix = "📦 Artifacts"
-	}
-	lines := make([]string, 0, len(outcomes)+1)
-	lines = append(lines, fmt.Sprintf("%s (%d):", prefix, len(outcomes)))
-	for _, r := range outcomes {
-		lines = append(lines, fmt.Sprintf("   %s", r.String()))
-	}
-	return strings.Join(lines, "\n")
-}
-
 // FormatByStep returns the per-step rendering used by progress displays.
 func (t *OutcomeTracker) FormatByStep() map[string][]string {
 	outcomes := t.GetAll()
@@ -224,41 +194,6 @@ func (t *OutcomeTracker) GetLatestForStep(stepID string) *OutcomeRecord {
 		}
 	}
 	return latest
-}
-
-// AddWorkspaceFiles scans workspacePath for common output patterns and records
-// each match as a file outcome under stepID.
-func (t *OutcomeTracker) AddWorkspaceFiles(stepID, workspacePath string) {
-	added := make(map[string]bool)
-	patterns := []struct {
-		pattern, name, description string
-	}{
-		{"output.*", "Output File", "Generated output file"},
-		{"result.*", "Result File", "Processing result"},
-		{"*.log", "Execution Log", "Step execution log"},
-		{"*.json", "Output Data", "JSON output file"},
-		{"*.yaml", "Configuration", "YAML configuration file"},
-		{"*.yml", "Configuration", "YAML configuration file"},
-		{"*.md", "Documentation", "Markdown documentation"},
-		{"*.txt", "Text Output", "Text output file"},
-	}
-	for _, p := range patterns {
-		matches, err := filepath.Glob(filepath.Join(workspacePath, p.pattern))
-		if err != nil {
-			continue
-		}
-		for _, match := range matches {
-			absPath, err := filepath.Abs(match)
-			if err != nil {
-				absPath = match
-			}
-			if added[absPath] {
-				continue
-			}
-			t.AddFile(stepID, p.name, absPath, p.description)
-			added[absPath] = true
-		}
-	}
 }
 
 // AddOutcomeWarning records a non-fatal extraction warning shown in the summary.

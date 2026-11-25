@@ -3,8 +3,6 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -30,11 +28,6 @@ func NewTemplateContext(input string, workspaceRoot string) *TemplateContext {
 		WorkspaceRoot: workspaceRoot,
 		Env:           make(map[string]string),
 	}
-}
-
-// SetStepOutput records the output artifact content for a completed step.
-func (tc *TemplateContext) SetStepOutput(stepID string, data []byte) {
-	tc.StepOutputs[stepID] = data
 }
 
 // templatePattern matches {{expressions}} in template strings.
@@ -139,22 +132,4 @@ func resolveStepOutput(expr string, ctx *TemplateContext) (string, error) {
 	// {{step_id.output.field.nested}} → extract via JSON path
 	field := parts[2]
 	return ExtractJSONPath(data, "."+field)
-}
-
-// LoadStepArtifact reads a step's output artifact from the workspace filesystem.
-// It looks for the artifact in the step's workspace output directory.
-func LoadStepArtifact(workspaceRoot, pipelineID, stepID, artifactName string) ([]byte, error) {
-	// Try common artifact locations
-	candidates := []string{
-		filepath.Join(workspaceRoot, pipelineID, stepID, ".agents", "output", artifactName),
-		filepath.Join(workspaceRoot, pipelineID, stepID, ".agents", "artifacts", artifactName),
-		filepath.Join(workspaceRoot, pipelineID, stepID, artifactName),
-	}
-	for _, path := range candidates {
-		data, err := os.ReadFile(path)
-		if err == nil {
-			return data, nil
-		}
-	}
-	return nil, fmt.Errorf("artifact %q not found for step %q (checked %d locations)", artifactName, stepID, len(candidates))
 }

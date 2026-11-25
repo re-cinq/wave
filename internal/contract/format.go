@@ -13,14 +13,6 @@ import (
 // Ensures outputs are production-ready and properly formatted
 type FormatValidator struct{}
 
-// FormatValidationConfig defines format validation rules
-type FormatValidationConfig struct {
-	Type           string                 `json:"type" yaml:"type"` // "github_issue", "github_pr", "code", etc.
-	StrictFormat   bool                   `json:"strict_format" yaml:"strict_format"`
-	RequiredFields []string               `json:"required_fields,omitempty" yaml:"required_fields,omitempty"`
-	FormatRules    map[string]interface{} `json:"format_rules,omitempty" yaml:"format_rules,omitempty"`
-}
-
 // Validate performs format validation
 func (v *FormatValidator) Validate(cfg ContractConfig, workspacePath string) error {
 	outputPath := filepath.Join(workspacePath, cfg.Source)

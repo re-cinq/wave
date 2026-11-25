@@ -28,15 +28,6 @@ type PerformanceMetricRecord struct {
 	ErrorMessage       string
 }
 
-// PerformanceQueryOptions specifies filters for performance queries.
-type PerformanceQueryOptions struct {
-	PipelineName string
-	StepID       string
-	Persona      string
-	Since        time.Time
-	Limit        int
-}
-
 // StepPerformanceStats holds aggregated performance statistics for a step.
 type StepPerformanceStats struct {
 	StepID           string

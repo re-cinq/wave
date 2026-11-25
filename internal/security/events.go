@@ -60,15 +60,6 @@ type SchemaValidationResult struct {
 	SanitizationActions []string `json:"sanitization_actions"`
 }
 
-// PersonaReference links pipeline steps to validated personas
-type PersonaReference struct {
-	StepID               string   `json:"step_id"`
-	PersonaName          string   `json:"persona_name"`
-	IsValid              bool     `json:"is_valid"`
-	AvailablePersonas    []string `json:"available_personas"`
-	SuggestedAlternative string   `json:"suggested_alternative,omitempty"`
-}
-
 // InputSanitizationRecord tracks sanitization actions
 type InputSanitizationRecord struct {
 	InputHash         string   `json:"input_hash"`
@@ -87,19 +78,6 @@ func GenerateEventID() string {
 	return fmt.Sprintf("sec-%x", bytes)
 }
 
-// NewSecurityViolationEvent creates a new security violation event
-func NewSecurityViolationEvent(violationType ViolationType, source ViolationSource, details string, severity Severity, blocked bool) *SecurityViolationEvent {
-	return &SecurityViolationEvent{
-		ID:               GenerateEventID(),
-		Timestamp:        time.Now(),
-		Type:             string(violationType),
-		Source:           string(source),
-		SanitizedDetails: details,
-		Severity:         severity,
-		Blocked:          blocked,
-	}
-}
-
 // NewSchemaValidationResult creates a validation result for schema processing
 func NewSchemaValidationResult(schemaPath, validatedPath, content string, isValid bool) *SchemaValidationResult {
 	return &SchemaValidationResult{
@@ -115,52 +93,4 @@ func NewSchemaValidationResult(schemaPath, validatedPath, content string, isVali
 // AddSecurityFlag adds a security concern to the validation result
 func (svr *SchemaValidationResult) AddSecurityFlag(flag string) {
 	svr.SecurityFlags = append(svr.SecurityFlags, flag)
-}
-
-// AddSanitizationAction records a sanitization action performed
-func (svr *SchemaValidationResult) AddSanitizationAction(action string) {
-	svr.SanitizationActions = append(svr.SanitizationActions, action)
-}
-
-// NewPersonaReference creates a persona validation reference
-func NewPersonaReference(stepID, personaName string, availablePersonas []string) *PersonaReference {
-	isValid := false
-	suggestedAlternative := ""
-
-	// Check if persona is in available list
-	for _, available := range availablePersonas {
-		if available == personaName {
-			isValid = true
-			break
-		}
-	}
-
-	// If not valid, suggest closest alternative (simple string similarity)
-	if !isValid && len(availablePersonas) > 0 {
-		suggestedAlternative = findClosestPersona(personaName, availablePersonas)
-	}
-
-	return &PersonaReference{
-		StepID:               stepID,
-		PersonaName:          personaName,
-		IsValid:              isValid,
-		AvailablePersonas:    availablePersonas,
-		SuggestedAlternative: suggestedAlternative,
-	}
-}
-
-// findClosestPersona finds the closest persona name using simple string matching
-func findClosestPersona(target string, available []string) string {
-	if len(available) == 0 {
-		return ""
-	}
-
-	// Simple prefix match — return the first persona whose name starts with
-	// the same prefix as target, falling back to the first available persona.
-	for _, name := range available {
-		if len(target) > 0 && len(name) > 0 && name[0] == target[0] {
-			return name
-		}
-	}
-	return available[0]
 }

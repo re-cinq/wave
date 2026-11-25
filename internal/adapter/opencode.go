@@ -15,10 +15,6 @@ type OpenCodeAdapter struct {
 	opencodePath string
 }
 
-func NewOpenCodeAdapter() *OpenCodeAdapter {
-	return NewOpenCodeAdapterWithBinary("")
-}
-
 // NewOpenCodeAdapterWithBinary constructs an OpenCodeAdapter that invokes the
 // given binary name. An empty name defaults to "opencode". Callers that read
 // the manifest's `binary:` field (e.g. for opencode-patched forks) should pass

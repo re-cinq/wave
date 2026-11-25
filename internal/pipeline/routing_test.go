@@ -387,7 +387,7 @@ func TestResolveModelWithAutoRouting(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			executor := &DefaultPipelineExecutor{modelOverride: tt.override}
-			got := executor.resolveModel(tt.step, tt.persona, tt.routing, tt.personaName, nil)
+			got := executor.resolveModelForAttempt(tt.step, tt.persona, tt.routing, tt.personaName, nil, 1)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -455,39 +455,6 @@ func TestRoutingConfigResolveComplexityModel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.routing.ResolveComplexityModel(tt.tier)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-func TestRoutingConfigEffectiveDefaultTier(t *testing.T) {
-	tests := []struct {
-		name    string
-		routing *manifest.RoutingConfig
-		want    string
-	}{
-		{
-			name:    "nil routing returns balanced",
-			routing: nil,
-			want:    "balanced",
-		},
-		{
-			name:    "empty default tier returns balanced",
-			routing: &manifest.RoutingConfig{},
-			want:    "balanced",
-		},
-		{
-			name: "custom default tier is returned",
-			routing: &manifest.RoutingConfig{
-				DefaultTier: "cheapest",
-			},
-			want: "cheapest",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.routing.EffectiveDefaultTier()
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -653,7 +620,7 @@ func TestResolveModelForAttempt_BackwardCompatible(t *testing.T) {
 	step := &Step{Model: TierCheapest}
 	persona := &manifest.Persona{}
 
-	got1 := executor.resolveModel(step, persona, routing, "any", nil)
+	got1 := executor.resolveModelForAttempt(step, persona, routing, "any", nil, 1)
 	got2 := executor.resolveModelForAttempt(step, persona, routing, "any", nil, 1)
 	assert.Equal(t, got1, got2)
 	assert.Equal(t, "claude-haiku-4-5", got1)

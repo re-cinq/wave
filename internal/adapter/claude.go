@@ -889,13 +889,6 @@ func buildRestrictionSection(cfg AdapterRunConfig) string {
 	return b.String()
 }
 
-// PersonaSpec is a backward-compatible alias for persona.Persona.
-//
-// The agent compiler input type lives in internal/persona so it can be shared
-// by both internal/adapter and internal/manifest without forming an import
-// cycle. New code should reference persona.Persona directly.
-type PersonaSpec = persona.Persona
-
 // PersonaToAgentMarkdown compiles a persona.Persona into a Claude Code agent .md
 // file with YAML frontmatter. The generated file can be passed directly to
 // `claude --agent <path>` to run the persona in agent mode.

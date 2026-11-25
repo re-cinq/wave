@@ -1,7 +1,6 @@
 package onboarding
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -16,39 +15,6 @@ import (
 //
 // Path is relative to the project root: `.agents/.onboarding-done`.
 const SentinelFile = ".agents/.onboarding-done"
-
-// Service is the Domain-layer onboarding contract per ADR-016 D2. The CLI
-// and webui drivers each implement their own UI but consume this single
-// service so the actual onboarding logic — flavour detection, manifest
-// scaffolding, sentinel write — lives in one place.
-//
-// Phase 0 PRE-2 ships the service skeleton + non-interactive baseline.
-// Phase 1 (1.2 / 1.3) wires the per-driver UI implementations and replaces
-// the legacy RunWizard machinery.
-type Service interface {
-	// IsOnboarded reports whether the project at projectDir has the
-	// SentinelFile written. Empty projectDir defaults to the working
-	// directory.
-	IsOnboarded(projectDir string) bool
-
-	// StartSession initialises an onboarding session for projectDir. The
-	// returned Session is the handle the driver pumps via its UI.
-	// Drivers that already produce a manifest non-interactively (e.g.
-	// `wave init --yes`) can call StartSession + Resume + MarkDone in a
-	// single synchronous sequence.
-	StartSession(ctx context.Context, projectDir string, opts StartOptions) (*Session, error)
-
-	// Resume continues an existing session by ID. Used by the webui driver
-	// when an SSE stream reconnects after a page reload.
-	Resume(ctx context.Context, sessionID string) (*Session, error)
-
-	// Status returns a snapshot of session state without mutating it.
-	Status(sessionID string) (*Status, error)
-
-	// MarkDone writes the sentinel file at projectDir/.agents/.onboarding-done.
-	// Idempotent — repeated calls leave the sentinel intact.
-	MarkDone(projectDir string) error
-}
 
 // UI is the per-driver surface the Service uses to ask the operator
 // questions and emit progress events. The CLI implements it via terminal
@@ -172,17 +138,6 @@ func (u NoopUI) Notify(e Event) error {
 	return nil
 }
 
-// IsOnboardedAt reports whether a sentinel file exists at the conventional
-// path under projectDir. Used by the baseline service and standalone by the
-// webui boot path.
-func IsOnboardedAt(projectDir string) bool {
-	if projectDir == "" {
-		projectDir = "."
-	}
-	_, err := os.Stat(filepath.Join(projectDir, SentinelFile))
-	return err == nil
-}
-
 // MarkDoneAt writes the sentinel file. Idempotent. The parent directory
 // is created if missing.
 func MarkDoneAt(projectDir string) error {
@@ -201,17 +156,4 @@ func MarkDoneAt(projectDir string) error {
 		return fmt.Errorf("write sentinel: %w", err)
 	}
 	return f.Close()
-}
-
-// ClearSentinel removes the sentinel file. Used by `wave init --reconfigure`
-// so the next boot routes back to the onboarding flow.
-func ClearSentinel(projectDir string) error {
-	if projectDir == "" {
-		projectDir = "."
-	}
-	err := os.Remove(filepath.Join(projectDir, SentinelFile))
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return nil
 }

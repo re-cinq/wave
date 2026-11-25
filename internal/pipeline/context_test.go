@@ -1046,10 +1046,10 @@ func TestForgeVariables_AllForgeTypes_ConsistentStructure(t *testing.T) {
 		name string
 		info forge.ForgeInfo
 	}{
-		{"GitHub", forge.Detect("https://github.com/owner/repo.git")},
-		{"GitLab", forge.Detect("https://gitlab.com/owner/repo.git")},
-		{"Bitbucket", forge.Detect("https://bitbucket.org/owner/repo.git")},
-		{"Gitea", forge.Detect("https://gitea.example.com/owner/repo.git")},
+		{"GitHub", forge.DetectWithOverride("https://github.com/owner/repo.git", "")},
+		{"GitLab", forge.DetectWithOverride("https://gitlab.com/owner/repo.git", "")},
+		{"Bitbucket", forge.DetectWithOverride("https://bitbucket.org/owner/repo.git", "")},
+		{"Gitea", forge.DetectWithOverride("https://gitea.example.com/owner/repo.git", "")},
 	}
 
 	template := "{{ forge.cli_tool }} {{ forge.pr_command }} create --title 'feat: {{ forge.pr_term }}'"
@@ -1116,10 +1116,10 @@ func TestForgeVariables_ConcurrentAccess(t *testing.T) {
 	}
 
 	forges := []forge.ForgeInfo{
-		forge.Detect("https://github.com/a/b.git"),
-		forge.Detect("https://gitlab.com/c/d.git"),
-		forge.Detect("https://bitbucket.org/e/f.git"),
-		forge.Detect("https://gitea.example.com/g/h.git"),
+		forge.DetectWithOverride("https://github.com/a/b.git", ""),
+		forge.DetectWithOverride("https://gitlab.com/c/d.git", ""),
+		forge.DetectWithOverride("https://bitbucket.org/e/f.git", ""),
+		forge.DetectWithOverride("https://gitea.example.com/g/h.git", ""),
 	}
 
 	// Valid (type, cli_tool) pairs — the final state must be one of these

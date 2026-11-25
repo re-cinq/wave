@@ -17,13 +17,13 @@ func TestRegistryContainsCanonicalTypes(t *testing.T) {
 		"work_item_ref",
 	}
 	for _, name := range expected {
-		data, ok := Lookup(name)
-		if !ok {
-			t.Errorf("Lookup(%q) = !ok, want ok", name)
+		data, err := schemasFS.ReadFile(name + ".json")
+		if err != nil {
+			t.Errorf("embedded schema %q missing: %v", name, err)
 			continue
 		}
 		if len(data) == 0 {
-			t.Errorf("Lookup(%q): empty schema bytes", name)
+			t.Errorf("schema %q: empty bytes", name)
 			continue
 		}
 		var obj map[string]any
@@ -43,22 +43,11 @@ func TestStringSentinel(t *testing.T) {
 	if !Exists("") {
 		t.Error("Exists(\"\") = false, want true (empty treated as string)")
 	}
-	data, ok := Lookup("string")
-	if !ok {
-		t.Error("Lookup(\"string\"): ok = false")
-	}
-	if data != nil {
-		t.Error("Lookup(\"string\"): expected nil bytes for string sentinel")
-	}
 }
 
 func TestUnknownType(t *testing.T) {
 	if Exists("not_a_real_type_xyz") {
 		t.Error("Exists(unknown) = true, want false")
-	}
-	_, ok := Lookup("not_a_real_type_xyz")
-	if ok {
-		t.Error("Lookup(unknown): ok = true, want false")
 	}
 }
 

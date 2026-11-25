@@ -346,13 +346,3 @@ func (pv *PathValidator) containsSymlinks(path string) bool {
 
 	return false
 }
-
-// SanitizePathForDisplay removes sensitive information for display/logging
-func (pv *PathValidator) SanitizePathForDisplay(path string) string {
-	// For security, don't show the actual path content in errors
-	if len(path) > 50 {
-		return fmt.Sprintf("<path:%d chars>", len(path))
-	}
-	// Remove any parent directory references for safety
-	return strings.ReplaceAll(path, "..", "[..]")
-}

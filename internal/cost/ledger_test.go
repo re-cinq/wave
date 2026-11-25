@@ -137,23 +137,6 @@ func TestLedger_BudgetWarning(t *testing.T) {
 	}
 }
 
-func TestLedger_Entries(t *testing.T) {
-	l := NewLedger(0, 0)
-	l.Record("run-1", "step-1", "claude-opus", 1000, 100, 1100)
-	l.Record("run-1", "step-2", "claude-haiku", 500, 50, 550)
-
-	entries := l.Entries()
-	if len(entries) != 2 {
-		t.Fatalf("expected 2 entries, got %d", len(entries))
-	}
-	if entries[0].StepID != "step-1" {
-		t.Errorf("first entry step = %q", entries[0].StepID)
-	}
-	if entries[1].StepID != "step-2" {
-		t.Errorf("second entry step = %q", entries[1].StepID)
-	}
-}
-
 func TestLedger_Summary(t *testing.T) {
 	l := NewLedger(50.0, 0)
 	l.Record("run-1", "step-1", "claude-opus", 100_000, 10_000, 110_000)

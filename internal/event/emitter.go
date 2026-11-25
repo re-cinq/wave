@@ -136,34 +136,10 @@ const (
 	StateCompactionProgress = "compaction_progress" // Context compaction in progress
 	StateStreamActivity     = "stream_activity"     // Real-time tool activity from Claude Code
 
-	// Sequence lifecycle states (pipeline composition)
-	StateSequenceStarted   = "sequence_started"   // Sequence execution begun
-	StateSequenceProgress  = "sequence_progress"  // Individual pipeline within sequence starting
-	StateSequenceCompleted = "sequence_completed" // All pipelines in sequence completed
-	StateSequenceFailed    = "sequence_failed"    // Sequence stopped due to pipeline failure
-
-	// Parallel execution states
-	StateParallelStageStarted   = "parallel_stage_started"   // Parallel stage begun
-	StateParallelStageCompleted = "parallel_stage_completed" // Parallel stage finished
-	StateParallelStageFailed    = "parallel_stage_failed"    // Parallel stage had failures
-
-	// Composition primitive states
-	StateIterationStarted   = "iteration_started"   // Iterate step begun
 	StateIterationProgress  = "iteration_progress"  // Individual item processing
 	StateIterationCompleted = "iteration_completed" // All items processed
-	StateBranchEvaluated    = "branch_evaluated"    // Branch condition resolved
 	StateGateWaiting        = "gate_waiting"        // Gate step blocking
 	StateGateResolved       = "gate_resolved"       // Gate condition met
-	StateLoopIteration      = "loop_iteration"      // Loop iteration started
-	StateLoopCompleted      = "loop_completed"      // Loop terminated
-	StateAggregateCompleted = "aggregate_completed" // Aggregation finished
-
-	// Continuous loop states
-	StateLoopStart             = "loop_start"
-	StateLoopIterationStart    = "loop_iteration_start"
-	StateLoopIterationComplete = "loop_iteration_complete"
-	StateLoopIterationFailed   = "loop_iteration_failed"
-	StateLoopSummary           = "loop_summary"
 
 	// Hook lifecycle states
 	StateHookStarted = "hook_started" // Hook execution begun
@@ -191,13 +167,6 @@ func (e *NDJSONEmitter) SetDebugVerbosity(enabled bool) {
 	e.debugVerbose = enabled
 }
 
-// DebugVerbose returns whether debug verbosity is enabled.
-func (e *NDJSONEmitter) DebugVerbose() bool {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return e.debugVerbose
-}
-
 // ProgressEmitter is an optional interface for enhanced progress visualization.
 // If set, it receives events on stderr while NDJSON continues to stdout.
 type ProgressEmitter interface {
@@ -212,16 +181,6 @@ func NewNDJSONEmitter() *NDJSONEmitter {
 	}
 }
 
-// NewNDJSONEmitterWithProgress creates an emitter with dual-stream support.
-// NDJSON events go to stdout, enhanced progress visualization goes to stderr.
-func NewNDJSONEmitterWithProgress(progressEmitter ProgressEmitter) *NDJSONEmitter {
-	return &NDJSONEmitter{
-		encoder:         json.NewEncoder(os.Stdout),
-		suppressJSON:    false,
-		progressEmitter: progressEmitter,
-	}
-}
-
 // NewProgressOnlyEmitter creates an emitter that only shows progress (no JSON logs).
 // Progress goes to stderr, JSON logs are suppressed entirely.
 func NewProgressOnlyEmitter(progressEmitter ProgressEmitter) *NDJSONEmitter {
@@ -230,13 +189,6 @@ func NewProgressOnlyEmitter(progressEmitter ProgressEmitter) *NDJSONEmitter {
 		suppressJSON:    true,                       // Suppress JSON output to stdout
 		progressEmitter: progressEmitter,
 	}
-}
-
-// SetProgressEmitter sets or updates the progress emitter for enhanced visualization.
-func (e *NDJSONEmitter) SetProgressEmitter(progressEmitter ProgressEmitter) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.progressEmitter = progressEmitter
 }
 
 func (e *NDJSONEmitter) Emit(event Event) {

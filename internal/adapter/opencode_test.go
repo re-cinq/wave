@@ -43,7 +43,7 @@ func TestOpenCodeBuildArgs_ModelPassthrough(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := NewOpenCodeAdapter()
+			a := NewOpenCodeAdapterWithBinary("")
 			cfg := AdapterRunConfig{Model: tt.model}
 			got := a.buildArgs(cfg)
 			if !reflect.DeepEqual(got, tt.want) {
@@ -55,7 +55,7 @@ func TestOpenCodeBuildArgs_ModelPassthrough(t *testing.T) {
 
 func TestOpenCodePrepareWorkspace_NoConfigFile(t *testing.T) {
 	tmpDir := t.TempDir()
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 	cfg := AdapterRunConfig{
 		Model:       "openai/gpt-4o",
 		Temperature: 0.7,
@@ -73,7 +73,7 @@ func TestOpenCodePrepareWorkspace_NoConfigFile(t *testing.T) {
 
 func TestOpenCodePrepareWorkspace_SystemPromptWritesAgentsMd(t *testing.T) {
 	tmpDir := t.TempDir()
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 	cfg := AdapterRunConfig{
 		SystemPrompt: "You are a helpful assistant.",
 	}
@@ -95,7 +95,7 @@ func TestOpenCodePrepareWorkspace_SystemPromptWritesAgentsMd(t *testing.T) {
 
 func TestOpenCodePrepareWorkspace_NoSettingsDir(t *testing.T) {
 	tmpDir := t.TempDir()
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 	cfg := AdapterRunConfig{}
 
 	if err := a.prepareWorkspace(tmpDir, cfg); err != nil {

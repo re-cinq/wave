@@ -348,44 +348,6 @@ func TestResolveComplexityModel(t *testing.T) {
 	}
 }
 
-func TestEffectiveDefaultTier(t *testing.T) {
-	tests := []struct {
-		name    string
-		routing *RoutingConfig
-		want    string
-	}{
-		{
-			name:    "nil receiver returns balanced",
-			routing: nil,
-			want:    "balanced",
-		},
-		{
-			name:    "empty DefaultTier returns balanced",
-			routing: &RoutingConfig{},
-			want:    "balanced",
-		},
-		{
-			name:    "explicit DefaultTier returned as-is",
-			routing: &RoutingConfig{DefaultTier: "cheapest"},
-			want:    "cheapest",
-		},
-		{
-			name:    "non-standard value returned as-is",
-			routing: &RoutingConfig{DefaultTier: "custom-tier"},
-			want:    "custom-tier",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.routing.EffectiveDefaultTier()
-			if got != tt.want {
-				t.Errorf("EffectiveDefaultTier() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestRetrosConfig_IsEnabled(t *testing.T) {
 	boolPtr := func(v bool) *bool { return &v }
 

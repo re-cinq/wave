@@ -2,7 +2,6 @@ package contract
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/recinq/wave/internal/pathfmt"
@@ -265,26 +264,4 @@ func (f *ValidationErrorFormatter) FormatProgressiveValidationWarning(err error,
 	}
 
 	return warnings
-}
-
-// ExtractFieldPath attempts to extract the field path from schema validation errors
-func (f *ValidationErrorFormatter) ExtractFieldPath(errorMsg string) string {
-	// Look for common JSON path patterns in error messages
-	pathRegex := regexp.MustCompile(`at\s+'([^']+)'|path\s+'([^']+)'|field\s+'([^']+)'`)
-	matches := pathRegex.FindStringSubmatch(errorMsg)
-
-	for i := 1; i < len(matches); i++ {
-		if matches[i] != "" {
-			return matches[i]
-		}
-	}
-
-	// Look for property names in quotes
-	propRegex := regexp.MustCompile(`'([^']+)'`)
-	propMatches := propRegex.FindAllStringSubmatch(errorMsg, -1)
-	if len(propMatches) > 0 {
-		return propMatches[0][1]
-	}
-
-	return ""
 }

@@ -176,31 +176,6 @@ func TestStorage_Update(t *testing.T) {
 	}
 }
 
-func TestStorage_Delete(t *testing.T) {
-	tmpDir := t.TempDir()
-	indexer := newMockIndexer()
-	s := NewStorage(tmpDir, indexer)
-
-	retro := &Retrospective{
-		RunID:        "test-run-delete",
-		Pipeline:     "test",
-		Timestamp:    time.Now(),
-		Quantitative: &QuantitativeData{},
-	}
-
-	if err := s.Save(retro); err != nil {
-		t.Fatalf("Save failed: %v", err)
-	}
-
-	if err := s.Delete("test-run-delete"); err != nil {
-		t.Fatalf("Delete failed: %v", err)
-	}
-
-	if _, ok := indexer.records["test-run-delete"]; ok {
-		t.Error("index entry not deleted")
-	}
-}
-
 func TestStorage_LoadNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 	indexer := newMockIndexer()

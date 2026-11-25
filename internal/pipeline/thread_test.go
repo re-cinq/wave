@@ -206,23 +206,6 @@ func TestThreadManager_MultipleEntriesSameThread(t *testing.T) {
 	}
 }
 
-func TestThreadManager_ThreadSize(t *testing.T) {
-	tm := NewThreadManager(nil)
-
-	tm.AppendTranscript("impl", "step-1", "hello") // 5 chars
-	tm.AppendTranscript("impl", "step-2", "world") // 5 chars
-
-	size := tm.ThreadSize("impl")
-	if size != 10 {
-		t.Errorf("expected thread size 10, got %d", size)
-	}
-
-	emptySize := tm.ThreadSize("nonexistent")
-	if emptySize != 0 {
-		t.Errorf("expected size 0 for nonexistent thread, got %d", emptySize)
-	}
-}
-
 func TestThreadManager_CompactShortContent(t *testing.T) {
 	tm := NewThreadManager(nil)
 	ctx := context.Background()

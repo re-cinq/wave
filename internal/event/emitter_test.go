@@ -645,27 +645,6 @@ func TestETAFieldPresence(t *testing.T) {
 // Debug Verbosity Tests
 // =============================================================================
 
-func TestNDJSONEmitter_SetDebugVerbosity(t *testing.T) {
-	emitter := NewNDJSONEmitter()
-
-	// Default should be false.
-	if emitter.DebugVerbose() {
-		t.Error("expected debug verbosity to be false by default")
-	}
-
-	// Enable.
-	emitter.SetDebugVerbosity(true)
-	if !emitter.DebugVerbose() {
-		t.Error("expected debug verbosity to be true after enabling")
-	}
-
-	// Disable.
-	emitter.SetDebugVerbosity(false)
-	if emitter.DebugVerbose() {
-		t.Error("expected debug verbosity to be false after disabling")
-	}
-}
-
 func TestNDJSONEmitter_DebugVerbosity_EmitsEvents(t *testing.T) {
 	var buf bytes.Buffer
 	emitter := &NDJSONEmitter{

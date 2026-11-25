@@ -88,14 +88,6 @@ type ChatContextConfig struct {
 	MaxContextTokens   int      `yaml:"max_context_tokens,omitempty"`  // Token budget for injected content (default 8000)
 }
 
-// EffectiveMaxContextTokens returns the token budget, defaulting to 8000.
-func (c *ChatContextConfig) EffectiveMaxContextTokens() int {
-	if c == nil || c.MaxContextTokens <= 0 {
-		return 8000
-	}
-	return c.MaxContextTokens
-}
-
 // Requires declares pipeline dependencies that must be satisfied before execution.
 type Requires struct {
 	Skills map[string]skill.SkillConfig `yaml:"skills,omitempty"` // Skill configs keyed by name
@@ -481,14 +473,6 @@ func (a *ArtifactDef) IsStdoutArtifact() bool {
 	return a.Source == "stdout"
 }
 
-// GetEffectiveSource returns the effective source, defaulting to "file".
-func (a *ArtifactDef) GetEffectiveSource() string {
-	if a.Source == "" {
-		return "file"
-	}
-	return a.Source
-}
-
 type HandoverConfig struct {
 	Contract     contract.ContractConfig   `yaml:"contract,omitempty"`
 	Contracts    []contract.ContractConfig `yaml:"contracts,omitempty"`
@@ -581,11 +565,6 @@ func (o OutcomeDef) Validate(stepID string, idx int) error {
 		return fmt.Errorf("step %q outcome[%d]: json_path is required for type %q", stepID, idx, o.Type)
 	}
 	return nil
-}
-
-// IsGraphStep returns true if this step has graph-mode routing (edges or conditional type).
-func (s *Step) IsGraphStep() bool {
-	return len(s.Edges) > 0 || s.Type == StepTypeConditional
 }
 
 // EffectiveMaxVisits returns the step's max visit count, defaulting to 10.

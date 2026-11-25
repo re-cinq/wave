@@ -36,28 +36,6 @@ func IsOnboarded(waveDir string) bool {
 	return state.Completed
 }
 
-// MarkOnboarded writes the onboarding state file to waveDir, recording
-// that onboarding has been completed. The parent directory is created
-// if it does not already exist.
-func MarkOnboarded(waveDir string) error {
-	if err := os.MkdirAll(waveDir, 0755); err != nil {
-		return err
-	}
-
-	state := State{
-		Completed:   true,
-		CompletedAt: time.Now(),
-		Version:     1,
-	}
-
-	data, err := json.MarshalIndent(state, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(stateFile(waveDir), data, 0644)
-}
-
 // ClearOnboarding removes the onboarding state file from waveDir.
 // If the file does not exist, nil is returned.
 func ClearOnboarding(waveDir string) error {
@@ -66,23 +44,4 @@ func ClearOnboarding(waveDir string) error {
 		return nil
 	}
 	return err
-}
-
-// ReadState reads and parses the onboarding state file from waveDir.
-// If the file does not exist, it returns (nil, nil).
-func ReadState(waveDir string) (*State, error) {
-	data, err := os.ReadFile(stateFile(waveDir))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	var state State
-	if err := json.Unmarshal(data, &state); err != nil {
-		return nil, err
-	}
-
-	return &state, nil
 }

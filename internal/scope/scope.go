@@ -21,27 +21,11 @@ var validPermissions = map[string]bool{
 	"admin": true,
 }
 
-// permissionLevel maps permission strings to their hierarchy level.
-var permissionLevel = map[string]int{
-	"read":  1,
-	"write": 2,
-	"admin": 3,
-}
-
 // TokenScope represents a parsed scope declaration from a persona's token_scopes field.
 type TokenScope struct {
 	Resource   string // Canonical resource name: issues, pulls, repos, actions, packages
 	Permission string // Permission level: read, write, admin
 	EnvVar     string // Optional token env var override (from @ENV_VAR suffix); empty = use default
-}
-
-// String returns the canonical string representation of the scope.
-func (s TokenScope) String() string {
-	base := s.Resource + ":" + s.Permission
-	if s.EnvVar != "" {
-		return base + "@" + s.EnvVar
-	}
-	return base
 }
 
 // ParseWarning represents a non-fatal issue found during scope parsing.
@@ -108,15 +92,4 @@ func ValidateScopes(scopes []string) []error {
 		}
 	}
 	return errs
-}
-
-// PermissionSatisfies returns true if the "have" permission level satisfies
-// the "need" permission level in the hierarchy: admin ⊇ write ⊇ read.
-func PermissionSatisfies(have, need string) bool {
-	haveLevel, haveOK := permissionLevel[strings.ToLower(have)]
-	needLevel, needOK := permissionLevel[strings.ToLower(need)]
-	if !haveOK || !needOK {
-		return false
-	}
-	return haveLevel >= needLevel
 }

@@ -10,34 +10,6 @@ import (
 	"github.com/recinq/wave/internal/fileutil"
 )
 
-// injectSubPipelineArtifacts copies named artifacts from the parent execution's
-// ArtifactPaths into the child workspace's .agents/artifacts/ directory.
-// Only artifacts listed in cfg.Inject are copied.
-func injectSubPipelineArtifacts(cfg *SubPipelineConfig, parentCtx *PipelineContext, childWorkspaceDir string) error {
-	if cfg == nil || len(cfg.Inject) == 0 || parentCtx == nil {
-		return nil
-	}
-
-	destDir := filepath.Join(childWorkspaceDir, ".agents", "artifacts")
-	if err := os.MkdirAll(destDir, 0755); err != nil {
-		return fmt.Errorf("failed to create child artifacts dir: %w", err)
-	}
-
-	for _, name := range cfg.Inject {
-		srcPath := parentCtx.GetArtifactPath(name)
-		if srcPath == "" {
-			return fmt.Errorf("artifact %q not found in parent context for injection", name)
-		}
-
-		destPath := filepath.Join(destDir, name)
-		if err := fileutil.CopyPath(srcPath, destPath); err != nil {
-			return fmt.Errorf("failed to inject artifact %q: %w", name, err)
-		}
-	}
-
-	return nil
-}
-
 // extractSubPipelineArtifacts copies named artifacts from the child execution's
 // ArtifactPaths back to the parent execution's artifact directory.
 // Extracted artifacts are namespaced by the child pipeline name.

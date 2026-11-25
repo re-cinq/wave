@@ -49,24 +49,6 @@ func TestOutcomeRecordString_FileUsesFileURI(t *testing.T) {
 	assert.True(t, strings.Contains(out, "file://"), "file outcome should render via file:// URI, got %q", out)
 }
 
-func TestOutcomeRecordIsTemporary(t *testing.T) {
-	cases := []struct {
-		name string
-		r    OutcomeRecord
-		want bool
-	}{
-		{"log type", OutcomeRecord{Type: OutcomeTypeLog}, true},
-		{"description contains temporary", OutcomeRecord{Type: OutcomeTypeFile, Description: "TEMPORARY junk"}, true},
-		{"label contains temp", OutcomeRecord{Type: OutcomeTypeFile, Label: "tempfile.txt"}, true},
-		{"plain file", OutcomeRecord{Type: OutcomeTypeFile, Label: "report.md", Description: "report"}, false},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want, tc.r.IsTemporary())
-		})
-	}
-}
-
 func TestHasNerdFont(t *testing.T) {
 	t.Setenv("NERD_FONT", "1")
 	assert.True(t, hasNerdFont())
@@ -82,4 +64,30 @@ func TestHasNerdFont(t *testing.T) {
 
 	t.Setenv("TERMINAL_EMULATOR", "")
 	assert.False(t, hasNerdFont())
+}
+
+func TestOutcomeRecordString_PlainIcons(t *testing.T) {
+	t.Setenv("NERD_FONT", "")
+	t.Setenv("TERM", "dumb")
+	t.Setenv("TERMINAL_EMULATOR", "")
+
+	tests := []struct {
+		typ  OutcomeType
+		want string
+	}{
+		{OutcomeTypeURL, "\u2192 v"},
+		{OutcomeTypePR, "\u2197 v"},
+		{OutcomeTypeDeployment, "\u2191 v"},
+		{OutcomeTypeArtifact, "+ v"},
+		{OutcomeTypeIssue, "! v"},
+	}
+	for _, tt := range tests {
+		t.Run(string(tt.typ), func(t *testing.T) {
+			r := &OutcomeRecord{Type: tt.typ, Value: "v"}
+			assert.Equal(t, tt.want, r.String())
+		})
+	}
+
+	file := &OutcomeRecord{Type: OutcomeTypeFile, Value: "/tmp/out.json"}
+	assert.Equal(t, "\u2022 file:///tmp/out.json", file.String())
 }

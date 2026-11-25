@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"sync"
 )
 
 // Package-level pre-compiled regexes for hot sanitization paths.
@@ -18,11 +17,6 @@ var (
 	reEventHandler  = regexp.MustCompile(`(?i)on\w+\s*=\s*['"][^'"]*['"]`)
 	reJavascriptURL = regexp.MustCompile(`(?i)javascript:\s*[^'"]*`)
 )
-
-// schemaCache is a process-lifetime, read-through cache for schema file
-// content.  Schema files do not change during a pipeline run so we can
-// cache aggressively without a TTL.
-var schemaCache sync.Map // key: string (absolute path) → value: string (content)
 
 // InputSanitizer sanitizes user input for security
 type InputSanitizer struct {
@@ -255,34 +249,4 @@ func (is *InputSanitizer) hashInput(input string) string {
 	hasher := sha256.New()
 	hasher.Write([]byte(input))
 	return fmt.Sprintf("%x", hasher.Sum(nil))
-}
-
-// ValidateInputLength checks if input exceeds length limits
-func (is *InputSanitizer) ValidateInputLength(input string, inputType string) error {
-	if len(input) > is.config.Sanitization.MaxInputLength {
-		return NewInputValidationError(inputType,
-			fmt.Sprintf("exceeds maximum length of %d characters", is.config.Sanitization.MaxInputLength))
-	}
-	return nil
-}
-
-// IsHighRisk returns true if the input is considered high risk
-func (is *InputSanitizer) IsHighRisk(record *InputSanitizationRecord) bool {
-	return record.RiskScore >= 50
-}
-
-// GetCachedSchemaContent retrieves schema file content from the process-lifetime
-// cache, returning ("", false) on a cache miss.
-func GetCachedSchemaContent(absPath string) (string, bool) {
-	v, ok := schemaCache.Load(absPath)
-	if !ok {
-		return "", false
-	}
-	return v.(string), true
-}
-
-// SetCachedSchemaContent stores schema file content in the process-lifetime
-// cache keyed by absolute path.
-func SetCachedSchemaContent(absPath, content string) {
-	schemaCache.Store(absPath, content)
 }

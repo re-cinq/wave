@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/manifest"
 )
 
@@ -177,35 +176,5 @@ func TestResolveStepPermissions(t *testing.T) {
 				t.Errorf("Deny mismatch\n  got:  %v\n  want: %v", got.Deny, tc.wantDeny)
 			}
 		})
-	}
-}
-
-// TestResolveStepPermissions_DenyEnforcedAtCheckTime asserts the documented
-// invariant: even when a step adds Write to a persona that denies Write(*),
-// the adapter.PermissionChecker still blocks the operation. The resolver is
-// not the place where deny-first precedence is enforced — it is the merge
-// site that hands a unified Permissions value to the runtime checker.
-func TestResolveStepPermissions_DenyEnforcedAtCheckTime(t *testing.T) {
-	step := &Step{
-		ID: "scan",
-		Permissions: manifest.Permissions{
-			AllowedTools: []string{"Write"},
-		},
-	}
-	persona := &manifest.Persona{
-		Permissions: manifest.Permissions{
-			AllowedTools: []string{"Read"},
-			Deny:         []string{"Write(*)"},
-		},
-	}
-	resolved := ResolveStepPermissions(step, persona, &manifest.Adapter{})
-
-	checker := adapter.NewPermissionChecker("test", resolved.AllowedTools, resolved.Deny)
-
-	if err := checker.CheckPermission("Read", "src/main.go"); err != nil {
-		t.Errorf("Read should still succeed, got: %v", err)
-	}
-	if err := checker.CheckPermission("Write", "src/main.go"); err == nil {
-		t.Error("Write should be denied because persona's Write(*) deny rule survives the merge")
 	}
 }

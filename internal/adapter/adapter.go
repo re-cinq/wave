@@ -228,19 +228,6 @@ func estimateTokens(text string) int {
 	return len(text) / 4
 }
 
-func InstructionFilename(adapterName string) string {
-	switch strings.ToLower(adapterName) {
-	case "claude":
-		return "CLAUDE.md"
-	case "gemini":
-		return "GEMINI.md"
-	case "opencode", "codex":
-		return "AGENTS.md"
-	default:
-		return "AGENTS.md"
-	}
-}
-
 func parseArtifacts(data []byte, artifacts *[]string) {
 	var parsed map[string]interface{}
 	if err := json.Unmarshal(data, &parsed); err != nil {

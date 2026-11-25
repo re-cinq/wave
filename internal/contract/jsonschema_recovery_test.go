@@ -199,50 +199,6 @@ func TestRecoveryLevel_StrategyCounts(t *testing.T) {
 	}
 }
 
-func TestFormatRecoveryReport(t *testing.T) {
-	tests := []struct {
-		name     string
-		result   RecoveryResult
-		contains []string
-	}{
-		{
-			name: "successful recovery",
-			result: RecoveryResult{
-				OriginalInput: `{"key": "value",}`,
-				RecoveredJSON: `{"key": "value"}`,
-				IsValid:       true,
-				AppliedFixes:  []string{"removed_trailing_commas"},
-				Warnings:      []string{},
-				RecoveryLevel: ConservativeRecovery,
-			},
-			contains: []string{"Successfully recovered", "Fixes Applied", "trailing_commas"},
-		},
-		{
-			name: "failed recovery with warnings",
-			result: RecoveryResult{
-				OriginalInput: "garbage",
-				RecoveredJSON: "garbage",
-				IsValid:       false,
-				AppliedFixes:  []string{},
-				Warnings:      []string{"some_warning"},
-				RecoveryLevel: AggressiveRecovery,
-			},
-			contains: []string{"Failed to recover", "Warnings", "some_warning"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			report := tt.result.FormatRecoveryReport()
-			for _, s := range tt.contains {
-				if !strings.Contains(report, s) {
-					t.Errorf("report should contain %q, got:\n%s", s, report)
-				}
-			}
-		})
-	}
-}
-
 func TestIsStructurallyComplete(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -364,5 +320,25 @@ func TestParseWithRecovery_ValidArray(t *testing.T) {
 	}
 	if !result.IsValid {
 		t.Error("valid array JSON should be marked as valid")
+	}
+}
+
+// Removing the comment leaves "[1, 2, \n]", still invalid; the parser must
+// carry that partial fix forward so the trailing-comma fix can finish it.
+func TestParseWithRecovery_ChainsPartialFixes(t *testing.T) {
+	parser := NewJSONRecoveryParser(ConservativeRecovery)
+
+	result, err := parser.ParseWithRecovery("[1, 2, // last id\n]")
+	if err != nil {
+		t.Fatalf("expected recovery, got error: %v", err)
+	}
+	items, ok := result.ParsedData.([]interface{})
+	if !ok || len(items) != 2 {
+		t.Fatalf("ParsedData = %#v, want a two-element array", result.ParsedData)
+	}
+	for _, fix := range []string{"removed_single_line_comments", "removed_trailing_commas"} {
+		if !strings.Contains(strings.Join(result.AppliedFixes, ","), fix) {
+			t.Errorf("AppliedFixes %v missing %q", result.AppliedFixes, fix)
+		}
 	}
 }

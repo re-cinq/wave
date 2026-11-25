@@ -8,6 +8,7 @@ import (
 
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/persona"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,7 +46,7 @@ func TestBuildAgentListItems_Sorted(t *testing.T) {
 }
 
 func TestPersonaToAgentMarkdown_Basic(t *testing.T) {
-	spec := adapter.PersonaSpec{
+	spec := persona.Persona{
 		Model:        "sonnet",
 		AllowedTools: []string{"Read", "Glob", "Grep"},
 	}
@@ -63,7 +64,7 @@ func TestPersonaToAgentMarkdown_Basic(t *testing.T) {
 }
 
 func TestPersonaToAgentMarkdown_NoDeny(t *testing.T) {
-	spec := adapter.PersonaSpec{Model: "opus"}
+	spec := persona.Persona{Model: "opus"}
 
 	md := adapter.PersonaToAgentMarkdown(spec, "", "System prompt", "", "")
 
@@ -73,7 +74,7 @@ func TestPersonaToAgentMarkdown_NoDeny(t *testing.T) {
 }
 
 func TestPersonaToAgentMarkdown_WithDeny(t *testing.T) {
-	spec := adapter.PersonaSpec{DenyTools: []string{"Bash(rm*)"}}
+	spec := persona.Persona{DenyTools: []string{"Bash(rm*)"}}
 
 	md := adapter.PersonaToAgentMarkdown(spec, "", "", "", "")
 
@@ -82,7 +83,7 @@ func TestPersonaToAgentMarkdown_WithDeny(t *testing.T) {
 }
 
 func TestPersonaToAgentMarkdown_WithRestrictions(t *testing.T) {
-	spec := adapter.PersonaSpec{}
+	spec := persona.Persona{}
 
 	md := adapter.PersonaToAgentMarkdown(spec, "", "", "## Contract\nMust output JSON", "## Restrictions\nNo network")
 

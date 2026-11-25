@@ -15,19 +15,12 @@ func TestConstantsPositive(t *testing.T) {
 		{"StepDefault", StepDefault},
 		{"RelayCompaction", RelayCompaction},
 		{"MetaDefault", MetaDefault},
-		{"SkillInstall", SkillInstall},
-		{"SkillCLI", SkillCLI},
-		{"SkillHTTP", SkillHTTP},
-		{"SkillHTTPHeader", SkillHTTPHeader},
-		{"SkillPublish", SkillPublish},
 		{"ProcessGrace", ProcessGrace},
 		{"StdoutDrain", StdoutDrain},
 		{"GateApproval", GateApproval},
 		{"GatePollInterval", GatePollInterval},
 		{"GatePollTimeout", GatePollTimeout},
-		{"GitCommand", GitCommand},
 		{"ForgeAPI", ForgeAPI},
-		{"ForgeAPIList", ForgeAPIList},
 		{"RetryMaxDelay", RetryMaxDelay},
 	}
 	for _, tt := range tests {
@@ -48,9 +41,6 @@ func TestOrderingInvariants(t *testing.T) {
 	}
 	if GatePollInterval >= GatePollTimeout {
 		t.Errorf("GatePollInterval (%v) must be less than GatePollTimeout (%v)", GatePollInterval, GatePollTimeout)
-	}
-	if SkillHTTPHeader >= SkillHTTP {
-		t.Errorf("SkillHTTPHeader (%v) must be less than SkillHTTP (%v)", SkillHTTPHeader, SkillHTTP)
 	}
 	if GateApproval <= GatePollTimeout {
 		t.Errorf("GateApproval (%v) must exceed GatePollTimeout (%v)", GateApproval, GatePollTimeout)

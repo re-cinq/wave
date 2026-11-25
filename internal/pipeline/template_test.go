@@ -2,8 +2,7 @@ package pipeline
 
 import (
 	"encoding/json"
-	"os"
-	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -30,42 +29,37 @@ func TestResolveTemplate_InputEmbedded(t *testing.T) {
 }
 
 func TestResolveTemplate_StepOutput(t *testing.T) {
-	ctx := NewTemplateContext("", "/tmp")
-	ctx.SetStepOutput("scope", []byte(`{"child_issues": [{"url": "https://github.com/org/repo/issues/1"}]}`))
+	ctx := NewTemplateContext("feature-x", "/tmp")
+	ctx.StepOutputs["scope"] = []byte(`{"count": 5, "meta": {"status": "complete"}}`)
 
-	result, err := ResolveTemplate("{{scope.output}}", ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	tests := []struct {
+		tmpl    string
+		want    string
+		wantErr string
+	}{
+		{"{{scope.output}}", `{"count": 5, "meta": {"status": "complete"}}`, ""},
+		{"{{scope.output.meta.status}}", "complete", ""},
+		{"{{input}} has {{scope.output.count}} items", "feature-x has 5 items", ""},
+		{"{{missing.output}}", "", `no output found for step "missing"`},
+		{"{{scope.result}}", "", "second segment must be 'output'"},
+		{"{{scope}}", "", "expected step_id.output"},
 	}
-	expected := `{"child_issues": [{"url": "https://github.com/org/repo/issues/1"}]}`
-	if result != expected {
-		t.Errorf("expected %q, got %q", expected, result)
-	}
-}
-
-func TestResolveTemplate_StepOutputField(t *testing.T) {
-	ctx := NewTemplateContext("", "/tmp")
-	ctx.SetStepOutput("analyze", []byte(`{"severity": "high", "score": 85}`))
-
-	result, err := ResolveTemplate("{{analyze.output.severity}}", ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result != "high" {
-		t.Errorf("expected %q, got %q", "high", result)
-	}
-}
-
-func TestResolveTemplate_StepOutputNestedField(t *testing.T) {
-	ctx := NewTemplateContext("", "/tmp")
-	ctx.SetStepOutput("research", []byte(`{"meta": {"status": "complete"}}`))
-
-	result, err := ResolveTemplate("{{research.output.meta.status}}", ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result != "complete" {
-		t.Errorf("expected %q, got %q", "complete", result)
+	for _, tt := range tests {
+		t.Run(tt.tmpl, func(t *testing.T) {
+			got, err := ResolveTemplate(tt.tmpl, ctx)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("error = %v, want containing %q", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -134,19 +128,6 @@ func TestResolveTemplate_Iteration(t *testing.T) {
 	}
 	if result != "iteration-3" {
 		t.Errorf("expected %q, got %q", "iteration-3", result)
-	}
-}
-
-func TestResolveTemplate_MultipleExpressions(t *testing.T) {
-	ctx := NewTemplateContext("feature-x", "/tmp")
-	ctx.SetStepOutput("scope", []byte(`{"count": 5}`))
-
-	result, err := ResolveTemplate("{{input}} has {{scope.output.count}} items", ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result != "feature-x has 5 items" {
-		t.Errorf("expected %q, got %q", "feature-x has 5 items", result)
 	}
 }
 
@@ -248,38 +229,5 @@ func TestIsCompositionStep(t *testing.T) {
 				t.Errorf("IsCompositionStep() = %v, want %v", got, tt.expected)
 			}
 		})
-	}
-}
-
-func TestLoadStepArtifact(t *testing.T) {
-	tmpDir := t.TempDir()
-	pipelineID := "test-pipeline"
-	stepID := "scope"
-	artifactName := "result.json"
-
-	// Create artifact in expected location
-	artifactDir := filepath.Join(tmpDir, pipelineID, stepID, ".agents", "output")
-	if err := os.MkdirAll(artifactDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	content := []byte(`{"status": "ok"}`)
-	if err := os.WriteFile(filepath.Join(artifactDir, artifactName), content, 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	data, err := LoadStepArtifact(tmpDir, pipelineID, stepID, artifactName)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if string(data) != string(content) {
-		t.Errorf("expected %q, got %q", string(content), string(data))
-	}
-}
-
-func TestLoadStepArtifact_NotFound(t *testing.T) {
-	tmpDir := t.TempDir()
-	_, err := LoadStepArtifact(tmpDir, "pipeline", "step", "missing.json")
-	if err == nil {
-		t.Fatal("expected error for missing artifact")
 	}
 }

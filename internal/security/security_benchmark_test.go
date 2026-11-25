@@ -1,7 +1,6 @@
 package security
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -171,19 +170,5 @@ func BenchmarkContainsShellMetachars(b *testing.B) {
 		for _, s := range inputs {
 			_ = containsShellMetachars(s)
 		}
-	}
-}
-
-// BenchmarkSchemaCache measures the sync.Map cache hit path for schema
-// content retrieval.
-func BenchmarkSchemaCache(b *testing.B) {
-	key := "/abs/path/to/.agents/contracts/schema.json"
-	content := strings.Repeat(`{"type":"string"}`, 100)
-	SetCachedSchemaContent(key, content)
-
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_, _ = GetCachedSchemaContent(key)
 	}
 }

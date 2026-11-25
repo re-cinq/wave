@@ -27,13 +27,6 @@ type detachFlagSpec struct {
 	emit  func(opts config.RuntimeConfig, args []string) []string
 }
 
-// FlagSpecField returns the RuntimeConfig field name registered with a spec.
-// Exposed so out-of-package tests can introspect the spec list.
-func (s detachFlagSpec) FlagSpecField() string { return s.field }
-
-// FlagSpecFlag returns the CLI flag (without leading dashes) for a spec.
-func (s detachFlagSpec) FlagSpecFlag() string { return s.flag }
-
 // DetachFlagSkippedFields lists RuntimeConfig fields that intentionally do
 // NOT flow through to the detached subprocess. Update this list (with a
 // reason) when adding a new field that should not be mirrored.

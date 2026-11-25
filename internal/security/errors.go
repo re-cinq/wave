@@ -26,11 +26,6 @@ func (sve *SecurityValidationError) Error() string {
 	return strings.Join(parts, " - ")
 }
 
-// IsRetryable returns true if the operation can be retried
-func (sve *SecurityValidationError) IsRetryable() bool {
-	return sve.Retryable
-}
-
 // NewPathTraversalError creates an error for path traversal attempts
 func NewPathTraversalError(path string, approved []string) *SecurityValidationError {
 	return &SecurityValidationError{
@@ -59,31 +54,6 @@ func NewPromptInjectionError(inputType string, detected []string) *SecurityValid
 	}
 }
 
-// NewInvalidPersonaError creates an error for invalid persona references
-func NewInvalidPersonaError(persona string, available []string) *SecurityValidationError {
-	return &SecurityValidationError{
-		Type:    string(ViolationInvalidPersona),
-		Message: fmt.Sprintf("persona '%s' not found in manifest", persona),
-		Details: map[string]interface{}{
-			"requested_persona":  persona,
-			"available_personas": available,
-			"available_count":    len(available),
-		},
-		Retryable:    true,
-		SuggestedFix: fmt.Sprintf("Use one of the available personas: %v", available),
-	}
-}
-
-// NewMalformedJSONError creates an error for malformed JSON content
-func NewMalformedJSONError(issue string) *SecurityValidationError {
-	return &SecurityValidationError{
-		Type:         string(ViolationMalformedJSON),
-		Message:      fmt.Sprintf("malformed JSON detected: %s", issue),
-		Retryable:    true,
-		SuggestedFix: "Ensure JSON output follows valid JSON format without comments",
-	}
-}
-
 // NewInputValidationError creates an error for input validation failures
 func NewInputValidationError(inputType, reason string) *SecurityValidationError {
 	return &SecurityValidationError{
@@ -96,26 +66,4 @@ func NewInputValidationError(inputType, reason string) *SecurityValidationError 
 		Retryable:    true,
 		SuggestedFix: "Ensure input conforms to expected format and size limits",
 	}
-}
-
-// NewConfigurationError creates an error for security configuration issues
-func NewConfigurationError(setting, reason string) *SecurityValidationError {
-	return &SecurityValidationError{
-		Type:         "configuration_error",
-		Message:      fmt.Sprintf("security configuration error in %s: %s", setting, reason),
-		Retryable:    false,
-		SuggestedFix: "Check security configuration in manifest and fix the specified setting",
-	}
-}
-
-// IsSecurityError checks if an error is a security validation error
-func IsSecurityError(err error) bool {
-	_, ok := err.(*SecurityValidationError)
-	return ok
-}
-
-// GetSecurityError extracts a SecurityValidationError from an error
-func GetSecurityError(err error) (*SecurityValidationError, bool) {
-	secErr, ok := err.(*SecurityValidationError)
-	return secErr, ok
 }

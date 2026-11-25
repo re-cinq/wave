@@ -6,13 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/recinq/wave/internal/skill"
 	"gopkg.in/yaml.v3"
 )
-
-type PipelineLoader interface {
-	Load(path string) (*Pipeline, error)
-}
 
 type YAMLPipelineLoader struct{}
 
@@ -40,16 +35,6 @@ func (l *YAMLPipelineLoader) Unmarshal(data []byte) (*Pipeline, error) {
 	// step input_ref) against the shared schema registry. Catches misspelled
 	// type names before any step runs. See docs/adr/010-pipeline-io-protocol.md.
 	if err := ValidatePipelineIOTypes(&pipeline); err != nil {
-		return nil, err
-	}
-
-	// Cross-pipeline typed-wiring check: when a sub-pipeline step consumes a
-	// sibling output via input_ref.from, verify the source's declared output
-	// type matches the child pipeline's declared input type. The loader is
-	// nil here (no recursive child loading at top-level Unmarshal); the check
-	// only enforces shape and intra-pipeline rules. Cross-pipeline typing is
-	// enforced by SequenceExecutor when it actually loads the children.
-	if err := TypedWiringCheck(&pipeline, nil, ""); err != nil {
 		return nil, err
 	}
 
@@ -387,58 +372,6 @@ func (v *DAGValidator) TopologicalSort(p *Pipeline) ([]*Step, error) {
 	}
 
 	return result, nil
-}
-
-// validatePipelineSkills validates skill references declared in the pipeline's Skills field.
-// This is called from the executor when a skill store is available.
-func validatePipelineSkills(p *Pipeline, store skill.Store) []error {
-	if len(p.Skills) == 0 || store == nil {
-		return nil
-	}
-	return skill.ValidateSkillRefs(p.Skills, "pipeline:"+p.Metadata.Name, store)
-}
-
-// detectSubPipelineCycles checks for circular sub-pipeline references across pipelines.
-// It loads referenced sub-pipelines from disk and walks the reference graph.
-// Returns an error if pipeline A references B which transitively references A.
-func detectSubPipelineCycles(p *Pipeline, pipelinesDir string) error {
-	visited := map[string]bool{}
-	recStack := map[string]bool{}
-	loader := &YAMLPipelineLoader{}
-
-	return detectSubPipelineCyclesDFS(p.Metadata.Name, pipelinesDir, loader, visited, recStack)
-}
-
-func detectSubPipelineCyclesDFS(name, pipelinesDir string, loader *YAMLPipelineLoader, visited, recStack map[string]bool) error {
-	if recStack[name] {
-		return fmt.Errorf("circular sub-pipeline reference detected: pipeline %q references itself transitively", name)
-	}
-	if visited[name] {
-		return nil
-	}
-
-	visited[name] = true
-	recStack[name] = true
-
-	// Try to load the pipeline to find its sub-pipeline references
-	path := pipelinesDir + "/" + name + ".yaml"
-	p, err := loader.Load(path)
-	if err != nil {
-		// Pipeline file not found — can't trace further, not an error
-		recStack[name] = false
-		return nil
-	}
-
-	for _, step := range p.Steps {
-		if step.SubPipeline != "" {
-			if err := detectSubPipelineCyclesDFS(step.SubPipeline, pipelinesDir, loader, visited, recStack); err != nil {
-				return err
-			}
-		}
-	}
-
-	recStack[name] = false
-	return nil
 }
 
 // isGraphPipeline returns true if any step defines edges or uses a conditional type,

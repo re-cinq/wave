@@ -7,12 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/recinq/wave/internal/hooks"
 	"github.com/recinq/wave/internal/scope"
-	"github.com/recinq/wave/internal/skill"
 	"gopkg.in/yaml.v3"
 )
 
@@ -56,29 +54,6 @@ func (e *ValidationError) Error() string {
 	}
 
 	return sb.String()
-}
-
-// NewValidationError creates a ValidationError with the given field and reason.
-func NewValidationError(field, reason string) *ValidationError {
-	return &ValidationError{Field: field, Reason: reason}
-}
-
-// WithFile sets the file path on the error.
-func (e *ValidationError) WithFile(file string) *ValidationError {
-	e.File = file
-	return e
-}
-
-// WithLine sets the line number on the error.
-func (e *ValidationError) WithLine(line int) *ValidationError {
-	e.Line = line
-	return e
-}
-
-// WithSuggestion adds a helpful suggestion to the error message.
-func (e *ValidationError) WithSuggestion(suggestion string) *ValidationError {
-	e.Suggestion = suggestion
-	return e
 }
 
 type ManifestLoader interface {
@@ -146,11 +121,6 @@ func parseYAMLError(file string, err error) error {
 		Reason:     fmt.Sprintf("failed to parse YAML: %s", errMsg),
 		Suggestion: "Ensure the file is valid YAML with correct indentation",
 	}
-}
-
-// Validate validates a manifest without file context.
-func Validate(m *Manifest, basePath string) []error {
-	return ValidateWithFile(m, basePath, "")
 }
 
 // ValidateWithFile validates a manifest and includes file context in errors.
@@ -424,51 +394,6 @@ type SkillStore interface {
 	Read(name string) (interface{}, error)
 }
 
-// LoadWithSkillStore loads a manifest and additionally validates all skill references
-// (global and persona scopes) against the provided skill store.
-func LoadWithSkillStore(path string, store SkillStore) (*Manifest, error) {
-	m, err := Load(path)
-	if err != nil {
-		return nil, err
-	}
-	if store == nil {
-		return m, nil
-	}
-	// Validate skill name format and existence against the store
-	var validationErrs []string
-	for _, name := range m.Skills {
-		if err := skill.ValidateName(name); err != nil {
-			validationErrs = append(validationErrs, fmt.Sprintf("global: invalid skill name %q: %v", name, err))
-			continue
-		}
-		if _, readErr := store.Read(name); readErr != nil {
-			validationErrs = append(validationErrs, fmt.Sprintf("global: skill %q not found in store", name))
-		}
-	}
-	// Sort persona names for deterministic error ordering
-	personaNames := make([]string, 0, len(m.Personas))
-	for pName := range m.Personas {
-		personaNames = append(personaNames, pName)
-	}
-	sort.Strings(personaNames)
-	for _, pName := range personaNames {
-		persona := m.Personas[pName]
-		for _, name := range persona.Skills {
-			if err := skill.ValidateName(name); err != nil {
-				validationErrs = append(validationErrs, fmt.Sprintf("persona:%s: invalid skill name %q: %v", pName, name, err))
-				continue
-			}
-			if _, readErr := store.Read(name); readErr != nil {
-				validationErrs = append(validationErrs, fmt.Sprintf("persona:%s: skill %q not found in store", pName, name))
-			}
-		}
-	}
-	if len(validationErrs) > 0 {
-		return nil, fmt.Errorf("skill validation failed: %s", strings.Join(validationErrs, "; "))
-	}
-	return m, nil
-}
-
 func validateHooks(hks []hooks.LifecycleHookDef, filePath string) []error {
 	var errs []error
 	seenNames := make(map[string]int, len(hks))
@@ -556,49 +481,6 @@ func validateHooks(hks []hooks.LifecycleHookDef, filePath string) []error {
 					Suggestion: "Use valid regex syntax (e.g., 'implement|fix', '.*')",
 				})
 			}
-		}
-	}
-	return errs
-}
-
-// validateFallbacks checks runtime.fallbacks configuration for consistency.
-func validateFallbacks(m *Manifest) []error {
-	if len(m.Runtime.Fallbacks) == 0 {
-		return nil
-	}
-	var errs []error
-	for adapterName, fallbacks := range m.Runtime.Fallbacks {
-		// Key must reference a known adapter
-		if _, ok := m.Adapters[adapterName]; !ok {
-			errs = append(errs, &ValidationError{
-				Field:  "runtime.fallbacks." + adapterName,
-				Reason: fmt.Sprintf("adapter %q is not defined in manifest adapters", adapterName),
-			})
-		}
-		seen := make(map[string]bool)
-		for _, fb := range fallbacks {
-			// No self-reference
-			if fb == adapterName {
-				errs = append(errs, &ValidationError{
-					Field:  "runtime.fallbacks." + adapterName,
-					Reason: fmt.Sprintf("adapter %q cannot fall back to itself", adapterName),
-				})
-			}
-			// Must reference known adapter
-			if _, ok := m.Adapters[fb]; !ok {
-				errs = append(errs, &ValidationError{
-					Field:  "runtime.fallbacks." + adapterName,
-					Reason: fmt.Sprintf("fallback adapter %q is not defined in manifest adapters", fb),
-				})
-			}
-			// No duplicates
-			if seen[fb] {
-				errs = append(errs, &ValidationError{
-					Field:  "runtime.fallbacks." + adapterName,
-					Reason: fmt.Sprintf("duplicate fallback adapter %q", fb),
-				})
-			}
-			seen[fb] = true
 		}
 	}
 	return errs

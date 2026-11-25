@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -27,26 +26,8 @@ type InputArtifactConfig struct {
 	Path          string // Path to the artifact file
 }
 
-// ValidateInputArtifacts validates all input artifacts against their schemas.
-// Returns a list of validation results and an error if any required validations failed.
-func ValidateInputArtifacts(configs []InputArtifactConfig, workspacePath string) ([]InputValidationResult, error) {
-	results := make([]InputValidationResult, 0, len(configs))
-
-	for _, cfg := range configs {
-		result := validateSingleInputArtifact(cfg, workspacePath)
-		results = append(results, result)
-
-		// Fail fast on validation errors
-		if !result.Passed && result.Error != nil {
-			return results, result.Error
-		}
-	}
-
-	return results, nil
-}
-
 // validateSingleInputArtifact validates a single input artifact.
-func validateSingleInputArtifact(cfg InputArtifactConfig, workspacePath string) InputValidationResult {
+func validateSingleInputArtifact(cfg InputArtifactConfig) InputValidationResult {
 	result := InputValidationResult{
 		ArtifactRef: cfg.Name,
 		ArtifactAs:  cfg.Name,
@@ -60,14 +41,8 @@ func validateSingleInputArtifact(cfg InputArtifactConfig, workspacePath string) 
 		return result
 	}
 
-	// Resolve artifact path
-	artifactPath := cfg.Path
-	if artifactPath == "" {
-		artifactPath = filepath.Join(workspacePath, ".agents", "artifacts", cfg.Name)
-	}
-
 	// Read artifact content
-	artifactData, err := os.ReadFile(artifactPath)
+	artifactData, err := os.ReadFile(cfg.Path)
 	if err != nil {
 		result.Passed = false
 		result.Error = fmt.Errorf("failed to read input artifact '%s': %w", cfg.Name, err)
@@ -138,7 +113,7 @@ func ValidateInputArtifactContent(name string, schemaContent string, artifactPat
 		Path:          artifactPath,
 	}
 
-	result := validateSingleInputArtifact(cfg, filepath.Dir(artifactPath))
+	result := validateSingleInputArtifact(cfg)
 	if !result.Passed {
 		return result.Error
 	}

@@ -3,14 +3,11 @@ package relay
 import (
 	"context"
 	"errors"
-	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/recinq/wave/internal/adapter"
 	"time"
 )
 
@@ -58,37 +55,6 @@ func TestRelayMonitor_ShouldCompact(t *testing.T) {
 	}
 }
 
-func TestRelayMonitor_ShouldCompactWithWindow(t *testing.T) {
-	adapter := &mockCompactionAdapter{}
-	m := NewRelayMonitor(RelayMonitorConfig{
-		DefaultThreshold:   80,
-		MinTokensToCompact: 1000,
-		ContextWindow:      200000,
-	}, adapter)
-
-	tests := []struct {
-		name          string
-		tokensUsed    int
-		contextWindow int
-		threshold     int
-		expected      bool
-	}{
-		{"below threshold with custom window", 500, 4000, 80, false},
-		{"at threshold with custom window", 3200, 4000, 80, true},
-		{"above threshold with custom window", 3500, 4000, 80, true},
-		{"zero window uses default", 180000, 0, 80, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := m.ShouldCompactWithWindow(tt.tokensUsed, tt.contextWindow, tt.threshold)
-			if result != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result)
-			}
-		})
-	}
-}
-
 func TestRelayMonitor_Compact(t *testing.T) {
 	adapter := &mockCompactionAdapter{
 		runFunc: func(ctx context.Context, cfg CompactionConfig) (string, error) {
@@ -123,162 +89,6 @@ func TestRelayMonitor_CompactNoAdapter(t *testing.T) {
 	if err == nil {
 		t.Error("expected error when no adapter provided")
 	}
-}
-
-func TestRelayMonitor_getContextWindow(t *testing.T) {
-	adapter := &mockCompactionAdapter{}
-	m := NewRelayMonitor(RelayMonitorConfig{ContextWindow: 100000}, adapter)
-
-	if m.getContextWindow() != 100000 {
-		t.Errorf("expected 100000, got %d", m.getContextWindow())
-	}
-}
-
-func TestRelayMonitor_getContextWindowDefault(t *testing.T) {
-	adapter := &mockCompactionAdapter{}
-	m := NewRelayMonitor(RelayMonitorConfig{}, adapter)
-
-	// Should default to 200000
-	if m.getContextWindow() != 200000 {
-		t.Errorf("expected 200000, got %d", m.getContextWindow())
-	}
-}
-
-func TestParseCheckpoint(t *testing.T) {
-	workspacePath := t.TempDir()
-	checkpointContent := `# Checkpoint
-
-## Summary
-Test summary
-line 2
-
-## Decisions
-Decision 2
-
----
-*Generated at test 1
-Decision*
-`
-	_ = writeTestCheckpoint(filepath.Join(workspacePath, CheckpointFilename), []byte(checkpointContent))
-
-	checkpoint, err := ParseCheckpoint(workspacePath)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if checkpoint.Summary != "Test summary\nline 2" {
-		t.Errorf("unexpected summary: %s", checkpoint.Summary)
-	}
-
-	if len(checkpoint.Decisions) != 2 {
-		t.Errorf("expected 2 decisions, got %d", len(checkpoint.Decisions))
-	}
-}
-
-func TestInjectCheckpointPrompt(t *testing.T) {
-	workspacePath := t.TempDir()
-	checkpointContent := `# Checkpoint
-
-## Summary
-Test summary
-
-## Decisions
-Decision 1
-
----
-*Generated at test*
-`
-	_ = writeTestCheckpoint(filepath.Join(workspacePath, CheckpointFilename), []byte(checkpointContent))
-
-	prompt, err := InjectCheckpointPrompt(workspacePath)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if !strings.Contains(prompt, "Test summary") {
-		t.Error("prompt should contain summary")
-	}
-	if !strings.Contains(prompt, "Decision 1") {
-		t.Error("prompt should contain decisions")
-	}
-	if !strings.Contains(prompt, "READ CHECKPOINT.MD FIRST") {
-		t.Error("prompt should contain header")
-	}
-}
-
-func TestAdapterRunnerWrapper_RunCompaction(t *testing.T) {
-	// Create a mock adapter runner
-	mockRunner := &mockAdapterRunner{
-		runFunc: func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
-			// Verify the config was set correctly
-			if cfg.Temperature != 0.3 {
-				t.Errorf("expected temperature 0.3, got %f", cfg.Temperature)
-			}
-			if len(cfg.AllowedTools) != 3 {
-				t.Errorf("expected 3 allowed tools, got %d", len(cfg.AllowedTools))
-			}
-			return &adapter.AdapterResult{
-				ExitCode:   0,
-				Stdout:     &mockReader{data: []byte("summarized content")},
-				TokensUsed: 100,
-			}, nil
-		},
-	}
-
-	wrapper := &AdapterRunnerWrapper{
-		Runner:      mockRunner,
-		AdapterName: "claude",
-		PersonaName: "summarizer",
-	}
-
-	result, err := wrapper.RunCompaction(context.Background(), CompactionConfig{
-		WorkspacePath: t.TempDir(),
-		ChatHistory:   "test chat history",
-		SystemPrompt:  "system prompt",
-		CompactPrompt: "summarize this",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if result != "summarized content" {
-		t.Errorf("expected 'summarized content', got '%s'", result)
-	}
-}
-
-// mockAdapterRunner implements AdapterRunner for testing.
-type mockAdapterRunner struct {
-	runFunc func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error)
-}
-
-func (m *mockAdapterRunner) Run(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
-	if m.runFunc != nil {
-		return m.runFunc(ctx, cfg)
-	}
-	return &adapter.AdapterResult{
-		ExitCode:   0,
-		Stdout:     &mockReader{data: []byte("default output")},
-		TokensUsed: 100,
-	}, nil
-}
-
-// mockReader implements StringReader for testing.
-type mockReader struct {
-	data []byte
-	pos  int
-}
-
-func (m *mockReader) Read(p []byte) (n int, err error) {
-	if m.pos >= len(m.data) {
-		return 0, io.EOF
-	}
-	n = copy(p, m.data[m.pos:])
-	m.pos += n
-	if m.pos >= len(m.data) {
-		return n, io.EOF
-	}
-	return n, nil
 }
 
 // =============================================================================
@@ -403,61 +213,6 @@ func TestRelayMonitor_ThresholdDetection_EdgeCases(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestRelayMonitor_ThresholdDetection_DefaultValues(t *testing.T) {
-	adapter := &mockCompactionAdapter{}
-
-	t.Run("uses default threshold when zero provided", func(t *testing.T) {
-		m := NewRelayMonitor(RelayMonitorConfig{
-			DefaultThreshold:   75,
-			MinTokensToCompact: 1000,
-			ContextWindow:      10000,
-		}, adapter)
-
-		// 75% of 10000 = 7500
-		result := m.ShouldCompact(7500, 0) // 0 means use default
-		if !result {
-			t.Error("should use default threshold of 75% when 0 is provided")
-		}
-
-		result = m.ShouldCompact(7000, 0)
-		if result {
-			t.Error("should not trigger below default threshold")
-		}
-	})
-
-	t.Run("uses default context window when zero in config", func(t *testing.T) {
-		m := NewRelayMonitor(RelayMonitorConfig{
-			DefaultThreshold:   80,
-			MinTokensToCompact: 1000,
-			// ContextWindow not set - should default to 200000
-		}, adapter)
-
-		// 80% of 200000 = 160000
-		result := m.ShouldCompact(160000, 80)
-		if !result {
-			t.Error("should use default context window of 200000")
-		}
-
-		if m.getContextWindow() != 200000 {
-			t.Errorf("expected default context window 200000, got %d", m.getContextWindow())
-		}
-	})
-
-	t.Run("uses default min tokens when zero in config", func(t *testing.T) {
-		m := NewRelayMonitor(RelayMonitorConfig{
-			DefaultThreshold: 80,
-			ContextWindow:    10000,
-			// MinTokensToCompact not set - should default to 1000
-		}, adapter)
-
-		// 80% of 10000 = 8000, but need at least 1000 min tokens
-		result := m.ShouldCompact(800, 10) // 10% of 10000 = 1000, but only 800 tokens
-		if result {
-			t.Error("should not trigger when below default min tokens of 1000")
-		}
-	})
 }
 
 // =============================================================================
@@ -628,360 +383,9 @@ func TestRelayMonitor_Compact_EmptyCompactionResult(t *testing.T) {
 // Additional Relay Monitor Tests
 // =============================================================================
 
-func TestRelayMonitor_getTokenCount(t *testing.T) {
-	adapter := &mockCompactionAdapter{}
-	m := NewRelayMonitor(RelayMonitorConfig{}, adapter)
-
-	testCases := []struct {
-		name     string
-		input    string
-		expected int
-	}{
-		{
-			name:     "empty string",
-			input:    "",
-			expected: 1, // strings.Split returns [""] for empty string
-		},
-		{
-			name:     "single word",
-			input:    "hello",
-			expected: 1,
-		},
-		{
-			name:     "multiple words",
-			input:    "hello world how are you",
-			expected: 5,
-		},
-		{
-			name:     "words with punctuation",
-			input:    "hello, world! how are you?",
-			expected: 5,
-		},
-		{
-			name:     "multiple spaces",
-			input:    "hello  world",
-			expected: 3, // Split on single space creates empty element
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := m.getTokenCount(tc.input)
-			if result != tc.expected {
-				t.Errorf("expected %d, got %d for input: %q", tc.expected, result, tc.input)
-			}
-		})
-	}
-}
-
-func TestAdapterRunnerWrapper_RunCompaction_ErrorHandling(t *testing.T) {
-	t.Run("returns error from adapter", func(t *testing.T) {
-		expectedErr := errors.New("adapter failed")
-		mockRunner := &mockAdapterRunner{
-			runFunc: func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
-				return nil, expectedErr
-			},
-		}
-
-		wrapper := &AdapterRunnerWrapper{
-			Runner:      mockRunner,
-			AdapterName: "claude",
-			PersonaName: "summarizer",
-		}
-
-		_, err := wrapper.RunCompaction(context.Background(), CompactionConfig{
-			WorkspacePath: t.TempDir(),
-			ChatHistory:   "test",
-		})
-
-		if err == nil {
-			t.Fatal("expected error, got nil")
-		}
-
-		if !strings.Contains(err.Error(), "adapter run failed") {
-			t.Errorf("expected 'adapter run failed' in error, got: %v", err)
-		}
-	})
-
-	t.Run("handles empty stdout", func(t *testing.T) {
-		mockRunner := &mockAdapterRunner{
-			runFunc: func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
-				return &adapter.AdapterResult{
-					ExitCode: 0,
-					Stdout:   &mockReader{data: []byte{}},
-				}, nil
-			},
-		}
-
-		wrapper := &AdapterRunnerWrapper{
-			Runner:      mockRunner,
-			AdapterName: "claude",
-			PersonaName: "summarizer",
-		}
-
-		result, err := wrapper.RunCompaction(context.Background(), CompactionConfig{
-			WorkspacePath: t.TempDir(),
-		})
-
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if result != "" {
-			t.Errorf("expected empty result, got: %s", result)
-		}
-	})
-
-	t.Run("handles nil stdout", func(t *testing.T) {
-		mockRunner := &mockAdapterRunner{
-			runFunc: func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
-				return &adapter.AdapterResult{
-					ExitCode: 0,
-					Stdout:   nil,
-				}, nil
-			},
-		}
-
-		wrapper := &AdapterRunnerWrapper{
-			Runner:      mockRunner,
-			AdapterName: "claude",
-			PersonaName: "summarizer",
-		}
-
-		result, err := wrapper.RunCompaction(context.Background(), CompactionConfig{
-			WorkspacePath: t.TempDir(),
-		})
-
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if result != "" {
-			t.Errorf("expected empty result for nil stdout, got: %s", result)
-		}
-	})
-
-	t.Run("handles nil result", func(t *testing.T) {
-		mockRunner := &mockAdapterRunner{
-			runFunc: func(ctx context.Context, cfg adapter.AdapterRunConfig) (*adapter.AdapterResult, error) {
-				return nil, nil
-			},
-		}
-
-		wrapper := &AdapterRunnerWrapper{
-			Runner:      mockRunner,
-			AdapterName: "claude",
-			PersonaName: "summarizer",
-		}
-
-		_, err := wrapper.RunCompaction(context.Background(), CompactionConfig{
-			WorkspacePath: t.TempDir(),
-		})
-
-		if err == nil {
-			t.Fatal("expected error for nil result, got nil")
-		}
-
-		if !errors.Is(err, ErrAdapterRunFailed) {
-			t.Errorf("expected ErrAdapterRunFailed, got: %v", err)
-		}
-	})
-}
-
 // =============================================================================
 // T071: Improved Error Handling Tests
 // =============================================================================
-
-func Test_validateConfig(t *testing.T) {
-	testCases := []struct {
-		name        string
-		config      RelayMonitorConfig
-		expectError bool
-		errorType   error
-	}{
-		{
-			name: "valid config",
-			config: RelayMonitorConfig{
-				DefaultThreshold:   80,
-				MinTokensToCompact: 1000,
-				ContextWindow:      200000,
-			},
-			expectError: false,
-		},
-		{
-			name: "valid config with zero values (uses defaults)",
-			config: RelayMonitorConfig{
-				DefaultThreshold:   0,
-				MinTokensToCompact: 0,
-				ContextWindow:      0,
-			},
-			expectError: false,
-		},
-		{
-			name: "invalid threshold - too high",
-			config: RelayMonitorConfig{
-				DefaultThreshold: 101,
-			},
-			expectError: true,
-			errorType:   ErrInvalidThreshold,
-		},
-		{
-			name: "invalid threshold - negative",
-			config: RelayMonitorConfig{
-				DefaultThreshold: -1,
-			},
-			expectError: true,
-			errorType:   ErrInvalidThreshold,
-		},
-		{
-			name: "invalid context window - negative",
-			config: RelayMonitorConfig{
-				ContextWindow: -1000,
-			},
-			expectError: true,
-			errorType:   ErrInvalidContextWindow,
-		},
-		{
-			name: "invalid min tokens - negative",
-			config: RelayMonitorConfig{
-				MinTokensToCompact: -100,
-			},
-			expectError: true,
-		},
-		{
-			name: "boundary: threshold at 100",
-			config: RelayMonitorConfig{
-				DefaultThreshold: 100,
-			},
-			expectError: false,
-		},
-		{
-			name: "boundary: threshold at 0",
-			config: RelayMonitorConfig{
-				DefaultThreshold: 0,
-			},
-			expectError: false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			err := validateConfig(tc.config)
-
-			if tc.expectError {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				if tc.errorType != nil && !errors.Is(err, tc.errorType) {
-					t.Errorf("expected error type %v, got: %v", tc.errorType, err)
-				}
-			} else if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-		})
-	}
-}
-
-func Test_isCompactionError(t *testing.T) {
-	testCases := []struct {
-		name     string
-		err      error
-		expected bool
-	}{
-		{
-			name:     "ErrCompactionFailed",
-			err:      ErrCompactionFailed,
-			expected: true,
-		},
-		{
-			name:     "wrapped ErrCompactionFailed",
-			err:      fmt.Errorf("wrapper: %w", ErrCompactionFailed),
-			expected: true,
-		},
-		{
-			name:     "ErrAdapterRunFailed",
-			err:      ErrAdapterRunFailed,
-			expected: true,
-		},
-		{
-			name:     "wrapped ErrAdapterRunFailed",
-			err:      fmt.Errorf("wrapper: %w", ErrAdapterRunFailed),
-			expected: true,
-		},
-		{
-			name:     "unrelated error",
-			err:      errors.New("some other error"),
-			expected: false,
-		},
-		{
-			name:     "nil error",
-			err:      nil,
-			expected: false,
-		},
-		{
-			name:     "ErrNoAdapter is not a compaction error",
-			err:      ErrNoAdapter,
-			expected: false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := isCompactionError(tc.err)
-			if result != tc.expected {
-				t.Errorf("isCompactionError(%v) = %v, want %v", tc.err, result, tc.expected)
-			}
-		})
-	}
-}
-
-func Test_isCheckpointError(t *testing.T) {
-	testCases := []struct {
-		name     string
-		err      error
-		expected bool
-	}{
-		{
-			name:     "ErrWriteCheckpointFailed",
-			err:      ErrWriteCheckpointFailed,
-			expected: true,
-		},
-		{
-			name:     "ErrCheckpointNotFound",
-			err:      ErrCheckpointNotFound,
-			expected: true,
-		},
-		{
-			name:     "ErrInvalidCheckpoint",
-			err:      ErrInvalidCheckpoint,
-			expected: true,
-		},
-		{
-			name:     "wrapped checkpoint error",
-			err:      fmt.Errorf("context: %w", ErrCheckpointNotFound),
-			expected: true,
-		},
-		{
-			name:     "unrelated error",
-			err:      errors.New("some other error"),
-			expected: false,
-		},
-		{
-			name:     "nil error",
-			err:      nil,
-			expected: false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := isCheckpointError(tc.err)
-			if result != tc.expected {
-				t.Errorf("isCheckpointError(%v) = %v, want %v", tc.err, result, tc.expected)
-			}
-		})
-	}
-}
 
 func TestRelayMonitor_ErrorTypes(t *testing.T) {
 	t.Run("ErrNoAdapter when adapter is nil", func(t *testing.T) {
@@ -1015,6 +419,57 @@ func TestRelayMonitor_ErrorTypes(t *testing.T) {
 		// The wrapped error should contain the original error message
 		if !strings.Contains(err.Error(), "original error") {
 			t.Errorf("error should contain original message, got: %v", err)
+		}
+	})
+}
+
+func TestRelayMonitor_ThresholdDetection_DefaultValues(t *testing.T) {
+	adapter := &mockCompactionAdapter{}
+
+	t.Run("uses default threshold when zero provided", func(t *testing.T) {
+		m := NewRelayMonitor(RelayMonitorConfig{
+			DefaultThreshold:   75,
+			MinTokensToCompact: 1000,
+			ContextWindow:      10000,
+		}, adapter)
+
+		// 75% of 10000 = 7500
+		result := m.ShouldCompact(7500, 0) // 0 means use default
+		if !result {
+			t.Error("should use default threshold of 75% when 0 is provided")
+		}
+
+		result = m.ShouldCompact(7000, 0)
+		if result {
+			t.Error("should not trigger below default threshold")
+		}
+	})
+
+	t.Run("uses default context window when zero in config", func(t *testing.T) {
+		m := NewRelayMonitor(RelayMonitorConfig{
+			DefaultThreshold:   80,
+			MinTokensToCompact: 1000,
+			// ContextWindow not set - should default to 200000
+		}, adapter)
+
+		// 80% of 200000 = 160000
+		result := m.ShouldCompact(160000, 80)
+		if !result {
+			t.Error("should use default context window of 200000")
+		}
+	})
+
+	t.Run("uses default min tokens when zero in config", func(t *testing.T) {
+		m := NewRelayMonitor(RelayMonitorConfig{
+			DefaultThreshold: 80,
+			ContextWindow:    10000,
+			// MinTokensToCompact not set - should default to 1000
+		}, adapter)
+
+		// 80% of 10000 = 8000, but need at least 1000 min tokens
+		result := m.ShouldCompact(800, 10) // 10% of 10000 = 1000, but only 800 tokens
+		if result {
+			t.Error("should not trigger when below default min tokens of 1000")
 		}
 	})
 }

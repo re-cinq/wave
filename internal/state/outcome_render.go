@@ -83,11 +83,3 @@ func (r *OutcomeRecord) String() string {
 	}
 	return fmt.Sprintf("%s %s", icon, r.Value)
 }
-
-// IsTemporary returns true when the outcome represents a transient artifact
-// (logs, files explicitly marked as temporary, etc.).
-func (r *OutcomeRecord) IsTemporary() bool {
-	return r.Type == OutcomeTypeLog ||
-		strings.Contains(strings.ToLower(r.Description), "temporary") ||
-		strings.Contains(strings.ToLower(r.Label), "temp")
-}

@@ -1058,6 +1058,3 @@ func (e *DefaultPipelineExecutor) pollCancellation(ctx context.Context, runID st
 		}
 	}
 }
-
-// checkRelayCompaction monitors token usage and triggers compaction when threshold is exceeded.
-// This implements FR-009: System MUST monitor agent context utilization and trigger relay/compaction.

@@ -128,34 +128,3 @@ func (r *MigrationRunner) ValidateIntegrity() error {
 	allMigrations := GetAllMigrations()
 	return r.manager.ValidateMigrationIntegrity(allMigrations)
 }
-
-// ForceMarkApplied marks a migration as applied without running it
-// This is useful for fixing migration state in exceptional circumstances
-func (r *MigrationRunner) ForceMarkApplied(version int, description string) error {
-	allMigrations := GetAllMigrations()
-
-	var targetMigration *Migration
-	for _, migration := range allMigrations {
-		if migration.Version == version {
-			targetMigration = &migration
-			break
-		}
-	}
-
-	if targetMigration == nil {
-		return fmt.Errorf("migration version %d not found", version)
-	}
-
-	checksum := calculateChecksum(targetMigration.Up)
-	now := time.Now().Unix()
-
-	_, err := r.db.Exec(
-		"INSERT INTO schema_migrations (version, description, applied_at, checksum) VALUES (?, ?, ?, ?)",
-		version, description, now, checksum,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to mark migration %d as applied: %w", version, err)
-	}
-
-	return nil
-}

@@ -87,17 +87,6 @@ func (tm *ThreadManager) GetTranscript(ctx context.Context, threadID, fidelity s
 	}
 }
 
-// ThreadSize returns the total character count for a thread's transcript.
-func (tm *ThreadManager) ThreadSize(threadID string) int {
-	tm.mu.RLock()
-	defer tm.mu.RUnlock()
-	total := 0
-	for _, entry := range tm.transcripts[threadID] {
-		total += len(entry.Content)
-	}
-	return total
-}
-
 // formatFull returns verbatim transcript entries with step attribution headers.
 func (tm *ThreadManager) formatFull(entries []ThreadEntry) string {
 	var sb strings.Builder

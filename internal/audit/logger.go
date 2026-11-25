@@ -30,10 +30,6 @@ type TraceLogger struct {
 	file     *os.File
 }
 
-func NewTraceLogger() (*TraceLogger, error) {
-	return NewTraceLoggerWithDir(".agents/traces")
-}
-
 func NewTraceLoggerWithDir(traceDir string) (*TraceLogger, error) {
 	if err := os.MkdirAll(traceDir, 0755); err != nil {
 		return nil, err

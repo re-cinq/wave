@@ -255,121 +255,6 @@ func TestGetStepPerformanceStats(t *testing.T) {
 	})
 }
 
-// TestGetRecentPerformanceHistory covers the filtered listing query.
-func TestGetRecentPerformanceHistory(t *testing.T) {
-	t.Run("limit enforcement", func(t *testing.T) {
-		store, cleanup := setupTestStore(t)
-		defer cleanup()
-
-		now := time.Now().Truncate(time.Second)
-		for i := 0; i < 5; i++ {
-			require.NoError(t, store.RecordPerformanceMetric(&PerformanceMetricRecord{
-				RunID:        "r",
-				StepID:       "step-1",
-				PipelineName: "pipe",
-				StartedAt:    now.Add(time.Duration(i) * time.Second),
-				Success:      true,
-			}))
-		}
-
-		got, err := store.GetRecentPerformanceHistory(PerformanceQueryOptions{Limit: 2})
-		require.NoError(t, err)
-		assert.Len(t, got, 2)
-	})
-
-	t.Run("filter by pipeline name", func(t *testing.T) {
-		store, cleanup := setupTestStore(t)
-		defer cleanup()
-
-		now := time.Now().Truncate(time.Second)
-		for _, pname := range []string{"alpha", "alpha", "beta"} {
-			require.NoError(t, store.RecordPerformanceMetric(&PerformanceMetricRecord{
-				RunID:        "r-" + pname,
-				StepID:       "s1",
-				PipelineName: pname,
-				StartedAt:    now,
-				Success:      true,
-			}))
-		}
-
-		got, err := store.GetRecentPerformanceHistory(PerformanceQueryOptions{PipelineName: "alpha"})
-		require.NoError(t, err)
-		assert.Len(t, got, 2)
-		for _, m := range got {
-			assert.Equal(t, "alpha", m.PipelineName)
-		}
-	})
-
-	t.Run("filter by step ID", func(t *testing.T) {
-		store, cleanup := setupTestStore(t)
-		defer cleanup()
-
-		now := time.Now().Truncate(time.Second)
-		for _, sid := range []string{"build", "build", "test"} {
-			require.NoError(t, store.RecordPerformanceMetric(&PerformanceMetricRecord{
-				RunID:        "r",
-				StepID:       sid,
-				PipelineName: "pipe",
-				StartedAt:    now,
-				Success:      true,
-			}))
-		}
-
-		got, err := store.GetRecentPerformanceHistory(PerformanceQueryOptions{StepID: "build"})
-		require.NoError(t, err)
-		assert.Len(t, got, 2)
-	})
-
-	t.Run("filter by persona", func(t *testing.T) {
-		store, cleanup := setupTestStore(t)
-		defer cleanup()
-
-		now := time.Now().Truncate(time.Second)
-		for _, persona := range []string{"navigator", "craftsman", "navigator"} {
-			require.NoError(t, store.RecordPerformanceMetric(&PerformanceMetricRecord{
-				RunID:        "r",
-				StepID:       "s1",
-				PipelineName: "pipe",
-				Persona:      persona,
-				StartedAt:    now,
-				Success:      true,
-			}))
-		}
-
-		got, err := store.GetRecentPerformanceHistory(PerformanceQueryOptions{Persona: "navigator"})
-		require.NoError(t, err)
-		assert.Len(t, got, 2)
-		for _, m := range got {
-			assert.Equal(t, "navigator", m.Persona)
-		}
-	})
-}
-
-// TestCleanupOldPerformanceMetrics covers retention pruning.
-func TestCleanupOldPerformanceMetrics(t *testing.T) {
-	store, cleanup := setupTestStore(t)
-	defer cleanup()
-
-	now := time.Now()
-	require.NoError(t, store.RecordPerformanceMetric(&PerformanceMetricRecord{
-		RunID:      "run-1",
-		StepID:     "step-1",
-		Persona:    "navigator",
-		StartedAt:  now,
-		DurationMs: 100,
-		Success:    true,
-	}))
-
-	deleted, err := store.CleanupOldPerformanceMetrics(24 * time.Hour * 365 * 100)
-	require.NoError(t, err)
-	assert.Equal(t, 0, deleted, "nothing should be deleted with 100-year window")
-
-	// Cleanup with zero duration prunes anything older than now — outcome
-	// is timing-sensitive on a single insert, so we just assert no error.
-	_, err = store.CleanupOldPerformanceMetrics(0)
-	require.NoError(t, err)
-}
-
 // TestRetrospective covers save / get / list / delete / status updates.
 func TestRetrospective(t *testing.T) {
 	t.Run("save then get round-trip", func(t *testing.T) {
@@ -397,6 +282,15 @@ func TestRetrospective(t *testing.T) {
 		assert.Equal(t, "complete", got.Status)
 		assert.Equal(t, "/tmp/run-42.json", got.FilePath)
 		assert.Equal(t, now.Unix(), got.CreatedAt.Unix())
+	})
+
+	t.Run("get unknown run returns error", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		_, err := store.GetRetrospective("no-such-run")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "retrospective not found for run no-such-run")
 	})
 
 	t.Run("save updates existing row in place", func(t *testing.T) {
@@ -471,21 +365,4 @@ func TestRetrospective(t *testing.T) {
 		assert.Equal(t, "complete", got.Status)
 	})
 
-	t.Run("delete", func(t *testing.T) {
-		store, cleanup := setupTestStore(t)
-		defer cleanup()
-
-		now := time.Now().Truncate(time.Second)
-		require.NoError(t, store.SaveRetrospective(&RetrospectiveRecord{
-			RunID:        "run-del",
-			PipelineName: "pipe",
-			Status:       "complete",
-			CreatedAt:    now,
-		}))
-
-		require.NoError(t, store.DeleteRetrospective("run-del"))
-
-		_, err := store.GetRetrospective("run-del")
-		require.Error(t, err)
-	})
 }

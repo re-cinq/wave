@@ -661,67 +661,6 @@ func (p *JSONRecoveryParser) inferMissingFields(input string) (string, []string,
 	return input, fixes, warnings
 }
 
-// FormatRecoveryReport generates a human-readable report of the recovery process
-func (r *RecoveryResult) FormatRecoveryReport() string {
-	var sb strings.Builder
-
-	sb.WriteString("=== JSON Recovery Report ===\n\n")
-
-	if r.IsValid {
-		sb.WriteString("✓ Successfully recovered valid JSON\n")
-	} else {
-		sb.WriteString("✗ Failed to recover valid JSON\n")
-	}
-
-	sb.WriteString(fmt.Sprintf("Recovery Level: %v\n", r.RecoveryLevel))
-	sb.WriteString(fmt.Sprintf("Applied Fixes: %d\n", len(r.AppliedFixes)))
-	sb.WriteString(fmt.Sprintf("Warnings: %d\n", len(r.Warnings)))
-
-	if len(r.AppliedFixes) > 0 {
-		sb.WriteString("\nFixes Applied:\n")
-		for i, fix := range r.AppliedFixes {
-			sb.WriteString(fmt.Sprintf("  %d. %s\n", i+1, fix))
-		}
-	}
-
-	if len(r.Warnings) > 0 {
-		sb.WriteString("\nWarnings:\n")
-		for i, warning := range r.Warnings {
-			sb.WriteString(fmt.Sprintf("  %d. %s\n", i+1, warning))
-		}
-	}
-
-	if r.RecoveredJSON != r.OriginalInput {
-		sb.WriteString("\nOriginal vs Recovered:\n")
-		sb.WriteString(fmt.Sprintf("Original Length: %d chars\n", len(r.OriginalInput)))
-		sb.WriteString(fmt.Sprintf("Recovered Length: %d chars\n", len(r.RecoveredJSON)))
-
-		// Show first difference
-		for i := 0; i < len(r.OriginalInput) && i < len(r.RecoveredJSON); i++ {
-			if r.OriginalInput[i] != r.RecoveredJSON[i] {
-				start := max(0, i-20)
-				originalEnd := min(len(r.OriginalInput), i+20)
-				recoveredEnd := min(len(r.RecoveredJSON), i+20)
-
-				// Ensure start positions are valid for both strings
-				originalStart := min(start, len(r.OriginalInput))
-				recoveredStart := min(start, len(r.RecoveredJSON))
-
-				sb.WriteString(fmt.Sprintf("First difference at position %d:\n", i))
-				if originalStart < originalEnd {
-					sb.WriteString(fmt.Sprintf("Original: ...%s...\n", r.OriginalInput[originalStart:originalEnd]))
-				}
-				if recoveredStart < recoveredEnd {
-					sb.WriteString(fmt.Sprintf("Recovered: ...%s...\n", r.RecoveredJSON[recoveredStart:recoveredEnd]))
-				}
-				break
-			}
-		}
-	}
-
-	return sb.String()
-}
-
 // isStructurallyComplete checks that JSON has balanced braces/brackets
 // accounting for strings. Returns false if the structure is truncated.
 func isStructurallyComplete(s string) bool {
@@ -752,18 +691,4 @@ func isStructurallyComplete(s string) bool {
 		}
 	}
 	return depth == 0 && !inString
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

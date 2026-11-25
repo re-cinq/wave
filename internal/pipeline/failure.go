@@ -179,15 +179,6 @@ func NormalizeFingerprint(stepID, failureClass, errorMsg string) string {
 	return fmt.Sprintf("%s:%s:%s", stepID, failureClass, normalized)
 }
 
-// StepAttemptReplay holds the minimal data needed to replay failure history
-// for circuit breaker initialization during pipeline resume. Defined here
-// instead of importing state to avoid circular dependencies.
-type StepAttemptReplay struct {
-	StepID       string
-	FailureClass string
-	ErrorMessage string
-}
-
 // CircuitBreaker tracks repeated failures by fingerprint and trips when a
 // configurable limit is reached. It is safe for concurrent use.
 type CircuitBreaker struct {
@@ -236,21 +227,6 @@ func (cb *CircuitBreaker) Record(fingerprint, failureClass string) (tripped bool
 
 	cb.counts[fingerprint]++
 	return cb.counts[fingerprint] >= cb.limit
-}
-
-// LoadFromAttempts replays prior failure attempts to restore circuit breaker
-// state during pipeline resume.
-func (cb *CircuitBreaker) LoadFromAttempts(attempts []StepAttemptReplay) {
-	cb.mu.Lock()
-	defer cb.mu.Unlock()
-
-	for _, a := range attempts {
-		if !cb.trackedClasses[a.FailureClass] {
-			continue
-		}
-		fp := NormalizeFingerprint(a.StepID, a.FailureClass, a.ErrorMessage)
-		cb.counts[fp]++
-	}
 }
 
 // Limit returns the configured trip threshold.

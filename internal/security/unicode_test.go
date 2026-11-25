@@ -116,40 +116,6 @@ func TestValidateUnicode_Integration(t *testing.T) {
 	}
 }
 
-func TestSchemaCache(t *testing.T) {
-	// Test store and retrieve
-	path := "/test/schema.json"
-	content := `{"type": "object"}`
-
-	SetCachedSchemaContent(path, content)
-
-	got, ok := GetCachedSchemaContent(path)
-	if !ok {
-		t.Error("expected cache hit")
-	}
-	if got != content {
-		t.Errorf("cached content = %q, want %q", got, content)
-	}
-
-	// Test cache miss
-	_, ok = GetCachedSchemaContent("/nonexistent/path")
-	if ok {
-		t.Error("expected cache miss for non-existent path")
-	}
-
-	// Test overwrite
-	newContent := `{"type": "array"}`
-	SetCachedSchemaContent(path, newContent)
-
-	got, ok = GetCachedSchemaContent(path)
-	if !ok {
-		t.Error("expected cache hit after overwrite")
-	}
-	if got != newContent {
-		t.Errorf("cached content after overwrite = %q, want %q", got, newContent)
-	}
-}
-
 func TestIsBase64Char(t *testing.T) {
 	tests := []struct {
 		c    byte

@@ -89,11 +89,11 @@ func TestForgeIntegration_PersonaResolution(t *testing.T) {
 		info     forge.ForgeInfo
 		expected string
 	}{
-		{"GitHub", forge.Detect("https://github.com/o/r.git"), "gh-commenter"},
-		{"GitLab", forge.Detect("https://gitlab.com/o/r.git"), "gl-commenter"},
-		{"Bitbucket", forge.Detect("https://bitbucket.org/o/r.git"), "bb-commenter"},
-		{"Gitea", forge.Detect("https://gitea.example.com/o/r.git"), "gt-commenter"},
-		{"Codeberg", forge.Detect("https://codeberg.org/o/r.git"), "gt-commenter"},
+		{"GitHub", forge.DetectWithOverride("https://github.com/o/r.git", ""), "gh-commenter"},
+		{"GitLab", forge.DetectWithOverride("https://gitlab.com/o/r.git", ""), "gl-commenter"},
+		{"Bitbucket", forge.DetectWithOverride("https://bitbucket.org/o/r.git", ""), "bb-commenter"},
+		{"Gitea", forge.DetectWithOverride("https://gitea.example.com/o/r.git", ""), "gt-commenter"},
+		{"Codeberg", forge.DetectWithOverride("https://codeberg.org/o/r.git", ""), "gt-commenter"},
 	}
 
 	for _, tt := range tests {
@@ -118,27 +118,27 @@ func TestForgeIntegration_ContractCommandResolution(t *testing.T) {
 	}{
 		{
 			name:     "GitHub",
-			info:     forge.Detect("https://github.com/o/r.git"),
+			info:     forge.DetectWithOverride("https://github.com/o/r.git", ""),
 			expected: "gh pr list --json state",
 		},
 		{
 			name:     "GitLab",
-			info:     forge.Detect("https://gitlab.com/o/r.git"),
+			info:     forge.DetectWithOverride("https://gitlab.com/o/r.git", ""),
 			expected: "glab mr list --json state",
 		},
 		{
 			name:     "Bitbucket",
-			info:     forge.Detect("https://bitbucket.org/o/r.git"),
+			info:     forge.DetectWithOverride("https://bitbucket.org/o/r.git", ""),
 			expected: "bb pr list --json state",
 		},
 		{
 			name:     "Gitea",
-			info:     forge.Detect("https://gitea.example.com/o/r.git"),
+			info:     forge.DetectWithOverride("https://gitea.example.com/o/r.git", ""),
 			expected: "tea pr list --json state",
 		},
 		{
 			name:     "Codeberg",
-			info:     forge.Detect("https://codeberg.org/o/r.git"),
+			info:     forge.DetectWithOverride("https://codeberg.org/o/r.git", ""),
 			expected: "tea pr list --json state",
 		},
 	}
@@ -165,11 +165,11 @@ func TestForgeIntegration_SourcePathResolution(t *testing.T) {
 		info     forge.ForgeInfo
 		expected string
 	}{
-		{"GitHub", forge.Detect("https://github.com/o/r.git"), ".agents/prompts/gh/create-pr.md"},
-		{"GitLab", forge.Detect("https://gitlab.com/o/r.git"), ".agents/prompts/gl/create-pr.md"},
-		{"Bitbucket", forge.Detect("https://bitbucket.org/o/r.git"), ".agents/prompts/bb/create-pr.md"},
-		{"Gitea", forge.Detect("https://gitea.example.com/o/r.git"), ".agents/prompts/gt/create-pr.md"},
-		{"Codeberg", forge.Detect("https://codeberg.org/o/r.git"), ".agents/prompts/gt/create-pr.md"},
+		{"GitHub", forge.DetectWithOverride("https://github.com/o/r.git", ""), ".agents/prompts/gh/create-pr.md"},
+		{"GitLab", forge.DetectWithOverride("https://gitlab.com/o/r.git", ""), ".agents/prompts/gl/create-pr.md"},
+		{"Bitbucket", forge.DetectWithOverride("https://bitbucket.org/o/r.git", ""), ".agents/prompts/bb/create-pr.md"},
+		{"Gitea", forge.DetectWithOverride("https://gitea.example.com/o/r.git", ""), ".agents/prompts/gt/create-pr.md"},
+		{"Codeberg", forge.DetectWithOverride("https://codeberg.org/o/r.git", ""), ".agents/prompts/gt/create-pr.md"},
 	}
 
 	template := ".agents/prompts/{{ forge.prefix }}/create-pr.md"

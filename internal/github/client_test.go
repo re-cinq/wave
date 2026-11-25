@@ -105,69 +105,6 @@ func TestClient_ListIssues(t *testing.T) {
 	assert.Equal(t, 2, issues[1].Number)
 }
 
-func TestClient_UpdateIssue(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/repos/owner/repo/issues/123", r.URL.Path)
-		assert.Equal(t, "PATCH", r.Method)
-
-		var update IssueUpdate
-		_ = json.NewDecoder(r.Body).Decode(&update)
-		assert.NotNil(t, update.Title)
-		assert.Equal(t, "Updated Title", *update.Title)
-
-		issue := Issue{
-			Number: 123,
-			Title:  *update.Title,
-			State:  "open",
-		}
-		_ = json.NewEncoder(w).Encode(issue)
-	}))
-	defer server.Close()
-
-	client := NewClient(ClientConfig{BaseURL: server.URL})
-
-	newTitle := "Updated Title"
-	issue, err := client.UpdateIssue(context.Background(), "owner", "repo", 123, IssueUpdate{
-		Title: &newTitle,
-	})
-	require.NoError(t, err)
-	assert.Equal(t, "Updated Title", issue.Title)
-}
-
-func TestClient_CreatePullRequest(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/repos/owner/repo/pulls", r.URL.Path)
-		assert.Equal(t, "POST", r.Method)
-
-		var req CreatePullRequestRequest
-		_ = json.NewDecoder(r.Body).Decode(&req)
-		assert.Equal(t, "Test PR", req.Title)
-		assert.Equal(t, "feature", req.Head)
-		assert.Equal(t, "main", req.Base)
-
-		pr := PullRequest{
-			Number: 456,
-			Title:  req.Title,
-			State:  "open",
-			Head:   &GitRef{Ref: req.Head},
-			Base:   &GitRef{Ref: req.Base},
-		}
-		_ = json.NewEncoder(w).Encode(pr)
-	}))
-	defer server.Close()
-
-	client := NewClient(ClientConfig{BaseURL: server.URL})
-
-	pr, err := client.CreatePullRequest(context.Background(), "owner", "repo", CreatePullRequestRequest{
-		Title: "Test PR",
-		Head:  "feature",
-		Base:  "main",
-	})
-	require.NoError(t, err)
-	assert.Equal(t, 456, pr.Number)
-	assert.Equal(t, "Test PR", pr.Title)
-}
-
 func TestClient_RateLimitHandling(t *testing.T) {
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -361,4 +298,30 @@ func TestClient_GetCommitCheckRuns(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to decode check runs")
 	})
+}
+
+func TestClient_CreatePullRequestReview(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/repos/owner/repo/pulls/7/reviews", r.URL.Path)
+		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+
+		var payload map[string]string
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+		assert.Equal(t, map[string]string{"event": "REQUEST_CHANGES", "body": "needs tests"}, payload)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewClient(ClientConfig{BaseURL: server.URL})
+	require.NoError(t, client.CreatePullRequestReview(context.Background(), "owner", "repo", 7, "REQUEST_CHANGES", "needs tests"))
+}
+
+func TestIssue_IsPullRequest(t *testing.T) {
+	var issue, pr Issue
+	require.NoError(t, json.Unmarshal([]byte(`{"number": 1}`), &issue))
+	require.NoError(t, json.Unmarshal([]byte(`{"number": 2, "pull_request": {"url": "https://api.github.com/repos/o/r/pulls/2"}}`), &pr))
+
+	assert.False(t, issue.IsPullRequest())
+	assert.True(t, pr.IsPullRequest())
 }

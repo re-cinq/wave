@@ -61,7 +61,7 @@ func TestResolveAdapter_CaseInsensitive(t *testing.T) {
 // --- parseOutput tests ---
 
 func TestParseOutput_EmptyInput(t *testing.T) {
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 	result := a.parseOutput([]byte{})
 	// tokens = len(data)/4 = 0
 	if result.Tokens != 0 {
@@ -73,7 +73,7 @@ func TestParseOutput_EmptyInput(t *testing.T) {
 }
 
 func TestParseOutput_WhitespaceOnly(t *testing.T) {
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 	result := a.parseOutput([]byte("  \n  \n  "))
 	// len("  \n  \n  ") = 8, /4 = 2
 	if result.Tokens != 2 {
@@ -82,7 +82,7 @@ func TestParseOutput_WhitespaceOnly(t *testing.T) {
 }
 
 func TestParseOutput_ZeroTokenFallback(t *testing.T) {
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 	// result event with zero usage tokens and no step_finish
 	data := []byte(`{"type":"result","subtype":"success","result":"done","usage":{"input_tokens":0,"output_tokens":0}}`)
 	result := a.parseOutput(data)
@@ -97,7 +97,7 @@ func TestParseOutput_ZeroTokenFallback(t *testing.T) {
 }
 
 func TestParseOutput_ResultContentFallbackToContent(t *testing.T) {
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 	data := []byte(`{"type":"result","subtype":"success","content":"fallback-content","usage":{"input_tokens":10,"output_tokens":5}}`)
 	result := a.parseOutput(data)
 	if result.ResultContent != "fallback-content" {
@@ -106,7 +106,7 @@ func TestParseOutput_ResultContentFallbackToContent(t *testing.T) {
 }
 
 func TestParseOutput_ResultPreferredOverContent(t *testing.T) {
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 	data := []byte(`{"type":"result","subtype":"success","result":"primary","content":"fallback","usage":{"input_tokens":10,"output_tokens":5}}`)
 	result := a.parseOutput(data)
 	if result.ResultContent != "primary" {
@@ -115,7 +115,7 @@ func TestParseOutput_ResultPreferredOverContent(t *testing.T) {
 }
 
 func TestParseOutput_UsageTokensOverrideStepFinish(t *testing.T) {
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 	// step_finish with total=50, then result with usage total=200 (> 50)
 	data := []byte(`{"type":"step_finish","part":{"tokens":{"total":50,"input":30,"output":20}}}
 {"type":"result","subtype":"success","content":"ok","usage":{"input_tokens":150,"output_tokens":50}}`)
@@ -127,7 +127,7 @@ func TestParseOutput_UsageTokensOverrideStepFinish(t *testing.T) {
 }
 
 func TestParseOutput_UsageTokensDoNotOverrideHigherStepFinish(t *testing.T) {
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 	// step_finish with total=500, then result with usage total=30 (< 500)
 	data := []byte(`{"type":"step_finish","part":{"tokens":{"total":500,"input":300,"output":200}}}
 {"type":"result","subtype":"success","content":"ok","usage":{"input_tokens":20,"output_tokens":10}}`)
@@ -138,7 +138,7 @@ func TestParseOutput_UsageTokensDoNotOverrideHigherStepFinish(t *testing.T) {
 }
 
 func TestParseOutput_TextEventAsResultContent(t *testing.T) {
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 	data := []byte(`{"type":"text","part":{"text":"hello from text"}}`)
 	result := a.parseOutput(data)
 	if result.ResultContent != "hello from text" {
@@ -147,7 +147,7 @@ func TestParseOutput_TextEventAsResultContent(t *testing.T) {
 }
 
 func TestParseOutput_TextEventMessageContentFallback(t *testing.T) {
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 	data := []byte(`{"type":"text","part":{"text":""},"message":{"content":[{"type":"text","text":"from message"}]}}`)
 	result := a.parseOutput(data)
 	if result.ResultContent != "from message" {
@@ -156,7 +156,7 @@ func TestParseOutput_TextEventMessageContentFallback(t *testing.T) {
 }
 
 func TestParseOutput_TextEventSkippedWhenResultExists(t *testing.T) {
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 	// result event first, then text event — text should be skipped because resultContent is already set
 	data := []byte(`{"type":"result","subtype":"success","result":"primary-result","usage":{"input_tokens":10,"output_tokens":5}}
 {"type":"text","part":{"text":"should be ignored"}}`)
@@ -167,7 +167,7 @@ func TestParseOutput_TextEventSkippedWhenResultExists(t *testing.T) {
 }
 
 func TestParseOutput_MultipleResultEvents(t *testing.T) {
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 	data := []byte(`{"type":"result","subtype":"error","result":"first","usage":{"input_tokens":10,"output_tokens":5}}
 {"type":"result","subtype":"success","result":"second","usage":{"input_tokens":20,"output_tokens":10}}`)
 	result := a.parseOutput(data)
@@ -341,7 +341,7 @@ func TestParseOpenCodeStreamLine_BareToolJSONNoTool(t *testing.T) {
 
 func TestPrepareWorkspace_PersonaFileRead(t *testing.T) {
 	tmpDir := t.TempDir()
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 
 	// Create persona file
 	personaDir := filepath.Join(".agents", "personas")
@@ -375,7 +375,7 @@ func TestPrepareWorkspace_PersonaFileRead(t *testing.T) {
 
 func TestPrepareWorkspace_MissingPersona_NoError(t *testing.T) {
 	tmpDir := t.TempDir()
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 
 	cfg := AdapterRunConfig{
 		Persona: "nonexistent-persona",
@@ -394,7 +394,7 @@ func TestPrepareWorkspace_MissingPersona_NoError(t *testing.T) {
 
 func TestPrepareWorkspace_NonWritableDir(t *testing.T) {
 	tmpDir := t.TempDir()
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 
 	// Make directory non-writable
 	if err := os.Chmod(tmpDir, 0555); err != nil {
@@ -415,7 +415,7 @@ func TestPrepareWorkspace_NonWritableDir(t *testing.T) {
 // --- buildArgs additional coverage ---
 
 func TestBuildArgs_WithPrompt(t *testing.T) {
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 	cfg := AdapterRunConfig{
 		Prompt: "fix the bug in main.go",
 	}
@@ -427,7 +427,7 @@ func TestBuildArgs_WithPrompt(t *testing.T) {
 }
 
 func TestBuildArgs_ModelAndPrompt(t *testing.T) {
-	a := NewOpenCodeAdapter()
+	a := NewOpenCodeAdapterWithBinary("")
 	cfg := AdapterRunConfig{
 		Model:  "gpt-4o",
 		Prompt: "explain this code",

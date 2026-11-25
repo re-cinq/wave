@@ -244,19 +244,6 @@ func (c *Client) Get(ctx context.Context, url string) (*http.Response, error) {
 	return c.Do(ctx, req)
 }
 
-// Post is a convenience wrapper for POST requests with an explicit
-// Content-Type. Body may be nil.
-func (c *Client) Post(ctx context.Context, url, contentType string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
-	if err != nil {
-		return nil, err
-	}
-	if contentType != "" {
-		req.Header.Set("Content-Type", contentType)
-	}
-	return c.Do(ctx, req)
-}
-
 func (c *Client) audit(e Event) {
 	if c == nil || c.emitAudit == nil {
 		return

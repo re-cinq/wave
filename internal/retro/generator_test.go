@@ -151,7 +151,7 @@ func TestGenerator_GenerateNarrativeSync(t *testing.T) {
 	}
 
 	// Verify narrative was added
-	loaded, err := gen.GetStorage().Load("narrate-test")
+	loaded, err := gen.storage.Load("narrate-test")
 	if err != nil {
 		t.Fatalf("failed to load retro: %v", err)
 	}

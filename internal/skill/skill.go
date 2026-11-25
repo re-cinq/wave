@@ -100,15 +100,6 @@ func (p *Provisioner) DiscoverCommands(skillNames []string) (map[string][]string
 	return result, nil
 }
 
-// ProvisionAll copies all declared skill command files into the workspace.
-func (p *Provisioner) ProvisionAll(workspacePath string) error {
-	names := make([]string, 0, len(p.skills))
-	for name := range p.skills {
-		names = append(names, name)
-	}
-	return p.Provision(workspacePath, names)
-}
-
 // FormatSkillCommandPrompt generates a prompt fragment that tells the agent
 // to use a slash command with the given arguments.
 func FormatSkillCommandPrompt(command, args string) string {

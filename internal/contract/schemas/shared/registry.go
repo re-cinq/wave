@@ -53,12 +53,6 @@ func LoadSchemas() error {
 	return loadError
 }
 
-// LoadError returns the error encountered the first time the registry was
-// populated, or nil if loading has not been attempted or succeeded.
-func LoadError() error {
-	return loadError
-}
-
 func loadSchemasFromFS() (map[string][]byte, error) {
 	out := make(map[string][]byte)
 	entries, err := fs.ReadDir(schemasFS, ".")
@@ -83,23 +77,6 @@ func loadSchemasFromFS() (map[string][]byte, error) {
 // are no-ops thanks to sync.Once.
 func ensureLoaded() {
 	_ = LoadSchemas()
-}
-
-// Lookup returns the raw JSON schema bytes for a named type.
-// The special name "string" resolves to (nil, true) — callers treat it as
-// free-text with no schema validation.
-// Returns (nil, false) if the type is unknown OR if the embedded FS
-// failed to load (see LoadError).
-func Lookup(name string) ([]byte, bool) {
-	if name == "" || name == TypeString {
-		return nil, true
-	}
-	ensureLoaded()
-	if registry == nil {
-		return nil, false
-	}
-	data, ok := registry[name]
-	return data, ok
 }
 
 // Exists reports whether the given type name is registered (or is the

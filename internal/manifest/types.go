@@ -276,14 +276,6 @@ func (r *RoutingConfig) ResolveComplexityModel(tier string) string {
 	return defaults[tier]
 }
 
-// EffectiveDefaultTier returns the configured default tier, falling back to "balanced".
-func (r *RoutingConfig) EffectiveDefaultTier() string {
-	if r != nil && r.DefaultTier != "" {
-		return r.DefaultTier
-	}
-	return "balanced"
-}
-
 // RoutingRule defines a rule for matching work items to pipelines.
 type RoutingRule struct {
 	// Pattern is a glob pattern for matching input strings.

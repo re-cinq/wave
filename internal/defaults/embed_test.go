@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/recinq/wave/internal/manifest"
-	"github.com/recinq/wave/internal/skill"
 )
 
 func TestGetReleasePipelines_ReturnsSubset(t *testing.T) {
@@ -26,26 +25,6 @@ func TestGetReleasePipelines_ReturnsSubset(t *testing.T) {
 	for name := range release {
 		if _, ok := all[name]; !ok {
 			t.Errorf("release pipeline %q not found in all pipelines", name)
-		}
-	}
-}
-
-func TestReleasePipelineNames_ReturnsSubset(t *testing.T) {
-	allNames := PipelineNames()
-	releaseNames := ReleasePipelineNames()
-
-	if len(releaseNames) > len(allNames) {
-		t.Errorf("release names (%d) should be a subset of all pipeline names (%d)", len(releaseNames), len(allNames))
-	}
-
-	allSet := make(map[string]bool, len(allNames))
-	for _, name := range allNames {
-		allSet[name] = true
-	}
-
-	for _, name := range releaseNames {
-		if !allSet[name] {
-			t.Errorf("release pipeline name %q not found in all pipeline names", name)
 		}
 	}
 }
@@ -203,76 +182,6 @@ func TestGetPersonaConfigs_ModelOverrides(t *testing.T) {
 	}
 }
 
-func TestGetSkillTemplates_NoneShipped(t *testing.T) {
-	if templates := GetSkillTemplates(); len(templates) != 0 {
-		t.Errorf("expected no shipped skill templates, got %d", len(templates))
-	}
-}
-
-func TestGetSkillTemplates_ValidSKILLMD(t *testing.T) {
-	templates := GetSkillTemplates()
-
-	for name, data := range templates {
-		s, err := skill.Parse(data)
-		if err != nil {
-			t.Errorf("skill template %q failed to parse: %v", name, err)
-			continue
-		}
-
-		// Name in frontmatter must match directory name
-		if s.Name != name {
-			t.Errorf("skill template %q has mismatched name in frontmatter: %q", name, s.Name)
-		}
-
-		if s.Description == "" {
-			t.Errorf("skill template %q has empty description", name)
-		}
-
-		if s.Body == "" {
-			t.Errorf("skill template %q has empty body", name)
-		}
-	}
-}
-
-func TestSkillTemplateNames_ReturnsSortedList(t *testing.T) {
-	names := SkillTemplateNames()
-
-	// Verify sorted order
-	for i := 1; i < len(names); i++ {
-		if names[i] < names[i-1] {
-			t.Errorf("names not sorted: %q comes after %q", names[i], names[i-1])
-		}
-	}
-}
-
-func TestGetSkillTemplates_CheckCommandPresent(t *testing.T) {
-	templates := GetSkillTemplates()
-
-	// Skills that should have check_command
-	withCheck := map[string]bool{
-		"gh-cli":    true,
-		"docker":    true,
-		"react":     true,
-		"tailwind":  true,
-		"terraform": true,
-	}
-
-	for name, data := range templates {
-		s, err := skill.Parse(data)
-		if err != nil {
-			t.Errorf("skill template %q failed to parse: %v", name, err)
-			continue
-		}
-
-		if withCheck[name] && s.CheckCommand == "" {
-			t.Errorf("skill template %q should have check_command", name)
-		}
-		if !withCheck[name] && s.CheckCommand != "" {
-			t.Errorf("skill template %q should not have check_command, got %q", name, s.CheckCommand)
-		}
-	}
-}
-
 func TestGetPersonaConfigs_MatchesPersonaFiles(t *testing.T) {
 	configs, err := GetPersonaConfigs()
 	if err != nil {
@@ -300,6 +209,22 @@ func TestGetPersonaConfigs_MatchesPersonaFiles(t *testing.T) {
 		name := strings.TrimSuffix(mdFile, ".md")
 		if _, ok := configs[name]; !ok {
 			t.Errorf("persona .md file %q has no corresponding .yaml config", mdFile)
+		}
+	}
+}
+
+func TestPipelineNames_MatchesGetPipelines(t *testing.T) {
+	all, err := GetPipelines()
+	if err != nil {
+		t.Fatalf("GetPipelines() error: %v", err)
+	}
+	names := PipelineNames()
+	if len(names) == 0 || len(names) != len(all) {
+		t.Fatalf("PipelineNames() returned %d names, GetPipelines() has %d", len(names), len(all))
+	}
+	for _, name := range names {
+		if _, ok := all[name]; !ok {
+			t.Errorf("PipelineNames() returned %q, which GetPipelines() does not contain", name)
 		}
 	}
 }

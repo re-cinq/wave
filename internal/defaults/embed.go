@@ -12,7 +12,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/recinq/wave/internal/defaults/embedfs"
@@ -73,65 +72,6 @@ func GetPrompts() (map[string]string, error) {
 	return embedfs.GetPrompts()
 }
 
-// GetSchemas returns a map of filename to content for all default JSON schemas.
-func GetSchemas() (map[string]string, error) {
-	schemasFS := embedfs.SchemasFS()
-	result := make(map[string]string)
-	err := fs.WalkDir(schemasFS, "schemas", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		data, rerr := schemasFS.ReadFile(path)
-		if rerr != nil {
-			return rerr
-		}
-		result[filepath.Base(path)] = string(data)
-		return nil
-	})
-	return result, err
-}
-
-// GetSkillTemplates returns a map of skill name to SKILL.md content
-// for all shipped skill templates.
-func GetSkillTemplates() map[string][]byte {
-	skillsFS := embedfs.SkillsFS()
-	result := make(map[string][]byte)
-
-	entries, err := fs.ReadDir(skillsFS, "skills")
-	if err != nil {
-		return result
-	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		path := filepath.Join("skills", name, "SKILL.md")
-		data, err := skillsFS.ReadFile(path)
-		if err != nil {
-			continue
-		}
-		result[name] = data
-	}
-
-	return result
-}
-
-// SkillTemplateNames returns a sorted list of shipped skill template names.
-func SkillTemplateNames() []string {
-	templates := GetSkillTemplates()
-	names := make([]string, 0, len(templates))
-	for name := range templates {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
-}
-
 // PersonaNames returns a list of all persona filenames.
 func PersonaNames() []string {
 	personas, _ := GetPersonas()
@@ -147,26 +87,6 @@ func PipelineNames() []string {
 	pipelines, _ := GetPipelines()
 	names := make([]string, 0, len(pipelines))
 	for name := range pipelines {
-		names = append(names, name)
-	}
-	return names
-}
-
-// ContractNames returns a list of all contract filenames.
-func ContractNames() []string {
-	contracts, _ := GetContracts()
-	names := make([]string, 0, len(contracts))
-	for name := range contracts {
-		names = append(names, name)
-	}
-	return names
-}
-
-// PromptNames returns a list of all prompt relative paths.
-func PromptNames() []string {
-	prompts, _ := GetPrompts()
-	names := make([]string, 0, len(prompts))
-	for name := range prompts {
 		names = append(names, name)
 	}
 	return names
@@ -193,16 +113,4 @@ func GetReleasePipelines() (map[string]string, error) {
 		}
 	}
 	return result, nil
-}
-
-// ReleasePipelineNames returns a sorted list of filenames for pipelines
-// where metadata.release is true.
-func ReleasePipelineNames() []string {
-	pipelines, _ := GetReleasePipelines()
-	names := make([]string, 0, len(pipelines))
-	for name := range pipelines {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
 }

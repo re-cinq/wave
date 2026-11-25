@@ -380,53 +380,12 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 	// Command step: execute shell script directly (no adapter/persona needed).
 	// This mirrors the graph walker dispatch in executeGraphPipeline.
 	if step.Type == StepTypeCommand || step.Script != "" {
-		result, err := e.executeCommandStep(ctx, execution, step)
-		if err != nil {
-			return err
-		}
-		if result != nil && result.Outcome == "failure" {
-			return result.Error
-		}
-		// Register output artifacts so downstream `inject_artifacts` lookups
-		// in `injectArtifacts` (executor.go: ArtifactPaths[step.ID+":"+name])
-		// resolve to the on-disk file the script wrote. Without this,
-		// command-step outputs were silently delivered as 0-byte blobs to
-		// downstream personas — see #1490.
-		workspacePath := execution.WorkspacePaths[step.ID]
-		e.writeOutputArtifacts(execution, step, workspacePath, nil)
-		// Run handover contract validation (same as persona steps).
-		// Resolve against the command's actual working directory, not the workspace root.
-		contractDir := resolveCommandWorkDir(workspacePath, step)
-		adapterResult := &adapter.AdapterResult{}
-		if cErr := e.validateStepContracts(ctx, execution, step, contractDir, nil, pipelineID, "", time.Now(), adapterResult); cErr != nil {
-			return cErr
-		}
-		// Report command-step outputs as deliverables like persona steps do;
-		// otherwise they are missing from the run's outcomes.
-		e.trackStepDeliverables(execution, step)
-		e.processStepOutcomes(execution, step)
-		return nil
+		return e.executeCommandStepWithContracts(ctx, execution, step)
 	}
 
-	// Run step_start hooks
-	stepStartEvt := hooks.HookEvent{
-		Type:       hooks.EventStepStart,
-		PipelineID: pipelineID,
-		StepID:     step.ID,
-		Input:      execution.Input,
+	if err := e.runStepStartHooks(ctx, execution, step); err != nil {
+		return err
 	}
-	if e.hookRunner != nil {
-		if _, err := e.hookRunner.RunHooks(ctx, stepStartEvt); err != nil {
-			execution.mu.Lock()
-			execution.States[step.ID] = stateFailed
-			execution.mu.Unlock()
-			if e.store != nil {
-				_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
-			}
-			return fmt.Errorf("step_start hook failed: %w", err)
-		}
-	}
-	e.fireWebhooks(ctx, stepStartEvt)
 
 	maxAttempts := step.Retry.EffectiveMaxAttempts()
 	stepStartTime := time.Now()
@@ -438,370 +397,460 @@ func (e *DefaultPipelineExecutor) executeStep(ctx context.Context, execution *Pi
 			if ctx.Err() != nil {
 				return fmt.Errorf("context cancelled, skipping retry: %w", lastErr)
 			}
-			// EvalSignal hook (issue #1606): each retry attempt increments the
-			// run-level retry counter persisted in pipeline_eval.retry_count.
-			e.recordStepRetry(execution)
-			execution.mu.Lock()
-			execution.States[step.ID] = stateRetrying
-			execution.mu.Unlock()
-			if e.store != nil {
-				_ = e.store.SaveStepState(pipelineID, step.ID, state.StateRetrying, "")
-			}
-			e.emit(event.Event{
-				Timestamp:  time.Now(),
-				PipelineID: pipelineID,
-				StepID:     step.ID,
-				State:      stateRetrying,
-				Message:    fmt.Sprintf("attempt %d/%d", attempt, maxAttempts),
-			})
-			// Run step_retrying hooks (non-blocking by default)
-			if e.hookRunner != nil {
-				e.hookRunner.RunHooks(ctx, hooks.HookEvent{
-					Type:       hooks.EventStepRetrying,
-					PipelineID: pipelineID,
-					StepID:     step.ID,
-					Input:      execution.Input,
-				})
-			}
-			time.Sleep(step.Retry.ComputeDelay(attempt))
+			e.announceRetry(ctx, execution, step, attempt, maxAttempts)
 		}
 
-		// Record attempt start
-		attemptStart := time.Now()
-		if e.store != nil {
-			_ = e.store.RecordStepAttempt(&state.StepAttemptRecord{
-				RunID:     pipelineID,
-				StepID:    step.ID,
-				Attempt:   attempt,
-				State:     stateRunning,
-				StartedAt: attemptStart,
-			})
-		}
-
-		// Start progress ticker for smooth animation updates during step execution
-		cancelTicker := e.startProgressTicker(ctx, pipelineID, step.ID)
-
-		// Start stall watchdog if configured. Composition steps (iterate /
-		// aggregate / branch / loop / sub_pipeline) do not produce their
-		// own stream events — their work happens in spawned child
-		// pipelines under separate run IDs. Wiring a stall watchdog to
-		// them would fire after the configured timeout regardless of
-		// whether children are healthy. Skip the watchdog for those step
-		// kinds; each child pipeline owns its own stall watchdog.
-		stepCtx := ctx
-		var watchdog *StallWatchdog
-		isCompositionStep := step.Iterate != nil || step.Aggregate != nil ||
-			step.Branch != nil || step.Loop != nil || step.SubPipeline != ""
-		if !isCompositionStep {
-			if stallTimeout := e.parseStallTimeout(execution.Manifest); stallTimeout > 0 {
-				w, err := NewStallWatchdog(stallTimeout)
-				if err != nil {
-					cancelTicker()
-					return fmt.Errorf("step %s: stall watchdog setup: %w", step.ID, err)
-				}
-				watchdog = w
-				stepCtx = watchdog.Start(stepCtx)
-			}
-		}
-
-		// Store watchdog on execution so runStepExecution can wire NotifyActivity
-		execution.mu.Lock()
-		execution.Watchdog = watchdog
-		execution.mu.Unlock()
-
-		err := e.runStepExecution(stepCtx, execution, step)
-
-		// Stop stall watchdog and clear reference
-		if watchdog != nil {
-			watchdog.Stop()
-		}
-		execution.mu.Lock()
-		execution.Watchdog = nil
-		execution.mu.Unlock()
-
-		// Stop progress ticker when step completes
-		cancelTicker()
-
-		attemptDuration := time.Since(attemptStart)
-
+		res, err := e.runStepAttempt(ctx, execution, step, attempt)
 		if err != nil {
-			lastErr = err
-
-			// Design rejection short-circuit: a contract with on_failure:
-			// rejected fired because the persona output deliberately
-			// signalled no-op. This is NOT a retryable failure — the work
-			// being non-actionable is the *answer*, not a bug. Skip retries
-			// and route directly to the rejected terminal state. The
-			// executor's States map is already set by applyContractOnFailure;
-			// we just need to short-circuit the loop, persist state, and
-			// propagate the typed error so callers (run.go, webui) can
-			// render the run with the dedicated rejected status.
-			var rejectionErr *ContractRejectionError
-			if errors.As(err, &rejectionErr) {
-				if e.store != nil {
-					_ = e.store.SaveStepState(pipelineID, step.ID, state.StateRejected, err.Error())
-				}
-				return err
-			}
-
-			// Classify the failure for intelligent retry decisions.
-			// Use stepCtx (watchdog-derived) so stall cancellation is detected.
-			failureClass := ClassifyStepFailure(err, nil, stepCtx.Err())
-
-			// Record failed attempt with pipeline-level failure class
-			if e.store != nil {
-				completedAt := time.Now()
-				_ = e.store.RecordStepAttempt(&state.StepAttemptRecord{
-					RunID:        pipelineID,
-					StepID:       step.ID,
-					Attempt:      attempt,
-					State:        stateFailed,
-					ErrorMessage: err.Error(),
-					FailureClass: failureClass,
-					DurationMs:   attemptDuration.Milliseconds(),
-					StartedAt:    attemptStart,
-					CompletedAt:  &completedAt,
-				})
-			}
-
-			// Check circuit breaker — if same failure fingerprint repeats too many times, stop
-			if execution.CircuitBreaker != nil {
-				fp := NormalizeFingerprint(step.ID, failureClass, err.Error())
-				if execution.CircuitBreaker.Record(fp, failureClass) {
-					e.emit(event.Event{
-						Timestamp:    time.Now(),
-						PipelineID:   pipelineID,
-						StepID:       step.ID,
-						State:        event.StateFailed,
-						FailureClass: failureClass,
-						Message:      fmt.Sprintf("circuit breaker tripped: same failure repeated %d times", execution.CircuitBreaker.Limit()),
-					})
-					// Fall through to on_failure handling below by exhausting attempts
-					attempt = maxAttempts
-				}
-			}
-
-			// Skip remaining retries for non-retryable failure classes
-			if !IsRetryable(failureClass) && attempt < maxAttempts {
-				e.emit(event.Event{
-					Timestamp:    time.Now(),
-					PipelineID:   pipelineID,
-					StepID:       step.ID,
-					State:        event.StateFailed,
-					FailureClass: failureClass,
-					Message:      fmt.Sprintf("non-retryable failure class %q, skipping remaining retries", failureClass),
-				})
-				attempt = maxAttempts
-			}
-
-			if attempt < maxAttempts {
-				// Record retry decision
-				e.recordDecision(pipelineID, step.ID, "retry",
-					fmt.Sprintf("retrying step %s (attempt %d/%d)", step.ID, attempt+1, maxAttempts),
-					fmt.Sprintf("failure class %q is retryable, attempts remaining", failureClass),
-					map[string]interface{}{
-						"attempt":       attempt,
-						"max_attempts":  maxAttempts,
-						"failure_class": failureClass,
-						"error":         err.Error(),
-					},
-				)
-				// Always inject failure context into the next retry attempt.
-				// Previously gated behind AdaptPrompt, but contract failures
-				// are the most common retry trigger and agents need to know
-				// *what* failed to avoid starting from scratch.
-				{
-					errMsg := err.Error()
-					// Capture stdout tail from results if available
-					stdoutTail := ""
-					execution.mu.Lock()
-					if result, ok := execution.Results[step.ID]; ok {
-						if stdout, ok := result["stdout"].(string); ok {
-							if len(stdout) > maxStdoutTailChars {
-								stdoutTail = stdout[len(stdout)-maxStdoutTailChars:]
-							} else {
-								stdoutTail = stdout
-							}
-						}
-					}
-					execution.mu.Unlock()
-
-					// Extract contract-specific errors when the failure came
-					// from contract validation so the agent gets actionable
-					// detail about which contract failed and why.
-					var contractErrors []string
-					if strings.Contains(errMsg, "contract validation failed") {
-						inner := err
-						for uw := errors.Unwrap(inner); uw != nil; uw = errors.Unwrap(inner) {
-							inner = uw
-						}
-						contractErrors = append(contractErrors, inner.Error())
-					}
-
-					execution.mu.Lock()
-					execution.AttemptContexts[step.ID] = &AttemptContext{
-						Attempt:        attempt + 1,
-						MaxAttempts:    maxAttempts,
-						PriorError:     errMsg,
-						FailureClass:   failureClass,
-						PriorStdout:    stdoutTail,
-						ContractErrors: contractErrors,
-					}
-					execution.mu.Unlock()
-				}
-				continue
-			}
-
-			// All attempts exhausted — apply on_failure policy
-			e.recordDecision(pipelineID, step.ID, "retry",
-				fmt.Sprintf("all %d attempts exhausted for step %s", maxAttempts, step.ID),
-				fmt.Sprintf("applying on_failure policy after %d failed attempts", maxAttempts),
-				map[string]interface{}{
-					"max_attempts":  maxAttempts,
-					"failure_class": failureClass,
-					"last_error":    err.Error(),
-				},
-			)
-			onFailure := step.Retry.OnFailure
-			if onFailure == "" {
-				if step.Optional {
-					onFailure = OnFailureContinue
-				} else {
-					onFailure = OnFailureFail
-				}
-			}
-
-			switch onFailure {
-			case OnFailureSkip:
-				execution.mu.Lock()
-				execution.States[step.ID] = stateSkipped
-				execution.mu.Unlock()
-				if e.store != nil {
-					_ = e.store.SaveStepState(pipelineID, step.ID, state.StateSkipped, err.Error())
-				}
-				// EvalSignal hook (issue #1606): on_failure: skip suppresses
-				// the failure for downstream scheduling but still represents a
-				// run-level negative observation worth aggregating.
-				e.recordStepEval(execution, step, stateFailed, err, time.Since(stepStartTime))
-				e.emit(event.Event{
-					Timestamp:  time.Now(),
-					PipelineID: pipelineID,
-					StepID:     step.ID,
-					State:      event.StateSkipped,
-					Message:    fmt.Sprintf("step skipped after %d failed attempts: %s", maxAttempts, err.Error()),
-				})
-				return nil
-
-			case OnFailureContinue:
-				execution.mu.Lock()
-				execution.States[step.ID] = stateFailed
-				execution.mu.Unlock()
-				if e.store != nil {
-					_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
-				}
-				// EvalSignal hook (issue #1606): step terminally failed.
-				e.recordStepEval(execution, step, stateFailed, err, time.Since(stepStartTime))
-				e.emit(event.Event{
-					Timestamp:  time.Now(),
-					PipelineID: pipelineID,
-					StepID:     step.ID,
-					State:      event.StateFailed,
-					Message:    fmt.Sprintf("step failed after %d attempts but pipeline continues: %s", maxAttempts, err.Error()),
-				})
-				return nil
-
-			case OnFailureRework:
-				return e.executeReworkStep(ctx, execution, step, lastErr, attemptDuration)
-
-			default: // OnFailureFail
-				execution.mu.Lock()
-				execution.States[step.ID] = stateFailed
-				execution.mu.Unlock()
-				if e.store != nil {
-					_ = e.store.SaveStepState(pipelineID, step.ID, state.StateFailed, err.Error())
-				}
-				// EvalSignal hook (issue #1606): step terminally failed.
-				e.recordStepEval(execution, step, stateFailed, err, time.Since(stepStartTime))
-				// Run step_failed hooks and webhooks (non-blocking by default)
-				stepFailedEvt := hooks.HookEvent{
-					Type:       hooks.EventStepFailed,
-					PipelineID: pipelineID,
-					StepID:     step.ID,
-					Input:      execution.Input,
-					Error:      lastErr.Error(),
-				}
-				if e.hookRunner != nil {
-					e.hookRunner.RunHooks(ctx, stepFailedEvt)
-				}
-				e.fireWebhooks(ctx, stepFailedEvt)
-				return lastErr
-			}
+			return err
+		}
+		if res.err == nil {
+			e.completeStepAttempt(execution, step, res, stepStartTime)
+			return nil
 		}
 
-		// Record successful attempt
-		if e.store != nil {
-			completedAt := time.Now()
-			_ = e.store.RecordStepAttempt(&state.StepAttemptRecord{
-				RunID:       pipelineID,
-				StepID:      step.ID,
-				Attempt:     attempt,
-				State:       "succeeded",
-				DurationMs:  attemptDuration.Milliseconds(),
-				StartedAt:   attemptStart,
-				CompletedAt: &completedAt,
-			})
+		lastErr = res.err
+		retry, err := e.handleFailedAttempt(ctx, execution, step, res, maxAttempts, stepStartTime)
+		if !retry {
+			return err
 		}
-
-		// Clear attempt context on success
-		execution.mu.Lock()
-		delete(execution.AttemptContexts, step.ID)
-		execution.mu.Unlock()
-
-		execution.mu.Lock()
-		execution.States[step.ID] = stateCompleted
-		execution.mu.Unlock()
-		if e.store != nil {
-			_ = e.store.SaveStepState(pipelineID, step.ID, state.StateCompleted, "")
-		}
-
-		// EvalSignal hook (issue #1606): step terminally succeeded.
-		e.recordStepEval(execution, step, stateCompleted, nil, time.Since(stepStartTime))
-
-		// Record checkpoint for fork/rewind support
-		if e.store != nil {
-			stepIndex := -1
-			for i, s := range execution.Pipeline.Steps {
-				if s.ID == step.ID {
-					stepIndex = i
-					break
-				}
-			}
-			recorder := &CheckpointRecorder{store: e.store}
-			recorder.Record(execution, step, stepIndex)
-		}
-
-		// Record step completion for ETA calculation
-		if e.etaCalculator != nil {
-			e.etaCalculator.RecordStepCompletion(step.ID, attemptDuration.Milliseconds())
-			e.emit(event.Event{
-				Timestamp:       time.Now(),
-				PipelineID:      pipelineID,
-				StepID:          step.ID,
-				State:           event.StateETAUpdated,
-				EstimatedTimeMs: e.etaCalculator.RemainingMs(),
-			})
-		}
-
-		// Track deliverables from completed step
-		e.trackStepDeliverables(execution, step)
-
-		// Extract declared outcomes from step artifacts
-		e.processStepOutcomes(execution, step)
-
-		return nil
 	}
 
 	return lastErr
+}
+
+// executeCommandStepWithContracts runs a command step, registers its output
+// artifacts and validates its handover contracts like a persona step.
+func (e *DefaultPipelineExecutor) executeCommandStepWithContracts(ctx context.Context, execution *PipelineExecution, step *Step) error {
+	result, err := e.executeCommandStep(ctx, execution, step)
+	if err != nil {
+		return err
+	}
+	if result != nil && result.Outcome == "failure" {
+		return result.Error
+	}
+	// Register output artifacts so downstream `inject_artifacts` lookups
+	// in `injectArtifacts` (executor.go: ArtifactPaths[step.ID+":"+name])
+	// resolve to the on-disk file the script wrote. Without this,
+	// command-step outputs were silently delivered as 0-byte blobs to
+	// downstream personas (see #1490).
+	workspacePath := execution.WorkspacePaths[step.ID]
+	e.writeOutputArtifacts(execution, step, workspacePath, nil)
+	// Run handover contract validation (same as persona steps).
+	// Resolve against the command's actual working directory, not the workspace root.
+	contractDir := resolveCommandWorkDir(workspacePath, step)
+	if cErr := e.validateStepContracts(ctx, execution, step, contractDir, nil, execution.Status.ID, "", time.Now(), &adapter.AdapterResult{}); cErr != nil {
+		return cErr
+	}
+	// Report command-step outputs as deliverables like persona steps do;
+	// otherwise they are missing from the run's outcomes.
+	e.trackStepDeliverables(execution, step)
+	e.processStepOutcomes(execution, step)
+	return nil
+}
+
+// runStepStartHooks runs the blocking step_start hooks (marking the step
+// failed if one fails) and fires the step_start webhooks.
+func (e *DefaultPipelineExecutor) runStepStartHooks(ctx context.Context, execution *PipelineExecution, step *Step) error {
+	pipelineID := execution.Status.ID
+	stepStartEvt := hooks.HookEvent{
+		Type:       hooks.EventStepStart,
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		Input:      execution.Input,
+	}
+	if e.hookRunner != nil {
+		if _, err := e.hookRunner.RunHooks(ctx, stepStartEvt); err != nil {
+			e.setStepState(execution, step.ID, stateFailed, state.StateFailed, err.Error())
+			return fmt.Errorf("step_start hook failed: %w", err)
+		}
+	}
+	e.fireWebhooks(ctx, stepStartEvt)
+	return nil
+}
+
+// setStepState records a step state in memory and in the state store.
+func (e *DefaultPipelineExecutor) setStepState(execution *PipelineExecution, stepID, memState string, storeState state.StepState, errMsg string) {
+	execution.mu.Lock()
+	execution.States[stepID] = memState
+	execution.mu.Unlock()
+	if e.store != nil {
+		_ = e.store.SaveStepState(execution.Status.ID, stepID, storeState, errMsg)
+	}
+}
+
+// announceRetry marks the step as retrying, emits the retry event, runs the
+// step_retrying hooks and waits for the retry back-off.
+func (e *DefaultPipelineExecutor) announceRetry(ctx context.Context, execution *PipelineExecution, step *Step, attempt, maxAttempts int) {
+	pipelineID := execution.Status.ID
+	// EvalSignal hook (issue #1606): each retry attempt increments the
+	// run-level retry counter persisted in pipeline_eval.retry_count.
+	e.recordStepRetry(execution)
+	e.setStepState(execution, step.ID, stateRetrying, state.StateRetrying, "")
+	e.emit(event.Event{
+		Timestamp:  time.Now(),
+		PipelineID: pipelineID,
+		StepID:     step.ID,
+		State:      stateRetrying,
+		Message:    fmt.Sprintf("attempt %d/%d", attempt, maxAttempts),
+	})
+	// Run step_retrying hooks (non-blocking by default)
+	if e.hookRunner != nil {
+		e.hookRunner.RunHooks(ctx, hooks.HookEvent{
+			Type:       hooks.EventStepRetrying,
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			Input:      execution.Input,
+		})
+	}
+	time.Sleep(step.Retry.ComputeDelay(attempt))
+}
+
+// stepAttempt is the outcome of one attempt at running a step.
+type stepAttempt struct {
+	attempt  int
+	start    time.Time
+	duration time.Duration
+	err      error // error returned by the step, nil on success
+	ctxErr   error // error of the (watchdog-derived) step context
+}
+
+// runStepAttempt runs a single attempt with the progress ticker and, for
+// non-composition steps, the stall watchdog. The returned error is only set
+// when the attempt could not be started.
+func (e *DefaultPipelineExecutor) runStepAttempt(ctx context.Context, execution *PipelineExecution, step *Step, attempt int) (stepAttempt, error) {
+	pipelineID := execution.Status.ID
+	res := stepAttempt{attempt: attempt, start: time.Now()}
+	if e.store != nil {
+		_ = e.store.RecordStepAttempt(&state.StepAttemptRecord{
+			RunID:     pipelineID,
+			StepID:    step.ID,
+			Attempt:   attempt,
+			State:     stateRunning,
+			StartedAt: res.start,
+		})
+	}
+
+	// Start progress ticker for smooth animation updates during step execution
+	cancelTicker := e.startProgressTicker(ctx, pipelineID, step.ID)
+
+	// Start stall watchdog if configured. Composition steps (iterate /
+	// aggregate / branch / loop / sub_pipeline) do not produce their
+	// own stream events: their work happens in spawned child
+	// pipelines under separate run IDs. Wiring a stall watchdog to
+	// them would fire after the configured timeout regardless of
+	// whether children are healthy. Skip the watchdog for those step
+	// kinds; each child pipeline owns its own stall watchdog.
+	stepCtx := ctx
+	var watchdog *StallWatchdog
+	isCompositionStep := step.Iterate != nil || step.Aggregate != nil ||
+		step.Branch != nil || step.Loop != nil || step.SubPipeline != ""
+	if !isCompositionStep {
+		if stallTimeout := e.parseStallTimeout(execution.Manifest); stallTimeout > 0 {
+			w, err := NewStallWatchdog(stallTimeout)
+			if err != nil {
+				cancelTicker()
+				return res, fmt.Errorf("step %s: stall watchdog setup: %w", step.ID, err)
+			}
+			watchdog = w
+			stepCtx = watchdog.Start(stepCtx)
+		}
+	}
+
+	// Store watchdog on execution so runStepExecution can wire NotifyActivity
+	execution.mu.Lock()
+	execution.Watchdog = watchdog
+	execution.mu.Unlock()
+
+	res.err = e.runStepExecution(stepCtx, execution, step)
+
+	// Stop stall watchdog and clear reference
+	if watchdog != nil {
+		watchdog.Stop()
+	}
+	execution.mu.Lock()
+	execution.Watchdog = nil
+	execution.mu.Unlock()
+
+	// Stop progress ticker when step completes
+	cancelTicker()
+
+	res.duration = time.Since(res.start)
+	res.ctxErr = stepCtx.Err()
+	return res, nil
+}
+
+// handleFailedAttempt decides what happens after a failed attempt. It
+// returns retry=true when another attempt should run; otherwise the step is
+// finished and err is the step's result (nil when on_failure lets the
+// pipeline continue).
+func (e *DefaultPipelineExecutor) handleFailedAttempt(ctx context.Context, execution *PipelineExecution, step *Step, res stepAttempt, maxAttempts int, stepStartTime time.Time) (retry bool, err error) {
+	pipelineID := execution.Status.ID
+	err = res.err
+
+	// Design rejection short-circuit: a contract with on_failure:
+	// rejected fired because the persona output deliberately
+	// signalled no-op. This is NOT a retryable failure: the work
+	// being non-actionable is the *answer*, not a bug. Skip retries
+	// and route directly to the rejected terminal state. The
+	// executor's States map is already set by applyContractOnFailure;
+	// we just need to persist state and propagate the typed error so
+	// callers (run.go, webui) can render the run with the dedicated
+	// rejected status.
+	var rejectionErr *ContractRejectionError
+	if errors.As(err, &rejectionErr) {
+		if e.store != nil {
+			_ = e.store.SaveStepState(pipelineID, step.ID, state.StateRejected, err.Error())
+		}
+		return false, err
+	}
+
+	// Classify the failure for intelligent retry decisions.
+	// Use the watchdog-derived context error so stall cancellation is detected.
+	failureClass := ClassifyStepFailure(err, nil, res.ctxErr)
+
+	// Record failed attempt with pipeline-level failure class
+	if e.store != nil {
+		completedAt := time.Now()
+		_ = e.store.RecordStepAttempt(&state.StepAttemptRecord{
+			RunID:        pipelineID,
+			StepID:       step.ID,
+			Attempt:      res.attempt,
+			State:        stateFailed,
+			ErrorMessage: err.Error(),
+			FailureClass: failureClass,
+			DurationMs:   res.duration.Milliseconds(),
+			StartedAt:    res.start,
+			CompletedAt:  &completedAt,
+		})
+	}
+
+	exhausted := res.attempt >= maxAttempts
+
+	// Check circuit breaker: if same failure fingerprint repeats too many times, stop
+	if execution.CircuitBreaker != nil {
+		fp := NormalizeFingerprint(step.ID, failureClass, err.Error())
+		if execution.CircuitBreaker.Record(fp, failureClass) {
+			e.emit(event.Event{
+				Timestamp:    time.Now(),
+				PipelineID:   pipelineID,
+				StepID:       step.ID,
+				State:        event.StateFailed,
+				FailureClass: failureClass,
+				Message:      fmt.Sprintf("circuit breaker tripped: same failure repeated %d times", execution.CircuitBreaker.Limit()),
+			})
+			exhausted = true
+		}
+	}
+
+	// Skip remaining retries for non-retryable failure classes
+	if !IsRetryable(failureClass) && !exhausted {
+		e.emit(event.Event{
+			Timestamp:    time.Now(),
+			PipelineID:   pipelineID,
+			StepID:       step.ID,
+			State:        event.StateFailed,
+			FailureClass: failureClass,
+			Message:      fmt.Sprintf("non-retryable failure class %q, skipping remaining retries", failureClass),
+		})
+		exhausted = true
+	}
+
+	if !exhausted {
+		e.recordDecision(pipelineID, step.ID, "retry",
+			fmt.Sprintf("retrying step %s (attempt %d/%d)", step.ID, res.attempt+1, maxAttempts),
+			fmt.Sprintf("failure class %q is retryable, attempts remaining", failureClass),
+			map[string]interface{}{
+				"attempt":       res.attempt,
+				"max_attempts":  maxAttempts,
+				"failure_class": failureClass,
+				"error":         err.Error(),
+			},
+		)
+		e.setRetryContext(execution, step, err, failureClass, res.attempt+1, maxAttempts)
+		return true, nil
+	}
+
+	// All attempts exhausted: apply on_failure policy
+	e.recordDecision(pipelineID, step.ID, "retry",
+		fmt.Sprintf("all %d attempts exhausted for step %s", maxAttempts, step.ID),
+		fmt.Sprintf("applying on_failure policy after %d failed attempts", maxAttempts),
+		map[string]interface{}{
+			"max_attempts":  maxAttempts,
+			"failure_class": failureClass,
+			"last_error":    err.Error(),
+		},
+	)
+	return false, e.applyOnFailure(ctx, execution, step, err, maxAttempts, res.duration, stepStartTime)
+}
+
+// setRetryContext records what failed so the next attempt's prompt can tell
+// the agent (prior error, stdout tail, contract errors) instead of starting
+// from scratch.
+func (e *DefaultPipelineExecutor) setRetryContext(execution *PipelineExecution, step *Step, err error, failureClass string, nextAttempt, maxAttempts int) {
+	errMsg := err.Error()
+
+	// Capture stdout tail from results if available
+	stdoutTail := ""
+	execution.mu.Lock()
+	if result, ok := execution.Results[step.ID]; ok {
+		if stdout, ok := result["stdout"].(string); ok {
+			if len(stdout) > maxStdoutTailChars {
+				stdoutTail = stdout[len(stdout)-maxStdoutTailChars:]
+			} else {
+				stdoutTail = stdout
+			}
+		}
+	}
+	execution.mu.Unlock()
+
+	// Extract contract-specific errors when the failure came from contract
+	// validation so the agent gets actionable detail about which contract
+	// failed and why.
+	var contractErrors []string
+	if strings.Contains(errMsg, "contract validation failed") {
+		inner := err
+		for uw := errors.Unwrap(inner); uw != nil; uw = errors.Unwrap(inner) {
+			inner = uw
+		}
+		contractErrors = append(contractErrors, inner.Error())
+	}
+
+	execution.mu.Lock()
+	execution.AttemptContexts[step.ID] = &AttemptContext{
+		Attempt:        nextAttempt,
+		MaxAttempts:    maxAttempts,
+		PriorError:     errMsg,
+		FailureClass:   failureClass,
+		PriorStdout:    stdoutTail,
+		ContractErrors: contractErrors,
+	}
+	execution.mu.Unlock()
+}
+
+// applyOnFailure applies the step's on_failure policy once all attempts
+// failed: skip and continue let the pipeline go on (nil), rework runs the
+// rework step, and fail (the default for required steps) returns err.
+func (e *DefaultPipelineExecutor) applyOnFailure(ctx context.Context, execution *PipelineExecution, step *Step, err error, maxAttempts int, attemptDuration time.Duration, stepStartTime time.Time) error {
+	pipelineID := execution.Status.ID
+	onFailure := step.Retry.OnFailure
+	if onFailure == "" {
+		if step.Optional {
+			onFailure = OnFailureContinue
+		} else {
+			onFailure = OnFailureFail
+		}
+	}
+
+	switch onFailure {
+	case OnFailureSkip:
+		e.setStepState(execution, step.ID, stateSkipped, state.StateSkipped, err.Error())
+		// EvalSignal hook (issue #1606): on_failure: skip suppresses
+		// the failure for downstream scheduling but still represents a
+		// run-level negative observation worth aggregating.
+		e.recordStepEval(execution, step, stateFailed, err, time.Since(stepStartTime))
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      event.StateSkipped,
+			Message:    fmt.Sprintf("step skipped after %d failed attempts: %s", maxAttempts, err.Error()),
+		})
+		return nil
+
+	case OnFailureContinue:
+		e.setStepState(execution, step.ID, stateFailed, state.StateFailed, err.Error())
+		// EvalSignal hook (issue #1606): step terminally failed.
+		e.recordStepEval(execution, step, stateFailed, err, time.Since(stepStartTime))
+		e.emit(event.Event{
+			Timestamp:  time.Now(),
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			State:      event.StateFailed,
+			Message:    fmt.Sprintf("step failed after %d attempts but pipeline continues: %s", maxAttempts, err.Error()),
+		})
+		return nil
+
+	case OnFailureRework:
+		return e.executeReworkStep(ctx, execution, step, err, attemptDuration)
+
+	default: // OnFailureFail
+		e.setStepState(execution, step.ID, stateFailed, state.StateFailed, err.Error())
+		// EvalSignal hook (issue #1606): step terminally failed.
+		e.recordStepEval(execution, step, stateFailed, err, time.Since(stepStartTime))
+		// Run step_failed hooks and webhooks (non-blocking by default)
+		stepFailedEvt := hooks.HookEvent{
+			Type:       hooks.EventStepFailed,
+			PipelineID: pipelineID,
+			StepID:     step.ID,
+			Input:      execution.Input,
+			Error:      err.Error(),
+		}
+		if e.hookRunner != nil {
+			e.hookRunner.RunHooks(ctx, stepFailedEvt)
+		}
+		e.fireWebhooks(ctx, stepFailedEvt)
+		return err
+	}
+}
+
+// completeStepAttempt records a successful attempt and finalises the step:
+// state, eval signal, checkpoint, ETA, deliverables and outcomes.
+func (e *DefaultPipelineExecutor) completeStepAttempt(execution *PipelineExecution, step *Step, res stepAttempt, stepStartTime time.Time) {
+	pipelineID := execution.Status.ID
+	if e.store != nil {
+		completedAt := time.Now()
+		_ = e.store.RecordStepAttempt(&state.StepAttemptRecord{
+			RunID:       pipelineID,
+			StepID:      step.ID,
+			Attempt:     res.attempt,
+			State:       "succeeded",
+			DurationMs:  res.duration.Milliseconds(),
+			StartedAt:   res.start,
+			CompletedAt: &completedAt,
+		})
+	}
+
+	// Clear attempt context on success
+	execution.mu.Lock()
+	delete(execution.AttemptContexts, step.ID)
+	execution.mu.Unlock()
+
+	e.setStepState(execution, step.ID, stateCompleted, state.StateCompleted, "")
+
+	// EvalSignal hook (issue #1606): step terminally succeeded.
+	e.recordStepEval(execution, step, stateCompleted, nil, time.Since(stepStartTime))
+
+	// Record checkpoint for fork/rewind support
+	if e.store != nil {
+		stepIndex := -1
+		for i, s := range execution.Pipeline.Steps {
+			if s.ID == step.ID {
+				stepIndex = i
+				break
+			}
+		}
+		recorder := &CheckpointRecorder{store: e.store}
+		recorder.Record(execution, step, stepIndex)
+	}
+
+	// Record step completion for ETA calculation
+	if e.etaCalculator != nil {
+		e.etaCalculator.RecordStepCompletion(step.ID, res.duration.Milliseconds())
+		e.emit(event.Event{
+			Timestamp:       time.Now(),
+			PipelineID:      pipelineID,
+			StepID:          step.ID,
+			State:           event.StateETAUpdated,
+			EstimatedTimeMs: e.etaCalculator.RemainingMs(),
+		})
+	}
+
+	// Track deliverables from completed step
+	e.trackStepDeliverables(execution, step)
+
+	// Extract declared outcomes from step artifacts
+	e.processStepOutcomes(execution, step)
 }
 
 // executeReworkStep handles on_failure=rework: marks the failed step, builds failure context,
@@ -980,11 +1029,3 @@ func (e *DefaultPipelineExecutor) executeReworkStep(ctx context.Context, executi
 
 	return nil
 }
-
-// validateStepContracts runs all contracts in EffectiveContracts() order.
-// Each contract gets its own on_failure policy. When agent_review contracts fail
-// with on_failure: rework, feedback is written as artifact and the rework step is
-// executed; afterward all contracts re-run from the beginning (bounded by max_retries).
-//
-// Backward compatibility: a step with only the singular 'contract' field behaves
-// identically to a single-element 'contracts' list — same events, tracing, and pass/fail.

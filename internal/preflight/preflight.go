@@ -120,92 +120,6 @@ func (c *Checker) CheckTools(toolNames []string) ([]Result, error) {
 	return results, nil
 }
 
-// BrowserBinaries is the search order for browser binaries on PATH.
-var BrowserBinaries = []string{
-	"chromium",
-	"chromium-browser",
-	"google-chrome",
-	"google-chrome-stable",
-}
-
-// CheckBrowserBinary verifies that a Chromium/Chrome binary is available on PATH.
-// Returns the found binary path and a Result. If not found, includes platform-specific
-// install instructions in the error message.
-func (c *Checker) CheckBrowserBinary() (string, Result) {
-	for _, name := range BrowserBinaries {
-		if path, err := exec.LookPath(name); err == nil {
-			return path, Result{
-				Name:    name,
-				Kind:    "tool",
-				OK:      true,
-				Message: fmt.Sprintf("browser binary %q found at %s", name, path),
-			}
-		}
-	}
-
-	installHint := "Install a Chromium-based browser:\n" +
-		"  Ubuntu/Debian: sudo apt install chromium-browser\n" +
-		"  Fedora/RHEL:   sudo dnf install chromium\n" +
-		"  macOS:         brew install --cask chromium\n" +
-		"  Arch:          sudo pacman -S chromium\n" +
-		"  Nix:           nix-env -iA nixpkgs.chromium"
-
-	return "", Result{
-		Name:    "chromium",
-		Kind:    "tool",
-		OK:      false,
-		Message: fmt.Sprintf("no browser binary found on PATH (searched: %s)\n%s", strings.Join(BrowserBinaries, ", "), installHint),
-	}
-}
-
-// CheckDockerDaemon verifies that the Docker daemon is available and running.
-func (c *Checker) CheckDockerDaemon() Result {
-	status := checks.DockerDaemon(c.runCmd, nil)
-	switch {
-	case !status.BinaryFound:
-		return Result{
-			Name:    "docker",
-			Kind:    "tool",
-			OK:      false,
-			Message: "docker binary not found on PATH\n  Install Docker: https://docs.docker.com/get-docker/",
-		}
-	case !status.DaemonUp:
-		return Result{
-			Name:    "docker",
-			Kind:    "tool",
-			OK:      false,
-			Message: "docker daemon not running\n  Linux: systemctl start docker\n  macOS: Open Docker Desktop\n  WSL2: Start Docker Desktop for Windows",
-		}
-	default:
-		return Result{
-			Name:    "docker",
-			Kind:    "tool",
-			OK:      true,
-			Message: "docker daemon available",
-		}
-	}
-}
-
-// CheckBubblewrap verifies that the bubblewrap binary is available on PATH.
-func (c *Checker) CheckBubblewrap() Result {
-	_, err := exec.LookPath("bwrap")
-	if err != nil {
-		return Result{
-			Name:    "bwrap",
-			Kind:    "tool",
-			OK:      false,
-			Message: "bubblewrap (bwrap) not found on PATH\n  Consider using Docker sandbox instead: runtime.sandbox.backend: docker",
-		}
-	}
-
-	return Result{
-		Name:    "bwrap",
-		Kind:    "tool",
-		OK:      true,
-		Message: "bubblewrap available",
-	}
-}
-
 // CheckSkills verifies that all required skills are installed, attempting auto-install if configured.
 // Note: init commands are NOT run here — they run inside the worktree after creation.
 func (c *Checker) CheckSkills(skills []string) ([]Result, error) {
@@ -453,21 +367,6 @@ type AdapterDef struct {
 type StepRef struct {
 	Persona string
 	Adapter string // Step-level adapter override
-}
-
-// CheckAdapterBinaries verifies that all referenced adapter binaries are available on PATH.
-// It collects unique adapter binaries from the given adapter map and checks each.
-func (c *Checker) CheckAdapterBinaries(adapterBinaries []string) ([]Result, error) {
-	seen := make(map[string]bool)
-	var unique []string
-	for _, binary := range adapterBinaries {
-		if binary == "" || seen[binary] {
-			continue
-		}
-		seen[binary] = true
-		unique = append(unique, binary)
-	}
-	return c.CheckTools(unique)
 }
 
 // PreflightError is a composite error returned when both tools and skills fail.

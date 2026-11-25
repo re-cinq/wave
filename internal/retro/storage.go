@@ -17,7 +17,6 @@ type RetroIndexer interface {
 	SaveRetrospective(record *metrics.RetrospectiveRecord) error
 	GetRetrospective(runID string) (*metrics.RetrospectiveRecord, error)
 	ListRetrospectives(opts metrics.ListRetrosOptions) ([]metrics.RetrospectiveRecord, error)
-	DeleteRetrospective(runID string) error
 	UpdateRetrospectiveSmoothness(runID string, smoothness string) error
 	UpdateRetrospectiveStatus(runID string, status string) error
 }
@@ -125,13 +124,6 @@ func (s *Storage) List(pipelineName string, since time.Time, limit int) ([]metri
 		opts.SinceUnix = since.Unix()
 	}
 	return s.indexer.ListRetrospectives(opts)
-}
-
-// Delete removes a retrospective JSON file and its index entry.
-func (s *Storage) Delete(runID string) error {
-	filePath := s.filePath(runID)
-	_ = os.Remove(filePath) // best effort file removal
-	return s.indexer.DeleteRetrospective(runID)
 }
 
 // filePath returns the JSON file path for a given run ID.

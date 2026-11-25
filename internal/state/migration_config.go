@@ -55,11 +55,6 @@ func LoadMigrationConfigFromEnv() *MigrationConfig {
 	return cfg
 }
 
-// ShouldUseMigrations determines if the migration system should be used
-func (c *MigrationConfig) ShouldUseMigrations() bool {
-	return c.EnableMigrations
-}
-
 // ShouldAutoMigrate determines if migrations should be applied automatically
 func (c *MigrationConfig) ShouldAutoMigrate() bool {
 	return c.EnableMigrations && c.AutoMigrate

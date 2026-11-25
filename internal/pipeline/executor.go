@@ -138,12 +138,6 @@ func WithStateStore(s state.StateStore) ExecutorOption {
 	}
 }
 
-// WithMetricsStore overrides the metrics handle. Useful for tests that drive
-// the executor with an explicit *metrics.Store backed by a temp DB.
-func WithMetricsStore(m *metrics.Store) ExecutorOption {
-	return func(ex *DefaultPipelineExecutor) { ex.metrics = m }
-}
-
 func WithAuditLogger(l audit.AuditLogger) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.logger = l }
 }
@@ -182,13 +176,6 @@ func WithStepTimeout(d time.Duration) ExecutorOption {
 
 func WithModelOverride(model string) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.modelOverride = model }
-}
-
-// WithTaskComplexity sets the task-level complexity from the classifier.
-// When set, it adjusts model routing: simple tasks cap at balanced,
-// complex/architectural tasks floor at balanced.
-func WithTaskComplexity(complexity string) ExecutorOption {
-	return func(ex *DefaultPipelineExecutor) { ex.taskComplexity = complexity }
 }
 
 func WithForceModel(force bool) ExecutorOption {
@@ -479,23 +466,9 @@ func (e *DefaultPipelineExecutor) trace(eventType, stepID string, durationMs int
 	})
 }
 
-// startProgressTicker starts a background ticker to emit periodic progress events
-// during step execution to ensure smooth animation updates
-func (e *DefaultPipelineExecutor) GetOutcomesSummary() string {
-	if e.outcomeTracker == nil {
-		return ""
-	}
-	return e.outcomeTracker.FormatSummary()
-}
-
 // GetOutcomeTracker returns the outcome tracker for external access.
 func (e *DefaultPipelineExecutor) GetOutcomeTracker() *state.OutcomeTracker {
 	return e.outcomeTracker
-}
-
-// GetRunID returns the run ID assigned to this executor (empty if not yet started).
-func (e *DefaultPipelineExecutor) GetRunID() string {
-	return e.runID
 }
 
 // GetTotalTokens returns the sum of tokens used across all completed steps.
@@ -503,22 +476,6 @@ func (e *DefaultPipelineExecutor) GetTotalTokens() int {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	return e.totalTokens
-}
-
-// GetCostSummary returns a human-readable cost summary for the run, or empty if no cost tracking.
-func (e *DefaultPipelineExecutor) GetCostSummary() string {
-	if e.costLedger == nil {
-		return ""
-	}
-	return e.costLedger.Summary()
-}
-
-// GetTotalCost returns the cumulative USD cost of the run, or 0 if cost tracking is disabled.
-func (e *DefaultPipelineExecutor) GetTotalCost() float64 {
-	if e.costLedger == nil {
-		return 0
-	}
-	return e.costLedger.TotalCost()
 }
 
 func (e *DefaultPipelineExecutor) Resume(ctx context.Context, pipelineID string, fromStep string) error {
@@ -647,5 +604,3 @@ func (e *DefaultPipelineExecutor) ResumeWithValidation(ctx context.Context, p *P
 	manager := NewResumeManager(e)
 	return manager.ResumeFromStep(ctx, p, m, input, fromStep, force, priorRunID...)
 }
-
-// fireWebhooks sends an event to all matching dynamic webhooks (non-blocking).

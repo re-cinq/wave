@@ -27,20 +27,10 @@ var contractsFS embed.FS
 //go:embed prompts/**/*.md
 var promptsFS embed.FS
 
-//go:embed schemas/*.json
-var schemasFS embed.FS
-
-// skillsFS is empty: no skill templates ship by default.
-var skillsFS embed.FS
-
 // PersonaConfigsFS exposes the embedded persona yaml configs for callers that
 // need to parse them as manifest.Persona (kept out of this package to avoid
 // importing internal/manifest and creating an import cycle).
 func PersonaConfigsFS() embed.FS { return personaConfigsFS }
-
-// SchemasFS / SkillsFS expose embedded JSON schemas + skill templates.
-func SchemasFS() embed.FS { return schemasFS }
-func SkillsFS() embed.FS  { return skillsFS }
 
 // GetPersonas returns filename → content for embedded persona prompts.
 func GetPersonas() (map[string]string, error) { return readDir(personasFS, "personas") }

@@ -2,8 +2,6 @@ package state
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -75,8 +73,6 @@ func TestOutcomeTrackerConvenienceAdders(t *testing.T) {
 		{"AddURL", func(tr *OutcomeTracker) { tr.AddURL("s", "n", "https://example.com", "d") }, OutcomeTypeURL},
 		{"AddPR", func(tr *OutcomeTracker) { tr.AddPR("s", "n", "https://github.com/pr/1", "d") }, OutcomeTypePR},
 		{"AddDeployment", func(tr *OutcomeTracker) { tr.AddDeployment("s", "n", "https://deploy.example.com", "d") }, OutcomeTypeDeployment},
-		{"AddLog", func(tr *OutcomeTracker) { tr.AddLog("s", "n", "/var/log/step.log", "d") }, OutcomeTypeLog},
-		{"AddContract", func(tr *OutcomeTracker) { tr.AddContract("s", "n", "/contracts/out.json", "d") }, OutcomeTypeContract},
 		{"AddArtifact", func(tr *OutcomeTracker) { tr.AddArtifact("s", "n", "/art/out.bin", "d") }, OutcomeTypeArtifact},
 		{"AddBranch", func(tr *OutcomeTracker) { tr.AddBranch("s", "feat/x", "/ws/x", "d") }, OutcomeTypeBranch},
 		{"AddIssue", func(tr *OutcomeTracker) { tr.AddIssue("s", "Issue #1", "https://github.com/issues/1", "d") }, OutcomeTypeIssue},
@@ -86,7 +82,10 @@ func TestOutcomeTrackerConvenienceAdders(t *testing.T) {
 			tracker := NewOutcomeTracker("p1", nil)
 			tc.addFunc(tracker)
 			require.Equal(t, 1, tracker.Count())
-			assert.Equal(t, tc.wantType, tracker.GetAll()[0].Type)
+			got := tracker.GetAll()[0]
+			assert.Equal(t, tc.wantType, got.Type)
+			assert.Equal(t, "s", got.StepID)
+			assert.Equal(t, "d", got.Description)
 		})
 	}
 }
@@ -168,35 +167,6 @@ func TestOutcomeTrackerCount(t *testing.T) {
 	assert.Equal(t, 2, tracker.Count())
 }
 
-func TestOutcomeTrackerFormatSummary(t *testing.T) {
-	t.Setenv("NERD_FONT", "")
-	t.Setenv("TERM", "dumb")
-	t.Setenv("TERMINAL_EMULATOR", "")
-
-	t.Run("empty", func(t *testing.T) {
-		tracker := NewOutcomeTracker("p", nil)
-		assert.Equal(t, "", tracker.FormatSummary())
-	})
-
-	t.Run("populated", func(t *testing.T) {
-		tracker := NewOutcomeTracker("p", nil)
-		tracker.AddFile("s1", "output", "/tmp/output.json", "the output")
-		tracker.AddURL("s1", "link", "https://example.com", "a link")
-
-		summary := tracker.FormatSummary()
-		assert.Contains(t, summary, "Artifacts (2):")
-		assert.Contains(t, summary, "output.json")
-		assert.Contains(t, summary, "https://example.com")
-	})
-
-	t.Run("nerd font prefix", func(t *testing.T) {
-		t.Setenv("NERD_FONT", "1")
-		tracker := NewOutcomeTracker("p", nil)
-		tracker.AddFile("s1", "f", "/tmp/f.txt", "d")
-		assert.Contains(t, tracker.FormatSummary(), "\U0001f4e6 Artifacts")
-	})
-}
-
 func TestOutcomeTrackerFormatByStep(t *testing.T) {
 	tracker := NewOutcomeTracker("p", nil)
 	now := time.Now()
@@ -225,60 +195,6 @@ func TestOutcomeTrackerGetLatestForStep(t *testing.T) {
 	assert.Equal(t, "newest", latest.Label)
 
 	assert.Nil(t, tracker.GetLatestForStep("nope"))
-}
-
-func TestOutcomeTrackerAddWorkspaceFiles(t *testing.T) {
-	tmp := t.TempDir()
-	files := map[string]string{
-		"output.json": `{"status":"ok"}`,
-		"result.yaml": "key: value",
-		"step.log":    "log",
-		"data.json":   `{"data":true}`,
-		"config.yml":  "setting: true",
-		"README.md":   "# Hello",
-		"notes.txt":   "notes",
-		"binary.bin":  "no",
-	}
-	for name, content := range files {
-		require.NoError(t, os.WriteFile(filepath.Join(tmp, name), []byte(content), 0o644))
-	}
-
-	tracker := NewOutcomeTracker("p", nil)
-	tracker.AddWorkspaceFiles("step-1", tmp)
-
-	all := tracker.GetAll()
-	bases := map[string]bool{}
-	for _, r := range all {
-		bases[filepath.Base(r.Value)] = true
-		assert.Equal(t, OutcomeTypeFile, r.Type)
-		assert.Equal(t, "step-1", r.StepID)
-	}
-	for _, want := range []string{"output.json", "result.yaml", "step.log", "data.json", "config.yml", "README.md", "notes.txt"} {
-		assert.True(t, bases[want], "expected %s in workspace files", want)
-	}
-	assert.False(t, bases["binary.bin"])
-}
-
-func TestOutcomeTrackerAddWorkspaceFilesDeduplicatesAcrossPatterns(t *testing.T) {
-	tmp := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(tmp, "output.json"), []byte("{}"), 0o644))
-
-	tracker := NewOutcomeTracker("p", nil)
-	tracker.AddWorkspaceFiles("step-1", tmp)
-
-	count := 0
-	for _, r := range tracker.GetAll() {
-		if filepath.Base(r.Value) == "output.json" {
-			count++
-		}
-	}
-	assert.Equal(t, 1, count)
-}
-
-func TestOutcomeTrackerAddWorkspaceFilesNonexistent(t *testing.T) {
-	tracker := NewOutcomeTracker("p", nil)
-	tracker.AddWorkspaceFiles("step-1", "/no/such/path/xyz")
-	assert.Equal(t, 0, tracker.Count())
 }
 
 func TestOutcomeTrackerOutcomeWarnings(t *testing.T) {

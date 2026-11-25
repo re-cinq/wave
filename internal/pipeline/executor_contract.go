@@ -755,11 +755,3 @@ func (e *DefaultPipelineExecutor) buildContractPrompt(step *Step, ctx *PipelineC
 	}
 	return b.String()
 }
-
-// processStepOutcomes extracts declared outcomes from step artifacts and registers
-// them with the deliverable tracker for display in the pipeline output summary.
-// Errors are logged as warnings — outcome extraction never fails a step.
-//
-// When a json_path contains [*] wildcard syntax, all array elements are extracted
-// and each is registered as a separate deliverable. The optional json_path_label
-// field provides per-item labels; when absent, items are labeled with their index.

@@ -13,7 +13,6 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
-	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -46,16 +45,6 @@ type MetaPipelineExecutor struct {
 // MetaExecutorOption configures the MetaPipelineExecutor.
 type MetaExecutorOption func(*MetaPipelineExecutor)
 
-// WithMetaDepth sets the initial recursion depth (passed from parent pipelines).
-func WithMetaDepth(depth int) MetaExecutorOption {
-	return func(e *MetaPipelineExecutor) { e.currentDepth = depth }
-}
-
-// WithParentPipeline sets the parent pipeline ID for tracking.
-func WithParentPipeline(id string) MetaExecutorOption {
-	return func(e *MetaPipelineExecutor) { e.parentPipelineID = id }
-}
-
 // WithMetaEmitter sets the event emitter for the meta executor.
 func WithMetaEmitter(em event.EventEmitter) MetaExecutorOption {
 	return func(e *MetaPipelineExecutor) { e.emitter = em }
@@ -77,9 +66,6 @@ func WithMockMode() MetaExecutorOption {
 func WithFailureContext(ctx string) MetaExecutorOption {
 	return func(e *MetaPipelineExecutor) { e.failureContext = ctx }
 }
-
-// FailureContext returns the previous-attempt context, if any.
-func (e *MetaPipelineExecutor) FailureContext() string { return e.failureContext }
 
 // NewMetaPipelineExecutor creates a new meta-pipeline executor.
 func NewMetaPipelineExecutor(runner adapter.AdapterRunner, opts ...MetaExecutorOption) *MetaPipelineExecutor {
@@ -1042,74 +1028,4 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
-}
-
-// CreateChildMetaExecutor creates a new MetaPipelineExecutor for executing
-// nested meta-pipelines with incremented depth.
-func (e *MetaPipelineExecutor) CreateChildMetaExecutor() *MetaPipelineExecutor {
-	child := &MetaPipelineExecutor{
-		emitterMixin:     emitterMixin{emitter: e.emitter},
-		runner:           e.runner,
-		registry:         e.registry,
-		executor:         e.executor,
-		loader:           e.loader,
-		currentDepth:     e.currentDepth + 1,
-		totalStepsUsed:   e.totalStepsUsed,
-		totalTokensUsed:  e.totalTokensUsed,
-		parentPipelineID: e.getPipelineID(),
-		mockMode:         e.mockMode,
-	}
-	return child
-}
-
-// SyncFromChild updates the parent executor's counters from a child execution.
-func (e *MetaPipelineExecutor) SyncFromChild(child *MetaPipelineExecutor) {
-	e.totalStepsUsed = child.totalStepsUsed
-	e.totalTokensUsed = child.totalTokensUsed
-}
-
-// ValidatePipelineYAML validates raw YAML as a valid WavePipeline structure.
-func ValidatePipelineYAML(data []byte) (*Pipeline, error) {
-	var pipeline Pipeline
-	if err := yaml.Unmarshal(data, &pipeline); err != nil {
-		return nil, fmt.Errorf("invalid YAML syntax: %w", err)
-	}
-
-	applyPipelineDefaults(&pipeline)
-
-	if pipeline.Kind != "WavePipeline" {
-		return nil, fmt.Errorf("invalid kind: expected WavePipeline, got %s", pipeline.Kind)
-	}
-
-	if pipeline.Metadata.Name == "" {
-		return nil, fmt.Errorf("metadata.name is required")
-	}
-
-	if len(pipeline.Steps) == 0 {
-		return nil, fmt.Errorf("at least one step is required")
-	}
-
-	// Validate each step has required fields
-	for i, step := range pipeline.Steps {
-		if step.ID == "" {
-			return nil, fmt.Errorf("step[%d] missing required field: id", i)
-		}
-		// Composition steps use pipeline: instead of persona: + exec:
-		if step.IsCompositionStep() {
-			continue
-		}
-		if step.Persona == "" {
-			return nil, fmt.Errorf("step[%d] (%s) missing required field: persona", i, step.ID)
-		}
-		if step.Exec.Type == "" {
-			return nil, fmt.Errorf("step[%d] (%s) missing required field: exec.type", i, step.ID)
-		}
-		for j, outcome := range step.Outcomes {
-			if err := outcome.Validate(step.ID, j); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	return &pipeline, nil
 }

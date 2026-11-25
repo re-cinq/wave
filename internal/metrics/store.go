@@ -190,79 +190,6 @@ func (s *Store) GetStepPerformanceStats(pipelineName string, stepID string, sinc
 	return &stats, nil
 }
 
-// GetRecentPerformanceHistory retrieves recent performance metrics with optional filters.
-func (s *Store) GetRecentPerformanceHistory(opts PerformanceQueryOptions) ([]PerformanceMetricRecord, error) {
-	query := `SELECT id, run_id, step_id, pipeline_name, persona, started_at, completed_at,
-	                 duration_ms, tokens_used, files_modified, artifacts_generated,
-	                 memory_bytes, success, error_message
-	          FROM performance_metric
-	          WHERE 1=1`
-	args := []any{}
-
-	if opts.PipelineName != "" {
-		query += " AND pipeline_name = ?"
-		args = append(args, opts.PipelineName)
-	}
-	if opts.StepID != "" {
-		query += " AND step_id = ?"
-		args = append(args, opts.StepID)
-	}
-	if opts.Persona != "" {
-		query += " AND persona = ?"
-		args = append(args, opts.Persona)
-	}
-	if !opts.Since.IsZero() {
-		query += " AND started_at >= ?"
-		args = append(args, opts.Since.Unix())
-	}
-
-	query += " ORDER BY started_at DESC"
-
-	if opts.Limit > 0 {
-		query += " LIMIT ?"
-		args = append(args, opts.Limit)
-	}
-
-	rows, err := s.db.Query(query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query performance history: %w", err)
-	}
-	defer rows.Close()
-
-	var metrics []PerformanceMetricRecord
-	for rows.Next() {
-		metric, err := scanMetricRow(rows)
-		if err != nil {
-			return nil, err
-		}
-		metrics = append(metrics, metric)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating performance history: %w", err)
-	}
-
-	return metrics, nil
-}
-
-// CleanupOldPerformanceMetrics removes performance metrics older than the
-// specified duration. Returns the number of rows deleted.
-func (s *Store) CleanupOldPerformanceMetrics(olderThan time.Duration) (int, error) {
-	cutoff := time.Now().Add(-olderThan).Unix()
-
-	result, err := s.db.Exec(`DELETE FROM performance_metric WHERE started_at < ?`, cutoff)
-	if err != nil {
-		return 0, fmt.Errorf("failed to cleanup old performance metrics: %w", err)
-	}
-
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	return int(rows), nil
-}
-
 // scanMetricRow decodes one performance_metric row into a record.
 func scanMetricRow(rows *sql.Rows) (PerformanceMetricRecord, error) {
 	var metric PerformanceMetricRecord
@@ -394,12 +321,6 @@ func (s *Store) ListRetrospectives(opts ListRetrosOptions) ([]RetrospectiveRecor
 		records = append(records, r)
 	}
 	return records, nil
-}
-
-// DeleteRetrospective removes a retrospective record by run ID.
-func (s *Store) DeleteRetrospective(runID string) error {
-	_, err := s.db.Exec("DELETE FROM retrospective WHERE run_id = ?", runID)
-	return err
 }
 
 // UpdateRetrospectiveSmoothness updates the smoothness rating for a retrospective.
