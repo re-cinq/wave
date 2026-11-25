@@ -80,8 +80,22 @@ func cacheBase() string {
 const RunMarker = ".wave-run"
 
 // MarkRunDir records dir as a Wave-created run directory. dir must exist.
+// The marker holds the run ID (the directory name), so a marker copied or
+// planted into another directory does not make that directory Wave's.
 func MarkRunDir(dir string) error {
-	return os.WriteFile(filepath.Join(dir, RunMarker), []byte("created by wave\n"), 0644)
+	return os.WriteFile(filepath.Join(dir, RunMarker), []byte(filepath.Base(dir)+"\n"), 0644)
+}
+
+// hasRunMarker reports whether dir holds a regular RunMarker file whose
+// content is dir's own name.
+func hasRunMarker(dir string) bool {
+	marker := filepath.Join(dir, RunMarker)
+	info, err := os.Lstat(marker)
+	if err != nil || !info.Mode().IsRegular() || info.Size() > 4096 {
+		return false
+	}
+	data, err := os.ReadFile(marker)
+	return err == nil && strings.TrimSpace(string(data)) == filepath.Base(dir)
 }
 
 // canonical returns the absolute, symlink-resolved form of path. Missing
@@ -151,11 +165,29 @@ func gitTopLevel(dir string) (string, error) {
 }
 
 // isLegacyRoot reports whether root is the pre-marker in-checkout root
-// <projectDir>/.agents/workspaces, whose entries all belong to Wave.
+// <projectDir>/.agents/workspaces as a real directory, whose entries all
+// belong to Wave. If .agents or .agents/workspaces is a symlink (a cloned
+// repo can ship one) it points somewhere Wave does not own, so it is not
+// treated as the legacy root.
 func isLegacyRoot(root, projectDir string) bool {
+	if LegacyRootIsSymlink(projectDir) {
+		return false
+	}
 	r, err1 := canonical(root)
-	l, err2 := canonical(filepath.Join(projectDir, LegacyRoot))
-	return err1 == nil && err2 == nil && r == l
+	p, err2 := canonical(projectDir)
+	return err1 == nil && err2 == nil && r == filepath.Join(p, LegacyRoot)
+}
+
+// LegacyRootIsSymlink reports whether <projectDir>/.agents or
+// <projectDir>/.agents/workspaces is a symbolic link. Cleanup must then
+// remove at most the link itself and never descend into its target.
+func LegacyRootIsSymlink(projectDir string) bool {
+	for _, rel := range []string{".agents", LegacyRoot} {
+		if info, err := os.Lstat(filepath.Join(projectDir, rel)); err == nil && info.Mode()&os.ModeSymlink != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // OwnedRunDir reports whether dir is a run directory Wave created directly
@@ -181,8 +213,7 @@ func OwnedRunDir(root, dir, projectDir string) bool {
 	if isLegacyRoot(root, projectDir) {
 		return true
 	}
-	_, err = os.Lstat(filepath.Join(d, RunMarker))
-	return err == nil
+	return hasRunMarker(d)
 }
 
 // OwnedRunDirs lists the run directories under root that OwnedRunDir

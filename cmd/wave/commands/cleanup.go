@@ -101,7 +101,8 @@ func runCleanup(opts CleanupOptions) error {
 
 	// Workspace roots that exist and are safe to clean below.
 	var roots []string
-	for _, dir := range workspaceRootsToSweep(opts.Manifest) {
+	sweep, _ := workspaceRootsToSweep(opts.Manifest)
+	for _, dir := range sweep {
 		if _, err := os.Stat(dir); err != nil || workspace.CheckRoot(dir, project) != nil {
 			continue
 		}

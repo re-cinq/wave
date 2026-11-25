@@ -31,13 +31,31 @@ func manifestWorkspaceRoot(manifestPath string) string {
 // workspaceRootsToSweep returns the resolved workspace root plus the legacy
 // in-checkout root (.agents/workspaces) when that is a different directory,
 // so cleanup also reaches workspaces created by older Wave versions.
-func workspaceRootsToSweep(manifestPath string) []string {
+//
+// When .agents or .agents/workspaces is a symlink the legacy root is not
+// swept at all: its target is not Wave's. If .agents/workspaces itself is
+// the link, link is its path so the caller can remove just the link.
+func workspaceRootsToSweep(manifestPath string) (roots []string, link string) {
+	project := manifestProjectDir(manifestPath)
+	legacy := filepath.Join(project, workspace.LegacyRoot)
+	symlinked := workspace.LegacyRootIsSymlink(project)
 	root := manifestWorkspaceRoot(manifestPath)
-	roots := []string{root}
-	if !samePath(root, workspace.LegacyRoot) {
-		roots = append(roots, workspace.LegacyRoot)
+	for _, r := range []string{root, legacy} {
+		if samePath(r, legacy) && symlinked {
+			continue
+		}
+		if len(roots) > 0 && samePath(r, roots[0]) {
+			continue
+		}
+		roots = append(roots, r)
 	}
-	return roots
+	if symlinked {
+		agents, err := os.Lstat(filepath.Join(project, ".agents"))
+		if err == nil && agents.Mode()&os.ModeSymlink == 0 {
+			link = legacy
+		}
+	}
+	return roots, link
 }
 
 // samePath reports whether a and b name the same directory after making
@@ -69,4 +87,18 @@ func manifestProjectDir(manifestPath string) string {
 func unsafeRootError(err error) error {
 	return NewCLIError(CodeSecurityViolation, fmt.Sprintf("refusing to touch workspaces: %s", err),
 		"Point runtime.workspace_root at a dedicated directory outside the project, or remove it to use the default")
+}
+
+// checkRunWorkspaceRoot refuses to run with a runtime.workspace_root that
+// equals or contains the project: run directories are created and removed
+// below it.
+func checkRunWorkspaceRoot(configured, manifestPath string) error {
+	if configured == "" {
+		return nil
+	}
+	if err := workspace.CheckRoot(configured, manifestProjectDir(manifestPath)); err != nil {
+		return NewCLIError(CodeValidationFailed, fmt.Sprintf("refusing to run: runtime.workspace_root: %s", err),
+			"Point runtime.workspace_root at a dedicated directory outside the project, or remove it to use the default")
+	}
+	return nil
 }

@@ -188,3 +188,75 @@ func TestValidateRejectsRootContainingProject(t *testing.T) {
 		})
 	}
 }
+
+// A cloned repo can ship .agents/workspaces as a symlink. clean --all must
+// remove only the link and never anything in its target (which carries no
+// run markers).
+func TestCleanAllSymlinkedLegacyRootRemovesOnlyLink(t *testing.T) {
+	parent, proj := safetyProject(t, "")
+	require.NoError(t, os.WriteFile(filepath.Join(proj, "wave.yaml"), []byte("runtime: {}\n"), 0644))
+	target := filepath.Join(t.TempDir(), "foreign")
+	for _, d := range []string{"photos", "work"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(target, d), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(target, d, "f.txt"), []byte("keep"), 0644))
+	}
+	link := filepath.Join(proj, ".agents", "workspaces")
+	require.NoError(t, os.Symlink(target, link))
+
+	_, err := executeCleanCmdCapturingStdout("--all", "--force")
+	require.NoError(t, err)
+	for _, d := range []string{"photos", "work"} {
+		assert.FileExists(t, filepath.Join(target, d, "f.txt"), "symlink target content must survive")
+	}
+	_, lerr := os.Lstat(link)
+	assert.True(t, os.IsNotExist(lerr), "the link itself is removed")
+	assertProjectIntact(t, parent, proj)
+}
+
+// A symlinked .agents directory is not descended into either.
+func TestCleanAllSymlinkedAgentsDirIsNotDescended(t *testing.T) {
+	parent, proj := safetyProject(t, "")
+	require.NoError(t, os.WriteFile(filepath.Join(proj, "wave.yaml"), []byte("runtime: {}\n"), 0644))
+	require.NoError(t, os.RemoveAll(filepath.Join(proj, ".agents")))
+	target := filepath.Join(t.TempDir(), "agents")
+	require.NoError(t, os.MkdirAll(filepath.Join(target, "workspaces", "photos"), 0755))
+	require.NoError(t, os.Symlink(target, filepath.Join(proj, ".agents")))
+
+	_, err := executeCleanCmdCapturingStdout("--all", "--force")
+	require.NoError(t, err)
+	assert.DirExists(t, filepath.Join(target, "workspaces", "photos"))
+	assertProjectIntact(t, parent, proj)
+}
+
+// A run marker only counts when it names its own directory, so a planted
+// or copied marker does not make a directory Wave's.
+func TestCleanIgnoresMismatchedRunMarker(t *testing.T) {
+	root := t.TempDir()
+	parent, proj := safetyProject(t, root)
+	planted := filepath.Join(root, "photos")
+	require.NoError(t, os.MkdirAll(planted, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(planted, workspace.RunMarker), []byte("created by wave\n"), 0644))
+	copied := filepath.Join(root, "work")
+	require.NoError(t, os.MkdirAll(copied, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(copied, workspace.RunMarker), []byte("run-1\n"), 0644))
+	run := filepath.Join(root, "run-1")
+	require.NoError(t, os.MkdirAll(run, 0755))
+	require.NoError(t, workspace.MarkRunDir(run))
+
+	_, err := executeCleanCmdCapturingStdout("--all", "--force")
+	require.NoError(t, err)
+	assert.NoDirExists(t, run)
+	assert.DirExists(t, planted)
+	assert.DirExists(t, copied)
+	assertProjectIntact(t, parent, proj)
+}
+
+// wave run refuses a workspace_root that contains the project.
+func TestCheckRunWorkspaceRoot(t *testing.T) {
+	_, proj := safetyProject(t, "..")
+	manifest := filepath.Join(proj, "wave.yaml")
+	assert.Error(t, checkRunWorkspaceRoot("..", manifest))
+	assert.Error(t, checkRunWorkspaceRoot(".", manifest))
+	assert.NoError(t, checkRunWorkspaceRoot("", manifest))
+	assert.NoError(t, checkRunWorkspaceRoot(t.TempDir(), manifest))
+}

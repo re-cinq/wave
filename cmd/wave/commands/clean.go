@@ -203,11 +203,17 @@ func collectCleanTargets(opts CleanOptions, olderThan time.Duration) ([]string, 
 				".agents/traces",
 				".agents/retros",
 			}
-			for _, root := range workspaceRootsToSweep(opts.Manifest) {
+			roots, link := workspaceRootsToSweep(opts.Manifest)
+			for _, root := range roots {
 				if workspace.CheckRoot(root, project) != nil {
 					continue
 				}
 				targets = append(targets, workspace.OwnedRunDirs(root, project)...)
+			}
+			if link != "" {
+				// A symlinked .agents/workspaces: remove the link only,
+				// never anything in its target.
+				targets = append(targets, link)
 			}
 			return targets, nil
 		}
@@ -313,7 +319,7 @@ func newestWorkspaceNames(workspaces []workspace.WorkspaceInfo, keep int) map[st
 func existingPaths(targets []string) []string {
 	var existing []string
 	for _, target := range targets {
-		if _, err := os.Stat(target); err == nil {
+		if _, err := os.Lstat(target); err == nil {
 			existing = append(existing, target)
 		}
 	}

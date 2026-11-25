@@ -207,6 +207,9 @@ func runResume(opts ResumeOptions, debug bool) error {
 	emitter = &event.DBLoggingEmitter{Inner: emitter, Store: store, RunID: resumeRunID}
 
 	// Initialize workspace manager.
+	if err := checkRunWorkspaceRoot(m.Runtime.WorkspaceRoot, ""); err != nil {
+		return err
+	}
 	wsRoot := workspace.ResolveRoot(m.Runtime.WorkspaceRoot)
 	wsManager, err := workspace.NewWorkspaceManager(wsRoot)
 	if err != nil {

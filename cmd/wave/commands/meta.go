@@ -135,6 +135,9 @@ func runMeta(input string, opts MetaOptions) error {
 	defer emitterResult.Cleanup()
 
 	// Set up workspace manager
+	if err := checkRunWorkspaceRoot(m.Runtime.WorkspaceRoot, ""); err != nil {
+		return err
+	}
 	wsRoot := workspace.ResolveRoot(m.Runtime.WorkspaceRoot)
 	wsManager, _ := workspace.NewWorkspaceManager(wsRoot)
 
