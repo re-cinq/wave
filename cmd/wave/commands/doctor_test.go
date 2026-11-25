@@ -286,7 +286,15 @@ func TestPromptConfirm_EOF(t *testing.T) {
 	assert.False(t, got, "EOF should return false")
 }
 
-func TestDiscoverPipelineNames(t *testing.T) {
+func pipelineInfoNames(infos []doctor.PipelineInfo) []string {
+	names := make([]string, 0, len(infos))
+	for _, i := range infos {
+		names = append(names, i.Name)
+	}
+	return names
+}
+
+func TestDiscoverPipelines(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create some pipeline files
@@ -295,22 +303,38 @@ func TestDiscoverPipelineNames(t *testing.T) {
 	require.NoError(t, writeTestFile(tmpDir, "bb-implement.yaml", "kind: Pipeline"))
 	require.NoError(t, writeTestFile(tmpDir, "README.md", "not a pipeline"))
 
-	names := discoverPipelineNames(tmpDir)
+	names := pipelineInfoNames(discoverPipelines(tmpDir))
 	assert.Len(t, names, 3)
 	assert.Contains(t, names, "gh-implement")
 	assert.Contains(t, names, "speckit-flow")
 	assert.Contains(t, names, "bb-implement")
 }
 
-func TestDiscoverPipelineNames_EmptyDir(t *testing.T) {
+// Regression: shipped pipelines carry no forge prefix, so doctor --optimize
+// called every one "universal" even in a repo without a remote. Discovery
+// must flag pipelines that use forge templates.
+func TestDiscoverPipelines_FlagsForgeTemplates(t *testing.T) {
 	tmpDir := t.TempDir()
-	names := discoverPipelineNames(tmpDir)
-	assert.Empty(t, names)
+	require.NoError(t, writeTestFile(tmpDir, "ops-pr-review.yaml", "steps:\n  - persona: reviewer\n    exec:\n      source: '{{ forge.cli_tool }} pr view'"))
+	require.NoError(t, writeTestFile(tmpDir, "plan-scope.yaml", "steps:\n  - persona: \"{{forge.type}}-scoper\""))
+	require.NoError(t, writeTestFile(tmpDir, "ops-hello-world.yaml", "steps:\n  - persona: craftsman"))
+
+	got := map[string]bool{}
+	for _, i := range discoverPipelines(tmpDir) {
+		got[i.Name] = i.UsesForge
+	}
+	assert.True(t, got["ops-pr-review"])
+	assert.True(t, got["plan-scope"])
+	assert.False(t, got["ops-hello-world"])
 }
 
-func TestDiscoverPipelineNames_NonExistentDir(t *testing.T) {
-	names := discoverPipelineNames("/nonexistent/path")
-	assert.Nil(t, names)
+func TestDiscoverPipelines_EmptyDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	assert.Empty(t, discoverPipelines(tmpDir))
+}
+
+func TestDiscoverPipelines_NonExistentDir(t *testing.T) {
+	assert.Nil(t, discoverPipelines("/nonexistent/path"))
 }
 
 func TestFormatScanSummary(t *testing.T) {

@@ -74,6 +74,10 @@ It writes `wave.yaml` (one adapter, the `project:` block, metadata from your man
 
 When `wave.yaml` already exists, `wave init` merges missing defaults (pipelines, personas, settings) and keeps everything you changed.
 
+Forge personas (`github-analyst`, `github-commenter`, `github-scoper`) and their prompts are only written when the repository has a matching forge remote, or with `--all`. In a repository without a remote they are left out; add the remote and run `wave init --merge` to install them.
+
+When `--manifest-path` (or the global `-m`) points into another directory, that directory becomes the project root, and init does not warn that it is below the git repository root.
+
 ### Options
 
 ```bash
@@ -83,7 +87,7 @@ wave init --test-command "make test"  # Also --lint-command, --build-command
 wave init --merge                     # Merge defaults into existing config
 wave init --reconfigure               # Change adapter/model/commands, keep customisations (writes wave.yaml.bak)
 wave init --force                     # Regenerate from scratch (asks unless --yes)
-wave init --all                       # Include all pipelines regardless of release status
+wave init --all                       # Include all pipelines and all forge personas
 wave init --workspace ./ws            # Custom workspace directory path
 wave init --manifest-path cfg/wave.yaml  # Custom output path (the global -m works too)
 wave init -y                          # Accept all defaults and confirm all prompts
@@ -104,6 +108,8 @@ wave doctor --optimize --dry-run
 ```
 
 Run it right after `wave init`; a fresh project passes when the chosen adapter is installed.
+
+`--optimize` also lists which installed pipelines fit the repository. Pipelines that use `{{ forge.* }}` templates (for example `impl-issue`, `ops-pr-review`, `plan-research`, `plan-scope`) need a forge remote and are marked not recommended in a repository without one; the others are reported as forge-independent.
 
 ---
 
@@ -151,7 +157,7 @@ Flags are organized into four tiers by usage frequency.
 |------|-------------|
 | `--from-step` | Start execution from specific step |
 | `--force` | Skip validation checks when using --from-step |
-| `--dry-run` | Show what would be executed without running |
+| `--dry-run` | Show the execution plan without running: per step the resolved adapter and model (after `--adapter`, `--model`, `--force-model`, tier routing and `default_model`), the workspace path under `runtime.workspace_root` (worktree branch or shared `workspace.ref` where set) and retry attempts |
 | `--timeout` | Timeout in minutes (0 = no timeout) |
 | `--steps` | Run only named steps (comma-separated) |
 | `-x, --exclude` | Skip named steps (comma-separated) |
@@ -183,13 +189,12 @@ wave run build -o json                         # NDJSON output to stdout (pipe-f
 wave run deploy -o text                        # Plain text progress to stderr
 wave run review -o text -v                     # Plain text with real-time tool activity
 wave run check -o quiet                        # Only final result to stderr
-wave run build --model haiku                   # Override adapter model for this run
-wave run impl-issue --adapter opencode --model "zai-coding-plan/glm-5-turbo"  # Override adapter and model
+wave run build --model sonnet                  # Override adapter model for this run
+wave run impl-issue --adapter codex --model gpt-6.2-sol  # Override adapter and model
 wave run audit-security --preserve-workspace        # Preserve workspace from previous run (for debugging)
 wave run --detach impl-issue "fix login bug"   # Detach: run in background, survive shell exit
 wave run impl-issue --steps fetch,implement    # Run only specific steps
 wave run impl-issue -x validate               # Skip the validate step
-wave run impl-issue --on-failure skip          # Continue on step failure
 ```
 
 ### Detached Mode
@@ -250,7 +255,7 @@ Meta pipeline completed (3m28s)
 wave meta "build API" --save api-pipeline.yaml  # Save generated pipeline
 wave meta "refactor code" --dry-run             # Preview without executing
 wave meta "add tests" --mock                    # Use mock adapter for testing
-wave meta "refactor" --model opus               # Override adapter model for this run
+wave meta "refactor" --model sonnet             # Override adapter model for this run
 ```
 
 The `--save` flag is particularly useful for turning dynamically generated pipelines into reusable templates:

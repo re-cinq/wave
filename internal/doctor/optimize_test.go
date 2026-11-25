@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/recinq/wave/internal/forge"
@@ -195,7 +196,7 @@ func TestOptimize_PipelineRecommendations_GitHubForge(t *testing.T) {
 		PipelinePrefix: "gh",
 	}
 
-	pipelines := []string{
+	pipelines := names(
 		"speckit-flow",
 		"gh-implement",
 		"gh-research",
@@ -203,7 +204,7 @@ func TestOptimize_PipelineRecommendations_GitHubForge(t *testing.T) {
 		"gl-scope",
 		"wave-evolve",
 		"doc-audit",
-	}
+	)
 
 	result := Optimize(&ProjectProfile{}, &manifest.Project{}, fi, pipelines)
 
@@ -254,12 +255,12 @@ func TestOptimize_PipelineRecommendations_UnknownForge(t *testing.T) {
 		Type: forge.ForgeUnknown,
 	}
 
-	pipelines := []string{
+	pipelines := names(
 		"speckit-flow",
 		"gh-implement",
 		"bb-implement",
 		"gl-scope",
-	}
+	)
 
 	result := Optimize(&ProjectProfile{}, &manifest.Project{}, fi, pipelines)
 
@@ -639,21 +640,21 @@ func TestApplyTo_SkipsMatchingValues(t *testing.T) {
 }
 
 func TestClassifyPipeline_UniversalPipeline(t *testing.T) {
-	rec := classifyPipeline("speckit-flow", forge.ForgeGitHub, "gh")
+	rec := classifyPipeline(PipelineInfo{Name: "speckit-flow"}, forge.ForgeGitHub, "gh")
 	if !rec.Recommended {
 		t.Error("universal pipeline should be recommended")
 	}
 }
 
 func TestClassifyPipeline_MatchingForge(t *testing.T) {
-	rec := classifyPipeline("gh-implement", forge.ForgeGitHub, "gh")
+	rec := classifyPipeline(PipelineInfo{Name: "gh-implement"}, forge.ForgeGitHub, "gh")
 	if !rec.Recommended {
 		t.Error("matching forge pipeline should be recommended")
 	}
 }
 
 func TestClassifyPipeline_WrongForge(t *testing.T) {
-	rec := classifyPipeline("bb-implement", forge.ForgeGitHub, "gh")
+	rec := classifyPipeline(PipelineInfo{Name: "bb-implement"}, forge.ForgeGitHub, "gh")
 	if rec.Recommended {
 		t.Error("wrong forge pipeline should NOT be recommended")
 	}
@@ -718,5 +719,70 @@ func TestOptimize_LanguageTieKeepsConfigured(t *testing.T) {
 		if c.Field == "project.language" || c.Field == "project.source_glob" {
 			t.Errorf("unexpected change on tie: %s %q -> %q", c.Field, c.Current, c.Proposed)
 		}
+	}
+}
+
+// names builds forge-independent PipelineInfo entries from bare names.
+func names(ns ...string) []PipelineInfo {
+	out := make([]PipelineInfo, len(ns))
+	for i, n := range ns {
+		out[i] = PipelineInfo{Name: n}
+	}
+	return out
+}
+
+// Regression: in a repository with no remote, shipped pipelines (no forge
+// name prefix) were all reported as "universal". Pipelines that use forge
+// templates must not be recommended there, and nothing may claim to be
+// universal.
+func TestOptimize_PipelineRecommendations_NoRemote(t *testing.T) {
+	fi := &forge.ForgeInfo{Type: forge.ForgeLocal, PipelinePrefix: "local"}
+	pipelines := []PipelineInfo{
+		{Name: "ops-hello-world"},
+		{Name: "audit-security"},
+		{Name: "ops-pr-review", UsesForge: true},
+		{Name: "plan-scope", UsesForge: true},
+	}
+
+	result := Optimize(&ProjectProfile{}, &manifest.Project{}, fi, pipelines)
+	recs := make(map[string]PipelineRecommendation)
+	for _, r := range result.PipelineRecs {
+		recs[r.Name] = r
+		if strings.Contains(r.Reason, "universal") {
+			t.Errorf("%q reason still says universal: %s", r.Name, r.Reason)
+		}
+	}
+	for _, n := range []string{"ops-hello-world", "audit-security"} {
+		if !recs[n].Recommended {
+			t.Errorf("%q is forge-independent and should be recommended: %s", n, recs[n].Reason)
+		}
+	}
+	for _, n := range []string{"ops-pr-review", "plan-scope"} {
+		if recs[n].Recommended {
+			t.Errorf("%q needs a forge and must not be recommended without a remote", n)
+		}
+		if !strings.Contains(recs[n].Reason, "no git remote") {
+			t.Errorf("%q reason should mention the missing remote, got %q", n, recs[n].Reason)
+		}
+	}
+
+	// The same forge pipeline on a GitHub remote is recommended.
+	gh := &forge.ForgeInfo{Type: forge.ForgeGitHub, PipelinePrefix: "gh"}
+	rec := classifyPipeline(PipelineInfo{Name: "ops-pr-review", UsesForge: true}, gh.Type, gh.PipelinePrefix)
+	if !rec.Recommended {
+		t.Errorf("forge pipeline should be recommended on a GitHub remote: %s", rec.Reason)
+	}
+}
+
+// Every shipped pipeline that references {{ forge.* }} must be detected.
+func TestUsesForgeTemplate(t *testing.T) {
+	if !UsesForgeTemplate([]byte("persona: \"{{ forge.type }}-analyst\"")) {
+		t.Error("{{ forge.type }} not detected")
+	}
+	if !UsesForgeTemplate([]byte("run {{forge.cli_tool}} pr view")) {
+		t.Error("{{forge.cli_tool}} not detected")
+	}
+	if UsesForgeTemplate([]byte("persona: craftsman")) {
+		t.Error("false positive on plain pipeline")
 	}
 }

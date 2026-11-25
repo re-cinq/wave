@@ -86,8 +86,7 @@ func Greenfield(o GreenfieldOpts) (*GreenfieldResult, error) {
 	}
 
 	forgeInfo, _ := forge.DetectFromGitRemotes()
-	assets.PersonaConfigs = FilterPersonasByForge(assets.PersonaConfigs, forgeInfo.Type)
-	assets.Personas = PersonaFilesFor(assets.Personas, assets.PersonaConfigs)
+	ScopeAssetsToForge(assets, forgeInfo.Type, o.All)
 
 	meta := ExtractProjectMetadata(cwd)
 

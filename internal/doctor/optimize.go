@@ -26,6 +26,22 @@ type ConfigChange struct {
 }
 
 // PipelineRecommendation describes a pipeline and whether it's recommended.
+// PipelineInfo describes an installed pipeline for recommendation purposes.
+type PipelineInfo struct {
+	Name string
+	// UsesForge is true when the pipeline definition references forge
+	// template variables ({{ forge.* }}), i.e. it needs a git forge remote
+	// (gh/glab/tea/bb CLI, forge-typed personas) to run.
+	UsesForge bool
+}
+
+// UsesForgeTemplate reports whether a pipeline definition references forge
+// template variables such as {{ forge.cli_tool }} or {{ forge.type }}.
+func UsesForgeTemplate(content []byte) bool {
+	s := string(content)
+	return strings.Contains(s, "{{ forge.") || strings.Contains(s, "{{forge.")
+}
+
 type PipelineRecommendation struct {
 	Name        string `json:"name"`
 	Recommended bool   `json:"recommended"`
@@ -69,7 +85,7 @@ func (r *OptimizeResult) ApplyTo(p *manifest.Project) *manifest.Project {
 }
 
 // Optimize analyzes the project profile against current config and proposes improvements.
-func Optimize(profile *ProjectProfile, current *manifest.Project, fi *forge.ForgeInfo, pipelines []string) *OptimizeResult {
+func Optimize(profile *ProjectProfile, current *manifest.Project, fi *forge.ForgeInfo, pipelines []PipelineInfo) *OptimizeResult {
 	if current == nil {
 		current = &manifest.Project{}
 	}
@@ -284,7 +300,7 @@ func optimizeSourceGlob(result *OptimizeResult, profile *ProjectProfile, current
 }
 
 // optimizePipelines produces pipeline recommendations based on forge type.
-func optimizePipelines(result *OptimizeResult, fi *forge.ForgeInfo, pipelines []string) {
+func optimizePipelines(result *OptimizeResult, fi *forge.ForgeInfo, pipelines []PipelineInfo) {
 	if len(pipelines) == 0 {
 		return
 	}
@@ -296,22 +312,45 @@ func optimizePipelines(result *OptimizeResult, fi *forge.ForgeInfo, pipelines []
 		forgePrefix = fi.PipelinePrefix
 	}
 
-	for _, name := range pipelines {
-		rec := classifyPipeline(name, forgeType, forgePrefix)
+	for _, p := range pipelines {
+		rec := classifyPipeline(p, forgeType, forgePrefix)
 		result.PipelineRecs = append(result.PipelineRecs, rec)
 	}
 }
 
 // classifyPipeline determines whether a pipeline is recommended for the given forge.
-func classifyPipeline(name string, forgeType forge.ForgeType, forgePrefix string) PipelineRecommendation {
+func classifyPipeline(p PipelineInfo, forgeType forge.ForgeType, forgePrefix string) PipelineRecommendation {
+	name := p.Name
 	pipelinePrefix := extractForgePrefix(name)
 
-	// Universal pipeline (no forge prefix)
+	// No forge prefix in the name: classify by what the definition uses.
 	if pipelinePrefix == "" {
-		return PipelineRecommendation{
-			Name:        name,
-			Recommended: true,
-			Reason:      "universal pipeline, works with any forge",
+		if !p.UsesForge {
+			return PipelineRecommendation{
+				Name:        name,
+				Recommended: true,
+				Reason:      "forge-independent, runs with or without a git remote",
+			}
+		}
+		switch forgeType {
+		case forge.ForgeLocal:
+			return PipelineRecommendation{
+				Name:        name,
+				Recommended: false,
+				Reason:      "needs a forge (uses {{ forge.* }}), but the repository has no git remote",
+			}
+		case forge.ForgeUnknown:
+			return PipelineRecommendation{
+				Name:        name,
+				Recommended: true,
+				Reason:      "needs a forge (uses {{ forge.* }}); remote host not recognized, set forge in wave.yaml",
+			}
+		default:
+			return PipelineRecommendation{
+				Name:        name,
+				Recommended: true,
+				Reason:      fmt.Sprintf("uses the detected forge (%s)", forgeType),
+			}
 		}
 	}
 

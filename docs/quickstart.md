@@ -144,7 +144,7 @@ wave run ops-hello-world "testing Wave" -o text
 ::: danger Adapter not installed
 **Error:** `adapter binary not found on PATH: claude`
 
-**Solution:** `wave run` checks the adapter before any step starts. Install the adapter CLI (see step 2), run with the other adapter (`--adapter codex`), or switch the project:
+**Solution:** `wave run` checks the adapter before any step starts. Install the adapter CLI (see step 2), or follow the hint in the error: it only suggests adapters installed on this machine (`--adapter codex` when codex is configured in `wave.yaml`, otherwise switching the project):
 ```bash
 wave init --reconfigure --adapter codex
 ```

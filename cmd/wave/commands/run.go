@@ -156,7 +156,7 @@ func runRun(opts RunOptions, debug bool) error {
 	}
 
 	if opts.DryRun {
-		return performDryRun(p, &m, stepFilter, opts.Adapter)
+		return performDryRun(p, &m, stepFilter, opts)
 	}
 
 	if !opts.Mock {

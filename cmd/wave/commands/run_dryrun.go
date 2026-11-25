@@ -12,14 +12,24 @@ package commands
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
 )
 
-// adapterOverride is the --adapter flag; it wins over step and persona
-// adapters at run time, so the plan shows it too.
-func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.StepFilter, adapterOverride string) error {
+// opts carries --adapter, --model and --force-model; they win over step and
+// persona settings at run time, so the plan resolves them the same way.
+func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.StepFilter, opts RunOptions) error {
+	// Named retry policies resolve to concrete attempt counts at run time;
+	// resolve them here so the plan shows the real numbers.
+	if err := pipeline.ResolvePipelineRetryPolicies(p); err != nil {
+		return err
+	}
+	wsRoot := m.Runtime.WorkspaceRoot
+	if wsRoot == "" {
+		wsRoot = ".agents/workspaces"
+	}
 	fmt.Fprintf(os.Stderr, "Dry run for pipeline: %s\n", p.Metadata.Name)
 	fmt.Fprintf(os.Stderr, "Description: %s\n", p.Metadata.Description)
 	fmt.Fprintf(os.Stderr, "Steps: %d\n\n", len(p.Steps))
@@ -47,14 +57,12 @@ func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.
 
 		persona := m.GetPersona(step.Persona)
 		if persona != nil {
-			adapterName := persona.Adapter
-			if step.Adapter != "" {
-				adapterName = step.Adapter
+			plan := pipeline.PlanStep(m, &step, persona, opts.Adapter, opts.Model, opts.ForceModel)
+			model := plan.Model
+			if model == "" {
+				model = "(adapter default)"
 			}
-			if adapterOverride != "" {
-				adapterName = adapterOverride
-			}
-			fmt.Fprintf(os.Stderr, "     Adapter: %s  Temp: %.1f\n", adapterName, persona.Temperature)
+			fmt.Fprintf(os.Stderr, "     Adapter: %s  Model: %s  Temp: %.1f\n", plan.Adapter, model, persona.Temperature)
 			fmt.Fprintf(os.Stderr, "     System prompt: %s\n", persona.SystemPromptFile)
 			if len(persona.Permissions.AllowedTools) > 0 {
 				fmt.Fprintf(os.Stderr, "     Allowed tools: %v\n", persona.Permissions.AllowedTools)
@@ -70,7 +78,15 @@ func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.
 			}
 		}
 
-		fmt.Fprintf(os.Stderr, "     Workspace: .agents/workspaces/%s/%s/\n", p.Metadata.Name, step.ID)
+		fmt.Fprintf(os.Stderr, "     Workspace: %s\n", dryRunWorkspace(wsRoot, &step))
+
+		if attempts := step.Retry.EffectiveMaxAttempts(); attempts > 1 {
+			fmt.Fprintf(os.Stderr, "     Retry: up to %d attempts", attempts)
+			if step.Retry.Policy != "" {
+				fmt.Fprintf(os.Stderr, " (policy: %s)", step.Retry.Policy)
+			}
+			fmt.Fprintln(os.Stderr)
+		}
 
 		if step.Memory.Strategy != "" {
 			fmt.Fprintf(os.Stderr, "     Memory: %s\n", step.Memory.Strategy)
@@ -137,4 +153,39 @@ func performDryRun(p *pipeline.Pipeline, m *manifest.Manifest, filter *pipeline.
 		return fmt.Errorf("dry-run validation found %d error(s) — pipeline is not safe to execute", report.ErrorCount())
 	}
 	return nil
+}
+
+// dryRunWorkspace describes where a step's workspace will live, mirroring
+// createStepWorkspace: shared via workspace.ref, a git worktree keyed by
+// branch, or a per-step directory under <workspace_root>/<run-id>/.
+// The run ID is not known before the run starts, so it stays a placeholder.
+func dryRunWorkspace(wsRoot string, step *pipeline.Step) string {
+	ws := step.Workspace
+	switch {
+	case ws.Ref == "parent":
+		return "shared with the parent step's workspace"
+	case ws.Ref != "":
+		return fmt.Sprintf("shared with step %q", ws.Ref)
+	case ws.Type == "worktree":
+		// {{ pipeline_id }} resolves to the run ID, unknown before the run.
+		runIDTmpl := strings.NewReplacer("{{ pipeline_id }}", "<run-id>", "{{pipeline_id}}", "<run-id>")
+		branch := runIDTmpl.Replace(ws.Branch)
+		if branch == "" && ws.Base == "" {
+			branch = "wave/<run-id>/" + step.ID
+		}
+		desc := fmt.Sprintf("git worktree under %s/<run-id>/", strings.TrimRight(wsRoot, "/"))
+		if branch != "" {
+			desc += fmt.Sprintf(" (branch %s", branch)
+		} else {
+			desc += " (new branch"
+		}
+		if ws.Base != "" {
+			desc += fmt.Sprintf(", base %s", runIDTmpl.Replace(ws.Base))
+		}
+		return desc + ")"
+	case len(ws.Mount) > 0:
+		return fmt.Sprintf("%s/<generated>/ (mounted)", strings.TrimRight(wsRoot, "/"))
+	default:
+		return fmt.Sprintf("%s/<run-id>/%s/", strings.TrimRight(wsRoot, "/"), step.ID)
+	}
 }

@@ -131,8 +131,8 @@ tests/            # Test coverage
 | 4 | Adapter defaults | binary default | empty / auto-route |
 
 ```bash
-wave run my-pipeline --adapter opencode --model "zai-coding-plan/glm-5-turbo"
-wave run my-pipeline --adapter gemini --model "gemini-2.0-pro"
+wave run my-pipeline --adapter codex --model gpt-6.2-sol
+wave run my-pipeline --adapter claude --model sonnet
 ```
 
 ## Security
