@@ -268,7 +268,7 @@ wave logs <run-id> | grep "stream_activity" | tail -3             # Latest activ
 
 ## Custom Pipeline Tips
 
-- **Rapid prototyping**: Use `on_failure: skip` in contract blocks when creating new custom pipelines. This lets the pipeline complete even without schema files, making iteration fast. Graduate to `on_failure: retry` once the pipeline stabilizes.
+- **Rapid prototyping**: Use `on_failure: skip` in contract blocks when creating new custom pipelines. This lets the pipeline complete even without schema files, making iteration fast. Graduate to `on_failure: fail` plus step-level `retry.max_attempts` once the pipeline stabilizes (`on_failure: retry` is rejected by the validator).
 - **Scaffolding**: Use `wave pipeline create --name my-pipeline --template impl-hotfix` to scaffold from an existing template.
 - **Persona scaffolding**: Use `wave persona create --name my-persona --template researcher` to scaffold a custom persona.
 

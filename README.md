@@ -89,9 +89,11 @@ The contract (`.agents/contracts/hello-world-result.schema.json`):
 
 ## When a contract fails
 
-`on_failure` decides what happens: `fail`, `retry`, `rework` (run a named `rework_step` with the
-validation error), `skip`, `continue` or `warn`. `impl-issue` uses `rework` on its test suite,
-`test_diff` and `test_count_baseline` contracts. A run that still fails can be resumed:
+`on_failure` decides what happens: `fail`, `rework` (run a named `rework_step` with the
+validation error), `skip`, `continue`, `warn` or `rejected` (stop as an intentional no-op, not an
+error). `on_failure: retry` is rejected by the validator; to retry, set `retry.max_attempts` on the
+step, as `verify` does above. `impl-issue` uses `rework` on its test suite, `test_diff` and
+`test_count_baseline` contracts. A run that still fails can be resumed:
 
 ```bash
 wave resume <run-id>                     # restarts at the failed step
