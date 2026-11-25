@@ -560,6 +560,8 @@ func (e *DefaultPipelineExecutor) writeOutputArtifacts(execution *PipelineExecut
 // signal that the prompt could be tightened or the artifact path moved.
 //
 // We deliberately skip:
+//   - steps in worktree workspaces (type worktree or a ref to one): their
+//     source edits are the point of the step
 //   - the .agents/ tree (Wave-managed: artifacts, traces, output, AGENTS.md)
 //   - the project/ tree (read-only mount of the source repo)
 //   - the .git/ tree (worktree metadata when git ops occurred)
@@ -573,6 +575,13 @@ func (e *DefaultPipelineExecutor) warnOnUnexpectedArtifacts(execution *PipelineE
 	if workspacePath == "" {
 		return
 	}
+	// Steps in a worktree workspace edit the project's source files on
+	// purpose, and steps sharing that worktree via workspace.ref would see
+	// the earlier steps' edits as their own. Every such step would warn, so
+	// the signal is noise there; keep it for basic and mount workspaces.
+	if step.Workspace.Type == "worktree" || isGitWorktreeRoot(workspacePath) {
+		return
+	}
 	declared := make(map[string]bool, len(step.OutputArtifacts))
 	for _, art := range step.OutputArtifacts {
 		if art.IsStdoutArtifact() {
@@ -584,11 +593,10 @@ func (e *DefaultPipelineExecutor) warnOnUnexpectedArtifacts(execution *PipelineE
 		declared[filepath.Clean(art.Path)] = true
 	}
 
-	// Workspaces of type `worktree` contain a full checkout of the project,
-	// so a naive WalkDir flags every existing file as "unexpected". Use
-	// `git status --porcelain` to enumerate only files the step actually
-	// created or modified relative to the worktree HEAD. Falls back to a
-	// pruned WalkDir for non-git workspaces (mount/basic).
+	// A workspace that is itself a git checkout would make a naive WalkDir
+	// flag every tracked file as "unexpected". Use `git status --porcelain`
+	// to enumerate only files the step actually created or modified relative
+	// to HEAD. Falls back to a pruned WalkDir for non-git workspaces.
 	unexpected := changedFilesViaGit(workspacePath)
 	if unexpected == nil {
 		_ = filepath.WalkDir(workspacePath, func(path string, d os.DirEntry, err error) error {
@@ -642,6 +650,14 @@ func (e *DefaultPipelineExecutor) warnOnUnexpectedArtifacts(execution *PipelineE
 		State:      "warning",
 		Message:    fmt.Sprintf("step wrote %d file(s) outside declared output_artifacts paths: %s", len(unexpected), strings.Join(preview, ", ")),
 	})
+}
+
+// isGitWorktreeRoot reports whether dir is the root of a linked git worktree
+// (its .git is a file pointing at the main repository). This catches steps
+// that reach a worktree through workspace.ref, including the "parent" ref.
+func isGitWorktreeRoot(dir string) bool {
+	info, err := os.Lstat(filepath.Join(dir, ".git"))
+	return err == nil && info.Mode().IsRegular()
 }
 
 // changedFilesViaGit returns paths reported by `git status --porcelain` from
