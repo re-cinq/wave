@@ -96,9 +96,8 @@ func runRewind(opts RewindOptions) error {
 
 	p, err := pipeline.LoadByName(run.PipelineName)
 	if err != nil {
-		return NewCLIError(CodePipelineNotFound,
-			fmt.Sprintf("pipeline %q not found", run.PipelineName),
-			"Run 'wave list pipelines' to see available pipelines")
+		return pipelineLoadError(run.PipelineName, err,
+			fmt.Sprintf("pipeline %q not found", run.PipelineName))
 	}
 
 	// Resolve the rewind step

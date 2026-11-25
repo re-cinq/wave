@@ -2,12 +2,14 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/pipeline"
 )
 
 // Error code constants for machine-parseable error classification.
@@ -146,4 +148,17 @@ func loadManifestStrict(path string) (*manifest.Manifest, error) {
 	}
 	m.RootDir = filepath.Dir(path)
 	return m, nil
+}
+
+// pipelineLoadError maps a pipeline.LoadByName error to a CLI error. Only a
+// missing file is "not found"; a file that exists but fails to parse or
+// validate reports the real load error.
+func pipelineLoadError(name string, err error, notFoundMsg string) *CLIError {
+	if errors.Is(err, pipeline.ErrPipelineNotFound) {
+		return NewCLIError(CodePipelineNotFound, notFoundMsg,
+			"Run 'wave list pipelines' to see available pipelines")
+	}
+	return NewCLIError(CodeValidationFailed,
+		fmt.Sprintf("pipeline %q failed to load: %v", name, err),
+		fmt.Sprintf("Run 'wave validate --pipeline %s' for details", name))
 }

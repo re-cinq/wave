@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/recinq/wave/internal/pipeline"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -208,4 +211,35 @@ func TestRenderTextError_DebugHidden(t *testing.T) {
 
 	output := buf.String()
 	assert.NotContains(t, output, "Debug:")
+}
+
+// A pipeline file that exists but fails validation used to be reported as
+// "pipeline 'X' not found"; only a missing file may say that.
+func TestPipelineLoadError(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "broken.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(`kind: WavePipeline
+metadata:
+  name: broken
+steps:
+  - id: impl
+    persona: craftsman
+    handover:
+      contract:
+        type: test_suite
+        command: "true"
+        on_failure: retry
+`), 0o644))
+
+	_, err := pipeline.LoadByName(path)
+	require.Error(t, err)
+	cliErr := pipelineLoadError("broken", err, "pipeline 'broken' not found")
+	assert.Equal(t, CodeValidationFailed, cliErr.Code)
+	assert.Contains(t, cliErr.Message, `on_failure="retry" is deprecated`)
+	assert.NotContains(t, cliErr.Message, "not found")
+
+	_, err = pipeline.LoadByName(filepath.Join(t.TempDir(), "missing"))
+	require.Error(t, err)
+	cliErr = pipelineLoadError("missing", err, "pipeline 'missing' not found")
+	assert.Equal(t, CodePipelineNotFound, cliErr.Code)
+	assert.Equal(t, "pipeline 'missing' not found", cliErr.Message)
 }

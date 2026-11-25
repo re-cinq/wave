@@ -85,9 +85,8 @@ func loadManifestAndPipeline(opts *RunOptions) (*pipeline.Pipeline, manifest.Man
 
 	p, err := pipeline.LoadByName(opts.Pipeline)
 	if err != nil {
-		return nil, m, nil, NewCLIError(CodePipelineNotFound,
-			fmt.Sprintf("pipeline '%s' not found", opts.Pipeline),
-			"Run 'wave list pipelines' to see available pipelines")
+		return nil, m, nil, pipelineLoadError(opts.Pipeline, err,
+			fmt.Sprintf("pipeline '%s' not found", opts.Pipeline))
 	}
 
 	// Parse and validate step filter flags

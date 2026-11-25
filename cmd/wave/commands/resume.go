@@ -148,9 +148,8 @@ func runResume(opts ResumeOptions, debug bool) error {
 	// Load the pipeline that was used in the original run.
 	p, err := pipeline.LoadByName(run.PipelineName)
 	if err != nil {
-		return NewCLIError(CodePipelineNotFound,
-			fmt.Sprintf("pipeline %q not found (needed by run %s)", run.PipelineName, opts.RunID),
-			"Run 'wave list pipelines' to see available pipelines")
+		return pipelineLoadError(run.PipelineName, err,
+			fmt.Sprintf("pipeline %q not found (needed by run %s)", run.PipelineName, opts.RunID))
 	}
 
 	// Resolve adapter.
