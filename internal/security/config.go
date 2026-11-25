@@ -125,18 +125,3 @@ func (sc *SecurityConfig) Validate() error {
 
 	return nil
 }
-
-// IsPathValidationEnabled returns true if path validation is enabled
-func (sc *SecurityConfig) IsPathValidationEnabled() bool {
-	return sc.Enabled
-}
-
-// IsSanitizationEnabled returns true if input sanitization is enabled
-func (sc *SecurityConfig) IsSanitizationEnabled() bool {
-	return sc.Enabled && sc.Sanitization.EnablePromptInjectionDetection
-}
-
-// IsPersonaValidationEnabled returns true if persona validation is enabled
-func (sc *SecurityConfig) IsPersonaValidationEnabled() bool {
-	return sc.Enabled && sc.PersonaValidation.ValidatePersonaReferences
-}

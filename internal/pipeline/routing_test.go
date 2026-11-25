@@ -460,39 +460,6 @@ func TestRoutingConfigResolveComplexityModel(t *testing.T) {
 	}
 }
 
-func TestRoutingConfigEffectiveDefaultTier(t *testing.T) {
-	tests := []struct {
-		name    string
-		routing *manifest.RoutingConfig
-		want    string
-	}{
-		{
-			name:    "nil routing returns balanced",
-			routing: nil,
-			want:    "balanced",
-		},
-		{
-			name:    "empty default tier returns balanced",
-			routing: &manifest.RoutingConfig{},
-			want:    "balanced",
-		},
-		{
-			name: "custom default tier is returned",
-			routing: &manifest.RoutingConfig{
-				DefaultTier: "cheapest",
-			},
-			want: "cheapest",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.routing.EffectiveDefaultTier()
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
 func TestDefaultComplexityMap(t *testing.T) {
 	m := manifest.DefaultComplexityMap()
 	assert.Equal(t, "claude-haiku-4-5", m["cheapest"])

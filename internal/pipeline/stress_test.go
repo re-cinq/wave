@@ -271,28 +271,6 @@ func TestStressTest_FingerprinterStability(t *testing.T) {
 		"fingerprint should have format stepID:class:normalized_error")
 }
 
-// TestStressTest_CircuitBreaker_LoadFromAttempts_CommandFailures verifies that
-// circuit breaker state can be restored from prior attempt records, simulating
-// a pipeline resume after command step failures.
-func TestStressTest_CircuitBreaker_LoadFromAttempts_CommandFailures(t *testing.T) {
-	cb := NewCircuitBreaker(3, []string{FailureClassTransient})
-
-	// Simulate 2 prior command step failures
-	attempts := []StepAttemptReplay{
-		{StepID: "deliberate-fail", FailureClass: FailureClassTransient, ErrorMessage: "exit status 1"},
-		{StepID: "deliberate-fail", FailureClass: FailureClassTransient, ErrorMessage: "exit status 1"},
-	}
-	cb.LoadFromAttempts(attempts)
-
-	fp := NormalizeFingerprint("deliberate-fail", FailureClassTransient, "exit status 1")
-	assert.Equal(t, 2, cb.Count(fp), "should have 2 prior failures loaded")
-
-	// One more failure should trip the breaker (2 + 1 = 3 = limit)
-	tripped := cb.Record(fp, FailureClassTransient)
-	assert.True(t, tripped,
-		"circuit breaker should trip after replayed attempts + new failure reach limit")
-}
-
 // TestStressTest_PipelineYAML_Parseable verifies that the wave-stress-test pipeline
 // YAML can be parsed and validates correctly as a graph pipeline.
 func TestStressTest_PipelineYAML_Parseable(t *testing.T) {

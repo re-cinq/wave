@@ -110,49 +110,6 @@ func (f *StepFilter) Apply(steps []*Step) []*Step {
 	return steps
 }
 
-// ValidateDependencies checks that every step in the filtered set has its
-// declared dependencies satisfied either by another step in the filtered set
-// or by existing workspace artifacts from a prior run. The artifactExists
-// function is called to check whether a step's output artifacts are available
-// on disk (same mechanism used by ResumeManager).
-func (f *StepFilter) ValidateDependencies(filtered []*Step, p *Pipeline, artifactExists func(stepID string) bool) error {
-	if f == nil || !f.IsActive() {
-		return nil
-	}
-
-	// Build lookup of steps in the filtered set
-	inFiltered := make(map[string]bool, len(filtered))
-	for _, step := range filtered {
-		inFiltered[step.ID] = true
-	}
-
-	// Build full step lookup from pipeline
-	allSteps := make(map[string]*Step, len(p.Steps))
-	for i := range p.Steps {
-		allSteps[p.Steps[i].ID] = &p.Steps[i]
-	}
-
-	for _, step := range filtered {
-		fullStep := allSteps[step.ID]
-		if fullStep == nil {
-			continue
-		}
-		for _, dep := range fullStep.Dependencies {
-			if inFiltered[dep] {
-				continue // dependency is in filtered set — will be executed
-			}
-			// Dependency is not in filtered set — check if artifacts exist from prior run
-			if artifactExists != nil && artifactExists(dep) {
-				continue
-			}
-			return fmt.Errorf("step %q depends on %q which is excluded and has no prior artifacts; either include %q or run it first",
-				step.ID, dep, dep)
-		}
-	}
-
-	return nil
-}
-
 // ShouldRun returns true if the given step ID should be executed under this filter.
 func (f *StepFilter) ShouldRun(stepID string) bool {
 	if f == nil || !f.IsActive() {

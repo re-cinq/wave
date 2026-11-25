@@ -15,18 +15,6 @@ const (
 	StateCancelled  ProgressState = "cancelled"
 )
 
-// AnimationType defines the animation style for progress indicators.
-type AnimationType string
-
-const (
-	AnimationDots        AnimationType = "dots"
-	AnimationLine        AnimationType = "line"
-	AnimationBars        AnimationType = "bars"
-	AnimationSpinner     AnimationType = "spinner"
-	AnimationClock       AnimationType = "clock"
-	AnimationBouncingBar AnimationType = "bouncing_bar"
-)
-
 // ColorPalette defines ANSI color codes for different UI elements.
 type ColorPalette struct {
 	Primary    string // Main color for active elements

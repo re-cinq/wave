@@ -38,16 +38,6 @@ func (l *YAMLPipelineLoader) Unmarshal(data []byte) (*Pipeline, error) {
 		return nil, err
 	}
 
-	// Cross-pipeline typed-wiring check: when a sub-pipeline step consumes a
-	// sibling output via input_ref.from, verify the source's declared output
-	// type matches the child pipeline's declared input type. The loader is
-	// nil here (no recursive child loading at top-level Unmarshal); the check
-	// only enforces shape and intra-pipeline rules. Cross-pipeline typing is
-	// enforced by SequenceExecutor when it actually loads the children.
-	if err := TypedWiringCheck(&pipeline, nil, ""); err != nil {
-		return nil, err
-	}
-
 	// Enforce Wave Lego Protocol (ADR-011) at load time. Rules 3 and 5 are
 	// hard errors: pipeline_outputs must declare types, and contract
 	// on_failure must be one of fail/skip/continue/rework/warn. Shipped

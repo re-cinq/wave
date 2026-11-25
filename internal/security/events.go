@@ -94,8 +94,3 @@ func NewSchemaValidationResult(schemaPath, validatedPath, content string, isVali
 func (svr *SchemaValidationResult) AddSecurityFlag(flag string) {
 	svr.SecurityFlags = append(svr.SecurityFlags, flag)
 }
-
-// AddSanitizationAction records a sanitization action performed
-func (svr *SchemaValidationResult) AddSanitizationAction(action string) {
-	svr.SanitizationActions = append(svr.SanitizationActions, action)
-}

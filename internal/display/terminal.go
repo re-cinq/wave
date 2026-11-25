@@ -30,11 +30,6 @@ func (ti *TerminalInfo) GetWidth() int {
 	return ti.capabilities.Width
 }
 
-// GetHeight returns the terminal height in rows.
-func (ti *TerminalInfo) GetHeight() int {
-	return ti.capabilities.Height
-}
-
 // SupportsANSI returns true if terminal supports ANSI escape sequences.
 func (ti *TerminalInfo) SupportsANSI() bool {
 	return ti.capabilities.SupportsANSI
@@ -55,24 +50,9 @@ func (ti *TerminalInfo) SupportsUnicode() bool {
 	return ti.capabilities.SupportsUnicode
 }
 
-// SupportsAlternateBuffer returns true if terminal supports alternate screen buffer.
-func (ti *TerminalInfo) SupportsAlternateBuffer() bool {
-	return ti.capabilities.SupportsAlternate
-}
-
 // HasMouseSupport returns true if terminal supports mouse input.
 func (ti *TerminalInfo) HasMouseSupport() bool {
 	return ti.capabilities.HasMouseSupport
-}
-
-// GetColorScheme returns the detected color scheme ("light" or "dark").
-func (ti *TerminalInfo) GetColorScheme() string {
-	return ti.capabilities.ColorScheme
-}
-
-// Capabilities returns the full TerminalCapabilities structure.
-func (ti *TerminalInfo) Capabilities() *TerminalCapabilities {
-	return ti.capabilities
 }
 
 // detectCapabilities detects terminal capabilities by checking environment

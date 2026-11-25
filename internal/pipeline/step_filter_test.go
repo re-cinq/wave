@@ -221,63 +221,6 @@ func TestStepFilter_Apply(t *testing.T) {
 	}
 }
 
-func TestStepFilter_ValidateDependencies(t *testing.T) {
-	p := testPipeline()
-
-	tests := []struct {
-		name           string
-		filter         *StepFilter
-		artifactExists func(string) bool
-		expectError    bool
-		errorContains  string
-	}{
-		{
-			name:   "nil filter passes",
-			filter: nil,
-		},
-		{
-			name:   "no dependencies excluded passes",
-			filter: &StepFilter{Exclude: []string{"create-pr"}},
-		},
-		{
-			name:           "dependency excluded without prior artifacts fails",
-			filter:         &StepFilter{Include: []string{"plan", "implement"}},
-			artifactExists: func(stepID string) bool { return false },
-			expectError:    true,
-			errorContains:  "depends on",
-		},
-		{
-			name:   "dependency excluded but prior artifacts exist passes",
-			filter: &StepFilter{Include: []string{"plan", "implement"}},
-			artifactExists: func(stepID string) bool {
-				return stepID == "clarify" || stepID == "tasks"
-			},
-		},
-		{
-			name:   "adjacent steps in filtered set satisfy dependencies",
-			filter: &StepFilter{Include: []string{"specify", "clarify", "plan"}},
-		},
-		{
-			name:           "first step with no dependencies always passes",
-			filter:         &StepFilter{Include: []string{"specify"}},
-			artifactExists: func(stepID string) bool { return false },
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			filtered := tt.filter.Apply(stepPtrs(p))
-			err := tt.filter.ValidateDependencies(filtered, p, tt.artifactExists)
-			if tt.expectError {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errorContains)
-			} else {
-				require.NoError(t, err)
-			}
-		})
-	}
-}
-
 func TestStepFilter_ShouldRun(t *testing.T) {
 	tests := []struct {
 		name     string

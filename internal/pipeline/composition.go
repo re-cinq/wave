@@ -6,10 +6,6 @@ import (
 	"strings"
 )
 
-// SubPipelineLoader loads a pipeline by name from a directory.
-// This avoids a circular dependency on the tui package.
-type SubPipelineLoader func(dir, name string) (*Pipeline, error)
-
 // mergeJSONArrays takes a JSON string containing multiple arrays and merges them.
 // If the input is an array of arrays, the inner arrays are flattened into one.
 // If the input is already a flat array (no inner arrays), it is returned as-is.

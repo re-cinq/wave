@@ -136,8 +136,3 @@ func (g *Generator) GenerateNarrativeSync(ctx context.Context, runID string) err
 	retro.Narrative = narrative
 	return g.storage.Update(retro)
 }
-
-// GetStorage returns the storage for direct access.
-func (g *Generator) GetStorage() *Storage {
-	return g.storage
-}

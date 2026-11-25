@@ -228,24 +228,6 @@ func (c *Client) ListIssues(ctx context.Context, owner, repo string, opts ListIs
 	return issues, nil
 }
 
-// UpdateIssue updates an existing issue
-func (c *Client) UpdateIssue(ctx context.Context, owner, repo string, number int, update IssueUpdate) (*Issue, error) {
-	path := fmt.Sprintf("/repos/%s/%s/issues/%d", owner, repo, number)
-
-	resp, err := c.doRequest(ctx, http.MethodPatch, path, update)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var issue Issue
-	if err := json.NewDecoder(resp.Body).Decode(&issue); err != nil {
-		return nil, fmt.Errorf("failed to decode updated issue: %w", err)
-	}
-
-	return &issue, nil
-}
-
 // ListIssueComments retrieves comments on an issue or pull request.
 func (c *Client) ListIssueComments(ctx context.Context, owner, repo string, number int, perPage int) ([]*IssueComment, error) {
 	params := url.Values{}
@@ -274,26 +256,6 @@ func (c *Client) ListIssueComments(ctx context.Context, owner, repo string, numb
 	return comments, nil
 }
 
-// CreateIssueComment creates a new comment on an issue
-func (c *Client) CreateIssueComment(ctx context.Context, owner, repo string, number int, body string) (*IssueComment, error) {
-	path := fmt.Sprintf("/repos/%s/%s/issues/%d/comments", owner, repo, number)
-
-	payload := map[string]string{"body": body}
-
-	resp, err := c.doRequest(ctx, http.MethodPost, path, payload)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var comment IssueComment
-	if err := json.NewDecoder(resp.Body).Decode(&comment); err != nil {
-		return nil, fmt.Errorf("failed to decode comment: %w", err)
-	}
-
-	return &comment, nil
-}
-
 // GetPullRequest retrieves a pull request
 func (c *Client) GetPullRequest(ctx context.Context, owner, repo string, number int) (*PullRequest, error) {
 	path := fmt.Sprintf("/repos/%s/%s/pulls/%d", owner, repo, number)
@@ -310,24 +272,6 @@ func (c *Client) GetPullRequest(ctx context.Context, owner, repo string, number 
 	}
 
 	return &pr, nil
-}
-
-// CreatePullRequest creates a new pull request
-func (c *Client) CreatePullRequest(ctx context.Context, owner, repo string, pr CreatePullRequestRequest) (*PullRequest, error) {
-	path := fmt.Sprintf("/repos/%s/%s/pulls", owner, repo)
-
-	resp, err := c.doRequest(ctx, http.MethodPost, path, pr)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var pullRequest PullRequest
-	if err := json.NewDecoder(resp.Body).Decode(&pullRequest); err != nil {
-		return nil, fmt.Errorf("failed to decode pull request: %w", err)
-	}
-
-	return &pullRequest, nil
 }
 
 // ListPullRequests retrieves pull requests for a repository
@@ -422,82 +366,4 @@ func (c *Client) CreatePullRequestReview(ctx context.Context, owner, repo string
 	}
 	resp.Body.Close()
 	return nil
-}
-
-// GetRepository retrieves repository information
-func (c *Client) GetRepository(ctx context.Context, owner, repo string) (*Repository, error) {
-	path := fmt.Sprintf("/repos/%s/%s", owner, repo)
-
-	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var repository Repository
-	if err := json.NewDecoder(resp.Body).Decode(&repository); err != nil {
-		return nil, fmt.Errorf("failed to decode repository: %w", err)
-	}
-
-	return &repository, nil
-}
-
-// CreateBranch creates a new branch from a reference
-func (c *Client) CreateBranch(ctx context.Context, owner, repo, branchName, fromRef string) (*Reference, error) {
-	// First get the SHA of the reference we're branching from
-	getRefPath := fmt.Sprintf("/repos/%s/%s/git/ref/heads/%s", owner, repo, fromRef)
-	resp, err := c.doRequest(ctx, http.MethodGet, getRefPath, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get source reference: %w", err)
-	}
-
-	var sourceRef Reference
-	if err := json.NewDecoder(resp.Body).Decode(&sourceRef); err != nil {
-		resp.Body.Close()
-		return nil, fmt.Errorf("failed to decode source reference: %w", err)
-	}
-	resp.Body.Close()
-
-	// Create the new branch
-	createRefPath := fmt.Sprintf("/repos/%s/%s/git/refs", owner, repo)
-	payload := map[string]string{
-		"ref": "refs/heads/" + branchName,
-		"sha": sourceRef.Object.SHA,
-	}
-
-	resp, err = c.doRequest(ctx, http.MethodPost, createRefPath, payload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create branch: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var newRef Reference
-	if err := json.NewDecoder(resp.Body).Decode(&newRef); err != nil {
-		return nil, fmt.Errorf("failed to decode new reference: %w", err)
-	}
-
-	return &newRef, nil
-}
-
-// GetRateLimit retrieves the current rate limit status
-func (c *Client) GetRateLimit(ctx context.Context) (*RateLimitStatus, error) {
-	path := "/rate_limit"
-
-	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var rateLimit struct {
-		Resources struct {
-			Core RateLimitStatus `json:"core"`
-		} `json:"resources"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&rateLimit); err != nil {
-		return nil, fmt.Errorf("failed to decode rate limit: %w", err)
-	}
-
-	return &rateLimit.Resources.Core, nil
 }

@@ -78,18 +78,6 @@ func (m *RelayMonitor) ShouldCompact(tokensUsed int, thresholdPercent int) bool 
 	return tokensUsed >= threshold && tokensUsed >= m.config.MinTokensToCompact
 }
 
-// ShouldCompactWithWindow determines if compaction should be triggered, using a custom context window.
-func (m *RelayMonitor) ShouldCompactWithWindow(tokensUsed int, contextWindow int, thresholdPercent int) bool {
-	if thresholdPercent == 0 {
-		thresholdPercent = m.config.DefaultThreshold
-	}
-	if contextWindow == 0 {
-		contextWindow = m.config.ContextWindow
-	}
-	threshold := (contextWindow * thresholdPercent) / 100
-	return tokensUsed >= threshold && tokensUsed >= m.config.MinTokensToCompact
-}
-
 // Compact triggers compaction using the configured adapter and writes a checkpoint.
 // It returns the compacted summary and any error that occurred.
 //

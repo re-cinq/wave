@@ -70,93 +70,9 @@ func (t *Timeouts) GetMetaDefault() time.Duration {
 	return timeouts.MetaDefault
 }
 
-func (t *Timeouts) GetSkillInstall() time.Duration {
-	if t != nil && t.SkillInstallSec > 0 {
-		return time.Duration(t.SkillInstallSec) * time.Second
-	}
-	return timeouts.SkillInstall
-}
-
-func (t *Timeouts) GetSkillCLI() time.Duration {
-	if t != nil && t.SkillCLISec > 0 {
-		return time.Duration(t.SkillCLISec) * time.Second
-	}
-	return timeouts.SkillCLI
-}
-
-func (t *Timeouts) GetSkillHTTP() time.Duration {
-	if t != nil && t.SkillHTTPSec > 0 {
-		return time.Duration(t.SkillHTTPSec) * time.Second
-	}
-	return timeouts.SkillHTTP
-}
-
-func (t *Timeouts) GetSkillHTTPHeader() time.Duration {
-	if t != nil && t.SkillHTTPHeaderSec > 0 {
-		return time.Duration(t.SkillHTTPHeaderSec) * time.Second
-	}
-	return timeouts.SkillHTTPHeader
-}
-
-func (t *Timeouts) GetSkillPublish() time.Duration {
-	if t != nil && t.SkillPublishSec > 0 {
-		return time.Duration(t.SkillPublishSec) * time.Second
-	}
-	return timeouts.SkillPublish
-}
-
-func (t *Timeouts) GetProcessGrace() time.Duration {
-	if t != nil && t.ProcessGraceSec > 0 {
-		return time.Duration(t.ProcessGraceSec) * time.Second
-	}
-	return timeouts.ProcessGrace
-}
-
-func (t *Timeouts) GetStdoutDrain() time.Duration {
-	if t != nil && t.StdoutDrainSec > 0 {
-		return time.Duration(t.StdoutDrainSec) * time.Second
-	}
-	return timeouts.StdoutDrain
-}
-
 func (t *Timeouts) GetGateApproval() time.Duration {
 	if t != nil && t.GateApprovalHours > 0 {
 		return time.Duration(t.GateApprovalHours) * time.Hour
 	}
 	return timeouts.GateApproval
-}
-
-func (t *Timeouts) GetGatePollInterval() time.Duration {
-	if t != nil && t.GatePollIntervalSec > 0 {
-		return time.Duration(t.GatePollIntervalSec) * time.Second
-	}
-	return timeouts.GatePollInterval
-}
-
-func (t *Timeouts) GetGatePollTimeout() time.Duration {
-	if t != nil && t.GatePollTimeoutMin > 0 {
-		return time.Duration(t.GatePollTimeoutMin) * time.Minute
-	}
-	return timeouts.GatePollTimeout
-}
-
-func (t *Timeouts) GetGitCommand() time.Duration {
-	if t != nil && t.GitCommandSec > 0 {
-		return time.Duration(t.GitCommandSec) * time.Second
-	}
-	return timeouts.GitCommand
-}
-
-func (t *Timeouts) GetForgeAPI() time.Duration {
-	if t != nil && t.ForgeAPISec > 0 {
-		return time.Duration(t.ForgeAPISec) * time.Second
-	}
-	return timeouts.ForgeAPI
-}
-
-func (t *Timeouts) GetRetryMaxDelay() time.Duration {
-	if t != nil && t.RetryMaxDelaySec > 0 {
-		return time.Duration(t.RetryMaxDelaySec) * time.Second
-	}
-	return timeouts.RetryMaxDelay
 }

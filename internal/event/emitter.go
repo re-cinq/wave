@@ -167,13 +167,6 @@ func (e *NDJSONEmitter) SetDebugVerbosity(enabled bool) {
 	e.debugVerbose = enabled
 }
 
-// DebugVerbose returns whether debug verbosity is enabled.
-func (e *NDJSONEmitter) DebugVerbose() bool {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return e.debugVerbose
-}
-
 // ProgressEmitter is an optional interface for enhanced progress visualization.
 // If set, it receives events on stderr while NDJSON continues to stdout.
 type ProgressEmitter interface {
@@ -196,13 +189,6 @@ func NewProgressOnlyEmitter(progressEmitter ProgressEmitter) *NDJSONEmitter {
 		suppressJSON:    true,                       // Suppress JSON output to stdout
 		progressEmitter: progressEmitter,
 	}
-}
-
-// SetProgressEmitter sets or updates the progress emitter for enhanced visualization.
-func (e *NDJSONEmitter) SetProgressEmitter(progressEmitter ProgressEmitter) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.progressEmitter = progressEmitter
 }
 
 func (e *NDJSONEmitter) Emit(event Event) {

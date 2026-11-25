@@ -238,21 +238,6 @@ func (cb *CircuitBreaker) Record(fingerprint, failureClass string) (tripped bool
 	return cb.counts[fingerprint] >= cb.limit
 }
 
-// LoadFromAttempts replays prior failure attempts to restore circuit breaker
-// state during pipeline resume.
-func (cb *CircuitBreaker) LoadFromAttempts(attempts []StepAttemptReplay) {
-	cb.mu.Lock()
-	defer cb.mu.Unlock()
-
-	for _, a := range attempts {
-		if !cb.trackedClasses[a.FailureClass] {
-			continue
-		}
-		fp := NormalizeFingerprint(a.StepID, a.FailureClass, a.ErrorMessage)
-		cb.counts[fp]++
-	}
-}
-
 // Limit returns the configured trip threshold.
 func (cb *CircuitBreaker) Limit() int {
 	cb.mu.Lock()

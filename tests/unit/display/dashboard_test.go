@@ -6,39 +6,6 @@ import (
 	"github.com/recinq/wave/internal/display"
 )
 
-// TestTerminalCapabilitiesDetection tests terminal capability detection.
-func TestTerminalCapabilitiesDetection(t *testing.T) {
-	ti := display.NewTerminalInfo()
-
-	// Terminal info should always be created successfully
-	if ti == nil {
-		t.Fatal("expected NewTerminalInfo to return non-nil")
-	}
-
-	// Capabilities should be initialized
-	caps := ti.Capabilities()
-	if caps == nil {
-		t.Fatal("expected Capabilities() to return non-nil")
-	}
-
-	// Width and height should have sane defaults (even if not a TTY)
-	width := ti.GetWidth()
-	if width < 1 || width > 10000 {
-		t.Errorf("expected Width to be reasonable (1-10000), got %d", width)
-	}
-
-	height := ti.GetHeight()
-	if height < 1 || height > 10000 {
-		t.Errorf("expected Height to be reasonable (1-10000), got %d", height)
-	}
-
-	// Color scheme should be either "light" or "dark"
-	scheme := ti.GetColorScheme()
-	if scheme != "light" && scheme != "dark" {
-		t.Errorf("expected ColorScheme to be 'light' or 'dark', got %q", scheme)
-	}
-}
-
 // TestANSICodecWithConfig tests ANSI codec with different configurations.
 func TestANSICodecWithConfig(t *testing.T) {
 	tests := []struct {

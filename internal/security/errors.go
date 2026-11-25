@@ -26,11 +26,6 @@ func (sve *SecurityValidationError) Error() string {
 	return strings.Join(parts, " - ")
 }
 
-// IsRetryable returns true if the operation can be retried
-func (sve *SecurityValidationError) IsRetryable() bool {
-	return sve.Retryable
-}
-
 // NewPathTraversalError creates an error for path traversal attempts
 func NewPathTraversalError(path string, approved []string) *SecurityValidationError {
 	return &SecurityValidationError{

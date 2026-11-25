@@ -21,20 +21,6 @@ func TestTerminalInfo_IsTTY(t *testing.T) {
 	_ = ti.IsTTY()
 }
 
-func TestTerminalInfo_Dimensions(t *testing.T) {
-	ti := NewTerminalInfo()
-
-	width := ti.GetWidth()
-	if width <= 0 {
-		t.Errorf("Width should be positive, got %d", width)
-	}
-
-	height := ti.GetHeight()
-	if height <= 0 {
-		t.Errorf("Height should be positive, got %d", height)
-	}
-}
-
 func TestTerminalInfo_SupportsANSI(t *testing.T) {
 	ti := NewTerminalInfo()
 	// Just verify it doesn't panic
@@ -56,30 +42,9 @@ func TestTerminalInfo_SupportsUnicode(t *testing.T) {
 	_ = ti.SupportsUnicode()
 }
 
-func TestTerminalInfo_SupportsAlternateBuffer(t *testing.T) {
-	ti := NewTerminalInfo()
-	_ = ti.SupportsAlternateBuffer()
-}
-
 func TestTerminalInfo_HasMouseSupport(t *testing.T) {
 	ti := NewTerminalInfo()
 	_ = ti.HasMouseSupport()
-}
-
-func TestTerminalInfo_GetColorScheme(t *testing.T) {
-	ti := NewTerminalInfo()
-	scheme := ti.GetColorScheme()
-	if scheme != "dark" && scheme != "light" {
-		t.Errorf("ColorScheme should be 'dark' or 'light', got %q", scheme)
-	}
-}
-
-func TestTerminalInfo_Capabilities(t *testing.T) {
-	ti := NewTerminalInfo()
-	caps := ti.Capabilities()
-	if caps == nil {
-		t.Error("Capabilities() should not return nil")
-	}
 }
 
 func TestDetectCapabilities(t *testing.T) {

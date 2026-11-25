@@ -132,15 +132,6 @@ func (l *Ledger) TotalCost() float64 {
 	return l.totalCost
 }
 
-// Entries returns a copy of all ledger entries.
-func (l *Ledger) Entries() []Entry {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	result := make([]Entry, len(l.entries))
-	copy(result, l.entries)
-	return result
-}
-
 // Summary returns a human-readable cost summary.
 func (l *Ledger) Summary() string {
 	l.mu.Lock()

@@ -56,24 +56,6 @@ func (e *ValidationError) Error() string {
 	return sb.String()
 }
 
-// WithFile sets the file path on the error.
-func (e *ValidationError) WithFile(file string) *ValidationError {
-	e.File = file
-	return e
-}
-
-// WithLine sets the line number on the error.
-func (e *ValidationError) WithLine(line int) *ValidationError {
-	e.Line = line
-	return e
-}
-
-// WithSuggestion adds a helpful suggestion to the error message.
-func (e *ValidationError) WithSuggestion(suggestion string) *ValidationError {
-	e.Suggestion = suggestion
-	return e
-}
-
 type ManifestLoader interface {
 	Load(path string) (*Manifest, error)
 }

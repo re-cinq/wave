@@ -27,28 +27,6 @@ func TestProgressState_Constants(t *testing.T) {
 	}
 }
 
-func TestAnimationType_Constants(t *testing.T) {
-	tests := []struct {
-		animType AnimationType
-		want     string
-	}{
-		{AnimationDots, "dots"},
-		{AnimationLine, "line"},
-		{AnimationBars, "bars"},
-		{AnimationSpinner, "spinner"},
-		{AnimationClock, "clock"},
-		{AnimationBouncingBar, "bouncing_bar"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.want, func(t *testing.T) {
-			if string(tt.animType) != tt.want {
-				t.Errorf("AnimationType = %q, want %q", tt.animType, tt.want)
-			}
-		})
-	}
-}
-
 func TestColorPalette_Structure(t *testing.T) {
 	palette := ColorPalette{
 		Primary:    "\033[36m",

@@ -252,17 +252,3 @@ func (is *InputSanitizer) hashInput(input string) string {
 	hasher.Write([]byte(input))
 	return fmt.Sprintf("%x", hasher.Sum(nil))
 }
-
-// ValidateInputLength checks if input exceeds length limits
-func (is *InputSanitizer) ValidateInputLength(input string, inputType string) error {
-	if len(input) > is.config.Sanitization.MaxInputLength {
-		return NewInputValidationError(inputType,
-			fmt.Sprintf("exceeds maximum length of %d characters", is.config.Sanitization.MaxInputLength))
-	}
-	return nil
-}
-
-// IsHighRisk returns true if the input is considered high risk
-func (is *InputSanitizer) IsHighRisk(record *InputSanitizationRecord) bool {
-	return record.RiskScore >= 50
-}

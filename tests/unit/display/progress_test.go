@@ -30,30 +30,6 @@ func TestProgressStateConstants(t *testing.T) {
 	}
 }
 
-// TestAnimationTypeConstants verifies animation type constants.
-func TestAnimationTypeConstants(t *testing.T) {
-	tests := []struct {
-		name      string
-		animation display.AnimationType
-		expected  string
-	}{
-		{"dots", display.AnimationDots, "dots"},
-		{"line", display.AnimationLine, "line"},
-		{"bars", display.AnimationBars, "bars"},
-		{"spinner", display.AnimationSpinner, "spinner"},
-		{"clock", display.AnimationClock, "clock"},
-		{"bouncing_bar", display.AnimationBouncingBar, "bouncing_bar"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if string(tt.animation) != tt.expected {
-				t.Errorf("expected animation %q, got %q", tt.expected, string(tt.animation))
-			}
-		})
-	}
-}
-
 // TestPipelineContext tests pipeline context structure.
 func TestPipelineContext(t *testing.T) {
 	ctx := display.PipelineContext{

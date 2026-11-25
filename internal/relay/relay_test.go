@@ -55,37 +55,6 @@ func TestRelayMonitor_ShouldCompact(t *testing.T) {
 	}
 }
 
-func TestRelayMonitor_ShouldCompactWithWindow(t *testing.T) {
-	adapter := &mockCompactionAdapter{}
-	m := NewRelayMonitor(RelayMonitorConfig{
-		DefaultThreshold:   80,
-		MinTokensToCompact: 1000,
-		ContextWindow:      200000,
-	}, adapter)
-
-	tests := []struct {
-		name          string
-		tokensUsed    int
-		contextWindow int
-		threshold     int
-		expected      bool
-	}{
-		{"below threshold with custom window", 500, 4000, 80, false},
-		{"at threshold with custom window", 3200, 4000, 80, true},
-		{"above threshold with custom window", 3500, 4000, 80, true},
-		{"zero window uses default", 180000, 0, 80, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := m.ShouldCompactWithWindow(tt.tokensUsed, tt.contextWindow, tt.threshold)
-			if result != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result)
-			}
-		})
-	}
-}
-
 func TestRelayMonitor_Compact(t *testing.T) {
 	adapter := &mockCompactionAdapter{
 		runFunc: func(ctx context.Context, cfg CompactionConfig) (string, error) {

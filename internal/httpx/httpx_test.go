@@ -167,7 +167,7 @@ func TestSingleShotMode(t *testing.T) {
 	}
 }
 
-func TestPostBodyReplayedAcrossRetries(t *testing.T) {
+func TestRequestBodyReplayedAcrossRetries(t *testing.T) {
 	var hits int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
@@ -189,9 +189,13 @@ func TestPostBodyReplayedAcrossRetries(t *testing.T) {
 		MaxRetries:    2,
 		RetryBaseWait: 1 * time.Millisecond,
 	})
-	resp, err := c.Post(context.Background(), srv.URL, "text/plain", strings.NewReader("payload"))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL, strings.NewReader("payload"))
 	if err != nil {
-		t.Fatalf("Post error: %v", err)
+		t.Fatal(err)
+	}
+	resp, err := c.Do(context.Background(), req)
+	if err != nil {
+		t.Fatalf("Do error: %v", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {

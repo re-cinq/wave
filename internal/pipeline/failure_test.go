@@ -11,7 +11,6 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/contract"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestIsRetryable(t *testing.T) {
@@ -354,35 +353,6 @@ func TestCircuitBreaker_DefaultsOnZeroLimit(t *testing.T) {
 	fpBudget := "step1:budget_exhausted:context window full"
 	assert.False(t, cb.Record(fpBudget, FailureClassBudgetExhausted))
 	assert.Equal(t, 0, cb.Count(fpBudget))
-}
-
-func TestCircuitBreaker_LoadFromAttempts(t *testing.T) {
-	cb := NewCircuitBreaker(3, []string{FailureClassDeterministic, FailureClassTestFailure})
-
-	attempts := []StepAttemptReplay{
-		{StepID: "build", FailureClass: FailureClassDeterministic, ErrorMessage: "auth failed"},
-		{StepID: "build", FailureClass: FailureClassDeterministic, ErrorMessage: "auth failed"},
-		{StepID: "test", FailureClass: FailureClassTestFailure, ErrorMessage: "tests failed"},
-		{StepID: "deploy", FailureClass: FailureClassTransient, ErrorMessage: "timeout"}, // not tracked
-	}
-
-	cb.LoadFromAttempts(attempts)
-
-	// Build fingerprint for "build" deterministic failures
-	fpBuild := NormalizeFingerprint("build", FailureClassDeterministic, "auth failed")
-	assert.Equal(t, 2, cb.Count(fpBuild))
-
-	// Build fingerprint for "test" test_failure
-	fpTest := NormalizeFingerprint("test", FailureClassTestFailure, "tests failed")
-	assert.Equal(t, 1, cb.Count(fpTest))
-
-	// Transient was not tracked, so no count
-	fpDeploy := NormalizeFingerprint("deploy", FailureClassTransient, "timeout")
-	assert.Equal(t, 0, cb.Count(fpDeploy))
-
-	// Recording one more for build should trip the breaker (2 + 1 = 3)
-	tripped := cb.Record(fpBuild, FailureClassDeterministic)
-	require.True(t, tripped, "circuit breaker should trip after replayed attempts + new record reach limit")
 }
 
 func TestCircuitBreaker_ConcurrentSafety(t *testing.T) {

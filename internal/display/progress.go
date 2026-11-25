@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -27,108 +26,6 @@ type StepStatus struct {
 	EndTime       *time.Time
 	ElapsedMs     int64
 	TokensUsed    int
-	Spinner       *Spinner
-}
-
-// UpdateState transitions the step to a new state.
-func (ss *StepStatus) UpdateState(newState ProgressState) {
-	oldState := ss.State
-	ss.State = newState
-
-	// Handle state transitions
-	if oldState != StateRunning && newState == StateRunning {
-		ss.StartTime = time.Now()
-		if ss.Spinner != nil {
-			ss.Spinner.Start()
-		}
-	}
-
-	if newState == StateCompleted || newState == StateFailed || newState == StateCancelled {
-		now := time.Now()
-		ss.EndTime = &now
-		ss.ElapsedMs = now.Sub(ss.StartTime).Milliseconds()
-		if ss.Spinner != nil {
-			ss.Spinner.Stop()
-		}
-	}
-}
-
-// Render returns the formatted step status line.
-func (ss *StepStatus) Render() string {
-	codec := NewANSICodec()
-	charSet := GetUnicodeCharSet()
-
-	var sb strings.Builder
-
-	// State icon
-	switch ss.State {
-	case StateCompleted:
-		sb.WriteString(codec.Success(charSet.CheckMark))
-	case StateFailed:
-		sb.WriteString(codec.Error(charSet.CrossMark))
-	case StateRunning:
-		if ss.Spinner != nil {
-			sb.WriteString(codec.Primary(ss.Spinner.Current()))
-		} else {
-			sb.WriteString(codec.Primary("⟳"))
-		}
-	case StateSkipped:
-		sb.WriteString(codec.Muted("○"))
-	case StateCancelled:
-		sb.WriteString(codec.Warning("⊛"))
-	default:
-		sb.WriteString(codec.Muted("○"))
-	}
-
-	sb.WriteString(" ")
-
-	// Step name and persona
-	sb.WriteString(codec.Bold(ss.Name))
-	if ss.Persona != "" {
-		sb.WriteString(codec.Muted(fmt.Sprintf(" (%s)", ss.Persona)))
-	}
-
-	// Adapter and model
-	if ss.Adapter != "" || ss.Model != "" {
-		parts := []string{}
-		if ss.Adapter != "" {
-			parts = append(parts, ss.Adapter)
-		}
-		if ss.Model != "" {
-			parts = append(parts, ss.Model)
-		}
-		sb.WriteString(codec.Muted(fmt.Sprintf(" [%s]", strings.Join(parts, "/"))))
-	}
-
-	// Progress percentage
-	if ss.Progress > 0 && ss.State == StateRunning {
-		sb.WriteString(fmt.Sprintf(" %s%d%%%s", codec.Primary("["), ss.Progress, codec.Primary("]")))
-	}
-
-	// Current action
-	if ss.CurrentAction != "" && ss.State == StateRunning {
-		sb.WriteString(codec.Muted(fmt.Sprintf(" - %s", ss.CurrentAction)))
-	}
-
-	// Elapsed time
-	if ss.State == StateRunning {
-		elapsed := time.Since(ss.StartTime)
-		sb.WriteString(codec.Muted(fmt.Sprintf(" (%s)", formatStepDuration(elapsed))))
-	} else if ss.EndTime != nil {
-		sb.WriteString(codec.Muted(fmt.Sprintf(" (%.1fs)", float64(ss.ElapsedMs)/1000.0)))
-	}
-
-	// Tokens used (for completed steps)
-	if ss.TokensUsed > 0 && (ss.State == StateCompleted || ss.State == StateFailed) {
-		sb.WriteString(codec.Muted(fmt.Sprintf(" • %s tokens", FormatTokenCount(ss.TokensUsed))))
-	}
-
-	// Message
-	if ss.Message != "" {
-		sb.WriteString(codec.Muted(fmt.Sprintf(" • %s", ss.Message)))
-	}
-
-	return sb.String()
 }
 
 // BasicProgressDisplay provides simple text-based progress for non-TTY environments.
@@ -398,55 +295,6 @@ func (ctx *PipelineContext) UpdateStepDuration(stepID string, durationMs int64) 
 		ctx.StepDurations = make(map[string]int64)
 	}
 	ctx.StepDurations[stepID] = durationMs
-}
-
-// SetCurrentStep updates the current step information in the context.
-func (ctx *PipelineContext) SetCurrentStep(stepNum int, stepID string, stepName string, persona string) {
-	ctx.CurrentStepNum = stepNum
-	ctx.CurrentStepID = stepID
-	ctx.CurrentStepName = stepName
-	ctx.CurrentPersona = persona
-	ctx.CurrentStepStart = time.Now().UnixNano()
-
-	// Update step status to running
-	ctx.UpdateStepStatus(stepID, StateRunning)
-}
-
-// SetCurrentAction updates the current action being performed.
-func (ctx *PipelineContext) SetCurrentAction(action string) {
-	ctx.CurrentAction = action
-}
-
-// MarkStepCompleted marks a step as completed and updates counters.
-func (ctx *PipelineContext) MarkStepCompleted(stepID string, durationMs int64) {
-	ctx.UpdateStepStatus(stepID, StateCompleted)
-	ctx.UpdateStepDuration(stepID, durationMs)
-}
-
-// MarkStepFailed marks a step as failed and updates counters.
-func (ctx *PipelineContext) MarkStepFailed(stepID string, errorMsg string) {
-	ctx.UpdateStepStatus(stepID, StateFailed)
-	ctx.Error = errorMsg
-}
-
-// MarkStepSkipped marks a step as skipped and updates counters.
-func (ctx *PipelineContext) MarkStepSkipped(stepID string) {
-	ctx.UpdateStepStatus(stepID, StateSkipped)
-}
-
-// GetCompletionPercentage returns the overall completion percentage (0-100).
-func (ctx *PipelineContext) GetCompletionPercentage() int {
-	return ctx.OverallProgress
-}
-
-// GetCurrentStepNumber returns the 1-based index of the current step.
-func (ctx *PipelineContext) GetCurrentStepNumber() int {
-	return ctx.CurrentStepNum
-}
-
-// IsComplete returns true if all steps are completed or the pipeline has finished.
-func (ctx *PipelineContext) IsComplete() bool {
-	return ctx.CompletedSteps >= ctx.TotalSteps
 }
 
 // HasErrors returns true if any steps have failed.

@@ -13,45 +13,6 @@ import (
 // - Security boundary enforcement
 // =============================================================================
 
-// TestSecurityConfig_PersonaValidation verifies that persona validation
-// configuration is correctly set up.
-func TestSecurityConfig_PersonaValidation(t *testing.T) {
-	config := DefaultSecurityConfig()
-
-	// Verify persona validation is enabled by default
-	if !config.PersonaValidation.ValidatePersonaReferences {
-		t.Error("persona reference validation should be enabled by default")
-	}
-
-	// Verify unknown personas are not allowed by default
-	if config.PersonaValidation.AllowUnknownPersonas {
-		t.Error("unknown personas should not be allowed by default")
-	}
-
-	// Verify validation is enabled overall
-	if !config.IsPersonaValidationEnabled() {
-		t.Error("persona validation should be enabled")
-	}
-}
-
-// TestSecurityConfig_PathValidationForArtifacts verifies path validation
-// configuration supports artifact creation paths.
-func TestSecurityConfig_PathValidationForArtifacts(t *testing.T) {
-	config := DefaultSecurityConfig()
-
-	// Verify path validation is enabled
-	if !config.IsPathValidationEnabled() {
-		t.Error("path validation should be enabled")
-	}
-
-	// Check that approved directories include common artifact locations
-	// Note: artifacts may not be in default approved dirs, which is correct
-	// because artifact paths should be validated at runtime
-	if config.PathValidation.MaxPathLength <= 0 {
-		t.Error("max path length should be positive")
-	}
-}
-
 // TestSchemaValidationResult_SecurityFlags tests adding security flags
 // to validation results.
 func TestSchemaValidationResult_SecurityFlags(t *testing.T) {
@@ -88,20 +49,6 @@ func TestSchemaValidationResult_SecurityFlags(t *testing.T) {
 
 	if !foundWriteFlag || !foundArtifactFlag {
 		t.Error("security flags not preserved correctly")
-	}
-}
-
-// TestSchemaValidationResult_SanitizationActions tests recording sanitization
-// actions in validation results.
-func TestSchemaValidationResult_SanitizationActions(t *testing.T) {
-	result := NewSchemaValidationResult("artifact.json", "", "{}", false)
-
-	// Add sanitization actions
-	result.AddSanitizationAction("validated_path")
-	result.AddSanitizationAction("checked_permissions")
-
-	if len(result.SanitizationActions) != 2 {
-		t.Errorf("expected 2 sanitization actions, got %d", len(result.SanitizationActions))
 	}
 }
 
