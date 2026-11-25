@@ -322,3 +322,23 @@ func TestParseWithRecovery_ValidArray(t *testing.T) {
 		t.Error("valid array JSON should be marked as valid")
 	}
 }
+
+// Removing the comment leaves "[1, 2, \n]", still invalid; the parser must
+// carry that partial fix forward so the trailing-comma fix can finish it.
+func TestParseWithRecovery_ChainsPartialFixes(t *testing.T) {
+	parser := NewJSONRecoveryParser(ConservativeRecovery)
+
+	result, err := parser.ParseWithRecovery("[1, 2, // last id\n]")
+	if err != nil {
+		t.Fatalf("expected recovery, got error: %v", err)
+	}
+	items, ok := result.ParsedData.([]interface{})
+	if !ok || len(items) != 2 {
+		t.Fatalf("ParsedData = %#v, want a two-element array", result.ParsedData)
+	}
+	for _, fix := range []string{"removed_single_line_comments", "removed_trailing_commas"} {
+		if !strings.Contains(strings.Join(result.AppliedFixes, ","), fix) {
+			t.Errorf("AppliedFixes %v missing %q", result.AppliedFixes, fix)
+		}
+	}
+}

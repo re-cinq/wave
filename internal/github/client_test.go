@@ -299,3 +299,29 @@ func TestClient_GetCommitCheckRuns(t *testing.T) {
 		assert.Contains(t, err.Error(), "failed to decode check runs")
 	})
 }
+
+func TestClient_CreatePullRequestReview(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/repos/owner/repo/pulls/7/reviews", r.URL.Path)
+		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+
+		var payload map[string]string
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+		assert.Equal(t, map[string]string{"event": "REQUEST_CHANGES", "body": "needs tests"}, payload)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewClient(ClientConfig{BaseURL: server.URL})
+	require.NoError(t, client.CreatePullRequestReview(context.Background(), "owner", "repo", 7, "REQUEST_CHANGES", "needs tests"))
+}
+
+func TestIssue_IsPullRequest(t *testing.T) {
+	var issue, pr Issue
+	require.NoError(t, json.Unmarshal([]byte(`{"number": 1}`), &issue))
+	require.NoError(t, json.Unmarshal([]byte(`{"number": 2, "pull_request": {"url": "https://api.github.com/repos/o/r/pulls/2"}}`), &pr))
+
+	assert.False(t, issue.IsPullRequest())
+	assert.True(t, pr.IsPullRequest())
+}

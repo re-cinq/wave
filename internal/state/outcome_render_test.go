@@ -65,3 +65,29 @@ func TestHasNerdFont(t *testing.T) {
 	t.Setenv("TERMINAL_EMULATOR", "")
 	assert.False(t, hasNerdFont())
 }
+
+func TestOutcomeRecordString_PlainIcons(t *testing.T) {
+	t.Setenv("NERD_FONT", "")
+	t.Setenv("TERM", "dumb")
+	t.Setenv("TERMINAL_EMULATOR", "")
+
+	tests := []struct {
+		typ  OutcomeType
+		want string
+	}{
+		{OutcomeTypeURL, "\u2192 v"},
+		{OutcomeTypePR, "\u2197 v"},
+		{OutcomeTypeDeployment, "\u2191 v"},
+		{OutcomeTypeArtifact, "+ v"},
+		{OutcomeTypeIssue, "! v"},
+	}
+	for _, tt := range tests {
+		t.Run(string(tt.typ), func(t *testing.T) {
+			r := &OutcomeRecord{Type: tt.typ, Value: "v"}
+			assert.Equal(t, tt.want, r.String())
+		})
+	}
+
+	file := &OutcomeRecord{Type: OutcomeTypeFile, Value: "/tmp/out.json"}
+	assert.Equal(t, "\u2022 file:///tmp/out.json", file.String())
+}

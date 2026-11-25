@@ -63,6 +63,33 @@ func TestOutcomeTrackerAdd(t *testing.T) {
 	})
 }
 
+func TestOutcomeTrackerConvenienceAdders(t *testing.T) {
+	tests := []struct {
+		name     string
+		addFunc  func(*OutcomeTracker)
+		wantType OutcomeType
+	}{
+		{"AddFile", func(tr *OutcomeTracker) { tr.AddFile("s", "n", "/p", "d") }, OutcomeTypeFile},
+		{"AddURL", func(tr *OutcomeTracker) { tr.AddURL("s", "n", "https://example.com", "d") }, OutcomeTypeURL},
+		{"AddPR", func(tr *OutcomeTracker) { tr.AddPR("s", "n", "https://github.com/pr/1", "d") }, OutcomeTypePR},
+		{"AddDeployment", func(tr *OutcomeTracker) { tr.AddDeployment("s", "n", "https://deploy.example.com", "d") }, OutcomeTypeDeployment},
+		{"AddArtifact", func(tr *OutcomeTracker) { tr.AddArtifact("s", "n", "/art/out.bin", "d") }, OutcomeTypeArtifact},
+		{"AddBranch", func(tr *OutcomeTracker) { tr.AddBranch("s", "feat/x", "/ws/x", "d") }, OutcomeTypeBranch},
+		{"AddIssue", func(tr *OutcomeTracker) { tr.AddIssue("s", "Issue #1", "https://github.com/issues/1", "d") }, OutcomeTypeIssue},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tracker := NewOutcomeTracker("p1", nil)
+			tc.addFunc(tracker)
+			require.Equal(t, 1, tracker.Count())
+			got := tracker.GetAll()[0]
+			assert.Equal(t, tc.wantType, got.Type)
+			assert.Equal(t, "s", got.StepID)
+			assert.Equal(t, "d", got.Description)
+		})
+	}
+}
+
 func TestOutcomeTrackerAddBranchInitialMetadata(t *testing.T) {
 	tracker := NewOutcomeTracker("p", nil)
 	tracker.AddBranch("s1", "feat/x", "/ws", "d")

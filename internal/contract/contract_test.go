@@ -1,6 +1,7 @@
 package contract
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,6 +58,27 @@ func TestJSONSchemaValidator_MissingSchema(t *testing.T) {
 	err := v.Validate(cfg, workspacePath)
 	if err == nil {
 		t.Error("expected error for missing schema, but got none")
+	}
+}
+
+func TestJSONSchemaValidator_MissingArtifact(t *testing.T) {
+	v := &jsonSchemaValidator{}
+	cfg := ContractConfig{
+		Type:   "json_schema",
+		Schema: `{"type": "object"}`,
+		Source: "out/result.json",
+	}
+
+	err := v.Validate(cfg, t.TempDir())
+	var validErr *ValidationError
+	if !errors.As(err, &validErr) {
+		t.Fatalf("expected *ValidationError, got %T: %v", err, err)
+	}
+	if !strings.Contains(validErr.Message, "failed to read artifact file") || !strings.Contains(validErr.Message, "out/result.json") {
+		t.Errorf("message %q should name the unreadable source file", validErr.Message)
+	}
+	if validErr.Retryable {
+		t.Error("a missing artifact must not be retryable")
 	}
 }
 

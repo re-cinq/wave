@@ -212,3 +212,19 @@ func TestGetPersonaConfigs_MatchesPersonaFiles(t *testing.T) {
 		}
 	}
 }
+
+func TestPipelineNames_MatchesGetPipelines(t *testing.T) {
+	all, err := GetPipelines()
+	if err != nil {
+		t.Fatalf("GetPipelines() error: %v", err)
+	}
+	names := PipelineNames()
+	if len(names) == 0 || len(names) != len(all) {
+		t.Fatalf("PipelineNames() returned %d names, GetPipelines() has %d", len(names), len(all))
+	}
+	for _, name := range names {
+		if _, ok := all[name]; !ok {
+			t.Errorf("PipelineNames() returned %q, which GetPipelines() does not contain", name)
+		}
+	}
+}

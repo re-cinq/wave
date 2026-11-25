@@ -284,6 +284,15 @@ func TestRetrospective(t *testing.T) {
 		assert.Equal(t, now.Unix(), got.CreatedAt.Unix())
 	})
 
+	t.Run("get unknown run returns error", func(t *testing.T) {
+		store, cleanup := setupTestStore(t)
+		defer cleanup()
+
+		_, err := store.GetRetrospective("no-such-run")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "retrospective not found for run no-such-run")
+	})
+
 	t.Run("save updates existing row in place", func(t *testing.T) {
 		store, cleanup := setupTestStore(t)
 		defer cleanup()

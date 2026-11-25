@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -24,6 +25,41 @@ func TestResolveTemplate_InputEmbedded(t *testing.T) {
 	}
 	if result != "Process: issue-42 with care" {
 		t.Errorf("expected %q, got %q", "Process: issue-42 with care", result)
+	}
+}
+
+func TestResolveTemplate_StepOutput(t *testing.T) {
+	ctx := NewTemplateContext("feature-x", "/tmp")
+	ctx.StepOutputs["scope"] = []byte(`{"count": 5, "meta": {"status": "complete"}}`)
+
+	tests := []struct {
+		tmpl    string
+		want    string
+		wantErr string
+	}{
+		{"{{scope.output}}", `{"count": 5, "meta": {"status": "complete"}}`, ""},
+		{"{{scope.output.meta.status}}", "complete", ""},
+		{"{{input}} has {{scope.output.count}} items", "feature-x has 5 items", ""},
+		{"{{missing.output}}", "", `no output found for step "missing"`},
+		{"{{scope.result}}", "", "second segment must be 'output'"},
+		{"{{scope}}", "", "expected step_id.output"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.tmpl, func(t *testing.T) {
+			got, err := ResolveTemplate(tt.tmpl, ctx)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("error = %v, want containing %q", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
