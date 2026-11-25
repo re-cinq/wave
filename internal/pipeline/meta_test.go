@@ -647,6 +647,10 @@ func TestMetaPipelineValidation(t *testing.T) {
 
 // TestMetaPipelineValidationBeforeExecution tests that validation happens before execution
 func TestMetaPipelineValidationBeforeExecution(t *testing.T) {
+	// The meta executor writes .agents/workspaces/meta-philosopher relative
+	// to the working directory; keep it out of the source tree.
+	t.Chdir(t.TempDir())
+
 	// Create a mock that returns invalid pipeline YAML (first step is not navigator)
 	invalidYAML := `--- PIPELINE ---
 kind: WavePipeline
@@ -706,6 +710,10 @@ steps:
 
 // TestMetaPipelinePreservesGeneratedPipelineOnFailure tests T101
 func TestMetaPipelinePreservesGeneratedPipelineOnFailure(t *testing.T) {
+	// The meta executor writes .agents/workspaces/meta-philosopher relative
+	// to the working directory; keep it out of the source tree.
+	t.Chdir(t.TempDir())
+
 	validYAML := `--- PIPELINE ---
 kind: WavePipeline
 metadata:
@@ -1428,6 +1436,10 @@ func TestValidateGeneratedPipeline_WithManifest_MissingAdapter(t *testing.T) {
 // =============================================================================
 
 func TestMetaGenerateFailedEvent_SemanticValidation(t *testing.T) {
+	// The meta executor writes .agents/workspaces/meta-philosopher relative
+	// to the working directory; keep it out of the source tree.
+	t.Chdir(t.TempDir())
+
 	// Return a valid YAML pipeline that fails semantic validation (first step not navigator)
 	invalidYAML := `--- PIPELINE ---
 kind: WavePipeline
@@ -1483,6 +1495,10 @@ steps:
 // =============================================================================
 
 func TestMetaPipelineExecutor_InternalTimeout(t *testing.T) {
+	// The meta executor writes .agents/workspaces/meta-philosopher relative
+	// to the working directory; keep it out of the source tree.
+	t.Chdir(t.TempDir())
+
 	// Create a slow mock runner that respects context cancellation
 	slowRunner := &contextAwareMockRunner{
 		delay: 5 * time.Second, // longer than our timeout

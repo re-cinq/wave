@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -70,6 +71,22 @@ func TestCreateStepWorkspace_TemplateResolution(t *testing.T) {
 	})
 
 	t.Run("base template resolved from step output", func(t *testing.T) {
+		// Resolution succeeds and goes on to create a real worktree relative
+		// to the working directory, so run it inside a throwaway repository
+		// instead of the source checkout.
+		repo := t.TempDir()
+		for _, args := range [][]string{
+			{"init", "-q"},
+			{"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "init"},
+		} {
+			cmd := exec.Command("git", args...)
+			cmd.Dir = repo
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("git %v: %v\n%s", args, err, out)
+			}
+		}
+		t.Chdir(repo)
+
 		tmpDir := t.TempDir()
 		// Write an artifact file with a base branch value
 		artFile := tmpDir + "/base.json"
