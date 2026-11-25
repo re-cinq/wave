@@ -13,6 +13,7 @@ import (
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/workspace"
 	"github.com/spf13/cobra"
 )
 
@@ -229,7 +230,7 @@ func resolveForgePersona(persona string, info forge.ForgeInfo) string {
 
 // createAutoEmitter selects BubbleTea TUI when connected to a TTY,
 // plain text otherwise.
-func createAutoEmitter(cfg OutputConfig, pipelineID, pipelineName string, steps []pipeline.Step, _ *manifest.Manifest) EmitterResult {
+func createAutoEmitter(cfg OutputConfig, pipelineID, pipelineName string, steps []pipeline.Step, m *manifest.Manifest) EmitterResult {
 	termInfo := display.NewTerminalInfo()
 	isTTY := termInfo.IsTTY() && termInfo.SupportsANSI()
 
@@ -238,6 +239,9 @@ func createAutoEmitter(cfg OutputConfig, pipelineID, pipelineName string, steps 
 
 	if isTTY {
 		btpd := display.NewBubbleTeaProgressDisplay(pipelineID, pipelineName, len(steps), nil, cfg.Verbose)
+		if m != nil {
+			btpd.SetWorkspaceRoot(workspace.ResolveRoot(m.Runtime.WorkspaceRoot))
+		}
 
 		// Register steps for tracking with resolved persona names
 		for _, step := range steps {

@@ -491,6 +491,7 @@ func (m *MatrixExecutor) createWorkerWorkspace(execution *PipelineExecution, ste
 	if err := os.MkdirAll(wsPath, 0755); err != nil {
 		return "", err
 	}
+	_ = workspace.MarkRunDir(filepath.Join(wsRoot, m.executor.workspaceRunIDFor(pipelineID)))
 
 	// If step has mounts, copy them to worker workspace
 	if m.executor.wsManager != nil && len(step.Workspace.Mount) > 0 {

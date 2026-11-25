@@ -297,6 +297,7 @@ func (e *MetaPipelineExecutor) invokePhilosopherWithSchemas(ctx context.Context,
 	if err := os.MkdirAll(metaWorkspace, 0755); err != nil {
 		return nil, 0, fmt.Errorf("failed to create meta workspace: %w", err)
 	}
+	_ = workspace.MarkRunDir(metaWorkspace)
 
 	cfg := adapter.AdapterRunConfig{
 		Adapter:       persona.Adapter,

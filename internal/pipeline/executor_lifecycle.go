@@ -394,6 +394,8 @@ func (e *DefaultPipelineExecutor) setupPipelineRun(ctx context.Context, executio
 	if err := os.MkdirAll(pipelineWsPath, 0755); err != nil {
 		return fmt.Errorf("failed to create workspace: %w", err)
 	}
+	// Mark the run dir so clean/cleanup know Wave created it.
+	_ = workspace.MarkRunDir(pipelineWsPath)
 
 	e.emit(event.Event{
 		Timestamp:  time.Now(),
@@ -855,6 +857,8 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 	if err := os.MkdirAll(pipelineWsPath, 0755); err != nil {
 		return fmt.Errorf("failed to create workspace: %w", err)
 	}
+	// Mark the run dir so clean/cleanup know Wave created it.
+	_ = workspace.MarkRunDir(pipelineWsPath)
 
 	// Create and run graph walker
 	gw := NewGraphWalker(p)

@@ -1,9 +1,9 @@
 package commands
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/recinq/wave/internal/workspace"
 	"gopkg.in/yaml.v3"
@@ -51,17 +51,22 @@ func samePath(a, b string) bool {
 	return absA == absB
 }
 
-// containsCwd reports whether dir is the working directory or one of its
-// ancestors; removing such a directory would delete the project itself.
-func containsCwd(dir string) bool {
-	absDir, err := filepath.Abs(dir)
-	if err != nil {
-		return true
+// manifestProjectDir returns the project directory for manifestPath: the
+// directory holding the manifest.
+func manifestProjectDir(manifestPath string) string {
+	if manifestPath == "" {
+		manifestPath = "wave.yaml"
 	}
-	wd, err := os.Getwd()
+	dir, err := filepath.Abs(filepath.Dir(manifestPath))
 	if err != nil {
-		return true
+		return "."
 	}
-	rel, err := filepath.Rel(absDir, wd)
-	return err == nil && (rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))))
+	return dir
+}
+
+// unsafeRootError is the CLI error for a workspace root that equals or
+// contains the project.
+func unsafeRootError(err error) error {
+	return NewCLIError(CodeSecurityViolation, fmt.Sprintf("refusing to touch workspaces: %s", err),
+		"Point runtime.workspace_root at a dedicated directory outside the project, or remove it to use the default")
 }

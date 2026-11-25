@@ -153,6 +153,8 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		if err := mgr.Create(absPath, branch, base); err != nil {
 			return "", fmt.Errorf("failed to create worktree workspace: %w", err)
 		}
+		// Mark the run dir so clean/cleanup know Wave created it.
+		_ = workspace.MarkRunDir(filepath.Dir(absPath))
 
 		// Register for reuse and cleanup
 		execution.mu.Lock()
@@ -253,6 +255,7 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 	if err := os.MkdirAll(wsPath, 0755); err != nil {
 		return "", err
 	}
+	_ = workspace.MarkRunDir(filepath.Dir(wsPath))
 	// Pre-create the .agents/output dir so resolveCommandWorkDir treats this
 	// workspace as real and command steps run with CWD here instead of falling
 	// back to the project root (which would pollute the project tree and break
@@ -341,6 +344,7 @@ func (e *DefaultPipelineExecutor) materialiseMountSubset(execution *PipelineExec
 	if err := os.MkdirAll(subsetRoot, 0755); err != nil {
 		return "", fmt.Errorf("create subset dir: %w", err)
 	}
+	_ = workspace.MarkRunDir(filepath.Join(workspace.ResolveRoot(execution.Manifest.Runtime.WorkspaceRoot), "_subsets"))
 
 	for _, rel := range files {
 		// Reject path traversal — entries must be repo-relative.

@@ -205,6 +205,7 @@ func (c *ConcurrencyExecutor) createAgentWorkspace(execution *PipelineExecution,
 	if err := os.MkdirAll(wsPath, 0755); err != nil {
 		return "", err
 	}
+	_ = workspace.MarkRunDir(filepath.Join(wsRoot, c.executor.workspaceRunIDFor(pipelineID)))
 
 	return wsPath, nil
 }

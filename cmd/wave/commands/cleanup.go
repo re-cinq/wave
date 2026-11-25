@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/workspace"
 	"github.com/spf13/cobra"
 )
 
@@ -93,17 +94,18 @@ func listGitWorktrees() ([]worktreeEntry, error) {
 }
 
 func runCleanup(opts CleanupOptions) error {
-	// Absolute, symlink-resolved workspace roots that exist; git reports
-	// worktree paths in that form.
+	project := manifestProjectDir(opts.Manifest)
+	if err := workspace.CheckRoot(manifestWorkspaceRoot(opts.Manifest), project); err != nil {
+		return unsafeRootError(err)
+	}
+
+	// Workspace roots that exist and are safe to clean below.
 	var roots []string
 	for _, dir := range workspaceRootsToSweep(opts.Manifest) {
-		abs, err := filepath.Abs(dir)
-		if err != nil {
+		if _, err := os.Stat(dir); err != nil || workspace.CheckRoot(dir, project) != nil {
 			continue
 		}
-		if resolved, err := filepath.EvalSymlinks(abs); err == nil {
-			roots = append(roots, resolved)
-		}
+		roots = append(roots, dir)
 	}
 	if len(roots) == 0 {
 		fmt.Fprintf(os.Stderr, "No workspaces directory found\n")
@@ -116,14 +118,15 @@ func runCleanup(opts CleanupOptions) error {
 		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to list worktrees: %s", err), "Ensure git is available").WithCause(err)
 	}
 
-	// Filter to only worktrees under a workspace root.
+	// Keep only step worktrees Wave created: <root>/<run dir>/__wt_*,
+	// never the main worktree (listed first by git) or the project.
 	var waveWorktrees []worktreeEntry
-	for _, wt := range worktrees {
-		for _, root := range roots {
-			if strings.HasPrefix(wt.Path, root+string(filepath.Separator)) {
-				waveWorktrees = append(waveWorktrees, wt)
-				break
-			}
+	for i, wt := range worktrees {
+		if i == 0 {
+			continue // main worktree
+		}
+		if ownedByRoots(roots, wt.Path, project) {
+			waveWorktrees = append(waveWorktrees, wt)
 		}
 	}
 
@@ -211,7 +214,12 @@ func runCleanup(opts CleanupOptions) error {
 		// Try git worktree remove first (cleans up .git/worktrees entry).
 		cmd := exec.Command("git", "worktree", "remove", "--force", wt.Path)
 		if err := cmd.Run(); err != nil {
-			// Fall back to direct removal if git worktree remove fails.
+			// Fall back to direct removal if git worktree remove fails,
+			// re-checking ownership right before deleting anything.
+			if !ownedByRoots(roots, wt.Path, project) {
+				fmt.Fprintf(os.Stderr, "  Refusing to remove %s: not a Wave worktree\n", wt.Path)
+				continue
+			}
 			// Make dirs writable first (readonly mounts block removal).
 			_ = filepath.Walk(wt.Path, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
@@ -237,4 +245,15 @@ func runCleanup(opts CleanupOptions) error {
 
 	fmt.Fprintf(os.Stderr, "\nRemoved %d orphaned worktree(s), freed %s\n", removed, formatSize(freedBytes))
 	return nil
+}
+
+// ownedByRoots reports whether path is a step worktree Wave created under
+// one of roots (see workspace.OwnedWorktree).
+func ownedByRoots(roots []string, path, project string) bool {
+	for _, root := range roots {
+		if workspace.OwnedWorktree(root, path, project) {
+			return true
+		}
+	}
+	return false
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
+	"github.com/recinq/wave/internal/workspace"
 	"github.com/spf13/cobra"
 )
 
@@ -260,6 +261,14 @@ func validateManifestStructure(m *manifest.Manifest) []string {
 func validateSystemReferences(m *manifest.Manifest, manifestPath string) []string {
 	var errs []string
 	manifestDir := filepath.Dir(manifestPath)
+
+	// A workspace root that equals or contains the project would let
+	// workspace cleanup reach project files.
+	if root := m.Runtime.WorkspaceRoot; root != "" {
+		if err := workspace.CheckRoot(root, manifestProjectDir(manifestPath)); err != nil {
+			errs = append(errs, fmt.Sprintf("runtime.workspace_root: %s; use a dedicated directory outside the project or remove the setting", err))
+		}
+	}
 
 	for name, persona := range m.Personas {
 		promptPath := persona.GetSystemPromptPath(manifestDir)

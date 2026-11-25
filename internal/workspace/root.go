@@ -3,7 +3,9 @@ package workspace
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -69,4 +71,146 @@ func cacheBase() string {
 		return dir
 	}
 	return os.TempDir()
+}
+
+// RunMarker is the file Wave writes into every run directory it creates
+// under a workspace root. Cleanup commands only delete directories that
+// carry it (or that live in the legacy in-checkout root), so a
+// misconfigured workspace_root can never make them delete foreign data.
+const RunMarker = ".wave-run"
+
+// MarkRunDir records dir as a Wave-created run directory. dir must exist.
+func MarkRunDir(dir string) error {
+	return os.WriteFile(filepath.Join(dir, RunMarker), []byte("created by wave\n"), 0644)
+}
+
+// canonical returns the absolute, symlink-resolved form of path. Missing
+// trailing components are kept as-is on top of the resolved existing
+// prefix, so paths that do not exist yet still compare correctly.
+func canonical(path string) (string, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	rest := ""
+	cur := abs
+	for {
+		if resolved, err := filepath.EvalSymlinks(cur); err == nil {
+			return filepath.Join(resolved, rest), nil
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return abs, nil
+		}
+		rest = filepath.Join(filepath.Base(cur), rest)
+		cur = parent
+	}
+}
+
+// within reports whether path is root or lies below it. Both must be
+// canonical.
+func within(root, path string) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
+}
+
+// CheckRoot returns an error when root cannot safely hold workspaces for
+// the project in projectDir: when it equals or contains the project
+// directory (or the git repository it belongs to). Deleting anything
+// under such a root could delete the project itself.
+func CheckRoot(root, projectDir string) error {
+	r, err := canonical(root)
+	if err != nil {
+		return fmt.Errorf("resolve workspace root %q: %w", root, err)
+	}
+	projects := []string{projectDir}
+	if top, err := gitTopLevel(projectDir); err == nil {
+		projects = append(projects, top)
+	}
+	for _, p := range projects {
+		cp, err := canonical(p)
+		if err != nil {
+			return fmt.Errorf("resolve project dir %q: %w", p, err)
+		}
+		if within(r, cp) {
+			return fmt.Errorf("workspace root %s equals or contains the project directory %s", r, cp)
+		}
+	}
+	return nil
+}
+
+func gitTopLevel(dir string) (string, error) {
+	out, err := exec.Command("git", "-C", dir, "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// isLegacyRoot reports whether root is the pre-marker in-checkout root
+// <projectDir>/.agents/workspaces, whose entries all belong to Wave.
+func isLegacyRoot(root, projectDir string) bool {
+	r, err1 := canonical(root)
+	l, err2 := canonical(filepath.Join(projectDir, LegacyRoot))
+	return err1 == nil && err2 == nil && r == l
+}
+
+// OwnedRunDir reports whether dir is a run directory Wave created directly
+// below root: a single path component below the canonical root, a real
+// directory (not a symlink), carrying RunMarker unless root is the legacy
+// in-checkout root, and neither equal to nor containing the project.
+func OwnedRunDir(root, dir, projectDir string) bool {
+	r, err := canonical(root)
+	if err != nil {
+		return false
+	}
+	info, err := os.Lstat(dir)
+	if err != nil || !info.IsDir() {
+		return false
+	}
+	d, err := canonical(dir)
+	if err != nil || filepath.Dir(d) != r {
+		return false
+	}
+	if p, err := canonical(projectDir); err != nil || within(d, p) {
+		return false
+	}
+	if isLegacyRoot(root, projectDir) {
+		return true
+	}
+	_, err = os.Lstat(filepath.Join(d, RunMarker))
+	return err == nil
+}
+
+// OwnedRunDirs lists the run directories under root that OwnedRunDir
+// accepts. A missing root yields no entries.
+func OwnedRunDirs(root, projectDir string) []string {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil
+	}
+	var dirs []string
+	for _, e := range entries {
+		p := filepath.Join(root, e.Name())
+		if OwnedRunDir(root, p, projectDir) {
+			dirs = append(dirs, p)
+		}
+	}
+	return dirs
+}
+
+// OwnedWorktree reports whether wt is a step worktree Wave created under
+// root: <root>/<owned run dir>/__wt_<name>, and not the project itself.
+func OwnedWorktree(root, wt, projectDir string) bool {
+	w, err := canonical(wt)
+	if err != nil || !strings.HasPrefix(filepath.Base(w), "__wt_") {
+		return false
+	}
+	if p, err := canonical(projectDir); err != nil || within(w, p) {
+		return false
+	}
+	return OwnedRunDir(root, filepath.Dir(w), projectDir)
 }

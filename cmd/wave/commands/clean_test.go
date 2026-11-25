@@ -230,7 +230,10 @@ func TestCleanDefaultRoot(t *testing.T) {
 	require.NotContains(t, root, env.rootDir, "default root must be outside the project")
 	for _, name := range []string{"run-a", "run-b"} {
 		require.NoError(t, os.MkdirAll(filepath.Join(root, name), 0755))
+		require.NoError(t, workspace.MarkRunDir(filepath.Join(root, name)))
 	}
+	// A directory Wave did not create (no run marker) is never touched.
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "foreign"), 0755))
 	env.createWorkspace("legacy-run", time.Now())
 
 	_, err := executeCleanCmdCapturingStdout("--pipeline", "run-a", "--force")
@@ -238,9 +241,15 @@ func TestCleanDefaultRoot(t *testing.T) {
 	assert.NoDirExists(t, filepath.Join(root, "run-a"))
 	assert.DirExists(t, filepath.Join(root, "run-b"))
 
+	_, err = executeCleanCmdCapturingStdout("--pipeline", "foreign", "--force")
+	require.NoError(t, err)
+	assert.DirExists(t, filepath.Join(root, "foreign"), "--pipeline only removes Wave run dirs")
+
 	_, err = executeCleanCmdCapturingStdout("--all", "--force")
 	require.NoError(t, err)
-	assert.NoDirExists(t, root)
+	assert.NoDirExists(t, filepath.Join(root, "run-b"))
+	assert.DirExists(t, root, "the root itself is never removed")
+	assert.DirExists(t, filepath.Join(root, "foreign"))
 	assert.False(t, env.workspaceExists("legacy-run"), "legacy .agents/workspaces is swept too")
 }
 

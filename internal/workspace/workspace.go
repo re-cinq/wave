@@ -98,6 +98,7 @@ func (wm *workspaceManager) Create(cfg WorkspaceConfig, templateVars map[string]
 	if err := os.MkdirAll(workspacePath, 0755); err != nil {
 		return "", fmt.Errorf("failed to create workspace directory: %w", err)
 	}
+	_ = MarkRunDir(filepath.Join(wm.baseDir, pipelineID))
 
 	for _, mount := range cfg.Mount {
 		if mount.Source == "" || mount.Target == "" {
