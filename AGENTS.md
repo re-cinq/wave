@@ -1,6 +1,6 @@
 # Wave Development Guidelines
 
-**Wave** is a multi-agent pipeline orchestrator written in Go that wraps Claude Code and other LLM CLIs via subprocess execution. It composes personas, pipelines, contracts, and relay/compaction into a continuous development system.
+**Wave** is a multi-agent pipeline orchestrator written in Go that wraps Claude Code and other LLM CLIs via subprocess execution. It composes personas, pipelines, contracts, and workspaces into a continuous development system.
 
 ## ACCOUNTABILITY — YOU FOUND IT, YOU FIX IT
 
@@ -93,7 +93,6 @@ internal/
 ├── preflight/    # Pipeline dependency validation and auto-install
 ├── recovery/     # Pipeline recovery hints and error guidance
 ├── redact/       # Canonical credential redaction
-├── relay/        # Context compaction and summarization
 ├── retro/        # Run retrospective generation
 ├── runner/       # Single entry point for launching pipeline runs
 ├── sandbox/      # Docker and bubblewrap sandbox backends

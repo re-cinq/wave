@@ -25,7 +25,6 @@ import (
 	"github.com/recinq/wave/internal/metrics"
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/recovery"
-	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/runner"
 	"github.com/recinq/wave/internal/skill"
@@ -208,7 +207,7 @@ func resolveAdapterRunner(mock bool) adapter.AdapterRunner {
 }
 
 // buildExecutor wires the workspace manager, audit logger, debug tracer,
-// adapter registry, skill store, retro generator, and relay monitor into a
+// adapter registry, skill store, and retro generator into a
 // fresh DefaultPipelineExecutor. The returned runResources owns every
 // resource that needs cleanup; callers must defer Close().
 //
@@ -285,24 +284,6 @@ func buildExecutor(opts RunOptions, m *manifest.Manifest, p *pipeline.Pipeline, 
 		retroGen = retro.NewGenerator(store, mstore, res.runner, ".agents/retros", &m.Runtime.Retros)
 	}
 
-	var relayMon *relay.RelayMonitor
-	if m.Runtime.Relay.TokenThresholdPercent > 0 {
-		relayCfg := relay.RelayMonitorConfig{
-			DefaultThreshold:   m.Runtime.Relay.TokenThresholdPercent,
-			MinTokensToCompact: 1000,
-			ContextWindow:      m.Runtime.Relay.ContextWindow,
-			CompactionTimeout:  m.Runtime.Timeouts.GetRelayCompaction(),
-		}
-		registry := adapter.NewAdapterRegistry(nil)
-		for name, a := range m.Adapters {
-			if a.Binary != "" {
-				registry.SetBinary(name, a.Binary)
-			}
-		}
-		compactionAdapter := relay.NewAdapterCompactionRunner(registry, m)
-		relayMon = relay.NewRelayMonitor(relayCfg, compactionAdapter)
-	}
-
 	res.foreground = runner.ForegroundConfig{
 		RunID:            runID,
 		Pipeline:         p,
@@ -315,7 +296,6 @@ func buildExecutor(opts RunOptions, m *manifest.Manifest, p *pipeline.Pipeline, 
 		Runner:           res.runner,
 		MockOverride:     opts.Mock,
 		RetroGenerator:   retroGen,
-		RelayMonitor:     relayMon,
 		SkillStore:       skillStore,
 		StepFilter:       stepFilter,
 		Runtime:          opts,
@@ -346,26 +326,6 @@ func assembleExecutorOptions(opts RunOptions, m *manifest.Manifest, store state.
 		retroGen = retro.NewGenerator(store, mstore, adapterRunner, ".agents/retros", &m.Runtime.Retros)
 	}
 
-	var relayMon *relay.RelayMonitor
-	if m.Runtime.Relay.TokenThresholdPercent > 0 {
-		relayCfg := relay.RelayMonitorConfig{
-			DefaultThreshold:   m.Runtime.Relay.TokenThresholdPercent,
-			MinTokensToCompact: 1000,
-			ContextWindow:      m.Runtime.Relay.ContextWindow,
-			CompactionTimeout:  m.Runtime.Timeouts.GetRelayCompaction(),
-		}
-		// Compaction routes through a registry seeded from the same manifest;
-		// runner.BuildExecutorOptions wires the same shape internally.
-		registry := adapter.NewAdapterRegistry(nil)
-		for name, a := range m.Adapters {
-			if a.Binary != "" {
-				registry.SetBinary(name, a.Binary)
-			}
-		}
-		compactionAdapter := relay.NewAdapterCompactionRunner(registry, m)
-		relayMon = relay.NewRelayMonitor(relayCfg, compactionAdapter)
-	}
-
 	return runner.BuildExecutorOptions(runner.ExecutorBuildConfig{
 		RunID:            runID,
 		Manifest:         m,
@@ -378,7 +338,6 @@ func assembleExecutorOptions(opts RunOptions, m *manifest.Manifest, store state.
 		Runner:           adapterRunner,
 		MockOverride:     opts.Mock,
 		RetroGenerator:   retroGen,
-		RelayMonitor:     relayMon,
 		SkillStore:       skillStore,
 		StepFilter:       stepFilter,
 		Debug:            debug,

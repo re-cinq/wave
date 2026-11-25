@@ -801,3 +801,25 @@ func TestValidateDAG_AgentReviewSelfPreventionAndReworkStep(t *testing.T) {
 		}
 	})
 }
+
+// handover.compaction is deprecated and ignored, but must still parse so
+// existing pipeline files keep loading under strict decoding.
+func TestYAMLPipelineLoader_AcceptsDeprecatedCompaction(t *testing.T) {
+	data := []byte(`kind: WavePipeline
+metadata:
+  name: legacy
+steps:
+  - id: a
+    persona: craftsman
+    exec:
+      type: prompt
+      source: hi
+    handover:
+      compaction:
+        trigger: "token_limit_80%"
+        persona: summarizer
+`)
+	if _, err := (&YAMLPipelineLoader{}).Unmarshal(data); err != nil {
+		t.Fatalf("deprecated handover.compaction must still parse: %v", err)
+	}
+}

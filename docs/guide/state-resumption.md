@@ -146,7 +146,6 @@ When Wave receives SIGINT (Ctrl+C):
 | Step states | Yes | SQLite `.agents/state.db` |
 | Completed artifacts | Yes | Workspace directories |
 | In-progress work | Partial | Current step's workspace (may be incomplete) |
-| Relay checkpoints | Yes | Checkpoint files in workspace |
 
 ### What's Lost
 

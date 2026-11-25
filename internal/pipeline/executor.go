@@ -15,7 +15,6 @@ import (
 	"github.com/recinq/wave/internal/hooks"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/metrics"
-	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
@@ -46,16 +45,15 @@ type PipelineStatus struct {
 
 type DefaultPipelineExecutor struct {
 	emitterMixin
-	runner       adapter.AdapterRunner // Deprecated: use registry for per-step resolution
-	registry     *adapter.AdapterRegistry
-	store        state.StateStore
-	metrics      *metrics.Store
-	logger       audit.AuditLogger
-	wsManager    workspace.WorkspaceManager
-	relayMonitor *relay.RelayMonitor
-	pipelines    map[string]*PipelineExecution
-	mu           sync.RWMutex
-	debug        bool
+	runner    adapter.AdapterRunner // Deprecated: use registry for per-step resolution
+	registry  *adapter.AdapterRegistry
+	store     state.StateStore
+	metrics   *metrics.Store
+	logger    audit.AuditLogger
+	wsManager workspace.WorkspaceManager
+	pipelines map[string]*PipelineExecution
+	mu        sync.RWMutex
+	debug     bool
 	// Security layer: path/input/schema sanitization, skill ref validation
 	sec *securityLayer
 	// Outcome tracking (in-memory cache + state-store persistence)
@@ -152,10 +150,6 @@ func WithDebugTracer(t *audit.DebugTracer) ExecutorOption {
 
 func WithWorkspaceManager(w workspace.WorkspaceManager) ExecutorOption {
 	return func(ex *DefaultPipelineExecutor) { ex.wsManager = w }
-}
-
-func WithRelayMonitor(r *relay.RelayMonitor) ExecutorOption {
-	return func(ex *DefaultPipelineExecutor) { ex.relayMonitor = r }
 }
 
 func WithRunID(id string) ExecutorOption {
@@ -368,7 +362,6 @@ func (e *DefaultPipelineExecutor) NewChildExecutor() *DefaultPipelineExecutor {
 		store:                  e.store,
 		logger:                 e.logger,
 		wsManager:              e.wsManager,
-		relayMonitor:           e.relayMonitor,
 		pipelines:              make(map[string]*PipelineExecution),
 		debug:                  e.debug,
 		modelOverride:          e.modelOverride,

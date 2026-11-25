@@ -271,9 +271,6 @@ func (e *DefaultPipelineExecutor) inheritedChildOptions() []ExecutorOption {
 	if e.wsManager != nil {
 		opts = append(opts, WithWorkspaceManager(e.wsManager))
 	}
-	if e.relayMonitor != nil {
-		opts = append(opts, WithRelayMonitor(e.relayMonitor))
-	}
 	if e.skillStore != nil {
 		opts = append(opts, withSkillStore(e.skillStore))
 	}

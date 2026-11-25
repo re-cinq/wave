@@ -34,7 +34,6 @@ runtime:                    # Required
   workspace_root: string         # Optional - Default ".agents/workspaces"
   max_concurrent_workers: int   # Optional - Default 5
   default_timeout_minutes: int   # Optional - Default 5
-  relay: {}                   # Optional - Relay config
   audit: {}                   # Optional - Audit config
   meta_pipeline: {}            # Optional - Meta pipeline limits
 
@@ -107,15 +106,6 @@ runtime:
   workspace_root: .agents/workspaces
   max_concurrent_workers: 3
   default_timeout_minutes: 30
-```
-
-### Context Relay
-
-```yaml
-runtime:
-  relay:
-    token_threshold_percent: 80
-    strategy: "summarize_to_checkpoint"
 ```
 
 ### Auditing

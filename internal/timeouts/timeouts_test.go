@@ -13,7 +13,6 @@ func TestConstantsPositive(t *testing.T) {
 		v    time.Duration
 	}{
 		{"StepDefault", StepDefault},
-		{"RelayCompaction", RelayCompaction},
 		{"MetaDefault", MetaDefault},
 		{"ProcessGrace", ProcessGrace},
 		{"StdoutDrain", StdoutDrain},

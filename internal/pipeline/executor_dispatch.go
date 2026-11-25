@@ -594,7 +594,7 @@ func (e *DefaultPipelineExecutor) buildStepAdapterConfig(_ context.Context, exec
 }
 
 // processAdapterResult handles the result from a successful adapter run:
-// reads stdout, accumulates tokens and cost, writes artifacts, runs relay compaction,
+// reads stdout, accumulates tokens and cost, writes artifacts,
 // validates contracts, fires completion hooks, and records performance metrics.
 // It is Phase D of runStepExecution.
 func (e *DefaultPipelineExecutor) processAdapterResult(
@@ -699,17 +699,6 @@ func (e *DefaultPipelineExecutor) processAdapterResult(
 		// (e.g. via Write/Bash). Without this, persona-written files are never registered
 		// in ArtifactPaths and contract validation fails on missing files.
 		e.writeOutputArtifacts(execution, step, res.workspacePath, nil)
-	}
-
-	// Check relay/compaction threshold (FR-009)
-	if cErr := e.checkRelayCompaction(ctx, execution, step, result.TokensUsed, res.workspacePath, string(stdoutData)); cErr != nil {
-		e.emit(event.Event{
-			Timestamp:  time.Now(),
-			PipelineID: pipelineID,
-			StepID:     step.ID,
-			State:      "warning",
-			Message:    fmt.Sprintf("relay compaction failed: %v", cErr),
-		})
 	}
 
 	// Validate handover contracts — iterate over EffectiveContracts() which returns

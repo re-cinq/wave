@@ -840,7 +840,7 @@ func TestInitManifestStructure(t *testing.T) {
 	assert.Contains(t, runtime, "workspace_root")
 	assert.Contains(t, runtime, "max_concurrent_workers")
 	assert.Contains(t, runtime, "default_timeout_minutes")
-	assert.Contains(t, runtime, "relay")
+	assert.NotContains(t, runtime, "relay")
 	assert.Contains(t, runtime, "audit")
 	assert.Contains(t, runtime, "meta_pipeline")
 }

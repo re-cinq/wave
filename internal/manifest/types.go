@@ -148,7 +148,7 @@ type Runtime struct {
 	PipelineIDHashLength int                    `yaml:"pipeline_id_hash_length,omitempty"`
 	MaxConcurrency       int                    `yaml:"max_concurrency,omitempty"`
 	Timeouts             Timeouts               `yaml:"timeouts,omitempty"`
-	Relay                RelayConfig            `yaml:"relay,omitempty"`
+	Relay                RelayConfig            `yaml:"relay,omitempty"` // deprecated, ignored; see RelayConfig
 	Audit                AuditConfig            `yaml:"audit,omitempty"`
 	MetaPipeline         MetaConfig             `yaml:"meta_pipeline,omitempty"`
 	Routing              RoutingConfig          `yaml:"routing,omitempty"`
@@ -294,6 +294,9 @@ type RoutingRule struct {
 	MatchLabels map[string]string `yaml:"match_labels,omitempty"`
 }
 
+// RelayConfig is deprecated and ignored: relay compaction was removed. It is
+// still parsed so existing wave.yaml files keep loading under strict
+// (KnownFields) decoding.
 type RelayConfig struct {
 	TokenThresholdPercent int    `yaml:"token_threshold_percent,omitempty"`
 	Strategy              string `yaml:"strategy,omitempty"`

@@ -94,7 +94,7 @@ func remediationFor(reason string) string {
 	case FailureReasonTimeout:
 		return "Consider increasing the step timeout with timeout_minutes in the pipeline YAML, --timeout on the CLI, or breaking the task into smaller steps."
 	case FailureReasonContextExhaustion:
-		return "The context window was exhausted. Consider breaking the task into smaller steps or adjusting relay compaction thresholds (relay.token_threshold_percent)."
+		return "The context window was exhausted. Consider breaking the task into smaller steps or passing less context into the step."
 	case FailureReasonRateLimit:
 		return "API rate limit reached. Wait for the limit to reset and retry."
 	case FailureReasonGeneralError:

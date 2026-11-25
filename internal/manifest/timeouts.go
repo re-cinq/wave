@@ -15,7 +15,6 @@ import (
 //	runtime:
 //	  timeouts:
 //	    step_default_minutes: 30
-//	    relay_compaction_minutes: 5
 //	    meta_default_minutes: 30
 //	    skill_install_seconds: 120
 //	    skill_cli_seconds: 120
@@ -32,7 +31,7 @@ import (
 //	    retry_max_delay_seconds: 60
 type Timeouts struct {
 	StepDefaultMin      int `yaml:"step_default_minutes,omitempty"`
-	RelayCompactionMin  int `yaml:"relay_compaction_minutes,omitempty"`
+	RelayCompactionMin  int `yaml:"relay_compaction_minutes,omitempty"` // deprecated, ignored; parsed so old wave.yaml files still load under KnownFields
 	MetaDefaultMin      int `yaml:"meta_default_minutes,omitempty"`
 	SkillInstallSec     int `yaml:"skill_install_seconds,omitempty"`
 	SkillCLISec         int `yaml:"skill_cli_seconds,omitempty"`
@@ -54,13 +53,6 @@ func (t *Timeouts) GetStepDefault() time.Duration {
 		return time.Duration(t.StepDefaultMin) * time.Minute
 	}
 	return timeouts.StepDefault
-}
-
-func (t *Timeouts) GetRelayCompaction() time.Duration {
-	if t != nil && t.RelayCompactionMin > 0 {
-		return time.Duration(t.RelayCompactionMin) * time.Minute
-	}
-	return timeouts.RelayCompaction
 }
 
 func (t *Timeouts) GetMetaDefault() time.Duration {

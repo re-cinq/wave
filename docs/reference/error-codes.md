@@ -413,24 +413,15 @@ WAVE_E008: context limit reached: conversation exceeded 200000 tokens
 - Large codebase analysis without filtering
 - Accumulated context from many operations
 - Large file contents in prompts
-- Relay/compaction not triggered
 
 **Resolution Steps**:
 
-1. Enable context relay:
-   ```yaml
-   runtime:
-     relay:
-       token_threshold_percent: 80
-       strategy: summarize_to_checkpoint
-   ```
-
-2. Reduce scope of analysis:
+1. Reduce scope of analysis:
    ```bash
    wave run analyze --input "Focus on src/auth/ directory only"
    ```
 
-3. Use file filtering in prompts:
+2. Use file filtering in prompts:
    ```yaml
    steps:
      - id: analyze
@@ -561,7 +552,7 @@ WAVE_E301: disk space exhausted: workspace requires 500MB, only 100MB available
 | WAVE_E005 | Adapter Not Available | Execution | Install adapter binary |
 | WAVE_E006 | Permission Denied | Execution | Check persona permissions |
 | WAVE_E007 | Step Timeout | Execution | Increase `--timeout` |
-| WAVE_E008 | Context Limit | Execution | Enable relay compaction |
+| WAVE_E008 | Context Limit | Execution | Split the step or narrow its context |
 
 ## Debug Mode
 

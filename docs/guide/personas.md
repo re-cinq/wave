@@ -16,7 +16,7 @@ Personas define how agents behave in Wave. Each persona binds an adapter to a sp
 | `reviewer` | Code review |
 | `auditor` | Security and quality review |
 | `researcher` | Web and codebase research |
-| `summarizer` | Synthesis and context compaction |
+| `summarizer` | Thread transcript summaries |
 | `github-analyst` | GitHub issue analysis |
 | `github-commenter` | Posting comments and PRs on GitHub |
 | `github-scoper` | Creating scoped child issues on GitHub |

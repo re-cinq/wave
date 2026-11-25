@@ -15,7 +15,6 @@ import (
 	"github.com/recinq/wave/internal/hooks"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/preflight"
-	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/scope"
 	"github.com/recinq/wave/internal/state"
 )
@@ -286,12 +285,6 @@ func (e *DefaultPipelineExecutor) initPipelineExecution(
 		e.outcomeTracker.SetStore(e.store)
 	}
 
-	// Build compaction adapter for thread summary fidelity (reuse relay monitor's adapter if available)
-	var threadCompactionAdapter relay.CompactionAdapter
-	if e.relayMonitor != nil {
-		threadCompactionAdapter = e.relayMonitor.Adapter()
-	}
-
 	execution := &PipelineExecution{
 		Pipeline:          p,
 		Manifest:          m,
@@ -302,7 +295,7 @@ func (e *DefaultPipelineExecutor) initPipelineExecution(
 		WorktreePaths:     make(map[string]*WorktreeInfo),
 		AttemptContexts:   make(map[string]*AttemptContext),
 		ReworkTransitions: make(map[string]string),
-		ThreadManager:     NewThreadManager(threadCompactionAdapter),
+		ThreadManager:     NewThreadManager(newAdapterSummarizer(e.registry, m)),
 		CircuitBreaker:    NewCircuitBreaker(m.Runtime.CircuitBreaker.Limit, m.Runtime.CircuitBreaker.TrackedClasses),
 		Input:             input,
 		Context:           setup.pipelineContext,
@@ -762,12 +755,6 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		e.outcomeTracker.SetStore(e.store)
 	}
 
-	// Build compaction adapter for thread summary fidelity (reuse relay monitor's adapter if available)
-	var threadCompactionAdapter relay.CompactionAdapter
-	if e.relayMonitor != nil {
-		threadCompactionAdapter = e.relayMonitor.Adapter()
-	}
-
 	execution := &PipelineExecution{
 		Pipeline:          p,
 		Manifest:          m,
@@ -778,7 +765,7 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 		WorktreePaths:     make(map[string]*WorktreeInfo),
 		AttemptContexts:   make(map[string]*AttemptContext),
 		ReworkTransitions: make(map[string]string),
-		ThreadManager:     NewThreadManager(threadCompactionAdapter),
+		ThreadManager:     NewThreadManager(newAdapterSummarizer(e.registry, m)),
 		CircuitBreaker:    NewCircuitBreaker(m.Runtime.CircuitBreaker.Limit, m.Runtime.CircuitBreaker.TrackedClasses),
 		Input:             input,
 		Context:           pipelineContext,
