@@ -232,11 +232,8 @@ func buildExecutor(opts RunOptions, m *manifest.Manifest, p *pipeline.Pipeline, 
 	}
 	res.emitter = emitter
 
-	// Initialize workspace manager under .agents/workspaces
-	wsRoot := m.Runtime.WorkspaceRoot
-	if wsRoot == "" {
-		wsRoot = ".agents/workspaces"
-	}
+	// Initialize workspace manager under the workspace root
+	wsRoot := workspace.ResolveRoot(m.Runtime.WorkspaceRoot)
 	res.wsRoot = wsRoot
 	wsManager, err := workspace.NewWorkspaceManager(wsRoot)
 	if err != nil {

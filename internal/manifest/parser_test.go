@@ -173,7 +173,7 @@ runtime:
 	}
 }
 
-func TestValidateMissingWorkspaceRoot(t *testing.T) {
+func TestMissingWorkspaceRootIsOptional(t *testing.T) {
 	tmpDir := t.TempDir()
 	manifestPath := filepath.Join(tmpDir, "wave.yaml")
 
@@ -187,9 +187,12 @@ runtime: {}
 		t.Fatalf("Failed to write test manifest: %v", err)
 	}
 
-	_, err := Load(manifestPath)
-	if err == nil {
-		t.Error("Expected validation error for missing workspace_root")
+	m, err := Load(manifestPath)
+	if err != nil {
+		t.Fatalf("workspace_root is optional, got error: %v", err)
+	}
+	if m.Runtime.WorkspaceRoot != "" {
+		t.Errorf("WorkspaceRoot = %q, want empty (default root)", m.Runtime.WorkspaceRoot)
 	}
 }
 

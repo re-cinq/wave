@@ -207,10 +207,7 @@ func runResume(opts ResumeOptions, debug bool) error {
 	emitter = &event.DBLoggingEmitter{Inner: emitter, Store: store, RunID: resumeRunID}
 
 	// Initialize workspace manager.
-	wsRoot := m.Runtime.WorkspaceRoot
-	if wsRoot == "" {
-		wsRoot = ".agents/workspaces"
-	}
+	wsRoot := workspace.ResolveRoot(m.Runtime.WorkspaceRoot)
 	wsManager, err := workspace.NewWorkspaceManager(wsRoot)
 	if err != nil {
 		return fmt.Errorf("failed to create workspace manager: %w", err)
@@ -231,7 +228,7 @@ func runResume(opts ResumeOptions, debug bool) error {
 
 	// Build executor. Pin the workspace dir to the original run so the
 	// resumed step sees prior step outputs that live under
-	// .agents/workspaces/<originalRunID>/, not a fresh dir at resume time.
+	// <workspace_root>/<originalRunID>/, not a fresh dir at resume time.
 	execOpts := []pipeline.ExecutorOption{
 		pipeline.WithEmitter(emitter),
 		pipeline.WithDebug(debug),

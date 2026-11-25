@@ -357,14 +357,11 @@
     },
     "Runtime": {
       "type": "object",
-      "required": [
-        "workspace_root"
-      ],
       "additionalProperties": false,
       "properties": {
         "workspace_root": {
           "type": "string",
-          "description": "Base directory for ephemeral workspaces"
+          "description": "Base directory for ephemeral workspaces. Default: a per-project directory under the user cache dir, outside the checkout"
         },
         "max_concurrent_workers": {
           "type": "integer",

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -263,7 +264,7 @@ func classifyFailure(errMsg string, contractErrors []string) failurePattern {
 			diagnosis: "Unknown — no error message was recorded",
 			suggestions: []string{
 				"Re-run with debug output: wave run <pipeline> --debug",
-				"Inspect the workspace: ls .agents/workspaces/" + "<run-id>/<step>/",
+				"Inspect the workspace: ls " + filepath.Join(manifestWorkspaceRoot(""), "<run-id>", "<step>") + "/",
 				"Check the event log: wave logs <run-id>",
 			},
 		}
@@ -274,7 +275,7 @@ func classifyFailure(errMsg string, contractErrors []string) failurePattern {
 		diagnosis: "Runtime error — the step failed with an unrecognised error",
 		suggestions: []string{
 			"Re-run with debug output: wave run <pipeline> --debug",
-			"Inspect the workspace artifacts: ls .agents/workspaces/<run-id>/<step>/",
+			"Inspect the workspace artifacts: ls " + filepath.Join(manifestWorkspaceRoot(""), "<run-id>", "<step>") + "/",
 			"Check the full event log: wave logs <run-id>",
 		},
 	}

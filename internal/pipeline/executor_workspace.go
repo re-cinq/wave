@@ -62,10 +62,7 @@ func isWorktreeClean(workspacePath string) bool {
 
 func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecution, step *Step) (string, error) {
 	pipelineID := execution.Status.ID
-	wsRoot := execution.Manifest.Runtime.WorkspaceRoot
-	if wsRoot == "" {
-		wsRoot = ".agents/workspaces"
-	}
+	wsRoot := workspace.ResolveRoot(execution.Manifest.Runtime.WorkspaceRoot)
 
 	// Handle workspace ref — share another step's workspace
 	if step.Workspace.Ref != "" {
@@ -249,7 +246,7 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 		return wsPath, nil
 	}
 
-	// Create directory under .agents/workspaces/<pipeline>/<step>/. Use the
+	// Create directory under <workspace_root>/<pipeline>/<step>/. Use the
 	// executor's workspace run ID override so resume reads from the original
 	// run's tree; falls back to pipelineID for fresh runs.
 	wsPath := filepath.Join(wsRoot, e.workspaceRunIDFor(pipelineID), step.ID)
@@ -269,7 +266,7 @@ func (e *DefaultPipelineExecutor) createStepWorkspace(execution *PipelineExecuti
 // materialiseMountSubset reads the artifact named in mount.SubsetFrom,
 // extracts the path list at the dotted JSON path, and copies only
 // those files (preserving directory structure) into a fresh temp dir
-// rooted under .agents/workspaces/_subsets/. Returns the temp-dir path
+// rooted under <workspace_root>/_subsets/. Returns the temp-dir path
 // to be used as the mount source. Issue #1453.
 //
 // SubsetFrom format: "<step>.<artifact>.<json-path>".
@@ -337,7 +334,7 @@ func (e *DefaultPipelineExecutor) materialiseMountSubset(execution *PipelineExec
 	// concurrent steps with the same SubsetFrom can't collide on the
 	// RemoveAll/MkdirAll race.
 	pipelineID := execution.Status.ID
-	subsetRoot := filepath.Join(".agents", "workspaces", "_subsets", pipelineID, ownerStepID, fmt.Sprintf("mount%d", mountIdx))
+	subsetRoot := filepath.Join(workspace.ResolveRoot(execution.Manifest.Runtime.WorkspaceRoot), "_subsets", pipelineID, ownerStepID, fmt.Sprintf("mount%d", mountIdx))
 	if err := os.RemoveAll(subsetRoot); err != nil {
 		return "", fmt.Errorf("clean subset dir: %w", err)
 	}

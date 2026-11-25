@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/recinq/wave/internal/workspace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -44,11 +45,14 @@ func (e *artifactsTestEnv) cleanup() {
 	}
 }
 
-// createWorkspaceStructure creates the base .agents/workspaces directory
+// createWorkspaceStructure creates the base .agents/workspaces directory and
+// a wave.yaml that points runtime.workspace_root at it.
 func (e *artifactsTestEnv) createWorkspaceStructure() {
 	e.t.Helper()
 	err := os.MkdirAll(".agents/workspaces", 0755)
 	require.NoError(e.t, err, "failed to create workspaces directory")
+	err = os.WriteFile("wave.yaml", []byte("runtime:\n  workspace_root: .agents/workspaces\n"), 0644)
+	require.NoError(e.t, err, "failed to write wave.yaml")
 }
 
 // createPipelineWorkspace creates a pipeline workspace with step directories
@@ -111,6 +115,25 @@ func executeArtifactsCmd(args ...string) (stdout, stderr string, err error) {
 	_, _ = stderrBuf.ReadFrom(re)
 
 	return buf.String(), stderrBuf.String(), err
+}
+
+// Test: without runtime.workspace_root, artifacts are found in the default
+// per-project root outside the checkout.
+func TestArtifactsCmd_ListFromDefaultRoot(t *testing.T) {
+	env := newArtifactsTestEnv(t)
+	defer env.cleanup()
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+
+	root := workspace.DefaultRoot()
+	require.NotContains(t, root, env.rootDir, "default root must be outside the project")
+	path := filepath.Join(root, "debug", "investigate", "analysis.md")
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0755))
+	require.NoError(t, os.WriteFile(path, []byte("# Analysis\n"), 0644))
+
+	stdout, _, err := executeArtifactsCmd()
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "investigate")
+	assert.Contains(t, stdout, "analysis.md")
 }
 
 // Test: List artifacts from workspace

@@ -22,6 +22,9 @@ type CleanOptions struct {
 	OlderThan string
 	Status    string
 	Quiet     bool
+	// Manifest is the manifest whose runtime.workspace_root is honoured;
+	// empty means wave.yaml.
+	Manifest string
 }
 
 func NewCleanCmd() *cobra.Command {
@@ -38,6 +41,7 @@ Use --older-than to remove workspaces older than a specified duration (e.g., "7d
 Use --status to only clean workspaces for pipelines with a given status (completed, failed).
 Use --quiet to suppress output for scripting (clean exit when nothing to clean).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			opts.Manifest, _ = cmd.Root().PersistentFlags().GetString("manifest")
 			return runClean(opts)
 		},
 	}
@@ -179,17 +183,24 @@ func validateCleanOptions(opts CleanOptions) (time.Duration, error) {
 // options. Filtered cleanups (--keep-last, --older-than, --status) only touch
 // workspaces; a bare --all also removes state.db, traces and retros.
 func collectCleanTargets(opts CleanOptions, olderThan time.Duration) ([]string, error) {
-	const wsDir = ".agents/workspaces"
+	wsDir := manifestWorkspaceRoot(opts.Manifest)
 
 	if opts.All || opts.OlderThan != "" || opts.Status != "" {
 		if opts.KeepLast < 0 && opts.OlderThan == "" && opts.Status == "" {
-			// --all without filters: remove everything
-			return []string{
+			// --all without filters: remove everything, including
+			// workspaces left in the checkout by older versions.
+			targets := []string{
 				".agents/state.db",
 				".agents/traces",
-				".agents/workspaces",
 				".agents/retros",
-			}, nil
+			}
+			for _, root := range workspaceRootsToSweep(opts.Manifest) {
+				if containsCwd(root) {
+					continue // never delete the project itself
+				}
+				targets = append(targets, root)
+			}
+			return targets, nil
 		}
 		return filteredWorkspaceTargets(opts, wsDir, olderThan)
 	}
@@ -199,7 +210,7 @@ func collectCleanTargets(opts CleanOptions, olderThan time.Duration) ([]string, 
 		if strings.Contains(opts.Pipeline, "..") || filepath.IsAbs(opts.Pipeline) || strings.ContainsAny(opts.Pipeline, `/\`) {
 			return nil, NewCLIError(CodeSecurityViolation, fmt.Sprintf("invalid pipeline name: %s", opts.Pipeline), "Pipeline names must not contain path separators or '..' sequences")
 		}
-		return []string{filepath.Join(".agents", "workspaces", opts.Pipeline)}, nil
+		return []string{filepath.Join(wsDir, opts.Pipeline)}, nil
 	}
 	return nil, nil
 }
@@ -218,7 +229,7 @@ func filteredWorkspaceTargets(opts CleanOptions, wsDir string, olderThan time.Du
 
 	workspaces, err := workspace.ListWorkspacesSortedByTime(wsDir)
 	if err != nil {
-		return nil, NewCLIError(CodeInternalError, fmt.Sprintf("failed to list workspaces: %s", err), "Check .agents/workspaces directory permissions").WithCause(err)
+		return nil, NewCLIError(CodeInternalError, fmt.Sprintf("failed to list workspaces: %s", err), fmt.Sprintf("Check %s directory permissions", wsDir)).WithCause(err)
 	}
 
 	cutoffTime := time.Now().Add(-olderThan)

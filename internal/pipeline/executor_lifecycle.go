@@ -18,6 +18,7 @@ import (
 	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/scope"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/workspace"
 )
 
 func (e *DefaultPipelineExecutor) validatePipelineAndCreateContext(p *Pipeline, m *manifest.Manifest, input string) (*pipelineSetup, error) {
@@ -370,10 +371,7 @@ func (e *DefaultPipelineExecutor) setupPipelineRun(ctx context.Context, executio
 	})
 
 	// Ensure workspace root exists and is clean for this pipeline run
-	wsRoot := m.Runtime.WorkspaceRoot
-	if wsRoot == "" {
-		wsRoot = ".agents/workspaces"
-	}
+	wsRoot := workspace.ResolveRoot(m.Runtime.WorkspaceRoot)
 	pipelineWsPath := filepath.Join(wsRoot, pipelineID)
 	// Clean previous run artifacts to ensure fresh state (unless --preserve-workspace is set)
 	if e.preserveWorkspace {
@@ -849,10 +847,7 @@ func (e *DefaultPipelineExecutor) executeGraphPipeline(ctx context.Context, p *P
 	}
 
 	// Ensure workspace root exists
-	wsRoot := m.Runtime.WorkspaceRoot
-	if wsRoot == "" {
-		wsRoot = ".agents/workspaces"
-	}
+	wsRoot := workspace.ResolveRoot(m.Runtime.WorkspaceRoot)
 	pipelineWsPath := filepath.Join(wsRoot, pipelineID)
 	if !e.preserveWorkspace {
 		_ = os.RemoveAll(pipelineWsPath)

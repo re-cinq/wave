@@ -236,10 +236,6 @@ func validateManifestStructure(m *manifest.Manifest) []string {
 		errs = append(errs, "metadata.name is required")
 	}
 
-	if m.Runtime.WorkspaceRoot == "" {
-		errs = append(errs, "runtime.workspace_root is required")
-	}
-
 	for name, adapter := range m.Adapters {
 		if adapter.Binary == "" {
 			errs = append(errs, fmt.Sprintf("adapters.%s.binary is required", name))

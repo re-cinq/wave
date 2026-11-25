@@ -293,7 +293,7 @@ Global runtime settings governing execution behavior.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `workspace_root` | `string` | no | `".agents/workspaces"` | Root directory for ephemeral workspaces. Each pipeline run creates subdirectories here. |
+| `workspace_root` | `string` | no | *(unset)* | Root directory for ephemeral workspaces. Each pipeline run creates subdirectories here. Unset means `<user cache dir>/wave/workspaces/<project>-<hash>/`, outside the checkout; relative paths resolve against the project directory. |
 | `max_concurrent_workers` | `int` | no | `5` | Maximum parallel matrix strategy workers. Range: `1`–`10`. |
 | `default_timeout_minutes` | `int` | no | `5` | Default per-step timeout. Steps exceeding this are killed (entire process group). |
 | `relay` | [`RelayConfig`](#relayconfig) | no | see defaults | Context relay/compaction settings. |

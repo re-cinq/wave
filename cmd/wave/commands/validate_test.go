@@ -560,7 +560,7 @@ runtime:
 	assert.Error(t, err, "validate should fail when kind is invalid")
 }
 
-// Test validate with missing workspace_root
+// Test validate accepts a manifest without workspace_root (default root)
 func TestValidateCmd_MissingWorkspaceRoot(t *testing.T) {
 	h := newTestHelper(t)
 	h.chdir()
@@ -576,7 +576,7 @@ runtime: {}
 	cmd := NewValidateCmd()
 	err := cmd.Execute()
 
-	assert.Error(t, err, "validate should fail when workspace_root is missing")
+	assert.NoError(t, err, "workspace_root is optional")
 }
 
 // Test validate with adapter missing binary

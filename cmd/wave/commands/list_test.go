@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/workspace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,6 +32,8 @@ func newListTestHelper(t *testing.T) *listTestHelper {
 	tmpDir := t.TempDir()
 	origDir, err := os.Getwd()
 	require.NoError(t, err, "failed to get current directory")
+	// Keep the default workspace root (under the user cache dir) per test.
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 
 	return &listTestHelper{
 		t:       t,
@@ -61,6 +64,16 @@ func (h *listTestHelper) writeFile(relPath, content string) {
 	require.NoError(h.t, err, "failed to create directory: %s", dir)
 	err = os.WriteFile(fullPath, []byte(content), 0644)
 	require.NoError(h.t, err, "failed to write file: %s", relPath)
+}
+
+// writeWorkspaceFile writes content to a file under the default workspace
+// root of the temp project (the root used when wave.yaml sets no
+// runtime.workspace_root). Call after chdir.
+func (h *listTestHelper) writeWorkspaceFile(relPath, content string) {
+	h.t.Helper()
+	fullPath := filepath.Join(workspace.DefaultRoot(), relPath)
+	require.NoError(h.t, os.MkdirAll(filepath.Dir(fullPath), 0755))
+	require.NoError(h.t, os.WriteFile(fullPath, []byte(content), 0644))
 }
 
 // executeListCmd runs the list command with given arguments and returns output/error.
@@ -1003,8 +1016,8 @@ func TestListRunsCmd_WorkspaceFallback(t *testing.T) {
 	defer h.restore()
 
 	// Create some workspaces (but no state database)
-	h.writeFile(".agents/workspaces/pipeline-1/marker.txt", "test")
-	h.writeFile(".agents/workspaces/pipeline-2/marker.txt", "test")
+	h.writeWorkspaceFile("pipeline-1/marker.txt", "test")
+	h.writeWorkspaceFile("pipeline-2/marker.txt", "test")
 
 	stdout, _, err := executeListRunsCmd()
 
@@ -1023,7 +1036,7 @@ func TestListRunsCmd_JSONFormat(t *testing.T) {
 	defer h.restore()
 
 	// Create a workspace for the fallback
-	h.writeFile(".agents/workspaces/test-pipeline/marker.txt", "test")
+	h.writeWorkspaceFile("test-pipeline/marker.txt", "test")
 
 	stdout, _, err := executeListRunsCmd("--format", "json")
 
@@ -1044,7 +1057,7 @@ func TestListRunsCmd_Limit(t *testing.T) {
 
 	// Create several workspaces
 	for i := 1; i <= 5; i++ {
-		h.writeFile(fmt.Sprintf(".agents/workspaces/pipeline-%d/marker.txt", i), "test")
+		h.writeWorkspaceFile(fmt.Sprintf("pipeline-%d/marker.txt", i), "test")
 	}
 
 	stdout, _, err := executeListRunsCmd("--limit", "2")
@@ -1069,8 +1082,8 @@ func TestListRunsCmd_PipelineFilter(t *testing.T) {
 	defer h.restore()
 
 	// Create workspaces
-	h.writeFile(".agents/workspaces/target-pipeline/marker.txt", "test")
-	h.writeFile(".agents/workspaces/other-pipeline/marker.txt", "test")
+	h.writeWorkspaceFile("target-pipeline/marker.txt", "test")
+	h.writeWorkspaceFile("other-pipeline/marker.txt", "test")
 
 	stdout, _, err := executeListRunsCmd("--run-pipeline", "target-pipeline")
 
@@ -1086,7 +1099,7 @@ func TestListRunsCmd_TableHeader(t *testing.T) {
 	defer h.restore()
 
 	// Create a workspace
-	h.writeFile(".agents/workspaces/test-run/marker.txt", "test")
+	h.writeWorkspaceFile("test-run/marker.txt", "test")
 
 	stdout, _, err := executeListRunsCmd()
 
@@ -1479,7 +1492,7 @@ func TestListRunsCmd_DynamicSeparatorWidth(t *testing.T) {
 	t.Setenv("COLUMNS", "120")
 
 	// Create a workspace for the fallback
-	h.writeFile(".agents/workspaces/test-run/marker.txt", "test")
+	h.writeWorkspaceFile("test-run/marker.txt", "test")
 
 	stdout, _, err := executeListRunsCmd()
 
@@ -1551,7 +1564,7 @@ func TestListRunsCmd_NarrowTerminalGraceful(t *testing.T) {
 	// Set narrow terminal
 	t.Setenv("COLUMNS", "60")
 
-	h.writeFile(".agents/workspaces/test-run/marker.txt", "test")
+	h.writeWorkspaceFile("test-run/marker.txt", "test")
 
 	stdout, _, err := executeListRunsCmd()
 

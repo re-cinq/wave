@@ -97,7 +97,7 @@ func TestGreenfield_GoProjectOnGitHub(t *testing.T) {
 
 	adapters := m["adapters"].(map[string]interface{})
 	assert.Equal(t, []string{"claude"}, sortedKeys(adapters))
-	assert.Equal(t, ".agents/workspaces", m["runtime"].(map[string]interface{})["workspace_root"])
+	assert.NotContains(t, m["runtime"].(map[string]interface{}), "workspace_root", "default workspaces live outside the checkout")
 
 	// Personas: system personas and the GitHub ones are present, each with
 	// its prompt file on disk; no other forge's personas leak in.
@@ -122,7 +122,7 @@ func TestGreenfield_GoProjectOnGitHub(t *testing.T) {
 	for name := range release {
 		assert.FileExists(t, filepath.Join(".agents", "pipelines", name))
 	}
-	assert.DirExists(t, ".agents/workspaces")
+	assert.NoDirExists(t, ".agents/workspaces")
 	assert.DirExists(t, ".agents/traces")
 
 	agents, err := os.ReadFile("AGENTS.md")
@@ -136,7 +136,8 @@ func TestGreenfield_GoProjectOnGitHub(t *testing.T) {
 
 	gitignore, err := os.ReadFile(".gitignore")
 	require.NoError(t, err)
-	for _, entry := range append([]string{".agents/workspaces/"}, RuntimeGitignoreEntries...) {
+	assert.NotContains(t, string(gitignore), ".agents/workspaces/", "default workspaces are outside the checkout")
+	for _, entry := range RuntimeGitignoreEntries {
 		assert.Contains(t, string(gitignore), entry+"\n")
 	}
 	assert.FileExists(t, SentinelFile)

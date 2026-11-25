@@ -14,6 +14,7 @@ import (
 	"github.com/recinq/wave/internal/defaults"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/onboarding"
+	"github.com/recinq/wave/internal/workspace"
 )
 
 // loadDefaultBootstrapManifest synthesises a wave.yaml from embedded defaults
@@ -32,7 +33,7 @@ func loadDefaultBootstrapManifest() (*manifest.Manifest, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load embedded persona configs: %w", err)
 	}
-	defaultMap := onboarding.BuildDefaultManifest("claude", ".agents/workspaces", nil, personas)
+	defaultMap := onboarding.BuildDefaultManifest("claude", "", nil, personas)
 	data, err := yaml.Marshal(defaultMap)
 	if err != nil {
 		return nil, fmt.Errorf("synthesise bootstrap manifest: %w", err)
@@ -49,7 +50,7 @@ func loadDefaultBootstrapManifest() (*manifest.Manifest, error) {
 // pipeline and copies the project-shaping outputs back to the repo root.
 // Worktree workspaces are isolated git working trees by design; without this
 // post-pipeline step the sentinel + manifest + generated assets would stay
-// trapped inside .agents/workspaces/<run-id>/ and never reach the user.
+// trapped inside <workspace_root>/<run-id>/ and never reach the user.
 //
 // Files materialised when present in any step's workspace:
 //   - .agents/.onboarding-done   — marks onboarding complete
@@ -60,7 +61,7 @@ func loadDefaultBootstrapManifest() (*manifest.Manifest, error) {
 //   - .agents/prompts/**/*.md    — custom prompts the pipeline generated
 //   - .agents/contracts/*        — custom contracts
 func materialiseBootstrapOutputs(runID string) error {
-	return materialiseFromRunDir(filepath.Join(".agents", "workspaces", runID))
+	return materialiseFromRunDir(filepath.Join(workspace.ResolveRoot(""), runID))
 }
 
 func materialiseFromRunDir(runDir string) error {

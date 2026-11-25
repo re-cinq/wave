@@ -9,6 +9,7 @@ import (
 
 	"github.com/recinq/wave/internal/forge"
 	"github.com/recinq/wave/internal/manifest"
+	wsroot "github.com/recinq/wave/internal/workspace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -188,7 +189,8 @@ func TestPrintInitSuccess(t *testing.T) {
 	PrintInitSuccess(&out, "wave.yaml", "", res)
 	text = out.String()
 	assert.Contains(t, text, "git commit                 chore: initialize wave project")
-	assert.Contains(t, text, ".agents/workspaces/        Ephemeral workspace root")
+	assert.NotContains(t, text, "Ephemeral workspace root", "the default root is not created by init")
+	assert.Contains(t, text, "Workspaces: "+wsroot.DefaultRoot()+"/ (outside the checkout")
 	assert.NotContains(t, text, "Project root:")
 	assert.NotContains(t, text, "Missing project commands")
 	assert.NotContains(t, text, "git add", "committed setups need no manual commit hint")
@@ -377,7 +379,8 @@ func TestProjectCommandHelpers(t *testing.T) {
 	dirs := waveDirsFor("tmp/ws")
 	assert.Contains(t, dirs, "tmp/ws")
 	assert.NotContains(t, dirs, ".agents/workspaces")
-	assert.Len(t, dirs, len(DefaultWaveDirs))
+	assert.Len(t, dirs, len(DefaultWaveDirs)+1)
+	assert.Equal(t, DefaultWaveDirs, waveDirsFor(""), "no --workspace: nothing extra is created in the checkout")
 }
 
 func TestSupportedInitAdapters_ReturnsCopy(t *testing.T) {

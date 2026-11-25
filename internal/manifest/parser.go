@@ -134,13 +134,6 @@ func ValidateWithFile(m *Manifest, basePath, filePath string) []error {
 		errs = append(errs, err)
 	}
 
-	if err := validateRuntime(&m.Runtime, basePath); err != nil {
-		if filePath != "" {
-			err.File = filePath
-		}
-		errs = append(errs, err)
-	}
-
 	if timeoutErrs := validateTimeouts(&m.Runtime.Timeouts, filePath); len(timeoutErrs) > 0 {
 		errs = append(errs, timeoutErrs...)
 	}
@@ -223,17 +216,6 @@ func validateMetadata(m *Metadata, _ string) *ValidationError {
 			Field:      "metadata.name",
 			Reason:     "is required",
 			Suggestion: "Add a 'name' field under 'metadata' to identify your project",
-		}
-	}
-	return nil
-}
-
-func validateRuntime(r *Runtime, _ string) *ValidationError {
-	if strings.TrimSpace(r.WorkspaceRoot) == "" {
-		return &ValidationError{
-			Field:      "runtime.workspace_root",
-			Reason:     "is required",
-			Suggestion: "Set 'workspace_root' to a directory path like '.agents/workspaces'",
 		}
 	}
 	return nil

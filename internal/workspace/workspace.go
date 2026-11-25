@@ -52,7 +52,7 @@ func resolveGitRoot() (string, error) {
 
 func NewWorkspaceManager(baseDir string) (WorkspaceManager, error) {
 	if baseDir == "" {
-		baseDir = ".agents/workspaces"
+		baseDir = DefaultRoot()
 	}
 	if !filepath.IsAbs(baseDir) {
 		root, err := resolveGitRoot()

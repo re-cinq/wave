@@ -10,13 +10,11 @@ import (
 
 	"github.com/recinq/wave/internal/pipeline"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/workspace"
 )
 
 // DefaultStateDBPath is the default Wave state database location.
 const DefaultStateDBPath = ".agents/state.db"
-
-// DefaultWorkspacesDir is the default Wave workspaces directory.
-const DefaultWorkspacesDir = ".agents/workspaces"
 
 // ListRuns returns a slice of RunInfo, preferring the StateStore-backed source
 // and falling back to workspace directory scans when the database is missing
@@ -83,7 +81,8 @@ func listRunsFromDB(dbPath string, opts RunsOptions) ([]RunInfo, error) {
 
 // listRunsFromWorkspaces reads run information from workspace directory metadata.
 func listRunsFromWorkspaces(opts RunsOptions) ([]RunInfo, error) {
-	entries, err := os.ReadDir(DefaultWorkspacesDir)
+	wsDir := workspace.ResolveRoot(opts.WorkspaceRoot)
+	entries, err := os.ReadDir(wsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -112,7 +111,7 @@ func listRunsFromWorkspaces(opts RunsOptions) ([]RunInfo, error) {
 			continue
 		}
 
-		wsPath := filepath.Join(DefaultWorkspacesDir, entry.Name())
+		wsPath := filepath.Join(wsDir, entry.Name())
 		startTime := directoryCreationTime(wsPath)
 		if startTime.IsZero() {
 			startTime = info.ModTime()
@@ -135,7 +134,7 @@ func listRunsFromWorkspaces(opts RunsOptions) ([]RunInfo, error) {
 
 	var runs []RunInfo
 	for _, ws := range workspaces {
-		wsPath := filepath.Join(DefaultWorkspacesDir, ws.name)
+		wsPath := filepath.Join(wsDir, ws.name)
 		status, endTime := inferWorkspaceStatus(wsPath, ws.name)
 
 		if opts.Status != "" && !strings.EqualFold(status, opts.Status) {

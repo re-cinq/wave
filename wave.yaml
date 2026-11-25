@@ -198,7 +198,6 @@ runtime:
         git_command_seconds: 30
         forge_api_seconds: 15
         retry_max_delay_seconds: 60
-    workspace_root: .agents/workspaces
     cost:
         enabled: true
         budget_ceiling: 50.0

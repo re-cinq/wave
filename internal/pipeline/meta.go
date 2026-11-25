@@ -13,6 +13,7 @@ import (
 	"github.com/recinq/wave/internal/adapter"
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
+	"github.com/recinq/wave/internal/workspace"
 )
 
 const (
@@ -292,7 +293,7 @@ func (e *MetaPipelineExecutor) invokePhilosopherWithSchemas(ctx context.Context,
 	}
 
 	// Create isolated workspace for meta pipeline to avoid overwriting project CLAUDE.md
-	metaWorkspace := filepath.Join(".agents", "workspaces", "meta-philosopher")
+	metaWorkspace := filepath.Join(workspace.ResolveRoot(m.Runtime.WorkspaceRoot), "meta-philosopher")
 	if err := os.MkdirAll(metaWorkspace, 0755); err != nil {
 		return nil, 0, fmt.Errorf("failed to create meta workspace: %w", err)
 	}

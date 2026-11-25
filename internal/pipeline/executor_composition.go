@@ -11,6 +11,7 @@ import (
 
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/state"
+	"github.com/recinq/wave/internal/workspace"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -922,10 +923,7 @@ func (e *DefaultPipelineExecutor) executeGateInDAG(ctx context.Context, executio
 
 		// Write freeform text as artifact if provided
 		if decision.Text != "" {
-			wsRoot := execution.Manifest.Runtime.WorkspaceRoot
-			if wsRoot == "" {
-				wsRoot = ".agents/workspaces"
-			}
+			wsRoot := workspace.ResolveRoot(execution.Manifest.Runtime.WorkspaceRoot)
 			artifactPath := filepath.Join(wsRoot, e.workspaceRunIDFor(pipelineID), ".agents", "artifacts", fmt.Sprintf("gate-%s-text", step.ID))
 			if mkErr := os.MkdirAll(filepath.Dir(artifactPath), 0755); mkErr != nil {
 				e.emit(event.Event{

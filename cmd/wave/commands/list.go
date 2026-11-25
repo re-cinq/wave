@@ -38,6 +38,7 @@ type ListRunsOptions struct {
 	Pipeline string
 	Status   string
 	Format   string
+	Manifest string
 }
 
 // Flags specific to `list runs` accumulated on the parent command for
@@ -129,6 +130,7 @@ func runList(opts ListOptions, filter string) error {
 			Pipeline: listRunsPipeline,
 			Status:   listRunsStatus,
 			Format:   opts.Format,
+			Manifest: opts.Manifest,
 		})
 	}
 
@@ -157,9 +159,10 @@ func runList(opts ListOptions, filter string) error {
 
 	if showRuns {
 		runs, err := listing.ListRuns(listing.RunsOptions{
-			Limit:    listRunsLimit,
-			Pipeline: listRunsPipeline,
-			Status:   listRunsStatus,
+			Limit:         listRunsLimit,
+			Pipeline:      listRunsPipeline,
+			Status:        listRunsStatus,
+			WorkspaceRoot: manifestWorkspaceRoot(opts.Manifest),
 		})
 		if err == nil {
 			renderRunsTable(runs)
@@ -222,9 +225,10 @@ func emitJSONList(opts ListOptions, showAdapters, showRuns, showPipelines, showP
 
 	if showRuns {
 		runs, err := listing.ListRuns(listing.RunsOptions{
-			Limit:    listRunsLimit,
-			Pipeline: listRunsPipeline,
-			Status:   listRunsStatus,
+			Limit:         listRunsLimit,
+			Pipeline:      listRunsPipeline,
+			Status:        listRunsStatus,
+			WorkspaceRoot: manifestWorkspaceRoot(opts.Manifest),
 		})
 		if err == nil {
 			output.Runs = runs
@@ -257,9 +261,10 @@ func emitJSONList(opts ListOptions, showAdapters, showRuns, showPipelines, showP
 // runListRuns executes the `wave list runs` subcommand.
 func runListRuns(opts ListRunsOptions) error {
 	runs, err := listing.ListRuns(listing.RunsOptions{
-		Limit:    opts.Limit,
-		Pipeline: opts.Pipeline,
-		Status:   opts.Status,
+		Limit:         opts.Limit,
+		Pipeline:      opts.Pipeline,
+		Status:        opts.Status,
+		WorkspaceRoot: manifestWorkspaceRoot(opts.Manifest),
 	})
 	if err != nil {
 		return err

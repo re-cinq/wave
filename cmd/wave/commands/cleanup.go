@@ -15,6 +15,9 @@ import (
 type CleanupOptions struct {
 	DryRun bool
 	Force  bool
+	// Manifest is the manifest whose runtime.workspace_root is honoured;
+	// empty means wave.yaml.
+	Manifest string
 }
 
 // NewCleanupCmd creates the cleanup command.
@@ -23,10 +26,12 @@ func NewCleanupCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "cleanup",
-		Short: "Remove orphaned worktrees from .agents/workspaces/",
+		Short: "Remove orphaned worktrees from the workspace root",
 		Long: `Remove orphaned worktrees that have no corresponding running pipeline.
 
-Uses 'git worktree list' to find all worktrees under .agents/workspaces/,
+Uses 'git worktree list' to find all worktrees under the workspace root
+(runtime.workspace_root, or the per-project default under the user cache
+dir; worktrees left in .agents/workspaces/ by older versions are included),
 cross-references with the state store to identify active runs, and removes
 worktrees not associated with any running pipeline.
 
@@ -36,6 +41,7 @@ Use --force to skip the confirmation prompt.`,
   wave cleanup --dry-run    # Preview what would be removed
   wave cleanup --force      # Remove without confirmation`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			opts.Manifest, _ = cmd.Root().PersistentFlags().GetString("manifest")
 			return runCleanup(opts)
 		},
 	}
@@ -87,8 +93,19 @@ func listGitWorktrees() ([]worktreeEntry, error) {
 }
 
 func runCleanup(opts CleanupOptions) error {
-	wsDir := ".agents/workspaces"
-	if _, err := os.Stat(wsDir); os.IsNotExist(err) {
+	// Absolute, symlink-resolved workspace roots that exist; git reports
+	// worktree paths in that form.
+	var roots []string
+	for _, dir := range workspaceRootsToSweep(opts.Manifest) {
+		abs, err := filepath.Abs(dir)
+		if err != nil {
+			continue
+		}
+		if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+			roots = append(roots, resolved)
+		}
+	}
+	if len(roots) == 0 {
 		fmt.Fprintf(os.Stderr, "No workspaces directory found\n")
 		return nil
 	}
@@ -99,22 +116,19 @@ func runCleanup(opts CleanupOptions) error {
 		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to list worktrees: %s", err), "Ensure git is available").WithCause(err)
 	}
 
-	// Get absolute path to workspace directory for matching.
-	absWsDir, err := filepath.Abs(wsDir)
-	if err != nil {
-		return NewCLIError(CodeInternalError, fmt.Sprintf("failed to resolve workspace path: %s", err), "").WithCause(err)
-	}
-
-	// Filter to only worktrees under .agents/workspaces/.
+	// Filter to only worktrees under a workspace root.
 	var waveWorktrees []worktreeEntry
 	for _, wt := range worktrees {
-		if strings.HasPrefix(wt.Path, absWsDir+string(filepath.Separator)) {
-			waveWorktrees = append(waveWorktrees, wt)
+		for _, root := range roots {
+			if strings.HasPrefix(wt.Path, root+string(filepath.Separator)) {
+				waveWorktrees = append(waveWorktrees, wt)
+				break
+			}
 		}
 	}
 
 	if len(waveWorktrees) == 0 {
-		fmt.Fprintf(os.Stderr, "No worktrees found under %s\n", wsDir)
+		fmt.Fprintf(os.Stderr, "No worktrees found under %s\n", strings.Join(roots, ", "))
 		return nil
 	}
 

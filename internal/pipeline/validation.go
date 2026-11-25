@@ -6,13 +6,15 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/recinq/wave/internal/workspace"
 )
 
 // PhaseSkipValidator validates that pipeline phases are not skipped
 type PhaseSkipValidator struct {
 	prototypePhasesOrder []string
 	// WorkspaceRoot is the manifest's runtime.workspace_root; empty means
-	// the default .agents/workspaces.
+	// the default per-project root (see workspace.DefaultRoot).
 	WorkspaceRoot string
 }
 
@@ -57,7 +59,7 @@ func (v *PhaseSkipValidator) validatePrototypePhaseSequence(p *Pipeline, fromSte
 	}
 
 	// Verify that all prerequisite phases have been completed
-	workspaceRoot := fmt.Sprintf(".agents/workspaces/%s", p.Metadata.Name)
+	workspaceRoot := filepath.Join(workspace.ResolveRoot(v.WorkspaceRoot), p.Metadata.Name)
 
 	for i := 0; i < fromIndex; i++ {
 		prerequisitePhase := v.prototypePhasesOrder[i]
@@ -82,10 +84,7 @@ func (v *PhaseSkipValidator) validateGenericStepSequence(p *Pipeline, fromStep s
 		return nil
 	}
 
-	wsRoot := v.WorkspaceRoot
-	if wsRoot == "" {
-		wsRoot = ".agents/workspaces"
-	}
+	wsRoot := workspace.ResolveRoot(v.WorkspaceRoot)
 
 	// Collect run directories for this pipeline
 	runDirs, _ := filepath.Glob(filepath.Join(wsRoot, p.Metadata.Name+"-*"))
@@ -194,6 +193,9 @@ func (v *PhaseSkipValidator) validatePhaseCompletion(phase, workspacePath string
 // StaleArtifactDetector detects when upstream artifacts have been modified
 type StaleArtifactDetector struct {
 	artifactTimestamps map[string]time.Time
+	// WorkspaceRoot is the manifest's runtime.workspace_root; empty means
+	// the default per-project root (see workspace.DefaultRoot).
+	WorkspaceRoot string
 }
 
 // NewStaleArtifactDetector creates a new stale artifact detector
@@ -210,7 +212,7 @@ func (d *StaleArtifactDetector) DetectStaleArtifacts(p *Pipeline, currentStep st
 	}
 
 	staleReasons := []string{}
-	workspaceRoot := fmt.Sprintf(".agents/workspaces/%s", p.Metadata.Name)
+	workspaceRoot := filepath.Join(workspace.ResolveRoot(d.WorkspaceRoot), p.Metadata.Name)
 
 	// Get current step dependencies
 	var currentStepObj *Step
@@ -326,7 +328,6 @@ func (e *ErrorMessageProvider) FormatPhaseFailureError(phase string, originalErr
 	guidance.WriteString("\n📋 Debug Information:\n")
 	guidance.WriteString(fmt.Sprintf("  • Phase: %s\n", phase))
 	guidance.WriteString(fmt.Sprintf("  • Pipeline: %s\n", pName))
-	guidance.WriteString(fmt.Sprintf("  • Workspace: .agents/workspaces/%s/%s/\n", pName, phase))
 	guidance.WriteString("  • Logs: .agents/traces/\n")
 
 	return fmt.Errorf("%s", guidance.String())

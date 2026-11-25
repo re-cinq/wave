@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/recinq/wave/internal/pathfmt"
+	"github.com/recinq/wave/internal/workspace"
 )
 
 // HintType identifies the category of recovery hint.
@@ -57,17 +58,14 @@ type RecoveryBlockOpts struct {
 	Input         string
 	StepID        string
 	RunID         string
-	WorkspaceRoot string // defaults to ".agents/workspaces" if empty
+	WorkspaceRoot string // defaults to workspace.DefaultRoot() if empty
 	ErrClass      ErrorClass
 	PreflightMeta *PreflightMetadata // nil when not a preflight error
 }
 
 // BuildRecoveryBlock constructs a RecoveryBlock with appropriate hints based on the error class.
 func BuildRecoveryBlock(opts RecoveryBlockOpts) *RecoveryBlock {
-	workspaceRoot := opts.WorkspaceRoot
-	if workspaceRoot == "" {
-		workspaceRoot = ".agents/workspaces"
-	}
+	workspaceRoot := workspace.ResolveRoot(opts.WorkspaceRoot)
 
 	// Construct workspace path using filepath.Join (handles empty segments cleanly)
 	workspacePath := filepath.Join(workspaceRoot, opts.RunID)

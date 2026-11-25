@@ -90,6 +90,9 @@ type RunsOptions struct {
 	Limit    int
 	Pipeline string
 	Status   string
+	// WorkspaceRoot is the manifest's runtime.workspace_root; empty means
+	// the default per-project root (see workspace.DefaultRoot).
+	WorkspaceRoot string
 }
 
 // ManifestPersona mirrors the subset of a persona's manifest entry consumed by

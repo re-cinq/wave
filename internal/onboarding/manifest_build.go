@@ -326,7 +326,8 @@ type ManifestOptions struct {
 	// Model pins adapters.<Adapter>.default_model and every tier in
 	// tier_models. Empty uses DefaultModelFor(Adapter).
 	Model string
-	// Workspace is runtime.workspace_root.
+	// Workspace is runtime.workspace_root. Empty leaves it unset so the
+	// per-project default outside the checkout is used.
 	Workspace string
 	// Project is attached as the project: block when non-empty.
 	Project map[string]interface{}
@@ -390,7 +391,6 @@ func BuildManifest(o ManifestOptions) map[string]interface{} {
 		"adapters": adapters,
 		"personas": BuildPersonaManifest(personaConfigs, adapter),
 		"runtime": map[string]interface{}{
-			"workspace_root":          workspace,
 			"max_concurrent_workers":  5,
 			"default_timeout_minutes": 30,
 			"relay": map[string]interface{}{
@@ -409,6 +409,10 @@ func BuildManifest(o ManifestOptions) map[string]interface{} {
 				"timeout_minutes":  60,
 			},
 		},
+	}
+
+	if workspace != "" {
+		m["runtime"].(map[string]interface{})["workspace_root"] = workspace
 	}
 
 	if len(project) > 0 {

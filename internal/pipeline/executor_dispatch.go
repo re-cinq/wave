@@ -264,7 +264,7 @@ func (e *DefaultPipelineExecutor) resolveStepResources(ctx context.Context, exec
 	// Resolve adapter runner from registry for per-step dispatch
 	stepRunner := e.registry.ResolveWithFallback(resolvedAdapterName)
 
-	// Create workspace under .agents/workspaces/<pipeline>/<step>/
+	// Create workspace under <workspace_root>/<pipeline>/<step>/
 	workspacePath, err := e.createStepWorkspace(execution, step)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workspace: %w", err)

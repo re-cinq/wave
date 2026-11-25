@@ -112,11 +112,11 @@ func TestInitEmptyDirectory(t *testing.T) {
 		".agents/pipelines",
 		".agents/contracts",
 		".agents/traces",
-		".agents/workspaces",
 	}
 	for _, dir := range expectedDirs {
 		assert.True(t, dirExists(dir), "%s directory should be created", dir)
 	}
+	assert.False(t, dirExists(".agents/workspaces"), "workspaces default to a directory outside the checkout")
 
 	// Verify manifest content
 	manifest, err := readYAML("wave.yaml")
@@ -837,7 +837,7 @@ func TestInitManifestStructure(t *testing.T) {
 	// Verify runtime structure
 	runtime, ok := manifest["runtime"].(map[string]interface{})
 	require.True(t, ok)
-	assert.Contains(t, runtime, "workspace_root")
+	assert.NotContains(t, runtime, "workspace_root", "unset: workspaces default to a directory outside the checkout")
 	assert.Contains(t, runtime, "max_concurrent_workers")
 	assert.Contains(t, runtime, "default_timeout_minutes")
 	assert.Contains(t, runtime, "relay")
@@ -1533,7 +1533,7 @@ func TestComputeChangeSummary(t *testing.T) {
 				existingManifest = map[string]interface{}{}
 			}
 
-			defaultManifest := onboarding.BuildDefaultManifest("claude", ".agents/workspaces", nil, assets.PersonaConfigs)
+			defaultManifest := onboarding.BuildDefaultManifest("claude", "", nil, assets.PersonaConfigs)
 			summary := onboarding.ComputeChangeSummary(assets, existingManifest, defaultManifest)
 
 			require.NotNil(t, summary)
