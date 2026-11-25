@@ -40,7 +40,8 @@ func TestDefaultRoot_OutsideProjectUnderCache(t *testing.T) {
 func TestDefaultRootFor_StablePerProject(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	a, b := t.TempDir(), t.TempDir()
-	if DefaultRootFor(a) != DefaultRootFor(a) {
+	first, second := DefaultRootFor(a), DefaultRootFor(a)
+	if first != second {
 		t.Fatal("default root must be stable for the same project")
 	}
 	if DefaultRootFor(a) == DefaultRootFor(b) {
