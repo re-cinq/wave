@@ -162,7 +162,7 @@ steps:
 | `outcomes` | no | `[]` | Structured results to extract from artifacts |
 | `handover.contract` | no | - | Output validation |
 | `handover.contracts` | no | `[]` | Multiple output validations (takes precedence over singular `contract`) |
-| `handover.compaction` | no | - | Context relay settings |
+| `handover.compaction` | no | - | Deprecated and ignored |
 | `strategy` | no | - | Matrix fan-out configuration |
 | `validation` | no | `[]` | Pre-execution checks |
 | `retry` | no | - | [Retry and rework](#retry-and-rework) configuration |
@@ -594,24 +594,6 @@ handover:
 
 ---
 
-## Compaction
-
-Configure context relay for long-running steps.
-
-```yaml
-handover:
-  compaction:
-    trigger: "token_limit_80%"
-    persona: summarizer
-```
-
-| Field | Default | Description |
-|-------|---------|-------------|
-| `trigger` | `token_limit_80%` | When to trigger relay |
-| `persona` | `summarizer` | Persona for checkpoints |
-
----
-
 ## Matrix Strategy
 
 Fan-out parallel execution from a task list.
@@ -718,7 +700,7 @@ steps:
 |-------|-------------|
 | `full` | Complete conversation history (default when `thread` is set) |
 | `compact` | Step ID + status + truncated content summary |
-| `summary` | LLM-generated summary via compaction adapter |
+| `summary` | LLM-generated summary via the `summarizer` persona's adapter (falls back to `compact` on error) |
 | `fresh` | No prior context (default when no `thread`) |
 
 ### Thread Fields

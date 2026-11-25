@@ -185,10 +185,10 @@ personas:
       allowed_tools: ["Read", "Grep", "Bash(npm audit*)", "Bash(go vet*)"]
       deny: ["Write(*)", "Edit(*)"]
 
-  # Context relay summarizer
+  # Summarizer for thread "summary" fidelity
   summarizer:
     adapter: claude
-    description: "Context compaction for relay handoffs"
+    description: "Summarizes thread transcripts"
     system_prompt_file: .agents/personas/summarizer.md
     temperature: 0.0
     permissions:
@@ -296,7 +296,7 @@ Global runtime settings governing execution behavior.
 | `workspace_root` | `string` | no | `".agents/workspaces"` | Root directory for ephemeral workspaces. Each pipeline run creates subdirectories here. |
 | `max_concurrent_workers` | `int` | no | `5` | Maximum parallel matrix strategy workers. Range: `1`–`10`. |
 | `default_timeout_minutes` | `int` | no | `5` | Default per-step timeout. Steps exceeding this are killed (entire process group). |
-| `relay` | [`RelayConfig`](#relayconfig) | no | see defaults | Context relay/compaction settings. |
+| `relay` | [`RelayConfig`](#relayconfig) | no | - | Deprecated and ignored. |
 | `audit` | [`AuditConfig`](#auditconfig) | no | see defaults | Audit logging settings. |
 | `meta_pipeline` | [`MetaPipelineConfig`](#metapipelineconfig) | no | see defaults | Meta-pipeline recursion and resource limits. |
 | `routing` | [`RoutingConfig`](#routingconfig) | no | see defaults | Pipeline routing rules for matching inputs to pipelines. |
@@ -307,12 +307,10 @@ Global runtime settings governing execution behavior.
 
 ### RelayConfig
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `token_threshold_percent` | `int` | no | `80` | Context utilization percentage that triggers relay. Range: `50`–`95`. |
-| `strategy` | `string` | no | `"summarize_to_checkpoint"` | Compaction strategy. Currently only `"summarize_to_checkpoint"`. |
-| `context_window` | `int` | no | `0` | Context window size in tokens. `0` uses adapter default. |
-| `summarizer_persona` | `string` | no | `""` | Persona to use for relay summarization. Must reference a key in `personas`. |
+Deprecated and ignored: relay compaction was removed. The fields
+`token_threshold_percent`, `strategy`, `context_window` and
+`summarizer_persona` are still accepted so existing manifests keep loading,
+but they have no effect.
 
 ### AuditConfig
 
@@ -373,7 +371,7 @@ Fine-grained timeout configuration. All values fall back to built-in defaults in
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `step_default_minutes` | `int` | `5` | Default per-step execution timeout. |
-| `relay_compaction_minutes` | `int` | `5` | Context compaction/summarization timeout. |
+| `relay_compaction_minutes` | `int` | - | Deprecated and ignored. |
 | `meta_default_minutes` | `int` | `30` | Meta-pipeline generation timeout. |
 | `skill_install_seconds` | `int` | `120` | Skill auto-install timeout during preflight. |
 | `skill_cli_seconds` | `int` | `120` | Skill CLI command execution timeout. |
@@ -397,15 +395,11 @@ runtime:
   default_timeout_minutes: 5
   timeouts:
     step_default_minutes: 5
-    relay_compaction_minutes: 5
     meta_default_minutes: 30
     skill_install_seconds: 120
     process_grace_seconds: 3
     forge_api_seconds: 15
     retry_max_delay_seconds: 60
-  relay:
-    token_threshold_percent: 80
-    strategy: summarize_to_checkpoint
   audit:
     log_dir: .agents/traces/
     log_all_tool_calls: true
@@ -616,7 +610,7 @@ personas:
 
   summarizer:
     adapter: claude
-    description: "Relay checkpoint summarizer"
+    description: "Thread transcript summarizer"
     system_prompt_file: .agents/personas/summarizer.md
     temperature: 0.0
     permissions:
@@ -627,9 +621,6 @@ runtime:
   workspace_root: .agents/workspaces
   max_concurrent_workers: 5
   default_timeout_minutes: 5
-  relay:
-    token_threshold_percent: 80
-    strategy: summarize_to_checkpoint
   audit:
     log_dir: .agents/traces/
     log_all_tool_calls: true

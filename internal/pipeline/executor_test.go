@@ -897,7 +897,7 @@ func TestWorkspaceCreation(t *testing.T) {
 }
 
 // TestEmptyResultContentDoesNotOverwriteArtifacts is a regression test to ensure
-// that when ResultContent is empty (due to relay compaction, parsing failures, etc),
+// that when ResultContent is empty (due to parsing failures, etc),
 // artifacts are not written with empty content, preserving any existing artifacts.
 // This prevents the bug where artifacts get overwritten with empty content during
 // token limit scenarios or adapter failures.

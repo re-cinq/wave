@@ -475,3 +475,37 @@ func TestLogsCmd_CombinedFilters(t *testing.T) {
 	assert.NotContains(t, stdout, "Step1")
 	assert.NotContains(t, stdout, "start")
 }
+
+// TestRenderPerformanceSummary_TwoStepRun replays the event_log of a real
+// 2-step bench-solve run. The two pipeline-level completion rows (no step_id)
+// used to be counted as steps ("Total Steps: 4", "Avg Duration: 146.7s").
+func TestRenderPerformanceSummary_TwoStepRun(t *testing.T) {
+	h := newLogsTestHelper(t)
+	defer h.restore()
+
+	runID := "bench-solve-20261125-102837-e776"
+	start := time.Date(2026, 11, 25, 10, 28, 37, 0, time.UTC)
+	h.createRun(runID, "bench-solve", "completed", start)
+	h.createLogEntry(runID, start, "", "started", "", "steps=2", 0, 0)
+	h.createLogEntry(runID, start, "solve", "running", "craftsman", "", 0, 0)
+	h.createLogEntry(runID, start.Add(182*time.Second), "solve", "completed", "craftsman", "", 228587, 182000)
+	h.createLogEntry(runID, start.Add(182*time.Second), "patch", "running", "", "", 0, 0)
+	h.createLogEntry(runID, start.Add(182*time.Second), "patch", "completed", "", "command completed successfully", 0, 0)
+	h.createLogEntry(runID, start.Add(202*time.Second), "", "completed", "", "2 steps completed", 0, 202400)
+	h.createLogEntry(runID, start.Add(202*time.Second), "", "completed", "", "Pipeline 'bench-solve' completed", 0, 202400)
+
+	oldStderr := os.Stderr
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stderr = w
+	renderPerformanceSummary(h.store, runID)
+	w.Close()
+	os.Stderr = oldStderr
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	out := buf.String()
+
+	assert.Contains(t, out, "Total Steps: 2\n")
+	assert.Contains(t, out, "Avg Duration: 91.0s\n")
+	assert.Contains(t, out, "Total Tokens: 228")
+}

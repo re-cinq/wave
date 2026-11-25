@@ -37,10 +37,6 @@ runtime:
   workspace_root: .agents/workspaces
   max_concurrent_workers: 5
   default_timeout_minutes: 30
-  relay:
-    token_threshold_percent: 80
-    strategy: summarize_to_checkpoint
-    summarizer_persona: summarizer
 
 skill_mounts:
   - path: .agents/skills/
@@ -91,7 +87,7 @@ steps:
 | `implementer` | Full execution specialist |
 | `philosopher` | Architecture & specification |
 | `auditor` | Security review & QA |
-| `summarizer` | Context compaction for relay |
+| `summarizer` | Thread transcript summaries |
 | `reviewer` | Quality review & validation |
 | `github-commenter` | Post GitHub issue comments |
 

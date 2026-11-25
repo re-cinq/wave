@@ -2726,7 +2726,7 @@ func TestGetEventAggregateStats(t *testing.T) {
 
 	stats, err := store.GetEventAggregateStats(runID)
 	require.NoError(t, err)
-	assert.Zero(t, stats.TotalEvents)
+	assert.Zero(t, stats.TotalSteps)
 	assert.Zero(t, stats.TotalTokens)
 
 	// Mix of states; only completed/failed are aggregated.
@@ -2736,11 +2736,58 @@ func TestGetEventAggregateStats(t *testing.T) {
 
 	stats, err = store.GetEventAggregateStats(runID)
 	require.NoError(t, err)
-	assert.Equal(t, 2, stats.TotalEvents)
+	assert.Equal(t, 2, stats.TotalSteps)
 	assert.Equal(t, 300, stats.TotalTokens)
 	assert.InDelta(t, 2000.0, stats.AvgDurationMs, 0.0001)
 	assert.InDelta(t, 1000.0, stats.MinDurationMs, 0.0001)
 	assert.InDelta(t, 3000.0, stats.MaxDurationMs, 0.0001)
+}
+
+// TestGetEventAggregateStats_TwoStepRun mirrors the event_log of a real
+// 2-step bench-solve run: an agent step, a command step without duration,
+// and two pipeline-level completion rows (no step_id) carrying the whole-run
+// duration. Those must not count as steps or skew the average.
+func TestGetEventAggregateStats_TwoStepRun(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	runID, err := store.CreateRun("bench-solve", "")
+	require.NoError(t, err)
+
+	require.NoError(t, store.LogEvent(runID, "", "started", "", "steps=2", 0, 0, "", "", ""))
+	require.NoError(t, store.LogEvent(runID, "solve", "running", "craftsman", "", 0, 0, "", "", ""))
+	require.NoError(t, store.LogEvent(runID, "solve", "completed", "craftsman", "", 228587, 182000, "", "", ""))
+	require.NoError(t, store.LogEvent(runID, "patch", "running", "", "", 0, 0, "", "", ""))
+	require.NoError(t, store.LogEvent(runID, "patch", "completed", "", "command completed successfully", 0, 0, "", "", ""))
+	require.NoError(t, store.LogEvent(runID, "", "completed", "", "2 steps completed", 0, 202400, "", "", ""))
+	require.NoError(t, store.LogEvent(runID, "", "completed", "", "Pipeline 'bench-solve' completed", 0, 202400, "", "", ""))
+
+	stats, err := store.GetEventAggregateStats(runID)
+	require.NoError(t, err)
+	assert.Equal(t, 2, stats.TotalSteps)
+	assert.Equal(t, 228587, stats.TotalTokens)
+	assert.InDelta(t, 91000.0, stats.AvgDurationMs, 0.0001)
+	assert.InDelta(t, 0.0, stats.MinDurationMs, 0.0001)
+	assert.InDelta(t, 182000.0, stats.MaxDurationMs, 0.0001)
+}
+
+// TestGetEventAggregateStats_RetriedStepCountsOnce checks that a step with
+// several terminal rows (failed attempt, then completed) is one step.
+func TestGetEventAggregateStats_RetriedStepCountsOnce(t *testing.T) {
+	store, cleanup := setupTestStore(t)
+	defer cleanup()
+
+	runID, err := store.CreateRun("p", "")
+	require.NoError(t, err)
+
+	require.NoError(t, store.LogEvent(runID, "impl", "failed", "", "attempt 1", 100, 1000, "", "", ""))
+	require.NoError(t, store.LogEvent(runID, "impl", "completed", "", "attempt 2", 200, 3000, "", "", ""))
+
+	stats, err := store.GetEventAggregateStats(runID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, stats.TotalSteps)
+	assert.Equal(t, 300, stats.TotalTokens)
+	assert.InDelta(t, 3000.0, stats.AvgDurationMs, 0.0001)
 }
 
 // TestGetDecisionsFiltered covers all-filter combinations.

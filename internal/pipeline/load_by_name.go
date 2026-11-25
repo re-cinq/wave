@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -15,6 +16,10 @@ var bootstrapPipelines = map[string]bool{
 	"onboard-project": true,
 	"ops-bootstrap":   true,
 }
+
+// ErrPipelineNotFound is returned by LoadByName when no pipeline file exists
+// for the name. Any other error means a file was found but failed to load.
+var ErrPipelineNotFound = errors.New("pipeline not found")
 
 // LoadByName resolves a pipeline name to a *Pipeline using the canonical
 // CLI lookup precedence:
@@ -49,7 +54,11 @@ func LoadByName(name string) (*Pipeline, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to read pipeline file: %w", err)
 		}
-		return loader.Unmarshal(pipelineData)
+		p, err := loader.Unmarshal(pipelineData)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", pipelinePath, err)
+		}
+		return p, nil
 	}
 
 	if bootstrapPipelines[name] {
@@ -58,7 +67,7 @@ func LoadByName(name string) (*Pipeline, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("pipeline '%s' not found (searched .agents/pipelines/)", name)
+	return nil, fmt.Errorf("%w: '%s' (searched .agents/pipelines/)", ErrPipelineNotFound, name)
 }
 
 func lookupEmbeddedPipeline(name string) (string, bool) {

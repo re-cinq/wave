@@ -2,14 +2,9 @@ package pipeline
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
-	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/hooks"
-	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/state"
 )
 
@@ -25,91 +20,6 @@ func (e *DefaultPipelineExecutor) runTerminalHooks(evt hooks.HookEvent) {
 	}
 	e.fireWebhooks(ctx, evt)
 }
-
-// trace emits a structured NDJSON trace event when debug tracing is enabled.
-
-func (e *DefaultPipelineExecutor) checkRelayCompaction(ctx context.Context, execution *PipelineExecution, step *Step, tokensUsed int, workspacePath string, chatHistory string) error {
-	if e.relayMonitor == nil {
-		return nil // No relay monitor configured
-	}
-
-	relayConfig := execution.Manifest.Runtime.Relay
-	thresholdPercent := relayConfig.TokenThresholdPercent
-
-	// Allow step-level override via handover.compaction.trigger
-	if step.Handover.Compaction.Trigger != "" {
-		// Parse trigger like "token_limit_80%"
-		var pct int
-		if _, err := fmt.Sscanf(step.Handover.Compaction.Trigger, "token_limit_%d%%", &pct); err == nil {
-			thresholdPercent = pct
-		}
-	}
-
-	if thresholdPercent == 0 {
-		// No threshold configured, skip compaction check
-		return nil
-	}
-
-	// Check if we should compact based on token usage
-	if !e.relayMonitor.ShouldCompact(tokensUsed, thresholdPercent) {
-		return nil
-	}
-
-	pipelineID := execution.Status.ID
-
-	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: pipelineID,
-		StepID:     step.ID,
-		State:      "compacting",
-		TokensUsed: tokensUsed,
-		Message:    fmt.Sprintf("Token threshold exceeded (%d tokens, %d%% threshold), triggering compaction", tokensUsed, thresholdPercent),
-	})
-
-	// Get summarizer persona from config (step-level takes precedence over runtime-level)
-	summarizerName := relayConfig.SummarizerPersona
-	if step.Handover.Compaction.Persona != "" {
-		summarizerName = step.Handover.Compaction.Persona
-	}
-	if summarizerName == "" {
-		summarizerName = "summarizer" // Default fallback
-	}
-
-	// Load summarizer persona for system prompt
-	summarizerPersona := execution.Manifest.GetPersona(summarizerName)
-	systemPrompt := ""
-	compactPrompt := "Summarize this conversation history concisely, preserving key context, decisions, and progress:"
-
-	if summarizerPersona != nil {
-		if summarizerPersona.SystemPromptFile != "" {
-			if data, err := os.ReadFile(summarizerPersona.SystemPromptFile); err == nil {
-				systemPrompt = string(data)
-			}
-		}
-	}
-
-	// Trigger compaction
-	summary, err := e.relayMonitor.Compact(ctx, chatHistory, systemPrompt, compactPrompt, workspacePath)
-	if err != nil {
-		return fmt.Errorf("compaction failed: %w", err)
-	}
-
-	e.emit(event.Event{
-		Timestamp:  time.Now(),
-		PipelineID: pipelineID,
-		StepID:     step.ID,
-		State:      "compacted",
-		Message:    fmt.Sprintf("Checkpoint written to %s (%d chars)", filepath.Join(workspacePath, relay.CheckpointFilename), len(summary)),
-	})
-
-	if e.logger != nil {
-		_ = e.logger.LogToolCall(pipelineID, step.ID, "relay.Compact", fmt.Sprintf("tokens=%d summary_len=%d persona=%s", tokensUsed, len(summary), summarizerName))
-	}
-
-	return nil
-}
-
-// trackStepDeliverables automatically tracks deliverables produced by a completed step
 
 func (e *DefaultPipelineExecutor) fireWebhooks(ctx context.Context, evt hooks.HookEvent) {
 	if e.webhookRunner != nil {

@@ -5,18 +5,16 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-
-	"github.com/recinq/wave/internal/relay"
 )
 
-// mockCompactionAdapter implements relay.CompactionAdapter for testing.
-type mockCompactionAdapter struct {
+// mockSummarizer implements TranscriptSummarizer for testing.
+type mockSummarizer struct {
 	result string
 	err    error
 	called bool
 }
 
-func (m *mockCompactionAdapter) RunCompaction(_ context.Context, cfg relay.CompactionConfig) (string, error) {
+func (m *mockSummarizer) Summarize(_ context.Context, _ string) (string, error) {
 	m.called = true
 	return m.result, m.err
 }
@@ -95,7 +93,7 @@ func TestThreadManager_GetTranscript_Fresh(t *testing.T) {
 }
 
 func TestThreadManager_GetTranscript_Summary_WithAdapter(t *testing.T) {
-	mock := &mockCompactionAdapter{result: "LLM summary of conversation"}
+	mock := &mockSummarizer{result: "LLM summary of conversation"}
 	tm := NewThreadManager(mock)
 	ctx := context.Background()
 
@@ -106,12 +104,12 @@ func TestThreadManager_GetTranscript_Summary_WithAdapter(t *testing.T) {
 		t.Errorf("expected LLM summary, got %q", result)
 	}
 	if !mock.called {
-		t.Error("expected compaction adapter to be called")
+		t.Error("expected summarizer to be called")
 	}
 }
 
 func TestThreadManager_GetTranscript_Summary_FallbackToCompact(t *testing.T) {
-	mock := &mockCompactionAdapter{err: fmt.Errorf("compaction failed")}
+	mock := &mockSummarizer{err: fmt.Errorf("compaction failed")}
 	tm := NewThreadManager(mock)
 	ctx := context.Background()
 

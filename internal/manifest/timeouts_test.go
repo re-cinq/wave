@@ -17,7 +17,6 @@ func TestTimeoutsGetters(t *testing.T) {
 
 	getters := []getter{
 		{"StepDefault", (*Timeouts).GetStepDefault, func(t *Timeouts, v int) { t.StepDefaultMin = v }, timeouts.StepDefault},
-		{"RelayCompaction", (*Timeouts).GetRelayCompaction, func(t *Timeouts, v int) { t.RelayCompactionMin = v }, timeouts.RelayCompaction},
 		{"MetaDefault", (*Timeouts).GetMetaDefault, func(t *Timeouts, v int) { t.MetaDefaultMin = v }, timeouts.MetaDefault},
 		{"GateApproval", (*Timeouts).GetGateApproval, func(t *Timeouts, v int) { t.GateApprovalHours = v }, timeouts.GateApproval},
 	}
@@ -113,5 +112,23 @@ func TestValidateTimeouts_AcceptsZeroAndPositive(t *testing.T) {
 	}
 	if errs := validateTimeouts(tt, ""); len(errs) > 0 {
 		t.Errorf("positive timeouts should not produce errors, got %v", errs)
+	}
+}
+
+// Relay compaction was removed, but its manifest keys stay parseable so
+// existing wave.yaml files keep loading under strict decoding.
+func TestUnmarshalStrict_AcceptsDeprecatedRelayKeys(t *testing.T) {
+	data := []byte(`runtime:
+  workspace_root: .agents/workspaces
+  timeouts:
+    relay_compaction_minutes: 5
+  relay:
+    token_threshold_percent: 80
+    strategy: summarize_to_checkpoint
+    context_window: 200000
+    summarizer_persona: summarizer
+`)
+	if _, err := UnmarshalStrict(data); err != nil {
+		t.Fatalf("deprecated relay keys must still parse: %v", err)
 	}
 }

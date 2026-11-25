@@ -140,9 +140,6 @@ steps:
         command: "{{ project.contract_test_command }}"
         must_pass: true
         on_failure: fail
-      compaction:
-        trigger: "token_limit_80%"
-        persona: summarizer
 
   - id: fix-implement
     persona: craftsman

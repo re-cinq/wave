@@ -11,7 +11,6 @@ import (
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
-	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
@@ -20,7 +19,7 @@ import (
 
 // ForegroundConfig collects everything needed to drive a synchronous,
 // foreground pipeline run. Mirrors InProcessConfig but adds the CLI extras
-// (debug tracer, retro generator, relay monitor, mock-override flag) and
+// (debug tracer, retro generator, mock-override flag) and
 // expects a pre-loaded *pipeline.Pipeline + *manifest.Manifest because the
 // CLI has already validated and parsed those before calling.
 type ForegroundConfig struct {
@@ -40,7 +39,6 @@ type ForegroundConfig struct {
 	MockOverride bool
 
 	RetroGenerator *retro.Generator
-	RelayMonitor   *relay.RelayMonitor
 	SkillStore     skill.Store
 	StepFilter     *pipeline.StepFilter
 
@@ -104,7 +102,6 @@ func LaunchForeground(ctx context.Context, cfg ForegroundConfig) *ForegroundResu
 		Runner:           cfg.Runner,
 		MockOverride:     cfg.MockOverride,
 		RetroGenerator:   cfg.RetroGenerator,
-		RelayMonitor:     cfg.RelayMonitor,
 		SkillStore:       cfg.SkillStore,
 		StepFilter:       cfg.StepFilter,
 		Debug:            cfg.Debug,

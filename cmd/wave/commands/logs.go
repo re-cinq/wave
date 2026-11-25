@@ -491,12 +491,12 @@ func runLogsTrace(opts LogsOptions) error {
 // renderPerformanceSummary displays aggregated performance metrics for a run.
 func renderPerformanceSummary(store logsStore, runID string) {
 	stats, err := store.GetEventAggregateStats(runID)
-	if err != nil || stats == nil || stats.TotalEvents == 0 {
+	if err != nil || stats == nil || stats.TotalSteps == 0 {
 		return
 	}
 
 	fmt.Fprintln(os.Stderr, "\n--- Performance Summary ---")
-	fmt.Fprintf(os.Stderr, "Total Steps: %d\n", stats.TotalEvents)
+	fmt.Fprintf(os.Stderr, "Total Steps: %d\n", stats.TotalSteps)
 
 	if stats.TotalTokens > 0 {
 		fmt.Fprintf(os.Stderr, "Total Tokens: %s\n", formatTokens(stats.TotalTokens))
@@ -513,7 +513,7 @@ func renderPerformanceSummary(store logsStore, runID string) {
 	}
 
 	if stats.AvgDurationMs > 0 && stats.TotalTokens > 0 {
-		totalDuration := stats.AvgDurationMs * float64(stats.TotalEvents)
+		totalDuration := stats.AvgDurationMs * float64(stats.TotalSteps)
 		burnRate := float64(stats.TotalTokens) / (totalDuration / 1000.0)
 		if burnRate >= 1.0 {
 			fmt.Fprintf(os.Stderr, "Token Burn Rate: %.1f tokens/s\n", burnRate)

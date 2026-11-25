@@ -47,7 +47,7 @@ const (
 const (
 	FidelityFull    = "full"    // Complete conversation history (default when thread is set)
 	FidelityCompact = "compact" // Step ID + status + truncated content summary
-	FidelitySummary = "summary" // LLM-generated summary via relay CompactionAdapter
+	FidelitySummary = "summary" // LLM-generated summary via the summarizer persona
 	FidelityFresh   = "fresh"   // No prior context (default when no thread)
 )
 
@@ -476,7 +476,7 @@ func (a *ArtifactDef) IsStdoutArtifact() bool {
 type HandoverConfig struct {
 	Contract     contract.ContractConfig   `yaml:"contract,omitempty"`
 	Contracts    []contract.ContractConfig `yaml:"contracts,omitempty"`
-	Compaction   CompactionConfig          `yaml:"compaction,omitempty"`
+	Compaction   CompactionConfig          `yaml:"compaction,omitempty"` // deprecated, ignored; see CompactionConfig
 	OnReviewFail string                    `yaml:"on_review_fail,omitempty"`
 	TargetStep   string                    `yaml:"target_step,omitempty"`
 }
@@ -502,6 +502,9 @@ type ContractConfig = contract.ContractConfig
 // ReviewContextSource is an alias for contract.ReviewContextSource.
 type ReviewContextSource = contract.ReviewContextSource
 
+// CompactionConfig is deprecated and ignored: relay compaction was removed.
+// It is still parsed so existing pipeline files keep loading under strict
+// (KnownFields) decoding.
 type CompactionConfig struct {
 	Trigger string `yaml:"trigger,omitempty"`
 	Persona string `yaml:"persona,omitempty"`

@@ -54,11 +54,6 @@ runtime:
   workspace_root: .agents/workspaces
   max_concurrent_workers: 5
   default_timeout_minutes: 30
-  relay:
-    token_threshold_percent: 80
-    strategy: summarize_to_checkpoint    # context compaction strategy
-    context_window: 200000               # optional
-    summarizer_persona: summarizer       # persona for compaction
   audit:
     log_dir: .agents/traces/
     log_all_tool_calls: true
@@ -139,9 +134,6 @@ steps:
         max_retries: 2
         command: "go test ./..."          # for command-type contracts
         dir: project_root                 # working dir for command contracts
-      compaction:
-        trigger: token_threshold
-        persona: summarizer
       on_review_fail: retry
       target_step: analyze                # step to retry on failure
       max_retries: 2
@@ -168,7 +160,7 @@ Personas are named AI agent configurations with specific roles, permissions, and
 | `philosopher` | Architecture & specification | Read, Write(.agents/specs/*) |
 | `craftsman` | Code implementation & testing | Read, Write, Edit, Bash |
 | `auditor` | Security review & QA | Read, Grep, go vet, npm audit |
-| `summarizer` | Context compaction for relay | Read only |
+| `summarizer` | Thread transcript summaries | Read only |
 | `planner` | Task breakdown & planning | Read, Glob, Grep |
 | `debugger` | Systematic issue diagnosis | Read, Grep, Glob, git log/bisect |
 | `implementer` | Full execution specialist | Read, Write, Edit, Bash, Glob, Grep |
@@ -259,13 +251,6 @@ Wave uses SQLite (`.agents/state.db`) for persistence:
 - **Env passthrough** — Only explicitly listed env vars reach subprocesses
 - **Audit logging** — All tool calls and file operations logged to `.agents/traces/`
 - **Path sanitization** — Input validated against path traversal attacks
-
-### Relay / Compaction
-
-When context windows fill up, the relay system compacts context using a summarizer persona. Configured via `runtime.relay`:
-- `token_threshold_percent` — trigger compaction at this % of context window
-- `strategy` — `summarize_to_checkpoint` compacts prior context into a summary
-- `summarizer_persona` — which persona handles compaction
 
 ## CLI Reference
 

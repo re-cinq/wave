@@ -7,7 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/recinq/wave/internal/relay"
+	"github.com/recinq/wave/internal/adapter"
+	"github.com/recinq/wave/internal/manifest"
 )
 
 // defaultMaxTranscriptSize is the maximum number of characters per thread transcript.
@@ -16,6 +17,66 @@ const defaultMaxTranscriptSize = 100_000
 
 // compactTruncateLen is the max chars of content shown per entry in compact fidelity.
 const compactTruncateLen = 500
+
+// summaryTimeout bounds the single LLM call behind "summary" fidelity.
+const summaryTimeout = 60 * time.Second
+
+const (
+	summarySystemPrompt = "Summarize the following conversation transcript from a multi-step pipeline execution. Focus on key decisions, actions taken, errors encountered, and current state. Be concise."
+	summaryPrompt       = "Provide a structured summary of the conversation so far."
+)
+
+// TranscriptSummarizer produces an LLM-generated summary of a thread
+// transcript for "summary" fidelity.
+type TranscriptSummarizer interface {
+	Summarize(ctx context.Context, transcript string) (string, error)
+}
+
+// adapterSummarizer runs the "summarizer" persona's adapter (falling back to
+// the first declared adapter, then "claude") as a single-shot text run.
+type adapterSummarizer struct {
+	registry *adapter.AdapterRegistry
+	manifest *manifest.Manifest
+}
+
+// newAdapterSummarizer returns nil when no registry is available, which makes
+// summary fidelity fall back to compact.
+func newAdapterSummarizer(registry *adapter.AdapterRegistry, m *manifest.Manifest) TranscriptSummarizer {
+	if registry == nil {
+		return nil
+	}
+	return &adapterSummarizer{registry: registry, manifest: m}
+}
+
+func (s *adapterSummarizer) Summarize(ctx context.Context, transcript string) (string, error) {
+	adapterName := ""
+	if s.manifest != nil {
+		if p := s.manifest.GetPersona("summarizer"); p != nil {
+			adapterName = p.Adapter
+		}
+		if adapterName == "" {
+			for name := range s.manifest.Adapters {
+				adapterName = name
+				break
+			}
+		}
+	}
+	if adapterName == "" {
+		adapterName = "claude"
+	}
+	result, err := s.registry.Resolve(adapterName).Run(ctx, adapter.AdapterRunConfig{
+		Adapter:      adapterName,
+		Persona:      "summarizer",
+		Prompt:       fmt.Sprintf("%s\n\n---\n\nConversation history to summarize:\n%s", summaryPrompt, transcript),
+		SystemPrompt: summarySystemPrompt,
+		Timeout:      summaryTimeout,
+		OutputFormat: "text",
+	})
+	if err != nil {
+		return "", fmt.Errorf("summary adapter failed: %w", err)
+	}
+	return result.ResultContent, nil
+}
 
 // ThreadEntry represents one step's contribution to a thread transcript.
 type ThreadEntry struct {
@@ -31,17 +92,17 @@ type ThreadManager struct {
 	mu                sync.RWMutex
 	transcripts       map[string][]ThreadEntry // threadID -> ordered entries
 	maxTranscriptSize int
-	compactionAdapter relay.CompactionAdapter // for summary fidelity (may be nil)
+	summarizer        TranscriptSummarizer // for summary fidelity (may be nil)
 }
 
-// NewThreadManager creates a ThreadManager with the given compaction adapter
-// (used for "summary" fidelity). The adapter may be nil — summary fidelity
-// will fall back to compact.
-func NewThreadManager(adapter relay.CompactionAdapter) *ThreadManager {
+// NewThreadManager creates a ThreadManager with the given summarizer (used
+// for "summary" fidelity). The summarizer may be nil - summary fidelity will
+// fall back to compact.
+func NewThreadManager(summarizer TranscriptSummarizer) *ThreadManager {
 	return &ThreadManager{
 		transcripts:       make(map[string][]ThreadEntry),
 		maxTranscriptSize: defaultMaxTranscriptSize,
-		compactionAdapter: adapter,
+		summarizer:        summarizer,
 	}
 }
 
@@ -111,24 +172,14 @@ func (tm *ThreadManager) formatCompact(entries []ThreadEntry) string {
 	return sb.String()
 }
 
-// formatSummary delegates to the relay CompactionAdapter for LLM-generated
-// summarization. Falls back to formatCompact on error or when no adapter is set.
+// formatSummary delegates to the summarizer for an LLM-generated summary.
+// Falls back to formatCompact on error or when no summarizer is set.
 func (tm *ThreadManager) formatSummary(ctx context.Context, entries []ThreadEntry) string {
-	if tm.compactionAdapter == nil {
+	if tm.summarizer == nil {
 		return tm.formatCompact(entries)
 	}
-
-	// Build full transcript for compaction input
-	fullTranscript := tm.formatFull(entries)
-
-	result, err := tm.compactionAdapter.RunCompaction(ctx, relay.CompactionConfig{
-		ChatHistory:   fullTranscript,
-		SystemPrompt:  "Summarize the following conversation transcript from a multi-step pipeline execution. Focus on key decisions, actions taken, errors encountered, and current state. Be concise.",
-		CompactPrompt: "Provide a structured summary of the conversation so far.",
-		Timeout:       60 * time.Second,
-	})
+	result, err := tm.summarizer.Summarize(ctx, tm.formatFull(entries))
 	if err != nil {
-		// Fall back to compact on compaction failure
 		return tm.formatCompact(entries)
 	}
 	return result

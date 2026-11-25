@@ -16,7 +16,6 @@ import (
 	"github.com/recinq/wave/internal/event"
 	"github.com/recinq/wave/internal/manifest"
 	"github.com/recinq/wave/internal/pipeline"
-	"github.com/recinq/wave/internal/relay"
 	"github.com/recinq/wave/internal/retro"
 	"github.com/recinq/wave/internal/skill"
 	"github.com/recinq/wave/internal/state"
@@ -32,7 +31,7 @@ import (
 //   - Identity: RunID, Manifest — always available.
 //   - Wiring: Store, Emitter, WorkspaceManager, GateHandler, AuditLogger,
 //     DebugTracer, Runner — supplied by both paths but optional individually.
-//   - CLI extras: RetroGenerator, RelayMonitor, SkillStore, Debug, plus the
+//   - CLI extras: RetroGenerator, SkillStore, Debug, plus the
 //     fields read from Runtime (model, adapter override, timeout, step filter,
 //     preserve workspace, force model, auto approve). The webui path leaves
 //     these zero; the CLI populates them from RunOptions.
@@ -60,7 +59,6 @@ type ExecutorBuildConfig struct {
 
 	// CLI extras — webui leaves these nil.
 	RetroGenerator *retro.Generator
-	RelayMonitor   *relay.RelayMonitor
 	SkillStore     skill.Store
 	StepFilter     *pipeline.StepFilter
 
@@ -164,9 +162,6 @@ func BuildExecutorOptions(cfg ExecutorBuildConfig) []pipeline.ExecutorOption {
 	}
 	if cfg.RetroGenerator != nil {
 		opts = append(opts, pipeline.WithRetroGenerator(cfg.RetroGenerator))
-	}
-	if cfg.RelayMonitor != nil {
-		opts = append(opts, pipeline.WithRelayMonitor(cfg.RelayMonitor))
 	}
 
 	return opts

@@ -166,7 +166,7 @@ func TestStepErrorRemediation(t *testing.T) {
 		},
 		{
 			reason: FailureReasonContextExhaustion,
-			want:   "The context window was exhausted. Consider breaking the task into smaller steps or adjusting relay compaction thresholds (relay.token_threshold_percent).",
+			want:   "The context window was exhausted. Consider breaking the task into smaller steps or passing less context into the step.",
 		},
 		{
 			reason: FailureReasonRateLimit,

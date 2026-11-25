@@ -10,14 +10,13 @@ package timeouts
 import "time"
 
 const (
-	// Step + relay timeouts loosened 2026-04-30 — impl-issue runs that exercise
+	// Step timeouts loosened 2026-04-30 - impl-issue runs that exercise
 	// `go test ./...` on the Wave codebase routinely take 6-10 minutes; the old
 	// 5-minute step default forced a "canceled" failure class even when the
 	// step was making progress. ForgeAPI* loosened so transient GitHub
 	// hiccups don't poison long-running pipelines. Override per-step in
 	// pipeline yaml or per-runtime in wave.yaml when a tighter bound matters.
 	StepDefault      = 30 * time.Minute
-	RelayCompaction  = 15 * time.Minute
 	MetaDefault      = 60 * time.Minute
 	ProcessGrace     = 3 * time.Second
 	StdoutDrain      = 1 * time.Second

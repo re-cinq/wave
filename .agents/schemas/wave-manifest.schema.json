@@ -391,7 +391,8 @@
           "$ref": "#/definitions/Timeouts"
         },
         "relay": {
-          "$ref": "#/definitions/RelayConfig"
+          "$ref": "#/definitions/RelayConfig",
+          "description": "Deprecated and ignored (relay compaction was removed)"
         },
         "audit": {
           "$ref": "#/definitions/AuditConfig"
@@ -445,7 +446,7 @@
         "relay_compaction_minutes": {
           "type": "integer",
           "minimum": 1,
-          "description": "Timeout for relay compaction operations in minutes"
+          "description": "Deprecated and ignored (relay compaction was removed)"
         },
         "meta_default_minutes": {
           "type": "integer",

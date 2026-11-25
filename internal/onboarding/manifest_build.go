@@ -28,7 +28,7 @@ type AssetOptions struct {
 }
 
 // SystemPersonas are always included in the manifest regardless of pipeline
-// references. They are used by relay compaction, meta-pipelines, and adhoc ops.
+// references. They are used by summary thread fidelity, meta-pipelines, and adhoc ops.
 var SystemPersonas = map[string]bool{
 	"summarizer":  true,
 	"navigator":   true,
@@ -131,9 +131,6 @@ func FilterTransitiveDeps(warnW io.Writer, pipelines, allContracts, allPrompts m
 		for _, step := range p.Steps {
 			if step.Persona != "" {
 				personaRefs[step.Persona] = true
-			}
-			if step.Handover.Compaction.Persona != "" {
-				personaRefs[step.Handover.Compaction.Persona] = true
 			}
 			if sp := step.Handover.Contract.SchemaPath; sp != "" {
 				normalized := strings.TrimPrefix(sp, ".agents/contracts/")
@@ -393,10 +390,6 @@ func BuildManifest(o ManifestOptions) map[string]interface{} {
 			"workspace_root":          workspace,
 			"max_concurrent_workers":  5,
 			"default_timeout_minutes": 30,
-			"relay": map[string]interface{}{
-				"token_threshold_percent": 80,
-				"strategy":                "summarize_to_checkpoint",
-			},
 			"audit": map[string]interface{}{
 				"log_dir":                 ".agents/traces/",
 				"log_all_tool_calls":      true,

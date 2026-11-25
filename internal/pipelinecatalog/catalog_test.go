@@ -247,3 +247,37 @@ steps: []
 	require.NoError(t, err)
 	assert.Equal(t, "yml-pipeline", p.Metadata.Name)
 }
+
+// A pipeline that exists but fails validation must surface its load error,
+// not "pipeline not found" (reproduced with contract on_failure: retry).
+func TestLoadPipelineByName_InvalidPipelineReportsLoadError(t *testing.T) {
+	invalid := func(name string) string {
+		return `kind: WavePipeline
+metadata:
+  name: ` + name + `
+steps:
+  - id: impl
+    persona: craftsman
+    handover:
+      contract:
+        type: test_suite
+        command: "go test ./..."
+        on_failure: retry
+`
+	}
+	for _, tc := range []struct{ file, metaName, lookup string }{
+		{"broken.yaml", "broken", "broken"},          // stem and metadata.name match
+		{"other.yaml", "renamed", "renamed"},         // only metadata.name matches
+		{"stem-only.yaml", "different", "stem-only"}, // only the filename stem matches
+	} {
+		t.Run(tc.file, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, tc.file), []byte(invalid(tc.metaName)), 0644))
+
+			_, err := LoadPipelineByName(dir, tc.lookup)
+			require.Error(t, err)
+			assert.NotContains(t, err.Error(), "pipeline not found")
+			assert.Contains(t, err.Error(), `on_failure="retry" is deprecated`)
+		})
+	}
+}

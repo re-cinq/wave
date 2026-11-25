@@ -1,4 +1,4 @@
-description: "Context compaction for relay handoffs"
+description: "Summarizes thread transcripts for summary fidelity"
 temperature: 0.0
 permissions:
   allowed_tools:

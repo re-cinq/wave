@@ -1,6 +1,6 @@
 # Wave Development Guidelines
 
-**Wave** is a multi-agent pipeline orchestrator written in Go that wraps Claude Code and other LLM CLIs via subprocess execution. It composes personas, pipelines, contracts, and relay/compaction into a continuous development system.
+**Wave** is a multi-agent pipeline orchestrator written in Go that wraps Claude Code and other LLM CLIs via subprocess execution. It composes personas, pipelines, contracts, and workspaces into a continuous development system.
 
 ## ACCOUNTABILITY — YOU FOUND IT, YOU FIX IT
 
@@ -93,7 +93,6 @@ internal/
 ├── preflight/    # Pipeline dependency validation and auto-install
 ├── recovery/     # Pipeline recovery hints and error guidance
 ├── redact/       # Canonical credential redaction
-├── relay/        # Context compaction and summarization
 ├── retro/        # Run retrospective generation
 ├── runner/       # Single entry point for launching pipeline runs
 ├── sandbox/      # Docker and bubblewrap sandbox backends
@@ -269,7 +268,7 @@ wave logs <run-id> | grep "stream_activity" | tail -3             # Latest activ
 
 ## Custom Pipeline Tips
 
-- **Rapid prototyping**: Use `on_failure: skip` in contract blocks when creating new custom pipelines. This lets the pipeline complete even without schema files, making iteration fast. Graduate to `on_failure: retry` once the pipeline stabilizes.
+- **Rapid prototyping**: Use `on_failure: skip` in contract blocks when creating new custom pipelines. This lets the pipeline complete even without schema files, making iteration fast. Graduate to `on_failure: fail` plus step-level `retry.max_attempts` once the pipeline stabilizes (`on_failure: retry` is rejected by the validator).
 - **Scaffolding**: Use `wave pipeline create --name my-pipeline --template impl-hotfix` to scaffold from an existing template.
 - **Persona scaffolding**: Use `wave persona create --name my-persona --template researcher` to scaffold a custom persona.
 

@@ -99,7 +99,6 @@ The Claude adapter constructs a curated environment for each subprocess. Only ba
 
 - **API keys** must be listed in `runtime.sandbox.env_passthrough` to reach adapter subprocesses.
 - **No manifest entries** for credentials — they are never written to YAML files.
-- **No checkpoint entries** — credentials are never serialized in relay checkpoints.
 - **No audit log entries** — credential values are scrubbed from all logs.
 
 **Note:** The `ProcessGroupRunner` (used for non-Claude adapters) currently inherits the full host environment. The curated model only applies to the Claude adapter.

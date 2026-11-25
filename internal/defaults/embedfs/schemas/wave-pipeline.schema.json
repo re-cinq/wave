@@ -585,7 +585,8 @@
           "description": "Ordered list of contracts to validate (takes precedence over the singular contract field)"
         },
         "compaction": {
-          "$ref": "#/definitions/CompactionConfig"
+          "$ref": "#/definitions/CompactionConfig",
+          "description": "Deprecated and ignored (relay compaction was removed)"
         },
         "on_review_fail": {
           "type": "string",

@@ -26,7 +26,6 @@ graph TD
     P --> P3[philosopher]
     P --> P4[auditor]
     R --> R1[workspace]
-    R --> R2[relay]
     R --> R3[audit]
     R --> R4[meta_pipeline]
 ```
@@ -38,7 +37,7 @@ graph TD
 | `metadata` | Project identification — name, description, repo URL | **yes** |
 | `adapters` | LLM CLI configurations — binary paths, modes, default permissions | **yes** |
 | `personas` | Agent role definitions — prompts, temperatures, permissions, hooks | **yes** |
-| `runtime` | Execution settings — workspace root, concurrency, timeouts, relay | **yes** |
+| `runtime` | Execution settings - workspace root, concurrency, timeouts | **yes** |
 
 ## Manifest Lifecycle
 

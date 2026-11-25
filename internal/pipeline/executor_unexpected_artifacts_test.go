@@ -18,10 +18,11 @@ func gitRun(t *testing.T, dir string, args ...string) {
 	}
 }
 
-// TestWarnOnUnexpectedArtifacts_CleanWorktree guards against a worktree
-// step that changed nothing being reported as having written every tracked
-// file: an empty git status must not fall back to walking the checkout.
-func TestWarnOnUnexpectedArtifacts_CleanWorktree(t *testing.T) {
+// TestWarnOnUnexpectedArtifacts_CleanGitCheckout guards against a step in a
+// workspace that is a plain git checkout and changed nothing being reported
+// as having written every tracked file: an empty git status must not fall
+// back to walking the checkout.
+func TestWarnOnUnexpectedArtifacts_CleanGitCheckout(t *testing.T) {
 	ws := t.TempDir()
 	gitRun(t, ws, "init", "-q")
 	for _, f := range []string{"README.md", "src/main.go"} {
@@ -63,5 +64,52 @@ func TestWarnOnUnexpectedArtifacts_CleanWorktree(t *testing.T) {
 	}
 	if !warned {
 		t.Error("a modified tracked file should still be reported")
+	}
+}
+
+func countUnexpectedWarnings(c *testutil.EventCollector) int {
+	n := 0
+	for _, ev := range c.GetEvents() {
+		if strings.Contains(ev.Message, "outside declared output_artifacts") {
+			n++
+		}
+	}
+	return n
+}
+
+// TestWarnOnUnexpectedArtifacts_WorktreeSilent: a code-editing step in a
+// worktree workspace, and a later step sharing it via workspace.ref, must
+// not warn about source edits; a basic workspace still warns.
+func TestWarnOnUnexpectedArtifacts_WorktreeSilent(t *testing.T) {
+	repo := t.TempDir()
+	gitRun(t, repo, "init", "-q")
+	if err := os.WriteFile(filepath.Join(repo, "main.go"), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, repo, "add", ".")
+	gitRun(t, repo, "commit", "-q", "-m", "init")
+	wt := filepath.Join(t.TempDir(), "wt")
+	gitRun(t, repo, "worktree", "add", "-q", wt)
+	if err := os.WriteFile(filepath.Join(wt, "main.go"), []byte("edited\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	collector := testutil.NewEventCollector()
+	e := NewDefaultPipelineExecutor(nil, WithEmitter(collector))
+	execution := &PipelineExecution{Status: &PipelineStatus{ID: "run-1"}}
+
+	e.warnOnUnexpectedArtifacts(execution, &Step{ID: "solve", Workspace: WorkspaceConfig{Type: "worktree"}}, wt)
+	e.warnOnUnexpectedArtifacts(execution, &Step{ID: "patch", Workspace: WorkspaceConfig{Ref: "solve"}}, wt)
+	if n := countUnexpectedWarnings(collector); n != 0 {
+		t.Fatalf("worktree steps produced %d warning(s), want 0", n)
+	}
+
+	basic := t.TempDir()
+	if err := os.WriteFile(filepath.Join(basic, "stray.txt"), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	e.warnOnUnexpectedArtifacts(execution, &Step{ID: "analyze"}, basic)
+	if n := countUnexpectedWarnings(collector); n != 1 {
+		t.Fatalf("basic workspace produced %d warning(s), want 1", n)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/recinq/wave/internal/pipeline"
 )
@@ -77,6 +78,8 @@ func parsePipelineFile(path string) (PipelineInfo, error) {
 
 // LoadPipelineByName scans the given directory for pipeline YAML files
 // and returns the full Pipeline struct for the first match on metadata name.
+// A file that matches the name (by metadata.name or filename stem) but fails
+// strict loading returns that load error instead of "not found".
 func LoadPipelineByName(dir, name string) (*pipeline.Pipeline, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -100,6 +103,12 @@ func LoadPipelineByName(dir, name string) (*pipeline.Pipeline, error) {
 		loader := &pipeline.YAMLPipelineLoader{}
 		pParsed, err := loader.Unmarshal(data)
 		if err != nil {
+			if strings.TrimSuffix(entry.Name(), ext) == name {
+				return nil, fmt.Errorf("pipeline %s (%s): %w", name, entry.Name(), err)
+			}
+			if lenient, lerr := pipeline.LoadPipelineLenient(data); lerr == nil && lenient.Metadata.Name == name {
+				return nil, fmt.Errorf("pipeline %s (%s): %w", name, entry.Name(), err)
+			}
 			continue
 		}
 
