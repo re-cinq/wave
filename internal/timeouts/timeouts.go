@@ -10,7 +10,7 @@ package timeouts
 import "time"
 
 const (
-	// Step timeouts loosened 2026-04-30 — impl-issue runs that exercise
+	// Step timeouts loosened 2026-04-30 - impl-issue runs that exercise
 	// `go test ./...` on the Wave codebase routinely take 6-10 minutes; the old
 	// 5-minute step default forced a "canceled" failure class even when the
 	// step was making progress. ForgeAPI* loosened so transient GitHub

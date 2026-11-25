@@ -37,7 +37,7 @@ graph TD
 | `metadata` | Project identification — name, description, repo URL | **yes** |
 | `adapters` | LLM CLI configurations — binary paths, modes, default permissions | **yes** |
 | `personas` | Agent role definitions — prompts, temperatures, permissions, hooks | **yes** |
-| `runtime` | Execution settings — workspace root, concurrency, timeouts | **yes** |
+| `runtime` | Execution settings - workspace root, concurrency, timeouts | **yes** |
 
 ## Manifest Lifecycle
 
