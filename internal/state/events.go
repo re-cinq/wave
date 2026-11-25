@@ -145,21 +145,32 @@ func (s *stateStore) GetEvents(runID string, opts EventQueryOptions) ([]LogRecor
 	return records, nil
 }
 
-// GetEventAggregateStats returns aggregate metrics over event_log entries in
-// terminal states (completed, failed) for the given run.
+// GetEventAggregateStats returns per-step aggregate metrics for the given run.
+// Only terminal (completed, failed) rows with a step_id count: pipeline-level
+// completion rows carry no step_id and the whole-run duration, so including
+// them inflated the step count and skewed the average. A step can log more
+// than one terminal row (retries, circuit breaker, rework), so rows are
+// grouped per step first: tokens are summed, the longest duration is taken.
 func (s *stateStore) GetEventAggregateStats(runID string) (*EventAggregateStats, error) {
 	var stats EventAggregateStats
 	var avg, minD, maxD sql.NullFloat64
 	err := s.db.QueryRow(`
 		SELECT
 		    COUNT(*),
-		    COALESCE(SUM(COALESCE(tokens_used, 0)), 0),
-		    AVG(COALESCE(duration_ms, 0)),
-		    MIN(COALESCE(duration_ms, 0)),
-		    MAX(COALESCE(duration_ms, 0))
-		FROM event_log
-		WHERE run_id = ? AND state IN ('completed', 'failed')
-	`, runID).Scan(&stats.TotalEvents, &stats.TotalTokens, &avg, &minD, &maxD)
+		    COALESCE(SUM(tokens), 0),
+		    AVG(duration),
+		    MIN(duration),
+		    MAX(duration)
+		FROM (
+		    SELECT
+		        SUM(COALESCE(tokens_used, 0)) AS tokens,
+		        MAX(COALESCE(duration_ms, 0)) AS duration
+		    FROM event_log
+		    WHERE run_id = ? AND state IN ('completed', 'failed')
+		      AND step_id IS NOT NULL AND step_id != ''
+		    GROUP BY step_id
+		)
+	`, runID).Scan(&stats.TotalSteps, &stats.TotalTokens, &avg, &minD, &maxD)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query event aggregate stats: %w", err)
 	}

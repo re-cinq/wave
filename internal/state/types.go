@@ -112,7 +112,7 @@ type DecisionQueryOptions struct {
 // EventAggregateStats holds aggregate metrics over a run's event log,
 // limited to events in completed/failed terminal states.
 type EventAggregateStats struct {
-	TotalEvents   int
+	TotalSteps    int
 	TotalTokens   int
 	AvgDurationMs float64
 	MinDurationMs float64
